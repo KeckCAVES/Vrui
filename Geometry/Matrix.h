@@ -1,7 +1,7 @@
 /***********************************************************************
 Matrix - Class for n x m matrices, used internally in the implementation
 of affine and projective transformations.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -227,14 +227,6 @@ class Matrix
 	Matrix(const Matrix<SourceScalarParam,numRowsParam,numColumnsParam>& source); // Copy constructor with type conversion
 	
 	/* Methods: */
-	const Scalar* getEntries(void) const // Returns pointer to array of matrix entries
-		{
-		return &c[0][0];
-		}
-	Scalar* getEntries(void) // Ditto
-		{
-		return &c[0][0];
-		}
 	Scalar operator()(int row,int column) const // Returns a matrix entry as rvalue
 		{
 		return c[row][column];
@@ -317,8 +309,8 @@ inline ComponentArray<ScalarParam,numColumnsParam> operator/(const ComponentArra
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_MATRIX_IMPLEMENTATION)
-#include <Geometry/Matrix.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_MATRIX_IMPLEMENTATION)
+#include <Geometry/Matrix.cpp>
 #endif
 
 #endif

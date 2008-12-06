@@ -1,7 +1,7 @@
 /***********************************************************************
 Margin - Class to create a margin around a widget, or pad a widget's
 natural size into a larger frame.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -156,9 +156,6 @@ void Margin::setAlignment(const Alignment& newAlignment)
 	/* Resize the widget to the same size to update the child's padding: */
 	if(child!=0)
 		resize(getExterior());
-	
-	/* Notify parent widgets that the visual representation has changed: */
-	update();
 	}
 
 }

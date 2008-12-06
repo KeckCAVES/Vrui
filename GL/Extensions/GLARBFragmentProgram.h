@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBFragmentProgram - OpenGL extension class for the
 GL_ARB_fragment_program extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

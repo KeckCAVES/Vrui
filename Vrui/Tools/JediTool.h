@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_JEDITOOL_INCLUDED
 #define VRUI_JEDITOOL_INCLUDED
 
-#include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <GL/gl.h>
@@ -33,7 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Geometry.h>
 #include <Vrui/TransparentObject.h>
 
-#include <Vrui/PointingTool.h>
+#include <Vrui/Tools/UtilityTool.h>
 
 namespace Vrui {
 
@@ -55,14 +54,12 @@ class JediToolFactory:public ToolFactory
 	JediToolFactory(ToolManager& toolManager);
 	virtual ~JediToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class JediTool:public PointingTool,public GLObject,public TransparentObject
+class JediTool:public UtilityTool,public GLObject,public TransparentObject
 	{
 	friend class JediToolFactory;
 	
@@ -87,28 +84,25 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 	
 	/* Elements: */
 	static JediToolFactory* factory; // Pointer to the factory object for this class
+	
 	Images::RGBImage lightsaberImage; // The light saber texture image
 	
 	/* Transient state: */
 	bool active; // Flag if the light saber is active
 	double activationTime; // Time at which the light saber was activated
-	Point origin; // Origin point of the light saber blade
-	Vector axis; // Current light saber blade axis vector
-	Scalar length; // Current light saber blade length
+	Point basePoint; // Base point of the light saber billboard
+	Vector axis; // Current light saber axis vector
+	Vector x; // Current billboard vector
 	
 	/* Constructors and destructors: */
 	public:
 	JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void frame(void);
-	
-	/* Methods from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;
-	
-	/* Methods from TransparentObject: */
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void frame(void);
 	virtual void glRenderActionTransparent(GLContextData& contextData) const;
 	};
 

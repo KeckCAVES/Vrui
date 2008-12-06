@@ -1,7 +1,7 @@
 /***********************************************************************
 VRFactory - Class to create objects of a specific class class derived
 from a common base class.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -76,7 +76,7 @@ class VRFactory
 	};
 
 #ifndef VRFACTORY_IMPLEMENTATION
-#include <VRDeviceDaemon/VRFactory.icpp>
+#include "VRFactory.cpp"
 #endif
 
 #endif

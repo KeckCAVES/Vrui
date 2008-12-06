@@ -1,6 +1,6 @@
 /***********************************************************************
 AffineTransformation - Class for general affine transformations.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -153,10 +153,6 @@ class ScalingTransformation;
 template <class ScalarParam,int dimensionParam>
 class AffineTransformation;
 template <class ScalarParam,int dimensionParam>
-bool operator==(const AffineTransformation<ScalarParam,dimensionParam>& t1,const AffineTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
-bool operator!=(const AffineTransformation<ScalarParam,dimensionParam>& t1,const AffineTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
 AffineTransformation<ScalarParam,dimensionParam> operator*(const AffineTransformation<ScalarParam,dimensionParam>&,const AffineTransformation<ScalarParam,dimensionParam>&);
 template <class ScalarParam,int dimensionParam>
 AffineTransformation<ScalarParam,dimensionParam> invert(const AffineTransformation<ScalarParam,dimensionParam>&);
@@ -266,10 +262,6 @@ class AffineTransformation // Class for affine transformations
 		return AffineTransformation(Matrix::fromColumnMajor(components));
 		}
 	
-	/* Comparison operators: */
-	friend bool operator==<>(const AffineTransformation& t1,const AffineTransformation& t2);
-	friend bool operator!=<>(const AffineTransformation& t1,const AffineTransformation& t2);
-	
 	/* Low-level manipulation functions: */
 	const Matrix& getMatrix(void) const // Returns reduced matrix
 		{
@@ -350,22 +342,10 @@ class AffineTransformation // Class for affine transformations
 		}
 	};
 
-/* Friend functions of class AffineTransformation: */
-template <class ScalarParam,int dimensionParam>
-inline bool operator==(const AffineTransformation<ScalarParam,dimensionParam>& t1,const AffineTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.matrix==t2.matrix;
-	}
-template <class ScalarParam,int dimensionParam>
-inline bool operator!=(const AffineTransformation<ScalarParam,dimensionParam>& t1,const AffineTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.matrix!=t2.matrix;
-	}
-
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_AFFINETRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/AffineTransformation.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_AFFINETRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/AffineTransformation.cpp>
 #endif
 
 #endif

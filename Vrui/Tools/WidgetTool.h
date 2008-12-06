@@ -2,7 +2,7 @@
 WidgetTool - Class for tools that can interact with GLMotif GUI widgets.
 WidgetTool objects are cascadable and preempt button events if they
 would fall into the area of interest of mapped widgets.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,11 +25,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_WIDGETTOOL_INCLUDED
 #define VRUI_WIDGETTOOL_INCLUDED
 
-#include <Vrui/GUIInteractor.h>
-#include <Vrui/DeviceForwarder.h>
-#include <Vrui/UserInterfaceTool.h>
+#include <Geometry/Ray.h>
+#include <Geometry/OrthogonalTransformation.h>
+#include <Vrui/Geometry.h>
+#include <Vrui/Tools/UserInterfaceTool.h>
 
 /* Forward declarations: */
+namespace GLMotif {
+class Widget;
+}
 namespace Vrui {
 class ToolManager;
 }
@@ -47,39 +51,39 @@ class WidgetToolFactory:public ToolFactory
 	WidgetToolFactory(ToolManager& toolManager);
 	virtual ~WidgetToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class WidgetTool:public UserInterfaceTool,public GUIInteractor,public DeviceForwarder
+class WidgetTool:public UserInterfaceTool
 	{
 	friend class WidgetToolFactory;
 	
 	/* Elements: */
 	private:
 	static WidgetToolFactory* factory; // Pointer to the factory object for this class
-	InputDevice* buttonDevice; // Pointer to the input device representing the forwarded button
+	
+	/* Transient state: */
+	bool insideWidget; // Flag if the tool is currently able to interact with a widget
+	bool active; // Flag if the tool is currently active
+	Ray selectionRay; // Current selection ray
+	bool dragging; // Flag if the tool is currently dragging a primary top-level widget
+	GLMotif::Widget* draggedWidget; // Pointer to currently dragged widget
+	NavTrackerState preScale; // Current dragging transformation
+	
+	/* Private methods: */
+	Ray calcSelectionRay(void) const; // Calculates the selection ray based on current device position/orientation
 	
 	/* Constructors and destructors: */
 	public:
 	WidgetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
-	virtual void initialize(void);
-	virtual void deinitialize(void);
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	
-	/* Methods from DeviceForwarder: */
-	virtual std::vector<InputDevice*> getForwardedDevices(void);
-	virtual InputDeviceFeatureSet getSourceFeatures(const InputDeviceFeature& forwardedFeature);
-	virtual InputDevice* getSourceDevice(const InputDevice* forwardedDevice);
-	virtual InputDeviceFeatureSet getForwardedFeatures(const InputDeviceFeature& sourceFeature);
 	};
 
 }

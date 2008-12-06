@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoHandedNavigationTool - Class encapsulating the behaviour of the old
 famous Vrui two-handed navigation tool.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,10 +21,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/TwoHandedNavigationTool.h>
-
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/TwoHandedNavigationTool.h>
 
 namespace Vrui {
 
@@ -36,7 +36,9 @@ TwoHandedNavigationToolFactory::TwoHandedNavigationToolFactory(ToolManager& tool
 	:ToolFactory("TwoHandedNavigationTool",toolManager)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(2);
+	layout.setNumDevices(2);
+	layout.setNumButtons(0,1);
+	layout.setNumButtons(1,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -51,16 +53,6 @@ TwoHandedNavigationToolFactory::~TwoHandedNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	TwoHandedNavigationTool::factory=0;
-	}
-
-const char* TwoHandedNavigationToolFactory::getName(void) const
-	{
-	return "Ambidextrous 6-DOF + Scaling";
-	}
-
-const char* TwoHandedNavigationToolFactory::getButtonFunction(int) const
-	{
-	return "Grab Space / Zoom";
 	}
 
 Tool* TwoHandedNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -117,8 +109,11 @@ const ToolFactory* TwoHandedNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void TwoHandedNavigationTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
+	/* Get pointer to input device that caused the event: */
+	InputDevice* device=input.getDevice(deviceIndex);
+	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Act depending on this tool's current state: */
@@ -129,11 +124,11 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 				if(activate())
 					{
 					/* Initialize the navigation transformations: */
-					preScale=Geometry::invert(getButtonDeviceTransformation(buttonSlotIndex));
+					preScale=Geometry::invert(device->getTransformation());
 					preScale*=getNavigationTransformation();
 					
-					/* Remember which button slot is moving: */
-					movingButtonSlotIndex=buttonSlotIndex;
+					/* Remember which device is moving: */
+					movingDeviceIndex=deviceIndex;
 					
 					/* Go from IDLE to MOVING mode: */
 					navigationMode=MOVING;
@@ -142,14 +137,14 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 			
 			case MOVING:
 				/* Check if the correct button has been pressed: */
-				if(buttonSlotIndex!=movingButtonSlotIndex)
+				if(deviceIndex!=movingDeviceIndex)
 					{
 					/* Determine the scaling center and initial scale: */
-					scalingCenter=getButtonDevicePosition(movingButtonSlotIndex);
-					initialScale=Geometry::dist(getButtonDevicePosition(buttonSlotIndex),scalingCenter);
+					scalingCenter=input.getDevice(movingDeviceIndex)->getPosition();
+					initialScale=Geometry::dist(device->getPosition(),scalingCenter);
 					
 					/* Initialize the navigation transformations: */
-					preScale=Geometry::invert(getButtonDeviceTransformation(movingButtonSlotIndex));
+					preScale=Geometry::invert(input.getDevice(movingDeviceIndex)->getTransformation());
 					preScale*=NavTrackerState::translateFromOriginTo(scalingCenter);
 					postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
 					postScale*=getNavigationTransformation();
@@ -171,11 +166,11 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 			{
 			case SCALING:
 				/* If the released button is on the moving device, switch over to the other device: */
-				if(buttonSlotIndex==movingButtonSlotIndex)
-					movingButtonSlotIndex=1-buttonSlotIndex;
+				if(deviceIndex==movingDeviceIndex)
+					movingDeviceIndex=1-deviceIndex;
 				
 				/* Initialize the navigation transformations: */
-				preScale=Geometry::invert(getButtonDeviceTransformation(movingButtonSlotIndex));
+				preScale=Geometry::invert(input.getDevice(movingDeviceIndex)->getTransformation());
 				preScale*=getNavigationTransformation();
 				
 				/* Go from SCALING to MOVING mode: */
@@ -184,7 +179,7 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 			
 			case MOVING:
 				/* Check if the correct button has been released: */
-				if(buttonSlotIndex==movingButtonSlotIndex)
+				if(deviceIndex==movingDeviceIndex)
 					{
 					/* Deactivate this tool: */
 					deactivate();
@@ -213,7 +208,7 @@ void TwoHandedNavigationTool::frame(void)
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=getButtonDeviceTransformation(movingButtonSlotIndex);
+			NavTrackerState navigation=input.getDevice(movingDeviceIndex)->getTransformation();
 			navigation*=preScale;
 			
 			/* Update Vrui's navigation transformation: */
@@ -224,9 +219,9 @@ void TwoHandedNavigationTool::frame(void)
 		case SCALING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=getButtonDeviceTransformation(movingButtonSlotIndex);
+			NavTrackerState navigation=input.getDevice(movingDeviceIndex)->getTransformation();
 			navigation*=preScale;
-			Scalar currentScale=Geometry::dist(getButtonDevicePosition(0),getButtonDevicePosition(1))/initialScale;
+			Scalar currentScale=Geometry::dist(input.getDevice(0)->getPosition(),input.getDevice(1)->getPosition())/initialScale;
 			navigation*=NavTrackerState::scale(currentScale);
 			navigation*=postScale;
 			

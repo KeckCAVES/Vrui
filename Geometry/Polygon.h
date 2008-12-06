@@ -1,6 +1,6 @@
 /***********************************************************************
 Polygon - Class for planar polygons in affine space.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2007 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -216,8 +216,8 @@ class Polygon<ScalarParam,2>:public PolygonBase<ScalarParam,2>
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_POLYGON_IMPLEMENTATION)
-#include <Geometry/Polygon.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_POLYGON_IMPLEMENTATION)
+#include <Geometry/Polygon.cpp>
 #endif
 
 #endif

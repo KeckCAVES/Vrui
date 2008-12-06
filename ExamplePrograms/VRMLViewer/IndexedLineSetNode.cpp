@@ -173,7 +173,7 @@ void IndexedLineSetNode::initContext(GLContextData& contextData) const
 	*********************************************************************/
 	
 	/* Create a hash table to map compound vertex indices to complete vertices: */
-	typedef Misc::OrderedTuple<int,2> VertexIndices; // (colorIndex, vertexIndex)
+	typedef Misc::OrderedTuple<2> VertexIndices; // (colorIndex, vertexIndex)
 	typedef Misc::HashTable<VertexIndices,GLuint,VertexIndices> VertexHasher;
 	VertexHasher vertexHasher(101);
 	

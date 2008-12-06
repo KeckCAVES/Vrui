@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBDepthTexture - OpenGL extension class for the GL_ARB_depth_texture
 extension.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

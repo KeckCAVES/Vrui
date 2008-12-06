@@ -2,7 +2,7 @@
 Image - Base class to represent images of arbitrary pixel formats. The
 image coordinate system is such that pixel (0,0) is in the lower-left
 corner.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -51,8 +51,6 @@ class Image
 		/* Constructors and destructors: */
 		ImageRepresentation(unsigned int sWidth,unsigned int sHeight); // Creates a new image representation with uninitialized data
 		ImageRepresentation(const ImageRepresentation& source); // Copies an existing image representation
-		template <class SourceScalarParam,int sourceNumComponentsParam>
-		ImageRepresentation(const unsigned int sSize[2],const GLColor<SourceScalarParam,sourceNumComponentsParam>* sPixels); // Copies an existing image representation with scalar type conversion and channel number adaptation
 		~ImageRepresentation(void); // Destroys an image representation
 		
 		/* Methods: */
@@ -111,11 +109,6 @@ class Image
 		:rep(source.rep!=0?source.rep->attach():0)
 		{
 		}
-	template <class SourceScalarParam,int sourceNumComponentsParam>
-	Image(const Image<SourceScalarParam,sourceNumComponentsParam>& source) // Creates an image from given source image with different number of channels and/or scalar type
-		:rep(source.isValid()?new ImageRepresentation(source.getSize(),source.getPixels()):0)
-		{
-		}
 	Image& operator=(const Image& source) // Assigns an existing image (does not copy image representation)
 		{
 		if(this!=&source)
@@ -124,14 +117,6 @@ class Image
 				rep->detach();
 			rep=source.rep!=0?source.rep->attach():0;
 			}
-		return *this;
-		}
-	template <class SourceScalarParam,int sourceNumComponentsParam>
-	Image& operator=(const Image<SourceScalarParam,sourceNumComponentsParam>& source) // Creates an image from given source image with different number of channels and/or scalar type
-		{
-		if(rep!=0)
-			rep->detach();
-		rep=source.isValid()?new ImageRepresentation(source.getSize(),source.getPixels()):0;
 		return *this;
 		}
 	~Image(void) // Destroys the image

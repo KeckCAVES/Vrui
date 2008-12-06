@@ -49,7 +49,7 @@ double randUniformCO(double min,double max)
 
 int randUniformCC(int min,int max)
 	{
-	return int(floor(double(rand())*double(max+1-min)/(double(RAND_MAX)+1.0)))+min;
+	return int(floor(double(rand())*double(max-min)/double(RAND_MAX)))+min;
 	}
 
 double randUniformCC(double min,double max)

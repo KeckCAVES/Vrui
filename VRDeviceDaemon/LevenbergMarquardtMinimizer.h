@@ -2,7 +2,7 @@
 LevenbergMarquardtMinimizer - Class to implement n-dimensional least-
 squares minimization using a version of the modified Levenberg-Marquardt
 algorithm.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -45,9 +45,9 @@ class LevenbergMarquardtMinimizer
 	static Scalar minimize(Fitter& fitter); // Minimizes the target function by manipulating the given fitter
 	};
 
-/********************************************
-Methods of class LevenbergMarquardtMinimizer:
-********************************************/
+/*********************************************
+Methods of class LevenbergMarquardtMinimizer2:
+*********************************************/
 
 template <class FitterParam>
 inline

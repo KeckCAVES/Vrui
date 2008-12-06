@@ -1,7 +1,7 @@
 /***********************************************************************
 ProjectiveTransformation - Class for n-dimensional projective
 transformations.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -246,10 +246,6 @@ class AffineTransformation;
 template <class ScalarParam,int dimensionParam>
 class ProjectiveTransformation;
 template <class ScalarParam,int dimensionParam>
-bool operator==(const ProjectiveTransformation<ScalarParam,dimensionParam>& t1,const ProjectiveTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
-bool operator!=(const ProjectiveTransformation<ScalarParam,dimensionParam>& t1,const ProjectiveTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
 ProjectiveTransformation<ScalarParam,dimensionParam> operator*(const ProjectiveTransformation<ScalarParam,dimensionParam>&,const ProjectiveTransformation<ScalarParam,dimensionParam>&);
 template <class ScalarParam,int dimensionParam>
 ProjectiveTransformation<ScalarParam,dimensionParam> invert(const ProjectiveTransformation<ScalarParam,dimensionParam>&);
@@ -361,10 +357,6 @@ class ProjectiveTransformation // Class for projective transformations in n-spac
 		return ProjectiveTransformation(Matrix::fromColumnMajor(components));
 		}
 	
-	/* Comparison operators: */
-	friend bool operator==<>(const ProjectiveTransformation& t1,const ProjectiveTransformation& t2);
-	friend bool operator!=<>(const ProjectiveTransformation& t1,const ProjectiveTransformation& t2);
-	
 	/* Low-level manipulation functions: */
 	const Matrix& getMatrix(void) const // Returns matrix
 		{
@@ -466,17 +458,6 @@ class ProjectiveTransformation // Class for projective transformations in n-spac
 
 /* Friend functions of class ProjectiveTransformation: */
 template <class ScalarParam,int dimensionParam>
-inline bool operator==(const ProjectiveTransformation<ScalarParam,dimensionParam>& t1,const ProjectiveTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.matrix==t2.matrix;
-	}
-template <class ScalarParam,int dimensionParam>
-inline bool operator!=(const ProjectiveTransformation<ScalarParam,dimensionParam>& t1,const ProjectiveTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.matrix!=t2.matrix;
-	}
-
-template <class ScalarParam,int dimensionParam>
 inline ProjectiveTransformation<ScalarParam,dimensionParam> operator*(const ProjectiveTransformation<ScalarParam,dimensionParam>& t1,const ProjectiveTransformation<ScalarParam,dimensionParam>& t2)
 	{
 	return ProjectiveTransformation<ScalarParam,dimensionParam>(t1.matrix*t2.matrix);
@@ -489,8 +470,8 @@ inline ProjectiveTransformation<ScalarParam,dimensionParam> invert(const Project
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_PROJECTIVETRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/ProjectiveTransformation.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_PROJECTIVETRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/ProjectiveTransformation.cpp>
 #endif
 
 #endif

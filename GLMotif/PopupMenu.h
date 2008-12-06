@@ -39,7 +39,6 @@ class PopupMenu:public Popup
 	PopupMenu(const char* sName,WidgetManager* sManager);
 	
 	/* Methods inherited from Widget: */
-	virtual Vector calcHotSpot(void) const;
 	virtual bool findRecipient(Event& event);
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);

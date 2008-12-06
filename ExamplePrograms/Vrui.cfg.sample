@@ -1,0 +1,65 @@
+########################################################################
+# User-specific configuration file to override settings from system-wide
+# configuration file.
+# Copyright (c) 2005 Oliver Kreylos
+########################################################################
+
+# This example file adds a joystick input device (provided by a locally
+# running VRDeviceDaemon) to the Vrui environment and attaches a
+# navigation tool to the joystick.
+
+section Vrui
+	section Simulator
+		inputDeviceAdapterNames (MouseAdapter, DeviceDaemonAdapter)
+		
+		section DeviceDaemonAdapter
+			inputDeviceAdapterType DeviceDaemon
+			serverName lager.cipic.ucdavis.edu
+			serverPort 8555
+			inputDeviceNames (Joystick)
+			
+			section Joystick
+				name Joystick
+				trackType None
+				numButtons 8
+				buttonIndexBase 0
+				numValuators 6
+				valuatorIndexBase 0
+			endsection
+		endsection
+		
+		section SimulatorTools
+			toolClassNames (SixDofLocatorTool, \
+			          			ScreenLocatorTool, \
+			          			SixDofDraggingTool, \
+			          			SixDofNavigationTool, \
+			          			TrackballNavigationTool, \
+			          			WandNavigationTool, \
+			          			MouseNavigationTool, \
+			          			RayMenuTool, \
+			          			RayScreenMenuTool, \
+			          			SixDofInputDeviceTool, \
+			          			RayInputDeviceTool, \
+			          			WidgetTool, \
+			                SpaceBallTool, \
+			                JoystickNavigationTool)
+			toolNames (MouseNavTool, MenuTool1, DragTool1, InputDeviceTool1, JoystickNavTool1)
+			
+			section JoystickNavigationTool
+				numButtons 8
+				rotateFactor 3.14159
+				rotationalAxes ((0, (0.0, 0.0, -1.0)), (1, (1.0, 0.0, 0.0)))
+				translateFactor 12.0
+				translationalAxes ((3, (0.0, -1.0, 0.0)), (4, (1.0, 0.0, 0.0)), (5, (0.0, 0.0, -1.0)))
+				deviceGlyphType Cone
+			endsection
+			
+			section JoystickNavTool1
+				toolClass JoystickNavigationTool
+				deviceName0 Joystick
+				device0ButtonIndexBase 0
+				device0ValuatorIndexBase 0
+			endsection
+		endsection
+	endsection
+endsection

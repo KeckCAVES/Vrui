@@ -1,7 +1,7 @@
 /***********************************************************************
 WriteImageFile - Functions to write RGB images to a variety of file
 formats.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -28,7 +28,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 namespace Images {
 
 void writeImageFile(const RGBImage& image,const char* imageFileName); // Writes an RGB image to a file; determines file format based on file name extension
-void writeImageFile(unsigned int width,unsigned int height,const unsigned char* image,const char* imageFileName); // Ditto, using raw image buffer
 
 }
 

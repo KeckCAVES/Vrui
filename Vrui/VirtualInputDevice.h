@@ -24,7 +24,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VIRTUALINPUTDEVICE_INCLUDED
 #define VRUI_VIRTUALINPUTDEVICE_INCLUDED
 
-#include <Geometry/Vector.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/GlyphRenderer.h>
 
@@ -61,7 +60,7 @@ class VirtualInputDevice
 	Scalar pick(const InputDevice* device,const Ray& ray) const; // Returns true if the given ray intersects the given virtual input device
 	int pickButton(const InputDevice* device,const Point& pos) const; // Returns index of the button whose representation contains the given position (or -1 if no button)
 	int pickButton(const InputDevice* device,const Ray& ray) const; // Returns index of the button whose representation is intersected by the given ray (or -1 if no button)
-	void renderDevice(const InputDevice* device,bool navigational,const GlyphRenderer::DataItem* glyphRendererContextDataItem,GLContextData& contextData) const; // Renders the given virtual input device into the given OpenGL context
+	void renderDevice(const InputDevice* device,const GlyphRenderer::DataItem* glyphRendererContextDataItem,GLContextData& contextData) const; // Renders the given virtual input device into the given OpenGL context
 	};
 
 }

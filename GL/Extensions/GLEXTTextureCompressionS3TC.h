@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTextureCompressionS3TC - OpenGL extension class for the
 GL_EXT_texture_compression_s3tc extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

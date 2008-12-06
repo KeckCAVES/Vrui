@@ -1,6 +1,6 @@
 /***********************************************************************
 WidgetAlgorithms - Functions to perform algorithms on trees of widgets.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,73 +19,75 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/WidgetAlgorithms.h>
+#define GLMOTIF_WIDGETALGORITHMS_IMPLEMENTATION
 
 #include <GLMotif/Widget.h>
 #include <GLMotif/Container.h>
+#include <GLMotif/CascadeButton.h>
+#include <GLMotif/Popup.h>
 
 namespace GLMotif {
 
-Widget* getPreviousWidget(Widget* widget)
+template <class FunctorParam>
+void traverseWidgetTree(Widget* rootWidget,const FunctorParam& functor)
 	{
-	/* Find the widget's preceding sibling: */
-	Container* parent=widget->getParent();
-	if(parent==0)
-		return 0;
-	Widget* w1=0;
-	for(Widget* w2=parent->getFirstChild();w2!=widget;w1=w2,w2=parent->getNextChild(w2))
-		;
-	widget=w1;
+	/* Call the traversal functor for the root widget: */
+	functor(rootWidget);
 	
-	/* Go up the widget hierarchy if the widget is invalid, otherwise traverse into containers: */
-	if(widget==0)
-		widget=parent;
-	else
+	/* Decide how to traverse the widget: */
+	if(dynamic_cast<CascadeButton*>(rootWidget)!=0)
 		{
-		parent=dynamic_cast<Container*>(widget);
-		while(parent!=0&&parent->getFirstChild()!=0)
+		/* Traverse the cascade button's dependent popup: */
+		CascadeButton* cascade=dynamic_cast<CascadeButton*>(rootWidget);
+		traverseWidgetTree(cascade->getPopup(),functor);
+		}
+	else if(dynamic_cast<Container*>(rootWidget)!=0)
+		{
+		/* Traverse all the container's children: */
+		Container* container=dynamic_cast<Container*>(rootWidget);
+		
+		/* Get a pointer to the first child: */
+		Widget* child=container->getFirstChild();
+		while(child!=0)
 			{
-			/* Find the container's last child: */
-			Widget* w1=0;
-			for(Widget* w2=parent->getFirstChild();w2!=0;w1=w2,w2=parent->getNextChild(w2))
-				;
-			if(w1!=0)
-				{
-				widget=w1;
-				parent=dynamic_cast<Container*>(widget);
-				}
+			/* Traverse the child: */
+			traverseWidgetTree(child,functor);
+			
+			/* Go to the next child: */
+			child=container->getNextChild(child);
 			}
 		}
-	
-	return widget;
 	}
 
-Widget* getNextWidget(Widget* widget)
+template <class FunctorParam>
+void traverseWidgetTree(Widget* rootWidget,FunctorParam& functor)
 	{
-	/* Traverse into containers first, then to siblings: */
-	Container* parent=widget->getParent();
-	if(dynamic_cast<Container*>(widget)!=0)
-		{
-		parent=dynamic_cast<Container*>(widget);
-		widget=parent->getFirstChild();
-		}
-	else if(parent!=0)
-		widget=parent->getNextChild(widget);
-	else
-		widget=0;
+	/* Call the traversal functor for the root widget: */
+	functor(rootWidget);
 	
-	/* Go up the widget hierarchy while the widget is invalid: */
-	while(widget==0&&parent!=0)
+	/* Decide how to traverse the widget: */
+	if(dynamic_cast<CascadeButton*>(rootWidget)!=0)
 		{
-		widget=parent;
-		parent=widget->getParent();
-		if(parent!=0)
-			widget=parent->getNextChild(widget);
-		else
-			widget=0;
+		/* Traverse the cascade button's dependent popup: */
+		CascadeButton* cascade=dynamic_cast<CascadeButton*>(rootWidget);
+		traverseWidgetTree(cascade->getPopup(),functor);
 		}
-	
-	return widget;
+	else if(dynamic_cast<Container*>(rootWidget)!=0)
+		{
+		/* Traverse all the container's children: */
+		Container* container=dynamic_cast<Container*>(rootWidget);
+		
+		/* Get a pointer to the first child: */
+		Widget* child=container->getFirstChild();
+		while(child!=0)
+			{
+			/* Traverse the child: */
+			traverseWidgetTree(child,functor);
+			
+			/* Go to the next child: */
+			child=container->getNextChild(child);
+			}
+		}
 	}
 
 }

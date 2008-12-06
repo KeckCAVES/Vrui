@@ -1,7 +1,7 @@
 /***********************************************************************
-DragWidget - Mix-in class for GLMotif UI components reacting to dragging
+DragWidget - Base class for GLMotif UI components reacting to dragging
 events.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,9 +20,10 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/DragWidget.h>
-
 #include <GLMotif/Event.h>
+#include <GLMotif/Container.h>
+
+#include <GLMotif/DragWidget.h>
 
 namespace GLMotif {
 
@@ -32,10 +33,10 @@ Methods of class DragWidget:
 
 void DragWidget::startDragging(Event&)
 	{
-	if(!dragging)
+	if(!isDragging)
 		{
 		/* Start dragging: */
-		dragging=true;
+		isDragging=true;
 		DraggingCallbackData cbData(this,DraggingCallbackData::DRAGGING_STARTED);
 		draggingCallbacks.call(&cbData);
 		}
@@ -43,23 +44,32 @@ void DragWidget::startDragging(Event&)
 
 void DragWidget::stopDragging(Event&)
 	{
-	if(dragging)
+	if(isDragging)
 		{
 		/* Stop dragging: */
-		dragging=false;
+		isDragging=false;
 		DraggingCallbackData cbData(this,DraggingCallbackData::DRAGGING_STOPPED);
 		draggingCallbacks.call(&cbData);
 		}
 	}
 
-bool DragWidget::overrideRecipient(Widget* widget,Event& event)
+DragWidget::DragWidget(const char* sName,Container* sParent,bool sManageChild)
+	:Widget(sName,sParent,false),isDragging(false)
 	{
-	/* This event belongs to the given widget! */
-	return event.setTargetWidget(widget,event.calcWidgetPoint(widget));
+	/* Manage me: */
+	if(sManageChild)
+		manageChild();
 	}
 
-DragWidget::~DragWidget(void)
+bool DragWidget::findRecipient(Event& event)
 	{
+	if(isDragging)
+		{
+		/* This event belongs to me! */
+		return event.setTargetWidget(this,event.calcWidgetPoint(this));
+		}
+	else
+		return Widget::findRecipient(event);
 	}
 
 }

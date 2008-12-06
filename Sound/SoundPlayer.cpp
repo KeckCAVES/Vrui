@@ -2,7 +2,7 @@
 SoundPlayer - Simple class to play sound from a sound file on the local
 file system to a playback device. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -21,23 +21,16 @@ with the Basic Sound Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <Sound/SoundPlayer.h>
-
-#include <Sound/Config.h>
-
-#ifdef __APPLE__
+#ifdef __DARWIN__
 #include <math.h>
 #endif
 #include <string.h>
-#include <stdexcept>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/FileNameExtensions.h>
-#include <IO/SeekableFile.h>
-#include <IO/OpenFile.h>
-#ifdef __APPLE__
+#ifdef __DARWIN__
 #include <CoreFoundation/CFURL.h>
 #endif
 
+#include <Sound/SoundPlayer.h>
 
 namespace Sound {
 
@@ -45,7 +38,256 @@ namespace Sound {
 Methods of class SoundPlayer:
 ****************************/
 
-#ifdef __APPLE__
+#ifdef __LINUX__
+
+/****************************
+Linux version of SoundPlayer:
+****************************/
+
+#ifdef SOUND_USE_ALSA
+
+bool SoundPlayer::readWAVHeader(void)
+	{
+	/* Rewind the file: */
+	inputFile.rewind();
+	
+	/* Read the RIFF chunk: */
+	char riffTag[4];
+	inputFile.read<char>(riffTag,4);
+	if(strncmp(riffTag,"RIFF",4)!=0)
+		return false;
+	inputFile.read<unsigned int>(); // Skip RIFF chunk size
+	char waveTag[4];
+	inputFile.read<char>(waveTag,4);
+	if(strncmp(waveTag,"WAVE",4)!=0)
+		return false;
+	
+	/* Read the format chunk: */
+	char fmtTag[4];
+	inputFile.read<char>(fmtTag,4);
+	if(strncmp(fmtTag,"fmt ",4)!=0)
+		return false;
+	size_t fmtChunkSize=inputFile.read<unsigned int>();
+	if(fmtChunkSize<2*sizeof(int)+4*sizeof(short int))
+		return false;
+	if(inputFile.read<unsigned short>()!=1) // Can only do linear PCM samples for now
+		return false;
+	format.samplesPerFrame=int(inputFile.read<unsigned short>());
+	format.framesPerSecond=int(inputFile.read<unsigned int>());
+	size_t bytesPerSecond=inputFile.read<unsigned int>();
+	size_t bytesPerFrame=inputFile.read<unsigned short>();
+	format.bitsPerSample=int(inputFile.read<unsigned short>());
+	
+	/* Skip any unused data in the format chunk: */
+	fmtChunkSize=(fmtChunkSize+1)&~0x1; // Pad to the next two-byte boundary
+	if(fmtChunkSize>2*sizeof(int)+4*sizeof(short int))
+		inputFile.seekCurrent(fmtChunkSize-(2*sizeof(int)+4*sizeof(short int)));
+	
+	/* Check if the WAV file's sound data format is compatible and fill in missing data: */
+	if(format.bitsPerSample<8||format.bitsPerSample>32||(format.bitsPerSample&0x7)!=0)
+		return false;
+	if(format.bitsPerSample==24)
+		format.bytesPerSample=4; // 24 bit sound data padded into 32 bit words
+	else
+		format.bytesPerSample=format.bitsPerSample/8;
+	format.signedSamples=format.bitsPerSample>8;
+	format.sampleEndianness=SoundDataFormat::LittleEndian;
+	if(format.samplesPerFrame<1)
+		return false;
+	if(bytesPerFrame!=size_t(format.samplesPerFrame)*size_t(format.bytesPerSample))
+		return false;
+	if(bytesPerSecond!=size_t(format.framesPerSecond)*size_t(format.samplesPerFrame)*size_t(format.bytesPerSample))
+		return false;
+	
+	/* Ignore any additional chunks until the data chunk: */
+	while(true)
+		{
+		/* Read the chunk's header: */
+		char tag[4];
+		if(inputFile.read<char>(tag,4)<4)
+			return false;
+		unsigned int chunkSize;
+		if(inputFile.read<unsigned int>(&chunkSize,1)<1)
+			return false;
+		
+		/* Stop if it's a data chunk: */
+		if(strncmp(tag,"data",4)==0)
+			break;
+		
+		/* Skip the chunk: */
+		chunkSize=(chunkSize+1)&~0x1; // Pad to two-byte boundary
+		inputFile.seekCurrent(chunkSize);
+		}
+	
+	return true;
+	}
+
+void* SoundPlayer::playingThreadMethod(void)
+	{
+	/* Read buffers worth of sound data from the input file until interrupted or at end of file: */
+	while(!inputFile.eof())
+		{
+		/* Read sound data from the input file, up to the buffer size: */
+		size_t numBytesRead=inputFile.read(sampleBuffer,sampleBufferSize);
+		if(numBytesRead>0)
+			{
+			/* Write the buffer to the PCM device: */
+			snd_pcm_writei(pcmDevice,sampleBuffer,snd_pcm_uframes_t(numBytesRead/bytesPerFrame));
+			}
+		}
+	
+	{
+	/* Wake up anyone who is waiting for playback to finish: */
+	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
+	active=false;
+	finishedPlayingCond.broadcast(finishedPlayingLock);
+	}
+	
+	/* Initiate the get-the-hell-out-of-here maneuver: */
+	return 0;
+	}
+
+#endif
+
+SoundPlayer::SoundPlayer(const char* inputFileName)
+	#ifdef SOUND_USE_ALSA
+	:inputFile(inputFileName,"rb",Misc::File::DontCare),
+	 bytesPerFrame(0),
+	 pcmDevice(0),
+	 sampleBufferSize(0),sampleBuffer(0),
+	 active(false)
+	#else
+	:active(false)
+	#endif
+	{
+	#ifdef SOUND_USE_ALSA
+	
+	/* Determine the input file format from the file name extension: */
+	const char* extPtr=0;
+	for(const char* ifnPtr=inputFileName;*ifnPtr!='\0';++ifnPtr)
+		if(*ifnPtr=='.')
+			extPtr=ifnPtr;
+	if(extPtr!=0)
+		{
+		if(strcasecmp(extPtr,".wav")==0)
+			{
+			/* Read the WAV file header: */
+			inputFile.setEndianness(Misc::File::LittleEndian);
+			if(!readWAVHeader())
+				Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s is invalid or incompatible WAV file",inputFileName);
+			}
+		else
+			Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s has unrecognized extension",inputFileName);
+		}
+	
+	/* Calculate the size of a frame in bytes: */
+	bytesPerFrame=size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);
+	
+	int error;
+	
+	/* Open the default PCM playback device: */
+	error=snd_pcm_open(&pcmDevice,"default",SND_PCM_STREAM_PLAYBACK,0);
+	if(error<0)
+		Misc::throwStdErr("SoundPlayer::SoundPlayer: Error %s while opening PCM device",snd_strerror(error));
+	
+	/* Set the PCM device's parameters according to the sound data format: */
+	error=format.setPCMDeviceParameters(pcmDevice);
+	if(error<0)
+		{
+		snd_pcm_close(pcmDevice);
+		Misc::throwStdErr("SoundPlayer::SoundPlayer: Error %s while setting PCM device parameters",snd_strerror(error));
+		}
+	
+	/* Create a sample buffer holding a quarter second of sound: */
+	sampleBufferSize=((size_t(format.framesPerSecond)*250+500)/1000)*bytesPerFrame;
+	sampleBuffer=new char[sampleBufferSize];
+	
+	#endif
+	}
+
+SoundPlayer::~SoundPlayer(void)
+	{
+	#ifdef SOUND_USE_ALSA
+	
+	{
+	/* Stop the playing thread if still active: */
+	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
+	if(active)
+		{
+		playingThread.cancel();
+		playingThread.join();
+		
+		/* Wake up anybody who is waiting for playback to finish: */
+		active=false;
+		finishedPlayingCond.broadcast(finishedPlayingLock);
+		}
+	}
+	
+	/* Close the PCM device: */
+	snd_pcm_close(pcmDevice);
+	
+	/* Delete the sample buffer: */
+	delete[] sampleBuffer;
+	
+	#endif
+	}
+
+SoundDataFormat SoundPlayer::getSoundDataFormat(void) const
+	{
+	return format;
+	}
+
+void SoundPlayer::start(void)
+	{
+	/* Do nothing if already started: */
+	if(active)
+		return;
+	
+	#ifdef SOUND_USE_ALSA
+	
+	/* Start the background playing thread (which in turn starts the PCM device): */
+	active=true;
+	playingThread.start(this,&SoundPlayer::playingThreadMethod);
+	
+	#else
+	
+	active=true;
+	
+	#endif
+	}
+
+void SoundPlayer::stop(void)
+	{
+	/* Do nothing if not started: */
+	if(!active)
+		return;
+	
+	#ifdef SOUND_USE_ALSA
+	
+	/* Stop the background playing thread: */
+	playingThread.cancel();
+	playingThread.join();
+	
+	{
+	/* Wake up anyone who is waiting for playback to finish: */
+	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
+	active=false;
+	finishedPlayingCond.broadcast(finishedPlayingLock);
+	}
+	
+	/* Stop the PCM device: */
+	snd_pcm_drop(pcmDevice);
+	
+	#else
+	
+	active=false;
+	
+	#endif
+	}
+
+#endif
+
+#ifdef __DARWIN__
 
 /*******************************
 Mac OS X version of SoundPlayer:
@@ -80,7 +322,7 @@ void SoundPlayer::handleOutputBuffer(AudioQueueRef inAQ,AudioQueueBufferRef inBu
 		/* Wake up anyone who is waiting for playback to finish: */
 		Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 		active=false;
-		finishedPlayingCond.broadcast();
+		finishedPlayingCond.broadcast(finishedPlayingLock);
 		}
 		}
 	}
@@ -195,7 +437,7 @@ SoundPlayer::~SoundPlayer(void)
 		
 		/* Wake up anybody who is waiting for playback to finish: */
 		active=false;
-		finishedPlayingCond.broadcast();
+		finishedPlayingCond.broadcast(finishedPlayingLock);
 		}
 	}
 	
@@ -274,247 +516,8 @@ void SoundPlayer::stop(void)
 	/* Wake up anyone who is waiting for playback to finish: */
 	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 	active=false;
-	finishedPlayingCond.broadcast();
+	finishedPlayingCond.broadcast(finishedPlayingLock);
 	}
-	}
-
-#else
-
-/**************************************
-Non-OS-specific version of SoundPlayer:
-**************************************/
-
-#if SOUND_CONFIG_HAVE_ALSA
-
-bool SoundPlayer::readWAVHeader(void)
-	{
-	/* Rewind the file: */
-	inputFile->setReadPosAbs(0);
-	
-	/* Read the RIFF chunk: */
-	char riffTag[4];
-	inputFile->read<char>(riffTag,4);
-	if(strncmp(riffTag,"RIFF",4)!=0)
-		return false;
-	inputFile->skip<unsigned int>(1); // Skip RIFF chunk size
-	char waveTag[4];
-	inputFile->read<char>(waveTag,4);
-	if(strncmp(waveTag,"WAVE",4)!=0)
-		return false;
-	
-	/* Read the format chunk: */
-	char fmtTag[4];
-	inputFile->read<char>(fmtTag,4);
-	if(strncmp(fmtTag,"fmt ",4)!=0)
-		return false;
-	size_t fmtChunkSize=inputFile->read<unsigned int>();
-	if(fmtChunkSize<2*sizeof(int)+4*sizeof(short int))
-		return false;
-	if(inputFile->read<unsigned short>()!=1) // Can only do linear PCM samples for now
-		return false;
-	format.samplesPerFrame=int(inputFile->read<unsigned short>());
-	format.framesPerSecond=int(inputFile->read<unsigned int>());
-	size_t bytesPerSecond=inputFile->read<unsigned int>();
-	size_t bytesPerFrame=inputFile->read<unsigned short>();
-	format.bitsPerSample=int(inputFile->read<unsigned short>());
-	
-	/* Skip any unused data in the format chunk: */
-	fmtChunkSize=(fmtChunkSize+1)&~0x1; // Pad to the next two-byte boundary
-	if(fmtChunkSize>2*sizeof(int)+4*sizeof(short int))
-		inputFile->skip<unsigned char>(fmtChunkSize-(2*sizeof(int)+4*sizeof(short int)));
-	
-	/* Check if the WAV file's sound data format is compatible and fill in missing data: */
-	if(format.bitsPerSample<8||format.bitsPerSample>32||(format.bitsPerSample&0x7)!=0)
-		return false;
-	if(format.bitsPerSample==24)
-		format.bytesPerSample=4; // 24 bit sound data padded into 32 bit words
-	else
-		format.bytesPerSample=format.bitsPerSample/8;
-	format.signedSamples=format.bitsPerSample>8;
-	format.sampleEndianness=SoundDataFormat::LittleEndian;
-	if(format.samplesPerFrame<1)
-		return false;
-	if(bytesPerFrame!=size_t(format.samplesPerFrame)*size_t(format.bytesPerSample))
-		return false;
-	if(bytesPerSecond!=size_t(format.framesPerSecond)*size_t(format.samplesPerFrame)*size_t(format.bytesPerSample))
-		return false;
-	
-	/* Ignore any additional chunks until the data chunk: */
-	while(true)
-		{
-		/* Read the chunk's header: */
-		try
-			{
-			char tag[4];
-			inputFile->read<char>(tag,4);
-			unsigned int chunkSize=inputFile->read<unsigned int>();
-			
-			/* Stop if it's a data chunk: */
-			if(strncmp(tag,"data",4)==0)
-				break;
-			
-			/* Skip the chunk: */
-			chunkSize=(chunkSize+1)&~0x1; // Pad to two-byte boundary
-			inputFile->skip<unsigned char>(chunkSize);
-			}
-		catch(IO::File::ReadError)
-			{
-			/* Signal error to caller: */
-			return false;
-			}
-		}
-	
-	return true;
-	}
-
-void* SoundPlayer::playingThreadMethod(void)
-	{
-	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
-	
-	/* Read buffers worth of sound data from the input file until interrupted or at end of file: */
-	while(!inputFile->eof())
-		{
-		/* Read sound data from the input file, up to the buffer size: */
-		size_t numBytesRead=inputFile->readUpTo(sampleBuffer,sampleBufferSize*bytesPerFrame);
-		if(numBytesRead>0)
-			{
-			/* Write the buffer to the PCM device: */
-			pcmDevice.write(sampleBuffer,numBytesRead/bytesPerFrame);
-			}
-		}
-	
-	/* Wait for the PCM device to finish playing samples: */
-	// pcmDevice.drain(); // Disables because this does actually discard samples, unlike advertised
-	
-	{
-	/* Wake up anyone who is waiting for playback to finish: */
-	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
-	active=false;
-	finishedPlayingCond.broadcast();
-	}
-	
-	/* Initiate the get-the-hell-out-of-here maneuver: */
-	return 0;
-	}
-
-#endif
-
-SoundPlayer::SoundPlayer(const char* inputFileName)
-	#if SOUND_CONFIG_HAVE_ALSA
-	:inputFile(IO::openSeekableFile(inputFileName)),
-	 bytesPerFrame(0),
-	 pcmDevice("default",false),
-	 sampleBufferSize(0),sampleBuffer(0),
-	 active(false)
-	#else
-	:active(false)
-	#endif
-	{
-	#if SOUND_CONFIG_HAVE_ALSA
-	
-	/* Determine the input file format from the file name extension: */
-	if(Misc::hasCaseExtension(inputFileName,".wav"))
-		{
-		/* Read the WAV file header: */
-		inputFile->setEndianness(Misc::LittleEndian);
-		if(!readWAVHeader())
-			Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s is invalid or incompatible WAV file",inputFileName);
-		}
-	else
-		Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s has unrecognized extension",inputFileName);
-	
-	/* Calculate the size of a frame in bytes: */
-	bytesPerFrame=size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);
-	
-	/* Set the PCM device's parameters according to the sound data format: */
-	pcmDevice.setSoundDataFormat(format);
-	
-	/* Create a sample buffer holding a quarter second of sound: */
-	sampleBufferSize=((size_t(format.framesPerSecond)*250+500)/1000);
-	sampleBuffer=new char[sampleBufferSize*bytesPerFrame];
-	
-	/* Prepare the device for playback: */
-	pcmDevice.prepare();
-	
-	#endif
-	}
-
-SoundPlayer::~SoundPlayer(void)
-	{
-	#if SOUND_CONFIG_HAVE_ALSA
-	
-	{
-	/* Stop the playing thread if still active: */
-	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
-	if(active)
-		{
-		playingThread.cancel();
-		playingThread.join();
-		
-		/* Wake up anybody who is waiting for playback to finish: */
-		active=false;
-		finishedPlayingCond.broadcast();
-		}
-	}
-	
-	/* Delete the sample buffer: */
-	delete[] sampleBuffer;
-	
-	#endif
-	}
-
-SoundDataFormat SoundPlayer::getSoundDataFormat(void) const
-	{
-	return format;
-	}
-
-void SoundPlayer::start(void)
-	{
-	/* Do nothing if already started: */
-	if(active)
-		return;
-	
-	#if SOUND_CONFIG_HAVE_ALSA
-	
-	/* Start the background playing thread (which in turn starts the PCM device): */
-	active=true;
-	playingThread.start(this,&SoundPlayer::playingThreadMethod);
-	
-	#else
-	
-	active=true;
-	
-	#endif
-	}
-
-void SoundPlayer::stop(void)
-	{
-	/* Do nothing if not started: */
-	if(!active)
-		return;
-	
-	#if SOUND_CONFIG_HAVE_ALSA
-	
-	/* Stop the background playing thread: */
-	playingThread.cancel();
-	playingThread.join();
-	
-	/* Stop the PCM device: */
-	pcmDevice.drop();
-	
-	{
-	/* Wake up anyone who is waiting for playback to finish: */
-	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
-	active=false;
-	finishedPlayingCond.broadcast();
-	}
-	
-	#else
-	
-	active=false;
-	
-	#endif
 	}
 
 #endif

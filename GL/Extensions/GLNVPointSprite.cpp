@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVPointSprite - OpenGL extension class for the GL_NV_point_sprite
 extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,11 +20,11 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLNVPointSprite.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLNVPointSprite.h>
 
 /****************************************
 Static elements of class GLNVPointSprite:

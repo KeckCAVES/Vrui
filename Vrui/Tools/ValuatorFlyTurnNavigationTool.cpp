@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyTurnNavigationTool - Class providing a fly navigation tool
 with turning using two valuators.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ValuatorFlyTurnNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -31,8 +29,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/Vrui.h>
+#include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ValuatorFlyTurnNavigationTool.h>
 
 namespace Vrui {
 
@@ -42,17 +43,18 @@ Methods of class ValuatorFlyTurnNavigationToolFactory:
 
 ValuatorFlyTurnNavigationToolFactory::ValuatorFlyTurnNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorFlyTurnNavigationTool",toolManager),
-	 valuatorThreshold(Scalar(0.25)),
-	 valuatorExponent(Scalar(1)),
-	 superAccelerationFactor(Scalar(1.1)),
-	 flyDirectionDeviceCoordinates(true),flyDirection(Vector(0,1,0)),
-	 flyFactor(getDisplaySize()*Scalar(2)),
-	 rotationAxisDeviceCoordinates(true),rotationAxis(Vector(0,0,1)),
-	 rotationCenterDeviceCoordinates(true),rotationCenter(Point::origin),
-	 rotationFactor(Scalar(90))
+	 valuatorThreshold(0),
+	 valuatorExponent(1),
+	 superAccelerationFactor(1.1),
+	 flyDirection(Vector(0,1,0)),
+	 flyFactor(getDisplaySize()*Scalar(0.5)),
+	 rotationAxis(Vector(0,0,1)),
+	 rotationCenter(Point::origin),
+	 rotationFactor(Math::Constants<Scalar>::pi*Scalar(0.5))
 	{
 	/* Initialize tool layout: */
-	layout.setNumValuators(2);
+	layout.setNumDevices(1);
+	layout.setNumValuators(0,2);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -64,16 +66,13 @@ ValuatorFlyTurnNavigationToolFactory::ValuatorFlyTurnNavigationToolFactory(ToolM
 	valuatorThreshold=cfs.retrieveValue<Scalar>("./valuatorThreshold",valuatorThreshold);
 	valuatorExponent=cfs.retrieveValue<Scalar>("./valuatorExponent",valuatorExponent);
 	superAccelerationFactor=cfs.retrieveValue<Scalar>("./superAccelerationFactor",superAccelerationFactor);
-	flyDirectionDeviceCoordinates=cfs.retrieveValue<bool>("./flyDirectionDeviceCoordinates",flyDirectionDeviceCoordinates);
 	flyDirection=cfs.retrieveValue<Vector>("./flyDirection",flyDirection);
 	flyDirection.normalize();
 	flyFactor=cfs.retrieveValue<Scalar>("./flyFactor",flyFactor);
-	rotationAxisDeviceCoordinates=cfs.retrieveValue<bool>("./rotationAxisDeviceCoordinates",rotationAxisDeviceCoordinates);
 	rotationAxis=cfs.retrieveValue<Vector>("./rotationAxis",rotationAxis);
 	rotationAxis.normalize();
-	rotationCenterDeviceCoordinates=cfs.retrieveValue<bool>("./rotationCenterDeviceCoordinates",rotationCenterDeviceCoordinates);
 	rotationCenter=cfs.retrieveValue<Point>("./rotationCenter",rotationCenter);
-	rotationFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotationFactor",rotationFactor));
+	rotationFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotationFactor",Math::deg(rotationFactor)));
 	
 	/* Set tool class' factory pointer: */
 	ValuatorFlyTurnNavigationTool::factory=this;
@@ -84,26 +83,6 @@ ValuatorFlyTurnNavigationToolFactory::~ValuatorFlyTurnNavigationToolFactory(void
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorFlyTurnNavigationTool::factory=0;
-	}
-
-const char* ValuatorFlyTurnNavigationToolFactory::getName(void) const
-	{
-	return "Valuator Fly + Turn";
-	}
-
-const char* ValuatorFlyTurnNavigationToolFactory::getValuatorFunction(int valuatorSlotIndex) const
-	{
-	switch(valuatorSlotIndex)
-		{
-		case 0:
-			return "Fly";
-		
-		case 1:
-			return "Rotate";
-		}
-	
-	/* Never reached; just to make compiler happy: */
-	return 0;
 	}
 
 Tool* ValuatorFlyTurnNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -151,10 +130,19 @@ Methods of class ValuatorFlyTurnNavigationTool:
 
 ValuatorFlyTurnNavigationTool::ValuatorFlyTurnNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
+	 viewer(0),
 	 superAcceleration(1)
 	{
 	for(int i=0;i<2;++i)
 		currentValues[i]=Scalar(0);
+	
+	/* Retrieve the viewer associated with this menu tool: */
+	#if 0
+	int viewerIndex=configFile.retrieveValue<int>("./viewerIndex");
+	viewer=getViewer(viewerIndex);
+	#else
+	viewer=getMainViewer();
+	#endif
 	}
 
 const ToolFactory* ValuatorFlyTurnNavigationTool::getFactory(void) const
@@ -162,7 +150,7 @@ const ToolFactory* ValuatorFlyTurnNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ValuatorFlyTurnNavigationTool::valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData)
+void ValuatorFlyTurnNavigationTool::valuatorCallback(int,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData)
 	{
 	/* Map the raw valuator value according to a "broken line plus exponent" scheme: */
 	Scalar v=Scalar(cbData->newValuatorValue);
@@ -171,15 +159,15 @@ void ValuatorFlyTurnNavigationTool::valuatorCallback(int valuatorSlotIndex,Input
 	if(v<-th)
 		{
 		v=(v+th)/s;
-		currentValues[valuatorSlotIndex]=-Math::pow(-v,factory->valuatorExponent);
+		currentValues[valuatorIndex]=-Math::pow(-v,factory->valuatorExponent);
 		}
 	else if(v>th)
 		{
 		v=(v-th)/s;
-		currentValues[valuatorSlotIndex]=Math::pow(v,factory->valuatorExponent);
+		currentValues[valuatorIndex]=Math::pow(v,factory->valuatorExponent);
 		}
 	else
-		currentValues[valuatorSlotIndex]=Scalar(0);
+		currentValues[valuatorIndex]=Scalar(0);
 	
 	if(currentValues[0]!=Scalar(0)||currentValues[1]!=Scalar(0))
 		{
@@ -203,22 +191,22 @@ void ValuatorFlyTurnNavigationTool::frame(void)
 	if(isActive())
 		{
 		/* Get the current state of the input device: */
-		const TrackerState& ts=getValuatorDeviceTransformation(0);
+		const TrackerState& ts=input.getDevice(0)->getTransformation();
 		
 		/* Check whether to change the super acceleration factor: */
 		if(Math::abs(currentValues[0])==Scalar(1))
-			superAcceleration*=Math::pow(factory->superAccelerationFactor,getFrameTime());
+			superAcceleration*=Math::pow(factory->superAccelerationFactor,getCurrentFrameTime());
 		
 		/* Calculate the current flying velocity: */
-		Vector v=factory->flyDirectionDeviceCoordinates?ts.transform(factory->flyDirection):factory->flyDirection;
-		v*=-currentValues[0]*factory->flyFactor*superAcceleration*getFrameTime();
+		Vector v=ts.transform(factory->flyDirection);
+		v*=currentValues[0]*factory->flyFactor*superAcceleration*getCurrentFrameTime();
 		
 		/* Calculate the current angular velocity: */
-		Vector w=factory->rotationAxisDeviceCoordinates?ts.transform(factory->rotationAxis):factory->rotationAxis;
-		w*=currentValues[1]*factory->rotationFactor*getFrameTime();
+		Vector w=ts.transform(factory->rotationAxis);
+		w*=currentValues[1]*factory->rotationFactor*getCurrentFrameTime();
 		
 		/* Compose the new navigation transformation: */
-		Point p=factory->rotationCenterDeviceCoordinates?ts.transform(factory->rotationCenter):factory->rotationCenter;
+		Point p=ts.transform(factory->rotationCenter);
 		NavTransform t=NavTransform::translate(v);
 		t*=NavTransform::translateFromOriginTo(p);
 		t*=NavTransform::rotate(NavTransform::Rotation::rotateScaledAxis(w));
@@ -227,9 +215,6 @@ void ValuatorFlyTurnNavigationTool::frame(void)
 		
 		/* Update Vrui's navigation transformation: */
 		setNavigationTransformation(t);
-		
-		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 

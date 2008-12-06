@@ -1,7 +1,7 @@
 /***********************************************************************
 RayScreenMenuTool - Class for menu selection tools using ray selection
 that align menus to screen planes.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,16 +21,23 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/RayScreenMenuTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Geometry/Point.h>
 #include <Geometry/Vector.h>
+#include <GL/gl.h>
+#include <GL/GLGeometryWrappers.h>
+#include <GLMotif/Event.h>
+#include <GLMotif/TitleBar.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
-#include <Vrui/Vrui.h>
+#include <Vrui/Viewer.h>
+#include <Vrui/VRScreen.h>
 #include <Vrui/MutexMenu.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/RayScreenMenuTool.h>
 
 namespace Vrui {
 
@@ -40,10 +47,12 @@ Methods of class RayScreenMenuToolFactory:
 
 RayScreenMenuToolFactory::RayScreenMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayScreenMenuTool",toolManager),
-	 interactWithWidgets(false)
+	 useEyeRay(false),
+	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* menuToolFactory=toolManager.loadClass("MenuTool");
@@ -52,6 +61,7 @@ RayScreenMenuToolFactory::RayScreenMenuToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	
 	/* Set tool class' factory pointer: */
@@ -62,11 +72,6 @@ RayScreenMenuToolFactory::~RayScreenMenuToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	RayScreenMenuTool::factory=0;
-	}
-
-const char* RayScreenMenuToolFactory::getName(void) const
-	{
-	return "Screen-Aligned Menu";
 	}
 
 Tool* RayScreenMenuToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -112,12 +117,44 @@ RayScreenMenuToolFactory* RayScreenMenuTool::factory=0;
 Methods of class RayScreenMenuTool:
 **********************************/
 
+Ray RayScreenMenuTool::calcSelectionRay(void) const
+	{
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
+	/* Calculate ray equation: */
+	if(factory->useEyeRay)
+		{
+		/* Shoot a ray from the main viewer: */
+		Point start=device->getPosition();
+		Vector direction=start-viewer->getHeadPosition();
+		direction.normalize();
+		start-=direction*(getInchFactor()/direction.mag());
+		return Ray(start,direction);
+		}
+	else
+		{
+		/* Use the device's ray direction: */
+		Point start=device->getPosition();
+		Vector direction=device->getRayDirection();
+		start-=direction*(getInchFactor()/direction.mag());
+		return Ray(start,direction);
+		}
+	}
+
 RayScreenMenuTool::RayScreenMenuTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:MenuTool(factory,inputAssignment),
-	 GUIInteractor(isUseEyeRay(),getRayOffset(),getButtonDevice(0))
+	 viewer(0),
+	 insideWidget(false),widgetActive(false),
+	 dragging(false),draggedWidget(0)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
+	/* Retrieve the viewer associated with this menu tool: */
+	#if 0
+	int viewerIndex=configFile.retrieveValue<int>("./viewerIndex");
+	viewer=getViewer(viewerIndex);
+	#else
+	viewer=getMainViewer();
+	#endif
 	}
 
 const ToolFactory* RayScreenMenuTool::getFactory(void) const
@@ -125,79 +162,170 @@ const ToolFactory* RayScreenMenuTool::getFactory(void) const
 	return factory;
 	}
 
-void RayScreenMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void RayScreenMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
-	if(cbData->newButtonState) // Button has just been pressed
+	if(cbData->newButtonState) // Activation button has just been pressed
 		{
-		/* Check if the GUI interactor refuses the event: */
-		GUIInteractor::updateRay();
-		if(!(factory->interactWithWidgets&&GUIInteractor::buttonDown(false)))
+		/* Check if the tool is interacting with a widget: */
+		if(factory->interactWithWidgets)
 			{
-			/* Try activating this tool: */
-			if(GUIInteractor::canActivate()&&activate())
+			/* If the widget manager accepts the event, preempt any cascaded tools until the button is released: */
+			Ray ray=calcSelectionRay();
+			GLMotif::Event event(false);
+			event.setWorldLocation(ray);
+			if(getWidgetManager()->pointerButtonDown(event))
 				{
-				/***************************************************************
-				Pop up the tool's menu at the appropriate position and
-				orientation:
-				***************************************************************/
+				/* Activate the widget tool: */
+				widgetActive=true;
 				
-				/* Find the intersection point of the interaction ray and a screen: */
-				std::pair<VRScreen*,Scalar> si=findScreen(GUIInteractor::getRay());
+				/* Drag the entire root widget if the event's target widget is a title bar: */
+				if(dynamic_cast<GLMotif::TitleBar*>(event.getTargetWidget())!=0)
+					{
+					/* Find the closest intersection with any screen: */
+					std::pair<VRScreen*,Scalar> si=findScreen(ray);
+					if(si.first!=0)
+						{
+						/* Start dragging: */
+						dragging=true;
+						draggedWidget=event.getTargetWidget();
+						
+						/* Calculate the dragging transformation: */
+						NavTrackerState initialTracker=NavTrackerState::translateFromOriginTo(ray(si.second));
+						preScale=Geometry::invert(initialTracker);
+						GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
+						preScale*=NavTrackerState(initialWidget);
+						}
+					}
 				
-				/* Pop up the menu: */
-				if(si.first!=0)
-					popupPrimaryWidget(menu->getPopup(),GUIInteractor::getRay()(si.second),false);
-				else
-					popupPrimaryWidget(menu->getPopup()); // ,GUIInteractor::getRay().getOrigin());
-				
-				/* Grab the pointer: */
-				getWidgetManager()->grabPointer(menu->getPopup());
-				
-				/* Force the event on the GUI interactor: */
-				GUIInteractor::buttonDown(true);
+				/* Cancel processing of this callback to preempt cascaded tools: */
+				cbData->callbackList->requestInterrupt();
 				}
 			}
+		
+		/* Try activating this tool: */
+		if(!widgetActive&&activate())
+			{
+			/* Calculate the menu selection ray: */
+			Ray ray=calcSelectionRay();
+			
+			/* Find the closest intersection with any screen: */
+			std::pair<VRScreen*,Scalar> si=findScreen(ray);
+			
+			if(si.first!=0)
+				{
+				typedef GLMotif::WidgetManager::Transformation WTransform;
+				typedef WTransform::Point WPoint;
+				typedef WTransform::Vector WVector;
+				
+				/* Calculate the menu transformation: */
+				WPoint globalHotSpot=ray(si.second);
+				
+				/* Try to align the menu with the viewing direction: */
+				ONTransform screenT=si.first->getScreenTransformation();
+				WTransform menuTransformation=WTransform::translate(globalHotSpot-screenT.getOrigin());
+				menuTransformation*=screenT;
+				GLMotif::Vector menuHotSpot=menu->getPopup()->calcHotSpot();
+				menuTransformation*=WTransform::translate(-WVector(menuHotSpot.getXyzw()));
+				
+				/* Pop up the menu: */
+				getWidgetManager()->popupPrimaryWidget(menu->getPopup(),menuTransformation);
+				
+				/* Deliver the event: */
+				GLMotif::Event event(false);
+				event.setWorldLocation(ray);
+				getWidgetManager()->pointerButtonDown(event);
+				}
+			else
+				deactivate();
+			}
 		}
-	else // Button has just been released
+	else // Activation button has just been released
 		{
-		/* Check if the GUI interactor is active: */
-		if(GUIInteractor::isActive())
+		if(widgetActive)
 			{
 			/* Deliver the event: */
-			GUIInteractor::buttonUp();
+			GLMotif::Event event(true);
+			event.setWorldLocation(calcSelectionRay());
+			getWidgetManager()->pointerButtonUp(event);
 			
-			/* Check if the tool's menu is popped up: */
-			if(MenuTool::isActive())
-				{
-				/* Release the pointer: */
-				getWidgetManager()->releasePointer(menu->getPopup());
-				
-				/* Pop down the menu: */
-				getWidgetManager()->popdownWidget(menu->getPopup());
-				
-				/* Deactivate the tool: */
-				deactivate();
-				}
+			/* Deactivate this tool: */
+			dragging=false;
+			widgetActive=false;
+			
+			/* Cancel processing of this callback to preempt cascaded tools: */
+			cbData->callbackList->requestInterrupt();
+			}
+		else if(isActive())
+			{
+			/* Deliver the event: */
+			GLMotif::Event event(true);
+			event.setWorldLocation(calcSelectionRay());
+			getWidgetManager()->pointerButtonUp(event);
+			
+			/* Pop down the menu: */
+			getWidgetManager()->popdownWidget(menu->getPopup());
+			
+			/* Deactivate the tool: */
+			deactivate();
 			}
 		}
 	}
 
 void RayScreenMenuTool::frame(void)
 	{
-	if(factory->interactWithWidgets||GUIInteractor::isActive())
+	/* Update the selection ray: */
+	selectionRay=calcSelectionRay();
+	
+	if(factory->interactWithWidgets)
+		insideWidget=getWidgetManager()->findPrimaryWidget(selectionRay)!=0;
+	
+	if(widgetActive)
 		{
-		/* Update the GUI interactor: */
-		GUIInteractor::updateRay();
-		GUIInteractor::move();
+		/* Deliver the event: */
+		GLMotif::Event event(true);
+		event.setWorldLocation(selectionRay);
+		getWidgetManager()->pointerMotion(event);
+		
+		if(dragging)
+			{
+			/* Find the closest intersection with any screen: */
+			std::pair<VRScreen*,Scalar> si=findScreen(selectionRay);
+			
+			if(si.first!=0)
+				{
+				/* Update the dragged widget's transformation: */
+				NavTrackerState current=NavTrackerState::translateFromOriginTo(selectionRay(si.second));
+				current*=preScale;
+				getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,GLMotif::WidgetManager::Transformation(current));
+				}
+			}
+		}
+	else if(isActive())
+		{
+		/* Update the selection ray: */
+		selectionRay=calcSelectionRay();
+		
+		/* Deliver the event: */
+		GLMotif::Event event(true);
+		event.setWorldLocation(selectionRay);
+		getWidgetManager()->pointerMotion(event);
 		}
 	}
 
-void RayScreenMenuTool::display(GLContextData& contextData) const
+void RayScreenMenuTool::display(GLContextData&) const
 	{
-	if(isDrawRay()&&(factory->interactWithWidgets||GUIInteractor::isActive()))
+	if(insideWidget||widgetActive||isActive())
 		{
-		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(getRayWidth(),getRayColor(),contextData);
+		/* Draw the menu selection ray: */
+		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+		glDisable(GL_LIGHTING);
+		glColor3f(1.0f,0.0f,0.0f);
+		glLineWidth(3.0f);
+		glBegin(GL_LINES);
+		glVertex(selectionRay.getOrigin());
+		glVertex(selectionRay(getDisplaySize()*Scalar(5)));
+		glEnd();
+		glPopAttrib();
 		}
 	}
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 Button - Base class for GLMotif UI components reacting to push events.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,11 +19,11 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Button.h>
-
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/Container.h>
+
+#include <GLMotif/Button.h>
 
 namespace GLMotif {
 

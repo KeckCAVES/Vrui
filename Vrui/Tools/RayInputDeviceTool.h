@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,8 +25,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_RAYINPUTDEVICETOOL_INCLUDED
 
 #include <Geometry/Ray.h>
-#include <Vrui/Internal/BoxRayDragger.h>
-#include <Vrui/InputDeviceTool.h>
+#include <Vrui/BoxRayDragger.h>
+#include <Vrui/Tools/InputDeviceTool.h>
+
+/* Forward declarations: */
+namespace Vrui {
+class Viewer;
+}
 
 namespace Vrui {
 
@@ -45,8 +50,7 @@ class RayInputDeviceToolFactory:public ToolFactory
 	RayInputDeviceToolFactory(ToolManager& toolManager);
 	virtual ~RayInputDeviceToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -58,18 +62,22 @@ class RayInputDeviceTool:public InputDeviceTool
 	/* Elements: */
 	private:
 	static RayInputDeviceToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the input device tool
 	BoxRayDragger dragger; // A box dragger to calculate dragging transformations
 	
 	/* Transient state: */
 	Ray interactionRay; // Current interaction ray
 	
+	/* Private methods: */
+	Ray calcInteractionRay(void) const; // Calculates the selection ray based on current device position/orientation
+	
 	/* Constructors and destructors: */
 	public:
 	RayInputDeviceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

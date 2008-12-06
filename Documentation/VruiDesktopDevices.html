@@ -21,11 +21,11 @@ As a result, integrating a desktop input device into Vrui is a two-step approach
 
 <H2>The Vrui VR Device Driver</H2>
 
-In Vrui, low-level drivers for all input devices except mouse and keyboard (and USB input devices starting in version 1.0-068) are included in the external VR device driver (VRDeviceDaemon). The driver is typically started as a daemon process, and serves input device data to any Vrui applications that connect to it via its TCP/IP protocol. The device driver is configured via its own configuration file, <TT>VRDevices.cfg</TT> in Vrui's <TT>etc</TT> directory. Any devices to be used by Vrui applications must be added to this configuration file. The following sections describe how to add several supported devices.
+In Vrui, low-level drivers for all input devices except mouse and keyboard are included in the external VR device driver (VRDeviceDaemon). The driver is typically started as a daemon process, and serves input device data to any Vrui applications that connect to it via its TCP/IP protocol. The device driver is configured via its own configuration file, VRDevices.cfg in Vrui's etc directory. Any devices to be used by Vrui applications must be added to this configuration file. The following sections describe how to add several supported devices.
 
 <H3>General Configuration</H3>
 
-When the device driver is started, it reads the configuration file root section corresponding to the host name of the local machine, as displayed by <TT>printenv HOSTNAME</TT> or, if that fails, <TT>printenv HOST</TT>. Inside that section, it will first look for the &quot;DeviceManager&quot; section. This section's main setting is &quot;deviceNames,&quot; a list of all devices served by the driver. This list is a list of subsection headings contained in the &quot;DeviceManager&quot; section. The driver reads all listed sections in order, and assembles the set of served devices based on their contents.<P>
+When the device driver is started, it reads the configuration file root section corresponding to the host name of the local machine, as displayed by the hostname command (or printenv HOSTNAME). Inside that section, it will first look for the &quot;DeviceManager&quot; section. This section's main setting is &quot;deviceNames,&quot; a list of all devices served by the driver. This list is a list of subsection headings contained in the &quot;DeviceManager&quot; section. The driver reads all listed sections in order, and assembles the set of served devices based on their contents.<P>
 
 Each device section must define the type of device it represents, using the &quot;deviceType&quot; setting. Device types are simply the names of device driver plug-in modules. All other settings in a device section are read by the selected driver plug-in, and hence depend on the device type.<P>
 
@@ -36,7 +36,7 @@ The other important group of settings is in the &quot;DeviceServer&quot; section
 Older six-axis spaceball models, such as the 3DConnexion 4000FLX, are connected to the host computer via a serial cable. They are HID devices by function, but predate the USB specification (their more modern relatives use USB and are described in the next section). This device class is handled by the &quot;SpaceBallRaw&quot; device driver plug-in module. The relevant settings are the following:
 <DL>
 <DT>devicePort</DT>
-<DD>Name of the serial port device file representing the port into which the spaceball is plugged, for example <TT>/dev/ttyS0</TT>.</DD>
+<DD>Name of the serial port device file representing the port into which the spaceball is plugged, for example /dev/ttyS0.</DD>
 
 <DT>deviceBaudRate</DT>
 <DD>Serial port speed for communications with the device. Always 9600 bps for 4000FLX models; might be different for different models.</DD>
@@ -56,7 +56,7 @@ Older six-axis spaceball models, such as the 3DConnexion 4000FLX, are connected 
 
 <H3>USB Joysticks and Spaceballs</H3>
 
-USB input devices are all handled by the &quot;HIDDevice&quot; device driver plug-in module. Under Linux, this module uses the event device interface represented by device files in <TT>/dev/input/event*</TT>; under MacOS X, it uses the HID API.
+USB input devices are all handled by the &quot;HIDDevice&quot; device driver plug-in module. Under Linux, this module uses the event device interface represented by device files in /dev/input/event*; under MacOS X, it uses the HID API. Unfortunately, device files in /dev/input/ are only readable by root (this is for security reasons so intruders cannot log keystrokes by directly reading the keyboard's device file). This means that using USB input devices either requires running the device driver as root, or changing the permissions on the necessary event files. Although we do not consider making device files for joysticks or spaceballs globally readable a security risk, we nonetheless recommend running the device driver as root (sudo VRDeviceDaemon).
 
 <H4>Identifying USB Input Devices</H4>
 
@@ -65,7 +65,7 @@ USB input devices are identified in their respective device sections in one of t
 The HIDDevice module's relevant settings are the following, with only one out of the first three required to identify a particular device:
 <DL>
 <DT>deviceFileName</DT>
-<DD>Fully qualified name of the device's event file, for example <TT>/dev/input/event2</TT>. Not recommended, because device event files are created dynamically and might change.</DD>
+<DD>Fully qualified name of the device's event file, for example /dev/input/event2. Not recommended, because device event files are created dynamically and might change.</DD>
 
 <DT>deviceVendorProductId</DT>
 <DD>Pair of hexadecimal vendor/product IDs for the input device, for example &quot;046d:c215&quot; for a Logitech Wingman Extreme 3D joystick. Vendor/product IDs can be found by looking at the list of connected USB devices.</DD>
@@ -106,35 +106,6 @@ section localhost # Or whatever is reported by "hostname"
   endsection
 endsection
 </PRE>
-
-<H4>Linux Device Node Permissions</H4>
-
-Under Linux, the event device files in <TT>/dev/input/</TT> used by the HIDDevice module are only readable by root (this is for security reasons, to prevent intruders from logging keystrokes by directly reading the keyboard's device file). This means that using USB input devices either requires running the device driver as root (<TT>sudo VRDeviceDaemon</TT>), or changing the permissions on the necessary event files.<P>
-
-Recent Linux distributions (Fedora &gt;=8, Ubuntu &gt;=9.10, etc.) provide a clean and secure way to make USB input devices accessible to non-root users <EM>if and only if</EM> they are logged in via the local console. This mechanism is supported via POSIX ACL (access control lists), the udev daemon, and the ConsoleKit package. To make a specific USB input device accessible, one has to know the device's vendor and product IDs, which can be gathered from <TT>lsusb</TT>. Then one creates a file called <TT>69-3d-inputdevices-acl.rules</TT> in the directory <TT>/etc/udev/rules.d</TT>, with the following contents:
-<PRE>
-# Rules to relax permissions on event files for USB joysticks and spaceballs
-
-ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="&lt;vendor ID&gt;", ATTRS{idProduct}=="&lt;product ID&gt;", ENV{ACL_MANAGE}="1"
-</PRE>
-where &lt;vendor ID&gt; and &lt;product ID&gt; are replaced with the particular device's vendor and product IDs, respectively. One can add one rule for every such input device. Afterwards, if a device is plugged in, or a user logs into the local console, all devices matching the given rules will be accessible by that user, and access will be revoked when the user logs out.
-
-<H4>Issues With Current X Servers</H4>
-
-Current versions of the Xorg X&nbsp;server support hot-plugging of input devices, and contain driver support for some models of spaceballs. If an input device is grabbed by the X&nbsp;server, it is no longer available for use in Vrui. To remove a specific input device from the X&nbsp;server's hotplug list, one has to create a file called <TT>11-3d-inputdevices.fdi</TT> in the directory <TT>/etc/hal/fdi/policy</TT>, with the following contents:
-<PRE>
-&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
-&lt;deviceinfo version="0.2"&gt;
-    &lt;device&gt;
-        &lt;match key="@input.originating_device:usb.vendor_id" int="0x&lt;vendor ID&gt;"&gt;
-            &lt;match key="@input.originating_device:usb.product_id" int="0x&lt;product ID&gt;"&gt;
-                &lt;remove key="input.x11_driver"/&gt;
-            &lt;/match&gt;
-        &lt;/match&gt;
-    &lt;/device&gt;
-&lt;/deviceinfo&gt;
-</PRE>
-As above, &lt;vendor ID&gt; and &lt;product ID&gt; must be replaced with the vendor and product IDs, respectively, of the input device, and one rule can be added for each device.
 
 <H2>Vrui Tools for Desktop Input Devices</H2>
 
@@ -223,41 +194,6 @@ section Vrui
 endsection
 </PRE>
 
-<H3>Using USB Input Devices Directly From Vrui.cfg</H3>
-
-As of version 1.0-068, Vrui contains a new input device adapter type (InputDeviceAdapterHID) that can connect directly to USB input devices, without the need for a running VRDeviceDaemon instance. The configuration options for this adapter type are listed in the <A HREF="VruiConfigurationFileReference.html#inputdeviceadapterhidsettings">Vrui Configuration File Reference</A>. In a nutshell, one creates a section for each input device to be supported, and lists the names of all these sections in the &quot;inputDeviceNames&quot; setting. Input devices are given an arbitrary name to identify them in later configuration file sections, and are identified by their vendor and product IDs, and by an integer index to distinguish multiple devices with identical ID pairs. The HID input device adapter queries the number of buttons and valuators on each device directly from the HID subsystem, so there is no need to configure them explicitly. The only additional settings supported for each input device are axis value mappers, to fine-tune the behavior of each analog axis on a device individually.<P>
-
-Here is an example input device adapter section for a 12-button, 6-axis joystick (a Logitech Wingman Extreme 3D Pro):
-<PRE>
-section Vrui
-  section Desktop
-    ...
-    inputDeviceAdapterNames (..., \
-                             HIDAdapter, \
-                             ...)
-    ...
-    section HIDAdapter
-      inputDeviceAdapterType HID
-      inputDeviceNames (WingmanExtreme3DPro)
-      
-      section WingmanExtreme3DPro
-        name WingmanExtreme3DPro
-        deviceVendorProductId 046d:c215
-        deviceIndex 0
-        # Horizontal axis with big flat spot:
-        axis0Setting (0.0, 447.5, 575.5, 1023.0)
-        # Vertical axis inverted with big flat spot:
-        axis1Setting (1023.0, 575.5, 447.5, 0.0)
-        # Twist axis with big flat spot:
-        axis2Setting (0.0, 95.5, 159.5, 255.0)
-        # Throttle axis with medium flat spot:
-        axis3Setting (0.0, 111.5, 143.5, 255.0)
-      endsection
-    endsection
-  endsection
-endsection
-</PRE>
-
 <H3>Configuring Class DesktopDeviceNavigationTool</H3>
 
 The movement of the virtual input device controlled by a DesktopDeviceNavigationTool object, and the movement of the Vrui camera in navigation mode, are defined by specifying an arbitrary number of translational and rotational axes. Each axis maps an analog axis of the real input device, optionally in combination with a set of buttons, to a translation along a given axis, or a rotation around a given axis, in Vrui's physical coordinate space. To control the scaling factor of the virtual camera, the tool class additionally supports zoom axes.
@@ -331,16 +267,14 @@ section DesktopDeviceNavigationTool
   toggleButtonIndices (6, 8, 9, 10, 11)
   axisShiftButtonIndices (1, 7)
   numValuators 6
-  rotationalAxes (( 0, ( 0.0,  0.0, -1.0)), ( 1, ( 1.0,  0.0,  0.0)), \
-                  ( 6, ( 0.0,  1.0,  0.0)), ( 7, ( 1.0,  0.0,  0.0)))
+  rotationalAxes ((0, (0.0, 0.0, -1.0)), (1, (1.0, 0.0, 0.0)), (6, (0.0, 1.0, 0.0)), (7, (1.0, 0.0, 0.0)))
   rotateFactor 3.14159
-  translationalAxes (( 3, ( 0.0, -5.0,  0.0)), ( 4, ( 1.0,  0.0,  0.0)), ( 5, ( 0.0,  0.0, -1.0)), \
-                     ( 9, ( 0.0, -5.0,  0.0)), (10, ( 1.0,  0.0,  0.0)), (11, ( 0.0,  0.0, -1.0)))
+  translationalAxes ((3, (0.0, -5.0, 0.0)), (4, (1.0, 0.0, 0.0)), (5, (0.0, 0.0, -1.0)), (9, (0.0, -5.0, 0.0)), (10, (1.0, 0.0, 0.0)), (11, (0.0, 0.0, -1.0)))
   translateFactor 12.0
   navigationButtonIndex 6
-  zoomAxes ((15, ( 0.0,  0.0,  1.0)))
+  zoomAxes ((15, (0.0, 0.0, 1.0)))
   zoomFactor 1.0
-  navigationCenter ( 0.0,  0.0,  0.0)
+  navigationCenter (0.0, 0.0, 0.0)
   deviceGlyphType Cone
   showScreenCenter true
 endsection

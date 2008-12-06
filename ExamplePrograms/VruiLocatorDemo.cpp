@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiLocatorDemo - VR application showing how to use locator tools in
 Vrui.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -25,7 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/Button.h>
 #include <GLMotif/Menu.h>
 #include <GLMotif/PopupMenu.h>
-#include <Vrui/LocatorTool.h>
+#include <Vrui/Tools/LocatorTool.h>
 #include <Vrui/LocatorToolAdapter.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
@@ -66,7 +66,7 @@ class VruiLocatorDemo:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiLocatorDemo(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
+	VruiLocatorDemo(int& argc,char**& argv,char**& appDefaults); // Initializes the Vrui toolkit and the application
 	virtual ~VruiLocatorDemo(void); // Shuts down the Vrui toolkit
 	
 	/* Methods: */
@@ -137,8 +137,8 @@ GLMotif::PopupMenu* VruiLocatorDemo::createMainMenu(void)
 	return mainMenuPopup;
 	}
 
-VruiLocatorDemo::VruiLocatorDemo(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
+VruiLocatorDemo::VruiLocatorDemo(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults),
 	 mainMenu(0)
 	{
 	/* Create the user interface: */
@@ -230,4 +230,15 @@ void VruiLocatorDemo::resetNavigationCallback(Misc::CallbackData* cbData)
 	Vrui::setNavigationTransformation(t);
 	}
 
-VRUI_APPLICATION_RUN(VruiLocatorDemo)
+int main(int argc,char* argv[])
+	{
+	/* Create an application object: */
+	char** appDefaults=0; // This is an additional parameter no one ever uses
+	VruiLocatorDemo app(argc,argv,appDefaults);
+	
+	/* Run the Vrui main loop: */
+	app.run();
+	
+	/* Exit to OS: */
+	return 0;
+	}

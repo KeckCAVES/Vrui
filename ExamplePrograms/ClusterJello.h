@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -30,7 +30,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Threads/Thread.h>
 #include <GL/gl.h>
 #include <GLMotif/ToggleButton.h>
-#include <GLMotif/TextFieldSlider.h>
+#include <GLMotif/Slider.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DraggingToolAdapter.h>
 #include <Vrui/Application.h>
@@ -41,12 +41,13 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "TripleBuffer.h"
 
 /* Forward declarations: */
-namespace Cluster {
+namespace Comm {
 class MulticastPipe;
 }
 namespace GLMotif {
 class PopupMenu;
 class PopupWindow;
+class TextField;
 }
 
 class ClusterJello:public Vrui::Application
@@ -142,7 +143,7 @@ class ClusterJello:public Vrui::Application
 	
 	/* Simulation thread state: */
 	Threads::Thread simulationThread; // Handle of the simulation thread
-	Cluster::MulticastPipe* clusterPipe; // Pipe connecting the nodes in a rendering cluster
+	Comm::MulticastPipe* clusterPipe; // Pipe connecting the nodes in a rendering cluster
 	JelloCrystal* crystal; // Pointer to actual Jell-O crystal (only valid on master node)
 	AtomLockHasher atomLocks; // Hash table of current atom locks
 	double updateTime; // Time between updates of the Jell-O graphics state (inverse of target frame rate)
@@ -156,24 +157,27 @@ class ClusterJello:public Vrui::Application
 	SimulationParameters currentSimulationParameters; // Current simulation parameters
 	JelloRenderer* renderer; // Jell-O crystal renderer that can be associated with any of the proxy Jell-O crystals in the triple buffer
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
-	GLMotif::ToggleButton* showSettingsDialogToggle;
 	GLMotif::PopupWindow* settingsDialog; // The settings dialog
-	GLMotif::TextFieldSlider* jigglinessSlider;
-	GLMotif::TextFieldSlider* viscositySlider;
-	GLMotif::TextFieldSlider* gravitySlider;
+	GLMotif::TextField* jigglinessTextField;
+	GLMotif::Slider* jigglinessSlider;
+	GLMotif::TextField* viscosityTextField;
+	GLMotif::Slider* viscositySlider;
+	GLMotif::TextField* gravityTextField;
+	GLMotif::Slider* gravitySlider;
 	
 	unsigned int nextDraggerID; // ID to be assigned to the next atom dragger
 	AtomDraggerList atomDraggers; // List of active atom draggers
 	
 	/* Private methods: */
 	GLMotif::PopupMenu* createMainMenu(void);
+	void updateSettingsDialog(void); // Updates the settings dialog
 	GLMotif::PopupWindow* createSettingsDialog(void);
 	void* simulationThreadMethodMaster(void); // The simulation thread method running on the master
 	void* simulationThreadMethodSlave(void); // The simulation thread method running on the slaves
 	
 	/* Constructors and destructors: */
 	public:
-	ClusterJello(int& argc,char**& argv);
+	ClusterJello(int& argc,char**& argv,char**& appDefaults);
 	virtual ~ClusterJello(void);
 	
 	/* Methods: */
@@ -183,10 +187,9 @@ class ClusterJello:public Vrui::Application
 	virtual void display(GLContextData& contextData) const;
 	void centerDisplayCallback(Misc::CallbackData* cbData);
 	void showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
-	void jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
-	void viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
-	void gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
-	void settingsDialogCloseCallback(Misc::CallbackData* cbData);
+	void jigglinessSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
+	void viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
+	void gravitySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	};
 
 #endif

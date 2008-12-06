@@ -132,10 +132,6 @@ bool VirtualInputDevice::pick(const InputDevice* device,const Point& pos) const
 		buttonCenter+=buttonStep;
 		}
 	
-	/* Test the position against the device's navigation button: */
-	if(isPointInsideCube(pos,device->getTransformation().getOrigin()-buttonOffset,halfSize))
-		return true;
-	
 	return false;
 	}
 
@@ -164,10 +160,6 @@ Scalar VirtualInputDevice::pick(const InputDevice* device,const Ray& ray) const
 		buttonCenter+=buttonStep;
 		}
 	
-	Scalar lambda=doesRayIntersectCube(ray,device->getTransformation().getOrigin()-buttonOffset,halfSize);
-	if(lambdaMin>lambda)
-		lambdaMin=lambda;
-	
 	return lambdaMin;
 	}
 
@@ -186,10 +178,6 @@ int VirtualInputDevice::pickButton(const InputDevice* device,const Point& pos) c
 			return i;
 		buttonCenter+=buttonStep;
 		}
-	
-	/* Test the position against the device's navigation button: */
-	if(isPointInsideCube(pos,device->getTransformation().getOrigin()-buttonOffset,halfSize))
-		return numButtons;
 	
 	return -1;
 	}
@@ -216,18 +204,10 @@ int VirtualInputDevice::pickButton(const InputDevice* device,const Ray& ray) con
 		buttonCenter+=buttonStep;
 		}
 	
-	/* Test the ray against the device's navigation button: */
-	Scalar lambda=doesRayIntersectCube(ray,device->getTransformation().getOrigin()-buttonOffset,halfSize);
-	if(lambdaMin>lambda)
-		{
-		lambdaMin=lambda;
-		result=numButtons;
-		}
-	
 	return result;
 	}
 
-void VirtualInputDevice::renderDevice(const InputDevice* device,bool navigational,const GlyphRenderer::DataItem* glyphRendererContextDataItem,GLContextData&) const
+void VirtualInputDevice::renderDevice(const InputDevice* device,const GlyphRenderer::DataItem* glyphRendererContextDataItem,GLContextData&) const
 	{
 	/* Get the device's current transformation: */
 	OGTransform transform(device->getTransformation());
@@ -243,12 +223,7 @@ void VirtualInputDevice::renderDevice(const InputDevice* device,bool navigationa
 		buttonTransform*=OGTransform::translate(step);
 		}
 	
-	/* Render a glyph for the device's navigational coordinate mode button: */
-	buttonTransform=OGTransform::translate(transform.getTranslation()-buttonOffset);
-	buttonTransform*=OGTransform::scale(buttonSize);
-	glyphRenderer->renderGlyph(navigational?onButtonGlyph:offButtonGlyph,buttonTransform,glyphRendererContextDataItem);
-	
-	/* Render a glyph for the device itself: */
+	/* Render a glyph for the device: */
 	glyphRenderer->renderGlyph(deviceGlyph,transform,glyphRendererContextDataItem);
 	}
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 ScreenLocator - Simple locator class to use in simulated VR
 environments.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_SCREENLOCATOR_INCLUDED
 
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/LocatorTool.h>
+#include <Vrui/Tools/LocatorTool.h>
 
 namespace Vrui {
 
@@ -45,8 +45,7 @@ class ScreenLocatorToolFactory:public ToolFactory
 	ScreenLocatorToolFactory(ToolManager& toolManager);
 	virtual ~ScreenLocatorToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -67,9 +66,9 @@ class ScreenLocatorTool:public LocatorTool
 	public:
 	ScreenLocatorTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

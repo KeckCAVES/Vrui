@@ -1,7 +1,7 @@
 /***********************************************************************
 ComeHitherNavigationTool - Class to navigate by smoothly moving the
 position of a 3D input device to the display center point.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,9 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_COMEHITHERNAVIGATIONTOOL_INCLUDED
 #define VRUI_COMEHITHERNAVIGATIONTOOL_INCLUDED
 
-#include <Geometry/Vector.h>
-#include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
 
 namespace Vrui {
 
@@ -48,9 +46,7 @@ class ComeHitherNavigationToolFactory:public ToolFactory
 	ComeHitherNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ComeHitherNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -73,9 +69,9 @@ class ComeHitherNavigationTool:public NavigationTool
 	public:
 	ComeHitherNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

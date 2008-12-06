@@ -1,6 +1,6 @@
 /***********************************************************************
 RotationTransformation - Class for n-dimensional rotations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -33,10 +33,6 @@ namespace Geometry {
 /* Forward declarations for friend functions: */
 template <class ScalarParam,int dimensionParam>
 class RotationTransformation;
-template <class ScalarParam,int dimensionParam>
-bool operator==(const RotationTransformation<ScalarParam,dimensionParam>& t1,const RotationTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
-bool operator!=(const RotationTransformation<ScalarParam,dimensionParam>& t1,const RotationTransformation<ScalarParam,dimensionParam>& t2);
 template <class ScalarParam,int dimensionParam>
 RotationTransformation<ScalarParam,dimensionParam> operator*(const RotationTransformation<ScalarParam,dimensionParam>&,const RotationTransformation<ScalarParam,dimensionParam>&);
 template <class ScalarParam,int dimensionParam>
@@ -79,10 +75,6 @@ class RotationTransformation
 		{
 		return RotationTransformation(sRotation);
 		}
-	
-	/* Comparison operators: */
-	friend bool operator==<>(const RotationTransformation& t1,const RotationTransformation& t2);
-	friend bool operator!=<>(const RotationTransformation& t1,const RotationTransformation& t2);
 	
 	/* Low-level manipulation functions: */
 	const Rotation& getRotation(void) const // Returns the underlying rotation
@@ -161,16 +153,6 @@ class RotationTransformation
 
 /* Friend functions of class RotationTransformation: */
 template <class ScalarParam,int dimensionParam>
-inline bool operator==(const RotationTransformation<ScalarParam,dimensionParam>& t1,const RotationTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.rotation==t2.rotation;
-	}
-template <class ScalarParam,int dimensionParam>
-inline bool operator!=(const RotationTransformation<ScalarParam,dimensionParam>& t1,const RotationTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.rotation!=t2.rotation;
-	}
-template <class ScalarParam,int dimensionParam>
 inline RotationTransformation<ScalarParam,dimensionParam> operator*(const RotationTransformation<ScalarParam,dimensionParam>& t1,const RotationTransformation<ScalarParam,dimensionParam>& t2)
 	{
 	return RotationTransformation<ScalarParam,dimensionParam>(t1.rotation*t2.rotation);
@@ -183,8 +165,8 @@ inline RotationTransformation<ScalarParam,dimensionParam> invert(const RotationT
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATIONTRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/RotationTransformation.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATIONTRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/RotationTransformation.cpp>
 #endif
 
 #endif

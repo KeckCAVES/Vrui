@@ -1,7 +1,7 @@
 /***********************************************************************
 SingleChildContainer - Base class for containers that contain at most
 one child.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -51,7 +51,6 @@ class SingleChildContainer:public Container
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
-	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);

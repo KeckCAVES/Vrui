@@ -9,25 +9,21 @@
 
 The Vrui configuration file (Vrui.cfg in the installation's etc directory) contains all adjustable settings of the Vrui toolkit, and is how Vrui adapts itself to any VR environment from a desktop system to a high-end VR system like a CAVE. All these environments run the exact same version of the Vrui toolkit and the same applications; they only differ in their configuration file settings.<P>
 
-The Vrui configuration file (from now on referred to as Vrui.cfg) is organized as a tree of named sections, each one containing tag/value pairs (similar to the Windows registry), stored in a human-readable plain text file. Any lines starting with a hash mark (&quot;#&quot;) are considered comments and ignored. Sections inside Vrui.cfg are bracketed by lines containing only &quot;section &lt;name&gt;&quot; and &quot;endsection&quot;, respectively. Section names containing spaces must be enclosed in double quotes. A tag/value pair is a single line, starting with the tag name and followed by the value string. Multiline value strings can be achieved by ending lines with a single backslash. The format of the value string depends on the data type of the setting associated with the tag; for example, a boolean setting can have &quot;true&quot; or &quot;false&quot; as values, whereas a vector setting has a value string such as &quot;(1.0, -2.0, 0.5)&quot;. String values can be enclosed in double quotes to allow spaces and other special characters.
+The Vrui configuration file (from now on referred to as Vrui.cfg) is organized as a tree of named sections, each one containing tag/value pairs (similar to the Windows registry), and stored in a human-readable plain text file. Any lines starting with a hash mark (&quot;#&quot;) are considered comments and ignored. Sections inside Vrui.cfg are bracketed by lines containing only &quot;section &lt;name&gt;&quot; and &quot;endsection&quot;, respectively. Section names containing spaces must be enclosed in double quotes. A tag/value pair is a single line, starting with the tag name and followed by the value string. Multiline value strings can be achieved by ending lines with a single backslash. The format of the value string depends on the data type of the setting associated with the tag; for example, a boolean setting can have &quot;true&quot; or &quot;false&quot; as values, whereas a vector setting has a value string such as &quot;(1.0, -2.0, 0.5)&quot;. String values can be enclosed in double quotes to allow spaces and other special characters.
 
 <H2>Vrui Initialization</H2>
 
-When the Vrui toolkit initializes itself, it gathers its configuration data from one or more configuration files. First, Vrui loads its system configuration file, which should contain settings defining the layout of the local VR environment, and environment-appropriate user interface bindings. The system configuration file is always etc/Vrui.cfg in Vrui's installation directory. It should be adapted to the local environment by a system administrator, and should not be edited by users.<P>
+When the Vrui toolkit initializes itself, it first opens the system-wide configuration file (etc/Vrui.cfg in the Vrui installation directory). After that, it looks for a user-defined configuration file (pointed to by the VRUI_CONFIGFILE environment variable) and merges the latter's section tree into the system-wide configuration file. This mechanism allows users to override only parts of Vrui.cfg to their own liking, or to provide application-specific configurations.<P>
 
-After reading the system configuration file, Vrui looks for a user- or application-specific configuration file, which, if it exists, is merged into the system configuration file, and can override selected settings to adapt Vrui to a user's liking, or to the needs of a particular application. The name of this file defaults to ./Vrui.cfg, i.e., a file named Vrui.cfg in the directory that was current at the time the Vrui application was started. If the environment variable VRUI_CONFIGFILE exists, the name of the user-specific configuration file is taken from that variable instead.<P>
-
-Finally, an arbitrary number of additional configuration files can be merged into Vrui's configuration data by listing their names on the application's command line, each one preceded by the tag -mergeConfig. These files are merged in the order in which they are listed on the command line. E.g., &lt;ApplicationName&gt; -mergeConfig File1.cfg -mergeConfig File2.cfg merges configuration files File1.cfg and File2.cfg, in that order.<P>
-
-After merging all configuration files, Vrui determines the configuration's root section. This root section is always inside the &quot;Vrui&quot; section at the very root of Vrui.cfg, and its name is determined by a sequence of steps:
+After merging the files, Vrui determines the configuration's root section. This root section is always inside the &quot;Vrui&quot; section at the very root of Vrui.cfg, and its name is determined by a sequence of steps:
 <OL>
 <LI>If a -rootSection &lt;name&gt; switch is given on the application's command line, Vrui uses the given name as the root section name.</LI>
 
 <LI>If an environment variable VRUI_ROOTSECTION exists, Vrui uses its value as the root section name.</LI>
 
-<LI>If the &quot;Vrui&quot; section contains a section that has the same name as the local machine name (as defined by the environment variables HOSTNAME or, if HOSTNAME is not defined, HOST), Vrui uses that section as the root section.</LI>
+<LI>If the &quot;Vrui&quot; section contains a section that has the same name as the local machine name (as reported by HOSTNAME), Vrui uses that section as the root section.</LI>
 
-<LI>If all else fails, Vrui uses the &quot;Desktop&quot; section inside the &quot;Vrui&quot; section as the root section</LI>
+<LI>If all else fails, Vrui uses the &quot;Simulator&quot; section inside the &quot;Vrui&quot; section as the root section</LI>
 </OL>
 This mechanism of selecting root sections supports location-independent development: in a lab setting where users have a single account shared between several desktop systems and several virtual reality environments, they only have to build the Vrui toolkit and their applications once. Each VR environment has its own root section named after the controlling terminal in Vrui.cfg, and when an application is started on any computer, it will find the appropriate settings. In other words, a single application will run in VR mode when started from a VR environment's controlling terminal, and run in desktop mode when started from any &quot;unknown&quot; computer.<P>
 
@@ -95,7 +91,7 @@ All other settings in the root section are related to the 3D environment represe
 
 <H3>Input Device Adapter Definition</H3>
 
-Each subsection listed in the inputDeviceAdapterNames setting defines one source for input device data. A Vrui environment can gather its data from any number of sources; each subsection defines the format of data from one source, and how to integrate that data into the environment's overall input device layout. An input device adapter's settings are:
+Each subsection listed in the inputDeviceAdapternames setting defines one source for input device data. A Vrui environment can gather its data from any number of sources; each subsection defines the format of data from one source, and how to integrate that data into the environment's overall input device layout. An input device adapter's settings are:
 <DL>
 <DT>inputDeviceAdapterType</DT>
 <DD>Setting defining the type of the input data source. All further settings depend on the type of adapter. The most important available types are:
@@ -106,9 +102,6 @@ Each subsection listed in the inputDeviceAdapterNames setting defines one source
 <DT>DeviceDaemon</DT>
 <DD>An input device adapter getting its data from an separate VR device driver, potentially located on a separate computer. The Vrui VR device driver reports its data as a &quot;flat&quot; list of 6-DOF trackers, buttons, and valuators. The rest of the settings describe how to connect to the separate device driver, and how to assemble the flat device data into individual input devices.</DD>
 </DL></DD>
-
-<DT>HID</DT>
-<DD>An input device adapter representing one or more input devices exposed via the operating system's human interface device (HID) subsystem. These are typically desktop devices such as joysticks, spaceballs, gamepads, etc. HID devices can alternatively be connected to a separate VR device daemon and imported via a DeviceDaemon input device adapter, but it is often easier to connect them directly via HID.</DD>
 </DL>
 
 <H3>Viewer Definition</H3>
@@ -193,9 +186,6 @@ Each subsection listed in the windowNames setting defines one window, acting as 
 <DT>windowFullscreen</DT>
 <DD>If this boolean setting is true, Vrui ignores the desired window position and size and creates a fullscreen window covering the entire display. Modern window managers will usually grant this request, but some might still draw the resulting window with decoration.</DD>
 
-<DT>autoScreenSize</DT>
-<DD>In &quot;real&quot; VR environments, the positions and sizes of screens are typically measured carefully and entered into their respective screen sections. In desktop environments, however, screen sizes are much more dynamic, i.e., change depending on what kind of monitor is currently plugged in. To reduce configuration effort in such cases, windows can be told to calculate their own size based on information provided by the operating system. If the autoScreenSize tag is set to true, the window will query its display's size, and override the size values configured in its associated screen. This only works if each screen is associated with at most one automatically resizing window.</DD>
-
 <DT>panningViewport</DT>
 <DD>Normal 3D graphics applications do not change the display when the window containing the display is moved on the screen. In Vrui, however, because the display is based on physical coordinates, moving a window on the screen should change what is displayed. In Vrui, one can think of OpenGL/display windows as &quot;real&quot; windows into a virtual 3D space that extends in front of and behind the screen. By setting panningViewport to true, Vrui takes the position and size of its display windows into account when setting up the 3D projection; if the setting is false, Vrui assumes that the window entirely covers the screen as defined in the configuration file. This will lead to bad results if the physical window size does not match the configured screen size, and especially if the window's and screen's aspect ratios do not match. It is generally advisable to either define all desktop windows as panning viewports, or to always use fullscreen windows.</DD>
 
@@ -255,25 +245,19 @@ Whether a Vrui application runs in single-pipe or multipipe mode is determined d
 <DD>Must be set to true to enter multipipe mode; defaults to false if the setting is not present.</DD>
 
 <DT>multipipeMaster</DT>
-<DD>This setting contains the IP address (or host name) of the cluster's controlling terminal (the one where Vrui applications are started by users), as seen from the other node's network. Normally, a cluster will have its own private network with the master node doubling as a router/firewall; the address given here is the master's address on that subnet. For example, a cluster master node might have an externally-visible IP address of 169.237.93.10, but the internal cluster network might use the IP subnet 192.168.1.0, with the master node's internal IP address being 192.168.1.1. In that case, multipipeMaster must be 192.168.1.1.</DD>
+<DD>This setting contains the IP address (or host name) of the cluster's controlling terminal (the one where Vrui applications are started by users), as seen from the other node's network. Normally, a cluster will have its own private network with the master node doubling as a router/firewall; the address given here is the master's address on that subnet.</DD>
 
 <DT>multipipeSlaves</DT>
-<DD>This setting contains a list of the IP addresses (or host names) of all other cluster nodes. For later reference, nodes in this list are numbered starting at 1; the node number 0 is assigned to the master node. The host names in this list are used while the Vrui application spawns copies of itself on the slave nodes via remote login; in other words, they must be valid addresses for the configured remote login shell (ssh by default).</DD>
+<DD>This setting contains a list of the IP addresses (or host names) of all other cluster nodes. For later reference, nodes in this list are numbered starting at 1; the node number 0 is assigned to the master node.</DD>
 
 <DT>multipipeMulticastGroup</DT>
-<DD>This setting contains an IP multicast address or broadcast address that can reach all slave nodes from the master node. If this address is a valid multicast address, Vrui will use UDP broadcast over IP multicast to communicate from the master to all slaves; otherwise, the address is assumed to be a valid IP broadcast address, and Vrui will use UDP broadcast over IP broadcast to communicate from the master to all slaves. The slaves will always use UDP unicast to communicate back to the master. This multicast/broadcast address does not have to be on the same subnet as the slave host names provided in the multipipeSlaves setting.</DD>
+<DD>This setting contains an IP multicast address or broadcast address that can reach all slave nodes from the master node. If this address is a valid multicast address, Vrui will use UDP broadcast over IP multicast to communicate from the master to all slaves; otherwise, the address is assumed to be a valid IP broadcast address, and Vrui will use UDP broadcast over IP broadcast to communicate from the master to all slaves. The slaves will always use UDP unicast to communicate back to the master.</DD>
 
-<DT>multipipeMasterPort&nbsp;/ multipipeMulticastPort</DT>
-<DD>The port numbers of the UDP sockets handling communication between the master and the slaves. multipipeMasterPort is the port number used on the master node; multipipeMulticastPort is the port number used on all slave nodes. Any installed firewalls on the master and slave nodes must be configured to allow access to the respective port number. The port numbers on master and slaves can be identical, but for optimal performance, they should be different.</DD>
-
-<DT>multipipeRemoteCommand</DT>
-<DD>The remote login shell used while the Vrui application on the master node spawns copies of itself on all slave nodes. When not present, this setting defaults to ssh. Since Vrui has no built-in means to handle user authentication, the chosen remote login shell must be configured such that it does not ask the user for passwords when logging into the slave nodes. For ssh, this can be achieved via host-based authentication, or by using public/private key pairs.</DD>
+<DT>multipipeMulticastPort</DT>
+<DD>The port number of the UDP communications socket between the master and the slaves. Only a single Vrui application can use a port at a time; if one needs to run several VR applications at once on the same cluster, they need to use different port numbers.</DD>
 
 <DT>node&lt;index&gt;WindowNames</DT>
 <DD>In single-pipe mode, Vrui reads the windowNames setting to get the list of windows rendered by the Vrui application. In multipipe mode, there is an independent setting for each cluster node. The nodes are numbered starting at 0 for the master node, and continuing in order of the node names listed in the multipipeSlaves setting. It is possible to have nodes with an empty window list; those nodes will not render anything, but otherwise fully participate in processing. One possible use for windowless nodes is as the controlling terminal of a visualization cluster, or as audio-only nodes.</DD>
-
-<DT>node&lt;index&gt;SoundContextName</DT>
-<DD>OpenAL sound context fulfil the same role for sound processing as windows for OpenGL rendering. Each node in the cluster can have zero or one sound contexts; any node without a sound context will not generate spatial sound. Nodes are numbered in the same way as in the node&lt;index&gt;WindowNames setting.</DD>
 </DL>
 
 <H3>Shared-Memory Multipipe Rendering</H3>

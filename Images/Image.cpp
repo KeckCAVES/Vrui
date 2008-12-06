@@ -2,7 +2,7 @@
 Image - Base class to represent images of arbitrary pixel formats. The
 image coordinate system is such that pixel (0,0) is in the lower-left
 corner.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -62,29 +62,6 @@ Image<ScalarParam,numComponentsParam>::ImageRepresentation::ImageRepresentation(
 	
 	/* Copy the source image data: */
 	memcpy(image,source.image,size_t(size[0])*size_t(size[1])*sizeof(Color));
-	}
-
-template <class ScalarParam,int numComponentsParam>
-template <class SourceScalarParam,int sourceNumComponentsParam>
-Image<ScalarParam,numComponentsParam>::ImageRepresentation::ImageRepresentation(
-	const unsigned int sSize[2],
-	const GLColor<SourceScalarParam,sourceNumComponentsParam>* sPixels)
-	:refCount(1),
-	 image(0)
-	{
-	/* Set the image size: */
-	for(int i=0;i<2;++i)
-		size[i]=sSize[i];
-	
-	/* Allocate the image array: */
-	image=new Color[size_t(size[0])*size_t(size[1])];
-	
-	/* Copy the source image data: */
-	const typename Image<SourceScalarParam,sourceNumComponentsParam>::Color* sPtr=sPixels;
-	Color* dPtr=image;
-	for(unsigned int y=0;y<size[1];++y)
-		for(unsigned int x=0;x<size[0];++x,++sPtr,++dPtr)
-			*dPtr=*sPtr;
 	}
 
 template <class ScalarParam,int numComponentsParam>
@@ -206,10 +183,11 @@ Image<ScalarParam,numComponentsParam>::resize(
 		float sampleX=(float(x)+0.5f)*float(oldWidth)/float(newWidth)+0.5f;
 		/* Note: sampleX is the x coordinate of the next pixel to the right, to get around some issues. */
 		
-		unsigned int sx=(unsigned int)(sampleX);
+		float fsx=Math::floor(sampleX);
+		unsigned int sx=(unsigned int)(fsx);
 		const Color* sCol0=sx>0?&rep->image[sx-1]:&rep->image[0];
 		const Color* sCol1=sx<oldWidth?&rep->image[sx]:&rep->image[oldWidth-1];
-		float w1=sampleX-float(sx);
+		float w1=sampleX-fsx;
 		float w0=1.0f-w1;
 		FColor* dCol=&buffer[x];
 		for(unsigned int y=0;y<oldHeight;++y,sCol0+=oldWidth,sCol1+=oldWidth,dCol+=newWidth)
@@ -229,16 +207,17 @@ Image<ScalarParam,numComponentsParam>::resize(
 		float sampleY=(float(y)+0.5f)*float(oldHeight)/float(newHeight)+0.5f;
 		/* Note: sampleY is the y coordinate of the next pixel to the top, to get around some issues. */
 		
-		unsigned int sy=(unsigned int)(sampleY);
+		float fsy=Math::floor(sampleY);
+		unsigned int sy=(unsigned int)(fsy);
 		const FColor* sRow0=sy>0?&buffer[(sy-1)*newWidth]:&buffer[0];
 		const FColor* sRow1=sy<oldHeight?&buffer[sy*newWidth]:&buffer[(oldHeight-1)*newWidth];
-		float w1=sampleY-float(sy);
+		float w1=sampleY-fsy;
 		float w0=1.0f-w1;
 		Color* dRow=&rep->image[y*newWidth];
 		for(unsigned int x=0;x<newWidth;++x,++sRow0,++sRow1,++dRow)
 			{
 			for(int i=0;i<numComponents;++i)
-				(*dRow)[i]=Scalar((*sRow0)[i]*w0+(*sRow1)[i]*w1+0.5f);
+				(*dRow)[i]=Scalar(Math::floor((*sRow0)[i]*w0+(*sRow1)[i]*w1+0.5f));
 			}
 		}
 	delete[] buffer;
@@ -247,19 +226,6 @@ Image<ScalarParam,numComponentsParam>::resize(
 /*************************************************
 Force instantiation of all standard Image classes:
 *************************************************/
-
-template Image<GLubyte,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,3>*);
-template Image<GLubyte,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,4>*);
-template Image<GLubyte,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,4>*);
-template Image<GLushort,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,3>*);
-template Image<GLushort,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,4>*);
-template Image<GLushort,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,4>*);
-template Image<GLubyte,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,3>*);
-template Image<GLubyte,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,3>*);
-template Image<GLubyte,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,4>*);
-template Image<GLushort,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,3>*);
-template Image<GLushort,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,3>*);
-template Image<GLushort,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,4>*);
 
 template class Image<GLubyte,3>;
 template class Image<GLubyte,4>;

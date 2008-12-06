@@ -1,6 +1,6 @@
 /***********************************************************************
 Listener - Class for listeners/ sound observers in VR environments.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,11 +38,7 @@ Methods of class Listener:
 *************************/
 
 Listener::Listener(void)
-	:listenerName(0),headDevice(0),
-	 deviceHeadPosition(Point::origin),
-	 deviceListenDirection(Vector(0,1,0)),
-	 deviceUpDirection(Vector(0,0,1)),
-	 gain(1)
+	:listenerName(0),headDevice(0)
 	{
 	}
 
@@ -66,9 +62,6 @@ void Listener::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		headDevice=findInputDevice(configFileSection.retrieveString("./headDevice").c_str());
 		if(headDevice==0)
 			Misc::throwStdErr("Listener: Head device \"%s\" not found",configFileSection.retrieveString("./headDevice").c_str());
-		
-		/* Initialize the head device transformation: */
-		headDeviceTransformation=headDevice->getTransformation();
 		}
 	else
 		{
@@ -77,14 +70,9 @@ void Listener::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		}
 	
 	/* Get head position and listening and up directions in head device coordinates: */
-	deviceHeadPosition=configFileSection.retrieveValue<Point>("./headPosition",deviceHeadPosition);
-	deviceListenDirection=configFileSection.retrieveValue<Vector>("./listenDirection",deviceListenDirection);
-	deviceListenDirection.normalize();
-	deviceUpDirection=configFileSection.retrieveValue<Vector>("./upDirection",deviceUpDirection);
-	deviceUpDirection.normalize();
-	
-	/* Get listener's gain factor: */
-	gain=configFileSection.retrieveValue<Scalar>("./gain",gain);
+	deviceHeadPosition=configFileSection.retrieveValue<Point>("./headPosition",Point::origin);
+	deviceListenDirection=configFileSection.retrieveValue<Vector>("./listenDirection",Vector(0,1,0));
+	deviceUpDirection=configFileSection.retrieveValue<Vector>("./upDirection",Vector(0,0,1));
 	}
 
 void Listener::update(void)

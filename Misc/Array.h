@@ -59,7 +59,7 @@ class ArrayBase
 	/* Constructors and destructors: */
 	public:
 	ArrayBase(void) // Dummy constructor; creates uninitialized array
-		:size(0),elements(0),endElements(0)
+		:elements(0),endElements(0)
 		{
 		}
 	ArrayBase(const IndexBase& sSize) // Creates uninitialized array of given size
@@ -174,14 +174,6 @@ class ArrayBase
 				return false;
 		return true;
 		}
-	const Content& operator[](const IndexBase& index) const // Access element
-		{
-		return elements[calcOffset(index)];
-		}
-	Content& operator[](const IndexBase& index) // Ditto
-		{
-		return elements[calcOffset(index)];
-		}
 	const Content& operator()(const IndexBase& index) const // Access element
 		{
 		return elements[calcOffset(index)];
@@ -289,7 +281,6 @@ class Array:public ArrayBase<ContentParam,dimensionParam>
 	using ArrayBase<ContentParam,dimensionParam>::elements;
 	
 	/* Constructors and destructors: */
-	public:
 	Array(void)
 		{
 		}
@@ -305,100 +296,6 @@ class Array:public ArrayBase<ContentParam,dimensionParam>
 		{
 		BaseClass::operator=(source);
 		return *this;
-		}
-	};
-
-template <class ContentParam>
-class Array<ContentParam,1>:public ArrayBase<ContentParam,1>
-	{
-	/* Embedded classes: */
-	public:
-	typedef ArrayBase<ContentParam,1> BaseClass;
-	
-	/* Declarations of inherited types and elements: */
-	protected:
-	using ArrayBase<ContentParam,1>::size;
-	using ArrayBase<ContentParam,1>::elements;
-	
-	/* Constructors and destructors: */
-	public:
-	Array(void)
-		{
-		}
-	Array(int size0)
-		:BaseClass(typename BaseClass::Index(size0))
-		{
-		}
-	Array(const typename BaseClass::IndexBase& sSize)
-		:BaseClass(sSize)
-		{
-		}
-	Array(const Array& source)
-		:BaseClass(source)
-		{
-		}
-	Array& operator=(const Array& source)
-		{
-		BaseClass::operator=(source);
-		return *this;
-		}
-	
-	/* Methods: */
-	ptrdiff_t calcLinearIndex(int i0) const // Returns the linear index of an element with index components
-		{
-		return ptrdiff_t(i0);
-		}
-	ptrdiff_t calcLinearIndex(const typename BaseClass::IndexBase& index) const // Returns the linear index of an element
-		{
-		return ptrdiff_t(index[0]);
-		}
-	typename BaseClass::IndexBase calcIndex(ptrdiff_t linearIndex) const // Converts a linear index to a multiindex
-		{
-		return typename BaseClass::Index(int(linearIndex));
-		}
-	const typename BaseClass::Content* getAddress(int i0) const // Returns pointer to array element with index components
-		{
-		return elements+i0;
-		}
-	typename BaseClass::Content* getAddress(int i0) // Ditto
-		{
-		return elements+i0;
-		}
-	const typename BaseClass::Content* getAddress(const typename BaseClass::IndexBase& index) const // Returns pointer to array element
-		{
-		return elements+index[0];
-		}
-	typename BaseClass::Content* getAddress(const typename BaseClass::IndexBase& index) // Ditto
-		{
-		return elements+index[0];
-		}
-	typename BaseClass::IndexBase calcIndex(const typename BaseClass::Content* address) const // Converts an address inside the array to a multiindex
-		{
-		return typename BaseClass::Index(int(address-elements));
-		}
-	const typename BaseClass::Content& operator()(int i0) const // Access element with index components
-		{
-		return elements[i0];
-		}
-	typename BaseClass::Content& operator()(int i0) // Ditto
-		{
-		return elements[i0];
-		}
-	const typename BaseClass::Content& operator()(const typename BaseClass::IndexBase& index) const // Access element
-		{
-		return elements[index[0]];
-		}
-	typename BaseClass::Content& operator()(const typename BaseClass::IndexBase& index) // Ditto
-		{
-		return elements[index[0]];
-		}
-	const typename BaseClass::Content& operator[](const typename BaseClass::IndexBase& index) const // Access element
-		{
-		return elements[index[0]];
-		}
-	typename BaseClass::Content& operator[](const typename BaseClass::IndexBase& index) // Ditto
-		{
-		return elements[index[0]];
 		}
 	};
 
@@ -492,14 +389,6 @@ class Array<ContentParam,2>:public ArrayBase<ContentParam,2>
 		{
 		return elements[calcOffset(index)];
 		}
-	const typename BaseClass::Content& operator[](const typename BaseClass::IndexBase& index) const // Access element
-		{
-		return elements[calcOffset(index)];
-		}
-	typename BaseClass::Content& operator[](const typename BaseClass::IndexBase& index) // Ditto
-		{
-		return elements[calcOffset(index)];
-		}
 	};
 
 template <class ContentParam>
@@ -581,14 +470,6 @@ class Array<ContentParam,3>:public ArrayBase<ContentParam,3>
 		return elements[calcOffset(index)];
 		}
 	typename BaseClass::Content& operator()(const typename BaseClass::IndexBase& index) // Ditto
-		{
-		return elements[calcOffset(index)];
-		}
-	const typename BaseClass::Content& operator[](const typename BaseClass::IndexBase& index) const // Access element
-		{
-		return elements[calcOffset(index)];
-		}
-	typename BaseClass::Content& operator[](const typename BaseClass::IndexBase& index) // Ditto
 		{
 		return elements[calcOffset(index)];
 		}

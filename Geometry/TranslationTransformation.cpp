@@ -1,6 +1,6 @@
 /***********************************************************************
 TranslationTransformation - Class for n-dimensional translations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -20,9 +20,28 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Geometry/TranslationTransformation.icpp>
+#define GEOMETRY_TRANSLATIONTRANSFORMATION_IMPLEMENTATION
+
+#ifndef METHODPREFIX
+	#ifdef NONSTANDARD_TEMPLATES
+		#define METHODPREFIX inline
+	#else
+		#define METHODPREFIX
+	#endif
+#endif
+
+#include <Geometry/TranslationTransformation.h>
 
 namespace Geometry {
+
+/**************************************************
+Static elements of class TranslationTransformation:
+**************************************************/
+
+template <class ScalarParam,int dimensionParam>
+const TranslationTransformation<ScalarParam,dimensionParam> TranslationTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
+
+#if !defined(NONSTANDARD_TEMPLATES)
 
 /***********************************************************************************
 Force instantiation of all standard TranslationTransformation classes and functions:
@@ -32,5 +51,7 @@ template class TranslationTransformation<float,2>;
 template class TranslationTransformation<double,2>;
 template class TranslationTransformation<float,3>;
 template class TranslationTransformation<double,3>;
+
+#endif
 
 }

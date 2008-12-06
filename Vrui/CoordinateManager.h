@@ -2,7 +2,7 @@
 CoordinateManager - Class to manage the (navigation) coordinate system
 of a Vrui application to support system-wide navigation manipulation
 interfaces.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
-#include <Geometry/LinearUnit.h>
 #include <Vrui/Geometry.h>
 
 /* Forward declarations: */
@@ -41,6 +40,23 @@ class CoordinateManager
 	{
 	/* Embedded classes: */
 	public:
+	enum Unit // Enumerated type for coordinate units
+		{
+		UNKNOWN=0,
+		
+		/* Metric units: */
+		NANOMETER,MICROMETER,MILLIMETER,CENTIMETER,METER,KILOMETER,
+		
+		/* Imperial units: */
+		POINT,INCH,FOOT,YARD,MILE,
+		
+		/* Other units: */
+		ANGSTROM,POTRZEBIE,ASTRONOMICAL_UNIT,LIGHT_YEAR,PARSEC,
+		
+		/* List terminator: */
+		NUM_COORDINATEUNITS
+		};
+	
 	class CallbackData:public Misc::CallbackData // Base class for coordinate manager events
 		{
 		/* Constructors and destructors: */
@@ -66,9 +82,14 @@ class CoordinateManager
 	
 	/* Elements: */
 	private:
+	static const char* unitNames[NUM_COORDINATEUNITS]; // Full names of coordinate units for display
+	static const char* unitAbbreviations[NUM_COORDINATEUNITS]; // Abbreviated names of coordinate units for display
+	static const Scalar unitInchFactors[NUM_COORDINATEUNITS]; // Conversion factors from coordinate units to inches
+	static const Scalar unitMeterFactors[NUM_COORDINATEUNITS]; // Conversion factors from coordinate units to meters
 	
-	/* Current coordinate unit: */
-	Geometry::LinearUnit unit; // Unit of length measurements
+	/* Current coordinate system settings: */
+	Unit unit; // Type of coordinate unit used by application
+	Scalar unitFactor; // Multiplication factor for coordinate unit used by application (i.e., one application unit = unitFactor coordinateUnit)
 	
 	/* Current coordinate transformation: */
 	CoordinateTransform* transform; // Coordinate transformation from navigation space to "user interest space," used by measurement tools
@@ -80,10 +101,26 @@ class CoordinateManager
 	~CoordinateManager(void); // Destroys coordinate manager
 	
 	/* Methods: */
-	void setUnit(const Geometry::LinearUnit& newUnit); // Sets the application's coordinate unit and scale factor
-	const Geometry::LinearUnit& getUnit(void) const // Returns the current application coordinate unit
+	void setUnit(Unit newUnit,Scalar newUnitFactor); // Sets the application's coordinate unit and scale factor
+	const char* getUnitName(void) const // Returns the full name of the current application coordinate unit
 		{
-		return unit;
+		return unitNames[unit];
+		}
+	const char* getUnitAbbreviation(void) const // Returns the abbreviated name of the current application coordinate unit
+		{
+		return unitAbbreviations[unit];
+		}
+	Scalar getUnitInchFactor(void) const // Returns length of an inch in current scaled coordinate units
+		{
+		return unitInchFactors[unit]/unitFactor;
+		}
+	Scalar getUnitMeterFactor(void) const // Returns length of a meter in current scaled coordinate units
+		{
+		return unitMeterFactors[unit]/unitFactor;
+		}
+	Scalar getUnitFactor(void) const // Returns the unit's multiplication factor
+		{
+		return unitFactor;
 		}
 	void setCoordinateTransform(CoordinateTransform* newTransform); // Sets a new coordinate transformation; coordinate manager adopts object
 	const CoordinateTransform* getCoordinateTransform(void) const // Returns current coordinate transformation

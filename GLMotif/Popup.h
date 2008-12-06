@@ -1,6 +1,6 @@
 /***********************************************************************
 Popup - Class for top-level GLMotif UI components.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -45,7 +45,7 @@ class Popup:public Container
 	/* Constructors and destructors: */
 	public:
 	Popup(const char* sName,WidgetManager* sManager);
-	virtual ~Popup(void); // Pops down the widget if it is currently managed by the widget manager and destroys it
+	virtual ~Popup(void);
 	
 	/* Methods inherited from Widget: */
 	virtual const WidgetManager* getManager(void) const
@@ -59,12 +59,12 @@ class Popup:public Container
 	virtual Vector calcNaturalSize(void) const;
 	virtual ZRange calcZRange(void) const;
 	virtual void resize(const Box& newExterior);
+	virtual Vector calcHotSpot(void) const;
 	virtual void draw(GLContextData& contextData) const;
 	virtual bool findRecipient(Event& event);
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
-	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);

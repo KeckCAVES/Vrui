@@ -1,7 +1,7 @@
 /***********************************************************************
 Jello - VR program to interact with "virtual Jell-O" using a simplified
 force interaction model based on the Nanotech Construction Kit.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2007 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -20,10 +20,10 @@ with Virtual Jell-O; if not, write to the Free Software Foundation,
 Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include "Jello.h"
-
 #include <stdlib.h>
+#include <iostream>
 #include <vector>
+#include <stdexcept>
 #include <Math/Math.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
@@ -33,8 +33,11 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
+#include <GLMotif/TextField.h>
 #include <GLMotif/Button.h>
 #include <Vrui/Vrui.h>
+
+#include "Jello.h"
 
 /***********************************
 Methods of class Jello::AtomDragger:
@@ -102,7 +105,7 @@ GLMotif::PopupMenu* Jello::createMainMenu(void)
 	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
 	centerDisplayButton->getSelectCallbacks().add(this,&Jello::centerDisplayCallback);
 	
-	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
+	GLMotif::ToggleButton* showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&Jello::showSettingsDialogCallback);
 	
 	mainMenu->manageChild();
@@ -110,55 +113,71 @@ GLMotif::PopupMenu* Jello::createMainMenu(void)
 	return mainMenuPopup;
 	}
 
+void Jello::updateSettingsDialog(void)
+	{
+	/* Update the jiggliness slider: */
+	double jiggliness=(Math::log(double(crystal.getAtomMass()))/Math::log(1.1)+32.0)/64.0;
+	jigglinessTextField->setValue(jiggliness);
+	jigglinessSlider->setValue(jiggliness);
+	
+	/* Update the viscosity slider: */
+	viscosityTextField->setValue(1.0-double(crystal.getAttenuation()));
+	viscositySlider->setValue(1.0-double(crystal.getAttenuation()));
+	
+	/* Update the gravity slider: */
+	gravityTextField->setValue(double(crystal.getGravity()));
+	gravitySlider->setValue(double(crystal.getGravity()));
+	}
+
 GLMotif::PopupWindow* Jello::createSettingsDialog(void)
 	{
 	const GLMotif::StyleSheet& ss=*Vrui::getWidgetManager()->getStyleSheet();
 	
 	settingsDialog=new GLMotif::PopupWindow("SettingsDialog",Vrui::getWidgetManager(),"Settings Dialog");
-	settingsDialog->setCloseButton(true);
-	settingsDialog->setResizableFlags(true,false);
-	settingsDialog->getCloseCallbacks().add(this,&Jello::settingsDialogCloseCallback);
 	
 	GLMotif::RowColumn* settings=new GLMotif::RowColumn("Settings",settingsDialog,false);
-	settings->setNumMinorWidgets(2);
+	settings->setNumMinorWidgets(3);
 	
 	new GLMotif::Label("JigglinessLabel",settings,"Jiggliness");
 	
-	jigglinessSlider=new GLMotif::TextFieldSlider("JigglinessSlider",settings,5,ss.fontHeight*10.0f);
-	jigglinessSlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
-	jigglinessSlider->getTextField()->setFieldWidth(4);
-	jigglinessSlider->getTextField()->setPrecision(2);
+	jigglinessTextField=new GLMotif::TextField("JigglinessTextField",settings,6);
+	jigglinessTextField->setFieldWidth(6);
+	jigglinessTextField->setPrecision(4);
+	
+	jigglinessSlider=new GLMotif::Slider("JigglinessSlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
 	jigglinessSlider->setValueRange(0.0,1.0,0.01);
-	jigglinessSlider->setValue((Math::log(double(crystal.getAtomMass()))/Math::log(1.1)+32.0)/64.0);
 	jigglinessSlider->getValueChangedCallbacks().add(this,&Jello::jigglinessSliderCallback);
 	
 	new GLMotif::Label("ViscosityLabel",settings,"Viscosity");
 	
-	viscositySlider=new GLMotif::TextFieldSlider("ViscositySlider",settings,5,ss.fontHeight*10.0f);
-	viscositySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
-	viscositySlider->getTextField()->setFieldWidth(4);
-	viscositySlider->getTextField()->setPrecision(2);
+	viscosityTextField=new GLMotif::TextField("ViscosityTextField",settings,6);
+	viscosityTextField->setFieldWidth(6);
+	viscosityTextField->setPrecision(2);
+	
+	viscositySlider=new GLMotif::Slider("ViscositySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
 	viscositySlider->setValueRange(0.0,1.0,0.01);
-	viscositySlider->setValue(1.0-double(crystal.getAttenuation()));
 	viscositySlider->getValueChangedCallbacks().add(this,&Jello::viscositySliderCallback);
 	
 	new GLMotif::Label("GravityLabel",settings,"Gravity");
 	
-	gravitySlider=new GLMotif::TextFieldSlider("GravitySlider",settings,5,ss.fontHeight*10.0f);
-	gravitySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
-	gravitySlider->getTextField()->setFieldWidth(4);
-	gravitySlider->getTextField()->setPrecision(1);
+	gravityTextField=new GLMotif::TextField("GravityTextField",settings,6);
+	gravityTextField->setFieldWidth(6);
+	gravityTextField->setPrecision(2);
+	
+	gravitySlider=new GLMotif::Slider("GravitySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
 	gravitySlider->setValueRange(0.0,40.0,0.5);
-	gravitySlider->setValue(double(crystal.getGravity()));
 	gravitySlider->getValueChangedCallbacks().add(this,&Jello::gravitySliderCallback);
 	
 	settings->manageChild();
 	
+	/* Display the current values: */
+	updateSettingsDialog();
+	
 	return settingsDialog;
 	}
 
-Jello::Jello(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
+Jello::Jello(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults),
 	 crystal(JelloCrystal::Index(4,4,8)),
 	 renderer(crystal),
 	 targetFrameRate(50.0),
@@ -272,36 +291,60 @@ void Jello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallba
 	/* Hide or show settings dialog based on toggle button state: */
 	if(cbData->set)
 		{
-		/* Pop up the settings dialog: */
-		Vrui::popupPrimaryWidget(settingsDialog);
+		/* Pop up the settings dialog at the same position as the main menu: */
+		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);
 	}
 
-void Jello::jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+void Jello::jigglinessSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
 	{
 	/* Compute and set the atom mass: */
-	double atomMass=Math::exp(Math::log(1.1)*(cbData->value*64.0-32.0));
+	double jiggliness=cbData->value;
+	double atomMass=Math::exp(Math::log(1.1)*(jiggliness*64.0-32.0));
 	crystal.setAtomMass(atomMass);
+	
+	/* Update the settings dialog: */
+	updateSettingsDialog();
 	}
 
-void Jello::viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+void Jello::viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the attenuation: */
 	crystal.setAttenuation(Scalar(1.0-cbData->value));
+	
+	/* Update the settings dialog: */
+	updateSettingsDialog();
 	}
 
-void Jello::gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+void Jello::gravitySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the gravity: */
 	crystal.setGravity(Scalar(cbData->value));
+	
+	/* Update the settings dialog: */
+	updateSettingsDialog();
 	}
 
-void Jello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
+int main(int argc,char* argv[])
 	{
-	showSettingsDialogToggle->setToggle(false);
+	try
+		{
+		/* Create an application object: */
+		char** appDefaults=0;
+		Jello app(argc,argv,appDefaults);
+		
+		/* Run the Vrui main loop: */
+		app.run();
+		}
+	catch(std::runtime_error err)
+		{
+		/* Print an error message and bail out: */
+		std::cerr<<"Caught exception: "<<err.what()<<std::endl;
+		return 1;
+		}
+	
+	/* Exit to OS: */
+	return 0;
 	}
-
-/* Create and execute an application object: */
-VRUI_APPLICATION_RUN(Jello)

@@ -1,7 +1,7 @@
 /***********************************************************************
 SplineCurve - Class for n-dimensional non-uniform, non-rational B-spline
 curves.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2007 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -185,8 +185,8 @@ class SplineCurve
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_SPLINECURVE_IMPLEMENTATION)
-#include <Geometry/SplineCurve.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_SPLINECURVE_IMPLEMENTATION)
+#include <Geometry/SplineCurve.cpp>
 #endif
 
 #endif

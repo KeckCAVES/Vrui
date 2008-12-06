@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/JediTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -31,9 +29,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLContextData.h>
 #include <GL/GLGeometryWrappers.h>
 #include <Images/ReadImageFile.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/DisplayState.h>
+#include <Vrui/Viewer.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/JediTool.h>
 
 namespace Vrui {
 
@@ -49,10 +49,11 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	 lightsaberImageFileName(DEFAULTLIGHTSABERIMAGEFILENAME)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
+	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
@@ -71,16 +72,6 @@ JediToolFactory::~JediToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	JediTool::factory=0;
-	}
-
-const char* JediToolFactory::getName(void) const
-	{
-	return "Jedi Tool";
-	}
-
-const char* JediToolFactory::getButtonFunction(int) const
-	{
-	return "Toggle on / off";
 	}
 
 Tool* JediToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -127,12 +118,10 @@ Methods of class JediTool:
 *************************/
 
 JediTool::JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:PointingTool(factory,inputAssignment),
-	 GLObject(false),
+	:UtilityTool(factory,inputAssignment),
 	 lightsaberImage(Images::readImageFile(JediTool::factory->lightsaberImageFileName.c_str())),
 	 active(false)
 	{
-	GLObject::init();
 	}
 
 const ToolFactory* JediTool::getFactory(void) const
@@ -140,7 +129,24 @@ const ToolFactory* JediTool::getFactory(void) const
 	return factory;
 	}
 
-void JediTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void JediTool::initContext(GLContextData& contextData) const
+	{
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
+	
+	/* Upload the light saber image as a 2D texture: */
+	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
+	glBindTexture(GL_TEXTURE_2D,0);
+	}
+
+void JediTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{
@@ -163,37 +169,23 @@ void JediTool::frame(void)
 	if(active)
 		{
 		/* Update the light saber billboard: */
-		origin=getButtonDevicePosition(0);
-		axis=getButtonDeviceRayDirection(0);
+		basePoint=input.getDevice(0)->getPosition();
+		axis=input.getDevice(0)->getRayDirection();
+		x=Geometry::cross(axis,getMainViewer()->getHeadPosition()-basePoint);
+		x.normalize();
 		
 		/* Scale the lightsaber during activation: */
-		length=factory->lightsaberLength;
 		double activeTime=getApplicationTime()-activationTime;
 		if(activeTime<1.5)
 			{
-			length*=activeTime/1.5;
-			
-			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			axis*=activeTime/1.5;
+			requestUpdate();
 			}
+		
+		basePoint-=axis*factory->baseOffset;
+		axis*=factory->lightsaberLength;
+		x*=Math::div2(factory->lightsaberWidth);
 		}
-	}
-
-void JediTool::initContext(GLContextData& contextData) const
-	{
-	DataItem* dataItem=new DataItem;
-	contextData.addDataItem(this,dataItem);
-	
-	/* Upload the light saber image as a 2D texture: */
-	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
-	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
-	glBindTexture(GL_TEXTURE_2D,0);
 	}
 
 void JediTool::glRenderActionTransparent(GLContextData& contextData) const
@@ -203,20 +195,8 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		/* Get the data item: */
 		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 		
-		/* Get the eye position for the current rendering pass from Vrui's display state: */
-		const Point& eyePosition=Vrui::getDisplayState(contextData).eyePosition;
-		
-		/* Calculate the billboard size and orientation: */
-		Vector y=axis;
-		Vector x=axis^(eyePosition-origin);
-		x.normalize();
-		y*=length*scaleFactor;
-		x*=Math::div2(factory->lightsaberWidth*scaleFactor);
-		Point basePoint=origin;
-		basePoint-=axis*(factory->baseOffset*scaleFactor);
-		
 		/* Draw the light saber: */
-		glPushAttrib(GL_COLOR_BUFFER_BIT|GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);
+		glPushAttrib(GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);
 		glDisable(GL_LIGHTING);
 		glBlendFunc(GL_ONE,GL_ONE);
 		glDisable(GL_CULL_FACE);
@@ -229,9 +209,9 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		glTexCoord2f(1.0f,0.0f);
 		glVertex(basePoint+x);
 		glTexCoord2f(1.0f,1.0f);
-		glVertex(basePoint+x+y);
+		glVertex(basePoint+x+axis);
 		glTexCoord2f(0.0f,1.0f);
-		glVertex(basePoint-x+y);
+		glVertex(basePoint-x+axis);
 		glEnd();
 		glBindTexture(GL_TEXTURE_2D,0);
 		glPopAttrib();

@@ -1,6 +1,6 @@
 /***********************************************************************
 Popup - Class for top-level GLMotif UI components.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,8 +19,6 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Popup.h>
-
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
@@ -28,6 +26,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Event.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/Label.h>
+
+#include <GLMotif/Popup.h>
 
 namespace GLMotif {
 
@@ -55,14 +55,8 @@ Popup::Popup(const char* sName,WidgetManager* sManager)
 
 Popup::~Popup(void)
 	{
-	/* Pop down the widget: */
-	manager->popdownWidget(this);
-	
-	/* Unmanage and delete the title bar: */
-	deleteChild(title);
-	
-	/* Unmanage and delete the child widget: */
-	deleteChild(child);
+	delete title;
+	delete child;
 	}
 
 Vector Popup::calcNaturalSize(void) const
@@ -152,6 +146,14 @@ void Popup::resize(const Box& newExterior)
 	
 	/* Resize the parent class widget again to calculate the correct z range: */
 	Container::resize(newExterior);
+	}
+
+Vector Popup::calcHotSpot(void) const
+	{
+	if(title!=0)
+		return title->calcHotSpot();
+	else
+		return Widget::calcHotSpot();
 	}
 
 void Popup::draw(GLContextData& contextData) const
@@ -270,33 +272,15 @@ bool Popup::findRecipient(Event& event)
 
 void Popup::addChild(Widget* newChild)
 	{
-	if(newChild!=title)
-		{
-		/* Delete the current child: */
-		deleteChild(child);
-		
-		/* Add the new child: */
-		child=newChild;
-		
-		/* Resize the widget: */
-		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-		}
-	}
-
-void Popup::removeChild(Widget* removeChild)
-	{
-	/* Check if the given widget is really the child: */
-	if(child!=0&&child==removeChild)
-		{
-		/* Tell the child that it is being removed: */
-		child->unmanageChild();
-		
-		/* Remove the child: */
-		child=0;
-		
-		/* Resize the widget: */
-		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-		}
+	/* Delete the current child: */
+	delete child;
+	child=0;
+	
+	/* Add the new child: */
+	child=newChild;
+	
+	/* Resize the widget: */
+	resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 	}
 
 void Popup::requestResize(Widget* child,const Vector&)
@@ -362,17 +346,15 @@ void Popup::setTitleSpacing(GLfloat newTitleSpacing)
 void Popup::setTitle(const char* titleString,const GLFont* font)
 	{
 	/* Delete the current title: */
-	deleteChild(title);
+	delete title;
+	title=0;
 	
 	if(titleString!=0&&font!=0)
 		{
 		/* Create a new title widget: */
 		title=new Label("_Title",this,titleString,font,false);
 		title->setHAlignment(GLFont::Center);
-		title->manageChild();
 		}
-	else
-		title=0;
 	
 	/* Resize the widget: */
 	resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
@@ -381,17 +363,15 @@ void Popup::setTitle(const char* titleString,const GLFont* font)
 void Popup::setTitle(const char* titleString)
 	{
 	/* Delete the current title: */
-	deleteChild(title);
+	delete title;
+	title=0;
 	
 	if(titleString!=0)
 		{
 		/* Create a new title widget: */
 		title=new Label("_Title",this,titleString,false);
 		title->setHAlignment(GLFont::Center);
-		title->manageChild();
 		}
-	else
-		title=0;
 	
 	/* Resize the widget: */
 	resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));

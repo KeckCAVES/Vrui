@@ -1,7 +1,7 @@
 /***********************************************************************
 CascadeButton - Class for buttons that pop up secondary top-level
 GLMotif UI components.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,8 +20,6 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/CascadeButton.h>
-
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLNormalTemplates.h>
@@ -32,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Container.h>
 #include <GLMotif/Popup.h>
 
-#define GLMOTIF_CASCADEBUTTON_CENTER_POPUPS 1
+#include <GLMotif/CascadeButton.h>
 
 namespace GLMotif {
 
@@ -49,20 +47,11 @@ void CascadeButton::setArmed(bool newArmed)
 	if(isArmed&&!isPopped&&popup!=0)
 		{
 		/* Calculate the popup's transformation: */
-		Vector offset=getExterior().getCorner(1);
-		#if GLMOTIF_CASCADEBUTTON_CENTER_POPUPS
-		offset[1]+=getExterior().size[1]*0.5f;
-		#else
-		offset[1]+=getExterior().size[1];
-		#endif
-		Vector popupHotSpot=popup->getChild()->getExterior().getCorner(0);
-		#if GLMOTIF_CASCADEBUTTON_CENTER_POPUPS
-		popupHotSpot[1]+=popup->getChild()->getExterior().size[1]*0.5f;
-		#else
-		popupHotSpot[1]+=popup->getChild()->getExterior().size[1];
-		#endif
-		for(int i=0;i<3;++i)
-			offset[i]-=popupHotSpot[i];
+		Vector offset=getExterior().getCorner(3);
+		Vector popupHotSpot=popup->getChild()->getExterior().getCorner(2);
+		offset[0]-=popupHotSpot[0];
+		offset[1]-=popupHotSpot[1];
+		offset[2]-=popupHotSpot[2];
 		offset[2]+=getZRange().second-popup->getChild()->getZRange().first;
 		getManager()->popupSecondaryWidget(this,popup,offset);
 		isPopped=true;
@@ -93,15 +82,15 @@ CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sL
 	:DecoratedButton(sName,sParent,sLabel,sFont,false),
 	 popup(0),isPopped(false),
 	 foundChild(0),armedChild(0),
-	 arrow(GlyphGadget::FANCY_ARROW_RIGHT,GlyphGadget::IN,0.0f)
+	 arrow(Arrow::RIGHT,Arrow::FANCY,Arrow::IN)
 	{
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
 	
 	/* Set the arrow sizes: */
-	arrow.setGlyphSize(ss->size*0.25f);
-	arrow.setBevelSize(ss->size*0.25f);
-	arrow.setGlyphColor(backgroundColor);
+	arrow.setArrowSize(ss->size*0.25f);
+	arrow.setArrowBevelSize(ss->size*0.25f);
+	arrow.setArrowColor(backgroundColor);
 	popupExtrudeSize=ss->size*4.0f;
 	
 	/* Set the decoration position and size: */
@@ -118,15 +107,15 @@ CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sL
 	:DecoratedButton(sName,sParent,sLabel,false),
 	 popup(0),isPopped(false),
 	 foundChild(0),armedChild(0),
-	 arrow(GlyphGadget::FANCY_ARROW_RIGHT,GlyphGadget::IN,0.0f)
+	 arrow(Arrow::RIGHT,Arrow::FANCY,Arrow::IN)
 	{
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
 	
 	/* Set the arrow sizes: */
-	arrow.setGlyphSize(ss->size*0.25f);
-	arrow.setBevelSize(ss->size*0.25f);
-	arrow.setGlyphColor(backgroundColor);
+	arrow.setArrowSize(ss->size*0.25f);
+	arrow.setArrowBevelSize(ss->size*0.25f);
+	arrow.setArrowColor(backgroundColor);
 	popupExtrudeSize=ss->size*4.0f;
 	
 	/* Set the decoration position and size: */
@@ -161,7 +150,7 @@ void CascadeButton::resize(const Box& newExterior)
 	DecoratedButton::resize(newExterior);
 	
 	/* Position the cascade arrow: */
-	arrow.setGlyphBox(decorationBox);
+	arrow.setArrowBox(decorationBox);
 	}
 
 void CascadeButton::setBackgroundColor(const Color& newBackgroundColor)
@@ -170,7 +159,7 @@ void CascadeButton::setBackgroundColor(const Color& newBackgroundColor)
 	DecoratedButton::setBackgroundColor(newBackgroundColor);
 	
 	/* Let the arrow glyph track the background color: */
-	arrow.setGlyphColor(newBackgroundColor);
+	arrow.setArrowColor(newBackgroundColor);
 	}
 
 bool CascadeButton::findRecipient(Event& event)
@@ -267,7 +256,7 @@ void CascadeButton::setPopup(Popup* newPopup)
 void CascadeButton::setArrowBorderSize(GLfloat newArrowBorderSize)
 	{
 	/* Adjust the arrow glyph: */
-	arrow.setBevelSize(newArrowBorderSize);
+	arrow.setArrowBevelSize(newArrowBorderSize);
 	
 	/* Set the decoration width: */
 	GLfloat width=arrow.getPreferredBoxSize();
@@ -277,7 +266,7 @@ void CascadeButton::setArrowBorderSize(GLfloat newArrowBorderSize)
 void CascadeButton::setArrowSize(GLfloat newArrowSize)
 	{
 	/* Adjust the arrow glyph: */
-	arrow.setGlyphSize(newArrowSize);
+	arrow.setArrowSize(newArrowSize);
 	
 	/* Set the decoration width: */
 	GLfloat width=arrow.getPreferredBoxSize();

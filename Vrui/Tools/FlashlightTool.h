@@ -1,7 +1,7 @@
 /***********************************************************************
 FlashlightTool - Class for tools that add an additional light source
 into an environment when activated.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,7 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/GLLight.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/PointingTool.h>
+#include <Vrui/Tools/UtilityTool.h>
 
 /* Forward declarations: */
 namespace Vrui {
@@ -53,13 +53,12 @@ class FlashlightToolFactory:public ToolFactory
 	FlashlightToolFactory(ToolManager& toolManager);
 	virtual ~FlashlightToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class FlashlightTool:public PointingTool
+class FlashlightTool:public UtilityTool
 	{
 	friend class FlashlightToolFactory;
 	
@@ -76,9 +75,9 @@ class FlashlightTool:public PointingTool
 	FlashlightTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~FlashlightTool(void);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

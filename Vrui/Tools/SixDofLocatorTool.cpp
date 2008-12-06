@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofLocatorTool - Class for simple 6-DOF localization using a single
 input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,11 +21,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/SixDofLocatorTool.h>
-
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/SixDofLocatorTool.h>
 
 namespace Vrui {
 
@@ -37,7 +37,8 @@ SixDofLocatorToolFactory::SixDofLocatorToolFactory(ToolManager& toolManager)
 	:ToolFactory("SixDofLocatorTool",toolManager)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* locatorToolFactory=toolManager.loadClass("LocatorTool");
@@ -52,11 +53,6 @@ SixDofLocatorToolFactory::~SixDofLocatorToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	SixDofLocatorTool::factory=0;
-	}
-
-const char* SixDofLocatorToolFactory::getName(void) const
-	{
-	return "6-DOF Locator";
 	}
 
 Tool* SixDofLocatorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -112,18 +108,18 @@ const ToolFactory* SixDofLocatorTool::getFactory(void) const
 	return factory;
 	}
 
-void SixDofLocatorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void SixDofLocatorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Call button press callbacks: */
-		ButtonPressCallbackData cbData(this,Vrui::getDeviceTransformation(getButtonDevice(0)));
+		ButtonPressCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
 		buttonPressCallbacks.call(&cbData);
 		}
 	else // Button has just been released
 		{
 		/* Call button release callbacks: */
-		ButtonReleaseCallbackData cbData(this,Vrui::getDeviceTransformation(getButtonDevice(0)));
+		ButtonReleaseCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
 		buttonReleaseCallbacks.call(&cbData);
 		}
 	}
@@ -131,7 +127,7 @@ void SixDofLocatorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbDa
 void SixDofLocatorTool::frame(void)
 	{
 	/* Call motion callbacks: */
-	MotionCallbackData cbData(this,Vrui::getDeviceTransformation(getButtonDevice(0)));
+	MotionCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
 	motionCallbacks.call(&cbData);
 	}
 

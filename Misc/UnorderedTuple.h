@@ -1,8 +1,7 @@
 /***********************************************************************
 UnorderedTuple - Class for unordered tuples; intended to be used as hash
-table keys. Implemented by sorting tuple elements. The element type must
-be a signed or unsigned integer type.
-Copyright (c) 2008-2011 Oliver Kreylos
+table keys. Implemented by sorting tuple elements.
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -25,21 +24,18 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_UNORDEREDTUPLE_INCLUDED
 #define MISC_UNORDEREDTUPLE_INCLUDED
 
-#include <stddef.h>
-
 namespace Misc {
 
-template <class ElementParam,int dimensionParam>
+template <int dimensionParam>
 class UnorderedTuple
 	{
 	/* Embedded classes: */
 	public:
-	typedef ElementParam Element; // Type of tuple elements
 	static const int dimension=dimensionParam; // Dimension of the tuple
 	
 	/* Elements: */
 	private:
-	Element elements[dimension]; // The tuple's elements, sorted in ascending order
+	int elements[dimension]; // The tuple's elements, sorted in ascending order
 	
 	/* Private methods: */
 	void sortTuple(void) // Sorts the tuple after a change
@@ -47,7 +43,7 @@ class UnorderedTuple
 		/* Simple insertion sort; dimensions are expected to be small: */
 		for(int test=1;test<dimension;++test)
 			{
-			Element testElement=elements[test];
+			int testElement=elements[test];
 			int insertPos;
 			for(insertPos=test;insertPos>0&&testElement<elements[insertPos-1];--insertPos)
 				elements[insertPos]=elements[insertPos-1];
@@ -60,7 +56,7 @@ class UnorderedTuple
 	UnorderedTuple(void) // Dummy constructor
 		{
 		}
-	UnorderedTuple(const Element sElements[dimensionParam]) // Construction from C-style array
+	UnorderedTuple(const int sElements[dimensionParam) // Construction from C-style array
 		{
 		/* Copy the source array: */
 		for(int i=0;i<dimension;++i)
@@ -71,13 +67,20 @@ class UnorderedTuple
 		}
 	
 	/* Methods: */
-	const Element* getElements(void) const // Returns element array
+	const int* getElements(void) const // Returns element array
 		{
 		return elements;
 		}
-	Element operator[](int index) const // Returns element as rvalue
+	int operator[](int index) const // Returns element as rvalue
 		{
 		return elements[index];
+		}
+	void set(int index,int newElement) // Sets an element to a new value
+		{
+		elements[index]=newElement;
+		
+		/* Sort the tuple: */
+		sortTuple();
 		}
 	static size_t hash(const UnorderedTuple& source,size_t tableSize) // Calculates a hash function for the given tuple and table size
 		{
@@ -92,24 +95,23 @@ class UnorderedTuple
 Specialized versions of the UnorderedTuple class:
 ************************************************/
 
-template <class ElementParam>
-class UnorderedTuple<ElementParam,2>
+template <>
+class UnorderedTuple<2>
 	{
 	/* Embedded classes: */
 	public:
-	typedef ElementParam Element; // Type of tuple elements
 	static const int dimension=2; // Dimension of the tuple
 	
 	/* Elements: */
 	private:
-	Element elements[dimension]; // The tuple's elements
+	int elements[dimension]; // The tuple's elements
 	
 	/* Private methods: */
 	void sortTuple(void) // Sorts the tuple after a change
 		{
 		if(elements[0]>elements[1])
 			{
-			Element temp=elements[0];
+			int temp=elements[0];
 			elements[0]=elements[1];
 			elements[1]=temp;
 			}
@@ -120,7 +122,7 @@ class UnorderedTuple<ElementParam,2>
 	UnorderedTuple(void) // Dummy constructor
 		{
 		}
-	UnorderedTuple(Element sElement0,Element sElement1) // Construction from two elements
+	UnorderedTuple(int sElement0,int sElement1) // Construction from two elements
 		{
 		elements[0]=sElement0;
 		elements[1]=sElement1;
@@ -128,7 +130,7 @@ class UnorderedTuple<ElementParam,2>
 		/* Sort the tuple: */
 		sortTuple();
 		}
-	UnorderedTuple(const Element sElements[2]) // Construction from C-style array
+	UnorderedTuple(const int sElements[2]) // Construction from C-style array
 		{
 		elements[0]=sElements[0];
 		elements[1]=sElements[1];
@@ -138,13 +140,20 @@ class UnorderedTuple<ElementParam,2>
 		}
 	
 	/* Methods: */
-	const Element* getElements(void) const // Returns element array
+	const int* getElements(void) const // Returns element array
 		{
 		return elements;
 		}
-	Element operator[](int index) const // Returns element as rvalue
+	int operator[](int index) const // Returns element as rvalue
 		{
 		return elements[index];
+		}
+	void set(int index,int newElement) // Sets an element to a new value
+		{
+		elements[index]=newElement;
+		
+		/* Sort the tuple: */
+		sortTuple();
 		}
 	static size_t hash(const UnorderedTuple& source,size_t tableSize) // Calculates a hash function for the given tuple and table size
 		{
@@ -152,24 +161,23 @@ class UnorderedTuple<ElementParam,2>
 		}
 	};
 
-template <class ElementParam>
-class UnorderedTuple<ElementParam,3>
+template <>
+class UnorderedTuple<3>
 	{
 	/* Embedded classes: */
 	public:
-	typedef ElementParam Element; // Type of tuple elements
 	static const int dimension=3; // Dimension of the tuple
 	
 	/* Elements: */
 	private:
-	Element elements[dimension]; // The tuple's elements
+	int elements[dimension]; // The tuple's elements
 	
 	/* Private methods: */
 	void sortPair(int i1,int i2) // Sorts a pair of elements; i1<i2
 		{
 		if(elements[i1]>elements[i2])
 			{
-			Element temp=elements[i1];
+			int temp=elements[i1];
 			elements[i1]=elements[i2];
 			elements[i2]=temp;
 			}
@@ -187,7 +195,7 @@ class UnorderedTuple<ElementParam,3>
 	UnorderedTuple(void) // Dummy constructor
 		{
 		}
-	UnorderedTuple(Element sElement0,Element sElement1,Element sElement2) // Construction from three elements
+	UnorderedTuple(int sElement0,int sElement1,int sElement2) // Construction from three elements
 		{
 		elements[0]=sElement0;
 		elements[1]=sElement1;
@@ -196,7 +204,7 @@ class UnorderedTuple<ElementParam,3>
 		/* Sort the tuple: */
 		sortTuple();
 		}
-	UnorderedTuple(const Element sElements[3]) // Construction from C-style array
+	UnorderedTuple(const int sElements[3]) // Construction from C-style array
 		{
 		elements[0]=sElements[0];
 		elements[1]=sElements[1];
@@ -207,13 +215,20 @@ class UnorderedTuple<ElementParam,3>
 		}
 	
 	/* Methods: */
-	const Element* getElements(void) const // Returns element array
+	const int* getElements(void) const // Returns element array
 		{
 		return elements;
 		}
-	Element operator[](int index) const // Returns element as rvalue
+	int operator[](int index) const // Returns element as rvalue
 		{
 		return elements[index];
+		}
+	void set(int index,int newElement) // Sets an element to a new value
+		{
+		elements[index]=newElement;
+		
+		/* Sort the tuple: */
+		sortTuple();
 		}
 	static size_t hash(const UnorderedTuple& source,size_t tableSize) // Calculates a hash function for the given tuple and table size
 		{
@@ -221,12 +236,12 @@ class UnorderedTuple<ElementParam,3>
 		}
 	};
 
-/**********************************
+/********************************
 Operations on class UnorderedTuple:
-**********************************/
+********************************/
 
-template <class ElementParam,int dimensionParam>
-inline bool operator==(const UnorderedTuple<ElementParam,dimensionParam>& ut1,const UnorderedTuple<ElementParam,dimensionParam>& ut2) // Equality operator
+template <int dimensionParam>
+inline bool operator==(const UnorderedTuple<dimensionParam>& ut1,const UnorderedTuple<dimensionParam>& ut2) // Equality operator
 	{
 	bool result=true;
 	for(int i=0;i<dimensionParam&&result;++i)
@@ -234,8 +249,8 @@ inline bool operator==(const UnorderedTuple<ElementParam,dimensionParam>& ut1,co
 	return result;
 	}
 
-template <class ElementParam,int dimensionParam>
-inline bool operator!=(const UnorderedTuple<ElementParam,dimensionParam>& ut1,const UnorderedTuple<ElementParam,dimensionParam>& ut2) // Equality operator
+template <int dimensionParam>
+inline bool operator!=(const UnorderedTuple<dimensionParam>& ut1,const UnorderedTuple<dimensionParam>& ut2) // Equality operator
 	{
 	bool result=false;
 	for(int i=0;i<dimensionParam&&!result;++i)
@@ -243,26 +258,26 @@ inline bool operator!=(const UnorderedTuple<ElementParam,dimensionParam>& ut1,co
 	return result;
 	}
 
-template <class ElementParam>
-inline bool operator==(const UnorderedTuple<ElementParam,2>& ut1,const UnorderedTuple<ElementParam,2>& ut2) // Equality operator
+template <>
+inline bool operator==(const UnorderedTuple<2>& ut1,const UnorderedTuple<2>& ut2) // Equality operator
 	{
 	return ut1[0]==ut2[0]&&ut1[1]==ut2[1];
 	}
 
-template <class ElementParam>
-inline bool operator!=(const UnorderedTuple<ElementParam,2>& ut1,const UnorderedTuple<ElementParam,2>& ut2) // Equality operator
+template <>
+inline bool operator!=(const UnorderedTuple<2>& ut1,const UnorderedTuple<2>& ut2) // Equality operator
 	{
 	return ut1[0]!=ut2[0]||ut1[1]!=ut2[1];
 	}
 
-template <class ElementParam>
-inline bool operator==(const UnorderedTuple<ElementParam,3>& ut1,const UnorderedTuple<ElementParam,3>& ut2) // Equality operator
+template <>
+inline bool operator==(const UnorderedTuple<3>& ut1,const UnorderedTuple<3>& ut2) // Equality operator
 	{
 	return ut1[0]==ut2[0]&&ut1[1]==ut2[1]&&ut1[2]==ut2[2];
 	}
 
-template <class ElementParam>
-inline bool operator!=(const UnorderedTuple<ElementParam,3>& ut1,const UnorderedTuple<ElementParam,3>& ut2) // Equality operator
+template <>
+inline bool operator!=(const UnorderedTuple<3>& ut1,const UnorderedTuple<3>& ut2) // Equality operator
 	{
 	return ut1[0]!=ut2[0]||ut1[1]!=ut2[1]||ut1[2]!=ut2[2];
 	}

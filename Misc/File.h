@@ -1,7 +1,7 @@
 /***********************************************************************
 File - Wrapper class for the stdio FILE interface with exception safety,
 typed data I/O, and automatic endianness conversion.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -184,17 +184,7 @@ class File
 		return fputs(string,filePtr);
 		}
 	
-	/* Endianness-safe binary I/O interface: */
-	bool mustSwapOnRead(void) // Retusn true if the file must endianness-swap data on read
-		{
-		return mustSwapEndianness;
-		}
-	void readRaw(void* data,size_t dataSize) // Raw read method without Endianness conversion
-		{
-		size_t numBytesRead=fread(data,1,dataSize,filePtr);
-		if(numBytesRead!=dataSize)
-			throw ReadError(dataSize,numBytesRead);
-		}
+	/* Methods for binary file I/O with endianness conversion: */
 	template <class DataParam>
 	DataParam read(void) // Reads single value
 		{
@@ -224,16 +214,6 @@ class File
 			swapEndianness(data,numReadItems);
 		return numReadItems;
 		}
-	bool mustSwapOnWrite(void) // Returns true if the file must endianness-swap data on write
-		{
-		return mustSwapEndianness;
-		}
-	void writeRaw(const void* data,size_t dataSize) // Raw write method without Endianness conversion
-		{
-		size_t numBytesWritten=fwrite(data,1,dataSize,filePtr);
-		if(numBytesWritten!=dataSize)
-			throw WriteError(dataSize,numBytesWritten);
-		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes single value
 		{
@@ -252,21 +232,17 @@ class File
 	template <class DataParam>
 	void write(const DataParam* data,size_t numItems) // Writes array of values
 		{
-		size_t numBytesWritten;
 		if(mustSwapEndianness)
 			{
-			numBytesWritten=0;
 			for(size_t i=0;i<numItems;++i)
 				{
 				DataParam temp=data[i];
 				swapEndianness(temp);
-				numBytesWritten+=fwrite(&temp,1,sizeof(DataParam),filePtr);
+				fwrite(&temp,sizeof(DataParam),1,filePtr);
 				}
 			}
 		else
-			numBytesWritten=fwrite(data,sizeof(DataParam),numItems,filePtr)*sizeof(DataParam);
-		if(numBytesWritten!=sizeof(DataParam)*numItems)
-			throw WriteError(sizeof(DataParam)*numItems,numBytesWritten);
+			fwrite(data,sizeof(DataParam),numItems,filePtr);
 		}
 	};
 

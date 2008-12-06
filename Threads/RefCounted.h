@@ -2,7 +2,7 @@
 RefCounted - Base class for objects with automatic destruction based on
 thread-safe reference counting. Reference-counted objects must be
 created using the single-object new operator.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define THREADS_REFCOUNTED_INCLUDED
 
 #include <pthread.h>
-#include <Threads/Config.h>
 
 namespace Threads {
 
@@ -33,13 +32,7 @@ class RefCounted
 	{
 	/* Elements: */
 	private:
-	#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-	#if THREADS_CONFIG_HAVE_SPINLOCKS
-	pthread_spinlock_t refCountSpinlock; // Busy-wait mutual exclusion semaphore protecting the reference counter
-	#else
-	pthread_mutex_t refCountSpinlock; // Busy-wait mutual exclusion semaphore protecting the reference counter
-	#endif
-	#endif
+	pthread_mutex_t refCountMutex; // Mutual exclusion semaphore protecting the reference counter
 	unsigned int refCount; // Current number of autopointers referencing this object
 	
 	/* Constructors and destructors: */
@@ -47,25 +40,14 @@ class RefCounted
 	RefCounted(void) // Creates an unreferenced object
 		:refCount(0)
 		{
-		#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-		/* Initialize the spinlock: */
-		#if THREADS_CONFIG_HAVE_SPINLOCKS
-		pthread_spin_init(&refCountSpinlock,0);
-		#else
-		pthread_mutex_init(&refCountSpinlock,0);
-		#endif
-		#endif
+		/* Initialize the mutex: */
+		pthread_mutex_init(&refCountMutex,0);
 		}
 	RefCounted(const RefCounted& source) // Copy constructor; creates unreferenced object
 		:refCount(0)
 		{
-		#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-		#if THREADS_CONFIG_HAVE_SPINLOCKS
-		pthread_spin_init(&refCountSpinlock,0);
-		#else
-		pthread_mutex_init(&refCountSpinlock,0);
-		#endif
-		#endif
+		/* Initialize the mutex: */
+		pthread_mutex_init(&refCountMutex,0);
 		}
 	RefCounted& operator=(const RefCounted& source) // Assignment operator; assigning does not change reference count
 		{
@@ -73,54 +55,25 @@ class RefCounted
 		}
 	virtual ~RefCounted(void) // Virtual destructor; called when the reference count reaches zero
 		{
-		#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-		/* Destroy the spinlock: */
-		#if THREADS_CONFIG_HAVE_SPINLOCKS
-		pthread_spin_destroy(&refCountSpinlock);
-		#else
-		pthread_mutex_destroy(&refCountSpinlock);
-		#endif
-		#endif
+		/* Destroy the mutex: */
+		pthread_mutex_destroy(&refCountMutex);
 		}
 	
 	/* Methods: */
 	void ref(void) // Method called when an autopointer starts referencing this object
 		{
-		/* Increment the reference counter atomically: */
-		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-		__sync_add_and_fetch(&refCount,1);
-		#else
-		#if THREADS_CONFIG_HAVE_SPINLOCKS
-		pthread_spin_lock(&refCountSpinlock);
+		pthread_mutex_lock(&refCountMutex);
 		++refCount;
-		pthread_spin_unlock(&refCountSpinlock);
-		#else
-		pthread_mutex_lock(&refCountSpinlock);
-		++refCount;
-		pthread_mutex_unlock(&refCountSpinlock);
-		#endif
-		#endif
+		pthread_mutex_unlock(&refCountMutex);
 		}
 	void unref(void) // Method called when an autopointer stops referencing an object; destroys object when reference count reaches zero
 		{
 		bool mustDelete=false;
-		
-		/* Decrement the reference counter atomically: */
-		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-		mustDelete=__sync_sub_and_fetch(&refCount,1)==0;
-		#else
-		#if THREADS_CONFIG_HAVE_SPINLOCKS
-		pthread_spin_lock(&refCountSpinlock);
-		mustDelete=(--refCount)==0;
-		pthread_spin_unlock(&refCountSpinlock);
-		#else
-		pthread_mutex_lock(&refCountSpinlock);
-		mustDelete=(--refCount)==0;
-		pthread_mutex_unlock(&refCountSpinlock);
-		#endif
-		#endif
-		
-		/* Delete the object if the reference count reached zero: */
+		pthread_mutex_lock(&refCountMutex);
+		--refCount;
+		if(refCount==0)
+			mustDelete=true;
+		pthread_mutex_unlock(&refCountMutex);
 		if(mustDelete)
 			delete this;
 		}

@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,15 +21,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/MultiDeviceNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Vector.h>
 #include <Geometry/AffineCombiner.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/MultiDeviceNavigationTool.h>
 
 namespace Vrui {
 
@@ -46,13 +46,16 @@ MultiDeviceNavigationToolFactory::MultiDeviceNavigationToolFactory(ToolManager& 
 	{
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	numDevices=cfs.retrieveValue<int>("./numDevices");
 	translationFactor=cfs.retrieveValue<Scalar>("./translationFactor",translationFactor);
 	minRotationScalingDistance=cfs.retrieveValue<Scalar>("./minRotationScalingDistance",minRotationScalingDistance);
 	rotationFactor=cfs.retrieveValue<Scalar>("./rotationFactor",rotationFactor);
 	scalingFactor=cfs.retrieveValue<Scalar>("./scalingFactor",scalingFactor);
 	
 	/* Initialize tool layout: */
-	layout.setNumButtons(1,true);
+	layout.setNumDevices(numDevices);
+	for(int i=0;i<numDevices;++i)
+		layout.setNumButtons(i,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -67,16 +70,6 @@ MultiDeviceNavigationToolFactory::~MultiDeviceNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	MultiDeviceNavigationTool::factory=0;
-	}
-
-const char* MultiDeviceNavigationToolFactory::getName(void) const
-	{
-	return "Multiple 3-DOF Devices";
-	}
-
-const char* MultiDeviceNavigationToolFactory::getButtonFunction(int) const
-	{
-	return "Move / Rotate / Zoom";
 	}
 
 Tool* MultiDeviceNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -125,11 +118,11 @@ Methods of class MultiDeviceNavigationTool:
 MultiDeviceNavigationTool::MultiDeviceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
 	 numPressedButtons(0),
-	 lastDeviceButtonStates(new bool[input.getNumButtonSlots()]),
-	 lastDevicePositions(new Point[input.getNumButtonSlots()])
+	 lastDeviceButtonStates(new bool[factory->numDevices]),
+	 lastDevicePositions(new Point[factory->numDevices])
 	{
 	/* Initialize old button states: */
-	for(int i=0;i<input.getNumButtonSlots();++i)
+	for(int i=0;i<factory->numDevices;++i)
 		lastDeviceButtonStates[i]=false;
 	}
 
@@ -138,7 +131,7 @@ const ToolFactory* MultiDeviceNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void MultiDeviceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void MultiDeviceNavigationTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Update the number of pressed buttons: */
 	if(cbData->newButtonState)
@@ -157,7 +150,7 @@ void MultiDeviceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::
 		if(numPressedButtons==0)
 			{
 			deactivate();
-			for(int i=0;i<input.getNumButtonSlots();++i)
+			for(int i=0;i<factory->numDevices;++i)
 				lastDeviceButtonStates[i]=false;
 			}
 		}
@@ -171,11 +164,11 @@ void MultiDeviceNavigationTool::frame(void)
 		/* Calculate the centroid of all devices whose buttons were pressed in the last frame: */
 		int numLastDevices=0;
 		Point::AffineCombiner centroidC;
-		for(int i=0;i<input.getNumButtonSlots();++i)
+		for(int i=0;i<factory->numDevices;++i)
 			if(lastDeviceButtonStates[i])
 				{
 				++numLastDevices;
-				centroidC.addPoint(getButtonDevicePosition(i));
+				centroidC.addPoint(input.getDevice(i)->getPosition());
 				}
 		
 		if(numLastDevices>0)
@@ -186,7 +179,7 @@ void MultiDeviceNavigationTool::frame(void)
 			Vector rotation=Vector::zero;
 			Scalar scaling(1);
 			int numActiveDevices=0;
-			for(int i=0;i<input.getNumButtonSlots();++i)
+			for(int i=0;i<factory->numDevices;++i)
 				if(lastDeviceButtonStates[i])
 					{
 					/* Calculate the previous vector to centroid: */
@@ -194,13 +187,13 @@ void MultiDeviceNavigationTool::frame(void)
 					Scalar lastLen=Geometry::mag(lastDist);
 					
 					/* Calculate the new vector to centroid: */
-					Vector currentDist=getButtonDevicePosition(i)-currentCentroid;
+					Vector currentDist=input.getDevice(i)->getPosition()-currentCentroid;
 					Scalar currentLen=Geometry::mag(currentDist);
 					
 					if(lastLen>factory->minRotationScalingDistance&&currentLen>factory->minRotationScalingDistance)
 						{
 						/* Calculate the rotation axis and angle: */
-						Vector rot=lastDist^currentDist;
+						Vector rot=Geometry::cross(lastDist,currentDist);
 						Scalar rotLen=Geometry::mag(rot);
 						if(rotLen>Scalar(0))
 							{
@@ -244,10 +237,10 @@ void MultiDeviceNavigationTool::frame(void)
 		
 		/* Update button states and device positions for next frame: */
 		Point::AffineCombiner newLastCentroidC;
-		for(int i=0;i<input.getNumButtonSlots();++i)
+		for(int i=0;i<factory->numDevices;++i)
 			{
-			lastDeviceButtonStates[i]=getButtonState(i);
-			lastDevicePositions[i]=getButtonDevicePosition(i);
+			lastDeviceButtonStates[i]=input.getDevice(i)->getButtonState(0);
+			lastDevicePositions[i]=input.getDevice(i)->getPosition();
 			if(lastDeviceButtonStates[i])
 				newLastCentroidC.addPoint(lastDevicePositions[i]);
 			}

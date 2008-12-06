@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
 
 namespace Vrui {
 
@@ -37,6 +37,7 @@ class MultiDeviceNavigationToolFactory:public ToolFactory
 	friend class MultiDeviceNavigationTool;
 	
 	/* Elements: */
+	int numDevices; // Number of devices used by tools of this class
 	Scalar translationFactor; // Scale factor for translations
 	Scalar minRotationScalingDistance; // Minimum distance from a device to the centroid for rotation and scaling to take effect
 	Scalar rotationFactor; // Scale factor for rotations
@@ -47,9 +48,7 @@ class MultiDeviceNavigationToolFactory:public ToolFactory
 	MultiDeviceNavigationToolFactory(ToolManager& toolManager);
 	virtual ~MultiDeviceNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -72,9 +71,9 @@ class MultiDeviceNavigationTool:public NavigationTool
 	public:
 	MultiDeviceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

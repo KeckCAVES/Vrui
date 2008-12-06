@@ -26,7 +26,8 @@ the required classes and functions from the templatized geometry library
 statically into this module.
 ***********************************************************************/
 
-#define GEOMETRY_NONSTANDARD_TEMPLATES
+#undef NONSTANDARD_TEMPLATES
+#define NONSTANDARD_TEMPLATES 1
 
 #include <Math/Math.h>
 #include <Geometry/HVector.h>

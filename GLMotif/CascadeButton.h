@@ -1,7 +1,7 @@
 /***********************************************************************
 CascadeButton - Class for buttons that pop up secondary top-level
 GLMotif UI components.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -23,8 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_CASCADEBUTTON_INCLUDED
 #define GLMOTIF_CASCADEBUTTON_INCLUDED
 
-#include <GL/gl.h>
-#include <GLMotif/GlyphGadget.h>
+#include <GLMotif/Arrow.h>
 #include <GLMotif/DecoratedButton.h>
 
 /* Forward declarations: */
@@ -43,7 +42,7 @@ class CascadeButton:public DecoratedButton
 	Box popupHitBox; // Extended "hit box" around the popup window to keep it popped even when the interaction pointer moves slightly outside
 	Widget* foundChild; // Widget that responded to the last findRecipient call
 	Widget* armedChild; // Currently armed widget
-	GlyphGadget arrow; // The cascade button's arrow glyph
+	Arrow arrow; // The cascade button's arrow glyph
 	GLfloat popupExtrudeSize; // Amount of extrusion for the popup's hit box
 	
 	/* Protected methods inherited from Button: */

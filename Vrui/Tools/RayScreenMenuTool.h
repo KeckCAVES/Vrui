@@ -1,7 +1,7 @@
 /***********************************************************************
 RayScreenMenuTool - Class for menu selection tools using ray selection
 that align menus to screen planes.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,8 +24,18 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_RAYSCREENMENUTOOL_INCLUDED
 #define VRUI_RAYSCREENMENUTOOL_INCLUDED
 
-#include <Vrui/GUIInteractor.h>
-#include <Vrui/MenuTool.h>
+#include <Geometry/Ray.h>
+#include <Geometry/OrthogonalTransformation.h>
+#include <Vrui/Geometry.h>
+#include <Vrui/Tools/MenuTool.h>
+
+/* Forward declarations: */
+namespace GLMotif {
+class Widget;
+}
+namespace Vrui {
+class Viewer;
+}
 
 namespace Vrui {
 
@@ -37,6 +47,7 @@ class RayScreenMenuToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
+	bool useEyeRay; // Flag whether to use an eyeline from the main viewer or the device's ray direction
 	bool interactWithWidgets; // Flag if the menu tool doubles as a widget interaction tool
 	
 	/* Constructors and destructors: */
@@ -44,27 +55,38 @@ class RayScreenMenuToolFactory:public ToolFactory
 	RayScreenMenuToolFactory(ToolManager& toolManager);
 	virtual ~RayScreenMenuToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class RayScreenMenuTool:public MenuTool,public GUIInteractor
+class RayScreenMenuTool:public MenuTool
 	{
 	friend class RayScreenMenuToolFactory;
 	
 	/* Elements: */
 	private:
 	static RayScreenMenuToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the menu tool
+	
+	/* Transient state: */
+	Ray selectionRay; // Current selection ray
+	bool insideWidget; // Flag if the tool is currently able to interact with a widget
+	bool widgetActive; // Flag if the widget tool is currently active
+	bool dragging; // Flag if the widget tool is currently dragging a primary top-level widget
+	GLMotif::Widget* draggedWidget; // Pointer to currently dragged widget
+	NavTrackerState preScale; // Current dragging transformation
+	
+	/* Private methods: */
+	Ray calcSelectionRay(void) const; // Calculates the selection ray based on current device position/orientation
 	
 	/* Constructors and destructors: */
 	public:
 	RayScreenMenuTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

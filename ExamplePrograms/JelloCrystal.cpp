@@ -72,8 +72,8 @@ void JelloCrystal::setNumAtoms(const JelloCrystal::Index& newNumAtoms)
 	Scalar atomDist=JelloAtom::getRadius()*Scalar(2);
 	Point crystalCenter;
 	for(int i=0;i<2;++i)
-		crystalCenter[i]=Math::mid(domain.min[i],domain.max[i]);
-	crystalCenter[2]=Scalar(crystal.getSize(2)-1)*atomDist*Scalar(0.5)+domain.min[2];
+		crystalCenter[i]=Math::mid(domain.getMin(i),domain.getMax(i));
+	crystalCenter[2]=Scalar(crystal.getSize(2)-1)*atomDist*Scalar(0.5)+domain.getMin(2);
 	
 	/* Initialize the positions of all atoms and create all bonds: */
 	for(Crystal::Index index=crystal.beginIndex();index!=crystal.endIndex();crystal.preInc(index))
@@ -225,7 +225,7 @@ void JelloCrystal::simulate(JelloCrystal::Scalar timeStep)
 		aIt->calculateForces();
 		
 		/* Add gravity: */
-		if(aIt->position[2]>domain.min[2])
+		if(aIt->position[2]>domain.getMin(2))
 			aIt->linearAcceleration[2]-=gravity;
 		
 		/* Store acceleration: */
@@ -256,7 +256,7 @@ void JelloCrystal::simulate(JelloCrystal::Scalar timeStep)
 		aIt->calculateForces();
 		
 		/* Add gravity: */
-		if(aIt->position[2]>domain.min[2])
+		if(aIt->position[2]>domain.getMin(2))
 			aIt->linearAcceleration[2]-=gravity;
 		
 		/* Store acceleration: */
@@ -289,7 +289,7 @@ void JelloCrystal::simulate(JelloCrystal::Scalar timeStep)
 		aIt->calculateForces();
 		
 		/* Add gravity: */
-		if(aIt->position[2]>domain.min[2])
+		if(aIt->position[2]>domain.getMin(2))
 			aIt->linearAcceleration[2]-=gravity;
 		
 		/* Store acceleration: */
@@ -322,14 +322,14 @@ void JelloCrystal::simulate(JelloCrystal::Scalar timeStep)
 		/* Limit the atom to the domain box: */
 		for(int i=0;i<3;++i)
 			{
-			if(aIt->position[i]<domain.min[i])
+			if(aIt->position[i]<domain.getMin(i))
 				{
-				aIt->position[i]=Scalar(2)*domain.min[i]-aIt->position[i];
+				aIt->position[i]=Scalar(2)*domain.getMin(i)-aIt->position[i];
 				aIt->linearVelocity[i]=-aIt->linearVelocity[i];
 				}
-			else if(aIt->position[i]>domain.max[i])
+			else if(aIt->position[i]>domain.getMax(i))
 				{
-				aIt->position[i]=Scalar(2)*domain.max[i]-aIt->position[i];
+				aIt->position[i]=Scalar(2)*domain.getMax(i)-aIt->position[i];
 				aIt->linearVelocity[i]=-aIt->linearVelocity[i];
 				}
 			}

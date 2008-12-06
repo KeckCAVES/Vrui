@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorScalingNavigationTool - Class for tools that allow scaling the
 navigation transformation using a valuator.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,13 +21,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ValuatorScalingNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ValuatorScalingNavigationTool.h>
 
 namespace Vrui {
 
@@ -37,11 +37,12 @@ Methods of class ValuatorScalingNavigationToolFactory:
 
 ValuatorScalingNavigationToolFactory::ValuatorScalingNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorScalingNavigationTool",toolManager),
-	 valuatorThreshold(Scalar(0.25)),
-	 scalingFactor(Scalar(0.25))
+	 valuatorThreshold(0),
+	 scalingFactor(0.95)
 	{
 	/* Initialize tool layout: */
-	layout.setNumValuators(1);
+	layout.setNumDevices(1);
+	layout.setNumValuators(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -61,16 +62,6 @@ ValuatorScalingNavigationToolFactory::~ValuatorScalingNavigationToolFactory(void
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorScalingNavigationTool::factory=0;
-	}
-
-const char* ValuatorScalingNavigationToolFactory::getName(void) const
-	{
-	return "Valuator Scaling";
-	}
-
-const char* ValuatorScalingNavigationToolFactory::getValuatorFunction(int) const
-	{
-	return "Zoom";
 	}
 
 Tool* ValuatorScalingNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -127,7 +118,7 @@ const ToolFactory* ValuatorScalingNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ValuatorScalingNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
+void ValuatorScalingNavigationTool::valuatorCallback(int,int,InputDevice::ValuatorCallbackData* cbData)
 	{
 	currentValue=Scalar(cbData->newValuatorValue);
 	if(Math::abs(currentValue)>factory->valuatorThreshold)
@@ -136,7 +127,7 @@ void ValuatorScalingNavigationTool::valuatorCallback(int,InputDevice::ValuatorCa
 		if(!isActive()&&activate())
 			{
 			/* Initialize the navigation transformations: */
-			scalingCenter=getValuatorDevicePosition(0);
+			scalingCenter=input.getDevice(0)->getPosition();
 			preScale=NavTrackerState::translateFromOriginTo(scalingCenter);
 			postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
 			postScale*=getNavigationTransformation();
@@ -165,7 +156,7 @@ void ValuatorScalingNavigationTool::frame(void)
 			v=(v-t)/s;
 		else
 			v=Scalar(0);
-		currentScale*=Math::pow(factory->scalingFactor,v*getFrameTime());
+		currentScale*=Math::pow(factory->scalingFactor,v*getCurrentFrameTime());
 		
 		/* Compose the new navigation transformation: */
 		NavTrackerState navigation=preScale;
@@ -174,9 +165,6 @@ void ValuatorScalingNavigationTool::frame(void)
 		
 		/* Update Vrui's navigation transformation: */
 		setNavigationTransformation(navigation);
-		
-		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 Vector - Class for Euclidean and affine vectors.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -120,34 +120,6 @@ class Vector:public ComponentArray<ScalarParam,dimensionParam>
 			components[i]/=norm;
 		return *this;
 		}
-	Vector& orthogonalize(const Vector& normal) // Orthogonalizes a vector with respect to the (non-unit length) normal vector
-		{
-		ScalarParam proj(0);
-		ScalarParam denom(0);
-		for(int i=0;i<dimension;++i)
-			{
-			proj+=components[i]*normal.components[i];
-			denom+=normal.components[i]*normal.components[i];
-			}
-		proj/=denom;
-		for(int i=0;i<dimension;++i)
-			components[i]-=normal.components[i]*proj;
-		return *this;
-		}
-	Vector& reflect(const Vector& normal) // Reflects a vector with respect to the plane defined by the (non-unit length) normal vector
-		{
-		ScalarParam proj(0);
-		ScalarParam denom(0);
-		for(int i=0;i<dimension;++i)
-			{
-			proj+=components[i]*normal.components[i];
-			denom+=normal.components[i]*normal.components[i];
-			}
-		proj=ScalarParam(2)*proj/denom;
-		for(int i=0;i<dimension;++i)
-			components[i]=normal.components[i]*proj-components[i];
-		return *this;
-		}
 	// Vector cross(const Vector& other) const; // Returns cross product of two vectors
 	};
 
@@ -207,7 +179,7 @@ inline Vector<ScalarParam,dimensionParam> operator-(const Vector<ScalarParam,dim
 	{
 	Vector<ScalarParam,dimensionParam> result;
 	for(int i=0;i<dimensionParam;++i)
-		result[i]=v1[i]-v2[i];
+		result[i]=v1[i]+v2[i];
 	return result;
 	}
 
@@ -323,62 +295,10 @@ Vector<ScalarParam,dimensionParam> normalize(const Vector<ScalarParam,dimensionP
 	return result;
 	}
 
-template <class ScalarParam,int dimensionParam>
-inline Vector<ScalarParam,dimensionParam> orthogonalize(const Vector<ScalarParam,dimensionParam>& v,const Vector<ScalarParam,dimensionParam>& normal) // Orthogonalizes vector v with respect to the (non-unit length) normal vector
-	{
-	return v-normal*((v*normal)/normal.sqr());
-	}
-
 template <class ScalarParam>
 inline Vector<ScalarParam,3> cross(const Vector<ScalarParam,3>& v1,const Vector<ScalarParam,3>& v2) // Returns the cross product of two 3D vectors
 	{
 	return Vector<ScalarParam,3>(v1[1]*v2[2]-v1[2]*v2[1],v1[2]*v2[0]-v1[0]*v2[2],v1[0]*v2[1]-v1[1]*v2[0]);
-	}
-
-template <class ScalarParam>
-inline Vector<ScalarParam,3> operator^(const Vector<ScalarParam,3>& v1,const Vector<ScalarParam,3>& v2) // Returns the cross product of two 3D vectors
-	{
-	return Vector<ScalarParam,3>(v1[1]*v2[2]-v1[2]*v2[1],v1[2]*v2[0]-v1[0]*v2[2],v1[0]*v2[1]-v1[1]*v2[0]);
-	}
-
-template <class ScalarParam,int dimensionParam>
-inline Vector<ScalarParam,dimensionParam> reflect(const Vector<ScalarParam,dimensionParam>& v,const Vector<ScalarParam,dimensionParam>& normal) // Reflects vector v with respect to the plane orthogonal to the (non-unit length) normal vector
-	{
-	return normal*(ScalarParam(2)*(v*normal)/normal.sqr())-v;
-	}
-
-template <class ScalarParam,int dimensionParam>
-inline int findParallelAxis(const Vector<ScalarParam,dimensionParam>& v) // Finds the index of the primary axis most parallel to the vector
-	{
-	int result=0;
-	ScalarParam maxAbsAxis=Math::abs(v[0]);
-	for(int i=1;i<dimensionParam;++i)
-		{
-		ScalarParam absAxis=Math::abs(v[i]);
-		if(maxAbsAxis<absAxis)
-			{
-			result=i;
-			maxAbsAxis=absAxis;
-			}
-		}
-	return result;
-	}
-
-template <class ScalarParam,int dimensionParam>
-inline int findOrthogonalAxis(const Vector<ScalarParam,dimensionParam>& v) // Finds the index of the primary axis most orthogonal to the vector
-	{
-	int result=0;
-	ScalarParam minAbsAxis=Math::abs(v[0]);
-	for(int i=1;i<dimensionParam;++i)
-		{
-		ScalarParam absAxis=Math::abs(v[i]);
-		if(minAbsAxis>absAxis)
-			{
-			result=i;
-			minAbsAxis=absAxis;
-			}
-		}
-	return result;
 	}
 
 template <class ScalarParam>
@@ -420,8 +340,8 @@ inline Vector<ScalarParam,3> normal(const Vector<ScalarParam,3>& v)
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_VECTOR_IMPLEMENTATION)
-#include <Geometry/Vector.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_VECTOR_IMPLEMENTATION)
+#include <Geometry/Vector.cpp>
 #endif
 
 #endif

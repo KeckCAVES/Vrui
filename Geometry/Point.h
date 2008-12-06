@@ -1,6 +1,6 @@
 /***********************************************************************
 Point - Class for affine points.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -279,8 +279,8 @@ inline Point<ScalarParam,3> affineCombination(const Point<ScalarParam,3>& p1,con
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_POINT_IMPLEMENTATION)
-#include <Geometry/Point.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_POINT_IMPLEMENTATION)
+#include <Geometry/Point.cpp>
 #endif
 
 #endif

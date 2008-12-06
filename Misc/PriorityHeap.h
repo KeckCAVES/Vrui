@@ -1,6 +1,6 @@
 /***********************************************************************
 PriorityHeap - Implementation of a priority queue with a heap structure.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2008 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -23,7 +23,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_PRIORITYHEAP_INCLUDED
 #define MISC_PRIORITYHEAP_INCLUDED
 
-#include <stddef.h>
 #include <new>
 #include <Misc/Utility.h>
 
@@ -191,7 +190,7 @@ class PriorityHeap
 			/* Allocate a new memory chunk if necessary: */
 			if(allocSize!=source.allocSize)
 				{
-				delete[] static_cast<char*>(memChunk);
+				delete[] memChunk;
 				allocSize=source.allocSize;
 				memChunk=new char[allocSize*sizeof(Content)];
 				heap=static_cast<Content*>(memChunk);

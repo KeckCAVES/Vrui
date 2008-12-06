@@ -1,7 +1,7 @@
 /***********************************************************************
 LaserpointerTool - Class for tools using rays to point out features in a
 3D display.
-Copyright (c) 2006-2011 Oliver Kreylos
+Copyright (c) 2006-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/LaserpointerTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Point.h>
@@ -31,8 +29,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLValueCoders.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/LaserpointerTool.h>
 
 namespace Vrui {
 
@@ -47,10 +47,11 @@ LaserpointerToolFactory::LaserpointerToolFactory(ToolManager& toolManager)
 	 rayColor(1.0f,0.0f,0.0f)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
+	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
@@ -68,11 +69,6 @@ LaserpointerToolFactory::~LaserpointerToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	LaserpointerTool::factory=0;
-	}
-
-const char* LaserpointerToolFactory::getName(void) const
-	{
-	return "Laser Pointer";
 	}
 
 Tool* LaserpointerToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -118,8 +114,19 @@ LaserpointerToolFactory* LaserpointerTool::factory=0;
 Methods of class LaserpointerTool:
 *********************************/
 
+Ray LaserpointerTool::calcRay(void) const
+	{
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
+	/* Calculate ray equation: */
+	Point start=device->getPosition();
+	Vector direction=device->getRayDirection();
+	return Ray(start,direction);
+	}
+
 LaserpointerTool::LaserpointerTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:PointingTool(factory,inputAssignment),
+	:UtilityTool(factory,inputAssignment),
 	 active(false)
 	{
 	}
@@ -129,7 +136,7 @@ const ToolFactory* LaserpointerTool::getFactory(void) const
 	return factory;
 	}
 
-void LaserpointerTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void LaserpointerTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{
@@ -148,7 +155,7 @@ void LaserpointerTool::frame(void)
 	if(active)
 		{
 		/* Update the laser ray: */
-		ray=getButtonDeviceRay(0);
+		ray=calcRay();
 		}
 	}
 
@@ -163,7 +170,7 @@ void LaserpointerTool::display(GLContextData&) const
 		glLineWidth(factory->rayLineWidth);
 		glBegin(GL_LINES);
 		glVertex(ray.getOrigin());
-		glVertex(ray(factory->rayLength*scaleFactor));
+		glVertex(ray(factory->rayLength));
 		glEnd();
 		glPopAttrib();
 		}

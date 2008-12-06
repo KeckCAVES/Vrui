@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -33,8 +33,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Threads/MutexCond.h>
 
-#include <VRDeviceDaemon/VRDeviceManager.h>
-#include <VRDeviceDaemon/VRDeviceServer.h>
+#include "VRDeviceManager.h"
+#include "VRDeviceServer.h"
 
 bool shutdown;
 Threads::MutexCond shutdownCond;
@@ -48,7 +48,7 @@ void signalHandler(int signalId)
 			{
 			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=false;
-			shutdownCond.broadcast();
+			shutdownCond.broadcast(shutdownLock);
 			}
 			break;
 		
@@ -58,7 +58,7 @@ void signalHandler(int signalId)
 			{
 			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=true;
-			shutdownCond.broadcast();
+			shutdownCond.broadcast(shutdownLock);
 			}
 			break;
 		}
@@ -70,7 +70,7 @@ int main(int argc,char* argv[])
 	/* Parse command line: */
 	bool daemonize=false;
 	const char* configFileName=SYSVRDEVICEDAEMONCONFIGFILENAME;
-	const char* rootSectionName=0;
+	char* rootSectionName=0;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
@@ -110,9 +110,7 @@ int main(int argc,char* argv[])
 				/* Write process ID: */
 				char pidBuffer[20];
 				snprintf(pidBuffer,sizeof(pidBuffer),"%d\n",childPid);
-				size_t pidLen=strlen(pidBuffer);
-				if(write(pidFd,pidBuffer,pidLen)!=ssize_t(pidLen))
-					std::cerr<<"Could not write PID to PID file"<<std::endl;
+				write(pidFd,pidBuffer,strlen(pidBuffer));
 				close(pidFd);
 				}
 			return 0; // Parent process exits
@@ -131,10 +129,10 @@ int main(int argc,char* argv[])
 		// dup(nullFd);
 		// dup(nullFd);
 		#else
-		/* Redirect stdin, stdout and stderr to log file (this is ugly, but works because descriptors are assigned sequentially): */
+		/* Redirect stdin, stdout and stderr to log file: */
 		int logFd=open("/var/log/VRDeviceDaemon.log",O_RDWR|O_CREAT|O_TRUNC,S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH);
-		if(logFd!=0||dup(logFd)!=1||dup(logFd)!=2)
-			std::cerr<<"Error while rerouting output to log file"<<std::endl;
+		dup(logFd);
+		dup(logFd);
 		#endif
 		
 		/* Ignore most signals: */
@@ -192,11 +190,9 @@ int main(int argc,char* argv[])
 			}
 		
 		/* Set current section to given root section or name of current machine: */
-		if(rootSectionName==0||rootSectionName[0]=='\0')
+		if(rootSectionName==0)
 			rootSectionName=getenv("HOSTNAME");
-		if(rootSectionName==0||rootSectionName[0]=='\0')
-			rootSectionName=getenv("HOST");
-		if(rootSectionName==0||rootSectionName[0]=='\0')
+		if(rootSectionName==0)
 			rootSectionName="localhost";
 		configFile->setCurrentSection(rootSectionName);
 		
@@ -243,7 +239,7 @@ int main(int argc,char* argv[])
 		/* Create shutdown condition variable: */
 		shutdown=false;
 		
-		/* Wait for restart or shutdown: */
+		/* Wait for shutdown: */
 		shutdownCond.wait();
 		
 		/* Clean up: */

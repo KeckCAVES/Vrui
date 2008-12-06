@@ -1,6 +1,6 @@
 /***********************************************************************
 DecoratedButton - Class for buttons with decoration around their labels.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -66,7 +66,7 @@ DecoratedButton::DecoratedButton(const char* sName,Container* sParent,const char
 Vector DecoratedButton::calcNaturalSize(void) const
 	{
 	/* Return size of decoration and text plus margin: */
-	Vector result=label.calcNaturalSize();
+	Vector result=labelBox.size;
 	if(result[1]<decorationSize[1])
 		result[1]=decorationSize[1];
 	result[0]+=2.0f*marginWidth+leftInset+rightInset;
@@ -105,8 +105,8 @@ void DecoratedButton::draw(GLContextData& contextData) const
 		glVertex(decorationBox.getCorner(0));
 		glVertex(decorationBox.getCorner(2));
 		glVertex(decorationBox.getCorner(3));
-		glVertex(label.getLabelBox().getCorner(2));
-		glVertex(label.getLabelBox().getCorner(3));
+		glVertex(labelBox.getCorner(2));
+		glVertex(labelBox.getCorner(3));
 		glVertex(getInterior().getCorner(3));
 		glEnd();
 		
@@ -114,9 +114,9 @@ void DecoratedButton::draw(GLContextData& contextData) const
 		glBegin(GL_TRIANGLE_FAN);
 		glVertex(getInterior().getCorner(1));
 		glVertex(getInterior().getCorner(3));
-		glVertex(label.getLabelBox().getCorner(3));
-		glVertex(label.getLabelBox().getCorner(1));
-		glVertex(label.getLabelBox().getCorner(0));
+		glVertex(labelBox.getCorner(3));
+		glVertex(labelBox.getCorner(1));
+		glVertex(labelBox.getCorner(0));
 		glVertex(decorationBox.getCorner(1));
 		glVertex(decorationBox.getCorner(0));
 		glVertex(getInterior().getCorner(0));
@@ -126,8 +126,8 @@ void DecoratedButton::draw(GLContextData& contextData) const
 		glBegin(GL_QUADS);
 		glVertex(decorationBox.getCorner(3));
 		glVertex(decorationBox.getCorner(1));
-		glVertex(label.getLabelBox().getCorner(0));
-		glVertex(label.getLabelBox().getCorner(2));
+		glVertex(labelBox.getCorner(0));
+		glVertex(labelBox.getCorner(2));
 		glEnd();
 		}
 	else
@@ -137,9 +137,9 @@ void DecoratedButton::draw(GLContextData& contextData) const
 		glNormal3f(0.0f,0.0f,1.0f);
 		glVertex(getInterior().getCorner(2));
 		glVertex(getInterior().getCorner(0));
-		glVertex(label.getLabelBox().getCorner(0));
-		glVertex(label.getLabelBox().getCorner(2));
-		glVertex(label.getLabelBox().getCorner(3));
+		glVertex(labelBox.getCorner(0));
+		glVertex(labelBox.getCorner(2));
+		glVertex(labelBox.getCorner(3));
 		glVertex(decorationBox.getCorner(2));
 		glVertex(decorationBox.getCorner(3));
 		glVertex(getInterior().getCorner(3));
@@ -152,15 +152,15 @@ void DecoratedButton::draw(GLContextData& contextData) const
 		glVertex(decorationBox.getCorner(3));
 		glVertex(decorationBox.getCorner(1));
 		glVertex(decorationBox.getCorner(0));
-		glVertex(label.getLabelBox().getCorner(1));
-		glVertex(label.getLabelBox().getCorner(0));
+		glVertex(labelBox.getCorner(1));
+		glVertex(labelBox.getCorner(0));
 		glVertex(getInterior().getCorner(0));
 		glEnd();
 		
 		/* Draw the label separator: */
 		glBegin(GL_QUADS);
-		glVertex(label.getLabelBox().getCorner(3));
-		glVertex(label.getLabelBox().getCorner(1));
+		glVertex(labelBox.getCorner(3));
+		glVertex(labelBox.getCorner(1));
 		glVertex(decorationBox.getCorner(0));
 		glVertex(decorationBox.getCorner(2));
 		glEnd();
@@ -168,7 +168,7 @@ void DecoratedButton::draw(GLContextData& contextData) const
 	
 	/* Draw the decoration and label: */
 	drawDecoration(contextData);
-	label.draw(contextData);
+	drawLabel(contextData);
 	}
 
 void DecoratedButton::setDecorationSize(const Vector& newDecorationSize)
@@ -196,9 +196,6 @@ void DecoratedButton::setDecorationPosition(DecorationPosition newDecorationPosi
 	
 	/* Update the label position, no resize necessary: */
 	positionLabel();
-	
-	/* Invalidate the visual representation: */
-	update();
 	}
 
 void DecoratedButton::setSpacing(GLfloat newSpacing)

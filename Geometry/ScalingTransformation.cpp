@@ -1,7 +1,7 @@
 /***********************************************************************
 ScalingTransformation - Class for n-dimensional non-uniform scaling
 transformations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -21,9 +21,41 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Geometry/ScalingTransformation.icpp>
+#define GEOMETRY_SCALINGTRANSFORMATION_IMPLEMENTATION
+
+#ifndef METHODPREFIX
+	#ifdef NONSTANDARD_TEMPLATES
+		#define METHODPREFIX inline
+	#else
+		#define METHODPREFIX
+	#endif
+#endif
+
+#include <Geometry/UniformScalingTransformation.h>
+
+#include <Geometry/ScalingTransformation.h>
 
 namespace Geometry {
+
+/**********************************************
+Static elements of class ScalingTransformation:
+**********************************************/
+
+template <class ScalarParam,int dimensionParam>
+const ScalingTransformation<ScalarParam,dimensionParam> ScalingTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
+
+/**************************************
+Methods of class ScalingTransformation:
+**************************************/
+
+template <class ScalarParam,int dimensionParam>
+template <class SourceScalarParam>
+ScalingTransformation<ScalarParam,dimensionParam>::ScalingTransformation(const UniformScalingTransformation<SourceScalarParam,dimensionParam>& source)
+	:scaling(source.getScaling())
+	{
+	}
+
+#if !defined(NONSTANDARD_TEMPLATES)
 
 /*******************************************************************************
 Force instantiation of all standard ScalingTransformation classes and functions:
@@ -44,5 +76,7 @@ template ScalingTransformation<float,3>::ScalingTransformation(const UniformScal
 template class ScalingTransformation<double,3>;
 template ScalingTransformation<double,3>::ScalingTransformation(const UniformScalingTransformation<float,3>&);
 template ScalingTransformation<double,3>::ScalingTransformation(const UniformScalingTransformation<double,3>&);
+
+#endif
 
 }
