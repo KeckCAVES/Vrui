@@ -1,0 +1,125 @@
+<HTML>
+<HEAD>
+<TITLE>Vrui -- Virtual Reality User Interface Development Library</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Vrui&nbsp;-- Virtual Reality User Interface Development Library</H1>
+
+Vrui is a powerful high-level development toolkit for portable virtual reality applications.
+
+<H2>Header Files</H2>
+
+<DL>
+<DT>Geometry.h</DT>
+<DD>Geometry.h contains typedefs defining the low-level geometry types used by the Vrui toolkit.</DD>
+
+<DT>TransparentObject.h</DT>
+<DD>TransparentObject is a base class for all objects that require a second rendering pass to render transparency using OpenGL alpha blending. The transparency pass is executed after the application's display function, and is set up in physical coordinates and with OpenGL alpha blending enabled and the depth buffer locked.</DD>
+
+<DT>GlyphRenderer.h</DT>
+<DD>GlyphRenderer is a helper class to quickly and easily render several kinds of common glyphs used throughout the Vrui toolkit.</DD>
+
+<DT>InputDevice.h</DT>
+<DD>InputDevice is a class representing input devices with an (optional) 6-DOF position/orientation, and any numbers of buttons and valuators (floating-point values ranging from -1 to 1).</DD>
+
+<DT>VirtualInputDevice.h</DT>
+<DD>VirtualInputDevice is a helper class to manage and interact with ungrabbed virtual input devices, by representing them as 3D widgets.</DD>
+
+<DT>InputGraphManager.h</DT>
+<DD>InputGraphManager is a class managing the bipartite Vrui input processing graph formed by input devices and the tools associated with their buttons/valuators.</DD>
+
+<DT>InputDeviceManager.h</DT>
+<DD>InputDeviceManager is a class managing the input devices available to a VR environment and their associated tools in cooperation with an input graph manager.</DD>
+
+<DT>MutexMenu.h</DT>
+<DD>MutexMenu is a class representing GLMotif popup menus that can only be popped up by one menu tool at a time.</DD>
+
+<DT>Lightsource.h</DT>
+<DD>LightSource is a class representing light sources in VR environments.</DD>
+
+<DT>LightsourceManager.h</DT>
+<DD>LightsourceManager is a class managing any number of light sources, and mapping them to the limited number of OpenGL light sources during rendering.</DD>
+
+<DT>CoordinateTransform.h</DT>
+<DD>CoordinateTransform is a base class for transformations from "user interest" space to Vrui's navigational space. Classes derived from CoordinateTransform can be registered with Vrui's coordinate manager (see below), and are used to display coordinates in a coordinate system of interest to users of certain applications, e.g., geoid coordinates. The base class implements an identity transformation.</DD>
+
+<DT>OrthogonalCoordinateTransform.h</DT>
+<DD>Coordinate transformation class for orthogonal transformations (translations, rotations, uniform scalings).</DD>
+
+<DT>GeodeticCoordinateTransform.h</DT>
+<DD>Coordinate transformation class from geocentric Cartesian coordinates to geodetic coordinates (latitude, longitude, elevation) on a variety of geoids.</DD>
+
+<DT>CoordinateManager.h</DT>
+<DD>CoordinateManager allows Vrui applications to communicate their own units and coordinate systems to the Vrui toolkit. Vrui uses these definitions to provide an application-independent scale bar, and to display units and proper model coordinates (including non-linear mappings from navigation space) in measurements, e.g., those made with MeasurementTools.</DD>
+
+<DT>Viewer.h</DT>
+<DD>Viewer is a class representing viewers in VR environments. Viewers essentially consist of potentially headtracked eye positions that are used as projection centers when projecting 3D scenes onto screens.</DD>
+
+<DT>VRScreen.h</DT>
+<DD>VRScreen is a class representing fixed or device-mounted projection surfaces in VR environments. Together with viewers, screens describe how to display 3D scenes as (stereoscopic) images.</DD>
+
+<DT>ViewSpecification.h</DT>
+<DD>ViewSpecification is a class representing the visible space (frustum) of a VR display window, i.e., a combination of a viewer and a screen. View specifications are mostly used for view-dependent rendering and software frustum culling.</DD>
+
+<DT>VRWindow.h</DT>
+<DD>VRWindow is a class representing an OpenGL rendering window in a VR environment. VR windows tie together a viewer and a screen to create images of the 3D scene. VR windows contain methods to create monoscopic or stereoscopic images using several techniques.</DD>
+
+<DT>Listener.h</DT>
+<DD>Listener is a class representing listeners in VR environments. Listeners essentially consist of potentially headtracked ear positions and head orientations that are used to create 3D sound using OpenAL.</DD>
+
+<DT>SoundContext.h</DT>
+<DD>SoundContext is a class representing an OpenAL sound context in a VR environment. Sound contexts tie together a listener and a sound device for 3D sound using OpenAL.</DD>
+
+<DT>ToolInputLayout.h</DT>
+<DD>ToolInputLayout is a helper class describing the interface of a tool class, i.e., the number of devices/buttons/valuators used by each instance of the tool class.</DD>
+
+<DT>ToolInputAssignment.h</DT>
+<DD>ToolInputAssignment is a helper class describing the assignment from input devices, buttons, and valuators to an instance of a tool class.</DD>
+
+<DT>Tools/Tool.h</DT>
+<DD>Tool is the base class for all tools, i.e., objects associating input devices, buttons, and valuators with toolkit or application functions.</DD>
+
+<DT>Tools/GenericToolFactory.h</DT>
+<DD>GenericToolFactory is a helper class to simplify implementing tools.</DD>
+
+<DT>Tools/LocatorTool.h</DT>
+<DD>LocatorTool is the base class for all tools that are meant to invoke an application action at a particular 3D position.</DD>
+
+<DT>LocatorToolAdapter.h</DT>
+<DD>LocatorToolAdapter is a helper class connecting a locator tool to an application object receiving events from that tool.</DD>
+
+<DT>Tools/DraggingTool.h</DT>
+<DD>DraggingTool is the base class for all tools that are meant to select an application object and drag it in 3D.</DD>
+
+<DT>DraggingToolAdapter.h</DT>
+<DD>DraggingToolAdapter is a helper class connecting a dragging tool to an application object receiving events from that tool.</DD>
+
+<DT>Tools/NavigationTool.h</DT>
+<DD>NavigationTool is the base class for all navigation tools, i.e., all tools that change the transformation from application or model coordinates to physical environment coordinates.</DD>
+
+<DT>Tools/MenuTool.h</DT>
+<DD>MenuTool is the base class for all tools that invoke and interact with popup menus.</DD>
+
+<DT>ToolManager.h</DT>
+<DD>ToolManager is a class managing the dynamic creation/destruction of tools and the association of tools to input devices, buttons, and valuators.</DD>
+
+<DT>Vislet.h</DT>
+<DD>Vislet is the base class for stand-alone graphical objects that can be displayed inside a VR application without the application's knowledge or support.</DD>
+
+<DT>VisletManager.h</DT>
+<DD>VisletManager is a class managing the available vislet classes, and vislet instances.</DD>
+
+<DT>Vrui.h</DT>
+<DD>Vrui.h contains namespace-global functions to query or set all relevant parts of the internal Vrui state, and defines the Vrui kernel API.</DD>
+
+<DT>ClusterSupport.h</DT>
+<DD>ClusterSupport.h contains namespace-global functions to simplify developing cluster-aware Vrui applications.</DD>
+
+<DT>Application.h</DT>
+<DD>Application is a base class for Vrui applications to simplify program development and integration.</DD>
+</DL>
+
+</BODY>
+</HTML>

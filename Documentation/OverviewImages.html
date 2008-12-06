@@ -1,0 +1,35 @@
+<HTML>
+<HEAD>
+<TITLE>Images -- RGB Image Abstraction Library</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Images&nbsp;-- RGB Image Abstraction Library</H1>
+
+The Images library contains classes and functions to represent RGB images, and to load/save images from/to a variety of image file formats.
+
+<H2>Header Files</H2>
+
+<DL>
+<DT>Image.h</DT>
+<DD>Image is a base class to represent images in variable formats. The Image class uses a handle mechanism to allow passing images as values to functions, and return images from functions without incurring copy overhead.</DD>
+
+<DT>RGBImage.h</DT>
+<DD>RGBImage is a class to represent color images in RGB format, derived from the Image base class.</DD>
+
+<DT>RGBAImage.h</DT>
+<DD>RGBAImage is a class to represent color images with alpha channels in RGBA format, derived from the Image base class.</DD>
+
+<DT>GetImageFileSize.h</DT>
+<DD>GetImageFileSize.h contains a function to extract the pixel size from image files with reading the minimum required amount of information from the image file. The function detects the format of the given image file by its extension, and supports PPM, PNG, and JPEG image formats (the latter two rely on the libpng and libjpeg libraries, respectively).</DD>
+
+<DT>ReadImageFile.h</DT>
+<DD>ReadImageFile.h contains a function to read RGB images from image files. The function detects the format of the given image file by its extension, and supports PPM, PNG, and JPEG image formats (the latter two rely on the libpng and libjpeg libraries, respectively). It also contains a function to read RGBA images from cursor files in Xcursor format.</DD>
+
+<DT>WriteImageFile.h</DT>
+<DD>WriteImageFile.h contains a function to write RGB images to image files. The function detects the format of the given image file by its extension, and supports PPM, PNG, and JPEG image formats (the latter two rely on the libpng and libjpeg libraries, respectively).</DD>
+</DL>
+
+</BODY>
+</HTML>

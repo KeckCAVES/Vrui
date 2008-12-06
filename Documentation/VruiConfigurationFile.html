@@ -1,0 +1,270 @@
+<HTML>
+<HEAD>
+<TITLE>The Vrui Configuration File</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>The Vrui Configuration File</H1>
+
+The Vrui configuration file (Vrui.cfg in the installation's etc directory) contains all adjustable settings of the Vrui toolkit, and is how Vrui adapts itself to any VR environment from a desktop system to a high-end VR system like a CAVE. All these environments run the exact same version of the Vrui toolkit and the same applications; they only differ in their configuration file settings.<P>
+
+The Vrui configuration file (from now on referred to as Vrui.cfg) is organized as a tree of named sections, each one containing tag/value pairs (similar to the Windows registry), and stored in a human-readable plain text file. Any lines starting with a hash mark (&quot;#&quot;) are considered comments and ignored. Sections inside Vrui.cfg are bracketed by lines containing only &quot;section &lt;name&gt;&quot; and &quot;endsection&quot;, respectively. Section names containing spaces must be enclosed in double quotes. A tag/value pair is a single line, starting with the tag name and followed by the value string. Multiline value strings can be achieved by ending lines with a single backslash. The format of the value string depends on the data type of the setting associated with the tag; for example, a boolean setting can have &quot;true&quot; or &quot;false&quot; as values, whereas a vector setting has a value string such as &quot;(1.0, -2.0, 0.5)&quot;. String values can be enclosed in double quotes to allow spaces and other special characters.
+
+<H2>Vrui Initialization</H2>
+
+When the Vrui toolkit initializes itself, it first opens the system-wide configuration file (etc/Vrui.cfg in the Vrui installation directory). After that, it looks for a user-defined configuration file (pointed to by the VRUI_CONFIGFILE environment variable) and merges the latter's section tree into the system-wide configuration file. This mechanism allows users to override only parts of Vrui.cfg to their own liking, or to provide application-specific configurations.<P>
+
+After merging the files, Vrui determines the configuration's root section. This root section is always inside the &quot;Vrui&quot; section at the very root of Vrui.cfg, and its name is determined by a sequence of steps:
+<OL>
+<LI>If a -rootSection &lt;name&gt; switch is given on the application's command line, Vrui uses the given name as the root section name.</LI>
+
+<LI>If an environment variable VRUI_ROOTSECTION exists, Vrui uses its value as the root section name.</LI>
+
+<LI>If the &quot;Vrui&quot; section contains a section that has the same name as the local machine name (as reported by HOSTNAME), Vrui uses that section as the root section.</LI>
+
+<LI>If all else fails, Vrui uses the &quot;Simulator&quot; section inside the &quot;Vrui&quot; section as the root section</LI>
+</OL>
+This mechanism of selecting root sections supports location-independent development: in a lab setting where users have a single account shared between several desktop systems and several virtual reality environments, they only have to build the Vrui toolkit and their applications once. Each VR environment has its own root section named after the controlling terminal in Vrui.cfg, and when an application is started on any computer, it will find the appropriate settings. In other words, a single application will run in VR mode when started from a VR environment's controlling terminal, and run in desktop mode when started from any &quot;unknown&quot; computer.<P>
+
+More precisely, the root section determines the number and position/orientation of screens forming the VR environment, the number and position/orientation of viewers from whose viewpoints images are projected, and the number and settings of OpenGL windows that render onto the screens, from the viewpoint of a particular viewer. It also describes which input devices are available to Vrui, and how these devices are connected, which tool classes are available and how the default tools are bound to input device buttons, and a variety of other settings describing the environment. Most of these settings are organized in subsections of the root section, and those subsections are referred to by name from within the root section.<P>
+
+The subsections used by Vrui are:
+<DL>
+<DT>inputDeviceAdapterNames</DT>
+<DD>This setting's value is a list of strings giving the name of each subsection describing one adapter providing input device information for Vrui. Desktop environments typically only use a mouse input device adapter providing mouse and keyboard data; VR environments typically list one or more device daemon adapters connected to external VR device drivers.</DD>
+
+<DT>viewerNames</DT>
+<DD>This setting's value is a list of strings giving the name of each subsection describing one viewer. A viewer is essentially a set of two eyes used as projection centers when projecting the 3D scene onto screens. A desktop environment typically only has a single viewer at a fixed position in front of the monitor; VR environments typically have a single head-tracked viewer, but can have several viewers as well.</DD>
+
+<DT>screenNames</DT>
+<DD>This setting's value is a list of strings giving the name of each subsection describing one screen. A screen is a projection surface inside a VR environment. In desktop environments, it is typically the screen of the monitor; in projected environments, it is one projection screen such as a CAVE wall; in head-mounted environments, it is the virtual projection screen created by the HMD (in the latter case, the screen is typically attached to a tracking device).</DD>
+
+<DT>windowNames</DT>
+<DD>This setting's value is a list of strings giving the name of each subsection describing one window. A window is what holds viewers and screens together. A window represents an OpenGL window showing either one or both views of a single viewer as projected onto a single screen. The separation between viewers, screens, and windows is what allows Vrui to work on a wide variety of VR hardware and a wide range of different techniques to create stereoscopic displays.</DD>
+
+<DT>tools</DT>
+<DD>This setting's value is a string giving the name of the subsection describing the set of available tools, and the default tool assignment.</DD>
+
+<DT>vislets</DT>
+<DD>This setting's value is a string giving the name of the subsection describing the set of available stand-alone visualization components that can be imported into VR applications without the application's knowledge. Vislets can be used to render a representation of an environment itself, or to provide an application-independent mechanism to display auxiliary 3D data inside an application.</DD>
+</DL><P>
+
+All other settings in the root section are related to the 3D environment represented by a VR environment, such as its center point and size, the background color used for display, the text font and size, the material to use for GUI widgets, etc. Some important settings are:
+<DL>
+<DT>updateContinuously</DT>
+<DD>If this setting's boolean value is true, Vrui applications will execute their main loop in non-blocking mode, always updating the display as fast as possible. This is usually desirable for immersive VR environments where lag needs to be reduced, but is wasteful for desktop applications where lag is of less concern. If this setting is false, the Vrui main loop will block until any relevant events are received, and then run a single iteration of the main loop.</DD>
+
+<DT>inchScale</DT>
+<DD>The Vrui environment is based on physical coordinates, even when running in desktop mode. To be independent of what unit of length users prefer, this setting defines the length of one inch in the unit of measurement used in the rest of the configuration file (and throughout applications). For example, if a user wants to use meters as Vrui length units, inchScale must be set to 0.0254. To use inches as native length units, inchScale is set to 1.0.</DD>
+
+<DT>meterScale</DT>
+<DD>An alternative way to specify Vrui's physical coordinate unit (see above), by expressing the length of one meter in terms of the chosen unit. If this setting is specified, it overrides the inchScale setting, and calculates the length of an inch based on the specified length of a meter. To use inches as Vrui length units, meterScale must be set to 39.3700787401 (awkward, use inchScale instead). To use meters as native length units, meterScale is set to 1.0.</DD>
+
+<DT>displayCenter</DT>
+<DD>This setting defines the center point of the local VR environment. The center point is used together with the displaySize and upDirection settings to map 3D scenes defined by applications into the physical display space. In a desktop environment, displayCenter is typically the center of the screen in physical coordinates; in VR environments, displayCenter can be set to whatever position one wants 3D scenes to be centered around by default.</DD>
+
+<DT>displaySize</DT>
+<DD>This setting defines the (approximate) size of the local environment. It is used to calculate a scaling factor to map 3D scenes into the physical VR environment by default.</DD>
+
+<DT>upVector</DT>
+<DD>This setting defines a direction in Vrui physical coordinates that should be considered pointing &quot;up.&quot; This setting is sometimes used by applications that display scenes which have a well-defined up direction, to prevent those scenes from appearing upside-down or tilted in environment with different physical coordinate systems.</DD>
+
+<DT>frontPlaneDist</DT>
+<DD>This setting defines the distance from a viewer's eye position to the OpenGL frustum's front plane in physical units. Due to limited precision in the OpenGL frame buffer, this setting sometimes has to be set relatively large to prevent Z fighting.</DD>
+
+<DT>backPlaneDist</DT>
+<DD>This setting defines the distance from a viewer's eye position to the OpenGL frustum's back plane in physical units. Due to limited precision in the OpenGL frame buffer, this setting sometimes has to be set relatively small to prevent Z fighting.</DD>
+
+<DT>backgroundColor</DT>
+<DD>The RGB color of the background used in rendering each window, with floating-point components.</DD>
+
+<DT>uiSize</DT>
+<DD>A generic size value in Vrui physical units that is used to layout 3D GUI widgets. A good rule of thumb is to set this value to half the used font size (see below).</DD>
+
+<DT>uiFontTextHeight</DT>
+<DD>The size of the font used by 3D GUI widgets, in Vrui physical units. It is important to properly adapt this setting to an environment's screen size and window resolution to keep text easily readable. A good rule of thumb is to use a text height of about 1&nbsp;inch for immersive VR environments, and use the smallest text height that is still easily legible for desktop environments.</DD>
+
+<DT>screenProtectors</DT>
+<DD>This setting can be used to set up screen protection, where a set of input devices is monitored for proximity to an environment's screens, and Vrui displays a green grid on each screen that an input device has come too close to. This mechanism is important in projected VR environments such as CAVEs, where the physical screens effectively become invisible while an application is running, and where the screen material cannot be touched or bumped into. This setting's value is a list of protection structures, each given in the form &quot;(&lt;deviceName&gt;, (&lt;centerX&gt;, &lt;centerY&gt;, &lt;centerZ&gt;), &lt;radius&gt;)&quot;, where the center position and radius define a sphere in the named input device's local coordinates that triggers an alarm when it intersects any protected screen.</DD>
+</DL>
+
+<H3>Input Device Adapter Definition</H3>
+
+Each subsection listed in the inputDeviceAdapternames setting defines one source for input device data. A Vrui environment can gather its data from any number of sources; each subsection defines the format of data from one source, and how to integrate that data into the environment's overall input device layout. An input device adapter's settings are:
+<DL>
+<DT>inputDeviceAdapterType</DT>
+<DD>Setting defining the type of the input data source. All further settings depend on the type of adapter. The most important available types are:
+<DL>
+<DT>Mouse</DT>
+<DD>Input device adapter mapping a regular mouse/keyboard into a Vrui application by treating the mouse as a virtual 3D input device located at the viewer's eye position and pointing towards the screen, and treating mouse buttons and keys uniformly as buttons on that virtual input device. The rest of the settings describe which mouse buttons and keys to treat as input device buttons, and which keys to treat as modifier keys.</DD>
+
+<DT>DeviceDaemon</DT>
+<DD>An input device adapter getting its data from an separate VR device driver, potentially located on a separate computer. The Vrui VR device driver reports its data as a &quot;flat&quot; list of 6-DOF trackers, buttons, and valuators. The rest of the settings describe how to connect to the separate device driver, and how to assemble the flat device data into individual input devices.</DD>
+</DL></DD>
+</DL>
+
+<H3>Viewer Definition</H3>
+
+Each subsection listed in the viewerNames setting defines one viewer. For accurate display, especially stereoscopic display, it is important that these settings match the true viewer in a VR environment. For head tracking, the eye positions especially should be as accurate as possible; in desktop environments, the viewer's eye positions should be close to the position where a user's eyes are expected to be. A viewer's settings are:
+<DL>
+<DT>name</DT>
+<DD>The name used to reference a viewer in other parts of the configuration file, for example a window subsection. This name does not have to be identical to the viewer's subsection name.</DD>
+
+<DT>headTracked</DT>
+<DD>Boolean setting whether a viewer is headtracked by a 6-DOF input device. If the setting is not present, it defaults to false.</DD>
+
+<DT>headDevice</DT>
+<DD>Name of the headtracking input device if a viewer is headtracked. For headtracked viewers, the settings defining the viewer's layout (monoEyePosition etc.) are relative to the input device's current transformation.</DD>
+
+<DT>headDeviceTransformation</DT>
+<DD>A rigid-body transformation (translation and rotation) used for non-headtracked viewers. For non-headtracked viewers,the settings defining the viewer's layout (monoEyePosition etc.) are relative to this fixed transformation.</DD>
+
+<DT>viewDirection</DT>
+<DD>A vector in local viewer coordinates describing the approximate viewing direction of the viewer (pointing into the scene).</DD>
+
+<DT>monoEyePosition</DT>
+<DD>A point in local viewer coordinates defining the eye position to be used for non-stereoscopic rendering, typically the midpoint between the left and right eye positions.</DD>
+
+<DT>leftEyePosition, rightEyePosition</DT>
+<DD>Points in local viewer coordinates definining the positions of the viewer's left and right eyes, respectively, to be used for stereoscopic rendering.</DD>
+
+<DT>headLightEnabled</DT>
+<DD>Boolean setting whether Vrui shall associate a light source with the viewer, to always properly illuminate a 3D scene.</DD>
+
+<DT>headLightPosition</DT>
+<DD>Position of the head light source in local viewer coordinates (this is an affine position; Vrui does not support directional head light sources).</DD>
+
+<DT>headLightDirection</DT>
+<DD>Direction of the head light source in local viewer coordinates; only relevant if the head light source is a spot light source.</DD>
+
+<DT>headLightColor</DT>
+<DD>RGB color of the head light source with floating-point color components.</DD>
+
+<DT>headLightSpotCutoff</DT>
+<DD>The cutoff angle for spot head light sources in degrees. Must be either 180.0 for non-spot sources, or between 0.0 and 90.0 for spot light sources.</DD>
+<DT>headLightSpotExponent</DT>
+<DD>Spot light exponent for spot light sources.</DD>
+</DL>
+
+<H3>Screen Definition</H3>
+
+Each subsection listed in the screenNames setting defines one screen, such as a monitor or a projection surface. For accurate display, especially stereoscopic display, it is important that these settings match the actual VR environment, even for desktop environments. A screen's settings are:
+<DL>
+<DT>name</DT>
+<DD>The name used to reference a screen in other parts of the configuration file, for example a window subsection. This name does not have to be identical to the screen's subsection name.</DD>
+
+<DT>deviceMounted</DT>
+<DD>Boolean setting whether a screen is fixed or attached to a 6-DOF input device (for example an HMD). If true, any positions/orientations given for that screen are relative to the input device's current transformation. If the setting is not present, it defaults to false.</DD>
+
+<DT>origin</DT>
+<DD>The position of the screen's lower-left corner in physical coordinates (or relative to the input device's transformation for device-mounted screens).</DD>
+
+<DT>horizontalAxis</DT>
+<DD>The direction of the screen's horizontal axis in physical coordinates (or relative to input device). This vector is automatically normalized by Vrui.</DD>
+
+<DT>width</DT>
+<DD>Width of the screen in physical units.</DD>
+
+<DT>verticalAxis</DT>
+<DD>The direction of the screen's vertical axis in physical coordinates (or relative to input device). This vector is automatically normalized by Vrui.</DD>
+
+<DT>height</DT>
+<DD>Height of the screen in physical units.</DD>
+</DL>
+
+<H3>Window Definition</H3>
+
+Each subsection listed in the windowNames setting defines one window, acting as the connection between one or both eyes of a viewer and a screen. A window's settings are:
+<DL>
+<DT>display</DT>
+<DD>The X11 display to use for this window. If the setting is not present, the window is opened on the default display.</DD>
+
+<DT>windowPos</DT>
+<DD>The desired initial position and size of the window. The window position is given as &quot;(&lt;originX&gt;, &lt;originY&gt;), (&lt;sizeX&gt;, &lt;sizeY&gt;)&quot;, both in X11 display coordinates. Due to the window manager's influence, the desired position and size are not always realized.</DD>
+
+<DT>windowFullscreen</DT>
+<DD>If this boolean setting is true, Vrui ignores the desired window position and size and creates a fullscreen window covering the entire display. Modern window managers will usually grant this request, but some might still draw the resulting window with decoration.</DD>
+
+<DT>panningViewport</DT>
+<DD>Normal 3D graphics applications do not change the display when the window containing the display is moved on the screen. In Vrui, however, because the display is based on physical coordinates, moving a window on the screen should change what is displayed. In Vrui, one can think of OpenGL/display windows as &quot;real&quot; windows into a virtual 3D space that extends in front of and behind the screen. By setting panningViewport to true, Vrui takes the position and size of its display windows into account when setting up the 3D projection; if the setting is false, Vrui assumes that the window entirely covers the screen as defined in the configuration file. This will lead to bad results if the physical window size does not match the configured screen size, and especially if the window's and screen's aspect ratios do not match. It is generally advisable to either define all desktop windows as panning viewports, or to always use fullscreen windows.</DD>
+
+<DT>navigating</DT>
+<DD>When a window in panningViewport mode is moved or resized, the window contents, i.e., the 3D scene, do not move with it. This is in line with the &quot;window as a window&quot; metaphor, but might not be what users expect/desire. If the navigating flag is set to true, Vrui will move the 3D scene along with the display window. The 3D scene will still slightly change because the viewer's position does not move with it, but this is beneficial because it provides more accurate 3D projection, especially when using stereo.</DD>
+
+<DT>toolKillZonePos</DT>
+<DD>Usually, the position of the tool manager's tool kill zone is defined in the tool manager's configuration file section. For desktop environments, however, it is more convenient to define the kill zone's position in window coordinates, and have it move with the window in panningViewport mode. The toolKillZonePos setting takes a single 2D vector defining the position of the tool kill zone in relative window coordinates. The window's lower-left corner has coordinates (0, 0); the upper-right corner has coordinates (1, 1).</DD>
+
+<DT>windowType</DT>
+<DD>This setting defines the type of this window as a selection between several options. The window type is most relevant for selecting between different techniques of achieving stereoscopic rendering. The available window types are:
+<DL>
+<DT>Mono</DT>
+<DD>A monoscopic window rendering from the associated viewer's monoEyePosition. This is the typical window type in desktop environments.</DD>
+
+<DT>LeftEye, RightEye</DT>
+<DD>A monoscopic window rendering from the associated viewer's leftEyePosition or rightEyePosition, respectively. This window type is most useful in passive stereo environments, where the left/right eye images are rendered by separate computers, or by separate X11 displays or screens on the same computer.</DD>
+
+<DT>AnaglyphicStereo</DT>
+<DD>A stereoscopic window using red/blue (anaglyphic) stereo glasses. The window's contents are rendered twice, each time locking the appropriate component(s) of the frame buffer. This stereo mode works best (and surprisingly well) with glasses that have a blue lens, not a cyan lens.</DD>
+
+<DT>SplitViewportStereo</DT>
+<DD>A stereoscopic window rendering the left/right eye views into separate parts of the same window. this window type is most useful in passive stereo environments where a single virtual desktop (and window) spans two displays, each responsible for one eye's view.</DD>
+
+<DT>QuadbufferStereo</DT>
+<DD>A stereoscopic window using classic &quot;active stereo&quot; rendering. Most useful for active (frame interlaced) stereo environments, or passive stereo environments where a special feature of the graphics card splits the left and right frames between two video outputs.</DD>
+</DL></DD>
+
+<DT>leftViewportPos, rightViewportPos</DT>
+<DD>For SplitViewportStereo windows, these settings define the positions of the left and right viewports, respectively, inside the overall window, using window coordinates. The viewport positions are specified as &quot;(&lt;originX&gt;, &lt;originY&gt;), (&lt;sizeX&gt;, &lt;sizeY&gt;)&quot;.</DD>
+
+<DT>screenName</DT>
+<DD>The name of the screen this window is associated with.</DD>
+
+<DT>viewerName</DT>
+<DD>The name of the viewer this window is associated with.</DD>
+
+<DT>multisamplingLevel</DT>
+<DD>If this setting is set to an integer larger than 1, the window will use OpenGL multisampling (also known as full-scene antialiasing) using the given number of samples per pixel. If the requested number of samples is larger than the number supported by the local OpenGL, window creation will fail with an error message. This setting defaults to 1 if it is not present.</DD>
+
+<DT>showFps</DT>
+<DD>Boolean flag whether Vrui shall display the current frame rate, in frames per second, in the lower-left corner of the window. This setting defaults to false if it is not present.</DD>
+
+<DT>protectScreens</DT>
+<DD>Flag whether Vrui shall draw a green grid in this window if a monitored input device comes too close to the screen this window draws onto. This setting defaults to true if it is not present.</DD>
+</DL>
+
+<H2>Multipipe Rendering</H2>
+
+By default, Vrui runs in single-pipe mode, where rendering is performed sequentially even when multiple windows are used by an environment (or one or more windows contain stereoscopic images). In multipipe mode, on the other hand, several instances of a Vrui application can render to one or more windows each in parallel. Multipipe mode is typically used when an environment has a large number of windows, or when windows exist on several individual computers. The special case of multipipe rendering on a shared-memory visualization server such as SGI's Onyx or Prism architectures is handled in the next section.<P>
+
+Vrui uses cluster parallelization to achieve multipipe rendering. This means that each pipe is fed by a separate instance of the Vrui application, which are synchronized by distributing identical input data to all instances using a communications protocol, but otherwise run completely independently. This architecture minimizes inter-process communication, and maps well to cluster architectures. It also works on shared-memory multipipe visualization servers, although a separate implementation would make better use of that particular architecture.<P>
+
+Whether a Vrui application runs in single-pipe or multipipe mode is determined during toolkit initialization as well (in other words, the same toolkit and applications can run in both single- or multipipe). Vrui looks for an &quot;enableMultipipe&quot; setting in its root section; if this setting's boolean value is true, Vrui enters multipipe mode. In that case the already running Vrui application will further query the root section for the layout of the rendering cluster, and then spawn identical copies of itself on all other cluster nodes using remote login via ssh. The following root section settings are required to start a Vrui application in multipipe mode:
+<DL>
+<DT>enableMultipipe</DT>
+<DD>Must be set to true to enter multipipe mode; defaults to false if the setting is not present.</DD>
+
+<DT>multipipeMaster</DT>
+<DD>This setting contains the IP address (or host name) of the cluster's controlling terminal (the one where Vrui applications are started by users), as seen from the other node's network. Normally, a cluster will have its own private network with the master node doubling as a router/firewall; the address given here is the master's address on that subnet.</DD>
+
+<DT>multipipeSlaves</DT>
+<DD>This setting contains a list of the IP addresses (or host names) of all other cluster nodes. For later reference, nodes in this list are numbered starting at 1; the node number 0 is assigned to the master node.</DD>
+
+<DT>multipipeMulticastGroup</DT>
+<DD>This setting contains an IP multicast address or broadcast address that can reach all slave nodes from the master node. If this address is a valid multicast address, Vrui will use UDP broadcast over IP multicast to communicate from the master to all slaves; otherwise, the address is assumed to be a valid IP broadcast address, and Vrui will use UDP broadcast over IP broadcast to communicate from the master to all slaves. The slaves will always use UDP unicast to communicate back to the master.</DD>
+
+<DT>multipipeMulticastPort</DT>
+<DD>The port number of the UDP communications socket between the master and the slaves. Only a single Vrui application can use a port at a time; if one needs to run several VR applications at once on the same cluster, they need to use different port numbers.</DD>
+
+<DT>node&lt;index&gt;WindowNames</DT>
+<DD>In single-pipe mode, Vrui reads the windowNames setting to get the list of windows rendered by the Vrui application. In multipipe mode, there is an independent setting for each cluster node. The nodes are numbered starting at 0 for the master node, and continuing in order of the node names listed in the multipipeSlaves setting. It is possible to have nodes with an empty window list; those nodes will not render anything, but otherwise fully participate in processing. One possible use for windowless nodes is as the controlling terminal of a visualization cluster, or as audio-only nodes.</DD>
+</DL>
+
+<H3>Shared-Memory Multipipe Rendering</H3>
+
+On shared-memory visualization servers, several graphics pipes exist in a single multiprocessor computer. The cluster-based Vrui multipipe rendering mode does not map well to such architectures, because in cluster mode all processes of a Vrui application perform the same computation, and the interprocess communication is optimized for relatively low-bandwidth network channels. Optimally, there would be one or more threads performing application computation and graphics pre-processing, and one dedicated rendering thread per graphics pipe, preferrably running on a CPU &quot;close&quot; to that pipe.<P>
+
+Fortunately, this application model can easily be achieved by using Vrui's capability to open several display windows for each application process. On a multipipe system, these windows are assigned to the appropriate pipes by binding them to the pipes' displays. To start a separate rendering thread for each display window associated with a Vrui application process, one has to set the windowsMultithreaded setting in Vrui.cfg's root section to true. This multithreaded multiwindow rendering mode mixes with Vrui's cluster-based multipipe mode: Any node in a Vrui cluster can have several windows, and run those windows in independent threads. In analogy how window names are assigned in multipipe mode, there is a node&lt;index&gt;WindowsMultithreaded setting that can be set to true to enable multithreaded rendering for each cluster node individually. This allows creating a hybrid cluster where a shared-memory multipipe server renders to some windows, and regular single-pipe computers render to the rest.
+
+</BODY>
+</HTML>
