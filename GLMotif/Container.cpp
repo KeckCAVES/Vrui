@@ -1,7 +1,7 @@
 /***********************************************************************
 Container - Base class for GLMotif UI components that contain other
 components.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -22,9 +22,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GLMotif/Container.h>
 
-#include <string.h>
-#include <stdexcept>
-
 namespace GLMotif {
 
 /**************************
@@ -37,62 +34,6 @@ Container::Container(const char* sName,Container* sParent,bool sManageChild)
 	/* Manage me: */
 	if(sManageChild)
 		manageChild();
-	}
-
-Widget* Container::findChild(const char* childName)
-	{
-	/* Traverse all children in the container until the first name matches: */
-	Widget* child;
-	for(child=getFirstChild();child!=0&&strcmp(child->getName(),childName)!=0;child=getNextChild(child))
-		;
-	return child;
-	}
-
-namespace {
-
-/****************
-Helper functions:
-****************/
-
-inline bool strsegequal(const char* s1Begin,const char* s1End,const char* s2)
-	{
-	/* Find the first mismatching character in the two strings: */
-	for(;s1Begin!=s1End&&*s2!='\0'&&*s1Begin==*s2;++s1Begin,++s2)
-		;
-	
-	/* Strings are equal if both strings are over and no mismatching characters were found: */
-	return s1Begin==s1End&&*s2=='\0';
-	}
-
-}
-
-Widget* Container::findDescendant(const char* descendantPath)
-	{
-	/* Find the next forward slash in the descendant path: */
-	const char* slashPtr;
-	for(slashPtr=descendantPath;*slashPtr!='\0'&&*slashPtr!='/';++slashPtr)
-		;
-	
-	/* Traverse all children in the container until the first name matches: */
-	Widget* child;
-	for(child=getFirstChild();child!=0&&!strsegequal(descendantPath,slashPtr,child->getName());child=getNextChild(child))
-		;
-	
-	/* Check if there is another path segment: */
-	if(*slashPtr=='/')
-		{
-		/* Check if the found child is a container: */
-		Container* container=dynamic_cast<Container*>(child);
-		if(container!=0)
-			{
-			/* Search the found container: */
-			return container->findDescendant(slashPtr+1);
-			}
-		else
-			throw std::runtime_error("GLMotif::Container::findDescendant: Path component not found");
-		}
-	else
-		return child;
 	}
 
 }

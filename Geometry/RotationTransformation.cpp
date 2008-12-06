@@ -1,6 +1,6 @@
 /***********************************************************************
 RotationTransformation - Class for n-dimensional rotations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -20,9 +20,28 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Geometry/RotationTransformation.icpp>
+#define GEOMETRY_ROTATIONTRANSFORMATION_IMPLEMENTATION
+
+#ifndef METHODPREFIX
+	#ifdef NONSTANDARD_TEMPLATES
+		#define METHODPREFIX inline
+	#else
+		#define METHODPREFIX
+	#endif
+#endif
+
+#include <Geometry/RotationTransformation.h>
 
 namespace Geometry {
+
+/***********************************************
+Static elements of class RotationTransformation:
+***********************************************/
+
+template <class ScalarParam,int dimensionParam>
+const RotationTransformation<ScalarParam,dimensionParam> RotationTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
+
+#if !defined(NONSTANDARD_TEMPLATES)
 
 /********************************************************************************
 Force instantiation of all standard RotationTransformation classes and functions:
@@ -32,5 +51,7 @@ template class RotationTransformation<float,2>;
 template class RotationTransformation<double,2>;
 template class RotationTransformation<float,3>;
 template class RotationTransformation<double,3>;
+
+#endif
 
 }

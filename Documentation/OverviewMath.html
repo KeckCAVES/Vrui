@@ -18,50 +18,11 @@ The Math library contains functions providing overloaded entry points for the st
 <DT>Constants.h</DT>
 <DD>Constants.h defines a generic class Constants containing numerical limits of atomic types and mathematical constants for floating-point types.</DD>
 
-<DT>Complex.h</DT>
-<DD>Complex is a class representing complex numbers, templatized by scalar type.</DD>
-
-<DT>Interval.h</DT>
-<DD>Interval is a class representing fully closed intervals, templatized by the underlying scalar type. Interval provides constructors, comparison operators, set arithmetic on intervals, and some interval arithmetic operators.</DD>
-
-<DT>Matrix.h</DT>
-<DD>Matrix is a class representing double-valued matrices of dynamic sizes, and a general set of linear algebra operations.</DD>
-
 <DT>Random.h</DT>
 <DD>Random.h contains convenience functions to create random numbers of different distributions.</DD>
 
-<DT>Noise.h</DT>
-<DD>Noise is a class implementing Ken Perlin's improved 3D band-limited noise function, following his 2002 SIGGRAPH paper. The static Noise::noise method is templatized by scalar type. Client code can #define MATH_NOISE_NONSTANDARD_TEMPLATES to inline the noise method, for a small speed boost.</DD>
-
-<DT>BrokenLine.h</DT>
-<DD>BrokenLine is a class describing constant piecewise linear mappings from a source interval to the interval [-1, 1] using a &quot;broken line&quot; model with two linear ramps and a flat &quot;dead zone&quot; in the middle.</DD>
-
-<DT>Minimizer.h</DT>
-<DD>Minimizer is a base class for iterative non-linear optimizers, templatized by a functor implementing the minimization target function.</DD>
-
-<DT>SimplexMinimizer.h</DT>
-<DD>SimplexMinimizer is a class derived from Math::Minimizer implementing a non-linear optimizer based on a simplex algorithm, templatized by a functor implementing the minimization target function.</DD>
-
-<DT>GaussNewtonMinimizer.h</DT>
-<DD>GaussNewtonMinimizer is a class implementing a non-linear least-squares optimizer based on the Gauss-Newton algorithm, templatized by a functor implementing the minimization target function.</DD>
-
-<DT>LevenbergMarquardtMinimizer.h</DT>
-<DD>LevenbergMarquardtMinimizer is a class implementing a non-linear least-squares optimizer based on the Levenberg-Marquardt algorithm, templatized by a functor implementing the minimization target function.</DD>
-
-<DT>RanSaC.h</DT>
-<DD>RanSaC is a class implementing model fitting using the "RANdom SAmple Consensus" algorithm, templatized by a functor implementing the specific model fitting problem.</DD>
-
-<DT>VarianceAccumulator.h</DT>
-<DD>VarianceAccumulator is a class to accumulate the mean and sample variance of a sequence of samples, based on D.E. Knuth's recurrence relation from "The Art of Computer Programming, Vol. 2".</DD>
-
-<DT>Histogram.h</DT>
-<DD>Histogram is a class to represent histograms of values of arbitrary scalar types.</DD>
-
-<DT>MathMarshallers.h</DT>
-<DD>MathMarshallers contains specializations of the Misc::Marshaller templatized class for objects from the Math library.</DD>
-
-<DT>MathValueCoders.h</DT>
-<DD>MathValueCoders contains specializations of the Misc::ValueCoder templatized class for objects from the Math library.</DD>
+<DT>Interval.h</DT>
+<DD>Interval is a class representing fully closed intervals, templatized by the underlying scalar type. Interval provides constructors, comparison operators, set arithmetic on intervals, and some interval arithmetic operators.</DD>
 </DL>
 
 </BODY>

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLContextData - Class to store per-GL-context data for application
 objects.
-Copyright (c) 2000-2012 Oliver Kreylos
+Copyright (c) 2000-2008 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -29,10 +29,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/TLSHelper.h>
 #include <GL/GLObject.h>
 
-/* Forward declarations: */
-class GLLightTracker;
-class GLClipPlaneTracker;
-
 class GLContextData
 	{
 	/* Embedded classes: */
@@ -58,8 +54,6 @@ class GLContextData
 	static Misc::CallbackList currentContextDataChangedCallbacks; // List of callbacks called whenever the current context data object changes
 	static GL_THREAD_LOCAL(GLContextData*) currentContextData; // Pointer to the current context data object (associated with the current OpenGL context)
 	ItemHash context; // A hash table for the context
-	GLLightTracker* lightTracker; // An object to track the OpenGL context's lighting state
-	GLClipPlaneTracker* clipPlaneTracker; // An object to track the OpenGL context's clipping plane state
 	
 	/* Constructors and destructors: */
 	public:
@@ -69,9 +63,7 @@ class GLContextData
 	/* Methods to manage object initializations and clean-ups: */
 	static void initThing(const GLObject* thing); // Marks a thing for context initialization
 	static void destroyThing(const GLObject* thing); // Marks a thing for context data removal
-	static void orderThings(const GLObject* thing1,const GLObject* thing2); // Asks thing manager to always initialize thing1 before thing2
 	static void resetThingManager(void); // Resets the thing manager
-	static void shutdownThingManager(void); // Shuts down the thing manager
 	void updateThings(void); // Initializes or deletes all marked things
 	
 	/* Methods to manage the current context: */
@@ -119,24 +111,6 @@ class GLContextData
 			/* Remove the data item from the hash table: */
 			context.removeEntry(dataIt);
 			}
-		}
-	
-	/* Methods to retrieve other context-related state: */
-	const GLLightTracker* getLightTracker(void) const // Returns the lighting state tracker
-		{
-		return lightTracker;
-		}
-	GLLightTracker* getLightTracker(void) // Ditto
-		{
-		return lightTracker;
-		}
-	const GLClipPlaneTracker* getClipPlaneTracker(void) const // Returns the clipping plane state tracker
-		{
-		return clipPlaneTracker;
-		}
-	GLClipPlaneTracker* getClipPlaneTracker(void) // Ditto
-		{
-		return clipPlaneTracker;
 		}
 	};
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBFragmentShader - OpenGL extension class for the
 GL_ARB_fragment_shader extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,19 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLARBFragmentShader.h>
-
-#include <stdarg.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLARBFragmentShader.h>
 
 /******************************************
 Static elements of class GLARBFragmentShader:
 ******************************************/
 
 GL_THREAD_LOCAL(GLARBFragmentShader*) GLARBFragmentShader::current=0;
-const char* GLARBFragmentShader::name="GL_ARB_fragment_shader";
 
 /**********************************
 Methods of class GLARBFragmentShader:
@@ -48,7 +46,7 @@ GLARBFragmentShader::~GLARBFragmentShader(void)
 
 const char* GLARBFragmentShader::getExtensionName(void) const
 	{
-	return name;
+	return "GL_ARB_fragment_shader";
 	}
 
 void GLARBFragmentShader::activate(void)
@@ -64,13 +62,13 @@ void GLARBFragmentShader::deactivate(void)
 bool GLARBFragmentShader::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_ARB_fragment_shader");
 	}
 
 void GLARBFragmentShader::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_fragment_shader"))
 		{
 		/* Create a new extension object: */
 		GLARBFragmentShader* newExtension=new GLARBFragmentShader;
@@ -90,33 +88,11 @@ GLhandleARB glCompileFragmentShaderFromString(const char* shaderSource)
 		/* Load and compile the shader source: */
 		glCompileShaderFromString(fragmentShaderObject,shaderSource);
 		}
-	catch(...)
+	catch(std::runtime_error err)
 		{
 		/* Clean up and re-throw the exception: */
 		glDeleteObjectARB(fragmentShaderObject);
-		throw;
-		}
-	
-	return fragmentShaderObject;
-	}
-
-GLhandleARB glCompileFragmentShaderFromStrings(size_t numShaderSources,...)
-	{
-	/* Create a new vertex shader: */
-	GLhandleARB fragmentShaderObject=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-	
-	va_list ap;
-	try
-		{
-		va_start(ap,numShaderSources);
-		glCompileShaderFromStrings(fragmentShaderObject,numShaderSources,ap);
-		va_end(ap);
-		}
-	catch(...)
-		{
-		/* Clean up and re-throw the exception: */
-		va_end(ap);
-		glDeleteObjectARB(fragmentShaderObject);
+		
 		throw;
 		}
 	
@@ -133,30 +109,11 @@ GLhandleARB glCompileFragmentShaderFromFile(const char* shaderSourceFileName)
 		/* Load and compile the shader source: */
 		glCompileShaderFromFile(fragmentShaderObject,shaderSourceFileName);
 		}
-	catch(...)
+	catch(std::runtime_error err)
 		{
 		/* Clean up and re-throw the exception: */
 		glDeleteObjectARB(fragmentShaderObject);
-		throw;
-		}
-	
-	return fragmentShaderObject;
-	}
-
-GLhandleARB glCompileFragmentShaderFromFile(const char* shaderSourceFileName,IO::File& shaderSourceFile)
-	{
-	/* Create a new vertex shader: */
-	GLhandleARB fragmentShaderObject=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-	
-	try
-		{
-		/* Load and compile the shader source: */
-		glCompileShaderFromFile(fragmentShaderObject,shaderSourceFileName,shaderSourceFile);
-		}
-	catch(...)
-		{
-		/* Clean up and re-throw the exception: */
-		glDeleteObjectARB(fragmentShaderObject);
+		
 		throw;
 		}
 	

@@ -19,12 +19,12 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Blind.h>
-
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
 #include <GLMotif/Container.h>
+
+#include <GLMotif/Blind.h>
 
 namespace GLMotif {
 

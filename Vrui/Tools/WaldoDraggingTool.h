@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoDraggingTool - Class for 6-DOF dragging with scaled-down dragging
 transformations.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_WALDODRAGGINGTOOL_INCLUDED
 
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/DraggingTool.h>
+#include <Vrui/Tools/DraggingTool.h>
 
 namespace Vrui {
 
@@ -46,8 +46,7 @@ class WaldoDraggingToolFactory:public ToolFactory
 	WaldoDraggingToolFactory(ToolManager& toolManager);
 	virtual ~WaldoDraggingToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -75,9 +74,9 @@ class WaldoDraggingTool:public DraggingTool
 	public:
 	WaldoDraggingTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

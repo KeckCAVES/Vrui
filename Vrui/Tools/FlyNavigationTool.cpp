@@ -1,7 +1,7 @@
 /***********************************************************************
 FlyNavigationTool - Class encapsulating the behaviour of the old
 infamous Vrui single-handed flying navigation tool.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/FlyNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -30,8 +28,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/Vrui.h>
+#include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/FlyNavigationTool.h>
 
 namespace Vrui {
 
@@ -45,7 +46,8 @@ FlyNavigationToolFactory::FlyNavigationToolFactory(ToolManager& toolManager)
 	 flyFactor(getDisplaySize()*Scalar(0.5))
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -67,16 +69,6 @@ FlyNavigationToolFactory::~FlyNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	FlyNavigationTool::factory=0;
-	}
-
-const char* FlyNavigationToolFactory::getName(void) const
-	{
-	return "Fly (Direction Only)";
-	}
-
-const char* FlyNavigationToolFactory::getButtonFunction(int) const
-	{
-	return "Fly";
 	}
 
 Tool* FlyNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -123,8 +115,16 @@ Methods of class FlyNavigationTool:
 **********************************/
 
 FlyNavigationTool::FlyNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:NavigationTool(factory,inputAssignment)
+	:NavigationTool(factory,inputAssignment),
+	 viewer(0)
 	{
+	/* Retrieve the viewer associated with this menu tool: */
+	#if 0
+	int viewerIndex=configFile.retrieveValue<int>("./viewerIndex");
+	viewer=getViewer(viewerIndex);
+	#else
+	viewer=getMainViewer();
+	#endif
 	}
 
 const ToolFactory* FlyNavigationTool::getFactory(void) const
@@ -132,7 +132,7 @@ const ToolFactory* FlyNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void FlyNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void FlyNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -152,11 +152,11 @@ void FlyNavigationTool::frame(void)
 	if(isActive())
 		{
 		/* Get the current state of the input device: */
-		const TrackerState& ts=getButtonDeviceTransformation(0);
+		const TrackerState& ts=input.getDevice(0)->getTransformation();
 		
 		/* Calculate the current flying velocity: */
 		Vector v=ts.transform(factory->flyDirection);
-		v*=-factory->flyFactor*getFrameTime();
+		v*=factory->flyFactor*getCurrentFrameTime();
 		
 		/* Compose the new navigation transformation: */
 		NavTransform t=NavTransform::translate(v);
@@ -164,9 +164,6 @@ void FlyNavigationTool::frame(void)
 		
 		/* Update Vrui's navigation transformation: */
 		setNavigationTransformation(t);
-		
-		/* Request another frame: */
-		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 

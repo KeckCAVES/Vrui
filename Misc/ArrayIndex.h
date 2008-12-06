@@ -119,24 +119,6 @@ class ArrayIndexBase
 			result*=ptrdiff_t(index[i]);
 		return result;
 		}
-	ptrdiff_t calcOffset(const ArrayIndexBase& multiIndex) const // Converts multi-index to linear index using this index as bounds
-		{
-		ptrdiff_t offset=multiIndex[0];
-		for(int i=1;i<dimension;++i)
-			offset=offset*ptrdiff_t(index[i])+ptrdiff_t(multiIndex[i]);
-		return offset;
-		}
-	ArrayIndexBase calcIndex(ptrdiff_t linearIndex) const // Converts linear index to multi-index using this index as bounds
-		{
-		ArrayIndexBase result;
-		for(int i=dimension-1;i>0;--i)
-			{
-			result[i]=int(linearIndex%ptrdiff_t(index[i]));
-			linearIndex/=ptrdiff_t(index[i]);
-			}
-		result[0]=int(linearIndex);
-		return result;
-		}
 	ArrayIndexBase& preInc(int component) // Pre-increments one index component
 		{
 		++index[component];
@@ -358,12 +340,6 @@ class ArrayIndex<1>:public ArrayIndexBase<1>
 		{
 		ArrayIndexBase<1>::operator=(source);
 		return *this;
-		}
-	
-	/* Methods: */
-	operator int(void) const // Converts one-dimensional multiindex to integer
-		{
-		return index[0];
 		}
 	};
 

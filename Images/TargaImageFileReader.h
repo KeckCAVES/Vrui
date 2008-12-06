@@ -1,7 +1,7 @@
 /***********************************************************************
 TargaImageFileReader - Class to read images in TARGA format from a
 stream data source.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -73,7 +73,7 @@ class TargaImageFileReader
 }
 
 #ifndef IMAGES_TARGAIMAGEFILEREADER_IMPLEMENTATION
-#include <Images/TargaImageFileReader.icpp>
+#include <Images/TargaImageFileReader.cpp>
 #endif
 
 #endif

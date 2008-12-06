@@ -1,7 +1,7 @@
 /***********************************************************************
 FlashlightTool - Class for tools that add an additional light source
 into an environment when activated.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/FlashlightTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Point.h>
@@ -30,37 +28,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLValueCoders.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/Lightsource.h>
 #include <Vrui/LightsourceManager.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/FlashlightTool.h>
 
 namespace Vrui {
-
-/*****************************************************
-Methods of class FlashlightToolFactory::Configuration:
-*****************************************************/
-
-FlashlightToolFactory::Configuration::Configuration(void)
-	{
-	/* Create a default flashlight source: */
-	light.spotCutoff=90.0f;
-	light.spotExponent=50.0f;
-	}
-
-void FlashlightToolFactory::Configuration::read(const Misc::ConfigurationFileSection& cfs)
-	{
-	light.diffuse=light.specular=cfs.retrieveValue<GLLight::Color>("./lightColor",light.diffuse);
-	light.spotCutoff=cfs.retrieveValue<GLfloat>("./lightSpotCutoff",light.spotCutoff);
-	light.spotExponent=cfs.retrieveValue<GLfloat>("./lightSpotExponent",light.spotExponent);
-	}
-
-void FlashlightToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
-	{
-	cfs.storeValue<GLLight::Color>("./lightColor",light.diffuse);
-	cfs.storeValue<GLfloat>("./lightSpotCutoff",light.spotCutoff);
-	cfs.storeValue<GLfloat>("./lightSpotExponent",light.spotExponent);
-	}
 
 /**************************************
 Methods of class FlashlightToolFactory:
@@ -70,15 +45,21 @@ FlashlightToolFactory::FlashlightToolFactory(ToolManager& toolManager)
 	:ToolFactory("FlashlightTool",toolManager)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
+	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
 	/* Load class settings: */
-	configuration.read(toolManager.getToolClassSection(getClassName()));
+	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	GLLight::Color lightColor=cfs.retrieveValue<GLLight::Color>("./lightColor",GLLight::Color(1.0f,1.0f,1.0f));
+	light.diffuse=lightColor;
+	light.specular=lightColor;
+	light.spotCutoff=cfs.retrieveValue<GLfloat>("./lightSpotCutoff",180.0f);
+	light.spotExponent=cfs.retrieveValue<GLfloat>("./lightSpotExponent",0.0f);
 	
 	/* Set tool class' factory pointer: */
 	FlashlightTool::factory=this;
@@ -88,11 +69,6 @@ FlashlightToolFactory::~FlashlightToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	FlashlightTool::factory=0;
-	}
-
-const char* FlashlightToolFactory::getName(void) const
-	{
-	return "Flashlight";
 	}
 
 Tool* FlashlightToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -108,7 +84,7 @@ void FlashlightToolFactory::destroyTool(Tool* tool) const
 extern "C" void resolveFlashlightToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
 	{
 	/* Load base classes: */
-	manager.loadClass("PointingTool");
+	manager.loadClass("UtilityTool");
 	}
 
 extern "C" ToolFactory* createFlashlightToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
@@ -139,40 +115,18 @@ Methods of class FlashlightTool:
 *******************************/
 
 FlashlightTool::FlashlightTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
-	:PointingTool(sFactory,inputAssignment),
-	 configuration(factory->configuration),
+	:UtilityTool(sFactory,inputAssignment),
 	 lightsource(0),active(false)
 	{
+	/* Create a light source: */
+	lightsource=getLightsourceManager()->createLightsource(true,factory->light);
+	lightsource->disable();
 	}
 
 FlashlightTool::~FlashlightTool(void)
 	{
-	}
-
-void FlashlightTool::configure(const Misc::ConfigurationFileSection& configFileSection)
-	{
-	/* Override private configuration data from given configuration file section: */
-	configuration.read(configFileSection);
-	}
-
-void FlashlightTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
-	{
-	/* Write private configuration data to given configuration file section: */
-	configuration.write(configFileSection);
-	}
-
-void FlashlightTool::initialize(void)
-	{
-	/* Create a light source: */
-	lightsource=getLightsourceManager()->createLightsource(true,configuration.light);
-	lightsource->disable();
-	}
-
-void FlashlightTool::deinitialize(void)
-	{
 	/* Destroy the light source: */
 	getLightsourceManager()->destroyLightsource(lightsource);
-	lightsource=0;
 	}
 
 const ToolFactory* FlashlightTool::getFactory(void) const
@@ -180,7 +134,7 @@ const ToolFactory* FlashlightTool::getFactory(void) const
 	return factory;
 	}
 
-void FlashlightTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void FlashlightTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -200,10 +154,13 @@ void FlashlightTool::frame(void)
 	{
 	if(active)
 		{
+		/* Get pointer to input device: */
+		InputDevice* device=input.getDevice(0);
+		
 		/* Set the light source parameters: */
-		Point start=getButtonDevicePosition(0);
+		Point start=device->getPosition();
 		lightsource->getLight().position=GLLight::Position(GLfloat(start[0]),GLfloat(start[1]),GLfloat(start[2]),1.0f);
-		Vector direction=getButtonDeviceRayDirection(0);
+		Vector direction=device->getRayDirection();
 		direction.normalize();
 		lightsource->getLight().spotDirection=GLLight::SpotDirection(GLfloat(direction[0]),GLfloat(direction[1]),GLfloat(direction[2]));
 		}

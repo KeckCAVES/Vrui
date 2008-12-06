@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundContext - Class for OpenAL contexts that are used to map a listener
 to an OpenAL sound device.
-Copyright (c) 2008-2014 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,13 +24,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SOUNDCONTEXT_INCLUDED
 #define VRUI_SOUNDCONTEXT_INCLUDED
 
-#include <AL/Config.h>
-
-#if ALSUPPORT_CONFIG_HAVE_OPENAL
-#ifdef __APPLE__
+#ifdef VRUI_USE_OPENAL
+#ifdef __DARWIN__
 #include <OpenAL/alc.h>
+#include <OpenAL/al.h>
 #else
 #include <AL/alc.h>
+#include <AL/al.h>
 #endif
 #endif
 
@@ -48,25 +48,15 @@ namespace Vrui {
 
 class SoundContext
 	{
-	/* Embedded classes: */
-	public:
-	enum DistanceAttenuationModel // Enumerated type for distance attenuation models
-		{
-		CONSTANT,INVERSE,INVERSE_CLAMPED,LINEAR,LINEAR_CLAMPED,EXPONENTIAL,EXPONENTIAL_CLAMPED
-		};
-	
 	/* Elements: */
 	private:
 	VruiState* vruiState; // Pointer to the Vrui state object this sound context belongs to
-	#if ALSUPPORT_CONFIG_HAVE_OPENAL
+	#ifdef VRUI_USE_OPENAL
 	ALCdevice* alDevice; // Pointer to OpenAL sound device
 	ALCcontext* alContext; // Pointer to OpenAL sound context
 	#endif
 	ALContextData* contextData; // An OpenAL context data structure for this sound context
 	Listener* listener; // Pointer to listener listening to this sound context
-	float speedOfSound; // Speed of sound in physical coordinate units/s
-	float dopplerFactor; // Exaggeration factor for Doppler effect
-	DistanceAttenuationModel distanceAttenuationModel; // Distance attenuation model
 	
 	/* Constructors and destructors: */
 	public:

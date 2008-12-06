@@ -1,6 +1,6 @@
 /***********************************************************************
-HVector - Class for homogeneous vectors.
-Copyright (c) 2001-2010 Oliver Kreylos
+HVector - Class for homogenuous vectors.
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -40,7 +40,7 @@ class HVector:public ComponentArray<ScalarParam,dimensionParam+1>
 	
 	/* Embedded classes: */
 	public:
-	static const int affineDimension=dimensionParam; // The homogeneous vector's affine dimension
+	static const int affineDimension=dimensionParam; // The homogenuous vector's affine dimension
 	typedef Geometry::Vector<ScalarParam,dimensionParam> Vector; // Compatible vector type
 	typedef Geometry::Point<ScalarParam,dimensionParam> Point; // Compatible point type
 	
@@ -50,7 +50,7 @@ class HVector:public ComponentArray<ScalarParam,dimensionParam+1>
 	HVector(void) // No initialization
 		{
 		}
-	explicit HVector(ScalarParam filler,ScalarParam sW) // Fills the component array with a single value and given homogeneous weight
+	explicit HVector(ScalarParam filler,ScalarParam sW) // Fills the component array with a single value and given homogenuous weight
 		:ComponentArray<ScalarParam,dimensionParam+1>(filler)
 		{
 		components[affineDimension]=sW;
@@ -78,13 +78,13 @@ class HVector:public ComponentArray<ScalarParam,dimensionParam+1>
 		:ComponentArray<ScalarParam,dimensionParam+1>(source)
 		{
 		}
-	HVector(const Vector& v) // Constructs homogeneous vector from Euclidean vector
+	HVector(const Vector& v) // Constructs homogenuous vector from Euclidean vector
 		{
 		for(int i=0;i<affineDimension;++i)
 			components[i]=v[i];
 		components[affineDimension]=ScalarParam(0);
 		}
-	HVector(const Point& p) // Constructs homogeneous vector from affine point
+	HVector(const Point& p) // Constructs homogenuous vector from affine point
 		{
 		for(int i=0;i<affineDimension;++i)
 			components[i]=p[i];
@@ -92,22 +92,22 @@ class HVector:public ComponentArray<ScalarParam,dimensionParam+1>
 		}
 	
 	/* Methods: */
-	bool isVector(void) const // Tests whether a homogeneous vector represents a Euclidean vector
+	bool isVector(void) const // Tests whether a homogenuous vector represents an Euklidean vector
 		{
-		return components[affineDimension]==ScalarParam(0);
+		return components[affineDimension]=ScalarParam(0);
 		}
-	bool isPoint(void) const // Tests whether a homogeneous vector represents an affine point
+	bool isPoint(void) const // Tests whether a homogenuous vector represents an affine point
 		{
 		return components[affineDimension]!=ScalarParam(0);
 		}
-	Vector toVector(void) const // Converts homogeneous vector to Euklidean vector
+	Vector toVector(void) const // Converts homogenuous vector to Euklidean vector
 		{
 		Vector result;
 		for(int i=0;i<affineDimension;++i)
 			result[i]=components[i];
 		return result;
 		}
-	Point toPoint(void) const // Converts homogeneous vector to affine point
+	Point toPoint(void) const // Converts homogenuous vector to affine point
 		{
 		Point result;
 		for(int i=0;i<affineDimension;++i)
@@ -149,7 +149,7 @@ class HVector:public ComponentArray<ScalarParam,dimensionParam+1>
 			components[i]/=scalar;
 		return *this;
 		}
-	HVector& project(void) // Projects a vector into affine space by dividing by the homogeneous weight
+	HVector& project(void) // Projects a vector into affine space by dividing by the homogenuous weight
 		{
 		for(int i=0;i<affineDimension;++i)
 			components[i]/=components[affineDimension];
@@ -299,7 +299,7 @@ inline ScalarParam operator*(const HVector<ScalarParam,3>& v1,const HVector<Scal
 	}
 
 template <class ScalarParam,int dimensionParam>
-HVector<ScalarParam,dimensionParam> project(const HVector<ScalarParam,dimensionParam>& v) // Projects a vector into affine space by dividing by the homogeneous weight
+HVector<ScalarParam,dimensionParam> project(const HVector<ScalarParam,dimensionParam>& v) // Projects a vector into affine space by dividing by the homogenuous weight
 	{
 	HVector<ScalarParam,dimensionParam> result;
 	for(int i=0;i<dimensionParam;++i)
@@ -323,8 +323,8 @@ HVector<ScalarParam,dimensionParam> normalize(const HVector<ScalarParam,dimensio
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_HVECTOR_IMPLEMENTATION)
-#include <Geometry/HVector.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_HVECTOR_IMPLEMENTATION)
+#include <Geometry/HVector.cpp>
 #endif
 
 #endif

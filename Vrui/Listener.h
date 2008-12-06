@@ -1,6 +1,6 @@
 /***********************************************************************
 Listener - Class for listeners/ sound observers in VR environments.
-Copyright (c) 2008-2014 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -48,7 +48,6 @@ class Listener
 	Point deviceHeadPosition; // Listening position in head device coordinates
 	Vector deviceListenDirection; // Listening direction in head device coordinates
 	Vector deviceUpDirection; // Up direction in head device coordinates
-	Scalar gain; // Overall gain factor for this listener in all contexts
 	
 	/* Transient state data: */
 	TrackerState headDeviceTransformation; // Head coordinate frame
@@ -80,10 +79,6 @@ class Listener
 	Vector getUpDirection(void) const // Returns up direction in physical coordinates
 		{
 		return headDeviceTransformation.transform(deviceUpDirection);
-		}
-	Scalar getGain(void) const // Returns the listener's gain factor
-		{
-		return gain;
 		}
 	};
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,8 +19,6 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Widget.h>
-
 #include <string.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
@@ -31,25 +29,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Event.h>
 #include <GLMotif/Container.h>
 
+#include <GLMotif/Widget.h>
+
 namespace GLMotif {
 
 /***********************
 Methods of class Widget:
 ***********************/
 
-void Widget::unmanageChild(void)
-	{
-	/* Unmanage the child: */
-	isManaged=false;
-	}
-
 Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 	:parent(sParent),isManaged(false),name(new char[strlen(sName)+1]),
 	 exterior(Vector(0.0f,0.0f,0.0f),Vector(0.0f,0.0f,0.0f)),
 	 borderWidth(0.0f),borderType(PLAIN),
 	 interior(Vector(0.0f,0.0f,0.0f),Vector(0.0f,0.0f,0.0f)),
-	 zRange(0.0f,0.0f),
-	 enabled(true)
+	 zRange(0.0f,0.0f)
 	{
 	/* Copy the widget name: */
 	strcpy(name,sName);
@@ -74,43 +67,7 @@ Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 
 Widget::~Widget(void)
 	{
-	/* Tell the widget manager that the widget is to be destroyed: */
-	WidgetManager* manager=getManager();
-	if(manager!=0)
-		manager->unmanageWidget(this);
-	
-	/* Tell the parent container that the widget is to be destroyed: */
-	if(isManaged)
-		parent->removeChild(this);
-	
 	delete[] name;
-	}
-
-void Widget::reparent(Container* newParent,bool manageChild)
-	{
-	/* Remove the widget from its current parent: */
-	if(isManaged)
-		parent->removeChild(this);
-	isManaged=false;
-	
-	/* Attach the widget to the new parent: */
-	parent=newParent;
-	if(parent!=0)
-		{
-		/* Inherit most settings from parent: */
-		borderWidth=parent->borderWidth;
-		borderType=parent->borderType;
-		borderColor=parent->borderColor;
-		backgroundColor=parent->backgroundColor;
-		foregroundColor=parent->foregroundColor;
-		
-		if(manageChild)
-			{
-			/* Add the widget to the parent widget: */
-			parent->addChild(this);
-			isManaged=true;
-			}
-		}
 	}
 
 void Widget::manageChild(void)
@@ -144,23 +101,17 @@ Widget* Widget::getRoot(void)
 
 const WidgetManager* Widget::getManager(void) const
 	{
-	if(parent!=0)
-		return parent->getManager();
-	else
-		return 0;
-	}
-
-WidgetManager* Widget::getManager(void)
-	{
-	if(parent!=0)
-		return parent->getManager();
-	else
-		return 0;
+	return parent->getManager();
 	}
 
 const StyleSheet* Widget::getStyleSheet(void) const
 	{
 	return getManager()->getStyleSheet();
+	}
+
+WidgetManager* Widget::getManager(void)
+	{
+	return parent->getManager();
 	}
 
 Vector Widget::calcExteriorSize(const Vector& interiorSize) const
@@ -198,9 +149,6 @@ void Widget::resize(const Box& newExterior)
 	
 	/* Calculate the z range: */
 	zRange=calcZRange();
-	
-	/* Invalidate the visual representation: */
-	update();
 	}
 
 Vector Widget::calcHotSpot(void) const
@@ -232,42 +180,6 @@ void Widget::setBorderType(Widget::BorderType newBorderType)
 		parent->requestResize(this,exterior.size);
 	else
 		resize(exterior);
-	}
-
-void Widget::setBorderColor(const Color& newBorderColor)
-	{
-	/* Set the border color: */
-	borderColor=newBorderColor;
-	
-	/* Update the widget: */
-	update();
-	}
-
-void Widget::setBackgroundColor(const Color& newBackgroundColor)
-	{
-	/* Set the background color: */
-	backgroundColor=newBackgroundColor;
-	
-	/* Update the widget: */
-	update();
-	}
-
-void Widget::setForegroundColor(const Color& newForegroundColor)
-	{
-	/* Set the foreground color: */
-	foregroundColor=newForegroundColor;
-	
-	/* Update the widget: */
-	update();
-	}
-
-void Widget::update(void)
-	{
-	if(parent!=0&&isManaged)
-		{
-		/* Notify the parent widget of the update: */
-		parent->update();
-		}
 	}
 
 void Widget::draw(GLContextData&) const
@@ -352,17 +264,8 @@ Scalar Widget::intersectRay(const Ray& ray,Point& intersection) const
 	return lambda;
 	}
 
-void Widget::setEnabled(bool newEnabled)
-	{
-	enabled=newEnabled;
-	}
-
 bool Widget::findRecipient(Event& event)
 	{
-	/* Reject events if the widget is disabled: */
-	if(!enabled)
-		return false;
-	
 	/* Find the event's point in our coordinate system: */
 	Event::WidgetPoint wp=event.calcWidgetPoint(this);
 	
@@ -384,27 +287,6 @@ void Widget::pointerButtonUp(Event&)
 	}
 
 void Widget::pointerMotion(Event&)
-	{
-	/* No default action */
-	}
-
-bool Widget::giveTextFocus(void)
-	{
-	/* Default behavior is to reject focus: */
-	return false;
-	}
-
-void Widget::takeTextFocus(void)
-	{
-	/* No default action */
-	}
-
-void Widget::textEvent(const TextEvent&)
-	{
-	/* No default action */
-	}
-
-void Widget::textControlEvent(const TextControlEvent&)
 	{
 	/* No default action */
 	}

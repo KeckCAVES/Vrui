@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadImageFile - Functions to read RGB images from a variety of file
 formats.
-Copyright (c) 2005-2018 Oliver Kreylos
+Copyright (c) 2005-2006 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -20,266 +20,343 @@ with the Image Handling Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <Images/ReadImageFile.h>
-
-#include <Images/Config.h>
-
 #include <ctype.h>
+#include <stdio.h>
 #include <string.h>
+#ifdef IMAGES_USE_PNG
+#include <png.h>
+#endif
+#ifdef IMAGES_USE_JPEG
+#include <jpeglib.h>
+#endif
 #include <Misc/Utility.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/FileNameExtensions.h>
-#include <IO/SeekableFile.h>
-#include <IO/OpenFile.h>
-#include <IO/Directory.h>
-#include <Images/ReadPNMImage.h>
-#include <Images/ReadBILImage.h>
-#include <Images/ReadPNGImage.h>
-#include <Images/ReadJPEGImage.h>
-#include <Images/ReadTIFFImage.h>
+#include <Misc/File.h>
+
+#include <Images/ReadImageFile.h>
 
 namespace Images {
 
 namespace {
 
-/*******************************************************************
-Function to determine the format of an image file based on its name:
-*******************************************************************/
+/***********************************
+Helper functions for the PNM reader:
+***********************************/
 
-enum ImageFileFormat
+void readRawPbmFile(RGBImage& image,Misc::File& file)
 	{
-	IFF_UNKNOWN,IFF_PNM,IFF_BIL,IFF_PNG,IFF_JPEG,IFF_TIFF
+	/* Create an intermediate buffer: */
+	unsigned int rowLen=(image.getWidth()+7)>>3;
+	unsigned char* tempRow=new unsigned char[rowLen];
+	
+	/* Read each row of the image file: */
+	for(unsigned int y=image.getHeight();y>0;--y)
+		{
+		RGBImage::Color* row=image.modifyPixelRow(y-1);
+		file.read(tempRow,rowLen);
+		
+		/* Convert pixel values: */
+		for(unsigned int x=0;x<image.getWidth();++x)
+			{
+			unsigned int bit=x&0x7;
+			unsigned int byte=x>>3;
+			RGBImage::Scalar value=(tempRow[byte]>>(7-bit))?255:0;
+			row[x][0]=row[x][1]=row[x][2]=value;
+			}
+		}
+	
+	delete[] tempRow;
+	}
+
+void readRawPgmFile(RGBImage& image,Misc::File& file,unsigned int maxVal)
+	{
+	if(maxVal<256)
+		{
+		/* Create an intermediate buffer: */
+		unsigned char* tempRow=new unsigned char[image.getWidth()];
+		
+		/* Read each row of the image file: */
+		for(unsigned int y=image.getHeight();y>0;--y)
+			{
+			RGBImage::Color* row=image.modifyPixelRow(y-1);
+			file.read(tempRow,image.getWidth());
+			
+			/* Convert pixel values: */
+			for(unsigned int x=0;x<image.getWidth();++x)
+				row[x][0]=row[x][1]=row[x][2]=RGBImage::Scalar(tempRow[x]);
+			}
+		
+		delete[] tempRow;
+		}
+	else
+		{
+		/* Create an intermediate buffer: */
+		unsigned short* tempRow=new unsigned short[image.getWidth()];
+		
+		/* Read each row of the image file: */
+		for(unsigned int y=image.getHeight();y>0;--y)
+			{
+			RGBImage::Color* row=image.modifyPixelRow(y-1);
+			file.read(tempRow,image.getWidth());
+			
+			/* Convert pixel values: */
+			for(unsigned int x=0;x<image.getWidth();++x)
+				row[x][0]=row[x][1]=row[x][2]=RGBImage::Scalar(tempRow[x]>>8);
+			}
+		
+		delete[] tempRow;
+		}
+	}
+
+void readRawPpmFile(RGBImage& image,Misc::File& file)
+	{
+	/* Read each row of the image file: */
+	for(unsigned int y=image.getHeight();y>0;--y)
+		{
+		RGBImage::Color* row=image.modifyPixelRow(y-1);
+		file.read(row,image.getWidth());
+		}
+	}
+
+/*********************************************************
+Function to read PNM image files in arbitrary sub-formats:
+*********************************************************/
+
+RGBImage readPnmFile(const char* imageFileName)
+	{
+	enum PnmFileFormat
+		{
+		PBM_RAW=0,PGM_RAW,PPM_RAW
+		};
+	
+	/* Open the image file: */
+	Misc::File pnmFile(imageFileName,"rb");
+	char line[80];
+	
+	/* Check the PNM file type: */
+	pnmFile.gets(line,sizeof(line));
+	if(line[0]!='P'||line[1]<'4'||line[1]>'6'||line[2]!='\n')
+		Misc::throwStdErr("Images::readPnmFile: illegal PNM header in image file \"%s\"",imageFileName);
+	int pnmFileFormat=line[1]-'4';
+	
+	/* Skip any comment lines in the PNM header: */
+	do
+		{
+		pnmFile.gets(line,sizeof(line));
+		}
+	while(line[0]=='#');
+	
+	/* Parse the image size: */
+	unsigned int imageSize[2];
+	sscanf(line,"%u %u",&imageSize[0],&imageSize[1]);
+	
+	/* Parse the max value field: */
+	unsigned int maxVal=1;
+	if(pnmFileFormat!=PBM_RAW)
+		{
+		pnmFile.gets(line,sizeof(line));
+		sscanf(line,"%u",&maxVal);
+		}
+	
+	/* Create the result image: */
+	RGBImage result(imageSize[0],imageSize[1]);
+	
+	/* Read the image: */
+	switch(pnmFileFormat)
+		{
+		case PBM_RAW:
+			readRawPbmFile(result,pnmFile);
+			break;
+		
+		case PGM_RAW:
+			readRawPgmFile(result,pnmFile,maxVal);
+			break;
+		
+		case PPM_RAW:
+			readRawPpmFile(result,pnmFile);
+			break;
+		}
+	
+	/* Return the result image: */
+	return result;
+	}
+
+#ifdef IMAGES_USE_PNG
+
+/********************************
+Function to read PNG image files:
+********************************/
+
+RGBImage readPngFile(const char* imageFileName)
+	{
+	/* Open input file: */
+	Misc::File pngFile(imageFileName,"rb");
+	
+	/* Check for PNG file signature: */
+	unsigned char pngSignature[8];
+	pngFile.read(pngSignature,8);
+	if(!png_check_sig(pngSignature,8))
+		Misc::throwStdErr("Images::readPngFile: illegal PNG header in image file \"%s\"",imageFileName);
+	
+	/* Allocate the PNG library data structures: */
+	png_structp pngReadStruct=png_create_read_struct(PNG_LIBPNG_VER_STRING,0,0,0);
+	if(pngReadStruct==0)
+		Misc::throwStdErr("Images::readPngFile: Internal error in PNG library");
+	png_infop pngInfoStruct=png_create_info_struct(pngReadStruct);
+	if(pngInfoStruct==0)
+		{
+		png_destroy_read_struct(&pngReadStruct,0,0);
+		Misc::throwStdErr("Images::readPngFile: Internal error in PNG library");
+		}
+	
+	/* Set up longjump facility for PNG error handling (ouch): */
+	if(setjmp(png_jmpbuf(pngReadStruct)))
+		{
+		png_destroy_read_struct(&pngReadStruct,&pngInfoStruct,0);
+		Misc::throwStdErr("Images::readPngFile: Error while setting up PNG library error handling");
+		}
+	
+	/* Initialize PNG I/O: */
+	png_init_io(pngReadStruct,pngFile.getFilePtr());
+	
+	/* Read PNG image header: */
+	png_set_sig_bytes(pngReadStruct,8);
+	png_read_info(pngReadStruct,pngInfoStruct);
+	png_uint_32 imageSize[2];
+	int elementSize;
+	int colorType;
+	png_get_IHDR(pngReadStruct,pngInfoStruct,&imageSize[0],&imageSize[1],&elementSize,&colorType,0,0,0);
+	
+	/* Set up image processing: */
+	if(colorType==PNG_COLOR_TYPE_PALETTE)
+		png_set_expand(pngReadStruct);
+	else if(colorType==PNG_COLOR_TYPE_GRAY&&elementSize<8)
+		png_set_expand(pngReadStruct);
+	if(elementSize==16)
+		png_set_strip_16(pngReadStruct);
+	if(colorType==PNG_COLOR_TYPE_GRAY||colorType==PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(pngReadStruct);
+	if(colorType==PNG_COLOR_TYPE_GRAY_ALPHA||colorType==PNG_COLOR_TYPE_RGB_ALPHA)
+		png_set_strip_alpha(pngReadStruct);
+	double gamma;
+	if(png_get_gAMA(pngReadStruct,pngInfoStruct,&gamma))
+		png_set_gamma(pngReadStruct,2.2,gamma);
+	png_read_update_info(pngReadStruct,pngInfoStruct);
+	
+	/* Create the result image: */
+	RGBImage result(imageSize[0],imageSize[1]);
+	
+	/* Create row pointers to flip the image during reading: */
+	RGBImage::Color** rowPointers=new RGBImage::Color*[result.getHeight()];
+	for(unsigned int y=0;y<result.getHeight();++y)
+		rowPointers[y]=result.modifyPixelRow(result.getHeight()-1-y);
+	
+	/* Read the PNG image: */
+	png_read_image(pngReadStruct,reinterpret_cast<png_byte**>(rowPointers));
+	
+	/* Finish reading image: */
+	png_read_end(pngReadStruct,0);
+	
+	/* Clean up: */
+	delete[] rowPointers;
+	png_destroy_read_struct(&pngReadStruct,&pngInfoStruct,0);
+	
+	/* Return the read image: */
+	return result;
+	}
+
+#endif
+
+#ifdef IMAGES_USE_JPEG
+
+/***************************************************
+Helper structures and functions for the JPEG reader:
+***************************************************/
+
+struct ExceptionErrorManager:public jpeg_error_mgr
+	{
+	/* Constructors and destructors: */
+	public:
+	ExceptionErrorManager(void)
+		{
+		/* Set the method pointer(s) in the base class object: */
+		jpeg_std_error(this);
+		error_exit=exit;
+		}
+	
+	/* Methods: */
+	static void exit(j_common_ptr cinfo) // Method called when JPEG library encounters a fatal error
+		{
+		/* Get pointer to the error manager object: */
+		// ExceptionErrorManager* myManager=static_cast<ExceptionErrorManager*>(cinfo->err);
+		
+		/* Throw an exception: */
+		Misc::throwStdErr("Images::readJpegFile: JPEG library encountered fatal error");
+		}
 	};
 
-int getImageFileFormat(const char* imageFileName)
+/**************************************************************
+Function to read JPEG (actually, JFIF interchange) image files:
+**************************************************************/
+
+RGBImage readJpegFile(const char* imageFileName)
 	{
-	/* Retrieve the file name extension: */
-	const char* ext=Misc::getExtension(imageFileName);
-	int extLen=strlen(ext);
-	if(strcasecmp(ext,".gz")==0)
+	/* Open input file: */
+	Misc::File jpegFile(imageFileName,"rb");
+	
+	/* Create a JPEG error handler and a JPEG decompression object: */
+	ExceptionErrorManager jpegErrorManager;
+	jpeg_decompress_struct jpegDecompressStruct;
+	jpegDecompressStruct.err=&jpegErrorManager;
+	jpeg_create_decompress(&jpegDecompressStruct);
+	RGBImage::Color** rowPointers=0;
+	
+	try
 		{
-		/* Strip the gzip extension and try again: */
-		const char* gzExt=ext;
-		ext=Misc::getExtension(imageFileName,gzExt);
-		extLen=gzExt-ext;
-		}
-	
-	/* Try to determine image file format from file name extension: */
-	int iff=IFF_UNKNOWN;
-	if(extLen==4
-	   &&ext[0]=='.'
-	   &&tolower(ext[1])=='p'
-	   &&(tolower(ext[2])=='b'
-	      ||tolower(ext[2])=='g'
-	      ||tolower(ext[2])=='n'
-	      ||tolower(ext[2])=='p')
-	   &&tolower(ext[3])=='m') // It's a Portable AnyMap image
-		iff=IFF_PNM;
-	else if(extLen==4
-	        &&ext[0]=='.'
-	        &&tolower(ext[1])=='b'
-	        &&((tolower(ext[2])=='i'
-	            &&(tolower(ext[3])=='p'
-	               ||tolower(ext[3])=='l'))
-	           ||(tolower(ext[2])=='s'
-	              &&tolower(ext[3])=='q'))) // It's a BIP/BIL/BSQ image
-		iff=IFF_BIL;
-	else if(extLen==4&&strncasecmp(ext,".png",extLen)==0) // It's a PNG image
-		iff=IFF_PNG;
-	else if((extLen==4&&strncasecmp(ext,".jpg",extLen)==0)
-	        ||(extLen==5&&strncasecmp(ext,".jpeg",extLen)==0)) // It's a JPEG image
-		iff=IFF_JPEG;
-	else if((extLen==4&&strncasecmp(ext,".tif",extLen)==0)
-	        ||(extLen==5&&strncasecmp(ext,".tiff",extLen)==0)) // It's a TIFF image
-		iff=IFF_TIFF;
-	
-	return iff;
-	}
-
-}
-
-/***************************************************************
-Function to check whether the image file has a supported format:
-***************************************************************/
-
-bool canReadImageFileType(const char* imageFileName)
-	{
-	/* Retrieve the image file format: */
-	int iff=getImageFileFormat(imageFileName);
-	
-	/* Check if the format is supported: */
-	if(iff==IFF_PNM||iff==IFF_BIL)
-		return true;
-	#if IMAGES_CONFIG_HAVE_PNG
-	if(iff==IFF_PNM)
-		return true;
-	#endif
-	#if IMAGES_CONFIG_HAVE_JPEG
-	if(iff==IFF_JPEG)
-		return true;
-	#endif
-	#if IMAGES_CONFIG_HAVE_TIFF
-	if(iff==IFF_TIFF)
-		return true;
-	#endif
-	
-	return false;
-	}
-
-/**********************************************************
-Function to read images files in several supported formats:
-**********************************************************/
-
-RGBImage readImageFile(const char* imageFileName,IO::FilePtr file)
-	{
-	/* This is a legacy function; read generic image and convert it to RGB: */
-	BaseImage result=readGenericImageFile(imageFileName,file);
-	return Images::RGBImage(result.dropAlpha().toRgb());
-	}
-
-RGBImage readImageFile(const IO::Directory& directory,const char* imageFileName)
-	{
-	/* This is a legacy function; read generic image and convert it to RGB: */
-	BaseImage result=readGenericImageFile(directory,imageFileName);
-	return Images::RGBImage(result.dropAlpha().toRgb());
-	}
-
-RGBImage readImageFile(const char* imageFileName)
-	{
-	/* Read the image file through the current directory: */
-	return readImageFile(*IO::Directory::getCurrent(),imageFileName);
-	}
-
-RGBAImage readTransparentImageFile(const char* imageFileName,IO::FilePtr file)
-	{
-	/* This is a legacy function; read generic image and convert it to RGBA: */
-	BaseImage result=readGenericImageFile(imageFileName,file);
-	return Images::RGBAImage(result.addAlpha(1.0).toRgb());
-	}
-
-RGBAImage readTransparentImageFile(const IO::Directory& directory,const char* imageFileName)
-	{
-	/* This is a legacy function; read generic image and convert it to RGBA: */
-	BaseImage result=readGenericImageFile(directory,imageFileName);
-	return Images::RGBAImage(result.addAlpha(1.0).toRgb());
-	}
-
-RGBAImage readTransparentImageFile(const char* imageFileName)
-	{
-	/* Read the image file through the current directory: */
-	return readTransparentImageFile(*IO::Directory::getCurrent(),imageFileName);
-	}
-
-BaseImage readGenericImageFile(const char* imageFileName,IO::FilePtr file)
-	{
-	/* Retrieve the image file's format: */
-	int iff=getImageFileFormat(imageFileName);
-	
-	BaseImage result;
-	if(iff==IFF_BIL)
-		{
-		/* Can't read BIL files through a naked file, as we need a header file: */
-		throw std::runtime_error("Images::readGenericImageFile: Cannot read BIP/BIL/BSQ image files through an already-open file");
-		}
-	else
-		{
-		/* Delegate to the appropriate image reader function: */
-		switch(iff)
-			{
-			case IFF_PNM:
-				/* Read a generic PNM image from the given file: */
-				result=readGenericPNMImage(imageFileName,*file);
-				break;
-			
-			#if IMAGES_CONFIG_HAVE_PNG
-			case IFF_PNG:
-				/* Read a generic PNG image from the given file: */
-				result=readGenericPNGImage(imageFileName,*file);
-				break;
-			#endif
-			
-			#if IMAGES_CONFIG_HAVE_JPEG
-			case IFF_JPEG:
-				/* Read a generic JPEG image from the given file: */
-				result=readGenericJPEGImage(imageFileName,*file);
-				break;
-			#endif
-			
-			#if IMAGES_CONFIG_HAVE_TIFF
-			case IFF_TIFF:
-				/* Read a generic TIFF image from the given file: */
-				result=readGenericTIFFImage(imageFileName,*file);
-				break;
-			#endif
-			
-			default:
-				Misc::throwStdErr("Images::readGenericImageFile: Unknown extension in image file name \"%s\"",imageFileName);
-			}
-		}
-	
-	return result;
-	}
-
-BaseImage readGenericImageFile(const IO::Directory& directory,const char* imageFileName)
-	{
-	/* Retrieve the image file's format: */
-	int iff=getImageFileFormat(imageFileName);
-	
-	BaseImage result;
-	if(iff==IFF_BIL)
-		{
-		/* Read a generic BIL image from the given directory: */
-		result=readGenericBILImage(directory,imageFileName);
-		}
-	else
-		{
-		/* Open the image file: */
-		IO::FilePtr imageFile=directory.openFile(imageFileName);
+		/* Associate the decompression object with the input file: */
+		jpeg_stdio_src(&jpegDecompressStruct,jpegFile.getFilePtr());
 		
-		/* Delegate to the appropriate image reader function: */
-		switch(iff)
-			{
-			case IFF_PNM:
-				/* Read a generic PNM image from the given file: */
-				result=readGenericPNMImage(imageFileName,*imageFile);
-				break;
-			
-			#if IMAGES_CONFIG_HAVE_PNG
-			case IFF_PNG:
-				/* Read a generic PNG image from the given file: */
-				result=readGenericPNGImage(imageFileName,*imageFile);
-				break;
-			#endif
-			
-			#if IMAGES_CONFIG_HAVE_JPEG
-			case IFF_JPEG:
-				/* Read a generic JPEG image from the given file: */
-				result=readGenericJPEGImage(imageFileName,*imageFile);
-				break;
-			#endif
-			
-			#if IMAGES_CONFIG_HAVE_TIFF
-			case IFF_TIFF:
-				/* Read a generic TIFF image from the given file: */
-				result=readGenericTIFFImage(imageFileName,*imageFile);
-				break;
-			#endif
-			
-			default:
-				Misc::throwStdErr("Images::readGenericImageFile: Unknown extension in image file name \"%s\"",imageFileName);
-			}
+		/* Read the JPEG file header: */
+		jpeg_read_header(&jpegDecompressStruct,true);
+		
+		/* Prepare for decompression: */
+		jpeg_start_decompress(&jpegDecompressStruct);
+		
+		/* Create the result image: */
+		RGBImage result(jpegDecompressStruct.output_width,jpegDecompressStruct.output_height);
+		
+		/* Create row pointers to flip the image during reading: */
+		rowPointers=new RGBImage::Color*[result.getHeight()];
+		for(unsigned int y=0;y<result.getHeight();++y)
+			rowPointers[y]=result.modifyPixelRow(result.getHeight()-1-y);
+		
+		/* Read the JPEG image's scan lines: */
+		JDIMENSION scanline=0;
+		while(scanline<jpegDecompressStruct.output_height)
+			scanline+=jpeg_read_scanlines(&jpegDecompressStruct,reinterpret_cast<JSAMPLE**>(rowPointers+scanline),jpegDecompressStruct.output_height-scanline);
+		
+		/* Finish reading image: */
+		jpeg_finish_decompress(&jpegDecompressStruct);
+		
+		/* Clean up: */
+		delete[] rowPointers;
+		jpeg_destroy_decompress(&jpegDecompressStruct);
+		
+		/* Return the result image: */
+		return result;
 		}
-	
-	return result;
+	catch(...)
+		{
+		/* Clean up: */
+		delete[] rowPointers;
+		jpeg_destroy_decompress(&jpegDecompressStruct);
+		
+		/* Re-throw the exception: */
+		throw;
+		}
 	}
 
-BaseImage readGenericImageFile(const char* imageFileName)
-	{
-	/* Call the general function with the current directory: */
-	return readGenericImageFile(*IO::Directory::getCurrent(),imageFileName);
-	}
-
-namespace {
+#endif
 
 /********************************************
 Helper structures for the cursor file reader:
@@ -332,73 +409,129 @@ struct CursorImageChunkHeader
 
 }
 
+/***************************************************************
+Function to check whether the image file has a supported format:
+***************************************************************/
+
+bool canReadImageFileType(const char* imageFileName)
+	{
+	/* Try to determine image file format from file name extension: */
+	
+	/* Find position of last dot in image file name: */
+	const char* extStart=0;
+	const char* cPtr;
+	for(cPtr=imageFileName;*cPtr!='\0';++cPtr)
+		if(*cPtr=='.')
+			extStart=cPtr+1;
+	if(extStart==0)
+		return false;
+	
+	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
+	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
+		return true;
+	#ifdef IMAGES_USE_PNG
+	else if(strcasecmp(extStart,"png")==0)
+		return true;
+	#endif
+	#ifdef IMAGES_USE_JPEG
+	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
+		return true;
+	#endif
+	else
+		return false;
+	}
+
+/**********************************************************
+Function to read images files in several supported formats:
+**********************************************************/
+
+RGBImage readImageFile(const char* imageFileName)
+	{
+	/* Try to determine image file format from file name extension: */
+	
+	/* Find position of last dot in image file name: */
+	const char* extStart=0;
+	const char* cPtr;
+	for(cPtr=imageFileName;*cPtr!='\0';++cPtr)
+		if(*cPtr=='.')
+			extStart=cPtr+1;
+	if(extStart==0)
+		Misc::throwStdErr("Images::readImageFile: no extension in image file name \"%s\"",imageFileName);
+	
+	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
+	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
+		return readPnmFile(imageFileName);
+	#ifdef IMAGES_USE_PNG
+	else if(strcasecmp(extStart,"png")==0)
+		return readPngFile(imageFileName);
+	#endif
+	#ifdef IMAGES_USE_JPEG
+	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
+		return readJpegFile(imageFileName);
+	#endif
+	else
+		{
+		Misc::throwStdErr("Images::readImageFile: unknown extension in image file name \"%s\"",imageFileName);
+		
+		return RGBImage(); // Dummy statement just to make the compiler happy
+		}
+	}
+
 /***********************************************
 Function to read cursor files in Xcursor format:
 ***********************************************/
 
-RGBAImage readCursorFile(const char* cursorFileName,IO::FilePtr file,unsigned int nominalSize,unsigned int* hotspot)
+RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize)
 	{
+	/* Open the input file: */
+	Misc::File cursorFile(cursorFileName,"rb",Misc::File::LittleEndian);
+	
 	/* Read the magic value to determine file endianness: */
-	size_t filePos=0;
 	CursorFileHeader fh;
-	fh.magic=file->read<unsigned int>();
-	filePos+=sizeof(unsigned int);
+	fh.magic=cursorFile.read<unsigned int>();
 	if(fh.magic==0x58637572U)
-		file->setSwapOnRead(true);
+		cursorFile.setEndianness(Misc::File::BigEndian);
 	else if(fh.magic!=0x72756358U)
-		Misc::throwStdErr("Images::readCursorFile: Invalid cursor file header in \"%s\"",cursorFileName);
+		Misc::throwStdErr("Images::readCursorFile: Invalid cursor file header in %s",cursorFileName);
 	
 	/* Read the rest of the file header: */
-	fh.headerSize=file->read<unsigned int>();
-	filePos+=sizeof(unsigned int);
-	fh.version=file->read<unsigned int>();
-	filePos+=sizeof(unsigned int);
-	fh.numTOCEntries=file->read<unsigned int>();
-	filePos+=sizeof(unsigned int);
+	fh.headerSize=cursorFile.read<unsigned int>();
+	fh.version=cursorFile.read<unsigned int>();
+	fh.numTOCEntries=cursorFile.read<unsigned int>();
 	
 	/* Read the table of contents: */
-	size_t imageChunkOffset=0;
+	Misc::File::Offset imageChunkOffset=0;
 	for(unsigned int i=0;i<fh.numTOCEntries;++i)
 		{
 		CursorTOCEntry te;
-		te.chunkType=file->read<unsigned int>();
-		filePos+=sizeof(unsigned int);
-		te.chunkSubtype=file->read<unsigned int>();
-		filePos+=sizeof(unsigned int);
-		te.chunkPosition=file->read<unsigned int>();
-		filePos+=sizeof(unsigned int);
+		te.chunkType=cursorFile.read<unsigned int>();
+		te.chunkSubtype=cursorFile.read<unsigned int>();
+		te.chunkPosition=cursorFile.read<unsigned int>();
 		
 		if(te.chunkType==0xfffd0002U&&te.chunkSubtype==nominalSize)
 			{
-			imageChunkOffset=size_t(te.chunkPosition);
+			imageChunkOffset=Misc::File::Offset(te.chunkPosition);
 			break;
 			}
 		}
 	
 	if(imageChunkOffset==0)
-		Misc::throwStdErr("Images::readCursorFile: No matching image found in \"%s\"",cursorFileName);
-	
-	/* Skip ahead to the beginning of the image chunk: */
-	file->skip<char>(imageChunkOffset-filePos);
+		Misc::throwStdErr("Images::readCursorFile: No matching image found in %s",cursorFileName);
 	
 	/* Read the image chunk: */
+	cursorFile.seekSet(imageChunkOffset);
 	CursorImageChunkHeader ich;
-	ich.headerSize=file->read<unsigned int>();
-	ich.chunkType=file->read<unsigned int>();
-	ich.chunkSubtype=file->read<unsigned int>();
-	ich.version=file->read<unsigned int>();
+	ich.headerSize=cursorFile.read<unsigned int>();
+	ich.chunkType=cursorFile.read<unsigned int>();
+	ich.chunkSubtype=cursorFile.read<unsigned int>();
+	ich.version=cursorFile.read<unsigned int>();
 	for(int i=0;i<2;++i)
-		ich.size[i]=file->read<unsigned int>();
+		ich.size[i]=cursorFile.read<unsigned int>();
 	for(int i=0;i<2;++i)
-		ich.hotspot[i]=file->read<unsigned int>();
-	if(hotspot!=0)
-		{
-		for(int i=0;i<2;++i)
-			hotspot[i]=ich.hotspot[i];
-		}
-	ich.delay=file->read<unsigned int>();
+		ich.hotspot[i]=cursorFile.read<unsigned int>();
+	ich.delay=cursorFile.read<unsigned int>();
 	if(ich.headerSize!=9*sizeof(unsigned int)||ich.chunkType!=0xfffd0002U||ich.version!=1)
-		Misc::throwStdErr("Images::readCursorFile: Invalid image chunk header in \"%s\"",cursorFileName);
+		Misc::throwStdErr("Images::readCursorFile: Invalid image chunk header in %s",cursorFileName);
 	
 	/* Create the result image: */
 	RGBAImage result(ich.size[0],ich.size[1]);
@@ -407,7 +540,7 @@ RGBAImage readCursorFile(const char* cursorFileName,IO::FilePtr file,unsigned in
 	for(unsigned int row=result.getHeight();row>0;--row)
 		{
 		RGBAImage::Color* rowPtr=result.modifyPixelRow(row-1);
-		file->read(rowPtr->getRgba(),result.getWidth()*4);
+		cursorFile.read(reinterpret_cast<GLubyte*>(rowPtr),result.getWidth()*4);
 		
 		/* Convert BGRA data into RGBA data: */
 		for(unsigned int i=0;i<result.getWidth();++i)
@@ -416,24 +549,6 @@ RGBAImage readCursorFile(const char* cursorFileName,IO::FilePtr file,unsigned in
 	
 	/* Return the result image: */
 	return result;
-	}
-
-RGBAImage readCursorFile(const IO::Directory& directory,const char* cursorFileName,unsigned int nominalSize,unsigned int* hotspot)
-	{
-	/* Open the cursor file: */
-	IO::FilePtr file=directory.openFile(cursorFileName);
-	
-	/* Call the general method: */
-	return readCursorFile(cursorFileName,file,nominalSize,hotspot);
-	}
-
-RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize,unsigned int* hotspot)
-	{
-	/* Open the cursor file: */
-	IO::FilePtr file=IO::Directory::getCurrent()->openFile(cursorFileName);
-	
-	/* Call the general method: */
-	return readCursorFile(cursorFileName,file,nominalSize,hotspot);
 	}
 
 }

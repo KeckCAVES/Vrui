@@ -1,7 +1,7 @@
 /***********************************************************************
 LaserpointerTool - Class for tools using rays to point out features in a
 3D display.
-Copyright (c) 2006-2011 Oliver Kreylos
+Copyright (c) 2006-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,7 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/GLColor.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/PointingTool.h>
+#include <Vrui/Tools/UtilityTool.h>
 
 namespace Vrui {
 
@@ -53,13 +53,12 @@ class LaserpointerToolFactory:public ToolFactory
 	LaserpointerToolFactory(ToolManager& toolManager);
 	virtual ~LaserpointerToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class LaserpointerTool:public PointingTool
+class LaserpointerTool:public UtilityTool
 	{
 	friend class LaserpointerToolFactory;
 	
@@ -71,13 +70,16 @@ class LaserpointerTool:public PointingTool
 	bool active; // Flag if the laser pointer is active
 	Ray ray; // Current laser ray
 	
+	/* Private methods: */
+	Ray calcRay(void) const; // Calculates the laser ray based on current device position/orientation
+	
 	/* Constructors and destructors: */
 	public:
 	LaserpointerTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

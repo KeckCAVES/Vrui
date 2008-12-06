@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorTurnNavigationTool - Class providing a rotation navigation tool
 using two valuators.
-Copyright (c) 2005-2015 Oliver Kreylos
+Copyright (c) 2005-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VALUATORTURNNAVIGATIONTOOL_INCLUDED
 #define VRUI_VALUATORTURNNAVIGATIONTOOL_INCLUDED
 
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
+
+/* Forward declarations: */
+namespace Vrui {
+class Viewer;
+}
 
 namespace Vrui {
 
@@ -49,10 +54,7 @@ class ValuatorTurnNavigationToolFactory:public ToolFactory
 	ValuatorTurnNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ValuatorTurnNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
-	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -64,6 +66,7 @@ class ValuatorTurnNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ValuatorTurnNavigationToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Transient navigation state: */
 	bool buttonState; // Current value of the associated button
@@ -73,10 +76,10 @@ class ValuatorTurnNavigationTool:public NavigationTool
 	public:
 	ValuatorTurnNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	};
 

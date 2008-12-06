@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2018 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -22,139 +22,153 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <VRDeviceDaemon/VRDeviceManager.h>
-
 #include <stdio.h>
 #include <dlfcn.h>
 #include <vector>
-#include <Misc/PrintInteger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Realtime/Time.h>
-#include <Vrui/Internal/VRDeviceDescriptor.h>
-#include <Vrui/Internal/HMDConfiguration.h>
 
-#include <VRDeviceDaemon/VRFactory.h>
-#include <VRDeviceDaemon/VRDevice.h>
-#include <VRDeviceDaemon/VRCalibrator.h>
-#include <VRDeviceDaemon/Config.h>
+#include "VRFactory.h"
+#include "VRDevice.h"
+#include "VRCalibrator.h"
+
+#include "VRDeviceManager.h"
 
 /********************************
 Methods of class VRDeviceManager:
 ********************************/
 
 VRDeviceManager::VRDeviceManager(Misc::ConfigurationFile& configFile)
-	:deviceFactories(configFile.retrieveString("./deviceDirectory",VRDEVICEDAEMON_CONFIG_VRDEVICESDIR),this),
-	 calibratorFactories(configFile.retrieveString("./calibratorDirectory",VRDEVICEDAEMON_CONFIG_VRCALIBRATORSDIR)),
+	:deviceFactories(configFile.retrieveString("./deviceDirectory",SYSVRDEVICEDIRECTORY),this),
+	 calibratorFactories(configFile.retrieveString("./calibratorDirectory",SYSVRCALIBRATORDIRECTORY)),
 	 numDevices(0),
-	 devices(0),trackerIndexBases(0),buttonIndexBases(0),valuatorIndexBases(0),
-	 batteryStateUpdatedCallback(0),batteryStateUpdatedCallbackData(0),
-	 hmdConfigurationUpdatedCallback(0),hmdConfigurationUpdatedCallbackData(0),
+	 devices(0),
 	 fullTrackerReportMask(0x0),trackerReportMask(0x0),trackerUpdateNotificationEnabled(false),
-	 trackerUpdateCompleteCond(0),
-	 trackerUpdateCompleteCallback(0),trackerUpdateCompleteCallbackData(0)
+	 trackerUpdateCompleteCond(0)
 	{
-	/* Allocate device and base index arrays: */
+	/* Allocate device array: */
 	typedef std::vector<std::string> StringList;
 	StringList deviceNames=configFile.retrieveValue<StringList>("./deviceNames");
 	numDevices=deviceNames.size();
 	devices=new VRDevice*[numDevices];
-	trackerIndexBases=new int[numDevices];
-	buttonIndexBases=new int[numDevices];
-	valuatorIndexBases=new int[numDevices];
 	
 	/* Initialize VR devices: */
-	for(currentDeviceIndex=0;currentDeviceIndex<numDevices;++currentDeviceIndex)
+	int numTrackers=0;
+	int numButtons=0;
+	int numValuators=0;
+	for(int i=0;i<numDevices;++i)
 		{
-		/* Save the device's base indices: */
-		trackerIndexBases[currentDeviceIndex]=int(trackerNames.size());
-		buttonIndexBases[currentDeviceIndex]=int(buttonNames.size());
-		valuatorIndexBases[currentDeviceIndex]=int(valuatorNames.size());
-		
 		/* Go to device's section: */
-		configFile.setCurrentSection(deviceNames[currentDeviceIndex].c_str());
+		configFile.setCurrentSection(deviceNames[i].c_str());
 		
 		/* Retrieve device type: */
 		std::string deviceType=configFile.retrieveString("./deviceType");
 		
 		/* Initialize device: */
 		#ifdef VERBOSE
-		printf("VRDeviceManager: Loading device %s of type %s\n",deviceNames[currentDeviceIndex].c_str(),deviceType.c_str());
+		printf("VRDeviceManager: Loading device %s of type %s\n",deviceNames[i].c_str(),deviceType.c_str());
 		fflush(stdout);
 		#endif
 		DeviceFactoryManager::Factory* deviceFactory=deviceFactories.getFactory(deviceType);
-		devices[currentDeviceIndex]=deviceFactory->createObject(configFile);
+		devices[i]=deviceFactory->createObject(configFile);
 		
-		if(configFile.hasTag("./trackerNames"))
-			{
-			StringList deviceTrackerNames=configFile.retrieveValue<StringList>("./trackerNames");
-			int trackerIndex=trackerIndexBases[currentDeviceIndex];
-			int numTrackers=trackerNames.size();
-			for(StringList::iterator dtnIt=deviceTrackerNames.begin();dtnIt!=deviceTrackerNames.end()&&trackerIndex<numTrackers;++dtnIt,++trackerIndex)
-				trackerNames[trackerIndex]=*dtnIt;
-			}
-		
-		/* Override device's button names: */
-		if(configFile.hasTag("./buttonNames"))
-			{
-			StringList deviceButtonNames=configFile.retrieveValue<StringList>("./buttonNames");
-			int buttonIndex=buttonIndexBases[currentDeviceIndex];
-			int numButtons=buttonNames.size();
-			for(StringList::iterator dtnIt=deviceButtonNames.begin();dtnIt!=deviceButtonNames.end()&&buttonIndex<numButtons;++dtnIt,++buttonIndex)
-				buttonNames[buttonIndex]=*dtnIt;
-			}
-		
-		/* Override device's valuator names: */
-		if(configFile.hasTag("./valuatorNames"))
-			{
-			StringList deviceValuatorNames=configFile.retrieveValue<StringList>("./valuatorNames");
-			int valuatorIndex=valuatorIndexBases[currentDeviceIndex];
-			int numValuators=valuatorNames.size();
-			for(StringList::iterator dtnIt=deviceValuatorNames.begin();dtnIt!=deviceValuatorNames.end()&&valuatorIndex<numValuators;++dtnIt,++valuatorIndex)
-				valuatorNames[valuatorIndex]=*dtnIt;
-			}
+		/* Query device configuration: */
+		for(int j=0;j<devices[i]->getNumTrackers();++j)
+			if(numTrackers<devices[i]->getTrackerIndex(j)+1)
+				numTrackers=devices[i]->getTrackerIndex(j)+1;
+		for(int j=0;j<devices[i]->getNumButtons();++j)
+			if(numButtons<devices[i]->getButtonIndex(j)+1)
+				numButtons=devices[i]->getButtonIndex(j)+1;
+		for(int j=0;j<devices[i]->getNumValuators();++j)
+			if(numValuators<devices[i]->getValuatorIndex(j)+1)
+				numValuators=devices[i]->getValuatorIndex(j)+1;
 		
 		/* Return to parent section: */
 		configFile.setCurrentSection("..");
 		}
 	#ifdef VERBOSE
-	printf("VRDeviceManager: Managing %d trackers, %d buttons, %d valuators\n",int(trackerNames.size()),int(buttonNames.size()),int(valuatorNames.size()));
+	printf("VRDeviceManager: Managing %d trackers, %d buttons, %d valuators\n",numTrackers,numButtons,numValuators);
 	fflush(stdout);
 	#endif
 	
-	/* Set server state's layout: */
-	state.setLayout(trackerNames.size(),buttonNames.size(),valuatorNames.size());
+	/* Set state layout and initialize state: */
+	state.setLayout(numTrackers,numButtons,numValuators);
+	Vrui::VRDeviceState::TrackerState defaultTs;
+	defaultTs.positionOrientation=Vrui::VRDeviceState::TrackerState::PositionOrientation::identity;
+	defaultTs.linearVelocity=Vrui::VRDeviceState::TrackerState::LinearVelocity::zero;
+	defaultTs.angularVelocity=Vrui::VRDeviceState::TrackerState::AngularVelocity::zero;
+	for(int i=0;i<numTrackers;++i)
+		state.setTrackerState(i,defaultTs);
+	for(int i=0;i<numButtons;++i)
+		state.setButtonState(i,false);
+	for(int i=0;i<numValuators;++i)
+		state.setValuatorState(i,0);
 	
-	/* Read names of all virtual devices: */
-	StringList virtualDeviceNames=configFile.retrieveValue<StringList>("./virtualDeviceNames",StringList());
+	/* Check logical index associatons: */
+	int* trackerDeviceIndices=new int[numTrackers];
+	for(int i=0;i<numTrackers;++i)
+		trackerDeviceIndices[i]=-1;
+	int* buttonDeviceIndices=new int[numButtons];
+	for(int i=0;i<numButtons;++i)
+		buttonDeviceIndices[i]=-1;
+	int* valuatorDeviceIndices=new int[numValuators];
+	for(int i=0;i<numValuators;++i)
+		valuatorDeviceIndices[i]=-1;
 	
-	/* Initialize virtual devices: */
-	for(StringList::iterator vdnIt=virtualDeviceNames.begin();vdnIt!=virtualDeviceNames.end();++vdnIt)
-		{
-		/* Create a new virtual device descriptor by reading the virtual device's configuration file section: */
-		Vrui::VRDeviceDescriptor* vdd=new Vrui::VRDeviceDescriptor;
-		vdd->name=*vdnIt;
-		vdd->load(configFile.getSection(vdnIt->c_str()));
-		
-		/* Store the virtual device descriptor: */
-		virtualDevices.push_back(vdd);
-		
-		/* Create a battery state for the new virtual device: */
-		batteryStates.push_back(Vrui::BatteryState());
-		}
-	#ifdef VERBOSE
-	printf("VRDeviceManager: Managing %d virtual devices\n",int(virtualDevices.size()));
-	fflush(stdout);
-	#endif
-	
-	/* Initialize all loaded devices: */
-	#ifdef VERBOSE
-	printf("VRDeviceManager: Initializing %d device driver modules\n",numDevices);
-	fflush(stdout);
-	#endif
 	for(int i=0;i<numDevices;++i)
-		devices[i]->initialize();
+		{
+		for(int j=0;j<devices[i]->getNumTrackers();++j)
+			{
+			if(trackerDeviceIndices[devices[i]->getTrackerIndex(j)]!=-1)
+				{
+				fprintf(stderr,"VRDeviceManager: Logical tracker index %d assigned to devices %d and %d\n",devices[i]->getTrackerIndex(j),trackerDeviceIndices[devices[i]->getTrackerIndex(j)],i);
+				fflush(stderr);
+				}
+			else
+				trackerDeviceIndices[devices[i]->getTrackerIndex(j)]=j;
+			fullTrackerReportMask|=1<<devices[i]->getTrackerIndex(j);
+			}
+		for(int j=0;j<devices[i]->getNumButtons();++j)
+			if(buttonDeviceIndices[devices[i]->getButtonIndex(j)]!=-1)
+				{
+				fprintf(stderr,"VRDeviceManager: Logical button index %d assigned to devices %d and %d\n",devices[i]->getButtonIndex(j),buttonDeviceIndices[devices[i]->getButtonIndex(j)],i);
+				fflush(stderr);
+				}
+			else
+				buttonDeviceIndices[devices[i]->getButtonIndex(j)]=j;
+		for(int j=0;j<devices[i]->getNumValuators();++j)
+			if(valuatorDeviceIndices[devices[i]->getValuatorIndex(j)]!=-1)
+				{
+				fprintf(stderr,"VRDeviceManager: Logical valuator index %d assigned to devices %d and %d\n",devices[i]->getValuatorIndex(j),valuatorDeviceIndices[devices[i]->getValuatorIndex(j)],i);
+				fflush(stderr);
+				}
+			else
+				valuatorDeviceIndices[devices[i]->getValuatorIndex(j)]=j;
+		}
+	
+	for(int i=0;i<numTrackers;++i)
+		if(trackerDeviceIndices[i]==-1)
+			{
+			fprintf(stderr,"VRDeviceManager: Logical tracker index %d not assigned to any device\n",i);
+			fflush(stderr);
+			}
+	for(int i=0;i<numButtons;++i)
+		if(buttonDeviceIndices[i]==-1)
+			{
+			fprintf(stderr,"VRDeviceManager: Logical button index %d not assigned to any device\n",i);
+			fflush(stderr);
+			}
+	for(int i=0;i<numValuators;++i)
+		if(valuatorDeviceIndices[i]==-1)
+			{
+			fprintf(stderr,"VRDeviceManager: Logical valuator index %d not assigned to any device\n",i);
+			fflush(stderr);
+			}
+	
+	delete[] trackerDeviceIndices;
+	delete[] buttonDeviceIndices;
+	delete[] valuatorDeviceIndices;
 	}
 
 VRDeviceManager::~VRDeviceManager(void)
@@ -163,79 +177,6 @@ VRDeviceManager::~VRDeviceManager(void)
 	for(int i=0;i<numDevices;++i)
 		VRDevice::destroy(devices[i]);
 	delete[] devices;
-	
-	/* Delete base index arrays: */
-	delete[] trackerIndexBases;
-	delete[] buttonIndexBases;
-	delete[] valuatorIndexBases;
-	
-	/* Delete virtual devices: */
-	for(std::vector<Vrui::VRDeviceDescriptor*>::iterator vdIt=virtualDevices.begin();vdIt!=virtualDevices.end();++vdIt)
-		delete *vdIt;
-	
-	/* Delete HMD configurations: */
-	for(std::vector<Vrui::HMDConfiguration*>::iterator hcIt=hmdConfigurations.begin();hcIt!=hmdConfigurations.end();++hcIt)
-		delete *hcIt;
-	}
-
-int VRDeviceManager::addTracker(const char* name)
-	{
-	/* Get the next tracker index: */
-	int result=trackerNames.size();
-	
-	/* Push back a new tracker name: */
-	if(name==0)
-		{
-		std::string tname="Tracker";
-		char index[10];
-		tname.append(Misc::print(result,index+sizeof(index)-1));
-		trackerNames.push_back(tname);
-		}
-	else
-		trackerNames.push_back(name);
-	
-	/* Update the tracker report mask: */
-	fullTrackerReportMask=(0x1U<<(result+1))-1U;
-	
-	return result;
-	}
-
-int VRDeviceManager::addButton(const char* name)
-	{
-	/* Get the next button index: */
-	int result=buttonNames.size();
-	
-	/* Push back a new button name: */
-	if(name==0)
-		{
-		std::string bname="Button";
-		char index[10];
-		bname.append(Misc::print(result,index+sizeof(index)-1));
-		buttonNames.push_back(bname);
-		}
-	else
-		buttonNames.push_back(name);
-	
-	return result;
-	}
-
-int VRDeviceManager::addValuator(const char* name)
-	{
-	/* Get the next valuator index: */
-	int result=valuatorNames.size();
-	
-	/* Push back a new valuator name: */
-	if(name==0)
-		{
-		std::string vname="Valuator";
-		char index[10];
-		vname.append(Misc::print(result,index+sizeof(index)-1));
-		valuatorNames.push_back(vname);
-		}
-	else
-		valuatorNames.push_back(name);
-	
-	return result;
 	}
 
 VRCalibrator* VRDeviceManager::createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile)
@@ -244,108 +185,19 @@ VRCalibrator* VRDeviceManager::createCalibrator(const std::string& calibratorTyp
 	return calibratorFactory->createObject(configFile);
 	}
 
-unsigned int VRDeviceManager::addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice)
-	{
-	/* Store the virtual device: */
-	unsigned int result=virtualDevices.size();
-	virtualDevices.push_back(newVirtualDevice);
-	
-	/* Create a battery state for the new virtual device: */
-	batteryStates.push_back(Vrui::BatteryState());
-	
-	return result;
-	}
-
-Vrui::HMDConfiguration* VRDeviceManager::addHmdConfiguration(void)
-	{
-	/* Store a new HMD configuration: */
-	Vrui::HMDConfiguration* newConfiguration=new Vrui::HMDConfiguration;
-	hmdConfigurations.push_back(newConfiguration);
-	
-	return newConfiguration;
-	}
-
-int VRDeviceManager::addPowerFeature(VRDevice* device,int deviceFeatureIndex)
-	{
-	/* Create a new feature: */
-	int result=int(powerFeatures.size());
-	Feature newPowerFeature;
-	newPowerFeature.device=device;
-	newPowerFeature.deviceFeatureIndex=deviceFeatureIndex;
-	powerFeatures.push_back(newPowerFeature);
-	
-	return result;
-	}
-
-int VRDeviceManager::addHapticFeature(VRDevice* device,int deviceFeatureIndex)
-	{
-	/* Create a new feature: */
-	int result=int(hapticFeatures.size());
-	Feature newHapticFeature;
-	newHapticFeature.device=device;
-	newHapticFeature.deviceFeatureIndex=deviceFeatureIndex;
-	hapticFeatures.push_back(newHapticFeature);
-	
-	return result;
-	}
-
-void VRDeviceManager::disableTracker(int trackerIndex)
+void VRDeviceManager::setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState)
 	{
 	Threads::Mutex::Lock stateLock(stateMutex);
-	
-	/* Update the device state: */
-	state.setTrackerValid(trackerIndex,false);
-	
-	/* Check if update notifications are requested: */
-	if(trackerUpdateNotificationEnabled)
-		{
-		/* Update tracker report mask: */
-		trackerReportMask|=1<<trackerIndex;
-		if(trackerReportMask==fullTrackerReportMask)
-			{
-			if(trackerUpdateCompleteCond!=0)
-				{
-				/* Wake up all client threads in stream mode: */
-				trackerUpdateCompleteCond->broadcast();
-				}
-			else
-				{
-				/* Call a callback: */
-				trackerUpdateCompleteCallback(this,trackerUpdateCompleteCallbackData);
-				}
-			
-			trackerReportMask=0x0;
-			}
-		}
-	}
-
-void VRDeviceManager::setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState,Vrui::VRDeviceState::TimeStamp newTimeStamp)
-	{
-	Threads::Mutex::Lock stateLock(stateMutex);
-	
-	/* Update the device state: */
 	state.setTrackerState(trackerIndex,newTrackerState);
-	state.setTrackerTimeStamp(trackerIndex,newTimeStamp);
-	state.setTrackerValid(trackerIndex,true);
 	
-	/* Check if update notifications are requested: */
 	if(trackerUpdateNotificationEnabled)
 		{
 		/* Update tracker report mask: */
 		trackerReportMask|=1<<trackerIndex;
 		if(trackerReportMask==fullTrackerReportMask)
 			{
-			if(trackerUpdateCompleteCond!=0)
-				{
-				/* Wake up all client threads in stream mode: */
-				trackerUpdateCompleteCond->broadcast();
-				}
-			else
-				{
-				/* Call a callback: */
-				trackerUpdateCompleteCallback(this,trackerUpdateCompleteCallbackData);
-				}
-			
+			/* Wake up all client threads in stream mode: */
+			trackerUpdateCompleteCond->broadcast();
 			trackerReportMask=0x0;
 			}
 		}
@@ -363,91 +215,11 @@ void VRDeviceManager::setValuatorState(int valuatorIndex,Vrui::VRDeviceState::Va
 	state.setValuatorState(valuatorIndex,newValuatorState);
 	}
 
-void VRDeviceManager::updateState(void)
-	{
-	Threads::Mutex::Lock stateLock(stateMutex);
-	if(trackerUpdateNotificationEnabled&&(trackerReportMask!=0x0||fullTrackerReportMask==0x0))
-		{
-		if(trackerUpdateCompleteCond!=0)
-			{
-			/* Wake up all client threads in stream mode: */
-			trackerUpdateCompleteCond->broadcast();
-			}
-		else
-			{
-			/* Call a callback: */
-			trackerUpdateCompleteCallback(this,trackerUpdateCompleteCallbackData);
-			}
-		
-		trackerReportMask=0x0;
-		}
-	}
-
-void VRDeviceManager::updateBatteryState(unsigned int virtualDeviceIndex,const Vrui::BatteryState& newBatteryState)
-	{
-	Threads::Mutex::Lock batteryStateLock(batteryStateMutex);
-	
-	/* Remember that this device has a battery: */
-	virtualDevices[virtualDeviceIndex]->hasBattery=true;
-	
-	/* Check if the battery state actually changed: */
-	Vrui::BatteryState& bs=batteryStates[virtualDeviceIndex];
-	bool changed=bs.charging!=newBatteryState.charging||bs.batteryLevel!=newBatteryState.batteryLevel;
-	if(changed)
-		{
-		/* Update the battery state and call the state update callback: */
-		bs=newBatteryState;
-		if(batteryStateUpdatedCallback!=0)
-			batteryStateUpdatedCallback(this,virtualDeviceIndex,bs,batteryStateUpdatedCallbackData);
-		}
-	}
-
-void VRDeviceManager::updateHmdConfiguration(const Vrui::HMDConfiguration* hmdConfiguration)
-	{
-	/* Call the HMD configuration update callback: */
-	if(hmdConfigurationUpdatedCallback!=0)
-		hmdConfigurationUpdatedCallback(this,hmdConfiguration,hmdConfigurationUpdatedCallbackData);
-	}
-
-void VRDeviceManager::powerOff(unsigned int powerFeatureIndex)
-	{
-	/* Check if the feature exists: */
-	if(powerFeatureIndex<powerFeatures.size())
-		{
-		/* Forward request to managing device: */
-		Feature& f=powerFeatures[powerFeatureIndex];
-		f.device->powerOff(f.deviceFeatureIndex);
-		}
-	}
-
-void VRDeviceManager::hapticTick(unsigned int hapticFeatureIndex,unsigned int duration)
-	{
-	/* Check if the feature exists: */
-	if(hapticFeatureIndex<hapticFeatures.size())
-		{
-		/* Forward request to managing device: */
-		Feature& f=hapticFeatures[hapticFeatureIndex];
-		f.device->hapticTick(f.deviceFeatureIndex,duration);
-		}
-	}
-
 void VRDeviceManager::enableTrackerUpdateNotification(Threads::MutexCond* sTrackerUpdateCompleteCond)
 	{
 	Threads::Mutex::Lock stateLock(stateMutex);
 	trackerUpdateNotificationEnabled=true;
 	trackerUpdateCompleteCond=sTrackerUpdateCompleteCond;
-	trackerUpdateCompleteCallback=0;
-	trackerUpdateCompleteCallbackData=0;
-	trackerReportMask=0x0;
-	}
-
-void VRDeviceManager::enableTrackerUpdateNotification(VRDeviceManager::TrackerUpdateCompleteCallback newTrackerUpdateCompleteCallback,void* newTrackerUpdateCompleteCallbackData)
-	{
-	Threads::Mutex::Lock stateLock(stateMutex);
-	trackerUpdateNotificationEnabled=true;
-	trackerUpdateCompleteCond=0;
-	trackerUpdateCompleteCallback=newTrackerUpdateCompleteCallback;
-	trackerUpdateCompleteCallbackData=newTrackerUpdateCompleteCallbackData;
 	trackerReportMask=0x0;
 	}
 
@@ -456,22 +228,16 @@ void VRDeviceManager::disableTrackerUpdateNotification(void)
 	Threads::Mutex::Lock stateLock(stateMutex);
 	trackerUpdateNotificationEnabled=false;
 	trackerUpdateCompleteCond=0;
-	trackerUpdateCompleteCallback=0;
-	trackerUpdateCompleteCallbackData=0;
 	}
 
-void VRDeviceManager::setBatteryStateUpdatedCallback(BatteryStateUpdatedCallback newBatteryStateUpdatedCallback,void* newBatteryStateUpdatedCallbackData)
+void VRDeviceManager::updateState(void)
 	{
-	Threads::Mutex::Lock batteryStateLock(batteryStateMutex);
-	batteryStateUpdatedCallback=newBatteryStateUpdatedCallback;
-	batteryStateUpdatedCallbackData=newBatteryStateUpdatedCallbackData;
-	}
-
-void VRDeviceManager::setHmdConfigurationUpdatedCallback(HMDConfigurationUpdatedCallback newHmdConfigurationUpdatedCallback,void* newHmdConfigurationUpdatedCallbackData)
-	{
-	Threads::Mutex::Lock hmdConfigurationLock(hmdConfigurationMutex);
-	hmdConfigurationUpdatedCallback=newHmdConfigurationUpdatedCallback;
-	hmdConfigurationUpdatedCallbackData=newHmdConfigurationUpdatedCallbackData;
+	Threads::Mutex::Lock stateLock(stateMutex);
+	if(trackerUpdateNotificationEnabled)
+		{
+		/* Wake up all client threads in stream mode: */
+		trackerUpdateCompleteCond->broadcast();
+		}
 	}
 
 void VRDeviceManager::start(void)

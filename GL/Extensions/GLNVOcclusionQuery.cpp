@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVOcclusionQuery - OpenGL extension class for the
 GL_NV_occlusion_query extension.
-Copyright (c) 2005-2014 Oliver Kreylos
+Copyright (c) 2005-2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLNVOcclusionQuery.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLNVOcclusionQuery.h>
 
 /*******************************************
 Static elements of class GLNVOcclusionQuery:
 *******************************************/
 
 GL_THREAD_LOCAL(GLNVOcclusionQuery*) GLNVOcclusionQuery::current=0;
-const char* GLNVOcclusionQuery::name="GL_NV_occlusion_query";
 
 /***********************************
 Methods of class GLNVOcclusionQuery:
@@ -54,7 +53,7 @@ GLNVOcclusionQuery::~GLNVOcclusionQuery(void)
 
 const char* GLNVOcclusionQuery::getExtensionName(void) const
 	{
-	return name;
+	return "GL_NV_occlusion_query";
 	}
 
 void GLNVOcclusionQuery::activate(void)
@@ -70,13 +69,13 @@ void GLNVOcclusionQuery::deactivate(void)
 bool GLNVOcclusionQuery::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_NV_occlusion_query");
 	}
 
 void GLNVOcclusionQuery::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_NV_occlusion_query"))
 		{
 		/* Create a new extension object: */
 		GLNVOcclusionQuery* newExtension=new GLNVOcclusionQuery;

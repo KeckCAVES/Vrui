@@ -1,6 +1,6 @@
 /***********************************************************************
 Box - Class for n-dimensional axis-aligned boxes.
-Copyright (c) 2001-2016 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -58,7 +58,7 @@ class Box
 	typedef SolidHitResult<ScalarParam> HitResult; // Hit result type
 	
 	/* Elements: */
-	public:
+	private:
 	Point min,max; // Minimum and maximum point along all primary axes
 	
 	/* Constructors and destructors: */
@@ -79,15 +79,15 @@ class Box
 	Box(const Point& sOrigin,const Size& sSize); // Constructs a box from origin and size
 	template <class SourceScalarParam,int sourceDimensionParam>
 	Box(const Box<SourceScalarParam,sourceDimensionParam>& source) // Copy constructor with type conversion and dimension change
-		:min(source.min),max(source.max)
+		:min(source.getMin()),max(source.getMax())
 		{
 		}
 	template <class SourceScalarParam,int sourceDimensionParam>
 	Box& operator=(const Box<SourceScalarParam,sourceDimensionParam>& source) // Assignment with type conversion and dimension change
 		{
 		/* Operation is idempotent; no need to check for aliasing */
-		min=source.min;
-		max=source.max;
+		min=source.getMin();
+		max=source.getMax();
 		return *this;
 		}
 	
@@ -97,11 +97,27 @@ class Box
 	bool isNull(void) const; // Returns true if the box contains no points at all
 	bool isEmpty(void) const; // Returns true if the box has no interior (it can still contain points)
 	bool isFull(void) const; // Returns true if the box contains all points
+	const Point& getMin(void) const // Returns k-tuple of minimum coordinates as point
+		{
+		return min;
+		}
+	const Point& getMax(void) const // Returns k-tuple of maximum coordinates as point
+		{
+		return max;
+		}
+	Scalar getMin(int dimension) const // Returns minimum coordinate in one dimension
+		{
+		return min[dimension];
+		}
+	Scalar getMax(int dimension) const // Returns maximum coordinate in one dimension
+		{
+		return max[dimension];
+		}
 	const Point& getOrigin(void) const // Returns the box's origin
 		{
 		return min;
 		}
-	Box& setOrigin(const Point& newOrigin) // Sets a new origin while keeping the box's size
+	Box& setOrigin(const Point& newOrigin) // Sets a new origin
 		{
 		max=newOrigin+(max-min);
 		min=newOrigin;
@@ -152,18 +168,6 @@ class Box
 		bool result=true;
 		for(int i=0;i<dimension&&result;++i)
 			result=min[i]<=p[i]&&p[i]<=max[i];
-		return result;
-		}
-	Scalar sqrDist(const Point& p) const // Returns the squared Euclidean distance from the box to the given point; distance is zero if and only if point is inside box
-		{
-		Scalar result(0);
-		for(int i=0;i<dimension;++i)
-			{
-			if(p[i]<min[i])
-				result+=Math::sqr(p[i]-min[i]);
-			if(p[i]>max[i])
-				result+=Math::sqr(p[i]-max[i]);
-			}
 		return result;
 		}
 	bool contains(const Box& other) const // Checks if a box contains another box
@@ -260,8 +264,8 @@ bool operator!=(const Box<ScalarParam,dimensionParam>& b1,const Box<ScalarParam,
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_BOX_IMPLEMENTATION)
-#include <Geometry/Box.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_BOX_IMPLEMENTATION)
+#include <Geometry/Box.cpp>
 #endif
 
 #endif

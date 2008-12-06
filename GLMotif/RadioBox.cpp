@@ -1,7 +1,7 @@
 /***********************************************************************
 RadioBox - Subclass of RowColumn that contains only mutually exclusive
 ToggleButton objects.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -74,28 +74,26 @@ void RadioBox::addChild(Widget* newChild)
 	{
 	/* Only add children that are derived from ToggleButton: */
 	ToggleButton* newToggle=dynamic_cast<ToggleButton*>(newChild);
-	
-	/* If the new child is a toggle, initialize it: */
-	if(newToggle!=0)
-		{
-		/* Set the new toggle's defaults and callbacks: */
-		newToggle->setBorderWidth(0.0f);
-		newToggle->setToggleType(ToggleButton::RADIO_BUTTON);
-		newToggle->setHAlignment(GLFont::Left);
-		newToggle->getValueChangedCallbacks().add(childrenValueChangedCallbackWrapper,this);
-		
-		/* Set/unset the new toggle to satisfy our selection mode: */
-		if(selectionMode==ATMOST_ONE||selectedToggle!=0)
-			newToggle->setToggle(false);
-		else
-			{
-			selectedToggle=newToggle;
-			newToggle->setToggle(true);
-			}
-		}
+	if(newToggle==0)
+		Misc::throwStdErr("RadioBox::addChild: Attempt to add child that is not a ToggleButton");
 	
 	/* Call the parent class widget's addChild routine: */
-	RowColumn::addChild(newChild);
+	RowColumn::addChild(newToggle);
+	
+	/* Set the new toggle's defaults and callbacks: */
+	newToggle->setBorderWidth(0.0f);
+	newToggle->setToggleType(ToggleButton::RADIO_BUTTON);
+	newToggle->setHAlignment(GLFont::Left);
+	newToggle->getValueChangedCallbacks().add(childrenValueChangedCallbackWrapper,this);
+	
+	/* Set/unset the new toggle to satisfy our selection mode: */
+	if(selectionMode==ATMOST_ONE||selectedToggle!=0)
+		newToggle->setToggle(false);
+	else
+		{
+		selectedToggle=newToggle;
+		newToggle->setToggle(true);
+		}
 	}
 
 void RadioBox::addToggle(const char* newToggleLabel)
@@ -108,19 +106,16 @@ void RadioBox::addToggle(const char* newToggleLabel)
 
 int RadioBox::getToggleIndex(const ToggleButton* toggle) const
 	{
+	int result=-1;
 	int index=0;
-	for(WidgetList::const_iterator chIt=children.begin();chIt!=children.end();++chIt)
-		{
-		/* Ignore any children that are not toggle buttons: */
-		if(dynamic_cast<const ToggleButton*>(*chIt)!=0)
+	for(WidgetList::const_iterator chIt=children.begin();chIt!=children.end();++chIt,++index)
+		if(*chIt==toggle)
 			{
-			if(*chIt==toggle)
-				return index;
-			++index;
+			result=index;
+			break;
 			}
-		}
 	
-	return -1;
+	return result;
 	}
 
 void RadioBox::setSelectionMode(RadioBox::SelectionMode newSelectionMode)
@@ -129,34 +124,20 @@ void RadioBox::setSelectionMode(RadioBox::SelectionMode newSelectionMode)
 	selectionMode=newSelectionMode;
 	
 	/* Enforce the new mode: */
-	if(selectionMode==ALWAYS_ONE&&selectedToggle==0)
+	if(selectionMode==ALWAYS_ONE&&selectedToggle==0&&!children.empty())
 		{
-		/* Select the first child toggle button: */
-		for(WidgetList::const_iterator chIt=children.begin();chIt!=children.end();++chIt)
-			{
-			/* Check if the child is a toggle button: */
-			ToggleButton* toggle=dynamic_cast<ToggleButton*>(*chIt);
-			if(toggle!=0)
-				{
-				/* Select it: */
-				selectedToggle=toggle;
-				selectedToggle->setToggle(true);
-				break;
-				}
-			}
+		/* Select the first child: */
+		selectedToggle=static_cast<ToggleButton*>(children.front());
+		selectedToggle->setToggle(true);
 		}
 	}
 
 void RadioBox::setSelectedToggle(ToggleButton* newSelectedToggle)
 	{
-	/* Don't update if the new selection is null, and selection mode is ALWAYS_ONE: */
 	if(newSelectedToggle!=0||selectionMode==ATMOST_ONE)
 		{
-		/* De-select the previous selection: */
 		if(selectedToggle!=0)
 			selectedToggle->setToggle(false);
-		
-		/* Select the new selection: */
 		selectedToggle=newSelectedToggle;
 		if(selectedToggle!=0)
 			selectedToggle->setToggle(true);
@@ -165,25 +146,20 @@ void RadioBox::setSelectedToggle(ToggleButton* newSelectedToggle)
 
 void RadioBox::setSelectedToggle(int newSelectedToggleIndex)
 	{
-	/* Find the child toggle button of the given index: */
-	ToggleButton* newSelectedToggle=0;
-	for(WidgetList::iterator chIt=children.begin();chIt!=children.end()&&newSelectedToggleIndex>=0;++chIt)
-		{
-		/* Check if the child is a toggle button: */
-		ToggleButton* toggle=dynamic_cast<ToggleButton*>(*chIt);
-		if(toggle!=0)
-			{
-			/* Check if this is the one: */
-			if(newSelectedToggleIndex==0)
-				newSelectedToggle=toggle;
-			
-			/* Keep looking: */
-			--newSelectedToggleIndex;
-			}
-		}
+	/* Get a pointer to the child of the given index: */
+	WidgetList::iterator chIt;
+	for(chIt=children.begin();chIt!=children.end()&&newSelectedToggleIndex>0;++chIt,--newSelectedToggleIndex)
+		;
+	ToggleButton* newSelectedToggle=static_cast<ToggleButton*>(*chIt);
 	
-	/* Select the new toggle: */
-	setSelectedToggle(newSelectedToggle);
+	if(newSelectedToggle!=0||selectionMode==ATMOST_ONE)
+		{
+		if(selectedToggle!=0)
+			selectedToggle->setToggle(false);
+		selectedToggle=newSelectedToggle;
+		if(selectedToggle!=0)
+			selectedToggle->setToggle(true);
+		}
 	}
 
 }

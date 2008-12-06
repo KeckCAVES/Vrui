@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTPalettedTexture - OpenGL extension class for the
 GL_EXT_paletted_texture extension.
-Copyright (c) 2006-2014 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -60,19 +60,11 @@ typedef void (APIENTRY * PFNGLGETCOLORTABLEPARAMETERFVEXTPROC) (GLenum target, G
 
 #endif
 
-/* Forward declarations of friend functions: */
-void glColorTableEXT(GLenum target,GLenum internalFormat,GLsizei width,GLenum format,GLenum type,const GLvoid* table);
-void glColorSubTableEXT(GLenum target,GLsizei start,GLsizei count,GLenum format,GLenum type,const GLvoid* table);
-void glGetColorTableEXT(GLenum target,GLenum format,GLenum type,GLvoid* data);
-void glGetColorTableParameterivEXT(GLenum target,GLenum pname,GLint* params);
-void glGetColorTableParameterfvEXT(GLenum target,GLenum pname,GLfloat* params);
-
 class GLEXTPalettedTexture:public GLExtension
 	{
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTPalettedTexture*) current; // Pointer to extension object for current OpenGL context
-	static const char* name; // Extension name
 	PFNGLCOLORTABLEEXTPROC glColorTableEXTProc;
 	PFNGLCOLORSUBTABLEEXTPROC glColorSubTableEXTProc;
 	PFNGLGETCOLORTABLEEXTPROC glGetColorTableEXTProc;

@@ -5,7 +5,7 @@ Vrui's navigation space. Used by measurement tools to display
 measurements in the coordinates and units expected by users of
 particular applications.
 Base class implements identity transformation.
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,12 +25,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/CoordinateTransform.h>
-
 #include <Misc/ThrowStdErr.h>
-#include <Geometry/LinearUnit.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/CoordinateManager.h>
+
+#include <Vrui/CoordinateTransform.h>
 
 namespace Vrui {
 
@@ -69,26 +66,9 @@ const char* CoordinateTransform::getComponentName(int componentIndex) const
 		}
 	}
 
-const char* CoordinateTransform::getUnitName(int componentIndex) const
-	{
-	/* Return the same unit name as registered with the coordinate manager: */
-	return getCoordinateManager()->getUnit().getName();
-	}
-
-const char* CoordinateTransform::getUnitAbbreviation(int componentIndex) const
-	{
-	/* Return the same unit name as registered with the coordinate manager: */
-	return getCoordinateManager()->getUnit().getAbbreviation();
-	}
-
 Point CoordinateTransform::transform(const Point& navigationPoint) const
 	{
 	return navigationPoint;
-	}
-
-Point CoordinateTransform::inverseTransform(const Point& userPoint) const
-	{
-	return userPoint;
 	}
 
 }

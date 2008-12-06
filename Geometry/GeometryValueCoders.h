@@ -1,7 +1,7 @@
 /***********************************************************************
 GeometryValueCoders - Value coder classes for templatized geometry
 objects.
-Copyright (c) 2003-2013 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -40,18 +40,12 @@ template <class ScalarParam,int dimensionParam>
 class Box;
 template <class ScalarParam,int dimensionParam>
 class Plane;
-template <class ScalarParam,int numRowsParam,int numColumnsParam>
-class Matrix;
 template <class ScalarParam,int dimensionParam>
 class Rotation;
 template <class ScalarParam,int dimensionParam>
 class OrthonormalTransformation;
 template <class ScalarParam,int dimensionParam>
 class OrthogonalTransformation;
-template <class ScalarParam,int dimensionParam>
-class AffineTransformation;
-template <class ScalarParam,int dimensionParam>
-class ProjectiveTransformation;
 }
 
 namespace Misc {
@@ -110,15 +104,6 @@ class ValueCoder<Geometry::Plane<ScalarParam,dimensionParam> >
 	static Geometry::Plane<ScalarParam,dimensionParam> decode(const char* start,const char* end,const char** decodeEnd =0);
 	};
 
-template <class ScalarParam,int numRowsParam,int numColumnsParam>
-class ValueCoder<Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam> >
-	{
-	/* Methods: */
-	public:
-	static std::string encode(const Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam>& value);
-	static Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam> decode(const char* start,const char* end,const char** decodeEnd =0);
-	};
-
 template <class ScalarParam>
 class ValueCoder<Geometry::Rotation<ScalarParam,2> >
 	{
@@ -155,28 +140,10 @@ class ValueCoder<Geometry::OrthogonalTransformation<ScalarParam,dimensionParam> 
 	static Geometry::OrthogonalTransformation<ScalarParam,dimensionParam> decode(const char* start,const char* end,const char** decodeEnd =0);
 	};
 
-template <class ScalarParam,int dimensionParam>
-class ValueCoder<Geometry::AffineTransformation<ScalarParam,dimensionParam> >
-	{
-	/* Methods: */
-	public:
-	static std::string encode(const Geometry::AffineTransformation<ScalarParam,dimensionParam>& value);
-	static Geometry::AffineTransformation<ScalarParam,dimensionParam> decode(const char* start,const char* end,const char** decodeEnd =0);
-	};
-
-template <class ScalarParam,int dimensionParam>
-class ValueCoder<Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> >
-	{
-	/* Methods: */
-	public:
-	static std::string encode(const Geometry::ProjectiveTransformation<ScalarParam,dimensionParam>& value);
-	static Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> decode(const char* start,const char* end,const char** decodeEnd =0);
-	};
-
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOMETRYVALUECODERS_IMPLEMENTATION)
-#include <Geometry/GeometryValueCoders.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOMETRYVALUECODERS_IMPLEMENTATION)
+#include <Geometry/GeometryValueCoders.cpp>
 #endif
 
 #endif

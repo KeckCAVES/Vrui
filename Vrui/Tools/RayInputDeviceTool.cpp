@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/RayInputDeviceTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Misc/CallbackList.h>
@@ -30,11 +28,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/RayInputDeviceTool.h>
 
 namespace Vrui {
 
@@ -44,11 +44,11 @@ Methods of class RayInputDeviceToolFactory:
 
 RayInputDeviceToolFactory::RayInputDeviceToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayInputDeviceTool",toolManager),
-	 rotateFactor(getDisplaySize()/Scalar(4))
+	 rotateFactor(getInchFactor()*12)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1,true);
-	layout.setNumValuators(0,true);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* inputDeviceToolFactory=toolManager.loadClass("InputDeviceTool");
@@ -67,11 +67,6 @@ RayInputDeviceToolFactory::~RayInputDeviceToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	RayInputDeviceTool::factory=0;
-	}
-
-const char* RayInputDeviceToolFactory::getName(void) const
-	{
-	return "Ray-Based Driver";
 	}
 
 Tool* RayInputDeviceToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -117,10 +112,29 @@ RayInputDeviceToolFactory* RayInputDeviceTool::factory=0;
 Methods of class RayInputDeviceTool:
 ***********************************/
 
+Ray RayInputDeviceTool::calcInteractionRay(void) const
+	{
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
+	/* Calculate ray equation: */
+	Point start=device->getPosition();
+	Vector direction=device->getRayDirection();
+	return Ray(start,direction);
+	}
+
 RayInputDeviceTool::RayInputDeviceTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:InputDeviceTool(sFactory,inputAssignment),
+	 viewer(0),
 	 dragger(getGlyphRenderer()->getGlyphSize(),factory->rotateFactor)
 	{
+	/* Retrieve the viewer associated with this tool: */
+	#if 0
+	int viewerIndex=configFile.retrieveValue<int>("./viewerIndex");
+	viewer=getViewer(viewerIndex);
+	#else
+	viewer=getMainViewer();
+	#endif
 	}
 
 const ToolFactory* RayInputDeviceTool::getFactory(void) const
@@ -128,42 +142,42 @@ const ToolFactory* RayInputDeviceTool::getFactory(void) const
 	return factory;
 	}
 
-void RayInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void RayInputDeviceTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
-	if(buttonSlotIndex==0)
+	if(cbData->newButtonState) // Button has just been pressed
 		{
-		if(cbData->newButtonState) // Button has just been pressed
+		/* Calculate the current selection ray: */
+		Ray ray=calcInteractionRay();
+		
+		/* Try activating the tool: */
+		if(activate(ray))
 			{
-			/* Update the interaction ray: */
-			interactionRay=getButtonDeviceRay(0);
-
-			/* Try activating the tool: */
-			if(activate(interactionRay))
+			/* Pick the input device with the box ray dragger: */
+			if(!dragger.pick(getGrabbedDevice()->getTransformation(),ray,-viewer->getViewDirection()))
 				{
-				/* Pick the input device with the box ray dragger: */
-				if(!dragger.pick(getGrabbedDevice()->getTransformation(),interactionRay,-interactionRay.getDirection()))
-					{
-					/* Deactivate the tool again (it was a close miss): */
-					deactivate();
-					}
-				}
-			}
-		else // Button has just been released
-			{
-			if(isActive())
-				{
-				/* Release the box dragger: */
-				dragger.release();
-
-				/* Deactivate the tool: */
+				/* Deactivate the tool again (it was a close miss): */
 				deactivate();
+				}
+			else
+				{
+				/* Cancel processing of this callback to preempt cascaded tools: */
+				cbData->callbackList->requestInterrupt();
 				}
 			}
 		}
-	else
+	else // Button has just been released
 		{
-		/* Let input device tool handle it: */
-		InputDeviceTool::buttonCallback(buttonSlotIndex,cbData);
+		if(isActive())
+			{
+			/* Release the box dragger: */
+			dragger.release();
+			
+			/* Deactivate the tool: */
+			deactivate();
+			
+			/* Cancel processing of this callback to preempt cascaded tools: */
+			cbData->callbackList->requestInterrupt();
+			}
 		}
 	}
 
@@ -172,23 +186,19 @@ void RayInputDeviceTool::frame(void)
 	if(isActive())
 		{
 		/* Update the interaction ray: */
-		interactionRay=getButtonDeviceRay(0);
+		interactionRay=calcInteractionRay();
 		
 		/* Drag the box dragger: */
 		dragger.drag(interactionRay);
 		
 		/* Set the grabbed device's position and orientation: */
-		const ONTransform& transform=dragger.getCurrentTransformation();
-		getGrabbedDevice()->setTransformation(transform);
-		
-		/* Set the grabbed device's selection ray to the grabbing device's ray: */
-		getGrabbedDevice()->setDeviceRay(transform.inverseTransform(interactionRay.getDirection()),Scalar(0));
+		getGrabbedDevice()->setTransformation(dragger.getCurrentTransformation());
 		}
 	}
 
 void RayInputDeviceTool::display(GLContextData&) const
 	{
-	if(isActive()&&isDrawRay())
+	if(isActive())
 		{
 		/* Draw the interaction ray: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);

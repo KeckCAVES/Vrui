@@ -2,7 +2,7 @@
 ClutchTool - Class to offset the position and orientation of an input
 device using a "clutch" button to disengage a virtual device from a
 source device.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_CLUTCHTOOL_INCLUDED
 
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/TransformTool.h>
+#include <Vrui/Tools/TransformTool.h>
 
 namespace Vrui {
 
@@ -45,9 +45,7 @@ class ClutchToolFactory:public ToolFactory
 	ClutchToolFactory(ToolManager& toolManager);
 	virtual ~ClutchToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -59,7 +57,7 @@ class ClutchTool:public TransformTool
 	/* Elements: */
 	private:
 	static ClutchToolFactory* factory; // Pointer to the factory object for this class
-	TrackerState offset; // Offset from source input device to transformed input device
+	TrackerState last; // Last used source input device transformation
 	bool clutchButtonState; // Current state of the simulated clutch toggle button
 	
 	/* Constructors and destructors: */
@@ -67,9 +65,9 @@ class ClutchTool:public TransformTool
 	ClutchTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~ClutchTool(void);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

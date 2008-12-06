@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoDraggingTool - Class for 6-DOF dragging with scaled-down dragging
 transformations.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,12 +21,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/WaldoDraggingTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/WaldoDraggingTool.h>
 
 namespace Vrui {
 
@@ -39,7 +39,8 @@ WaldoDraggingToolFactory::WaldoDraggingToolFactory(ToolManager& toolManager)
 	 linearScale(0.25),angularScale(0.25)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* draggingToolFactory=toolManager.loadClass("DraggingTool");
@@ -59,11 +60,6 @@ WaldoDraggingToolFactory::~WaldoDraggingToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	WaldoDraggingTool::factory=0;
-	}
-
-const char* WaldoDraggingToolFactory::getName(void) const
-	{
-	return "Waldo (Scaled) Dragger";
 	}
 
 Tool* WaldoDraggingToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -120,10 +116,10 @@ const ToolFactory* WaldoDraggingTool::getFactory(void) const
 	return factory;
 	}
 
-void WaldoDraggingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void WaldoDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Get pointer to input device that caused the event: */
-	InputDevice* device=getButtonDevice(0);
+	InputDevice* device=input.getDevice(deviceIndex);
 	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -133,7 +129,7 @@ void WaldoDraggingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbDa
 			case IDLE:
 				{
 				/* Initialize the dragging transformations: */
-				initial=Vrui::getDeviceTransformation(device);
+				initial=getDeviceTransformation(input.getDevice(0));
 				increment=NavTrackerState::identity;
 				last=initial;
 				
@@ -161,7 +157,7 @@ void WaldoDraggingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbDa
 			case MOVING:
 				{
 				/* Calculate dragging transformation increment: */
-				NavTrackerState dev=Vrui::getDeviceTransformation(device);
+				NavTrackerState dev=getDeviceTransformation(input.getDevice(0));
 				NavTrackerState update=dev;
 				update*=Geometry::invert(last);
 				last=dev;
@@ -204,7 +200,7 @@ void WaldoDraggingTool::frame(void)
 		case IDLE:
 			{
 			/* Calculate dragging transformations: */
-			NavTrackerState current=Vrui::getDeviceTransformation(getButtonDevice(0));
+			NavTrackerState current=getDeviceTransformation(input.getDevice(0));
 			
 			/* Call idle motion callbacks: */
 			IdleMotionCallbackData cbData(this,current);
@@ -215,7 +211,7 @@ void WaldoDraggingTool::frame(void)
 		case MOVING:
 			{
 			/* Calculate dragging transformation increment: */
-			NavTrackerState dev=Vrui::getDeviceTransformation(getButtonDevice(0));
+			NavTrackerState dev=getDeviceTransformation(input.getDevice(0));
 			NavTrackerState update=dev;
 			update*=Geometry::invert(last);
 			last=dev;

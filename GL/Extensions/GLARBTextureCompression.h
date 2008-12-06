@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureCompression - OpenGL extension class for the
 GL_ARB_texture_compression extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -58,21 +58,11 @@ typedef void (APIENTRY * PFNGLGETCOMPRESSEDTEXIMAGEARBPROC) (GLenum target, GLin
 
 #endif
 
-/* Forward declarations of friend functions: */
-void glCompressedTexImage3DARB(GLenum target,GLint level,GLenum internalformat,GLsizei width,GLsizei height,GLsizei depth,GLint border,GLsizei imageSize,const GLvoid* data);
-void glCompressedTexImage2DARB(GLenum target,GLint level,GLenum internalformat,GLsizei width,GLsizei height,GLint border,GLsizei imageSize,const GLvoid* data);
-void glCompressedTexImage1DARB(GLenum target,GLint level,GLenum internalformat,GLsizei width,GLint border,GLsizei imageSize,const GLvoid* data);
-void glCompressedTexSubImage3DARB(GLenum target,GLint level,GLint xoffset,GLint yoffset,GLint zoffset,GLsizei width,GLsizei height,GLsizei depth,GLenum format,GLsizei imageSize,const GLvoid* data);
-void glCompressedTexSubImage2DARB(GLenum target,GLint level,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,GLenum format,GLsizei imageSize,const GLvoid* data);
-void glCompressedTexSubImage1DARB(GLenum target,GLint level,GLint xoffset,GLsizei width,GLenum format,GLsizei imageSize,const GLvoid* data);
-void glGetCompressedTexImageARB(GLenum target,GLint level,GLvoid* img);
-
 class GLARBTextureCompression:public GLExtension
 	{
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBTextureCompression*) current; // Pointer to extension object for current OpenGL context
-	static const char* name; // Extension name
 	PFNGLCOMPRESSEDTEXIMAGE3DARBPROC glCompressedTexImage3DARBProc;
 	PFNGLCOMPRESSEDTEXIMAGE2DARBPROC glCompressedTexImage2DARBProc;
 	PFNGLCOMPRESSEDTEXIMAGE1DARBPROC glCompressedTexImage1DARBProc;

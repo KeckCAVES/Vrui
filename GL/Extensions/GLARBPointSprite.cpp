@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBPointSprite - OpenGL extension class for the GL_ARB_point_sprite
 extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLARBPointSprite.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLARBPointSprite.h>
 
 /*****************************************
 Static elements of class GLARBPointSprite:
 *****************************************/
 
 GL_THREAD_LOCAL(GLARBPointSprite*) GLARBPointSprite::current=0;
-const char* GLARBPointSprite::name="GL_ARB_point_sprite";
 
 /*********************************
 Methods of class GLARBPointSprite:
@@ -47,7 +46,7 @@ GLARBPointSprite::~GLARBPointSprite(void)
 
 const char* GLARBPointSprite::getExtensionName(void) const
 	{
-	return name;
+	return "GL_ARB_point_sprite";
 	}
 
 void GLARBPointSprite::activate(void)
@@ -63,13 +62,13 @@ void GLARBPointSprite::deactivate(void)
 bool GLARBPointSprite::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_ARB_point_sprite");
 	}
 
 void GLARBPointSprite::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_point_sprite"))
 		{
 		/* Create a new extension object: */
 		GLARBPointSprite* newExtension=new GLARBPointSprite;

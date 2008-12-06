@@ -1,7 +1,7 @@
 /***********************************************************************
 PNMImageFileReader - Class to read images in PNM format from a stream
 data source.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -62,7 +62,7 @@ class PNMImageFileReader
 }
 
 #ifndef IMAGES_PNMIMAGEFILEREADER_IMPLEMENTATION
-#include <Images/PNMImageFileReader.icpp>
+#include <Images/PNMImageFileReader.cpp>
 #endif
 
 #endif

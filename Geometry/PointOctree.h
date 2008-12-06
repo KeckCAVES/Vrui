@@ -1,6 +1,6 @@
 /***********************************************************************
 PointOctree - Class to store three--dimensional points in an octree.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -160,8 +160,14 @@ class PointOctree
 
 }
 
+/***********************************************************************
+Creating standard versions of PointOctree does not make much sense. We
+abuse the well-established non-standard template mechanism to create
+required instantiations on-the-fly.
+***********************************************************************/
+
 #if !defined(GEOMETRY_POINTOCTREE_IMPLEMENTATION)
-#include <Geometry/PointOctree.icpp>
+#include <Geometry/PointOctree.cpp>
 #endif
 
 #endif

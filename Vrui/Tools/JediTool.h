@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2018 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,22 +24,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_JEDITOOL_INCLUDED
 #define VRUI_JEDITOOL_INCLUDED
 
-#include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
-#include <Geometry/OrthonormalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
-#include <Images/BaseImage.h>
+#include <Images/RGBImage.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/TransparentObject.h>
 
-#include <Vrui/PointingTool.h>
-
-/* Forward declarations: */
-namespace Vrui {
-class Lightsource;
-}
+#include <Vrui/Tools/UtilityTool.h>
 
 namespace Vrui {
 
@@ -54,26 +47,19 @@ class JediToolFactory:public ToolFactory
 	Scalar lightsaberLength; // Length of light saber billboard
 	Scalar lightsaberWidth; // Width of light saber billboard
 	Scalar baseOffset; // Amount by how much the light saber billboard is shifted towards the hilt
-	ONTransform hiltTransform; // Transformation from the controlling device's transformation to the light saber's hilt
-	Scalar hiltLength; // Length of light saber hilt in physical coordinate units
-	Scalar hiltRadius; // Radius of light saber hilt in physical coordinate units
 	std::string lightsaberImageFileName; // Name of image file containing light saber texture
-	unsigned int numLightsources; // Number of OpenGL lightsources to add to the light saber blade to create a glowing effect
-	Scalar lightRadius; // Distance in physical coordinate units at which the glow intensity diminishes to 1%
 	
 	/* Constructors and destructors: */
 	public:
 	JediToolFactory(ToolManager& toolManager);
 	virtual ~JediToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class JediTool:public PointingTool,public GLObject,public TransparentObject
+class JediTool:public UtilityTool,public GLObject,public TransparentObject
 	{
 	friend class JediToolFactory;
 	
@@ -84,42 +70,39 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 		/* Elements: */
 		public:
 		GLuint textureObjectId; // ID of the light saber texture object
-		GLuint hiltVertexBufferId; // ID of the vertex array to render the light saber hilt
 		
 		/* Constructors and destructors: */
-		DataItem(void);
-		virtual ~DataItem(void);
+		DataItem(void)
+			{
+			glGenTextures(1,&textureObjectId);
+			}
+		virtual ~DataItem(void)
+			{
+			glDeleteTextures(1,&textureObjectId);
+			}
 		};
 	
 	/* Elements: */
 	static JediToolFactory* factory; // Pointer to the factory object for this class
-	Images::BaseImage lightsaberImage; // The light saber texture image
-	Lightsource** lightsources; // Array of light sources allocated for the light saber blade
+	
+	Images::RGBImage lightsaberImage; // The light saber texture image
 	
 	/* Transient state: */
 	bool active; // Flag if the light saber is active
 	double activationTime; // Time at which the light saber was activated
-	Point origin[2]; // Origin point of the light saber blade on last and current frame
-	Vector axis[2]; // Current light saber blade axis vector on last and current frame
-	Scalar length[2]; // Current light saber blade length on last and current frame
+	Point basePoint; // Base point of the light saber billboard
+	Vector axis; // Current light saber axis vector
+	Vector x; // Current billboard vector
 	
 	/* Constructors and destructors: */
 	public:
 	JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
-	virtual ~JediTool(void);
 	
-	/* Methods from Tool: */
-	virtual void initialize(void);
-	virtual void deinitialize(void);
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void frame(void);
-	virtual void display(GLContextData& contextData) const;
-	
-	/* Methods from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;
-	
-	/* Methods from TransparentObject: */
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void frame(void);
 	virtual void glRenderActionTransparent(GLContextData& contextData) const;
 	};
 

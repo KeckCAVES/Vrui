@@ -1,6 +1,6 @@
 /***********************************************************************
 HashTable - Class for storing and finding values (bucketed version)
-Copyright (c) 1998-2011 Oliver Kreylos
+Copyright (c) 1998-2005 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -40,11 +40,7 @@ class HashTableEntry
 	
 	/* Constructors and destructors: */
 	public:
-	HashTableEntry(const Source& sSource) // Creates entry with uninitialized/default destination value
-		:source(sSource)
-		{
-		}
-	HashTableEntry(const Source& sSource,const Dest& sDest) // Elementwise constructor
+	HashTableEntry(const Source& sSource,const Dest& sDest)
 		:source(sSource),dest(sDest)
 		{
 		}
@@ -61,11 +57,6 @@ class HashTableEntry
 	Dest& getDest(void) // Ditto as modifiable L-value
 		{
 		return dest;
-		}
-	HashTableEntry& operator=(const Dest& newDest) // Assigns a new value
-		{
-		dest=newDest;
-		return *this;
 		}
 	};
 
@@ -135,7 +126,7 @@ class HashTable
 			}
 		
 		/* Methods: */
-		HashBucketItem& setEntry(const Entry& source) // Copies a hash table entry into a hash bucket item
+		HashBucketItem& operator=(const Entry& source) // Copies a hash table entry into a hash bucket item
 			{
 			Entry::operator=(source);
 			return *this;
@@ -228,80 +219,7 @@ class HashTable
 			}
 		};
 	
-	class ConstIterator
-		{
-		friend class HashTable;
-		
-		/* Elements: */
-		private:
-		const HashTable* table; // Pointer to table this iterator is pointing into
-		size_t bucketIndex; // Index of current hash bucket
-		const HashBucketItem* bucketItem; // Pointer to current entry in hash bucket
-		
-		/* Constructors and destructors: */
-		public:
-		ConstIterator(void) // Creates invalid iterator
-			:table(0),bucketIndex(0),bucketItem(0)
-			{
-			}
-		private:
-		ConstIterator(const HashTable* sTable) // Creates iterator to first entry in hash table
-			:table(sTable),bucketIndex(0),bucketItem(table->hashBuckets[bucketIndex].firstItem)
-			{
-			while(bucketItem==0)
-				{
-				++bucketIndex;
-				if(bucketIndex==table->tableSize)
-					break; // End of table reached
-				bucketItem=table->hashBuckets[bucketIndex].firstItem;
-				}
-			}
-		ConstIterator(const HashTable* sTable,size_t sBucketIndex,const HashBucketItem* sBucketItem) // Elementwise constructor
-			:table(sTable),bucketIndex(sBucketIndex),bucketItem(sBucketItem)
-			{
-			}
-		
-		/* Methods: */
-		public:
-		bool isFinished(void) const
-			{
-			return bucketIndex>=table->tableSize;
-			}
-		friend bool operator==(const ConstIterator& it1,const ConstIterator& it2)
-			{
-			return it1.bucketItem==it2.bucketItem;
-			}
-		friend bool operator!=(const ConstIterator& it1,const ConstIterator& it2)
-			{
-			return it1.bucketItem!=it2.bucketItem;
-			}
-		const Entry& operator*(void) const
-			{
-			return *bucketItem;
-			}
-		const Entry* operator->(void) const
-			{
-			return bucketItem;
-			}
-		ConstIterator& operator++(void)
-			{
-			/* Go to next item in same hash bucket if possible: */
-			bucketItem=bucketItem->succ;
-			
-			/* Go to next non-empty hash bucket if last item in current bucket is passed: */
-			while(bucketItem==0)
-				{
-				++bucketIndex;
-				if(bucketIndex==table->tableSize)
-					break; // End of table reached
-				bucketItem=table->hashBuckets[bucketIndex].firstItem;
-				}
-			return *this;
-			}
-		};
-	
 	friend class Iterator;
-	friend class ConstIterator;
 	
 	/* Elements: */
 	size_t tableSize; // Current table size
@@ -418,7 +336,7 @@ class HashTable
 		if(item!=0)
 			{
 			/* Set value of existing entry: */
-			item->setEntry(newEntry);
+			*item=newEntry;
 			}
 		else
 			{
@@ -472,7 +390,7 @@ class HashTable
 		size_t index=HashFunction::hash(findSource,tableSize);
 		
 		/* Compare items in the hash bucket until match is found: */
-		const HashBucketItem* item=hashBuckets[index].firstItem;
+		HashBucketItem* item=hashBuckets[index].firstItem;
 		while(item!=0&&item->getSource()!=findSource)
 			item=item->succ;
 		
@@ -482,23 +400,7 @@ class HashTable
 		{
 		return isEntry(entry.getSource());
 		}
-	const Entry& getEntry(const Source& findSource) const // Returns reference to entry; throws exception if entry is not found
-		{
-		/* Calculate the searched entry's hash bucket index: */
-		size_t index=HashFunction::hash(findSource,tableSize);
-		
-		/* Compare items in the hash bucket until match is found: */
-		const HashBucketItem* item=hashBuckets[index].firstItem;
-		while(item!=0&&item->getSource()!=findSource)
-			item=item->succ;
-		
-		/* Throw an exception if the requested entry does not exist: */
-		if(item==0)
-			throw EntryNotFoundError(findSource);
-		
-		return *item;
-		}
-	Entry& getEntry(const Source& findSource) // Ditto
+	const Entry& getEntry(const Source& findSource) const
 		{
 		/* Calculate the searched entry's hash bucket index: */
 		size_t index=HashFunction::hash(findSource,tableSize);
@@ -511,37 +413,6 @@ class HashTable
 		/* Throw an exception if the requested entry does not exist: */
 		if(item==0)
 			throw EntryNotFoundError(findSource);
-		
-		return *item;
-		}
-	Entry& operator[](const Source& source) // Returns reference to entry; inserts new entry if source is not found
-		{
-		/* Calculate the searched entry's hash bucket index: */
-		size_t index=HashFunction::hash(source,tableSize);
-		
-		/* Compare items in the hash bucket until match is found: */
-		HashBucketItem* pred=0;
-		HashBucketItem* item=hashBuckets[index].firstItem;
-		while(item!=0&&item->getSource()!=source)
-			{
-			pred=item;
-			item=item->succ;
-			}
-		
-		if(item==0)
-			{
-			/* Insert new entry with default destination: */
-			item=new(hashBucketItemAllocator.allocate()) HashBucketItem(Entry(source));
-			if(pred!=0)
-				pred->succ=item;
-			else
-				hashBuckets[index].firstItem=item;
-			++usedEntries;
-			
-			/* Grow hash table if necessary: */
-			if(usedEntries>maxEntries)
-				growTable((size_t)(tableSize*growRate)+1);
-			}
 		
 		return *item;
 		}
@@ -549,17 +420,9 @@ class HashTable
 		{
 		return Iterator(this); // Create iterator to first entry
 		}
-	ConstIterator begin(void) const
-		{
-		return ConstIterator(this); // Create iterator to first entry
-		}
 	Iterator end(void)
 		{
 		return Iterator(this,tableSize,0); // Create iterator past end of table
-		}
-	ConstIterator end(void) const
-		{
-		return ConstIterator(this,tableSize,0); // Create iterator past end of table
 		}
 	Iterator findEntry(const Source& findSource)
 		{
@@ -575,21 +438,6 @@ class HashTable
 			return Iterator(this,index,item); // Return valid iterator
 		else
 			return Iterator(this,tableSize,0); // Return end iterator
-		}
-	ConstIterator findEntry(const Source& findSource) const
-		{
-		/* Calculate the searched entry's hash bucket index: */
-		size_t index=HashFunction::hash(findSource,tableSize);
-		
-		/* Compare items in the hash bucket until match is found: */
-		const HashBucketItem* item=hashBuckets[index].firstItem;
-		while(item!=0&&item->getSource()!=findSource)
-			item=item->succ;
-		
-		if(item!=0)
-			return ConstIterator(this,index,item); // Return valid iterator
-		else
-			return ConstIterator(this,tableSize,0); // Return end iterator
 		}
 	void removeEntry(const Iterator& it) // Removes entry pointed to by iterator
 		{

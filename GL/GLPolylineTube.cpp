@@ -1,6 +1,6 @@
 /***********************************************************************
 GLPolylineTube - Class to render a polyline as a cylindrical tube.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -101,7 +101,7 @@ void GLPolylineTube::updateTubeVertices(GLPolylineTube::DataItem* dataItem) cons
 	tangent.normalize();
 	Vector x=Geometry::normal(tangent);
 	x.normalize();
-	Vector y=tangent^x;
+	Vector y=Geometry::cross(tangent,x);
 	y.normalize();
 	for(int i=0;i<numTubeSegments;++i)
 		{
@@ -116,7 +116,7 @@ void GLPolylineTube::updateTubeVertices(GLPolylineTube::DataItem* dataItem) cons
 		tangent.normalize();
 		x-=tangent*(x*tangent);
 		x.normalize();
-		y=tangent^x;
+		y=Geometry::cross(tangent,x);
 		y.normalize();
 		for(int i=0;i<numTubeSegments;++i)
 			{
@@ -130,7 +130,7 @@ void GLPolylineTube::updateTubeVertices(GLPolylineTube::DataItem* dataItem) cons
 	tangent.normalize();
 	x-=tangent*(x*tangent);
 	x.normalize();
-	y=tangent^x;
+	y=Geometry::cross(tangent,x);
 	y.normalize();
 	for(int i=0;i<numTubeSegments;++i)
 		{
@@ -199,8 +199,7 @@ void GLPolylineTube::updateTubeIndices(GLPolylineTube::DataItem* dataItem) const
 	}
 
 GLPolylineTube::GLPolylineTube(GLPolylineTube::Scalar sTubeRadius,size_t sNumVertices,const GLPolylineTube::Point* sVertices)
-	:GLObject(false),
-	 tubeRadius(sTubeRadius),numTubeSegments(8),
+	:tubeRadius(sTubeRadius),numTubeSegments(8),
 	 vertexVersion(1),indexVersion(1)
 	{
 	vertices.reserve(sNumVertices);
@@ -210,8 +209,6 @@ GLPolylineTube::GLPolylineTube(GLPolylineTube::Scalar sTubeRadius,size_t sNumVer
 		for(size_t i=0;i<sNumVertices;++i)
 			vertices[i]=sVertices[i];
 		}
-	
-	GLObject::init();
 	}
 
 GLPolylineTube::~GLPolylineTube(void)

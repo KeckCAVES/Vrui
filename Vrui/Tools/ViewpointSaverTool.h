@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointSaverTool - Class for tools to save environment-independent
 viewing parameters.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VIEWPOINTSAVERTOOL_INCLUDED
 
 #include <string>
-#include <Vrui/UtilityTool.h>
+#include <Vrui/Tools/UtilityTool.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -52,9 +52,7 @@ class ViewpointSaverToolFactory:public ToolFactory
 	ViewpointSaverToolFactory(ToolManager& toolManager);
 	virtual ~ViewpointSaverToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -71,9 +69,9 @@ class ViewpointSaverTool:public UtilityTool
 	public:
 	ViewpointSaverTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void display(GLContextData& contextData) const;
 	};
 

@@ -1,7 +1,7 @@
 /***********************************************************************
-StyleSheet - Structure providing defaults for the look and feel of user
-interface widgets.
-Copyright (c) 2001-2010 Oliver Kreylos
+StyleSheet - Structure providing defaults for the look of user interface
+widgets.
+Copyright (c) 2001-2006 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -48,8 +48,6 @@ struct StyleSheet
 	GLfloat textfieldMarginWidth; // Margin width for text fields and derived widgets
 	Color textfieldBgColor; // Background color for text fields displaying values
 	Color textfieldFgColor; // Foreground color for text fields displaying values
-	Color selectionBgColor; // Background color for selected text items
-	Color selectionFgColor; // Foreground color for selected text items
 	GLfloat buttonBorderWidth; // Border width for buttons and derived widgets
 	GLfloat buttonMarginWidth; // Margin width for buttons and derived widgets
 	Color buttonArmedBackgroundColor; // Background color for armed buttons and derived classes
@@ -70,7 +68,6 @@ struct StyleSheet
 	GLfloat sliderShaftWidth; // Width of slider shaft (assuming vertical slider)
 	GLfloat sliderShaftDepth; // Depth (in z direction) of slider shaft
 	Color sliderShaftColor; // Color for slider shafts
-	double multiClickTime; // Maximum multi-click time interval in seconds
 	
 	/* Constructors and destructors: */
 	StyleSheet(void); // Creates an uninitialized style sheet

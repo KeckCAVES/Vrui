@@ -1,7 +1,7 @@
 /***********************************************************************
 Constants - Classes providing generic access to type-specific math-
 relevant information.
-Copyright (c) 2003-2018 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -23,10 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef MATH_CONSTANTS_INCLUDED
 #define MATH_CONSTANTS_INCLUDED
 
-#ifdef __APPLE__
+#ifdef __ppc__
 #include <machine/limits.h>
-#endif
-#ifdef __linux__
+#else
 #include <limits.h>
 #endif
 
@@ -41,9 +40,7 @@ class Constants
 	{
 	/* Embedded classes: */
 	public:
-	typedef ScalarParam Scalar; // The actual scalar type
-	typedef ScalarParam FieldScalar; // A field type into which the scalar type is embedded
-	typedef ScalarParam PrecisionScalar; // A compatible type for high-precision calculations
+	typedef ScalarParam Scalar;
 	
 	/* Elements: */
 	static const bool isIntegral=false; // Not an integer type
@@ -76,8 +73,6 @@ class Constants<signed char>
 	/* Embedded classes: */
 	public:
 	typedef signed char Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -96,8 +91,6 @@ class Constants<unsigned char>
 	/* Embedded classes: */
 	public:
 	typedef unsigned char Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -116,8 +109,6 @@ class Constants<char>
 	/* Embedded classes: */
 	public:
 	typedef char Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -136,8 +127,6 @@ class Constants<short>
 	/* Embedded classes: */
 	public:
 	typedef short Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -156,8 +145,6 @@ class Constants<unsigned short>
 	/* Embedded classes: */
 	public:
 	typedef unsigned short Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -176,8 +163,6 @@ class Constants<int>
 	/* Embedded classes: */
 	public:
 	typedef int Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -196,8 +181,6 @@ class Constants<unsigned int>
 	/* Embedded classes: */
 	public:
 	typedef unsigned int Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -216,8 +199,6 @@ class Constants<long>
 	/* Embedded classes: */
 	public:
 	typedef long Scalar;
-	typedef double FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -236,8 +217,6 @@ class Constants<unsigned long>
 	/* Embedded classes: */
 	public:
 	typedef unsigned long Scalar;
-	typedef double FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=true;
@@ -256,8 +235,6 @@ class Constants<float>
 	/* Embedded classes: */
 	public:
 	typedef float Scalar;
-	typedef float FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=false;
@@ -272,8 +249,6 @@ class Constants<float>
 	static const Scalar epsilon;
 	static const Scalar e;
 	static const Scalar pi;
-	static const Scalar infinity;
-	static const Scalar nan;
 	};
 
 template <>
@@ -282,8 +257,6 @@ class Constants<double>
 	/* Embedded classes: */
 	public:
 	typedef double Scalar;
-	typedef double FieldScalar;
-	typedef double PrecisionScalar;
 	
 	/* Elements: */
 	static const bool isIntegral=false;
@@ -298,8 +271,6 @@ class Constants<double>
 	static const Scalar epsilon;
 	static const Scalar e;
 	static const Scalar pi;
-	static const Scalar infinity;
-	static const Scalar nan;
 	};
 
 }

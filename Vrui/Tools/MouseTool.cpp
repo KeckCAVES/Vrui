@@ -2,7 +2,7 @@
 MouseTool - Class to map regular 2D mice into VR environments by
 representing them as virtual input devices sliding along the screen
 planes.
-Copyright (c) 2005-2017 Oliver Kreylos
+Copyright (c) 2005-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,8 +22,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/MouseTool.h>
-
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -32,12 +30,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/MouseTool.h>
 
 namespace Vrui {
 
@@ -47,8 +47,8 @@ Methods of class MouseToolFactory:
 
 MouseToolFactory::MouseToolFactory(ToolManager& toolManager)
 	:ToolFactory("MouseTool",toolManager),
-	 rayOffset(getUiSize()*Scalar(2)),
-	 crosshairSize(0)
+	 crosshairSize(0),
+	 buttonToggleFlag(false)
 	{
 	/* Insert class into class hierarchy: */
 	TransformToolFactory* transformToolFactory=dynamic_cast<TransformToolFactory*>(toolManager.loadClass("TransformTool"));
@@ -57,12 +57,13 @@ MouseToolFactory::MouseToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
 	crosshairSize=cfs.retrieveValue<Scalar>("./crosshairSize",crosshairSize);
+	buttonToggleFlag=cfs.retrieveValue<bool>("./buttonToggleFlag",buttonToggleFlag);
 	
 	/* Initialize tool layout: */
-	layout.setNumButtons(0,true);
-	layout.setNumValuators(0,true);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,transformToolFactory->getNumButtons());
+	layout.setNumValuators(0,transformToolFactory->getNumValuators());
 	
 	/* Set tool class' factory pointer: */
 	MouseTool::factory=this;
@@ -72,11 +73,6 @@ MouseToolFactory::~MouseToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	MouseTool::factory=0;
-	}
-
-const char* MouseToolFactory::getName(void) const
-	{
-	return "Mouse->Screen Projector";
 	}
 
 Tool* MouseToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -147,20 +143,23 @@ const ToolFactory* MouseTool::getFactory(void) const
 
 void MouseTool::frame(void)
 	{
-	/* Calculate the ray equation: */
-	Ray ray=sourceDevice->getRay();
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
+	/* Calculate ray equation: */
+	Ray deviceRay(device->getPosition(),device->getRayDirection());
 	
 	/* Find the closest intersection with any screen: */
-	std::pair<VRScreen*,Scalar> si=findScreen(ray);
+	std::pair<VRScreen*,Scalar> si=findScreen(deviceRay);
 	
 	if(si.first!=0)
 		{
 		/* Set the virtual input device's transformation: */
-		TrackerState ts=TrackerState::translateFromOriginTo(ray(si.second));
+		TrackerState ts=TrackerState::translateFromOriginTo(deviceRay(si.second));
 		
 		/* Update the virtual input device's transformation: */
-		transformedDevice->setDeviceRay(ray.getDirection(),-factory->rayOffset);
 		transformedDevice->setTransformation(ts);
+		transformedDevice->setDeviceRayDirection(Geometry::normalize(deviceRay.getDirection()));
 		}
 	}
 
@@ -173,25 +172,25 @@ void MouseTool::display(GLContextData& contextData) const
 		glDisable(GL_LIGHTING);
 		glPushMatrix();
 		glMultMatrix(transformedDevice->getTransformation());
-		
 		glLineWidth(3.0f);
-		glColor(getBackgroundColor());
+		Color lineCol=getBackgroundColor();
+		glColor(lineCol);
 		glBegin(GL_LINES);
 		glVertex(-factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex( factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex(Scalar(0),Scalar(0),-factory->crosshairSize);
 		glVertex(Scalar(0),Scalar(0), factory->crosshairSize);
 		glEnd();
-		
 		glLineWidth(1.0f);
-		glColor(getForegroundColor());
+		for(int i=0;i<3;++i)
+			lineCol[i]=1.0f-lineCol[i];
+		glColor(lineCol);
 		glBegin(GL_LINES);
 		glVertex(-factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex( factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex(Scalar(0),Scalar(0),-factory->crosshairSize);
 		glVertex(Scalar(0),Scalar(0), factory->crosshairSize);
 		glEnd();
-		
 		glPopMatrix();
 		glPopAttrib();
 		}

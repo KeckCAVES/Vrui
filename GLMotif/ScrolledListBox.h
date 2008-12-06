@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrolledListBox - Compound widget containing a list box, a vertical, and
 an optional horizontal scroll bar.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -23,9 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_SCROLLEDLISTBOX_INCLUDED
 #define GLMOTIF_SCROLLEDLISTBOX_INCLUDED
 
-#include <GLMotif/Container.h>
 #include <GLMotif/ListBox.h>
 #include <GLMotif/ScrollBar.h>
+#include <GLMotif/Container.h>
 
 namespace GLMotif {
 
@@ -43,7 +43,7 @@ class ScrolledListBox:public Container
 	
 	/* Constructors and destructors: */
 	public:
-	ScrolledListBox(const char* sName,Container* sParent,ListBox::SelectionMode sSelectionMode,int sPreferredWidth,int sPreferredPageSize,bool manageChild =true);
+	ScrolledListBox(const char* sName,Container* sParent,int sPreferredWidth,int sPreferredPageSize,bool manageChild =true);
 	virtual ~ScrolledListBox(void);
 	
 	/* Methods inherited from Widget: */
@@ -55,7 +55,6 @@ class ScrolledListBox:public Container
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
-	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);

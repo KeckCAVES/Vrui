@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoHandedNavigationTool - Class encapsulating the behaviour of the old
 famous Vrui two-handed navigation tool.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
 
 namespace Vrui {
 
@@ -41,9 +41,7 @@ class TwoHandedNavigationToolFactory:public ToolFactory
 	TwoHandedNavigationToolFactory(ToolManager& toolManager);
 	virtual ~TwoHandedNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -65,23 +63,19 @@ class TwoHandedNavigationTool:public NavigationTool
 	
 	/* Transient navigation state: */
 	NavigationMode navigationMode; // The tool's current navigation mode
-	
-	/* Moving state: */
-	int movingButtonSlotIndex; // Index of the button slot whose device is responsible for moving
-	NavTrackerState movingTransform; // Transformation to apply to active device's transformation
-	
-	/* Scaling state: */
-	NavTrackerState postScaleTransform; // Transformation from previous navigational space to normalized scaling space
-	Vector physNormal; // Current orthogonal vector to rotation axis in physical space
-	Rotation prevDevOrientations[2]; // Device orientations on the previous frame for incremental rotation
+	int movingDeviceIndex; // Index of the device that is responsible for moving
+	NavTrackerState preScale; // Transformation to be applied to the navigation transformation before scaling
+	Point scalingCenter; // Center position of scaling operation
+	Scalar initialScale; // Initial distance between input devices
+	NavTrackerState postScale; // Transformation to be applied to the navigation transformation after scaling
 	
 	/* Constructors and destructors: */
 	public:
 	TwoHandedNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

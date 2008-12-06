@@ -1,7 +1,7 @@
 /***********************************************************************
 GLObject - Base class for objects that store OpenGL context-specific
 data.
-Copyright (c) 2006-2016 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -28,28 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 Methods of class GLObject:
 *************************/
 
-void GLObject::dependsOn(const GLObject* thing) const
-	{
-	/* Ask the thing manager to initialize the other object before this one: */
-	GLContextData::orderThings(thing,this);
-	}
-
-void GLObject::init(void)
-	{
-	/* Mark the object for context initialization: */
-	GLContextData::initThing(this);
-	}
-
-GLObject::GLObject(bool autoInit)
-	{
-	if(autoInit)
-		{
-		/* Mark the object for context initialization: */
-		GLContextData::initThing(this);
-		}
-	}
-
-GLObject::GLObject(const GLObject& source)
+GLObject::GLObject(void)
 	{
 	/* Mark the object for context initialization: */
 	GLContextData::initThing(this);

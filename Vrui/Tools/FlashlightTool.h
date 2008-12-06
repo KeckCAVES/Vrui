@@ -1,7 +1,7 @@
 /***********************************************************************
 FlashlightTool - Class for tools that add an additional light source
 into an environment when activated.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,7 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/GLLight.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/PointingTool.h>
+#include <Vrui/Tools/UtilityTool.h>
 
 /* Forward declarations: */
 namespace Vrui {
@@ -44,44 +44,27 @@ class FlashlightToolFactory:public ToolFactory
 	{
 	friend class FlashlightTool;
 	
-	/* Embedded classes: */
-	private:
-	struct Configuration // Structure to hold tool configuration data
-		{
-		/* Elements: */
-		public:
-		GLLight light; // OpenGL light source parameters for flashlight tools
-		
-		/* Constructors and destructors: */
-		Configuration(void); // Creates a default configuration
-		
-		/* Methods: */
-		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
-		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
-		};
-	
 	/* Elements: */
-	Configuration configuration; // Default configuration for all tools
+	private:
+	GLLight light; // OpenGL light source parameters for flashlight tools
 	
 	/* Constructors and destructors: */
 	public:
 	FlashlightToolFactory(ToolManager& toolManager);
 	virtual ~FlashlightToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class FlashlightTool:public PointingTool
+class FlashlightTool:public UtilityTool
 	{
 	friend class FlashlightToolFactory;
 	
 	/* Elements: */
 	private:
 	static FlashlightToolFactory* factory; // Pointer to the factory object for this class
-	FlashlightToolFactory::Configuration configuration; // Private configuration of this tool
 	Lightsource* lightsource; // Light source object allocated for this flashlight tool
 	
 	/* Transient state: */
@@ -92,13 +75,9 @@ class FlashlightTool:public PointingTool
 	FlashlightTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~FlashlightTool(void);
 	
-	/* Methods from Tool: */
-	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
-	virtual void initialize(void);
-	virtual void deinitialize(void);
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

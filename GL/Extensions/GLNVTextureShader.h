@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVTextureShader - OpenGL extension class for the
 GL_NV_texture_shader extension.
-Copyright (c) 2006-2014 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -119,7 +119,6 @@ class GLNVTextureShader:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLNVTextureShader*) current; // Pointer to extension object for current OpenGL context
-	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

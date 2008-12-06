@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVOcclusionQuery - OpenGL extension class for the
 GL_NV_occlusion_query extension.
-Copyright (c) 2005-2014 Oliver Kreylos
+Copyright (c) 2005-2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -51,21 +51,11 @@ typedef void (APIENTRY * PFNGLGETOCCLUSIONQUERYUIVNVPROC) (GLuint id, GLenum pna
 
 #endif
 
-/* Forward declarations of friend functions: */
-void glGenOcclusionQueriesNV(GLsizei n,GLuint* ids);
-void glDeleteOcclusionQueriesNV(GLsizei n,const GLuint* ids);
-GLboolean glIsOcclusionQueryNV(GLuint id);
-void glBeginOcclusionQueryNV(GLuint id);
-void glEndOcclusionQueryNV(void);
-void glGetOcclusionQueryivNV(GLuint id,GLenum pname,GLint* params);
-void glGetOcclusionQueryuivNV(GLuint id,GLenum pname,GLuint* params);
-
 class GLNVOcclusionQuery:public GLExtension
 	{
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLNVOcclusionQuery*) current; // Pointer to extension object for current OpenGL context
-	static const char* name; // Extension name
 	PFNGLGENOCCLUSIONQUERIESNVPROC glGenOcclusionQueriesNVProc;
 	PFNGLDELETEOCCLUSIONQUERIESNVPROC glDeleteOcclusionQueriesNVProc;
 	PFNGLISOCCLUSIONQUERYNVPROC glIsOcclusionQueryNVProc;

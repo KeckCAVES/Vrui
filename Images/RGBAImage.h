@@ -1,7 +1,7 @@
 /***********************************************************************
 RGBAImage - Specialized image class to represent RGBA images with 8-bit
 color depth.
-Copyright (c) 2007-2016 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -40,21 +40,12 @@ class RGBAImage:public Image<GLubyte,4>
 		{
 		}
 	RGBAImage(unsigned int sWidth,unsigned int sHeight) // Creates an uninitialized image of the given size
-		:Base(sWidth,sHeight,GL_RGBA)
-		{
-		}
-	explicit RGBAImage(const BaseImage& source) // Copies an existing base image (does not copy image representation); throws exception if base image format does not match pixel type
-		:Base(source)
+		:Base(sWidth,sHeight)
 		{
 		}
 	RGBAImage(const RGBAImage& source) // Copies an existing image (does not copy image representation)
 		:Base(source)
 		{
-		}
-	RGBAImage& operator=(const BaseImage& source) // Assigns an existing base image (does not copy image representation); throws exception if base image format does not match pixel type
-		{
-		Base::operator=(source);
-		return *this;
 		}
 	RGBAImage& operator=(const RGBAImage& source) // Assigns an existing image (does not copy image representation)
 		{
@@ -63,16 +54,29 @@ class RGBAImage:public Image<GLubyte,4>
 		}
 	
 	/* Methods: */
-	using Base::glReadPixels;
-	static RGBAImage glReadPixels(GLint x,GLint y,GLsizei width,GLsizei height) // Returns a new image created by reading from the frame buffer
+	static RGBAImage glReadPixels(GLint x,GLint y,GLsizei width,GLsizei height) // Creates a new image by reading from the frame buffer
 		{
-		/* Create a new image of the requested size: */
 		RGBAImage result(width,height);
-		
-		/* Read from the frame buffer: */
-		result.glReadPixels(x,y);
-		
+		result.readPixels(x,y,GL_RGBA,GL_UNSIGNED_BYTE);
 		return result;
+		}
+	
+	/****************************************************************************
+	The following methods fail if the image does not have a valid representation!
+	****************************************************************************/
+	
+	RGBAImage& glReadPixels(GLint x,GLint y) // Reads the frame buffer contents into the image
+		{
+		readPixels(x,y,GL_RGBA,GL_UNSIGNED_BYTE);
+		return *this;
+		}
+	void glDrawPixels(void) const // Writes image to the frame buffer at the current raster position
+		{
+		drawPixels(GL_RGBA,GL_UNSIGNED_BYTE);
+		}
+	void glTexImage2D(GLenum target,GLint level,GLint internalFormat,bool padImageSize =false) const // Uploads an image as an OpenGL texture
+		{
+		texImage2D(target,level,internalFormat,GL_RGBA,GL_UNSIGNED_BYTE,padImageSize);
 		}
 	};
 

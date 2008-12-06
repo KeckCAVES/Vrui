@@ -1,6 +1,6 @@
 /***********************************************************************
 GLVertex - Class to encapsulate OpenGL vertex properties.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -352,8 +352,8 @@ void glVertexPointer(int vertexPartsMask,
                                     NormalScalarParam,
                                     PositionScalarParam,numPositionComponentsParam>* vertexPointer);
 
-#if defined(GLVERTEX_NONSTANDARD_TEMPLATES) && !defined(GLVERTEX_IMPLEMENTATION)
-#include <GL/GLVertex.icpp>
+#if defined(NONSTANDARD_GLVERTEX_TEMPLATES) && !defined(GLVERTEX_IMPLEMENTATION)
+#include <GL/GLVertex.cpp>
 #endif
 
 #endif

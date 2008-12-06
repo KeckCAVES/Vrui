@@ -1,6 +1,6 @@
 /***********************************************************************
 TCPSocket - Wrapper class for TCP sockets ensuring exception safety.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -20,7 +20,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
@@ -108,10 +107,9 @@ TCPSocket::TCPSocket(std::string hostname,int portId)
 	hostAddress.sin_addr.s_addr=htonl(hostNetAddress.s_addr);
 	if(::connect(socketFd,(const struct sockaddr*)&hostAddress,sizeof(struct sockaddr_in))==-1)
 		{
-		int error=errno;
 		close(socketFd);
 		socketFd=-1;
-		Misc::throwStdErr("TCPSocket: Unable to connect to host %s on port %d due to error %d (%s)",hostname.c_str(),portId,error,strerror(error));
+		Misc::throwStdErr("TCPSocket: Unable to connect to host %s on port %d",hostname.c_str(),portId);
 		}
 	}
 
@@ -345,7 +343,7 @@ void TCPSocket::setNoDelay(bool enable)
 
 bool TCPSocket::getCork(void) const
 	{
-	#ifdef __linux__
+	#ifdef __LINUX__
 	/* Get the TCP_CORK socket option: */
 	int flag;
 	socklen_t flagLen=sizeof(int);
@@ -358,7 +356,7 @@ bool TCPSocket::getCork(void) const
 
 void TCPSocket::setCork(bool enable)
 	{
-	#ifdef __linux__
+	#ifdef __LINUX__
 	/* Set the TCP_CORK socket option: */
 	int flag=enable?1:0;
 	setsockopt(socketFd,IPPROTO_TCP,TCP_CORK,&flag,sizeof(int));
@@ -420,15 +418,11 @@ void TCPSocket::blockingRead(void* buffer,size_t count)
 		ssize_t numBytesRead=::read(socketFd,byteBuffer,count);
 		if(numBytesRead!=ssize_t(count))
 			{
-			if(numBytesRead>0)
+			if(numBytesRead>0||errno==EAGAIN||errno==EINTR)
 				{
 				/* Advance result pointer and retry: */
 				count-=numBytesRead;
 				byteBuffer+=numBytesRead;
-				}
-			else if(errno==EAGAIN||errno==EINTR)
-				{
-				/* Do nothing */
 				}
 			else if(numBytesRead==0)
 				{
@@ -479,7 +473,7 @@ void TCPSocket::blockingWrite(const void* buffer,size_t count)
 
 void TCPSocket::flush(void)
 	{
-	#ifdef __linux__
+	#ifdef __LINUX__
 	/* Twiddle the TCP_CORK socket option to flush half-assembled packets: */
 	int flag=0;
 	setsockopt(socketFd,IPPROTO_TCP,TCP_CORK,&flag,sizeof(int));

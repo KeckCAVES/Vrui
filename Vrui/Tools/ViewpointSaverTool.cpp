@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointSaverTool - Class for tools to save environment-independent
 viewing parameters.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ViewpointSaverTool.h>
-
 #include <stdio.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
@@ -32,8 +30,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ViewpointSaverTool.h>
 
 namespace Vrui {
 
@@ -43,13 +43,14 @@ Methods of class ViewpointSaverToolFactory:
 
 ViewpointSaverToolFactory::ViewpointSaverToolFactory(ToolManager& toolManager)
 	:ToolFactory("ViewpointSaverTool",toolManager),
-	 viewpointFileName("ViewpointSaverTool.views"),
+	 viewpointFileName("ViewpointSaverTool.dat"),
 	 axisLength(getDisplaySize()*Scalar(0.5)),
 	 axisLineWidth(3.0f),
 	 viewpointFile(0)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -73,16 +74,6 @@ ViewpointSaverToolFactory::~ViewpointSaverToolFactory(void)
 	
 	/* Reset tool class' factory pointer: */
 	ViewpointSaverTool::factory=0;
-	}
-
-const char* ViewpointSaverToolFactory::getName(void) const
-	{
-	return "Viewpoint Recorder";
-	}
-
-const char* ViewpointSaverToolFactory::getButtonFunction(int) const
-	{
-	return "Save Viewpoint";
 	}
 
 Tool* ViewpointSaverToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -138,7 +129,7 @@ const ToolFactory* ViewpointSaverTool::getFactory(void) const
 	return factory;
 	}
 
-void ViewpointSaverTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void ViewpointSaverTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{

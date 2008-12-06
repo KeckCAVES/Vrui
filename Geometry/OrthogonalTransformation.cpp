@@ -1,7 +1,7 @@
 /***********************************************************************
 OrthogonalTransformation - Class for transformations constructed from
 only translations, rotations and uniform scalings.
-Copyright (c) 2002-2011 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -21,9 +21,65 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Geometry/OrthogonalTransformation.icpp>
+#define GEOMETRY_ORTHOGONALTRANSFORMATION_IMPLEMENTATION
+
+#ifndef METHODPREFIX
+	#ifdef NONSTANDARD_TEMPLATES
+		#define METHODPREFIX inline
+	#else
+		#define METHODPREFIX
+	#endif
+#endif
+
+#include <Geometry/TranslationTransformation.h>
+#include <Geometry/RotationTransformation.h>
+#include <Geometry/OrthonormalTransformation.h>
+#include <Geometry/UniformScalingTransformation.h>
+
+#include <Geometry/OrthogonalTransformation.h>
 
 namespace Geometry {
+
+/*************************************************
+Static elements of class OrthogonalTransformation:
+*************************************************/
+
+template <class ScalarParam,int dimensionParam>
+const OrthogonalTransformation<ScalarParam,dimensionParam> OrthogonalTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
+
+/*****************************************
+Methods of class OrthogonalTransformation:
+*****************************************/
+
+template <class ScalarParam,int dimensionParam>
+template <class SourceScalarParam>
+METHODPREFIX OrthogonalTransformation<ScalarParam,dimensionParam>::OrthogonalTransformation(const TranslationTransformation<SourceScalarParam,dimensionParam>& source)
+	:translation(source.getTranslation()),scaling(1)
+	{
+	}
+
+template <class ScalarParam,int dimensionParam>
+template <class SourceScalarParam>
+METHODPREFIX OrthogonalTransformation<ScalarParam,dimensionParam>::OrthogonalTransformation(const RotationTransformation<SourceScalarParam,dimensionParam>& source)
+	:translation(Scalar(0)),rotation(source.getRotation()),scaling(1)
+	{
+	}
+
+template <class ScalarParam,int dimensionParam>
+template <class SourceScalarParam>
+METHODPREFIX OrthogonalTransformation<ScalarParam,dimensionParam>::OrthogonalTransformation(const OrthonormalTransformation<SourceScalarParam,dimensionParam>& source)
+	:translation(source.getTranslation()),rotation(source.getRotation()),scaling(1)
+	{
+	}
+
+template <class ScalarParam,int dimensionParam>
+template <class SourceScalarParam>
+METHODPREFIX OrthogonalTransformation<ScalarParam,dimensionParam>::OrthogonalTransformation(const UniformScalingTransformation<SourceScalarParam,dimensionParam>& source)
+	:translation(Scalar(0)),scaling(source.getScaling())
+	{
+	}
+
+#if !defined(NONSTANDARD_TEMPLATES)
 
 /**********************************************************************************
 Force instantiation of all standard OrthogonalTransformation classes and functions:
@@ -68,5 +124,7 @@ template OrthogonalTransformation<double,3>::OrthogonalTransformation(const Tran
 template OrthogonalTransformation<double,3>::OrthogonalTransformation(const RotationTransformation<double,3>&);
 template OrthogonalTransformation<double,3>::OrthogonalTransformation(const OrthonormalTransformation<double,3>&);
 template OrthogonalTransformation<double,3>::OrthogonalTransformation(const UniformScalingTransformation<double,3>&);
+
+#endif
 
 }

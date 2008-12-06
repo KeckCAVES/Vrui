@@ -1,7 +1,7 @@
 /***********************************************************************
 Vislet - Abstract base class for application-independent visualization
 plug-ins that can be loaded into Vrui applications on demand.
-Copyright (c) 2006-2017 Oliver Kreylos
+Copyright (c) 2006-2007 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,11 +21,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Vislet.h>
-
 #include <Misc/ThrowStdErr.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/VisletManager.h>
+
+#include <Vrui/Vislet.h>
 
 namespace Vrui {
 
@@ -56,7 +54,7 @@ Methods of class Vislet:
 ***********************/
 
 Vislet::Vislet(void)
-	:active(false)
+	:active(true)
 	{
 	}
 
@@ -75,17 +73,11 @@ VisletFactory* Vislet::getFactory(void) const
 void Vislet::disable(void)
 	{
 	active=false;
-	
-	/* Update the vislet's toggle button in the vislet menu: */
-	getVisletManager()->updateVisletMenu(this);
 	}
 
 void Vislet::enable(void)
 	{
 	active=true;
-	
-	/* Update the vislet's toggle button in the vislet menu: */
-	getVisletManager()->updateVisletMenu(this);
 	}
 
 void Vislet::frame(void)
@@ -93,10 +85,6 @@ void Vislet::frame(void)
 	}
 
 void Vislet::display(GLContextData&) const
-	{
-	}
-
-void Vislet::sound(ALContextData&) const
 	{
 	}
 

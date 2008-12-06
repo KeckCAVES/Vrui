@@ -1,7 +1,7 @@
 /***********************************************************************
 WandNavigationTool - Class encapsulating the navigation behaviour of a
 classical CAVE wand.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,15 +21,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/WandNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/WandNavigationTool.h>
 
 namespace Vrui {
 
@@ -39,10 +37,11 @@ Methods of class WandNavigationToolFactory:
 
 WandNavigationToolFactory::WandNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("WandNavigationTool",toolManager),
-	 scaleFactor(getInchFactor()*Scalar(-8))
+	 scaleFactor(getInchFactor()*Scalar(12))
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(2);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,2);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -61,26 +60,6 @@ WandNavigationToolFactory::~WandNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	WandNavigationTool::factory=0;
-	}
-
-const char* WandNavigationToolFactory::getName(void) const
-	{
-	return "Wand (6-DOF + Scaling)";
-	}
-
-const char* WandNavigationToolFactory::getButtonFunction(int buttonSlotIndex) const
-	{
-	switch(buttonSlotIndex)
-		{
-		case 0:
-			return "Grab Space";
-		
-		case 1:
-			return "Zoom / Forwarded Button";
-		}
-	
-	/* Never reached; just to make compiler happy: */
-	return 0;
 	}
 
 Tool* WandNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -128,41 +107,8 @@ Methods of class WandNavigationTool:
 
 WandNavigationTool::WandNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
-	 buttonDevice(0),
 	 navigationMode(IDLE)
 	{
-	}
-
-void WandNavigationTool::initialize(void)
-	{
-	/* Get the source input device: */
-	InputDevice* device=getButtonDevice(1);
-	
-	/* Create a virtual input device to shadow the zoom button: */
-	buttonDevice=addVirtualInputDevice("WandNavigationToolButtonDevice",1,0);
-	
-	/* Copy the source device's tracking type: */
-	buttonDevice->setTrackType(device->getTrackType());
-	
-	/* Disable the virtual device's glyph: */
-	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
-	
-	/* Permanently grab the virtual input device: */
-	getInputGraphManager()->grabInputDevice(buttonDevice,this);
-	
-	/* Initialize the virtual input device's position: */
-	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
-	buttonDevice->setTransformation(device->getTransformation());
-	}
-
-void WandNavigationTool::deinitialize(void)
-	{
-	/* Release the virtual input device: */
-	getInputGraphManager()->releaseInputDevice(buttonDevice,this);
-	
-	/* Destroy the virtual input device: */
-	getInputDeviceManager()->destroyInputDevice(buttonDevice);
-	buttonDevice=0;
 	}
 
 const ToolFactory* WandNavigationTool::getFactory(void) const
@@ -170,10 +116,13 @@ const ToolFactory* WandNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
 	{
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
 	/* Process based on which button was pressed: */
-	switch(buttonSlotIndex)
+	switch(buttonIndex)
 		{
 		case 0:
 			if(cbData->newButtonState) // Button has just been pressed
@@ -186,7 +135,7 @@ void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 						if(activate())
 							{
 							/* Initialize the navigation transformations: */
-							preScale=Geometry::invert(getButtonDeviceTransformation(0));
+							preScale=Geometry::invert(device->getTransformation());
 							preScale*=getNavigationTransformation();
 							
 							/* Go from IDLE to MOVING mode: */
@@ -194,15 +143,10 @@ void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 							}
 						break;
 					
-					case PASSTHROUGH:
-						/* Remember that the main button is pressed: */
-						navigationMode=PASSTHROUGH_MOVING;
-						break;
-					
 					case SCALING_PAUSED:
 						/* Determine the scaling center and direction: */
-						scalingCenter=getButtonDevicePosition(0);
-						scalingDirection=getButtonDeviceRayDirection(0);
+						scalingCenter=device->getPosition();
+						scalingDirection=device->getRayDirection();
 						initialScale=scalingCenter*scalingDirection;
 						
 						/* Initialize the transformation parts: */
@@ -224,11 +168,6 @@ void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 				/* Act depending on this tool's current state: */
 				switch(navigationMode)
 					{
-					case PASSTHROUGH_MOVING:
-						/* Remember that the main button is released: */
-						navigationMode=PASSTHROUGH;
-						break;
-					
 					case SCALING:
 						/* Pause scaling until button is pressed again: */
 						
@@ -258,17 +197,13 @@ void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 				switch(navigationMode)
 					{
 					case IDLE:
-						/* Pass the button event to the virtual input device: */
-						buttonDevice->setButtonState(0,true);
-						
-						/* Go to pass-through mode: */
-						navigationMode=PASSTHROUGH;
+						/* Ignore the event and pass it through to the tool listening at the output: */
 						break;
 					
 					case MOVING:
 						/* Determine the scaling center and direction: */
-						scalingCenter=getButtonDevicePosition(0);
-						scalingDirection=getButtonDeviceRayDirection(0);
+						scalingCenter=device->getPosition();
+						scalingDirection=device->getRayDirection();
 						initialScale=scalingCenter*scalingDirection;
 						
 						/* Initialize the transformation parts: */
@@ -290,38 +225,9 @@ void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 				/* Act depending on this tool's current state: */
 				switch(navigationMode)
 					{
-					case PASSTHROUGH:
-						/* Pass the button event to the virtual input device: */
-						buttonDevice->setButtonState(0,false);
-						
-						/* Go to idle mode: */
-						navigationMode=IDLE;
-						break;
-					
-					case PASSTHROUGH_MOVING:
-						/* Pass the button event to the virtual input device: */
-						buttonDevice->setButtonState(0,false);
-						
-						/* Try activating this tool: */
-						if(activate())
-							{
-							/* Initialize the navigation transformations: */
-							preScale=Geometry::invert(getButtonDeviceTransformation(0));
-							preScale*=getNavigationTransformation();
-							
-							/* Go to MOVING mode: */
-							navigationMode=MOVING;
-							}
-						else
-							{
-							/* Go to idle mode: */
-							navigationMode=IDLE;
-							}
-						break;
-					
 					case SCALING:
 						/* Initialize the transformation parts: */
-						preScale=Geometry::invert(getButtonDeviceTransformation(0));
+						preScale=Geometry::invert(device->getTransformation());
 						preScale*=getNavigationTransformation();
 						
 						/* Go from SCALING to MOVING mode: */
@@ -347,13 +253,20 @@ void WandNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 
 void WandNavigationTool::frame(void)
 	{
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
 		{
+		case IDLE:
+			/* Do nothing */
+			break;
+		
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=getButtonDeviceTransformation(0);
+			NavTrackerState navigation=device->getTransformation();
 			navigation*=preScale;
 			
 			/* Update Vrui's navigation transformation: */
@@ -365,7 +278,7 @@ void WandNavigationTool::frame(void)
 			{
 			/* Compose the new navigation transformation: */
 			NavTrackerState navigation=preScale;
-			Scalar currentScale=getButtonDevicePosition(0)*scalingDirection-initialScale;
+			Scalar currentScale=device->getPosition()*scalingDirection-initialScale;
 			navigation*=NavTrackerState::scale(Math::exp(currentScale/factory->scaleFactor));
 			navigation*=postScale;
 			
@@ -374,60 +287,10 @@ void WandNavigationTool::frame(void)
 			break;
 			}
 		
-		default:
+		case SCALING_PAUSED:
 			/* Do nothing */
 			break;
 		}
-	
-	/* Update the virtual input device: */
-	InputDevice* device=getButtonDevice(1);
-	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
-	buttonDevice->setTransformation(device->getTransformation());
-	}
-
-std::vector<InputDevice*> WandNavigationTool::getForwardedDevices(void)
-	{
-	std::vector<InputDevice*> result;
-	result.push_back(buttonDevice);
-	return result;
-	}
-
-InputDeviceFeatureSet WandNavigationTool::getSourceFeatures(const InputDeviceFeature& forwardedFeature)
-	{
-	/* Paranoia: Check if the forwarded feature is on the transformed device: */
-	if(forwardedFeature.getDevice()!=buttonDevice)
-		Misc::throwStdErr("WandNavigationTool::getSourceFeatures: Forwarded feature is not on transformed device");
-	
-	/* Return the source feature: */
-	InputDeviceFeatureSet result;
-	result.push_back(input.getButtonSlotFeature(1));
-	return result;
-	}
-
-InputDevice* WandNavigationTool::getSourceDevice(const InputDevice* forwardedDevice)
-	{
-	/* Paranoia: Check if the forwarded device is the same as the transformed device: */
-	if(forwardedDevice!=buttonDevice)
-		Misc::throwStdErr("WandNavigationTool::getSourceDevice: Given forwarded device is not transformed device");
-	
-	/* Return the source device: */
-	return getButtonDevice(1);
-	}
-
-InputDeviceFeatureSet WandNavigationTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)
-	{
-	/* Get the source feature's assignment slot index: */
-	int slotIndex=input.findFeature(sourceFeature);
-	
-	/* Paranoia: Check if the source feature belongs to this tool: */
-	if(slotIndex<0)
-		Misc::throwStdErr("WandNavigationTool::getForwardedFeatures: Source feature is not part of tool's input assignment");
-	
-	/* Return the forwarded feature: */
-	InputDeviceFeatureSet result;
-	if(slotIndex==1)
-		result.push_back(InputDeviceFeature(buttonDevice,InputDevice::BUTTON,0));
-	return result;
 	}
 
 }

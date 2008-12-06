@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTextureCubeMap - OpenGL extension class for the
 GL_EXT_texture_cube_map extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLEXTTextureCubeMap.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLEXTTextureCubeMap.h>
 
 /********************************************
 Static elements of class GLEXTTextureCubeMap:
 ********************************************/
 
 GL_THREAD_LOCAL(GLEXTTextureCubeMap*) GLEXTTextureCubeMap::current=0;
-const char* GLEXTTextureCubeMap::name="GL_EXT_texture_cube_map";
 
 /************************************
 Methods of class GLEXTTextureCubeMap:
@@ -47,7 +46,7 @@ GLEXTTextureCubeMap::~GLEXTTextureCubeMap(void)
 
 const char* GLEXTTextureCubeMap::getExtensionName(void) const
 	{
-	return name;
+	return "GL_EXT_texture_cube_map";
 	}
 
 void GLEXTTextureCubeMap::activate(void)
@@ -63,13 +62,13 @@ void GLEXTTextureCubeMap::deactivate(void)
 bool GLEXTTextureCubeMap::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_EXT_texture_cube_map");
 	}
 
 void GLEXTTextureCubeMap::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_texture_cube_map"))
 		{
 		/* Create a new extension object: */
 		GLEXTTextureCubeMap* newExtension=new GLEXTTextureCubeMap;

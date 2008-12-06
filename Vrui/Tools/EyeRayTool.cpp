@@ -1,7 +1,7 @@
 /***********************************************************************
 EyeRayTool - Class to transform the ray direction of an input device to
 point along the sight line from the main viewer to the input device.
-Copyright (c) 2008-2017 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,14 +21,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/EyeRayTool.h>
-
 #include <Misc/ThrowStdErr.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputGraphManager.h>
-#include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/EyeRayTool.h>
 
 namespace Vrui {
 
@@ -39,14 +38,15 @@ Methods of class EyeRayToolFactory:
 EyeRayToolFactory::EyeRayToolFactory(ToolManager& toolManager)
 	:ToolFactory("EyeRayTool",toolManager)
 	{
-	/* Initialize tool layout: */
-	layout.setNumButtons(0,true);
-	layout.setNumValuators(0,true);
-	
 	/* Insert class into class hierarchy: */
 	TransformToolFactory* transformToolFactory=dynamic_cast<TransformToolFactory*>(toolManager.loadClass("TransformTool"));
 	transformToolFactory->addChildClass(this);
 	addParentClass(transformToolFactory);
+	
+	/* Initialize tool layout: */
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,transformToolFactory->getNumButtons());
+	layout.setNumValuators(0,transformToolFactory->getNumValuators());
 	
 	/* Set tool class' factory pointer: */
 	EyeRayTool::factory=this;
@@ -56,11 +56,6 @@ EyeRayToolFactory::~EyeRayToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	EyeRayTool::factory=0;
-	}
-
-const char* EyeRayToolFactory::getName(void) const
-	{
-	return "View-Aligned Ray";
 	}
 
 Tool* EyeRayToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -120,9 +115,6 @@ void EyeRayTool::initialize(void)
 	/* Initialize the base tool: */
 	TransformTool::initialize();
 	
-	/* Copy the source device's tracking type: */
-	transformedDevice->setTrackType(sourceDevice->getTrackType());
-	
 	/* Disable the transformed device's glyph: */
 	getInputGraphManager()->getInputDeviceGlyph(transformedDevice).disable();
 	}
@@ -134,19 +126,14 @@ const ToolFactory* EyeRayTool::getFactory(void) const
 
 void EyeRayTool::frame(void)
 	{
-	/* Calculate a sight line from the main viewer to the device's position in physical space: */
-	Vector physRayDir=sourceDevice->getPosition()-getMainViewer()->getHeadPosition();
-	Scalar physRayDirLen=Geometry::mag(physRayDir);
-	physRayDir/=physRayDirLen;
+	/* Get pointer to the source input device: */
+	InputDevice* device=input.getDevice(0);
 	
-	/* Transform the ray direction to device space: */
-	Vector deviceRayDir=sourceDevice->getTransformation().inverseTransform(physRayDir);
-	transformedDevice->setDeviceRay(deviceRayDir,-physRayDirLen);
+	/* Copy the device's position and orientation: */
+	transformedDevice->setTransformation(device->getTransformation());
 	
-	/* Copy the source device's position and orientation: */
-	transformedDevice->setTransformation(sourceDevice->getTransformation());
-	transformedDevice->setLinearVelocity(sourceDevice->getLinearVelocity());
-	transformedDevice->setAngularVelocity(sourceDevice->getAngularVelocity());
+	/* Calculate a sight line from the main viewer to the device's position: */
+	transformedDevice->setDeviceRayDirection(transformedDevice->getTransformation().inverseTransform(Geometry::normalize(device->getPosition()-getHeadPosition())));
 	}
 
 }

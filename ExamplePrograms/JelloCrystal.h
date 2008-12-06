@@ -2,7 +2,7 @@
 JelloCrystal - Class to simulate the behavior of crystals of Jell-O
 atoms using a real-time ODE solver based on a fourth-order Runge-Kutta-
 Nystrom method.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -74,7 +74,6 @@ class JelloCrystal
 	public:
 	JelloCrystal(void); // Creates invalid Jell-O crystal
 	JelloCrystal(const Index& numAtoms); // Creates a Jell-O crystal of the given size
-	JelloCrystal(const Index& numAtoms,const Box& sDomain); // Creates a Jell-O crystal of the given size inside the given domain
 	~JelloCrystal(void);
 	
 	/* Methods: */
@@ -102,7 +101,6 @@ class JelloCrystal
 	void setAtomMass(Scalar newAtomMass); // Sets the atom mass
 	void setAttenuation(Scalar newAttenuation); // Sets the attenuation
 	void setGravity(Scalar newGravity); // Sets the gravity
-	void setDomain(const Box& newDomain); // Sets the simulation domain; resets the position and orientation of the Jell-O crystal
 	AtomID pickAtom(const Point& p) const; // Picks a Jell-O atom based on a 3D position
 	AtomID pickAtom(const Ray& r) const; // Picks a Jell-O atom based on a 3D ray
 	bool isValid(AtomID atom) const // Checks if an atom ID is valid

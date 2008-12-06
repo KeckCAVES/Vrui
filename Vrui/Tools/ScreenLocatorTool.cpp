@@ -1,7 +1,7 @@
 /***********************************************************************
 ScreenLocator - Simple locator class to use in simulated VR
 environments.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ScreenLocatorTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Point.h>
@@ -32,9 +30,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ScreenLocatorTool.h>
 
 namespace Vrui {
 
@@ -44,10 +44,11 @@ Methods of class ScreenLocatorToolFactory:
 
 ScreenLocatorToolFactory::ScreenLocatorToolFactory(ToolManager& toolManager)
 	:ToolFactory("ScreenLocatorTool",toolManager),
-	 crosshairSize(getUiSize()*Scalar(2))
+	 crosshairSize(0)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* locatorToolFactory=toolManager.loadClass("LocatorTool");
@@ -66,11 +67,6 @@ ScreenLocatorToolFactory::~ScreenLocatorToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ScreenLocatorTool::factory=0;
-	}
-
-const char* ScreenLocatorToolFactory::getName(void) const
-	{
-	return "Screen Locator";
 	}
 
 Tool* ScreenLocatorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -118,17 +114,20 @@ Methods of class ScreenLocatorTool:
 
 void ScreenLocatorTool::calcTransformation(void)
 	{
-	/* Calculate the ray equation: */
-	Ray ray=getButtonDeviceRay(0);
+	/* Get pointer to input device: */
+	InputDevice* device=input.getDevice(0);
+	
+	/* Calculate ray equation: */
+	Ray deviceRay(device->getPosition(),device->getRayDirection());
 	
 	/* Find the closest intersection with any screen: */
-	std::pair<VRScreen*,Scalar> si=findScreen(ray);
+	std::pair<VRScreen*,Scalar> si=findScreen(deviceRay);
 	
 	/* Set the current transformation to the input device: */
 	if(si.first!=0)
 		{
 		/* Compute the locator transformation: */
-		currentTransformation=NavTrackerState::translateFromOriginTo(ray(si.second));
+		currentTransformation=NavTrackerState::translateFromOriginTo(deviceRay(si.second));
 		}
 	}
 
@@ -142,7 +141,7 @@ const ToolFactory* ScreenLocatorTool::getFactory(void) const
 	return factory;
 	}
 
-void ScreenLocatorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void ScreenLocatorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -178,24 +177,24 @@ void ScreenLocatorTool::display(GLContextData&) const
 		glPushMatrix();
 		glMultMatrix(currentTransformation);
 		glLineWidth(3.0f);
-		
-		glColor(getBackgroundColor());
+		Color lineCol=getBackgroundColor();
+		glColor(lineCol);
 		glBegin(GL_LINES);
 		glVertex(-factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex( factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex(Scalar(0),Scalar(0),-factory->crosshairSize);
 		glVertex(Scalar(0),Scalar(0), factory->crosshairSize);
 		glEnd();
-		
 		glLineWidth(1.0f);
-		glColor(getForegroundColor());
+		for(int i=0;i<3;++i)
+			lineCol[i]=1.0f-lineCol[i];
+		glColor(lineCol);
 		glBegin(GL_LINES);
 		glVertex(-factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex( factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex(Scalar(0),Scalar(0),-factory->crosshairSize);
 		glVertex(Scalar(0),Scalar(0), factory->crosshairSize);
 		glEnd();
-		
 		glPopMatrix();
 		glPopAttrib();
 		}

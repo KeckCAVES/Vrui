@@ -1,6 +1,6 @@
 /***********************************************************************
 Sphere - Class for n-dimensional spheres.
-Copyright (c) 2002-2014 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

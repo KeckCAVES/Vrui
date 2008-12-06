@@ -2,7 +2,7 @@
 OrthogonalCoordinateTransform - Coordinate transformation class for
 orthogonal transformations (combinations of translations, rotations, and
 uniform scalings).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,11 +38,6 @@ OrthogonalCoordinateTransform::OrthogonalCoordinateTransform(const OGTransform& 
 Point OrthogonalCoordinateTransform::transform(const Point& navigationPoint) const
 	{
 	return ogTransform.inverseTransform(navigationPoint);
-	}
-
-Point OrthogonalCoordinateTransform::inverseTransform(const Point& userPoint) const
-	{
-	return ogTransform.transform(userPoint);
 	}
 
 void OrthogonalCoordinateTransform::setTransform(const OGTransform& newOgTransform)

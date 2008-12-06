@@ -172,30 +172,6 @@ class GLScalarConverter<ScalarParam,TraitParam,ScalarParam,TraitParam>
 		}
 	};
 
-/* Specialized versions for common conversions between integral types: */
-
-template <>
-class GLScalarConverter<GLubyte,GLScalarUnsignedTrait,GLushort,GLScalarUnsignedTrait>
-	{
-	/* Methods: */
-	public:
-	inline static GLubyte convert(GLushort value)
-		{
-		return GLubyte(value>>8);
-		}
-	};
-
-template <>
-class GLScalarConverter<GLushort,GLScalarUnsignedTrait,GLubyte,GLScalarUnsignedTrait>
-	{
-	/* Methods: */
-	public:
-	inline static GLushort convert(GLubyte value)
-		{
-		return (GLushort(value)<<8)|GLushort(value);
-		}
-	};
-
 /***********************************************************
 Helper function with automatic template parameter detection:
 ***********************************************************/

@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2016 Oliver Kreylos
+# Copyright (c) 2003-2008 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,222 +18,84 @@
 # USA
 ########################################################################
 
-# Directory containing the Vrui build system. The directory below
-# matches the default Vrui installation; if Vrui's installation
-# directory was changed during Vrui's installation, the directory below
-# must be adapted.
-VRUI_MAKEDIR := /usr/local/share/Vrui-4.1/make
+# Set the Vrui installation directory:
+VRUIDIR = $(HOME)/Vrui-1.0
+
+# Set up additional flags for the C++ compiler:
+CFLAGS = 
+
+# Include the Vrui application makefile fragment:
 ifdef DEBUG
-  VRUI_MAKEDIR := $(VRUI_MAKEDIR)/debug
-endif
-
-# Base installation directory for the example programs. If this is set
-# to the default of $(PWD), the example programs do not have to be
-# installed to be run. Created executables and resources will be
-# installed in the bin and share directories under the given base
-# directory, respectively.
-# Important note: Do not use ~ as an abbreviation for the user's home
-# directory here; use $(HOME) instead.
-INSTALLDIR := $(shell pwd)
-
-# Set resource directory:
-RESOURCEDIR = share/VruiExamplePrograms
-
-########################################################################
-# Everything below here should not have to be changed
-########################################################################
-
-# Include definitions for the system environment and system-provided
-# packages
-include $(VRUI_MAKEDIR)/SystemDefinitions
-include $(VRUI_MAKEDIR)/Packages.System
-include $(VRUI_MAKEDIR)/Configuration.Vrui
-include $(VRUI_MAKEDIR)/Packages.Vrui
-
-# Set installation directory structure:
-BININSTALLDIR = $(INSTALLDIR)/$(EXEDIR)
-RESOURCEINSTALLDIR = $(INSTALLDIR)/$(RESOURCEDIR)
-
-########################################################################
-# List common packages used by all components of this project
-# (Supported packages can be found in $(VRUI_MAKEDIR)/Packages.*)
-########################################################################
-
-# Attempt to auto-detect the presence of the xine multimedia framework
-# to build a Vrui-based video player:
-XINE_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh xine.h libxine.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
-XINE_DEPENDS = 
-XINE_INCLUDE = -I$(XINE_BASEDIR)/$(INCLUDEEXT)
-XINE_LIBDIR  = -L$(XINE_BASEDIR)/$(LIBEXT)
-XINE_LIBS    = -lxine
-
-ifneq ($(strip $(XINE_BASEDIR)),)
-  SYSTEM_HAVE_XINE = 1
+  # Build debug version of the applications, using the debug version of Vrui:
+  include $(VRUIDIR)/etc/Vrui.debug.makeinclude
+  CFLAGS += -g2 -O0
 else
-  SYSTEM_HAVE_XINE = 0
+  # Build release version of the applications, using the release version of Vrui:
+  include $(VRUIDIR)/etc/Vrui.makeinclude
+  CFLAGS += -g0 -O3
 endif
 
-PACKAGES = MYVRUI
-
-########################################################################
-# Specify all final targets
-#
-# Note: To build individual targets, run "make bin/<target name>"
-# instead of just "make <target name>."
-########################################################################
-
-ALL = $(EXEDIR)/VruiDemo \
-      $(EXEDIR)/VruiDemoSmall \
-      $(EXEDIR)/VruiGLTest \
-      $(EXEDIR)/VruiAppTemplate \
-      $(EXEDIR)/VruiLocatorDemo \
-      $(EXEDIR)/VruiEventToolDemo \
-      $(EXEDIR)/VruiCustomToolDemo \
-      $(EXEDIR)/FileSelection \
-      $(EXEDIR)/VruiCalibrator \
-      $(EXEDIR)/DrawEnvironment \
-      $(EXEDIR)/PrecisionTest \
-      $(EXEDIR)/VisionTest \
-      $(EXEDIR)/VruiSceneGraphDemo \
-      $(EXEDIR)/VruiSoundTest \
-      $(EXEDIR)/ImageViewer \
-      $(EXEDIR)/ImageSequenceViewer \
-      $(EXEDIR)/VideoViewer \
-      $(EXEDIR)/Animation \
-      $(EXEDIR)/ShowEarthModel \
-      $(EXEDIR)/Jello \
-      $(EXEDIR)/ClusterJello \
-      $(EXEDIR)/SharedJelloServer \
-      $(EXEDIR)/SharedJello \
-      $(EXEDIR)/VirtualClay
-ifneq ($(SYSTEM_HAVE_XINE),0)
-  ALL += $(EXEDIR)/VruiXine
-endif
+# List all project targets:
+ALL = VruiDemo \
+      VruiLocatorDemo \
+      VruiCustomToolDemo \
+      VruiCalibrator \
+      ShowEarthModel \
+      Jello \
+      ClusterJello \
+      SharedJelloServer \
+      SharedJello
 
 .PHONY: all
 all: $(ALL)
 
-########################################################################
-# Specify other actions to be performed on a `make clean'
-########################################################################
+# Rule to remove all targets:
+.PHONY: clean
+clean:
+	-rm -rf o
+	-rm -f $(ALL)
 
-.PHONY: extraclean
-extraclean:
+# Pattern rule to compile C++ sources:
+o/%.o: %.cpp
+	@mkdir -p o/$(*D)
+	@echo Compiling $<...
+	@g++ -c -o $@ $(VRUI_CFLAGS) $(CFLAGS) $<
 
-.PHONY: extrasqueakyclean
-extrasqueakyclean:
+# Pattern rule to link executables:
+%: o/%.o
+	@echo Linking $@...
+	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
+	
+# List all build rules:
+VruiDemo: o/VruiDemo.o
 
-# Include basic makefile
-include $(VRUI_MAKEDIR)/BasicMakefile
+VruiLocatorDemo: o/VruiLocatorDemo.o
 
-########################################################################
-# Specify build rules for executables
-########################################################################
+VruiCustomToolDemo: o/VruiCustomToolDemo.o
 
-#
-# Simple single-source demo programs:
-#
+VruiCalibrator: o/VruiCalibrator.o
 
-$(EXEDIR)/VruiDemo: $(OBJDIR)/VruiDemo.o
+ShowEarthModel: o/EarthFunctions.o \
+                o/PointSet.o \
+                o/SeismicPath.o \
+                o/EarthquakeSet.o \
+                o/ShowEarthModel.o
 
-$(EXEDIR)/VruiDemoSmall: $(OBJDIR)/VruiDemoSmall.o
+Jello: o/JelloAtom.o \
+       o/JelloCrystal.o \
+       o/JelloRenderer.o \
+       o/Jello.o
 
-$(EXEDIR)/VruiGLTest: $(OBJDIR)/VruiGLTest.o
+ClusterJello: o/JelloAtom.o \
+              o/JelloCrystal.o \
+              o/JelloRenderer.o \
+              o/ClusterJello.o
 
-$(EXEDIR)/VruiAppTemplate: $(OBJDIR)/VruiAppTemplate.o
+SharedJelloServer: o/JelloAtom.o \
+                   o/JelloCrystal.o \
+                   o/SharedJelloServer.o
 
-$(EXEDIR)/VruiLocatorDemo: $(OBJDIR)/VruiLocatorDemo.o
-
-$(EXEDIR)/VruiEventToolDemo: $(OBJDIR)/VruiEventToolDemo.o
-
-$(EXEDIR)/VruiCustomToolDemo: $(OBJDIR)/VruiCustomToolDemo.o
-
-$(EXEDIR)/FileSelection: $(OBJDIR)/FileSelection.o
-
-$(EXEDIR)/VruiCalibrator: $(OBJDIR)/VruiCalibrator.o
-
-$(EXEDIR)/DrawEnvironment: $(OBJDIR)/DrawEnvironment.o
-
-$(EXEDIR)/PrecisionTest: $(OBJDIR)/PrecisionTest.o
-
-$(EXEDIR)/VisionTest: $(OBJDIR)/VisionTest.o
-
-$(EXEDIR)/VruiSceneGraphDemo: $(OBJDIR)/VruiSceneGraphDemo.o
-
-$(EXEDIR)/VruiSoundTest: $(OBJDIR)/VruiSoundTest.o
-
-$(EXEDIR)/ImageViewer: $(OBJDIR)/ImageViewer.o
-
-$(EXEDIR)/ImageSequenceViewer: $(OBJDIR)/ImageSequenceViewer.o
-
-$(EXEDIR)/VideoViewer: $(OBJDIR)/VideoViewer.o
-
-$(EXEDIR)/Animation: $(OBJDIR)/Animation.o
-
-#
-# ShowEarthModel, a viewer for earthquake catalogs and other assorted
-# Earth science data.
-#
-
-SHOWEARTHMODEL_SOURCES = EarthFunctions.cpp \
-                         PointSet.cpp \
-                         SeismicPath.cpp \
-                         EarthquakeSet.cpp \
-                         EarthquakeTool.cpp \
-                         EarthquakeQueryTool.cpp \
-                         ShowEarthModel.cpp
-
-$(OBJDIR)/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_IMAGEDIR='"$(RESOURCEINSTALLDIR)"'
-
-$(EXEDIR)/ShowEarthModel: $(SHOWEARTHMODEL_SOURCES:%.cpp=$(OBJDIR)/%.o)
-
-#
-# There's always room for Jell-O!
-#
-
-# Simple version (single threaded, non-cluster aware, not shared):
-$(EXEDIR)/Jello: $(OBJDIR)/JelloAtom.o \
-                 $(OBJDIR)/JelloCrystal.o \
-                 $(OBJDIR)/JelloRenderer.o \
-                 $(OBJDIR)/Jello.o
-
-# Multithreaded and cluster-aware version:
-$(EXEDIR)/ClusterJello: $(OBJDIR)/JelloAtom.o \
-                        $(OBJDIR)/JelloCrystal.o \
-                        $(OBJDIR)/JelloRenderer.o \
-                        $(OBJDIR)/ClusterJello.o
-
-# Client/server distributed and collaborative version:
-# Override default package list -- the server does not need to link against Vrui
-$(EXEDIR)/SharedJelloServer: PACKAGES = MYGLGEOMETRYWRAPPERS MYGEOMETRY MYMATH MYCOMM MYIO MYTHREADS MYMISC GL
-$(EXEDIR)/SharedJelloServer: $(OBJDIR)/JelloAtom.o \
-                             $(OBJDIR)/JelloCrystal.o \
-                             $(OBJDIR)/SharedJelloServer.o
-
-$(EXEDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
-                       $(OBJDIR)/JelloCrystal.o \
-                       $(OBJDIR)/JelloRenderer.o \
-                       $(OBJDIR)/SharedJello.o
-
-#
-# Very simple virtual clay modeling application using a density volume
-# and interactive isosurface extraction:
-#
-
-$(EXEDIR)/VirtualClay: $(OBJDIR)/EditableGrid.o \
-                       $(OBJDIR)/GridEditor.o
-
-#
-# A VR video viewer based on the xine multimedia framework:
-#
-
-$(EXEDIR)/VruiXine: PACKAGES += XINE
-$(EXEDIR)/VruiXine: $(OBJDIR)/VruiXine.o
-
-# Rule to install the example programs in a destination directory
-install: $(ALL)
-	@echo Installing Vrui example programs in $(INSTALLDIR)...
-	@install -d $(BININSTALLDIR)
-	@install $(ALL) $(BININSTALLDIR)
-	@install -d $(RESOURCEINSTALLDIR)
-	@install $(RESOURCEDIR)/EarthTopography.png $(RESOURCEDIR)/EarthTopography.ppm $(RESOURCEINSTALLDIR)
+SharedJello: o/JelloAtom.o \
+             o/JelloCrystal.o \
+             o/JelloRenderer.o \
+             o/SharedJello.o

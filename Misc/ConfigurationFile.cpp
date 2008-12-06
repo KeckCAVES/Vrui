@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -21,16 +21,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Misc/ConfigurationFile.h>
-
 #include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <vector>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
+
+#include <Misc/ConfigurationFile.h>
 
 namespace Misc {
 
@@ -84,24 +79,6 @@ ConfigurationFileBase::Section::~Section(void)
 		}
 	}
 
-void ConfigurationFileBase::Section::clear(void)
-	{
-	/* Remove all subsections: */
-	while(firstSubsection!=0)
-		{
-		Section* succ=firstSubsection->sibling;
-		delete firstSubsection;
-		firstSubsection=succ;
-		}
-	lastSubsection=0;
-	
-	/* Remove all tag/value pairs: */
-	values.clear();
-	
-	/* Mark the section as edited: */
-	edited=true;
-	}
-
 ConfigurationFileBase::Section* ConfigurationFileBase::Section::addSubsection(const std::string& subsectionName)
 	{
 	/* Check if the subsection already exists: */
@@ -127,29 +104,6 @@ ConfigurationFileBase::Section* ConfigurationFileBase::Section::addSubsection(co
 		}
 	else
 		return sPtr;
-	}
-
-void ConfigurationFileBase::Section::removeSubsection(const std::string& subsectionName)
-	{
-	/* Find a subsection of the given name: */
-	Section* sPred=0;
-	Section* sPtr;
-	for(sPtr=firstSubsection;sPtr!=0&&sPtr->name!=subsectionName;sPred=sPtr,sPtr=sPtr->sibling)
-		;
-	if(sPtr!=0)
-		{
-		/* Remove the subsection: */
-		if(sPred!=0)
-			sPred->sibling=sPtr->sibling;
-		else
-			firstSubsection=sPtr->sibling;
-		if(sPtr->sibling==0)
-			lastSubsection=sPred;
-		delete sPtr;
-		
-		/* Mark the section as edited: */
-		edited=true;
-		}
 	}
 
 void ConfigurationFileBase::Section::addTagValue(const std::string& newTag,const std::string& newValue)
@@ -406,35 +360,6 @@ ConfigurationFileBase::Section* ConfigurationFileBase::Section::getSection(const
 	return sPtr;
 	}
 
-bool ConfigurationFileBase::Section::hasTag(const char* relativeTagPath) const
-	{
-	/* Go to the section containing the given tag: */
-	const char* tagName=0;
-	const Section* sPtr=getSection(relativeTagPath,&tagName);
-	
-	/* Find the tag name in the section's tag list: */
-	std::list<TagValue>::const_iterator tvIt;
-	for(tvIt=sPtr->values.begin();tvIt!=sPtr->values.end()&&tvIt->tag!=tagName;++tvIt)
-		;
-	
-	return tvIt!=sPtr->values.end();
-	}
-
-const std::string* ConfigurationFileBase::Section::findTagValue(const char* relativeTagPath) const
-	{
-	/* Go to the section containing the given tag: */
-	const char* tagName=0;
-	const Section* sPtr=getSection(relativeTagPath,&tagName);
-	
-	/* Find the tag name in the section's tag list: */
-	std::list<TagValue>::const_iterator tvIt;
-	for(tvIt=sPtr->values.begin();tvIt!=sPtr->values.end()&&tvIt->tag!=tagName;++tvIt)
-		;
-	
-	/* Return tag value or null pointer: */
-	return tvIt!=sPtr->values.end()?&(tvIt->value):0;
-	}
-
 const std::string& ConfigurationFileBase::Section::retrieveTagValue(const char* relativeTagPath) const
 	{
 	/* Go to the section containing the given tag: */
@@ -518,16 +443,12 @@ void ConfigurationFileBase::Section::storeTagValue(const char* relativeTagPath,c
 Methods of class ConfigurationFileBase:
 **************************************/
 
-ConfigurationFileBase::ConfigurationFileBase(void)
-	:rootSection(new Section(0,std::string("")))
-	{
-	}
-
 ConfigurationFileBase::ConfigurationFileBase(const char* sFileName)
-	:rootSection(0)
+	:fileName(sFileName),
+	 rootSection(0)
 	{
 	/* Load the configuration file: */
-	load(sFileName);
+	load();
 	}
 
 ConfigurationFileBase::~ConfigurationFileBase(void)
@@ -535,7 +456,7 @@ ConfigurationFileBase::~ConfigurationFileBase(void)
 	delete rootSection;
 	}
 
-void ConfigurationFileBase::load(const char* newFileName)
+void ConfigurationFileBase::load(void)
 	{
 	/* Delete current configuration file contents: */
 	delete rootSection;
@@ -543,11 +464,8 @@ void ConfigurationFileBase::load(const char* newFileName)
 	/* Create root section: */
 	rootSection=new Section(0,std::string(""));
 	
-	/* Store the file name: */
-	fileName=newFileName;
-	
-	/* Merge contents of given configuration file: */
-	merge(newFileName);
+	/* Merge contents of configuration file: */
+	merge(fileName.c_str());
 	
 	/* Reset edit flag: */
 	rootSection->clearEditFlag();
@@ -615,20 +533,8 @@ void ConfigurationFileBase::merge(const char* mergeFileName)
 		const char* linePtr=line.data();
 		const char* lineEndPtr=linePtr+line.size();
 		
-		/* Check if the line contains a comment: */
-		for(const char* lPtr=linePtr;lPtr!=lineEndPtr;++lPtr)
-			if(*lPtr=='#')
-				{
-				lineEndPtr=lPtr;
-				break;
-				}
-		
-		/* Remove whitespace from the end of the line: */
-		while(lineEndPtr!=linePtr&&isspace(lineEndPtr[-1]))
-			--lineEndPtr;
-		
-		/* Check for empty lines: */
-		if(linePtr==lineEndPtr)
+		/* Check for empty or comment lines: */
+		if(linePtr==lineEndPtr||*linePtr=='#')
 			continue;
 		
 		/* Extract first string from line: */
@@ -640,21 +546,9 @@ void ConfigurationFileBase::merge(const char* mergeFileName)
 		
 		if(strcasecmp(token.c_str(),"section")==0)
 			{
-			/* Check if the section name starts with a double quote for backwards compatibility: */
-			std::string sectionName;
-			if(linePtr!=lineEndPtr&&*linePtr=='\"')
-				{
-				/* Parse the section name as a string: */
-				sectionName=ValueCoder<std::string>::decode(linePtr,lineEndPtr,&decodeEnd);
-				}
-			else
-				{
-				/* Read everything after the "section" token as the section name, including whitespace and special characters: */
-				sectionName=std::string(linePtr,lineEndPtr);
-				}
-			
 			/* Add a new subsection to the current section and make it the current section: */
-			if(sectionName.empty())
+			std::string sectionName=ValueCoder<std::string>::decode(linePtr,lineEndPtr,&decodeEnd);
+			if(sectionName=="")
 				throw MalformedConfigFileError("Missing section name after section command",lineNumber,fileName);
 			sectionPtr=sectionPtr->addSubsection(sectionName);
 			}
@@ -668,41 +562,8 @@ void ConfigurationFileBase::merge(const char* mergeFileName)
 			}
 		else if(linePtr!=lineEndPtr)
 			{
-			/* Check for the special "+=" operator: */
-			if(*linePtr=='+'&&linePtr+1!=lineEndPtr&&linePtr[1]=='=')
-				{
-				/* Skip the operator and whitespace and get the new tag value: */
-				for(linePtr+=2;linePtr!=lineEndPtr&&isspace(*linePtr);++linePtr)
-					;
-				if(linePtr!=lineEndPtr)
-					{
-					/* Get the current tag value, defaulting to an empty list if the tag does not exist yet: */
-					std::string currentValue=sectionPtr->retrieveTagValue(token.c_str(),"()");
-					
-					/* Check that the current tag ends with a closing parenthesis, and the new tag value starts with an opening parenthesis: */
-					if(*linePtr=='('&&*(currentValue.end()-1)==')')
-						{
-						/* Concatenate the current and new tag values: */
-						currentValue.erase(currentValue.end()-1);
-						
-						/* Insert a list item separator if the current value is not the empty list: */
-						if(*(currentValue.end()-1)!='(')
-							currentValue.append(", ");
-						
-						currentValue.append(std::string(linePtr+1,lineEndPtr));
-						
-						/* Store the concatenated tag values: */
-						sectionPtr->addTagValue(token,currentValue);
-						}
-					else
-						throw MalformedConfigFileError("+= operator used on non-list",lineNumber,fileName);
-					}
-				}
-			else
-				{
-				/* Add a tag/value pair to the current section: */
-				sectionPtr->addTagValue(token,std::string(linePtr,lineEndPtr));
-				}
+			/* Add a tag/value pair to the current section: */
+			sectionPtr->addTagValue(token,std::string(linePtr,lineEndPtr));
 			}
 		else
 			{
@@ -741,676 +602,13 @@ void ConfigurationFileBase::mergeCommandline(int& argc,char**& argv)
 		}
 	}
 
-void ConfigurationFileBase::saveAs(const char* newFileName)
+void ConfigurationFileBase::save(void)
 	{
-	/* Store the new file name: */
-	fileName=newFileName;
-	
-	/* Save the root section: */
-	File file(fileName.c_str(),"wt");
-	rootSection->save(file,0);
-	}
-
-namespace {
-
-/****************
-Helper functions:
-****************/
-
-char processEscape(int c)
-	{
-	switch(c)
+	/* Check if the configuration was edited (don't save otherwise): */
+	if(rootSection->isEdited())
 		{
-		case 'a':
-			return '\a';
-		
-		case 'b':
-			return '\b';
-		
-		case 'f':
-			return '\f';
-		
-		case 'n':
-			return '\n';
-		
-		case 'r':
-			return '\r';
-		
-		case 't':
-			return '\t';
-		
-		case 'v':
-			return '\v';
-		
-		default:
-			return char(c);
-		}
-	}
-
-/**************
-Helper classes:
-**************/
-
-struct SectionMatch // Structure defining the match of a section with the tag path
-	{
-	/* Elements: */
-	public:
-	std::string name; // The section name
-	const char* matchedPrefix; // Pointer to the first component of the tag path that is not matched by this section, or NULL
-	const char* nextSlash; // Pointer to the next slash or end-of-string in the tag path
-	
-	/* Constructors and destructors: */
-	SectionMatch(const char* sNameBegin,const char* sNameEnd,const char* sMatchedPrefix =0,const char* sNextSlash =0)
-		:name(sNameBegin,sNameEnd),
-		 matchedPrefix(sMatchedPrefix),nextSlash(sNextSlash)
-		{
-		}
-	};
-
-}
-
-void ConfigurationFileBase::patchFile(const char* fileName,const char* tagPath,const char* newValue)
-	{
-	/* Open a temporary output file: */
-	size_t fnLen=strlen(fileName);
-	char* tempFileName=new char[fnLen+6+1];
-	memcpy(tempFileName,fileName,fnLen);
-	for(int i=0;i<6;++i)
-		tempFileName[fnLen+i]='X';
-	tempFileName[fnLen+6]='\0';
-	int tempFd=mkstemp(tempFileName);
-	if(tempFd<0)
-		{
-		int error=errno;
-		throwStdErr("Misc::ConfigurationFile::patchFile: Unable to patch file %s due to error %d (%s)",fileName,error,strerror(error));
-		}
-	
-	try
-		{
-		/* Put a File wrapper around the temporary file: */
-		File tempFile(tempFd,"w+");
-		
-		/* Try opening the given configuration file: */
-		File file(fileName,"rt");
-		
-		/* Parse the given configuration file: */
-		enum State // States of the file parser automaton
-			{
-			LINE, // At beginning of line, reading whitespace
-			TAG,QUOTEDTAG, // Parsing a naked or quoted tag
-			SECTIONWS, // Reading whitespace between the "section" keyword and the section name
-			SECTION,QUOTEDSECTION, // Reading a naked or quoted section name
-			VALUEWS, // Reading whitespace between a tag and its value
-			VALUEWSPLUS, // Read a "+" between a tag and its value
-			VALUEWSPLUSEQUAL, // Read a "+=" between a tag and its value
-			VALUE, // Parsing a value
-			VALUESKIPWS, // Skipping whitespace inside a value due to a line break
-			SKIPVALUE, // Skipping the value of a matched tag
-			COMMENT, // Skipping a comment
-			SKIPLINE // Skipping until the end of the current line
-			} state=LINE;
-		unsigned int lineNumber=1;
-		std::vector<SectionMatch> sections; // Stack of section names
-		const char* matchedPrefix=tagPath; // Pointer to the first character of the tag path not yet matched to the current section path
-		const char* nextSlash; // Pointer to the next slash (or end of string) in the tag path
-		for(nextSlash=matchedPrefix;*nextSlash!='/'&&*nextSlash!='\0';++nextSlash)
-			;
-		sections.push_back(SectionMatch(tagPath,tagPath,matchedPrefix,nextSlash)); // A root section as sentinel
-		char whitespace[1024]; // Whitespace at the beginning of the current line
-		char* wsPtr=whitespace;
-		char tag[1024]; // The currently-parsed tag
-		char* tPtr=tag;
-		char section[1024]; // The currently-parsed section name
-		char* sPtr=section;
-		std::string value; // The currently-parsed value
-		// bool valueContinuation=false; // Flag whether the current value is a list continuation
-		bool escaped=false;
-		int quote=-1;
-		bool copyChars=true;
-		int c;
-		while((c=file.getc())>=0)
-			{
-			switch(state)
-				{
-				case LINE:
-					if(c=='\n')
-						{
-						++lineNumber;
-						wsPtr=whitespace;
-						}
-					else if(c=='#')
-						state=COMMENT;
-					else if(c=='"'||c=='\'')
-						{
-						quote=c;
-						state=QUOTEDTAG;
-						tPtr=tag;
-						}
-					else if(isspace(c))
-						*(wsPtr++)=char(c);
-					else
-						{
-						state=TAG;
-						tPtr=tag;
-						if(c=='\\')
-							escaped=true;
-						else
-							*(tPtr++)=char(c);
-						}
-					break;
-				
-				case TAG:
-					if(escaped)
-						{
-						if(c=='\n')
-							++lineNumber;
-						else
-							*(tPtr++)=processEscape(c);
-						escaped=false;
-						}
-					else if(c=='\\')
-						escaped=true;
-					else if(c=='\n'||isspace(c))
-						{
-						/* Tag is finished; process it: */
-						*tPtr='\0';
-						if(strcasecmp(tag,"section")==0)
-							{
-							if(c=='\n')
-								throw MalformedConfigFileError("Missing section name",lineNumber,fileName);
-							else
-								state=SECTIONWS;
-							}
-						else if(strcasecmp(tag,"endsection")==0)
-							{
-							/* Pop the current section off the stack: */
-							if(sections.size()<=1)
-								throw MalformedConfigFileError("Extra endsection command",lineNumber,fileName);
-							sections.pop_back();
-							if(sections.back().matchedPrefix!=0)
-								{
-								matchedPrefix=sections.back().matchedPrefix;
-								nextSlash=sections.back().nextSlash;
-								}
-							
-							if(c=='\n')
-								{
-								/* Parse the next line: */
-								++lineNumber;
-								state=LINE;
-								wsPtr=whitespace;
-								}
-							else
-								state=SKIPLINE;
-							}
-						else
-							{
-							/* Check if the current section path matches the tag path: */
-							if(sections.back().matchedPrefix!=0&&*nextSlash=='\0')
-								{
-								/* Match the tag against the tag path's suffix: */
-								char* cPtr1;
-								const char* cPtr2;
-								for(cPtr1=tag,cPtr2=matchedPrefix;cPtr1<tPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
-									;
-								if(cPtr1==tPtr&&cPtr2==nextSlash)
-									{
-									/* Output the replacement value to the temporary file: */
-									fputc(' ',tempFile.getFilePtr());
-									for(const char* vPtr=newValue;*vPtr!='\0';++vPtr)
-										{
-										if(*vPtr=='\n')
-											{
-											/* Start a new line and indent it to the tag's indentation: */
-											fputc('\n',tempFile.getFilePtr());
-											for(char* iPtr=whitespace;iPtr!=wsPtr;++iPtr)
-												fputc(*iPtr,tempFile.getFilePtr());
-											
-											}
-										else
-											fputc(*vPtr,tempFile.getFilePtr());
-										}
-									
-									/* Stop copying characters and skip the tag's value: */
-									copyChars=false;
-									state=SKIPVALUE;
-									}
-								else
-									state=VALUEWS;
-								}
-							else
-								state=VALUEWS;
-							}
-						
-						if(c=='\n')
-							{
-							/* Parse the next line: */
-							++lineNumber;
-							copyChars=true;
-							state=LINE;
-							wsPtr=whitespace;
-							}
-						}
-					else
-						*(tPtr++)=char(c);
-					break;
-				
-				case QUOTEDTAG:
-					if(escaped)
-						{
-						if(c=='\n')
-							++lineNumber;
-						else
-							*(tPtr++)=processEscape(c);
-						escaped=false;
-						}
-					else if(c=='\\')
-						escaped=true;
-					else if(c!=quote)
-						*(tPtr++)=char(c);
-					else
-						{
-						/* Tag is finished; process it: */
-						*tPtr='\0';
-						if(strcasecmp(tag,"section")==0)
-							state=SECTIONWS;
-						else if(strcasecmp(tag,"endsection")==0)
-							{
-							/* Pop the current section off the stack: */
-							if(sections.size()<=1)
-								throw MalformedConfigFileError("Extra endsection command",lineNumber,fileName);
-							sections.pop_back();
-							if(sections.back().matchedPrefix!=0)
-								{
-								matchedPrefix=sections.back().matchedPrefix;
-								nextSlash=sections.back().nextSlash;
-								}
-							
-							/* Skip the rest of the line: */
-							state=SKIPLINE;
-							}
-						else
-							{
-							/* Check if the current section path matches the tag path: */
-							if(sections.back().matchedPrefix!=0&&*nextSlash=='\0')
-								{
-								/* Match the tag against the tag path's suffix: */
-								char* cPtr1;
-								const char* cPtr2;
-								for(cPtr1=tag,cPtr2=matchedPrefix;cPtr1<tPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
-									;
-								if(cPtr1==tPtr&&cPtr2==nextSlash)
-									{
-									/* Output the replacement value to the temporary file: */
-									fputc(quote,tempFile.getFilePtr());
-									fputc(' ',tempFile.getFilePtr());
-									for(const char* vPtr=newValue;*vPtr!='\0';++vPtr)
-										{
-										if(*vPtr=='\n')
-											{
-											/* Start a new line and indent it to the tag's indentation: */
-											fputc('\n',tempFile.getFilePtr());
-											for(char* iPtr=whitespace;iPtr!=wsPtr;++iPtr)
-												fputc(*iPtr,tempFile.getFilePtr());
-											
-											}
-										else
-											fputc(*vPtr,tempFile.getFilePtr());
-										}
-									
-									/* Stop copying characters and skip the tag's value: */
-									copyChars=false;
-									state=SKIPVALUE;
-									}
-								else
-									state=VALUEWS;
-								}
-							else
-								state=VALUEWS;
-							}
-						}
-					break;
-				
-				case SECTIONWS:
-					if(c=='\n'||c=='#')
-						throw MalformedConfigFileError("Missing section name",lineNumber,fileName);
-					else if(c=='"'||c=='\'')
-						{
-						quote=c;
-						state=QUOTEDSECTION;
-						sPtr=section;
-						}
-					else if(!isspace(c))
-						{
-						state=SECTION;
-						sPtr=section;
-						if(c=='\\')
-							escaped=true;
-						else
-							*(sPtr++)=char(c);
-						}
-					break;
-				
-				case SECTION:
-					if(escaped)
-						{
-						if(c=='\n')
-							++lineNumber;
-						else
-							*(sPtr++)=processEscape(c);
-						escaped=false;
-						}
-					else if(c=='\\')
-						escaped=true;
-					else if(c=='\n'||c=='#')
-						{
-						/* Section name is finished, remove trailing whitespace and process it: */
-						while(sPtr>section&&isspace(sPtr[-1]))
-							--sPtr;
-						SectionMatch sm(section,sPtr);
-						
-						/* Check if the current section path matches a prefix of the given tag path: */
-						if(sections.back().matchedPrefix!=0&&*nextSlash!='\0')
-							{
-							/* Match this section name against the unmatched suffix of the tag path: */
-							char* cPtr1;
-							const char* cPtr2;
-							for(cPtr1=section,cPtr2=matchedPrefix;cPtr1<sPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
-								;
-							if(cPtr1==sPtr&&cPtr2==nextSlash)
-								{
-								matchedPrefix=nextSlash+1;
-								for(nextSlash=matchedPrefix;*nextSlash!='/'&&*nextSlash!='\0';++nextSlash)
-									;
-								sm.matchedPrefix=matchedPrefix;
-								sm.nextSlash=nextSlash;
-								}
-							}
-						
-						/* Push the section onto the stack: */
-						sections.push_back(sm);
-						
-						if(c=='#')
-							state=COMMENT;
-						else
-							{
-							/* Parse the next line: */
-							++lineNumber;
-							state=LINE;
-							wsPtr=whitespace;
-							}
-						}
-					else
-						*(sPtr++)=char(c);
-					break;
-				
-				case QUOTEDSECTION:
-					if(escaped)
-						{
-						if(c=='\n')
-							++lineNumber;
-						else
-							*(sPtr++)=processEscape(c);
-						escaped=false;
-						}
-					else if(c=='\\')
-						escaped=true;
-					else if(c==quote)
-						{
-						/* Section name is finished, process it: */
-						SectionMatch sm(section,sPtr);
-						
-						/* Check if the current section path matches a prefix of the given tag path: */
-						if(sections.back().matchedPrefix!=0&&*nextSlash!='\0')
-							{
-							/* Match this section name against the unmatched suffix of the tag path: */
-							char* cPtr1;
-							const char* cPtr2;
-							for(cPtr1=section,cPtr2=matchedPrefix;cPtr1<sPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
-								;
-							if(cPtr1==sPtr&&cPtr2==nextSlash)
-								{
-								matchedPrefix=nextSlash+1;
-								for(nextSlash=matchedPrefix;*nextSlash!='/'&&*nextSlash!='\0';++nextSlash)
-									;
-								sm.matchedPrefix=matchedPrefix;
-								sm.nextSlash=nextSlash;
-								}
-							}
-						
-						/* Push the section onto the stack: */
-						sections.push_back(sm);
-						
-						/* Skip the rest of the line: */
-						state=SKIPLINE;
-						}
-					else
-						*(sPtr++)=char(c);
-					break;
-				
-				case VALUEWS:
-					if(c=='\n'||c=='#')
-						{
-						/* Value is empty; do nothing */
-						
-						if(c=='#')
-							state=COMMENT;
-						else
-							{
-							/* Parse next line: */
-							++lineNumber;
-							state=LINE;
-							wsPtr=whitespace;
-							}
-						}
-					else if(c=='+')
-						state=VALUEWSPLUS;
-					else if(!isspace(c))
-						{
-						state=VALUE;
-						value.clear();
-						if(c=='\\')
-							escaped=true;
-						else
-							value.push_back(char(c));
-						// valueContinuation=false;
-						}
-					break;
-				
-				case VALUEWSPLUS:
-					if(c=='=')
-						state=VALUEWSPLUSEQUAL;
-					else
-						throw MalformedConfigFileError("Malformed += list continuation",lineNumber,fileName);
-					break;
-				
-				case VALUEWSPLUSEQUAL:
-					if(c=='(')
-						{
-						state=VALUE;
-						value.clear();
-						// valueContinuation=true;
-						}
-					else if(c=='\n'||!isspace(c))
-						throw MalformedConfigFileError("Malformed += list continuation",lineNumber,fileName);
-					break;
-				
-				case VALUE:
-					if(escaped)
-						{
-						if(c=='\n')
-							{
-							++lineNumber;
-							state=VALUESKIPWS;
-							}
-						else
-							{
-							/* Escape sequences other than line breaks are copied verbatim to be parsed by value coders: */
-							value.push_back('\\');
-							value.push_back(char(c));
-							}
-						escaped=false;
-						}
-					else if(c=='\\')
-						escaped=true;
-					else if(c=='"'||c=='\'')
-						{
-						if(quote==c)
-							{
-							/* End a quote: */
-							quote=-1;
-							}
-						else if(quote==-1)
-							{
-							/* Start a quote: */
-							quote=c;
-							}
-						value.push_back(c);
-						}
-					else if(c=='\n'||(c=='#'&&quote==-1))
-						{
-						/* Value is finished */
-						
-						if(c=='#')
-							state=COMMENT;
-						else
-							{
-							/* Parse next line: */
-							++lineNumber;
-							state=LINE;
-							wsPtr=whitespace;
-							}
-						}
-					else
-						value.push_back(c);
-					break;
-				
-				case VALUESKIPWS:
-					if(c=='\\')
-						{
-						state=VALUE;
-						escaped=true;
-						}
-					else if(c=='"'||c=='\'')
-						{
-						if(quote==c)
-							{
-							/* End a quote: */
-							quote=-1;
-							}
-						else if(quote==-1)
-							{
-							/* Start a quote: */
-							quote=c;
-							}
-						state=VALUE;
-						value.push_back(c);
-						}
-					else if(c=='\n'||(c=='#'&&quote==-1))
-						{
-						/* Value is finished */
-						
-						if(c=='#')
-							state=COMMENT;
-						else
-							{
-							/* Parse next line: */
-							++lineNumber;
-							state=LINE;
-							wsPtr=whitespace;
-							}
-						}
-					else if(!isspace(c))
-						{
-						state=VALUE;
-						value.push_back(c);
-						}
-					break;
-				
-				case SKIPVALUE:
-					if(escaped)
-						{
-						if(c=='\n')
-							++lineNumber;
-						escaped=false;
-						}
-					else if(c=='\\')
-						escaped=true;
-					else if(c=='"'||c=='\'')
-						{
-						if(quote==c)
-							{
-							/* End a quote: */
-							quote=-1;
-							}
-						else if(quote==-1)
-							{
-							/* Start a quote: */
-							quote=c;
-							}
-						}
-					else if(c=='\n'||(c=='#'&&quote==-1))
-						{
-						/* Value is skipped: */
-						copyChars=true;
-						
-						if(c=='#')
-							state=COMMENT;
-						else
-							{
-							/* Parse the next line: */
-							++lineNumber;
-							state=LINE;
-							wsPtr=whitespace;
-							}
-						}
-					break;
-				
-				case COMMENT:
-					if(c=='\n')
-						{
-						/* Parse the next line: */
-						++lineNumber;
-						state=LINE;
-						wsPtr=whitespace;
-						}
-					break;
-				
-				case SKIPLINE:
-					if(c=='\n')
-						{
-						/* Parse the next line: */
-						++lineNumber;
-						state=LINE;
-						wsPtr=whitespace;
-						}
-					else if(c=='#')
-						state=COMMENT;
-					else if(!isspace(c))
-						throw MalformedConfigFileError("Dangling bits at line end",lineNumber,fileName);
-					break;
-				}
-			
-			if(copyChars)
-				fputc(c,tempFile.getFilePtr());
-			}
-		}
-	catch(...)
-		{
-		/* Delete the temporary file: */
-		unlink(tempFileName);
-		
-		/* Re-throw the exception: */
-		throw;
-		}
-	
-	/* Atomically replace the original file with the temporary file: */
-	if(rename(tempFileName,fileName)!=0)
-		{
-		/* Delete the temporary file and throw an exception: */
-		int error=errno;
-		unlink(tempFileName);
-		throwStdErr("Misc::ConfigurationFile::patchFile: Unable to patch file %s due to error %d (%s)",fileName,error,strerror(error));
+		File file(fileName.c_str(),"wt");
+		rootSection->save(file,0);
 		}
 	}
 
@@ -1433,33 +631,9 @@ ConfigurationFileSection ConfigurationFileSection::getSection(const char* relati
 	return ConfigurationFileSection(baseSection->getSection(relativePath));
 	}
 
-void ConfigurationFileSection::clear(void)
-	{
-	baseSection->clear();
-	}
-
-void ConfigurationFileSection::removeSubsection(const std::string& subsectionName)
-	{
-	baseSection->removeSubsection(subsectionName);
-	}
-
-void ConfigurationFileSection::removeTag(const std::string& tag)
-	{
-	baseSection->removeTag(tag);
-	}
-
 /**********************************
 Methods of class ConfigurationFile:
 **********************************/
-
-void ConfigurationFile::load(const char* newFileName)
-	{
-	/* Call base class method: */
-	ConfigurationFileBase::load(newFileName);
-	
-	/* Reset the current section pointer to the root section: */
-	baseSection=rootSection;
-	}
 
 std::string ConfigurationFile::getCurrentPath(void) const
 	{

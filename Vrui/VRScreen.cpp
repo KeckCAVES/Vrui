@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2018 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/VRScreen.h>
-
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -37,45 +35,31 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/Vrui.h>
 
+#include <Vrui/VRScreen.h>
+
 namespace Vrui {
 
 /*************************
 Methods of class VRScreen:
 *************************/
 
-void VRScreen::inputDeviceStateChangeCallback(InputGraphManager::InputDeviceStateChangeCallbackData* cbData)
-	{
-	/* Set screen state if this is our tracking device: */
-	if(deviceMounted&&cbData->inputDevice==device)
-		enabled=cbData->newEnabled;
-	}
-
 VRScreen::VRScreen(void)
 	:screenName(0),
 	 deviceMounted(false),device(0),
-	 transform(ONTransform::identity),inverseTransform(ONTransform::identity),
-	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity),
-	 intersect(true),
-	 enabled(true)
+	 transform(ONTransform::identity),inverseTransform(ONTransform::identity)
 	{
 	screenSize[0]=screenSize[1]=Scalar(0);
-	
-	/* Register callbacks with the input graph manager: */
-	getInputGraphManager()->getInputDeviceStateChangeCallbacks().add(this,&VRScreen::inputDeviceStateChangeCallback);
 	}
 
 VRScreen::~VRScreen(void)
 	{
 	delete[] screenName;
-	
-	/* Unregister callbacks with the input graph manager: */
-	getInputGraphManager()->getInputDeviceStateChangeCallbacks().remove(this,&VRScreen::inputDeviceStateChangeCallback);
 	}
 
 void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read the screen's name: */
-	std::string name=configFileSection.retrieveString("./name",configFileSection.getName());
+	std::string name=configFileSection.retrieveString("./name");
 	screenName=new char[name.size()+1];
 	strcpy(screenName,name.c_str());
 	
@@ -88,30 +72,16 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		device=findInputDevice(deviceName.c_str());
 		if(device==0)
 			Misc::throwStdErr("VRScreen: Mounting device \"%s\" not found",deviceName.c_str());
-		attachToDevice(device);
 		}
 	
 	/* Retrieve screen position/orientation in physical or device coordinates: */
-	try
-		{
-		/* Try reading the screen transformation directly: */
-		transform=configFileSection.retrieveValue<ONTransform>("./transform");
-		}
-	catch(std::runtime_error)
-		{
-		/* Fall back to reading the screen's origin and axis directions: */
-		Point origin=configFileSection.retrieveValue<Point>("./origin");
-		Vector horizontalAxis=configFileSection.retrieveValue<Vector>("./horizontalAxis");
-		Vector verticalAxis=configFileSection.retrieveValue<Vector>("./verticalAxis");
-		ONTransform::Rotation rot=ONTransform::Rotation::fromBaseVectors(horizontalAxis,verticalAxis);
-		transform=ONTransform(origin-Point::origin,rot);
-		}
-	
-	/* Read the screen's size: */
+	Point origin=configFileSection.retrieveValue<Point>("./origin");
+	Vector horizontalAxis=configFileSection.retrieveValue<Vector>("./horizontalAxis");
 	screenSize[0]=configFileSection.retrieveValue<Scalar>("./width");
+	Vector verticalAxis=configFileSection.retrieveValue<Vector>("./verticalAxis");
 	screenSize[1]=configFileSection.retrieveValue<Scalar>("./height");
-	
-	/* Apply a rotation around a single axis: */
+	ONTransform::Rotation rot=ONTransform::Rotation::fromBaseVectors(horizontalAxis,verticalAxis);
+	transform=ONTransform(origin-Point::origin,rot);
 	Point rotateCenter=configFileSection.retrieveValue<Point>("./rotateCenter",Point::origin);
 	Vector rotateAxis=configFileSection.retrieveValue<Vector>("./rotateAxis",Vector(1,0,0));
 	Scalar rotateAngle=configFileSection.retrieveValue<Scalar>("./rotateAngle",Scalar(0));
@@ -122,64 +92,14 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		screenRotation*=ONTransform::translateToOriginFrom(rotateCenter);
 		transform.leftMultiply(screenRotation);
 		}
-	
-	/* Apply an arbitrary pre-transformation: */
-	ONTransform preTransform=configFileSection.retrieveValue<ONTransform>("./preTransform",ONTransform::identity);
-	transform.leftMultiply(preTransform);
-	
-	/* Finalize the screen transformation: */
-	transform.renormalize();
 	inverseTransform=Geometry::invert(transform);
-	
-	/* Check if the screen is projected off-axis: */
-	offAxis=configFileSection.retrieveValue<bool>("./offAxis",offAxis);
-	if(offAxis)
-		{
-		/* Create the inverse of the 2D homography from clip space to rectified screen space in screen coordinates: */
-		PTransform2 sHomInv=PTransform2::identity;
-		sHomInv.getMatrix()(0,0)=Scalar(2)/screenSize[0];
-		sHomInv.getMatrix()(0,2)=Scalar(-1);
-		sHomInv.getMatrix()(1,1)=Scalar(2)/screenSize[1];
-		sHomInv.getMatrix()(1,2)=Scalar(-1);
-		sHomInv.getMatrix()(2,2)=Scalar(1);
-		
-		/* Retrieve the 2D homography from clip space to projected screen space in screen coordinates: */
-		PTransform2 pHom=configFileSection.retrieveValue<PTransform2>("./homography");
-		
-		/* Calculate the screen space homography: */
-		screenHomography=pHom*sHomInv;
-		
-		/* Calculate the clip space homography: */
-		PTransform2 hom=sHomInv*pHom;
-		for(int i=0;i<3;++i)
-			for(int j=0;j<3;++j)
-				inverseClipHomography.getMatrix()(i<2?i:3,j<2?j:3)=hom.getMatrix()(i,j);
-		
-		/* Put in correction factors to keep the frustum's far plane in the same position: */
-		inverseClipHomography.getMatrix()(2,0)=inverseClipHomography.getMatrix()(3,0);
-		inverseClipHomography.getMatrix()(2,1)=inverseClipHomography.getMatrix()(3,1);
-		
-		inverseClipHomography.doInvert();
-		}
-	
-	/* Read the intersect flag: */
-	intersect=configFileSection.retrieveValue<bool>("./intersect",intersect);
 	}
 
-void VRScreen::attachToDevice(InputDevice* newDevice)
+void VRScreen::attachToDevice(const InputDevice* newDevice)
 	{
 	/* Set the device to which the screen is mounted, and update the mounted flag: */
 	deviceMounted=newDevice!=0;
 	device=newDevice;
-	
-	/* Update the screen's state: */
-	if(deviceMounted)
-		{
-		/* Check if the mounting device is currently enabled: */
-		enabled=getInputGraphManager()->isEnabled(device);
-		}
-	else
-		enabled=true;
 	}
 
 void VRScreen::setSize(Scalar newWidth,Scalar newHeight)

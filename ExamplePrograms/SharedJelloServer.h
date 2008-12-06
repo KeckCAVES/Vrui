@@ -1,7 +1,7 @@
 /***********************************************************************
 SharedJelloServer - Dedicated server program to allow multiple clients
 to collaboratively smack around a Jell-O crystal.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -24,25 +24,29 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define SHAREDJELLOSERVER_INCLUDED
 
 #include <vector>
-#include <Misc/HashTable.h>
-#include <Threads/Mutex.h>
 #include <Threads/Thread.h>
-#include <Threads/TripleBuffer.h>
-#include <Comm/NetPipe.h>
-#include <Comm/ListeningTCPSocket.h>
+#include <Threads/Mutex.h>
+#include <Comm/TCPSocket.h>
 #include <Geometry/Box.h>
 
+#include "JelloAtom.h"
 #include "JelloCrystal.h"
-#include "SharedJelloProtocol.h"
+#include "SharedJelloPipe.h"
 
-class SharedJelloServer:private SharedJelloProtocol
+class SharedJelloServer
 	{
 	/* Embedded classes: */
 	private:
+	typedef JelloCrystal::Scalar Scalar;
+	typedef JelloCrystal::Point Point;
+	typedef JelloCrystal::Vector Vector;
+	typedef JelloCrystal::Rotation Rotation;
+	typedef JelloCrystal::ONTransform ONTransform;
+	typedef JelloCrystal::Ray Ray;
+	typedef JelloCrystal::Box Box;
 	typedef JelloCrystal::AtomID AtomID;
 	public:
 	typedef JelloCrystal::Index Index; // Index type for the atom array
-	typedef JelloCrystal::Box Box; // Type for the simulation domain of the Jell-O crystal
 	
 	private:
 	struct ClientState // Structure to hold the input device state of a connected client
@@ -51,32 +55,27 @@ class SharedJelloServer:private SharedJelloProtocol
 		public:
 		struct StateUpdate // Structure to hold the contents of a state update packet
 			{
-			/* Embedded classes: */
-			public:
-			struct DraggerState // Structure describing the state of a dragger
-				{
-				/* Elements: */
-				public:
-				Card id; // Unique per-client dragger ID
-				bool rayBased; // Flag whether the dragger is ray-based instead of point-based
-				Ray ray; // Selection ray for ray-based draggers
-				ONTransform transform; // Current dragger transformation
-				bool active; // Flag if the dragger is currently active
-				};
-			
 			/* Elements: */
 			public:
-			unsigned int numDraggers; // Number of dragging tools in the state update
-			DraggerState* draggerStates; // Array of dragger states
+			int numDraggers; // Number of dragging tools in the state update
+			unsigned int* draggerIDs; // Array of unique (per client) IDs for each dragger, to detect dynamic creation/deletion
+			bool* draggerRayBaseds; // Array of flags if a dragger has ray-based selection
+			Ray* draggerRays; // Array of ray directions for each dragger
+			ONTransform* draggerTransformations; // Array of dragger positions/orientations
+			bool* draggerActives; // Array of active flags for each dragger
 			
 			/* Constructors and destructors: */
 			StateUpdate(void)
-				:numDraggers(0),draggerStates(0)
+				:numDraggers(0),draggerIDs(0),draggerRayBaseds(0),draggerRays(0),draggerTransformations(0),draggerActives(0)
 				{
 				};
 			~StateUpdate(void)
 				{
-				delete[] draggerStates;
+				delete[] draggerIDs;
+				delete[] draggerRayBaseds;
+				delete[] draggerRays;
+				delete[] draggerTransformations;
+				delete[] draggerActives;
 				};
 			};
 		
@@ -84,28 +83,28 @@ class SharedJelloServer:private SharedJelloProtocol
 			{
 			/* Elements: */
 			public:
+			unsigned int draggerID; // ID of the locking dragger
 			AtomID draggedAtom; // ID of the locked atom
 			ONTransform dragTransformation; // The dragging transformation applied to the locked atom
 			};
 		
-		typedef Misc::HashTable<unsigned int,AtomLock> AtomLockMap; // Hash table to map dragger IDs to atom locks
-		
 		/* Elements: */
 		public:
-		Threads::Mutex pipeMutex; // Mutex serializing access to the pipe
-		Comm::NetPipePtr pipe; // Communication pipe connected to the client
+		SharedJelloPipe pipe; // Communication pipe connected to the client
 		Threads::Thread communicationThread; // Thread receiving state updates from the client
 		bool connected; // Flag if the client's connection protocol has finished
 		unsigned int parameterVersion; // Version number of parameter set on the client side
-		Threads::TripleBuffer<StateUpdate> stateUpdates; // Triple buffer of state update packets
-		AtomLockMap atomLocks; // Map of atom locks held by this client
+		StateUpdate stateUpdates[3]; // Triple buffer of state update packets
+		volatile int lockedIndex; // Buffer index currently locked by the consumer
+		volatile int mostRecentIndex; // Buffer index of most recently produced value
+		std::vector<AtomLock> atomLocks; // List of atom locks held by this client
 		
 		/* Constructors and destructors: */
-		ClientState(Comm::NetPipePtr sPipe)
-			:pipe(sPipe),
+		ClientState(const Comm::TCPSocket& socket)
+			:pipe(&socket),
 			 connected(false),
 			 parameterVersion(0),
-			 atomLocks(17)
+			 lockedIndex(0),mostRecentIndex(0)
 			{
 			};
 		};
@@ -124,7 +123,7 @@ class SharedJelloServer:private SharedJelloProtocol
 	unsigned int parameterVersion; // Version number of simulation parameters set in Jell-O crystal
 	
 	/* Client communication state: */
-	Comm::ListeningTCPSocket listenSocket; // Listening socket for incoming client connections
+	Comm::TCPSocket listenSocket; // Listening socket for incoming client connections
 	Threads::Thread listenThread; // Thread listening for incoming connections on the listening port
 	Threads::Mutex clientStateListMutex; // Mutex protecting the client state list (not the included structures)
 	ClientStateList clientStates; // List of client state structures
@@ -135,7 +134,7 @@ class SharedJelloServer:private SharedJelloProtocol
 	
 	/* Constructors and destructors: */
 	public:
-	SharedJelloServer(const Index& numAtoms,const Box& domain,int listenPortID); // Creates a shared Jell-O server with the given crystal size and listen port ID (assigns dynamic port if port ID is negative)
+	SharedJelloServer(const Index& numAtoms,int listenPortID); // Creates a shared Jell-O server with the given crystal size and listen port ID (assigns dynamic port if port ID is negative)
 	~SharedJelloServer(void); // Destroys the shared Jell-O server
 	
 	/* Methods: */

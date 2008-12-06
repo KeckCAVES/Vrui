@@ -1,7 +1,7 @@
 /***********************************************************************
 Vislet - Abstract base class for application-independent visualization
 plug-ins that can be loaded into Vrui applications on demand.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2007 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,7 +28,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 class GLContextData;
-class ALContextData;
 namespace Vrui {
 class VisletManager;
 }
@@ -51,12 +50,12 @@ class VisletFactory:public Plugins::Factory
 class Vislet
 	{
 	/* Elements: */
-	private:
+	protected:
 	bool active; // Flag if the vislet is active (enabled)
 	
 	/* Constructors and destructors: */
 	public:
-	Vislet(void); // Initializes vislet with defaults from given factory; vislet is created in "disabled" state
+	Vislet(void); // Initializes vislet with defaults from given factory
 	virtual ~Vislet(void); // Destroys the vislet
 	
 	/* Methods: */
@@ -65,11 +64,10 @@ class Vislet
 		{
 		return active;
 		}
-	virtual void disable(void); // Disables the vislet; called for the last time after the end of Vrui's main loop if vislet is active at that time
-	virtual void enable(void); // Enables the vislet; called for the first time before the start of Vrui's main loop
+	virtual void disable(void); // Disables the vislet
+	virtual void enable(void); // Enables the vislet
 	virtual void frame(void); // Method called exactly once every frame
-	virtual void display(GLContextData& contextData) const; // Method for rendering the vislet's current state into the given OpenGL context
-	virtual void sound(ALContextData& contextData) const; // Method for rendering the vislet's current sound state into the given OpenAL context
+	virtual void display(GLContextData& contextData) const; // Method for rendering the vislet's current state into the current OpenGL context
 	};
 
 }

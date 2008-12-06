@@ -1,7 +1,7 @@
 /***********************************************************************
-TCPPipe - Class for high-performance reading/writing from/to connected
-TCP sockets.
-Copyright (c) 2010-2015 Oliver Kreylos
+TCPPipe - Class layering an endianness-safe pipe abstraction over a
+TCPSocket.
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -24,53 +24,99 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_TCPPIPE_INCLUDED
 #define COMM_TCPPIPE_INCLUDED
 
-#include <Comm/NetPipe.h>
-
-/* Forward declarations: */
-namespace Comm {
-class ListeningTCPSocket;
-}
+#include <Misc/Endianness.h>
+#include <Comm/TCPSocket.h>
 
 namespace Comm {
 
-class TCPPipe:public NetPipe
+class TCPPipe:public TCPSocket
 	{
+	/* Embedded classes: */
+	public:
+	enum Endianness // Enumerated type to enforce pipe endianness
+		{
+		DontCare,LittleEndian,BigEndian,Automatic
+		};
+	
 	/* Elements: */
 	private:
-	int fd; // File descriptor of the underlying TCP socket
-	
-	/* Protected methods from IO::File: */
-	protected:
-	virtual size_t readData(Byte* buffer,size_t bufferSize);
-	virtual void writeData(const Byte* buffer,size_t bufferSize);
-	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
+	bool readMustSwapEndianness; // Flag if incoming data has to be endianness-swapped
+	bool writeMustSwapEndianness; // Flag if outgoing data has to be endianness-swapped
 	
 	/* Constructors and destructors: */
 	public:
-	TCPPipe(const char* hostName,int portId); // Opens a TCP socket connected to the given port on the given host with "DontCare" endianness setting
-	TCPPipe(ListeningTCPSocket& listenSocket); // Opens a TCP socket connected to a waiting incoming socket on the given listening socket with "DontCare" endianness setting
+	TCPPipe(std::string hostname,int portId,Endianness sEndianness =Automatic); // Creates a pipe connected to a remote host
+	TCPPipe(const TCPSocket& socket,Endianness sEndianness =Automatic); // Creates a pipe layered over an existing (receiving) TCP socket
 	private:
 	TCPPipe(const TCPPipe& source); // Prohibit copy constructor
 	TCPPipe& operator=(const TCPPipe& source); // Prohibit assignment operator
+	
+	/* Methods: */
 	public:
-	virtual ~TCPPipe(void);
-	
-	/* Methods from IO::File: */
-	virtual int getFd(void) const;
-	
-	/* Methods from Pipe: */
-	virtual bool waitForData(void) const;
-	virtual bool waitForData(const Misc::Time& timeout) const;
-	virtual void shutdown(bool read,bool write);
-	
-	/* Methods from NetPipe: */
-	virtual int getPortId(void) const;
-	virtual std::string getAddress(void) const;
-	virtual std::string getHostName(void) const;
-	virtual int getPeerPortId(void) const;
-	virtual std::string getPeerAddress(void) const;
-	virtual std::string getPeerHostName(void) const;
+	template <class DataParam>
+	DataParam read(void) // Reads single value
+		{
+		DataParam result;
+		blockingRead(&result,sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(result);
+		return result;
+		}
+	template <class DataParam>
+	DataParam& read(DataParam& data) // Reads single value through reference
+		{
+		blockingRead(&data,sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(data);
+		return data;
+		}
+	template <class DataParam>
+	size_t read(DataParam* data,size_t numItems) // Reads array of values
+		{
+		blockingRead(data,numItems*sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(data,numItems);
+		return numItems;
+		}
+	template <class DataParam>
+	void write(const DataParam& data) // Writes single value
+		{
+		if(writeMustSwapEndianness)
+			{
+			DataParam temp=data;
+			Misc::swapEndianness(temp);
+			blockingWrite(&temp,sizeof(DataParam));
+			}
+		else
+			blockingWrite(&data,sizeof(DataParam));
+		}
+	template <class DataParam>
+	void write(const DataParam* data,size_t numItems) // Writes array of values
+		{
+		if(writeMustSwapEndianness)
+			{
+			for(size_t i=0;i<numItems;++i)
+				{
+				DataParam temp=data[i];
+				Misc::swapEndianness(temp);
+				blockingWrite(&temp,sizeof(DataParam));
+				}
+			}
+		else
+			blockingWrite(data,sizeof(DataParam)*numItems);
+		}
 	};
+
+/***********************************
+Specializations of template methods:
+***********************************/
+
+template <>
+std::string TCPPipe::read<std::string>(void);
+template <>
+std::string& TCPPipe::read<std::string>(std::string&);
+template <>
+void TCPPipe::write<std::string>(const std::string&);
 
 }
 

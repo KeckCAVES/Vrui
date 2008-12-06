@@ -1,6 +1,7 @@
 ########################################################################
 # Makefile for the Virtual Reality VRML viewer.
-# Copyright (c) 2000-2015 Oliver Kreylos
+# source dependency maintenance.
+# Copyright (c) 2000-2008 Oliver Kreylos
 #
 # This file is part of the Virtual Reality VRML viewer (VRMLViewer).
 #
@@ -20,56 +21,95 @@
 # 02111-1307 USA
 ########################################################################
 
-# Directory containing the Vrui build system. The directory below
-# matches the default Vrui installation; if Vrui's installation
-# directory was changed during Vrui's installation, the directory below
-# must be adapted.
-VRUI_MAKEDIR := $(HOME)/Vrui-4.0/share/make
+# Set the Vrui installation directory:
+VRUIDIR = $(HOME)/Vrui-1.0
+
+# Set up additional flags for the C++ compiler:
+CFLAGS = 
+
+# Include the Vrui application makefile fragment:
 ifdef DEBUG
-  VRUI_MAKEDIR := $(VRUI_MAKEDIR)/debug
+  # Build debug version of the applications, using the debug version of Vrui:
+  include $(VRUIDIR)/etc/Vrui.debug.makeinclude
+  CFLAGS += -g2 -O0
+else
+  # Build release version of the applications, using the release version of Vrui:
+  include $(VRUIDIR)/etc/Vrui.makeinclude
+  CFLAGS += -g0 -O3 -DNDEBUG
 endif
 
-# Include definitions for the system environment and system-provided
-# packages
-include $(VRUI_MAKEDIR)/SystemDefinitions
-include $(VRUI_MAKEDIR)/Packages.System
-include $(VRUI_MAKEDIR)/Configuration.Vrui
-include $(VRUI_MAKEDIR)/Packages.Vrui
+# Pattern rules to compile C++ sources:
+o/%.o: %.cpp
+	@mkdir -p o/$(*D)
+	@echo Compiling $<...
+	@g++ -c -o $@ $(VRUI_CFLAGS) $(CFLAGS) $<
 
-########################################################################
-# List common packages used by all components of this project
-# (Supported packages can be found in $(VRUI_MAKEDIR)/Packages.*)
-########################################################################
+# Pattern rule to link executables:
+exe/%:
+	@mkdir -p exe
+	@echo Linking $@...
+	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
 
-PACKAGES = MYVRUI
-
-########################################################################
-# Specify all final targets
-########################################################################
-
-ALL = $(EXEDIR)/VRMLViewer
+ALL = exe/VRMLViewer
 
 .PHONY: all
 all: $(ALL)
 
-########################################################################
-# Specify other actions to be performed on a `make clean'
-########################################################################
+.PHONY: clean
+clean:
+	-rm -rf o exe
 
-.PHONY: extraclean
-extraclean:
+FIELD_SOURCES = Fields/SFBool.cpp \
+                Fields/SFInt32.cpp \
+                Fields/MFInt32.cpp \
+                Fields/SFFloat.cpp \
+                Fields/MFFloat.cpp \
+                Fields/SFString.cpp \
+                Fields/MFString.cpp \
+                Fields/SFColor.cpp \
+                Fields/MFColor.cpp \
+                Fields/SFVec2f.cpp \
+                Fields/SFVec3f.cpp \
+                Fields/SFRotation.cpp \
+                Fields/MFRotation.cpp
 
-.PHONY: extrasqueakyclean
-extrasqueakyclean:
+NODE_SOURCES = VRMLNode.cpp \
+               GroupNode.cpp \
+               RootNode.cpp \
+               AnchorNode.cpp \
+               BillboardNode.cpp \
+               CollisionNode.cpp \
+               TransformNode.cpp \
+               ShapeNode.cpp \
+               AppearanceNode.cpp \
+               AttributeNode.cpp \
+               MaterialNode.cpp \
+               ImageTextureNode.cpp \
+               TextureTransformNode.cpp \
+               ColorInterpolatorNode.cpp \
+               BoxNode.cpp \
+               CylinderNode.cpp \
+               ConeNode.cpp \
+               SphereNode.cpp \
+               FontStyleNode.cpp \
+               TextNode.cpp \
+               EllipsoidNode.cpp \
+               SpaceSeparatedPointSetReaderNode.cpp \
+               FormattedPointSetReaderNode.cpp \
+               PointSetNode.cpp \
+               ArcInfoExportFileIndexedLineSetReaderNode.cpp \
+               IndexedLineSetNode.cpp \
+               IndexedFaceSetNode.cpp \
+               TextureCoordinateNode.cpp \
+               ColorNode.cpp \
+               NormalNode.cpp \
+               CoordinateNode.cpp \
+               LODNode.cpp \
+               InlineNode.cpp \
+               EarthModelNode.cpp \
+               VRMLParser.cpp \
+               VRMLViewer.cpp
 
-# Include basic makefile
-include $(VRUI_MAKEDIR)/BasicMakefile
 
-########################################################################
-# Specify build rules for executables
-########################################################################
-
-SOURCES = $(wildcard Fields/*.cpp) \
-          $(wildcard *.cpp)
-
-$(EXEDIR)/VRMLViewer: $(SOURCES:%.cpp=$(OBJDIR)/%.o)
+exe/VRMLViewer: $(FIELD_SOURCES:%.cpp=o/%.o) \
+                $(NODE_SOURCES:%.cpp=o/%.o)

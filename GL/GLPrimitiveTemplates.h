@@ -1,7 +1,7 @@
 /***********************************************************************
 GLPrimitiveTemplates - Overloaded versions of all OpenGL functions
 related to primitive specification.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLSecondaryColorTemplates.h>
 #include <GL/GLNormalTemplates.h>
+#include <GL/GLFogCoordTemplates.h>
 #include <GL/GLIndexTemplates.h>
 #include <GL/GLVertexTemplates.h>
 

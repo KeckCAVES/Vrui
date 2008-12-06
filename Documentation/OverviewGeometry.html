@@ -109,9 +109,6 @@ The header files in the templatized geometry library can be grouped according to
 <DT>Cone.h</DT>
 <DD>Cone is a class describing truncated upright circular cones in affine space. It is templatized by the scalar type and the dimension of the underlying space. The Cone class supports transformation of cones with orthogonal or any more restrictive transformations.</DD>
 
-<DT>Paraboloid.h</DT>
-<DD>Paraboloid is a class describing upright circular paraboloids in affine space. It is templatized by the scalar type and the dimension of the underlying space. The Paraboloid class supports transformation of paraboloids with orthogonal or any more restrictive transformations.</DD>
-
 <DT>Box.h</DT>
 <DD>Box is a class describing axis-aligned boxes in affine space. It is templatized by the scalar type and the dimension of the underlying space.</DD>
 
@@ -123,45 +120,11 @@ The header files in the templatized geometry library can be grouped according to
 
 <DT>SplinePatch.h</DT>
 <DD>SplinePatch is a class representing parametric non-uniform rectangular tensor-product B-spline surface patches in affine space. It is templatized by the scalar type and the dimension of the underlying space. The SplinePatch class supports transformation of surface patches with arbitrary transformations.</DD>
-
-<DT>BSpline</DT>
-<DD>BSpline is a fully generic class to implement non-rational and rational B-spline curves, surfaces, etc. It is parametrized by the control point type, allowing affine or projective points, and additional attributes to be interpolated along with the control point position. A second parameter defines the tensor dimension, i.e., curves for dimension=1, surfaces for dimension=2, etc.</DD>
-
-<DT>ElevationGrid</DT>
-<DD>ElevationGrid is a helper class to calculate ray intersection tests for regular 2.5D integer-lattice elevation grids.</DD>
-</DL>
-
-<H3>Geodesy Support Classes</H3>
-
-<DL>
-<DT>Geoid</DT>
-<DD>Geoid is a class representing reference ellipsoids used to define coordinate transformations in geodesy. It serves as a central place to define the somewhat complex math to convert between common coordinate systems.</DD>
-
-<DT>AlbersEqualAreaProjection</DT>
-<DD>AlbersEqualAreaProjection is a class representing the Albers equal-area conic projection as a horizontal datum.</DD>
-
-<DT>LambertConformalProjection</DT>
-<DD>LambertConformalProjection is a class representing the Lambert conformal conic projection as a horizontal datum.</DD>
-
-<DT>TransverseMercatorProjection</DT>
-<DD>TransverseMercatorProjection is a class representing generic transverse Mercator projections as horizontal datums.</DD>
-
-<DT>UTMProjection</DT>
-<DD>UTMProjection is a class representing the Universal Transverse Mercator projection as a horizontal datum, using higher-accuracy formulae for forward and inverse projections.</DD>
-
-<DT>GeoCoordinateSystem</DT>
-<DD>GeoCoordinateSystem is an abstract base class representing geodetic coordinate systems such as geocentric Cartesian coordinates, geographic (latitude/longitude) coordinate systems on arbitrary reference ellipsoids, and projected coordinate systems such as Universal Transverse Mercator.</DD>
 </DL>
 
 <H3>Spatial Data Structure Classes</H3>
 
 <DL>
-<DT>PointPicker.h</DT>
-<DD>PointPicker is a functor class to pick a point from a container based on distance from a query point. It is templatized by the scalar type and the dimension of the underlying space.</DD>
-
-<DT>RayPicker.h</DT>
-<DD>RayPicker is a functor class to pick a point from a container based on distance along a query ray, with the constraint that the point has to lie within a cone of given apex angle around the ray. It is templatized by the scalar type and the dimension of the underlying space.</DD>
-
 <DT>ValuedPoint.h</DT>
 <DD>ValuedPoint is a class derived from the Point class, describing an affine point with a single associated data value of arbitrary type. It is templatized by the underlying point type and the type of associated data value.</DD>
 
@@ -193,44 +156,8 @@ The header files in the templatized geometry library can be grouped according to
 <DT>Endianness.h</DT>
 <DD>Endianness.h contains specialized versions of the Misc::EndiannessSwapper class for several geometry data types.</DD>
 
-<DT>IntersectionTests.h</DT>
-<DD>IntersectionTests.h contains functions to test for intersections between various geometric objects.</DD>
-
-<DT>OutputOperators.h</DT>
-<DD>OutputOperators.h contains basic std::ostream-compatible output operators for many geometry classes. The output operators respect the current stream settings for number format, precision, and width, are simple to parse when reading, but not especially pretty.</DD>
-
-<DT>GeometryMarshallers.h</DT>
-<DD>GeometryMarshallers.h contains specialized versions of the Misc::Marshaller class for several geometry data types.</DD>
-
 <DT>GeometryValueCoders.h</DT>
 <DD>GeometryValueCoders.h contains specialized versions of the Misc::ValueCoder class for several geometry data types.</DD>
-
-<DT>LinearUnit.h</DT>
-<DD>LinearUnit is a class to define common units of length measurements and their conversions.</DD>
-
-<DT>PointAligner.h</DT>
-<DD>PointAligner is a generic base class to align two point sets using various transformation types, compatible with the generic optimization classes from the Math library.</DD>
-
-<DT>PointAlignerONTransform.h</DT>
-<DD>PointAlignerONTransform is a generic class derived from PointAligner to align two point sets using a rigid body transformation (any combination of translation and rotation).</DD>
-
-<DT>PointAlignerOGTransform.h</DT>
-<DD>PointAlignerOGTransform is a generic class derived from PointAligner to align two point sets using a rigid body transformation with uniform scaling.</DD>
-
-<DT>PointAlignerATransform.h</DT>
-<DD>PointAlignerATransform is a generic class derived from PointAligner to align two point sets using a general affine transformation.</DD>
-
-<DT>PointAlignerPTransform.h</DT>
-<DD>PointAlignerPTransform is a generic class derived from PointAligner to align two point sets using a general projective transformation.</DD>
-
-<DT>RanSaCPointAligner.h</DT>
-<DD>RanSaCPointAligner is a generic adapter class to optimize point set alignment using a variety of transformation classes via the RanSaC algorithm.</DD>
-
-<DT>LevenbergMarquardtMinimizer.h</DT>
-<DD>LevenbergMarquardtMinimizer is a class implementing a non-linear least-squares optimizer based on a modified Levenberg-Marquardt algorithm, templatized by a functor implementing the minimization target function. This class is obsolete and replaced by the Math::LevenbergMarquardtMinimizer class.</DD>
-
-<DT>AlignPoints.h</DT>
-<DD>AlignPoints.h contains several functions to align two pair-matched point sets using one of several types of transformations. These functions are obsolete and replaced by the PointAligner...Transform classes.</DD>
 </DL>
 
 </BODY>

@@ -1,7 +1,7 @@
 /***********************************************************************
 LocatorToolAdapter - Adapter class to connect a generic locator tool to
 application functionality.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_LOCATORTOOLADAPTER_INCLUDED
 #define VRUI_LOCATORTOOLADAPTER_INCLUDED
 
-#include <Vrui/LocatorTool.h>
+#include <Vrui/Tools/LocatorTool.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -49,8 +49,6 @@ class LocatorToolAdapter
 		{
 		return tool;
 		}
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const; // Stores the tool adapter's state to the given configuration file
-	virtual void getName(std::string& name) const; // Returns a descriptive name for the tool adapter
 	virtual void motionCallback(LocatorTool::MotionCallbackData* cbData); // Callback called when moving
 	virtual void buttonPressCallback(LocatorTool::ButtonPressCallbackData* cbData); // Callback called when button is pressed
 	virtual void buttonReleaseCallback(LocatorTool::ButtonReleaseCallbackData* cbData); // Callback called when button is released

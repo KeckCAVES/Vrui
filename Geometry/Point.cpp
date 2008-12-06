@@ -1,6 +1,6 @@
 /***********************************************************************
 Point - Class for affine points.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -20,9 +20,28 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Geometry/Point.icpp>
+#define GEOMETRY_POINT_IMPLEMENTATION
+
+#ifndef METHODPREFIX
+	#ifdef NONSTANDARD_TEMPLATES
+		#define METHODPREFIX inline
+	#else
+		#define METHODPREFIX
+	#endif
+#endif
+
+#include <Geometry/Point.h>
 
 namespace Geometry {
+
+/******************************
+Static elements of class Point:
+******************************/
+
+template <class ScalarParam,int dimensionParam>
+const Point<ScalarParam,dimensionParam> Point<ScalarParam,dimensionParam>::origin(ScalarParam(0));
+
+#if !defined(NONSTANDARD_TEMPLATES)
 
 /***************************************************************
 Force instantiation of all standard Point classes and functions:
@@ -39,5 +58,7 @@ template const Point<float,3> Point<float,3>::origin;
 template const Point<double,2> Point<double,2>::origin;
 
 template const Point<double,3> Point<double,3>::origin;
+
+#endif
 
 }

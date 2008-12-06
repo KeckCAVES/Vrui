@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColor - Class to represent color values in RGBA format.
-Copyright (c) 2003-2012 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -39,7 +39,7 @@ class GLColorBase
 	
 	/* Elements: */
 	protected:
-	Scalar rgba[numComponentsParam]; // RGBA components
+	Scalar rgba[numComponents]; // RGBA components
 	
 	/* Helper methods: */
 	void copy(GLsizei sNumComponents,const Scalar* sRgba);
@@ -128,13 +128,13 @@ class GLColor<ScalarParam,3>:public GLColorBase<ScalarParam,3>
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,3>& source)
 		{
-		BaseClass::copy(3,source.getRgba());
+		copy(3,source.getRgba());
 		return *this;
 		}
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,4>& source)
 		{
-		BaseClass::copy(3,source.getRgba());
+		copy(3,source.getRgba());
 		return *this;
 		}
 	};
@@ -186,14 +186,14 @@ class GLColor<ScalarParam,4>:public GLColorBase<ScalarParam,4>
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,3>& source)
 		{
-		BaseClass::copy(3,source.getRgba());
+		copy(3,source.getRgba());
 		rgba[3]=GLScalarLimits<typename BaseClass::Scalar>::max;
 		return *this;
 		}
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,4>& source)
 		{
-		BaseClass::copy(4,source.getRgba());
+		copy(4,source.getRgba());
 		return *this;
 		}
 	};

@@ -2,7 +2,7 @@
 MouseDialogNavigationTool - Class providing a newbie-friendly interface
 to the standard MouseNavigationTool using a dialog box of navigation
 options.
-Copyright (c) 2007-2015 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,18 +25,25 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_MOUSEDIALOGNAVIGATIONTOOL_INCLUDED
 #define VRUI_MOUSEDIALOGNAVIGATIONTOOL_INCLUDED
 
+#include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
-#include <Geometry/OrthonormalTransformation.h>
+#include <Geometry/Box.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <GL/gl.h>
+#include <GL/GLObject.h>
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/ToggleButton.h>
-#include <Vrui/NavigationTool.h>
+#include <Images/RGBAImage.h>
+#include <Vrui/Tools/NavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
 namespace GLMotif {
 class PopupWindow;
+}
+namespace Vrui {
+class InputDeviceAdapterMouse;
 }
 
 namespace Vrui {
@@ -47,52 +54,54 @@ class MouseDialogNavigationToolFactory:public ToolFactory
 	{
 	friend class MouseDialogNavigationTool;
 	
-	/* Embedded classes: */
-	private:
-	struct Configuration // Structure containing tool settings
-		{
-		/* Elements: */
-		public:
-		Scalar rotatePlaneOffset; // Offset of rotation plane from screen plane
-		Scalar rotateFactor; // Distance the device has to be moved to rotate by one radians
-		bool dollyCenter; // Flag whether to dolly around the display center or current device position
-		bool scaleCenter; // Flag whether to scale around the display center or current device position
-		Vector dollyingDirection; // Direction of dollying line in physical coordinates
-		Vector scalingDirection; // Direction of scaling line in physical coordinates
-		Scalar dollyFactor; // Distance the device has to be moved along the scaling line to dolly by one physical unit
-		Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
-		Scalar spinThreshold; // Distance the device has to be moved on the last step of rotation to activate spinning
-		int fixedMode; // If >=0, fixes the tool in a single navigation mode without showing the dialog box: 0 - rotating, 1 - panning, 2 - dollying, 3 - scaling
-		
-		/* Constructors and destructors: */
-		Configuration(void); // Creates default configuration
-		
-		/* Methods: */
-		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
-		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
-		};
-	
 	/* Elements: */
-	Configuration configuration; // Default configuration for all tools
+	private:
+	Scalar rotatePlaneOffset; // Offset of rotation plane from screen plane
+	Scalar rotateFactor; // Distance the device has to be moved to rotate by one radians
+	Vector screenDollyingDirection; // Direction of dollying vector in screen's coordinates
+	Vector screenScalingDirection; // Direction of scaling vector in screen's coordinates
+	Scalar dollyFactor; // Distance the device has to be moved along the scaling line to dolly by one physical unit
+	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
+	Scalar spinThreshold; // Distance the device has to be moved on the last step of rotation to activate spinning
+	bool showMouseCursor; // Flag whether to draw a fake mouse cursor at the mouse position
+	Size mouseCursorSize; // Size of mouse cursor (depth ignored)
+	Vector mouseCursorHotspot; // Mouse cursor hotspot coordinates (depth ignored)
+	std::string mouseCursorImageFileName; // Name of the image file containing the mouse cursor texture
+	unsigned int mouseCursorNominalSize; // Size to look for in the cursor image file
 	
 	/* Constructors and destructors: */
 	public:
 	MouseDialogNavigationToolFactory(ToolManager& toolManager);
 	virtual ~MouseDialogNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseDialogNavigationTool:public NavigationTool
+class MouseDialogNavigationTool:public NavigationTool,public GLObject
 	{
 	friend class MouseDialogNavigationToolFactory;
 	
 	/* Embedded classes: */
 	private:
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLuint textureObjectId; // ID of the mouse cursor texture object
+		
+		/* Constructors and destructors: */
+		DataItem(void)
+			{
+			glGenTextures(1,&textureObjectId);
+			}
+		virtual ~DataItem(void)
+			{
+			glDeleteTextures(1,&textureObjectId);
+			}
+		};
+	
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
 		ROTATING,PANNING,DOLLYING,SCALING
@@ -100,17 +109,19 @@ class MouseDialogNavigationTool:public NavigationTool
 	
 	/* Elements: */
 	static MouseDialogNavigationToolFactory* factory; // Pointer to the factory object for this class
-	MouseDialogNavigationToolFactory::Configuration configuration; // Private configuration of this tool
+	
+	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
+	Images::RGBAImage mouseCursorImage; // Image containing the mouse cursor texture
+	Geometry::Box<float,2> mouseCursorTexCoordBox; // Texture coordinate box for the mouse cursor texture
+	
 	GLMotif::PopupWindow* navigationDialogPopup; // Pointer to the navigation dialog window
 	
 	/* Transient navigation state: */
-	ONTransform interactionPlane; // Local coordinate plane in which navigation interactions happen
 	Point currentPos; // Current projected position of mouse input device on screen
-	double lastMoveTime; // Application time at which the projected position last changed
 	NavigationMode navigationMode; // The tool's current navigation mode
 	bool spinning; // Flag whether the tool is currently spinning
 	Point screenCenter; // Center of screen; center of rotation and scaling operations
-	Vector dollyDirection; // Transformation direction of dollying
+	Vector dollyDirection; // Transformation direction of dollying (vector from eye to screen center)
 	Point motionStart; // Start position of mouse motion
 	Vector rotateOffset; // Offset vector applied to device position during rotations
 	Point lastRotationPos; // Last mouse position during rotation
@@ -121,8 +132,8 @@ class MouseDialogNavigationTool:public NavigationTool
 	bool showScreenCenter; // Flag whether to render the screen center
 	
 	/* Private methods: */
-	void startNavigating(void); // Sets up common navigation state
-	Point calcInteractionPos(void) const; // Returns the current device position in the interaction plane
+	Point calcScreenCenter(void); // Calculates the center of the screen containing the input device
+	Point calcScreenPos(void); // Calculates the screen position of the input device
 	void startRotating(void); // Sets up rotation
 	void startPanning(void); // Sets up panning
 	void startDollying(void); // Sets up dollying
@@ -135,13 +146,10 @@ class MouseDialogNavigationTool:public NavigationTool
 	MouseDialogNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~MouseDialogNavigationTool(void);
 	
-	/* Methods from Tool: */
-	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
-	virtual void initialize(void);
-	virtual void deinitialize(void);
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void initContext(GLContextData& contextData) const;
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

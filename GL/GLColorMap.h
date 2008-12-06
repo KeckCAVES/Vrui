@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColorMap - Class to map from scalar values to RGBA colors.
-Copyright (c) 1999-2014 Oliver Kreylos
+Copyright (c) 1999-2005 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -56,7 +56,6 @@ class GLColorMap
 		}
 	GLColorMap(GLenum type,GLfloat alphaMax,GLfloat alphaGamma,GLdouble sMin,GLdouble sMax); // Creates a 256-entry standard color map
 	GLColorMap(GLsizei sNumEntries,const Color* sEntries,GLdouble sMin,GLdouble sMax); // Creates a color map from a color array
-	GLColorMap(GLsizei numKeys,const Color* colors,const GLdouble* keys,GLsizei sNumEntries =256); // Creates a color map from a piecewise linear color function
 	GLColorMap(const char* fileName,GLdouble sMin,GLdouble sMax); // Loads a 256 entry palette from a file
 	GLColorMap(const GLColorMap& source);
 	GLColorMap& operator=(const GLColorMap& source);
@@ -65,7 +64,6 @@ class GLColorMap
 	/* Methods: */
 	GLColorMap& load(const char* fileName); // Loads a 256-entry color map from a file
 	GLColorMap& setColors(GLsizei newNumEntries,const Color* newEntries); // Sets the color map array directly
-	GLColorMap& setColors(GLsizei numKeys,const Color* colors,const GLdouble* keys,GLsizei sNumEntries =256); // Creates a color map from a piecewise linear color function
 	void save(const char* fileName) const; // Saves a 256-entry color map to a file
 	GLdouble getScalarRangeMin(void) const // Returns minimum of scalar value range
 		{

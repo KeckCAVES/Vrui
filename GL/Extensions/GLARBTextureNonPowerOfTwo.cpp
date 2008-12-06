@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureNonPowerOfTwo - OpenGL extension class for the
 GL_ARB_texture_non_power_of_two extension.
-Copyright (c) 2006-2014 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLARBTextureNonPowerOfTwo.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLARBTextureNonPowerOfTwo.h>
 
 /**************************************************
 Static elements of class GLARBTextureNonPowerOfTwo:
 **************************************************/
 
 GL_THREAD_LOCAL(GLARBTextureNonPowerOfTwo*) GLARBTextureNonPowerOfTwo::current=0;
-const char* GLARBTextureNonPowerOfTwo::name="GL_ARB_texture_non_power_of_two";
 
 /******************************************
 Methods of class GLARBTextureNonPowerOfTwo:
@@ -47,7 +46,7 @@ GLARBTextureNonPowerOfTwo::~GLARBTextureNonPowerOfTwo(void)
 
 const char* GLARBTextureNonPowerOfTwo::getExtensionName(void) const
 	{
-	return name;
+	return "GL_ARB_texture_non_power_of_two";
 	}
 
 void GLARBTextureNonPowerOfTwo::activate(void)
@@ -63,13 +62,13 @@ void GLARBTextureNonPowerOfTwo::deactivate(void)
 bool GLARBTextureNonPowerOfTwo::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_ARB_texture_non_power_of_two");
 	}
 
 void GLARBTextureNonPowerOfTwo::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_texture_non_power_of_two"))
 		{
 		/* Create a new extension object: */
 		GLARBTextureNonPowerOfTwo* newExtension=new GLARBTextureNonPowerOfTwo;

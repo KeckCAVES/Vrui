@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVPointSprite - OpenGL extension class for the GL_NV_point_sprite
 extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -45,16 +45,11 @@ typedef void (APIENTRY * PFNGLPOINTPARAMETERIVNVPROC) (GLenum pname, const GLint
 
 #endif
 
-/* Forward declarations of friend functions: */
-void glPointParameteriNV(GLenum pname,GLint param);
-void glPointParameterivNV(GLenum pname,const GLint* params);
-
 class GLNVPointSprite:public GLExtension
 	{
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLNVPointSprite*) current; // Pointer to extension object for current OpenGL context
-	static const char* name; // Extension name
 	PFNGLPOINTPARAMETERINVPROC glPointParameteriNVProc;
 	PFNGLPOINTPARAMETERIVNVPROC glPointParameterivNVProc;
 	

@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -27,10 +27,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 /* Forward declarations: */
 class GLContextData;
 namespace GLMotif {
-struct StyleSheet;
+class StyleSheet;
 class Event;
-class TextEvent;
-class TextControlEvent;
 class WidgetManager;
 class Container;
 }
@@ -57,15 +55,10 @@ class Widget
 	BorderType borderType; // Type of border around widget
 	Box interior; // Interior rectangle of widget (excluding border)
 	ZRange zRange; // Z range of the widget with respect to its exterior
-	bool enabled; // Flag if the widget is enabled, i.e., reacts to events
 	protected:
 	Color borderColor; // Color of widget's border
 	Color backgroundColor; // Color of widget's background
 	Color foregroundColor; // Color of widget's foreground
-	
-	/* "Protected" methods: */
-	public:
-	void unmanageChild(void); // Removes the widget from its parent container; must only be called by parent
 	
 	/* Constructors and destructors: */
 	public:
@@ -77,6 +70,7 @@ class Widget
 		{
 		return name;
 		}
+	void manageChild(void); // Adds a child to its parent container
 	const Container* getParent(void) const // Returns a widget's parent
 		{
 		return parent;
@@ -85,8 +79,6 @@ class Widget
 		{
 		return parent;
 		}
-	void reparent(Container* newParent,bool manageChild =true); // Changes the parent widget of a widget; overrides basic widget settings with those from new parent
-	void manageChild(void); // Adds a child to its parent container
 	const Widget* getRoot(void) const; // Returns the root of a widget tree (a popup widget)
 	Widget* getRoot(void); // Ditto
 	virtual const WidgetManager* getManager(void) const; // Returns a pointer to the widget manager
@@ -112,10 +104,6 @@ class Widget
 		{
 		return zRange;
 		}
-	bool isEnabled(void) const
-		{
-		return enabled;
-		}
 	const Color& getBorderColor(void) const // Returns widget's border color
 		{
 		return borderColor;
@@ -135,24 +123,27 @@ class Widget
 	virtual Vector calcHotSpot(void) const; // Returns a "hot spot" for the widget (usually its center)
 	virtual void setBorderWidth(GLfloat newBorderWidth); // Changes a widget's border width
 	virtual void setBorderType(BorderType newBorderType); // Changes a widget's border type
-	virtual void setBorderColor(const Color& newBorderColor); // Changes a widget's border color
-	virtual void setBackgroundColor(const Color& newBackgroundColor); // Changes a widget's background color
-	virtual void setForegroundColor(const Color& newForegroundColor); // Changes a widget's foreground color
-	virtual void update(void); // Method called whenever a widget changes its visual representation, to facilitate render caching
+	virtual void setBorderColor(const Color& newBorderColor)
+		{
+		borderColor=newBorderColor;
+		}
+	virtual void setBackgroundColor(const Color& newBackgroundColor)
+		{
+		backgroundColor=newBackgroundColor;
+		}
+	virtual void setForegroundColor(const Color& newForegroundColor)
+		{
+		foregroundColor=newForegroundColor;
+		}
 	virtual void draw(GLContextData& contextData) const; // Draws the widget
 	
 	/* User interaction events: */
 	bool isInside(const Point& p) const; // Tests whether a point is inside the widget's bounding box
 	Scalar intersectRay(const Ray& ray,Point& intersection) const; // Intersects a ray with a widget's center plane
-	virtual void setEnabled(bool newEnabled); // Enables or disables the widget
-	virtual bool findRecipient(Event& event); // Determines which widget is to receive a localized event; updates the event object and returns true if a recipient is found
+	virtual bool findRecipient(Event& event); // Determines which widget is to receive a localized event
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);
-	virtual bool giveTextFocus(void); // Method to give text entry focus to a widget; must return false if widget does not accept focus
-	virtual void takeTextFocus(void); // Method to indicate that text entry focus was taken away from the widget
-	virtual void textEvent(const TextEvent& event);
-	virtual void textControlEvent(const TextControlEvent& event);
 	};
 
 }

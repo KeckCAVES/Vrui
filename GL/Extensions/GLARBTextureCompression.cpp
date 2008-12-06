@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureCompression - OpenGL extension class for the
 GL_ARB_texture_compression extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLARBTextureCompression.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLARBTextureCompression.h>
 
 /************************************************
 Static elements of class GLARBTextureCompression:
 ************************************************/
 
 GL_THREAD_LOCAL(GLARBTextureCompression*) GLARBTextureCompression::current=0;
-const char* GLARBTextureCompression::name="GL_ARB_texture_compression";
 
 /****************************************
 Methods of class GLARBTextureCompression:
@@ -55,7 +54,7 @@ GLARBTextureCompression::~GLARBTextureCompression(void)
 
 const char* GLARBTextureCompression::getExtensionName(void) const
 	{
-	return name;
+	return "GL_ARB_texture_compression";
 	}
 
 void GLARBTextureCompression::activate(void)
@@ -71,13 +70,13 @@ void GLARBTextureCompression::deactivate(void)
 bool GLARBTextureCompression::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_ARB_texture_compression");
 	}
 
 void GLARBTextureCompression::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_texture_compression"))
 		{
 		/* Create a new extension object: */
 		GLARBTextureCompression* newExtension=new GLARBTextureCompression;

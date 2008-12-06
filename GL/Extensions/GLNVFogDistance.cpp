@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVFogDistance - OpenGL extension class for the GL_NV_fog_distance
 extension.
-Copyright (c) 2006-2014 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,17 +20,16 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLNVFogDistance.h>
-
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLNVFogDistance.h>
 
 /****************************************
 Static elements of class GLNVFogDistance:
 ****************************************/
 
 GL_THREAD_LOCAL(GLNVFogDistance*) GLNVFogDistance::current=0;
-const char* GLNVFogDistance::name="GL_NV_fog_distance";
 
 /********************************
 Methods of class GLNVFogDistance:
@@ -46,7 +45,7 @@ GLNVFogDistance::~GLNVFogDistance(void)
 
 const char* GLNVFogDistance::getExtensionName(void) const
 	{
-	return name;
+	return "GL_NV_fog_distance";
 	}
 
 void GLNVFogDistance::activate(void)
@@ -62,13 +61,13 @@ void GLNVFogDistance::deactivate(void)
 bool GLNVFogDistance::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_NV_fog_distance");
 	}
 
 void GLNVFogDistance::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_NV_fog_distance"))
 		{
 		/* Create a new extension object: */
 		GLNVFogDistance* newExtension=new GLNVFogDistance;

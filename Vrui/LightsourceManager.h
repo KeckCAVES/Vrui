@@ -1,7 +1,7 @@
 /***********************************************************************
 LightsourceManager - Class to manage light sources in virtual
 environments. Maps created Lightsource objects to OpenGL light sources.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,18 +24,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_LIGHTSOURCEMANAGER_INCLUDED
 #define VRUI_LIGHTSOURCEMANAGER_INCLUDED
 
+#include <GL/GLObject.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Lightsource.h>
 
-/* Forward declarations: */
-class GLContextData;
-namespace Vrui {
-class DisplayState;
-}
-
 namespace Vrui {
 
-class LightsourceManager
+class LightsourceManager:public GLObject
 	{
 	/* Embedded classes: */
 	private:
@@ -58,6 +53,18 @@ class LightsourceManager
 			}
 		};
 	
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		int numLightsources; // Number of light sources supported by the OpenGL context
+		int lastNumLightsources; // Number of light sources enabled in previous rendering pass
+		
+		/* Constructors and destructors: */
+		DataItem(void);
+		virtual ~DataItem(void);
+		};
+	
 	/* Elements: */
 	private:
 	LightsourceListItem* firstLightsource; // Pointer to first light source
@@ -66,13 +73,15 @@ class LightsourceManager
 	/* Constructors and destructors: */
 	public:
 	LightsourceManager(void); // Creates an empty light source manager
-	~LightsourceManager(void); // Destroys the light source manager
+	virtual ~LightsourceManager(void); // Destroys the light source manager
 	
 	/* Methods: */
+	void initContext(GLContextData& contextData) const;
 	Lightsource* createLightsource(bool physical); // Creates an enabled light source with standard OpenGL parameters
 	Lightsource* createLightsource(bool physical,const GLLight& sLight); // Creates an enabled light source with the given OpenGL parameters
 	void destroyLightsource(Lightsource* lightsource); // Destroys the given light source
-	void setLightsources(bool navigationEnabled,DisplayState* displayState,GLContextData& contextData) const; // Sets the light sources in the current OpenGL context
+	void setLightsources(GLContextData& contextData) const; // Sets the light sources in the current OpenGL context using the given navigation transformation
+	void setLightsources(const NavTransform& navTransform,GLContextData& contextData) const; // Sets the light sources in the current OpenGL context using the given navigation transformation
 	};
 
 }

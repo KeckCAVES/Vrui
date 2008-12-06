@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2017 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,22 +24,18 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRDEVICE_INCLUDED
 #define VRDEVICE_INCLUDED
 
-#include <Realtime/Time.h>
 #include <Threads/Thread.h>
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/Internal/VRDeviceState.h>
-#include <VRDeviceDaemon/VRDeviceManager.h>
+#include <Vrui/VRDeviceState.h>
 
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFile;
 }
-namespace Vrui {
-class VRDeviceDescriptor;
-}
 template <class BaseClassParam>
 class VRFactory;
 class VRCalibrator;
+class VRDeviceManager;
 
 class VRDevice
 	{
@@ -53,19 +49,19 @@ class VRDevice
 	Factory* factory; // Pointer to factory that created this object
 	
 	protected:
-	VRDeviceManager* deviceManager; // Manager gathering data from VR devices
 	int numTrackers; // Number of trackers (position reporting devices) connected to device
 	int numButtons; // Number of buttons connected to device
 	int numValuators; // Number of valuators (non-positional analog dials) connected to device
-	TrackerPostTransformation* trackerPostTransformations; // Array of transformations to apply to calibrated tracker measurements
 	private:
 	int* trackerIndices; // Mapping from device tracker indices to "logical" tracker indices
+	TrackerPostTransformation* trackerPostTransformations; // Array of transformations to apply to calibrated tracker measurements
 	int* buttonIndices; // Mapping from device button indices to "logical" button indices
-	int* valuatorIndices; // Mapping from device valuator indices to "logical" valuator indices
 	float* valuatorThresholds; // Array of threshold values around zero for broken-line value mapping
 	float* valuatorExponents; // Array of exponent values for non-linear value mapping
+	int* valuatorIndices; // Mapping from device valuator indices to "logical" valuator indices
 	bool active; // Flag if device is currently active
 	Threads::Thread deviceThread; // Device communication thread
+	VRDeviceManager* deviceManager; // Manager gathering data from VR devices
 	VRCalibrator* calibrator; // Calibrator for tracker measurements
 	
 	/* Private methods: */
@@ -73,23 +69,17 @@ class VRDevice
 	
 	/* Protected methods: */
 	protected:
-	void setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile,const std::string* trackerNames =0); // Sets number of trackers
-	void setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile,const std::string* buttonNames =0); // Sets number of buttons
-	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile,const std::string* valuatorNames =0); // Sets number of valuators
-	unsigned int addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice); // Passes the given new virtual input device to the device manager
+	static void delay(double seconds); // Waits for specified number of seconds
+	void setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile); // Sets number of trackers
+	void setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile); // Sets number of buttons
+	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile); // Sets number of valuators
 	void calcVelocities(int deviceTrackerIndex,Vrui::VRDeviceState::TrackerState& newState); // Calculates tracker velocities based on elapsed time since last measurement
-	void disableTracker(int deviceTrackerIndex); // Disables a tracker (device index given)
-	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state,Vrui::VRDeviceState::TimeStamp timeStamp); // Sets (and calibrates) a tracker (device index given)
-	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state) // Ditto, using current time as time stamp
-		{
-		/* Call the original method with a current time stamp: */
-		setTrackerState(deviceTrackerIndex,state,deviceManager->getTimeStamp());
-		}
+	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state); // Sets (and calibrates) a tracker (device index given)
 	void setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState); // Sets a button state (device index given)
 	void setValuatorState(int deviceValuatorIndex,Vrui::VRDeviceState::ValuatorState newState); // Sets a valuator state (device index given)
 	void updateState(void); // Notifies the device manager that this device's state can be sent to clients
 	void startDeviceThread(void); // Starts the device communication thread
-	void stopDeviceThread(bool cancel =true); // Stops the device communication thread; if flag is true, thread will be cancelled
+	void stopDeviceThread(void); // Stops the device communication thread
 	virtual void deviceThreadMethod(void); // Thread to communicate to device hardware
 	
 	/* Constructors and destructors: */
@@ -99,7 +89,6 @@ class VRDevice
 	static void destroy(VRDevice* object); // Deletes an object
 	
 	/* Methods: */
-	virtual void initialize(void); // Additional method called to perform post-construction initialization steps
 	int getNumTrackers(void) const // Returns number of trackers
 		{
 		return numTrackers;
@@ -124,14 +113,8 @@ class VRDevice
 		{
 		return valuatorIndices[deviceValuatorIndex];
 		};
-	bool isActive(void) const // Returns true if the device is currently active, i.e., device thread is running
-		{
-		return active;
-		}
 	virtual void start(void) =0; // Starts tracking hardware and position reporting
 	virtual void stop(void) =0; // Stops tracking hardware and position reporting
-	virtual void powerOff(int devicePowerFeatureIndex); // Requests to power off the feature with the given per-device index
-	virtual void hapticTick(int deviceHapticFeatureIndex,unsigned int duration); // Requests a haptic tick of the given length in microseconds on the haptic feature with the given per-device index
 	};
 
 #endif

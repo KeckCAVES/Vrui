@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2018 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -23,25 +23,27 @@ with Virtual Jell-O; if not, write to the Free Software Foundation,
 Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include "ClusterJello.h"
-
 #include <stdlib.h>
+#include <iostream>
 #include <vector>
+#include <stdexcept>
 #include <Misc/Timer.h>
-#include <Cluster/MulticastPipe.h>
+#include <Comm/MulticastPipe.h>
 #include <Math/Math.h>
-#include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
+#include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
+#include <GLMotif/TextField.h>
 #include <GLMotif/Button.h>
 #include <Vrui/Vrui.h>
-#include <Vrui/CoordinateManager.h>
 #include <Vrui/ClusterSupport.h>
+
+#include "ClusterJello.h"
 
 /*******************************************
 Methods of class ClusterJello::DraggerState:
@@ -117,14 +119,36 @@ Methods of class ClusterJello:
 
 GLMotif::PopupMenu* ClusterJello::createMainMenu(void)
 	{
-	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
-	mainMenu->setTitle("Virtual Jell-O");
+	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
+	mainMenuPopup->setTitle("Virtual Jell-O");
 	
-	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
+	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
+	
+	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
+	centerDisplayButton->getSelectCallbacks().add(this,&ClusterJello::centerDisplayCallback);
+	
+	GLMotif::ToggleButton* showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&ClusterJello::showSettingsDialogCallback);
 	
-	mainMenu->manageMenu();
-	return mainMenu;
+	mainMenu->manageChild();
+	
+	return mainMenuPopup;
+	}
+
+void ClusterJello::updateSettingsDialog(void)
+	{
+	/* Update the jiggliness slider: */
+	double jiggliness=(Math::log(double(currentSimulationParameters.atomMass))/Math::log(1.1)+32.0)/64.0;
+	jigglinessTextField->setValue(jiggliness);
+	jigglinessSlider->setValue(jiggliness);
+	
+	/* Update the viscosity slider: */
+	viscosityTextField->setValue(1.0-double(currentSimulationParameters.attenuation));
+	viscositySlider->setValue(1.0-double(currentSimulationParameters.attenuation));
+	
+	/* Update the gravity slider: */
+	gravityTextField->setValue(double(currentSimulationParameters.gravity));
+	gravitySlider->setValue(double(currentSimulationParameters.gravity));
 	}
 
 GLMotif::PopupWindow* ClusterJello::createSettingsDialog(void)
@@ -132,44 +156,44 @@ GLMotif::PopupWindow* ClusterJello::createSettingsDialog(void)
 	const GLMotif::StyleSheet& ss=*Vrui::getWidgetManager()->getStyleSheet();
 	
 	settingsDialog=new GLMotif::PopupWindow("SettingsDialog",Vrui::getWidgetManager(),"Settings Dialog");
-	settingsDialog->setCloseButton(true);
-	settingsDialog->setResizableFlags(true,false);
-	settingsDialog->getCloseCallbacks().add(this,&ClusterJello::settingsDialogCloseCallback);
 	
 	GLMotif::RowColumn* settings=new GLMotif::RowColumn("Settings",settingsDialog,false);
-	settings->setNumMinorWidgets(2);
+	settings->setNumMinorWidgets(3);
 	
 	new GLMotif::Label("JigglinessLabel",settings,"Jiggliness");
 	
-	jigglinessSlider=new GLMotif::TextFieldSlider("JigglinessSlider",settings,5,ss.fontHeight*10.0f);
-	jigglinessSlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
-	jigglinessSlider->getTextField()->setFieldWidth(4);
-	jigglinessSlider->getTextField()->setPrecision(2);
+	jigglinessTextField=new GLMotif::TextField("JigglinessTextField",settings,6);
+	jigglinessTextField->setFieldWidth(6);
+	jigglinessTextField->setPrecision(4);
+	
+	jigglinessSlider=new GLMotif::Slider("JigglinessSlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
 	jigglinessSlider->setValueRange(0.0,1.0,0.01);
-	jigglinessSlider->setValue((Math::log(double(currentSimulationParameters.atomMass))/Math::log(1.1)+32.0)/64.0);
 	jigglinessSlider->getValueChangedCallbacks().add(this,&ClusterJello::jigglinessSliderCallback);
 	
 	new GLMotif::Label("ViscosityLabel",settings,"Viscosity");
 	
-	viscositySlider=new GLMotif::TextFieldSlider("ViscositySlider",settings,5,ss.fontHeight*10.0f);
-	viscositySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
-	viscositySlider->getTextField()->setFieldWidth(4);
-	viscositySlider->getTextField()->setPrecision(2);
+	viscosityTextField=new GLMotif::TextField("ViscosityTextField",settings,6);
+	viscosityTextField->setFieldWidth(6);
+	viscosityTextField->setPrecision(2);
+	
+	viscositySlider=new GLMotif::Slider("ViscositySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
 	viscositySlider->setValueRange(0.0,1.0,0.01);
-	viscositySlider->setValue(1.0-double(currentSimulationParameters.attenuation));
 	viscositySlider->getValueChangedCallbacks().add(this,&ClusterJello::viscositySliderCallback);
 	
 	new GLMotif::Label("GravityLabel",settings,"Gravity");
 	
-	gravitySlider=new GLMotif::TextFieldSlider("GravitySlider",settings,5,ss.fontHeight*10.0f);
-	gravitySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
-	gravitySlider->getTextField()->setFieldWidth(4);
-	gravitySlider->getTextField()->setPrecision(1);
+	gravityTextField=new GLMotif::TextField("GravityTextField",settings,6);
+	gravityTextField->setFieldWidth(6);
+	gravityTextField->setPrecision(2);
+	
+	gravitySlider=new GLMotif::Slider("GravitySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
 	gravitySlider->setValueRange(0.0,40.0,0.5);
-	gravitySlider->setValue(double(currentSimulationParameters.gravity));
 	gravitySlider->getValueChangedCallbacks().add(this,&ClusterJello::gravitySliderCallback);
 	
 	settings->manageChild();
+	
+	/* Display the current values: */
+	updateSettingsDialog();
 	
 	return settingsDialog;
 	}
@@ -192,20 +216,20 @@ void* ClusterJello::simulationThreadMethodMaster(void)
 		lastFrameTime=newFrameTime;
 		
 		/* Check if the simulation parameters have been changed: */
-		if(simulationParameters.lockNewValue())
+		if(simulationParameters.hasNewValue())
 			{
 			/* Update the Jell-O crystal's simulation parameters: */
-			const SimulationParameters& sp=simulationParameters.getLockedValue();
+			const SimulationParameters& sp=simulationParameters.lockNewValue();
 			crystal->setAtomMass(sp.atomMass);
 			crystal->setAttenuation(sp.attenuation);
 			crystal->setGravity(sp.gravity);
 			}
 		
 		/* Check if the application has delivered new dragger states: */
-		if(draggerStates.lockNewValue())
+		if(draggerStates.hasNewValue())
 			{
 			/* Process the new dragger states: */
-			const DraggerStates& ds=draggerStates.getLockedValue();
+			const DraggerStates& ds=draggerStates.lockNewValue();
 			for(int draggerIndex=0;draggerIndex<ds.numDraggers;++draggerIndex)
 				{
 				if(ds.draggerActives[draggerIndex])
@@ -267,13 +291,13 @@ void* ClusterJello::simulationThreadMethodMaster(void)
 				{
 				/* Broadcast the crystal state to all slave nodes: */
 				crystal->writeAtomStates(*clusterPipe);
-				clusterPipe->flush();
+				clusterPipe->finishMessage();
 				}
 			
 			/* Update the application's proxy crystal state: */
-			JelloCrystal& pc=proxyCrystal.startNewValue();
+			JelloCrystal& pc=proxyCrystal.startWrite();
 			pc.copyAtomStates(*crystal);
-			proxyCrystal.postNewValue();
+			proxyCrystal.finishWrite();
 			Vrui::requestUpdate();
 			
 			/* Start the next update interval: */
@@ -294,17 +318,17 @@ void* ClusterJello::simulationThreadMethodSlave(void)
 	while(true)
 		{
 		/* Receive the next crystal state update from the master and write it into the application's proxy crystal state: */
-		JelloCrystal& pc=proxyCrystal.startNewValue();
+		JelloCrystal& pc=proxyCrystal.startWrite();
 		pc.readAtomStates(*clusterPipe);
-		proxyCrystal.postNewValue();
+		proxyCrystal.finishWrite();
 		Vrui::requestUpdate();
 		}
 	
 	return 0;
 	}
 
-ClusterJello::ClusterJello(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
+ClusterJello::ClusterJello(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults),
 	 clusterPipe(Vrui::openPipe()),
 	 crystal(0),
 	 atomLocks(17),
@@ -319,13 +343,16 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 	
 	/* Initialize the proxy crystal states: */
 	for(int i=0;i<3;++i)
-		proxyCrystal.getBuffer(i).setNumAtoms(JelloCrystal::Index(4,4,8));
+		proxyCrystal.accessSlot(i).setNumAtoms(JelloCrystal::Index(4,4,8));
 	
 	/* Initialize the crystal renderer: */
 	renderer=new JelloRenderer(proxyCrystal.getLockedValue());
 	
 	/* Determine a good color to draw the domain box: */
-	renderer->setDomainBoxColor(Vrui::getForegroundColor());
+	GLColor<GLfloat,3> domainBoxColor;
+	for(int i=0;i<3;++i)
+		domainBoxColor[i]=1.0f-Vrui::getBackgroundColor()[i];
+	renderer->setDomainBoxColor(domainBoxColor);
 	
 	if(Vrui::isMaster())
 		{
@@ -337,7 +364,7 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 		Vrui::write(clusterPipe,currentSimulationParameters.atomMass);
 		Vrui::write(clusterPipe,currentSimulationParameters.attenuation);
 		Vrui::write(clusterPipe,currentSimulationParameters.gravity);
-		Vrui::flush(clusterPipe);
+		Vrui::finishMessage(clusterPipe);
 		
 		/* Start the simulation thread: */
 		simulationThread.start(this,&ClusterJello::simulationThreadMethodMaster);
@@ -358,8 +385,11 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 	Vrui::setMainMenu(mainMenu);
 	settingsDialog=createSettingsDialog();
 	
-	/* Tell Vrui that navigation space is measured in inches: */
-	Vrui::getCoordinateManager()->setUnit(Geometry::LinearUnit(Geometry::LinearUnit::INCH,1.0));
+	/* Initialize the navigation transformation: */
+	centerDisplayCallback(0);
+	
+	/* Tell Vrui to run in a continuous frame sequence: */
+	// Vrui::updateContinuously();
 	}
 
 ClusterJello::~ClusterJello(void)
@@ -421,7 +451,7 @@ void ClusterJello::toolDestructionCallback(Vrui::ToolManager::ToolDestructionCal
 void ClusterJello::frame(void)
 	{
 	/* Send the current states of all draggers to the simulation thread: */
-	DraggerStates& ds=draggerStates.startNewValue();
+	DraggerStates& ds=draggerStates.startWrite();
 	ds.setNumDraggers(atomDraggers.size());
 	for(int i=0;i<ds.numDraggers;++i)
 		{
@@ -432,13 +462,13 @@ void ClusterJello::frame(void)
 		ds.draggerTransformations[i]=ad->draggerTransformation;
 		ds.draggerActives[i]=ad->active;
 		}
-	draggerStates.postNewValue();
+	draggerStates.finishWrite();
 	
 	/* Check if the simulation thread has delivered a new crystal state: */
-	if(proxyCrystal.lockNewValue())
+	if(proxyCrystal.hasNewValue())
 		{
 		/* Update the Jell-O renderer to draw the new crystal state: */
-		renderer->setCrystal(&proxyCrystal.getLockedValue());
+		renderer->setCrystal(&proxyCrystal.lockNewValue());
 		renderer->update();
 		}
 	}
@@ -449,14 +479,9 @@ void ClusterJello::display(GLContextData& contextData) const
 	renderer->glRenderAction(contextData);
 	}
 
-void ClusterJello::resetNavigation(void)
+void ClusterJello::centerDisplayCallback(Misc::CallbackData* cbData)
 	{
-	/* Set up navigation transformation to transform local physical coordinates to canonical Jell-O space: */
-	Vrui::Point floorDisplayCenter=Vrui::getFloorPlane().project(Vrui::getDisplayCenter());
-	Vrui::Vector floorForward=Geometry::normalize(Vrui::getFloorPlane().project(Vrui::getForwardDirection()));
-	Vrui::Vector floorRight=Geometry::normalize(Geometry::cross(floorForward,Vrui::getFloorPlane().getNormal()));
-	Vrui::Rotation rot=Vrui::Rotation::fromBaseVectors(floorRight,floorForward);
-	Vrui::setNavigationTransformation(Vrui::NavTransform(floorDisplayCenter-Vrui::Point::origin,rot,Vrui::getInchFactor()));
+	Vrui::setNavigationTransformation(Vrui::NavTransform::identity);
 	}
 
 void ClusterJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
@@ -465,43 +490,67 @@ void ClusterJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChange
 	if(cbData->set)
 		{
 		/* Pop up the settings dialog at the same position as the main menu: */
-		Vrui::popupPrimaryWidget(settingsDialog);
+		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);
 	}
 
-void ClusterJello::jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+void ClusterJello::jigglinessSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
 	{
 	/* Compute and set the atom mass: */
-	currentSimulationParameters.atomMass=Scalar(Math::exp(Math::log(1.1)*(cbData->value*64.0-32.0)));
+	double jiggliness=cbData->value;
+	currentSimulationParameters.atomMass=Scalar(Math::exp(Math::log(1.1)*(jiggliness*64.0-32.0)));
 	
 	/* Update the simulation parameters (only relevant on the master node): */
-	simulationParameters.postNewValue(currentSimulationParameters);
+	simulationParameters.write(currentSimulationParameters);
+	
+	/* Update the settings dialog: */
+	updateSettingsDialog();
 	}
 
-void ClusterJello::viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+void ClusterJello::viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the attenuation: */
 	currentSimulationParameters.attenuation=Scalar(1.0-cbData->value);
 	
 	/* Update the simulation parameters (only relevant on the master node): */
-	simulationParameters.postNewValue(currentSimulationParameters);
+	simulationParameters.write(currentSimulationParameters);
+	
+	/* Update the settings dialog: */
+	updateSettingsDialog();
 	}
 
-void ClusterJello::gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+void ClusterJello::gravitySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the gravity: */
 	currentSimulationParameters.gravity=Scalar(cbData->value);
 	
 	/* Update the simulation parameters (only relevant on the master node): */
-	simulationParameters.postNewValue(currentSimulationParameters);
+	simulationParameters.write(currentSimulationParameters);
+	
+	/* Update the settings dialog: */
+	updateSettingsDialog();
 	}
 
-void ClusterJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
+int main(int argc,char* argv[])
 	{
-	showSettingsDialogToggle->setToggle(false);
+	try
+		{
+		/* Create an application object: */
+		char** appDefaults=0;
+		ClusterJello app(argc,argv,appDefaults);
+		
+		/* Run the Vrui main loop: */
+		app.run();
+		}
+	catch(std::runtime_error err)
+		{
+		/* Print an error message and bail out: */
+		std::cerr<<"Caught exception: "<<err.what()<<std::endl;
+		return 1;
+		}
+	
+	/* Exit to OS: */
+	return 0;
 	}
-
-/* Create and execute an application object: */
-VRUI_APPLICATION_RUN(ClusterJello)

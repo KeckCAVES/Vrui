@@ -2,7 +2,7 @@
 HitResult - Base classes to report results of intersection tests between
 rays and geometric objects. Geometry object classes are expected to
 overload this class to return additional information specific to them.
-Copyright (c) 2002-2017 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -56,11 +56,6 @@ class HitResult // Base class for intersections between rays and general surface
 	bool isValid(void) const // Checks if hit result is valid
 		{
 		return hit;
-		}
-	void setParameter(Scalar newLambda) // Sets ray parameter of intersection point and marks hit result valid
-		{
-		hit=true;
-		lambda=newLambda;
 		}
 	Scalar getParameter(void) const // Returns ray parameter of intersection point
 		{

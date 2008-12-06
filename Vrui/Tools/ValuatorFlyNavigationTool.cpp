@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyNavigationTool - Class providing a fly navigation tool using
 a single valuator.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ValuatorFlyNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -30,8 +28,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/Vrui.h>
+#include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ValuatorFlyNavigationTool.h>
 
 namespace Vrui {
 
@@ -41,12 +42,13 @@ Methods of class ValuatorFlyNavigationToolFactory:
 
 ValuatorFlyNavigationToolFactory::ValuatorFlyNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorFlyNavigationTool",toolManager),
-	 valuatorThreshold(Scalar(0.25)),
+	 valuatorThreshold(0),
 	 flyDirection(Vector(0,1,0)),
-	 flyFactor(getDisplaySize()*Scalar(2))
+	 flyFactor(getDisplaySize()*Scalar(0.5))
 	{
 	/* Initialize tool layout: */
-	layout.setNumValuators(1);
+	layout.setNumDevices(1);
+	layout.setNumValuators(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -69,16 +71,6 @@ ValuatorFlyNavigationToolFactory::~ValuatorFlyNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorFlyNavigationTool::factory=0;
-	}
-
-const char* ValuatorFlyNavigationToolFactory::getName(void) const
-	{
-	return "Valuator Fly Only";
-	}
-
-const char* ValuatorFlyNavigationToolFactory::getValuatorFunction(int) const
-	{
-	return "Fly";
 	}
 
 Tool* ValuatorFlyNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -126,8 +118,16 @@ Methods of class ValuatorFlyNavigationTool:
 
 ValuatorFlyNavigationTool::ValuatorFlyNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
+	 viewer(0),
 	 currentValue(0)
 	{
+	/* Retrieve the viewer associated with this menu tool: */
+	#if 0
+	int viewerIndex=configFile.retrieveValue<int>("./viewerIndex");
+	viewer=getViewer(viewerIndex);
+	#else
+	viewer=getMainViewer();
+	#endif
 	}
 
 const ToolFactory* ValuatorFlyNavigationTool::getFactory(void) const
@@ -135,7 +135,7 @@ const ToolFactory* ValuatorFlyNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ValuatorFlyNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
+void ValuatorFlyNavigationTool::valuatorCallback(int,int,InputDevice::ValuatorCallbackData* cbData)
 	{
 	/* Map the raw valuator value according to a "broken line" scheme: */
 	Scalar v=Scalar(cbData->newValuatorValue);
@@ -167,11 +167,11 @@ void ValuatorFlyNavigationTool::frame(void)
 	if(isActive())
 		{
 		/* Get the current state of the input device: */
-		const TrackerState& ts=getValuatorDeviceTransformation(0);
+		const TrackerState& ts=input.getDevice(0)->getTransformation();
 		
 		/* Calculate the current flying velocity: */
 		Vector v=ts.transform(factory->flyDirection);
-		v*=-currentValue*factory->flyFactor*getFrameTime();
+		v*=currentValue*factory->flyFactor*getCurrentFrameTime();
 		
 		/* Compose the new navigation transformation: */
 		NavTransform t=NavTransform::translate(v);
@@ -179,9 +179,6 @@ void ValuatorFlyNavigationTool::frame(void)
 		
 		/* Update Vrui's navigation transformation: */
 		setNavigationTransformation(t);
-		
-		/* Request another frame: */
-		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 

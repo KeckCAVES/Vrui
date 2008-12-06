@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLNormalTemplates.h>
 #include <GL/GLVertexTemplates.h>
-#define GLVERTEX_NONSTANDARD_TEMPLATES
+#define NONSTANDARD_GLVERTEX_TEMPLATES
 #include <GL/GLVertex.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
@@ -101,10 +101,10 @@ void calculateFaceNormals(const CoordinateNode* coordNode,const std::vector<Int3
 
 void calculateVertexNormals(const CoordinateNode* coordNode,const std::vector<Int32>& coordIndices,Float creaseAngleCos,NormalNode* normalNode,std::vector<Int32>& normalIndices)
 	{
-	typedef Misc::OrderedTuple<int,2> HalfEdge; // Class for directed edges as hash table keys
+	typedef Misc::OrderedTuple<2> HalfEdge; // Class for directed edges as hash table keys
 	typedef Misc::HashTable<HalfEdge,std::pair<int,int>,HalfEdge> HalfEdgeHasher; // Class to map directed edges to face indices and previous vertex indices
 	typedef Misc::HashTable<int,void> VertexIndexHasher; // Class for sets of vertex indices
-	typedef Misc::OrderedTuple<int,2> VertexFace; // Class for vertex/face index pairs as hash table keys
+	typedef Misc::OrderedTuple<2> VertexFace; // Class for vertex/face index pairs as hash table keys
 	typedef Misc::HashTable<VertexFace,int,VertexFace> VertexFaceHasher; // Class to map vertex/face index pairs to normal vector indices
 	
 	/* Calculate normal vectors for each face, create a hash table of directed edges, and accumulate vertex normals: */

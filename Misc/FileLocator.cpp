@@ -1,6 +1,6 @@
 /***********************************************************************
 FileLocator - Class to find files from an ordered list of search paths.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 Based on code written by Braden Pellett.
 
 This file is part of the Miscellaneous Support Library (Misc).
@@ -21,13 +21,18 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Misc/FileLocator.h>
-
 #include <string.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/GetCurrentDirectory.h>
-#include <Misc/FileTests.h>
+
+#include <Misc/FileLocator.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 2048
+#endif
 
 namespace {
 
@@ -44,7 +49,7 @@ const char* findLastOf(const char* string,char ch)
 	return result;
 	}
 
-std::string cleanPath(const char* path)
+std::string cleanpath(const char* path)
 	{
 	std::string result;
 	
@@ -52,7 +57,7 @@ std::string cleanPath(const char* path)
 	const char* segBegin=path;
 	if(*segBegin=='/')
 		{
-		result.push_back('/');
+		result.append(1,'/');
 		++segBegin;
 		}
 	
@@ -76,7 +81,7 @@ std::string cleanPath(const char* path)
 			{
 			/* Append the segment to the result path: */
 			if(notFirstSegment)
-				result.push_back('/');
+				result.append(1,'/');
 			result.append(segBegin,segEnd);
 			notFirstSegment=true;
 			}
@@ -90,7 +95,7 @@ std::string cleanPath(const char* path)
 	return result;
 	}
 
-std::string cleanPath(const char* pathBegin,const char* pathEnd)
+std::string cleanpath(const char* pathBegin,const char* pathEnd)
 	{
 	std::string result;
 	
@@ -98,7 +103,7 @@ std::string cleanPath(const char* pathBegin,const char* pathEnd)
 	const char* segBegin=pathBegin;
 	if(segBegin!=pathEnd&&*segBegin=='/')
 		{
-		result.push_back('/');
+		result.append(1,'/');
 		++segBegin;
 		}
 	
@@ -122,7 +127,7 @@ std::string cleanPath(const char* pathBegin,const char* pathEnd)
 			{
 			/* Append the segment to the result path: */
 			if(notFirstSegment)
-				result.push_back('/');
+				result.append(1,'/');
 			result.append(segBegin,segEnd);
 			notFirstSegment=true;
 			}
@@ -140,27 +145,6 @@ std::string cleanPath(const char* pathBegin,const char* pathEnd)
 
 namespace Misc {
 
-/*****************************************
-Methods of class FileLocator:FileNotFound:
-*****************************************/
-
-FileLocator::FileNotFound::FileNotFound(const char* sFileName)
-	:std::runtime_error(printStdErrMsg("FileLocator::locateFile: File \"%s\" not found",sFileName))
-	{
-	/* Copy the file name into the exception: */
-	size_t fileNameLen=strlen(sFileName);
-	if(fileNameLen<=sizeof(fileName)-1)
-		memcpy(fileName,sFileName,fileNameLen+1);
-	else
-		{
-		/* Abbreviate the file name: */
-		memcpy(fileName,sFileName,sizeof(fileName)-4);
-		for(size_t i=0;i<3;++i)
-			fileName[sizeof(fileName)-4+i]='.';
-		fileName[sizeof(fileName)-1]='\0';
-		}
-	}
-
 /****************************
 Methods of class FileLocator:
 ****************************/
@@ -171,36 +155,48 @@ FileLocator::FileLocator(void)
 
 void FileLocator::addCurrentDirectory(void)
 	{
-	pathList.push_back(getCurrentDirectory());
+	char cwd[PATH_MAX];
+	if(getcwd(cwd,PATH_MAX)!=0)
+		pathList.push_back(cwd);
 	}
 
 void FileLocator::addPath(const char* newPath)
 	{
-	/* Check if the path is fully-qualified: */
+	/* Prefix relative paths with the current working directory: */
 	if(newPath[0]=='/')
-		pathList.push_back(cleanPath(newPath));
+		pathList.push_back(cleanpath(newPath));
 	else if(newPath[0]!='\0')
 		{
-		/* Prefix relative paths with the current working directory: */
-		std::string absPath=getCurrentDirectory();
-		absPath.push_back('/');
-		absPath.append(newPath);
-		pathList.push_back(cleanPath(absPath.c_str()));
+		char cwd[PATH_MAX];
+		if(getcwd(cwd,PATH_MAX)!=0)
+			{
+			std::string absPath=cwd;
+			absPath.append(1,'/');
+			absPath.append(newPath);
+			pathList.push_back(cleanpath(absPath.c_str()));
+			}
+		else
+			pathList.push_back(cleanpath(newPath));
 		}
 	}
 
 void FileLocator::addPath(const char* newPathBegin,const char* newPathEnd)
 	{
-	/* Check if the path is fully-qualified: */
+	/* Prefix relative paths with the current working directory: */
 	if(newPathEnd-newPathBegin>1&&newPathBegin[0]=='/')
-		pathList.push_back(cleanPath(newPathBegin,newPathEnd));
+		pathList.push_back(cleanpath(newPathBegin,newPathEnd));
 	else if(newPathEnd-newPathBegin>0)
 		{
-		/* Prefix relative paths with the current working directory: */
-		std::string absPath=getCurrentDirectory();
-		absPath.push_back('/');
-		absPath.append(newPathBegin,newPathEnd);
-		pathList.push_back(cleanPath(absPath.c_str()));
+		char cwd[PATH_MAX];
+		if(getcwd(cwd,PATH_MAX)!=0)
+			{
+			std::string absPath=cwd;
+			absPath.append(1,'/');
+			absPath.append(newPathBegin,newPathEnd);
+			pathList.push_back(cleanpath(absPath.c_str()));
+			}
+		else
+			pathList.push_back(cleanpath(newPathBegin,newPathEnd));
 		}
 	}
 
@@ -216,7 +212,7 @@ void FileLocator::addPathFromFile(const char* fileName)
 	else
 		{
 		/* Add the current directory to the search path list: */
-		pathList.push_back(getCurrentDirectory());
+		addCurrentDirectory();
 		}
 	}
 
@@ -267,7 +263,7 @@ void FileLocator::addPathFromApplication(const char* executablePath)
 	else
 		{
 		/* Try to find the full path to the executable: */
-		#if 0
+		#ifdef __LINUX__
 		/* Get the full executable path through the /proc interface: */
 		char pse[PATH_MAX];
 		int pseLength=readlink("/proc/self/exe",pse,PATH_MAX);
@@ -296,15 +292,20 @@ void FileLocator::addPathFromApplication(const char* executablePath)
 					if(*pathBegin!='/')
 						{
 						/* Start the path name with the current directory: */
-						testName=getCurrentDirectory();
-						testName.push_back('/');
+						char cwd[PATH_MAX];
+						if(getcwd(cwd,PATH_MAX))
+							{
+							testName.append(cwd);
+							testName.append(1,'/');
+							}
 						}
 					testName.append(pathBegin,pathEnd);
-					testName.push_back('/');
+					testName.append(1,'/');
 					testName.append(appName);
 					
 					/* Test if the file exists and is an executable: */
-					if(Misc::isPathFile(testName.c_str()))
+					struct stat testStat;
+					if(stat(testName.c_str(),&testStat)==0)
 						{
 						/* Save the matching full path and stop searching: */
 						fullExePath=testName;
@@ -321,22 +322,26 @@ void FileLocator::addPathFromApplication(const char* executablePath)
 		else
 			{
 			/* Use the provided path starting at the current directory: */
-			fullExePath=getCurrentDirectory();
-			fullExePath.push_back('/');
+			char cwd[PATH_MAX];
+			if(getcwd(cwd,PATH_MAX)!=0)
+				{
+				fullExePath=cwd;
+				fullExePath.append(1,'/');
+				}
 			fullExePath.append(executablePath);
 			}
 		#endif
-		#if 0
+		#ifdef __LINUX__
 			}
 		#endif
 		}
 	
 	/* Find the last slash in the cleaned fully-qualified executable path name: */
-	std::string cleanFullExePath=cleanPath(fullExePath.c_str());
+	std::string cleanFullExePath=cleanpath(fullExePath.c_str());
 	executablePath=cleanFullExePath.c_str();
 	slashPtr=findLastOf(executablePath,'/');
 	
-	#ifdef __linux__
+	#ifdef __LINUX__
 	/* Check if the executable is part of a Linux application bundle: */
 	if(slashPtr!=0)
 		{
@@ -353,7 +358,7 @@ void FileLocator::addPathFromApplication(const char* executablePath)
 		}
 	#endif
 	
-	#ifdef __APPLE__
+	#ifdef __DARWIN__
 	/* Check if the executable is part of a Mac OS X application bundle: */
 	if(slashPtr!=0&&slashPtr-executablePath>=19&&strncasecmp(slashPtr-19,".app/Contents/MacOS",19)==0)
 		{
@@ -370,9 +375,10 @@ std::string FileLocator::locateFile(const char* fileName)
 		{
 		/* Check if a file of the given name exists in the search path: */
 		std::string pathName=*plIt;
-		pathName.push_back('/');
+		pathName+="/";
 		pathName+=fileName;
-		if(Misc::doesPathExist(pathName.c_str()))
+		struct stat statBuffer;
+		if(stat(pathName.c_str(),&statBuffer)==0)
 			return pathName;
 		}
 	

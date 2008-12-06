@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2018 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,31 +27,22 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
+#include <Misc/ConfigurationFile.h>
 #include <Plugins/FactoryManager.h>
-#include <Vrui/Tool.h>
+#include <Vrui/InputDevice.h>
+#include <Vrui/Tools/Tool.h>
 
 /* Forward declarations: */
-namespace Misc {
-class ConfigurationFileSection;
-}
-namespace Plugins {
-class Factory;
-}
 class GLContextData;
 namespace GLMotif {
 class Popup;
 class PopupMenu;
 }
 namespace Vrui {
-class InputDevice;
-class InputDeviceFeature;
 class InputGraphManager;
 class InputDeviceManager;
-class ToolInputAssignment;
-class MenuTool;
 class MutexMenu;
 class ToolKillZone;
-class ToolManagerToolCreationState;
 }
 
 namespace Vrui {
@@ -60,11 +51,54 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	{
 	/* Embedded classes: */
 	private:
-	typedef Plugins::FactoryManager<ToolFactory> BaseClass; // Base class type
-	public:
 	typedef std::vector<Tool*> ToolList; // Data type for list of tools
 	
-	private:
+	class ToolAssignmentSlot // Class to store assignments of tools to input device buttons or valuators
+		{
+		friend class ToolManager;
+		
+		/* Embedded classes: */
+		public:
+		enum SlotType // Enumerated type for assignment slot types
+			{
+			NONE,BUTTON,VALUATOR
+			};
+		
+		/* Elements: */
+		private:
+		InputDevice* device; // Pointer to input device
+		SlotType slotType; // Type of slot
+		int slotIndex; // Index of button or valuator on input device
+		bool assigned; // Flag if the button or valuator has an application tool assigned
+		Tool* tool; // Pointer to assigned application tool or tool selection tool
+		bool preemptedButtonPress; // Flag whether this slot has preempted a button press event and needs to preempt the corresponding button release event
+		
+		/* Constructors and destructors: */
+		public:
+		ToolAssignmentSlot(void); // Creates an unassigned slot
+		~ToolAssignmentSlot(void); // Removes any callbacks the slot installed
+		
+		/* Methods: */
+		private:
+		bool isForButton(InputDevice* queryDevice,int queryButtonIndex) const // Returns true if slot is responsible for given button on given device
+			{
+			return device==queryDevice&&slotType==BUTTON&&slotIndex==queryButtonIndex;
+			}
+		bool isForValuator(InputDevice* queryDevice,int queryValuatorIndex) const // Returns true if slot is responsible for given valuator on given device
+			{
+			return device==queryDevice&&slotType==VALUATOR&&slotIndex==queryValuatorIndex;
+			}
+		void initialize(InputDevice* sDevice,SlotType sSlotType,int sSlotIndex); // Initializes a slot and installs callbacks
+		void inputDeviceButtonCallback(InputDevice::ButtonCallbackData* cbData);
+		void inputDeviceValuatorCallback(InputDevice::ValuatorCallbackData* cbData);
+		bool pressed(void);
+		bool released(void);
+		};
+	
+	friend class ToolAssignmentSlot;
+	
+	typedef std::list<ToolAssignmentSlot> ToolAssignmentSlotList;
+	
 	struct ToolManagementQueueItem // Structure for items in the tool management queue
 		{
 		/* Embedded classes: */
@@ -78,7 +112,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		ItemFunction itemFunction; // Function of this item
 		ToolFactory* createToolFactory; // Pointer to a tool factory if the item function is CREATE_TOOL
 		ToolInputAssignment* tia; // Pointer to a tool input assignment if the item function is CREATE_TOOL
-		Tool* tool; // Pointer to the to-be-destroyed tool if the item function is DESTROY_TOOL
+		ToolAssignmentSlot* tas; // Pointer to the affected tool assignment slot
 		};
 	
 	typedef std::vector<ToolManagementQueueItem> ToolManagementQueue;
@@ -89,11 +123,10 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		/* Elements: */
 		public:
 		Tool* tool; // Pointer to newly created tool
-		const Misc::ConfigurationFileSection* cfg; // Optional pointer to the configuration file section from which the tool read its settings
 		
 		/* Constructors and destructors: */
-		ToolCreationCallbackData(Tool* sTool,const Misc::ConfigurationFileSection* sCfg)
-			:tool(sTool),cfg(sCfg)
+		ToolCreationCallbackData(Tool* sTool)
+			:tool(sTool)
 			{
 			}
 		};
@@ -115,78 +148,49 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	private:
 	InputGraphManager* inputGraphManager; // Pointer to the input graph manager
 	InputDeviceManager* inputDeviceManager; // Pointer to input device manager
-	const Misc::ConfigurationFileSection* configFileSection; // The tool manager's configuration file section - valid throughout the manager's entire lifetime
-	
-	/* Tool management state: */
+	Misc::ConfigurationFileSection configFileSection; // The tool manager's configuration file section - valid throughout the manager's entire lifetime
 	ToolList tools; // List of currently instantiated tools
-	ToolManagementQueue toolManagementQueue; // Queue of management tasks that have to be performed on the next call to update
-	
-	/* Tool creation state: */
-	InputDevice* toolCreationDevice; // A virtual input device with associated tool selection tool, dynamically hooked into the first tool assignment slot during tool creation
-	MenuTool* toolCreationTool; // The tool selection tool used during the tool creation process
+	ToolAssignmentSlotList toolAssignmentSlots; // Assignments of tools to input device buttons
+	ToolFactory* toolSelectionMenuFactory; // Factory for tool selection menu tools
 	GLMotif::PopupMenu* toolMenuPopup; // Hierarchical popup menu for tool selection
 	MutexMenu* toolMenu; // Shell for tool selection menu
-	ToolManagerToolCreationState* toolCreationState; // Current state of tool creation procedure
-	Misc::CallbackList toolCreationCallbacks; // List of callbacks to be called after a new tool has been created
-	
-	/* Tool destruction state: */
 	ToolKillZone* toolKillZone; // Pointer to tool "kill zone"
+	Tool* activeToolSelectionMenuTool; // Pointer to the currently active tool selection tool
+	std::vector<ToolAssignmentSlot*> toolCreationSlots; // List of pointers to tool assignment slots that are to be used for creating the new tool
+	ToolManagementQueue toolManagementQueue; // Queue of management tasks that have to be performed on the next call to update
+	Misc::CallbackList toolCreationCallbacks; // List of callbacks to be called after a new tool has been created
 	Misc::CallbackList toolDestructionCallbacks; // List of callbacks to be called before a tool will be destroyed
 	
+	/* Callback wrappers: */
+	static void destroyToolFactoryFunction(ToolFactory* toolFactory); // Destruction function for tool classes added explicitly
+	
 	/* Private methods: */
-	GLMotif::PopupMenu* createToolSubmenu(const Plugins::Factory& factory); // Returns submenu containing all subclasses of the given class
+	GLMotif::Popup* createToolSubmenu(const Plugins::Factory& factory); // Returns submenu containing all subclasses of the given class
 	GLMotif::PopupMenu* createToolMenu(void); // Returns top level of tool selection menu
-	void addClassToMenu(ToolFactory* newFactory); // Adds a new tool class to the tool selection menu
+	Tool* assignToolSelectionTool(ToolAssignmentSlot& tas);
+	void assignToolSelectionTools(void); // Assigns tool selection tools to all empty tool assignment slots
+	void destroyTool(Tool* tool);
+	void unassignTool(Tool* tool);
+	void inputDeviceCreationCallback(Misc::CallbackData* cbData); // Callback called when a new input device is created
 	void inputDeviceDestructionCallback(Misc::CallbackData* cbData); // Callback called when an input device is destroyed
-	void toolMenuSelectionCallback(Misc::CallbackData* cbData); // Callback called when a tool class is selected from the selection menu; continues tool creation process
-	void toolCreationDeviceMotionCallback(Misc::CallbackData* cbData); // Callback called when the device for which a tool is being created moves during tool creation
+	void toolActivationCallback(Misc::CallbackData* cbData); // Callback called when a tool selection menu tool becomes active
+	void toolDeactivationCallback(Misc::CallbackData* cbData); // Callback called when a tool selection menu tool becomes inactive
+	void toolMenuSelectionCallback(Misc::CallbackData* cbData); // Callback called when a tool class is selected from the selection menu
 	
 	/* Constructors and destructors: */
 	public:
 	ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& sConfigFileSection); // Initializes tool manager by reading given configuration file section
 	~ToolManager(void); // Destroys tool manager
 	
-	/* Methods from Plugins::FactoryManager: */
-	void addClass(ToolFactory* newFactory,DestroyFactoryFunction newDestroyFactoryFunction =0); // Overrides base class method; adds new tool class to tool selection menu
-	void releaseClass(const char* className); // Overrides base class method; destroys all tools of the given class before destroying the class
-	
 	/* Methods: */
-	void addClass(const char* className); // Adds a tool class from a tool DSO and adds it to tool selection menu
-	void addAbstractClass(ToolFactory* newFactory,DestroyFactoryFunction newDestroyFactoryFunction =0); // Same as addClass method, but does not add to tool selection menu (derived concrete tool classes will create the cascade button)
-	static void defaultToolFactoryDestructor(ToolFactory* factory); // Default destructor for tool factories; simply deletes them
 	Misc::ConfigurationFileSection getToolClassSection(const char* toolClassName) const; // Returns the configuration file section a tool class should use for its initialization
 	MutexMenu* getToolMenu(void) // Returns tool menu
 		{
 		return toolMenu;
 		}
-	void loadToolBinding(const char* toolSectionName); // Loads a tool binding from a configuration file section; names are relative to tool manager's section
+	Tool* assignTool(ToolFactory* factory,const ToolInputAssignment& tia); // Assigns a new tool created by the given factory
 	void loadDefaultTools(void); // Creates default tool associations
-	bool isCreatingTool(void) const // Returns true if the tool manager is in the middle of the interactive tool creation process
-		{
-		return toolCreationState!=0;
-		}
-	void startToolCreation(const InputDeviceFeature& feature); // Starts the interactive tool creation process with the given input device feature
-	void prepareFeatureAssignment(const InputDeviceFeature& feature); // Prepares the given input device feature for tool assignment
-	void assignFeature(const InputDeviceFeature& feature); // Assigns the given feature to the next available tool assignment slot
-	Tool* createTool(ToolFactory* factory,const ToolInputAssignment& tia,const Misc::ConfigurationFileSection* cfg =0); // Programmatically creates a new tool of the given class and input assignment; optionally lets tool initialize itself by reading from the given configuration file section
-	void destroyTool(Tool* tool,bool destroyImmediately =true); // Destroys a tool programmatically, either right away or during the next call to update()
 	void update(void); // Called once every frame so that the tool manager has a well-defined place to create new tools
-	ToolList::const_iterator beginTools(void) const // Returns iterator to first instantiated tool
-		{
-		return tools.begin();
-		}
-	ToolList::iterator beginTools(void) // Ditto
-		{
-		return tools.begin();
-		}
-	ToolList::const_iterator endTools(void) const // Returns iterator after last instantiated tool
-		{
-		return tools.end();
-		}
-	ToolList::iterator endTools(void) // Ditto
-		{
-		return tools.end();
-		}
 	void glRenderAction(GLContextData& contextData) const; // Renders the tool manager (not the tools)
 	Misc::CallbackList& getToolCreationCallbacks(void) // Returns list of tool creation callbacks
 		{
@@ -200,7 +204,6 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		{
 		return toolKillZone;
 		}
-	bool isDeviceInToolKillZone(const InputDevice* device) const; // Returns true if the given device is in (or pointing at) the tool kill zone
 	};
 
 }

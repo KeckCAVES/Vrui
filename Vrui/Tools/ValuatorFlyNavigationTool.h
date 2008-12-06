@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyNavigationTool - Class providing a fly navigation tool using
 a single valuator.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VALUATORFLYNAVIGATIONTOOL_INCLUDED
 #define VRUI_VALUATORFLYNAVIGATIONTOOL_INCLUDED
 
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
+
+/* Forward declarations: */
+namespace Vrui {
+class Viewer;
+}
 
 namespace Vrui {
 
@@ -46,9 +51,7 @@ class ValuatorFlyNavigationToolFactory:public ToolFactory
 	ValuatorFlyNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ValuatorFlyNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -60,6 +63,7 @@ class ValuatorFlyNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ValuatorFlyNavigationToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Transient navigation state: */
 	Scalar currentValue; // Current value of the associated valuator
@@ -68,9 +72,9 @@ class ValuatorFlyNavigationTool:public NavigationTool
 	public:
 	ValuatorFlyNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	};
 

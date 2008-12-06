@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2018 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -33,11 +33,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Threads/MutexCond.h>
 
-#include <VRDeviceDaemon/VRDeviceManager.h>
-#include <VRDeviceDaemon/VRDeviceServer.h>
+#include "VRDeviceManager.h"
+#include "VRDeviceServer.h"
 
-VRDeviceServer* deviceServer=0;
-bool shutdown=false;
+bool shutdown;
+Threads::MutexCond shutdownCond;
 
 void signalHandler(int signalId)
 	{
@@ -45,20 +45,23 @@ void signalHandler(int signalId)
 		{
 		case SIGHUP:
 			/* Restart server: */
+			{
+			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=false;
-			deviceServer->stop();
-			
+			shutdownCond.broadcast(shutdownLock);
+			}
 			break;
 		
 		case SIGINT:
 		case SIGTERM:
 			/* Shut down server: */
+			{
+			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=true;
-			deviceServer->stop();
-			
+			shutdownCond.broadcast(shutdownLock);
+			}
 			break;
 		}
-	
 	return;
 	}
 
@@ -66,16 +69,13 @@ int main(int argc,char* argv[])
 	{
 	/* Parse command line: */
 	bool daemonize=false;
-	const char* configFileName=VRDEVICEDAEMON_CONFIG_CONFIGFILENAME;
-	const char* rootSectionName=0;
-	bool printHelp=false;
+	const char* configFileName=SYSVRDEVICEDAEMONCONFIGFILENAME;
+	char* rootSectionName=0;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
 			{
-			if(strcasecmp(argv[i]+1,"h")==0)
-				printHelp=true;
-			else if(strcasecmp(argv[i]+1,"D")==0)
+			if(strcasecmp(argv[i]+1,"D")==0)
 				daemonize=true;
 			else if(strcasecmp(argv[i]+1,"rootSection")==0)
 				{
@@ -86,19 +86,6 @@ int main(int argc,char* argv[])
 			}
 		else
 			configFileName=argv[i];
-		}
-	
-	if(printHelp)
-		{
-		std::cout<<"Usage: "<<argv[0]<<" [-h] [-D] [-rootSection <root section name>] [<configuration file name>]"<<std::endl;
-		std::cout<<"\t-h Print this help text"<<std::endl;
-		std::cout<<"\t-D Daemonize the VR device daemon"<<std::endl;
-		std::cout<<"\t-rootSection <root section name>"<<std::endl;
-		std::cout<<"\t\tSelects the root configuration file section from which to load configuration data"<<std::endl;
-		std::cout<<"\t<configuration file name>"<<std::endl;
-		std::cout<<"\t\tName of the configuration file from which to load configuration data"<<std::endl;
-		
-		return 0;
 		}
 	
 	if(daemonize)
@@ -123,9 +110,7 @@ int main(int argc,char* argv[])
 				/* Write process ID: */
 				char pidBuffer[20];
 				snprintf(pidBuffer,sizeof(pidBuffer),"%d\n",childPid);
-				size_t pidLen=strlen(pidBuffer);
-				if(write(pidFd,pidBuffer,pidLen)!=ssize_t(pidLen))
-					std::cerr<<"Could not write PID to PID file"<<std::endl;
+				write(pidFd,pidBuffer,strlen(pidBuffer));
 				close(pidFd);
 				}
 			return 0; // Parent process exits
@@ -144,10 +129,10 @@ int main(int argc,char* argv[])
 		// dup(nullFd);
 		// dup(nullFd);
 		#else
-		/* Redirect stdin, stdout and stderr to log file (this is ugly, but works because descriptors are assigned sequentially): */
+		/* Redirect stdin, stdout and stderr to log file: */
 		int logFd=open("/var/log/VRDeviceDaemon.log",O_RDWR|O_CREAT|O_TRUNC,S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH);
-		if(logFd!=0||dup(logFd)!=1||dup(logFd)!=2)
-			std::cerr<<"Error while rerouting output to log file"<<std::endl;
+		dup(logFd);
+		dup(logFd);
 		#endif
 		
 		/* Ignore most signals: */
@@ -205,11 +190,9 @@ int main(int argc,char* argv[])
 			}
 		
 		/* Set current section to given root section or name of current machine: */
-		if(rootSectionName==0||rootSectionName[0]=='\0')
+		if(rootSectionName==0)
 			rootSectionName=getenv("HOSTNAME");
-		if(rootSectionName==0||rootSectionName[0]=='\0')
-			rootSectionName=getenv("HOST");
-		if(rootSectionName==0||rootSectionName[0]=='\0')
+		if(rootSectionName==0)
 			rootSectionName="localhost";
 		configFile->setCurrentSection(rootSectionName);
 		
@@ -235,6 +218,7 @@ int main(int argc,char* argv[])
 		#ifdef VERBOSE
 		std::cout<<"VRDeviceDaemon: Initializing device server"<<std::endl<<std::flush;
 		#endif
+		VRDeviceServer* deviceServer=0;
 		configFile->setCurrentSection("./DeviceServer");
 		try
 			{
@@ -252,14 +236,17 @@ int main(int argc,char* argv[])
 		/* Go back to root section: */
 		configFile->setCurrentSection("..");
 		
-		/* Run the server's main loop: */
-		deviceServer->run();
+		/* Create shutdown condition variable: */
+		shutdown=false;
+		
+		/* Wait for shutdown: */
+		shutdownCond.wait();
 		
 		/* Clean up: */
-		delete deviceManager;
-		deviceManager=0;
 		delete deviceServer;
 		deviceServer=0;
+		delete deviceManager;
+		deviceManager=0;
 		delete configFile;
 		configFile=0;
 		
@@ -289,6 +276,5 @@ int main(int argc,char* argv[])
 		// unlink("/var/log/DeviceDaemon.log");
 		}
 	#endif
-	
 	return 0;
 	}

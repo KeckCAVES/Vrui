@@ -1,6 +1,6 @@
 /***********************************************************************
 ListBox - Class for widgets containing lists of text strings.
-Copyright (c) 2008-2016 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -54,13 +54,43 @@ class ListBox:public Widget,public GLObject
 			}
 		};
 	
+	class ValueChangedCallbackData:public CallbackData // Callback data when the selected list item changes
+		{
+		/* Elements: */
+		public:
+		int oldSelectedItem; // Previously selected list item
+		int newSelectedItem; // Newly selected list item
+		
+		/* Constructors and destructors: */
+		ValueChangedCallbackData(ListBox* sListBox,int sOldSelectedItem,int sNewSelectedItem)
+			:CallbackData(sListBox),
+			 oldSelectedItem(sOldSelectedItem),
+			 newSelectedItem(sNewSelectedItem)
+			{
+			}
+		};
+	
+	class ItemSelectedCallbackData:public CallbackData // Callback data when an item gets selected with a double-click
+		{
+		/* Elements: */
+		public:
+		int selectedItem; // The double-clicked list item
+		
+		/* Constructors and destructors: */
+		ItemSelectedCallbackData(ListBox* sListBox,int sSelectedItem)
+			:CallbackData(sListBox),
+			 selectedItem(sSelectedItem)
+			{
+			}
+		};
+	
 	class ListChangedCallbackData:public CallbackData // Callback data when the list of items changes
 		{
 		/* Embedded classes: */
 		public:
 		enum ChangeReason // Enumerated type for different change reasons
 			{
-			ITEM_INSERTED,ITEM_CHANGED,ITEM_REMOVED,LIST_CLEARED
+			LIST_CLEARED,ITEM_INSERTED,ITEM_CHANGED,ITEM_REMOVED
 			};
 		
 		/* Elements: */
@@ -70,7 +100,8 @@ class ListBox:public Widget,public GLObject
 		/* Constructors and destructors: */
 		ListChangedCallbackData(ListBox* sListBox,ChangeReason sReason,int sItem)
 			:CallbackData(sListBox),
-			 reason(sReason),item(sItem)
+			 reason(sReason),
+			 item(sItem)
 			{
 			}
 		};
@@ -105,57 +136,6 @@ class ListBox:public Widget,public GLObject
 			}
 		};
 	
-	class ValueChangedCallbackData:public CallbackData // Callback data when the selected item in a single-selection list changes; not generated for multiple-selection lists
-		{
-		/* Elements: */
-		public:
-		int oldSelectedItem; // Previously selected list item
-		int newSelectedItem; // Newly selected list item
-		
-		/* Constructors and destructors: */
-		ValueChangedCallbackData(ListBox* sListBox,int sOldSelectedItem,int sNewSelectedItem)
-			:CallbackData(sListBox),
-			 oldSelectedItem(sOldSelectedItem),
-			 newSelectedItem(sNewSelectedItem)
-			{
-			}
-		};
-	
-	class ItemSelectedCallbackData:public CallbackData // Callback data when an item gets selected with a double-click
-		{
-		/* Elements: */
-		public:
-		int selectedItem; // The double-clicked list item
-		
-		/* Constructors and destructors: */
-		ItemSelectedCallbackData(ListBox* sListBox,int sSelectedItem)
-			:CallbackData(sListBox),
-			 selectedItem(sSelectedItem)
-			{
-			}
-		};
-	
-	class SelectionChangedCallbackData:public CallbackData // Callback data when the set of selected items changes; generated for single- and multiple-selection lists
-		{
-		/* Embedded classes: */
-		public:
-		enum ChangeReason // Enumerated type for different change reasons
-			{
-			NUMITEMS_CHANGED,ITEM_SELECTED,ITEM_DESELECTED,SELECTION_CLEARED
-			};
-		
-		/* Elements: */
-		ChangeReason reason; // Reason for the selection change
-		int item; // Index of selected or deselected item
-		
-		/* Constructors and destructors: */
-		SelectionChangedCallbackData(ListBox* sListBox,ChangeReason sReason,int sItem)
-			:CallbackData(sListBox),
-			 reason(sReason),item(sItem)
-			{
-			}
-		};
-	
 	private:
 	struct Item // Structure to hold list items
 		{
@@ -163,7 +143,6 @@ class ListBox:public Widget,public GLObject
 		public:
 		char* item; // Pointer to item's string
 		GLfloat width; // Item's width
-		bool selected; // Flag whether item is currently selected
 		};
 	
 	struct ListBoxSlot // Structure to hold state of a slot in a list box's visible page
@@ -173,7 +152,6 @@ class ListBox:public Widget,public GLObject
 		Box slotBox; // Position and size of slot
 		char* item; // Pointer to slot's current text string
 		GLfloat textWidth; // Visible width of current text string
-		bool selected; // Flag if the slot is currently selected
 		GLFont::TBox textTexCoords; // Texture coordinate box of current text string
 		Vector textEnd[2]; // Lower and upper point at the right end of the current text string
 		};
@@ -191,12 +169,12 @@ class ListBox:public Widget,public GLObject
 		};
 	
 	/* Elements: */
-	SelectionMode selectionMode; // List box's selection mode
 	GLfloat marginWidth; // Width of margin around text strings
 	GLfloat itemSep; // Vertical separation between text strings
 	GLFont* font; // Pointer to the font used to render text strings
-	int preferredWidth; // Preferred list box width in characters
+	int preferredWidth; // Preferred list box width in average characters
 	int preferredPageSize; // Preferred number of items visible in the list box
+	SelectionMode selectionMode; // Current selection mode
 	bool autoResize; // Flag whether the list box shall attempt to resize its width to the visible items
 	Box itemsBox; // Box surrounding list items
 	std::vector<Item> items; // Vector of text strings
@@ -206,14 +184,12 @@ class ListBox:public Widget,public GLObject
 	int position; // Index of the top item currently visible in the list box
 	GLfloat maxVisibleItemWidth; // Maximum width of currentbly visible items
 	GLfloat horizontalOffset; // Horizontal offset for drawing all list items
-	int lastSelectedItem; // Index of the most recently selected list item, or -1 if none
-	Misc::CallbackList listChangedCallbacks; // List of callbacks to be called when the list of items changes
-	Misc::CallbackList pageChangedCallbacks; // List of callbacks to be called when any parameters of the displayed page change
+	int selectedItem; // Index of the currently selected list item, or -1 if none
 	Misc::CallbackList valueChangedCallbacks; // List of callbacks to be called when a different list item is selected
 	Misc::CallbackList itemSelectedCallbacks; // List of callbacks to be called when a list item is double-clicked
-	Misc::CallbackList selectionChangedCallbacks; // List of callbacks to be called when the selection state of a list item changes
+	Misc::CallbackList listChangedCallbacks; // List of callbacks to be called when the list of items changes
+	Misc::CallbackList pageChangedCallbacks; // List of callbacks to be called when any parameters of the displayed page change
 	unsigned int version; // Version number of state in the list box
-	int lastClickedItem; // Index of item which received last button down event
 	double lastClickTime; // Time of last pointer button down event, to detect double clicks
 	int numClicks; // Number of clicks on the current selected item
 	
@@ -223,7 +199,7 @@ class ListBox:public Widget,public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	ListBox(const char* sName,Container* sParent,SelectionMode sSelectionMode,int sPreferredWidth,int sPreferredPageSize,bool manageChild =true);
+	ListBox(const char* sName,Container* sParent,int sPreferredWidth,int sPreferredPageSize,bool manageChild =true);
 	virtual ~ListBox(void);
 	
 	/* Methods inherited from Widget: */
@@ -233,24 +209,19 @@ class ListBox:public Widget,public GLObject
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);
-	virtual bool giveTextFocus(void);
-	virtual void textControlEvent(const TextControlEvent& event);
 	
 	/* Methods inherited from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;
 	
 	/* New methods: */
-	
-	/* Methods to query or change the list box's appearance and behavior: */
 	GLFont* getFont(void) // Returns the font used by the list box items
 		{
 		return font;
 		}
 	void setMarginWidth(GLfloat newMarginWidth); // Changes the width of the margin around the list box items
 	void setItemSeparation(GLfloat newItemSep); // Sets the separation between list box items
+	void setSelectionMode(SelectionMode newSelectionMode); // Sets the list box's selection mode
 	void setAutoResize(bool newAutoResize); // Sets the automatic resizing flag
-	
-	/* Methods to query or change the list box's list of items: */
 	int getNumItems(void) const // Returns the number of items in the list box
 		{
 		return items.size();
@@ -259,20 +230,6 @@ class ListBox:public Widget,public GLObject
 		{
 		return items[index].item;
 		}
-	void insertItem(int index,const char* newItem,bool moveToPage =false); // Inserts a new item before the current item of the given index and moves it to the page if it is not visible and moveToPage is true
-	int addItem(const char* newItem,bool moveToPage =false) // Adds a new item to the end of the list and moves it to the page if it is not visible and moveToPage is true; returns index of new item
-		{
-		/* Insert the item at the end of the list: */
-		insertItem(int(items.size()),newItem,moveToPage);
-		
-		/* Return the new item's index: */
-		return int(items.size())-1;
-		}
-	void setItem(int index,const char* newItem); // Sets the text of the given item
-	void removeItem(int index); // Removes the item at the given index
-	void clear(void); // Clears the list
-	
-	/* Methods to query or change the list box's page of visible items: */
 	int getPageSize(void) const // Returns the list box's current page size
 		{
 		return pageSize;
@@ -295,31 +252,16 @@ class ListBox:public Widget,public GLObject
 		return horizontalOffset;
 		}
 	void setHorizontalOffset(GLfloat newHorizontalOffset); // Sets a new horizontal offset to display list items
-	
-	/* Methods to query and change the list box's set of selected items: */
-	int getSelectedItem(void) const // Returns the index of the selected item in a single-selection list box, or -1 if no item is selected
+	void clear(void); // Clears the list
+	void addItem(const char* newItem); // Adds a new item to the end of the list
+	void insertItem(int index,const char* newItem); // Inserts a new item at (i.e., replacing) the given index
+	void setItem(int index,const char* newItem); // Sets the text of the given item
+	void removeItem(int index); // Removes the item at the given index
+	int getSelectedItem(void) const // Returns the index of the currently selected item
 		{
-		return lastSelectedItem;
+		return selectedItem;
 		}
-	bool isItemSelected(int index) const // Returns true if the given item is currently selected
-		{
-		return items[index].selected;
-		}
-	int getNumSelectedItems(void) const; // Returns the number of currently selected items
-	std::vector<int> getSelectedItems(void) const; // Returns list of indices of all currently selected items
-	void selectItem(int index,bool moveToPage =false); // Selects the given list item and moves it to the page if it is not visible and the flag is true; in single-selection list boxes, deselects previously selected item
-	void deselectItem(int index,bool moveToPage =false); // Deselects the given list item and moves it to the page if it is not visible and the flag is true; ignored if selection mode is ALWAYS_ONE
-	void clearSelection(void); // Deselects all selected items; ignored if selection mode is ALWAYS_ONE
-	
-	/* Methods to query the list box's callbacks: */
-	Misc::CallbackList& getListChangedCallbacks(void) // Returns list of list changed callbacks
-		{
-		return listChangedCallbacks;
-		}
-	Misc::CallbackList& getPageChangedCallbacks(void) // Returns list of page changed callbacks
-		{
-		return pageChangedCallbacks;
-		}
+	void selectItem(int newSelectedItem,bool moveToPage =false); // Changes the currently selected list item and moves it to the page if it is not visible and the flag is true
 	Misc::CallbackList& getValueChangedCallbacks(void) // Returns list of value changed callbacks
 		{
 		return valueChangedCallbacks;
@@ -328,9 +270,13 @@ class ListBox:public Widget,public GLObject
 		{
 		return itemSelectedCallbacks;
 		}
-	Misc::CallbackList& getSelectionChangedCallbacks(void) // Returns list of selection changed callbacks
+	Misc::CallbackList& getListChangedCallbacks(void) // Returns list of list changed callbacks
 		{
-		return selectionChangedCallbacks;
+		return listChangedCallbacks;
+		}
+	Misc::CallbackList& getPageChangedCallbacks(void) // Returns list of page changed callbacks
+		{
+		return pageChangedCallbacks;
 		}
 	};
 

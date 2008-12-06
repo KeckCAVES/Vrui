@@ -4,7 +4,7 @@ automatically deletes the object when the pointer goes out of scope.
 Does not support multiple references to the same object or anything
 fancy like that (use Misc::Autopointer instead), but does not require
 any help from the target class, either.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -62,10 +62,6 @@ class SelfDestructPointer
 		}
 	
 	/* Methods: */
-	bool isValid(void) const // Returns true if the pointer points to a valid object
-		{
-		return target!=0;
-		}
 	Target& operator*(void) const // Indirection operator
 		{
 		return *target;
@@ -73,19 +69,6 @@ class SelfDestructPointer
 	Target* operator->(void) const // Arrow operator
 		{
 		return target;
-		}
-	Target* getTarget(void) const // Returns standard pointer to target
-		{
-		return target;
-		}
-	void setTarget(Target* newTarget) // Sets the pointer's target and destroys previous target
-		{
-		/* Delete the previous target: */
-		if(target!=0)
-			delete target;
-		
-		/* Take ownership of the new target: */
-		target=newTarget;
 		}
 	Target* releaseTarget(void) // Returns a standard pointer to the target and releases it from self-destruction
 		{

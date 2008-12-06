@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundDataFormat - System-independent data structure to describe the
 format of sound data.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -22,42 +22,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Sound/SoundDataFormat.h>
 
-#include <Sound/Config.h>
-
 namespace Sound {
 
 /********************************
 Methods of class SoundDataFormat:
 ********************************/
 
-void SoundDataFormat::setStandardSampleFormat(int newBitsPerSample,bool newSignedSamples,SoundDataFormat::Endianness newSampleEndianness)
-	{
-	/* Update and sanitize the sample format: */
-	bitsPerSample=newBitsPerSample;
-	
-	/* Limit sample resolution to standard range: */
-	if(bitsPerSample<1)
-		bitsPerSample=1;
-	else if(bitsPerSample>32)
-		bitsPerSample=32;
-	
-	/* Quantize sample resolution to multiples of 8: */
-	bitsPerSample=(bitsPerSample+7)&~0x07;
-	
-	/* Calculate number of bytes per sample: */
-	if(bitsPerSample==24)
-		bytesPerSample=4; // 24 bit sound data padded into 32 bit words
-	else
-		bytesPerSample=bitsPerSample/8;
-	
-	/* Assign the signed flag: */
-	signedSamples=newSignedSamples;
-	
-	/* Set the sample endianness: */
-	sampleEndianness=bitsPerSample>8?newSampleEndianness:DontCare;
-	}
-
-#if SOUND_CONFIG_HAVE_ALSA
+#ifdef SOUND_USE_ALSA
 
 snd_pcm_format_t SoundDataFormat::getPCMFormat(void) const
 	{
@@ -95,6 +66,77 @@ snd_pcm_format_t SoundDataFormat::getPCMFormat(void) const
 		pcmFormat=SND_PCM_FORMAT_UNKNOWN;
 	
 	return pcmFormat;
+	}
+
+int SoundDataFormat::setPCMDeviceParameters(snd_pcm_t* pcmDevice) const
+	{
+	int error;
+	
+	/* Allocate a hardware parameter context: */
+	snd_pcm_hw_params_t* pcmHwParams;
+	if((error=snd_pcm_hw_params_malloc(&pcmHwParams))<0)
+		return error;
+	
+	/* Get the current parameters from the PCM device: */
+	if((error=snd_pcm_hw_params_any(pcmDevice,pcmHwParams))<0)
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	/* Set the PCM device's access method: */
+	if((error=snd_pcm_hw_params_set_access(pcmDevice,pcmHwParams,SND_PCM_ACCESS_RW_INTERLEAVED))<0)
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	/* Set the PCM device's sample format: */
+	snd_pcm_format_t pcmFormat=getPCMFormat();
+	if((error=snd_pcm_hw_params_set_format(pcmDevice,pcmHwParams,pcmFormat))<0)
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	/* Set the PCM device's number of channels: */
+	if((error=snd_pcm_hw_params_set_channels(pcmDevice,pcmHwParams,samplesPerFrame))<0)
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	#if 0
+	/* Enable PCM device's hardware resampling for non-native sample rates: */
+	if((error=snd_pcm_hw_params_set_rate_resample(pcmDevice,pcmHwParams,1))<0)
+		return error;
+	#endif
+	
+	/* Set the PCM device's sample rate: */
+	unsigned int sampleRate=framesPerSecond;
+	if((error=snd_pcm_hw_params_set_rate_near(pcmDevice,pcmHwParams,&sampleRate,0))<0)
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	/* Check if the requested sample rate was correctly set: */
+	if(sampleRate!=(unsigned int)(framesPerSecond))
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	/* Write the changed hardware parameter set to the PCM device: */
+	if((error=snd_pcm_hw_params(pcmDevice,pcmHwParams))<0)
+		{
+		snd_pcm_hw_params_free(pcmHwParams);
+		return error;
+		}
+	
+	/* Clean up and signal success: */
+	snd_pcm_hw_params_free(pcmHwParams);
+	return 0;
 	}
 
 #endif

@@ -2,7 +2,7 @@
 GeodeticCoordinateTransform - Coordinate transformation class to be used
 when navigation space is geocentric Cartesian space, and users are
 interested in geodetic coordinates (latitude, longitude, elevation).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,20 +25,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_GEODETICCOORDINATETRANSFORM_INCLUDED
 #define VRUI_GEODETICCOORDINATETRANSFORM_INCLUDED
 
-#include <Geometry/Geoid.h>
 #include <Vrui/CoordinateTransform.h>
 
 namespace Vrui {
 
 class GeodeticCoordinateTransform:public CoordinateTransform
 	{
-	/* Embedded classes: */
-	private:
-	typedef Geometry::Geoid<Scalar> Geoid; // Type for reference ellipsoids
-	
 	/* Elements: */
 	private:
-	Geoid geoid; // The reference ellipsoid underlying this geodetic transformation
+	double radius; // Equatorial radius of the Geoid
+	double flatteningFactor; // Flattening factor of the Geoid
+	double e2; // Geoid's eccentricity; derived from flattening factor
 	bool colatitude; // Flag whether to return colatitude instead of latitude
 	bool radians; // Flag whether to return angles in radians instead of degrees
 	bool depth; // Flag whether to return depths below geoid instead of heights above geoid
@@ -48,9 +45,8 @@ class GeodeticCoordinateTransform:public CoordinateTransform
 	GeodeticCoordinateTransform(double scaleFactor); // Creates transformation for WGS84 geoid using given scale factor
 	
 	/* Methods from CoordinateTransform: */
-	virtual const char* getComponentName(int componentIndex) const;
+	virtual const char* getComponentName(int componentIndex) const; // Returns the name of the given user-space coordinate component
 	virtual Point transform(const Point& navigationPoint) const;
-	virtual Point inverseTransform(const Point& userPoint) const;
 	
 	/* New methods: */
 	void setGeoid(double newRadius,double newFlatteningFactor); // Sets the geoid parameters

@@ -2,7 +2,7 @@
 RevolverTool - Class to control multiple buttons (and tools) from a
 single button using a revolver metaphor. Generalized from the rotator
 tool initially developed by Braden Pellett and Jordan van Aalsburg.
-Copyright (c) 2008-2015 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,8 +25,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_REVOLVERTOOL_INCLUDED
 #define VRUI_REVOLVERTOOL_INCLUDED
 
-#include <GL/GLNumberRenderer.h>
-#include <Vrui/TransformTool.h>
+#include <GL/gl.h>
+#include <GL/GLObject.h>
+
+#include <Vrui/Tools/TransformTool.h>
 
 namespace Vrui {
 
@@ -38,30 +40,45 @@ class RevolverToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	int numChambers; // Number of chambers (button/valuator sets) on the revolver tool's virtual input device
+	int numButtons; // Number of buttons on the revolver tool's virtual input device
 	
 	/* Constructors and destructors: */
 	public:
 	RevolverToolFactory(ToolManager& toolManager);
 	virtual ~RevolverToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class RevolverTool:public TransformTool
+class RevolverTool:public TransformTool,public GLObject
 	{
 	friend class RevolverToolFactory;
 	
-	/* Elements: */
+	/* Embedded classes: */
 	private:
-	static RevolverToolFactory* factory; // Pointer to the factory object for this class
-	GLNumberRenderer numberRenderer; // Helper class to render numbers using a HUD-style font
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLfloat digitHeight; // Height of digits
+		GLfloat digitWidths[11]; // Widths of digits
+		GLfloat spacing; // Spacing between digits
+		GLuint digitListBase; // Base index of display lists to draw digits
+		
+		/* Constructors and destructors: */
+		public:
+		DataItem(GLfloat sDigitHeight);
+		virtual ~DataItem(void);
+		
+		/* Methods: */
+		void writeNumber(const Point& position,int number); // Writes a number
+		};
 	
-	int currentChamber; // Index of the currently mapped chamber on the virtual input device
+	/* Elements: */
+	static RevolverToolFactory* factory; // Pointer to the factory object for this class
+	int mappedButtonIndex; // Index of the currently mapped button on the virtual input device
 	double showNumbersTime; // Application time until which to show the virtual button numbers
 	
 	/* Constructors and destructors: */
@@ -69,19 +86,13 @@ class RevolverTool:public TransformTool
 	RevolverTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~RevolverTool(void);
 	
-	/* Methods from Tool: */
-	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	/* Methods: */
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	
-	/* Methods from class DeviceForwarder: */
-	virtual InputDeviceFeatureSet getSourceFeatures(const InputDeviceFeature& forwardedFeature);
-	virtual InputDeviceFeatureSet getForwardedFeatures(const InputDeviceFeature& sourceFeature);
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

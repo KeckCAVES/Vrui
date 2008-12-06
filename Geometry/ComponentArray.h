@@ -1,7 +1,7 @@
 /***********************************************************************
 ComponentArray - Foundation class for Euclidean vectors, affine points
 and homogenuous vectors.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -515,8 +515,8 @@ inline ScalarParam max(const ComponentArray<ScalarParam,dimensionParam>& ca) // 
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_COMPONENTARRAY_IMPLEMENTATION)
-#include <Geometry/ComponentArray.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_COMPONENTARRAY_IMPLEMENTATION)
+#include <Geometry/ComponentArray.cpp>
 #endif
 
 #endif

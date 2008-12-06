@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColorTemplates - Overloaded versions of glColor...() functions.
-Copyright (c) 2003-2016 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -229,48 +229,6 @@ inline void glColor(const GLColor<ScalarParam,numComponentsParam>& param)
 inline void glClearColor(const GLColor<GLfloat,4>& param)
 	{
 	glClearColor(param[0],param[1],param[2],param[3]);
-	}
-
-/*******************************************
-Dummy generic version of glUniformARB calls:
-*******************************************/
-
-template <class ScalarParam,int numComponentsParam>
-void glUniformARB(GLint location,const GLColor<ScalarParam,numComponentsParam>& color);
-
-template <class ScalarParam,int numComponentsParam>
-void glUniformARB(GLint location,GLsizei count,const GLColor<ScalarParam,numComponentsParam>* colors);
-
-/******************************************
-Specialized versions of glUniformARB calls:
-******************************************/
-
-/* Declarations of extension functions: */
-void glUniform3fvARB(GLint,GLsizei,const GLfloat*);
-void glUniform4fvARB(GLint,GLsizei,const GLfloat*);
-
-template <>
-inline void glUniformARB<GLfloat,3>(GLint location,const GLColor<GLfloat,3>& color)
-	{
-	glUniform3fvARB(location,1,color.getRgba());
-	}
-
-template <>
-inline void glUniformARB<GLfloat,4>(GLint location,const GLColor<GLfloat,4>& color)
-	{
-	glUniform4fvARB(location,1,color.getRgba());
-	}
-
-template <>
-inline void glUniformARB<GLfloat,3>(GLint location,GLsizei count,const GLColor<GLfloat,3>* colors)
-	{
-	glUniform3fvARB(location,count,colors[0].getRgba());
-	}
-
-template <>
-inline void glUniformARB<GLfloat,4>(GLint location,GLsizei count,const GLColor<GLfloat,4>* colors)
-	{
-	glUniform4fvARB(location,count,colors[0].getRgba());
 	}
 
 #endif

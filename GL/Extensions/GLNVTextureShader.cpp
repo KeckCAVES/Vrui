@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVTextureShader - OpenGL extension class for the
 GL_NV_texture_shader extension.
-Copyright (c) 2006-2014 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLNVTextureShader.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLNVTextureShader.h>
 
 /******************************************
 Static elements of class GLNVTextureShader:
 ******************************************/
 
 GL_THREAD_LOCAL(GLNVTextureShader*) GLNVTextureShader::current=0;
-const char* GLNVTextureShader::name="GL_NV_texture_shader";
 
 /**********************************
 Methods of class GLNVTextureShader:
@@ -48,7 +47,7 @@ GLNVTextureShader::~GLNVTextureShader(void)
 
 const char* GLNVTextureShader::getExtensionName(void) const
 	{
-	return name;
+	return "GL_NV_texture_shader";
 	}
 
 void GLNVTextureShader::activate(void)
@@ -64,13 +63,13 @@ void GLNVTextureShader::deactivate(void)
 bool GLNVTextureShader::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_NV_texture_shader");
 	}
 
 void GLNVTextureShader::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_NV_texture_shader"))
 		{
 		/* Create a new extension object: */
 		GLNVTextureShader* newExtension=new GLNVTextureShader;

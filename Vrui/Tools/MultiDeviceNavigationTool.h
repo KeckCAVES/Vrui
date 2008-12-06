@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2015 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
 
 namespace Vrui {
 
@@ -36,36 +36,19 @@ class MultiDeviceNavigationToolFactory:public ToolFactory
 	{
 	friend class MultiDeviceNavigationTool;
 	
-	/* Embedded classes: */
-	private:
-	struct Configuration // Structure containing tool settings
-		{
-		/* Elements: */
-		public:
-		Scalar translationFactor; // Scale factor for translations
-		Scalar minRotationScalingDistance; // Minimum distance from a device to the centroid for rotation and scaling to take effect
-		Scalar rotationFactor; // Scale factor for rotations
-		Scalar scalingFactor; // Scale factor for scalings
-		
-		/* Constructors and destructors: */
-		Configuration(void); // Creates default configuration
-		
-		/* Methods: */
-		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
-		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
-		};
-	
 	/* Elements: */
-	Configuration configuration; // Default configuration for all tools
+	int numDevices; // Number of devices used by tools of this class
+	Scalar translationFactor; // Scale factor for translations
+	Scalar minRotationScalingDistance; // Minimum distance from a device to the centroid for rotation and scaling to take effect
+	Scalar rotationFactor; // Scale factor for rotations
+	Scalar scalingFactor; // Scale factor for scalings
 	
 	/* Constructors and destructors: */
 	public:
 	MultiDeviceNavigationToolFactory(ToolManager& toolManager);
 	virtual ~MultiDeviceNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -77,7 +60,6 @@ class MultiDeviceNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static MultiDeviceNavigationToolFactory* factory; // Pointer to the factory object for this class
-	MultiDeviceNavigationToolFactory::Configuration configuration; // Private configuration of this tool
 	
 	/* Transient navigation state: */
 	int numPressedButtons; // Number of currently pressed buttons
@@ -89,11 +71,9 @@ class MultiDeviceNavigationTool:public NavigationTool
 	public:
 	MultiDeviceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
-	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

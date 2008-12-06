@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTextureCompressionS3TC - OpenGL extension class for the
 GL_EXT_texture_compression_s3tc extension.
-Copyright (c) 2007-2014 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLEXTTextureCompressionS3TC.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLEXTTextureCompressionS3TC.h>
 
 /****************************************************
 Static elements of class GLEXTTextureCompressionS3TC:
 ****************************************************/
 
 GL_THREAD_LOCAL(GLEXTTextureCompressionS3TC*) GLEXTTextureCompressionS3TC::current=0;
-const char* GLEXTTextureCompressionS3TC::name="GL_EXT_texture_compression_s3tc";
 
 /********************************************
 Methods of class GLEXTTextureCompressionS3TC:
@@ -47,7 +46,7 @@ GLEXTTextureCompressionS3TC::~GLEXTTextureCompressionS3TC(void)
 
 const char* GLEXTTextureCompressionS3TC::getExtensionName(void) const
 	{
-	return name;
+	return "GL_EXT_texture_compression_s3tc";
 	}
 
 void GLEXTTextureCompressionS3TC::activate(void)
@@ -63,13 +62,13 @@ void GLEXTTextureCompressionS3TC::deactivate(void)
 bool GLEXTTextureCompressionS3TC::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_EXT_texture_compression_s3tc");
 	}
 
 void GLEXTTextureCompressionS3TC::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_texture_compression_s3tc"))
 		{
 		/* Create a new extension object: */
 		GLEXTTextureCompressionS3TC* newExtension=new GLEXTTextureCompressionS3TC;

@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoTool - Class to scale translations and rotations on 6-DOF input
 devices to improve interaction accuracy in tracked environments.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_WALDOTOOL_INCLUDED
 
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/TransformTool.h>
+#include <Vrui/Tools/TransformTool.h>
 
 /* Forward declarations: */
 namespace Vrui {
@@ -51,8 +51,7 @@ class WaldoToolFactory:public ToolFactory
 	WaldoToolFactory(ToolManager& toolManager);
 	virtual ~WaldoToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -68,17 +67,17 @@ class WaldoTool:public TransformTool
 	
 	/* Transient motion scaling state: */
 	int numPressedButtons; // Number of currently pressed buttons on transformed device
-	bool transformActive; // Flag if the waldo transformation is active
+	bool active; // Flag if the tool is active, i.e., if motions are scaled
 	TrackerState last; // Last used source input device transformation
 	
 	/* Constructors and destructors: */
 	public:
 	WaldoTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

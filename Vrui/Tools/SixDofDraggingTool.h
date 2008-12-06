@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofDraggingTool - Class for simple 6-DOF dragging using a single
 input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_SIXDOFDRAGGINGTOOL_INCLUDED
 
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/DraggingTool.h>
+#include <Vrui/Tools/DraggingTool.h>
 
 namespace Vrui {
 
@@ -41,8 +41,7 @@ class SixDofDraggingToolFactory:public ToolFactory
 	SixDofDraggingToolFactory(ToolManager& toolManager);
 	virtual ~SixDofDraggingToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -68,9 +67,9 @@ class SixDofDraggingTool:public DraggingTool
 	public:
 	SixDofDraggingTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

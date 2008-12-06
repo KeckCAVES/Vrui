@@ -55,7 +55,7 @@ class IndexedFaceSetNode:public GeometryNode
 	Bool convex; // Flag if all faces can be considered convex
 	Bool colorPerVertex; // Flag if the shape uses per-vertex or per-face colors
 	Bool normalPerVertex; // Flag if the shape uses per-vertex or per-face normal vectors
-	Float creaseAngle; // Crease angle for automatic normal vector calculation
+	Float creaseAngle; // Crease agle for automatic normal vector calculation
 	VRMLNodePointer texCoord; // Pointer to the node holding vertex texture coordinates
 	VRMLNodePointer color; // Pointer to the node holding vertex colors
 	VRMLNodePointer normal; // Pointer to the node holding vertex normal vectors

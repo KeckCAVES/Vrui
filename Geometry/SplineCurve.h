@@ -1,7 +1,7 @@
 /***********************************************************************
 SplineCurve - Class for n-dimensional non-uniform, non-rational B-spline
 curves.
-Copyright (c) 2001-2014 Oliver Kreylos
+Copyright (c) 2001-2007 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -55,7 +55,7 @@ class SplineCurve
 	
 	enum KnotVectorType // Enumerated type for types of automatically generated knot vectors
 		{
-		UNIFORM, // Uniform knot vector [0, 1, ..., numPoints+degree-2]
+		UNIFORM, // Uniform knot vector from 0 to numPoints-degree
 		NATURAL // Natural knot vector; interpolates first and last control points
 		};
 	
@@ -185,8 +185,8 @@ class SplineCurve
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_SPLINECURVE_IMPLEMENTATION)
-#include <Geometry/SplineCurve.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_SPLINECURVE_IMPLEMENTATION)
+#include <Geometry/SplineCurve.cpp>
 #endif
 
 #endif

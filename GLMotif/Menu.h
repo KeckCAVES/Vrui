@@ -1,7 +1,7 @@
 /***********************************************************************
 Menu - Subclass of RowColumn that only contains buttons and acts as a
 pop-up menu.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -64,8 +64,6 @@ class Menu:public RowColumn
 	/* Elements: */
 	protected:
 	Misc::CallbackList entrySelectCallbacks; // List of callbacks to be called when a menu entry is selected
-	Button* armedWidget; // Pointer to the currently armed menu entry
-	Button* newArmedWidget; // Pointer to armable menu entry found during findRecipient
 	
 	/* Protected methods: */
 	static void childrenSelectCallbackWrapper(Misc::CallbackData* callbackData,void* userData); // Callback that is called when a child is selected
@@ -73,16 +71,6 @@ class Menu:public RowColumn
 	/* Constructors and destructors: */
 	public:
 	Menu(const char* sName,Container* sParent,bool manageChild =true);
-	
-	#if 0
-	
-	/* Methods inherited from Widget: */
-	virtual bool findRecipient(Event& event);
-	virtual void pointerButtonDown(Event& event);
-	virtual void pointerButtonUp(Event& event);
-	virtual void pointerMotion(Event& event);
-	
-	#endif
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);

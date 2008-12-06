@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBMultitexture - OpenGL extension class for the
 GL_ARB_multitexture extension.
-Copyright (c) 2006-2014 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,18 +20,17 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/Extensions/GLARBMultitexture.h>
-
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
+
+#include <GL/Extensions/GLARBMultitexture.h>
 
 /******************************************
 Static elements of class GLARBMultitexture:
 ******************************************/
 
 GL_THREAD_LOCAL(GLARBMultitexture*) GLARBMultitexture::current=0;
-const char* GLARBMultitexture::name="GL_ARB_multitexture";
 
 /**********************************
 Methods of class GLARBMultitexture:
@@ -82,7 +81,7 @@ GLARBMultitexture::~GLARBMultitexture(void)
 
 const char* GLARBMultitexture::getExtensionName(void) const
 	{
-	return name;
+	return "GL_ARB_multitexture";
 	}
 
 void GLARBMultitexture::activate(void)
@@ -98,13 +97,13 @@ void GLARBMultitexture::deactivate(void)
 bool GLARBMultitexture::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported(name);
+	return GLExtensionManager::isExtensionSupported("GL_ARB_multitexture");
 	}
 
 void GLARBMultitexture::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered(name))
+	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_multitexture"))
 		{
 		/* Create a new extension object: */
 		GLARBMultitexture* newExtension=new GLARBMultitexture;

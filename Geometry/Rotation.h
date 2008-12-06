@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -63,8 +63,6 @@ template <class ScalarParam>
 Rotation<ScalarParam,2> operator*(const Rotation<ScalarParam,2>& r1,const Rotation<ScalarParam,2>& r2);
 template <class ScalarParam>
 Rotation<ScalarParam,2> invert(const Rotation<ScalarParam,2>& r);
-template <class ScalarParam>
-Rotation<ScalarParam,2> operator/(const Rotation<ScalarParam,2>& r1,const Rotation<ScalarParam,2>& r2);
 
 template <class ScalarParam>
 class Rotation<ScalarParam,2>
@@ -171,12 +169,6 @@ class Rotation<ScalarParam,2>
 		return *this;
 		}
 	friend Rotation invert<>(const Rotation& r); // Inverts a rotation
-	Rotation& operator/=(const Rotation& other) // Division assignment (from the right)
-		{
-		setAngle(angle-other.angle);
-		return *this;
-		}
-	friend Rotation operator/<ScalarParam>(const Rotation& r1,const Rotation& r2); // Divides two rotations
 	
 	/* Transformation methods: */
 	Vector transform(const Vector& v) const // Transforms a vector
@@ -238,11 +230,6 @@ Rotation<ScalarParam,2> invert(const Rotation<ScalarParam,2>& r)
 	{
 	return Rotation<ScalarParam,2>(-r.angle);
 	}
-template <class ScalarParam>
-Rotation<ScalarParam,2> operator/(const Rotation<ScalarParam,2>& r1,const Rotation<ScalarParam,2>& r2)
-	{
-	return Rotation<ScalarParam,2>(r1.angle-r2.angle);
-	}
 
 /**********************************
 Specialized class for 3D rotations:
@@ -259,8 +246,6 @@ template <class ScalarParam>
 Rotation<ScalarParam,3> operator*(const Rotation<ScalarParam,3>& r1,const Rotation<ScalarParam,3>& r2);
 template <class ScalarParam>
 Rotation<ScalarParam,3> invert(const Rotation<ScalarParam,3>& r);
-template <class ScalarParam>
-Rotation<ScalarParam,3> operator/(const Rotation<ScalarParam,3>& r1,const Rotation<ScalarParam,3>& r2);
 
 template <class ScalarParam>
 class Rotation<ScalarParam,3>
@@ -284,19 +269,15 @@ class Rotation<ScalarParam,3>
 		q[0]=q[1]=q[2]=Scalar(0);
 		q[3]=Scalar(1);
 		}
-	Rotation(Scalar sX,Scalar sY,Scalar sZ,Scalar sW) // Elementwise initialization; does not normalize
+	private:
+	Rotation(Scalar sX,Scalar sY,Scalar sZ,Scalar sW) // Elementwise initialization
 		{
 		q[0]=sX;
 		q[1]=sY;
 		q[2]=sZ;
 		q[3]=sW;
 		}
-	template <class SourceScalarParam>
-	Rotation(const SourceScalarParam sQ[4]) // Elementwise initialization with type conversion; does not normalize
-		{
-		for(int i=0;i<4;++i)
-			q[i]=Scalar(sQ[i]);
-		}
+	public:
 	Rotation(const Vector& sAxis,Scalar sAngle) // Creates rotation of given angle around given axis
 		{
 		sAngle=Math::div2(sAngle);
@@ -423,7 +404,7 @@ class Rotation<ScalarParam,3>
 	Scalar getAngle(void) const // Returns rotation angle in radians
 		{
 		Scalar ac=Math::acos(q[3]);
-		if(Math::isNan(ac))
+		if(isnan(ac))
 			return Scalar(0);
 		else
 			return ac*Scalar(2);
@@ -432,7 +413,7 @@ class Rotation<ScalarParam,3>
 		{
 		/* Calculate rotation angle in radians: */
 		Scalar ac=Math::acos(q[3]);
-		if(Math::isNan(ac))
+		if(isnan(ac))
 			return Vector::zero;
 		Scalar angle=ac*Scalar(2);
 		if(angle<-Math::rad(Scalar(180)))
@@ -463,77 +444,55 @@ class Rotation<ScalarParam,3>
 		return *this;
 		}
 	friend Rotation invert<>(const Rotation& r); // Inverts a rotation
-	Rotation& operator/=(const Rotation& other); // Division assignment (from the right)
-	friend Rotation operator/<ScalarParam>(const Rotation& r1,const Rotation& r2); // Divides two rotations
 	
 	/* Transformation methods: */
 	Vector transform(const Vector& v) const // Transforms a vector
 		{
-		Scalar wxvx=q[1]*v[2]-q[2]*v[1]+v[0]*q[3];
-		Scalar wxvy=q[2]*v[0]-q[0]*v[2]+v[1]*q[3];
-		Scalar wxvz=q[0]*v[1]-q[1]*v[0]+v[2]*q[3];
-		Vector result;
-		result[0]=v[0]+Scalar(2)*(q[1]*wxvz-q[2]*wxvy);
-		result[1]=v[1]+Scalar(2)*(q[2]*wxvx-q[0]*wxvz);
-		result[2]=v[2]+Scalar(2)*(q[0]*wxvy-q[1]*wxvx);
-		return result;
+		Scalar rX=q[1]*v[2]-q[2]*v[1]+q[3]*v[0];
+		Scalar rY=q[2]*v[0]-q[0]*v[2]+q[3]*v[1];
+		Scalar rZ=q[0]*v[1]-q[1]*v[0]+q[3]*v[2];
+		Scalar rW=q[0]*v[0]+q[1]*v[1]+q[2]*v[2];
+		return Vector(rZ*q[1]-rY*q[2]+rW*q[0]+rX*q[3],rX*q[2]-rZ*q[0]+rW*q[1]+rY*q[3],rY*q[0]-rX*q[1]+rW*q[2]+rZ*q[3]);
 		}
 	Point transform(const Point& p) const // Transforms a point
 		{
-		Scalar wxvx=q[1]*p[2]-q[2]*p[1]+p[0]*q[3];
-		Scalar wxvy=q[2]*p[0]-q[0]*p[2]+p[1]*q[3];
-		Scalar wxvz=q[0]*p[1]-q[1]*p[0]+p[2]*q[3];
-		Point result;
-		result[0]=p[0]+Scalar(2)*(q[1]*wxvz-q[2]*wxvy);
-		result[1]=p[1]+Scalar(2)*(q[2]*wxvx-q[0]*wxvz);
-		result[2]=p[2]+Scalar(2)*(q[0]*wxvy-q[1]*wxvx);
-		return result;
+		Scalar rX=q[1]*p[2]-q[2]*p[1]+q[3]*p[0];
+		Scalar rY=q[2]*p[0]-q[0]*p[2]+q[3]*p[1];
+		Scalar rZ=q[0]*p[1]-q[1]*p[0]+q[3]*p[2];
+		Scalar rW=q[0]*p[0]+q[1]*p[1]+q[2]*p[2];
+		return Point(rZ*q[1]-rY*q[2]+rW*q[0]+rX*q[3],rX*q[2]-rZ*q[0]+rW*q[1]+rY*q[3],rY*q[0]-rX*q[1]+rW*q[2]+rZ*q[3]);
 		}
 	HVector transform(const HVector& v) const // Transforms a homogenuous vector
 		{
-		Scalar wxvx=q[1]*v[2]-q[2]*v[1]+v[0]*q[3];
-		Scalar wxvy=q[2]*v[0]-q[0]*v[2]+v[1]*q[3];
-		Scalar wxvz=q[0]*v[1]-q[1]*v[0]+v[2]*q[3];
-		HVector result;
-		result[0]=v[0]+Scalar(2)*(q[1]*wxvz-q[2]*wxvy);
-		result[1]=v[1]+Scalar(2)*(q[2]*wxvx-q[0]*wxvz);
-		result[2]=v[2]+Scalar(2)*(q[0]*wxvy-q[1]*wxvx);
-		result[3]=v[3];
-		return result;
+		Scalar rX=q[1]*v[2]-q[2]*v[1]+q[3]*v[0];
+		Scalar rY=q[2]*v[0]-q[0]*v[2]+q[3]*v[1];
+		Scalar rZ=q[0]*v[1]-q[1]*v[0]+q[3]*v[2];
+		Scalar rW=q[0]*v[0]+q[1]*v[1]+q[2]*v[2];
+		return HVector(rZ*q[1]-rY*q[2]+rW*q[0]+rX*q[3],rX*q[2]-rZ*q[0]+rW*q[1]+rY*q[3],rY*q[0]-rX*q[1]+rW*q[2]+rZ*q[3],v[3]);
 		}
 	Vector inverseTransform(const Vector& v) const // Transforms a vector with the inverse transformation
 		{
-		Scalar wxvx=q[1]*v[2]-q[2]*v[1]-v[0]*q[3];
-		Scalar wxvy=q[2]*v[0]-q[0]*v[2]-v[1]*q[3];
-		Scalar wxvz=q[0]*v[1]-q[1]*v[0]-v[2]*q[3];
-		Vector result;
-		result[0]=v[0]+Scalar(2)*(q[1]*wxvz-q[2]*wxvy);
-		result[1]=v[1]+Scalar(2)*(q[2]*wxvx-q[0]*wxvz);
-		result[2]=v[2]+Scalar(2)*(q[0]*wxvy-q[1]*wxvx);
-		return result;
+		Scalar rX=q[1]*v[2]-q[2]*v[1]-q[3]*v[0];
+		Scalar rY=q[2]*v[0]-q[0]*v[2]-q[3]*v[1];
+		Scalar rZ=q[0]*v[1]-q[1]*v[0]-q[3]*v[2];
+		Scalar rW=q[0]*v[0]+q[1]*v[1]+q[2]*v[2];
+		return Vector(rZ*q[1]-rY*q[2]+rW*q[0]-rX*q[3],rX*q[2]-rZ*q[0]+rW*q[1]-rY*q[3],rY*q[0]-rX*q[1]+rW*q[2]-rZ*q[3]);
 		}
 	Point inverseTransform(const Point& p) const // Transforms a point with the inverse transformation
 		{
-		Scalar wxvx=q[1]*p[2]-q[2]*p[1]-p[0]*q[3];
-		Scalar wxvy=q[2]*p[0]-q[0]*p[2]-p[1]*q[3];
-		Scalar wxvz=q[0]*p[1]-q[1]*p[0]-p[2]*q[3];
-		Point result;
-		result[0]=p[0]+Scalar(2)*(q[1]*wxvz-q[2]*wxvy);
-		result[1]=p[1]+Scalar(2)*(q[2]*wxvx-q[0]*wxvz);
-		result[2]=p[2]+Scalar(2)*(q[0]*wxvy-q[1]*wxvx);
-		return result;
+		Scalar rX=q[1]*p[2]-q[2]*p[1]-q[3]*p[0];
+		Scalar rY=q[2]*p[0]-q[0]*p[2]-q[3]*p[1];
+		Scalar rZ=q[0]*p[1]-q[1]*p[0]-q[3]*p[2];
+		Scalar rW=q[0]*p[0]+q[1]*p[1]+q[2]*p[2];
+		return Point(rZ*q[1]-rY*q[2]+rW*q[0]-rX*q[3],rX*q[2]-rZ*q[0]+rW*q[1]-rY*q[3],rY*q[0]-rX*q[1]+rW*q[2]-rZ*q[3]);
 		}
 	HVector inverseTransform(const HVector& v) const // Transforms a homogenuous vector with the inverse transformation
 		{
-		Scalar wxvx=q[1]*v[2]-q[2]*v[1]-v[0]*q[3];
-		Scalar wxvy=q[2]*v[0]-q[0]*v[2]-v[1]*q[3];
-		Scalar wxvz=q[0]*v[1]-q[1]*v[0]-v[2]*q[3];
-		HVector result;
-		result[0]=v[0]+Scalar(2)*(q[1]*wxvz-q[2]*wxvy);
-		result[1]=v[1]+Scalar(2)*(q[2]*wxvx-q[0]*wxvz);
-		result[2]=v[2]+Scalar(2)*(q[0]*wxvy-q[1]*wxvx);
-		result[3]=v[3];
-		return result;
+		Scalar rX=q[1]*v[2]-q[2]*v[1]-q[3]*v[0];
+		Scalar rY=q[2]*v[0]-q[0]*v[2]-q[3]*v[1];
+		Scalar rZ=q[0]*v[1]-q[1]*v[0]-q[3]*v[2];
+		Scalar rW=q[0]*v[0]+q[1]*v[1]+q[2]*v[2];
+		return HVector(rZ*q[1]-rY*q[2]+rW*q[0]-rX*q[3],rX*q[2]-rZ*q[0]+rW*q[1]-rY*q[3],rY*q[0]-rX*q[1]+rW*q[2]-rZ*q[3],v[3]);
 		}
 	};
 
@@ -556,8 +515,8 @@ Rotation<ScalarParam,3> invert(const Rotation<ScalarParam,3>& r)
 
 }
 
-#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATION_IMPLEMENTATION)
-#include <Geometry/Rotation.icpp>
+#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATION_IMPLEMENTATION)
+#include <Geometry/Rotation.cpp>
 #endif
 
 #endif

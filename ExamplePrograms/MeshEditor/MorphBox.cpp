@@ -1,8 +1,24 @@
 /***********************************************************************
 MorphBox - Data structure to embed polygon meshes into upright boxes
 that can be subsequently deformed to morph the embedded mesh.
-Copyright (c) 2004 Oliver Kreylos
+Copyright (c) 2004-2006 Oliver Kreylos
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
+
+#define MORPHBOX_IMPLEMENTATION
 
 #include <Math/Math.h>
 #include <Geometry/AffineCombiner.h>
@@ -11,13 +27,16 @@ Copyright (c) 2004 Oliver Kreylos
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
 
+#include "PolygonMesh.h"
+
 #include "MorphBox.h"
 
 /*************************
 Methods of class MorphBox:
 *************************/
 
-MorphBox::MorphBox(MorphBox::Mesh* sMesh,const MorphBox::Point& origin,const MorphBox::Scalar size[3])
+template <class MeshType>
+MorphBox<MeshType>::MorphBox(typename MorphBox<MeshType>::Mesh* sMesh,const typename MorphBox<MeshType>::Point& origin,const typename MorphBox<MeshType>::Scalar size[3])
 	:mesh(sMesh),
 	 numDraggedVertices(0)
 	{
@@ -55,7 +74,8 @@ MorphBox::MorphBox(MorphBox::Mesh* sMesh,const MorphBox::Point& origin,const Mor
 		}
 	}
 
-bool MorphBox::pickBox(MorphBox::Scalar vertexDist,MorphBox::Scalar edgeDist,MorphBox::Scalar faceDist,const MorphBox::Point& pickPoint)
+template <class MeshType>
+bool MorphBox<MeshType>::pickBox(typename MorphBox<MeshType>::Scalar vertexDist,typename MorphBox<MeshType>::Scalar edgeDist,typename MorphBox<MeshType>::Scalar faceDist,const typename MorphBox<MeshType>::Point& pickPoint)
 	{
 	/* Compare all vertices to the pick point: */
 	Scalar minDist2=Math::sqr(vertexDist);
@@ -82,9 +102,9 @@ bool MorphBox::pickBox(MorphBox::Scalar vertexDist,MorphBox::Scalar edgeDist,Mor
 	int pickedEdge=-1;
 	for(int i=0;i<12;++i)
 		{
-		Vector d=boxVertices[ei[i][1]]-boxVertices[ei[i][0]];
+		Geometry::Vector<Scalar,3> d=boxVertices[ei[i][1]]-boxVertices[ei[i][0]];
 		Scalar d2=Geometry::sqr(d);
-		Vector o=pickPoint-boxVertices[ei[i][0]];
+		Geometry::Vector<Scalar,3> o=pickPoint-boxVertices[ei[i][0]];
 		Scalar offset=o*d;
 		if(offset>=Scalar(0)&&offset<=d2)
 			{
@@ -112,24 +132,24 @@ bool MorphBox::pickBox(MorphBox::Scalar vertexDist,MorphBox::Scalar edgeDist,Mor
 	for(int i=0;i<6;++i)
 		{
 		/* Calculate the face's centroid: */
-		Point::AffineCombiner centroidCombiner;
+		typename Point::AffineCombiner centroidCombiner;
 		for(int j=0;j<4;++j)
 			centroidCombiner.addPoint(boxVertices[fi[i][j]]);
 		Point centroid=centroidCombiner.getPoint();
-		Vector p=pickPoint-centroid;
+		Geometry::Vector<Scalar,3> p=pickPoint-centroid;
 		
 		/* Check the picked point against each triangle composing the face: */
 		for(int j=0;j<4;++j)
 			{
-			Vector d1=boxVertices[fi[i][j]]-centroid;
-			Vector d2=boxVertices[fi[i][(j+1)%4]]-centroid;
-			Vector d3=Geometry::cross(d1,d2);
+			Geometry::Vector<Scalar,3> d1=boxVertices[fi[i][j]]-centroid;
+			Geometry::Vector<Scalar,3> d2=boxVertices[fi[i][(j+1)%4]]-centroid;
+			Geometry::Vector<Scalar,3> d3=Geometry::cross(d1,d2);
 			Geometry::Matrix<Scalar,3,3> m;
 			for(int mi=0;mi<3;++mi)
 				{
-				m(mi,0)=d1[mi];
-				m(mi,1)=d2[mi];
-				m(mi,2)=d3[mi];
+				m(mi,0)=d1[i];
+				m(mi,1)=d2[i];
+				m(mi,2)=d3[i];
 				}
 			Geometry::ComponentArray<Scalar,3> pc=p/m;
 			if(pc[0]>=Scalar(0)&&pc[1]>=Scalar(0)&&pc[0]+pc[1]<=Scalar(1))
@@ -154,21 +174,23 @@ bool MorphBox::pickBox(MorphBox::Scalar vertexDist,MorphBox::Scalar edgeDist,Mor
 	return false;
 	}
 
-void MorphBox::startDragBox(const MorphBox::OGTransform& startTransformation)
+template <class MeshType>
+void MorphBox<MeshType>::startDragBox(const typename MorphBox<MeshType>::OGTransform& startTransformation)
 	{
 	/* Calculate initial position of dragged vertices: */
 	for(int i=0;i<numDraggedVertices;++i)
 		draggedVertices[i]=startTransformation.inverseTransform(boxVertices[draggedVertexIndices[i]]);
 	}
 
-void MorphBox::dragBox(const MorphBox::OGTransform& currentTransformation)
+template <class MeshType>
+void MorphBox<MeshType>::dragBox(const typename MorphBox<MeshType>::OGTransform& currentTransformation)
 	{
 	/* Transform box vertices: */
 	for(int i=0;i<numDraggedVertices;++i)
 		boxVertices[draggedVertexIndices[i]]=currentTransformation.transform(draggedVertices[i]);
 	
 	/* Calculate the new positions of all morphed vertices based on their box coordinates and the current box shape: */
-	for(std::vector<MorphVertex>::iterator mvIt=morphedVertices.begin();mvIt!=morphedVertices.end();++mvIt)
+	for(typename std::vector<MorphVertex>::iterator mvIt=morphedVertices.begin();mvIt!=morphedVertices.end();++mvIt)
 		{
 		/* Perform trilinear interpolation on the current box shape: */
 		Scalar x1=mvIt->boxCoords[0];
@@ -188,12 +210,14 @@ void MorphBox::dragBox(const MorphBox::OGTransform& currentTransformation)
 		}
 	}
 
-void MorphBox::stopDragBox(void)
+template <class MeshType>
+void MorphBox<MeshType>::stopDragBox(void)
 	{
 	numDraggedVertices=0;
 	}
 
-void MorphBox::glRenderAction(const GLContextData& contextData) const
+template <class MeshType>
+void MorphBox<MeshType>::glRenderAction(const GLContextData& contextData) const
 	{
 	glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 	glDisable(GL_LIGHTING);

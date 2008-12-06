@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyTurnNavigationTool - Class providing a fly navigation tool
 with turning using two valuators.
-Copyright (c) 2005-2015 Oliver Kreylos
+Copyright (c) 2005-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VALUATORFLYTURNNAVIGATIONTOOL_INCLUDED
 #define VRUI_VALUATORFLYTURNNAVIGATIONTOOL_INCLUDED
 
-#include <Vrui/NavigationTool.h>
+#include <Vrui/Tools/NavigationTool.h>
 
 /* Forward declarations: */
 namespace Vrui {
@@ -44,13 +44,10 @@ class ValuatorFlyTurnNavigationToolFactory:public ToolFactory
 	Scalar valuatorThreshold; // Threshold value beyond which a valuator is considered "pressed"
 	Scalar valuatorExponent; // Exponent for valuator values applied after threshold
 	Scalar superAccelerationFactor; // Factor for super acceleration if valuator is pressed to limit
-	bool flyDirectionDeviceCoordinates; // Flag whether the flying direction is specified in device coordinates
-	Vector flyDirection; // Flying direction of tool in device coordinates or physical coordinates
+	Vector flyDirection; // Flying direction of tool in device coordinates
 	Scalar flyFactor; // Velocity multiplication factor
-	bool rotationAxisDeviceCoordinates; // Flag whether the rotation axis is specified in device coordinates
-	Vector rotationAxis; // Rotation axis of tool in device coordinates or physical coordinates
-	bool rotationCenterDeviceCoordinates; // Flag whether the rotation center is specified in device coordinates
-	Point rotationCenter; // Center point of rotation in device coordinates or physical coordinates
+	Vector rotationAxis; // Rotation axis of tool in device coordinates
+	Point rotationCenter; // Center point of rotation
 	Scalar rotationFactor; // Angular velocity multiplication factor
 	
 	/* Constructors and destructors: */
@@ -58,9 +55,7 @@ class ValuatorFlyTurnNavigationToolFactory:public ToolFactory
 	ValuatorFlyTurnNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ValuatorFlyTurnNavigationToolFactory(void);
 	
-	/* Methods from ToolFactory: */
-	virtual const char* getName(void) const;
-	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
+	/* Methods: */
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -72,6 +67,7 @@ class ValuatorFlyTurnNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ValuatorFlyTurnNavigationToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Transient navigation state: */
 	Scalar currentValues[2]; // Current value of the associated valuators
@@ -81,9 +77,9 @@ class ValuatorFlyTurnNavigationTool:public NavigationTool
 	public:
 	ValuatorFlyTurnNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	};
 
