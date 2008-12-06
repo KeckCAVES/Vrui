@@ -1,0 +1,44 @@
+<HTML>
+<HEAD>
+<TITLE>Comm -- Communications Library</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Comm&nbsp;-- Communications Library</H1>
+
+The Comm library contains classes to simplify communications via serial ports, UDP and TCP sockets, and a mechanism for reliable high-performance one-to-many communications using UDP multicast.
+
+<H2>Header Files</H2>
+
+<DL>
+<DT>FdSet.h</DT>
+<DD>FdSet is a class representing file descriptor sets, as used by the select() and pselect() system calls. The header file contains wrappers for both functions that do not need the nfds argument.</DD>
+
+<DT>SerialPort.h</DT>
+<DD>SerialPort is a class representing a serial communications port. It supports error handling and reliable binary I/O.</DD>
+
+<DT>UDPSocket.h</DT>
+<DD>UDPSocket is a class representing a UDP socket. It can create either a listening socket on the local computer, or connect to a listening socket on a remote computer. It supports unreliable sending/receiving of binary data.</DD>
+
+<DT>TCPSocket.h</DT>
+<DD>TCPSocket is a class representing a TCP socket. It can create either a listening socket on the local computer, or connect to a listening socket on a remote computer. It supports reliable exchange of binary data.</DD>
+
+<DT>TCPPipe.h</DT>
+<DD>TCPPipe is a wrapper around the Comm::TCPSocket class that provides endianness-safe transport of binary data across a TCP connection and type-safe methods to read/write binary data. It supports explicit specification of network byte order, or automatic byte order detection with "receiver makes right" correction.</DD>
+
+<DT>MulticastPacket.h</DT>
+<DD>MulticastPacket is a structure describing packets that can be sent across a MulticastPipe.</DD>
+
+<DT>MulticastPipe.h</DT>
+<DD>MulticastPipe is a class representing a data stream between a single sender and multiple receivers. Multiple data streams are multiplexed across a UDP multicast socket by a MulticastPipeMultiplexer object. MulticastPipe supports barrier synchronization, and reliable multicast sending of binary data organized as arbitrary-size messages. Messages are sent in MulticastPacket units.</DD>
+
+<DT>MulticastPipeMultiplexer.h</DT>
+<DD>MulticastPipeMultiplexer is a class mapping several multicast data streams represented as MulticastPipe objects to a single UDP multicast socket. It supports dynamic creation/destruction of multicast data streams, and adds reliable transmissions to the underlying UDP multicast protocol.</DD>
+
+<DT>ClusterPipe.h</DT>
+<DD>ClusterPipe is a pipe abstraction layered over a TCPSocket object and a MulticastPipe. It provides typed and endianness-safe sending/receiving of data between two clusters over the Internet. If an end of a connection is a cluster, only the head node establishes a TCP connection to the other side, and the ClusterPipe forwards incoming traffic to the rest of the cluster transparently. This abstraction vastly simplifies development of cluster-based applications with remote communication.</DD>
+</DL>
+
+</BODY>
+</HTML>

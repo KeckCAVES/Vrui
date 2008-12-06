@@ -1,0 +1,214 @@
+########################################################################
+# BasicMakefile - Definitions and rules to build object files, shared
+# and static libraries, and executables.
+# Copyright (c) 1999-2008 Oliver Kreylos
+# Mac OS X adaptation copyright (c) 2006 Braden Pellett
+#
+# This file is part of the WhyTools Build Environment.
+# 
+# The WhyTools Build Environment is free software; you can redistribute
+# it and/or modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+# 
+# The WhyTools Build Environment is distributed in the hope that it will
+# be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with the WhyTools Build Environment; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# 02111-1307 USA
+########################################################################
+
+#
+# Definitions and commands/rules to compile C/C++ source files
+#
+
+# Set up the optimization and debugging level flags:
+ifndef OPTLEVEL
+  OPTLEVEL = $(DEFAULTOPTLEVEL)
+endif
+ifndef DEBUGLEVEL
+  DEBUGLEVEL = $(DEFAULTDEBUGLEVEL)
+endif
+
+# Set compiler flags for the system environment:
+CSYSFLAGS = -D__$(SYSTEM)__
+ifneq ($(SYSTEM_HAVE_TLS),0)
+  CSYSFLAGS += -DSYSTEM_HAVE_TLS
+endif
+CSYSFLAGS += $(EXTRACSYSFLAGS)
+
+#
+# Include list of supported packages
+#
+
+include $(PACKAGEROOT)/BuildRoot/Packages
+
+# Recursively expand the list of packages:
+# Well, this is not really recursion... it goes only nine levels, which should be enough ;)
+PACKAGES1 = $(foreach PACKAGENAME,$(PACKAGES),$($(PACKAGENAME)_DEPENDS))
+PACKAGES2 = $(foreach PACKAGENAME,$(PACKAGES1),$($(PACKAGENAME)_DEPENDS))
+PACKAGES3 = $(foreach PACKAGENAME,$(PACKAGES2),$($(PACKAGENAME)_DEPENDS))
+PACKAGES4 = $(foreach PACKAGENAME,$(PACKAGES3),$($(PACKAGENAME)_DEPENDS))
+PACKAGES5 = $(foreach PACKAGENAME,$(PACKAGES4),$($(PACKAGENAME)_DEPENDS))
+PACKAGES6 = $(foreach PACKAGENAME,$(PACKAGES5),$($(PACKAGENAME)_DEPENDS))
+PACKAGES7 = $(foreach PACKAGENAME,$(PACKAGES6),$($(PACKAGENAME)_DEPENDS))
+PACKAGES8 = $(foreach PACKAGENAME,$(PACKAGES7),$($(PACKAGENAME)_DEPENDS))
+PACKAGES9 = $(foreach PACKAGENAME,$(PACKAGES8),$($(PACKAGENAME)_DEPENDS))
+PACKAGES_RECEXPAND = $(PACKAGES) $(PACKAGES1) $(PACKAGES2) $(PACKAGES3) $(PACKAGES4) $(PACKAGES5) $(PACKAGES6) $(PACKAGES7) $(PACKAGES8) $(PACKAGES9)
+
+# Generate the list of include file directories from list of packages:
+CINCLUDEFLAGS = $(EXTRACINCLUDEFLAGS) $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_INCLUDE)))
+
+# Generate compiler flags from list of packages:
+CPACKAGEFLAGS = $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_CFLAGS)))
+
+# Generate the list of library directories from list of packages:
+LINKDIRFLAGS  = $(EXTRALINKDIRFLAGS) $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBDIR)))
+
+# Generate the list of libraries from list of packages:
+ifneq ($(SORT_LINKLIBFLAGS),0)
+  LINKLIBFLAGS  = $(EXTRALINKLIBFLAGS) $(foreach PACKAGENAME,$(sort $(PACKAGES_RECEXPAND)),$($(PACKAGENAME)_LIBS))
+else
+  LINKLIBFLAGS  = $(EXTRALINKLIBFLAGS) $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBS))
+endif
+ifneq ($(USE_RPATH),0)
+  ifneq ($(SYSTEM_HAVE_RPATH),0)
+    ifdef LIBINSTALLDIR
+      LINKLIBFLAGS += -Wl,-rpath=$(LIBINSTALLDIR)
+    endif
+  endif
+endif
+
+# Generate the complete list of compiler flags:
+CCFLAGS = -g$(DEBUGLEVEL) -O$(OPTLEVEL) $(CFLAGS) $(CSYSFLAGS) $(CINCLUDEFLAGS) $(CPACKAGEFLAGS)
+
+# Determine the object file directory:
+ifdef OBJDIREXT
+  OBJDIR = $(OBJDIRBASE)/$(COMPILERTYPE).g$(DEBUGLEVEL).O$(OPTLEVEL).$(OBJDIREXT)
+else
+  OBJDIR = $(OBJDIRBASE)/$(COMPILERTYPE).g$(DEBUGLEVEL).O$(OPTLEVEL)
+endif
+
+# sed command to process a generated dependency file:
+define PROCESS_DEPFILE
+sed -e 's!\([^:]*:\)!$$(OBJDIR)/$*.o:!g' -e 's!/usr/[^ ]*!!g' -e '/^[ ]*\\$$/ d' < $(DEPFILETEMPLATE) > $(DEPDIR)/$*.d
+endef
+
+# Set default compile command from .c to .o:
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
+ifdef SHOWCOMMAND
+	$(PLAINCCOMP) -MD -c -o $@ $(CCFLAGS) $<
+else
+	@echo Compiling $<...
+	@$(PLAINCCOMP) -MD -c -o $@ $(CCFLAGS) $<
+endif
+	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+# Set default compile commands from .cc/.cpp to .o:
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+else
+	@echo Compiling $<...
+	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+endif
+	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+$(OBJDIR)/%.o: %.cc
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+else
+	@echo Compiling $<...
+	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+endif
+	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+#
+# Definitions and commands/rules to link static or shared libraries
+#
+
+ifndef MAJORLIBVERSION
+  MAJORLIBVERSION = 1
+endif
+ifndef MINORLIBVERSION
+  MAJORLIBVERSION = 0
+endif
+ifndef LIBDESTDIR
+  LIBDESTDIR = ./$(LIBEXT)
+endif
+
+# Default link command to create dynamic library:
+$(LIBDESTDIR)/$(call FULLDSONAME,%):
+	@mkdir -p $(LIBDESTDIR)/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) $(call DSOLINKFLAGS,$(*F)) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+else
+	@echo Linking $@...
+	@$(CCOMP) $(call DSOLINKFLAGS,$(*F)) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+endif
+	@-rm -f $(LIBDESTDIR)/$(call DSONAME,$*) $(LIBDESTDIR)/$(call LINKDSONAME,$*)
+	@ln -s $@ $(LIBDESTDIR)/$(call DSONAME,$*)
+	@ln -s $@ $(LIBDESTDIR)/$(call LINKDSONAME,$*)
+
+# Default link command to create static library:
+$(LIBDESTDIR)/%.$(LDEXT).a:
+	@mkdir -p $(LIBDESTDIR)/$(*D)
+	@-rm -f $@
+ifdef SHOWCOMMAND
+	ar crs $@ $^
+else
+	@echo Linking $@...
+	@ar crs $@ $^
+endif
+
+#
+# Definitions and commands/rules to link executable files
+#
+
+# Set default link command for executables:
+$(EXEDIR)/%:
+	@mkdir -p $(EXEDIR)/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+else
+	@echo Linking $@...
+	@$(CCOMP) $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+endif
+
+# Commands to clean up after the compiler:
+
+.PHONY: clean
+clean: extraclean
+	-find $(DEPDIR) -name "*.d" -exec rm -f \{\} \;
+	-find $(OBJDIR) -name "*.o" -exec rm -f \{\} \;
+	-rm -f $(ALL)
+
+.PHONY: squeakyclean
+squeakyclean: extrasqueakyclean
+	-rm -rf d
+	-rm -rf o
+	-rm -rf exe
+
+# Use an empty default rule to ignore missing prerequisites and just remake their targets:
+.DEFAULT: ;
+
+# Get list of dependency files from the current directory and all its subdirectories:
+
+DEPFILES = $(shell find $(DEPDIR) -follow -name "*.d")
+
+# Include all dependency files:
+
+include $(DEPFILES)

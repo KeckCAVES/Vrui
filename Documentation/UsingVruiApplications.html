@@ -1,0 +1,105 @@
+<HTML>
+<HEAD>
+<TITLE>Using Vrui Applications</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Using Vrui Applications</H1>
+
+This document serves as an overview of the Vrui application user interface in desktop simulation mode. It describes basic viewpoint navigation, interaction with menus and dialog boxes, and tool management.
+
+<H2>Viewpoint Navigation</H2>
+
+The default Vrui application user interface on the desktop uses the mouse (assuming a two-button mouse with scroll wheel) and the left shift key for navigation. The navigation metaphor is the &quot;virtual trackball,&quot; where an imagined free-spinning sphere is centered on the screen, and can be dragged with the left mouse button. All objects in the scene react to dragging as if they were attached to the imaginary sphere. In addition to the virtual trackball, the navigation offers panning in the screen plane, dollying (i.e., translation orthogonally to the screen plane), and zooming (i.e., scaling of the scene with respect to the screen center). To aid navigation in 3D scenes, the navigation tool displays a 3D crosshair in the screen plane when it is active. The crosshair is mostly used to judge whether 3D objects are located in front of or behind the screen plane.<P>
+
+<TABLE WIDTH=100% CELLSPACING=16 CELLPADDING=0 BORDER=0>
+<TR>
+<TD ALIGN=CENTER><IMG SRC="NavigationRotate.png" WIDTH=209 HEIGHT=240></TD>
+<TD ALIGN=CENTER><IMG SRC="NavigationPan.png" WIDTH=209 HEIGHT=240></TD>
+<TD ALIGN=CENTER><IMG SRC="NavigationZoom.png" WIDTH=209 HEIGHT=240></TD>
+<TD ALIGN=CENTER><IMG SRC="NavigationDolly.png" WIDTH=209 HEIGHT=240></TD>
+</TR>
+<TR><TD COLSPAN=4><B>Figure 1</B>: The four navigation modes (from left to right: rotating, panning, zooming, dollying) and how they are mapped to mouse buttons/keys in the Vrui default configuration for desktop environments. The diagrams show the desktop from above, with the screen plane denoted by the horizontal grey line, and the screen center (center for rotation and zooming) denoted by the grey tick mark.</TD></TR>
+</TABLE>
+
+The default assignment of mouse buttons/keys to navigation functions is as follows (see Figure&nbsp;1 for illustration):
+<DL>
+<DT>Left mouse button&nbsp;-- rotating</DT>
+<DD>Pressing only the left mouse button will rotate the scene around the screen center using the virtual trackball metaphor.</DD>
+
+<DT>Z&nbsp;key&nbsp;-- panning</DT>
+<DD>Pressing only the Z&nbsp;key button will pan the scene inside the screen plane. Panning is scaled such that 3D objects directly in the screen plane move exactly with the mouse cursor.</DD>
+
+<DT>Left mouse button&nbsp;+ Z&nbsp;key&nbsp;-- zooming</DT>
+<DD>When the left mouse button and the Z&nbsp;key are pressed simultaneously, dragging the mouse up will zoom out, i.e., reduce the scale of the entire scene, and dragging the mouse down will zoom in, i.e., increase the scale of the entire scene. The center point of scaling is the screen center (the center of the 3D crosshair). This means that objects behind the screen plane move farther away when zooming in, which might make it appear as if they are not becoming bigger because scaling is cancelled out by perspective foreshortening. When scaling to &quot;zoom in&quot; on a particular object, it is best to first bring that object, or a point of interest on that object, to the screen plane.</DD>
+
+<DT>Mouse wheel&nbsp;-- zooming</DT>
+<DD>Rolling the mouse wheel up or down will zoom out or in, respectively, by a fixed factor.</DD>
+
+<DT>Left mouse button&nbsp;+ Z&nbsp;key&nbsp;+ left shift key&nbsp;-- dollying</DT>
+<DD>As opposed to zooming, dollying moves the entire scene towards or away from the viewpoint. Due to perspective foreshortening, dollying has a similar effect to zooming, but is a fundamentally different operation. When the left mouse button, the Z&nbsp;key, and the left shift key are pressed simultaneously, dragging the mouse up will dolly out, i.e., move the scene farther away from the viewpoint, and dragging the mouse down will dolly in, i.e., move the scene closer to the viewpoint. The 3D crosshair can be used to judge when dollying brings an object, or a point of interest on an object, into the screen plane.</DD>
+
+<DT>Mouse wheel + left shift key&nbsp;-- dollying</DT>
+<DD>Rolling the mouse wheel up or down with the left shift key pressed will dolly out or in, respectively, by a fixed distance. Continuous dollying using the mouse wheel is a convenient way to &quot;fly through&quot; a 3D scene.</DD>
+</DL>
+The default mapping is intended for systems without a middle mouse button, or where the middle mouse button cannot be used by applications without changes to the windowing system (such as MacOS&nbsp;X). If the system has a usable middle mouse button, it is recommended to use the middle mouse button in place of the Z&nbsp;key. This can easily be achieved by changing one line in the Vrui configuration file.
+
+<H3>Simplified Mouse Navigation Tool</H3>
+
+The multiple buttons and keys used by the standard mouse navigation tool can be confusing for new users. To help them get used to Vrui's navigation metaphor, Vrui offers a simplified mouse navigation tool using only a single mouse button and a dialog window to switch between navigation modes (rotating, panning, etc.). This tool can be associated with any desired mouse button by selecting a "MouseDialogNavigationTool" from the "NavigationTool" submenu in the tool selection menu (see Section "Tool Management").<P>
+
+When a MouseDialogNavigationTool is assigned to a button, it will open a dialog box in the center of the screen. The dialog contains four radio buttons for the different navigation modes, and a toggle button to turn the navigation crosshair on or off. Users can interact with the dialog as described in Section "Dialog Box Interaction." Each of the tool's four navigation modes works exactly the same way as the corresponding mode in the standard mouse navigation tool.
+
+<H2>Menu Interaction</H2>
+
+Most Vrui applications contain a main menu that can be opened by pressing and holding the right mouse button. Although the menus (and all other widgets) are represented as 3D objects, they behave almost exactly like regular 2D menus in desktop mode. To select a menu entry, press the right mouse button, move the mouse to the desired menu option (until the menu option becomes highlighted), and then release the right mouse button to select the option.
+
+<H2>Dialog Box Interaction</H2>
+
+Many Vrui applications contain stand-alone dialog boxes to change settings inside the application. These dialog boxes are usually brought up by selecting options in an application's main menu (such as &quot;Show Render Dialog&quot;), and appear in the screen plane, at the position the selection was made. Dialog boxes can usually be closed by deselecting the associated option in the main menu. Interacting with dialog boxes (and the widgets they contain) is mapped to the left mouse button. If the left mouse button is clicked while over a dialog box, it interacts with the dialog box; if it is clicked anywhere else, it is used for navigation as explained above. Vrui dialog boxes behave almost identically to regular 2D dialog boxes and widgets, e.g., dialog boxes can be moved by dragging the blue title bar.
+
+<H2>Available Buttons in Desktop Mode</H2>
+
+Besides the buttons/keys used for navigation, menu interaction, and dialog box interaction, the following buttons are available in the default configuration: left/middle/right mouse button, left shift key, Z&nbsp;key, the Q, W, A, S, and D keys, the number keys on the main keyboard, the Tab key, the number keys on the numeric key pad, and the Enter key on the numeric keypad. More buttons/keys can be made available by modifying the Vrui configuration file. The left ctrl and alt keys serve as modifier keys: pressing any combinations of these gives access to an entire new set of buttons. In other words, the Vrui default configuration has 32 buttons in each plane, and four planes, totalling 128 available buttons. All these buttons can be assigned to Vrui or Vrui application functions using the dynamic tool assignment mechanism described below.
+
+<H3>&quot;Sticky&quot; Keys</H3>
+
+When switching between planes of buttons using any combination of modifier keys (such as left alt or left ctrl), any buttons that were pressed in the previous plane will stay pressed until the plane is activated the next time. This allows to &quot;hold&quot; buttons from different planes while working with the same buttons in other planes. For example, by pressing and holding the left ctrl key, then pressing and holding the Tab key, and then releasing the left alt key (while still holding the Tab key pressed), the &quot;left alt+Tab&quot; virtual button stays pressed until the next time the &quot;left alt&quot; button plane is activated by pressing the left alt key. This sticky key behavior allows for convenient &quot;tricks&quot; in many Vrui applications.
+
+<H2>Tool Management</H2>
+
+The basic facility supporting the portability of Vrui applications between VR environments (and the desktop) is the use of so-called &quot;tools&quot; to map input device events such as button or key presses to program functionality. Although Vrui applications start with a default set of tool bindings (which is described in the preceding sections), these bindings can be changed at will. The user interactions described above make use of several classes of tools:
+<DL>
+<DT>NavigationTool</DT>
+<DD>A NavigationTool maps input device events and motion to 3D viewpoint navigation. The concrete navigation tool described in the first section is a MouseNavigationTool, connected to the left button the Z&nbsp;key, the mouse wheel, and the left shift key.</DD>
+
+<DT>MenuTool</DT>
+<DD>A MenuTool supports popping up, and interacting with, context menus. The ScreenMenuTool described in the second section always opens menus in the screen plane, and is connected to the right mouse button in the default Vrui desktop configuration.</DD>
+</DL><P>
+
+Other classes of tools are not part of the default set of bindings, but can be bound at runtime to get access to other functions inside the Vrui toolkit itself, or inside Vrui applications:
+<DL>
+<DT>MouseTool</DT>
+<DD>The desktop version of Vrui handles the mouse as a pseudo-3D input device located at the viewpoint, and pointing towards the screen plane. A MouseTool creates a virtual input device moving at the mouse's position inside the screen plane, and can be used to perform 3D interactions by attaching other tools to the virtual mouse device. The MouseTool can be found in the &quot;TransformTool&quot; submenu of the Vrui tool selection menu.</DD>
+
+<DT>LocatorTool</DT>
+<DD>A LocatorTool is used to notify a Vrui application that an action is to take place at a particular position in 3D space. What exactly this action is is defined by the Vrui application. For example, in the ShowEarthModel example application, a LocatorTool is used to select and query information about earthquakes. The typical way to bind a LocatorTool is to first bind a MouseTool to some mouse button/modifier key combination, and then bind a SixDofLocator tool to the same mouse button/modifier key combination. As a result, the action will take place at the mouse's position inside the screen plane.</DD>
+
+<DT>DraggingTool</DT>
+<DD>A DraggingTool is similar to a LocatorTool in that it works in cooperation with a Vrui application, but it has different semantics. Whereas a LocatorTool simply causes an action at a particular 3D location, a DraggingTool selects an application object at its 3D position when its associated button is pressed, and then drags that object while the buttons stays pressed. DraggingTools are usually bound to the mouse in the same way as LocatorTools, by first binding a MouseTool and then a SixDofDraggingTool.</DD>
+
+<DT>MeasurementTool</DT>
+<DD>The MeasurementTool is an example of a high-level tool inside the Vrui toolkit itself. It allows a user to measure positions, distances, and angles in 3D space, either in physical or navigational (model) coordinates. As a Measurement tool measures at 3D positions, it is usually bound to the mouse via a MouseTool. When created, a MeasurementTool will pop up a measurement dialog in the center of the screen. This dialog is used to change the mode of the MeasurementTool, and displays the results of the last measurement operation. The MeasurementTool can be found in the &quot;UtilityTool&quot; submenu of the Vrui tool selection menu.</DD>
+</DL>
+
+<H3>Binding Tools</H3>
+
+Tools can be bound to a previously unbound button by pressing that button and selecting the desired tool from the tool selection menu. Tools that require multiple buttons to work, such as the MouseNavigationTool, can be bound by pressing the first button, holding it pressed, and briefly tapping all other buttons in order before the tool is selected from the tool selection menu. For example, to bind a MouseNavigationTool exactly like in the default configuration, one (1)&nbsp;presses (and holds) the left mouse button, (2)&nbsp;presses (and releases) the Z&nbsp;key, (3)&nbsp;presses (and releases) the left shift key, (4)&nbsp;rolls the mouse wheel in both directions, and (5)&nbsp;releases the left mouse button while pointing at the MouseNavigationTool in the tool selection menu.
+
+<H3>Destroying Tools</H3>
+
+Tools can be destroyed by pointing the mouse at the &quot;tool destruction zone,&quot; the red box in the lower-right hand corner of the screen, and pressing the button (or one of the buttons) the tool is bound to. The tool will be destroyed immediately; afterwards, a new tool can be bound to the same button or buttons as described above.
+
+</BODY>
+</HTML>

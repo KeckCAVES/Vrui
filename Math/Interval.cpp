@@ -1,0 +1,129 @@
+/***********************************************************************
+Interval - Class for closed intervals of arbitrary scalar types.
+Copyright (c) 2003-2005 Oliver Kreylos
+
+This file is part of the Templatized Math Library (Math).
+
+The Templatized Math Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Math Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Math Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define MATH_INTERVAL_IMPLEMENTATION
+
+#ifndef METHODPREFIX
+	#ifdef NONSTANDARD_TEMPLATES
+		#define METHODPREFIX inline
+	#else
+		#define METHODPREFIX
+	#endif
+#endif
+
+#include <Math/Constants.h>
+
+#include <Math/Interval.h>
+
+namespace Math {
+
+/*********************************
+Static elements of class Interval:
+*********************************/
+
+template <class ScalarParam>
+const Interval<ScalarParam> Interval<ScalarParam>::empty(Math::Constants<ScalarParam>::max,Math::Constants<ScalarParam>::min);
+template <class ScalarParam>
+const Interval<ScalarParam> Interval<ScalarParam>::full(Math::Constants<ScalarParam>::min,Math::Constants<ScalarParam>::max);
+
+/*************************
+Methods of class Interval:
+*************************/
+
+template <class ScalarParam>
+METHODPREFIX Interval<ScalarParam>& Interval<ScalarParam>::intersectInterval(const Interval<ScalarParam>& other)
+	{
+	/* Adjust interval borders: */
+	if(min<other.min)
+		min=other.min;
+	if(max>other.max)
+		max=other.max;
+	
+	/* Check if interval is now empty: */
+	if(min>max)
+		{
+		/* Set interval to prototype empty interval: */
+		min=empty.min;
+		max=empty.max;
+		}
+	
+	/* Return changed interval: */
+	return *this;
+	}
+
+template <class ScalarParam>
+METHODPREFIX Interval<ScalarParam>& Interval<ScalarParam>::operator*=(Scalar s)
+	{
+	min*=s;
+	max*=s;
+	
+	/* Fix after multiplication with negative scalar: */
+	if(s<Scalar(0))
+		{
+		Scalar t=min;
+		min=max;
+		max=t;
+		}
+	
+	return *this;
+	}
+
+/**********************************
+Friend functions of class Interval:
+**********************************/
+
+template <class ScalarParam>
+METHODPREFIX Interval<ScalarParam> intersect(const Interval<ScalarParam>& i1,const Interval<ScalarParam>& i2)
+	{
+	/* Calculate result interval's borders: */
+	ScalarParam min=i1.min;
+	if(min>i2.min)
+		min=i2.min;
+	ScalarParam max=i1.max;
+	if(max>i2.max)
+		max=i2.max;
+	
+	/* Check if result interval is emtpy: */
+	if(min>max)
+		return Interval<ScalarParam>::emtpy;
+	
+	/* Return result: */
+	return Interval<ScalarParam>(min,max);
+	}
+
+#if !defined(NONSTANDARD_TEMPLATES)
+
+/******************************************************************
+Force instantiation of all standard Interval classes and functions:
+******************************************************************/
+
+template class Interval<int>;
+Interval<int> intersect(const Interval<int>&,const Interval<int>&);
+
+template class Interval<float>;
+Interval<float> intersect(const Interval<float>&,const Interval<float>&);
+
+template class Interval<double>;
+Interval<double> intersect(const Interval<double>&,const Interval<double>&);
+
+#endif
+
+}

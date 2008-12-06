@@ -1,0 +1,41 @@
+<HTML>
+<HEAD>
+<TITLE>Threads -- Thread Support Library</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Threads&nbsp;-- Thread Support Library</H1>
+
+The Threads library provides a C++ wrapper around the pthreads library. It supports thread management, mutex semaphores with resource-allocation-as-initialization lock management, condition variables, mutex-protected condition variables, multi-thread synchronization points, thread-local storage, and a generic class providing lock-free one-way asynchronous communication using triple buffers.
+
+<H2>Header Files</H2>
+
+<DL>
+<DT>Thread.h</DT>
+<DD>Thread is a class representing a thread of execution. It can start threads from C functions or C++ methods, each with optional additional data passed to the thread function/method. Non-detached threads are automatically terminated (cancelled and joined) when their Thread object is destroyed.</DD>
+
+<DT>Mutex.h</DT>
+<DD>Mutex is a class representing a mutual-exclusion semaphor. Mutex has an embedded Lock class that allows expressing mutex locking/unlocking as object construction/destruction.</DD>
+
+<DT>Cond.h</DT>
+<DD>Cond is a class representing a condition variable, i.e., a semaphore that threads can block on and that can be used to signal events to interested threads asynchronously. It is assumed that each condition variable is protected by a mutual-exclusion semaphore represented by a Mutex object to prevent race conditions.</DD>
+
+<DT>MutexCond.h</DT>
+<DD>MutexCond is a class representing the combination of a condition variable with a dedicated mutex semaphore.</DD>
+
+<DT>Barrier.h</DT>
+<DD>Barrier is a class implementing synchronization points where a fixed number of threads must come together before any can proceed.</DD>
+
+<DT>Local.h</DT>
+<DD>Local is a templatized class wrapping the parameter data type into a thread-local storage model using the POSIX TLS interface. Local variables are meant to be declared with static storage type, i.e., either as global variables, function-static variables, or static class elements. Any thread-local storage mechanism provided by the host compiler and run-time environment, such as gcc's __thread extension, yield much better performance and should be used instead.</DD>
+
+<DT>RefCounted.h</DT>
+<DD>RefCounted is a thread-safe version of the Misc::RefCounted base class for reference counted objects to implement simple automatic garbage collection. It uses a mutex to serialize access to a reference counted object's counter.</DD>
+
+<DT>TripleBuffer.h</DT>
+<DD>TripleBuffer is a class implementing the triple buffer communications pattern, where a consumer can read the most recent in a stream of values produced by a producer, without requiring synchronization between the two entities.</DD>
+</DL>
+
+</BODY>
+</HTML>

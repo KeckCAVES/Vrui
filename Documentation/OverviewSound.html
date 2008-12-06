@@ -1,0 +1,26 @@
+<HTML>
+<HEAD>
+<TITLE>Sound -- Low-Level Sound Library</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Sound&nbsp;-- Low-Level Sound Library</H1>
+
+The Sound library provides facility to record and play back sound using low-level sound APIs (ALSA on Linux, CoreAudio and AudioToolbox on Mac OS&nbsp;X).
+
+<H2>Header Files</H2>
+
+<DL>
+<DT>SoundDataFormat.h</DT>
+<DD>SoundDataFormat is a structure to represent sound data formats (sample resolution, number of channels, sample rate, etc.) in an API-independent format.</DD>
+
+<DT>SoundRecorder.h</DT>
+<DD>SoundRecorder is a simple class to record sound from a sound capture device to a sound file in several supported formats. The class currently supports raw and WAV files under Linux, and WAV and AIFF files under Mac OS&nbsp;X.</DD>
+
+<DT>SoundPlayer.h</DT>
+<DD>SoundPlayer is a simple class to play sonud from a sound file on a sound playback device.</DD>
+</DL>
+
+</BODY>
+</HTML>
