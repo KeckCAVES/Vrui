@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,7 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 class GLShader
 	{
 	/* Embedded classes: */
-	private:
+	protected:
 	typedef std::vector<GLhandleARB> HandleList; // Type for list of object handles
 	
 	/* Elements: */
@@ -39,9 +39,9 @@ class GLShader
 	HandleList fragmentShaderObjects; // List of handles of compiled fragment shader objects
 	GLhandleARB programObject; // Handle for the linked shader program
 	
-	/* Private methods: */
-	void loadAndCompileShader(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads a vertex or fragment shader into an existing shader object
-	void compileShader(GLhandleARB shaderObject,const char* shaderSource); // Compiles a vertex or fragment shader into an existing shader object
+	/* Protected methods: */
+	void loadAndCompileShader(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads a vertex, geometry, or fragment shader into an existing shader object
+	void compileShader(GLhandleARB shaderObject,const char* shaderSource); // Compiles a vertex, geometry, or fragment shader into an existing shader object
 	
 	/* Constructors and destructors: */
 	public:

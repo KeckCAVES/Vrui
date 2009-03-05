@@ -43,8 +43,8 @@ void ToolKillZoneBox::renderModel(void) const
 	GLfloat min[3],max[3];
 	for(int i=0;i<3;++i)
 		{
-		min[i]=GLfloat(box.getMin(i));
-		max[i]=GLfloat(box.getMax(i));
+		min[i]=GLfloat(box.min[i]);
+		max[i]=GLfloat(box.max[i]);
 		}
 	glDrawBox(min,max);
 	}

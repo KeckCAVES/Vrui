@@ -70,7 +70,7 @@ int main(int argc,char* argv[])
 	/* Parse command line: */
 	bool daemonize=false;
 	const char* configFileName=SYSVRDEVICEDAEMONCONFIGFILENAME;
-	char* rootSectionName=0;
+	const char* rootSectionName=0;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')

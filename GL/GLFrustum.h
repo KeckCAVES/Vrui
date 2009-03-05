@@ -31,6 +31,7 @@ not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite
 #include <Geometry/Vector.h>
 #include <Geometry/HVector.h>
 #include <Geometry/Plane.h>
+#include <Geometry/Box.h>
 
 template <class ScalarParam>
 class GLFrustum
@@ -42,6 +43,7 @@ class GLFrustum
 	typedef Geometry::Vector<Scalar,3> Vector; // Type for vectors
 	typedef Geometry::HVector<Scalar,3> HVector; // Type for homogeneous vectors
 	typedef Geometry::Plane<Scalar,3> Plane; // Type for planes
+	typedef Geometry::Box<Scalar,3> Box; // Type for axis-aligned boxes
 	
 	/* Elements: */
 	private:
@@ -96,6 +98,8 @@ class GLFrustum
 		{
 		return (sphereRadius*pixelSize)/(Scalar(1)-eyeScreenDist*screenPlane.calcDistance(sphereCenter));
 		}
+	bool doesBoxIntersect(const Box& box) const; // Returns false if the given box is guaranteed not to intersect the frustum
+	bool doesSphereIntersect(const Point& center,Scalar radius) const; // Returns false if the given sphere is guaranteed not to intersect the frustum
 	};
 
 #if defined(NONSTANDARD_TEMPLATES) && !defined(GLFRUSTUM_IMPLEMENTATION)

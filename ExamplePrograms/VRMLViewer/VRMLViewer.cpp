@@ -64,11 +64,11 @@ VRMLViewer::VRMLViewer(int& argc,char**& argv,char**& appDefaults)
 	
 	/* Calculate the root node's bounding box: */
 	VRMLNode::Box bbox=root->calcBoundingBox();
-	std::cout<<"Root node bounding box: ["<<bbox.getMin(0)<<", "<<bbox.getMax(0)<<"] x ["<<bbox.getMin(1)<<", "<<bbox.getMax(1)<<"] x ["<<bbox.getMin(2)<<", "<<bbox.getMax(2)<<"]"<<std::endl;
+	std::cout<<"Root node bounding box: ["<<bbox.min[0]<<", "<<bbox.max[0]<<"] x ["<<bbox.min[1]<<", "<<bbox.max[1]<<"] x ["<<bbox.min[2]<<", "<<bbox.max[2]<<"]"<<std::endl;
 	
 	/* Initialize the navigation transformation: */
-	Vrui::Point center(Geometry::mid(bbox.getMin(),bbox.getMax()));
-	Vrui::Scalar radius=Geometry::dist(center,Vrui::Point(bbox.getMax()));
+	Vrui::Point center(Geometry::mid(bbox.min,bbox.max));
+	Vrui::Scalar radius=Geometry::dist(center,Vrui::Point(bbox.max));
 	Vrui::setNavigationTransformation(center,radius,Vrui::Vector(0,1,0));
 	}
 

@@ -28,6 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
 #include <Math/Math.h>
+#include <Math/Constants.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
@@ -534,6 +535,30 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Poin
 			{
 			result=&(*eIt);
 			minDist2=dist2;
+			}
+		}
+	
+	return result;
+	}
+
+const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray& ray,float coneAngle) const
+	{
+	const Event* result=0;
+	
+	float coneAngle2=Math::sqr(coneAngle);
+	float lambdaMin=Math::Constants<float>::max;
+	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
+		{
+		Ray::Vector sp=eIt->position-ray.getOrigin();
+		float x=sp*ray.getDirection();
+		if(x>=0.0f&&x<lambdaMin)
+			{
+			float y2=Geometry::sqr(Geometry::cross(sp,ray.getDirection()));
+			if(y2/Math::sqr(x)<=coneAngle2)
+				{
+				result=&(*eIt);
+				lambdaMin=x;
+				}
 			}
 		}
 	

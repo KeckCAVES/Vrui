@@ -168,7 +168,7 @@ void MultiDeviceNavigationTool::frame(void)
 			if(lastDeviceButtonStates[i])
 				{
 				++numLastDevices;
-				centroidC.addPoint(input.getDevice(i)->getPosition());
+				centroidC.addPoint(getDevicePosition(i));
 				}
 		
 		if(numLastDevices>0)
@@ -187,7 +187,7 @@ void MultiDeviceNavigationTool::frame(void)
 					Scalar lastLen=Geometry::mag(lastDist);
 					
 					/* Calculate the new vector to centroid: */
-					Vector currentDist=input.getDevice(i)->getPosition()-currentCentroid;
+					Vector currentDist=getDevicePosition(i)-currentCentroid;
 					Scalar currentLen=Geometry::mag(currentDist);
 					
 					if(lastLen>factory->minRotationScalingDistance&&currentLen>factory->minRotationScalingDistance)
@@ -239,8 +239,8 @@ void MultiDeviceNavigationTool::frame(void)
 		Point::AffineCombiner newLastCentroidC;
 		for(int i=0;i<factory->numDevices;++i)
 			{
-			lastDeviceButtonStates[i]=input.getDevice(i)->getButtonState(0);
-			lastDevicePositions[i]=input.getDevice(i)->getPosition();
+			lastDeviceButtonStates[i]=getDeviceButtonState(i,0);
+			lastDevicePositions[i]=getDevicePosition(i);
 			if(lastDeviceButtonStates[i])
 				newLastCentroidC.addPoint(lastDevicePositions[i]);
 			}

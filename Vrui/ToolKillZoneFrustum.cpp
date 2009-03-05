@@ -52,10 +52,10 @@ void ToolKillZoneFrustum::renderModel(void) const
 	glMultMatrix(screen->getScreenTransformation());
 	glBegin(GL_QUADS);
 	glNormal3f(0.0f,0.0f,1.0f);
-	glVertex(box.getMin(0),box.getMin(1));
-	glVertex(box.getMax(0),box.getMin(1));
-	glVertex(box.getMax(0),box.getMax(1));
-	glVertex(box.getMin(0),box.getMax(1));
+	glVertex(box.min[0],box.min[1]);
+	glVertex(box.max[0],box.min[1]);
+	glVertex(box.max[0],box.max[1]);
+	glVertex(box.min[0],box.max[1]);
 	glEnd();
 	glPopMatrix();
 	}

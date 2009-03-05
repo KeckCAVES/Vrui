@@ -114,20 +114,17 @@ Methods of class ScreenLocatorTool:
 
 void ScreenLocatorTool::calcTransformation(void)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Ray deviceRay(device->getPosition(),device->getRayDirection());
+	/* Calculate the ray equation: */
+	Ray ray=getDeviceRay(0);
 	
 	/* Find the closest intersection with any screen: */
-	std::pair<VRScreen*,Scalar> si=findScreen(deviceRay);
+	std::pair<VRScreen*,Scalar> si=findScreen(ray);
 	
 	/* Set the current transformation to the input device: */
 	if(si.first!=0)
 		{
 		/* Compute the locator transformation: */
-		currentTransformation=NavTrackerState::translateFromOriginTo(deviceRay(si.second));
+		currentTransformation=NavTrackerState::translateFromOriginTo(ray(si.second));
 		}
 	}
 

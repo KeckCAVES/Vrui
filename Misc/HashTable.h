@@ -219,7 +219,80 @@ class HashTable
 			}
 		};
 	
+	class ConstIterator
+		{
+		friend class HashTable;
+		
+		/* Elements: */
+		private:
+		const HashTable* table; // Pointer to table this iterator is pointing into
+		size_t bucketIndex; // Index of current hash bucket
+		const HashBucketItem* bucketItem; // Pointer to current entry in hash bucket
+		
+		/* Constructors and destructors: */
+		public:
+		ConstIterator(void) // Creates invalid iterator
+			:table(0),bucketIndex(0),bucketItem(0)
+			{
+			}
+		private:
+		ConstIterator(const HashTable* sTable) // Creates iterator to first entry in hash table
+			:table(sTable),bucketIndex(0),bucketItem(table->hashBuckets[bucketIndex].firstItem)
+			{
+			while(bucketItem==0)
+				{
+				++bucketIndex;
+				if(bucketIndex==table->tableSize)
+					break; // End of table reached
+				bucketItem=table->hashBuckets[bucketIndex].firstItem;
+				}
+			}
+		ConstIterator(const HashTable* sTable,size_t sBucketIndex,const HashBucketItem* sBucketItem) // Elementwise constructor
+			:table(sTable),bucketIndex(sBucketIndex),bucketItem(sBucketItem)
+			{
+			}
+		
+		/* Methods: */
+		public:
+		bool isFinished(void) const
+			{
+			return bucketIndex>=table->tableSize;
+			}
+		friend bool operator==(const ConstIterator& it1,const ConstIterator& it2)
+			{
+			return it1.bucketItem==it2.bucketItem;
+			}
+		friend bool operator!=(const ConstIterator& it1,const ConstIterator& it2)
+			{
+			return it1.bucketItem!=it2.bucketItem;
+			}
+		const Entry& operator*(void) const
+			{
+			return *bucketItem;
+			}
+		const Entry* operator->(void) const
+			{
+			return bucketItem;
+			}
+		ConstIterator& operator++(void)
+			{
+			/* Go to next item in same hash bucket if possible: */
+			bucketItem=bucketItem->succ;
+			
+			/* Go to next non-empty hash bucket if last item in current bucket is passed: */
+			while(bucketItem==0)
+				{
+				++bucketIndex;
+				if(bucketIndex==table->tableSize)
+					break; // End of table reached
+				bucketItem=table->hashBuckets[bucketIndex].firstItem;
+				}
+			return *this;
+			}
+		};
+	
 	friend class Iterator;
+	friend class ConstIterator;
 	
 	/* Elements: */
 	size_t tableSize; // Current table size
@@ -420,9 +493,17 @@ class HashTable
 		{
 		return Iterator(this); // Create iterator to first entry
 		}
+	ConstIterator begin(void) const
+		{
+		return ConstIterator(this); // Create iterator to first entry
+		}
 	Iterator end(void)
 		{
 		return Iterator(this,tableSize,0); // Create iterator past end of table
+		}
+	ConstIterator end(void) const
+		{
+		return ConstIterator(this,tableSize,0); // Create iterator past end of table
 		}
 	Iterator findEntry(const Source& findSource)
 		{
@@ -438,6 +519,21 @@ class HashTable
 			return Iterator(this,index,item); // Return valid iterator
 		else
 			return Iterator(this,tableSize,0); // Return end iterator
+		}
+	ConstIterator findEntry(const Source& findSource) const
+		{
+		/* Calculate the searched entry's hash bucket index: */
+		size_t index=HashFunction::hash(findSource,tableSize);
+		
+		/* Compare items in the hash bucket until match is found: */
+		const HashBucketItem* item=hashBuckets[index].firstItem;
+		while(item!=0&&item->getSource()!=findSource)
+			item=item->succ;
+		
+		if(item!=0)
+			return ConstIterator(this,index,item); // Return valid iterator
+		else
+			return ConstIterator(this,tableSize,0); // Return end iterator
 		}
 	void removeEntry(const Iterator& it) // Removes entry pointed to by iterator
 		{

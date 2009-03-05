@@ -167,12 +167,8 @@ Point MouseDialogNavigationTool::calcScreenCenter(void)
 
 Point MouseDialogNavigationTool::calcScreenPos(void)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
+	/* Calculate the ray equation: */
+	Ray ray=getDeviceRay(0);
 	
 	/* Find the screen currently containing the input device: */
 	const VRScreen* screen;
@@ -185,15 +181,15 @@ Point MouseDialogNavigationTool::calcScreenPos(void)
 	ONTransform screenT=screen->getScreenTransformation();
 	Vector normal=screenT.getDirection(2);
 	Scalar d=normal*screenT.getOrigin();
-	Scalar divisor=normal*direction;
+	Scalar divisor=normal*ray.getDirection();
 	if(divisor==Scalar(0))
 		return Point::origin;
 	
-	Scalar lambda=(d-start*normal)/divisor;
+	Scalar lambda=(d-ray.getOrigin()*normal)/divisor;
 	if(lambda<Scalar(0))
 		return Point::origin;
 	
-	return start+direction*lambda;
+	return ray(lambda);
 	}
 
 void MouseDialogNavigationTool::startRotating(void)
@@ -286,7 +282,7 @@ MouseDialogNavigationTool::MouseDialogNavigationTool(const ToolFactory* factory,
 	 showScreenCenter(false)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
-	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(input.getDevice(0)));
+	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
 	
 	/* Create a virtual mouse cursor if requested: */
 	if(MouseDialogNavigationTool::factory->showMouseCursor)

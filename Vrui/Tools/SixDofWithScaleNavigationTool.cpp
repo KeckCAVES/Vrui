@@ -188,12 +188,12 @@ void SixDofWithScaleNavigationTool::buttonCallback(int,int,InputDevice::ButtonCa
 		if(navigationMode==IDLE&&activate())
 			{
 			/* Decide whether to go to moving or scaling mode: */
-			if(Geometry::sqrDist(input.getDevice(0)->getPosition(),input.getDevice(1)->getPosition())<=factory->scaleDeviceDistance2) // Want to scale
+			if(Geometry::sqrDist(getDevicePosition(0),getDevicePosition(1))<=factory->scaleDeviceDistance2) // Want to scale
 				{
 				/* Determine the scaling center and initial scale: */
-				scalingCenter=input.getDevice(1)->getPosition();
-				Vector scaleDirection=input.getDevice(1)->getTransformation().transform(factory->deviceScaleDirection);
-				initialScale=input.getDevice(0)->getPosition()*scaleDirection;
+				scalingCenter=getDevicePosition(1);
+				Vector scaleDirection=getDeviceTransformation(1).transform(factory->deviceScaleDirection);
+				initialScale=getDevicePosition(0)*scaleDirection;
 				
 				/* Initialize the navigation transformations: */
 				preScale=NavTrackerState::translateFromOriginTo(scalingCenter);
@@ -206,7 +206,7 @@ void SixDofWithScaleNavigationTool::buttonCallback(int,int,InputDevice::ButtonCa
 			else // Want to move
 				{
 				/* Initialize the navigation transformations: */
-				preScale=Geometry::invert(input.getDevice(0)->getTransformation());
+				preScale=Geometry::invert(getDeviceTransformation(0));
 				preScale*=getNavigationTransformation();
 				
 				/* Go from IDLE to MOVING mode: */
@@ -236,7 +236,7 @@ void SixDofWithScaleNavigationTool::frame(void)
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=input.getDevice(0)->getTransformation();
+			NavTrackerState navigation=getDeviceTransformation(0);
 			navigation*=preScale;
 			
 			/* Update Vrui's navigation transformation: */
@@ -248,8 +248,8 @@ void SixDofWithScaleNavigationTool::frame(void)
 			{
 			/* Compose the new navigation transformation: */
 			NavTrackerState navigation=preScale;
-			Vector scaleDirection=input.getDevice(1)->getTransformation().transform(factory->deviceScaleDirection);
-			Scalar currentScale=Math::exp((input.getDevice(0)->getPosition()*scaleDirection-initialScale)/factory->scaleFactor);
+			Vector scaleDirection=getDeviceTransformation(1).transform(factory->deviceScaleDirection);
+			Scalar currentScale=Math::exp((getDevicePosition(0)*scaleDirection-initialScale)/factory->scaleFactor);
 			navigation*=NavTrackerState::scale(currentScale);
 			navigation*=postScale;
 			
@@ -267,7 +267,7 @@ void SixDofWithScaleNavigationTool::display(GLContextData& contextData) const
 	
 	/* Translate coordinate system to scaling device's position and orientation: */
 	glPushMatrix();
-	glMultMatrix(input.getDevice(1)->getTransformation());
+	glMultMatrix(getDeviceTransformation(1));
 	
 	/* Execute the tool model display list: */
 	glCallList(dataItem->modelListId);

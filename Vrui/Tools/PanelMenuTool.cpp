@@ -127,11 +127,8 @@ void PanelMenuTool::frame(void)
 	{
 	if(isActive())
 		{
-		/* Get a pointer to the input device: */
-		InputDevice* device=input.getDevice(0);
-		
 		/* Calculate the menu transformation: */
-		GLMotif::WidgetManager::Transformation menuTransformation=device->getTransformation();
+		GLMotif::WidgetManager::Transformation menuTransformation=getDeviceTransformation(0);
 		GLMotif::Vector topLeft=menu->getPopup()->getExterior().getCorner(2);
 		menuTransformation*=GLMotif::WidgetManager::Transformation::translate(-Vector(topLeft.getXyzw()));
 		
@@ -148,11 +145,8 @@ void PanelMenuTool::setMenu(MutexMenu* newMenu)
 	/* Try activating this tool (it will grab the main menu until it is destroyed): */
 	if(activate())
 		{
-		/* Get a pointer to the input device: */
-		InputDevice* device=input.getDevice(0);
-		
 		/* Calculate the menu transformation: */
-		GLMotif::WidgetManager::Transformation menuTransformation=device->getTransformation();
+		GLMotif::WidgetManager::Transformation menuTransformation=getDeviceTransformation(0);
 		GLMotif::Vector topLeft=menu->getPopup()->getExterior().getCorner(2);
 		menuTransformation*=GLMotif::WidgetManager::Transformation::translate(-Vector(topLeft.getXyzw()));
 		

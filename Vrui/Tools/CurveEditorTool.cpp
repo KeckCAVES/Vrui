@@ -1314,7 +1314,7 @@ void CurveEditorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cb
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
-		Point p=getInverseNavigationTransformation().transform(input.getDevice(0)->getPosition());
+		Point p=getInverseNavigationTransformation().transform(getDevicePosition(0));
 		Scalar scale=getInverseNavigationTransformation().getScaling();
 		
 		/* Check if the device selected an existing tangent handle, an existing control point, or the curve (in that order): */
@@ -1415,7 +1415,7 @@ void CurveEditorTool::frame(void)
 		}
 	else if(editingMode!=IDLE)
 		{
-		Point p=getInverseNavigationTransformation().transform(input.getDevice(0)->getPosition());
+		Point p=getInverseNavigationTransformation().transform(getDevicePosition(0));
 		
 		switch(editingMode)
 			{

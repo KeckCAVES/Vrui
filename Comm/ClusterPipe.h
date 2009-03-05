@@ -1,8 +1,9 @@
 /***********************************************************************
-ClusterPipe - Class layering a pipe abstraction over a TCPSocket
-connected to a remote process and a MulticastPipe to forward traffic to
-a cluster connected to the local process.
-Copyright (c) 2007 Oliver Kreylos
+ClusterPipe - Class layering an endianness-safe pipe abstraction with
+buffered typed read/writes over a TCPSocket connected to a remote
+process and a MulticastPipe to forward traffic to a cluster connected to
+the local process.
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -25,6 +26,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_CLUSTERPIPE_INCLUDED
 #define COMM_CLUSTERPIPE_INCLUDED
 
+#include <string.h>
+#include <string>
 #include <Misc/Endianness.h>
 #include <Threads/Mutex.h>
 #include <Comm/TCPSocket.h>
@@ -34,17 +37,49 @@ namespace Comm {
 
 class ClusterPipe
 	{
+	/* Embedded classes: */
+	public:
+	enum Endianness // Enumerated type to enforce pipe endianness
+		{
+		DontCare,LittleEndian,BigEndian,Automatic
+		};
+	
 	/* Elements: */
 	private:
 	Threads::Mutex socketMutex; // Mutex protecting write access to the socket
 	TCPSocket* socket; // TCP socket from the cluster's head node to the outside world
 	MulticastPipe* pipe; // Multicast pipe to communicate between cluster nodes (pipe is deleted on socket closure)
-	bool mustSwapEndianness; // Flag if incoming data has to be endianness-swapped
+	bool readMustSwapEndianness; // Flag if incoming data has to be endianness-swapped
+	bool writeMustSwapEndianness; // Flag if outgoing data has to be endianness-swapped
+	size_t bufferSize; // Size of read and write buffers in bytes
+	char* readBuffer; // Buffer to store incoming data between read<> calls
+	char* rbPos; // Current position in read buffer
+	size_t readSize; // Number of bytes left in read buffer
+	char* writeBuffer; // Buffer to store outgoing data between write<> calls
+	char* wbPos; // Current position in write buffer
+	size_t writeSize; // Number of bytes left in write buffer
+	
+	/* Private methods: */
+	void directRead(void* data,size_t dataSize)
+		{
+		memcpy(data,rbPos,dataSize);
+		rbPos+=dataSize;
+		readSize-=dataSize;
+		}
+	void directWrite(const void* data,size_t dataSize)
+		{
+		memcpy(wbPos,data,dataSize);
+		wbPos+=dataSize;
+		writeSize-=dataSize;
+		}
+	void bufferedRead(void* data,size_t dataSize);
+	void bufferedWrite(const void* data,size_t dataSize);
+	void initializePipe(Endianness sEndianness);
 	
 	/* Constructors and destructors: */
 	public:
-	ClusterPipe(const TCPSocket* sSocket,MulticastPipe* sPipe =0); // Creates a pipe over an existing TCP socket
-	ClusterPipe(std::string hostname,int portId,MulticastPipe* sPipe =0); // Creates a pipe connected to a remote host; assumes ownership of pipe
+	ClusterPipe(const TCPSocket* sSocket,MulticastPipe* sPipe,Endianness sEndianness =Automatic); // Creates a pipe over an existing TCP socket; assumes ownership of pipe
+	ClusterPipe(std::string hostname,int portId,MulticastPipe* sPipe,Endianness sEndianness =Automatic); // Creates a pipe connected to a remote host; assumes ownership of pipe
 	private:
 	ClusterPipe(const ClusterPipe& source); // Prohibit copy constructor
 	ClusterPipe& operator=(const ClusterPipe& source); // Prohibit assignment operator
@@ -56,120 +91,121 @@ class ClusterPipe
 		{
 		return socketMutex;
 		}
+	
+	/* Basic socket-level methods: */
 	int getPeerPortId(void) const; // Returns port ID of remote socket
-	std::string getPeerAddress(void) const; // Returns internet address of remote socket in dotted notation; returns dummy string on slave nodes
-	std::string getPeerHostname(void) const; // Returns host name of remote socket (or dotted address if host name cannot be resolved); returns dummy string on slave nodes
+	std::string getPeerAddress(void) const; // Returns internet address of remote socket in dotted notation
+	std::string getPeerHostname(void) const; // Returns host name of remote socket (or dotted address if host name cannot be resolved)
 	void shutdown(bool shutdownRead,bool shutdownWrite) // Shuts down the read or write part of the socket; further reads or writes are not allowed
 		{
 		/* Forward the call to the socket: */
 		if(socket!=0)
 			socket->shutdown(shutdownRead,shutdownWrite);
 		}
-	bool waitForData(long timeoutSeconds,long timeoutMicroseconds,bool throwException =true) const // Waits for incoming data on TCP socket; returns true if data is ready; (optionally) throws exception if wait times out
+	bool waitForData(long timeoutSeconds,long timeoutMicroseconds,bool throwException =true) const; // Waits for incoming data on TCP socket; returns true if data is ready; (optionally) throws exception if wait times out
+	bool waitForData(const Misc::Time& timeout,bool throwException =true) const; // Waits for incoming data on TCP socket; returns true if data is ready; (optionally) throws exception if wait times out
+	size_t readRaw(void* buffer,size_t count); // Replacement for TCPSocket's raw read method
+	void flush(void) // Flushes the write buffer after a series of write operations
 		{
-		int flag;
-		if(socket!=0)
-			flag=socket->waitForData(timeoutSeconds,timeoutMicroseconds,false)?1:0;
-		if(pipe!=0)
+		if(socket!=0&&writeSize<bufferSize)
 			{
-			pipe->broadcastRaw(&flag,sizeof(int));
-			pipe->finishMessage();
+			/* Send leftover data: */
+			socket->blockingWrite(writeBuffer,bufferSize-writeSize);
+			
+			/* Reset the write buffer: */
+			wbPos=writeBuffer;
+			writeSize=bufferSize;
 			}
-		if(throwException&&flag==0)
-			throw TCPSocket::TimeOut("TCPSocket: Time-out while waiting for data");
-		
-		return flag!=0;
 		}
-	bool waitForData(const Misc::Time& timeout,bool throwException =true) const // Waits for incoming data on TCP socket; returns true if data is ready; (optionally) throws exception if wait times out
+	
+	/* New methods: */
+	size_t getBufferSize(void) const // Returns the size of the read and write buffers
 		{
-		int flag;
-		if(socket!=0)
-			flag=socket->waitForData(timeout,false)?1:0;
-		if(pipe!=0)
-			{
-			pipe->broadcastRaw(&flag,sizeof(int));
-			pipe->finishMessage();
-			}
-		if(throwException&&flag==0)
-			throw TCPSocket::TimeOut("TCPSocket: Time-out while waiting for data");
-		
-		return flag!=0;
+		return bufferSize;
+		}
+	
+	/* Typed read/write methods: */
+	template <class DataParam>
+	DataParam read(void) // Reads an element of the given data type from the pipe
+		{
+		DataParam result;
+		if(sizeof(DataParam)<readSize)
+			directRead(&result,sizeof(DataParam));
+		else
+			bufferedRead(&result,sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(result);
+		return result;
+		}
+	template <class DataParam>
+	DataParam& read(DataParam& data) // Reads an element of the given data type from the pipe
+		{
+		if(sizeof(DataParam)<readSize)
+			directRead(&data,sizeof(DataParam));
+		else
+			bufferedRead(&data,sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(data);
+		return data;
+		}
+	template <class DataParam>
+	void read(DataParam* data,size_t numItems) // Reads an array of elements from the pipe
+		{
+		if(numItems*sizeof(DataParam)<readSize)
+			directRead(data,numItems*sizeof(DataParam));
+		else
+			bufferedRead(data,numItems*sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(data,numItems);
 		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes an element of the given data type to the pipe
 		{
 		if(socket!=0)
-			socket->blockingWrite(&data,sizeof(DataParam));
+			{
+			if(writeMustSwapEndianness)
+				{
+				DataParam temp=data;
+				Misc::swapEndianness(temp);
+				if(sizeof(DataParam)<writeSize)
+					directWrite(&temp,sizeof(DataParam));
+				else
+					bufferedWrite(&temp,sizeof(DataParam));
+				}
+			else
+				{
+				if(sizeof(DataParam)<writeSize)
+					directWrite(&data,sizeof(DataParam));
+				else
+					bufferedWrite(&data,sizeof(DataParam));
+				}
+			}
 		}
 	template <class DataParam>
-	void read(DataParam& data) // Reads an element of the given data type from the pipe
+	void write(const DataParam* data,size_t numItems) // Writes an array of elements to the pipe
 		{
 		if(socket!=0)
 			{
-			socket->blockingRead(&data,sizeof(DataParam));
-			
-			/* Swap endianness if necessary: */
-			if(mustSwapEndianness)
-				Misc::swapEndianness(data);
-			
-			if(pipe!=0)
-				pipe->writeRaw(&data,sizeof(DataParam));
+			if(writeMustSwapEndianness)
+				{
+				for(size_t i=0;i<numItems;++i)
+					{
+					DataParam temp=data[i];
+					Misc::swapEndianness(temp);
+					if(sizeof(DataParam)<writeSize)
+						directWrite(&temp,sizeof(DataParam));
+					else
+						bufferedWrite(&temp,sizeof(DataParam));
+					}
+				}
+			else
+				{
+				if(numItems*sizeof(DataParam)<writeSize)
+					directWrite(data,numItems*sizeof(DataParam));
+				else
+					bufferedWrite(data,numItems*sizeof(DataParam));
+				}
 			}
-		else
-			pipe->readRaw(&data,sizeof(DataParam));
-		}
-	template <class DataParam>
-	DataParam read(void) // Reads an element of the given data type from the pipe
-		{
-		DataParam result;
-		if(socket!=0)
-			{
-			socket->blockingRead(&result,sizeof(DataParam));
-			
-			/* Swap endianness if necessary: */
-			if(mustSwapEndianness)
-				Misc::swapEndianness(result);
-			
-			if(pipe!=0)
-				pipe->writeRaw(&result,sizeof(DataParam));
-			}
-		else
-			pipe->readRaw(&result,sizeof(DataParam));
-		
-		return result;
-		}
-	template <class DataParam>
-	void write(const DataParam* elements,size_t numElements) // Writes an array of elements to the pipe
-		{
-		if(socket!=0)
-			socket->blockingWrite(elements,numElements*sizeof(DataParam));
-		}
-	template <class DataParam>
-	void read(DataParam* elements,size_t numElements) // Reads an array of elements from the pipe
-		{
-		if(socket!=0)
-			{
-			socket->blockingRead(elements,numElements*sizeof(DataParam));
-			
-			/* Swap endianness if necessary: */
-			if(mustSwapEndianness)
-				Misc::swapEndianness(elements,numElements);
-			
-			if(pipe!=0)
-				pipe->writeRaw(elements,numElements*sizeof(DataParam));
-			}
-		else
-			pipe->readRaw(elements,numElements*sizeof(DataParam));
-		}
-	void flushWrite(void) // Flushes the write buffer after a series of write operations
-		{
-		if(socket!=0)
-			socket->flush();
-		}
-	void flushRead(void) // Flushes the read buffer after a series of read operations
-		{
-		if(pipe!=0)
-			pipe->finishMessage();
 		}
 	};
 
@@ -178,96 +214,11 @@ Specializations of template methods:
 ***********************************/
 
 template <>
-inline
-void
-ClusterPipe::write<std::string>(
-	const std::string& string)
-	{
-	if(socket!=0)
-		{
-		unsigned int length=string.length();
-		socket->blockingWrite(&length,sizeof(unsigned int));
-		socket->blockingWrite(string.data(),length*sizeof(char));
-		}
-	}
-
+std::string ClusterPipe::read<std::string>(void);
 template <>
-inline
-std::string
-ClusterPipe::read<std::string>(
-	void)
-	{
-	std::string result;
-	
-	/* Read the string's length: */
-	unsigned int length;
-	if(socket!=0)
-		socket->blockingRead(&length,sizeof(unsigned int));
-	
-	/* Swap endianness if necessary: */
-	if(mustSwapEndianness)
-		Misc::swapEndianness(length);
-	
-	/* Forward the length to the cluster nodes: */
-	if(pipe!=0)
-		pipe->broadcastRaw(&length,sizeof(unsigned int));
-	
-	/* Read the string in chunks (unfortunately, there is no API to read directly into the std::string): */
-	result.reserve(length+1); // Specification is not clear whether reserve() includes room for the terminating NUL character
-	unsigned int lengthLeft=length;
-	while(lengthLeft>0)
-		{
-		char buffer[256];
-		size_t readLength=lengthLeft;
-		if(readLength>sizeof(buffer))
-			readLength=sizeof(buffer);
-		if(socket!=0)
-			socket->blockingRead(buffer,readLength);
-		if(pipe!=0)
-			pipe->broadcastRaw(buffer,readLength);
-		result.append(buffer,readLength);
-		lengthLeft-=readLength;
-		}
-	
-	return result;
-	}
-
+std::string& ClusterPipe::read<std::string>(std::string&);
 template <>
-inline
-void
-ClusterPipe::read<std::string>(
-	std::string& string)
-	{
-	/* Read the string's length: */
-	unsigned int length;
-	if(socket!=0)
-		socket->blockingRead(&length,sizeof(unsigned int));
-	
-	/* Swap endianness if necessary: */
-	if(mustSwapEndianness)
-		Misc::swapEndianness(length);
-	
-	/* Forward the length to the cluster nodes: */
-	if(pipe!=0)
-		pipe->broadcastRaw(&length,sizeof(unsigned int));
-	
-	/* Read the string in chunks (unfortunately, there is no API to read directly into the std::string): */
-	string.reserve(length+1); // Specification is not clear whether reserve() includes room for the terminating NUL character
-	unsigned int lengthLeft=length;
-	while(lengthLeft>0)
-		{
-		char buffer[256];
-		size_t readLength=lengthLeft;
-		if(readLength>sizeof(buffer))
-			readLength=sizeof(buffer);
-		if(socket!=0)
-			socket->blockingRead(buffer,readLength);
-		if(pipe!=0)
-			pipe->broadcastRaw(buffer,readLength);
-		string.append(buffer,readLength);
-		lengthLeft-=readLength;
-		}
-	}
+void ClusterPipe::write<std::string>(const std::string&);
 
 }
 

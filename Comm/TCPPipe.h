@@ -1,7 +1,7 @@
 /***********************************************************************
-TCPPipe - Class layering an endianness-safe pipe abstraction over a
-TCPSocket.
-Copyright (c) 2007 Oliver Kreylos
+TCPPipe - Class layering an endianness-safe pipe abstraction with
+buffered typed read/writes over a TCPSocket.
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -24,6 +24,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_TCPPIPE_INCLUDED
 #define COMM_TCPPIPE_INCLUDED
 
+#include <string.h>
+#include <string>
 #include <Misc/Endianness.h>
 #include <Comm/TCPSocket.h>
 
@@ -42,6 +44,30 @@ class TCPPipe:public TCPSocket
 	private:
 	bool readMustSwapEndianness; // Flag if incoming data has to be endianness-swapped
 	bool writeMustSwapEndianness; // Flag if outgoing data has to be endianness-swapped
+	size_t bufferSize; // Size of read and write buffers in bytes
+	char* readBuffer; // Buffer to store incoming data between read<> calls
+	char* rbPos; // Current position in read buffer
+	size_t readSize; // Number of bytes left in read buffer
+	char* writeBuffer; // Buffer to store outgoing data between write<> calls
+	char* wbPos; // Current position in write buffer
+	size_t writeSize; // Number of bytes left in write buffer
+	
+	/* Private methods: */
+	void directRead(void* data,size_t dataSize)
+		{
+		memcpy(data,rbPos,dataSize);
+		rbPos+=dataSize;
+		readSize-=dataSize;
+		}
+	void directWrite(const void* data,size_t dataSize)
+		{
+		memcpy(wbPos,data,dataSize);
+		wbPos+=dataSize;
+		writeSize-=dataSize;
+		}
+	void bufferedRead(void* data,size_t dataSize);
+	void bufferedWrite(const void* data,size_t dataSize);
+	void initializePipe(Endianness sEndianness);
 	
 	/* Constructors and destructors: */
 	public:
@@ -50,14 +76,82 @@ class TCPPipe:public TCPSocket
 	private:
 	TCPPipe(const TCPPipe& source); // Prohibit copy constructor
 	TCPPipe& operator=(const TCPPipe& source); // Prohibit assignment operator
-	
-	/* Methods: */
 	public:
+	~TCPPipe(void); // Destroys pipe
+	
+	/* Override methods to adapt behavior of base TCPSocket: */
+	void setNoDelay(bool enable) // Dummy override function to prohibit disabling TCP_NODELAY, which interferes with new stream handling algorithm
+		{
+		/* Do nothing! */
+		}
+	void setCork(bool enable) // Dummy override function to prohibit enabling TCP_CORK, which interferes with new stream handling algorithm
+		{
+		/* Do nothing! */
+		}
+	bool waitForData(long timeoutSeconds,long timeoutMicroseconds,bool throwException =true) const // Overrides TCPSocket's waitForData method
+		{
+		/* Check the read buffer before checking the TCP socket: */
+		if(readSize==0)
+			return TCPSocket::waitForData(timeoutSeconds,timeoutMicroseconds,throwException);
+		else
+			return true;
+		}
+	bool waitForData(const Misc::Time& timeout,bool throwException =true) const // Overrides TCPSocket's waitForData method
+		{
+		/* Check the read buffer before checking the TCP socket: */
+		if(readSize==0)
+			return TCPSocket::waitForData(timeout,throwException);
+		else
+			return true;
+		}
+	size_t readRaw(void* buffer,size_t count) // Replacement for TCPSocket's raw read method
+		{
+		if(readSize==0)
+			{
+			/* Read available data from the TCP socket: */
+			readSize=TCPSocket::read(readBuffer,bufferSize);
+			
+			/* Reset the read buffer: */
+			rbPos=readBuffer;
+			}
+		
+		/* Return data from the buffer: */
+		if(count>readSize)
+			count=readSize;
+		memcpy(buffer,rbPos,count);
+		rbPos+=count;
+		readSize-=count;
+		
+		return count;
+		}
+	void flush(void) // Sends any data left in the write buffer
+		{
+		if(writeSize<bufferSize)
+			{
+			/* Send leftover data: */
+			blockingWrite(writeBuffer,bufferSize-writeSize);
+			
+			/* Reset the write buffer: */
+			wbPos=writeBuffer;
+			writeSize=bufferSize;
+			}
+		}
+	
+	/* New methods: */
+	size_t getBufferSize(void) const // Returns the size of the read and write buffers
+		{
+		return bufferSize;
+		}
+	
+	/* Typed read/write methods: */
 	template <class DataParam>
 	DataParam read(void) // Reads single value
 		{
 		DataParam result;
-		blockingRead(&result,sizeof(DataParam));
+		if(sizeof(DataParam)<readSize)
+			directRead(&result,sizeof(DataParam));
+		else
+			bufferedRead(&result,sizeof(DataParam));
 		if(readMustSwapEndianness)
 			Misc::swapEndianness(result);
 		return result;
@@ -65,18 +159,23 @@ class TCPPipe:public TCPSocket
 	template <class DataParam>
 	DataParam& read(DataParam& data) // Reads single value through reference
 		{
-		blockingRead(&data,sizeof(DataParam));
+		if(sizeof(DataParam)<readSize)
+			directRead(&data,sizeof(DataParam));
+		else
+			bufferedRead(&data,sizeof(DataParam));
 		if(readMustSwapEndianness)
 			Misc::swapEndianness(data);
 		return data;
 		}
 	template <class DataParam>
-	size_t read(DataParam* data,size_t numItems) // Reads array of values
+	void read(DataParam* data,size_t numItems) // Reads array of values
 		{
-		blockingRead(data,numItems*sizeof(DataParam));
+		if(numItems*sizeof(DataParam)<readSize)
+			directRead(data,numItems*sizeof(DataParam));
+		else
+			bufferedRead(data,numItems*sizeof(DataParam));
 		if(readMustSwapEndianness)
 			Misc::swapEndianness(data,numItems);
-		return numItems;
 		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes single value
@@ -85,10 +184,18 @@ class TCPPipe:public TCPSocket
 			{
 			DataParam temp=data;
 			Misc::swapEndianness(temp);
-			blockingWrite(&temp,sizeof(DataParam));
+			if(sizeof(DataParam)<writeSize)
+				directWrite(&temp,sizeof(DataParam));
+			else
+				bufferedWrite(&temp,sizeof(DataParam));
 			}
 		else
-			blockingWrite(&data,sizeof(DataParam));
+			{
+			if(sizeof(DataParam)<writeSize)
+				directWrite(&data,sizeof(DataParam));
+			else
+				bufferedWrite(&data,sizeof(DataParam));
+			}
 		}
 	template <class DataParam>
 	void write(const DataParam* data,size_t numItems) // Writes array of values
@@ -99,11 +206,19 @@ class TCPPipe:public TCPSocket
 				{
 				DataParam temp=data[i];
 				Misc::swapEndianness(temp);
-				blockingWrite(&temp,sizeof(DataParam));
+				if(sizeof(DataParam)<writeSize)
+					directWrite(&temp,sizeof(DataParam));
+				else
+					bufferedWrite(&temp,sizeof(DataParam));
 				}
 			}
 		else
-			blockingWrite(data,sizeof(DataParam)*numItems);
+			{
+			if(numItems*sizeof(DataParam)<writeSize)
+				directWrite(data,numItems*sizeof(DataParam));
+			else
+				bufferedWrite(data,numItems*sizeof(DataParam));
+			}
 		}
 	};
 

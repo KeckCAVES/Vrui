@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -861,6 +861,36 @@ void ToolManager::glRenderAction(GLContextData& contextData) const
 	{
 	/* Render the tool kill zone: */
 	toolKillZone->glRenderAction(contextData);
+	}
+
+bool ToolManager::doesButtonHaveTool(const InputDevice* device,int buttonIndex) const
+	{
+	bool result=false;
+	
+	/* Find the tool assignment slot for the given button on the given device: */
+	for(ToolAssignmentSlotList::const_iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
+		if(tasIt->isForButton(device,buttonIndex))
+			{
+			result=tasIt->assigned;
+			break;
+			}
+	
+	return result;
+	}
+
+bool ToolManager::doesValuatorHaveTool(const InputDevice* device,int valuatorIndex) const
+	{
+	bool result=false;
+	
+	/* Find the tool assignment slot for the given valuator on the given device: */
+	for(ToolAssignmentSlotList::const_iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
+		if(tasIt->isForValuator(device,valuatorIndex))
+			{
+			result=tasIt->assigned;
+			break;
+			}
+	
+	return result;
 	}
 
 }

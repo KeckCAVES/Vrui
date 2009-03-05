@@ -380,13 +380,13 @@ void SpaceBallNavigationTool::frame(void)
 	/* Convert linear SpaceBall axes into translation vector: */
 	Vector translation=Vector::zero;
 	for(int i=0;i<factory->numTranslationAxes;++i)
-		translation+=factory->translationAxes[i].axis*input.getDevice(0)->getValuator(factory->translationAxes[i].index);
+		translation+=factory->translationAxes[i].axis*getDeviceValuator(0,factory->translationAxes[i].index);
 	translation*=factory->translateFactor*getCurrentFrameTime();
 	
 	/* Convert rotational SpaceBall axes into rotation axis vector and rotation angle: */
 	Vector scaledRotationAxis=Vector::zero;
 	for(int i=0;i<factory->numRotationAxes;++i)
-		scaledRotationAxis+=factory->rotationAxes[i].axis*input.getDevice(0)->getValuator(factory->rotationAxes[i].index);
+		scaledRotationAxis+=factory->rotationAxes[i].axis*getDeviceValuator(0,factory->rotationAxes[i].index);
 	scaledRotationAxis*=factory->rotateFactor*getCurrentFrameTime();
 	
 	switch(navigationMode)

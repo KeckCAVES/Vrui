@@ -127,7 +127,7 @@ void ValuatorScalingNavigationTool::valuatorCallback(int,int,InputDevice::Valuat
 		if(!isActive()&&activate())
 			{
 			/* Initialize the navigation transformations: */
-			scalingCenter=input.getDevice(0)->getPosition();
+			scalingCenter=getDevicePosition(0);
 			preScale=NavTrackerState::translateFromOriginTo(scalingCenter);
 			postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
 			postScale*=getNavigationTransformation();

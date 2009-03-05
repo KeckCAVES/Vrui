@@ -136,7 +136,6 @@ class MouseNavigationTool:public NavigationTool,public GLObject
 	/* Private methods: */
 	Point calcScreenCenter(void) const; // Calculates the center of the screen containing the input device
 	Point calcScreenPos(void) const; // Calculates the screen position of the input device
-	Ray calcSelectionRay(void) const; // Calculates a widget selection ray based on the position of the input device
 	void startRotating(void); // Sets up rotation
 	void startPanning(void); // Sets up panning
 	void startDollying(void); // Sets up dollying

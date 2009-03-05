@@ -44,10 +44,13 @@ class ValuatorFlyTurnNavigationToolFactory:public ToolFactory
 	Scalar valuatorThreshold; // Threshold value beyond which a valuator is considered "pressed"
 	Scalar valuatorExponent; // Exponent for valuator values applied after threshold
 	Scalar superAccelerationFactor; // Factor for super acceleration if valuator is pressed to limit
-	Vector flyDirection; // Flying direction of tool in device coordinates
+	bool flyDirectionDeviceCoordinates; // Flag whether the flying direction is specified in device coordinates
+	Vector flyDirection; // Flying direction of tool in device coordinates or physical coordinates
 	Scalar flyFactor; // Velocity multiplication factor
-	Vector rotationAxis; // Rotation axis of tool in device coordinates
-	Point rotationCenter; // Center point of rotation
+	bool rotationAxisDeviceCoordinates; // Flag whether the rotation axis is specified in device coordinates
+	Vector rotationAxis; // Rotation axis of tool in device coordinates or physical coordinates
+	bool rotationCenterDeviceCoordinates; // Flag whether the rotation center is specified in device coordinates
+	Point rotationCenter; // Center point of rotation in device coordinates or physical coordinates
 	Scalar rotationFactor; // Angular velocity multiplication factor
 	
 	/* Constructors and destructors: */
@@ -67,7 +70,6 @@ class ValuatorFlyTurnNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ValuatorFlyTurnNavigationToolFactory* factory; // Pointer to the factory object for this class
-	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Transient navigation state: */
 	Scalar currentValues[2]; // Current value of the associated valuators

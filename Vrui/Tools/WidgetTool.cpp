@@ -105,17 +105,6 @@ WidgetToolFactory* WidgetTool::factory=0;
 Methods of class WidgetTool:
 ***************************/
 
-Ray WidgetTool::calcSelectionRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
-	return Ray(start,direction);
-	}
-
 WidgetTool::WidgetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:UserInterfaceTool(factory,inputAssignment),
 	 insideWidget(false),active(false),dragging(false),draggedWidget(0)
@@ -133,7 +122,7 @@ void WidgetTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 		{
 		/* If the widget manager accepts the event, preempt any cascaded tools until the button is released: */
 		GLMotif::Event event(false);
-		event.setWorldLocation(calcSelectionRay());
+		event.setWorldLocation(calcInteractionRay());
 		if(getWidgetManager()->pointerButtonDown(event))
 			{
 			/* Activate this tool: */
@@ -147,7 +136,7 @@ void WidgetTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 				draggedWidget=event.getTargetWidget();
 				
 				/* Calculate the dragging transformation: */
-				NavTrackerState initialTracker=input.getDevice(0)->getTransformation();
+				NavTrackerState initialTracker=getDeviceTransformation(0);
 				preScale=Geometry::invert(initialTracker);
 				GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
 				preScale*=NavTrackerState(initialWidget);
@@ -163,7 +152,7 @@ void WidgetTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 			{
 			/* Deliver the event: */
 			GLMotif::Event event(true);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			getWidgetManager()->pointerButtonUp(event);
 			
 			/* Deactivate this tool: */
@@ -179,7 +168,7 @@ void WidgetTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 void WidgetTool::frame(void)
 	{
 	/* Update the selection ray: */
-	selectionRay=calcSelectionRay();
+	selectionRay=calcInteractionRay();
 	insideWidget=getWidgetManager()->findPrimaryWidget(selectionRay)!=0;
 	
 	if(active)
@@ -192,7 +181,7 @@ void WidgetTool::frame(void)
 		if(dragging)
 			{
 			/* Update the dragged widget's transformation: */
-			NavTrackerState current=input.getDevice(0)->getTransformation();
+			NavTrackerState current=getDeviceTransformation(0);
 			current*=preScale;
 			getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,GLMotif::WidgetManager::Transformation(current));
 			}

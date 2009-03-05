@@ -124,7 +124,7 @@ void WaldoLocatorTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCal
 		active=true;
 		
 		/* Initialize the scaled transformation: */
-		initial=getDeviceTransformation(input.getDevice(0));
+		initial=Vrui::getDeviceTransformation(getDevice(0));
 		increment=NavTrackerState::identity;
 		last=initial;
 		
@@ -149,7 +149,7 @@ void WaldoLocatorTool::frame(void)
 	if(active)
 		{
 		/* Update the incremental transformation: */
-		NavTrackerState dev=getDeviceTransformation(input.getDevice(0));
+		NavTrackerState dev=Vrui::getDeviceTransformation(getDevice(0));
 		NavTrackerState update=dev;
 		update*=Geometry::invert(last);
 		last=dev;
@@ -171,7 +171,7 @@ void WaldoLocatorTool::frame(void)
 	else
 		{
 		/* Call motion callbacks with the true device transformation: */
-		MotionCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
+		MotionCallbackData cbData(this,Vrui::getDeviceTransformation(getDevice(0)));
 		motionCallbacks.call(&cbData);
 		}
 	}

@@ -75,7 +75,7 @@ randPointUniformCO(
 	{
 	Point<ScalarParam,dimensionParam> p;
 	for(int i=0;i<dimensionParam;++i)
-		p[i]=ScalarParam(Math::randUniformCO(double(box.getMin(i)),double(box.getMax(i))));
+		p[i]=ScalarParam(Math::randUniformCO(double(box.min[i]),double(box.max[i])));
 	return p;
 	}
 
@@ -87,7 +87,7 @@ randPointUniformCC(
 	{
 	Point<ScalarParam,dimensionParam> p;
 	for(int i=0;i<dimensionParam;++i)
-		p[i]=ScalarParam(Math::randUniformCC(double(box.getMin(i)),double(box.getMax(i))));
+		p[i]=ScalarParam(Math::randUniformCC(double(box.min[i]),double(box.max[i])));
 	return p;
 	}
 

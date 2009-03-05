@@ -41,4 +41,14 @@ Lightsource::Lightsource(const GLLight& sLight)
 	{
 	}
 
+void Lightsource::enable(void)
+	{
+	enabled=true;
+	}
+
+void Lightsource::disable(void)
+	{
+	enabled=false;
+	}
+
 }

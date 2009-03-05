@@ -30,6 +30,9 @@ The Comm library contains classes to simplify communications via serial ports, U
 <DT>MulticastPacket.h</DT>
 <DD>MulticastPacket is a structure describing packets that can be sent across a MulticastPipe.</DD>
 
+<DT>GatheringOperation.h</DT>
+<DD>Defines opcodes for available accumulation operations used by MulticastPipeMultiplexer::gather() and MulticastPipe::gather().</DD>
+
 <DT>MulticastPipe.h</DT>
 <DD>MulticastPipe is a class representing a data stream between a single sender and multiple receivers. Multiple data streams are multiplexed across a UDP multicast socket by a MulticastPipeMultiplexer object. MulticastPipe supports barrier synchronization, and reliable multicast sending of binary data organized as arbitrary-size messages. Messages are sent in MulticastPacket units.</DD>
 

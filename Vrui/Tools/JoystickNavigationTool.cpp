@@ -322,13 +322,13 @@ void JoystickNavigationTool::frame(void)
 	/* Convert rotational joystick axes into rotation axis vector and rotation angle: */
 	Vector rotation=Vector::zero;
 	for(int i=0;i<factory->numRotationAxes;++i)
-		rotation+=factory->rotationAxes[i].axis*input.getDevice(0)->getValuator(factory->rotationAxes[i].index);
+		rotation+=factory->rotationAxes[i].axis*getDeviceValuator(0,factory->rotationAxes[i].index);
 	rotation*=factory->rotateFactor*getCurrentFrameTime();
 	
 	/* Convert linear joystick axes into translation vector: */
 	Vector translation=Vector::zero;
 	for(int i=0;i<factory->numTranslationAxes;++i)
-		translation+=factory->translationAxes[i].axis*input.getDevice(0)->getValuator(factory->translationAxes[i].index);
+		translation+=factory->translationAxes[i].axis*getDeviceValuator(0,factory->translationAxes[i].index);
 	translation*=factory->translateFactor*getCurrentFrameTime();
 	
 	/* Calculate an incremental transformation based on the translation and rotation: */

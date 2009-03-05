@@ -5,7 +5,7 @@ system calls. Time objects can either be thought of as absolute times
 distinction between the two. Which is bad, because some system calls
 take time point arguments, others take time vector arguments. Maybe in
 the next version...
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define MISC_TIME_INCLUDED
 
 #include <math.h>
+#include <time.h>
 #include <sys/time.h>
 
 namespace Misc {
@@ -157,6 +158,17 @@ inline Time operator-(const Time& t1,const Time& t2) // Returns difference betwe
 	Time result(t1);
 	result-=t2;
 	return result;
+	}
+
+/*********************************
+Functions on objects of type Time:
+*********************************/
+
+inline void sleep(const Time& time) // Blocks until at least the given amount of time has passed
+	{
+	Time remaining=time;
+	while(nanosleep(&remaining,&remaining)<0)
+		;
 	}
 
 }
