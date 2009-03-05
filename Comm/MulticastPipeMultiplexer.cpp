@@ -1,7 +1,7 @@
 /***********************************************************************
 MulticastPipeMultiplexer - Class to share several multicast pipes across
 a single UDP socket connection.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -125,7 +125,8 @@ MulticastPipeMultiplexer::PipeState::PipeState(void)
 	:streamPos(0),packetLossMode(false),
 	 headStreamPos(0),
 	 slaveStreamPosOffsets(0),numHeadSlaves(0),
-	 barrierId(0),slaveBarrierIds(0),minSlaveBarrierId(0)
+	 barrierId(0),slaveBarrierIds(0),minSlaveBarrierId(0),
+	 slaveGatherValues(0)
 	 #if DEBUGGING
 	 ,totalNumResentBytes(0)
 	 #endif
@@ -142,6 +143,9 @@ MulticastPipeMultiplexer::PipeState::~PipeState(void)
 	
 	/* Destroy barrier ID array: */
 	delete[] slaveBarrierIds;
+	
+	/* Destroy slave gather value array: */
+	delete[] slaveGatherValues;
 	}
 	}
 
@@ -477,6 +481,60 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 						}
 					break;
 					}
+				
+				case SlaveMessage::GATHER:
+					{
+					/* Get a handle on the state object of the pipe the packet is meant for: */
+					PipeState* pipeState;
+					{
+					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
+					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg.pipeId);
+					if(pstIt.isFinished())
+						pipeState=0;
+					else
+						pipeState=pstIt->getDest();
+					}
+					
+					if(pipeState!=0)
+						{
+						{
+						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
+						
+						/* Update the barrier ID array: */
+						if(msg.barrierId<=pipeState->barrierId)
+							{
+							/* One slave must have missed a gather completion message; send another one: */
+							MasterMessage msg2;
+							msg2.zeroPipeId=0;
+							msg2.messageId=MasterMessage::GATHER;
+							msg2.pipeId=msg.pipeId;
+							msg2.barrierId=msg.barrierId;
+							msg2.masterValue=pipeState->masterGatherValue;
+							{
+							Threads::Mutex::Lock socketLock(socketMutex);
+							sendto(socketFd,&msg2,sizeof(MasterMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+							}
+							}
+						else
+							{
+							pipeState->slaveBarrierIds[msg.nodeIndex-1]=msg.barrierId;
+							pipeState->slaveGatherValues[msg.nodeIndex-1]=msg.slaveValue;
+							
+							/* Check if the current gather operation is complete: */
+							pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
+							for(unsigned int i=1;i<numSlaves;++i)
+								if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
+									pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
+							if(pipeState->minSlaveBarrierId>pipeState->barrierId)
+								{
+								/* Wake up thread waiting on barrier: */
+								pipeState->barrierCond.broadcast();
+								}
+							}
+						}
+						}
+					break;
+					}
 				}
 			}
 		}
@@ -624,6 +682,35 @@ void* MulticastPipeMultiplexer::packetHandlingThreadSlave(void)
 						/* Signal barrier completion if the completion message is for the current barrier: */
 						if(msg->barrierId>pipeState->barrierId)
 							pipeState->barrierCond.broadcast();
+						}
+						}
+					break;
+					}
+				
+				case MasterMessage::GATHER:
+					{
+					/* Get a handle on the state object of the pipe the packet is meant for: */
+					PipeState* pipeState;
+					{
+					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
+					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg->pipeId);
+					if(pstIt.isFinished())
+						pipeState=0;
+					else
+						pipeState=pstIt->getDest();
+					}
+					
+					if(pipeState!=0)
+						{
+						{
+						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
+						
+						/* Signal barrier completion if the completion message is for the current barrier: */
+						if(msg->barrierId>pipeState->barrierId)
+							{
+							pipeState->masterGatherValue=msg->masterValue;
+							pipeState->barrierCond.broadcast();
+							}
 						}
 						}
 					break;
@@ -923,6 +1010,11 @@ MulticastPipe* MulticastPipeMultiplexer::openPipe(void)
 		newPipeState->slaveBarrierIds=new unsigned int[numSlaves];
 		for(unsigned int i=0;i<numSlaves;++i)
 			newPipeState->slaveBarrierIds[i]=0;
+		
+		/* Initialize the slave gather value array: */
+		newPipeState->slaveGatherValues=new unsigned int[numSlaves];
+		for(unsigned int i=0;i<numSlaves;++i)
+			newPipeState->slaveBarrierIds[i]=0;
 		}
 	pipeStateTable.setEntry(PipeHasher::Entry(newPipeId,newPipeState));
 	}
@@ -1192,6 +1284,140 @@ void MulticastPipeMultiplexer::barrier(MulticastPipe* pipe)
 	/* Mark the barrier as completed: */
 	pipeState->barrierId=nextBarrierId;
 	}
+	}
+
+unsigned int MulticastPipeMultiplexer::gather(MulticastPipe* pipe,unsigned int value,GatherOperation::OpCode op)
+	{
+	unsigned int result;
+	
+	/* Get a handle on the state object for the given pipe: */
+	PipeState* pipeState;
+	{
+	Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
+	pipeState=pipeStateTable.getEntry(pipe->pipeId).getDest();
+	}
+	
+	{
+	Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
+	
+	/* Bump up barrier ID: */
+	unsigned int nextBarrierId=pipeState->barrierId+1;
+	
+	if(nodeIndex==0)
+		{
+		/* Wait until gather messages from all slaves have been received: */
+		while(pipeState->minSlaveBarrierId<nextBarrierId)
+			{
+			/* Wait until the next barrier message: */
+			pipeState->barrierCond.wait(pipeState->stateMutex);
+			}
+		
+		/* Calculate the final gather value: */
+		pipeState->masterGatherValue=value;
+		switch(op)
+			{
+			case GatherOperation::AND:
+				for(unsigned int i=0;i<numSlaves;++i)
+					pipeState->masterGatherValue=pipeState->masterGatherValue&&pipeState->slaveGatherValues[i];
+				break;
+			
+			case GatherOperation::OR:
+				for(unsigned int i=0;i<numSlaves;++i)
+					pipeState->masterGatherValue=pipeState->masterGatherValue||pipeState->slaveGatherValues[i];
+				break;
+			
+			case GatherOperation::MIN:
+				for(unsigned int i=0;i<numSlaves;++i)
+					if(pipeState->masterGatherValue>pipeState->slaveGatherValues[i])
+						pipeState->masterGatherValue=pipeState->slaveGatherValues[i];
+				break;
+			
+			case GatherOperation::MAX:
+				for(unsigned int i=0;i<numSlaves;++i)
+					if(pipeState->masterGatherValue<pipeState->slaveGatherValues[i])
+						pipeState->masterGatherValue=pipeState->slaveGatherValues[i];
+				break;
+			
+			case GatherOperation::SUM:
+				for(unsigned int i=0;i<numSlaves;++i)
+					pipeState->masterGatherValue+=pipeState->slaveGatherValues[i];
+				break;
+			
+			case GatherOperation::PRODUCT:
+				for(unsigned int i=0;i<numSlaves;++i)
+					pipeState->masterGatherValue*=pipeState->slaveGatherValues[i];
+				break;
+			}
+		
+		/*******************************************************************
+		Flush the list of sent packets:
+		*******************************************************************/
+		
+		/* Add all packets in the list to the list of free packets: */
+		if(pipeState->packetList.numPackets>0)
+			{
+			{
+			Threads::Mutex::Lock packetPoolLock(packetPoolMutex);
+			pipeState->packetList.tail->succ=packetPoolHead;
+			packetPoolHead=pipeState->packetList.head;
+			pipeState->packetList.numPackets=0;
+			pipeState->packetList.head=0;
+			pipeState->packetList.tail=0;
+			}
+			}
+		
+		/* Reset the pipe's flow control state: */
+		pipeState->headStreamPos=pipeState->streamPos;
+		for(unsigned int i=0;i<numSlaves;++i)
+			pipeState->slaveStreamPosOffsets[i]=0;
+		pipeState->numHeadSlaves=numSlaves;
+		
+		/* Send gather completion message to all slaves: */
+		MasterMessage msg;
+		msg.zeroPipeId=0;
+		msg.messageId=MasterMessage::GATHER;
+		msg.pipeId=pipe->pipeId;
+		msg.barrierId=nextBarrierId;
+		msg.masterValue=pipeState->masterGatherValue;
+		{
+		Threads::Mutex::Lock socketLock(socketMutex);
+		sendto(socketFd,&msg,sizeof(MasterMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+		}
+		}
+	else
+		{
+		/* Continue sending barrier messages to master until barrier completion message is received: */
+		Misc::Time waitTimeout=Misc::Time::now();
+		while(true)
+			{
+			/* Send gather message to master: */
+			SlaveMessage msg;
+			msg.nodeIndex=nodeIndex;
+			msg.messageId=SlaveMessage::GATHER;
+			msg.pipeId=pipe->pipeId;
+			msg.barrierId=nextBarrierId;
+			msg.slaveValue=value;
+			for(int i=0;i<1;++i)
+				{
+				Threads::Mutex::Lock socketLock(socketMutex);
+				sendto(socketFd,&msg,sizeof(SlaveMessage),0,(const sockaddr*)otherAddress,sizeof(struct sockaddr_in));
+				}
+			
+			/* Wait for arrival of barrier completion message: */
+			waitTimeout+=barrierWaitTimeout;
+			if(pipeState->barrierCond.timedWait(pipeState->stateMutex,waitTimeout))
+				break;
+			}
+		}
+	
+	/* Return the master gather value: */
+	result=pipeState->masterGatherValue;
+	
+	/* Mark the gathering operation as completed: */
+	pipeState->barrierId=nextBarrierId;
+	}
+	
+	return result;
 	}
 
 }

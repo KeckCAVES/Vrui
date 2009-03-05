@@ -192,16 +192,16 @@ void SpaceBallTool::frame(void)
 	{
 	/* Convert linear SpaceBall axes into translation vector: */
 	Vector translation;
-	translation[0]=input.getDevice(0)->getValuator(input.getValuatorIndex(0,0));
-	translation[1]=input.getDevice(0)->getValuator(input.getValuatorIndex(0,2));
-	translation[2]=input.getDevice(0)->getValuator(input.getValuatorIndex(0,1));
+	translation[0]=getDeviceValuator(0,0);
+	translation[1]=getDeviceValuator(0,2);
+	translation[2]=getDeviceValuator(0,1);
 	translation*=factory->translateFactor*getCurrentFrameTime();
 	
 	/* Convert rotational SpaceBall axes into rotation axis vector and rotation angle: */
 	Vector scaledRotationAxis;
-	scaledRotationAxis[0]=input.getDevice(0)->getValuator(input.getValuatorIndex(0,3));
-	scaledRotationAxis[1]=input.getDevice(0)->getValuator(input.getValuatorIndex(0,5));
-	scaledRotationAxis[2]=input.getDevice(0)->getValuator(input.getValuatorIndex(0,4));
+	scaledRotationAxis[0]=getDeviceValuator(0,3);
+	scaledRotationAxis[1]=getDeviceValuator(0,5);
+	scaledRotationAxis[2]=getDeviceValuator(0,4);
 	scaledRotationAxis*=factory->rotateFactor*getCurrentFrameTime();
 	
 	/* Calculate an incremental transformation based on the translation and rotation: */

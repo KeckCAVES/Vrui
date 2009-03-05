@@ -193,7 +193,7 @@ void SharedJello::sendParamUpdate(void)
 	pipe->write<Scalar>(attenuation);
 	pipe->write<Scalar>(gravity);
 	
-	pipe->flushWrite();
+	pipe->flush();
 	}
 	}
 
@@ -214,7 +214,6 @@ void* SharedJello::communicationThreadMethod(void)
 			/* Bail out if disconnecting or an unexpected message was received: */
 			if(message==SharedJelloPipe::DISCONNECT_REPLY)
 				{
-				pipe->flushRead();
 				break;
 				}
 			else if(message==SharedJelloPipe::SERVER_PARAMUPDATE)
@@ -224,8 +223,6 @@ void* SharedJello::communicationThreadMethod(void)
 				attenuation=pipe->read<Scalar>();
 				gravity=pipe->read<Scalar>();
 				++newParameterVersion;
-				
-				pipe->flushRead();
 				
 				/* Request a redraw: */
 				Vrui::requestUpdate();
@@ -240,8 +237,6 @@ void* SharedJello::communicationThreadMethod(void)
 				/* Process the server update message: */
 				crystals[nextIndex]->readAtomStates(*pipe);
 				
-				pipe->flushRead();
-				
 				/* Update the slot's crystal renderer: */
 				renderers[nextIndex]->update();
 				
@@ -252,10 +247,7 @@ void* SharedJello::communicationThreadMethod(void)
 				Vrui::requestUpdate();
 				}
 			else
-				{
-				pipe->flushRead();
 				Misc::throwStdErr("SharedJello::communicationThreadMethod: Protocol error");
-				}
 			}
 		}
 	catch(std::runtime_error err)
@@ -317,8 +309,6 @@ SharedJello::SharedJello(int& argc,char**& argv,char**& appDefaults)
 	/* Initiate the connection: */
 	if(pipe->readMessage()!=SharedJelloPipe::CONNECT_REPLY)
 		{
-		pipe->flushRead();
-		
 		/* Bail out: */
 		Misc::throwStdErr("SharedJello::SharedJello: Connection refused by shared Jell-O server");
 		}
@@ -332,8 +322,6 @@ SharedJello::SharedJello(int& argc,char**& argv,char**& appDefaults)
 	JelloCrystal::Index numAtoms;
 	pipe->read<int>(numAtoms.getComponents(),3);
 	
-	pipe->flushRead();
-	
 	/* Create triple buffer of Jell-O crystals: */
 	for(int i=0;i<3;++i)
 		crystals[i]=new JelloCrystal(numAtoms);
@@ -341,26 +329,20 @@ SharedJello::SharedJello(int& argc,char**& argv,char**& appDefaults)
 	/* Wait for the first parameter update message to get the initial simulation parameters: */
 	if(pipe->readMessage()!=SharedJelloPipe::SERVER_PARAMUPDATE)
 		{
-		pipe->flushRead();
-		
 		/* Bail out: */
 		Misc::throwStdErr("SharedJello::SharedJello: Connection refused by shared Jell-O server");
 		}
 	atomMass=pipe->read<Scalar>();
 	attenuation=pipe->read<Scalar>();
 	gravity=pipe->read<Scalar>();
-	pipe->flushRead();
 	
 	/* Wait for the first server update message to get initial atom positions: */
 	if(pipe->readMessage()!=SharedJelloPipe::SERVER_UPDATE)
 		{
-		pipe->flushRead();
-		
 		/* Bail out: */
 		Misc::throwStdErr("SharedJello::SharedJello: Connection refused by shared Jell-O server");
 		}
 	crystals[mostRecentIndex]->readAtomStates(*pipe);
-	pipe->flushRead();
 	
 	/* Calculate the domain box color: */
 	GLColor<GLfloat,3> domainBoxColor;
@@ -396,7 +378,7 @@ SharedJello::~SharedJello(void)
 		/* Ask the server to disconnect: */
 		Threads::Mutex::Lock pipeLock(pipe->getMutex());
 		pipe->writeMessage(SharedJelloPipe::DISCONNECT_REQUEST);
-		pipe->flushWrite();
+		pipe->flush();
 		pipe->shutdown(false,true);
 		}
 		}
@@ -494,7 +476,7 @@ void SharedJello::frame(void)
 		pipe->writeONTransform((*adIt)->draggerTransformation);
 		pipe->write<char>((*adIt)->active?char(1):char(0));
 		}
-	pipe->flushWrite();
+	pipe->flush();
 	}
 	}
 

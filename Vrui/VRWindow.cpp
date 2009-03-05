@@ -230,7 +230,7 @@ Methods of class VRWindow:
 
 std::string VRWindow::getDisplayName(const Misc::ConfigurationFileSection& configFileSection)
 	{
-	char* defaultDisplay=getenv("DISPLAY");
+	const char* defaultDisplay=getenv("DISPLAY");
 	if(defaultDisplay==0)
 		defaultDisplay=":0.0";
 	return configFileSection.retrieveString("./display",defaultDisplay);

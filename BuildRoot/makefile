@@ -22,7 +22,7 @@
 ########################################################################
 
 # Include definitions for the system environment
-include $(PACKAGEROOT)/BuildRoot/SystemDefinitions
+include $(VRUIPACKAGEROOT)/BuildRoot/SystemDefinitions
 
 # Specify default optimization/debug level
 ifdef DEBUG
@@ -64,7 +64,7 @@ extraclean:
 extrasqueakyclean:
 
 # Include basic makefile
-include $(PACKAGEROOT)/BuildRoot/BasicMakefile
+include $(VRUIPACKAGEROOT)/BuildRoot/BasicMakefile
 
 ########################################################################
 # Specify rules for all non-C/C++ sources

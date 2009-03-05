@@ -292,7 +292,7 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 					/* Execute the cp system command: */
 					char* cpArgv[10];
 					int cpArgc=0;
-					cpArgv[cpArgc++]="/bin/cp";
+					cpArgv[cpArgc++]=const_cast<char*>("/bin/cp");
 					cpArgv[cpArgc++]=oldImageFileName;
 					cpArgv[cpArgc++]=imageFileName;
 					cpArgv[cpArgc++]=0;

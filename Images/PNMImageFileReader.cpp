@@ -20,6 +20,8 @@ with the Image Handling Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#define IMAGES_PNMIMAGEFILEREADER_IMPLEMENTATION
+
 #include <stdio.h>
 #include <Misc/ThrowStdErr.h>
 #include <GL/GLColor.h>
@@ -96,7 +98,7 @@ PNMImageFileReader<DataSourceParam>::readImage(
 				dataSource.read(tempRow,rowLen);
 				
 				/* Copy the row pixels into the result image: */
-				typename RGBImage::Color* row=result.modifyPixelRow(y-1);
+				typename ImageParam::Color* row=result.modifyPixelRow(y-1);
 				for(unsigned int x=0;x<size[0];++x)
 					{
 					unsigned int byte=x>>3;

@@ -166,17 +166,6 @@ void ToolManagementTool::inputDeviceButtonCallbackWrapper(Misc::CallbackData* cb
 	cbData->callbackList->requestInterrupt();
 	}
 
-Ray ToolManagementTool::calcSelectionRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
-	return Ray(start,direction);
-	}
-
 void ToolManagementTool::finishCreatingTool(void)
 	{
 	/* Create and assign the tool: */
@@ -296,7 +285,7 @@ void ToolManagementTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonC
 				typedef WTransform::Vector WVector;
 				
 				/* Calculate the menu transformation: */
-				WPoint globalHotSpot=calcSelectionRay()(factory->initialMenuOffset);
+				WPoint globalHotSpot=getDeviceRay(0)(factory->initialMenuOffset);
 				
 				/* Align the widget with the viewing direction: */
 				WVector viewDirection=globalHotSpot-viewer->getHeadPosition();
@@ -314,7 +303,7 @@ void ToolManagementTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonC
 				
 				/* Deliver the event: */
 				GLMotif::Event event(false);
-				event.setWorldLocation(calcSelectionRay());
+				event.setWorldLocation(getDeviceRay(0));
 				getWidgetManager()->pointerButtonDown(event);
 				
 				displayRay=true;
@@ -334,7 +323,7 @@ void ToolManagementTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonC
 				{
 				/* Deliver the event: */
 				GLMotif::Event event(true);
-				event.setWorldLocation(calcSelectionRay());
+				event.setWorldLocation(getDeviceRay(0));
 				getWidgetManager()->pointerButtonUp(event);
 				
 				/* Pop down the menu: */
@@ -349,7 +338,7 @@ void ToolManagementTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonC
 		else if(probingForDevice)
 			{
 			/* Find the device current pointed at: */
-			InputDevice* device=getInputGraphManager()->findInputDevice(calcSelectionRay(),false);
+			InputDevice* device=getInputGraphManager()->findInputDevice(getDeviceRay(0),false);
 			printf("Found device %s\n",device->getDeviceName());
 			
 			/* Store the device in the tool input assignment: */
@@ -388,7 +377,7 @@ void ToolManagementTool::frame(void)
 	if(displayRay)
 		{
 		/* Update the selection ray: */
-		selectionRay=calcSelectionRay();
+		selectionRay=getDeviceRay(0);
 		
 		/* Deliver the event: */
 		GLMotif::Event event(true);

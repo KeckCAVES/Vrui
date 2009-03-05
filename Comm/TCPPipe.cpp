@@ -1,7 +1,7 @@
 /***********************************************************************
-TCPPipe - Class layering an endianness-safe pipe abstraction over a
-TCPSocket.
-Copyright (c) 2007 Oliver Kreylos
+TCPPipe - Class layering an endianness-safe pipe abstraction with
+buffered typed read/writes over a TCPSocket.
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -21,7 +21,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <Misc/ThrowStdErr.h>
+
 #include <Comm/TCPPipe.h>
 
 namespace Comm {
@@ -30,11 +35,70 @@ namespace Comm {
 Methods of class TCPPipe:
 ************************/
 
-TCPPipe::TCPPipe(std::string hostname,int portId,TCPPipe::Endianness sEndianness)
-	:TCPSocket(hostname,portId),
-	 readMustSwapEndianness(false),
-	 writeMustSwapEndianness(false)
+void TCPPipe::bufferedRead(void* data,size_t dataSize)
 	{
+	char* dPtr=static_cast<char*>(data);
+	while(dataSize>0)
+		{
+		/* Receive more data if the read buffer is empty: */
+		if(readSize==0)
+			{
+			/* Read available data from the TCP socket: */
+			readSize=TCPSocket::read(readBuffer,bufferSize);
+			
+			/* Reset the read buffer: */
+			rbPos=readBuffer;
+			}
+		
+		/* Determine the number of bytes to read in a single go: */
+		size_t bytes=dataSize;
+		if(bytes>readSize)
+			bytes=readSize;
+		
+		/* Copy bytes from the read buffer: */
+		memcpy(dPtr,rbPos,bytes);
+		rbPos+=bytes;
+		readSize-=bytes;
+		dPtr+=bytes;
+		dataSize-=bytes;
+		}
+	}
+
+void TCPPipe::bufferedWrite(const void* data,size_t dataSize)
+	{
+	const char* dPtr=static_cast<const char*>(data);
+	while(dataSize>0)
+		{
+		/* Determine the number of bytes to write in a single go: */
+		size_t bytes=dataSize;
+		if(bytes>writeSize)
+			bytes=writeSize;
+		
+		/* Copy bytes into the write buffer: */
+		memcpy(wbPos,dPtr,bytes);
+		wbPos+=bytes;
+		writeSize-=bytes;
+		dPtr+=bytes;
+		dataSize-=bytes;
+		
+		/* Send the write buffer if full: */
+		if(writeSize==0)
+			{
+			/* Send data across the TCP socket: */
+			blockingWrite(writeBuffer,bufferSize);
+			
+			/* Reset the write buffer: */
+			wbPos=writeBuffer;
+			writeSize=bufferSize;
+			}
+		}
+	}
+
+void TCPPipe::initializePipe(TCPPipe::Endianness sEndianness)
+	{
+	/* Set socket options: */
+	TCPSocket::setNoDelay(true);
+	
 	if(sEndianness==LittleEndian)
 		{
 		#if __BYTE_ORDER==__BIG_ENDIAN
@@ -58,36 +122,56 @@ TCPPipe::TCPPipe(std::string hostname,int portId,TCPPipe::Endianness sEndianness
 		else if(magic!=0x12345678U)
 			Misc::throwStdErr("Comm::TCPPipe: Unable to establish connection with host %s on port %d",getPeerHostname().c_str(),getPeerPortId());
 		}
+	
+	/* Allocate the read and write buffers: */
+	int maxSegSize=-1;
+	socklen_t maxSegLen=sizeof(int);
+	if(getsockopt(getFd(),IPPROTO_TCP,TCP_MAXSEG,&maxSegSize,&maxSegLen)<0)
+		Misc::throwStdErr("Comm::TCPPipe: Unable to determine maximum TCP segment size");
+	bufferSize=size_t(maxSegSize);
+	readBuffer=new char[bufferSize];
+	rbPos=readBuffer;
+	readSize=0;
+	writeBuffer=new char[bufferSize];
+	wbPos=writeBuffer;
+	writeSize=bufferSize;
+	}
+
+TCPPipe::TCPPipe(std::string hostname,int portId,TCPPipe::Endianness sEndianness)
+	:TCPSocket(hostname,portId),
+	 readMustSwapEndianness(false),writeMustSwapEndianness(false),
+	 readBuffer(0),writeBuffer(0)
+	{
+	/* Set up the socket, endianness conversion, and read/write buffers: */
+	initializePipe(sEndianness);
 	}
 
 TCPPipe::TCPPipe(const TCPSocket& socket,TCPPipe::Endianness sEndianness)
 	:TCPSocket(socket),
 	 readMustSwapEndianness(false),
-	 writeMustSwapEndianness(false)
+	 writeMustSwapEndianness(false),
+	 readBuffer(0),writeBuffer(0)
 	{
-	if(sEndianness==LittleEndian)
+	/* Set up the socket, endianness conversion, and read/write buffers: */
+	initializePipe(sEndianness);
+	}
+
+TCPPipe::~TCPPipe(void)
+	{
+	try
 		{
-		#if __BYTE_ORDER==__BIG_ENDIAN
-		readMustSwapEndianness=writeMustSwapEndianness=true;
-		#endif
+		/* Send any leftover data still in the write buffer: */
+		if(writeSize<bufferSize)
+			blockingWrite(writeBuffer,bufferSize-writeSize);
 		}
-	else if(sEndianness==BigEndian)
+	catch(...)
 		{
-		#if __BYTE_ORDER==__LITTLE_ENDIAN
-		readMustSwapEndianness=writeMustSwapEndianness=true;
-		#endif
+		/* This was a best effort to flush the pipe; if it fails, the pipe was probably already dead anyways... */
 		}
-	else if(sEndianness==Automatic)
-		{
-		/* Exchange a magic value to test for endianness on the other end: */
-		unsigned int magic=0x12345678U;
-		blockingWrite(&magic,sizeof(unsigned int));
-		blockingRead(&magic,sizeof(unsigned int));
-		if(magic==0x78563412U)
-			readMustSwapEndianness=true;
-		else if(magic!=0x12345678U)
-			Misc::throwStdErr("Comm::TCPPipe: Unable to establish connection with host %s on port %d",getPeerHostname().c_str(),getPeerPortId());
-		}
+	
+	/* Delete the buffers: */
+	delete[] readBuffer;
+	delete[] writeBuffer;
 	}
 
 /***********************************
@@ -103,7 +187,7 @@ TCPPipe::read<std::string>(
 	
 	/* Read the string's length: */
 	unsigned int length;
-	blockingRead(&length,sizeof(unsigned int));
+	bufferedRead(&length,sizeof(unsigned int));
 	if(readMustSwapEndianness)
 		Misc::swapEndianness(length);
 	
@@ -116,7 +200,7 @@ TCPPipe::read<std::string>(
 		size_t readLength=lengthLeft;
 		if(readLength>sizeof(buffer))
 			readLength=sizeof(buffer);
-		blockingRead(buffer,readLength);
+		bufferedRead(buffer,readLength);
 		result.append(buffer,readLength);
 		lengthLeft-=readLength;
 		}
@@ -131,7 +215,7 @@ TCPPipe::read<std::string>(
 	{
 	/* Read the string's length: */
 	unsigned int length;
-	blockingRead(&length,sizeof(unsigned int));
+	bufferedRead(&length,sizeof(unsigned int));
 	if(readMustSwapEndianness)
 		Misc::swapEndianness(length);
 	
@@ -144,7 +228,7 @@ TCPPipe::read<std::string>(
 		size_t readLength=lengthLeft;
 		if(readLength>sizeof(buffer))
 			readLength=sizeof(buffer);
-		blockingRead(buffer,readLength);
+		bufferedRead(buffer,readLength);
 		string.append(buffer,readLength);
 		lengthLeft-=readLength;
 		}
@@ -160,10 +244,10 @@ TCPPipe::write<std::string>(
 	unsigned int length=string.length();
 	if(writeMustSwapEndianness)
 		Misc::swapEndianness(length);
-	blockingWrite(&length,sizeof(unsigned int));
+	bufferedWrite(&length,sizeof(unsigned int));
 	
 	/* Write the string's characters: */
-	blockingWrite(string.data(),string.length()*sizeof(char));
+	bufferedWrite(string.data(),string.length()*sizeof(char));
 	}
 
 }

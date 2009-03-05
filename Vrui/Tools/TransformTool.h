@@ -75,8 +75,12 @@ class TransformTool:public Tool
 	protected:
 	InputDevice* transformedDevice; // Pointer to the transformed device controlled by this tool
 	bool* buttonStates; // Current states of pass-through buttons (toggled or direct)
+	bool transformEnabled; // Flag whether the tool's transformation should be enabled
+	private:
+	int transformDisablerButtonIndex; // Index of button on whose behalf the transformation was disabled
 	
 	/* Protected methods: */
+	protected:
 	bool setButtonState(int buttonIndex,bool newButtonState); // Sets state of a button; returns true if button state has changed
 	
 	/* Constructors and destructors: */

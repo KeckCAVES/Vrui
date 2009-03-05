@@ -110,7 +110,7 @@ Methods of class ClutchTool:
 
 ClutchTool::ClutchTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment),
-	 last(input.getDevice(0)->getTransformation()),
+	 last(getDeviceTransformation(0)),
 	 clutchButtonState(false)
 	{
 	}
@@ -146,7 +146,7 @@ void ClutchTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCal
 		if(mustInit)
 			{
 			/* Remember the current input device transformation: */
-			last=input.getDevice(0)->getTransformation();
+			last=getDeviceTransformation(0);
 			}
 		}
 	else // Pass-through button
@@ -161,7 +161,7 @@ void ClutchTool::frame(void)
 	if(!clutchButtonState)
 		{
 		/* Calculate the source device's incremental transformation: */
-		const TrackerState& current=input.getDevice(0)->getTransformation();
+		const TrackerState& current=getDeviceTransformation(0);
 		TrackerState delta=current*Geometry::invert(last);
 		last=current;
 		

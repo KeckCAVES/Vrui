@@ -113,13 +113,13 @@ void SixDofLocatorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Call button press callbacks: */
-		ButtonPressCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
+		ButtonPressCallbackData cbData(this,Vrui::getDeviceTransformation(getDevice(0)));
 		buttonPressCallbacks.call(&cbData);
 		}
 	else // Button has just been released
 		{
 		/* Call button release callbacks: */
-		ButtonReleaseCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
+		ButtonReleaseCallbackData cbData(this,Vrui::getDeviceTransformation(getDevice(0)));
 		buttonReleaseCallbacks.call(&cbData);
 		}
 	}
@@ -127,7 +127,7 @@ void SixDofLocatorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 void SixDofLocatorTool::frame(void)
 	{
 	/* Call motion callbacks: */
-	MotionCallbackData cbData(this,getDeviceTransformation(input.getDevice(0)));
+	MotionCallbackData cbData(this,Vrui::getDeviceTransformation(getDevice(0)));
 	motionCallbacks.call(&cbData);
 	}
 

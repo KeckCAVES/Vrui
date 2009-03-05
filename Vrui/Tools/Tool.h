@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_TOOL_INCLUDED
 
 #include <Plugins/Factory.h>
+#include <Geometry/Ray.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/ToolInputLayout.h>
 #include <Vrui/ToolInputAssignment.h>
@@ -72,6 +73,42 @@ class Tool
 	private:
 	static void buttonCallbackWrapper(Misc::CallbackData* cbData,void* userData);
 	static void valuatorCallbackWrapper(Misc::CallbackData* cbData,void* userData);
+	
+	/* Protected helper methods: */
+	protected:
+	const InputDevice* getDevice(int deviceIndex) const // Returns a pointer to one of the tool's assigned input devices
+		{
+		return input.getDevice(deviceIndex);
+		}
+	InputDevice* getDevice(int deviceIndex) // Ditto
+		{
+		return input.getDevice(deviceIndex);
+		}
+	const ONTransform& getDeviceTransformation(int deviceIndex) const // Returns the position and orientation of the given device in physical coordinates
+		{
+		return input.getDevice(deviceIndex)->getTransformation();
+		}
+	Point getDevicePosition(int deviceIndex) const // Returns the position of the given device in physical coordinates
+		{
+		return input.getDevice(deviceIndex)->getPosition();
+		}
+	Vector getDeviceRayDirection(int deviceIndex) const // Returns the given device's default ray direction in physical coordinates
+		{
+		return input.getDevice(deviceIndex)->getRayDirection();
+		}
+	Ray getDeviceRay(int deviceIndex) const // Returns the given device's default ray in physical coordinates
+		{
+		const InputDevice* device=input.getDevice(deviceIndex);
+		return Ray(device->getPosition(),device->getRayDirection());
+		}
+	bool getDeviceButtonState(int deviceIndex,int buttonIndex) const // Returns the state of one of the given device's buttons
+		{
+		return input.getDevice(deviceIndex)->getButtonState(input.getButtonIndex(deviceIndex,buttonIndex));
+		}
+	Scalar getDeviceValuator(int deviceIndex,int valuatorIndex) const // Returns the state of one of the given device's valuators
+		{
+		return input.getDevice(deviceIndex)->getValuator(input.getValuatorIndex(deviceIndex,valuatorIndex));
+		}
 	
 	/* Constructors and destructors: */
 	public:

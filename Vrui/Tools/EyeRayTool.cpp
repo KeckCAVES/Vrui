@@ -127,7 +127,7 @@ const ToolFactory* EyeRayTool::getFactory(void) const
 void EyeRayTool::frame(void)
 	{
 	/* Get pointer to the source input device: */
-	InputDevice* device=input.getDevice(0);
+	InputDevice* device=getDevice(0);
 	
 	/* Copy the device's position and orientation: */
 	transformedDevice->setTransformation(device->getTransformation());

@@ -21,11 +21,11 @@
 ########################################################################
 
 # Define the root of the toolkit source tree
-PACKAGEROOT := $(shell pwd)
+VRUIPACKAGEROOT := $(shell pwd)
 
 # Include definitions for the system environment
-include $(PACKAGEROOT)/BuildRoot/SystemDefinitions
-include $(PACKAGEROOT)/BuildRoot/Packages
+include $(VRUIPACKAGEROOT)/BuildRoot/SystemDefinitions
+include $(VRUIPACKAGEROOT)/BuildRoot/Packages
 
 ########################################################################
 # Some settings that might need adjustment
@@ -59,7 +59,7 @@ GLSUPPORT_USE_TLS = 0
 # contain support for reading/writing PNG and JPEG images, respectively.
 # This requires that libpng and libjpeg are installed on the host
 # computer, and that the paths to their respective header files /
-# libraries are set properly in $(PACKAGEROOT)/BuildRoot/Packages
+# libraries are set properly in $(VRUIPACKAGEROOT)/BuildRoot/Packages
 # For now, the following code tries to automatically determine whether
 # PNG and/or JPEG are supported. This might or might not work.
 ifneq ($(strip $(PNG_BASEDIR)),)
@@ -94,7 +94,7 @@ VRWINDOW_CPP_USE_SWAPGROUPS = 0
 # requires that the ALSA sound library development packages are
 # installed on the host computer, and that the path to the ALSA header
 # files / libraries is set properly in
-# $(PACKAGEROOT)/BuildRoot/Packages.
+# $(VRUIPACKAGEROOT)/BuildRoot/Packages.
 # For now, the following code tries to automatically determine whether
 # ALSA is supported. This might or might not work.
 ifeq ($(SYSTEM),DARWIN)
@@ -110,7 +110,7 @@ endif
 # Set this to 1 if Vrui shall contain support for spatial audio using
 # the OpenAL API. This requires that OpenAL is installed on the host
 # computer, and that the path to the OpenAL header files / libraries is
-# set properly in $(PACKAGEROOT)/BuildRoot/Packages.
+# set properly in $(VRUIPACKAGEROOT)/BuildRoot/Packages.
 # For now, the following code tries to automatically determine whether
 # OpenAL is supported. This might or might not work.
 ifneq ($(strip $(OPENAL_BASEDIR)),)
@@ -134,7 +134,7 @@ HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS = 1
 # controllers using the bluez user-level Bluetooth library. This
 # requires that bluez is installed on the host computer, and that the
 # path to the bluez header files / libraries is set properly in
-# $(PACKAGEROOT)/BuildRoot/Packages.
+# $(VRUIPACKAGEROOT)/BuildRoot/Packages.
 # For now, the following code tries to automatically determine whether
 # bluez is supported. This might or might not work.
 ifneq ($(strip $(BLUETOOTH_BASEDIR)),)
@@ -158,9 +158,9 @@ endif
 
 # Set destination directory for libraries
 ifdef DEBUG
-  LIBDESTDIR = $(PACKAGEROOT)/$(LIBEXT)/debug
+  LIBDESTDIR = $(VRUIPACKAGEROOT)/$(LIBEXT)/debug
 else
-  LIBDESTDIR = $(PACKAGEROOT)/$(LIBEXT)
+  LIBDESTDIR = $(VRUIPACKAGEROOT)/$(LIBEXT)
 endif
 
 # Specify version of created dynamic shared libraries
@@ -235,8 +235,6 @@ LIBRARIES += $(LIBRARY_NAMES:%=$(call LIBRARYNAME,%))
 # The Vrui VR tool plug-in hierarchy:
 #
 
-VRTOOLSDIR = $(LIBDESTDIR)/VRTools
-
 VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/ScreenLocatorTool.cpp \
                   Vrui/Tools/WaldoLocatorTool.cpp \
@@ -285,6 +283,8 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/ViewpointSaverTool.cpp \
                   Vrui/Tools/CurveEditorTool.cpp
 
+VRTOOLSDIREXT = VRTools
+VRTOOLSDIR= $(LIBDESTDIR)/$(VRTOOLSDIREXT)
 VRTOOLS = $(VRTOOLS_SOURCES:Vrui/Tools/%.cpp=$(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT))
 PLUGINS += $(VRTOOLS)
 
@@ -292,10 +292,10 @@ PLUGINS += $(VRTOOLS)
 # The Vrui vislet plug-in hierarchy:
 #
 
-VRVISLETSDIR = $(LIBDESTDIR)/Vislets
-
 VRVISLETS_SOURCES = Vrui/Vislets/CAVERenderer.cpp
 
+VRVISLETSDIREXT = VRVislets
+VRVISLETSDIR = $(LIBDESTDIR)/$(VRVISLETSDIREXT)
 VRVISLETS = $(VRVISLETS_SOURCES:Vrui/Vislets/%.cpp=$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT))
 PLUGINS += $(VRVISLETS)
 
@@ -320,8 +320,6 @@ EXECUTABLES += $(EXEDIR)/VRDeviceDaemon
 #
 # The VR device driver plug-ins:
 #
-
-VRDEVICESDIR = $(LIBDESTDIR)/VRDevices
 
 VRDEVICES_SOURCES = VRDeviceDaemon/AscensionFlockOfBirds.cpp \
                     VRDeviceDaemon/PolhemusFastrak.cpp \
@@ -348,6 +346,8 @@ ifneq ($(VRDEVICES_USE_BLUETOOTH),0)
   VRDEVICES_SOURCES += VRDeviceDaemon/WiimoteTracker.cpp
 endif
 
+VRDEVICESDIREXT = VRDevices
+VRDEVICESDIR = $(LIBDESTDIR)/$(VRDEVICESDIREXT)
 VRDEVICES = $(VRDEVICES_SOURCES:VRDeviceDaemon/%.cpp=$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT))
 PLUGINS += $(VRDEVICES)
 
@@ -355,11 +355,11 @@ PLUGINS += $(VRDEVICES)
 # The VR tracker calibrator plug-ins:
 #
 
-VRCALIBRATORSDIR = $(LIBDESTDIR)/VRCalibrators
-
 VRCALIBRATORS_SOURCES = VRDeviceDaemon/TransformCalibrator.cpp \
                         VRDeviceDaemon/GridCalibrator.cpp
 
+VRCALIBRATORSDIREXT = VRCalibrators
+VRCALIBRATORSDIR = $(LIBDESTDIR)/$(VRCALIBRATORSDIREXT)
 VRCALIBRATORS = $(VRCALIBRATORS_SOURCES:VRDeviceDaemon/%.cpp=$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT))
 PLUGINS += $(VRCALIBRATORS)
 
@@ -432,11 +432,11 @@ extraclean:
 .PHONY: extrasqueakyclean
 extrasqueakyclean:
 	-rm -f $(ALL)
-	-rm -rf $(PACKAGEROOT)/$(LIBEXT)
+	-rm -rf $(VRUIPACKAGEROOT)/$(LIBEXT)
 	-rm -f Share/Vrui.makeinclude Share/Vrui.debug.makeinclude
 
 # Include basic makefile
-include $(PACKAGEROOT)/BuildRoot/BasicMakefile
+include $(VRUIPACKAGEROOT)/BuildRoot/BasicMakefile
 
 ########################################################################
 # Specify build rules for dynamic shared objects
@@ -463,6 +463,7 @@ MISC_HEADERS = Misc/Utility.h \
                Misc/PriorityHeap.h \
                Misc/PoolAllocator.h \
                Misc/StandardHashFunction.h \
+               Misc/StringHashFunctions.h \
                Misc/OrderedTuple.h \
                Misc/UnorderedTuple.h \
                Misc/HashTable.h \
@@ -478,6 +479,7 @@ MISC_HEADERS = Misc/Utility.h \
                Misc/LargeFile.h \
                Misc/MemMappedFile.h \
                Misc/StringMarshaller.h \
+               Misc/FileNameExtensions.h \
                Misc/CreateNumberedFileName.h \
                Misc/ValueCoder.h \
                Misc/StandardValueCoders.h \
@@ -490,6 +492,7 @@ MISC_SOURCES = Misc/ThrowStdErr.cpp \
                Misc/Timer.cpp \
                Misc/CallbackList.cpp \
                Misc/TimerEventScheduler.cpp \
+               Misc/FileNameExtensions.cpp \
                Misc/CreateNumberedFileName.cpp \
                Misc/ValueCoder.cpp \
                Misc/StandardValueCoders.cpp \
@@ -561,6 +564,7 @@ COMM_HEADERS = Comm/FdSet.h \
                Comm/TCPSocket.h \
                Comm/TCPPipe.h \
                Comm/MulticastPacket.h \
+               Comm/GatherOperation.h \
                Comm/MulticastPipe.h \
                Comm/MulticastPipeMultiplexer.h \
                Comm/ClusterPipe.h
@@ -749,6 +753,7 @@ GLSUPPORT_HEADERS = GL/GLValueCoders.h \
                     GL/GLExtensions.h \
                     GL/GLExtensionManager.h \
                     GL/GLShader.h \
+                    GL/GLGeometryShader.h \
                     GL/GLColorMap.h \
                     GL/GLFont.h \
                     GL/GLLineIlluminator.h \
@@ -758,6 +763,7 @@ GLSUPPORTEXTENSION_HEADERS = GL/Extensions/GLExtension.h \
                              GL/Extensions/GLARBDepthTexture.h \
                              GL/Extensions/GLARBFragmentProgram.h \
                              GL/Extensions/GLARBFragmentShader.h \
+                             GL/Extensions/GLARBGeometryShader4.h \
                              GL/Extensions/GLARBMultitexture.h \
                              GL/Extensions/GLARBPointParameters.h \
                              GL/Extensions/GLARBPointSprite.h \
@@ -769,6 +775,7 @@ GLSUPPORTEXTENSION_HEADERS = GL/Extensions/GLExtension.h \
                              GL/Extensions/GLARBVertexProgram.h \
                              GL/Extensions/GLARBVertexShader.h \
                              GL/Extensions/GLEXTFramebufferObject.h \
+                             GL/Extensions/GLEXTGeometryShader4.h \
                              GL/Extensions/GLEXTPalettedTexture.h \
                              GL/Extensions/GLEXTTexture3D.h \
                              GL/Extensions/GLEXTTextureCompressionS3TC.h \
@@ -787,6 +794,7 @@ GLSUPPORT_SOURCES = GL/GLValueCoders.cpp \
                     GL/Extensions/GLARBDepthTexture.cpp \
                     GL/Extensions/GLARBFragmentProgram.cpp \
                     GL/Extensions/GLARBFragmentShader.cpp \
+                    GL/Extensions/GLARBGeometryShader4.cpp \
                     GL/Extensions/GLARBMultitexture.cpp \
                     GL/Extensions/GLARBPointParameters.cpp \
                     GL/Extensions/GLARBPointSprite.cpp \
@@ -798,6 +806,7 @@ GLSUPPORT_SOURCES = GL/GLValueCoders.cpp \
                     GL/Extensions/GLARBVertexProgram.cpp \
                     GL/Extensions/GLARBVertexShader.cpp \
                     GL/Extensions/GLEXTFramebufferObject.cpp \
+                    GL/Extensions/GLEXTGeometryShader4.cpp \
                     GL/Extensions/GLEXTPalettedTexture.cpp \
                     GL/Extensions/GLEXTTexture3D.cpp \
                     GL/Extensions/GLEXTTextureCompressionS3TC.cpp \
@@ -807,6 +816,7 @@ GLSUPPORT_SOURCES = GL/GLValueCoders.cpp \
                     GL/Extensions/GLNVPointSprite.cpp \
                     GL/Extensions/GLNVTextureShader.cpp \
                     GL/GLShader.cpp \
+                    GL/GLGeometryShader.cpp \
                     GL/GLColorMap.cpp \
                     GL/GLFont.cpp \
                     GL/GLLineIlluminator.cpp \
@@ -947,11 +957,17 @@ libGLMotif: $(call LIBRARYNAME,libGLMotif)
 IMAGES_HEADERS = Images/Image.h \
                  Images/RGBImage.h \
                  Images/RGBAImage.h \
+                 Images/PNMImageFileReader.h Images/PNMImageFileReader.cpp \
+                 Images/TargaImageFileReader.h Images/TargaImageFileReader.cpp \
+                 Images/IFFImageFileReader.h Images/IFFImageFileReader.cpp \
                  Images/GetImageFileSize.h \
                  Images/ReadImageFile.h \
                  Images/WriteImageFile.h
 
 IMAGES_SOURCES = Images/Image.cpp \
+                 Images/PNMImageFileReader.cpp \
+                 Images/TargaImageFileReader.cpp \
+                 Images/IFFImageFileReader.cpp \
                  Images/GetImageFileSize.cpp \
                  Images/ReadImageFile.cpp \
                  Images/WriteImageFile.cpp
@@ -1111,8 +1127,8 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/Vrui.Workbench.cpp \
                Vrui/Application.cpp
 
-$(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/VRTools/lib%s.$(PLUGINFILEEXT)"'
-$(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/VRVislets/lib%s.$(PLUGINFILEEXT)"'
+$(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
+$(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DAUTOSTEREODIRECTORY='"$(SHAREINSTALLDIR)/Textures"'
 ifneq ($(VRWINDOW_CPP_USE_SWAPGROUPS),0)
   $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DVRWINDOW_USE_SWAPGROUPS
@@ -1148,7 +1164,7 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
   $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -L$(VRTOOLSDIR) $(DEPENDENCIES:$(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT)=-l%)
   ifneq ($(SYSTEM_HAVE_RPATH),0)
     ifneq ($(USE_RPATH),0)
-      $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/VRTools
+      $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
     endif
   endif
 endif
@@ -1166,6 +1182,8 @@ $(VRTOOLSDIR)/libSixDofInputDeviceTool.$(PLUGINFILEEXT): DEPENDENCIES = $(VRTOOL
 $(VRTOOLSDIR)/libSixDofInputDeviceTool.$(PLUGINFILEEXT): $(DEPENDENCIES)
 $(VRTOOLSDIR)/libRayInputDeviceTool.$(PLUGINFILEEXT): DEPENDENCIES = $(VRTOOLSDIR)/libInputDeviceTool.$(PLUGINFILEEXT)
 $(VRTOOLSDIR)/libRayInputDeviceTool.$(PLUGINFILEEXT): $(DEPENDENCIES)
+$(VRTOOLSDIR)/libButtonInputDeviceTool.$(PLUGINFILEEXT): DEPENDENCIES = $(VRTOOLSDIR)/libInputDeviceTool.$(PLUGINFILEEXT)
+$(VRTOOLSDIR)/libButtonInputDeviceTool.$(PLUGINFILEEXT): $(DEPENDENCIES)
 
 $(VRTOOLSDIR)/libViewpointFileNavigationTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMatrix.o \
                                                                $(OBJDIR)/Vrui/Tools/ViewpointFileNavigationTool.o
@@ -1202,7 +1220,7 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
   $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -L$(VRVISLETSDIR) $(DEPENDENCIES:$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT)=-l%)
   ifneq ($(SYSTEM_HAVE_RPATH),0)
     ifneq ($(USE_RPATH),0)
-      $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/VRVislets
+      $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
     endif
   endif
 endif
@@ -1250,8 +1268,8 @@ VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRFactory.cpp \
                          VRDeviceDaemon/VRDeviceServer.cpp \
                          VRDeviceDaemon/VRDeviceDaemon.cpp
 
-$(OBJDIR)/VRDeviceDaemon/VRDeviceManager.o: CFLAGS += -DSYSVRDEVICEDIRECTORY='"$(PLUGININSTALLDIR)/VRDevices"' \
-                                                      -DSYSVRCALIBRATORDIRECTORY='"$(PLUGININSTALLDIR)/VRCalibrators"'
+$(OBJDIR)/VRDeviceDaemon/VRDeviceManager.o: CFLAGS += -DSYSVRDEVICEDIRECTORY='"$(PLUGININSTALLDIR)/$(VRDEVICESDIREXT)"' \
+                                                      -DSYSVRCALIBRATORDIRECTORY='"$(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT)"'
 $(OBJDIR)/VRDeviceDaemon/VRDeviceDaemon.o: CFLAGS += -DSYSVRDEVICEDAEMONCONFIGFILENAME='"$(ETCINSTALLDIR)/VRDevices.cfg"'
 
 $(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC DL
@@ -1354,13 +1372,14 @@ $(MAKEFILEFRAGMENT): BuildRoot/SystemDefinitions BuildRoot/Packages makefile
 	@echo "# Makefile fragment for Vrui applications" > $(MAKEFILEFRAGMENT)
 	@echo "# Autogenerated by Vrui installation on $(shell date)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_CFLAGS = $(VRUIAPP_CFLAGS)" >> $(MAKEFILEFRAGMENT)
+	@echo "VRUI_LIBDIR = $(LIBINSTALLDIR)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_LINKFLAGS = $(VRUIAPP_LDIRS) $(VRUIAPP_LIBS) $(VRUIAPP_LFLAGS)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_PLUGINFILEEXT = $(PLUGINFILEEXT)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_PLUGINCFLAGS = $(CPLUGINFLAGS)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_PLUGINLINKFLAGS = $(PLUGINLINKFLAGS)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_PLUGINHOSTLINKFLAGS = $(PLUGINHOSTLINKFLAGS)" >> $(MAKEFILEFRAGMENT)
-	@echo "VRUI_TOOLSDIR = $(VRTOOLSDIR)" >> $(MAKEFILEFRAGMENT)
-	@echo "VRUI_VISLETSDIR = $(VRVISLETSDIR)" >> $(MAKEFILEFRAGMENT)
+	@echo "VRUI_TOOLSDIR = $(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)" >> $(MAKEFILEFRAGMENT)
+	@echo "VRUI_VISLETSDIR = $(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)" >> $(MAKEFILEFRAGMENT)
 ifeq ($(SYSTEM),DARWIN)
 	@echo "export MACOSX_DEPLOYMENT_TARGET = $(SYSTEM_DARWIN_VERSION)" >> $(MAKEFILEFRAGMENT)
 endif
@@ -1429,14 +1448,14 @@ ifeq ($(SYSTEM),DARWIN)
 endif
 # Install all plug-ins in PLUGININSTALLDIR:
 	@echo Installing plug-ins...
-	@install -d $(PLUGININSTALLDIR)/VRTools
-	@install $(VRTOOLS) $(PLUGININSTALLDIR)/VRTools
-	@install -d $(PLUGININSTALLDIR)/VRVislets
-	@install $(VRVISLETS) $(PLUGININSTALLDIR)/VRVislets
-	@install -d $(PLUGININSTALLDIR)/VRDevices
-	@install $(VRDEVICES) $(PLUGININSTALLDIR)/VRDevices
-	@install -d $(PLUGININSTALLDIR)/VRCalibrators
-	@install $(VRCALIBRATORS) $(PLUGININSTALLDIR)/VRCalibrators
+	@install -d $(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
+	@install $(VRTOOLS) $(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
+	@install -d $(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
+	@install $(VRVISLETS) $(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
+	@install -d $(PLUGININSTALLDIR)/$(VRDEVICESDIREXT)
+	@install $(VRDEVICES) $(PLUGININSTALLDIR)/$(VRDEVICESDIREXT)
+	@install -d $(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT)
+	@install $(VRCALIBRATORS) $(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT)
 # Install all configuration files in ETCINSTALLDIR:
 	@echo Installing configuration files...
 	@install -d $(ETCINSTALLDIR)

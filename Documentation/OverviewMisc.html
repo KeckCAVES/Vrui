@@ -46,6 +46,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>StandardHashFunction.h</DT>
 <DD>StandardHashFunction is a functor class to compute hashing functions of arbitrary objects, templatized by the type of object to be hashed. It is used as the default hash function for the HashTable class. StandardHashFunction.h provides a generic implementation for arbitrary data types using a byte-wise CRC, and specialized implementations for all integral data types and for pointers.</DD>
 
+<DT>StringHashFunctions.h</DT>
+<DD>StringHashFunctions.h contains a specialized Misc::StandardHashFunction class for C++ strings, and a new Misc::StringHashFunction class for C strings.</DD>
+
 <DT>OrderedTuple.h</DT>
 <DD>OrderedTuple is a class to represent ordered tuples (of integers) as hash table keys.</DD>
 
@@ -87,6 +90,12 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>MemMappedFile.h</DT>
 <DD>MemMappedFile provides a file wrapper around blocks of memory, such as memory-mapped files. If offers the same API as Misc::File.</DD>
+
+<DT>StringMarshaller.h</DT>
+<DD>StringMarshaller contains namespace-global template functions to send/retrieve C or C++ strings via pipe objects that provide type-safe read/write routines, such as Misc::File.</DD>
+
+<DT>FileNameExtensions.h</DT>
+<DD>FileNameExtensions contains namespace-global functions to manipulate the extensions of file names.</DD>
 
 <DT>CreateNumberedFileName.h</DT>
 <DD>CreateNumberedFileName contains a single namespace-global function to generate unique numbered file names based on a given base name and number of digits. The function searches for all numbered files of the given basename, and creates a new file with a number one higher than the previous maximum. The function has undefined results if called concurrently for the same basename.</DD>

@@ -70,9 +70,6 @@ class LaserpointerTool:public UtilityTool
 	bool active; // Flag if the laser pointer is active
 	Ray ray; // Current laser ray
 	
-	/* Private methods: */
-	Ray calcRay(void) const; // Calculates the laser ray based on current device position/orientation
-	
 	/* Constructors and destructors: */
 	public:
 	LaserpointerTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);

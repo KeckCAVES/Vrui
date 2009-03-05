@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -21,6 +21,7 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
 #include <GL/gl.h>
