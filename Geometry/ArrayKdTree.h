@@ -41,6 +41,22 @@ class ArrayKdTree
 	static const int dimension=Point::dimension; // Dimension of points and kd-tree
 	typedef Geometry::ClosePointSet<StoredPoint> ClosePointSet; // Type for nearest neighbours query results
 	
+	private:
+	struct CreateSubTreeArgs // Structure to hold arguments for subtree creation threads
+		{
+		/* Elements: */
+		public:
+		int left,right;
+		int splitDimension;
+		int numThreads;
+		
+		/* Constructors and destructors: */
+		CreateSubTreeArgs(int sLeft,int sRight,int sSplitDimension,int sNumThreads)
+			:left(sLeft),right(sRight),splitDimension(sSplitDimension),numThreads(sNumThreads)
+			{
+			}
+		};
+	
 	/* Elements: */
 	private:
 	int numNodes; // Total number of nodes in kd-tree
@@ -48,6 +64,7 @@ class ArrayKdTree
 	
 	/* Private methods: */
 	void createTree(int left,int right,int splitDimension); // Creates sub-kd-tree
+	void* createTreeThreaded(const CreateSubTreeArgs* args); // Creates sub-kd-tree using multiple threads
 	void checkTree(int left,int right,int splitDimension,Scalar bbMin[],Scalar bbMax[]) const; // Checks if kd-tree has correct structure
 	template <class TraversalFunctionParam>
 	void traverseTree(int left,int right,TraversalFunctionParam& traversalFunction) const // Traverses sub-kd-tree in prefix order and calls traversal function for each node
@@ -104,8 +121,16 @@ class ArrayKdTree
 		/* Create new tree: */
 		createTree(0,numNodes-1,0);
 		}
+	void releasePoints(int numThreads) // Ditto, but uses multiple threads
+		{
+		/* Create new tree: */
+		CreateSubTreeArgs args(0,numNodes-1,0,numThreads);
+		createTreeThreaded(&args);
+		}
 	void setPoints(int newNumNodes,const StoredPoint newNodes[]); // Creates balanced kd-tree from point array
+	void setPoints(int newNumNodes,const StoredPoint newNodes[],int numThreads); // Ditto, but uses multiple threads
 	void donatePoints(int newNumNodes,StoredPoint* newNodes); // Creates balanced kd-tree from point array; adopts point array as own
+	void donatePoints(int newNumNodes,StoredPoint* newNodes,int numThreads); // Ditto, but uses multiple threads
 	const StoredPoint& getNode(int nodeIndex) const // Returns one of the octree's nodes
 		{
 		return nodes[nodeIndex];

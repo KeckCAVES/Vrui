@@ -112,17 +112,6 @@ RayInputDeviceToolFactory* RayInputDeviceTool::factory=0;
 Methods of class RayInputDeviceTool:
 ***********************************/
 
-Ray RayInputDeviceTool::calcInteractionRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
-	return Ray(start,direction);
-	}
-
 RayInputDeviceTool::RayInputDeviceTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:InputDeviceTool(sFactory,inputAssignment),
 	 viewer(0),
@@ -147,7 +136,7 @@ void RayInputDeviceTool::buttonCallback(int,int,InputDevice::ButtonCallbackData*
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Calculate the current selection ray: */
-		Ray ray=calcInteractionRay();
+		Ray ray=getDeviceRay(0);
 		
 		/* Try activating the tool: */
 		if(activate(ray))

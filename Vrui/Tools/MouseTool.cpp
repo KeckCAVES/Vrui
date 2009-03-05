@@ -143,29 +143,35 @@ const ToolFactory* MouseTool::getFactory(void) const
 
 void MouseTool::frame(void)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Ray deviceRay(device->getPosition(),device->getRayDirection());
-	
-	/* Find the closest intersection with any screen: */
-	std::pair<VRScreen*,Scalar> si=findScreen(deviceRay);
-	
-	if(si.first!=0)
+	if(transformEnabled)
 		{
-		/* Set the virtual input device's transformation: */
-		TrackerState ts=TrackerState::translateFromOriginTo(deviceRay(si.second));
+		/* Calculate the ray equation: */
+		Ray ray=getDeviceRay(0);
 		
-		/* Update the virtual input device's transformation: */
-		transformedDevice->setTransformation(ts);
-		transformedDevice->setDeviceRayDirection(Geometry::normalize(deviceRay.getDirection()));
+		/* Find the closest intersection with any screen: */
+		std::pair<VRScreen*,Scalar> si=findScreen(ray);
+		
+		if(si.first!=0)
+			{
+			/* Set the virtual input device's transformation: */
+			TrackerState ts=TrackerState::translateFromOriginTo(ray(si.second));
+			
+			/* Update the virtual input device's transformation: */
+			transformedDevice->setTransformation(ts);
+			transformedDevice->setDeviceRayDirection(Geometry::normalize(ray.getDirection()));
+			}
+		}
+	else
+		{
+		InputDevice* device=input.getDevice(0);
+		transformedDevice->setTransformation(device->getTransformation());
+		transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 		}
 	}
 
 void MouseTool::display(GLContextData& contextData) const
 	{
-	if(factory->crosshairSize>Scalar(0))
+	if(transformEnabled&&factory->crosshairSize>Scalar(0))
 		{
 		/* Draw crosshairs at the virtual device's current position: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);

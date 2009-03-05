@@ -45,7 +45,7 @@ CSYSFLAGS += $(EXTRACSYSFLAGS)
 # Include list of supported packages
 #
 
-include $(PACKAGEROOT)/BuildRoot/Packages
+include $(VRUIPACKAGEROOT)/BuildRoot/Packages
 
 # Recursively expand the list of packages:
 # Well, this is not really recursion... it goes only nine levels, which should be enough ;)

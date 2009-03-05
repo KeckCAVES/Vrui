@@ -477,7 +477,7 @@ Methods of class ValueCoder<float>:
 std::string ValueCoder<float>::encode(const float& value)
 	{
 	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%g",value);
+	snprintf(buffer,sizeof(buffer),"%.7g",value);
 	return std::string(buffer);
 	}
 
@@ -501,7 +501,7 @@ Methods of class ValueCoder<double>:
 std::string ValueCoder<double>::encode(const double& value)
 	{
 	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%g",value);
+	snprintf(buffer,sizeof(buffer),"%.14g",value);
 	return std::string(buffer);
 	}
 

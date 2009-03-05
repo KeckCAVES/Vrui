@@ -98,10 +98,10 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 		{
 		Threads::Mutex::Lock pipeLock(pipe.getMutex());
 		pipe.writeMessage(SharedJelloPipe::CONNECT_REPLY);
-		pipe.writePoint(crystal.getDomain().getMin());
-		pipe.writePoint(crystal.getDomain().getMax());
+		pipe.writePoint(crystal.getDomain().min);
+		pipe.writePoint(crystal.getDomain().max);
 		pipe.write<int>(crystal.getNumAtoms().getComponents(),3);
-		pipe.flushWrite();
+		pipe.flush();
 		}
 		
 		/* Mark the client as connected: */
@@ -123,13 +123,11 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 			/* Bail out if a disconnect request or an unexpected message was received: */
 			if(message==SharedJelloPipe::DISCONNECT_REQUEST)
 				{
-				pipe.flushRead();
-				
 				/* Send a disconnect reply: */
 				{
 				Threads::Mutex::Lock pipeLock(pipe.getMutex());
 				pipe.writeMessage(SharedJelloPipe::DISCONNECT_REPLY);
-				pipe.flushWrite();
+				pipe.flush();
 				pipe.shutdown(false,true);
 				}
 				
@@ -146,8 +144,6 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 				newAttenuation=pipe.read<Scalar>();
 				newGravity=pipe.read<Scalar>();
 				}
-				
-				pipe.flushRead();
 				}
 			else if(message==SharedJelloPipe::CLIENT_UPDATE)
 				{
@@ -196,16 +192,11 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 					su.draggerActives[draggerIndex]=pipe.read<char>()!=char(0);
 					}
 				
-				pipe.flushRead();
-				
 				/* Mark the client update slot as most recent: */
 				clientState->mostRecentIndex=nextIndex;
 				}
 			else
-				{
-				pipe.flushRead();
 				Misc::throwStdErr("Protocol error in client communication");
-				}
 			}
 		}
 	catch(std::runtime_error err)
@@ -410,7 +401,7 @@ void SharedJelloServer::sendServerUpdate(void)
 				/* Send the crystal's state: */
 				crystal.writeAtomStates(cs->pipe);
 				
-				cs->pipe.flushWrite();
+				cs->pipe.flush();
 				}
 				}
 			catch(Comm::TCPSocket::PipeError err)

@@ -122,12 +122,10 @@ const ToolFactory* OffsetTool::getFactory(void) const
 
 void OffsetTool::frame(void)
 	{
-	/* Get pointer to the source input device: */
-	InputDevice* device=input.getDevice(0);
-	
 	/* Calculate the transformed device's transformation: */
-	TrackerState offsetT=device->getTransformation();
-	offsetT*=factory->offset;
+	TrackerState offsetT=getDeviceTransformation(0);
+	if(transformEnabled)
+		offsetT*=factory->offset;
 	transformedDevice->setTransformation(offsetT);
 	}
 

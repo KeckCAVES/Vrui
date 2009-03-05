@@ -79,6 +79,7 @@ ShowEarthModel: o/EarthFunctions.o \
                 o/PointSet.o \
                 o/SeismicPath.o \
                 o/EarthquakeSet.o \
+                o/EarthquakeTool.o \
                 o/ShowEarthModel.o
 
 Jello: o/JelloAtom.o \

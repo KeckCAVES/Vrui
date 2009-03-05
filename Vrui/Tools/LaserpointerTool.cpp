@@ -114,17 +114,6 @@ LaserpointerToolFactory* LaserpointerTool::factory=0;
 Methods of class LaserpointerTool:
 *********************************/
 
-Ray LaserpointerTool::calcRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
-	return Ray(start,direction);
-	}
-
 LaserpointerTool::LaserpointerTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:UtilityTool(factory,inputAssignment),
 	 active(false)
@@ -155,7 +144,7 @@ void LaserpointerTool::frame(void)
 	if(active)
 		{
 		/* Update the laser ray: */
-		ray=calcRay();
+		ray=getDeviceRay(0);
 		}
 	}
 

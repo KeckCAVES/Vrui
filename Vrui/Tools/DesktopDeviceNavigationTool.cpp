@@ -403,14 +403,14 @@ void DesktopDeviceNavigationTool::frame(void)
 	Vector translation=Vector::zero;
 	for(int i=0;i<factory->numTranslationAxes;++i)
 		if(factory->translationAxes[i].index>=aib&&factory->translationAxes[i].index<aib+factory->numValuators)
-			translation+=factory->translationAxes[i].axis*input.getDevice(0)->getValuator(factory->translationAxes[i].index-aib);
+			translation+=factory->translationAxes[i].axis*getDeviceValuator(0,factory->translationAxes[i].index-aib);
 	translation*=factory->translateFactor*getCurrentFrameTime();
 	
 	/* Convert rotational axes into rotation axis vector and rotation angle: */
 	Vector scaledRotationAxis=Vector::zero;
 	for(int i=0;i<factory->numRotationAxes;++i)
 		if(factory->rotationAxes[i].index>=aib&&factory->rotationAxes[i].index<aib+factory->numValuators)
-			scaledRotationAxis+=factory->rotationAxes[i].axis*input.getDevice(0)->getValuator(factory->rotationAxes[i].index-aib);
+			scaledRotationAxis+=factory->rotationAxes[i].axis*getDeviceValuator(0,factory->rotationAxes[i].index-aib);
 	scaledRotationAxis*=factory->rotateFactor*getCurrentFrameTime();
 	
 	/* Act depending on the tool's activation state: */
@@ -420,7 +420,7 @@ void DesktopDeviceNavigationTool::frame(void)
 		Vector deltaZoom=Vector::zero;
 		for(int i=0;i<factory->numZoomAxes;++i)
 			if(factory->zoomAxes[i].index>=aib&&factory->zoomAxes[i].index<aib+factory->numValuators)
-				deltaZoom+=factory->zoomAxes[i].axis*input.getDevice(0)->getValuator(factory->zoomAxes[i].index-aib);
+				deltaZoom+=factory->zoomAxes[i].axis*getDeviceValuator(0,factory->zoomAxes[i].index-aib);
 		deltaZoom*=factory->zoomFactor*getCurrentFrameTime();
 		
 		if(translation!=Vector::zero||scaledRotationAxis!=Vector::zero||deltaZoom[2]!=Scalar(0))

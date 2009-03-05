@@ -46,7 +46,6 @@ class RayMenuToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	bool useEyeRay; // Flag whether to use an eyeline from the main viewer or the device's ray direction
 	Scalar initialMenuOffset; // Offset of initial menu position along selection ray
 	bool interactWithWidgets; // Flag if the menu tool doubles as a widget interaction tool
 	
@@ -76,9 +75,6 @@ class RayMenuTool:public MenuTool
 	bool dragging; // Flag if the widget tool is currently dragging a primary top-level widget
 	GLMotif::Widget* draggedWidget; // Pointer to currently dragged widget
 	NavTrackerState preScale; // Current dragging transformation
-	
-	/* Private methods: */
-	Ray calcSelectionRay(void) const; // Calculates the selection ray based on current device position/orientation
 	
 	/* Constructors and destructors: */
 	public:

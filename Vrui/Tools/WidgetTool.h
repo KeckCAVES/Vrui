@@ -72,9 +72,6 @@ class WidgetTool:public UserInterfaceTool
 	GLMotif::Widget* draggedWidget; // Pointer to currently dragged widget
 	NavTrackerState preScale; // Current dragging transformation
 	
-	/* Private methods: */
-	Ray calcSelectionRay(void) const; // Calculates the selection ray based on current device position/orientation
-	
 	/* Constructors and destructors: */
 	public:
 	WidgetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);

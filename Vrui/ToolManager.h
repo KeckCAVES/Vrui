@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -80,11 +80,11 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		
 		/* Methods: */
 		private:
-		bool isForButton(InputDevice* queryDevice,int queryButtonIndex) const // Returns true if slot is responsible for given button on given device
+		bool isForButton(const InputDevice* queryDevice,int queryButtonIndex) const // Returns true if slot is responsible for given button on given device
 			{
 			return device==queryDevice&&slotType==BUTTON&&slotIndex==queryButtonIndex;
 			}
-		bool isForValuator(InputDevice* queryDevice,int queryValuatorIndex) const // Returns true if slot is responsible for given valuator on given device
+		bool isForValuator(const InputDevice* queryDevice,int queryValuatorIndex) const // Returns true if slot is responsible for given valuator on given device
 			{
 			return device==queryDevice&&slotType==VALUATOR&&slotIndex==queryValuatorIndex;
 			}
@@ -204,6 +204,8 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		{
 		return toolKillZone;
 		}
+	bool doesButtonHaveTool(const InputDevice* device,int buttonIndex) const; // Returns true if the given button on the given input device has a tool assigned (other than the tool selection tool)
+	bool doesValuatorHaveTool(const InputDevice* device,int valuatorIndex) const; // Ditto, for valuators
 	};
 
 }

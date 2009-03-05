@@ -190,7 +190,7 @@ void vruiErrorShutdown(bool signalError)
 		}
 	}
 
-void vruiOpenConfigurationFile(const char* userConfigurationFileName,char*& rootSectionName)
+void vruiOpenConfigurationFile(const char* userConfigurationFileName,const char*& rootSectionName)
 	{
 	try
 		{
@@ -405,14 +405,16 @@ void init(int& argc,char**& argv,char**&)
 			}
 		
 		/* Get the user configuration file's name: */
-		char* userConfigFileName=getenv("VRUI_CONFIGFILE");
+		const char* userConfigFileName=getenv("VRUI_CONFIGFILE");
 		if(userConfigFileName==0)
 			userConfigFileName="./Vrui.cfg";
 		
 		/* Get the root section name: */
-		char* rootSectionName=getenv("VRUI_ROOTSECTION");
+		const char* rootSectionName=getenv("VRUI_ROOTSECTION");
 		if(rootSectionName==0)
 			rootSectionName=getenv("HOSTNAME");
+		if(rootSectionName==0)
+			rootSectionName=getenv("HOST");
 		
 		/* Override root section name from command line: */
 		for(int i=1;i<argc;++i)
@@ -463,9 +465,16 @@ void init(int& argc,char**& argv,char**&)
 				std::string multipipeRemoteCommand=vruiConfigFile->retrieveString("./multipipeRemoteCommand","ssh");
 				masterPort=vruiMultiplexer->getLocalPortNumber();
 				vruiSlavePids=new pid_t[vruiNumSlaves];
-				char cwd[512];
-				getcwd(cwd,sizeof(cwd));
-				char rc[2048];
+				size_t cwdLen=512;
+				char* cwd=new char[cwdLen];
+				while(getcwd(cwd,cwdLen)==0)
+					{
+					cwdLen=(cwdLen*3)/2;
+					delete[] cwd;
+					cwd=new char[cwdLen];
+					}
+				size_t rcLen=strlen(cwd)+strlen(argv[0])+master.length()+multicastGroup.length()+512;
+				char* rc=new char[rcLen];
 				for(int i=0;i<vruiNumSlaves;++i)
 					{
 					pid_t childPid=fork();
@@ -473,12 +482,12 @@ void init(int& argc,char**& argv,char**&)
 						{
 						/* Create a command line to run the program from the current working directory: */
 						int ai=0;
-						ai+=snprintf(rc+ai,sizeof(rc)-ai,"cd %s ;",cwd);
-						ai+=snprintf(rc+ai,sizeof(rc)-ai," %s",argv[0]);
-						ai+=snprintf(rc+ai,sizeof(rc)-ai," -vruiMultipipeSlave");
-						ai+=snprintf(rc+ai,sizeof(rc)-ai," %d %d",vruiNumSlaves,i+1);
-						ai+=snprintf(rc+ai,sizeof(rc)-ai," %s %d",master.c_str(),masterPort);
-						ai+=snprintf(rc+ai,sizeof(rc)-ai," %s %d",multicastGroup.c_str(),multicastPort);
+						ai+=snprintf(rc+ai,rcLen-ai,"cd %s ;",cwd);
+						ai+=snprintf(rc+ai,rcLen-ai," %s",argv[0]);
+						ai+=snprintf(rc+ai,rcLen-ai," -vruiMultipipeSlave");
+						ai+=snprintf(rc+ai,rcLen-ai," %d %d",vruiNumSlaves,i+1);
+						ai+=snprintf(rc+ai,rcLen-ai," %s %d",master.c_str(),masterPort);
+						ai+=snprintf(rc+ai,rcLen-ai," %s %d",multicastGroup.c_str(),multicastPort);
 						
 						/* Create command line for the ssh (or other remote login) program: */
 						char* sshArgv[20];
@@ -497,6 +506,10 @@ void init(int& argc,char**& argv,char**&)
 						vruiSlavePids[i]=childPid;
 						}
 					}
+				
+				/* Clean up: */
+				delete[] cwd;
+				delete[] rc;
 				
 				/* Wait until the entire cluster is connected: */
 				vruiMultiplexer->waitForConnection();
@@ -854,7 +867,10 @@ bool vruiHandleAllEvents(bool allowBlocking)
 		
 		/* Read accumulated bytes from the event pipe (it's nonblocking): */
 		char readBuffer[16]; // More than enough; there should only be one byte in the pipe
-		read(vruiEventPipe[0],readBuffer,sizeof(readBuffer));
+		if(read(vruiEventPipe[0],readBuffer,sizeof(readBuffer))<0)
+			{
+			/* There's nothing to do! Stupid gcc! */
+			}
 		
 		/* Reset the number of accumulated events: */
 		vruiNumSignaledEvents=0;
@@ -1181,7 +1197,10 @@ void requestUpdate(void)
 		if(vruiNumSignaledEvents==0)
 			{
 			char byte=1;
-			write(vruiEventPipe[1],&byte,sizeof(char));
+			if(write(vruiEventPipe[1],&byte,sizeof(char))<0)
+				{
+				/* There's nothing to do! Stupid gcc! */
+				}
 			}
 		
 		/* Count the number of pending events: */

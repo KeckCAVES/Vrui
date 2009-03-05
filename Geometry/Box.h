@@ -58,7 +58,7 @@ class Box
 	typedef SolidHitResult<ScalarParam> HitResult; // Hit result type
 	
 	/* Elements: */
-	private:
+	public:
 	Point min,max; // Minimum and maximum point along all primary axes
 	
 	/* Constructors and destructors: */
@@ -79,15 +79,15 @@ class Box
 	Box(const Point& sOrigin,const Size& sSize); // Constructs a box from origin and size
 	template <class SourceScalarParam,int sourceDimensionParam>
 	Box(const Box<SourceScalarParam,sourceDimensionParam>& source) // Copy constructor with type conversion and dimension change
-		:min(source.getMin()),max(source.getMax())
+		:min(source.min),max(source.max)
 		{
 		}
 	template <class SourceScalarParam,int sourceDimensionParam>
 	Box& operator=(const Box<SourceScalarParam,sourceDimensionParam>& source) // Assignment with type conversion and dimension change
 		{
 		/* Operation is idempotent; no need to check for aliasing */
-		min=source.getMin();
-		max=source.getMax();
+		min=source.min;
+		max=source.max;
 		return *this;
 		}
 	
@@ -97,27 +97,11 @@ class Box
 	bool isNull(void) const; // Returns true if the box contains no points at all
 	bool isEmpty(void) const; // Returns true if the box has no interior (it can still contain points)
 	bool isFull(void) const; // Returns true if the box contains all points
-	const Point& getMin(void) const // Returns k-tuple of minimum coordinates as point
-		{
-		return min;
-		}
-	const Point& getMax(void) const // Returns k-tuple of maximum coordinates as point
-		{
-		return max;
-		}
-	Scalar getMin(int dimension) const // Returns minimum coordinate in one dimension
-		{
-		return min[dimension];
-		}
-	Scalar getMax(int dimension) const // Returns maximum coordinate in one dimension
-		{
-		return max[dimension];
-		}
 	const Point& getOrigin(void) const // Returns the box's origin
 		{
 		return min;
 		}
-	Box& setOrigin(const Point& newOrigin) // Sets a new origin
+	Box& setOrigin(const Point& newOrigin) // Sets a new origin while keeping the box's size
 		{
 		max=newOrigin+(max-min);
 		min=newOrigin;

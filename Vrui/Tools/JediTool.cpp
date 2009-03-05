@@ -169,8 +169,8 @@ void JediTool::frame(void)
 	if(active)
 		{
 		/* Update the light saber billboard: */
-		basePoint=input.getDevice(0)->getPosition();
-		axis=input.getDevice(0)->getRayDirection();
+		basePoint=getDevicePosition(0);
+		axis=getDeviceRayDirection(0);
 		x=Geometry::cross(axis,getMainViewer()->getHeadPosition()-basePoint);
 		x.normalize();
 		
@@ -196,7 +196,7 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 		
 		/* Draw the light saber: */
-		glPushAttrib(GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);
+		glPushAttrib(GL_COLOR_BUFFER_BIT|GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);
 		glDisable(GL_LIGHTING);
 		glBlendFunc(GL_ONE,GL_ONE);
 		glDisable(GL_CULL_FACE);

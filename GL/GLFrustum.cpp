@@ -119,6 +119,49 @@ GLFrustum<ScalarParam>::setFromGL(
 	pixelSize=Math::sqrt((Scalar(viewport[2])*Scalar(viewport[3]))/screenArea);
 	}
 
+template <class ScalarParam>
+METHODPREFIX
+bool
+GLFrustum<ScalarParam>::doesBoxIntersect(
+	const typename GLFrustum<ScalarParam>::Box& box) const
+	{
+	/* Check the box against all frustum planes: */
+	bool inside=true;
+	for(int plane=0;plane<6&&inside;++plane)
+		{
+		/* Get the frustum plane's normal vector (it points to the inside of the frustum): */
+		const Vector& normal=frustumPlanes[plane].getNormal();
+		
+		/* Find the point on the box which is closest to the frustum plane: */
+		Point p;
+		for(int i=0;i<3;++i)
+			p[i]=normal[i]>Scalar(0)?box.max[i]:box.min[i];
+		
+		/* Check if the point is inside the view frustum: */
+		inside=normal*p>=frustumPlanes[plane].getOffset();
+		}
+	
+	return inside;
+	}
+
+template <class ScalarParam>
+METHODPREFIX
+bool
+GLFrustum<ScalarParam>::doesSphereIntersect(
+	const typename GLFrustum<ScalarParam>::Point& center,
+	typename GLFrustum<ScalarParam>::Scalar radius) const
+	{
+	/* Check the sphere against all frustum planes: */
+	bool inside=true;
+	for(int plane=0;plane<6&&inside;++plane)
+		{
+		/* Compare the sphere center's distance from the plane against the sphere's radius: */
+		inside=frustumPlanes[plane].getNormal()*center>=frustumPlanes[plane].getOffset()-radius;
+		}
+	
+	return inside;
+	}
+
 #if !defined(NONSTANDARD_TEMPLATES)
 
 /*****************************************************

@@ -124,10 +124,10 @@ void SixDofInputDeviceTool::buttonCallback(int,int,InputDevice::ButtonCallbackDa
 		else
 			{
 			/* Try activating the tool: */
-			if(activate(input.getDevice(0)->getPosition()))
+			if(activate(getDevicePosition(0)))
 				{
 				/* Initialize the dragging transformation: */
-				preScale=Geometry::invert(input.getDevice(0)->getTransformation());
+				preScale=Geometry::invert(getDeviceTransformation(0));
 				preScale*=getGrabbedDevice()->getTransformation();
 				
 				/* Cancel processing of this callback to preempt cascaded tools: */
@@ -157,7 +157,7 @@ void SixDofInputDeviceTool::frame(void)
 	if(isActive())
 		{
 		/* Calculate the current transformation: */
-		TrackerState current=input.getDevice(0)->getTransformation();
+		TrackerState current=getDeviceTransformation(0);
 		current*=preScale;
 		
 		/* Set the grabbed device's position and orientation: */

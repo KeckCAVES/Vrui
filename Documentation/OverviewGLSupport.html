@@ -45,6 +45,9 @@ The GLSupport library contains classes and functions providing higher-level supp
 <DT>GLARBFragmentShader</DT>
 <DD>The GL_ARB_fragment_shader extension.</DD>
 
+<DT>GLARBGeometryShader4</DT>
+<DD>The GL_ARB_geometry_shader4 extension. This is functionally identical to GL_EXT_geometry_shader4, but uses ARB instead of EXT suffixes.</DD>
+
 <DT>GLARBMultitexture</DT>
 <DD>The GL_ARB_multitexture extension.</DD>
 
@@ -75,6 +78,9 @@ The GLSupport library contains classes and functions providing higher-level supp
 <DT>GLEXTFramebufferObject</DT>
 <DD>The GL_EXT_framebuffer_object extension.</DD>
 
+<DT>GLEXTGeometryShader4</DT>
+<DD>The GL_EXT_geometry_shader4 extension. This is functionally identical to GL_ARB_geometry_shader4, but uses EXT instead of ARB suffixes.</DD>
+
 <DT>GLEXTPalettedTexture</DT>
 <DD>The GL_EXT_paletted_texture extension.</DD>
 
@@ -96,6 +102,9 @@ The GLSupport library contains classes and functions providing higher-level supp
 
 <DT>GLShader.h<DT>
 <DD>Helper class to simplify using GLSL shaders that compile any number of vertex and fragment shaders into a single shader program. Assumes the source code for all shaders is loaded from plain text files.</DD>
+
+<DT>GLGeometryShader.h<DT>
+<DD>Child class of GLShader with additional support for geometry shaders following the GL_EXT_geometry_shader4 extension.</DD>
 
 <DT>GLColorMap.h</DT>
 <DD>GLColorMap is a class mapping scalar values in a given range to RGBA colors using linear interpolation between a number of control points.</DD>

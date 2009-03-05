@@ -170,7 +170,7 @@ void ScreenshotTool::initialize(void)
 		virtualScreen=new VRScreen;
 		
 		/* Attach the virtual screen to the input device: */
-		virtualScreen->attachToDevice(input.getDevice(0));
+		virtualScreen->attachToDevice(getDevice(0));
 		
 		/* Set the screen size: */
 		screenW=windowW*scale;
@@ -185,7 +185,7 @@ void ScreenshotTool::initialize(void)
 		if(factory->useMainViewer)
 			{
 			/* Calculate the initial screen transformation by aligning the screen'z z direction with the viewing direction: */
-			eyePosition=input.getDevice(0)->getTransformation().inverseTransform(getMainViewer()->getHeadPosition());
+			eyePosition=getDeviceTransformation(0).inverseTransform(getMainViewer()->getHeadPosition());
 			Vector viewDir=eyePosition-screenCenter;
 			vertical=factory->vertical-viewDir*((factory->vertical*viewDir)/Geometry::sqr(viewDir));
 			vertical.normalize();
@@ -222,7 +222,7 @@ void ScreenshotTool::initialize(void)
 			virtualViewer=new Viewer;
 			
 			/* Attach the virtual viewer to the input device: */
-			virtualViewer->attachToDevice(input.getDevice(0));
+			virtualViewer->attachToDevice(getDevice(0));
 			
 			/* Calculate the viewer's eye positions in device coordinates: */
 			eyePosition=factory->monoEyePosition;
@@ -314,7 +314,7 @@ void ScreenshotTool::frame(void)
 		if(isMaster())
 			{
 			/* Calculate the current screen transformation by aligning the screen'z z direction with the viewing direction: */
-			eyePosition=input.getDevice(0)->getTransformation().inverseTransform(getMainViewer()->getHeadPosition());
+			eyePosition=getDeviceTransformation(0).inverseTransform(getMainViewer()->getHeadPosition());
 			Vector viewDir=eyePosition-screenCenter;
 			Vector vertical=factory->vertical-viewDir*((factory->vertical*viewDir)/Geometry::sqr(viewDir));
 			vertical.normalize();
@@ -362,7 +362,7 @@ void ScreenshotTool::display(GLContextData& contextData) const
 	if(frameCounter!=screenshotFrameCounter)
 		{
 		/* Get the input device's current transformation: */
-		const Vrui::TrackerState& transformation=input.getDevice(0)->getTransformation();
+		const Vrui::TrackerState& transformation=getDeviceTransformation(0);
 		
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);

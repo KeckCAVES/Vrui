@@ -119,7 +119,7 @@ const ToolFactory* WaldoDraggingTool::getFactory(void) const
 void WaldoDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Get pointer to input device that caused the event: */
-	InputDevice* device=input.getDevice(deviceIndex);
+	InputDevice* device=getDevice(deviceIndex);
 	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -129,7 +129,7 @@ void WaldoDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCa
 			case IDLE:
 				{
 				/* Initialize the dragging transformations: */
-				initial=getDeviceTransformation(input.getDevice(0));
+				initial=Vrui::getDeviceTransformation(getDevice(0));
 				increment=NavTrackerState::identity;
 				last=initial;
 				
@@ -157,7 +157,7 @@ void WaldoDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCa
 			case MOVING:
 				{
 				/* Calculate dragging transformation increment: */
-				NavTrackerState dev=getDeviceTransformation(input.getDevice(0));
+				NavTrackerState dev=Vrui::getDeviceTransformation(getDevice(0));
 				NavTrackerState update=dev;
 				update*=Geometry::invert(last);
 				last=dev;
@@ -200,7 +200,7 @@ void WaldoDraggingTool::frame(void)
 		case IDLE:
 			{
 			/* Calculate dragging transformations: */
-			NavTrackerState current=getDeviceTransformation(input.getDevice(0));
+			NavTrackerState current=Vrui::getDeviceTransformation(getDevice(0));
 			
 			/* Call idle motion callbacks: */
 			IdleMotionCallbackData cbData(this,current);
@@ -211,7 +211,7 @@ void WaldoDraggingTool::frame(void)
 		case MOVING:
 			{
 			/* Calculate dragging transformation increment: */
-			NavTrackerState dev=getDeviceTransformation(input.getDevice(0));
+			NavTrackerState dev=Vrui::getDeviceTransformation(getDevice(0));
 			NavTrackerState update=dev;
 			update*=Geometry::invert(last);
 			last=dev;

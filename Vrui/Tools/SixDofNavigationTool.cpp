@@ -109,16 +109,13 @@ const ToolFactory* SixDofNavigationTool::getFactory(void) const
 
 void SixDofNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Try activating this tool: */
 		if(activate())
 			{
 			/* Initialize the navigation transformations: */
-			preScale=Geometry::invert(device->getTransformation());
+			preScale=Geometry::invert(getDeviceTransformation(0));
 			preScale*=getNavigationTransformation();
 			}
 		}
@@ -131,14 +128,11 @@ void SixDofNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackDat
 
 void SixDofNavigationTool::frame(void)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
 	/* Act depending on this tool's current state: */
 	if(isActive())
 		{
 		/* Compose the new navigation transformation: */
-		NavTrackerState navigation=device->getTransformation();
+		NavTrackerState navigation=getDeviceTransformation(0);
 		navigation*=preScale;
 		
 		/* Update Vrui's navigation transformation: */

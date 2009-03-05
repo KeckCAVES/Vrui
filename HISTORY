@@ -204,7 +204,7 @@ Vrui-1.0-041:
 - Added header file Vrui/ClusterSupport.h with helper functions to
   simplify writing cluster-aware applications.
 - Finally fixed Vrui::WaldoTool to behave as expected.
-- Fixed access priviledge bug in converting copy constructor of
+- Fixed access privilege bug in converting copy constructor of
   Geometry::AffineTransformation.
 - Fixed several bugs in Comm::MulticastPipeMultiplexer, but still not
   working reliably.
@@ -231,7 +231,7 @@ Vrui-1.0-041:
   between clusters connected via Comm::MulticastPipeMultiplexer.
 - Changed Comm::TCPSocket to optionally fall back to returning dotted
   addresses if the peer's host name cannot be resolved instead of
-  throwing an exception. Default behavior is to still throw.
+  throwing an exception. Default behavior is still to throw.
 - Finished implementing behavior of Vrui::VRWindow for desktop
   environments where panningViewport and navigate are enabled.
   Navigation coordinates scale with the window size, and Vrui's display
@@ -567,7 +567,7 @@ Vrui-1.0-050:
   a common base directory. Added autosearch facility for packages PNG,
   JPEG, and OPENAL.
 - Make variables to include support for PNG, JPEG, and OpenAL in Vrui
-  applications now depends on automatic search results; should work in
+  applications now depend on automatic search results; should work in
   all realistic cases.
 - Fixed bug in VRMeshEditor example application; now looks for Vrui tool
   headers in proper directory.
@@ -986,4 +986,121 @@ Vrui-1.0-055:
   driver module.
 - Removed several warnings when compiling with g++ 4.3.2.
 - Added revolver tool to list of Vrui tools in makefile; leftover bug
-  from previous version. Causes failure to run any Vrui application.
+  from previous version. Caused failure to run any Vrui application.
+
+Vrui-1.0-056:
+- Provided several device access convenience functions in Vrui::Tool to
+  slightly simplify tool development. Changed existing tool classes to
+  use new convenience functions where appropriate.
+- Moved handling of eye ray vs device ray into Vrui::UserInterfaceTool
+  base class to get uniform behavior between all user interface tool
+  classes.
+- Removed warning messages when compiling with g++ 4.3.x from
+  VRDeviceDaemon modules.
+- Removed all warnings but one tough one from main Vrui when compiling
+  with g++ 4.3.2.
+- Overhauled A.R.T. DTrack VR device driver module to deal with the
+  flexibility of new wireless DTrack devices (that can now have buttons
+  and/or valuators), and the ASCII data format that is required to get
+  button and valuator information. Stupidly, A.R.T. doesn't provide a
+  binary format to get at the new bits. And, they obsoleted the Euler
+  angle format in favor of full 3x3 matrices, the idiots.
+- Added image file reader classes to makefile installation.
+- Fixed bugs in Images::PNMImageFileReader and added it to makefile.
+- Fixed CAVERenderer vislet so that it does actually turn viewers'
+  headlights on/off as needed.
+- Added methods to Vrui::ToolManager to query whether a given button or
+  valuator on a given device has a "real" tool assigned (as opposed to a
+  tool selection tool).
+- Improved Vrui TransformTool base class to disable derived classes'
+  transformation when an unassigned button is pressed, so that
+  transformation does not interfere with tool selection.
+- Fixed OpenGL state bug in Vrui::JediTool; now works properly with
+  interleaved stereo on 3D TVs.
+- Added multithreaded tree generation to Geometry::ArrayKdTree class.
+  Uses only naive parallelization, but realizes decent speed-ups on
+  large point sets.
+- Added ScaleNavigationTool to be able to implement
+  WandNavigationTool's navigation method using two independent buttons.
+- Changed Vrui initialization to try both HOSTNAME and HOST (in that
+  order) to determine the default root section name.
+- API change in Geometry::Box: declared min and max public and removed
+  all getMin / getMax accessor functions. Rationale: min and max have
+  no invariants, and are not an implementation detail.
+- Added missing error checking to array-based write() methods in
+  Misc::File and Misc::LargeFile. Now throws a write error if the total
+  number of bytes actually written does not match the expected number.
+- Minor cleanup in Vrui initialization to improve robustness.
+- Fixed error check in Misc::File and Misc::LargeFile.
+- Added Misc/FileNameExtensions containing several helper functions to
+  extract and match extensions from path / file names; might get
+  extended to do additional file name processing in the future.
+- Changed Sound::SoundPlayer and Sound::SoundRecorder to use new file
+  name extension helper functions.
+- Added new flags to Vrui::ValuatorFlyTurnNavigationTool to switch
+  between flying/rotating in physical space vs device space. Settings
+  default to all points / vectors given in device space.
+- Overhauled Threads::TripleBuffer class; now it's actually useful!
+- Added read/write buffering to Comm::TCPPipe, which greatly increases
+  performance. Important: do no longer enable TCP corking on
+  Comm::TCPPipe since it interferes with the new, better stream handling
+  algorithm. To be safe, Comm::TCPPipe overrides setCork(bool) with a
+  dummy method.
+- Changed Comm::ClusterPipe class in the same way as Comm::TCPPipe. Now
+  uses read/write buffers on the cluster's master node, and preemptively
+  forwards data from master node to slave nodes on reads. Makes explicit
+  flushRead() method obsolete, which is a Very Good Thing.
+- Changed API of Comm::ClusterPipe: flushRead was made obsolete by
+  latest change and is now gone; flushWrite was renamed to flush to make
+  the ClusterPipe API template-compatible with the Comm::TCPPipe API.
+- Added proper handling of getPeerPortId, getPeerAddress, and
+  getPeerHostname to Comm::ClusterPipe. Change implies that these
+  functions have to be called by all cluster nodes synchronously.
+- Added initial support for gathering operations to Comm::MulticastPipe.
+  A gathering operation collects values from all nodes (master and
+  slaves) in a multicast pipe, and applies a selected accumulation
+  operation on all values. The result of that accumulation is shared
+  with all nodes. Implies a barrier.
+- Added Comm/GatheringOperation.h, containing a class defining the valid
+  gathering operations as opcodes.
+- Fixed one-off bug in Math::randUniformCC(int min,int max); now all
+  values in the integer range [min, max] (both inclusive) have the same
+  probability. Math::randUniformCC(min,max) is thus synonymous with
+  Math::randUniformCO(min,max+1).
+- Added Misc/StringHashFunctions.h, defining a specialization of
+  Misc::StandardHashFunction for std::string, and a new
+  Misc::StringHashFunction class for C strings.
+- Added ConstIterator class to Misc::HashTable.
+- Added conservative intersection tests for axis-aligned boxes and
+  spheres to GLFrustum class.
+- Added OpenGL extension classes for GL_ARB_geometry_shader4 and
+  GL_EXT_geometry_shader4 (original code supplied by Tony Bernardin).
+- Added GLGeometryShader class to allow linking GLSL geometry shaders
+  into shader programs. Implemented as a child class of GLShader to get
+  around weighing down the latter with as-yet not widely supported
+  geometry shader baggage (original code supplied by Tony Bernardin).
+- Added readRaw method to Comm::TCPPipe. Shadows Comm::TCPSocket's
+  read method; blocks until at least a single byte is available, and
+  then returns as much data as is currently available up to the request
+  size.
+- Added getBufferSize method to Comm::TCPPipe to query the size of the
+  internal read/write buffers. Good for efficient data forwarding while
+  still enjoying the benefits of buffered typed read/writes.
+- Added readRaw and getBufferSize methods to Comm::ClusterPipe to mirror
+  Comm::TCPPipe.
+- Improved handling of plug-in install paths (Tools, Vislets, VRDevices,
+  VRCalibrators) in makefile and fixed wrong path in generated Vrui
+  makefile fragment.
+- Upped precision in default conversion for Misc::ValueCoder
+  specializations for float and double values. Floats are now printed
+  with 7, and doubles with 14 significant digits.
+- Added global sleep() function to Misc/Time.h.
+- Added error handling to destructors of Comm::TCPPipe and
+  Comm::ClusterPipe. Problem was that the implicit flush operation
+  would throw another exception if a pipe was destroyed in response to
+  a previous pipe error. Now the destructors make a best-effort attempt
+  to flush and fail silently in case of errors.
+- Added VRUI_LIBDIR variable to Vrui makefile fragment to simplify
+  developing higher-level libraries to install with Vrui itself.
+- Renamed PACKAGEROOT in all build system files to VRUIPACKAGEROOT to
+  simplify developing higher-level libraries based on Vrui.

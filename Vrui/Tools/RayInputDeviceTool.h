@@ -68,9 +68,6 @@ class RayInputDeviceTool:public InputDeviceTool
 	/* Transient state: */
 	Ray interactionRay; // Current interaction ray
 	
-	/* Private methods: */
-	Ray calcInteractionRay(void) const; // Calculates the selection ray based on current device position/orientation
-	
 	/* Constructors and destructors: */
 	public:
 	RayInputDeviceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);

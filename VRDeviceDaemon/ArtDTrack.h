@@ -37,18 +37,39 @@ class ArtDTrack:public VRDevice
 	typedef PositionOrientation::Rotation Rotation;
 	typedef Rotation::Scalar RScalar;
 	
+	public:
+	enum DataFormat // Enumerated type for data formats
+		{
+		ASCII,BINARY
+		};
+	
+	private:
+	struct Device // Structure describing DTrack devices
+		{
+		/* Elements: */
+		public:
+		int id; // Device's DTrack ID
+		int numButtons; // Number of buttons associated with the device
+		int firstButtonIndex; // Index of first button on device
+		int numValuators; // Number of valuators associated with the device
+		int firstValuatorIndex; // Index of first valuator on device
+		};
+	
 	/* Elements: */
 	Comm::UDPSocket controlSocket; // DTrack control socket
 	Comm::UDPSocket dataSocket; // DTrack data socket
+	DataFormat dataFormat; // Format of tracking data stream
+	Device* devices; // Array of tracked devices
+	int maxDeviceId; // Largest ID of any configured tracked device
+	int* deviceIdToIndex; // Array mapping from device IDs to device indices
 	Vrui::VRDeviceState::TrackerState* trackerStates; // Local copy of all tracker states to fill in missing data
 	
 	/* Private methods: */
-	template <class DataParam>
-	static DataParam extractData(const char*& dataPtr); // Extracts a data item of given type starting at the data pointer, and advances data pointer
-	template <class DataParam>
-	static void skipData(const char*& dataPtr); // Skips a data item of given type starting at the data pointer, and advances data pointer
+	void processAsciiData(void); // Processes tracking data in ASCII format
+	void processBinaryData(void); // Processes tracking data in binary format
 	
 	/* Protected methods: */
+	protected:
 	virtual void deviceThreadMethod(void);
 	
 	/* Constructors and destructors: */

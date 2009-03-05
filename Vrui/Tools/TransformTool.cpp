@@ -132,7 +132,8 @@ bool TransformTool::setButtonState(int buttonIndex,bool newButtonState)
 TransformTool::TransformTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:Tool(sFactory,inputAssignment),
 	 transformedDevice(0),
-	 buttonStates(0)
+	 buttonStates(0),
+	 transformEnabled(true)
 	{
 	/* Initialize the button states array: */
 	buttonStates=new bool[factory->numButtons];
@@ -151,13 +152,15 @@ void TransformTool::initialize(void)
 	transformedDevice=addVirtualInputDevice("TransformedDevice",factory->numButtons,factory->numValuators);
 	
 	/* Set the virtual device's glyph to the source device's glyph: */
-	getInputGraphManager()->getInputDeviceGlyph(transformedDevice)=getInputGraphManager()->getInputDeviceGlyph(input.getDevice(0));
+	getInputGraphManager()->getInputDeviceGlyph(transformedDevice)=getInputGraphManager()->getInputDeviceGlyph(getDevice(0));
 	
 	/* Permanently grab the virtual input device: */
 	getInputGraphManager()->grabInputDevice(transformedDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(input.getDevice(0)->getTransformation());
+	InputDevice* device=input.getDevice(0);
+	transformedDevice->setTransformation(device->getTransformation());
+	transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void TransformTool::deinitialize(void)
@@ -178,7 +181,28 @@ void TransformTool::buttonCallback(int,int deviceButtonIndex,InputDevice::Button
 	{
 	/* Set the new button state and forward to the transformed device if it changed: */
 	if(setButtonState(deviceButtonIndex,cbData->newButtonState))
+		{
+		/* Disable the transformation if an unassigned button is pressed: */
+		if(transformEnabled)
+			{
+			if(buttonStates[deviceButtonIndex]&&!getToolManager()->doesButtonHaveTool(transformedDevice,deviceButtonIndex))
+				{
+				/* Set the transformed device back to the untransformed position: */
+				InputDevice* device=input.getDevice(0);
+				transformedDevice->setTransformation(device->getTransformation());
+				transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+				transformEnabled=false;
+				transformDisablerButtonIndex=deviceButtonIndex;
+				}
+			}
+		else
+			{
+			if(deviceButtonIndex==transformDisablerButtonIndex&&!buttonStates[deviceButtonIndex])
+				transformEnabled=true;
+			}
+		
 		transformedDevice->setButtonState(deviceButtonIndex,buttonStates[deviceButtonIndex]);
+		}
 	}
 
 void TransformTool::valuatorCallback(int,int deviceValuatorIndex,InputDevice::ValuatorCallbackData* cbData)
@@ -190,7 +214,9 @@ void TransformTool::valuatorCallback(int,int deviceValuatorIndex,InputDevice::Va
 void TransformTool::frame(void)
 	{
 	/* Set the transformed device's position and orientation: */
-	transformedDevice->setTransformation(input.getDevice(0)->getTransformation());
+	InputDevice* device=input.getDevice(0);
+	transformedDevice->setTransformation(device->getTransformation());
+	transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 }
