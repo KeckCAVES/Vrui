@@ -167,7 +167,7 @@ void ValuatorFlyNavigationTool::frame(void)
 	if(isActive())
 		{
 		/* Get the current state of the input device: */
-		const TrackerState& ts=input.getDevice(0)->getTransformation();
+		const TrackerState& ts=getDeviceTransformation(0);
 		
 		/* Calculate the current flying velocity: */
 		Vector v=ts.transform(factory->flyDirection);

@@ -93,6 +93,7 @@ class CAVERenderer:public Vrui::Vislet,public GLObject
 	Images::RGBImage floorTextureImage;
 	
 	/* Saved viewer headlight states: */
+	int numViewers; // Number of saved viewer headlight states
 	bool* viewerHeadlightStates; // Array of enable flags for each viewer's headlight
 	
 	/* Animation state: */
@@ -108,6 +109,7 @@ class CAVERenderer:public Vrui::Vislet,public GLObject
 	/* Constructors and destructors: */
 	public:
 	CAVERenderer(int numArguments,const char* const arguments[]);
+	virtual ~CAVERenderer(void);
 	
 	/* Methods: */
 	public:

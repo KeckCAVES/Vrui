@@ -118,9 +118,6 @@ const ToolFactory* WandNavigationTool::getFactory(void) const
 
 void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
 	/* Process based on which button was pressed: */
 	switch(buttonIndex)
 		{
@@ -135,7 +132,7 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 						if(activate())
 							{
 							/* Initialize the navigation transformations: */
-							preScale=Geometry::invert(device->getTransformation());
+							preScale=Geometry::invert(getDeviceTransformation(0));
 							preScale*=getNavigationTransformation();
 							
 							/* Go from IDLE to MOVING mode: */
@@ -145,8 +142,8 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 					
 					case SCALING_PAUSED:
 						/* Determine the scaling center and direction: */
-						scalingCenter=device->getPosition();
-						scalingDirection=device->getRayDirection();
+						scalingCenter=getDevicePosition(0);
+						scalingDirection=getDeviceRayDirection(0);
 						initialScale=scalingCenter*scalingDirection;
 						
 						/* Initialize the transformation parts: */
@@ -202,8 +199,8 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 					
 					case MOVING:
 						/* Determine the scaling center and direction: */
-						scalingCenter=device->getPosition();
-						scalingDirection=device->getRayDirection();
+						scalingCenter=getDevicePosition(0);
+						scalingDirection=getDeviceRayDirection(0);
 						initialScale=scalingCenter*scalingDirection;
 						
 						/* Initialize the transformation parts: */
@@ -227,7 +224,7 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 					{
 					case SCALING:
 						/* Initialize the transformation parts: */
-						preScale=Geometry::invert(device->getTransformation());
+						preScale=Geometry::invert(getDeviceTransformation(0));
 						preScale*=getNavigationTransformation();
 						
 						/* Go from SCALING to MOVING mode: */
@@ -253,9 +250,6 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 
 void WandNavigationTool::frame(void)
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
 		{
@@ -266,7 +260,7 @@ void WandNavigationTool::frame(void)
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=device->getTransformation();
+			NavTrackerState navigation=getDeviceTransformation(0);
 			navigation*=preScale;
 			
 			/* Update Vrui's navigation transformation: */
@@ -278,7 +272,7 @@ void WandNavigationTool::frame(void)
 			{
 			/* Compose the new navigation transformation: */
 			NavTrackerState navigation=preScale;
-			Scalar currentScale=device->getPosition()*scalingDirection-initialScale;
+			Scalar currentScale=getDevicePosition(0)*scalingDirection-initialScale;
 			navigation*=NavTrackerState::scale(Math::exp(currentScale/factory->scaleFactor));
 			navigation*=postScale;
 			

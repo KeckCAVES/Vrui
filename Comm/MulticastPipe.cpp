@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -83,6 +83,23 @@ void MulticastPipe::barrier(void)
 	
 	/* Pass call through to multicast pipe multiplexer: */
 	multiplexer->barrier(this);
+	}
+
+unsigned int MulticastPipe::gather(unsigned int value,GatherOperation::OpCode op)
+	{
+	/* Check if there is an unsent message fragment: */
+	if(master&&packetPos>0)
+		{
+		/* Send the current packet as-is: */
+		packet->packetSize=packetPos;
+		multiplexer->sendPacket(this,packet);
+		packet=multiplexer->newPacket();
+		packet->packetSize=MulticastPacket::maxPacketSize;
+		packetPos=0;
+		}
+	
+	/* Pass call through to multicast pipe multiplexer: */
+	return multiplexer->gather(this,value,op);
 	}
 
 void MulticastPipe::broadcastRaw(void* data,size_t size)

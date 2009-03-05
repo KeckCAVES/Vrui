@@ -111,9 +111,6 @@ const ToolFactory* TwoHandedNavigationTool::getFactory(void) const
 
 void TwoHandedNavigationTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Get pointer to input device that caused the event: */
-	InputDevice* device=input.getDevice(deviceIndex);
-	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Act depending on this tool's current state: */
@@ -124,7 +121,7 @@ void TwoHandedNavigationTool::buttonCallback(int deviceIndex,int,InputDevice::Bu
 				if(activate())
 					{
 					/* Initialize the navigation transformations: */
-					preScale=Geometry::invert(device->getTransformation());
+					preScale=Geometry::invert(getDeviceTransformation(deviceIndex));
 					preScale*=getNavigationTransformation();
 					
 					/* Remember which device is moving: */
@@ -140,11 +137,11 @@ void TwoHandedNavigationTool::buttonCallback(int deviceIndex,int,InputDevice::Bu
 				if(deviceIndex!=movingDeviceIndex)
 					{
 					/* Determine the scaling center and initial scale: */
-					scalingCenter=input.getDevice(movingDeviceIndex)->getPosition();
-					initialScale=Geometry::dist(device->getPosition(),scalingCenter);
+					scalingCenter=getDevicePosition(movingDeviceIndex);
+					initialScale=Geometry::dist(getDevicePosition(deviceIndex),scalingCenter);
 					
 					/* Initialize the navigation transformations: */
-					preScale=Geometry::invert(input.getDevice(movingDeviceIndex)->getTransformation());
+					preScale=Geometry::invert(getDeviceTransformation(movingDeviceIndex));
 					preScale*=NavTrackerState::translateFromOriginTo(scalingCenter);
 					postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
 					postScale*=getNavigationTransformation();
@@ -170,7 +167,7 @@ void TwoHandedNavigationTool::buttonCallback(int deviceIndex,int,InputDevice::Bu
 					movingDeviceIndex=1-deviceIndex;
 				
 				/* Initialize the navigation transformations: */
-				preScale=Geometry::invert(input.getDevice(movingDeviceIndex)->getTransformation());
+				preScale=Geometry::invert(getDeviceTransformation(movingDeviceIndex));
 				preScale*=getNavigationTransformation();
 				
 				/* Go from SCALING to MOVING mode: */
@@ -208,7 +205,7 @@ void TwoHandedNavigationTool::frame(void)
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=input.getDevice(movingDeviceIndex)->getTransformation();
+			NavTrackerState navigation=getDeviceTransformation(movingDeviceIndex);
 			navigation*=preScale;
 			
 			/* Update Vrui's navigation transformation: */
@@ -219,9 +216,9 @@ void TwoHandedNavigationTool::frame(void)
 		case SCALING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=input.getDevice(movingDeviceIndex)->getTransformation();
+			NavTrackerState navigation=getDeviceTransformation(movingDeviceIndex);
 			navigation*=preScale;
-			Scalar currentScale=Geometry::dist(input.getDevice(0)->getPosition(),input.getDevice(1)->getPosition())/initialScale;
+			Scalar currentScale=Geometry::dist(getDevicePosition(0),getDevicePosition(1))/initialScale;
 			navigation*=NavTrackerState::scale(currentScale);
 			navigation*=postScale;
 			

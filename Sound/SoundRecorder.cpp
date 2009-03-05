@@ -30,6 +30,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <CoreFoundation/CFURL.h>
 #endif
 
+#include <Misc/FileNameExtensions.h>
+
 #include <Sound/SoundRecorder.h>
 
 namespace Sound {
@@ -124,25 +126,23 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 		format.samplesPerFrame=1;
 	
 	/* Determine the output file format from the file name extension: */
-	const char* extPtr=0;
-	for(const char* ofnPtr=outputFileName;*ofnPtr!='\0';++ofnPtr)
-		if(*ofnPtr=='.')
-			extPtr=ofnPtr;
-	if(extPtr!=0)
+	if(Misc::hasCaseExtension(outputFileName,".wav"))
 		{
-		if(strcasecmp(extPtr,".wav")==0)
-			{
-			/* It's a WAV file: */
-			outputFileFormat=WAV;
-			
-			/* Adjust the sound data format for WAV files: */
-			format.signedSamples=format.bitsPerSample>8;
-			format.sampleEndianness=SoundDataFormat::LittleEndian;
-			outputFile.setEndianness(Misc::File::LittleEndian);
-			}
-		else
-			Misc::throwStdErr("SoundRecorder::SoundRecorder: Output file %s has unrecognized extension",outputFileName);
+		/* It's a WAV file: */
+		outputFileFormat=WAV;
+		
+		/* Adjust the sound data format for WAV files: */
+		format.signedSamples=format.bitsPerSample>8;
+		format.sampleEndianness=SoundDataFormat::LittleEndian;
+		outputFile.setEndianness(Misc::File::LittleEndian);
 		}
+	else if(Misc::hasCaseExtension(outputFileName,""))
+		{
+		/* It's a raw file: */
+		outputFileFormat=RAW;
+		}
+	else
+		Misc::throwStdErr("SoundRecorder::SoundRecorder: Output file %s has unrecognized extension",outputFileName);
 	
 	/* Calculate the number of bytes per frame: */
 	bytesPerFrame=format.bytesPerSample*format.samplesPerFrame;

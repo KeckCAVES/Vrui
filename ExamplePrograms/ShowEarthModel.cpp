@@ -66,6 +66,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "EarthFunctions.h"
 #include "EarthquakeSet.h"
+#include "EarthquakeTool.h"
 #include "PointSet.h"
 #include "SeismicPath.h"
 
@@ -748,6 +749,13 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 	
 	/* Initialize Vrui navigation transformation: */
 	centerDisplayCallback(0);
+	
+	if(!earthquakeSets.empty())
+		{
+		/* Register the custom tool class with the Vrui tool manager: */
+		EarthquakeToolFactory* earthquakeToolFactory=new EarthquakeToolFactory(*Vrui::getToolManager(),float(Vrui::getUiSize())*5.0f,0.005f,earthquakeSets[0]);
+		Vrui::getToolManager()->addClass(earthquakeToolFactory,EarthquakeToolFactory::factoryDestructor);
+		}
 	
 	/* Register a geodetic coordinate transformer with Vrui's coordinate manager: */
 	userTransform=new RotatedGeodeticCoordinateTransform;

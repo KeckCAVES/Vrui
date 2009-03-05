@@ -47,14 +47,8 @@ class Lightsource
 		{
 		return enabled;
 		}
-	void enable(void) // Enables the light source
-		{
-		enabled=true;
-		}
-	void disable(void) // Disables the light source
-		{
-		enabled=false;
-		}
+	void enable(void); // Enables the light source
+	void disable(void); // Disables the light source
 	const GLLight& getLight(void) const // Returns the light source's OpenGL parameters
 		{
 		return light;

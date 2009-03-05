@@ -21,7 +21,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Misc/StandardValueCoders.h>
+#include <Misc/ConfigurationFile.h>
+#include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
 
 #include <Vrui/Tools/UserInterfaceTool.h>
 
@@ -32,7 +36,9 @@ Methods of class UserInterfaceToolFactory:
 *****************************************/
 
 UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
-	:ToolFactory("UserInterfaceTool",toolManager)
+	:ToolFactory("UserInterfaceTool",toolManager),
+	 useEyeRay(false),
+	 rayOffset(getUiSize()*Scalar(2))
 	{
 	#if 0
 	/* Insert class into class hierarchy: */
@@ -40,6 +46,20 @@ UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	#endif
+	
+	/* Load class settings: */
+	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
+	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
+	
+	/* Set tool class' factory pointer: */
+	UserInterfaceTool::factory=this;
+	}
+
+UserInterfaceToolFactory::~UserInterfaceToolFactory(void)
+	{
+	/* Reset tool class' factory pointer: */
+	UserInterfaceTool::factory=0;
 	}
 
 extern "C" ToolFactory* createUserInterfaceToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
@@ -59,13 +79,47 @@ extern "C" void destroyUserInterfaceToolFactory(ToolFactory* factory)
 	delete factory;
 	}
 
+/******************************************
+Static elements of class UserInterfaceTool:
+******************************************/
+
+UserInterfaceToolFactory* UserInterfaceTool::factory=0;
+
 /**********************************
 Methods of class UserInterfaceTool:
 **********************************/
 
+Ray UserInterfaceTool::calcInteractionRay(void) const
+	{
+	Ray result;
+	
+	if(factory->useEyeRay)
+		{
+		/* Shoot a ray from the main viewer: */
+		Point start=getDevicePosition(0);
+		Vector direction=start-getMainViewer()->getHeadPosition();
+		direction.normalize();
+		result=Ray(start,direction);
+		}
+	else
+		{
+		/* Use the device's ray direction: */
+		result=getDeviceRay(0);
+		}
+	
+	/* Offset the ray start point backwards: */
+	result.setOrigin(result.getOrigin()-result.getDirection()*(factory->rayOffset/result.getDirection().mag()));
+	return result;
+	}
+
 UserInterfaceTool::UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:Tool(factory,inputAssignment)
 	{
+	}
+
+const ToolFactory* UserInterfaceTool::getFactory(void) const
+	{
+	return factory;
 	}
 
 }

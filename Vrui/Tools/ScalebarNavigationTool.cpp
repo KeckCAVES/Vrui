@@ -222,7 +222,7 @@ void ScalebarNavigationTool::display(GLContextData& contextData) const
 	
 	/* Translate coordinate system to scaling device's position and orientation: */
 	glPushMatrix();
-	glMultMatrix(input.getDevice(1)->getTransformation());
+	glMultMatrix(getDeviceTransformation(0));
 	
 	/* Execute the tool model display list: */
 	glCallList(dataItem->modelListId);

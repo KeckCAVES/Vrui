@@ -147,7 +147,7 @@ void ComeHitherNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbac
 				startTime=getApplicationTime();
 				
 				/* Get the target transformation: */
-				NavTransform device=input.getDevice(0)->getTransformation();
+				NavTransform device=getDeviceTransformation(0);
 				device.leftMultiply(getInverseNavigationTransformation());
 				Point center=device.getOrigin();
 				Vector forward=device.getDirection(1);

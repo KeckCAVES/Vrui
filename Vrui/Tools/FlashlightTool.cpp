@@ -154,13 +154,13 @@ void FlashlightTool::frame(void)
 	{
 	if(active)
 		{
-		/* Get pointer to input device: */
-		InputDevice* device=input.getDevice(0);
+		/* Get light ray: */
+		Ray ray=getDeviceRay(0);
 		
 		/* Set the light source parameters: */
-		Point start=device->getPosition();
+		Point start=ray.getOrigin();
 		lightsource->getLight().position=GLLight::Position(GLfloat(start[0]),GLfloat(start[1]),GLfloat(start[2]),1.0f);
-		Vector direction=device->getRayDirection();
+		Vector direction=ray.getDirection();
 		direction.normalize();
 		lightsource->getLight().spotDirection=GLLight::SpotDirection(GLfloat(direction[0]),GLfloat(direction[1]),GLfloat(direction[2]));
 		}

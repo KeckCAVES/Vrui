@@ -30,6 +30,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <CoreFoundation/CFURL.h>
 #endif
 
+#include <Misc/FileNameExtensions.h>
+
 #include <Sound/SoundPlayer.h>
 
 namespace Sound {
@@ -163,22 +165,15 @@ SoundPlayer::SoundPlayer(const char* inputFileName)
 	#ifdef SOUND_USE_ALSA
 	
 	/* Determine the input file format from the file name extension: */
-	const char* extPtr=0;
-	for(const char* ifnPtr=inputFileName;*ifnPtr!='\0';++ifnPtr)
-		if(*ifnPtr=='.')
-			extPtr=ifnPtr;
-	if(extPtr!=0)
+	if(Misc::hasCaseExtension(inputFileName,".wav"))
 		{
-		if(strcasecmp(extPtr,".wav")==0)
-			{
-			/* Read the WAV file header: */
-			inputFile.setEndianness(Misc::File::LittleEndian);
-			if(!readWAVHeader())
-				Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s is invalid or incompatible WAV file",inputFileName);
-			}
-		else
-			Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s has unrecognized extension",inputFileName);
+		/* Read the WAV file header: */
+		inputFile.setEndianness(Misc::File::LittleEndian);
+		if(!readWAVHeader())
+			Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s is invalid or incompatible WAV file",inputFileName);
 		}
+	else
+		Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s has unrecognized extension",inputFileName);
 	
 	/* Calculate the size of a frame in bytes: */
 	bytesPerFrame=size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);

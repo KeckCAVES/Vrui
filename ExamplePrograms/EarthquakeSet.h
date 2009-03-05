@@ -24,6 +24,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <utility>
 #include <vector>
 #include <Geometry/Point.h>
+#include <Geometry/Ray.h>
 #include <GL/gl.h>
 #include <GL/GLVertex.h>
 #include <GL/GLObject.h>
@@ -33,6 +34,7 @@ class EarthquakeSet:public GLObject
 	/* Embedded classes: */
 	public:
 	typedef Geometry::Point<float,3> Point; // Type for points
+	typedef Geometry::Ray<float,3> Ray; // Type for rays
 	
 	struct Event // Structure for events (earthquakes)
 		{
@@ -79,6 +81,7 @@ class EarthquakeSet:public GLObject
 	void selectEvents(double eventTime1,double eventTime2); // Selects a set of earthquake events in the given time range
 	void glRenderAction(GLContextData& contextData) const; // Renders the earthquake set
 	const Event* selectEvent(const Point& pos,float maxDist) const; // Returns the event closest to the given query point (or null pointer)
+	const Event* selectEvent(const Ray& ray,float coneAngle) const; // Ditto, for query ray
 	};
 
 #endif

@@ -125,11 +125,8 @@ Point FPSNavigationTool::calcMousePosition(void) const
 		}
 	else
 		{
-		/* Get pointer to input device: */
-		InputDevice* device=input.getDevice(0);
-
-		/* Calculate ray equation: */
-		Ray ray(device->getPosition(),device->getRayDirection());
+		/* Calculate the ray equation: */
+		Ray ray=getDeviceRay(0);
 		
 		/* Intersect the ray with the main screen: */
 		ONTransform screenT=getMainScreen()->getScreenTransformation();
@@ -211,7 +208,7 @@ FPSNavigationTool::FPSNavigationTool(const ToolFactory* factory,const ToolInputA
 void FPSNavigationTool::initialize(void)
 	{
 	/* Get a pointer to the input device's controlling adapter: */
-	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(input.getDevice(0)));
+	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
 	
 	/* Initialize the navigation frame and current position/orientation: */
 	ONTransform st=getMainScreen()->getScreenTransformation();

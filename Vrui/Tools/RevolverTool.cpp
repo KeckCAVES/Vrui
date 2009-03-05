@@ -307,7 +307,7 @@ void RevolverTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(transformedDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(input.getDevice(0)->getTransformation());
+	transformedDevice->setTransformation(getDeviceTransformation(0));
 	}
 
 const ToolFactory* RevolverTool::getFactory(void) const
@@ -328,7 +328,7 @@ void RevolverTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonC
 		mappedButtonIndex=(mappedButtonIndex+1)%factory->numButtons;
 		
 		/* Set the newly mapped button's state to the input device's button's state: */
-		transformedDevice->setButtonState(mappedButtonIndex,input.getDevice(0)->getButtonState(input.getButtonIndex(0,0)));
+		transformedDevice->setButtonState(mappedButtonIndex,getDeviceButtonState(0,0));
 		
 		/* Show the current button assignment: */
 		showNumbersTime=getApplicationTime()+1.0;
@@ -360,7 +360,7 @@ void RevolverTool::display(GLContextData& contextData) const
 		glPushMatrix();
 		
 		/* Draw the "revolver chambers:" */
-		glMultMatrix(input.getDevice(0)->getTransformation());
+		glMultMatrix(getDeviceTransformation(0));
 		
 		Scalar chamberAngle=Scalar(2)*Math::Constants<Scalar>::pi/Scalar(factory->numButtons);
 		Scalar angleOffset=Scalar(0);

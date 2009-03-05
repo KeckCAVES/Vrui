@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #else
 #include <Misc/Utility.h>
 #endif
+#include <Threads/Thread.h>
 #include <Math/Constants.h>
 
 #include <Geometry/ArrayKdTree.h>
@@ -148,6 +149,116 @@ ArrayKdTree<StoredPointParam>::createTree(
 		createTree(left,mid-1,splitDimension);
 	if(right>mid)
 		createTree(mid+1,right,splitDimension);
+	}
+
+template <class StoredPointParam>
+inline
+void*
+ArrayKdTree<StoredPointParam>::createTreeThreaded(
+	const typename ArrayKdTree<StoredPointParam>::CreateSubTreeArgs* args)
+	{
+	int left=args->left;
+	int right=args->right;
+	int splitDimension=args->splitDimension;
+	
+	/* Calculate the index of this node: */
+	int mid=(left+right)>>1;
+	
+	#if GEOMETRY_ARRAYKDTREE_USE_STD_NTH_ELEMENT
+	NodeSortFunctor<StoredPointParam> comp(splitDimension);
+	std::nth_element(nodes+left,nodes+mid,nodes+right+1,comp);
+	#else
+	/* Find the splitIndex-th smallest element and separate the point array into two subarrays: */
+	int sweepLeft=left;
+	int sweepRight=right;
+	while(true)
+		{
+		/* Perform a quicksort sweep for an element in the middle of the array: */
+		int sweepMid=(sweepLeft+sweepRight)>>1;
+		Scalar pivot=nodes[sweepMid][splitDimension];
+		
+		/* Save the pivot element at the right of the array: */
+		Misc::swap(nodes[sweepMid],nodes[sweepRight]);
+		
+		/* Split array into left and right points using one (modified) Quicksort sweep: */
+		int l=sweepLeft;
+		int r=sweepRight-1;
+		while(true)
+			{
+			while(l<sweepRight&&nodes[l][splitDimension]<pivot)
+				++l;
+			while(r>=sweepLeft&&nodes[r][splitDimension]>=pivot)
+				--r;
+			
+			if(l>r)
+				break;
+			
+			Misc::swap(nodes[l],nodes[r]);
+			++l;
+			--r;
+			}
+		Misc::swap(nodes[l],nodes[sweepRight]);
+		
+		/* Check if done: */
+		if(l<mid)
+			{
+			/* Continue searching in the right sub-array: */
+			sweepLeft=l+1;
+			}
+		else if(l>mid)
+			{
+			/* Continue searching in the left sub-array: */
+			sweepRight=l-1;
+			}
+		else
+			{
+			/* Finish searching: */
+			break;
+			}
+		}
+	#endif
+	
+	/* Create left and right subtrees: */
+	++splitDimension;
+	if(splitDimension==dimension)
+		splitDimension=0;
+	if(args->numThreads>1)
+		{
+		if(left<mid&&mid<right)
+			{
+			/* Start a new thread to process the right subtree: */
+			CreateSubTreeArgs args1(mid+1,right,splitDimension,args->numThreads/2);
+			Threads::Thread rightThread;
+			rightThread.start<ArrayKdTree,const CreateSubTreeArgs*>(this,&ArrayKdTree::createTreeThreaded,&args1);
+			
+			/* Process the left subtree: */
+			CreateSubTreeArgs args2(left,mid-1,splitDimension,(args->numThreads+1)/2);
+			createTreeThreaded(&args2);
+			
+			/* Wait for the right subtree to finish: */
+			rightThread.join();
+			}
+		else if(left<mid)
+			{
+			CreateSubTreeArgs args1(left,mid-1,splitDimension,args->numThreads);
+			createTreeThreaded(&args1);
+			}
+		else if(right>mid)
+			{
+			CreateSubTreeArgs args1(mid+1,right,splitDimension,args->numThreads);
+			createTreeThreaded(&args1);
+			}
+		}
+	else
+		{
+		/* Recurse using the single-threaded methods: */
+		if(left<mid)
+			createTree(left,mid-1,splitDimension);
+		if(right>mid)
+			createTree(mid+1,right,splitDimension);
+		}
+	
+	return 0;
 	}
 
 template <class StoredPointParam>
@@ -429,6 +540,33 @@ ArrayKdTree<StoredPointParam>::setPoints(
 template <class StoredPointParam>
 inline
 void
+ArrayKdTree<StoredPointParam>::setPoints(
+	int newNumNodes,
+	const typename ArrayKdTree<StoredPointParam>::StoredPoint newNodes[],
+	int numThreads)
+	{
+	if(newNumNodes!=numNodes)
+		{
+		/* Delete existing tree: */
+		delete[] nodes;
+		
+		/* Allocate new tree: */
+		numNodes=newNumNodes;
+		nodes=new StoredPoint[numNodes];
+		}
+	
+	/* Copy given point data: */
+	for(int i=0;i<numNodes;++i)
+		nodes[i]=newNodes[i];
+	
+	/* Create new tree: */
+	CreateSubTreeArgs args(0,numNodes-1,0,numThreads);
+	createTreeThreaded(&args);
+	}
+
+template <class StoredPointParam>
+inline
+void
 ArrayKdTree<StoredPointParam>::donatePoints(
 	int newNumNodes,
 	typename ArrayKdTree<StoredPointParam>::StoredPoint* newNodes)
@@ -442,6 +580,26 @@ ArrayKdTree<StoredPointParam>::donatePoints(
 	
 	/* Create new tree: */
 	createTree(0,numNodes-1,0);
+	}
+
+template <class StoredPointParam>
+inline
+void
+ArrayKdTree<StoredPointParam>::donatePoints(
+	int newNumNodes,
+	typename ArrayKdTree<StoredPointParam>::StoredPoint* newNodes,
+	int numThreads)
+	{
+	/* Delete existing tree: */
+	delete[] nodes;
+	
+	/* Calculate new tree's layout: */
+	numNodes=newNumNodes;
+	nodes=newNodes;
+	
+	/* Create new tree: */
+	CreateSubTreeArgs args(0,numNodes-1,0,numThreads);
+	createTreeThreaded(&args);
 	}
 
 template <class StoredPointParam>

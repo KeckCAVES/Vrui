@@ -1,7 +1,7 @@
 /***********************************************************************
 MulticastPipeMultiplexer - Class to share several multicast pipes across
 a single UDP socket connection.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Cond.h>
 #include <Threads/MutexCond.h>
 #include <Comm/MulticastPacket.h>
+#include <Comm/GatherOperation.h>
 
 /* Forward declarations: */
 struct sockaddr_in;
@@ -56,7 +57,8 @@ class MulticastPipeMultiplexer
 			CREATEPIPE, // Signal that slave created new pipe of given ID
 			ACKNOWLEDGMENT, // Signal that slave has received some stream packets
 			PACKETLOSS, // Signal that slave lost a stream packet
-			BARRIER // Barrier message sent from slaves to master
+			BARRIER, // Barrier message sent from slaves to master
+			GATHER // Message conveying a slave's gather value in a gather operation
 			};
 		
 		/* Elements: */
@@ -65,7 +67,8 @@ class MulticastPipeMultiplexer
 		unsigned int pipeId; // ID of pipe related to message
 		unsigned int streamPos; // Current stream position of slave when packet loss is detected
 		unsigned int packetPos; // Stream position of packet after packet loss
-		unsigned int barrierId; // ID of current barrier in barrier message
+		unsigned int barrierId; // ID of current barrier in barrier message or gather operation in gather message
+		unsigned int slaveValue; // Slave's gather value in a gather operation
 		};
 	
 	struct MasterMessage // Structure for messages sent from the master to the slaves (embedded in normal multicast packets with pipeId==0)
@@ -77,15 +80,17 @@ class MulticastPipeMultiplexer
 			CONNECTION, // Signal that multicast group is complete
 			PING, // Ping reply from master to slave
 			CREATEPIPE, // Signal that pipe creation is complete
-			BARRIER // Signal that barrier is complete
+			BARRIER, // Signal that barrier is complete
+			GATHER // Signal that a gather operation is complete; payload is final gather value
 			};
 		
 		/* Elements: */
 		public:
 		unsigned int zeroPipeId; // Zero pipe ID to distinguish master messages from regular multicast packets
 		int messageId; // ID of message
-		unsigned int pipeId; // ID of affected pipe for barrier completion messages
-		unsigned int barrierId; // ID of completed barrier
+		unsigned int pipeId; // ID of affected pipe for barrier or gather completion messages
+		unsigned int barrierId; // ID of completed barrier or gather operation
+		unsigned int masterValue; // Master's final value in a gather operation
 		};
 	
 	struct PipeState // Structure storing the current state of a pipe
@@ -139,6 +144,8 @@ class MulticastPipeMultiplexer
 		unsigned int barrierId; // Unique identifier of last completed barrier in pipe
 		unsigned int* slaveBarrierIds; // Array of most recently received barrier messages from the slaves
 		unsigned int minSlaveBarrierId; // Smallest barrier ID currently in the state array
+		unsigned int* slaveGatherValues; // Array of most recently received gather values from the slaves
+		unsigned int masterGatherValue; // Final value of last completed gather operation in pipe
 		// DEBUGGING
 		//unsigned int totalNumResentBytes;
 		
@@ -230,6 +237,7 @@ class MulticastPipeMultiplexer
 	void sendPacket(MulticastPipe* pipe,MulticastPacket* packet); // Sends a packet from the master to the slaves
 	MulticastPacket* receivePacket(MulticastPipe* pipe); // Receives a packet from the master
 	void barrier(MulticastPipe* pipe); // Waits until all nodes (master + slaves) have reached the same point in the program
+	unsigned int gather(MulticastPipe* pipe,unsigned int value,GatherOperation::OpCode op); // Exchanges a single value between all nodes (master + slaves); implies a barrier
 	};
 
 }

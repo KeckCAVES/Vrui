@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoTool - Class to scale translations and rotations on 6-DOF input
 devices to improve interaction accuracy in tracked environments.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -113,8 +113,10 @@ Methods of class WaldoTool:
 WaldoTool::WaldoTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment),
 	 waldoGlyph(0),
-	 numPressedButtons(0),active(false)
+	 numPressedButtons(0)
 	{
+	/* Disable the transformation: */
+	transformEnabled=false;
 	}
 
 void WaldoTool::initialize(void)
@@ -124,7 +126,7 @@ void WaldoTool::initialize(void)
 	
 	/* Set the virtual input device's glyph to the same as the source device's: */
 	waldoGlyph=&getInputGraphManager()->getInputDeviceGlyph(transformedDevice);
-	*waldoGlyph=getInputGraphManager()->getInputDeviceGlyph(input.getDevice(0));
+	*waldoGlyph=getInputGraphManager()->getInputDeviceGlyph(getDevice(0));
 	GLMaterial waldoMaterial=waldoGlyph->getGlyphMaterial();
 	waldoMaterial.ambient=waldoMaterial.diffuse=GLMaterial::Color(1.0f,0.0f,0.0f);
 	waldoGlyph->setGlyphMaterial(waldoMaterial);
@@ -144,13 +146,16 @@ void WaldoTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCall
 			{
 			if(numPressedButtons==0)
 				{
-				active=true;
-				
-				/* Remember the current input device transformation: */
-				last=input.getDevice(0)->getTransformation();
-				
-				/* Activate the virtual input device's glyph: */
-				waldoGlyph->enable();
+				if(getToolManager()->doesButtonHaveTool(transformedDevice,deviceButtonIndex))
+					{
+					transformEnabled=true;
+					
+					/* Remember the current input device transformation: */
+					last=getDeviceTransformation(0);
+					
+					/* Activate the virtual input device's glyph: */
+					waldoGlyph->enable();
+					}
 				}
 			++numPressedButtons;
 			}
@@ -165,10 +170,10 @@ void WaldoTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCall
 void WaldoTool::frame(void)
 	{
 	/* Act depending on this tool's current state: */
-	if(active)
+	if(transformEnabled)
 		{
 		/* Calculate the input device transformation update: */
-		const TrackerState& current=input.getDevice(0)->getTransformation();
+		const TrackerState& current=getDeviceTransformation(0);
 		Vector translation=current.getTranslation()-last.getTranslation();
 		Vector rotation=(current.getRotation()*Geometry::invert(last.getRotation())).getScaledAxis();
 		last=current;
@@ -189,7 +194,7 @@ void WaldoTool::frame(void)
 		if(numPressedButtons==0)
 			{
 			/* Deactivate the tool: */
-			active=false;
+			transformEnabled=false;
 			
 			/* Deactivate the virtual input device's glyph: */
 			waldoGlyph->disable();
@@ -198,7 +203,9 @@ void WaldoTool::frame(void)
 	else
 		{
 		/* Snap the virtual input device to the source input device: */
-		transformedDevice->setTransformation(input.getDevice(0)->getTransformation());
+		InputDevice* device=input.getDevice(0);
+		transformedDevice->setTransformation(device->getTransformation());
+		transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 		}
 	}
 

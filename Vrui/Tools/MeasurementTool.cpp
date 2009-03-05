@@ -662,11 +662,8 @@ void MeasurementTool::frame(void)
 	{
 	if(dragging)
 		{
-		/* Get pointer to input device: */
-		InputDevice* device=input.getDevice(0);
-		
 		/* Calculate the device position in the appropriate coordinate system: */
-		points[numPoints-1]=device->getPosition();
+		points[numPoints-1]=getDevicePosition(0);
 		if(coordinateMode==MeasurementToolFactory::NAVIGATIONAL||coordinateMode==MeasurementToolFactory::USER)
 			points[numPoints-1]=getInverseNavigationTransformation().transform(points[numPoints-1]);
 		

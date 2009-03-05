@@ -24,6 +24,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_USERINTERFACETOOL_INCLUDED
 #define VRUI_USERINTERFACETOOL_INCLUDED
 
+#include <Geometry/Ray.h>
+#include <Vrui/Geometry.h>
 #include <Vrui/Tools/Tool.h>
 
 namespace Vrui {
@@ -32,16 +34,37 @@ class UserInterfaceTool;
 
 class UserInterfaceToolFactory:public ToolFactory
 	{
+	friend class UserInterfaceTool;
+	
+	/* Elements: */
+	private:
+	bool useEyeRay; // Flag whether to use an eyeline from the main viewer or the device's ray direction for ray-based interaction
+	Scalar rayOffset; // Amount by which to shift the selection ray backwards to simplify interaction
+	
 	/* Constructors and destructors: */
 	public:
 	UserInterfaceToolFactory(ToolManager& toolManager);
+	virtual ~UserInterfaceToolFactory(void);
 	};
 
 class UserInterfaceTool:public Tool
 	{
+	friend class UserInterfaceToolFactory;
+	
+	/* Elements: */
+	private:
+	static UserInterfaceToolFactory* factory; // Pointer to the factory object for this class
+	
+	/* Protected methods: */
+	protected:
+	Ray calcInteractionRay(void) const; // Returns a ray for ray-based interaction
+	
 	/* Constructors and destructors: */
 	public:
 	UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	
+	/* Methods: */
+	virtual const ToolFactory* getFactory(void) const;
 	};
 
 }

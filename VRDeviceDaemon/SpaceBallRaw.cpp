@@ -228,7 +228,7 @@ SpaceBallRaw::SpaceBallRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 	#endif
 	char lineBuffer[256];
 	const int numResponses=4;
-	char* responseTexts[numResponses]={"\021","@1 Spaceball alive and well","","@2 Firmware version"};
+	const char* responseTexts[numResponses]={"\021","@1 Spaceball alive and well","","@2 Firmware version"};
 	int responseLengths[numResponses]={2,27,1,19};
 	for(int i=0;i<numResponses;++i)
 		{
@@ -238,7 +238,7 @@ SpaceBallRaw::SpaceBallRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 		
 		/* Check if line is correct SpaceBall response: */
 		if(strncmp(lineBuffer,responseTexts[i],responseLengths[i])!=0)
-			Misc::throwStdErr("SpaceBallRaw: Incorrect response while reading status message");
+			Misc::throwStdErr("SpaceBallRaw: Incorrect response %s while reading status message %s",lineBuffer,responseTexts[i]);
 		}
 	}
 

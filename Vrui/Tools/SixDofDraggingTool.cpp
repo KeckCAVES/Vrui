@@ -111,7 +111,7 @@ const ToolFactory* SixDofDraggingTool::getFactory(void) const
 void SixDofDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Get pointer to input device that caused the event: */
-	InputDevice* device=input.getDevice(deviceIndex);
+	InputDevice* device=getDevice(deviceIndex);
 	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -121,7 +121,7 @@ void SixDofDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonC
 			case IDLE:
 				{
 				/* Initialize the dragging transformations: */
-				NavTrackerState initial=getDeviceTransformation(input.getDevice(0));
+				NavTrackerState initial=Vrui::getDeviceTransformation(getDevice(0));
 				preScale=Geometry::invert(initial);
 				
 				/* Call drag start callbacks: */
@@ -148,7 +148,7 @@ void SixDofDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonC
 			case MOVING:
 				{
 				/* Calculate dragging transformations: */
-				NavTrackerState final=getDeviceTransformation(input.getDevice(0));
+				NavTrackerState final=Vrui::getDeviceTransformation(getDevice(0));
 				NavTrackerState increment=preScale;
 				increment*=final;
 				
@@ -180,7 +180,7 @@ void SixDofDraggingTool::frame(void)
 		case IDLE:
 			{
 			/* Calculate dragging transformations: */
-			NavTrackerState current=getDeviceTransformation(input.getDevice(0));
+			NavTrackerState current=Vrui::getDeviceTransformation(getDevice(0));
 			
 			/* Call idle motion callbacks: */
 			IdleMotionCallbackData cbData(this,current);
@@ -191,7 +191,7 @@ void SixDofDraggingTool::frame(void)
 		case MOVING:
 			{
 			/* Calculate dragging transformations: */
-			NavTrackerState current=getDeviceTransformation(input.getDevice(0));
+			NavTrackerState current=Vrui::getDeviceTransformation(getDevice(0));
 			NavTrackerState increment=preScale;
 			increment*=current;
 

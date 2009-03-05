@@ -47,7 +47,6 @@ Methods of class RayScreenMenuToolFactory:
 
 RayScreenMenuToolFactory::RayScreenMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayScreenMenuTool",toolManager),
-	 useEyeRay(false),
 	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
@@ -61,7 +60,6 @@ RayScreenMenuToolFactory::RayScreenMenuToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	
 	/* Set tool class' factory pointer: */
@@ -117,31 +115,6 @@ RayScreenMenuToolFactory* RayScreenMenuTool::factory=0;
 Methods of class RayScreenMenuTool:
 **********************************/
 
-Ray RayScreenMenuTool::calcSelectionRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	if(factory->useEyeRay)
-		{
-		/* Shoot a ray from the main viewer: */
-		Point start=device->getPosition();
-		Vector direction=start-viewer->getHeadPosition();
-		direction.normalize();
-		start-=direction*(getInchFactor()/direction.mag());
-		return Ray(start,direction);
-		}
-	else
-		{
-		/* Use the device's ray direction: */
-		Point start=device->getPosition();
-		Vector direction=device->getRayDirection();
-		start-=direction*(getInchFactor()/direction.mag());
-		return Ray(start,direction);
-		}
-	}
-
 RayScreenMenuTool::RayScreenMenuTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:MenuTool(factory,inputAssignment),
 	 viewer(0),
@@ -170,7 +143,7 @@ void RayScreenMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 		if(factory->interactWithWidgets)
 			{
 			/* If the widget manager accepts the event, preempt any cascaded tools until the button is released: */
-			Ray ray=calcSelectionRay();
+			Ray ray=calcInteractionRay();
 			GLMotif::Event event(false);
 			event.setWorldLocation(ray);
 			if(getWidgetManager()->pointerButtonDown(event))
@@ -206,7 +179,7 @@ void RayScreenMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 		if(!widgetActive&&activate())
 			{
 			/* Calculate the menu selection ray: */
-			Ray ray=calcSelectionRay();
+			Ray ray=calcInteractionRay();
 			
 			/* Find the closest intersection with any screen: */
 			std::pair<VRScreen*,Scalar> si=findScreen(ray);
@@ -245,7 +218,7 @@ void RayScreenMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 			{
 			/* Deliver the event: */
 			GLMotif::Event event(true);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			getWidgetManager()->pointerButtonUp(event);
 			
 			/* Deactivate this tool: */
@@ -259,7 +232,7 @@ void RayScreenMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 			{
 			/* Deliver the event: */
 			GLMotif::Event event(true);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			getWidgetManager()->pointerButtonUp(event);
 			
 			/* Pop down the menu: */
@@ -274,7 +247,7 @@ void RayScreenMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* 
 void RayScreenMenuTool::frame(void)
 	{
 	/* Update the selection ray: */
-	selectionRay=calcSelectionRay();
+	selectionRay=calcInteractionRay();
 	
 	if(factory->interactWithWidgets)
 		insideWidget=getWidgetManager()->findPrimaryWidget(selectionRay)!=0;
@@ -303,7 +276,7 @@ void RayScreenMenuTool::frame(void)
 	else if(isActive())
 		{
 		/* Update the selection ray: */
-		selectionRay=calcSelectionRay();
+		selectionRay=calcInteractionRay();
 		
 		/* Deliver the event: */
 		GLMotif::Event event(true);

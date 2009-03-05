@@ -177,12 +177,8 @@ Point MouseNavigationTool::calcScreenCenter(void) const
 
 Point MouseNavigationTool::calcScreenPos(void) const
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
+	/* Calculate the ray equation: */
+	Ray ray=getDeviceRay(0);
 	
 	/* Find the screen currently containing the input device: */
 	const VRScreen* screen;
@@ -195,26 +191,15 @@ Point MouseNavigationTool::calcScreenPos(void) const
 	ONTransform screenT=screen->getScreenTransformation();
 	Vector normal=screenT.getDirection(2);
 	Scalar d=normal*screenT.getOrigin();
-	Scalar divisor=normal*direction;
+	Scalar divisor=normal*ray.getDirection();
 	if(divisor==Scalar(0))
 		return Point::origin;
 	
-	Scalar lambda=(d-start*normal)/divisor;
+	Scalar lambda=(d-ray.getOrigin()*normal)/divisor;
 	if(lambda<Scalar(0))
 		return Point::origin;
 	
-	return start+direction*lambda;
-	}
-
-Ray MouseNavigationTool::calcSelectionRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
-	return Ray(start,direction);
+	return ray(lambda);
 	}
 
 void MouseNavigationTool::startRotating(void)
@@ -290,7 +275,7 @@ MouseNavigationTool::MouseNavigationTool(const ToolFactory* factory,const ToolIn
 	 draggedWidget(0)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
-	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(input.getDevice(0)));
+	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
 	
 	if(MouseNavigationTool::factory->showMouseCursor)
 		{
@@ -353,7 +338,7 @@ void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::Button
 							{
 							/* Check if the mouse pointer is over a GLMotif widget: */
 							GLMotif::Event event(false);
-							event.setWorldLocation(calcSelectionRay());
+							event.setWorldLocation(getDeviceRay(0));
 							if(getWidgetManager()->pointerButtonDown(event))
 								{
 								if(navigationMode==SPINNING)
@@ -416,7 +401,7 @@ void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::Button
 						{
 						/* Deliver the event: */
 						GLMotif::Event event(true);
-						event.setWorldLocation(calcSelectionRay());
+						event.setWorldLocation(getDeviceRay(0));
 						getWidgetManager()->pointerButtonUp(event);
 						
 						/* Deactivate this tool: */
@@ -641,7 +626,7 @@ void MouseNavigationTool::frame(void)
 			{
 			/* Deliver the event: */
 			GLMotif::Event event(true);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(getDeviceRay(0));
 			getWidgetManager()->pointerMotion(event);
 			
 			if(draggedWidget!=0)

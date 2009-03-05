@@ -127,7 +127,7 @@ Methods of class InputDeviceTool:
 void InputDeviceTool::hijackButtons(void)
 	{
 	/* Hijack all buttons on the tool's device: */
-	InputDevice* sourceDevice=input.getDevice(0);
+	InputDevice* sourceDevice=getDevice(0);
 	int targetButtonIndex=0;
 	for(int i=0;targetButtonIndex<grabbedDevice->getNumButtons()&&i<sourceDevice->getNumButtons();++i)
 		if(i!=input.getButtonIndex(0,0))
@@ -148,7 +148,7 @@ void InputDeviceTool::hijackButtons(void)
 void InputDeviceTool::releaseButtons(void)
 	{
 	/* Release all hijacked buttons on the tool's device: */
-	InputDevice* sourceDevice=input.getDevice(0);
+	InputDevice* sourceDevice=getDevice(0);
 	for(int i=0;i<sourceDevice->getNumButtons();++i)
 		if(buttonHijackers[i].targetDevice!=0)
 			{
@@ -271,7 +271,7 @@ InputDeviceTool::InputDeviceTool(const ToolFactory* sFactory,const ToolInputAssi
 	 active(false),grabbedDevice(0)
 	{
 	/* Create the array of button hijackers: */
-	buttonHijackers=new ButtonHijacker[input.getDevice(0)->getNumButtons()];
+	buttonHijackers=new ButtonHijacker[getDevice(0)->getNumButtons()];
 	}
 
 InputDeviceTool::~InputDeviceTool(void)

@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define COMM_MULTICASTPIPE_INCLUDED
 
 #include <stddef.h>
+#include <Comm/GatherOperation.h>
 
 /* Forward declarations: */
 namespace Comm {
@@ -63,6 +64,7 @@ class MulticastPipe
 	
 	/* Synchronization interface: */
 	void barrier(void); // Blocks the calling thread until all nodes in a multicast pipe have reached the same point in the program
+	unsigned int gather(unsigned int value,GatherOperation::OpCode op); // Blocks the calling thread until all nodes in a multicast pipe have exchanged a value; returns final accumulated value
 	
 	/* Common interface: */
 	void broadcastRaw(void* data,size_t size); // Sends data from master to all slaves; does not change data on master

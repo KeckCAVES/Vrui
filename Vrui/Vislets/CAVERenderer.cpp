@@ -67,7 +67,7 @@ inline double clampAngle(double angle)
 Methods of class CAVERendererFactory:
 ************************************/
 
-CAVERendererFactory::CAVERendererFactory(Vrui::VisletManager& visletManager)
+CAVERendererFactory::CAVERendererFactory(VisletManager& visletManager)
 	:VisletFactory("CAVERenderer",visletManager),
 	 surfaceMaterial(GLMaterial::Color(1.0f,1.0f,1.0f),GLMaterial::Color(0.0f,0.0f,0.0f),0.0f),
 	 tilesPerFoot(12),
@@ -286,7 +286,8 @@ void CAVERenderer::renderFloor(CAVERenderer::DataItem* dataItem) const
 CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	:surfaceMaterial(factory->surfaceMaterial),
 	 tilesPerFoot(factory->tilesPerFoot),
-	 viewerHeadlightStates(new bool[Vrui::getNumViewers()]),
+	 numViewers(getNumViewers()),
+	 viewerHeadlightStates(new bool[numViewers]),
 	 angle(720.0),angleAnimStep(0.0),lastFrame(0.0)
 	{
 	/* Parse the command line: */
@@ -320,29 +321,23 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	
 	/* Create several light sources in the CAVE room: */
 	GLLight::Color lightColor(0.25f,0.25f,0.25f);
-	Vrui::getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f,-30.0f,96.0f,1.0f)));
-	Vrui::getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f,-30.0f,96.0f,1.0f)));
-	Vrui::getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f, 30.0f,96.0f,1.0f)));
-	Vrui::getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f, 30.0f,96.0f,1.0f)));
+	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f,-30.0f,96.0f,1.0f)));
+	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f,-30.0f,96.0f,1.0f)));
+	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f, 30.0f,96.0f,1.0f)));
+	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f, 30.0f,96.0f,1.0f)));
 	
-	#if 0
-	/* Disable all viewers' head lights: */
-	for(int i=0;i<Vrui::getNumViewers();++i)
+	/* Save all viewers' head light states and then turn them off: */
+	for(int i=0;i<getNumViewers()&&i<numViewers;++i)
 		{
-		Vrui::getViewer(i)->setHeadlightState(false);
-		viewerHeadlightStates[i]=...;
+		viewerHeadlightStates[i]=getViewer(i)->getHeadlight().isEnabled();
+		getViewer(i)->setHeadlightState(false);
 		}
-	#endif
 	}
-
-#if 0
 
 CAVERenderer::~CAVERenderer(void)
 	{
 	delete[] viewerHeadlightStates;
 	}
-
-#endif
 
 VisletFactory* CAVERenderer::getFactory(void) const
 	{
@@ -361,6 +356,13 @@ void CAVERenderer::disable(void)
 
 void CAVERenderer::enable(void)
 	{
+	/* Save all viewers' head light states and then turn them off: */
+	for(int i=0;i<getNumViewers()&&i<numViewers;++i)
+		{
+		viewerHeadlightStates[i]=getViewer(i)->getHeadlight().isEnabled();
+		getViewer(i)->setHeadlightState(false);
+		}
+	
 	/* Enable the vislet as far as the vislet manager is concerned: */
 	active=true;
 	
@@ -423,6 +425,12 @@ void CAVERenderer::frame(void)
 			{
 			angle=0.0;
 			angleAnimStep=0.0;
+			
+			/* Set all viewers' head lights to the saved state: */
+			for(int i=0;i<getNumViewers()&&i<numViewers;++i)
+				getViewer(i)->setHeadlightState(viewerHeadlightStates[i]);
+			
+			/* Disable the vislet: */
 			active=false;
 			}
 		else if(angle>720.0)

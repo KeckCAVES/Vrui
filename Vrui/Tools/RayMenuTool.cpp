@@ -45,7 +45,6 @@ Methods of class RayMenuToolFactory:
 
 RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayMenuTool",toolManager),
-	 useEyeRay(false),
 	 initialMenuOffset(getInchFactor()*6),
 	 interactWithWidgets(true)
 	{
@@ -60,7 +59,6 @@ RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
 	initialMenuOffset=cfs.retrieveValue<Scalar>("./initialMenuOffset",initialMenuOffset);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	
@@ -117,30 +115,6 @@ RayMenuToolFactory* RayMenuTool::factory=0;
 Methods of class RayMenuTool:
 ****************************/
 
-Ray RayMenuTool::calcSelectionRay(void) const
-	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	if(factory->useEyeRay)
-		{
-		/* Shoot a ray from the main viewer: */
-		Point start=device->getPosition();
-		Vector direction=start-viewer->getHeadPosition();
-		direction.normalize();
-		start-=direction*(getInchFactor()/direction.mag());
-		return Ray(start,direction);
-		}
-	else
-		{
-		/* Use the device's ray direction: */
-		Point start=device->getPosition();
-		Vector direction=device->getRayDirection();
-		start-=direction*(getInchFactor()/direction.mag());
-		return Ray(start,direction);
-		}
-	}
-
 RayMenuTool::RayMenuTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:MenuTool(factory,inputAssignment),
 	 viewer(0),
@@ -170,7 +144,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 			{
 			/* If the widget manager accepts the event, preempt any cascaded tools until the button is released: */
 			GLMotif::Event event(false);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			if(getWidgetManager()->pointerButtonDown(event))
 				{
 				/* Activate the widget tool: */
@@ -184,7 +158,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 					draggedWidget=event.getTargetWidget();
 					
 					/* Calculate the dragging transformation: */
-					NavTrackerState initialTracker=input.getDevice(0)->getTransformation();
+					NavTrackerState initialTracker=getDeviceTransformation(0);
 					preScale=Geometry::invert(initialTracker);
 					GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
 					preScale*=NavTrackerState(initialWidget);
@@ -203,7 +177,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 			typedef WTransform::Vector WVector;
 			
 			/* Calculate the menu transformation: */
-			WPoint globalHotSpot=calcSelectionRay()(factory->initialMenuOffset);
+			WPoint globalHotSpot=calcInteractionRay()(factory->initialMenuOffset);
 			
 			/* Align the widget with the viewing direction: */
 			WVector viewDirection=globalHotSpot-viewer->getHeadPosition();
@@ -221,7 +195,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 			
 			/* Deliver the event: */
 			GLMotif::Event event(false);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			getWidgetManager()->pointerButtonDown(event);
 			}
 		}
@@ -231,7 +205,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 			{
 			/* Deliver the event: */
 			GLMotif::Event event(true);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			getWidgetManager()->pointerButtonUp(event);
 			
 			/* Deactivate this tool: */
@@ -245,7 +219,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 			{
 			/* Deliver the event: */
 			GLMotif::Event event(true);
-			event.setWorldLocation(calcSelectionRay());
+			event.setWorldLocation(calcInteractionRay());
 			getWidgetManager()->pointerButtonUp(event);
 			
 			/* Pop down the menu: */
@@ -260,7 +234,7 @@ void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData
 void RayMenuTool::frame(void)
 	{
 	/* Update the selection ray: */
-	selectionRay=calcSelectionRay();
+	selectionRay=calcInteractionRay();
 	
 	if(factory->interactWithWidgets)
 		insideWidget=getWidgetManager()->findPrimaryWidget(selectionRay)!=0;
@@ -275,7 +249,7 @@ void RayMenuTool::frame(void)
 		if(dragging)
 			{
 			/* Update the dragged widget's transformation: */
-			NavTrackerState current=input.getDevice(0)->getTransformation();
+			NavTrackerState current=getDeviceTransformation(0);
 			current*=preScale;
 			getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,GLMotif::WidgetManager::Transformation(current));
 			}
@@ -283,7 +257,7 @@ void RayMenuTool::frame(void)
 	else if(isActive())
 		{
 		/* Update the selection ray: */
-		selectionRay=calcSelectionRay();
+		selectionRay=calcInteractionRay();
 		
 		/* Deliver the event: */
 		GLMotif::Event event(true);

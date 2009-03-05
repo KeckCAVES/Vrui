@@ -108,17 +108,13 @@ Methods of class TrackballNavigationTool:
 
 Point TrackballNavigationTool::calcTrackballPosition(void) const
 	{
-	/* Get pointer to input device: */
-	InputDevice* device=input.getDevice(0);
-	
-	/* Calculate ray equation: */
-	Point start=device->getPosition();
-	Vector direction=device->getRayDirection();
+	/* Get device ray equation: */
+	Ray ray=getDeviceRay(0);
 	
 	/* Intersect ray with trackball sphere: */
-	Vector d=getDisplayCenter()-start;
+	Vector d=getDisplayCenter()-ray.getOrigin();
 	Scalar dLen2=Geometry::sqr(d);
-	Scalar ph=direction*d;
+	Scalar ph=ray.getDirection()*d;
 	Scalar radius=getDisplaySize();
 	Scalar det=Math::sqr(ph)+Math::sqr(radius)-dLen2;
 	if(det>=Scalar(0))
@@ -126,12 +122,12 @@ Point TrackballNavigationTool::calcTrackballPosition(void) const
 		/* Find first intersection of ray with sphere (even if behind start point): */
 		det=Math::sqrt(det);
 		Scalar lambda=ph-det;
-		return start+direction*lambda;
+		return ray(lambda);
 		}
 	else
 		{
 		/* Find closest point on sphere to ray: */
-		Vector ctop=direction*((d*direction)/Geometry::sqr(direction))-d;
+		Vector ctop=ray.getDirection()*((d*ray.getDirection())/Geometry::sqr(ray.getDirection()))-d;
 		ctop*=radius/Geometry::mag(ctop);
 		return getDisplayCenter()+ctop;
 		}

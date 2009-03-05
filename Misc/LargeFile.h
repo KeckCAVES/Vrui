@@ -257,17 +257,21 @@ class LargeFile
 	template <class DataParam>
 	void write(const DataParam* data,size_t numItems) // Writes array of values
 		{
+		size_t numBytesWritten;
 		if(mustSwapEndianness)
 			{
+			numBytesWritten=0;
 			for(size_t i=0;i<numItems;++i)
 				{
 				DataParam temp=data[i];
 				swapEndianness(temp);
-				fwrite(&temp,sizeof(DataParam),1,filePtr);
+				numBytesWritten+=fwrite(&temp,sizeof(DataParam),1,filePtr);
 				}
 			}
 		else
-			fwrite(data,sizeof(DataParam),numItems,filePtr);
+			numBytesWritten=fwrite(data,sizeof(DataParam),numItems,filePtr)*sizeof(DataParam);
+		if(numBytesWritten!=sizeof(DataParam)*numItems)
+			throw WriteError(sizeof(DataParam)*numItems,numBytesWritten);
 		}
 	};
 

@@ -106,7 +106,6 @@ class ToolManagementTool:public MenuTool
 	static void inputDeviceButtonCallbackWrapper(Misc::CallbackData* cbData,void* userData);
 	
 	/* Private methods: */
-	Ray calcSelectionRay(void) const; // Calculates the selection ray based on current device position/orientation
 	void finishCreatingTool(void); // Actually creates the new tool and assigns it to the probed devices and buttons
 	void toolMenuSelectionCallback(GLMotif::Button* button);
 	void inputDeviceButtonCallback(int buttonIndex,bool newState);
