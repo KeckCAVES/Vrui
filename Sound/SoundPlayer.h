@@ -2,7 +2,7 @@
 SoundPlayer - Simple class to play sound from a sound file on the local
 file system to a playback device. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -28,7 +28,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifdef SOUND_USE_ALSA
 #include <Misc/File.h>
 #include <Threads/Thread.h>
-#include <alsa/asoundlib.h>
 #endif
 #ifdef __DARWIN__
 #include <CoreAudio/CoreAudioTypes.h>
@@ -37,6 +36,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <AudioToolbox/AudioFile.h>
 #endif
 
+#ifdef SOUND_USE_ALSA
+#include <Sound/ALSAPCMDevice.h>
+#endif
 #include <Sound/SoundDataFormat.h>
 
 namespace Sound {
@@ -52,7 +54,7 @@ class SoundPlayer
 	SoundDataFormat format; // Format of the sound data in the input file
 	#ifdef SOUND_USE_ALSA
 	size_t bytesPerFrame; // Number of bytes per frame of sound data
-	snd_pcm_t* pcmDevice; // Pointer to the ALSA PCM device used for playback
+	ALSAPCMDevice pcmDevice; // Pointer to the ALSA PCM device used for playback
 	size_t sampleBufferSize; // Size of the sample buffer in bytes
 	char* sampleBuffer; // A buffer to write sound data to the PCM device
 	Threads::Thread playingThread; // Thread ID of the background playing thread

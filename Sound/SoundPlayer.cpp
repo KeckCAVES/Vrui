@@ -2,7 +2,7 @@
 SoundPlayer - Simple class to play sound from a sound file on the local
 file system to a playback device. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <math.h>
 #endif
 #include <string.h>
+#include <iostream>
+#include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #ifdef __DARWIN__
 #include <CoreFoundation/CFURL.h>
@@ -126,17 +128,23 @@ bool SoundPlayer::readWAVHeader(void)
 
 void* SoundPlayer::playingThreadMethod(void)
 	{
+	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
+	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	
 	/* Read buffers worth of sound data from the input file until interrupted or at end of file: */
 	while(!inputFile.eof())
 		{
 		/* Read sound data from the input file, up to the buffer size: */
-		size_t numBytesRead=inputFile.read(sampleBuffer,sampleBufferSize);
+		size_t numBytesRead=inputFile.read(sampleBuffer,sampleBufferSize*bytesPerFrame);
 		if(numBytesRead>0)
 			{
 			/* Write the buffer to the PCM device: */
-			snd_pcm_writei(pcmDevice,sampleBuffer,snd_pcm_uframes_t(numBytesRead/bytesPerFrame));
+			pcmDevice.write(sampleBuffer,numBytesRead/bytesPerFrame);
 			}
 		}
+	
+	/* Wait for the PCM device to finish playing samples: */
+	pcmDevice.drain();
 	
 	{
 	/* Wake up anyone who is waiting for playback to finish: */
@@ -155,7 +163,7 @@ SoundPlayer::SoundPlayer(const char* inputFileName)
 	#ifdef SOUND_USE_ALSA
 	:inputFile(inputFileName,"rb",Misc::File::DontCare),
 	 bytesPerFrame(0),
-	 pcmDevice(0),
+	 pcmDevice("default",false),
 	 sampleBufferSize(0),sampleBuffer(0),
 	 active(false)
 	#else
@@ -178,24 +186,15 @@ SoundPlayer::SoundPlayer(const char* inputFileName)
 	/* Calculate the size of a frame in bytes: */
 	bytesPerFrame=size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);
 	
-	int error;
-	
-	/* Open the default PCM playback device: */
-	error=snd_pcm_open(&pcmDevice,"default",SND_PCM_STREAM_PLAYBACK,0);
-	if(error<0)
-		Misc::throwStdErr("SoundPlayer::SoundPlayer: Error %s while opening PCM device",snd_strerror(error));
-	
 	/* Set the PCM device's parameters according to the sound data format: */
-	error=format.setPCMDeviceParameters(pcmDevice);
-	if(error<0)
-		{
-		snd_pcm_close(pcmDevice);
-		Misc::throwStdErr("SoundPlayer::SoundPlayer: Error %s while setting PCM device parameters",snd_strerror(error));
-		}
+	pcmDevice.setSoundDataFormat(format);
 	
 	/* Create a sample buffer holding a quarter second of sound: */
-	sampleBufferSize=((size_t(format.framesPerSecond)*250+500)/1000)*bytesPerFrame;
-	sampleBuffer=new char[sampleBufferSize];
+	sampleBufferSize=((size_t(format.framesPerSecond)*250+500)/1000);
+	sampleBuffer=new char[sampleBufferSize*bytesPerFrame];
+	
+	/* Prepare the device for playback: */
+	pcmDevice.prepare();
 	
 	#endif
 	}
@@ -217,9 +216,6 @@ SoundPlayer::~SoundPlayer(void)
 		finishedPlayingCond.broadcast(finishedPlayingLock);
 		}
 	}
-	
-	/* Close the PCM device: */
-	snd_pcm_close(pcmDevice);
 	
 	/* Delete the sample buffer: */
 	delete[] sampleBuffer;
@@ -263,15 +259,15 @@ void SoundPlayer::stop(void)
 	playingThread.cancel();
 	playingThread.join();
 	
+	/* Stop the PCM device: */
+	pcmDevice.drop();
+	
 	{
 	/* Wake up anyone who is waiting for playback to finish: */
 	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 	active=false;
 	finishedPlayingCond.broadcast(finishedPlayingLock);
 	}
-	
-	/* Stop the PCM device: */
-	snd_pcm_drop(pcmDevice);
 	
 	#else
 	

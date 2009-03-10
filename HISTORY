@@ -1104,3 +1104,13 @@ Vrui-1.0-056:
   developing higher-level libraries to install with Vrui itself.
 - Renamed PACKAGEROOT in all build system files to VRUIPACKAGEROOT to
   simplify developing higher-level libraries based on Vrui.
+
+Vrui-1.0-057:
+- Fixed stupidest copypasta error ever: created GLARBGeometryShader4
+  OpenGL extension class from GLEXTGeometryShader4, and replaced EXT by
+  ARB. Result: TEXTURE became TARBURE.
+- Added abstraction class for ALSA PCM devices to Sound library.
+- Changed Sound::SoundRecorder and Sound::SoundPlayer to use the ALSA
+  PCM device abstraction class.
+- Added convenience function to set "standard" sample formats to
+  Sound::SoundDataFormat.

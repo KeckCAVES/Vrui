@@ -88,14 +88,25 @@ void* SoundRecorder::recordingThreadMethod(void)
 	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Read buffers worth of sound data from the PCM device until interrupted: */
-	while(true)
+	try
 		{
-		/* Read pending sound data, up to the buffer size: */
-		size_t numFramesRead=pcmDevice.read(sampleBuffer,sampleBufferSize);
-		
-		/* Write the buffer to the file: */
-		outputFile.write(sampleBuffer,numFramesRead*bytesPerFrame);
-		numRecordedFrames+=numFramesRead;
+		while(true)
+			{
+			/* Read pending sound data, up to the buffer size: */
+			size_t numFramesRead=pcmDevice.read(sampleBuffer,sampleBufferSize);
+			
+			/* Write the buffer to the file: */
+			outputFile.write(sampleBuffer,numFramesRead*bytesPerFrame);
+			numRecordedFrames+=numFramesRead;
+			}
+		}
+	catch(std::runtime_error err)
+		{
+		std::cerr<<"SoundRecorder::recordingThreadMethod: Stopping recording due to exception "<<err.what()<<std::endl;
+		}
+	catch(...)
+		{
+		std::cerr<<"SoundRecorder::recordingThreadMethod: Stopping recording due to spurious exception"<<std::endl;
 		}
 	
 	return 0;
@@ -157,8 +168,8 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 	sampleBufferSize=(size_t(format.framesPerSecond)*250+500)/1000;
 	sampleBuffer=new char[sampleBufferSize*bytesPerFrame];
 	
-	/* Prepare the device for recording: */
-	pcmDevice.prepare();
+	/* Set the PCM device's buffer size: */
+	// pcmDevice.setBufferSize(sampleBufferSize*2,sampleBufferSize);
 	
 	#endif
 	}

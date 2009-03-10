@@ -37,9 +37,9 @@ Extension-specific parts of gl.h:
 
 /* Extension-specific functions: */
 typedef void (APIENTRY * PFNGLPROGRAMPARAMETERIARBPROC) (GLuint program, GLenum pname, GLint value);
-typedef void (APIENTRY * PFNGLFRAMEBUFFERTARBUREARBPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level);
-typedef void (APIENTRY * PFNGLFRAMEBUFFERTARBURELAYERARBPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
-typedef void (APIENTRY * PFNGLFRAMEBUFFERTARBUREFACEARBPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLenum face);
+typedef void (APIENTRY * PFNGLFRAMEBUFFERTEXTUREARBPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level);
+typedef void (APIENTRY * PFNGLFRAMEBUFFERTEXTURELAYERARBPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
+typedef void (APIENTRY * PFNGLFRAMEBUFFERTEXTUREFACEARBPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLenum face);
 
 /* Extension-specific constants: */
 #define GL_GEOMETRY_SHADER_ARB            0x8DD9
@@ -52,7 +52,7 @@ typedef void (APIENTRY * PFNGLFRAMEBUFFERTARBUREFACEARBPROC) (GLenum target, GLe
 #define GL_GEOMETRY_VERTICES_OUT_ARB      0x8DDA
 #define GL_GEOMETRY_INPUT_TYPE_ARB        0x8DDB
 #define GL_GEOMETRY_OUTPUT_TYPE_ARB       0x8DDC
-#define GL_MAX_GEOMETRY_TARBURE_IMAGE_UNITS_ARB 0x8C29
+#define GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS_ARB 0x8C29
 #define GL_LINES_ADJACENCY_ARB            0xA
 #define GL_LINE_STRIP_ADJACENCY_ARB       0xB
 #define GL_TRIANGLES_ADJACENCY_ARB        0xC
@@ -60,7 +60,7 @@ typedef void (APIENTRY * PFNGLFRAMEBUFFERTARBUREFACEARBPROC) (GLenum target, GLe
 #define GL_FRAMEBUFFER_ATTACHMENT_LAYERED_ARB 0x8DA7
 #define GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS_ARB 0x8DA8
 #define GL_FRAMEBUFFER_INCOMPLETE_LAYER_COUNT_ARB 0x8DA9
-#define GL_FRAMEBUFFER_ATTACHMENT_TARBURE_LAYER_ARB 0x8CD4
+#define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER_ARB 0x8CD4
 #define GL_PROGRAM_POINT_SIZE_ARB         0x8642
 
 #endif
@@ -71,9 +71,9 @@ class GLARBGeometryShader4:public GLExtension
 	private:
 	static GL_THREAD_LOCAL(GLARBGeometryShader4*) current; // Pointer to extension object for current OpenGL context
 	PFNGLPROGRAMPARAMETERIARBPROC glProgramParameteriARBProc;
-	PFNGLFRAMEBUFFERTARBUREARBPROC glFramebufferTextureARBProc;
-	PFNGLFRAMEBUFFERTARBURELAYERARBPROC glFramebufferTextureLayerARBProc;
-	PFNGLFRAMEBUFFERTARBUREFACEARBPROC glFramebufferTextureFaceARBProc;
+	PFNGLFRAMEBUFFERTEXTUREARBPROC glFramebufferTextureARBProc;
+	PFNGLFRAMEBUFFERTEXTURELAYERARBPROC glFramebufferTextureLayerARBProc;
+	PFNGLFRAMEBUFFERTEXTUREFACEARBPROC glFramebufferTextureFaceARBProc;
 	
 	/* Constructors and destructors: */
 	private:
