@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -27,7 +27,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifdef SOUND_USE_ALSA
 #include <Misc/File.h>
 #include <Threads/Thread.h>
-#include <alsa/asoundlib.h>
 #endif
 #ifdef __DARWIN__
 #include <CoreAudio/CoreAudioTypes.h>
@@ -36,6 +35,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <AudioToolbox/AudioFile.h>
 #endif
 #include <Sound/SoundDataFormat.h>
+#ifdef SOUND_USE_ALSA
+#include <Sound/ALSAPCMDevice.h>
+#endif
 
 namespace Sound {
 
@@ -57,7 +59,7 @@ class SoundRecorder
 	#ifdef SOUND_USE_ALSA
 	AudioFileFormat outputFileFormat; // Format of the output file
 	size_t bytesPerFrame; // Number of bytes per frame of sound data
-	snd_pcm_t* pcmDevice; // Pointer to the ALSA PCM device used for recording
+	ALSAPCMDevice pcmDevice; // The ALSA PCM device used for recording
 	Misc::File outputFile; // File to which to write the sound data
 	size_t sampleBufferSize; // Size of the sample buffer in frames
 	char* sampleBuffer; // A buffer to read sound data from the PCM device

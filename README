@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui 1.0, build 056
+README for Vrui 1.0, build 057
 Copyright (c) 1998-2008 Oliver Kreylos
 ========================================================================
 
@@ -20,6 +20,8 @@ Foundation.
 
 Quick Installation Guide for the Impatient
 ==========================================
+
+(Replace <build> by the current Vrui build number.)
 
 0. (On MacOS X: Install required packages.)
 

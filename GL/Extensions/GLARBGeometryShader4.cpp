@@ -38,9 +38,9 @@ Methods of class GLARBGeometryShader4:
 
 GLARBGeometryShader4::GLARBGeometryShader4(void)
 	:glProgramParameteriARBProc(GLExtensionManager::getFunction<PFNGLPROGRAMPARAMETERIARBPROC>("glProgramParameteriARB")),
-	 glFramebufferTextureARBProc(GLExtensionManager::getFunction<PFNGLFRAMEBUFFERTARBUREARBPROC>("glFramebufferTextureARB")),
-	 glFramebufferTextureLayerARBProc(GLExtensionManager::getFunction<PFNGLFRAMEBUFFERTARBURELAYERARBPROC>("glFramebufferTextureLayerARB")),
-	 glFramebufferTextureFaceARBProc(GLExtensionManager::getFunction<PFNGLFRAMEBUFFERTARBUREFACEARBPROC>("glFramebufferTextureFaceARB"))
+	 glFramebufferTextureARBProc(GLExtensionManager::getFunction<PFNGLFRAMEBUFFERTEXTUREARBPROC>("glFramebufferTextureARB")),
+	 glFramebufferTextureLayerARBProc(GLExtensionManager::getFunction<PFNGLFRAMEBUFFERTEXTURELAYERARBPROC>("glFramebufferTextureLayerARB")),
+	 glFramebufferTextureFaceARBProc(GLExtensionManager::getFunction<PFNGLFRAMEBUFFERTEXTUREFACEARBPROC>("glFramebufferTextureFaceARB"))
 	{
 	}
 

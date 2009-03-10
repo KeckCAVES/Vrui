@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2008 Oliver Kreylos
+# Copyright (c) 1998-2009 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -989,14 +989,23 @@ libImages: $(call LIBRARYNAME,libImages)
 # The basic sound library (Sound)
 #
 
-SOUND_HEADERS = Sound/SoundDataFormat.h \
-                Sound/SoundRecorder.h \
-                Sound/SoundPlayer.h
+SOUND_HEADERS = Sound/SoundDataFormat.h
+ifeq ($(SYSTEM),LINUX)
+  ifneq ($(VRUI_USE_SOUND),0)
+    SOUND_HEADERS += Sound/ALSAPCMDevice.h
+  endif
+endif
+SOUND_HEADERS += Sound/SoundRecorder.h \
+                 Sound/SoundPlayer.h
 
-SOUND_SOURCES = Sound/SoundDataFormat.cpp \
-                Sound/SoundRecorder.cpp \
-                Sound/SoundPlayer.cpp
-
+SOUND_SOURCES = Sound/SoundDataFormat.cpp
+ifeq ($(SYSTEM),LINUX)
+  ifneq ($(VRUI_USE_SOUND),0)
+    SOUND_SOURCES += Sound/ALSAPCMDevice.cpp
+  endif
+endif
+SOUND_SOURCES += Sound/SoundRecorder.cpp \
+                 Sound/SoundPlayer.cpp
 
 $(call LIBRARYNAME,libSound): PACKAGES += $(MYSOUND_DEPENDS)
 $(call LIBRARYNAME,libSound): EXTRACINCLUDEFLAGS += $(MYSOUND_INCLUDE)
