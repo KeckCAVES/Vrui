@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_POINTSETNODE_INCLUDED
 #define SCENEGRAPH_POINTSETNODE_INCLUDED
 
+#include <GL/gl.h>
+#include <GL/GLObject.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
 #include <SceneGraph/ColorNode.h>
@@ -29,12 +31,24 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 namespace SceneGraph {
 
-class PointSetNode:public GeometryNode
+class PointSetNode:public GeometryNode,public GLObject
 	{
 	/* Embedded classes: */
 	protected:
 	typedef SF<ColorNodePointer> SFColorNode;
 	typedef SF<CoordinateNodePointer> SFCoordinateNode;
+	
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLuint vertexBufferObjectId; // ID of vertex buffer object containing the point set, if supported
+		unsigned int version; // Version of point set stored in vertex buffer object
+		
+		/* Constructors and destructors: */
+		DataItem(void);
+		virtual ~DataItem(void);
+		};
 	
 	/* Elements: */
 	protected:
@@ -43,6 +57,9 @@ class PointSetNode:public GeometryNode
 	SFColorNode color;
 	SFCoordinateNode coord;
 	SFFloat pointSize;
+	
+	/* Derived state: */
+	unsigned int version; // Version number of point set
 	
 	/* Constructors and destructors: */
 	public:
@@ -55,6 +72,9 @@ class PointSetNode:public GeometryNode
 	/* Methods from GeometryNode: */
 	virtual Box calcBoundingBox(void) const;
 	virtual void glRenderAction(GLRenderState& renderState) const;
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

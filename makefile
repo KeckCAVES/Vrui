@@ -148,7 +148,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000058
+VRUI_VERSION = 1000059
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -889,11 +889,13 @@ libGLXSupport: $(call LIBRARYNAME,libGLXSupport)
 #
 
 GLGEOMETRY_HEADERS = GL/GLGeometryWrappers.h \
+                     GL/GLGeometryVertex.h \
                      GL/GLTransformationWrappers.h GL/GLTransformationWrappers.cpp \
                      GL/GLFrustum.h \
                      GL/GLPolylineTube.h
 
-GLGEOMETRY_SOURCES = GL/GLTransformationWrappers.cpp \
+GLGEOMETRY_SOURCES = GL/GLGeometryVertex.cpp \
+                     GL/GLTransformationWrappers.cpp \
                      GL/GLFrustum.cpp \
                      GL/GLPolylineTube.cpp
 
@@ -1275,6 +1277,7 @@ $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS)
 ifneq ($(VRUI_USE_OPENAL),0)
   $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += -DVRUI_USE_OPENAL
 endif
+$(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
   $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -L$(VRTOOLSDIR) $(DEPENDENCIES:$(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT)=-l%)
   ifneq ($(SYSTEM_HAVE_RPATH),0)
@@ -1282,14 +1285,15 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
       $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
     endif
   endif
+  $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/%.o
 	@mkdir -p $(VRTOOLSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 endif
 
 # Dependencies for Vrui tools:
@@ -1324,6 +1328,7 @@ $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS)
 ifneq ($(VRUI_USE_OPENAL),0)
   $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += -DVRUI_USE_OPENAL
 endif
+$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
   $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -L$(VRVISLETSDIR) $(DEPENDENCIES:$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT)=-l%)
   ifneq ($(SYSTEM_HAVE_RPATH),0)
@@ -1331,14 +1336,15 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
       $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
     endif
   endif
+  $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Vislets/%.o
 	@mkdir -p $(VRVISLETSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 endif
 
 # Dependencies between Vrui vislets:

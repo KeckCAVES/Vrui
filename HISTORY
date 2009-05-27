@@ -1256,4 +1256,11 @@ Vrui-1.0-058:
     DisplayState object when displaying markers for measurements in
     navigational coordinates.
   - Changed Vrui's CurveEditorTool to use modelview matrices in
-    DisplayStaet object.
+    DisplayState object.
+
+Vrui-1.0-059:
+- Added GLGeometry::Vertex, an analogon to GLVertex using geometry
+  types from the geometry library.
+- Added dependency on Vrui dynamic library to all Vrui tools and vislets
+  to enable using them from a program not linked with -rdynamic, such as
+  for example a Python run-time environment.
