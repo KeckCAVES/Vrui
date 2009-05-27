@@ -1,7 +1,7 @@
 /***********************************************************************
 OffsetTool - Class to offset the position of an input device by a fixed
 amount to extend the user's arm.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
 
 #include <Vrui/Tools/OffsetTool.h>
 
@@ -37,7 +38,7 @@ Methods of class OffsetToolFactory:
 
 OffsetToolFactory::OffsetToolFactory(ToolManager& toolManager)
 	:ToolFactory("OffsetTool",toolManager),
-	 offset(ONTransform::identity)
+	 offset(ONTransform::translate(Vector(0,getDisplaySize()*Scalar(0.5),0)))
 	{
 	/* Insert class into class hierarchy: */
 	TransformToolFactory* transformToolFactory=dynamic_cast<TransformToolFactory*>(toolManager.loadClass("TransformTool"));
@@ -61,6 +62,11 @@ OffsetToolFactory::~OffsetToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	OffsetTool::factory=0;
+	}
+
+const char* OffsetToolFactory::getName(void) const
+	{
+	return "Offset Transformation";
 	}
 
 Tool* OffsetToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

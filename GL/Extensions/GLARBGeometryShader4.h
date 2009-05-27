@@ -20,8 +20,8 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef GLARBENSIONS_GLARBGEOMETRYSHADER4_INCLUDED
-#define GLARBENSIONS_GLARBGEOMETRYSHADER4_INCLUDED
+#ifndef GLEXTENSIONS_GLARBGEOMETRYSHADER4_INCLUDED
+#define GLEXTENSIONS_GLARBGEOMETRYSHADER4_INCLUDED
 
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>

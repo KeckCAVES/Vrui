@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorTurnNavigationTool - Class providing a rotation navigation tool
 using two valuators.
-Copyright (c) 2005-2008 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,13 +43,13 @@ Methods of class ValuatorTurnNavigationToolFactory:
 
 ValuatorTurnNavigationToolFactory::ValuatorTurnNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorTurnNavigationTool",toolManager),
-	 valuatorThreshold(0),
+	 valuatorThreshold(0.25),
 	 flyDirection(Vector(0,1,0)),
 	 flyFactor(getDisplaySize()*Scalar(0.5)),
 	 rotationAxis0(Vector(0,0,1)),
 	 rotationAxis1(Vector(1,0,0)),
 	 rotationCenter(Point::origin),
-	 rotationFactor(Math::Constants<Scalar>::pi*Scalar(0.5))
+	 rotationFactor(Scalar(90))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -72,17 +72,21 @@ ValuatorTurnNavigationToolFactory::ValuatorTurnNavigationToolFactory(ToolManager
 	rotationAxis1=cfs.retrieveValue<Vector>("./rotationAxis1",rotationAxis1);
 	rotationAxis1.normalize();
 	rotationCenter=cfs.retrieveValue<Point>("./rotationCenter",rotationCenter);
-	rotationFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotationFactor",Math::deg(rotationFactor)));
+	rotationFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotationFactor",rotationFactor));
 	
 	/* Set tool class' factory pointer: */
 	ValuatorTurnNavigationTool::factory=this;
 	}
 
-
 ValuatorTurnNavigationToolFactory::~ValuatorTurnNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorTurnNavigationTool::factory=0;
+	}
+
+const char* ValuatorTurnNavigationToolFactory::getName(void) const
+	{
+	return "Valuator Rotation";
 	}
 
 Tool* ValuatorTurnNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -205,14 +209,14 @@ void ValuatorTurnNavigationTool::frame(void)
 		if(buttonState)
 			{
 			v=ts.transform(factory->flyDirection);
-			v*=factory->flyFactor*getCurrentFrameTime();
+			v*=-factory->flyFactor*getFrameTime();
 			}
 		
 		/* Calculate the current angular velocities: */
 		Vector w0=factory->rotationAxis0;
-		w0*=currentValues[0]*factory->rotationFactor*getCurrentFrameTime();
+		w0*=currentValues[0]*factory->rotationFactor*getFrameTime();
 		Vector w1=factory->rotationAxis1;
-		w1*=currentValues[1]*factory->rotationFactor*getCurrentFrameTime();
+		w1*=currentValues[1]*factory->rotationFactor*getFrameTime();
 		
 		/* Compose the new navigation transformation: */
 		Point p=ts.transform(factory->rotationCenter);

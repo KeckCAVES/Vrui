@@ -2,7 +2,7 @@
 MouseDialogNavigationTool - Class providing a newbie-friendly interface
 to the standard MouseDialogNavigationTool using a dialog box of navigation
 options.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,13 +53,13 @@ Methods of class MouseDialogNavigationToolFactory:
 
 MouseDialogNavigationToolFactory::MouseDialogNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("MouseDialogNavigationTool",toolManager),
-	 rotatePlaneOffset(getInchFactor()*Scalar(12)),
-	 rotateFactor(getInchFactor()*Scalar(12)),
-	 screenDollyingDirection(0,1,0),
-	 screenScalingDirection(0,1,0),
-	 dollyFactor(getInchFactor()*Scalar(12)),
-	 scaleFactor(getInchFactor()*Scalar(12)),
-	 spinThreshold(Scalar(0)),
+	 rotatePlaneOffset(getInchFactor()*Scalar(3)),
+	 rotateFactor(getInchFactor()*Scalar(3)),
+	 screenDollyingDirection(0,-1,0),
+	 screenScalingDirection(0,-1,0),
+	 dollyFactor(Scalar(1)),
+	 scaleFactor(getInchFactor()*Scalar(3)),
+	 spinThreshold(getInchFactor()*Scalar(0.25)),
 	 showMouseCursor(false),
 	 mouseCursorSize(Scalar(0.5),Scalar(0.5),Scalar(0.0)),
 	 mouseCursorHotspot(Scalar(0.0),Scalar(1.0),Scalar(0.0)),
@@ -98,6 +98,11 @@ MouseDialogNavigationToolFactory::~MouseDialogNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	MouseDialogNavigationTool::factory=0;
+	}
+
+const char* MouseDialogNavigationToolFactory::getName(void) const
+	{
+	return "Mouse (via Dialog Box)";
 	}
 
 Tool* MouseDialogNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -351,9 +356,6 @@ MouseDialogNavigationTool::MouseDialogNavigationTool(const ToolFactory* factory,
 
 MouseDialogNavigationTool::~MouseDialogNavigationTool(void)
 	{
-	/* Pop down the navigation dialog: */
-	popdownPrimaryWidget(navigationDialogPopup);
-	
 	/* Delete the navigation dialog: */
 	delete navigationDialogPopup;
 	}
@@ -427,7 +429,7 @@ void MouseDialogNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::
 				/* Calculate spinning angular velocity: */
 				Vector offset=(lastRotationPos-screenCenter)+rotateOffset;
 				Vector axis=Geometry::cross(offset,delta);
-				Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*getCurrentFrameTime());
+				Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*getFrameTime());
 				spinAngularVelocity=axis*(Scalar(0.5)*angularVelocity/axis.mag());
 				
 				/* Enable spinning: */
@@ -458,7 +460,7 @@ void MouseDialogNavigationTool::frame(void)
 		if(spinning)
 			{
 			/* Calculate incremental rotation: */
-			rotation.leftMultiply(NavTrackerState::rotate(NavTrackerState::Rotation::rotateScaledAxis(spinAngularVelocity*getCurrentFrameTime())));
+			rotation.leftMultiply(NavTrackerState::rotate(NavTrackerState::Rotation::rotateScaledAxis(spinAngularVelocity*getFrameTime())));
 			
 			NavTrackerState t=preScale;
 			t*=rotation;

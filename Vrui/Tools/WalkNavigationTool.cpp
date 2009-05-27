@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkNavigationTool - Class to navigate in a VR environment by walking
 around a fixed center position.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -61,16 +61,16 @@ Methods of class WalkNavigationToolFactory:
 
 WalkNavigationToolFactory::WalkNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("WalkNavigationTool",toolManager),
-	 floorPlane(getUpDirection(),getDisplayCenter()),
+	 floorPlane(getFloorPlane()),
 	 centerOnActivation(false),
 	 centerPoint(getDisplayCenter()),
 	 moveSpeed(getDisplaySize()),
 	 innerRadius(getDisplaySize()*Scalar(0.5)),outerRadius(getDisplaySize()*Scalar(0.75)),
 	 centerViewDirection(getForwardDirection()),
-	 rotateSpeed(Math::rad(Scalar(90))),
-	 innerAngle(Math::rad(Scalar(45))),outerAngle(Math::rad(Scalar(90))),
-	 drawMovementCircles(false),
-	 movementCircleColor(getBackgroundColor())
+	 rotateSpeed(Math::rad(Scalar(120))),
+	 innerAngle(Math::rad(Scalar(30))),outerAngle(Math::rad(Scalar(120))),
+	 drawMovementCircles(true),
+	 movementCircleColor(0.0f,1.0f,0.0f)
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -98,8 +98,6 @@ WalkNavigationToolFactory::WalkNavigationToolFactory(ToolManager& toolManager)
 	innerAngle=Math::rad(cfs.retrieveValue<Scalar>("./innerAngle",Math::deg(innerAngle)));
 	outerAngle=Math::rad(cfs.retrieveValue<Scalar>("./outerAngle",Math::deg(outerAngle)));
 	drawMovementCircles=cfs.retrieveValue<bool>("./drawMovementCircles",drawMovementCircles);
-	for(int i=0;i<3;++i)
-		movementCircleColor[i]=1.0f-movementCircleColor[i];
 	movementCircleColor=cfs.retrieveValue<Color>("./movementCircleColor",movementCircleColor);
 	
 	/* Set tool class' factory pointer: */
@@ -110,6 +108,21 @@ WalkNavigationToolFactory::~WalkNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	WalkNavigationTool::factory=0;
+	}
+
+const char* WalkNavigationToolFactory::getName(void) const
+	{
+	return "Walk";
+	}
+
+Tool* WalkNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
+	{
+	return new WalkNavigationTool(this,inputAssignment);
+	}
+
+void WalkNavigationToolFactory::destroyTool(Tool* tool) const
+	{
+	delete tool;
 	}
 
 void WalkNavigationToolFactory::initContext(GLContextData& contextData) const
@@ -171,16 +184,6 @@ void WalkNavigationToolFactory::initContext(GLContextData& contextData) const
 		
 		glEndList();
 		}
-	}
-
-Tool* WalkNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
-	{
-	return new WalkNavigationTool(this,inputAssignment);
-	}
-
-void WalkNavigationToolFactory::destroyTool(Tool* tool) const
-	{
-	delete tool;
 	}
 
 extern "C" void resolveWalkNavigationToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
@@ -298,13 +301,13 @@ void WalkNavigationTool::frame(void)
 			rotateAngle=-rotateAngle;
 		
 		/* Accumulate the transformation: */
-		rotation+=rotateAngle*getCurrentFrameTime();
+		rotation+=rotateAngle*getFrameTime();
 		if(rotation<-Math::Constants<Scalar>::pi)
 			rotation+=Scalar(2)*Math::Constants<Scalar>::pi;
 		else if(rotation>=Math::Constants<Scalar>::pi)
 			rotation-=Scalar(2)*Math::Constants<Scalar>::pi;
 		NavTransform::Rotation rot=NavTransform::Rotation::rotateAxis(factory->floorPlane.getNormal(),rotation);
-		translation+=rot.inverseTransform(moveDir*getCurrentFrameTime());
+		translation+=rot.inverseTransform(moveDir*getFrameTime());
 		
 		/* Set the navigation transformation: */
 		NavTransform nav=NavTransform::identity;

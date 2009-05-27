@@ -41,6 +41,12 @@ The Comm library contains classes to simplify communications via serial ports, U
 
 <DT>ClusterPipe.h</DT>
 <DD>ClusterPipe is a pipe abstraction layered over a TCPSocket object and a MulticastPipe. It provides typed and endianness-safe sending/receiving of data between two clusters over the Internet. If an end of a connection is a cluster, only the head node establishes a TCP connection to the other side, and the ClusterPipe forwards incoming traffic to the rest of the cluster transparently. This abstraction vastly simplifies development of cluster-based applications with remote communication.</DD>
+
+<DT>ClusterFileCharacterSource</DT>
+<DD>ClusterFileCharacterSource is a reader class derived from Misc::CharacterSource for standard files that are shared across a cluster connected via a multicast pipe.</DD>
+
+<DT>Clusterize</DT>
+<DD>Clusterize.h contains helper functions to distribute an application across a cluster, and establish communication between node instances via a multicast pipe multiplexer.</DD>
 </DL>
 
 </BODY>

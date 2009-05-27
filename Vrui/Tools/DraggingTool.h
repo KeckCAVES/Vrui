@@ -1,7 +1,7 @@
 /***********************************************************************
 DraggingTool - Base class for tools encapsulating 6-DOF dragging
 operations.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,21 +38,18 @@ class ToolManager;
 
 namespace Vrui {
 
-class DraggingTool;
-
 class DraggingToolFactory:public ToolFactory
 	{
-	friend class DraggingTool;
-	
 	/* Constructors and destructors: */
 	public:
 	DraggingToolFactory(ToolManager& toolManager);
+	
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	};
 
 class DraggingTool:public Tool
 	{
-	friend class DraggingToolFactory;
-	
 	/* Embedded classes: */
 	public:
 	class IdleMotionCallbackData:public Misc::CallbackData

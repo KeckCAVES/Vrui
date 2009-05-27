@@ -33,11 +33,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
+#include <GL/GLObject.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
+#include <Vrui/DisplayState.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -77,6 +79,24 @@ struct VruiState
 		InputDevice* inputDevice; // Pointer to input device
 		Point center; // Center of protective sphere in input device's coordinates
 		Scalar radius; // Radius of protective sphere around input device's position
+		};
+	
+	class DisplayStateMapper:public GLObject // Helper class to associate DisplayState objects with each VRWindow's GL context
+		{
+		/* Embedded classes: */
+		public:
+		struct DataItem:public GLObject::DataItem
+			{
+			/* Elements: */
+			public:
+			DisplayState displayState; // The display state object
+			};
+		
+		/* Methods from GLObject: */
+		void initContext(GLContextData& contextData) const
+			{
+			/* No need to do anything */
+			}
 		};
 	
 	/* Elements: */
@@ -124,6 +144,9 @@ struct VruiState
 	/* Screen protection management: */
 	int numProtectors;
 	ScreenProtector* protectors;
+	
+	/* Window management: */
+	DisplayStateMapper displayStateMapper;
 	
 	/* Listener management: */
 	int numListeners;
@@ -214,10 +237,11 @@ struct VruiState
 	void initialize(const Misc::ConfigurationFileSection& configFileSection); // Initializes complete Vrui state
 	void createSystemMenu(void); // Creates Vrui's system menu
 	void initTools(const Misc::ConfigurationFileSection& configFileSection); // Initializes all tools listed in the configuration file
+	DisplayState* registerContext(GLContextData& contextData) const; // Registers a newly created OpenGL context with the Vrui state object
 	
 	/* Frame processing methods: */
 	void update(void); // Update Vrui state for current frame
-	void display(GLContextData& contextData) const; // Vrui display function
+	void display(DisplayState* displayState,GLContextData& contextData) const; // Vrui display function
 	void sound(ALContextData& contextData) const; // Vrui sound function
 	
 	/* System menu callback methods: */

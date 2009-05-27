@@ -1,6 +1,6 @@
 /***********************************************************************
 RayMenuTool - Class for menu selection tools using ray selection.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -45,7 +45,7 @@ Methods of class RayMenuToolFactory:
 
 RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayMenuTool",toolManager),
-	 initialMenuOffset(getInchFactor()*6),
+	 initialMenuOffset(getInchFactor()*Scalar(6)),
 	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
@@ -70,6 +70,11 @@ RayMenuToolFactory::~RayMenuToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	RayMenuTool::factory=0;
+	}
+
+const char* RayMenuToolFactory::getName(void) const
+	{
+	return "Free-Standing Menu";
 	}
 
 Tool* RayMenuToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

@@ -2,7 +2,7 @@
 UtilityTool - Base class for tools providing additional functions to VR
 applications, without being tied directly into the application's user
 interface.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,13 +29,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
-class UtilityTool;
-
 class UtilityToolFactory:public ToolFactory
 	{
 	/* Constructors and destructors: */
 	public:
 	UtilityToolFactory(ToolManager& toolManager);
+	
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	};
 
 class UtilityTool:public Tool

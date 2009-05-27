@@ -2,7 +2,7 @@
 DesktopDeviceNavigationTool - Class to represent a desktop input device
 (joystick, spaceball, etc.) as a navigation tool combined with a virtual
 input device.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -250,6 +250,11 @@ DesktopDeviceNavigationToolFactory::~DesktopDeviceNavigationToolFactory(void)
 	delete[] zoomAxes;
 	}
 
+const char* DesktopDeviceNavigationToolFactory::getName(void) const
+	{
+	return "Desktop Device";
+	}
+
 Tool* DesktopDeviceNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
 	{
 	return new DesktopDeviceNavigationTool(this,inputAssignment);
@@ -404,14 +409,14 @@ void DesktopDeviceNavigationTool::frame(void)
 	for(int i=0;i<factory->numTranslationAxes;++i)
 		if(factory->translationAxes[i].index>=aib&&factory->translationAxes[i].index<aib+factory->numValuators)
 			translation+=factory->translationAxes[i].axis*getDeviceValuator(0,factory->translationAxes[i].index-aib);
-	translation*=factory->translateFactor*getCurrentFrameTime();
+	translation*=factory->translateFactor*getFrameTime();
 	
 	/* Convert rotational axes into rotation axis vector and rotation angle: */
 	Vector scaledRotationAxis=Vector::zero;
 	for(int i=0;i<factory->numRotationAxes;++i)
 		if(factory->rotationAxes[i].index>=aib&&factory->rotationAxes[i].index<aib+factory->numValuators)
 			scaledRotationAxis+=factory->rotationAxes[i].axis*getDeviceValuator(0,factory->rotationAxes[i].index-aib);
-	scaledRotationAxis*=factory->rotateFactor*getCurrentFrameTime();
+	scaledRotationAxis*=factory->rotateFactor*getFrameTime();
 	
 	/* Act depending on the tool's activation state: */
 	if(isActive())
@@ -421,7 +426,7 @@ void DesktopDeviceNavigationTool::frame(void)
 		for(int i=0;i<factory->numZoomAxes;++i)
 			if(factory->zoomAxes[i].index>=aib&&factory->zoomAxes[i].index<aib+factory->numValuators)
 				deltaZoom+=factory->zoomAxes[i].axis*getDeviceValuator(0,factory->zoomAxes[i].index-aib);
-		deltaZoom*=factory->zoomFactor*getCurrentFrameTime();
+		deltaZoom*=factory->zoomFactor*getFrameTime();
 		
 		if(translation!=Vector::zero||scaledRotationAxis!=Vector::zero||deltaZoom[2]!=Scalar(0))
 			{
@@ -441,7 +446,6 @@ void DesktopDeviceNavigationTool::frame(void)
 			
 			/* Update the accumulated transformation: */
 			postScale.leftMultiply(deltaT);
-			postScale.renormalize();
 			
 			/* Update the navigation transformation: */
 			setNavigationTransformation(postScale);
@@ -460,6 +464,7 @@ void DesktopDeviceNavigationTool::frame(void)
 		
 		/* Update the virtual input device's transformation: */
 		deltaT*=virtualDevice->getTransformation();
+		deltaT.renormalize();
 		virtualDevice->setTransformation(deltaT);
 		
 		requestUpdate();

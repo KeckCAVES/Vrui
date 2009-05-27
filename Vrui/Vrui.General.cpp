@@ -634,6 +634,18 @@ void VruiState::initTools(const Misc::ConfigurationFileSection&)
 	toolManager->loadDefaultTools();
 	}
 
+DisplayState* VruiState::registerContext(GLContextData& contextData) const
+	{
+	/* Create a new display state mapper data item: */
+	DisplayStateMapper::DataItem* dataItem=new DisplayStateMapper::DataItem;
+	
+	/* Associate it with the OpenGL context: */
+	contextData.addDataItem(&displayStateMapper,dataItem);
+	
+	/* Return a pointer to the display state structure: */
+	return &dataItem->displayState;
+	}
+
 void VruiState::update(void)
 	{
 	/* Take an application timer snapshot: */
@@ -806,7 +818,7 @@ void VruiState::update(void)
 		pipe->finishMessage();
 	}
 
-void VruiState::display(GLContextData& contextData) const
+void VruiState::display(DisplayState* displayState,GLContextData& contextData) const
 	{
 	/* Initialize standard OpenGL settings: */
 	glEnable(GL_DEPTH_TEST);
@@ -821,7 +833,6 @@ void VruiState::display(GLContextData& contextData) const
 	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
 	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
 	glDisable(GL_COLOR_MATERIAL);
-	glMatrixMode(GL_MODELVIEW);
 	
 	/* Clear the display and Z-buffer: */
 	glClearColor(backgroundColor);
@@ -831,9 +842,14 @@ void VruiState::display(GLContextData& contextData) const
 	/* Enable ambient light source: */
 	glLightModelAmbient(ambientLightColor);
 	
+	/* Go to physical coordinates: */
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glMultMatrix(displayState->modelviewPhysical);
+	
 	/* Set light sources: */
 	if(navigationTransformationEnabled)
-		lightsourceManager->setLightsources(navigationTransformation,contextData);
+		lightsourceManager->setLightsources(displayState,contextData);
 	else
 		lightsourceManager->setLightsources(contextData);
 	
@@ -857,11 +873,19 @@ void VruiState::display(GLContextData& contextData) const
 	/* Call the user display function: */
 	if(displayFunction!=0)
 		{
-		glPushMatrix();
 		if(navigationTransformationEnabled)
-			glMultMatrix(navigationTransformation);
+			{
+			/* Go to navigational coordinates: */
+			glLoadIdentity();
+			glMultMatrix(displayState->modelviewNavigational);
+			}
 		displayFunction(contextData,displayFunctionData);
-		glPopMatrix();
+		if(navigationTransformationEnabled)
+			{
+			/* Go back to physical coordinates: */
+			glLoadIdentity();
+			glMultMatrix(displayState->modelviewPhysical);
+			}
 		}
 	
 	/* Execute the transparency rendering pass: */
@@ -899,10 +923,10 @@ void VruiState::loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData*
 		{
 		/* Load the selected viewpoint file: */
 		loadViewpointFile(cbData->selectedFileName.c_str());
-		
-		/* Destroy the file selection dialog: */
-		getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 		}
+	
+	/* Destroy the file selection dialog: */
+	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 	}
 
 void VruiState::loadViewCallback(Misc::CallbackData* cbData)
@@ -1670,6 +1694,15 @@ double getCurrentFrameTime(void)
 void updateContinuously(void)
 	{
 	vruiState->updateContinuously=true;
+	}
+
+const DisplayState& getDisplayState(GLContextData& contextData)
+	{
+	/* Retrieve the display state mapper's data item from the OpenGL context: */
+	VruiState::DisplayStateMapper::DataItem* dataItem=contextData.retrieveDataItem<VruiState::DisplayStateMapper::DataItem>(&vruiState->displayStateMapper);
+	
+	/* Return the embedded display state object: */
+	return dataItem->displayState;
 	}
 
 }

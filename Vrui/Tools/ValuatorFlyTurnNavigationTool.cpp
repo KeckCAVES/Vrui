@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyTurnNavigationTool - Class providing a fly navigation tool
 with turning using two valuators.
-Copyright (c) 2005-2008 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,14 +43,14 @@ Methods of class ValuatorFlyTurnNavigationToolFactory:
 
 ValuatorFlyTurnNavigationToolFactory::ValuatorFlyTurnNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorFlyTurnNavigationTool",toolManager),
-	 valuatorThreshold(0),
-	 valuatorExponent(1),
-	 superAccelerationFactor(1.1),
+	 valuatorThreshold(Scalar(0.25)),
+	 valuatorExponent(Scalar(1)),
+	 superAccelerationFactor(Scalar(1.1)),
 	 flyDirectionDeviceCoordinates(true),flyDirection(Vector(0,1,0)),
-	 flyFactor(getDisplaySize()*Scalar(0.5)),
+	 flyFactor(getDisplaySize()*Scalar(2)),
 	 rotationAxisDeviceCoordinates(true),rotationAxis(Vector(0,0,1)),
 	 rotationCenterDeviceCoordinates(true),rotationCenter(Point::origin),
-	 rotationFactor(Math::Constants<Scalar>::pi*Scalar(0.5))
+	 rotationFactor(Scalar(90))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -75,7 +75,7 @@ ValuatorFlyTurnNavigationToolFactory::ValuatorFlyTurnNavigationToolFactory(ToolM
 	rotationAxis.normalize();
 	rotationCenterDeviceCoordinates=cfs.retrieveValue<bool>("./rotationCenterDeviceCoordinates",rotationCenterDeviceCoordinates);
 	rotationCenter=cfs.retrieveValue<Point>("./rotationCenter",rotationCenter);
-	rotationFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotationFactor",Math::deg(rotationFactor)));
+	rotationFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotationFactor",rotationFactor));
 	
 	/* Set tool class' factory pointer: */
 	ValuatorFlyTurnNavigationTool::factory=this;
@@ -86,6 +86,11 @@ ValuatorFlyTurnNavigationToolFactory::~ValuatorFlyTurnNavigationToolFactory(void
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorFlyTurnNavigationTool::factory=0;
+	}
+
+const char* ValuatorFlyTurnNavigationToolFactory::getName(void) const
+	{
+	return "Valuator Fly and Turn";
 	}
 
 Tool* ValuatorFlyTurnNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -189,15 +194,15 @@ void ValuatorFlyTurnNavigationTool::frame(void)
 		
 		/* Check whether to change the super acceleration factor: */
 		if(Math::abs(currentValues[0])==Scalar(1))
-			superAcceleration*=Math::pow(factory->superAccelerationFactor,getCurrentFrameTime());
+			superAcceleration*=Math::pow(factory->superAccelerationFactor,getFrameTime());
 		
 		/* Calculate the current flying velocity: */
 		Vector v=factory->flyDirectionDeviceCoordinates?ts.transform(factory->flyDirection):factory->flyDirection;
-		v*=currentValues[0]*factory->flyFactor*superAcceleration*getCurrentFrameTime();
+		v*=-currentValues[0]*factory->flyFactor*superAcceleration*getFrameTime();
 		
 		/* Calculate the current angular velocity: */
 		Vector w=factory->rotationAxisDeviceCoordinates?ts.transform(factory->rotationAxis):factory->rotationAxis;
-		w*=currentValues[1]*factory->rotationFactor*getCurrentFrameTime();
+		w*=currentValues[1]*factory->rotationFactor*getFrameTime();
 		
 		/* Compose the new navigation transformation: */
 		Point p=factory->rotationCenterDeviceCoordinates?ts.transform(factory->rotationCenter):factory->rotationCenter;

@@ -443,12 +443,16 @@ void ConfigurationFileBase::Section::storeTagValue(const char* relativeTagPath,c
 Methods of class ConfigurationFileBase:
 **************************************/
 
+ConfigurationFileBase::ConfigurationFileBase(void)
+	:rootSection(new Section(0,std::string("")))
+	{
+	}
+
 ConfigurationFileBase::ConfigurationFileBase(const char* sFileName)
-	:fileName(sFileName),
-	 rootSection(0)
+	:rootSection(0)
 	{
 	/* Load the configuration file: */
-	load();
+	load(sFileName);
 	}
 
 ConfigurationFileBase::~ConfigurationFileBase(void)
@@ -456,7 +460,7 @@ ConfigurationFileBase::~ConfigurationFileBase(void)
 	delete rootSection;
 	}
 
-void ConfigurationFileBase::load(void)
+void ConfigurationFileBase::load(const char* newFileName)
 	{
 	/* Delete current configuration file contents: */
 	delete rootSection;
@@ -464,8 +468,11 @@ void ConfigurationFileBase::load(void)
 	/* Create root section: */
 	rootSection=new Section(0,std::string(""));
 	
-	/* Merge contents of configuration file: */
-	merge(fileName.c_str());
+	/* Store the file name: */
+	fileName=newFileName;
+	
+	/* Merge contents of given configuration file: */
+	merge(newFileName);
 	
 	/* Reset edit flag: */
 	rootSection->clearEditFlag();

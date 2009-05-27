@@ -834,8 +834,11 @@ void ListBox::removeItem(int index)
 	/* Update the selected item if it is affected: */
 	if(selectedItem==index)
 		{
-		/* Unselect the selected item: */
-		selectItem(-1);
+		/* Select the next item in the list: */
+		int newSelectedItem=selectedItem;
+		if(newSelectedItem>int(items.size())-1)
+			newSelectedItem=int(items.size())-1;
+		selectItem(newSelectedItem);
 		}
 	else if(selectedItem>index)
 		{

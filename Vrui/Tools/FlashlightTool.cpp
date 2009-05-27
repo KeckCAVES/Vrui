@@ -1,7 +1,7 @@
 /***********************************************************************
 FlashlightTool - Class for tools that add an additional light source
 into an environment when activated.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -49,7 +49,7 @@ FlashlightToolFactory::FlashlightToolFactory(ToolManager& toolManager)
 	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
+	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
@@ -58,8 +58,8 @@ FlashlightToolFactory::FlashlightToolFactory(ToolManager& toolManager)
 	GLLight::Color lightColor=cfs.retrieveValue<GLLight::Color>("./lightColor",GLLight::Color(1.0f,1.0f,1.0f));
 	light.diffuse=lightColor;
 	light.specular=lightColor;
-	light.spotCutoff=cfs.retrieveValue<GLfloat>("./lightSpotCutoff",180.0f);
-	light.spotExponent=cfs.retrieveValue<GLfloat>("./lightSpotExponent",0.0f);
+	light.spotCutoff=cfs.retrieveValue<GLfloat>("./lightSpotCutoff",90.0f);
+	light.spotExponent=cfs.retrieveValue<GLfloat>("./lightSpotExponent",50.0f);
 	
 	/* Set tool class' factory pointer: */
 	FlashlightTool::factory=this;
@@ -69,6 +69,11 @@ FlashlightToolFactory::~FlashlightToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	FlashlightTool::factory=0;
+	}
+
+const char* FlashlightToolFactory::getName(void) const
+	{
+	return "Flashlight";
 	}
 
 Tool* FlashlightToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -115,7 +120,7 @@ Methods of class FlashlightTool:
 *******************************/
 
 FlashlightTool::FlashlightTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
-	:UtilityTool(sFactory,inputAssignment),
+	:PointingTool(sFactory,inputAssignment),
 	 lightsource(0),active(false)
 	{
 	/* Create a light source: */

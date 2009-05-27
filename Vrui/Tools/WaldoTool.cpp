@@ -67,6 +67,11 @@ WaldoToolFactory::~WaldoToolFactory(void)
 	WaldoTool::factory=0;
 	}
 
+const char* WaldoToolFactory::getName(void) const
+	{
+	return "Waldo (Scaling) Transformation";
+	}
+
 Tool* WaldoToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
 	{
 	return new WaldoTool(this,inputAssignment);

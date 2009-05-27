@@ -26,6 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdlib.h>
 #include <stdexcept>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <Misc/File.h>
 #include <Misc/ThrowStdErr.h>
@@ -793,11 +794,7 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	contextData.addDataItem(this,dataItem);
 	
 	/* Load the Earth surface texture image from an image file: */
-	#ifdef IMAGES_HAVE_PNG
-	Images::RGBImage earthTexture=Images::readImageFile("EarthTopography.png");
-	#else
-	Images::RGBImage earthTexture=Images::readImageFile("EarthTopography.ppm");
-	#endif
+	Images::RGBImage earthTexture=Images::readImageFile(SHOWEARTHMODEL_TOPOGRAPHY_IMAGEFILENAME);
 	
 	/* Select the Earth surface texture object: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->surfaceTextureObjectId);
@@ -934,6 +931,26 @@ void ShowEarthModel::frame(void)
 
 void ShowEarthModel::display(GLContextData& contextData) const
 	{
+	#if 0
+	/* Print the modelview and projection matrices: */
+	GLdouble mv[16],p[16];
+	glGetDoublev(GL_MODELVIEW_MATRIX,mv);
+	glGetDoublev(GL_PROJECTION_MATRIX,p);
+	
+	for(int i=0;i<4;++i)
+		{
+		for(int j=0;j<4;++j)
+			std::cout<<" "<<std::setw(12)<<mv[i+j*4];
+		#if 0
+		std::cout<<"        ";
+		for(int j=0;j<4;++j)
+			std::cout<<" "<<std::setw(12)<<p[i+j*4];
+		#endif
+		std::cout<<std::endl;
+		}
+	std::cout<<std::endl;
+	#endif
+	
 	/* Get context data item: */
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	

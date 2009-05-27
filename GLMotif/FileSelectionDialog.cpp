@@ -538,7 +538,19 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	std::vector<std::string> filterListItems;
 	filterListItems.push_back("All Files");
 	if(sFileNameFilters!=0)
-		filterListItems.push_back(sFileNameFilters);
+		{
+		const char* startPtr=sFileNameFilters;
+		while(*startPtr!='\0')
+			{
+			const char* endPtr;
+			for(endPtr=startPtr;*endPtr!='\0'&&*endPtr!=',';++endPtr)
+				;
+			filterListItems.push_back(std::string(startPtr,endPtr));
+			if(*endPtr==',')
+				++endPtr;
+			startPtr=endPtr;
+			}
+		}
 	filterList=new DropdownBox("FilterList",buttonBox,filterListItems);
 	filterList->setSelectedItem(filterList->getNumItems()-1);
 	filterList->getValueChangedCallbacks().add(this,&FileSelectionDialog::filterListValueChangedCallback);
@@ -583,7 +595,17 @@ FileSelectionDialog::~FileSelectionDialog(void)
 void FileSelectionDialog::addFileNameFilters(const char* newFileNameFilters)
 	{
 	/* Add the filters to the filter list: */
-	filterList->addItem(newFileNameFilters);
+	const char* startPtr=newFileNameFilters;
+	while(*startPtr!='\0')
+		{
+		const char* endPtr;
+		for(endPtr=startPtr;*endPtr!='\0'&&*endPtr!=',';++endPtr)
+			;
+		filterList->addItem(std::string(startPtr,endPtr).c_str());
+		if(*endPtr==',')
+			++endPtr;
+		startPtr=endPtr;
+		}
 	}
 
 }

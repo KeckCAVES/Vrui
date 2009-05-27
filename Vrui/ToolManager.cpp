@@ -43,6 +43,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Tools/TransformTool.h>
 #include <Vrui/Tools/UserInterfaceTool.h>
 #include <Vrui/Tools/MenuTool.h>
+#include <Vrui/Tools/InputDeviceTool.h>
+#include <Vrui/Tools/PointingTool.h>
 #include <Vrui/Tools/UtilityTool.h>
 #include <Vrui/ToolKillZone.h>
 #include <Vrui/ToolKillZoneBox.h>
@@ -222,17 +224,22 @@ GLMotif::Popup* ToolManager::createToolSubmenu(const Plugins::Factory& factory)
 	/* Create entries for all tool subclasses: */
 	for(Plugins::Factory::ClassList::const_iterator chIt=factory.childrenBegin();chIt!=factory.childrenEnd();++chIt)
 		{
+		/* Get a pointer to the tool factory: */
+		const ToolFactory* factory=dynamic_cast<const ToolFactory*>(*chIt);
+		if(factory==0)
+			Misc::throwStdErr("ToolManager::createToolSubmenu: factory class %s is not a Vrui tool factory class",(*chIt)->getClassName());
+		
 		/* Check if current class is leaf class: */
 		if((*chIt)->getChildren().empty())
 			{
 			/* Create button for tool class: */
-			GLMotif::Button* toolButton=new GLMotif::Button((*chIt)->getClassName(),toolSubmenu,(*chIt)->getClassName());
+			GLMotif::Button* toolButton=new GLMotif::Button((*chIt)->getClassName(),toolSubmenu,factory->getName());
 			toolButton->getSelectCallbacks().add(this,&ToolManager::toolMenuSelectionCallback);
 			}
 		else
 			{
 			/* Create cascade button and submenu for tool class: */
-			GLMotif::CascadeButton* toolCascade=new GLMotif::CascadeButton((*chIt)->getClassName(),toolSubmenu,(*chIt)->getClassName());
+			GLMotif::CascadeButton* toolCascade=new GLMotif::CascadeButton((*chIt)->getClassName(),toolSubmenu,factory->getName());
 			toolCascade->setPopup(createToolSubmenu(**chIt));
 			}
 		}
@@ -260,13 +267,13 @@ GLMotif::PopupMenu* ToolManager::createToolMenu(void)
 			if(fIt->getChildren().empty())
 				{
 				/* Create button for tool class: */
-				GLMotif::Button* toolButton=new GLMotif::Button(fIt->getClassName(),toolSelectionMenu,fIt->getClassName());
+				GLMotif::Button* toolButton=new GLMotif::Button(fIt->getClassName(),toolSelectionMenu,fIt->getName());
 				toolButton->getSelectCallbacks().add(this,&ToolManager::toolMenuSelectionCallback);
 				}
 			else
 				{
 				/* Create cascade button and submenu for tool class: */
-				GLMotif::CascadeButton* toolCascade=new GLMotif::CascadeButton(fIt->getClassName(),toolSelectionMenu,fIt->getClassName());
+				GLMotif::CascadeButton* toolCascade=new GLMotif::CascadeButton(fIt->getClassName(),toolSelectionMenu,fIt->getName());
 				toolCascade->setPopup(createToolSubmenu(*fIt));
 				}
 			}
@@ -579,6 +586,8 @@ ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::Con
 	addClass(new TransformToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new UserInterfaceToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new MenuToolFactory(*this),destroyToolFactoryFunction);
+	addClass(new InputDeviceToolFactory(*this),destroyToolFactoryFunction);
+	addClass(new PointingToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new UtilityToolFactory(*this),destroyToolFactoryFunction);
 	
 	/* Load default tool classes: */

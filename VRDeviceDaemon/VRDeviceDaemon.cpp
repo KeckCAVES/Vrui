@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2009 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -110,7 +110,9 @@ int main(int argc,char* argv[])
 				/* Write process ID: */
 				char pidBuffer[20];
 				snprintf(pidBuffer,sizeof(pidBuffer),"%d\n",childPid);
-				write(pidFd,pidBuffer,strlen(pidBuffer));
+				size_t pidLen=strlen(pidBuffer);
+				if(write(pidFd,pidBuffer,pidLen)!=ssize_t(pidLen))
+					std::cerr<<"Could not write PID to PID file"<<std::endl;
 				close(pidFd);
 				}
 			return 0; // Parent process exits
@@ -129,10 +131,10 @@ int main(int argc,char* argv[])
 		// dup(nullFd);
 		// dup(nullFd);
 		#else
-		/* Redirect stdin, stdout and stderr to log file: */
+		/* Redirect stdin, stdout and stderr to log file (this is ugly, but works because descriptors are assigned sequentially): */
 		int logFd=open("/var/log/VRDeviceDaemon.log",O_RDWR|O_CREAT|O_TRUNC,S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH);
-		dup(logFd);
-		dup(logFd);
+		if(logFd!=0||dup(logFd)!=1||dup(logFd)!=2)
+			std::cerr<<"Error while rerouting output to log file"<<std::endl;
 		#endif
 		
 		/* Ignore most signals: */

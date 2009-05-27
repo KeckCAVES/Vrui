@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,6 +22,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 ***********************************************************************/
 
 #include <stdio.h>
+#include <Misc/FileNameExtensions.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -32,6 +33,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GLMotif/WidgetManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
 
@@ -47,10 +49,9 @@ Methods of class ViewpointFileNavigationToolFactory:
 
 ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ViewpointFileNavigationTool",toolManager),
-	 fileType(BEZIERCURVESEGMENTS),
-	 viewpointFileName("ViewpointSaverTool.dat"),
+	 viewpointFileName(""),
 	 showKeyframes(true),
-	 pauseFileName("ViewpointFileNavigationPauses.dat"),
+	 pauseFileName("ViewpointFileNavigation.pauses"),
 	 autostart(false)
 	{
 	/* Initialize tool layout: */
@@ -79,6 +80,11 @@ ViewpointFileNavigationToolFactory::~ViewpointFileNavigationToolFactory(void)
 	ViewpointFileNavigationTool::factory=0;
 	}
 
+const char* ViewpointFileNavigationToolFactory::getName(void) const
+	{
+	return "Curve File Animation";
+	}
+
 Tool* ViewpointFileNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
 	{
 	return new ViewpointFileNavigationTool(this,inputAssignment);
@@ -93,7 +99,7 @@ extern "C" void resolveViewpointFileNavigationToolDependencies(Plugins::FactoryM
 	{
 	#if 0
 	/* Load base classes: */
-	manager.loadClass("Tool");
+	manager.loadClass("NavigationTool");
 	#endif
 	}
 
@@ -124,6 +130,216 @@ ViewpointFileNavigationToolFactory* ViewpointFileNavigationTool::factory=0;
 Methods of class ViewpointFileNavigationTool:
 ********************************************/
 
+void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
+	{
+	try
+		{
+		/* Open the viewpoint file: */
+		Misc::File viewpointFile(fileName,"rt");
+		
+		if(Misc::hasCaseExtension(fileName,".views"))
+			{
+			/* Load all viewpoint keyframes from the file: */
+			Scalar time(0);
+			while(true)
+				{
+				/* Read the next viewpoint: */
+				Scalar timeInterval;
+				ControlPoint v;
+				if(fscanf(viewpointFile.getFilePtr(),"%lf (%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&timeInterval,&v.center[0],&v.center[1],&v.center[2],&v.size,&v.forward[0],&v.forward[1],&v.forward[2],&v.up[0],&v.up[1],&v.up[2])!=11)
+					break;
+				
+				/* Store the viewpoint: */
+				time+=timeInterval;
+				times.push_back(time);
+				v.size=Math::log(v.size); // Sizes are interpolated logarithmically
+				viewpoints.push_back(v);
+				}
+			
+			if(viewpoints.size()>1)
+				{
+				/* Create a big matrix to solve the C^2 spline problem: */
+				int n=viewpoints.size()-1;
+				DenseMatrix A(4*n,4*n);
+				A.zero();
+				DenseMatrix b(4*n,10);
+				b.zero();
+				
+				A(0,0)=Scalar(1);
+				writeControlPoint(viewpoints[0],b,0);
+				
+				#if 1
+				/* Zero velocity at start: */
+				A(1,0)=Scalar(-3)/(times[1]-times[0]);
+				A(1,1)=Scalar(3)/(times[1]-times[0]);
+				#else
+				/* Zero acceleration at start: */
+				A(1,0)=Scalar(6)/Math::sqr(times[1]-times[0]);
+				A(1,1)=Scalar(-12)/Math::sqr(times[1]-times[0]);
+				A(1,2)=Scalar(6)/Math::sqr(times[1]-times[0]);
+				#endif
+				
+				for(int i=1;i<n;++i)
+					{
+					A(i*4-2,i*4-3)=Scalar(6)/Math::sqr(times[i]-times[i-1]);
+					A(i*4-2,i*4-2)=Scalar(-12)/Math::sqr(times[i]-times[i-1]);
+					A(i*4-2,i*4-1)=Scalar(6)/Math::sqr(times[i]-times[i-1]);
+					A(i*4-2,i*4+0)=Scalar(-6)/Math::sqr(times[i+1]-times[i]);
+					A(i*4-2,i*4+1)=Scalar(12)/Math::sqr(times[i+1]-times[i]);
+					A(i*4-2,i*4+2)=Scalar(-6)/Math::sqr(times[i+1]-times[i]);
+					
+					A(i*4-1,i*4-2)=Scalar(-3)/(times[i]-times[i-1]);
+					A(i*4-1,i*4-1)=Scalar(3)/(times[i]-times[i-1]);
+					A(i*4-1,i*4+0)=Scalar(3)/(times[i+1]-times[i]);
+					A(i*4-1,i*4+1)=Scalar(-3)/(times[i+1]-times[i]);
+					
+					A(i*4+0,i*4-1)=Scalar(1);
+					writeControlPoint(viewpoints[i],b,i*4+0);
+					
+					A(i*4+1,i*4+0)=Scalar(1);
+					writeControlPoint(viewpoints[i],b,i*4+1);
+					}
+				
+				#if 1
+				/* Zero velocity at end: */
+				A(n*4-2,n*4-2)=Scalar(-3)/(times[n]-times[n-1]);
+				A(n*4-2,n*4-1)=Scalar(3)/(times[n]-times[n-1]);
+				#else
+				/* Zero acceleration at end: */
+				A(n*4-2,n*4-3)=Scalar(6)/Math::sqr(times[n]-times[n-1]);
+				A(n*4-2,n*4-2)=Scalar(-12)/Math::sqr(times[n]-times[n-1]);
+				A(n*4-2,n*4-1)=Scalar(6)/Math::sqr(times[n]-times[n-1]);
+				#endif
+				
+				A(n*4-1,n*4-1)=Scalar(1);
+				writeControlPoint(viewpoints[n],b,n*4-1);
+				
+				/* Solve the system of equations: */
+				DenseMatrix x=A.solveLinearEquations(b);
+				
+				/* Create the spline segment list: */
+				for(int i=0;i<n;++i)
+					{
+					SplineSegment s;
+					for(int j=0;j<2;++j)
+						s.t[j]=times[i+j];
+					for(int cp=0;cp<4;++cp)
+						{
+						for(int j=0;j<3;++j)
+							s.p[cp].center[j]=x(i*4+cp,j);
+						s.p[cp].size=x(i*4+cp,3);
+						for(int j=0;j<3;++j)
+							s.p[cp].forward[j]=x(i*4+cp,4+j);
+						for(int j=0;j<3;++j)
+							s.p[cp].up[j]=x(i*4+cp,7+j);
+						}
+					splines.push_back(s);
+					}
+				}
+			}
+		else if(Misc::hasCaseExtension(fileName,".curve"))
+			{
+			/* Load all spline segments from the file: */
+			while(true)
+				{
+				SplineSegment s;
+				if(splines.empty())
+					{
+					/* Read the first control point: */
+					ControlPoint cp;
+					if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&cp.center[0],&cp.center[1],&cp.center[2],&cp.size,&cp.forward[0],&cp.forward[1],&cp.forward[2],&cp.up[0],&cp.up[1],&cp.up[2])!=10)
+						break;
+					cp.size=Math::log(cp.size); // Sizes are interpolated logarithmically
+					viewpoints.push_back(cp);
+					times.push_back(Scalar(0));
+					s.t[0]=Scalar(0);
+					s.p[0]=cp;
+					}
+				else
+					{
+					/* Copy the last control point from the previous segment: */
+					s.t[0]=splines.back().t[1];
+					s.p[0]=splines.back().p[3];
+					}
+				
+				/* Read the segment's parameter interval: */
+				double pi;
+				if(fscanf(viewpointFile.getFilePtr(),"%lf\n",&pi)!=1)
+					break;
+				s.t[1]=s.t[0]+Scalar(pi);
+				
+				/* Read the intermediate control points: */
+				ControlPoint m0;
+				if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&m0.center[0],&m0.center[1],&m0.center[2],&m0.size,&m0.forward[0],&m0.forward[1],&m0.forward[2],&m0.up[0],&m0.up[1],&m0.up[2])!=10)
+					break;
+				m0.size=Math::log(m0.size); // Sizes are interpolated logarithmically
+				s.p[1]=m0;
+				ControlPoint m1;
+				if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&m1.center[0],&m1.center[1],&m1.center[2],&m1.size,&m1.forward[0],&m1.forward[1],&m1.forward[2],&m1.up[0],&m1.up[1],&m1.up[2])!=10)
+					break;
+				m1.size=Math::log(m1.size); // Sizes are interpolated logarithmically
+				s.p[2]=m1;
+				
+				/* Read the last control point: */
+				ControlPoint cp;
+				if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&cp.center[0],&cp.center[1],&cp.center[2],&cp.size,&cp.forward[0],&cp.forward[1],&cp.forward[2],&cp.up[0],&cp.up[1],&cp.up[2])!=10)
+					break;
+				cp.size=Math::log(cp.size); // Sizes are interpolated logarithmically
+				viewpoints.push_back(cp);
+				times.push_back(s.t[1]);
+				s.p[3]=cp;
+				
+				/* Save the spline segment: */
+				splines.push_back(s);
+				}
+			}
+		}
+	catch(...)
+		{
+		/* Just ignore the error */
+		}
+	
+	if(!splines.empty()&&factory->autostart)
+		{
+		if(activate())
+			{
+			/* Save the animation's start time: */
+			startTime=Scalar(getApplicationTime())+splines[0].t[0];
+			paused=false;
+			lastParameter=splines[0].t[0]-Scalar(1);
+			}
+		}
+	else if(!viewpoints.empty()&&activate())
+		{
+		/* Go to the first viewpoint: */
+		const ControlPoint& v=viewpoints[0];
+		NavTransform nav=NavTransform::identity;
+		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+		nav*=NavTransform::scale(getDisplaySize()/Math::exp(v.size)); // Scales are interpolated logarithmically
+		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(v.forward,v.up),v.forward)));
+		nav*=NavTransform::translateToOriginFrom(v.center);
+		setNavigationTransformation(nav);
+		
+		deactivate();
+		}
+	}
+
+void ViewpointFileNavigationTool::loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
+	/* Load the selected viewpoint file: */
+	readViewpointFile(cbData->selectedFileName.c_str());
+	
+	/* Destroy the file selection dialog: */
+	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	}
+
+void ViewpointFileNavigationTool::loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData)
+	{
+	/* Destroy the file selection dialog: */
+	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	}
+
 void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,DenseMatrix& b,int rowIndex)
 	{
 	for(int j=0;j<3;++j)
@@ -151,178 +367,6 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 	 startTime(0),
 	 paused(false)
 	{
-	if(factory->fileType==ViewpointFileNavigationToolFactory::KEYFRAMES)
-		{
-		/* Load all saved viewpoints from the file: */
-		try
-			{
-			Misc::File viewpointFile(factory->viewpointFileName.c_str(),"rt");
-			Scalar time(0);
-			while(true)
-				{
-				/* Read the next viewpoint: */
-				Scalar timeInterval;
-				ControlPoint v;
-				if(fscanf(viewpointFile.getFilePtr(),"%lf (%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&timeInterval,&v.center[0],&v.center[1],&v.center[2],&v.size,&v.forward[0],&v.forward[1],&v.forward[2],&v.up[0],&v.up[1],&v.up[2])!=11)
-					break;
-				
-				/* Store the viewpoint: */
-				time+=timeInterval;
-				times.push_back(time);
-				v.size=Math::log(v.size); // Sizes are interpolated logarithmically
-				viewpoints.push_back(v);
-				}
-			}
-		catch(std::runtime_error)
-			{
-			/* Just ignore the error */
-			}
-		
-		if(viewpoints.size()>1)
-			{
-			/* Create a big matrix to solve the C^2 spline problem: */
-			int n=viewpoints.size()-1;
-			DenseMatrix A(4*n,4*n);
-			A.zero();
-			DenseMatrix b(4*n,10);
-			b.zero();
-			
-			A(0,0)=Scalar(1);
-			writeControlPoint(viewpoints[0],b,0);
-			
-			#if 1
-			/* Zero velocity at start: */
-			A(1,0)=Scalar(-3)/(times[1]-times[0]);
-			A(1,1)=Scalar(3)/(times[1]-times[0]);
-			#else
-			/* Zero acceleration at start: */
-			A(1,0)=Scalar(6)/Math::sqr(times[1]-times[0]);
-			A(1,1)=Scalar(-12)/Math::sqr(times[1]-times[0]);
-			A(1,2)=Scalar(6)/Math::sqr(times[1]-times[0]);
-			#endif
-			
-			for(int i=1;i<n;++i)
-				{
-				A(i*4-2,i*4-3)=Scalar(6)/Math::sqr(times[i]-times[i-1]);
-				A(i*4-2,i*4-2)=Scalar(-12)/Math::sqr(times[i]-times[i-1]);
-				A(i*4-2,i*4-1)=Scalar(6)/Math::sqr(times[i]-times[i-1]);
-				A(i*4-2,i*4+0)=Scalar(-6)/Math::sqr(times[i+1]-times[i]);
-				A(i*4-2,i*4+1)=Scalar(12)/Math::sqr(times[i+1]-times[i]);
-				A(i*4-2,i*4+2)=Scalar(-6)/Math::sqr(times[i+1]-times[i]);
-				
-				A(i*4-1,i*4-2)=Scalar(-3)/(times[i]-times[i-1]);
-				A(i*4-1,i*4-1)=Scalar(3)/(times[i]-times[i-1]);
-				A(i*4-1,i*4+0)=Scalar(3)/(times[i+1]-times[i]);
-				A(i*4-1,i*4+1)=Scalar(-3)/(times[i+1]-times[i]);
-				
-				A(i*4+0,i*4-1)=Scalar(1);
-				writeControlPoint(viewpoints[i],b,i*4+0);
-				
-				A(i*4+1,i*4+0)=Scalar(1);
-				writeControlPoint(viewpoints[i],b,i*4+1);
-				}
-			
-			#if 1
-			/* Zero velocity at end: */
-			A(n*4-2,n*4-2)=Scalar(-3)/(times[n]-times[n-1]);
-			A(n*4-2,n*4-1)=Scalar(3)/(times[n]-times[n-1]);
-			#else
-			/* Zero acceleration at end: */
-			A(n*4-2,n*4-3)=Scalar(6)/Math::sqr(times[n]-times[n-1]);
-			A(n*4-2,n*4-2)=Scalar(-12)/Math::sqr(times[n]-times[n-1]);
-			A(n*4-2,n*4-1)=Scalar(6)/Math::sqr(times[n]-times[n-1]);
-			#endif
-			
-			A(n*4-1,n*4-1)=Scalar(1);
-			writeControlPoint(viewpoints[n],b,n*4-1);
-			
-			/* Solve the system of equations: */
-			DenseMatrix x=A.solveLinearEquations(b);
-			
-			/* Create the spline segment list: */
-			for(int i=0;i<n;++i)
-				{
-				SplineSegment s;
-				for(int j=0;j<2;++j)
-					s.t[j]=times[i+j];
-				for(int cp=0;cp<4;++cp)
-					{
-					for(int j=0;j<3;++j)
-						s.p[cp].center[j]=x(i*4+cp,j);
-					s.p[cp].size=x(i*4+cp,3);
-					for(int j=0;j<3;++j)
-						s.p[cp].forward[j]=x(i*4+cp,4+j);
-					for(int j=0;j<3;++j)
-						s.p[cp].up[j]=x(i*4+cp,7+j);
-					}
-				splines.push_back(s);
-				}
-			}
-		}
-	else
-		{
-		try
-			{
-			Misc::File viewpointFile(factory->viewpointFileName.c_str(),"rt");
-			while(true)
-				{
-				SplineSegment s;
-				if(splines.empty())
-					{
-					/* Read the first control point: */
-					ControlPoint cp;
-					if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&cp.center[0],&cp.center[1],&cp.center[2],&cp.size,&cp.forward[0],&cp.forward[1],&cp.forward[2],&cp.up[0],&cp.up[1],&cp.up[2])!=10)
-						break;
-					cp.size=Math::log(cp.size);
-					viewpoints.push_back(cp);
-					times.push_back(Scalar(0));
-					s.t[0]=Scalar(0);
-					s.p[0]=cp;
-					}
-				else
-					{
-					/* Copy the last control point from the previous segment: */
-					s.t[0]=splines.back().t[1];
-					s.p[0]=splines.back().p[3];
-					}
-				
-				/* Read the segment's parameter interval: */
-				double pi;
-				if(fscanf(viewpointFile.getFilePtr(),"%lf\n",&pi)!=1)
-					break;
-				s.t[1]=s.t[0]+Scalar(pi);
-				
-				/* Read the intermediate control points: */
-				ControlPoint m0;
-				if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&m0.center[0],&m0.center[1],&m0.center[2],&m0.size,&m0.forward[0],&m0.forward[1],&m0.forward[2],&m0.up[0],&m0.up[1],&m0.up[2])!=10)
-					break;
-				m0.size=Math::log(m0.size);
-				s.p[1]=m0;
-				ControlPoint m1;
-				if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&m1.center[0],&m1.center[1],&m1.center[2],&m1.size,&m1.forward[0],&m1.forward[1],&m1.forward[2],&m1.up[0],&m1.up[1],&m1.up[2])!=10)
-					break;
-				m1.size=Math::log(m1.size);
-				s.p[2]=m1;
-				
-				/* Read the last control point: */
-				ControlPoint cp;
-				if(fscanf(viewpointFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&cp.center[0],&cp.center[1],&cp.center[2],&cp.size,&cp.forward[0],&cp.forward[1],&cp.forward[2],&cp.up[0],&cp.up[1],&cp.up[2])!=10)
-					break;
-				cp.size=Math::log(cp.size);
-				viewpoints.push_back(cp);
-				times.push_back(s.t[1]);
-				s.p[3]=cp;
-				
-				/* Save the spline segment: */
-				splines.push_back(s);
-				}
-			}
-		catch(std::runtime_error)
-			{
-			/* Just ignore the error */
-			}
-		}
-	
 	/* Load scheduled pauses if the file exists: */
 	try
 		{
@@ -340,29 +384,18 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 		/* Ignore the error */
 		}
 	
-	if(!splines.empty()&&factory->autostart)
+	/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
+	if(factory->viewpointFileName.empty())
 		{
-		if(activate())
-			{
-			/* Save the animation's start time: */
-			startTime=Scalar(getApplicationTime())+splines[0].t[0];
-			paused=false;
-			lastParameter=splines[0].t[0]-Scalar(1);
-			}
+		GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",0,".views,.curve",openPipe());
+		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
+		loadViewpointFileDialog->getCancelCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileCancelCallback);
+		popupPrimaryWidget(loadViewpointFileDialog,getNavigationTransformation().transform(getDisplayCenter()));
 		}
-	else if(!viewpoints.empty()&&activate())
+	else
 		{
-		/* Go to the first viewpoint: */
-		const ControlPoint& v=viewpoints[0];
-		NavTransform nav=NavTransform::identity;
-		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-		nav*=NavTransform::scale(getDisplaySize()/Math::exp(v.size)); // Scales are interpolated logarithmically
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(v.forward,v.up),v.forward)));
-		nav*=NavTransform::translateToOriginFrom(v.center);
-		setNavigationTransformation(nav);
-		
-		deactivate();
+		/* Load the configured viewpoint file: */
+		readViewpointFile(factory->viewpointFileName.c_str());
 		}
 	}
 

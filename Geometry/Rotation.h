@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2009 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -404,7 +404,7 @@ class Rotation<ScalarParam,3>
 	Scalar getAngle(void) const // Returns rotation angle in radians
 		{
 		Scalar ac=Math::acos(q[3]);
-		if(isnan(ac))
+		if(Math::isNan(ac))
 			return Scalar(0);
 		else
 			return ac*Scalar(2);
@@ -413,7 +413,7 @@ class Rotation<ScalarParam,3>
 		{
 		/* Calculate rotation angle in radians: */
 		Scalar ac=Math::acos(q[3]);
-		if(isnan(ac))
+		if(Math::isNan(ac))
 			return Vector::zero;
 		Scalar angle=ac*Scalar(2);
 		if(angle<-Math::rad(Scalar(180)))

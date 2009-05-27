@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -52,17 +52,17 @@ Methods of class MouseNavigationToolFactory:
 
 MouseNavigationToolFactory::MouseNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("MouseNavigationTool",toolManager),
-	 rotatePlaneOffset(getInchFactor()*Scalar(12)),
-	 rotateFactor(getInchFactor()*Scalar(12)),
+	 rotatePlaneOffset(getInchFactor()*Scalar(3)),
+	 rotateFactor(getInchFactor()*Scalar(3)),
 	 invertDolly(false),
-	 screenDollyingDirection(0,1,0),
-	 screenScalingDirection(0,1,0),
-	 dollyFactor(getInchFactor()*Scalar(12)),
-	 scaleFactor(getInchFactor()*Scalar(12)),
+	 screenDollyingDirection(0,-1,0),
+	 screenScalingDirection(0,-1,0),
+	 dollyFactor(Scalar(1)),
+	 scaleFactor(getInchFactor()*Scalar(3)),
 	 wheelDollyFactor(getInchFactor()*Scalar(-12)),
 	 wheelScaleFactor(Scalar(0.5)),
-	 spinThreshold(Scalar(0)),
-	 showScreenCenter(false),
+	 spinThreshold(getInchFactor()*Scalar(0.25)),
+	 showScreenCenter(true),
 	 interactWithWidgets(true),
 	 showMouseCursor(false),
 	 mouseCursorSize(Scalar(0.5),Scalar(0.5),Scalar(0.0)),
@@ -108,6 +108,11 @@ MouseNavigationToolFactory::~MouseNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	MouseNavigationTool::factory=0;
+	}
+
+const char* MouseNavigationToolFactory::getName(void) const
+	{
+	return "Mouse (Multiple Buttons)";
 	}
 
 Tool* MouseNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -420,7 +425,7 @@ void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::Button
 							/* Calculate spinning angular velocity: */
 							Vector offset=(lastRotationPos-screenCenter)+rotateOffset;
 							Vector axis=Geometry::cross(offset,delta);
-							Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*getCurrentFrameTime());
+							Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*getFrameTime());
 							spinAngularVelocity=axis*(Scalar(0.5)*angularVelocity/axis.mag());
 							
 							/* Go to spinning mode: */
@@ -665,7 +670,7 @@ void MouseNavigationTool::frame(void)
 		case SPINNING:
 			{
 			/* Calculate incremental rotation: */
-			rotation.leftMultiply(NavTrackerState::rotate(NavTrackerState::Rotation::rotateScaledAxis(spinAngularVelocity*getCurrentFrameTime())));
+			rotation.leftMultiply(NavTrackerState::rotate(NavTrackerState::Rotation::rotateScaledAxis(spinAngularVelocity*getFrameTime())));
 			
 			NavTrackerState t=preScale;
 			t*=rotation;

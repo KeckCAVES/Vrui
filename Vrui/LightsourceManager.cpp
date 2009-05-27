@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLLight.h>
 #include <GL/GLContextData.h>
 #include <GL/GLTransformationWrappers.h>
+#include <Vrui/DisplayState.h>
 
 #include <Vrui/LightsourceManager.h>
 
@@ -151,7 +152,7 @@ void LightsourceManager::setLightsources(GLContextData& contextData) const
 	dataItem->lastNumLightsources=lightIndex;
 	}
 
-void LightsourceManager::setLightsources(const NavTransform& navigationTransformation,GLContextData& contextData) const
+void LightsourceManager::setLightsources(DisplayState* displayState,GLContextData& contextData) const
 	{
 	/* Retrieve the data item: */
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
@@ -181,7 +182,8 @@ void LightsourceManager::setLightsources(const NavTransform& navigationTransform
 		{
 		/* Temporarily go to navigational coordinates: */
 		glPushMatrix();
-		glMultMatrix(navigationTransformation);
+		glLoadIdentity();
+		glMultMatrix(displayState->modelviewNavigational);
 		
 		/* Process all navigational light sources: */
 		lightIndex=0;

@@ -289,6 +289,7 @@ class ConfigurationFileBase
 	
 	/* Constructors and destructors: */
 	public:
+	ConfigurationFileBase(void); // Creates an empty unnamed configuration file
 	ConfigurationFileBase(const char* sFileName); // Opens an existing configuration file
 	template <class PipeParam>
 	ConfigurationFileBase(PipeParam& pipe); // Reads a configuration file from a pipe
@@ -299,7 +300,11 @@ class ConfigurationFileBase
 	~ConfigurationFileBase(void);
 	
 	/* Methods: */
-	void load(void); // Reloads contents of configuration file
+	void load(const char* newFileName); // Loads contents of given configuration file
+	void reload(void) // Reloads contents of original configuration file
+		{
+		load(fileName.c_str());
+		}
 	void merge(const char* mergeFileName); // Merges in contents of given configuration file
 	void mergeCommandline(int& argc,char**& argv); // Merges and removes "-tag value" pairs given on command line
 	void save(void); // Saves the current in-memory state of the configuration file
@@ -340,6 +345,10 @@ class ConfigurationFile:public ConfigurationFileBase,public ConfigurationFileBas
 	{
 	/* Constructors and destructors: */
 	public:
+	ConfigurationFile(void) // Creates empty unnamed configuration file
+		:ConfigurationFileBase::SectionValueCoder(rootSection)
+		{
+		}
 	ConfigurationFile(const char* sFileName) // Reads a configuration file from the given file
 		:ConfigurationFileBase(sFileName),
 		 ConfigurationFileBase::SectionValueCoder(rootSection)

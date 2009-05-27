@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceTool - Base class for tools used to interact with virtual
 input devices.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -65,6 +65,11 @@ InputDeviceToolFactory::~InputDeviceToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	InputDeviceTool::factory=0;
+	}
+
+const char* InputDeviceToolFactory::getName(void) const
+	{
+	return "Input Device Driver";
 	}
 
 extern "C" void resolveInputDeviceToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)

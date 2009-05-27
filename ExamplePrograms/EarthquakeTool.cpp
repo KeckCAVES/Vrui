@@ -58,6 +58,11 @@ EarthquakeToolFactory::~EarthquakeToolFactory(void)
 	EarthquakeTool::factory=0;
 	}
 
+const char* EarthquakeToolFactory::getName(void) const
+	{
+	return "Earthquake Projector";
+	}
+
 Vrui::Tool* EarthquakeToolFactory::createTool(const Vrui::ToolInputAssignment& inputAssignment) const
 	{
 	/* Create a new object of the custom tool class: */

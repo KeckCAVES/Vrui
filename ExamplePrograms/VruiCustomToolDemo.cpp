@@ -44,7 +44,8 @@ class VruiCustomToolDemo:public Vrui::Application
 		MyToolFactory(Vrui::ToolManager& toolManager,VruiCustomToolDemo* sApplication);
 		virtual ~MyToolFactory(void);
 		
-		/* Methods: */
+		/* Methods from ToolFactory: */
+		virtual const char* getName(void) const;
 		virtual Vrui::Tool* createTool(const Vrui::ToolInputAssignment& inputAssignment) const;
 		virtual void destroyTool(Vrui::Tool* tool) const;
 		};
@@ -104,6 +105,11 @@ VruiCustomToolDemo::MyToolFactory::~MyToolFactory(void)
 	{
 	/* Reset the custom tool class' factory pointer: */
 	MyTool::factory=0;
+	}
+
+const char* VruiCustomToolDemo::MyToolFactory::getName(void) const
+	{
+	return "My Tool";
 	}
 
 Vrui::Tool* VruiCustomToolDemo::MyToolFactory::createTool(const Vrui::ToolInputAssignment& inputAssignment) const

@@ -62,6 +62,10 @@ class VisletManager:public Plugins::FactoryManager<VisletFactory>
 		{
 		return vislets.size();
 		}
+	Vislet* getVislet(size_t visletIndex) // Returns the vislet of the given index
+		{
+		return vislets[visletIndex];
+		}
 	GLMotif::Popup* buildVisletMenu(void); // Returns a popup containing a submenu with one toggle button for each managed vislet
 	void frame(void); // Calls the frame function of all loaded vislets
 	void display(GLContextData& contextData) const; // Renders all loaded vislets

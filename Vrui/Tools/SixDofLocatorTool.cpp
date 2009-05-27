@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofLocatorTool - Class for simple 6-DOF localization using a single
 input device.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,6 +53,11 @@ SixDofLocatorToolFactory::~SixDofLocatorToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	SixDofLocatorTool::factory=0;
+	}
+
+const char* SixDofLocatorToolFactory::getName(void) const
+	{
+	return "6-DOF Locator";
 	}
 
 Tool* SixDofLocatorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

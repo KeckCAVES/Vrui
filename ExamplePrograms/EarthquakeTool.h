@@ -47,7 +47,8 @@ class EarthquakeToolFactory:public Vrui::ToolFactory // Class for factories that
 		}
 	virtual ~EarthquakeToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Vrui::Tool* createTool(const Vrui::ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Vrui::Tool* tool) const;
 	};
@@ -64,7 +65,7 @@ class EarthquakeTool:public Vrui::TransformTool // The LiDAR tool class
 	public:
 	EarthquakeTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual const Vrui::ToolFactory* getFactory(void) const;
 	virtual void frame(void);

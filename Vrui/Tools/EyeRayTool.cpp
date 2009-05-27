@@ -1,7 +1,7 @@
 /***********************************************************************
 EyeRayTool - Class to transform the ray direction of an input device to
 point along the sight line from the main viewer to the input device.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -56,6 +56,11 @@ EyeRayToolFactory::~EyeRayToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	EyeRayTool::factory=0;
+	}
+
+const char* EyeRayToolFactory::getName(void) const
+	{
+	return "View-Aligned Ray";
 	}
 
 Tool* EyeRayToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

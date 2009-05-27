@@ -126,7 +126,7 @@ class HashTable
 			}
 		
 		/* Methods: */
-		HashBucketItem& operator=(const Entry& source) // Copies a hash table entry into a hash bucket item
+		HashBucketItem& setEntry(const Entry& source) // Copies a hash table entry into a hash bucket item
 			{
 			Entry::operator=(source);
 			return *this;
@@ -409,7 +409,7 @@ class HashTable
 		if(item!=0)
 			{
 			/* Set value of existing entry: */
-			*item=newEntry;
+			item->setEntry(newEntry);
 			}
 		else
 			{
@@ -463,7 +463,7 @@ class HashTable
 		size_t index=HashFunction::hash(findSource,tableSize);
 		
 		/* Compare items in the hash bucket until match is found: */
-		HashBucketItem* item=hashBuckets[index].firstItem;
+		const HashBucketItem* item=hashBuckets[index].firstItem;
 		while(item!=0&&item->getSource()!=findSource)
 			item=item->succ;
 		
@@ -473,7 +473,23 @@ class HashTable
 		{
 		return isEntry(entry.getSource());
 		}
-	const Entry& getEntry(const Source& findSource) const
+	const Entry& getEntry(const Source& findSource) const // Returns reference to entry; throws exception if entry is not found
+		{
+		/* Calculate the searched entry's hash bucket index: */
+		size_t index=HashFunction::hash(findSource,tableSize);
+		
+		/* Compare items in the hash bucket until match is found: */
+		const HashBucketItem* item=hashBuckets[index].firstItem;
+		while(item!=0&&item->getSource()!=findSource)
+			item=item->succ;
+		
+		/* Throw an exception if the requested entry does not exist: */
+		if(item==0)
+			throw EntryNotFoundError(findSource);
+		
+		return *item;
+		}
+	Entry& getEntry(const Source& findSource) // Ditto
 		{
 		/* Calculate the searched entry's hash bucket index: */
 		size_t index=HashFunction::hash(findSource,tableSize);

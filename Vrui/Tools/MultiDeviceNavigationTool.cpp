@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -70,6 +70,11 @@ MultiDeviceNavigationToolFactory::~MultiDeviceNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	MultiDeviceNavigationTool::factory=0;
+	}
+
+const char* MultiDeviceNavigationToolFactory::getName(void) const
+	{
+	return "Multiple 3-DOF Devices";
 	}
 
 Tool* MultiDeviceNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

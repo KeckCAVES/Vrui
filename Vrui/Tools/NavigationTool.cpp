@@ -1,6 +1,6 @@
 /***********************************************************************
 NavigationTool - Base class for navigation tools.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -40,6 +40,11 @@ NavigationToolFactory::NavigationToolFactory(ToolManager& toolManager)
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	#endif
+	}
+
+const char* NavigationToolFactory::getName(void) const
+	{
+	return "Navigation";
 	}
 
 extern "C" ToolFactory* createNavigationToolFactory(Plugins::FactoryManager<ToolFactory>& manager)

@@ -23,9 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_SEPARATOR_INCLUDED
 #define GLMOTIF_SEPARATOR_INCLUDED
 
-namespace GLMotif {
-
 #include <GLMotif/Widget.h>
+
+namespace GLMotif {
 
 class Separator:public Widget
 	{

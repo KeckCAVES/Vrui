@@ -28,6 +28,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Geometry.h>
 #include <Vrui/Lightsource.h>
 
+/* Forward declarations: */
+namespace Vrui {
+class DisplayState;
+}
+
 namespace Vrui {
 
 class LightsourceManager:public GLObject
@@ -80,8 +85,8 @@ class LightsourceManager:public GLObject
 	Lightsource* createLightsource(bool physical); // Creates an enabled light source with standard OpenGL parameters
 	Lightsource* createLightsource(bool physical,const GLLight& sLight); // Creates an enabled light source with the given OpenGL parameters
 	void destroyLightsource(Lightsource* lightsource); // Destroys the given light source
-	void setLightsources(GLContextData& contextData) const; // Sets the light sources in the current OpenGL context using the given navigation transformation
-	void setLightsources(const NavTransform& navTransform,GLContextData& contextData) const; // Sets the light sources in the current OpenGL context using the given navigation transformation
+	void setLightsources(GLContextData& contextData) const; // Sets the light sources in the current OpenGL context
+	void setLightsources(DisplayState* displayState,GLContextData& contextData) const; // Sets the light sources in the current OpenGL context using the navigation transformations stored in the given display state object
 	};
 
 }

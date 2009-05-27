@@ -608,6 +608,7 @@ void init(int& argc,char**& argv,char**&)
 				argc-=numArgs;
 				for(int j=i;j<argc;++j)
 					argv[j]=argv[j+numArgs];
+				--i;
 				}
 			else
 				{

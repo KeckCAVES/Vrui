@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoLocatorTool - Class for 6-DOF localization with scaled-down
 transformations while the tool button is pressed.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -60,6 +60,11 @@ WaldoLocatorToolFactory::~WaldoLocatorToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	WaldoLocatorTool::factory=0;
+	}
+
+const char* WaldoLocatorToolFactory::getName(void) const
+	{
+	return "Waldo (Scaled) Locator";
 	}
 
 Tool* WaldoLocatorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

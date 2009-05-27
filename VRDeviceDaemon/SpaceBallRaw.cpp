@@ -74,7 +74,8 @@ bool SpaceBallRaw::readLine(int lineBufferSize,char* lineBuffer,double timeout)
 		if(FD_ISSET(devicePortFd,&readFds))
 			{
 			/* Read next available byte from the device port: */
-			read(devicePortFd,lineBuffer+numRead,1);
+			if(read(devicePortFd,lineBuffer+numRead,1)!=1)
+				break;
 			
 			/* Check if we just read a CR or LF: */
 			if(lineBuffer[numRead]=='\r'||lineBuffer[numRead]=='\n')

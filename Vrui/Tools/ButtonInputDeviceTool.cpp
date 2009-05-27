@@ -1,7 +1,7 @@
 /***********************************************************************
 ButtonInputDeviceTool - Class for tools using buttons (such as keyboard
 keys) to interact with virtual input devices.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -58,8 +58,8 @@ ButtonInputDeviceToolFactory::ButtonInputDeviceToolFactory(ToolManager& toolMana
 		translations[i]=Vector::zero;
 		rotations[i]=Vector::zero;
 		}
-	Scalar translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",Scalar(6)*getInchFactor());
-	Scalar rotateFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotateFactor",Scalar(90)));
+	Scalar translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",Scalar(4)*getInchFactor());
+	Scalar rotateFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotateFactor",Scalar(60)));
 	for(int i=0;i<3;++i)
 		{
 		translations[2*i+0][i]=-translateFactor;
@@ -80,6 +80,11 @@ ButtonInputDeviceToolFactory::~ButtonInputDeviceToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ButtonInputDeviceTool::factory=0;
+	}
+
+const char* ButtonInputDeviceToolFactory::getName(void) const
+	{
+	return "Button-Based Driver";
 	}
 
 Tool* ButtonInputDeviceToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

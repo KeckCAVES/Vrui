@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VIRTUALINPUTDEVICE_INCLUDED
 #define VRUI_VIRTUALINPUTDEVICE_INCLUDED
 
+#include <Geometry/Vector.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/GlyphRenderer.h>
 
