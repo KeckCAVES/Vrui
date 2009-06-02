@@ -84,7 +84,7 @@ Box IndexedLineSetNode::calcBoundingBox(void) const
 		if(pointTransform.getValue()!=0)
 			{
 			/* Return the bounding box of the transformed point coordinates: */
-			return pointTransform.getValue()->calcBoundingBox(coord.getValue()->getPoints());
+			return pointTransform.getValue()->calcBoundingBox(coord.getValue()->point.getValues());
 			}
 		else
 			{
@@ -106,11 +106,11 @@ void IndexedLineSetNode::glRenderAction(GLRenderState& renderState) const
 		glLineWidth(lineWidth.getValue());
 		
 		/* Draw the line set: */
-		const std::vector<Point>& points=coord.getValue()->getPoints();
+		const std::vector<Point>& points=coord.getValue()->point.getValues();
 		const MFInt::ValueList& coordIndices=coordIndex.getValues();
 		if(color.getValue()!=0)
 			{
-			const std::vector<Color>& colors=color.getValue()->getColors();
+			const std::vector<Color>& colors=color.getValue()->color.getValues();
 			const MFInt::ValueList& colorIndices=colorIndex.getValues();
 			MFInt::ValueList::const_iterator colorIt=colorIndices.empty()?coordIndices.begin():colorIndices.begin();
 			bool countColors=!colorPerVertex.getValue()&&colorIndices.empty();

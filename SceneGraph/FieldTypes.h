@@ -40,6 +40,7 @@ namespace SceneGraph {
 Value type definitions:
 **********************/
 
+typedef double Time;
 typedef GLColor<GLfloat,3> Color;
 
 /*********************
@@ -117,6 +118,10 @@ class MF:public Field
 		{
 		return values;
 		}
+	ValueList& getValues(void) // Ditto
+		{
+		return values;
+		}
 	size_t getNumValues(void) const // Returns the number of values in the field
 		{
 		return values.size();
@@ -137,6 +142,16 @@ class MF:public Field
 		{
 		values.erase(values.begin()+index);
 		}
+	void removeValue(const Value& value) // Removes all instances of the given value from the list
+		{
+		for(typename ValueList::iterator vIt=values.begin();vIt!=values.end();)
+			{
+			if(*vIt==value)
+				values.erase(vIt);
+			else
+				++vIt;
+			}
+		}
 	void appendValue(const Value& newValue) // Appends a new value to the end of the list
 		{
 		values.push_back(newValue);
@@ -153,6 +168,7 @@ Field type definitions:
 
 typedef SF<bool> SFBool;
 typedef SF<std::string> SFString;
+typedef SF<Time> SFTime;
 typedef SF<int> SFInt;
 typedef SF<Scalar> SFFloat;
 typedef SF<Size> SFSize;
@@ -164,6 +180,7 @@ typedef SF<TexCoord> SFTexCoord;
 typedef SF<Misc::Autopointer<Node> > SFNode;
 typedef MF<bool> MFBool;
 typedef MF<std::string> MFString;
+typedef MF<Time> MFTime;
 typedef MF<int> MFInt;
 typedef MF<Scalar> MFFloat;
 typedef MF<Size> MFSize;

@@ -105,7 +105,7 @@ Box PointSetNode::calcBoundingBox(void) const
 		if(pointTransform.getValue()!=0)
 			{
 			/* Return the bounding box of the transformed point coordinates: */
-			return pointTransform.getValue()->calcBoundingBox(coord.getValue()->getPoints());
+			return pointTransform.getValue()->calcBoundingBox(coord.getValue()->point.getValues());
 			}
 		else
 			{
@@ -140,14 +140,14 @@ void PointSetNode::glRenderAction(GLRenderState& renderState) const
 			/* Check if the vertex buffer object is outdated: */
 			if(dataItem->version!=version)
 				{
-				const std::vector<Point>& points=coord.getValue()->getPoints();
+				const std::vector<Point>& points=coord.getValue()->point.getValues();
 				size_t numPoints=points.size();
 				
 				/* Prepare a vertex buffer: */
 				glBufferDataARB(GL_ARRAY_BUFFER_ARB,numPoints*(color.getValue()!=0?sizeof(ColorVertex):sizeof(Vertex)),0,GL_STATIC_DRAW_ARB);
 				if(color.getValue()!=0)
 					{
-					const std::vector<Color>& colors=color.getValue()->getColors();
+					const std::vector<Color>& colors=color.getValue()->color.getValues();
 					ColorVertex* vPtr=static_cast<ColorVertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
 					if(pointTransform.getValue()!=0)
 						{
@@ -200,7 +200,7 @@ void PointSetNode::glRenderAction(GLRenderState& renderState) const
 				}
 			
 			/* Draw the point set: */
-			glDrawArrays(GL_POINTS,0,coord.getValue()->getPoints().size());
+			glDrawArrays(GL_POINTS,0,coord.getValue()->point.getNumValues());
 			
 			/* Disable the vertex arrays: */
 			if(color.getValue()!=0)
@@ -215,12 +215,12 @@ void PointSetNode::glRenderAction(GLRenderState& renderState) const
 			{
 			/* Render the point set in immediate mode: */
 			glBegin(GL_POINTS);
-			const std::vector<Point>& points=coord.getValue()->getPoints();
+			const std::vector<Point>& points=coord.getValue()->point.getValues();
 			size_t numPoints=points.size();
 			if(color.getValue()!=0)
 				{
 				/* Color each point: */
-				const std::vector<Color>& colors=color.getValue()->getColors();
+				const std::vector<Color>& colors=color.getValue()->color.getValues();
 				size_t numColors=colors.size();
 				for(size_t i=0;i<numPoints;++i)
 					{

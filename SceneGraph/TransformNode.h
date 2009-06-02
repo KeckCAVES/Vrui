@@ -36,9 +36,9 @@ namespace SceneGraph {
 class TransformNode:public GroupNode
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFPoint center;
 	SFRotation rotation;
 	SFSize scale;
@@ -46,6 +46,7 @@ class TransformNode:public GroupNode
 	SFVector translation;
 	
 	/* Derived state: */
+	protected:
 	OGTransform transform; // The current transformation
 	
 	/* Constructors and destructors: */
@@ -53,6 +54,8 @@ class TransformNode:public GroupNode
 	TransformNode(void); // Creates an empty transform node with an identity transformation
 	
 	/* Methods from Node: */
+	virtual EventOut* getEventOut(const char* fieldName) const;
+	virtual EventIn* getEventIn(const char* fieldName);
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	
@@ -61,11 +64,10 @@ class TransformNode:public GroupNode
 	virtual void glRenderAction(GLRenderState& renderState) const;
 	
 	/* New methods: */
-	const OGTransform& getTransform(void) const // Returns the current transformation
+	const OGTransform& getTransform(void) const // Returns the current derived transformation
 		{
 		return transform;
 		}
-	virtual void setTransform(const OGTransform& newTransform); // Sets a new transformation
 	};
 
 }

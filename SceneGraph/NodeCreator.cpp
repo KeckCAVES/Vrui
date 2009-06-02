@@ -33,6 +33,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/AppearanceNode.h>
 #include <SceneGraph/GeodeticToCartesianPointTransformNode.h>
 #include <SceneGraph/BoxNode.h>
+#include <SceneGraph/ConeNode.h>
+#include <SceneGraph/CylinderNode.h>
 #include <SceneGraph/TextureCoordinateNode.h>
 #include <SceneGraph/ColorNode.h>
 #include <SceneGraph/NormalNode.h>
@@ -64,6 +66,8 @@ NodeCreator::NodeCreator(void)
 	registerNodeType("Appearance",new GenericNodeFactory<AppearanceNode>());
 	registerNodeType("GeodeticToCartesianPointTransform",new GenericNodeFactory<GeodeticToCartesianPointTransformNode>());
 	registerNodeType("Box",new GenericNodeFactory<BoxNode>());
+	registerNodeType("Cone",new GenericNodeFactory<ConeNode>());
+	registerNodeType("Cylinder",new GenericNodeFactory<CylinderNode>());
 	registerNodeType("TextureCoordinate",new GenericNodeFactory<TextureCoordinateNode>());
 	registerNodeType("Color",new GenericNodeFactory<ColorNode>());
 	registerNodeType("Normal",new GenericNodeFactory<NormalNode>());

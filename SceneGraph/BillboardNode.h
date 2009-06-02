@@ -32,12 +32,13 @@ namespace SceneGraph {
 class BillboardNode:public GroupNode
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFVector axisOfRotation;
 	
 	/* Derived elements: */
+	protected:
 	Scalar aor2; // Squared length of rotation axis
 	Vector orthoZAxis; // Billboard's Z axis orthonormalized with regard to the axis of rotation
 	Vector rotationNormal; // Vector normal to the plane spanned by the rotation axis and the orthonormalized Z axis

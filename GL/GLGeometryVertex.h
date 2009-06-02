@@ -162,7 +162,7 @@ struct Vertex<void,0,
 	public:
 	typedef GLColor<ColorScalarParam,numColorComponentsParam> Color;
 	typedef Geometry::Vector<NormalScalarParam,3> Normal;
-	typedef Geometry::Vector<PositionScalarParam,numPositionComponentsParam> Position;
+	typedef Geometry::Point<PositionScalarParam,numPositionComponentsParam> Position;
 	
 	/* Elements: */
 	Color color; // Vertex color

@@ -148,7 +148,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000059
+VRUI_VERSION = 1000060
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -253,11 +253,13 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/ValuatorFlyTurnNavigationTool.cpp \
                   Vrui/Tools/ValuatorScalingNavigationTool.cpp \
                   Vrui/Tools/WalkNavigationTool.cpp \
+                  Vrui/Tools/WalkSurfaceNavigationTool.cpp \
                   Vrui/Tools/SixDofWithScaleNavigationTool.cpp \
                   Vrui/Tools/TwoHandedNavigationTool.cpp \
                   Vrui/Tools/MultiDeviceNavigationTool.cpp \
                   Vrui/Tools/MouseNavigationTool.cpp \
                   Vrui/Tools/MouseDialogNavigationTool.cpp \
+                  Vrui/Tools/MouseSurfaceNavigationTool.cpp \
                   Vrui/Tools/DesktopDeviceNavigationTool.cpp \
                   Vrui/Tools/FPSNavigationTool.cpp \
                   Vrui/Tools/HelicopterNavigationTool.cpp \
@@ -374,10 +376,14 @@ else
   MAKEFILEFRAGMENT = Share/Vrui.makeinclude
 endif
 
-ALL = config $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT)
+# Remember the names of all generated files for "make clean":
+ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT)
 
 .PHONY: all
-all: $(ALL)
+all: config $(ALL)
+
+$(PLUGINS): $(LIBRARIES)
+$(EXECUTABLES): $(LIBRARIES)
 
 ########################################################################
 # Pseudo-target to print configuration options
@@ -669,6 +675,7 @@ GEOMETRY_HEADERS = Geometry/ComponentArray.h Geometry/ComponentArray.cpp \
                    Geometry/Polygon.h Geometry/Polygon.cpp \
                    Geometry/SplineCurve.h Geometry/SplineCurve.cpp \
                    Geometry/SplinePatch.h Geometry/SplinePatch.cpp \
+                   Geometry/Geoid.h Geometry/Geoid.cpp \
                    Geometry/ValuedPoint.h \
                    Geometry/ClosePointSet.h \
                    Geometry/PointOctree.h Geometry/PointOctree.cpp \
@@ -698,6 +705,7 @@ GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
                    Geometry/Polygon.cpp \
                    Geometry/SplineCurve.cpp \
                    Geometry/SplinePatch.cpp \
+                   Geometry/Geoid.cpp \
                    Geometry/PointOctree.cpp \
                    Geometry/PointTwoNTree.cpp \
                    Geometry/PointKdTree.cpp \
@@ -1077,12 +1085,16 @@ libALSupport: $(call LIBRARYNAME,libALSupport)
 #
 
 SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
+                     SceneGraph/EventOut.h \
+                     SceneGraph/EventIn.h \
+                     SceneGraph/Route.h \
                      SceneGraph/Node.h \
                      SceneGraph/NodeFactory.h \
                      SceneGraph/NodeCreator.h \
                      SceneGraph/FieldTypes.h \
                      SceneGraph/VRMLFile.h \
                      SceneGraph/GLRenderState.h \
+                     SceneGraph/DisplayList.h \
                      SceneGraph/GraphNode.h \
                      SceneGraph/GroupNode.h \
                      SceneGraph/TransformNode.h \
@@ -1099,6 +1111,8 @@ SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
                      SceneGraph/GeodeticToCartesianPointTransformNode.h \
                      SceneGraph/GeometryNode.h \
                      SceneGraph/BoxNode.h \
+                     SceneGraph/ConeNode.h \
+                     SceneGraph/CylinderNode.h \
                      SceneGraph/TextureCoordinateNode.h \
                      SceneGraph/ColorNode.h \
                      SceneGraph/NormalNode.h \
@@ -1113,6 +1127,7 @@ SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/NodeCreator.cpp \
                      SceneGraph/VRMLFile.cpp \
                      SceneGraph/GLRenderState.cpp \
+                     SceneGraph/DisplayList.cpp \
                      SceneGraph/GroupNode.cpp \
                      SceneGraph/TransformNode.cpp \
                      SceneGraph/BillboardNode.cpp \
@@ -1125,6 +1140,8 @@ SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/GeodeticToCartesianPointTransformNode.cpp \
                      SceneGraph/GeometryNode.cpp \
                      SceneGraph/BoxNode.cpp \
+                     SceneGraph/ConeNode.cpp \
+                     SceneGraph/CylinderNode.cpp \
                      SceneGraph/TextureCoordinateNode.cpp \
                      SceneGraph/ColorNode.cpp \
                      SceneGraph/NormalNode.cpp \
@@ -1186,6 +1203,7 @@ VRUI_TOOLHEADERS = Vrui/Tools/Tool.h \
                    Vrui/Tools/LocatorTool.h \
                    Vrui/Tools/DraggingTool.h \
                    Vrui/Tools/NavigationTool.h \
+                   Vrui/Tools/SurfaceNavigationTool.h \
                    Vrui/Tools/TransformTool.h \
                    Vrui/Tools/UserInterfaceTool.h \
                    Vrui/Tools/MenuTool.h \
@@ -1225,6 +1243,7 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/Tools/LocatorTool.cpp \
                Vrui/Tools/DraggingTool.cpp \
                Vrui/Tools/NavigationTool.cpp \
+               Vrui/Tools/SurfaceNavigationTool.cpp \
                Vrui/Tools/TransformTool.cpp \
                Vrui/Tools/UserInterfaceTool.cpp \
                Vrui/Tools/MenuTool.cpp \
@@ -1305,6 +1324,7 @@ $(VRTOOLSDIR)/libCurveEditorTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMat
 # Vrui tool settings:
 $(OBJDIR)/Vrui/Tools/MouseNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/Tools/MouseDialogNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
+$(OBJDIR)/Vrui/Tools/MouseSurfaceNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/Tools/JediTool.o: CFLAGS += -DDEFAULTLIGHTSABERIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Lightsaber.png"'
 ifneq ($(IMAGES_USE_PNG),0)
   ifneq ($(VRUI_USE_PNG),0)
@@ -1358,14 +1378,12 @@ VRVislets: $(VRVISLETS)
 
 # The VR Device Daemon Test program:
 $(EXEDIR)/DeviceTest: PACKAGES += MYVRUI
-$(EXEDIR)/DeviceTest: $(call LIBRARYNAME,libVrui)
 $(EXEDIR)/DeviceTest: $(OBJDIR)/Vrui/DeviceTest.o
 .PHONY: DeviceTest
 DeviceTest: $(EXEDIR)/DeviceTest
 
 # The Vrui input device data file printer:
 $(EXEDIR)/PrintInputDeviceDataFile: PACKAGES += MYVRUI
-$(EXEDIR)/PrintInputDeviceDataFile: $(call LIBRARYNAME,libVrui)
 $(EXEDIR)/PrintInputDeviceDataFile: $(OBJDIR)/Vrui/PrintInputDeviceDataFile.o
 .PHONY: PrintInputDeviceDataFile
 PrintInputDeviceDataFile: $(EXEDIR)/PrintInputDeviceDataFile

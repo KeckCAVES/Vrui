@@ -189,6 +189,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		return toolMenu;
 		}
 	Tool* assignTool(ToolFactory* factory,const ToolInputAssignment& tia); // Assigns a new tool created by the given factory
+	void loadToolBinding(const char* toolSectionName); // Loads a tool binding from a configuration file section; names are relative to tool manager's section
 	void loadDefaultTools(void); // Creates default tool associations
 	void update(void); // Called once every frame so that the tool manager has a well-defined place to create new tools
 	void glRenderAction(GLContextData& contextData) const; // Renders the tool manager (not the tools)

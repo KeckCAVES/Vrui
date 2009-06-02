@@ -31,9 +31,9 @@ namespace SceneGraph {
 class InlineNode:public GroupNode
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	MFString url;
 	
 	/* Constructors and destructors: */

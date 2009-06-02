@@ -32,13 +32,14 @@ namespace SceneGraph {
 class ShapeNode:public GraphNode
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<AppearanceNodePointer> SFAppearanceNode;
 	typedef SF<GeometryNodePointer> SFGeometryNode;
 	
 	/* Elements: */
 	
 	/* Fields: */
+	public:
 	SFAppearanceNode appearance; // The shape's appearance
 	SFGeometryNode geometry; // The shape's geometry
 	
@@ -53,18 +54,6 @@ class ShapeNode:public GraphNode
 	/* Methods from GraphNode: */
 	virtual Box calcBoundingBox(void) const;
 	virtual void glRenderAction(GLRenderState& renderState) const;
-	
-	/* New methods: */
-	AppearanceNodePointer getAppearance(void) const // Returns the shape's appearance
-		{
-		return appearance.getValue();
-		}
-	GeometryNodePointer getGeometry(void) const // Returns the shape's geometry
-		{
-		return geometry.getValue();
-		}
-	void setAppearance(AttributeNodePointer newAppearance); // Sets the shape's appearance
-	void setGeometry(GeometryNodePointer newGeometry); // Sets the shape's geometry
 	};
 
 }

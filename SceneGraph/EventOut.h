@@ -1,5 +1,5 @@
 /***********************************************************************
-NormalNode - Class for nodes defining normal vectors.
+EventOut - Base class for event sources.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
@@ -19,33 +19,42 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef SCENEGRAPH_NORMALNODE_INCLUDED
-#define SCENEGRAPH_NORMALNODE_INCLUDED
+#ifndef SCENEGRAPH_EVENTOUT_INCLUDED
+#define SCENEGRAPH_EVENTOUT_INCLUDED
 
-#include <Geometry/Vector.h>
-#include <SceneGraph/FieldTypes.h>
-#include <SceneGraph/Node.h>
+/* Forward declarations: */
+namespace SceneGraph {
+class EventIn;
+class Route;
+class Node;
+}
 
 namespace SceneGraph {
 
-class NormalNode:public Node
+class EventOut
 	{
 	/* Elements: */
-	
-	/* Fields: */
-	public:
-	MFVector vector;
+	protected:
+	const Node* node; // The node containing the field generating events
 	
 	/* Constructors and destructors: */
+	protected:
+	EventOut(const Node* sNode) // Creates an event source for the given node
+		:node(sNode)
+		{
+		}
 	public:
-	NormalNode(void); // Creates normal node with empty vector set
+	virtual ~EventOut(void) // Destroys the event source
+		{
+		}
 	
-	/* Methods from Node: */
-	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
-	virtual void update(void);
+	/* Methods: */
+	const Node* getNode(void) const // Returns the node
+		{
+		return node;
+		}
+	virtual Route* connectTo(const EventIn* sink) const =0; // Returns a route from the event source to the given event sink
 	};
-
-typedef Misc::Autopointer<NormalNode> NormalNodePointer;
 
 }
 

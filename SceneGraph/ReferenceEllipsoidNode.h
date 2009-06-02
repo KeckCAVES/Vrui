@@ -39,18 +39,19 @@ namespace SceneGraph {
 class ReferenceEllipsoidNode:public Node
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<double> SFDouble;
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFDouble radius;
 	SFDouble flattening;
 	SFDouble scale;
 	
 	/* Derived state: */
+	protected:
 	double r; // Radius in meters after scaling
 	double f; // Flattening factor
 	double e2; // Eccentricity
@@ -64,10 +65,6 @@ class ReferenceEllipsoidNode:public Node
 	virtual void update(void);
 	
 	/* New methods: */
-	double getScale(void) const // Returns the ellipsoid's Cartesian coordinate scaling factor
-		{
-		return scale.getValue();
-		}
 	Point geodeticToCartesianPoint(double longitude,double latitude,double height) const // Transforms a point from geodetic coordinates in radians and meters to scaled Cartesian coordinates
 		{
 		double sLon=Math::sin(longitude);

@@ -32,9 +32,9 @@ namespace SceneGraph {
 class CoordinateNode:public Node
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	MFPoint point;
 	
 	/* Constructors and destructors: */
@@ -46,10 +46,6 @@ class CoordinateNode:public Node
 	virtual void update(void);
 	
 	/* New methods: */
-	const std::vector<Point>& getPoints(void) const // Returns the point set
-		{
-		return point.getValues();
-		}
 	Box calcBoundingBox(void) const; // Returns the bounding box of the point set
 	};
 

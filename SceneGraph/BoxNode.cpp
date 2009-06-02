@@ -34,50 +34,8 @@ namespace SceneGraph {
 Methods of class BoxNode:
 ************************/
 
-BoxNode::BoxNode(void)
-	:center(Point::origin),
-	 size(Size(2,2,2)),
-	 box(Point(-1,-1,-1),Point(1,1,1))
+void BoxNode::createList(GLContextData& renderState) const
 	{
-	}
-
-void BoxNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
-	{
-	if(strcmp(fieldName,"center")==0)
-		{
-		vrmlFile.parseField(center);
-		}
-	else if(strcmp(fieldName,"size")==0)
-		{
-		vrmlFile.parseField(size);
-		}
-	else
-		GeometryNode::parseField(fieldName,vrmlFile);
-	}
-
-void BoxNode::update(void)
-	{
-	Point pmin=center.getValue();
-	Point pmax=center.getValue();
-	for(int i=0;i<3;++i)
-		{
-		pmin[i]-=Math::div2(size.getValue()[i]);
-		pmax[i]+=Math::div2(size.getValue()[i]);
-		}
-	box=Box(pmin,pmax);
-	}
-
-Box BoxNode::calcBoundingBox(void) const
-	{
-	/* Return the box itself: */
-	return box;
-	}
-
-void BoxNode::glRenderAction(GLRenderState& renderState) const
-	{
-	/* Set up OpenGL state: */
-	renderState.enableCulling(GL_BACK);
-	
 	/* Draw the box faces as quads: */
 	glBegin(GL_QUADS);
 	
@@ -150,28 +108,55 @@ void BoxNode::glRenderAction(GLRenderState& renderState) const
 	glEnd();
 	}
 
-void BoxNode::setBox(const Box& newBox)
+BoxNode::BoxNode(void)
+	:center(Point::origin),
+	 size(Size(2,2,2)),
+	 box(Point(-1,-1,-1),Point(1,1,1))
 	{
-	box=newBox;
 	}
 
-void BoxNode::setBox(const Point& newCenter,const Size& newSize)
+void BoxNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
-	box.min=box.max=newCenter;
-	for(int i=0;i<3;++i)
+	if(strcmp(fieldName,"center")==0)
 		{
-		box.min[i]-=Math::div2(newSize[i]);
-		box.max[i]+=Math::div2(newSize[i]);
+		vrmlFile.parseField(center);
 		}
+	else if(strcmp(fieldName,"size")==0)
+		{
+		vrmlFile.parseField(size);
+		}
+	else
+		GeometryNode::parseField(fieldName,vrmlFile);
 	}
 
-void BoxNode::setBox(const Size& newSize)
+void BoxNode::update(void)
 	{
+	Point pmin=center.getValue();
+	Point pmax=center.getValue();
 	for(int i=0;i<3;++i)
 		{
-		box.min[i]=-Math::div2(newSize[i]);
-		box.max[i]=Math::div2(newSize[i]);
+		pmin[i]-=Math::div2(size.getValue()[i]);
+		pmax[i]+=Math::div2(size.getValue()[i]);
 		}
+	box=Box(pmin,pmax);
+	
+	/* Invalidate the display list: */
+	DisplayList::update();
+	}
+
+Box BoxNode::calcBoundingBox(void) const
+	{
+	/* Return the box itself: */
+	return box;
+	}
+
+void BoxNode::glRenderAction(GLRenderState& renderState) const
+	{
+	/* Set up OpenGL state: */
+	renderState.enableCulling(GL_BACK);
+	
+	/* Render the display list: */
+	DisplayList::glRenderAction(renderState.contextData);
 	}
 
 }

@@ -39,16 +39,16 @@ class FontStyleNode:public Node
 	friend class TextNode;
 	
 	/* Embedded classes: */
-	private:
+	protected:
 	enum Justification // Enumerated type for string justification
 		{
 		FIRST,BEGIN,MIDDLE,END
 		};
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	MFString family;
 	SFString style;
 	SFString language;
@@ -59,7 +59,8 @@ class FontStyleNode:public Node
 	SFBool leftToRight;
 	SFBool topToBottom;
 	
-	private:
+	/* Derived state: */
+	protected:
 	GLFont* font; // The GL font object used to render text strings
 	Justification justifications[2]; // Justification in major and minor directions
 	
@@ -71,6 +72,12 @@ class FontStyleNode:public Node
 	/* Methods from Node: */
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
+	
+	/* New methods: */
+	const GLFont* getFont(void) const // Returns the GL font object
+		{
+		return font;
+		}
 	};
 
 typedef Misc::Autopointer<FontStyleNode> FontStyleNodePointer;

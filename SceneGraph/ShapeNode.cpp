@@ -83,14 +83,4 @@ void ShapeNode::glRenderAction(GLRenderState& renderState) const
 		appearance.getValue()->resetGLState(renderState);
 	}
 
-void ShapeNode::setAppearance(AttributeNodePointer newAppearance)
-	{
-	appearance.setValue(newAppearance);
-	}
-
-void ShapeNode::setGeometry(GeometryNodePointer newGeometry)
-	{
-	geometry.setValue(newGeometry);
-	}
-
 }

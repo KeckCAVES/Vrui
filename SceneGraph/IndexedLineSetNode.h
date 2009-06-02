@@ -33,14 +33,14 @@ namespace SceneGraph {
 class IndexedLineSetNode:public GeometryNode
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<ColorNodePointer> SFColorNode;
 	typedef SF<CoordinateNodePointer> SFCoordinateNode;
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFColorNode color;
 	SFCoordinateNode coord;
 	MFInt colorIndex;

@@ -36,7 +36,8 @@ Methods of class ImageTextureNode::DataItem:
 *******************************************/
 
 ImageTextureNode::DataItem::DataItem(void)
-	:textureObjectId(0)
+	:textureObjectId(0),
+	 version(0)
 	{
 	glGenTextures(1,&textureObjectId);
 	}
@@ -51,7 +52,8 @@ Methods of class ImageTextureNode:
 *********************************/
 
 ImageTextureNode::ImageTextureNode(void)
-	:repeatS(true),repeatT(true)
+	:repeatS(true),repeatT(true),
+	 version(0)
 	{
 	}
 
@@ -79,6 +81,8 @@ void ImageTextureNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 
 void ImageTextureNode::update(void)
 	{
+	/* Bump up the texture's version number: */
+	++version;
 	}
 
 void ImageTextureNode::setGLState(GLRenderState& renderState) const
@@ -93,6 +97,25 @@ void ImageTextureNode::setGLState(GLRenderState& renderState) const
 		
 		/* Bind the texture object: */
 		glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
+		
+		/* Check if the texture object needs to be updated: */
+		if(dataItem->version!=version)
+			{
+			/* Load the texture image: */
+			Images::RGBImage texture=Images::readImageFile(url.getValue(0).c_str());
+			
+			/* Upload the texture image: */
+			texture.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB8,false);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,repeatS.getValue()?GL_REPEAT:GL_CLAMP);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,repeatT.getValue()?GL_REPEAT:GL_CLAMP);
+			
+			/* Mark the texture object as up-to-date: */
+			dataItem->version=version;
+			}
 		}
 	else
 		{
@@ -114,28 +137,9 @@ void ImageTextureNode::resetGLState(GLRenderState& renderState) const
 
 void ImageTextureNode::initContext(GLContextData& contextData) const
 	{
-	if(url.getNumValues()>0)
-		{
-		/* Create a data item and store it in the GL context: */
-		DataItem* dataItem=new DataItem;
-		contextData.addDataItem(this,dataItem);
-		
-		/* Load the texture image: */
-		Images::RGBImage texture=Images::readImageFile(url.getValue(0).c_str());
-		
-		/* Upload the texture image: */
-		glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-		
-		texture.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB8,false);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,repeatS.getValue()?GL_REPEAT:GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,repeatT.getValue()?GL_REPEAT:GL_CLAMP);
-		
-		glBindTexture(GL_TEXTURE_2D,0);
-		}
+	/* Create a data item and store it in the GL context: */
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
 	}
 
 }

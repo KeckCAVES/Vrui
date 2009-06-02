@@ -65,6 +65,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/VRScreen.h>
 #include <Vrui/VRWindow.h>
 #include <Vrui/SoundContext.h>
+#include <Vrui/ToolManager.h>
 #include <Vrui/VisletManager.h>
 #include <Vrui/ViewSpecification.h>
 
@@ -190,7 +191,7 @@ void vruiErrorShutdown(bool signalError)
 		}
 	}
 
-void vruiOpenConfigurationFile(const char* userConfigurationFileName,const char*& rootSectionName)
+void vruiOpenConfigurationFile(const char* userConfigurationFileName)
 	{
 	try
 		{
@@ -219,7 +220,10 @@ void vruiOpenConfigurationFile(const char* userConfigurationFileName,const char*
 		std::cerr<<"Caught exception "<<error.what()<<" while reading user configuration file"<<std::endl;
 		vruiErrorShutdown(true);
 		}
-	
+	}
+
+void vruiGoToRootSection(const char*& rootSectionName)
+	{
 	try
 		{
 		/* Fall back to simulator mode if the root section does not exist: */
@@ -409,6 +413,9 @@ void init(int& argc,char**& argv,char**&)
 		if(userConfigFileName==0)
 			userConfigFileName="./Vrui.cfg";
 		
+		/* Open the global and user configuration files: */
+		vruiOpenConfigurationFile(userConfigFileName);
+		
 		/* Get the root section name: */
 		const char* rootSectionName=getenv("VRUI_ROOTSECTION");
 		if(rootSectionName==0)
@@ -416,32 +423,66 @@ void init(int& argc,char**& argv,char**&)
 		if(rootSectionName==0)
 			rootSectionName=getenv("HOST");
 		
-		/* Override root section name from command line: */
+		/* Apply configuration-related arguments from the command line: */
 		for(int i=1;i<argc;++i)
-			if(strcasecmp(argv[i],"-rootSection")==0)
+			if(argv[i][0]=='-')
 				{
-				/* Next parameter is name of root section to use: */
-				if(i+1<argc)
+				if(strcasecmp(argv[i]+1,"mergeConfig")==0)
 					{
-					/* Save root section name: */
-					rootSectionName=argv[i+1];
-					
-					/* Remove parameters from argument list: */
-					argc-=2;
-					for(int j=i;j<argc;++j)
-						argv[j]=argv[j+2];
-					break;
+					/* Next parameter is name of another configuration file to merge: */
+					if(i+1<argc)
+						{
+						try
+							{
+							/* Merge in the user configuration file: */
+							vruiConfigFile->merge(argv[i+1]);
+							}
+						catch(std::runtime_error err)
+							{
+							/* Print a warning and carry on: */
+							std::cerr<<"Vrui::init: Ignoring -mergeConfig argument due to "<<err.what()<<std::endl;
+							}
+						
+						/* Remove parameters from argument list: */
+						argc-=2;
+						for(int j=i;j<argc;++j)
+							argv[j]=argv[j+2];
+						--i;
+						break;
+						}
+					else
+						{
+						/* Ignore the mergeConfig parameter: */
+						std::cerr<<"Vrui::init: No configuration file name given after -mergeConfig option"<<std::endl;
+						--argc;
+						}
 					}
-				else
+				else if(strcasecmp(argv[i]+1,"rootSection")==0)
 					{
-					/* Ignore the rootSection parameter: */
-					std::cerr<<"No root section name given after -rootSection option"<<std::endl;
-					--argc;
+					/* Next parameter is name of root section to use: */
+					if(i+1<argc)
+						{
+						/* Save root section name: */
+						rootSectionName=argv[i+1];
+						
+						/* Remove parameters from argument list: */
+						argc-=2;
+						for(int j=i;j<argc;++j)
+							argv[j]=argv[j+2];
+						--i;
+						break;
+						}
+					else
+						{
+						/* Ignore the rootSection parameter: */
+						std::cerr<<"Vrui::init: No root section name given after -rootSection option"<<std::endl;
+						--argc;
+						}
 					}
 				}
 		
-		/* Open configuration file: */
-		vruiOpenConfigurationFile(userConfigFileName,rootSectionName);
+		/* Go to the configuration's root section: */
+		vruiGoToRootSection(rootSectionName);
 		
 		/* Check if this is a multipipe environment: */
 		if(vruiConfigFile->retrieveValue<bool>("./enableMultipipe",false))
@@ -549,72 +590,126 @@ void init(int& argc,char**& argv,char**&)
 		vruiErrorShutdown(true);
 		}
 	
-	/* Check if user wants to load a viewpoint file via the command line: */
+	/* Process additional command line arguments: */
 	for(int i=1;i<argc;++i)
-		if(strcasecmp(argv[i],"-loadView")==0)
+		if(argv[i][0]=='-')
 			{
-			/* Next parameter is name of viewpoint file to load: */
-			if(i+1<argc)
+			if(strcasecmp(argv[i]+1,"addToolClass")==0)
 				{
-				/* Save viewpoint file name: */
-				vruiState->viewpointFileName=argv[i+1];
-				
-				/* Remove parameters from argument list: */
-				argc-=2;
-				for(int j=i;j<argc;++j)
-					argv[j]=argv[j+2];
-				break;
+				/* Next parameter is name of tool class to load: */
+				if(i+1<argc)
+					{
+					/* Load the tool class: */
+					vruiState->toolManager->loadClass(argv[i+1]);
+					
+					/* Remove parameters from argument list: */
+					argc-=2;
+					for(int j=i;j<argc;++j)
+						argv[j]=argv[j+2];
+					--i;
+					break;
+					}
+				else
+					{
+					/* Ignore the addToolClass parameter: */
+					std::cerr<<"Vrui::init: No tool class name given after -addToolClass option"<<std::endl;
+					--argc;
+					}
 				}
-			else
+			else if(strcasecmp(argv[i]+1,"addTool")==0)
 				{
-				/* Ignore the loadView parameter: */
-				std::cerr<<"No viewpoint file name given after -loadView option"<<std::endl;
-				--argc;
-				}
-			}
-	
-	/* Load all vislets listed on the command line: */
-	for(int i=1;i<argc;++i)
-		if(strcasecmp(argv[i],"-vislet")==0)
-			{
-			if(i+1<argc)
-				{
-				/* First parameter is name of vislet class: */
-				const char* className=argv[i+1];
-				
-				/* Find semicolon terminating vislet parameter list: */
-				int argEnd;
-				for(argEnd=i+2;argEnd<argc&&(argv[argEnd][0]!=';'||argv[argEnd][1]!='\0');++argEnd)
-					;
-				
-				if(vruiState->visletManager!=0)
+				/* Next parameter is name of tool binding configuration file section: */
+				if(i+1<argc)
 					{
 					try
 						{
-						/* Initialize the vislet: */
-						VisletFactory* factory=vruiState->visletManager->loadClass(className);
-						vruiState->visletManager->createVislet(factory,argEnd-(i+2),argv+(i+2));
+						/* Load the tool: */
+						vruiState->toolManager->loadToolBinding(argv[i+1]);
 						}
 					catch(std::runtime_error err)
 						{
-						std::cerr<<"Vrui::init: Ignoring vislet of type "<<className<<" due to exception "<<err.what()<<std::endl;
+						/* Print a warning and carry on: */
+						std::cerr<<"Vrui::init: Ignoring tool binding "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
 						}
+					
+					/* Remove parameters from argument list: */
+					argc-=2;
+					for(int j=i;j<argc;++j)
+						argv[j]=argv[j+2];
+					--i;
+					break;
 					}
-				
-				/* Remove all vislet parameters from the command line: */
-				if(argEnd<argc)
-					++argEnd;
-				int numArgs=argEnd-i;
-				argc-=numArgs;
-				for(int j=i;j<argc;++j)
-					argv[j]=argv[j+numArgs];
-				--i;
+				else
+					{
+					/* Ignore the addToolClass parameter: */
+					std::cerr<<"Vrui::init: No tool class name given after -addToolClass option"<<std::endl;
+					--argc;
+					}
 				}
-			else
+			else if(strcasecmp(argv[i]+1,"vislet")==0)
 				{
-				/* Ignore the vislet parameter: */
-				std::cerr<<"No vislet class name given after -vislet option"<<std::endl;
-				argc=i;
+				if(i+1<argc)
+					{
+					/* First parameter is name of vislet class: */
+					const char* className=argv[i+1];
+					
+					/* Find semicolon terminating vislet parameter list: */
+					int argEnd;
+					for(argEnd=i+2;argEnd<argc&&(argv[argEnd][0]!=';'||argv[argEnd][1]!='\0');++argEnd)
+						;
+					
+					if(vruiState->visletManager!=0)
+						{
+						try
+							{
+							/* Initialize the vislet: */
+							VisletFactory* factory=vruiState->visletManager->loadClass(className);
+							vruiState->visletManager->createVislet(factory,argEnd-(i+2),argv+(i+2));
+							}
+						catch(std::runtime_error err)
+							{
+							/* Print a warning and carry on: */
+							std::cerr<<"Vrui::init: Ignoring vislet of type "<<className<<" due to exception "<<err.what()<<std::endl;
+							}
+						}
+					
+					/* Remove all vislet parameters from the command line: */
+					if(argEnd<argc)
+						++argEnd;
+					int numArgs=argEnd-i;
+					argc-=numArgs;
+					for(int j=i;j<argc;++j)
+						argv[j]=argv[j+numArgs];
+					--i;
+					}
+				else
+					{
+					/* Ignore the vislet parameter: */
+					std::cerr<<"Vrui::init: No vislet class name given after -vislet option"<<std::endl;
+					argc=i;
+					}
+				}
+			else if(strcasecmp(argv[i]+1,"loadView")==0)
+				{
+				/* Next parameter is name of viewpoint file to load: */
+				if(i+1<argc)
+					{
+					/* Save viewpoint file name: */
+					vruiState->viewpointFileName=argv[i+1];
+					
+					/* Remove parameters from argument list: */
+					argc-=2;
+					for(int j=i;j<argc;++j)
+						argv[j]=argv[j+2];
+					--i;
+					break;
+					}
+				else
+					{
+					/* Ignore the loadView parameter: */
+					std::cerr<<"Vrui::init: No viewpoint file name given after -loadView option"<<std::endl;
+					--argc;
+					}
 				}
 			}
 	

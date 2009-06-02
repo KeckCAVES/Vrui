@@ -32,14 +32,14 @@ namespace SceneGraph {
 class MaterialNode:public AttributeNode
 	{
 	/* Embedded classes: */
-	public:
+	protected:
 	typedef GLMaterial Material; // Type for material properties
 	typedef Material::Color MColor; // Type for material colors
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFFloat ambientIntensity;
 	SFColor diffuseColor;
 	SFColor specularColor;
@@ -47,7 +47,7 @@ class MaterialNode:public AttributeNode
 	SFColor emissiveColor;
 	SFFloat transparency;
 	
-	private:
+	protected:
 	Material material; // The material properties
 	
 	/* Constructors and destructors: */
@@ -63,16 +63,10 @@ class MaterialNode:public AttributeNode
 	virtual void resetGLState(GLRenderState& renderState) const;
 	
 	/* New methods: */
-	const GLMaterial& getMaterial(void) const // Returns the current material properties
+	const GLMaterial& getMaterial(void) const // Returns the current derived material properties
 		{
 		return material;
 		}
-	void setMaterial(const Material& newMaterial); // Sets the material
-	void setAmbientColor(const MColor& newAmbientColor); // Sets the material's ambient color
-	void setDiffuseColor(const MColor& newDiffuseColor); // Sets the material's diffuse color
-	void setSpecularColor(const MColor& newSpecularColor); // Sets the material's specular color
-	void setShininess(float newShininess); // Sets the material's specular exponent
-	void setEmissionColor(const MColor& newEmissionColor); // Sets the material's emissive color
 	};
 
 typedef Misc::Autopointer<MaterialNode> MaterialNodePointer;

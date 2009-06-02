@@ -27,6 +27,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 namespace SceneGraph {
 
+/*********************************
+Methods of class Node::FieldError:
+*********************************/
+
+Node::FieldError::FieldError(const char* fieldName)
+	:std::runtime_error(Misc::stringPrintf("SceneGraph::Node: Unknown field %s",fieldName))
+	{
+	}
+
 /*********************
 Methods of class Node:
 *********************/
@@ -35,9 +44,19 @@ Node::~Node(void)
 	{
 	}
 
+EventOut* Node::getEventOut(const char* fieldName) const
+	{
+	throw FieldError(fieldName);
+	}
+
+EventIn* Node::getEventIn(const char* fieldName)
+	{
+	throw FieldError(fieldName);
+	}
+
 void Node::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
-	throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("Unknown field %s",fieldName));
+	throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("Unknown field \"%s\"",fieldName));
 	}
 
 void Node::update(void)

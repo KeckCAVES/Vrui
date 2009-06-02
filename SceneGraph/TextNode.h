@@ -36,9 +36,10 @@ namespace SceneGraph {
 class TextNode:public GeometryNode,public GLObject
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<FontStyleNodePointer> SFFontStyleNode;
 	
+	protected:
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
@@ -54,12 +55,14 @@ class TextNode:public GeometryNode,public GLObject
 	/* Elements: */
 	
 	/* Fields: */
+	public:
 	MFString string;
 	SFFontStyleNode fontStyle;
 	MFFloat length;
 	SFFloat maxExtent;
 	
 	/* Derived elements: */
+	protected:
 	std::vector<GLFont::Box> stringBox; // Array of model-space positions and sizes of the quads used to render the strings
 	std::vector<GLFont::TBox> stringTexBox; // Array of texture-space boxes to map the strings to the quads
 	Box boundingBox; // Bounding box around all strings

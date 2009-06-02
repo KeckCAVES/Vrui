@@ -30,9 +30,9 @@ namespace SceneGraph {
 class ColorNode:public Node
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	MFColor color;
 	
 	/* Constructors and destructors: */
@@ -42,12 +42,6 @@ class ColorNode:public Node
 	/* Methods from Node: */
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
-	
-	/* New methods: */
-	const std::vector<Color>& getColors(void) const // Returns the color set
-		{
-		return color.getValues();
-		}
 	};
 
 typedef Misc::Autopointer<ColorNode> ColorNodePointer;

@@ -176,6 +176,50 @@ class SingleArgumentMethodCall:public FunctionCall<ParameterParam>
 		}
 	};
 
+/****************
+Helper functions:
+****************/
+
+template <class ParameterParam>
+inline
+VoidFunctionCall<ParameterParam>*
+createFunctionCall(
+	typename VoidFunctionCall<ParameterParam>::Function function)
+	{
+	return new VoidFunctionCall<ParameterParam>(function);
+	}
+
+template <class ParameterParam,class ArgumentParam>
+inline
+SingleArgumentFunctionCall<ParameterParam,ArgumentParam>*
+createFunctionCall(
+	typename SingleArgumentFunctionCall<ParameterParam,ArgumentParam>::Function function,
+	const typename SingleArgumentFunctionCall<ParameterParam,ArgumentParam>::Argument& argument)
+	{
+	return new SingleArgumentFunctionCall<ParameterParam,ArgumentParam>(function,argument);
+	}
+
+template <class ParameterParam,class CalleeParam>
+inline
+VoidMethodCall<ParameterParam,CalleeParam>*
+createFunctionCall(
+	typename VoidMethodCall<ParameterParam,CalleeParam>::Callee* callee,
+	typename VoidMethodCall<ParameterParam,CalleeParam>::Method method)
+	{
+	return new VoidMethodCall<ParameterParam,CalleeParam>(callee,method);
+	}
+
+template <class ParameterParam,class CalleeParam,class ArgumentParam>
+inline
+SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>*
+createFunctionCall(
+	typename SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>::Callee* callee,
+	typename SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>::Method method,
+	const typename SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>::Argument& argument)
+	{
+	return new SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>(callee,method,argument);
+	}
+
 }
 
 #endif

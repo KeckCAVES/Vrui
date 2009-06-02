@@ -102,34 +102,4 @@ void MaterialNode::resetGLState(GLRenderState& state) const
 	/* Don't do anything here; next guy cleans up */
 	}
 
-void MaterialNode::setMaterial(const MaterialNode::Material& newMaterial)
-	{
-	material=newMaterial;
-	}
-
-void MaterialNode::setAmbientColor(const MaterialNode::MColor& newAmbientColor)
-	{
-	material.ambient=newAmbientColor;
-	}
-
-void MaterialNode::setDiffuseColor(const MaterialNode::MColor& newDiffuseColor)
-	{
-	material.diffuse=newDiffuseColor;
-	}
-
-void MaterialNode::setSpecularColor(const MaterialNode::MColor& newSpecularColor)
-	{
-	material.specular=newSpecularColor;
-	}
-
-void MaterialNode::setShininess(float newShininess)
-	{
-	material.shininess=newShininess;
-	}
-
-void MaterialNode::setEmissionColor(const MaterialNode::MColor& newEmissionColor)
-	{
-	material.emission=newEmissionColor;
-	}
-
 }

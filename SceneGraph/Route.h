@@ -1,5 +1,6 @@
 /***********************************************************************
-NormalNode - Class for nodes defining normal vectors.
+Route - Class for routes connecting an event source to an event sink of
+the same field type.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
@@ -19,33 +20,38 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef SCENEGRAPH_NORMALNODE_INCLUDED
-#define SCENEGRAPH_NORMALNODE_INCLUDED
+#ifndef SCENEGRAPH_ROUTE_INCLUDED
+#define SCENEGRAPH_ROUTE_INCLUDED
 
-#include <Geometry/Vector.h>
-#include <SceneGraph/FieldTypes.h>
-#include <SceneGraph/Node.h>
+#include <stdexcept>
+
+/* Forward declarations: */
+namespace SceneGraph {
+class EventOut;
+class EventIn;
+}
 
 namespace SceneGraph {
 
-class NormalNode:public Node
+class Route
 	{
-	/* Elements: */
-	
-	/* Fields: */
+	/* Embedded classes: */
 	public:
-	MFVector vector;
+	class TypeMismatchError:public std::runtime_error
+		{
+		/* Constructors and destructors: */
+		public:
+		TypeMismatchError(void)
+			:std::runtime_error("Route: Event source type does not match event sink type")
+			{
+			}
+		};
 	
 	/* Constructors and destructors: */
-	public:
-	NormalNode(void); // Creates normal node with empty vector set
-	
-	/* Methods from Node: */
-	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
-	virtual void update(void);
+	virtual ~Route(void)
+		{
+		}
 	};
-
-typedef Misc::Autopointer<NormalNode> NormalNodePointer;
 
 }
 

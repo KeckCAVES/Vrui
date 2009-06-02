@@ -34,14 +34,14 @@ namespace SceneGraph {
 class AppearanceNode:public AttributeNode
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<MaterialNodePointer> SFMaterialNode;
 	typedef SF<TextureNodePointer> SFTextureNode;
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFMaterialNode material;
 	SFTextureNode texture;
 	SFNode textureTransform;

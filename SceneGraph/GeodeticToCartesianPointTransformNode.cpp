@@ -120,7 +120,7 @@ Vector GeodeticToCartesianPointTransformNode::transformVector(const Point& baseP
 	/* Rotate and scale the vector: */
 	Rotation rotation=Rotation::rotateZ(Scalar(Math::Constants<double>::pi+longitude));
 	rotation*=Rotation::rotateX(Scalar(-latitude));
-	return rotation.transform(vector*Scalar(referenceEllipsoid.getValue()->getScale()));
+	return rotation.transform(vector*Scalar(referenceEllipsoid.getValue()->scale.getValue()));
 	}
 
 Vector GeodeticToCartesianPointTransformNode::transformNormal(const Point& basePoint,const Vector& normal) const

@@ -1,5 +1,5 @@
 /***********************************************************************
-NormalNode - Class for nodes defining normal vectors.
+EventIn - Base class for event sinks.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
@@ -19,33 +19,39 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef SCENEGRAPH_NORMALNODE_INCLUDED
-#define SCENEGRAPH_NORMALNODE_INCLUDED
+#ifndef SCENEGRAPH_EVENTIN_INCLUDED
+#define SCENEGRAPH_EVENTIN_INCLUDED
 
-#include <Geometry/Vector.h>
-#include <SceneGraph/FieldTypes.h>
-#include <SceneGraph/Node.h>
+/* Forward declarations: */
+namespace SceneGraph {
+class Node;
+}
 
 namespace SceneGraph {
 
-class NormalNode:public Node
+class EventIn
 	{
 	/* Elements: */
-	
-	/* Fields: */
-	public:
-	MFVector vector;
+	protected:
+	Node* node; // The node containing the field taking events
 	
 	/* Constructors and destructors: */
+	protected:
+	EventIn(Node* sNode) // Creates an event sink for the given node
+		:node(sNode)
+		{
+		}
 	public:
-	NormalNode(void); // Creates normal node with empty vector set
+	virtual ~EventIn(void) // Destroys the event sink
+		{
+		}
 	
-	/* Methods from Node: */
-	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
-	virtual void update(void);
+	/* Methods: */
+	Node* getNode(void) const // Returns the node
+		{
+		return node;
+		}
 	};
-
-typedef Misc::Autopointer<NormalNode> NormalNodePointer;
 
 }
 

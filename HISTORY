@@ -1264,3 +1264,38 @@ Vrui-1.0-059:
 - Added dependency on Vrui dynamic library to all Vrui tools and vislets
   to enable using them from a program not linked with -rdynamic, such as
   for example a Python run-time environment.
+
+Vrui-1.0-060:
+- Fixed type problem in GLGeometry::Vertex; Position in one specialized
+  type was defined as a vector.
+- Created Vrui::MouseSurfaceNavigationTool, a tool class for easy
+  navigation on DEMs and virtual globes. Interacts with applications via
+  an align() callback function that limits the tool's local navigation
+  frame to an application-defined surface.
+- Started changing include file order in some sources; new style is to
+  include Foo.h from Foo.cpp before any other headers, to simplify
+  finding missing include files in headers.
+- Added Geometry::Geoid class, to bundle all that nasty math to convert
+  between different geodesic coordinate systems in one handy place.
+- Added convenience creation functions to Misc/FunctionCalls.h, but
+  admittedly, they're not all that convenient.
+- Created Vrui::WalkSurfaceNavigationTool, a navigation tool that uses a
+  walking metaphor to navigate along an application-defined surface.
+- Added new method loadToolBinding to Vrui::ToolManager, to allow Vrui
+  or applications to load tool bindings on demand, using the same
+  configuration method as for the default bindings listed in toolNames.
+- Added three new command line options to Vrui:
+  - -mergeConfig <configuration file name>
+    Merges another configuration file into Vrui's configuration. Options
+    are processed in order, after the global and user configuration
+    files have already been merged.
+  - -addToolClass <tool class name>
+    Adds a tool class to the list of available tools, just like adding
+    <tool class name> to the toolClassNames configuration file setting.
+  - -addTool <tool binding section name>
+    Adds a tool binding to the list of default tools, just like adding
+    <tool binding section name> to the toolNames configuration file
+    setting.
+- Overhauled error messages during Vrui's initialization; particularly,
+  added more detail to tool binding errors to aid in configuration file
+  debugging.

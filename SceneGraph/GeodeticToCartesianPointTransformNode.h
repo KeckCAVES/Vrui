@@ -33,12 +33,13 @@ namespace SceneGraph {
 class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<ReferenceEllipsoidNodePointer> SFReferenceEllipsoidNode;
 	
 	/* Elements: */
 	
 	/* Fields: */
+	public:
 	SFReferenceEllipsoidNode referenceEllipsoid;
 	SFBool longitudeFirst;
 	SFBool degrees;

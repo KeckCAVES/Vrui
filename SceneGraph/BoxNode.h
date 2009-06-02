@@ -26,21 +26,26 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Geometry/Point.h>
 #include <Geometry/Box.h>
 #include <SceneGraph/FieldTypes.h>
+#include <SceneGraph/DisplayList.h>
 #include <SceneGraph/GeometryNode.h>
 
 namespace SceneGraph {
 
-class BoxNode:public GeometryNode
+class BoxNode:public GeometryNode,public DisplayList
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFPoint center;
 	SFSize size;
 	
 	/* Derived state: */
+	protected:
 	Box box; // The position and size of the axis-aligned box
+	
+	/* Protected methods from DisplayList: */
+	virtual void createList(GLContextData& contextData) const;
 	
 	/* Constructors and destructors: */
 	public:
@@ -55,9 +60,10 @@ class BoxNode:public GeometryNode
 	virtual void glRenderAction(GLRenderState& renderState) const;
 	
 	/* New methods: */
-	void setBox(const Box& newBox); // Sets the position and size of the axis-aligned box
-	void setBox(const Point& newCenter,const Size& newSize); // Ditto, with center and size
-	void setBox(const Size& newSize); // Ditto, with size around the origin
+	const Box& getBox(void) const // Returns the current derived box
+		{
+		return box;
+		}
 	};
 
 }

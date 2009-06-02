@@ -35,12 +35,13 @@ namespace SceneGraph {
 class GeodeticToCartesianTransformNode:public GroupNode
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<ReferenceEllipsoidNodePointer> SFReferenceEllipsoidNode;
 	
 	/* Elements: */
 	
 	/* Fields: */
+	public:
 	SFReferenceEllipsoidNode referenceEllipsoid;
 	SFBool longitudeFirst;
 	SFBool degrees;
@@ -48,6 +49,7 @@ class GeodeticToCartesianTransformNode:public GroupNode
 	SFPoint geodetic;
 	
 	/* Derived state: */
+	protected:
 	OGTransform transform; // The current transformation
 	
 	/* Constructors and destructors: */
@@ -61,6 +63,12 @@ class GeodeticToCartesianTransformNode:public GroupNode
 	/* Methods from GraphNode: */
 	virtual Box calcBoundingBox(void) const;
 	virtual void glRenderAction(GLRenderState& renderState) const;
+	
+	/* New methods: */
+	const OGTransform& getTransform(void) const // Returns the current derived transformation
+		{
+		return transform;
+		}
 	};
 
 }

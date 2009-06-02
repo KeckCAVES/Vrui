@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <Math/Math.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
@@ -41,6 +42,38 @@ TransformNode::TransformNode(void)
 	 translation(Vector::zero),
 	 transform(OGTransform::identity)
 	{
+	}
+
+EventOut* TransformNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"center")==0)
+		return makeEO(this,center);
+	else if(strcmp(fieldName,"rotation")==0)
+		return makeEO(this,rotation);
+	else if(strcmp(fieldName,"scale")==0)
+		return makeEO(this,scale);
+	else if(strcmp(fieldName,"scaleOrientation")==0)
+		return makeEO(this,scaleOrientation);
+	else if(strcmp(fieldName,"translation")==0)
+		return makeEO(this,translation);
+	else
+		return GroupNode::getEventOut(fieldName);
+	}
+
+EventIn* TransformNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"center")==0)
+		return makeEI(this,center);
+	else if(strcmp(fieldName,"rotation")==0)
+		return makeEI(this,rotation);
+	else if(strcmp(fieldName,"scale")==0)
+		return makeEI(this,scale);
+	else if(strcmp(fieldName,"scaleOrientation")==0)
+		return makeEI(this,scaleOrientation);
+	else if(strcmp(fieldName,"translation")==0)
+		return makeEI(this,translation);
+	else
+		return GroupNode::getEventIn(fieldName);
 	}
 
 void TransformNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
@@ -111,12 +144,6 @@ void TransformNode::glRenderAction(GLRenderState& renderState) const
 		
 	/* Pop the transformation off the matrix stack: */
 	renderState.popTransform(previousTransform);
-	}
-
-void TransformNode::setTransform(const OGTransform& newTransform)
-	{
-	/* Set the current transformation: */
-	transform=newTransform;
 	}
 
 }

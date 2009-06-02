@@ -31,9 +31,9 @@ namespace SceneGraph {
 class TextureCoordinateNode:public Node
 	{
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	MFTexCoord point;
 	
 	/* Constructors and destructors: */
@@ -43,12 +43,6 @@ class TextureCoordinateNode:public Node
 	/* Methods from Node: */
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
-	
-	/* New methods: */
-	const std::vector<TexCoord>& getPoints(void) const // Returns the texture coordinate set
-		{
-		return point.getValues();
-		}
 	};
 
 typedef Misc::Autopointer<TextureCoordinateNode> TextureCoordinateNodePointer;

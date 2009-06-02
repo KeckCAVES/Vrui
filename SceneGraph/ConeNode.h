@@ -1,5 +1,5 @@
 /***********************************************************************
-NormalNode - Class for nodes defining normal vectors.
+ConeNode - Class for upright circular cones as renderable geometry.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
@@ -19,33 +19,43 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef SCENEGRAPH_NORMALNODE_INCLUDED
-#define SCENEGRAPH_NORMALNODE_INCLUDED
+#ifndef SCENEGRAPH_CONENODE_INCLUDED
+#define SCENEGRAPH_CONENODE_INCLUDED
 
-#include <Geometry/Vector.h>
 #include <SceneGraph/FieldTypes.h>
-#include <SceneGraph/Node.h>
+#include <SceneGraph/DisplayList.h>
+#include <SceneGraph/GeometryNode.h>
 
 namespace SceneGraph {
 
-class NormalNode:public Node
+class ConeNode:public GeometryNode,public DisplayList
 	{
 	/* Elements: */
 	
 	/* Fields: */
 	public:
-	MFVector vector;
+	SFFloat height;
+	SFFloat bottomRadius;
+	SFInt numSegments;
+	SFBool side;
+	SFBool bottom;
+	
+	/* Protected methods from DisplayList: */
+	protected:
+	virtual void createList(GLContextData& contextData) const;
 	
 	/* Constructors and destructors: */
 	public:
-	NormalNode(void); // Creates normal node with empty vector set
+	ConeNode(void); // Creates a default cone
 	
 	/* Methods from Node: */
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
+	
+	/* Methods from GeometryNode: */
+	virtual Box calcBoundingBox(void) const;
+	virtual void glRenderAction(GLRenderState& renderState) const;
 	};
-
-typedef Misc::Autopointer<NormalNode> NormalNodePointer;
 
 }
 

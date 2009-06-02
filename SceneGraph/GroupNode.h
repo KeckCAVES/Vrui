@@ -35,17 +35,22 @@ namespace SceneGraph {
 class GroupNode:public GraphNode
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef MF<GraphNodePointer> MFGraphNode;
 	
 	/* Elements: */
 	
 	/* Fields: */
+	protected:
+	MFGraphNode addChildren;
+	MFGraphNode removeChildren;
+	public:
 	MFGraphNode children; // List of this node's children
 	SFPoint bboxCenter; // Center of explicit bounding box
 	SFSize bboxSize; // Size of explicit bounding box
 	
 	/* Derived state: */
+	protected:
 	bool haveExplicitBoundingBox; // Flag whether the node has an explicit bounding box
 	Box explicitBoundingBox; // The explicit bounding box, if it exists
 	
@@ -54,26 +59,14 @@ class GroupNode:public GraphNode
 	GroupNode(void); // Creates an empty group node
 	
 	/* Methods from Node: */
+	virtual EventOut* getEventOut(const char* fieldName) const;
+	virtual EventIn* getEventIn(const char* fieldName);
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	
 	/* Methods from GraphNode: */
 	virtual Box calcBoundingBox(void) const;
 	virtual void glRenderAction(GLRenderState& renderState) const;
-	
-	/* New methods: */
-	int getNumChildren(void) const // Returns the number of children of the group node
-		{
-		return children.getNumValues();
-		}
-	virtual int addChild(GraphNodePointer newChild); // Adds another child node to the group node; returns new child's index
-	GraphNode* getChild(int childIndex) const // Returns a pointer to the child of the given index
-		{
-		return children.getValue(childIndex).getPointer();
-		}
-	virtual void removeChild(int childIndex); // Removes the child of the given index from the group node
-	virtual void setBoundingBox(const Box& newBoundingBox); // Sets an explicit bounding box
-	virtual void unsetBoundingBox(void); // Removes an explicit bounding box
 	};
 
 typedef Misc::Autopointer<GroupNode> GroupNodePointer;

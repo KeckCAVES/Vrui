@@ -37,13 +37,13 @@ namespace SceneGraph {
 class GeometryNode:public Node
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<PointTransformNodePointer> SFPointTransformNode;
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFPointTransformNode pointTransform;
 	
 	/* Constructors and destructors: */

@@ -64,7 +64,6 @@ FontStyleNode::FontStyleNode(void)
 	 language(""),
 	 size(Scalar(1)),
 	 spacing(Scalar(1)),
-	 justify("BEGIN"),
 	 horizontal(true),
 	 leftToRight(true),
 	 topToBottom(true)

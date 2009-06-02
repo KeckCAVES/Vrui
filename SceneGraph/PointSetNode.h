@@ -34,10 +34,11 @@ namespace SceneGraph {
 class PointSetNode:public GeometryNode,public GLObject
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	typedef SF<ColorNodePointer> SFColorNode;
 	typedef SF<CoordinateNodePointer> SFCoordinateNode;
 	
+	protected:
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
@@ -51,14 +52,15 @@ class PointSetNode:public GeometryNode,public GLObject
 		};
 	
 	/* Elements: */
-	protected:
 	
 	/* Fields: */
+	public:
 	SFColorNode color;
 	SFCoordinateNode coord;
 	SFFloat pointSize;
 	
 	/* Derived state: */
+	protected:
 	unsigned int version; // Version number of point set
 	
 	/* Constructors and destructors: */

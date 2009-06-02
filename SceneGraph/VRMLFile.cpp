@@ -30,12 +30,90 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/Rotation.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/NodeCreator.h>
 #include <SceneGraph/GraphNode.h>
 
 namespace SceneGraph {
 
 namespace {
+
+/*************************************************************************
+Helper function to parse route statements (will move into VRMLFile class):
+*************************************************************************/
+
+void parseRoute(VRMLFile& vrmlFile)
+	{
+	/* Read the event source name: */
+	const char* source=vrmlFile.readNextToken();
+	
+	/* Split the event source into node name and field name: */
+	const char* periodPtr=0;
+	for(const char* sPtr=source;*sPtr!='\0';++sPtr)
+		if(*sPtr=='.')
+			{
+			if(periodPtr!=0)
+				throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("multiple periods in event source %s",source));
+			periodPtr=sPtr;
+			}
+	if(periodPtr==0)
+		throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("missing period in event source %s",source));
+	
+	/* Retrieve the event source: */
+	EventOut* eventOut=0;
+	try
+		{
+		std::string sourceNode(source,periodPtr);
+		eventOut=vrmlFile.useNode(sourceNode.c_str())->getEventOut(periodPtr+1);
+		}
+	catch(Node::FieldError err)
+		{
+		throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("unknown field \"%s\" in event source",periodPtr+1));
+		}
+	
+	/* Check the TO keyword: */
+	vrmlFile.readNextToken();
+	if(!vrmlFile.isToken("TO"))
+		throw VRMLFile::ParseError(vrmlFile,"missing TO keyword in route definition");
+		
+	/* Read the event sink name: */
+	const char* sink=vrmlFile.readNextToken();
+	
+	/* Split the event sink into node name and field name: */
+	periodPtr=0;
+	for(const char* sPtr=sink;*sPtr!='\0';++sPtr)
+		if(*sPtr=='.')
+			{
+			if(periodPtr!=0)
+				throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("multiple periods in event sink %s",sink));
+			periodPtr=sPtr;
+			}
+	if(periodPtr==0)
+		throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("missing period in event sink %s",sink));
+	
+	/* Retrieve the event sink: */
+	EventIn* eventIn=0;
+	try
+		{
+		std::string sinkNode(sink,periodPtr);
+		eventIn=vrmlFile.useNode(sinkNode.c_str())->getEventIn(periodPtr+1);
+		}
+	catch(Node::FieldError err)
+		{
+		throw VRMLFile::ParseError(vrmlFile,Misc::stringPrintf("unknown field \"%s\" in event sink",periodPtr+1));
+		}
+	
+	/* Create a route: */
+	Route* route=0;
+	try
+		{
+		route=eventOut->connectTo(eventIn);
+		}
+	catch(Route::TypeMismatchError err)
+		{
+		throw VRMLFile::ParseError(vrmlFile,"mismatching field types in route definition");
+		}
+	}
 
 /********************************************************************
 Helper functions to parse floating-point values and component arrays:
@@ -267,7 +345,12 @@ class ValueParser<NodePointer>
 		
 		/* Read the node type name: */
 		vrmlFile.readNextToken();
-		if(vrmlFile.isToken("USE"))
+		if(vrmlFile.isToken("ROUTE"))
+			{
+			/* Parse a route statement: */
+			parseRoute(vrmlFile);
+			}
+		else if(vrmlFile.isToken("USE"))
 			{
 			/* Retrieve a named node from the VRML file: */
 			result=vrmlFile.useNode(vrmlFile.readNextToken());
@@ -298,11 +381,18 @@ class ValueParser<NodePointer>
 				
 				while(!vrmlFile.eof()&&vrmlFile.peekc()!='}')
 					{
-					/* Read the next field name: */
 					vrmlFile.readNextToken();
 					
-					/* Parse the field's value: */
-					result->parseField(vrmlFile.getToken(),vrmlFile);
+					if(vrmlFile.isToken("ROUTE"))
+						{
+						/* Parse a route statement: */
+						parseRoute(vrmlFile);
+						}
+					else
+						{
+						/* Parse a field value: */
+						result->parseField(vrmlFile.getToken(),vrmlFile);
+						}
 					}
 				
 				/* Check for and skip the closing brace: */
@@ -445,7 +535,8 @@ void VRMLFile::parse(GroupNodePointer root)
 		{
 		SF<GraphNodePointer> node;
 		parseSFNode(node);
-		root->addChild(node.getValue());
+		if(node.getValue()!=0)
+			root->children.appendValue(node.getValue());
 		}
 	}
 

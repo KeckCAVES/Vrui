@@ -40,6 +40,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Tools/LocatorTool.h>
 #include <Vrui/Tools/DraggingTool.h>
 #include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/Tools/SurfaceNavigationTool.h>
 #include <Vrui/Tools/TransformTool.h>
 #include <Vrui/Tools/UserInterfaceTool.h>
 #include <Vrui/Tools/MenuTool.h>
@@ -583,6 +584,7 @@ ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::Con
 	addClass(new LocatorToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new DraggingToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new NavigationToolFactory(*this),destroyToolFactoryFunction);
+	addClass(new SurfaceNavigationToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new TransformToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new UserInterfaceToolFactory(*this),destroyToolFactoryFunction);
 	addClass(new MenuToolFactory(*this),destroyToolFactoryFunction);
@@ -725,6 +727,79 @@ Tool* ToolManager::assignTool(ToolFactory* factory,const ToolInputAssignment& ti
 	return newTool;
 	}
 
+void ToolManager::loadToolBinding(const char* toolSectionName)
+	{
+	/* Go to tool's section: */
+	Misc::ConfigurationFileSection toolSection=configFileSection.getSection(toolSectionName);
+	
+	/* Get pointer to factory for tool's class: */
+	ToolFactory* factory=loadClass(toolSection.retrieveString("./toolClass").c_str());
+	const ToolInputLayout& layout=factory->getLayout();
+	
+	/* Gather tool's input device assignments: */
+	ToolInputAssignment tia(layout);
+	for(int deviceIndex=0;deviceIndex<layout.getNumDevices();++deviceIndex)
+		{
+		/* Get pointer to assigned input device: */
+		char deviceNameTag[40];
+		snprintf(deviceNameTag,sizeof(deviceNameTag),"./deviceName%d",deviceIndex);
+		std::string deviceName=toolSection.retrieveString(deviceNameTag);
+		InputDevice* device=inputDeviceManager->findInputDevice(deviceName.c_str());
+		if(device==0)
+			Misc::throwStdErr("ToolManager::loadToolBinding: Input device %s not found",deviceName.c_str());
+		
+		/* Assign device: */
+		tia.setDevice(deviceIndex,device);
+		
+		/* Initialize button index assignments: */
+		char deviceButtonIndexBaseTag[40];
+		snprintf(deviceButtonIndexBaseTag,sizeof(deviceButtonIndexBaseTag),"./device%dButtonIndexBase",deviceIndex);
+		int deviceButtonIndexBase=toolSection.retrieveValue<int>(deviceButtonIndexBaseTag,0);
+		for(int buttonIndex=0;buttonIndex<layout.getNumButtons(deviceIndex);++buttonIndex)
+			{
+			/* Get index of assigned button: */
+			char deviceButtonIndexTag[40];
+			snprintf(deviceButtonIndexTag,sizeof(deviceButtonIndexTag),"./device%dButtonIndex%d",deviceIndex,buttonIndex);
+			int deviceButtonIndex=toolSection.retrieveValue<int>(deviceButtonIndexTag,deviceButtonIndexBase+buttonIndex);
+			if(deviceButtonIndex>=device->getNumButtons())
+				Misc::throwStdErr("ToolManager::loadToolBinding: Button index %d out of range for input device %s",deviceButtonIndex,deviceName.c_str());
+			
+			/* Check if button is already assigned: */
+			for(ToolAssignmentSlotList::const_iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
+				if(tasIt->isForButton(device,deviceButtonIndex)&&tasIt->assigned)
+					Misc::throwStdErr("ToolManager::loadToolBinding: Button %d on input device %s already assigned",deviceButtonIndex,deviceName.c_str());
+			
+			/* Assign button: */
+			tia.setButtonIndex(deviceIndex,buttonIndex,deviceButtonIndex);
+			}
+		
+		/* Initialize valuator index assignments: */
+		char deviceValuatorIndexBaseTag[40];
+		snprintf(deviceValuatorIndexBaseTag,sizeof(deviceValuatorIndexBaseTag),"./device%dValuatorIndexBase",deviceIndex);
+		int deviceValuatorIndexBase=toolSection.retrieveValue<int>(deviceValuatorIndexBaseTag,0);
+		for(int valuatorIndex=0;valuatorIndex<layout.getNumValuators(deviceIndex);++valuatorIndex)
+			{
+			/* Get index of assigned valuator: */
+			char deviceValuatorIndexTag[40];
+			snprintf(deviceValuatorIndexTag,sizeof(deviceValuatorIndexTag),"./device%dValuatorIndex%d",deviceIndex,valuatorIndex);
+			int deviceValuatorIndex=toolSection.retrieveValue<int>(deviceValuatorIndexTag,deviceValuatorIndexBase+valuatorIndex);
+			if(deviceValuatorIndex>=device->getNumValuators())
+				Misc::throwStdErr("ToolManager::loadToolBinding: Valuator index %d out of range for input device %s",deviceValuatorIndex,deviceName.c_str());
+			
+			/* Check if valuator is already assigned: */
+			for(ToolAssignmentSlotList::const_iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
+				if(tasIt->isForValuator(device,deviceValuatorIndex)&&tasIt->assigned)
+					Misc::throwStdErr("ToolManager::loadToolBinding: Valuator %d on input device %s already assigned",deviceValuatorIndex,deviceName.c_str());
+			
+			/* Assign valuator: */
+			tia.setValuatorIndex(deviceIndex,valuatorIndex,deviceValuatorIndex);
+			}
+		}
+	
+	/* Create tool of given class: */
+	assignTool(factory,tia);
+	}
+
 void ToolManager::loadDefaultTools(void)
 	{
 	/* Configure initial tool assignment: */
@@ -734,90 +809,23 @@ void ToolManager::loadDefaultTools(void)
 		{
 		try
 			{
-			/* Go to tool's section: */
-			Misc::ConfigurationFileSection toolSection=configFileSection.getSection(tnIt->c_str());
-			
-			/* Get pointer to factory for tool's class: */
-			ToolFactory* factory=loadClass(toolSection.retrieveString("./toolClass").c_str());
-			const ToolInputLayout& layout=factory->getLayout();
-			
-			/* Gather tool's input device assignments: */
-			ToolInputAssignment tia(layout);
-			for(int deviceIndex=0;deviceIndex<layout.getNumDevices();++deviceIndex)
-				{
-				/* Get pointer to assigned input device: */
-				char deviceNameTag[40];
-				snprintf(deviceNameTag,sizeof(deviceNameTag),"./deviceName%d",deviceIndex);
-				InputDevice* device=inputDeviceManager->findInputDevice(toolSection.retrieveString(deviceNameTag).c_str());
-				if(device==0)
-					Misc::throwStdErr("ToolManager: Input device %s not found",toolSection.retrieveString(deviceNameTag).c_str());
-				
-				/* Assign device: */
-				tia.setDevice(deviceIndex,device);
-				
-				/* Initialize button index assignments: */
-				char deviceButtonIndexBaseTag[40];
-				snprintf(deviceButtonIndexBaseTag,sizeof(deviceButtonIndexBaseTag),"./device%dButtonIndexBase",deviceIndex);
-				int deviceButtonIndexBase=toolSection.retrieveValue<int>(deviceButtonIndexBaseTag,0);
-				for(int buttonIndex=0;buttonIndex<layout.getNumButtons(deviceIndex);++buttonIndex)
-					{
-					/* Get index of assigned button: */
-					char deviceButtonIndexTag[40];
-					snprintf(deviceButtonIndexTag,sizeof(deviceButtonIndexTag),"./device%dButtonIndex%d",deviceIndex,buttonIndex);
-					int deviceButtonIndex=toolSection.retrieveValue<int>(deviceButtonIndexTag,deviceButtonIndexBase+buttonIndex);
-					if(deviceButtonIndex>=device->getNumButtons())
-						Misc::throwStdErr("ToolManager: Button index out of range");
-					
-					/* Check if button is already assigned: */
-					for(ToolAssignmentSlotList::const_iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
-						if(tasIt->isForButton(device,deviceButtonIndex)&&tasIt->assigned)
-							Misc::throwStdErr("ToolManager: Button already assigned");
-					
-					/* Assign button: */
-					tia.setButtonIndex(deviceIndex,buttonIndex,deviceButtonIndex);
-					}
-				
-				/* Initialize valuator index assignments: */
-				char deviceValuatorIndexBaseTag[40];
-				snprintf(deviceValuatorIndexBaseTag,sizeof(deviceValuatorIndexBaseTag),"./device%dValuatorIndexBase",deviceIndex);
-				int deviceValuatorIndexBase=toolSection.retrieveValue<int>(deviceValuatorIndexBaseTag,0);
-				for(int valuatorIndex=0;valuatorIndex<layout.getNumValuators(deviceIndex);++valuatorIndex)
-					{
-					/* Get index of assigned valuator: */
-					char deviceValuatorIndexTag[40];
-					snprintf(deviceValuatorIndexTag,sizeof(deviceValuatorIndexTag),"./device%dValuatorIndex%d",deviceIndex,valuatorIndex);
-					int deviceValuatorIndex=toolSection.retrieveValue<int>(deviceValuatorIndexTag,deviceValuatorIndexBase+valuatorIndex);
-					if(deviceValuatorIndex>=device->getNumValuators())
-						Misc::throwStdErr("ToolManager: Valuator index out of range");
-					
-					/* Check if valuator is already assigned: */
-					for(ToolAssignmentSlotList::const_iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
-						if(tasIt->isForValuator(device,deviceValuatorIndex)&&tasIt->assigned)
-							Misc::throwStdErr("ToolManager: Valuator already assigned");
-					
-					/* Assign valuator: */
-					tia.setValuatorIndex(deviceIndex,valuatorIndex,deviceValuatorIndex);
-					}
-				}
-			
-			/* Create tool of given class: */
-			assignTool(factory,tia);
+			/* Load the tool binding: */
+			loadToolBinding(tnIt->c_str());
 			}
 		catch(std::runtime_error err)
 			{
-			/* Print an error message: */
-			std::cout<<"ToolManager: Ignoring tool "<<*tnIt;
-			std::cout<<" due to exception "<<err.what()<<std::endl;
+			/* Print a warning message and carry on: */
+			std::cout<<"ToolManager::loadDefaultTools: Ignoring tool binding "<<*tnIt<<" due to exception "<<err.what()<<std::endl;
 			}
 		}
 	
 	/* Get factory for tool selection menu tools: */
 	toolSelectionMenuFactory=loadClass(configFileSection.retrieveString("./toolSelectionMenuToolClass").c_str());
 	if(!toolSelectionMenuFactory->isDerivedFrom("MenuTool"))
-		Misc::throwStdErr("ToolManager: Tool selection menu tool class is not a menu tool class");
+		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class is not a menu tool class");
 	const ToolInputLayout& menuToolLayout=toolSelectionMenuFactory->getLayout();
 	if(menuToolLayout.getNumDevices()!=1||menuToolLayout.getNumButtons(0)!=1||menuToolLayout.getNumValuators(0)!=0)
-		Misc::throwStdErr("ToolManager: Tool selection menu tool class has wrong input layout");
+		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class has wrong input layout");
 	
 	/* Create tool selection menu: */
 	toolMenuPopup=createToolMenu();

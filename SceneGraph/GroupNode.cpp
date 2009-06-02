@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/GroupNode.h>
 
 #include <string.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 
 namespace SceneGraph {
@@ -35,6 +36,26 @@ GroupNode::GroupNode(void)
 	 bboxSize(Size(-1,-1,-1)),
 	 haveExplicitBoundingBox(false)
 	{
+	}
+
+EventOut* GroupNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"children")==0)
+		return makeEO(this,children);
+	else
+		return GraphNode::getEventOut(fieldName);
+	}
+
+EventIn* GroupNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"addChildren")==0)
+		return makeEI(this,addChildren);
+	else if(strcmp(fieldName,"removeChildren")==0)
+		return makeEI(this,removeChildren);
+	else if(strcmp(fieldName,"children")==0)
+		return makeEI(this,children);
+	else
+		return GraphNode::getEventIn(fieldName);
 	}
 
 void GroupNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
@@ -57,6 +78,48 @@ void GroupNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 
 void GroupNode::update(void)
 	{
+	/* Process the lists of children to add and children to remove: */
+	if(addChildren.getNumValues()!=0)
+		{
+		MFGraphNode::ValueList& c=children.getValues();
+		MFGraphNode::ValueList& ac=addChildren.getValues();
+		for(MFGraphNode::ValueList::iterator acIt=ac.begin();acIt!=ac.end();++acIt)
+			{
+			/* Check if the child is already in the list: */
+			MFGraphNode::ValueList::iterator cIt;
+			for(cIt=c.begin();cIt!=c.end()&&*cIt!=*acIt;++cIt)
+				;
+			if(cIt==c.end())
+				{
+				/* Add the child to the list: */
+				c.push_back(*acIt);
+				}
+			}
+		ac.clear();
+		}
+	
+	if(removeChildren.getNumValues()!=0)
+		{
+		MFGraphNode::ValueList& c=children.getValues();
+		MFGraphNode::ValueList& rc=removeChildren.getValues();
+		for(MFGraphNode::ValueList::iterator rcIt=rc.begin();rcIt!=rc.end();++rcIt)
+			{
+			/* Remove all instances of the child from the list: */
+			for(MFGraphNode::ValueList::iterator cIt=c.begin();cIt!=c.end();)
+				{
+				if(*cIt==*rcIt)
+					{
+					/* Remove the child: */
+					c.erase(cIt);
+					}
+				else
+					++cIt;
+				}
+			}
+		rc.clear();
+		}
+	
+	/* Calculate the explicit bounding box, if one is given: */
 	haveExplicitBoundingBox=bboxSize.getValue()[0]>=Scalar(0)&&bboxSize.getValue()[1]>=Scalar(0)&&bboxSize.getValue()[2]>=Scalar(0);
 	if(haveExplicitBoundingBox)
 		{
@@ -91,32 +154,6 @@ void GroupNode::glRenderAction(GLRenderState& renderState) const
 	/* Call the render actions of all children in order: */
 	for(MFGraphNode::ValueList::const_iterator chIt=children.getValues().begin();chIt!=children.getValues().end();++chIt)
 		(*chIt)->glRenderAction(renderState);
-	}
-
-int GroupNode::addChild(GraphNodePointer newChild)
-	{
-	/* Add the new child to the list: */
-	int result=children.getNumValues();
-	children.appendValue(newChild);
-	return result;
-	}
-
-void GroupNode::removeChild(int childIndex)
-	{
-	children.removeValue(childIndex);
-	}
-
-void GroupNode::setBoundingBox(const Box& newBoundingBox)
-	{
-	/* Set the explicit bounding box: */
-	haveExplicitBoundingBox=true;
-	explicitBoundingBox=newBoundingBox;
-	}
-
-void GroupNode::unsetBoundingBox(void)
-	{
-	/* Disable the explicit bounding box: */
-	haveExplicitBoundingBox=false;
 	}
 
 }
