@@ -540,8 +540,20 @@ void ConfigurationFileBase::merge(const char* mergeFileName)
 		const char* linePtr=line.data();
 		const char* lineEndPtr=linePtr+line.size();
 		
-		/* Check for empty or comment lines: */
-		if(linePtr==lineEndPtr||*linePtr=='#')
+		/* Check if the line contains a comment: */
+		for(const char* lPtr=linePtr;lPtr!=lineEndPtr;++lPtr)
+			if(*lPtr=='#')
+				{
+				lineEndPtr=lPtr;
+				break;
+				}
+		
+		/* Remove whitespace from the end of the line: */
+		while(lineEndPtr!=linePtr&&isspace(lineEndPtr[-1]))
+			--lineEndPtr;
+		
+		/* Check for empty lines: */
+		if(linePtr==lineEndPtr)
 			continue;
 		
 		/* Extract first string from line: */

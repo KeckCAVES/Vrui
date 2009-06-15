@@ -1299,3 +1299,60 @@ Vrui-1.0-060:
 - Overhauled error messages during Vrui's initialization; particularly,
   added more detail to tool binding errors to aid in configuration file
   debugging.
+
+Vrui-1.0-061:
+- Added "navigation mode" to virtual input devices, which can be toggled
+  with a new button rendered underneath the input device's glyph. In
+  navigation mode, the input device will move with the navigation
+  transformation, and in effect act as an application-level dragger.
+- Changed handling of Vrui's navigation transformation: during
+  initialization, particularly from inside an application's constructor,
+  changes to the navigation transformation take effect right away.
+  Starting with the initDisplay() call, changes are delayed to the next
+  frame as before.
+- Added default tool factory destructor method to Vrui::ToolManager; can
+  be used by applications to delete their custom tool factories.
+- Added base class for application-specific tools to Vrui::Application,
+  greatly reduces the amount of code necessary to create and manage tool
+  classes that need to refer back to the application object owning them.
+- Changes VruiCustomToolDemo example program to use the new tool base
+  class from Vrui::Application.
+- Added basic standard output operators for geometry classes in
+  Geometry/OutputOperators.h.
+- Added missing #include <stdio.h> in some files; were not noticed
+  before g++ 4.4.0.
+- Added encoder and decoder classes for geometry matrices and affine and
+  projective transformations to Geometry/GeometryValueCoders.
+- Added support for off-axis projectors to Vrui screen and window
+  management, controlled by specifying an optional homography matrix in
+  a screen's configuration file section. 3x3 homographies are extended
+  to 3D and applied to the OpenGL projection matrix before the frustum
+  projection.
+  - Added offAxis flag and homography matrix to Vrui::VRScreen.
+  - Added boolean offAxis setting and 3x3 matrix homography setting to
+    screens' recognized configuration file settings.
+  - Changed Vrui::VRWindow to apply homography matrix for off-axis
+    screens when creating a window's projection matrix.
+  - Changed Vrui::VRWindow to apply homography matrix for off-axis
+    screens when reprojecting a window position into model space.
+- Changed Vrui::InputDeviceAdapterMouse such that modifier keys also
+  apply to the mouse wheel valuator.
+- Changed Misc::ConfigurationFile to ignore comments and whitespace at
+  the end of lines read from a configuration file; paves the way for
+  some simplifications in the future. No more quotes around section
+  names starting in the next release.
+- Fixed a problem with Sound library: SOUND_USE_ALSA was only defined
+  while building the library itself, not client code depending on it.
+  Added -DSOUND_USE_ALSA to MYSOUND_CFLAGS in BuildRoot/Packages.
+- Fixed stupid bug in MouseSurfaceNavigationTool's widget dragging
+  behavior; now works as it should.
+- Added helper class Vrui::MouseCursorFaker to render a fake mouse
+  cursor in cases where there is no hardware cursor, or it is
+  inappropriate.
+- Changed Vrui::InputDeviceAdapterMouse to render a fake mouse cursor if
+  requested.
+- Changed Vrui::InputDeviceAdapterPlayback to render a fake mouse cursor
+  if requested.
+- Removed option to render fake mouse cursors from diverse mouse
+  navigation tools.
+- Added virtual compass to Vrui::MouseSurfaceNavigationTool.

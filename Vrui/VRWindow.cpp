@@ -21,6 +21,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#define GLX_GLXEXT_PROTOTYPES 1
+
+#include <Vrui/VRWindow.h>
+
 #define RENDERFRAMETIMES 0
 
 #include <stdio.h>
@@ -41,7 +45,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
-#define GLX_GLXEXT_PROTOTYPES 1
 #include <GL/glx.h>
 // #include <GL/glxext.h>
 #include <GL/GLColorTemplates.h>
@@ -67,8 +70,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ToolKillZone.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Vrui.Internal.h>
-
-#include <Vrui/VRWindow.h>
 
 namespace Misc {
 
@@ -291,6 +292,15 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	/* Set up projection matrix: */
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
+	
+	/* Check if the screen is projected off-axis: */
+	if(screens[screenIndex]->isOffAxis())
+		{
+		/* Apply the screen's off-axis correction homography: */
+		glMultMatrix(screens[screenIndex]->getInverseClipHomography());
+		}
+	
+	/* Apply the screen's frustum transformation: */
 	double near=getFrontplaneDist();
 	double far=getBackplaneDist();
 	double left=(viewports[screenIndex][0]-screenEyePos[0])/screenEyePos[2]*near;
@@ -967,12 +977,28 @@ Ray VRWindow::reprojectWindowPos(const Scalar windowPos[2]) const
 	Point eyePos=viewer->getEyePosition(Viewer::MONO);
 	Point screenEyePos=screenT.inverseTransform(eyePos);
 	
-	/* Calculate point on near plane: */
-	Scalar near=getFrontplaneDist();
+	/* Check if the screen is projected off-axis: */
 	Point nearPoint;
-	nearPoint[0]=(windowPos[0]-screenEyePos[0])/screenEyePos[2]*near+screenEyePos[0];
-	nearPoint[1]=(windowPos[1]-screenEyePos[1])/screenEyePos[2]*near+screenEyePos[1];
-	nearPoint[2]=screenEyePos[2]-near;
+	if(screens[0]->isOffAxis())
+		{
+		/* Transform the window position from rectified screen coordinates to projected screen coordinates: */
+		VRScreen::PTransform2::Point wp(windowPos);
+		wp=screens[0]->getScreenHomography().transform(wp);
+		
+		/* Calculate point on near plane: */
+		Scalar near=getFrontplaneDist();
+		nearPoint[0]=(wp[0]-screenEyePos[0])/screenEyePos[2]*near+screenEyePos[0];
+		nearPoint[1]=(wp[1]-screenEyePos[1])/screenEyePos[2]*near+screenEyePos[1];
+		nearPoint[2]=screenEyePos[2]-near;
+		}
+	else
+		{
+		/* Calculate point on near plane: */
+		Scalar near=getFrontplaneDist();
+		nearPoint[0]=(windowPos[0]-screenEyePos[0])/screenEyePos[2]*near+screenEyePos[0];
+		nearPoint[1]=(windowPos[1]-screenEyePos[1])/screenEyePos[2]*near+screenEyePos[1];
+		nearPoint[2]=screenEyePos[2]-near;
+		}
 	
 	/* Transform near point to world coordinates: */
 	nearPoint=screenT.transform(nearPoint);

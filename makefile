@@ -685,6 +685,7 @@ GEOMETRY_HEADERS = Geometry/ComponentArray.h Geometry/ComponentArray.cpp \
                    Geometry/PolygonMesh.h Geometry/PolygonMesh.cpp \
                    Geometry/Random.h Geometry/Random.cpp \
                    Geometry/Endianness.h \
+                   Geometry/OutputOperators.h Geometry/OutputOperators.cpp \
                    Geometry/GeometryValueCoders.h Geometry/GeometryValueCoders.cpp
 
 GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
@@ -712,6 +713,7 @@ GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
                    Geometry/ArrayKdTree.cpp \
                    Geometry/PolygonMesh.cpp \
                    Geometry/Random.cpp \
+                   Geometry/OutputOperators.cpp \
                    Geometry/GeometryValueCoders.cpp
 
 $(call LIBRARYNAME,libGeometry): PACKAGES += $(MYGEOMETRY_DEPENDS)
@@ -1052,11 +1054,7 @@ SOUND_SOURCES += Sound/SoundRecorder.cpp \
 
 $(call LIBRARYNAME,libSound): PACKAGES += $(MYSOUND_DEPENDS)
 $(call LIBRARYNAME,libSound): EXTRACINCLUDEFLAGS += $(MYSOUND_INCLUDE)
-ifeq ($(SYSTEM),LINUX)
-  ifneq ($(VRUI_USE_SOUND),0)
-    $(call LIBRARYNAME,libSound): CFLAGS += -DSOUND_USE_ALSA
-  endif
-endif
+$(call LIBRARYNAME,libSound): CFLAGS += $(MYSOUND_CFLAGS)
 $(call LIBRARYNAME,libSound): $(call DEPENDENCIES,MYSOUND)
 $(call LIBRARYNAME,libSound): $(SOUND_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libSound
@@ -1167,6 +1165,7 @@ VRUI_HEADERS = Vrui/Geometry.h \
                Vrui/TransparentObject.h \
                Vrui/GlyphRenderer.h \
                Vrui/InputDevice.h \
+               Vrui/MouseCursorFaker.h \
                Vrui/VirtualInputDevice.h \
                Vrui/InputGraphManager.h \
                Vrui/InputDeviceManager.h \
@@ -1213,6 +1212,7 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/BoxRayDragger.cpp \
                Vrui/GlyphRenderer.cpp \
                Vrui/InputDevice.cpp \
+               Vrui/MouseCursorFaker.cpp \
                Vrui/VirtualInputDevice.cpp \
                Vrui/InputGraphManager.cpp \
                Vrui/InputDeviceManager.cpp \
@@ -1263,6 +1263,8 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/Vrui.Workbench.cpp \
                Vrui/Application.cpp
 
+$(OBJDIR)/Vrui/InputDeviceAdapterMouse.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
+$(OBJDIR)/Vrui/InputDeviceAdapterPlayback.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DAUTOSTEREODIRECTORY='"$(SHAREINSTALLDIR)/Textures"'
@@ -1322,9 +1324,6 @@ $(VRTOOLSDIR)/libCurveEditorTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMat
                                                    $(OBJDIR)/Vrui/Tools/CurveEditorTool.o
 
 # Vrui tool settings:
-$(OBJDIR)/Vrui/Tools/MouseNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-$(OBJDIR)/Vrui/Tools/MouseDialogNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-$(OBJDIR)/Vrui/Tools/MouseSurfaceNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/Tools/JediTool.o: CFLAGS += -DDEFAULTLIGHTSABERIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Lightsaber.png"'
 ifneq ($(IMAGES_USE_PNG),0)
   ifneq ($(VRUI_USE_PNG),0)

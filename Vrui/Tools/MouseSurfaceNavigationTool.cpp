@@ -24,20 +24,18 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Tools/MouseSurfaceNavigationTool.h>
 
 // DEBUGGING
-#include <iostream>
+//#include <iostream>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
-#include <GL/GLContextData.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/TitleBar.h>
 #include <GLMotif/WidgetManager.h>
-#include <Images/ReadImageFile.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/InputDeviceAdapterMouse.h>
 #include <Vrui/VRScreen.h>
@@ -59,13 +57,9 @@ MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager
 	 scaleFactor(getInchFactor()*Scalar(3)),
 	 wheelScaleFactor(Scalar(0.5)),
 	 fixAzimuth(false),
+	 showCompass(true),
 	 showScreenCenter(false),
-	 interactWithWidgets(true),
-	 showMouseCursor(false),
-	 mouseCursorSize(Scalar(0.5),Scalar(0.5),Scalar(0.0)),
-	 mouseCursorHotspot(Scalar(0.0),Scalar(1.0),Scalar(0.0)),
-	 mouseCursorImageFileName(DEFAULTMOUSECURSORIMAGEFILENAME),
-	 mouseCursorNominalSize(24)
+	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -84,13 +78,9 @@ MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager
 	scaleFactor=cfs.retrieveValue<Scalar>("./scaleFactor",scaleFactor);
 	wheelScaleFactor=cfs.retrieveValue<Scalar>("./wheelScaleFactor",wheelScaleFactor);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
+	showCompass=cfs.retrieveValue<bool>("./showCompass",showCompass);
 	showScreenCenter=cfs.retrieveValue<bool>("./showScreenCenter",showScreenCenter);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
-	showMouseCursor=cfs.retrieveValue<bool>("./showMouseCursor",showMouseCursor);
-	mouseCursorSize=cfs.retrieveValue<Size>("./mouseCursorSize",mouseCursorSize);
-	mouseCursorHotspot=cfs.retrieveValue<Vector>("./mouseCursorHotspot",mouseCursorHotspot);
-	mouseCursorImageFileName=cfs.retrieveString("./mouseCursorImageFileName",mouseCursorImageFileName);
-	mouseCursorNominalSize=cfs.retrieveValue<unsigned int>("./mouseCursorNominalSize",mouseCursorNominalSize);
 	
 	/* Set tool class' factory pointer: */
 	MouseSurfaceNavigationTool::factory=this;
@@ -149,32 +139,6 @@ MouseSurfaceNavigationToolFactory* MouseSurfaceNavigationTool::factory=0;
 /*******************************************
 Methods of class MouseSurfaceNavigationTool:
 *******************************************/
-
-// DEBUGGING
-namespace {
-
-std::ostream& operator<<(std::ostream& os,const Rotation& rot)
-	{
-	Vector r=rot.getAxis();
-	Scalar a=Math::deg(rot.getAngle());
-	
-	os<<"("<<r[0]<<", "<<r[1]<<", "<<r[2]<<"), "<<a;
-	
-	return os;
-	}
-
-std::ostream& operator<<(std::ostream& os,const NavTrackerState& nav)
-	{
-	const Vector& t=nav.getTranslation();
-	const Rotation& r=nav.getRotation();
-	Scalar s=nav.getScaling();
-	
-	os<<"("<<t[0]<<", "<<t[1]<<", "<<t[2]<<"), "<<r<<", "<<s;
-	
-	return os;
-	}
-
-}
 
 void MouseSurfaceNavigationTool::initNavState(void)
 	{
@@ -294,49 +258,11 @@ MouseSurfaceNavigationTool::MouseSurfaceNavigationTool(const ToolFactory* factor
 	{
 	/* Find the mouse input device adapter controlling the input device: */
 	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
-	
-	if(MouseSurfaceNavigationTool::factory->showMouseCursor)
-		{
-		/* Load the mouse cursor image file: */
-		mouseCursorImage=Images::readCursorFile(MouseSurfaceNavigationTool::factory->mouseCursorImageFileName.c_str(),MouseSurfaceNavigationTool::factory->mouseCursorNominalSize);
-		
-		/* Calculate the texture coordinate box: */
-		Geometry::Point<float,2> tcMin,tcMax;
-		for(int i=0;i<2;++i)
-			{
-			unsigned int texSize;
-			for(texSize=1;texSize<mouseCursorImage.getSize(i);texSize<<=1)
-				;
-			tcMin[i]=0.5f/float(texSize);
-			tcMax[i]=(float(mouseCursorImage.getSize(i))-0.5f)/float(texSize);
-			}
-		mouseCursorTexCoordBox=Geometry::Box<float,2>(tcMin,tcMax);
-		}
 	}
 
 const ToolFactory* MouseSurfaceNavigationTool::getFactory(void) const
 	{
 	return factory;
-	}
-
-void MouseSurfaceNavigationTool::initContext(GLContextData& contextData) const
-	{
-	if(factory->showMouseCursor)
-		{
-		DataItem* dataItem=new DataItem;
-		contextData.addDataItem(this,dataItem);
-		
-		/* Upload the mouse cursor image as a 2D texture: */
-		glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
-		mouseCursorImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,true);
-		glBindTexture(GL_TEXTURE_2D,0);
-		}
 	}
 
 void MouseSurfaceNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
@@ -370,8 +296,7 @@ void MouseSurfaceNavigationTool::buttonCallback(int,int buttonIndex,InputDevice:
 									/* Calculate the dragging transformation: */
 									NavTrackerState initialTracker=NavTrackerState::translateFromOriginTo(calcScreenPos());
 									initialWidget=Geometry::invert(initialTracker);
-									GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
-									initialWidget*=NavTrackerState(initialWidget);
+									initialWidget*=getWidgetManager()->calcWidgetTransformation(draggedWidget);
 									}
 								else
 									draggedWidget=0;
@@ -664,44 +589,27 @@ void MouseSurfaceNavigationTool::frame(void)
 
 void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 	{
-	bool gotoScreenCoords=factory->showMouseCursor||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING);
-	const VRScreen* screen=0;
-	ONTransform screenT;
-	if(gotoScreenCoords)
+	if(factory->showCompass||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING))
 		{
+		/* Save and set up OpenGL state: */
+		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
+		glDisable(GL_LIGHTING);
+		
 		/* Get a pointer to the screen the mouse is on: */
+		const VRWindow* window=0;
+		const VRScreen* screen;
 		if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
-			screen=mouseAdapter->getWindow()->getVRScreen();
+			{
+			window=mouseAdapter->getWindow();
+			screen=window->getVRScreen();
+			}
 		else
 			screen=getMainScreen();
-		screenT=screen->getScreenTransformation();
-		
-		/* Save and set up OpenGL state: */
-		glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT|GL_TEXTURE_BIT);
-		glDisable(GL_LIGHTING);
+		ONTransform screenT=screen->getScreenTransformation();
 		
 		/* Go to screen coordinates: */
 		glPushMatrix();
 		glMultMatrix(screenT);
-		}
-	
-	if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
-		{
-		/* Determine the screen containing the input device and find its center: */
-		Scalar centerPos[2];
-		if(mouseAdapter!=0)
-			mouseAdapter->getWindow()->getWindowCenterPos(centerPos);
-		else
-			{
-			centerPos[0]=getMainScreen()->getWidth()*Scalar(0.5);
-			centerPos[1]=getMainScreen()->getHeight()*Scalar(0.5);
-			}
-		
-		/* Calculate the endpoints of the screen's crosshair lines in screen coordinates: */
-		Point l=Point(Scalar(0),centerPos[1],Scalar(0));
-		Point r=Point(screen->getWidth(),centerPos[1],Scalar(0));
-		Point b=Point(centerPos[0],Scalar(0),Scalar(0));
-		Point t=Point(centerPos[0],screen->getHeight(),Scalar(0));
 		
 		/* Determine the crosshair colors: */
 		Color bgColor=getBackgroundColor();
@@ -710,57 +618,115 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 			fgColor[i]=1.0f-bgColor[i];
 		fgColor[3]=bgColor[3];
 		
-		/* Draw the screen crosshairs: */
-		glDepthFunc(GL_LEQUAL);
-		glLineWidth(3.0f);
-		glColor(bgColor);
-		glBegin(GL_LINES);
-		glVertex(l);
-		glVertex(r);
-		glVertex(b);
-		glVertex(t);
-		glEnd();
-		glLineWidth(1.0f);
-		glColor(fgColor);
-		glBegin(GL_LINES);
-		glVertex(l);
-		glVertex(r);
-		glVertex(b);
-		glVertex(t);
-		glEnd();
-		}
-	
-	if(factory->showMouseCursor)
-		{
-		/* Get the data item: */
-		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+		if(factory->showCompass)
+			{
+			Scalar dialSize=getUiSize()*Scalar(5);
+			Scalar thickness=getUiSize()*Scalar(0.5);
+			
+			glPushMatrix();
+			if(window!=0)
+				glTranslate(window->getScreenViewport()[1]-dialSize*Scalar(3),window->getScreenViewport()[3]-dialSize*Scalar(3),0);
+			else
+				glTranslate(screen->getWidth()-dialSize*Scalar(3),screen->getHeight()-dialSize*Scalar(3),0);
+			glRotate(Math::deg(azimuth),0,0,1);
+			
+			glLineWidth(3.0f);
+			glColor(bgColor);
+			glBegin(GL_LINE_LOOP);
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize+thickness),Math::cos(angle)*(dialSize+thickness));
+				}
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize-thickness),Math::cos(angle)*(dialSize-thickness));
+				}
+			glEnd();
+			glBegin(GL_LINE_LOOP);
+			glVertex(thickness,dialSize*Scalar(-1.25));
+			glVertex(thickness,dialSize*Scalar(1.25));
+			glVertex(thickness*Scalar(2),dialSize*Scalar(1.25));
+			glVertex(Scalar(0),dialSize*Scalar(1.5));
+			glVertex(-thickness*Scalar(2),dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(-1.25));
+			glEnd();
+			glBegin(GL_LINES);
+			glVertex(-dialSize*Scalar(1.25),Scalar(0));
+			glVertex(dialSize*Scalar(1.25),Scalar(0));
+			glEnd();
+			
+			glLineWidth(1.0f);
+			glColor(fgColor);
+			glBegin(GL_LINE_LOOP);
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize+thickness),Math::cos(angle)*(dialSize+thickness));
+				}
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize-thickness),Math::cos(angle)*(dialSize-thickness));
+				}
+			glEnd();
+			glBegin(GL_LINE_LOOP);
+			glVertex(thickness,dialSize*Scalar(-1.25));
+			glVertex(thickness,dialSize*Scalar(1.25));
+			glVertex(thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(Scalar(0),dialSize*Scalar(1.75));
+			glVertex(-thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(-1.25));
+			glEnd();
+			glBegin(GL_LINES);
+			glVertex(-dialSize*Scalar(1.25),Scalar(0));
+			glVertex(dialSize*Scalar(1.25),Scalar(0));
+			glEnd();
+			
+			glPopMatrix();
+			}
 		
-		/* Calculate the mouse position: */
-		Point mousePos=screenT.inverseTransform(currentPos);
-		for(int i=0;i<2;++i)
-			mousePos[i]-=factory->mouseCursorHotspot[i]*factory->mouseCursorSize[i];
+		if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
+			{
+			/* Determine the screen containing the input device and find its center: */
+			Scalar centerPos[2];
+			if(mouseAdapter!=0)
+				mouseAdapter->getWindow()->getWindowCenterPos(centerPos);
+			else
+				{
+				centerPos[0]=getMainScreen()->getWidth()*Scalar(0.5);
+				centerPos[1]=getMainScreen()->getHeight()*Scalar(0.5);
+				}
+			
+			/* Calculate the endpoints of the screen's crosshair lines in screen coordinates: */
+			Point l=Point(Scalar(0),centerPos[1],Scalar(0));
+			Point r=Point(screen->getWidth(),centerPos[1],Scalar(0));
+			Point b=Point(centerPos[0],Scalar(0),Scalar(0));
+			Point t=Point(centerPos[0],screen->getHeight(),Scalar(0));
+			
+			/* Draw the screen crosshairs: */
+			glDepthFunc(GL_LEQUAL);
+			glLineWidth(3.0f);
+			glColor(bgColor);
+			glBegin(GL_LINES);
+			glVertex(l);
+			glVertex(r);
+			glVertex(b);
+			glVertex(t);
+			glEnd();
+			glLineWidth(1.0f);
+			glColor(fgColor);
+			glBegin(GL_LINES);
+			glVertex(l);
+			glVertex(r);
+			glVertex(b);
+			glVertex(t);
+			glEnd();
+			}
 		
-		/* Draw the mouse cursor: */
-		glEnable(GL_TEXTURE_2D);
-		glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
-		glEnable(GL_ALPHA_TEST);
-		glAlphaFunc(GL_GEQUAL,0.5f);
-		glBegin(GL_QUADS);
-		glTexCoord(mouseCursorTexCoordBox.getVertex(0));
-		glVertex(mousePos[0],mousePos[1]);
-		glTexCoord(mouseCursorTexCoordBox.getVertex(1));
-		glVertex(mousePos[0]+factory->mouseCursorSize[0],mousePos[1]);
-		glTexCoord(mouseCursorTexCoordBox.getVertex(3));
-		glVertex(mousePos[0]+factory->mouseCursorSize[0],mousePos[1]+factory->mouseCursorSize[1]);
-		glTexCoord(mouseCursorTexCoordBox.getVertex(2));
-		glVertex(mousePos[0],mousePos[1]+factory->mouseCursorSize[1]);
-		glEnd();
-		glBindTexture(GL_TEXTURE_2D,0);
-		}
-	
-	if(gotoScreenCoords)
-		{
 		/* Go back to physical coordinates: */
 		glPopMatrix();
 		

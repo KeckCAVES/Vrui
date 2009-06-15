@@ -31,6 +31,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 	#endif
 #endif
 
+#include <Geometry/GeometryValueCoders.h>
+
 #include <ctype.h>
 #include <string.h>
 #include <Misc/StandardValueCoders.h>
@@ -42,11 +44,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/HVector.h>
 #include <Geometry/Box.h>
 #include <Geometry/Plane.h>
+#include <Geometry/Matrix.h>
 #include <Geometry/Rotation.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/OrthogonalTransformation.h>
-
-#include <Geometry/GeometryValueCoders.h>
+#include <Geometry/AffineTransformation.h>
+#include <Geometry/ProjectiveTransformation.h>
 
 namespace Misc {
 
@@ -300,6 +303,90 @@ ValueCoder<Geometry::Plane<ScalarParam,dimensionParam> >::decode(
 		}
 	}
 
+/****************************************************************************************
+Methods of class ValueCoder<Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam> >:
+****************************************************************************************/
+
+template <class ScalarParam,int numRowsParam,int numColumnsParam>
+METHODPREFIX
+std::string
+ValueCoder<Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam> >::encode(
+	const Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam>& value)
+	{
+	std::string result="(";
+	for(int j=0;j<numColumnsParam;++j)
+		{
+		if(j>0)
+			result+=", ";
+		Geometry::ComponentArray<ScalarParam,numRowsParam> col;
+		for(int i=0;i<numRowsParam;++i)
+			col[i]=value(i,j);
+		result+=ValueCoder<Geometry::ComponentArray<ScalarParam,numRowsParam> >::encode(col);
+		}
+	result+=")";
+	return result;
+	}
+
+template <class ScalarParam,int numRowsParam,int numColumnsParam>
+METHODPREFIX
+Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam>
+ValueCoder<Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam> >::decode(
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	try
+		{
+		Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam> result;
+		
+		/* Check for the opening parenthesis and skip whitespace: */
+		const char* tokenPtr=start;
+		if(tokenPtr==end||*tokenPtr!='(')
+			throw 42;
+		++tokenPtr;
+		while(tokenPtr!=end&&isspace(*tokenPtr))
+			++tokenPtr;
+		
+		/* Read matrix column-wise: */
+		for(int j=0;j<numColumnsParam;++j)
+			{
+			if(j>0)
+				{
+				/* Check for the separating comma and skip whitespace: */
+				if(tokenPtr==end||*tokenPtr!=',')
+					throw 42;
+				++tokenPtr;
+				while(tokenPtr!=end&&isspace(*tokenPtr))
+					++tokenPtr;
+				}
+			
+			/* Read the column: */
+			Geometry::ComponentArray<ScalarParam,numRowsParam> col=ValueCoder<Geometry::ComponentArray<ScalarParam,numRowsParam> >::decode(tokenPtr,end,&tokenPtr);
+			
+			/* Store the column in the matrix: */
+			for(int i=0;i<numRowsParam;++i)
+				result(i,j)=col[i];
+			
+			/* Skip whitespace: */
+			while(tokenPtr!=end&&isspace(*tokenPtr))
+				++tokenPtr;
+			}
+		
+		/* Check for the closing parenthesis: */
+		if(tokenPtr==end||*tokenPtr!=')')
+			throw 42;
+		++tokenPtr;
+		
+		if(decodeEnd!=0)
+			*decodeEnd=tokenPtr;
+		return result;
+		}
+	catch(...)
+		{
+		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Geometry::Matrix<Scalar,numRows,numColumns>"));
+		}
+	}
+
 /***************************************************************
 Methods of class ValueCoder<Geometry::Rotation<ScalarParam,2> >:
 ***************************************************************/
@@ -548,6 +635,72 @@ ValueCoder<Geometry::OrthogonalTransformation<ScalarParam,dimensionParam> >::dec
 		}
 	}
 
+/****************************************************************************************
+Methods of class ValueCoder<Geometry::AffineTransformation<ScalarParam,dimensionParam> >:
+****************************************************************************************/
+
+template <class ScalarParam,int dimensionParam>
+METHODPREFIX
+std::string
+ValueCoder<Geometry::AffineTransformation<ScalarParam,dimensionParam> >::encode(
+	const Geometry::AffineTransformation<ScalarParam,dimensionParam>& value)
+	{
+	return ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam,dimensionParam+1> >::encode(value.getMatrix());
+	}
+
+template <class ScalarParam,int dimensionParam>
+METHODPREFIX
+Geometry::AffineTransformation<ScalarParam,dimensionParam>
+ValueCoder<Geometry::AffineTransformation<ScalarParam,dimensionParam> >::decode(
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	try
+		{
+		Geometry::AffineTransformation<ScalarParam,dimensionParam> result;
+		result.getMatrix()=ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam,dimensionParam+1> >::decode(start,end,decodeEnd);
+		return result;
+		}
+	catch(...)
+		{
+		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Geometry::AffineTransformation<Scalar,dimension>"));
+		}
+	}
+
+/********************************************************************************************
+Methods of class ValueCoder<Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> >:
+********************************************************************************************/
+
+template <class ScalarParam,int dimensionParam>
+METHODPREFIX
+std::string
+ValueCoder<Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> >::encode(
+	const Geometry::ProjectiveTransformation<ScalarParam,dimensionParam>& value)
+	{
+	return ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam+1,dimensionParam+1> >::encode(value.getMatrix());
+	}
+
+template <class ScalarParam,int dimensionParam>
+METHODPREFIX
+Geometry::ProjectiveTransformation<ScalarParam,dimensionParam>
+ValueCoder<Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> >::decode(
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	try
+		{
+		Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> result;
+		result.getMatrix()=ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam+1,dimensionParam+1> >::decode(start,end,decodeEnd);
+		return result;
+		}
+	catch(...)
+		{
+		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Geometry::ProjectiveTransformation<Scalar,dimension>"));
+		}
+	}
+
 #if !defined(NONSTANDARD_TEMPLATES)
 
 /******************************************************
@@ -559,12 +712,19 @@ template class ValueCoder<Geometry::Vector<int,2> >;
 template class ValueCoder<Geometry::Point<int,2> >;
 template class ValueCoder<Geometry::HVector<int,2> >;
 template class ValueCoder<Geometry::Box<int,2> >;
+template class ValueCoder<Geometry::Matrix<int,2,2> >;
+template class ValueCoder<Geometry::Matrix<int,2,3> >;
 
 template class ValueCoder<Geometry::ComponentArray<int,3> >;
 template class ValueCoder<Geometry::Vector<int,3> >;
 template class ValueCoder<Geometry::Point<int,3> >;
 template class ValueCoder<Geometry::HVector<int,3> >;
 template class ValueCoder<Geometry::Box<int,3> >;
+template class ValueCoder<Geometry::Matrix<int,3,3> >;
+template class ValueCoder<Geometry::Matrix<int,3,4> >;
+
+template class ValueCoder<Geometry::ComponentArray<int,4> >;
+template class ValueCoder<Geometry::Matrix<int,4,4> >;
 
 template class ValueCoder<Geometry::ComponentArray<float,2> >;
 template class ValueCoder<Geometry::Vector<float,2> >;
@@ -572,9 +732,13 @@ template class ValueCoder<Geometry::Point<float,2> >;
 template class ValueCoder<Geometry::HVector<float,2> >;
 template class ValueCoder<Geometry::Box<float,2> >;
 template class ValueCoder<Geometry::Plane<float,2> >;
+template class ValueCoder<Geometry::Matrix<float,2,2> >;
+template class ValueCoder<Geometry::Matrix<float,2,3> >;
 template class ValueCoder<Geometry::Rotation<float,2> >;
 template class ValueCoder<Geometry::OrthonormalTransformation<float,2> >;
 template class ValueCoder<Geometry::OrthogonalTransformation<float,2> >;
+template class ValueCoder<Geometry::AffineTransformation<float,2> >;
+template class ValueCoder<Geometry::ProjectiveTransformation<float,2> >;
 
 template class ValueCoder<Geometry::ComponentArray<float,3> >;
 template class ValueCoder<Geometry::Vector<float,3> >;
@@ -582,9 +746,16 @@ template class ValueCoder<Geometry::Point<float,3> >;
 template class ValueCoder<Geometry::HVector<float,3> >;
 template class ValueCoder<Geometry::Box<float,3> >;
 template class ValueCoder<Geometry::Plane<float,3> >;
+template class ValueCoder<Geometry::Matrix<float,3,3> >;
+template class ValueCoder<Geometry::Matrix<float,3,4> >;
 template class ValueCoder<Geometry::Rotation<float,3> >;
 template class ValueCoder<Geometry::OrthonormalTransformation<float,3> >;
 template class ValueCoder<Geometry::OrthogonalTransformation<float,3> >;
+template class ValueCoder<Geometry::AffineTransformation<float,3> >;
+template class ValueCoder<Geometry::ProjectiveTransformation<float,3> >;
+
+template class ValueCoder<Geometry::ComponentArray<float,4> >;
+template class ValueCoder<Geometry::Matrix<float,4,4> >;
 
 template class ValueCoder<Geometry::ComponentArray<double,2> >;
 template class ValueCoder<Geometry::Vector<double,2> >;
@@ -592,9 +763,13 @@ template class ValueCoder<Geometry::Point<double,2> >;
 template class ValueCoder<Geometry::HVector<double,2> >;
 template class ValueCoder<Geometry::Box<double,2> >;
 template class ValueCoder<Geometry::Plane<double,2> >;
+template class ValueCoder<Geometry::Matrix<double,2,2> >;
+template class ValueCoder<Geometry::Matrix<double,2,3> >;
 template class ValueCoder<Geometry::Rotation<double,2> >;
 template class ValueCoder<Geometry::OrthonormalTransformation<double,2> >;
 template class ValueCoder<Geometry::OrthogonalTransformation<double,2> >;
+template class ValueCoder<Geometry::AffineTransformation<double,2> >;
+template class ValueCoder<Geometry::ProjectiveTransformation<double,2> >;
 
 template class ValueCoder<Geometry::ComponentArray<double,3> >;
 template class ValueCoder<Geometry::Vector<double,3> >;
@@ -602,9 +777,16 @@ template class ValueCoder<Geometry::Point<double,3> >;
 template class ValueCoder<Geometry::HVector<double,3> >;
 template class ValueCoder<Geometry::Box<double,3> >;
 template class ValueCoder<Geometry::Plane<double,3> >;
+template class ValueCoder<Geometry::Matrix<double,3,3> >;
+template class ValueCoder<Geometry::Matrix<double,3,4> >;
 template class ValueCoder<Geometry::Rotation<double,3> >;
 template class ValueCoder<Geometry::OrthonormalTransformation<double,3> >;
 template class ValueCoder<Geometry::OrthogonalTransformation<double,3> >;
+template class ValueCoder<Geometry::AffineTransformation<double,3> >;
+template class ValueCoder<Geometry::ProjectiveTransformation<double,3> >;
+
+template class ValueCoder<Geometry::ComponentArray<double,4> >;
+template class ValueCoder<Geometry::Matrix<double,4,4> >;
 
 #endif
 

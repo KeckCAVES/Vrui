@@ -269,6 +269,11 @@ ifneq ($(VRUI_USE_SOUND),0)
   endif
 endif
 MYSOUND_INCLUDE      = -I$(MYSOUND_BASEDIR)
+ifneq ($(VRUI_USE_SOUND),0)
+  ifeq ($(SYSTEM),LINUX)
+    MYSOUND_CFLAGS  = -DSOUND_USE_ALSA
+  endif
+endif
 MYSOUND_LIBDIR       = -L$(MYSOUND_BASEDIR)/$(LIBEXT)
 MYSOUND_LIBS         = -lSound.$(LDEXT)
 

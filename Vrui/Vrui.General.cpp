@@ -322,6 +322,7 @@ VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::Multicas
 	 systemMenuPopup(0),
 	 mainMenu(0),
 	 navigationTransformationEnabled(false),
+	 delayNavigationTransformation(false),
 	 navigationTransformationChangedMask(0x0),
 	 navigationTransformation(NavTransform::identity),inverseNavigationTransformation(NavTransform::identity),
 	 coordinateManager(0),
@@ -630,6 +631,11 @@ void VruiState::createSystemMenu(void)
 
 void VruiState::initTools(const Misc::ConfigurationFileSection&)
 	{
+	#if DELAY_NAVIGATIONTRANSFORMATION
+	/* Start delaying the navigation transformation at this point: */
+	delayNavigationTransformation=true;
+	#endif
+	
 	/* Create default tool assignment: */
 	toolManager->loadDefaultTools();
 	}
@@ -1250,11 +1256,27 @@ std::pair<VRScreen*,Scalar> findScreen(const Ray& ray)
 				{
 				/* Check if the ray intersects the screen: */
 				Point screenPos=t.inverseTransform(ray.getOrigin()+ray.getDirection()*lambda);
-				if(screenPos[0]>=Scalar(0)&&screenPos[0]<=screen->getWidth()&&screenPos[1]>=Scalar(0)&&screenPos[1]<=screen->getHeight())
+				if(screen->isOffAxis())
 					{
-					/* Save the intersection: */
-					closestScreen=screen;
-					closestLambda=lambda;
+					/* Check the intersection point against the projected screen quadrilateral: */
+					VRScreen::PTransform2::Point sp(screenPos[0],screenPos[1]);
+					sp=screen->getScreenHomography().inverseTransform(sp);
+					if(sp[0]>=Scalar(0)&&sp[0]<=screen->getWidth()&&sp[1]>=Scalar(0)&&sp[1]<=screen->getHeight())
+						{
+						/* Save the intersection: */
+						closestScreen=screen;
+						closestLambda=lambda;
+						}
+					}
+				else
+					{
+					/* Check the intersection point against the upright screen rectangle: */
+					if(screenPos[0]>=Scalar(0)&&screenPos[0]<=screen->getWidth()&&screenPos[1]>=Scalar(0)&&screenPos[1]<=screen->getHeight())
+						{
+						/* Save the intersection: */
+						closestScreen=screen;
+						closestLambda=lambda;
+						}
 					}
 				}
 			}
@@ -1518,10 +1540,19 @@ void setNavigationTransformation(const NavTransform& newNavigationTransformation
 	{
 	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
-	vruiState->newNavigationTransformation=newNavigationTransformation;
-	vruiState->newNavigationTransformation.renormalize();
-	vruiState->navigationTransformationChangedMask|=0x1;
-	requestUpdate();
+	if(vruiState->delayNavigationTransformation)
+		{
+		/* Schedule a change in navigation transformation for the next frame: */
+		vruiState->newNavigationTransformation=newNavigationTransformation;
+		vruiState->newNavigationTransformation.renormalize();
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
+		}
+	else
+		{
+		/* Change the navigation transformation right away: */
+		vruiState->navigationTransformation=newNavigationTransformation;
+		}
 	#else
 	vruiState->navigationTransformation=newNavigationTransformation;
 	#endif
@@ -1534,9 +1565,18 @@ void setNavigationTransformation(const Point& center,Scalar radius)
 	t*=NavTransform::translateToOriginFrom(center);
 	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
-	vruiState->newNavigationTransformation=t;
-	vruiState->navigationTransformationChangedMask|=0x1;
-	requestUpdate();
+	if(vruiState->delayNavigationTransformation)
+		{
+		/* Schedule a change in navigation transformation for the next frame: */
+		vruiState->newNavigationTransformation=t;
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
+		}
+	else
+		{
+		/* Change the navigation transformation right away: */
+		vruiState->navigationTransformation=t;
+		}
 	#else
 	vruiState->navigationTransformation=t;
 	#endif
@@ -1550,9 +1590,18 @@ void setNavigationTransformation(const Point& center,Scalar radius,const Vector&
 	t*=NavTransform::translateToOriginFrom(center);
 	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
-	vruiState->newNavigationTransformation=t;
-	vruiState->navigationTransformationChangedMask|=0x1;
-	requestUpdate();
+	if(vruiState->delayNavigationTransformation)
+		{
+		/* Schedule a change in navigation transformation for the next frame: */
+		vruiState->newNavigationTransformation=t;
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
+		}
+	else
+		{
+		/* Change the navigation transformation right away: */
+		vruiState->navigationTransformation=t;
+		}
 	#else
 	vruiState->navigationTransformation=t;
 	#endif
@@ -1561,28 +1610,50 @@ void setNavigationTransformation(const Point& center,Scalar radius,const Vector&
 void concatenateNavigationTransformation(const NavTransform& t)
 	{
 	#if DELAY_NAVIGATIONTRANSFORMATION
-	if((vruiState->navigationTransformationChangedMask&0x1)==0)
-		vruiState->newNavigationTransformation=vruiState->navigationTransformation;
-	vruiState->newNavigationTransformation*=t;
-	vruiState->newNavigationTransformation.renormalize();
-	vruiState->navigationTransformationChangedMask|=0x1;
-	requestUpdate();
+	if(vruiState->delayNavigationTransformation)
+		{
+		/* Schedule a change in navigation transformation for the next frame: */
+		if((vruiState->navigationTransformationChangedMask&0x1)==0)
+			vruiState->newNavigationTransformation=vruiState->navigationTransformation;
+		vruiState->newNavigationTransformation*=t;
+		vruiState->newNavigationTransformation.renormalize();
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
+		}
+	else
+		{
+		/* Change the navigation transformation right away: */
+		vruiState->navigationTransformation*=t;
+		vruiState->navigationTransformation.renormalize();
+		}
 	#else
 	vruiState->navigationTransformation*=t;
+	vruiState->navigationTransformation.renormalize();
 	#endif
 	}
 
 void concatenateNavigationTransformationLeft(const NavTransform& t)
 	{
 	#if DELAY_NAVIGATIONTRANSFORMATION
-	if((vruiState->navigationTransformationChangedMask&0x1)==0)
-		vruiState->newNavigationTransformation=vruiState->navigationTransformation;
-	vruiState->newNavigationTransformation.leftMultiply(t);
-	vruiState->newNavigationTransformation.renormalize();
-	vruiState->navigationTransformationChangedMask|=0x1;
-	requestUpdate();
+	if(vruiState->delayNavigationTransformation)
+		{
+		/* Schedule a change in navigation transformation for the next frame: */
+		if((vruiState->navigationTransformationChangedMask&0x1)==0)
+			vruiState->newNavigationTransformation=vruiState->navigationTransformation;
+		vruiState->newNavigationTransformation.leftMultiply(t);
+		vruiState->newNavigationTransformation.renormalize();
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
+		}
+	else
+		{
+		/* Change the navigation transformation right away: */
+		vruiState->navigationTransformation.leftMultiply(t);
+		vruiState->navigationTransformation.renormalize();
+		}
 	#else
-	vruiState->navigationTransformation*=t;
+	vruiState->navigationTransformation.leftMultiply(t);
+	vruiState->navigationTransformation.renormalize();
 	#endif
 	}
 

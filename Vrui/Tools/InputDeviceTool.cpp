@@ -176,8 +176,16 @@ bool InputDeviceTool::activate(const Point& position)
 		int buttonIndex=getVirtualInputDevice()->pickButton(device,position);
 		if(buttonIndex>=0)
 			{
-			/* Toggle the input device's button state: */
-			device->setButtonState(buttonIndex,!device->getButtonState(buttonIndex));
+			if(buttonIndex==device->getNumButtons())
+				{
+				/* Toggle the input device's navigation mode: */
+				getInputGraphManager()->setNavigational(device,!getInputGraphManager()->isNavigational(device));
+				}
+			else
+				{
+				/* Toggle the input device's button state: */
+				device->setButtonState(buttonIndex,!device->getButtonState(buttonIndex));
+				}
 			}
 		else if(getInputGraphManager()->grabInputDevice(device,this))
 			{
@@ -203,8 +211,16 @@ bool InputDeviceTool::activate(const Ray& ray)
 		int buttonIndex=getVirtualInputDevice()->pickButton(device,ray);
 		if(buttonIndex>=0)
 			{
-			/* Toggle the input device's button state: */
-			device->setButtonState(buttonIndex,!device->getButtonState(buttonIndex));
+			if(buttonIndex==device->getNumButtons())
+				{
+				/* Toggle the input device's navigation mode: */
+				getInputGraphManager()->setNavigational(device,!getInputGraphManager()->isNavigational(device));
+				}
+			else
+				{
+				/* Toggle the input device's button state: */
+				device->setButtonState(buttonIndex,!device->getButtonState(buttonIndex));
+				}
 			}
 		else if(getInputGraphManager()->grabInputDevice(device,this))
 			{

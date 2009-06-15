@@ -24,14 +24,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_MOUSESURFACENAVIGATIONTOOL_INCLUDED
 #define VRUI_MOUSESURFACENAVIGATIONTOOL_INCLUDED
 
-#include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
-#include <Geometry/Box.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <GL/gl.h>
-#include <GL/GLObject.h>
-#include <Images/RGBAImage.h>
 #include <Vrui/Tools/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
@@ -58,13 +53,9 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
 	Scalar wheelScaleFactor; // Scaling factor for one wheel click
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
+	bool showCompass; // Flag whether to draw a virtual compass
 	bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
 	bool interactWithWidgets; // Flag if the mouse navigation tool doubles as a widget tool (this is an evil hack)
-	bool showMouseCursor; // Flag whether to draw a fake mouse cursor at the mouse position
-	Size mouseCursorSize; // Size of mouse cursor (depth ignored)
-	Vector mouseCursorHotspot; // Mouse cursor hotspot coordinates (depth ignored)
-	std::string mouseCursorImageFileName; // Name of the image file containing the mouse cursor texture
-	unsigned int mouseCursorNominalSize; // Size to look for in the cursor image file
 	
 	/* Constructors and destructors: */
 	public:
@@ -77,29 +68,12 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
+class MouseSurfaceNavigationTool:public SurfaceNavigationTool
 	{
 	friend class MouseSurfaceNavigationToolFactory;
 	
 	/* Embedded classes: */
 	private:
-	struct DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		GLuint textureObjectId; // ID of the mouse cursor texture object
-		
-		/* Constructors and destructors: */
-		DataItem(void)
-			{
-			glGenTextures(1,&textureObjectId);
-			}
-		virtual ~DataItem(void)
-			{
-			glDeleteTextures(1,&textureObjectId);
-			}
-		};
-	
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
 		IDLE,WIDGETING,ROTATING,PANNING,SCALING,SCALING_WHEEL
@@ -109,8 +83,6 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	static MouseSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
 	
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
-	Images::RGBAImage mouseCursorImage; // Image containing the mouse cursor texture
-	Geometry::Box<float,2> mouseCursorTexCoordBox; // Texture coordinate box for the mouse cursor texture
 	
 	/* Transient navigation state: */
 	Point currentPos; // Current projected position of mouse input device on screen
@@ -135,7 +107,6 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void initContext(GLContextData& contextData) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);

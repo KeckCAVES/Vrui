@@ -36,6 +36,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 #include <Sound/SoundPlayer.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/MouseCursorFaker.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/VRWindow.h>
@@ -53,6 +54,7 @@ Methods of class InputDeviceAdapterPlayback:
 InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
 	:InputDeviceAdapter(sInputDeviceManager),
 	 inputDeviceDataFile(configFileSection.retrieveString("./inputDeviceDataFileName").c_str(),"rb",Misc::File::LittleEndian),
+	 mouseCursorFaker(0),
 	 synchronizePlayback(configFileSection.retrieveValue<bool>("./synchronizePlayback",false)),
 	 quitWhenDone(configFileSection.retrieveValue<bool>("./quitWhenDone",false)),
 	 soundPlayer(0),
@@ -90,6 +92,20 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		
 		/* Store the input device: */
 		inputDevices[i]=newDevice;
+		}
+	
+	/* Check if the user wants to use a fake mouse cursor: */
+	int fakeMouseCursorDevice=configFileSection.retrieveValue<int>("./fakeMouseCursorDevice",-1);
+	if(fakeMouseCursorDevice>=0)
+		{
+		/* Read the cursor file name and nominal size: */
+		std::string mouseCursorImageFileName=configFileSection.retrieveString("./mouseCursorImageFileName",DEFAULTMOUSECURSORIMAGEFILENAME);
+		unsigned int mouseCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./mouseCursorNominalSize",24);
+		
+		/* Create the mouse cursor faker: */
+		mouseCursorFaker=new MouseCursorFaker(inputDevices[fakeMouseCursorDevice],mouseCursorImageFileName.c_str(),mouseCursorNominalSize);
+		mouseCursorFaker->setCursorSize(configFileSection.retrieveValue<Size>("./mouseCursorSize",mouseCursorFaker->getCursorSize()));
+		mouseCursorFaker->setCursorHotspot(configFileSection.retrieveValue<Vector>("./mouseCursorHotspot",mouseCursorFaker->getCursorHotspot()));
 		}
 	
 	/* Read time stamp of first data frame: */
@@ -176,6 +192,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 
 InputDeviceAdapterPlayback::~InputDeviceAdapterPlayback(void)
 	{
+	delete mouseCursorFaker;
 	delete soundPlayer;
 	}
 

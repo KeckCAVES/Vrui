@@ -652,6 +652,11 @@ ToolManager::~ToolManager(void)
 	delete toolMenuPopup;
 	}
 
+void ToolManager::defaultToolFactoryDestructor(ToolFactory* factory)
+	{
+	delete factory;
+	}
+
 Misc::ConfigurationFileSection ToolManager::getToolClassSection(const char* toolClassName) const
 	{
 	/* Return the section of the same name under the tool manager's section: */

@@ -183,6 +183,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	~ToolManager(void); // Destroys tool manager
 	
 	/* Methods: */
+	static void defaultToolFactoryDestructor(ToolFactory* factory); // Default destructor for tool factories; simply deletes them
 	Misc::ConfigurationFileSection getToolClassSection(const char* toolClassName) const; // Returns the configuration file section a tool class should use for its initialization
 	MutexMenu* getToolMenu(void) // Returns tool menu
 		{

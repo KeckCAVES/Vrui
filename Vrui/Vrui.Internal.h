@@ -171,6 +171,7 @@ struct VruiState
 	/* Navigation transformation management: */
 	std::string viewpointFileName;
 	bool navigationTransformationEnabled;
+	bool delayNavigationTransformation; // Flag whether changes to the navigation transformation are delayed until the beginning of the next frame
 	int navigationTransformationChangedMask; // Bit mask for changed parts of the navigation transformation (0x1-transform,0x2-display center/size)
 	NavTransform newNavigationTransformation;
 	NavTransform navigationTransformation,inverseNavigationTransformation;
