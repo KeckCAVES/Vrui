@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofNavigationTool - Class for 6-DOF navigation by grabbing space
 using a single input device.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -52,6 +52,11 @@ SixDofNavigationToolFactory::~SixDofNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	SixDofNavigationTool::factory=0;
+	}
+
+const char* SixDofNavigationToolFactory::getName(void) const
+	{
+	return "6-DOF";
 	}
 
 Tool* SixDofNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

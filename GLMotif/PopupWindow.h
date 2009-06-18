@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupWindow - Class for main windows with a draggable title bar and an
 optional close button.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2009 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -51,7 +51,7 @@ class PopupWindow:public Container
 	public:
 	PopupWindow(const char* sName,WidgetManager* sManager,const char* sTitleString,const GLFont* font); // Deprecated
 	PopupWindow(const char* sName,WidgetManager* sManager,const char* sTitleString);
-	virtual ~PopupWindow(void);
+	virtual ~PopupWindow(void); // Pops down the popup window and destroys it
 	
 	/* Methods inherited from Widget: */
 	virtual const WidgetManager* getManager(void) const

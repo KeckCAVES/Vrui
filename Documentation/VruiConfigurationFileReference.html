@@ -319,6 +319,31 @@
 <TD>numButtons</TD><TD><A HREF="#integer">integer</A></TD>
 <TD>Defines the number of buttons on the actual mouse device as reported by the windowing system. Is typically 3 in X11-based systems. The total number of buttons in each button plane (see <EM>modifierKeys</EM> setting) is the number of button keys (see the <EM>buttonKeys</EM> setting) plus the number of actual mouse buttons.</TD>
 </TR>
+
+<TR>
+<TD>fakeMouseCursor</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>Enables a texture-based mouse cursor to be rendered at the position of the mouse input device controlled by the input device adapter. This is useful in situations where the hardware mouse cursor is not available, or is inappropriate, such as in mouse-controlled cluster environments. This setting defaults to false.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorImageFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>The name of the cursor image file from which to load the fake mouse cursor, if enabled.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorNominalSize</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>The nominal size of the mouse cursor which is to be loaded from the cursor image file. Nominal sizes are defined in the cursor file itself, and Vrui selects the most closely matching size from the file.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorSize</TD><TD><A HREF="#size">size</A></TD>
+<TD>Size of the rendered mouse cursor glyph in physical coordinates. The third component of the given value is ignored.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorHotspot</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>Offset from the bottom-left corner of the mouse cursor image to the cursor "hotspot," i.e., the position that corresponds to the mouse position. Normalized to lie within [0, 1] in both directions; the third component of the given value is ignored.</TD>
+</TR>
 </TABLE>
 
 <H3><A NAME="inputdeviceadapterdevicedaemonsettings">DeviceDaemon Input Device Adapter Settings</A></H3>
@@ -455,6 +480,31 @@
 <TR>
 <TD>inputDeviceDataFileName</TD><TD><A HREF="#string">string</A></TD>
 <TD>Name of the input file from which to read input device data. The file must have been created by saving input device data from a previous run of the same Vrui application, in the exact same environment; otherwise, results are undefined.</TD>
+</TR>
+
+<TR>
+<TD>fakeMouseCursorDevice</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>If set to a valid input device index from the loaded input device file, enables a texture-based mouse cursor to be rendered at the position of the selected input device. This is useful when playing back sessions recorded in mouse-controlled environments, since otherwise the mouse cursor would not show up.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorImageFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>The name of the cursor image file from which to load the fake mouse cursor, if enabled.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorNominalSize</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>The nominal size of the mouse cursor which is to be loaded from the cursor image file. Nominal sizes are defined in the cursor file itself, and Vrui selects the most closely matching size from the file.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorSize</TD><TD><A HREF="#size">size</A></TD>
+<TD>Size of the rendered mouse cursor glyph in physical coordinates. The third component of the given value is ignored.</TD>
+</TR>
+
+<TR>
+<TD>mouseCursorHotspot</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>Offset from the bottom-left corner of the mouse cursor image to the cursor "hotspot," i.e., the position that corresponds to the mouse position. Normalized to lie within [0, 1] in both directions; the third component of the given value is ignored.</TD>
 </TR>
 
 <TR>
@@ -658,6 +708,16 @@
 <TR>
 <TD>rotateAngle</TD><TD><A HREF="#number">number</A></TD>
 <TD>Angle of additional screen rotation in degrees.</TD>
+</TR>
+
+<TR>
+<TD>offAxis</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>Flag whether the screen is projected off-axis, i.e., requires a correction homography.</TD>
+</TR>
+
+<TR>
+<TD>homography</TD><TD><A HREF="#matrix">3x3&nbsp;matrix</A></TD>
+<TD>A 3x3 matrix defining a homography in screen space, which transforms the screen's theoretical rectangle into the screen's projected quadrilateral.</TD>
 </TR>
 </TABLE>
 
@@ -1001,31 +1061,6 @@ settings</A>.</DD>
 <TD>interactWithWidgets</TD><TD><A HREF="#boolean">boolean</A></TD>
 <TD>Flag whether the mouse navigation tool's first button can also be used to interact with on-screen 3D GUI widgets. If set to true, the first tool button only starts rotating if it is not pressed over a GUI widget; otherwise, it interacts with the widget. This is an evil hack until a better tool chaining method comes along.</TD>
 </TR>
-
-<TR>
-<TD>showMouseCursor</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether to draw a virtual mouse cursor using a texture image.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorSize</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Size of the virtual mouse cursor texture image in physical units.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorHotspot</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Hotspot of the virtual mouse cursor texture image in texture image coordinates.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorImageFileName</TD><TD><A HREF="#string">string</A></TD>
-<TD>Name of the X11-style cursor file to use as a virtual mouse cursor. If not specified, defaults to the mouse cursor image packaged with Vrui.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorNominalSize</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Determines which cursor image to load from the X11-style cursor file; usually corresponds to the approximate pixel size of the cursor image.</TD>
-</TR>
 </TABLE>
 
 <H3>MouseDialogNavigationTool</H3>
@@ -1066,31 +1101,6 @@ settings</A>.</DD>
 <TR>
 <TD>spinThreshold</TD><TD><A HREF="#number">number</A></TD>
 <TD>Distance in physical units the mouse pointer has to move while tool button 0 is released to trigger spinning animation.</TD>
-</TR>
-
-<TR>
-<TD>showMouseCursor</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether to draw a virtual mouse cursor using a texture image.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorSize</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Size of the virtual mouse cursor texture image in physical units.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorHotspot</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Hotspot of the virtual mouse cursor texture image in texture image coordinates.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorImageFileName</TD><TD><A HREF="#string">string</A></TD>
-<TD>Name of the X11-style cursor file to use as a virtual mouse cursor. If not specified, defaults to the mouse cursor image packaged with Vrui.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorNominalSize</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Determines which cursor image to load from the X11-style cursor file; usually corresponds to the approximate pixel size of the cursor image.</TD>
 </TR>
 </TABLE>
 

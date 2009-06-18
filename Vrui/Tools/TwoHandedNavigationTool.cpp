@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoHandedNavigationTool - Class encapsulating the behaviour of the old
 famous Vrui two-handed navigation tool.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,6 +53,11 @@ TwoHandedNavigationToolFactory::~TwoHandedNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	TwoHandedNavigationTool::factory=0;
+	}
+
+const char* TwoHandedNavigationToolFactory::getName(void) const
+	{
+	return "Ambidextrous 6-DOF and Scaling";
 	}
 
 Tool* TwoHandedNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <vector>
 #include <Misc/HashTable.h>
+#include <Geometry/OrthogonalTransformation.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/GlyphRenderer.h>
 
@@ -52,6 +53,8 @@ class InputGraphManager
 		InputDevice* device; // Pointer to the input device
 		Glyph deviceGlyph; // Glyph used to visualize the device's position and orientation
 		int level; // Index of the graph level containing the input device
+		bool navigational; // Flag whether this device, if ungrabbed, follows the navigation transformation
+		NavTrackerState fromNavTransform; // Transformation from navigation coordinates to device's coordinates while device is in navigational mode
 		GraphInputDevice* levelPred; // Pointer to the previous input device in the same graph level
 		GraphInputDevice* levelSucc; // Pointer to the next input device in the same graph level
 		GraphTool* grabber; // Pointer to the tool currently holding a grab on the input device
@@ -100,6 +103,8 @@ class InputGraphManager
 	
 	/* Methods: */
 	void addInputDevice(InputDevice* newDevice); // Adds an ungrabbed input device to the graph
+	bool isNavigational(InputDevice* device) const; // Returns whether the given device will follow navigation coordinates while ungrabbed
+	void setNavigational(InputDevice* device,bool newNavigational); // Sets whether the given device will follow navigation coordinates while ungrabbed
 	Glyph& getInputDeviceGlyph(InputDevice* device); // Returns the glyph associated with the given input device
 	InputDevice* getFirstInputDevice(void); // Returns pointer to the first ungrabbed input device
 	InputDevice* getNextInputDevice(InputDevice* device); // Returns pointer to the next input device in the same level after the given one

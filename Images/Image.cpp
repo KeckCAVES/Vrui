@@ -183,11 +183,10 @@ Image<ScalarParam,numComponentsParam>::resize(
 		float sampleX=(float(x)+0.5f)*float(oldWidth)/float(newWidth)+0.5f;
 		/* Note: sampleX is the x coordinate of the next pixel to the right, to get around some issues. */
 		
-		float fsx=Math::floor(sampleX);
-		unsigned int sx=(unsigned int)(fsx);
+		unsigned int sx=(unsigned int)(sampleX);
 		const Color* sCol0=sx>0?&rep->image[sx-1]:&rep->image[0];
 		const Color* sCol1=sx<oldWidth?&rep->image[sx]:&rep->image[oldWidth-1];
-		float w1=sampleX-fsx;
+		float w1=sampleX-float(sx);
 		float w0=1.0f-w1;
 		FColor* dCol=&buffer[x];
 		for(unsigned int y=0;y<oldHeight;++y,sCol0+=oldWidth,sCol1+=oldWidth,dCol+=newWidth)
@@ -207,17 +206,16 @@ Image<ScalarParam,numComponentsParam>::resize(
 		float sampleY=(float(y)+0.5f)*float(oldHeight)/float(newHeight)+0.5f;
 		/* Note: sampleY is the y coordinate of the next pixel to the top, to get around some issues. */
 		
-		float fsy=Math::floor(sampleY);
-		unsigned int sy=(unsigned int)(fsy);
+		unsigned int sy=(unsigned int)(sampleY);
 		const FColor* sRow0=sy>0?&buffer[(sy-1)*newWidth]:&buffer[0];
 		const FColor* sRow1=sy<oldHeight?&buffer[sy*newWidth]:&buffer[(oldHeight-1)*newWidth];
-		float w1=sampleY-fsy;
+		float w1=sampleY-float(sy);
 		float w0=1.0f-w1;
 		Color* dRow=&rep->image[y*newWidth];
 		for(unsigned int x=0;x<newWidth;++x,++sRow0,++sRow1,++dRow)
 			{
 			for(int i=0;i<numComponents;++i)
-				(*dRow)[i]=Scalar(Math::floor((*sRow0)[i]*w0+(*sRow1)[i]*w1+0.5f));
+				(*dRow)[i]=Scalar((*sRow0)[i]*w0+(*sRow1)[i]*w1+0.5f);
 			}
 		}
 	delete[] buffer;

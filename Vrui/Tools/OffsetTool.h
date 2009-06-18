@@ -1,7 +1,7 @@
 /***********************************************************************
 OffsetTool - Class to offset the position of an input device by a fixed
 transformation to extend the user's arm.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,7 +44,8 @@ class OffsetToolFactory:public ToolFactory
 	OffsetToolFactory(ToolManager& toolManager);
 	virtual ~OffsetToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -62,7 +63,7 @@ class OffsetTool:public TransformTool
 	OffsetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~OffsetTool(void);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void frame(void);
 	};

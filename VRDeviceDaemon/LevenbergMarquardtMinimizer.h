@@ -45,9 +45,9 @@ class LevenbergMarquardtMinimizer
 	static Scalar minimize(Fitter& fitter); // Minimizes the target function by manipulating the given fitter
 	};
 
-/*********************************************
-Methods of class LevenbergMarquardtMinimizer2:
-*********************************************/
+/********************************************
+Methods of class LevenbergMarquardtMinimizer:
+********************************************/
 
 template <class FitterParam>
 inline

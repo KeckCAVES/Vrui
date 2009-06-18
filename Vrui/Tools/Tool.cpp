@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -155,9 +155,9 @@ void Tool::deinitialize(void)
 
 const ToolFactory* Tool::getFactory(void) const
 	{
-	Misc::throwStdErr("Abstract tool class has no factory object");
+	Misc::throwStdErr("Tool::getFactory: Tool of abstract class does not have factory object");
 	
-	/* Dummy statement to make the compiler happy: */
+	/* Just to make compiler happy: */
 	return 0;
 	}
 

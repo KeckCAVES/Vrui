@@ -1,7 +1,8 @@
 /***********************************************************************
 HelicopterNavigationTool - Class for navigation tools using a simplified
-helicopter flight model, a la Enemy Territory: Quake Wars' Anansi.
-Copyright (c) 2007-2008 Oliver Kreylos
+helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
+I like that -- wanna fight about it?
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,7 +44,11 @@ Methods of class HelicopterNavigationToolFactory:
 ************************************************/
 
 HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& toolManager)
-	:ToolFactory("HelicopterNavigationTool",toolManager)
+	:ToolFactory("HelicopterNavigationTool",toolManager),
+	 g(getMeterFactor()*Scalar(9.81)),
+	 collectiveMin(Scalar(0)),collectiveMax(g*Scalar(1.5)),
+	 thrust(g*Scalar(5)),
+	 brake(g*Scalar(0.75))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -55,11 +60,11 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 	Vector rot=cfs.retrieveValue<Vector>("./rotateFactors",Vector(-60,-60,60));
 	for(int i=0;i<3;++i)
 		rotateFactors[i]=Math::rad(rot[i]);
-	g=cfs.retrieveValue<Scalar>("./g",Scalar(9.81)*Scalar(100.0/25.4)*getInchFactor());
-	collectiveMin=cfs.retrieveValue<Scalar>("./collectiveMin",Scalar(0));
-	collectiveMax=cfs.retrieveValue<Scalar>("./collectiveMax",g*Scalar(1.5));
-	thrust=cfs.retrieveValue<Scalar>("./thrust",g*Scalar(5));
-	brake=cfs.retrieveValue<Scalar>("./brake",g*Scalar(0.75));
+	g=cfs.retrieveValue<Scalar>("./g",g);
+	collectiveMin=cfs.retrieveValue<Scalar>("./collectiveMin",collectiveMin);
+	collectiveMax=cfs.retrieveValue<Scalar>("./collectiveMax",collectiveMax);
+	thrust=cfs.retrieveValue<Scalar>("./thrust",thrust);
+	brake=cfs.retrieveValue<Scalar>("./brake",brake);
 	Vector drag=cfs.retrieveValue<Vector>("./dragCoefficients",Vector(0.3,0.1,0.3));
 	for(int i=0;i<3;++i)
 		dragCoefficients[i]=-Math::abs(drag[i]);
@@ -80,6 +85,11 @@ HelicopterNavigationToolFactory::~HelicopterNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	HelicopterNavigationTool::factory=0;
+	}
+
+const char* HelicopterNavigationToolFactory::getName(void) const
+	{
+	return "Helicopter Flight";
 	}
 
 Tool* HelicopterNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -152,6 +162,171 @@ HelicopterNavigationTool::HelicopterNavigationTool(const ToolFactory* factory,co
 const ToolFactory* HelicopterNavigationTool::getFactory(void) const
 	{
 	return factory;
+	}
+
+void HelicopterNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
+	{
+	/* Process based on which button was pressed: */
+	if(buttonIndex==0)
+		{
+		if(cbData->newButtonState)
+			{
+			/* Act depending on this tool's current state: */
+			if(isActive())
+				{
+				/* Go back to original transformation: */
+				NavTransform nav=pre;
+				nav*=NavTransform::translateToOriginFrom(currentPosition);
+				nav*=post;
+				setNavigationTransformation(nav);
+				
+				/* Deactivate this tool: */
+				deactivate();
+				}
+			else
+				{
+				/* Try activating this tool: */
+				if(activate())
+					{
+					/* Initialize the navigation: */
+					Vector x=Geometry::cross(getForwardDirection(),getUpDirection());
+					Vector y=Geometry::cross(getUpDirection(),x);
+					pre=NavTransform::translateFromOriginTo(getMainViewer()->getHeadPosition());
+					pre*=NavTransform::rotate(Rotation::fromBaseVectors(x,y));
+					
+					post=Geometry::invert(pre);
+					post*=getNavigationTransformation();
+					
+					currentPosition=Point::origin;
+					currentOrientation=Rotation::identity;
+					currentVelocity=Vector::zero;
+					lastFrameTime=getApplicationTime();
+					}
+				}
+			}
+		}
+	else
+		{
+		/* Store the new state of the button: */
+		buttons[buttonIndex-1]=cbData->newButtonState;
+		}
+	}
+
+void HelicopterNavigationTool::valuatorCallback(int,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData)
+	{
+	/* Store the new valuator state: */
+	valuators[valuatorIndex]=cbData->newValuatorValue;
+	}
+
+void HelicopterNavigationTool::frame(void)
+	{
+	/* Act depending on this tool's current state: */
+	if(isActive())
+		{
+		double newFrameTime=getApplicationTime();
+		Scalar dt=Scalar(newFrameTime-lastFrameTime);
+		
+		/* Update the current orientation based on the pitch, roll, and yaw controls: */
+		Vector rot=Vector(valuators[0]*factory->rotateFactors[0],valuators[1]*factory->rotateFactors[1],valuators[2]*factory->rotateFactors[2]);
+		currentOrientation.leftMultiply(Rotation::rotateScaledAxis(rot*dt));
+		currentOrientation.renormalize();
+		
+		/* Update the current velocity based on collective, throttle and brake: */
+		Vector accel=Vector(0,0,-factory->g);
+		accel+=currentOrientation.inverseTransform(Vector(0,0,(factory->collectiveMax-factory->collectiveMin)*(Scalar(1)-valuators[3])*Scalar(0.5)+factory->collectiveMin));
+		if(buttons[0])
+			accel+=currentOrientation.inverseTransform(Vector(0,factory->thrust,0));
+		if(buttons[1])
+			accel+=currentOrientation.inverseTransform(Vector(0,-factory->brake,0));
+		
+		/* Calculate drag: */
+		Vector localVel=currentOrientation.transform(currentVelocity);
+		Vector drag=Vector(localVel[0]*factory->dragCoefficients[0],localVel[1]*factory->dragCoefficients[1],localVel[2]*factory->dragCoefficients[2]);
+		accel+=currentOrientation.inverseTransform(drag);
+		
+		currentVelocity+=accel*dt;
+		
+		/* Update the current position based on current velocity: */
+		currentPosition+=currentVelocity*dt;
+		
+		/* Set the new navigation transformation: */
+		NavTransform nav=pre;
+		nav*=NavTransform::rotate(Rotation::rotateZ(valuators[4]*factory->viewAngleFactors[0]));
+		nav*=NavTransform::rotate(Rotation::rotateX(valuators[5]*factory->viewAngleFactors[1]));
+		nav*=NavTransform::rotate(currentOrientation);
+		nav*=NavTransform::translateToOriginFrom(currentPosition);
+		nav*=post;
+		setNavigationTransformation(nav);
+		
+		/* Prepare for the next frame: */
+		lastFrameTime=newFrameTime;
+		Vrui::requestUpdate();
+		}
+	}
+
+void HelicopterNavigationTool::display(GLContextData& contextData) const
+	{
+	if(isActive())
+		{
+		/* Get the data item: */
+		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+		
+		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+		glDisable(GL_LIGHTING);
+		glLineWidth(1.0f);
+		glColor3f(0.0f,1.0f,0.0f);
+		
+		float y=float(getFrontplaneDist())*1.25f;
+		
+		glPushMatrix();
+		glMultMatrix(pre);
+		glRotate(valuators[4]*Math::deg(factory->viewAngleFactors[0]),Vector(0,0,1));
+		glRotate(valuators[5]*Math::deg(factory->viewAngleFactors[1]),Vector(1,0,0));
+		
+		glBegin(GL_LINES);
+		glVertex3f(-y*0.02f,y,   0.00f);
+		glVertex3f(-y*0.01f,y,   0.00f);
+		glVertex3f( y*0.01f,y,   0.00f);
+		glVertex3f( y*0.02f,y,   0.00f);
+		glVertex3f(   0.00f,y,-y*0.02f);
+		glVertex3f(   0.00f,y,-y*0.01f);
+		glVertex3f(   0.00f,y, y*0.01f);
+		glVertex3f(   0.00f,y, y*0.02f);
+		glEnd();
+		
+		/* Draw the flight path marker: */
+		Vector vel=currentOrientation.transform(currentVelocity);
+		if(vel[1]>Scalar(0))
+			{
+			vel*=y/vel[1];
+			Scalar maxVel=Misc::max(Math::abs(vel[0]),Math::abs(vel[2]));
+			if(maxVel>=Scalar(y*0.5f))
+				{
+				vel[0]*=Scalar(y*0.5f)/maxVel;
+				vel[2]*=Scalar(y*0.5f)/maxVel;
+				glColor3f(1.0f,0.0f,0.0f);
+				}
+			else
+				glColor3f(0.0f,1.0f,0.0f);
+			
+			glBegin(GL_LINE_LOOP);
+			glVertex3f(vel[0]-y*0.005f,vel[1],vel[2]+  0.000f);
+			glVertex3f(vel[0]+  0.000f,vel[1],vel[2]-y*0.005f);
+			glVertex3f(vel[0]+y*0.005f,vel[1],vel[2]+  0.000f);
+			glVertex3f(vel[0]+  0.000f,vel[1],vel[2]+y*0.005f);
+			glEnd();
+			}
+		
+		/* Draw the artificial horizon ribbon: */
+		glRotate(currentOrientation);
+		Vector yAxis=currentOrientation.inverseTransform(Vector(0,1,0));
+		Scalar yAngle=Math::deg(Math::atan2(yAxis[0],yAxis[1]));
+		glRotate(-yAngle,Vector(0,0,1));
+		glCallList(dataItem->displayListBase+10);
+		
+		glPopMatrix();
+		glPopAttrib();
+		}
 	}
 
 void HelicopterNavigationTool::initContext(GLContextData& contextData) const
@@ -330,171 +505,6 @@ void HelicopterNavigationTool::initContext(GLContextData& contextData) const
 		}
 	
 	glEndList();
-	}
-
-void HelicopterNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
-	{
-	/* Process based on which button was pressed: */
-	if(buttonIndex==0)
-		{
-		if(cbData->newButtonState)
-			{
-			/* Act depending on this tool's current state: */
-			if(isActive())
-				{
-				/* Go back to original transformation: */
-				NavTransform nav=pre;
-				nav*=NavTransform::translateToOriginFrom(currentPosition);
-				nav*=post;
-				setNavigationTransformation(nav);
-				
-				/* Deactivate this tool: */
-				deactivate();
-				}
-			else
-				{
-				/* Try activating this tool: */
-				if(activate())
-					{
-					/* Initialize the navigation: */
-					Vector x=Geometry::cross(getForwardDirection(),getUpDirection());
-					Vector y=Geometry::cross(getUpDirection(),x);
-					pre=NavTransform::translateFromOriginTo(getMainViewer()->getHeadPosition());
-					pre*=NavTransform::rotate(Rotation::fromBaseVectors(x,y));
-					
-					post=Geometry::invert(pre);
-					post*=getNavigationTransformation();
-					
-					currentPosition=Point::origin;
-					currentOrientation=Rotation::identity;
-					currentVelocity=Vector::zero;
-					lastFrameTime=getApplicationTime();
-					}
-				}
-			}
-		}
-	else
-		{
-		/* Store the new state of the button: */
-		buttons[buttonIndex-1]=cbData->newButtonState;
-		}
-	}
-
-void HelicopterNavigationTool::valuatorCallback(int,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData)
-	{
-	/* Store the new valuator state: */
-	valuators[valuatorIndex]=cbData->newValuatorValue;
-	}
-
-void HelicopterNavigationTool::frame(void)
-	{
-	/* Act depending on this tool's current state: */
-	if(isActive())
-		{
-		double newFrameTime=getApplicationTime();
-		Scalar dt=Scalar(newFrameTime-lastFrameTime);
-		
-		/* Update the current orientation based on the pitch, roll, and yaw controls: */
-		Vector rot=Vector(valuators[0]*factory->rotateFactors[0],valuators[1]*factory->rotateFactors[1],valuators[2]*factory->rotateFactors[2]);
-		currentOrientation.leftMultiply(Rotation::rotateScaledAxis(rot*dt));
-		currentOrientation.renormalize();
-		
-		/* Update the current velocity based on collective, throttle and brake: */
-		Vector accel=Vector(0,0,-factory->g);
-		accel+=currentOrientation.inverseTransform(Vector(0,0,(factory->collectiveMax-factory->collectiveMin)*(Scalar(1)-valuators[3])*Scalar(0.5)+factory->collectiveMin));
-		if(buttons[0])
-			accel+=currentOrientation.inverseTransform(Vector(0,factory->thrust,0));
-		if(buttons[1])
-			accel+=currentOrientation.inverseTransform(Vector(0,-factory->brake,0));
-		
-		/* Calculate drag: */
-		Vector localVel=currentOrientation.transform(currentVelocity);
-		Vector drag=Vector(localVel[0]*factory->dragCoefficients[0],localVel[1]*factory->dragCoefficients[1],localVel[2]*factory->dragCoefficients[2]);
-		accel+=currentOrientation.inverseTransform(drag);
-		
-		currentVelocity+=accel*dt;
-		
-		/* Update the current position based on current velocity: */
-		currentPosition+=currentVelocity*dt;
-		
-		/* Set the new navigation transformation: */
-		NavTransform nav=pre;
-		nav*=NavTransform::rotate(Rotation::rotateZ(valuators[4]*factory->viewAngleFactors[0]));
-		nav*=NavTransform::rotate(Rotation::rotateX(valuators[5]*factory->viewAngleFactors[1]));
-		nav*=NavTransform::rotate(currentOrientation);
-		nav*=NavTransform::translateToOriginFrom(currentPosition);
-		nav*=post;
-		setNavigationTransformation(nav);
-		
-		/* Prepare for the next frame: */
-		lastFrameTime=newFrameTime;
-		Vrui::requestUpdate();
-		}
-	}
-
-void HelicopterNavigationTool::display(GLContextData& contextData) const
-	{
-	if(isActive())
-		{
-		/* Get the data item: */
-		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
-		
-		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
-		glDisable(GL_LIGHTING);
-		glLineWidth(1.0f);
-		glColor3f(0.0f,1.0f,0.0f);
-		
-		float y=float(getFrontplaneDist())*1.25f;
-		
-		glPushMatrix();
-		glMultMatrix(pre);
-		glRotate(valuators[4]*Math::deg(factory->viewAngleFactors[0]),Vector(0,0,1));
-		glRotate(valuators[5]*Math::deg(factory->viewAngleFactors[1]),Vector(1,0,0));
-		
-		glBegin(GL_LINES);
-		glVertex3f(-y*0.02f,y,   0.00f);
-		glVertex3f(-y*0.01f,y,   0.00f);
-		glVertex3f( y*0.01f,y,   0.00f);
-		glVertex3f( y*0.02f,y,   0.00f);
-		glVertex3f(   0.00f,y,-y*0.02f);
-		glVertex3f(   0.00f,y,-y*0.01f);
-		glVertex3f(   0.00f,y, y*0.01f);
-		glVertex3f(   0.00f,y, y*0.02f);
-		glEnd();
-		
-		/* Draw the flight path marker: */
-		Vector vel=currentOrientation.transform(currentVelocity);
-		if(vel[1]>Scalar(0))
-			{
-			vel*=y/vel[1];
-			Scalar maxVel=Misc::max(Math::abs(vel[0]),Math::abs(vel[2]));
-			if(maxVel>=Scalar(y*0.5f))
-				{
-				vel[0]*=Scalar(y*0.5f)/maxVel;
-				vel[2]*=Scalar(y*0.5f)/maxVel;
-				glColor3f(1.0f,0.0f,0.0f);
-				}
-			else
-				glColor3f(0.0f,1.0f,0.0f);
-			
-			glBegin(GL_LINE_LOOP);
-			glVertex3f(vel[0]-y*0.005f,vel[1],vel[2]+  0.000f);
-			glVertex3f(vel[0]+  0.000f,vel[1],vel[2]-y*0.005f);
-			glVertex3f(vel[0]+y*0.005f,vel[1],vel[2]+  0.000f);
-			glVertex3f(vel[0]+  0.000f,vel[1],vel[2]+y*0.005f);
-			glEnd();
-			}
-		
-		/* Draw the artificial horizon ribbon: */
-		glRotate(currentOrientation);
-		Vector yAxis=currentOrientation.inverseTransform(Vector(0,1,0));
-		Scalar yAngle=Math::deg(Math::atan2(yAxis[0],yAxis[1]));
-		glRotate(-yAngle,Vector(0,0,1));
-		glCallList(dataItem->displayListBase+10);
-		
-		glPopMatrix();
-		glPopAttrib();
-		}
 	}
 
 }

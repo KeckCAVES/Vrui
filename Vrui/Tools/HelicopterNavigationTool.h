@@ -1,7 +1,8 @@
 /***********************************************************************
 HelicopterNavigationTool - Class for navigation tools using a simplified
-helicopter flight model, a la Enemy Territory: Quake Wars' Anansi.
-Copyright (c) 2007-2008 Oliver Kreylos
+helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
+I like that -- wanna fight about it?
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,7 +55,8 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	HelicopterNavigationToolFactory(ToolManager& toolManager);
 	virtual ~HelicopterNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -92,13 +94,15 @@ class HelicopterNavigationTool:public NavigationTool,public GLObject
 	public:
 	HelicopterNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void initContext(GLContextData& contextData) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

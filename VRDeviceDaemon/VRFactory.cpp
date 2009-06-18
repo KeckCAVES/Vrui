@@ -23,12 +23,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define VRFACTORY_IMPLEMENTATION
 
+#include "VRFactory.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <dlfcn.h>
 #include <Misc/ThrowStdErr.h>
-
-#include "VRFactory.h"
 
 namespace {
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 Popup - Class for top-level GLMotif UI components.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2009 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -55,6 +55,10 @@ Popup::Popup(const char* sName,WidgetManager* sManager)
 
 Popup::~Popup(void)
 	{
+	/* Pop down the widget: */
+	manager->popdownWidget(this);
+	
+	/* Delete the child widgets: */
 	delete title;
 	delete child;
 	}

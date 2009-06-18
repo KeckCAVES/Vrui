@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformTool - Base class for tools used to transform the position or
 orientation of input devices.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -79,6 +79,11 @@ TransformToolFactory::TransformToolFactory(ToolManager& toolManager)
 TransformToolFactory::~TransformToolFactory(void)
 	{
 	delete[] buttonToggleFlags;
+	}
+
+const char* TransformToolFactory::getName(void) const
+	{
+	return "Transformer";
 	}
 
 extern "C" ToolFactory* createTransformToolFactory(Plugins::FactoryManager<ToolFactory>& manager)

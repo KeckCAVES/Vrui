@@ -92,9 +92,9 @@ class HVector:public ComponentArray<ScalarParam,dimensionParam+1>
 		}
 	
 	/* Methods: */
-	bool isVector(void) const // Tests whether a homogenuous vector represents an Euklidean vector
+	bool isVector(void) const // Tests whether a homogenuous vector represents a Euclidean vector
 		{
-		return components[affineDimension]=ScalarParam(0);
+		return components[affineDimension]==ScalarParam(0);
 		}
 	bool isPoint(void) const // Tests whether a homogenuous vector represents an affine point
 		{

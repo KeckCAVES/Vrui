@@ -21,13 +21,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "VRDeviceServer.h"
+
 #include <stdio.h>
 #include <stdexcept>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 
 #include "VRDeviceManager.h"
-#include "VRDeviceServer.h"
 
 /*******************************
 Methods of class VRDeviceServer:

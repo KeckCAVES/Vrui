@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <Images/ReadImageFile.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Viewer.h>
+#include <Vrui/DisplayState.h>
 #include <Vrui/Vrui.h>
 
 #include <Vrui/Tools/JediTool.h>
@@ -53,7 +53,7 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
+	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
@@ -72,6 +72,11 @@ JediToolFactory::~JediToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	JediTool::factory=0;
+	}
+
+const char* JediToolFactory::getName(void) const
+	{
+	return "Jedi Tool";
 	}
 
 Tool* JediToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -118,7 +123,7 @@ Methods of class JediTool:
 *************************/
 
 JediTool::JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:UtilityTool(factory,inputAssignment),
+	:PointingTool(factory,inputAssignment),
 	 lightsaberImage(Images::readImageFile(JediTool::factory->lightsaberImageFileName.c_str())),
 	 active(false)
 	{
@@ -127,23 +132,6 @@ JediTool::JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAs
 const ToolFactory* JediTool::getFactory(void) const
 	{
 	return factory;
-	}
-
-void JediTool::initContext(GLContextData& contextData) const
-	{
-	DataItem* dataItem=new DataItem;
-	contextData.addDataItem(this,dataItem);
-	
-	/* Upload the light saber image as a 2D texture: */
-	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
-	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
-	glBindTexture(GL_TEXTURE_2D,0);
 	}
 
 void JediTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
@@ -171,8 +159,6 @@ void JediTool::frame(void)
 		/* Update the light saber billboard: */
 		basePoint=getDevicePosition(0);
 		axis=getDeviceRayDirection(0);
-		x=Geometry::cross(axis,getMainViewer()->getHeadPosition()-basePoint);
-		x.normalize();
 		
 		/* Scale the lightsaber during activation: */
 		double activeTime=getApplicationTime()-activationTime;
@@ -184,8 +170,24 @@ void JediTool::frame(void)
 		
 		basePoint-=axis*factory->baseOffset;
 		axis*=factory->lightsaberLength;
-		x*=Math::div2(factory->lightsaberWidth);
 		}
+	}
+
+void JediTool::initContext(GLContextData& contextData) const
+	{
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
+	
+	/* Upload the light saber image as a 2D texture: */
+	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
+	glBindTexture(GL_TEXTURE_2D,0);
 	}
 
 void JediTool::glRenderActionTransparent(GLContextData& contextData) const
@@ -194,6 +196,14 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		{
 		/* Get the data item: */
 		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+		
+		/* Get the eye position for the current rendering path from Vrui's display state: */
+		const Point& eyePosition=Vrui::getDisplayState(contextData).eyePosition;
+		
+		/* Calculate the billboard orientation: */
+		Vector x=Geometry::cross(axis,eyePosition-getDevicePosition(0));
+		x.normalize();
+		x*=Math::div2(factory->lightsaberWidth);
 		
 		/* Draw the light saber: */
 		glPushAttrib(GL_COLOR_BUFFER_BIT|GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);

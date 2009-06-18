@@ -31,7 +31,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/Ray.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/MouseCursorFaker.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
@@ -108,8 +110,9 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	 numButtons(0),
 	 numButtonKeys(0),buttonKeyCodes(0),
 	 numModifierKeys(0),modifierKeyCodes(0),
-	 buttonStates(0),
-	 window(0)
+	 buttonStates(0),numMouseWheelTicks(0),
+	 window(0),
+	 mouseCursorFaker(0)
 	{
 	typedef std::vector<std::string> StringList;
 	
@@ -139,30 +142,48 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 			modifierKeyCodes[i]=getKeyCode(modifierKeyNames[i]);
 		}
 	
-	/* Calculate number of buttons: */
+	/* Calculate number of buttons and valuators: */
 	numButtons=configFileSection.retrieveValue<int>("./numButtons",0);
 	numButtonStates=(numButtons+numButtonKeys)*(1<<numModifierKeys);
+	int numValuators=1<<numModifierKeys;
 	
 	/* Create new input device: */
-	InputDevice* newDevice=inputDeviceManager->createInputDevice("Mouse",InputDevice::TRACK_POS|InputDevice::TRACK_DIR,numButtonStates,5,true);
+	InputDevice* newDevice=inputDeviceManager->createInputDevice("Mouse",InputDevice::TRACK_POS|InputDevice::TRACK_DIR,numButtonStates,numValuators+4,true);
 	newDevice->setDeviceRayDirection(Vector(0,1,0));
 	
 	/* Store the input device: */
 	inputDevices[0]=newDevice;
 	
-	/* Initialize button states: */
+	/* Initialize button and valuator states: */
 	modifierKeyMask=0x0;
 	buttonStates=new bool[numButtonStates];
 	for(int i=0;i<numButtonStates;++i)
 		buttonStates[i]=false;
-	numMouseWheelTicks=0;
+	numMouseWheelTicks=new int[numValuators];
+	for(int i=0;i<numValuators;++i)
+		numMouseWheelTicks[i]=0;
+	
+	/* Check if this adapter is supposed to draw a fake mouse cursor: */
+	if(configFileSection.retrieveValue<bool>("./fakeMouseCursor",false))
+		{
+		/* Read the cursor file name and nominal size: */
+		std::string mouseCursorImageFileName=configFileSection.retrieveString("./mouseCursorImageFileName",DEFAULTMOUSECURSORIMAGEFILENAME);
+		unsigned int mouseCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./mouseCursorNominalSize",24);
+		
+		/* Create the mouse cursor faker: */
+		mouseCursorFaker=new MouseCursorFaker(newDevice,mouseCursorImageFileName.c_str(),mouseCursorNominalSize);
+		mouseCursorFaker->setCursorSize(configFileSection.retrieveValue<Size>("./mouseCursorSize",mouseCursorFaker->getCursorSize()));
+		mouseCursorFaker->setCursorHotspot(configFileSection.retrieveValue<Vector>("./mouseCursorHotspot",mouseCursorFaker->getCursorHotspot()));
+		}
 	}
 
 InputDeviceAdapterMouse::~InputDeviceAdapterMouse(void)
 	{
+	delete mouseCursorFaker;
 	delete[] buttonKeyCodes;
 	delete[] modifierKeyCodes;
 	delete[] buttonStates;
+	delete[] numMouseWheelTicks;
 	}
 
 void InputDeviceAdapterMouse::updateInputDevices(void)
@@ -182,18 +203,22 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 			inputDevices[0]->setButtonState(i,buttonStates[i]);
 		
 		/* Set mouse device valuator states: */
-		double mouseWheelValue=double(numMouseWheelTicks)/3.0;
-		if(mouseWheelValue<-1.0)
-			mouseWheelValue=-1.0;
-		else if(mouseWheelValue>1.0)
-			mouseWheelValue=1.0;
-		inputDevices[0]->setValuator(0,mouseWheelValue);
-		numMouseWheelTicks=0;
+		int numValuators=1<<numModifierKeys;
+		for(int i=0;i<numValuators;++i)
+			{
+			double mouseWheelValue=double(numMouseWheelTicks[i])/3.0;
+			if(mouseWheelValue<-1.0)
+				mouseWheelValue=-1.0;
+			else if(mouseWheelValue>1.0)
+				mouseWheelValue=1.0;
+			inputDevices[0]->setValuator(i,mouseWheelValue);
+			numMouseWheelTicks[i]=0;
+			}
 		
-		inputDevices[0]->setValuator(1,Scalar(2)*mousePos[0]/window->getVRScreen()->getWidth()-Scalar(1));
-		inputDevices[0]->setValuator(2,Scalar(2)*mousePos[1]/window->getVRScreen()->getHeight()-Scalar(1));
-		inputDevices[0]->setValuator(3,0.0);
-		inputDevices[0]->setValuator(4,0.0);
+		inputDevices[0]->setValuator(numValuators+0,Scalar(2)*mousePos[0]/window->getVRScreen()->getWidth()-Scalar(1));
+		inputDevices[0]->setValuator(numValuators+1,Scalar(2)*mousePos[1]/window->getVRScreen()->getHeight()-Scalar(1));
+		inputDevices[0]->setValuator(numValuators+2,0.0);
+		inputDevices[0]->setValuator(numValuators+3,0.0);
 		}
 	}
 
@@ -270,14 +295,14 @@ void InputDeviceAdapterMouse::setButtonState(int buttonIndex,bool newButtonState
 
 void InputDeviceAdapterMouse::incMouseWheelTicks(void)
 	{
-	++numMouseWheelTicks;
+	++numMouseWheelTicks[modifierKeyMask];
 	
 	requestUpdate();
 	}
 
 void InputDeviceAdapterMouse::decMouseWheelTicks(void)
 	{
-	--numMouseWheelTicks;
+	--numMouseWheelTicks[modifierKeyMask];
 	
 	requestUpdate();
 	}

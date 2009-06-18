@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -62,7 +62,8 @@ class CurveEditorToolFactory:public ToolFactory
 	CurveEditorToolFactory(ToolManager& toolManager);
 	virtual ~CurveEditorToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -199,7 +200,7 @@ class CurveEditorTool:public UtilityTool
 	CurveEditorTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~CurveEditorTool(void);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

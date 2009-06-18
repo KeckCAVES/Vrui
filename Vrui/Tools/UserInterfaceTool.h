@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
+/* Forward declarations: */
 class UserInterfaceTool;
 
 class UserInterfaceToolFactory:public ToolFactory
@@ -45,6 +46,9 @@ class UserInterfaceToolFactory:public ToolFactory
 	public:
 	UserInterfaceToolFactory(ToolManager& toolManager);
 	virtual ~UserInterfaceToolFactory(void);
+	
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	};
 
 class UserInterfaceTool:public Tool
@@ -62,9 +66,6 @@ class UserInterfaceTool:public Tool
 	/* Constructors and destructors: */
 	public:
 	UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
-	
-	/* Methods: */
-	virtual const ToolFactory* getFactory(void) const;
 	};
 
 }

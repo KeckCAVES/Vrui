@@ -65,6 +65,11 @@ ScaleNavigationToolFactory::~ScaleNavigationToolFactory(void)
 	ScaleNavigationTool::factory=0;
 	}
 
+const char* ScaleNavigationToolFactory::getName(void) const
+	{
+	return "Scaling Only";
+	}
+
 Tool* ScaleNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
 	{
 	return new ScaleNavigationTool(this,inputAssignment);

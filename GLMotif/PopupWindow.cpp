@@ -89,6 +89,8 @@ PopupWindow::PopupWindow(const char* sName,WidgetManager* sManager,const char* s
 
 PopupWindow::~PopupWindow(void)
 	{
+	manager->popdownWidget(this);
+	
 	delete titleBar;
 	delete child;
 	}

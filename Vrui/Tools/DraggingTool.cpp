@@ -1,7 +1,7 @@
 /***********************************************************************
 DraggingTool - Base class for tools encapsulating 6-DOF dragging
 operations.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -41,6 +41,11 @@ DraggingToolFactory::DraggingToolFactory(ToolManager& toolManager)
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	#endif
+	}
+
+const char* DraggingToolFactory::getName(void) const
+	{
+	return "Dragger";
 	}
 
 /*****************************

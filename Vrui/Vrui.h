@@ -57,6 +57,7 @@ class LightsourceManager;
 class Viewer;
 class VRScreen;
 class VRWindow;
+class DisplayState;
 class Listener;
 class ViewSpecification;
 class CoordinateManager;
@@ -233,6 +234,7 @@ double getCurrentFrameTime(void); // Returns the current average time between fr
 /* Rendering management: */
 void updateContinuously(void); // Tells Vrui to continuously update its state (must be called before mainLoop)
 void requestUpdate(void); // Tells Vrui to update its internal state and redraw the VR windows
+const DisplayState& getDisplayState(GLContextData& contextData); // Returns the Vrui display state valid for the current display method call
 
 }
 

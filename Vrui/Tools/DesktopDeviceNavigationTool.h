@@ -2,7 +2,7 @@
 DesktopDeviceNavigationTool - Class to represent a desktop input device
 (joystick, spaceball, etc.) as a navigation tool combined with a virtual
 input device.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -83,7 +83,8 @@ class DesktopDeviceNavigationToolFactory:public ToolFactory
 	DesktopDeviceNavigationToolFactory(ToolManager& toolManager);
 	virtual ~DesktopDeviceNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -116,7 +117,7 @@ class DesktopDeviceNavigationTool:public NavigationTool
 	DesktopDeviceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~DesktopDeviceNavigationTool(void);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;

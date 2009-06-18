@@ -102,8 +102,15 @@ void Application::run(void)
 	toolManager->getToolDestructionCallbacks().remove(this,&Application::toolDestructionCallback);
 	}
 
-void Application::toolCreationCallback(ToolManager::ToolCreationCallbackData*)
+void Application::toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData)
 	{
+	/* Check if the new tool is an application tool: */
+	ToolBase* applicationTool=dynamic_cast<ToolBase*>(cbData->tool);
+	if(applicationTool!=0)
+		{
+		/* Set the application tool's application pointer: */
+		applicationTool->setApplication(this);
+		}
 	}
 
 void Application::toolDestructionCallback(ToolManager::ToolDestructionCallbackData*)

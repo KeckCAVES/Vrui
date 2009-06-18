@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2008 Oliver Kreylos
+# Copyright (c) 2003-2009 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -74,6 +74,8 @@ VruiLocatorDemo: o/VruiLocatorDemo.o
 VruiCustomToolDemo: o/VruiCustomToolDemo.o
 
 VruiCalibrator: o/VruiCalibrator.o
+
+o/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_TOPOGRAPHY_IMAGEFILENAME='"$(shell pwd)/EarthTopography.ppm"'
 
 ShowEarthModel: o/EarthFunctions.o \
                 o/PointSet.o \

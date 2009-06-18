@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "InterSense.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <Misc/Endianness.h>
@@ -35,8 +37,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 
 #include "VRDeviceManager.h"
-
-#include "InterSense.h"
 
 namespace {
 

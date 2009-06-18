@@ -1,7 +1,7 @@
 /***********************************************************************
 WandNavigationTool - Class encapsulating the navigation behaviour of a
 classical CAVE wand.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -46,7 +46,8 @@ class WandNavigationToolFactory:public ToolFactory
 	WandNavigationToolFactory(ToolManager& toolManager);
 	virtual ~WandNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -78,7 +79,7 @@ class WandNavigationTool:public NavigationTool
 	public:
 	WandNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

@@ -23,9 +23,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define VRFACTORYMANAGER_IMPLEMENTATION
 
-#include "VRFactory.h"
-
 #include "VRFactoryManager.h"
+
+#include "VRFactory.h"
 
 /*********************************
 Methods of class VRFactoryManager:
