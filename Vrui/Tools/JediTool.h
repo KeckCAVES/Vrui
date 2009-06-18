@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,7 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Geometry.h>
 #include <Vrui/TransparentObject.h>
 
-#include <Vrui/Tools/UtilityTool.h>
+#include <Vrui/Tools/PointingTool.h>
 
 namespace Vrui {
 
@@ -54,12 +54,13 @@ class JediToolFactory:public ToolFactory
 	JediToolFactory(ToolManager& toolManager);
 	virtual ~JediToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class JediTool:public UtilityTool,public GLObject,public TransparentObject
+class JediTool:public PointingTool,public GLObject,public TransparentObject
 	{
 	friend class JediToolFactory;
 	
@@ -92,17 +93,20 @@ class JediTool:public UtilityTool,public GLObject,public TransparentObject
 	double activationTime; // Time at which the light saber was activated
 	Point basePoint; // Base point of the light saber billboard
 	Vector axis; // Current light saber axis vector
-	Vector x; // Current billboard vector
 	
 	/* Constructors and destructors: */
 	public:
 	JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void initContext(GLContextData& contextData) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
+	
+	/* Methods from TransparentObject: */
 	virtual void glRenderActionTransparent(GLContextData& contextData) const;
 	};
 

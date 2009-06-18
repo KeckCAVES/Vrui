@@ -2,7 +2,7 @@
 MouseDialogNavigationTool - Class providing a newbie-friendly interface
 to the standard MouseNavigationTool using a dialog box of navigation
 options.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,16 +25,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_MOUSEDIALOGNAVIGATIONTOOL_INCLUDED
 #define VRUI_MOUSEDIALOGNAVIGATIONTOOL_INCLUDED
 
-#include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
-#include <Geometry/Box.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <GL/gl.h>
-#include <GL/GLObject.h>
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/ToggleButton.h>
-#include <Images/RGBAImage.h>
 #include <Vrui/Tools/NavigationTool.h>
 
 /* Forward declarations: */
@@ -63,45 +58,24 @@ class MouseDialogNavigationToolFactory:public ToolFactory
 	Scalar dollyFactor; // Distance the device has to be moved along the scaling line to dolly by one physical unit
 	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
 	Scalar spinThreshold; // Distance the device has to be moved on the last step of rotation to activate spinning
-	bool showMouseCursor; // Flag whether to draw a fake mouse cursor at the mouse position
-	Size mouseCursorSize; // Size of mouse cursor (depth ignored)
-	Vector mouseCursorHotspot; // Mouse cursor hotspot coordinates (depth ignored)
-	std::string mouseCursorImageFileName; // Name of the image file containing the mouse cursor texture
-	unsigned int mouseCursorNominalSize; // Size to look for in the cursor image file
 	
 	/* Constructors and destructors: */
 	public:
 	MouseDialogNavigationToolFactory(ToolManager& toolManager);
 	virtual ~MouseDialogNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseDialogNavigationTool:public NavigationTool,public GLObject
+class MouseDialogNavigationTool:public NavigationTool
 	{
 	friend class MouseDialogNavigationToolFactory;
 	
 	/* Embedded classes: */
 	private:
-	struct DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		GLuint textureObjectId; // ID of the mouse cursor texture object
-		
-		/* Constructors and destructors: */
-		DataItem(void)
-			{
-			glGenTextures(1,&textureObjectId);
-			}
-		virtual ~DataItem(void)
-			{
-			glDeleteTextures(1,&textureObjectId);
-			}
-		};
-	
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
 		ROTATING,PANNING,DOLLYING,SCALING
@@ -111,8 +85,6 @@ class MouseDialogNavigationTool:public NavigationTool,public GLObject
 	static MouseDialogNavigationToolFactory* factory; // Pointer to the factory object for this class
 	
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
-	Images::RGBAImage mouseCursorImage; // Image containing the mouse cursor texture
-	Geometry::Box<float,2> mouseCursorTexCoordBox; // Texture coordinate box for the mouse cursor texture
 	
 	GLMotif::PopupWindow* navigationDialogPopup; // Pointer to the navigation dialog window
 	
@@ -146,9 +118,8 @@ class MouseDialogNavigationTool:public NavigationTool,public GLObject
 	MouseDialogNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~MouseDialogNavigationTool(void);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void initContext(GLContextData& contextData) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;

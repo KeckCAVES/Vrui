@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoDraggingTool - Class for 6-DOF dragging with scaled-down dragging
 transformations.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -60,6 +60,11 @@ WaldoDraggingToolFactory::~WaldoDraggingToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	WaldoDraggingTool::factory=0;
+	}
+
+const char* WaldoDraggingToolFactory::getName(void) const
+	{
+	return "Waldo (Scaled) Dragger";
 	}
 
 Tool* WaldoDraggingToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

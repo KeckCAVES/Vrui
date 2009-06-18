@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorScalingNavigationTool - Class for tools that allow scaling the
 navigation transformation using a valuator.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -46,7 +46,8 @@ class ValuatorScalingNavigationToolFactory:public ToolFactory
 	ValuatorScalingNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ValuatorScalingNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -70,7 +71,7 @@ class ValuatorScalingNavigationTool:public NavigationTool
 	public:
 	ValuatorScalingNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);

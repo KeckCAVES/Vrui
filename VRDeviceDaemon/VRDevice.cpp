@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "VRDevice.h"
+
 #ifdef __SGI_IRIX__
 #include <unistd.h>
 #else
@@ -35,8 +37,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include "VRFactory.h"
 #include "VRCalibrator.h"
 #include "VRDeviceManager.h"
-
-#include "VRDevice.h"
 
 /*************************
 Methods of class VRDevice:

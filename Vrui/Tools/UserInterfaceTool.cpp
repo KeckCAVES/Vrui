@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -62,6 +62,11 @@ UserInterfaceToolFactory::~UserInterfaceToolFactory(void)
 	UserInterfaceTool::factory=0;
 	}
 
+const char* UserInterfaceToolFactory::getName(void) const
+	{
+	return "User Interface";
+	}
+
 extern "C" ToolFactory* createUserInterfaceToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
 	{
 	/* Get pointer to tool manager: */
@@ -115,11 +120,6 @@ Ray UserInterfaceTool::calcInteractionRay(void) const
 UserInterfaceTool::UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:Tool(factory,inputAssignment)
 	{
-	}
-
-const ToolFactory* UserInterfaceTool::getFactory(void) const
-	{
-	return factory;
 	}
 
 }

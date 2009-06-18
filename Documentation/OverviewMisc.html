@@ -13,7 +13,11 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DL>
 <DT>Utility.h</DT>
-<DD>Utility contains namespace-global functions implementing common tasks, such as swapping variables.</DD>
+<DD>Utility.h contains namespace-global functions implementing common tasks, such as swapping variables.</DD>
+</DD>
+
+<DT>StringPrintf.h</DT>
+<DD>StringPrintf.h contains a namespace-global function to print into a C++ string using a printf-style interface.</DD>
 </DD>
 
 <DT>SelfDestructPointer.h</DT>
@@ -50,10 +54,10 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DD>StringHashFunctions.h contains a specialized Misc::StandardHashFunction class for C++ strings, and a new Misc::StringHashFunction class for C strings.</DD>
 
 <DT>OrderedTuple.h</DT>
-<DD>OrderedTuple is a class to represent ordered tuples (of integers) as hash table keys.</DD>
+<DD>OrderedTuple is a class to represent ordered tuples (of integers) as hash table keys. Parametrized by element type, which must be a signed or unsigned integer type, and tuple dimension.</DD>
 
 <DT>UnorderedTuple.h</DT>
-<DD>UnorderedTuple is a class to represent unordered tuples (of integers) as hash table keys. Two unordered tuples are identical if one is a permutation of the other.</DD>
+<DD>UnorderedTuple is a class to represent unordered tuples (of integers) as hash table keys. Two unordered tuples are identical if one is a permutation of the other. Parametrized by element type, which must be a signed or unsigned integer type, and tuple dimension.</DD>
 
 <DT>HashTable.h</DT>
 <DD>HashTable is a class implementing hash tables using linked lists for collision management. It is templatized by the hash table key type, the type of elements stored in the hash table, and the hash function functor. HashTable.h contains a specialized implementation for void as element type, essentially implementing a set. HashTable uses StandardHashFunction as the default hash function functor.</DD>
@@ -69,6 +73,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>Timer.h</DT>
 <DD>Timer is a class providing a high-resolution wall-clock timer. It returns the amount of time passed between two timer snapshots as a floating-point number in seconds.</DD>
+
+<DT>FunctionCalls.h</DT>
+<DD>FunctionCalls defines several functor classes representing function calls or method invocations as first-class objects.</DD>
 
 <DT>CallbackData.h</DT>
 <DD>CallbackData is the base class for all data passed to callbacks implemented as objects of class CallbackList. It contains a pointer back to the originating CallbackList object. CallbackData.h also declares the type of callback functions stored in CallbackList objects.</DD>
@@ -99,6 +106,21 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>CreateNumberedFileName.h</DT>
 <DD>CreateNumberedFileName contains a single namespace-global function to generate unique numbered file names based on a given base name and number of digits. The function searches for all numbered files of the given basename, and creates a new file with a number one higher than the previous maximum. The function has undefined results if called concurrently for the same basename.</DD>
+
+<DT>CharacterSource</DT>
+<DD>CharacterSource is the base class for high-performance ASCII file readers.</DD>
+
+<DT>FileCharacterSource</DT>
+<DD>FileCharacterSource is a reader class derived from CharacterSource for standard files.</DD>
+
+<DT>GzippedFileCharacterSource</DT>
+<DD>FileCharacterSource is a reader class derived from CharacterSource for gzip-compressed standard files.</DD>
+
+<DT>TokenSource</DT>
+<DD>Class to split the character stream from a character source into a stream of tokens, with flexible definitions of syntactic character classes.</DD>
+
+<DT>ASCIIFileReader</DT>
+<DD>Class to efficiently tokenize and parse ASCII (plain text) input files. Supports on-the-fly gunzipping, and memory-mapped I/O.</DD>
 
 <DT>ValueCoder.h</DT>
 <DD>ValueCoder is a class to encode/decode values of arbitrary types to/from strings, templatized by the type of encoded/decoded values.</DD>

@@ -2,7 +2,7 @@
 ScreenshotTool - Class for tools to save save screenshots from immersive
 environments by overriding a selected window's screen and viewer with
 virtual ones attached to an input device.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -60,7 +60,8 @@ class ScreenshotToolFactory:public ToolFactory
 	ScreenshotToolFactory(ToolManager& toolManager);
 	virtual ~ScreenshotToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -94,7 +95,7 @@ class ScreenshotTool:public UtilityTool
 	public:
 	ScreenshotTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;

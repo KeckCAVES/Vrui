@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,6 +43,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/TextField.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/DisplayState.h>
 #include <Vrui/Vrui.h>
 
 #include <Vrui/Tools/DenseMatrix.h>
@@ -79,7 +80,7 @@ Methods of class CurveEditorToolFactory:
 
 CurveEditorToolFactory::CurveEditorToolFactory(ToolManager& toolManager)
 	:ToolFactory("CurveEditorTool",toolManager),
-	 curveFileName("CurveEditorTool.dat"),
+	 curveFileName("CurveEditorTool.curve"),
 	 vertexRadius(getUiSize()*Scalar(2)),
 	 handleRadius(getUiSize()*Scalar(1.5)),
 	 curveRadius(getUiSize())
@@ -108,6 +109,11 @@ CurveEditorToolFactory::~CurveEditorToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	CurveEditorTool::factory=0;
+	}
+
+const char* CurveEditorToolFactory::getName(void) const
+	{
+	return "Viewpoint Curve Editor";
 	}
 
 Tool* CurveEditorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -1298,9 +1304,6 @@ CurveEditorTool::~CurveEditorTool(void)
 		firstVertex=nextVertex;
 		}
 	
-	/* Pop down the curve editor dialog: */
-	popdownPrimaryWidget(curveEditorDialogPopup);
-	
 	/* Delete the curve editor dialog: */
 	delete curveEditorDialogPopup;
 	}
@@ -1466,7 +1469,8 @@ void CurveEditorTool::display(GLContextData& contextData) const
 	
 	/* Go to navigational coordinates: */
 	glPushMatrix();
-	glMultMatrix(getNavigationTransformation());
+	glLoadIdentity();
+	glMultMatrix(getDisplayState(contextData).modelviewNavigational);
 	
 	/* Render all curve segments: */
 	glLineWidth(3.0);

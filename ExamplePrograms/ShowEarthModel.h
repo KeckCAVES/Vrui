@@ -169,6 +169,9 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMotif::Slider* playSpeedSlider; // Slider to adjust the animation speed
 	GLMotif::ToggleButton* playToggle; // Toggle button for automatic playback
 	
+	// DEBUGGING
+	//Vrui::NavTransform navFrame;
+	
 	/* Private methods: */
 	GLMotif::Popup* createRenderTogglesMenu(void); // Creates the "Rendering Modes" submenu
 	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
@@ -188,6 +191,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	void alignSurfaceFrame(Vrui::NavTransform& surfaceFrame);
 	void menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void centerDisplayCallback(Misc::CallbackData* cbData);

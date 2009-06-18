@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -74,7 +74,8 @@ class MeasurementToolFactory:public ToolFactory
 	MeasurementToolFactory(ToolManager& toolManager);
 	virtual ~MeasurementToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -112,7 +113,7 @@ class MeasurementTool:public UtilityTool
 	MeasurementTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~MeasurementTool(void);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

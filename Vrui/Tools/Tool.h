@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,6 +54,7 @@ class ToolFactory:public Plugins::Factory
 	ToolFactory(const char* sClassName,ToolManager& toolManager); // Initializes tool factory settings
 	
 	/* Methods: */
+	virtual const char* getName(void) const =0; // Returns a descriptive -- and unique -- name for tools created by this factory
 	const ToolInputLayout& getLayout(void) const // Returns the input requirements of all tools created by this factory
 		{
 		return layout;

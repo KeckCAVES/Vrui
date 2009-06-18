@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "VRPNClient.h"
+
 #include <stdio.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
@@ -28,8 +30,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 
 #include "VRDeviceManager.h"
-
-#include "VRPNClient.h"
 
 /***************************
 Methods of class VRPNClient:

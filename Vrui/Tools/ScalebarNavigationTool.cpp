@@ -1,7 +1,7 @@
 /***********************************************************************
 ScalebarNavigationTool - Class to scale navigational coordinates using a
 scale bar glyph with an associated settings dialog.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -84,6 +84,11 @@ ScalebarNavigationToolFactory::~ScalebarNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ScalebarNavigationTool::factory=0;
+	}
+
+const char* ScalebarNavigationToolFactory::getName(void) const
+	{
+	return "Scaling via Scale Bar";
 	}
 
 Tool* ScalebarNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

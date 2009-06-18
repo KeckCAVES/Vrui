@@ -1,7 +1,7 @@
 /***********************************************************************
 LaserpointerTool - Class for tools using rays to point out features in a
 3D display.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -51,7 +51,7 @@ LaserpointerToolFactory::LaserpointerToolFactory(ToolManager& toolManager)
 	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
+	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
@@ -69,6 +69,11 @@ LaserpointerToolFactory::~LaserpointerToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	LaserpointerTool::factory=0;
+	}
+
+const char* LaserpointerToolFactory::getName(void) const
+	{
+	return "Laser Pointer";
 	}
 
 Tool* LaserpointerToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -115,7 +120,7 @@ Methods of class LaserpointerTool:
 *********************************/
 
 LaserpointerTool::LaserpointerTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:UtilityTool(factory,inputAssignment),
+	:PointingTool(factory,inputAssignment),
 	 active(false)
 	{
 	}

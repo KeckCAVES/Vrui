@@ -1,7 +1,7 @@
 /***********************************************************************
 LaserpointerTool - Class for tools using rays to point out features in a
 3D display.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,7 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/GLColor.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/Tools/UtilityTool.h>
+#include <Vrui/Tools/PointingTool.h>
 
 namespace Vrui {
 
@@ -53,12 +53,13 @@ class LaserpointerToolFactory:public ToolFactory
 	LaserpointerToolFactory(ToolManager& toolManager);
 	virtual ~LaserpointerToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class LaserpointerTool:public UtilityTool
+class LaserpointerTool:public PointingTool
 	{
 	friend class LaserpointerToolFactory;
 	
@@ -74,7 +75,7 @@ class LaserpointerTool:public UtilityTool
 	public:
 	LaserpointerTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

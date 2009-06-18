@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2009 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

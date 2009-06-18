@@ -23,11 +23,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define CURVILINEAR_IMPLEMENTATION
 
+#include "Curvilinear.h"
+
 #include <Misc/ThrowStdErr.h>
 #include <Math/Math.h>
 #include <Geometry/AffineCombiner.h>
-
-#include "Curvilinear.h"
 
 namespace Visualization {
 

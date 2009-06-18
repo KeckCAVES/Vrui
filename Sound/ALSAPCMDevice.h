@@ -80,11 +80,26 @@ class ALSAPCMDevice
 	~ALSAPCMDevice(void); // Closes the PCM device
 	
 	/* Methods: */
+	snd_async_handler_t* registerAsyncHandler(snd_async_callback_t callback,void* privateData); // Registers an asynchronous callback with the PCM device
 	void setSoundDataFormat(const SoundDataFormat& format); // Sets the PCM device's sample format
 	void setBufferSize(size_t numBufferFrames,size_t numPeriodFrames); // Sets the device's buffer and period sizes
 	void setStartThreshold(size_t numStartFrames); // Sets automatic PCM start threshold for playback and capture devices
 	void prepare(void); // Applies cached hardware parameters to PCM device and prepares it for recording / playback
 	void start(void); // Starts recording or playback on the PCM device
+	bool wait(int timeout) // Waits for the PCM device to get ready for I/O; timeout is in milliseconds; negative values wait forever; returns true if device is ready
+		{
+		int result;
+		if((result=snd_pcm_wait(pcmDevice,timeout))<0)
+			{
+			if(result==-EPIPE)
+				throw XrunError("ALSAPCMDevice::wait: Over-/underrun detected");
+			else
+				Misc::throwStdErr("ALSAPCMDevice::wait: Error %s",snd_strerror(result));
+			}
+		
+		/* Return true if PCM device is ready: */
+		return result==1;
+		}
 	size_t read(void* buffer,size_t numFrames) // Reads from PCM device into buffer; returns number of frames read
 		{
 		snd_pcm_sframes_t result=snd_pcm_readi(pcmDevice,buffer,numFrames);

@@ -1,7 +1,7 @@
 /***********************************************************************
 RayScreenMenuTool - Class for menu selection tools using ray selection
 that align menus to screen planes.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -70,6 +70,11 @@ RayScreenMenuToolFactory::~RayScreenMenuToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	RayScreenMenuTool::factory=0;
+	}
+
+const char* RayScreenMenuToolFactory::getName(void) const
+	{
+	return "Screen-Aligned Menu";
 	}
 
 Tool* RayScreenMenuToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

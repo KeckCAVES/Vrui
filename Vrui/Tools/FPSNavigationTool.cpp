@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2008 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -47,7 +47,7 @@ Methods of class FPSNavigationToolFactory:
 FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("FPSNavigationTool",toolManager),
 	 rotateFactor(getInchFactor()*Scalar(12)),
-	 moveSpeed(getInchFactor()*Scalar(500))
+	 moveSpeed(getInchFactor()*Scalar(120))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -71,6 +71,11 @@ FPSNavigationToolFactory::~FPSNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	FPSNavigationTool::factory=0;
+	}
+
+const char* FPSNavigationToolFactory::getName(void) const
+	{
+	return "FPS (Mouse Look + Buttons)";
 	}
 
 Tool* FPSNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -296,7 +301,7 @@ void FPSNavigationTool::frame(void)
 			ONTransform::Rotation rot=navFrame;
 			rot*=ONTransform::Rotation::rotateX(angles[1]);
 			rot*=yawT;
-			pos+=yawT.inverseTransform(moveVelocity*getCurrentFrameTime());
+			pos+=yawT.inverseTransform(moveVelocity*getFrameTime());
 			
 			/* Set the new navigation transformation: */
 			NavTransform nav=NavTransform::translateFromOriginTo(getMainViewer()->getHeadPosition());

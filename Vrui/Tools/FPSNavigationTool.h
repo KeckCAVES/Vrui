@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2008 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,7 +53,8 @@ class FPSNavigationToolFactory:public ToolFactory
 	FPSNavigationToolFactory(ToolManager& toolManager);
 	virtual ~FPSNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -85,7 +86,7 @@ class FPSNavigationTool:public NavigationTool
 	public:
 	FPSNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);

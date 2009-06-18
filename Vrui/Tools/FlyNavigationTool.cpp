@@ -1,7 +1,7 @@
 /***********************************************************************
 FlyNavigationTool - Class encapsulating the behaviour of the old
 infamous Vrui single-handed flying navigation tool.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -69,6 +69,11 @@ FlyNavigationToolFactory::~FlyNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	FlyNavigationTool::factory=0;
+	}
+
+const char* FlyNavigationToolFactory::getName(void) const
+	{
+	return "Fly (Direction Only)";
 	}
 
 Tool* FlyNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -156,7 +161,7 @@ void FlyNavigationTool::frame(void)
 		
 		/* Calculate the current flying velocity: */
 		Vector v=ts.transform(factory->flyDirection);
-		v*=factory->flyFactor*getCurrentFrameTime();
+		v*=-factory->flyFactor*getFrameTime();
 		
 		/* Compose the new navigation transformation: */
 		NavTransform t=NavTransform::translate(v);

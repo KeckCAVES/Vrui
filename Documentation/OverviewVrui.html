@@ -24,6 +24,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>InputDevice.h</DT>
 <DD>InputDevice is a class representing input devices with an (optional) 6-DOF position/orientation, and any numbers of buttons and valuators (floating-point values ranging from -1 to 1).</DD>
 
+<DT>MouseCursorFaker</DT>
+<DD>MouseCursorFaker is a helper class to render a texture-based mouse cursor in cases where there is no hardware cursor, or the hardware cursor is inappropriate (such as in mouse-controlled cluster environments, or when playing back a previously recorded Vrui session).</DD>
+
 <DT>VirtualInputDevice.h</DT>
 <DD>VirtualInputDevice is a helper class to manage and interact with ungrabbed virtual input devices, by representing them as 3D widgets.</DD>
 
@@ -66,6 +69,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>VRWindow.h</DT>
 <DD>VRWindow is a class representing an OpenGL rendering window in a VR environment. VR windows tie together a viewer and a screen to create images of the 3D scene. VR windows contain methods to create monoscopic or stereoscopic images using several techniques.</DD>
 
+<DT>DisplayState.h</DT>
+<DD>Helper class to allow applications to query per-display Vrui rendering state from within a display method.</DD>
+
 <DT>Listener.h</DT>
 <DD>Listener is a class representing listeners in VR environments. Listeners essentially consist of potentially headtracked ear positions and head orientations that are used to create 3D sound using OpenAL.</DD>
 
@@ -98,6 +104,12 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DT>Tools/NavigationTool.h</DT>
 <DD>NavigationTool is the base class for all navigation tools, i.e., all tools that change the transformation from application or model coordinates to physical environment coordinates.</DD>
+
+<DT>Tools/NavigationTool.h</DT>
+<DD>NavigationTool is the base class for all navigation tools, i.e., all tools that change the transformation from application or model coordinates to physical environment coordinates.</DD>
+
+<DT>Tools/SurfaceNavigationTool.h</DT>
+<DD>SurfaceNavigationTool is the base class for all navigation tools that are limited to an application-specified surface. Applications can intercept the creation of surface navigation tools, and register a callback function that snaps the current navigation frame of the tool to the surface during navigation.</DD>
 
 <DT>Tools/MenuTool.h</DT>
 <DD>MenuTool is the base class for all tools that invoke and interact with popup menus.</DD>

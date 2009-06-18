@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,7 +44,7 @@ Methods of class RayInputDeviceToolFactory:
 
 RayInputDeviceToolFactory::RayInputDeviceToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayInputDeviceTool",toolManager),
-	 rotateFactor(getInchFactor()*12)
+	 rotateFactor(getInchFactor()*Scalar(3))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -67,6 +67,11 @@ RayInputDeviceToolFactory::~RayInputDeviceToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	RayInputDeviceTool::factory=0;
+	}
+
+const char* RayInputDeviceToolFactory::getName(void) const
+	{
+	return "Ray-Based Driver";
 	}
 
 Tool* RayInputDeviceToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

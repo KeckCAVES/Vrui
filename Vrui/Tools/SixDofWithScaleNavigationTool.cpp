@@ -2,7 +2,7 @@
 SixDofWithScaleNavigationTool - Class for simple 6-DOF dragging using a
 single input device, with an additional input device used as a slider
 for zooming.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -91,6 +91,21 @@ SixDofWithScaleNavigationToolFactory::~SixDofWithScaleNavigationToolFactory(void
 	SixDofWithScaleNavigationTool::factory=0;
 	}
 
+const char* SixDofWithScaleNavigationToolFactory::getName(void) const
+	{
+	return "6-DOF plus Scaling Device";
+	}
+
+Tool* SixDofWithScaleNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
+	{
+	return new SixDofWithScaleNavigationTool(this,inputAssignment);
+	}
+
+void SixDofWithScaleNavigationToolFactory::destroyTool(Tool* tool) const
+	{
+	delete tool;
+	}
+
 void SixDofWithScaleNavigationToolFactory::initContext(GLContextData& contextData) const
 	{
 	/* Create a new data item: */
@@ -125,16 +140,6 @@ void SixDofWithScaleNavigationToolFactory::initContext(GLContextData& contextDat
 	glPopAttrib();
 	
 	glEndList();
-	}
-
-Tool* SixDofWithScaleNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
-	{
-	return new SixDofWithScaleNavigationTool(this,inputAssignment);
-	}
-
-void SixDofWithScaleNavigationToolFactory::destroyTool(Tool* tool) const
-	{
-	delete tool;
 	}
 
 extern "C" void resolveSixDofWithScaleNavigationToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)

@@ -1,7 +1,7 @@
 /***********************************************************************
 GenericToolFactory - Class for factories for generic user interaction
 tools.
-Copyright (c) 2005-2008 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_GENERICTOOLFACTORY_INCLUDED
 #define VRUI_GENERICTOOLFACTORY_INCLUDED
 
+#include <string>
 #include <Vrui/Tools/Tool.h>
 
 namespace Vrui {
@@ -35,10 +36,15 @@ class GenericToolFactory:public ToolFactory
 	public:
 	typedef CreatedToolParam CreatedTool; // Class of tools created by this factory
 	
+	/* Elements: */
+	private:
+	std::string displayName; // Display name for tools of this class
+	
 	/* Constructors and destructors: */
 	public:
-	GenericToolFactory(const char* sClassName,ToolFactory* parentClass,ToolManager& toolManager)
-		:ToolFactory(sClassName,toolManager)
+	GenericToolFactory(const char* sClassName,const char* sDisplayName,ToolFactory* parentClass,ToolManager& toolManager)
+		:ToolFactory(sClassName,toolManager),
+		 displayName(sDisplayName)
 		{
 		/* Add the tool factory to the class hierarchy: */
 		if(parentClass!=0)
@@ -57,6 +63,10 @@ class GenericToolFactory:public ToolFactory
 		}
 	
 	/* Methods: */
+	virtual const char* getName(void) const
+		{
+		return displayName.c_str();
+		}
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const
 		{
 		return new CreatedTool(this,inputAssignment);

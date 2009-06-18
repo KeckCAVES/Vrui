@@ -25,8 +25,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VRWINDOW_INCLUDED
 
 #include <string>
+#include <Geometry/Point.h>
+#include <Geometry/Ray.h>
 #include <GL/gl.h>
 #include <GL/GLWindow.h>
+#include <Vrui/Geometry.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -40,6 +43,7 @@ namespace Vrui {
 class Viewer;
 class VRScreen;
 class ViewSpecification;
+class DisplayState;
 class InputDeviceAdapterMouse;
 class VruiState;
 }
@@ -61,6 +65,7 @@ class VRWindow:public GLWindow
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter (if one exists; 0 otherwise)
 	GLExtensionManager* extensionManager; // An OpenGL extension manager for this window
 	GLContextData* contextData; // An OpenGL context data structure for this window
+	DisplayState* displayState; // The display state object associated with this window's OpenGL context; updated before each rendering pass
 	VRScreen* screens[2]; // Pointer to the two VR screens this window projects onto (left and right, usually identical)
 	Viewer* viewer; // Pointer to viewer viewing this window
 	WindowType windowType; // Type of this window
