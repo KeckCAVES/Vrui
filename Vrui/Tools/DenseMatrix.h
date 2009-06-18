@@ -1,6 +1,6 @@
 /***********************************************************************
 DenseMatrix - Helper class to solve systems of dense linear equations.
-Copyright (c) 2000-2007 Oliver Kreylos
+Copyright (c) 2000-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,6 +43,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RowColumn.h>
 #include <Vrui/CoordinateTransform.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/DisplayState.h>
 #include <Vrui/Vrui.h>
 
 #include <Vrui/Tools/MeasurementTool.h>
@@ -196,6 +197,11 @@ MeasurementToolFactory::~MeasurementToolFactory(void)
 	
 	/* Reset tool class' factory pointer: */
 	MeasurementTool::factory=0;
+	}
+
+const char* MeasurementToolFactory::getName(void) const
+	{
+	return "Measurement Tool";
 	}
 
 Tool* MeasurementToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -548,9 +554,6 @@ MeasurementTool::~MeasurementTool(void)
 	/* Unregister the callback from the coordinate manager: */
 	getCoordinateManager()->getCoordinateTransformChangedCallbacks().remove(this,&MeasurementTool::coordTransformChangedCallback);
 	
-	/* Pop down the measurement dialog: */
-	popdownPrimaryWidget(measurementDialogPopup);
-	
 	/* Delete the measurement dialog: */
 	delete measurementDialogPopup;
 	}
@@ -713,8 +716,11 @@ void MeasurementTool::display(GLContextData& contextData) const
 	if(coordinateMode==MeasurementToolFactory::NAVIGATIONAL||coordinateMode==MeasurementToolFactory::USER)
 		{
 		markerSize/=getNavigationTransformation().getScaling();
+		
+		/* Go to navigational coordinates: */
 		glPushMatrix();
-		glMultMatrix(getNavigationTransformation());
+		glLoadIdentity();
+		glMultMatrix(getDisplayState(contextData).modelviewNavigational);
 		}
 	
 	/* Determine the marker color: */

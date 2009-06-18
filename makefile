@@ -147,6 +147,11 @@ endif
 # Everything below here should not have to be changed
 ########################################################################
 
+# Specify version of created dynamic shared libraries
+VRUI_VERSION = 1000062
+MAJORLIBVERSION = 1
+MINORLIBVERSION = 1
+
 # Specify default optimization/debug level
 ifdef DEBUG
   DEFAULTDEBUGLEVEL = 3
@@ -162,10 +167,6 @@ ifdef DEBUG
 else
   LIBDESTDIR = $(VRUIPACKAGEROOT)/$(LIBEXT)
 endif
-
-# Specify version of created dynamic shared libraries
-MAJORLIBVERSION = 1
-MINORLIBVERSION = 1
 
 # Directories for installation components
 HEADERINSTALLDIR = $(INSTALLDIR)/$(INCLUDEEXT)
@@ -216,6 +217,7 @@ EXECUTABLES =
 LIBRARY_NAMES = libMisc \
                 libPlugins \
                 libRealtime \
+                libThreads \
                 libComm \
                 libMath \
                 libGeometry \
@@ -227,6 +229,7 @@ LIBRARY_NAMES = libMisc \
                 libImages \
                 libSound \
                 libALSupport \
+                libSceneGraph \
                 libVrui
 
 LIBRARIES += $(LIBRARY_NAMES:%=$(call LIBRARYNAME,%))
@@ -241,25 +244,29 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/SixDofDraggingTool.cpp \
                   Vrui/Tools/WaldoDraggingTool.cpp \
                   Vrui/Tools/SixDofNavigationTool.cpp \
-                  Vrui/Tools/SixDofWithScaleNavigationTool.cpp \
                   Vrui/Tools/TrackballNavigationTool.cpp \
+                  Vrui/Tools/ScaleNavigationTool.cpp \
+                  Vrui/Tools/WandNavigationTool.cpp \
                   Vrui/Tools/FlyNavigationTool.cpp \
                   Vrui/Tools/ValuatorFlyNavigationTool.cpp \
                   Vrui/Tools/ValuatorTurnNavigationTool.cpp \
                   Vrui/Tools/ValuatorFlyTurnNavigationTool.cpp \
-                  Vrui/Tools/WandNavigationTool.cpp \
-                  Vrui/Tools/WalkNavigationTool.cpp \
                   Vrui/Tools/ValuatorScalingNavigationTool.cpp \
+                  Vrui/Tools/WalkNavigationTool.cpp \
+                  Vrui/Tools/WalkSurfaceNavigationTool.cpp \
+                  Vrui/Tools/SixDofWithScaleNavigationTool.cpp \
                   Vrui/Tools/TwoHandedNavigationTool.cpp \
                   Vrui/Tools/MultiDeviceNavigationTool.cpp \
                   Vrui/Tools/MouseNavigationTool.cpp \
                   Vrui/Tools/MouseDialogNavigationTool.cpp \
+                  Vrui/Tools/MouseSurfaceNavigationTool.cpp \
+                  Vrui/Tools/DesktopDeviceNavigationTool.cpp \
                   Vrui/Tools/FPSNavigationTool.cpp \
                   Vrui/Tools/HelicopterNavigationTool.cpp \
-                  Vrui/Tools/DesktopDeviceNavigationTool.cpp \
                   Vrui/Tools/ViewpointFileNavigationTool.cpp \
                   Vrui/Tools/ComeHitherNavigationTool.cpp \
                   Vrui/Tools/MouseTool.cpp \
+                  Vrui/Tools/DesktopDeviceTool.cpp \
                   Vrui/Tools/EyeRayTool.cpp \
                   Vrui/Tools/OffsetTool.cpp \
                   Vrui/Tools/WaldoTool.cpp \
@@ -269,12 +276,10 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/RayScreenMenuTool.cpp \
                   Vrui/Tools/PanelMenuTool.cpp \
                   Vrui/Tools/ToolManagementTool.cpp \
-                  Vrui/Tools/InputDeviceTool.cpp \
                   Vrui/Tools/SixDofInputDeviceTool.cpp \
                   Vrui/Tools/RayInputDeviceTool.cpp \
                   Vrui/Tools/ButtonInputDeviceTool.cpp \
                   Vrui/Tools/WidgetTool.cpp \
-                  Vrui/Tools/SpaceBallTool.cpp \
                   Vrui/Tools/LaserpointerTool.cpp \
                   Vrui/Tools/JediTool.cpp \
                   Vrui/Tools/FlashlightTool.cpp \
@@ -292,7 +297,8 @@ PLUGINS += $(VRTOOLS)
 # The Vrui vislet plug-in hierarchy:
 #
 
-VRVISLETS_SOURCES = Vrui/Vislets/CAVERenderer.cpp
+VRVISLETS_SOURCES = Vrui/Vislets/CAVERenderer.cpp \
+                    Vrui/Vislets/SceneGraphViewer.cpp
 
 VRVISLETSDIREXT = VRVislets
 VRVISLETSDIR = $(LIBDESTDIR)/$(VRVISLETSDIREXT)
@@ -370,10 +376,14 @@ else
   MAKEFILEFRAGMENT = Share/Vrui.makeinclude
 endif
 
-ALL = config $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT)
+# Remember the names of all generated files for "make clean":
+ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT)
 
 .PHONY: all
-all: $(ALL)
+all: config $(ALL)
+
+$(PLUGINS): $(LIBRARIES)
+$(EXECUTABLES): $(LIBRARIES)
 
 ########################################################################
 # Pseudo-target to print configuration options
@@ -453,6 +463,7 @@ DEPENDENCIES = $(patsubst -l%.$(LDEXT),$(call LIBRARYNAME,lib%),$(foreach PACKAG
 #
 
 MISC_HEADERS = Misc/Utility.h \
+               Misc/StringPrintf.h \
                Misc/SelfDestructPointer.h \
                Misc/RefCounted.h \
                Misc/Autopointer.h \
@@ -471,6 +482,7 @@ MISC_HEADERS = Misc/Utility.h \
                Misc/ThrowStdErr.h \
                Misc/Time.h \
                Misc/Timer.h \
+               Misc/FunctionCalls.h \
                Misc/CallbackData.h \
                Misc/CallbackList.h \
                Misc/TimerEventScheduler.h \
@@ -481,6 +493,11 @@ MISC_HEADERS = Misc/Utility.h \
                Misc/StringMarshaller.h \
                Misc/FileNameExtensions.h \
                Misc/CreateNumberedFileName.h \
+               Misc/CharacterSource.h \
+               Misc/FileCharacterSource.h \
+               Misc/GzippedFileCharacterSource.h \
+               Misc/TokenSource.h \
+               Misc/ASCIIFileReader.h \
                Misc/ValueCoder.h \
                Misc/StandardValueCoders.h \
                Misc/ArrayValueCoders.h Misc/ArrayValueCoders.cpp \
@@ -488,12 +505,18 @@ MISC_HEADERS = Misc/Utility.h \
                Misc/ConfigurationFile.h Misc/ConfigurationFile.icpp \
                Misc/FileLocator.h
 
-MISC_SOURCES = Misc/ThrowStdErr.cpp \
+MISC_SOURCES = Misc/StringPrintf.cpp \
+               Misc/ThrowStdErr.cpp \
                Misc/Timer.cpp \
                Misc/CallbackList.cpp \
                Misc/TimerEventScheduler.cpp \
                Misc/FileNameExtensions.cpp \
                Misc/CreateNumberedFileName.cpp \
+               Misc/CharacterSource.cpp \
+               Misc/FileCharacterSource.cpp \
+               Misc/GzippedFileCharacterSource.cpp \
+               Misc/TokenSource.cpp \
+               Misc/ASCIIFileReader.cpp \
                Misc/ValueCoder.cpp \
                Misc/StandardValueCoders.cpp \
                Misc/ArrayValueCoders.cpp \
@@ -552,7 +575,19 @@ THREADS_HEADERS = Threads/Thread.h \
                   Threads/Barrier.h \
                   Threads/Local.h \
                   Threads/RefCounted.h \
-                  Threads/TripleBuffer.h
+                  Threads/TripleBuffer.h \
+                  Threads/RingBuffer.h \
+                  Threads/DropoutBuffer.h \
+                  Threads/ASCIIFileReader.h
+
+THREADS_SOURCES = Threads/ASCIIFileReader.cpp
+
+$(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
+$(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
+$(call LIBRARYNAME,libThreads): $(call DEPENDENCIES,MYTHREADS)
+$(call LIBRARYNAME,libThreads): $(THREADS_SOURCES:%.cpp=$(OBJDIR)/%.o)
+.PHONY: libThreads
+libThreads: $(call LIBRARYNAME,libThreads)
 
 #
 # The Portable Communications Library (Comm)
@@ -567,7 +602,9 @@ COMM_HEADERS = Comm/FdSet.h \
                Comm/GatherOperation.h \
                Comm/MulticastPipe.h \
                Comm/MulticastPipeMultiplexer.h \
-               Comm/ClusterPipe.h
+               Comm/ClusterPipe.h \
+               Comm/ClusterFileCharacterSource.h \
+               Comm/Clusterize.h
 
 COMM_SOURCES = Comm/FdSet.cpp \
                Comm/SerialPort.cpp \
@@ -576,7 +613,9 @@ COMM_SOURCES = Comm/FdSet.cpp \
                Comm/TCPPipe.cpp \
                Comm/MulticastPipe.cpp \
                Comm/MulticastPipeMultiplexer.cpp \
-               Comm/ClusterPipe.cpp
+               Comm/ClusterPipe.cpp \
+               Comm/ClusterFileCharacterSource.cpp \
+               Comm/Clusterize.cpp
 
 $(call LIBRARYNAME,libComm): PACKAGES += $(MYCOMM_DEPENDS)
 $(call LIBRARYNAME,libComm): EXTRACINCLUDEFLAGS += $(MYCOMM_INCLUDE)
@@ -636,6 +675,7 @@ GEOMETRY_HEADERS = Geometry/ComponentArray.h Geometry/ComponentArray.cpp \
                    Geometry/Polygon.h Geometry/Polygon.cpp \
                    Geometry/SplineCurve.h Geometry/SplineCurve.cpp \
                    Geometry/SplinePatch.h Geometry/SplinePatch.cpp \
+                   Geometry/Geoid.h Geometry/Geoid.cpp \
                    Geometry/ValuedPoint.h \
                    Geometry/ClosePointSet.h \
                    Geometry/PointOctree.h Geometry/PointOctree.cpp \
@@ -645,6 +685,7 @@ GEOMETRY_HEADERS = Geometry/ComponentArray.h Geometry/ComponentArray.cpp \
                    Geometry/PolygonMesh.h Geometry/PolygonMesh.cpp \
                    Geometry/Random.h Geometry/Random.cpp \
                    Geometry/Endianness.h \
+                   Geometry/OutputOperators.h Geometry/OutputOperators.cpp \
                    Geometry/GeometryValueCoders.h Geometry/GeometryValueCoders.cpp
 
 GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
@@ -665,12 +706,14 @@ GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
                    Geometry/Polygon.cpp \
                    Geometry/SplineCurve.cpp \
                    Geometry/SplinePatch.cpp \
+                   Geometry/Geoid.cpp \
                    Geometry/PointOctree.cpp \
                    Geometry/PointTwoNTree.cpp \
                    Geometry/PointKdTree.cpp \
                    Geometry/ArrayKdTree.cpp \
                    Geometry/PolygonMesh.cpp \
                    Geometry/Random.cpp \
+                   Geometry/OutputOperators.cpp \
                    Geometry/GeometryValueCoders.cpp
 
 $(call LIBRARYNAME,libGeometry): PACKAGES += $(MYGEOMETRY_DEPENDS)
@@ -856,11 +899,13 @@ libGLXSupport: $(call LIBRARYNAME,libGLXSupport)
 #
 
 GLGEOMETRY_HEADERS = GL/GLGeometryWrappers.h \
+                     GL/GLGeometryVertex.h \
                      GL/GLTransformationWrappers.h GL/GLTransformationWrappers.cpp \
                      GL/GLFrustum.h \
                      GL/GLPolylineTube.h
 
-GLGEOMETRY_SOURCES = GL/GLTransformationWrappers.cpp \
+GLGEOMETRY_SOURCES = GL/GLGeometryVertex.cpp \
+                     GL/GLTransformationWrappers.cpp \
                      GL/GLFrustum.cpp \
                      GL/GLPolylineTube.cpp
 
@@ -1009,11 +1054,7 @@ SOUND_SOURCES += Sound/SoundRecorder.cpp \
 
 $(call LIBRARYNAME,libSound): PACKAGES += $(MYSOUND_DEPENDS)
 $(call LIBRARYNAME,libSound): EXTRACINCLUDEFLAGS += $(MYSOUND_INCLUDE)
-ifeq ($(SYSTEM),LINUX)
-  ifneq ($(VRUI_USE_SOUND),0)
-    $(call LIBRARYNAME,libSound): CFLAGS += -DSOUND_USE_ALSA
-  endif
-endif
+$(call LIBRARYNAME,libSound): CFLAGS += $(MYSOUND_CFLAGS)
 $(call LIBRARYNAME,libSound): $(call DEPENDENCIES,MYSOUND)
 $(call LIBRARYNAME,libSound): $(SOUND_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libSound
@@ -1038,6 +1079,85 @@ $(call LIBRARYNAME,libALSupport): $(ALSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o)
 libALSupport: $(call LIBRARYNAME,libALSupport)
 
 #
+# The Scene Graph Rendering Library (SceneGraph)
+#
+
+SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
+                     SceneGraph/EventOut.h \
+                     SceneGraph/EventIn.h \
+                     SceneGraph/Route.h \
+                     SceneGraph/Node.h \
+                     SceneGraph/NodeFactory.h \
+                     SceneGraph/NodeCreator.h \
+                     SceneGraph/FieldTypes.h \
+                     SceneGraph/VRMLFile.h \
+                     SceneGraph/GLRenderState.h \
+                     SceneGraph/DisplayList.h \
+                     SceneGraph/GraphNode.h \
+                     SceneGraph/GroupNode.h \
+                     SceneGraph/TransformNode.h \
+                     SceneGraph/BillboardNode.h \
+                     SceneGraph/ReferenceEllipsoidNode.h \
+                     SceneGraph/GeodeticToCartesianTransformNode.h \
+                     SceneGraph/InlineNode.h \
+                     SceneGraph/AttributeNode.h \
+                     SceneGraph/MaterialNode.h \
+                     SceneGraph/TextureNode.h \
+                     SceneGraph/ImageTextureNode.h \
+                     SceneGraph/AppearanceNode.h \
+                     SceneGraph/PointTransformNode.h \
+                     SceneGraph/GeodeticToCartesianPointTransformNode.h \
+                     SceneGraph/GeometryNode.h \
+                     SceneGraph/BoxNode.h \
+                     SceneGraph/ConeNode.h \
+                     SceneGraph/CylinderNode.h \
+                     SceneGraph/TextureCoordinateNode.h \
+                     SceneGraph/ColorNode.h \
+                     SceneGraph/NormalNode.h \
+                     SceneGraph/CoordinateNode.h \
+                     SceneGraph/PointSetNode.h \
+                     SceneGraph/IndexedLineSetNode.h \
+                     SceneGraph/ShapeNode.h \
+                     SceneGraph/FontStyleNode.h \
+                     SceneGraph/TextNode.h
+
+SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
+                     SceneGraph/NodeCreator.cpp \
+                     SceneGraph/VRMLFile.cpp \
+                     SceneGraph/GLRenderState.cpp \
+                     SceneGraph/DisplayList.cpp \
+                     SceneGraph/GroupNode.cpp \
+                     SceneGraph/TransformNode.cpp \
+                     SceneGraph/BillboardNode.cpp \
+                     SceneGraph/ReferenceEllipsoidNode.cpp \
+                     SceneGraph/GeodeticToCartesianTransformNode.cpp \
+                     SceneGraph/InlineNode.cpp \
+                     SceneGraph/MaterialNode.cpp \
+                     SceneGraph/ImageTextureNode.cpp \
+                     SceneGraph/AppearanceNode.cpp \
+                     SceneGraph/GeodeticToCartesianPointTransformNode.cpp \
+                     SceneGraph/GeometryNode.cpp \
+                     SceneGraph/BoxNode.cpp \
+                     SceneGraph/ConeNode.cpp \
+                     SceneGraph/CylinderNode.cpp \
+                     SceneGraph/TextureCoordinateNode.cpp \
+                     SceneGraph/ColorNode.cpp \
+                     SceneGraph/NormalNode.cpp \
+                     SceneGraph/CoordinateNode.cpp \
+                     SceneGraph/PointSetNode.cpp \
+                     SceneGraph/IndexedLineSetNode.cpp \
+                     SceneGraph/ShapeNode.cpp \
+                     SceneGraph/FontStyleNode.cpp \
+                     SceneGraph/TextNode.cpp
+
+$(call LIBRARYNAME,libSceneGraph): PACKAGES += $(MYSCENEGRAPH_DEPENDS)
+$(call LIBRARYNAME,libSceneGraph): EXTRACINCLUDEFLAGS += $(MYSCENEGRAPH_INCLUDE)
+$(call LIBRARYNAME,libSceneGraph): $(call DEPENDENCIES,MYSCENEGRAPH)
+$(call LIBRARYNAME,libSceneGraph): $(SCENEGRAPH_SOURCES:%.cpp=$(OBJDIR)/%.o)
+.PHONY: libSceneGraph
+libSceneGraph: $(call LIBRARYNAME,libSceneGraph)
+
+#
 # The Vrui Virtual Reality User Interface Library (Vrui)
 #
 
@@ -1045,6 +1165,7 @@ VRUI_HEADERS = Vrui/Geometry.h \
                Vrui/TransparentObject.h \
                Vrui/GlyphRenderer.h \
                Vrui/InputDevice.h \
+               Vrui/MouseCursorFaker.h \
                Vrui/VirtualInputDevice.h \
                Vrui/InputGraphManager.h \
                Vrui/InputDeviceManager.h \
@@ -1062,6 +1183,7 @@ VRUI_HEADERS = Vrui/Geometry.h \
                Vrui/VRScreen.h \
                Vrui/ViewSpecification.h \
                Vrui/VRWindow.h \
+               Vrui/DisplayState.h \
                Vrui/Listener.h \
                Vrui/SoundContext.h \
                Vrui/ToolInputLayout.h \
@@ -1080,6 +1202,7 @@ VRUI_TOOLHEADERS = Vrui/Tools/Tool.h \
                    Vrui/Tools/LocatorTool.h \
                    Vrui/Tools/DraggingTool.h \
                    Vrui/Tools/NavigationTool.h \
+                   Vrui/Tools/SurfaceNavigationTool.h \
                    Vrui/Tools/TransformTool.h \
                    Vrui/Tools/UserInterfaceTool.h \
                    Vrui/Tools/MenuTool.h \
@@ -1089,6 +1212,7 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/BoxRayDragger.cpp \
                Vrui/GlyphRenderer.cpp \
                Vrui/InputDevice.cpp \
+               Vrui/MouseCursorFaker.cpp \
                Vrui/VirtualInputDevice.cpp \
                Vrui/InputGraphManager.cpp \
                Vrui/InputDeviceManager.cpp \
@@ -1119,9 +1243,12 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/Tools/LocatorTool.cpp \
                Vrui/Tools/DraggingTool.cpp \
                Vrui/Tools/NavigationTool.cpp \
+               Vrui/Tools/SurfaceNavigationTool.cpp \
                Vrui/Tools/TransformTool.cpp \
                Vrui/Tools/UserInterfaceTool.cpp \
                Vrui/Tools/MenuTool.cpp \
+               Vrui/Tools/InputDeviceTool.cpp \
+               Vrui/Tools/PointingTool.cpp \
                Vrui/Tools/UtilityTool.cpp \
                Vrui/LocatorToolAdapter.cpp \
                Vrui/DraggingToolAdapter.cpp \
@@ -1136,6 +1263,8 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/Vrui.Workbench.cpp \
                Vrui/Application.cpp
 
+$(OBJDIR)/Vrui/InputDeviceAdapterMouse.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
+$(OBJDIR)/Vrui/InputDeviceAdapterPlayback.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DAUTOSTEREODIRECTORY='"$(SHAREINSTALLDIR)/Textures"'
@@ -1169,6 +1298,7 @@ $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS)
 ifneq ($(VRUI_USE_OPENAL),0)
   $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += -DVRUI_USE_OPENAL
 endif
+$(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
   $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -L$(VRTOOLSDIR) $(DEPENDENCIES:$(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT)=-l%)
   ifneq ($(SYSTEM_HAVE_RPATH),0)
@@ -1176,32 +1306,24 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
       $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
     endif
   endif
+  $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/%.o
 	@mkdir -p $(VRTOOLSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 endif
 
-# Dependencies between Vrui tools:
-$(VRTOOLSDIR)/libSixDofInputDeviceTool.$(PLUGINFILEEXT): DEPENDENCIES = $(VRTOOLSDIR)/libInputDeviceTool.$(PLUGINFILEEXT)
-$(VRTOOLSDIR)/libSixDofInputDeviceTool.$(PLUGINFILEEXT): $(DEPENDENCIES)
-$(VRTOOLSDIR)/libRayInputDeviceTool.$(PLUGINFILEEXT): DEPENDENCIES = $(VRTOOLSDIR)/libInputDeviceTool.$(PLUGINFILEEXT)
-$(VRTOOLSDIR)/libRayInputDeviceTool.$(PLUGINFILEEXT): $(DEPENDENCIES)
-$(VRTOOLSDIR)/libButtonInputDeviceTool.$(PLUGINFILEEXT): DEPENDENCIES = $(VRTOOLSDIR)/libInputDeviceTool.$(PLUGINFILEEXT)
-$(VRTOOLSDIR)/libButtonInputDeviceTool.$(PLUGINFILEEXT): $(DEPENDENCIES)
-
+# Dependencies for Vrui tools:
 $(VRTOOLSDIR)/libViewpointFileNavigationTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMatrix.o \
                                                                $(OBJDIR)/Vrui/Tools/ViewpointFileNavigationTool.o
 $(VRTOOLSDIR)/libCurveEditorTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMatrix.o \
                                                    $(OBJDIR)/Vrui/Tools/CurveEditorTool.o
 
 # Vrui tool settings:
-$(OBJDIR)/Vrui/Tools/MouseNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-$(OBJDIR)/Vrui/Tools/MouseDialogNavigationTool.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/Tools/JediTool.o: CFLAGS += -DDEFAULTLIGHTSABERIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Lightsaber.png"'
 ifneq ($(IMAGES_USE_PNG),0)
   ifneq ($(VRUI_USE_PNG),0)
@@ -1225,6 +1347,7 @@ $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS)
 ifneq ($(VRUI_USE_OPENAL),0)
   $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += -DVRUI_USE_OPENAL
 endif
+$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
   $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -L$(VRVISLETSDIR) $(DEPENDENCIES:$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT)=-l%)
   ifneq ($(SYSTEM_HAVE_RPATH),0)
@@ -1232,17 +1355,19 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
       $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
     endif
   endif
+  $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Vislets/%.o
 	@mkdir -p $(VRVISLETSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 endif
 
 # Dependencies between Vrui vislets:
+$(VRVISLETSDIR)/libSceneGraphViewer.$(PLUGINFILEEXT): PACKAGES += MYSCENEGRAPH
 
 # Mark all vislet object files as intermediate:
 .SECONDARY: $(VRVISLETS_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1252,14 +1377,12 @@ VRVislets: $(VRVISLETS)
 
 # The VR Device Daemon Test program:
 $(EXEDIR)/DeviceTest: PACKAGES += MYVRUI
-$(EXEDIR)/DeviceTest: $(call LIBRARYNAME,libVrui)
 $(EXEDIR)/DeviceTest: $(OBJDIR)/Vrui/DeviceTest.o
 .PHONY: DeviceTest
 DeviceTest: $(EXEDIR)/DeviceTest
 
 # The Vrui input device data file printer:
 $(EXEDIR)/PrintInputDeviceDataFile: PACKAGES += MYVRUI
-$(EXEDIR)/PrintInputDeviceDataFile: $(call LIBRARYNAME,libVrui)
 $(EXEDIR)/PrintInputDeviceDataFile: $(OBJDIR)/Vrui/PrintInputDeviceDataFile.o
 .PHONY: PrintInputDeviceDataFile
 PrintInputDeviceDataFile: $(EXEDIR)/PrintInputDeviceDataFile
@@ -1380,6 +1503,7 @@ $(MAKEFILEFRAGMENT): BuildRoot/SystemDefinitions BuildRoot/Packages makefile
 	@echo Creating application makefile fragment...
 	@echo "# Makefile fragment for Vrui applications" > $(MAKEFILEFRAGMENT)
 	@echo "# Autogenerated by Vrui installation on $(shell date)" >> $(MAKEFILEFRAGMENT)
+	@echo "VRUI_VERSION = $(VRUI_VERSION)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_CFLAGS = $(VRUIAPP_CFLAGS)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_LIBDIR = $(LIBINSTALLDIR)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_LINKFLAGS = $(VRUIAPP_LDIRS) $(VRUIAPP_LIBS) $(VRUIAPP_LFLAGS)" >> $(MAKEFILEFRAGMENT)
@@ -1450,8 +1574,8 @@ endif
 	@install $(EXECUTABLES) $(EXECUTABLEINSTALLDIR)
 ifeq ($(SYSTEM),DARWIN)
 	@cp Share/MacOSX/runwithx Share/MacOSX/runwithx.tmp
-	@sed -i "" "s:_VRUIETCDIR_:$(ETCINSTALLDIR):" Share/MacOSX/runwithx.tmp
-	@sed -i "" "s:_VRUIBINDIR_:$(EXECUTABLEINSTALLDIR):" Share/MacOSX/runwithx.tmp
+	@sed -i -e "s:_VRUIETCDIR_:$(ETCINSTALLDIR):" Share/MacOSX/runwithx.tmp
+	@sed -i -e "s:_VRUIBINDIR_:$(EXECUTABLEINSTALLDIR):" Share/MacOSX/runwithx.tmp
 	@install Share/MacOSX/runwithx.tmp $(EXECUTABLEINSTALLDIR)/runwithx
 	@rm Share/MacOSX/runwithx.tmp
 endif

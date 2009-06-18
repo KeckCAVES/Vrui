@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VRSCREEN_INCLUDED
 
 #include <Geometry/OrthonormalTransformation.h>
+#include <Geometry/ProjectiveTransformation.h>
 #include <Vrui/Geometry.h>
 
 /* Forward declarations: */
@@ -39,6 +40,10 @@ namespace Vrui {
 
 class VRScreen
 	{
+	/* Embedded classes: */
+	public:
+	typedef Geometry::ProjectiveTransformation<Scalar,2> PTransform2; // Type for 2D homography transformations
+	
 	/* Elements: */
 	private:
 	char* screenName; // Name for the screen
@@ -47,6 +52,9 @@ class VRScreen
 	Scalar screenSize[2]; // Screen width and height in physical units
 	ONTransform transform; // Transformation from screen to physical or device coordinates
 	ONTransform inverseTransform; // Transformation from physical or device to screen coordinates
+	bool offAxis; // Flag whether the screen is projected off-axis, i.e., has a non-identity homography
+	PTransform2 screenHomography; // The screen's screen space homography
+	PTransform inverseClipHomography; // The inverse of the screen's clip space homography
 	
 	/* Constructors and destructors: */
 	public:
@@ -79,6 +87,18 @@ class VRScreen
 		return transform;
 		}
 	ONTransform getScreenTransformation(void) const; // Returns screen transformation from physical coordinates
+	bool isOffAxis(void) const // Returns whether the screen is projected off-axis
+		{
+		return offAxis;
+		}
+	const PTransform2& getScreenHomography(void) const // Returns the screen's screen-space homography transformation
+		{
+		return screenHomography;
+		}
+	const PTransform& getInverseClipHomography(void) const // Returns the screen's inverse clip-space homography transformation
+		{
+		return inverseClipHomography;
+		}
 	void setScreenTransform(void) const; // Sets up OpenGL matrices to render directly onto the screen
 	void resetScreenTransform(void) const; // Resets OpenGL matrices back to state before calling setScreenTransform()
 	};

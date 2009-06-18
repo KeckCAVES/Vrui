@@ -45,7 +45,7 @@ Methods of class AlarmTimer:
 ***************************/
 
 #ifdef REALTIME_HAVE_POSIX_TIMERS
-void AlarmTimer::signalHandler(int,siginfo_t* sigInfo,void*)
+void AlarmTimer::signalHandler(int,siginfo* sigInfo,void*)
 	{
 	/* Get pointer to the alarm timer object: */
 	AlarmTimer* at=static_cast<AlarmTimer*>(sigInfo->si_value.sival_ptr);

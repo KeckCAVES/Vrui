@@ -1,6 +1,6 @@
 /***********************************************************************
 LocatorTool - Base class for tools encapsulating 6-DOF localization.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,21 +35,18 @@ class ToolManager;
 
 namespace Vrui {
 
-class LocatorTool;
-
 class LocatorToolFactory:public ToolFactory
 	{
-	friend class LocatorTool;
-	
 	/* Constructors and destructors: */
 	public:
 	LocatorToolFactory(ToolManager& toolManager);
+	
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	};
 
 class LocatorTool:public Tool
 	{
-	friend class LocatorToolFactory;
-	
 	/* Embedded classes: */
 	public:
 	class MotionCallbackData:public Misc::CallbackData

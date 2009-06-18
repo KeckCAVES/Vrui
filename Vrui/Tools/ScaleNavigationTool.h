@@ -47,7 +47,8 @@ class ScaleNavigationToolFactory:public ToolFactory
 	ScaleNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ScaleNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -71,7 +72,7 @@ class ScaleNavigationTool:public NavigationTool
 	public:
 	ScaleNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

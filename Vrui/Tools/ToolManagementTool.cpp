@@ -2,7 +2,7 @@
 ToolManagementTool - A class to assign arbitrary tools to arbitrary
 combinations of input devices / buttons / valuators using a modal dialog
 and overriding callbacks.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -76,6 +76,11 @@ ToolManagementToolFactory::~ToolManagementToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ToolManagementTool::factory=0;
+	}
+
+const char* ToolManagementToolFactory::getName(void) const
+	{
+	return "Tool Manager";
 	}
 
 Tool* ToolManagementToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

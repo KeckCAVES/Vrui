@@ -20,6 +20,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "PolhemusFastrak.h"
+
 #include <stdio.h>
 #include <Misc/Endianness.h>
 #include <Misc/ThrowStdErr.h>
@@ -30,8 +32,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 
 #include "VRDeviceManager.h"
-
-#include "PolhemusFastrak.h"
 
 /********************************
 Methods of class PolhemusFastrak:

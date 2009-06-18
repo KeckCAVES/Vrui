@@ -1,7 +1,7 @@
 /***********************************************************************
 ComeHitherNavigationTool - Class to navigate by smoothly moving the
 position of a 3D input device to the display center point.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -41,10 +41,10 @@ Methods of class ComeHitherNavigationToolFactory:
 
 ComeHitherNavigationToolFactory::ComeHitherNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ComeHitherNavigationTool",toolManager),
-	 linearSnapThreshold(getInchFactor()*Scalar(6)),
-	 angularSnapThreshold(Math::Constants<Scalar>::pi/Scalar(4)),
-	 maxLinearVelocity(getInchFactor()*Scalar(12)),
-	 maxAngularVelocity(Math::Constants<Scalar>::pi/Scalar(2))
+	 linearSnapThreshold(getDisplaySize()*Scalar(0.5)),
+	 angularSnapThreshold(Scalar(45)),
+	 maxLinearVelocity(getDisplaySize()*Scalar(1.5)),
+	 maxAngularVelocity(Scalar(90.0))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -58,9 +58,9 @@ ComeHitherNavigationToolFactory::ComeHitherNavigationToolFactory(ToolManager& to
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	linearSnapThreshold=cfs.retrieveValue<Scalar>("./linearSnapThreshold",linearSnapThreshold);
-	angularSnapThreshold=Math::rad(cfs.retrieveValue<Scalar>("./angularSnapThreshold",Math::deg(angularSnapThreshold)));
+	angularSnapThreshold=Math::rad(cfs.retrieveValue<Scalar>("./angularSnapThreshold",angularSnapThreshold));
 	maxLinearVelocity=cfs.retrieveValue<Scalar>("./maxLinearVelocity",maxLinearVelocity);
-	maxAngularVelocity=Math::rad(cfs.retrieveValue<Scalar>("./maxAngularVelocity",Math::deg(maxAngularVelocity)));
+	maxAngularVelocity=Math::rad(cfs.retrieveValue<Scalar>("./maxAngularVelocity",maxAngularVelocity));
 	
 	/* Set tool class' factory pointer: */
 	ComeHitherNavigationTool::factory=this;
@@ -70,6 +70,11 @@ ComeHitherNavigationToolFactory::~ComeHitherNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ComeHitherNavigationTool::factory=0;
+	}
+
+const char* ComeHitherNavigationToolFactory::getName(void) const
+	{
+	return "Warp to Position";
 	}
 
 Tool* ComeHitherNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

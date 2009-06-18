@@ -67,6 +67,16 @@ ALSAPCMDevice::~ALSAPCMDevice(void)
 		snd_pcm_close(pcmDevice);
 	}
 
+snd_async_handler_t* ALSAPCMDevice::registerAsyncHandler(snd_async_callback_t callback,void* privateData)
+	{
+	snd_async_handler_t* result;
+	int error;
+	if((error=snd_async_add_pcm_handler(&result,pcmDevice,callback,privateData))<0)
+		Misc::throwStdErr("ALSAPCMDevice::registerAsyncHandler: Error %s while registering asynchronous event handler",snd_strerror(error));
+	
+	return result;
+	}
+
 void ALSAPCMDevice::setSoundDataFormat(const SoundDataFormat& newFormat)
 	{
 	if(pcmHwParams==0)

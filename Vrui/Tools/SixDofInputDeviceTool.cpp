@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofInputDeviceTool - Class for tools using a 6-DOF input device to
 interact with virtual input devices.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,6 +53,11 @@ SixDofInputDeviceToolFactory::~SixDofInputDeviceToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	SixDofInputDeviceTool::factory=0;
+	}
+
+const char* SixDofInputDeviceToolFactory::getName(void) const
+	{
+	return "6-DOF Driver";
 	}
 
 Tool* SixDofInputDeviceToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

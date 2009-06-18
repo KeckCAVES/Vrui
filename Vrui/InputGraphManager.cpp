@@ -32,6 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/VirtualInputDevice.h>
 #include <Vrui/ToolInputAssignment.h>
 #include <Vrui/Tools/Tool.h>
+#include <Vrui/Vrui.h>
 
 #include <Vrui/InputGraphManager.h>
 
@@ -221,12 +222,38 @@ void InputGraphManager::addInputDevice(InputDevice* newDevice)
 	GraphInputDevice* newGid=new GraphInputDevice;
 	newGid->device=newDevice;
 	newGid->level=0;
+	newGid->navigational=false;
 	growInputGraph(0);
 	linkInputDevice(newGid);
 	newGid->grabber=0; // Mark the device as ungrabbed
 	
 	/* Add the new graph device to the device map: */
 	deviceMap.setEntry(DeviceMap::Entry(newDevice,newGid));
+	}
+
+bool InputGraphManager::isNavigational(InputDevice* device) const
+	{
+	/* Get pointer to the graph input device: */
+	const GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	/* Return the device's navigation flag: */
+	return gid->navigational;
+	}
+
+void InputGraphManager::setNavigational(InputDevice* device,bool newNavigational)
+	{
+	/* Get pointer to the graph input device: */
+	GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	if(newNavigational)
+		{
+		/* Calculate the transformation from navigation coordinates to the device's current coordinates: */
+		gid->fromNavTransform=device->getTransformation();
+		gid->fromNavTransform.leftMultiply(getInverseNavigationTransformation());
+		}
+	
+	/* Set the device's navigation flag: */
+	gid->navigational=newNavigational;
 	}
 
 Glyph& InputGraphManager::getInputDeviceGlyph(InputDevice* device)
@@ -404,6 +431,14 @@ void InputGraphManager::releaseInputDevice(InputDevice* device,Tool* grabber)
 	if(gid->grabber!=gt)
 		return;
 	
+	/* Check if the device is in navigational mode: */
+	if(gid->navigational)
+		{
+		/* Update the transformation from navigation coordinates to the device's current coordinates: */
+		gid->fromNavTransform=device->getTransformation();
+		gid->fromNavTransform.leftMultiply(getInverseNavigationTransformation());
+		}
+	
 	/* Release the device grab: */
 	gid->grabber=0;
 	
@@ -479,6 +514,17 @@ void InputGraphManager::removeTool(Tool* tool)
 
 void InputGraphManager::update(void)
 	{
+	/* Set the transformations of ungrabbed navigational devices in the first graph level: */
+	for(GraphInputDevice* gid=deviceLevels[0];gid!=0;gid=gid->levelSucc)
+		if(gid->navigational&&gid->grabber==0)
+			{
+			/* Set the device's transformation: */
+			NavTrackerState transform=getNavigationTransformation();
+			transform*=gid->fromNavTransform;
+			transform.renormalize();
+			gid->device->setTransformation(TrackerState(transform.getTranslation(),transform.getRotation()));
+			}
+	
 	/* Go through all graph levels: */
 	for(int i=0;i<=maxGraphLevel;++i)
 		{
@@ -505,7 +551,7 @@ void InputGraphManager::glRenderAction(GLContextData& contextData) const
 		{
 		/* Check if the device is an ungrabbed virtual input device: */
 		if(gid->grabber==0)
-			virtualInputDevice->renderDevice(gid->device,glyphRendererContextDataItem,contextData);
+			virtualInputDevice->renderDevice(gid->device,gid->navigational,glyphRendererContextDataItem,contextData);
 		else
 			glyphRenderer->renderGlyph(gid->deviceGlyph,OGTransform(gid->device->getTransformation()),glyphRendererContextDataItem);
 		}

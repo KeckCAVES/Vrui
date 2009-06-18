@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/VRScreen.h>
+
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -35,8 +37,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/Vrui.h>
 
-#include <Vrui/VRScreen.h>
-
 namespace Vrui {
 
 /*************************
@@ -46,7 +46,8 @@ Methods of class VRScreen:
 VRScreen::VRScreen(void)
 	:screenName(0),
 	 deviceMounted(false),device(0),
-	 transform(ONTransform::identity),inverseTransform(ONTransform::identity)
+	 transform(ONTransform::identity),inverseTransform(ONTransform::identity),
+	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity)
 	{
 	screenSize[0]=screenSize[1]=Scalar(0);
 	}
@@ -93,6 +94,37 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		transform.leftMultiply(screenRotation);
 		}
 	inverseTransform=Geometry::invert(transform);
+	
+	/* Check if the screen is projected off-axis: */
+	offAxis=configFileSection.retrieveValue<bool>("./offAxis",offAxis);
+	if(offAxis)
+		{
+		/* Create the inverse of the 2D homography from clip space to rectified screen space in screen coordinates: */
+		PTransform2 sHomInv=PTransform2::identity;
+		sHomInv.getMatrix()(0,0)=Scalar(2)/screenSize[0];
+		sHomInv.getMatrix()(0,2)=Scalar(-1);
+		sHomInv.getMatrix()(1,1)=Scalar(2)/screenSize[1];
+		sHomInv.getMatrix()(1,2)=Scalar(-1);
+		sHomInv.getMatrix()(2,2)=Scalar(1);
+		
+		/* Retrieve the 2D homography from clip space to projected screen space in screen coordinates: */
+		PTransform2 pHom=configFileSection.retrieveValue<PTransform2>("./homography");
+		
+		/* Calculate the screen space homography: */
+		screenHomography=pHom*sHomInv;
+		
+		/* Calculate the clip space homography: */
+		PTransform2 hom=sHomInv*pHom;
+		for(int i=0;i<3;++i)
+			for(int j=0;j<3;++j)
+				inverseClipHomography.getMatrix()(i<2?i:3,j<2?j:3)=hom.getMatrix()(i,j);
+		
+		/* Put in correction factors to keep the frustum's far plane in the same position: */
+		inverseClipHomography.getMatrix()(2,0)=inverseClipHomography.getMatrix()(3,0);
+		inverseClipHomography.getMatrix()(2,1)=inverseClipHomography.getMatrix()(3,1);
+		
+		inverseClipHomography.doInvert();
+		}
 	}
 
 void VRScreen::attachToDevice(const InputDevice* newDevice)

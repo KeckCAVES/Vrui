@@ -1,6 +1,6 @@
 /***********************************************************************
 NavigationTool - Base class for navigation tools.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,13 +32,14 @@ class ToolManager;
 
 namespace Vrui {
 
-class NavigationTool;
-
 class NavigationToolFactory:public ToolFactory
 	{
 	/* Constructors and destructors: */
 	public:
 	NavigationToolFactory(ToolManager& toolManager);
+	
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	};
 
 class NavigationTool:public Tool
@@ -52,7 +53,7 @@ class NavigationTool:public Tool
 	NavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~NavigationTool(void);
 	
-	/* Methods: */
+	/* New methods: */
 	bool isActive(void) const // Returns true if the navigation tool is currently active
 		{
 		return active;

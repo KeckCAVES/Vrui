@@ -1,6 +1,6 @@
 /***********************************************************************
 Math - Genericized versions of standard C math functions.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2009 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -30,7 +30,101 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define MATH_HAVE_FLOAT_CALLS
 #endif
 
+/* Check if the implementation provides float classification functions: */
+#if defined(__GNUC__) && !defined(__DARWIN__)
+#define MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+#endif
+
 namespace Math {
+
+/**********************************************
+Floating-point number classification functions:
+**********************************************/
+
+template <class ScalarParam>
+inline bool isNan(ScalarParam value)
+	{
+	/* General types don't have NAN: */
+	return false;
+	}
+
+template <>
+inline bool isNan(float value)
+	{
+	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	return __isnanf(value);
+	#else
+	return isnan(value);
+	#endif
+	}
+
+template <>
+inline bool isNan(double value)
+	{
+	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	return __isnan(value);
+	#else
+	return isnan(value);
+	#endif
+	}
+
+template <class ScalarParam>
+inline bool isInf(ScalarParam value)
+	{
+	/* General types don't have infinity: */
+	return false;
+	}
+
+template <>
+inline bool isInf(float value)
+	{
+	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	return __isinff(value);
+	#else
+	return isinf(value);
+	#endif
+	}
+
+template <>
+inline bool isInf(double value)
+	{
+	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	return __isinf(value);
+	#else
+	return isinf(value);
+	#endif
+	}
+
+template <class ScalarParam>
+inline bool isFinite(ScalarParam value)
+	{
+	/* General types are always finite: */
+	return true;
+	}
+
+template <>
+inline bool isFinite(float value)
+	{
+	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	return __finitef(value);
+	#else
+	return isfinite(value);
+	#endif
+	}
+
+template <>
+inline bool isFinite(double value)
+	{
+	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	return __finite(value);
+	#else
+	return isfinite(value);
+	#endif
+	}
+
+/******************************************
+Optimized arithmetic convenience functions:
+******************************************/
 
 template <class ScalarParam>
 inline ScalarParam mul2(ScalarParam value)
@@ -71,6 +165,16 @@ inline double mid(double value1,double value2)
 	{
 	return (value1+value2)*0.5;
 	}
+
+template <class ScalarParam>
+inline ScalarParam sqr(ScalarParam value)
+	{
+	return value*value;
+	}
+
+/*************************************************
+Type-safe wrappers around standard math functions:
+*************************************************/
 
 inline int abs(int value)
 	{
@@ -143,12 +247,6 @@ inline ScalarParam rem(ScalarParam counter,ScalarParam denominator)
 	return result;
 	}
 
-template <class ScalarParam>
-inline ScalarParam sqr(ScalarParam value)
-	{
-	return value*value;
-	}
-
 inline float sqrt(float value)
 	{
 	return float(::sqrt(double(value)));
@@ -158,6 +256,10 @@ inline double sqrt(double value)
 	{
 	return ::sqrt(value);
 	}
+
+/*********************************
+Helper functions for trigonometry:
+*********************************/
 
 inline float deg(float radians)
 	{
@@ -189,6 +291,10 @@ inline double wrapRad(double radians)
 	return radians-floor(radians/(2.0*3.14159265358979323846))*(2.0*3.14159265358979323846);
 	}
 
+/*************************************************
+Type-safe wrappers around trigonometric functions:
+*************************************************/
+
 inline float sin(float radians)
 	{
 	#ifdef MATH_HAVE_FLOAT_CALLS
@@ -212,9 +318,9 @@ inline float cos(float radians)
 	#endif
 	}
 
-inline double tan(double radians)
+inline double cos(double radians)
 	{
-	return ::tan(radians);
+	return ::cos(radians);
 	}
 
 inline float tan(float radians)
@@ -226,9 +332,9 @@ inline float tan(float radians)
 	#endif
 	}
 
-inline double cos(double radians)
+inline double tan(double radians)
 	{
-	return ::cos(radians);
+	return ::tan(radians);
 	}
 
 inline float asin(float value)
@@ -286,6 +392,10 @@ inline double atan2(double counter,double denominator)
 	{
 	return ::atan2(counter,denominator);
 	}
+
+/**************************************************
+Type-safe wrappers around transcendental functions:
+**************************************************/
 
 inline float log(float value)
 	{

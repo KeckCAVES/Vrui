@@ -40,6 +40,7 @@ namespace Sound {
 class SoundPlayer;
 }
 namespace Vrui {
+class MouseCursorFaker;
 class VRWindow;
 }
 
@@ -63,6 +64,7 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	/* Elements: */
 	private:
 	Misc::File inputDeviceDataFile; // File containing the input device data
+	MouseCursorFaker* mouseCursorFaker; // Pointer to object used to render a fake mouse cursor
 	bool synchronizePlayback; // Flag whether to force the Vrui mainloop to run at the speed of the recording; by default, mainloop runs as fast as it can
 	bool quitWhenDone; // Flag whether to quit the Vrui application when all saved data has been played back
 	Sound::SoundPlayer* soundPlayer; // Pointer to a sound player object used to play back synchronized commentary tracks

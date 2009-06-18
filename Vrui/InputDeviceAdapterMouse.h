@@ -33,6 +33,7 @@ namespace Misc {
 class ConfigurationFileSection;
 }
 namespace Vrui {
+class MouseCursorFaker;
 class VRWindow;
 }
 
@@ -50,9 +51,10 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	int numButtonStates; // Number of button states (number of buttons times number of modifier key states)
 	int modifierKeyMask; // Current modifier key mask
 	bool* buttonStates; // Array of current button states
-	int numMouseWheelTicks; // Number of mouse wheel ticks accumulated during frame processing
+	int* numMouseWheelTicks; // Number of mouse wheel ticks for each modifier key mask accumulated during frame processing
 	VRWindow* window; // VR window containing the last reported mouse position
 	Scalar mousePos[2]; // Current mouse position in screen coordinates
+	MouseCursorFaker* mouseCursorFaker; // Pointer to object to render a fake mouse cursor
 	
 	/* Private methods: */
 	static int getKeyCode(std::string keyName); // Returns the key code for a named key

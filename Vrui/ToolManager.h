@@ -183,12 +183,14 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	~ToolManager(void); // Destroys tool manager
 	
 	/* Methods: */
+	static void defaultToolFactoryDestructor(ToolFactory* factory); // Default destructor for tool factories; simply deletes them
 	Misc::ConfigurationFileSection getToolClassSection(const char* toolClassName) const; // Returns the configuration file section a tool class should use for its initialization
 	MutexMenu* getToolMenu(void) // Returns tool menu
 		{
 		return toolMenu;
 		}
 	Tool* assignTool(ToolFactory* factory,const ToolInputAssignment& tia); // Assigns a new tool created by the given factory
+	void loadToolBinding(const char* toolSectionName); // Loads a tool binding from a configuration file section; names are relative to tool manager's section
 	void loadDefaultTools(void); // Creates default tool associations
 	void update(void); // Called once every frame so that the tool manager has a well-defined place to create new tools
 	void glRenderAction(GLContextData& contextData) const; // Renders the tool manager (not the tools)

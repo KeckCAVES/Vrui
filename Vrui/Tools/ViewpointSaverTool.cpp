@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointSaverTool - Class for tools to save environment-independent
 viewing parameters.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,7 +43,7 @@ Methods of class ViewpointSaverToolFactory:
 
 ViewpointSaverToolFactory::ViewpointSaverToolFactory(ToolManager& toolManager)
 	:ToolFactory("ViewpointSaverTool",toolManager),
-	 viewpointFileName("ViewpointSaverTool.dat"),
+	 viewpointFileName("ViewpointSaverTool.views"),
 	 axisLength(getDisplaySize()*Scalar(0.5)),
 	 axisLineWidth(3.0f),
 	 viewpointFile(0)
@@ -74,6 +74,11 @@ ViewpointSaverToolFactory::~ViewpointSaverToolFactory(void)
 	
 	/* Reset tool class' factory pointer: */
 	ViewpointSaverTool::factory=0;
+	}
+
+const char* ViewpointSaverToolFactory::getName(void) const
+	{
+	return "Viewpoint Recorder";
 	}
 
 Tool* ViewpointSaverToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

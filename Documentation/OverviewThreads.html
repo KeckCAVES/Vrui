@@ -35,6 +35,15 @@ The Threads library provides a C++ wrapper around the pthreads library. It suppo
 
 <DT>TripleBuffer.h</DT>
 <DD>TripleBuffer is a class implementing the triple buffer communications pattern, where a consumer can read the most recent in a stream of values produced by a producer, without requiring synchronization between the two entities.</DD>
+
+<DT>RingBuffer.h</DT>
+<DD>RingBuffer is a class implementing the pipe communications pattern, where a consumer can read a stream of values produced by a producer.</DD>
+
+<DT>DropoutBuffer.h</DT>
+<DD>DropoutBuffer is a generalization of TripleBuffer: Instead of only retaining one most recent value to read, it retains up to a preset number of most recent values. Unlike TripleBuffer, it requires some synchronization between producer and consumer.</DD>
+
+<DT>ASCIIFileReader</DT>
+<DD>Class to efficiently tokenize and parse ASCII (plain text) input files. Supports on-the-fly gunzipping, and has a background readahead thread.</DD>
 </DL>
 
 </BODY>

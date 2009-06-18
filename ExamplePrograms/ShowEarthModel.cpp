@@ -26,11 +26,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdlib.h>
 #include <stdexcept>
 #include <iostream>
+#include <iomanip>
 #include <vector>
+#include <Misc/FunctionCalls.h>
 #include <Misc/File.h>
 #include <Misc/ThrowStdErr.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
+#include <Geometry/Geoid.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLMatrixTemplates.h>
@@ -61,6 +64,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #if CLIP_SCREEN
 #include <Vrui/VRScreen.h>
 #endif
+#include <Vrui/Tools/SurfaceNavigationTool.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
@@ -793,11 +797,7 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	contextData.addDataItem(this,dataItem);
 	
 	/* Load the Earth surface texture image from an image file: */
-	#ifdef IMAGES_HAVE_PNG
-	Images::RGBImage earthTexture=Images::readImageFile("EarthTopography.png");
-	#else
-	Images::RGBImage earthTexture=Images::readImageFile("EarthTopography.ppm");
-	#endif
+	Images::RGBImage earthTexture=Images::readImageFile(SHOWEARTHMODEL_TOPOGRAPHY_IMAGEFILENAME);
 	
 	/* Select the Earth surface texture object: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->surfaceTextureObjectId);
@@ -849,6 +849,14 @@ void ShowEarthModel::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbac
 		
 		/* Add new locator to list: */
 		baseLocators.push_back(newLocator);
+		}
+	
+	/* Check if the new tool is a surface navigation tool: */
+	Vrui::SurfaceNavigationTool* surfaceNavigationTool=dynamic_cast<Vrui::SurfaceNavigationTool*>(cbData->tool);
+	if(surfaceNavigationTool!=0)
+		{
+		/* Set the new tool's alignment function: */
+		surfaceNavigationTool->setAlignFunction(Misc::createFunctionCall<Vrui::NavTransform&,ShowEarthModel>(this,&ShowEarthModel::alignSurfaceFrame));
 		}
 	}
 
@@ -934,6 +942,26 @@ void ShowEarthModel::frame(void)
 
 void ShowEarthModel::display(GLContextData& contextData) const
 	{
+	#if 0
+	/* Print the modelview and projection matrices: */
+	GLdouble mv[16],p[16];
+	glGetDoublev(GL_MODELVIEW_MATRIX,mv);
+	glGetDoublev(GL_PROJECTION_MATRIX,p);
+	
+	for(int i=0;i<4;++i)
+		{
+		for(int j=0;j<4;++j)
+			std::cout<<" "<<std::setw(12)<<mv[i+j*4];
+		#if 0
+		std::cout<<"        ";
+		for(int j=0;j<4;++j)
+			std::cout<<" "<<std::setw(12)<<p[i+j*4];
+		#endif
+		std::cout<<std::endl;
+		}
+	std::cout<<std::endl;
+	#endif
+	
 	/* Get context data item: */
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
@@ -1005,6 +1033,26 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	
 	/* Disable lighting to render point/line models: */
 	glDisable(GL_LIGHTING);
+	
+	// DEBUGGING
+	#if 0
+	glPushMatrix();
+	glMultMatrix(navFrame);
+	glBegin(GL_LINES);
+	glColor3f(1.0f,0.0f,0.0f);
+	glVertex3f(0.0f,0.0f,0.0f);
+	glVertex3f(1.0f,0.0f,0.0f);
+	
+	glColor3f(0.0f,1.0f,0.0f);
+	glVertex3f(0.0f,0.0f,0.0f);
+	glVertex3f(0.0f,1.0f,0.0f);
+	
+	glColor3f(0.0f,0.0f,1.0f);
+	glVertex3f(0.0f,0.0f,0.0f);
+	glVertex3f(0.0f,0.0f,1.0f);
+	glEnd();
+	glPopMatrix();
+	#endif
 	
 	/* Render all earthquake sets: */
 	glPointSize(earthquakePointSize);
@@ -1169,6 +1217,27 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	if(lockToSphere)
 		glPopMatrix();
 	glPopAttrib();
+	}
+
+void ShowEarthModel::alignSurfaceFrame(Vrui::NavTransform& surfaceFrame)
+	{
+	/* Create a geoid: */
+	typedef Geometry::Geoid<Vrui::Scalar> Geoid;
+	Geoid geoid(6378.14,1.0/298.247); // Same geoid as used in EarthFunctions.cpp
+	
+	/* Convert the surface frame's base point to geodetic latitude/longitude: */
+	Geoid::Point geodeticBase=geoid.cartesianToGeodetic(surfaceFrame.getOrigin());
+	
+	/* Snap the base point to the surface: */
+	geodeticBase[2]=Geoid::Scalar(0);
+	
+	/* Create an Earth-aligned coordinate frame at the snapped base point's position: */
+	Geoid::Frame frame=geoid.geodeticToCartesianFrame(geodeticBase);
+	
+	/* Update the passed frame: */
+	surfaceFrame=Vrui::NavTransform(frame.getTranslation(),frame.getRotation(),surfaceFrame.getScaling());
+	// DEBUGGING
+	//navFrame=surfaceFrame;
 	}
 
 void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)

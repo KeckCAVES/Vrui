@@ -101,10 +101,10 @@ void calculateFaceNormals(const CoordinateNode* coordNode,const std::vector<Int3
 
 void calculateVertexNormals(const CoordinateNode* coordNode,const std::vector<Int32>& coordIndices,Float creaseAngleCos,NormalNode* normalNode,std::vector<Int32>& normalIndices)
 	{
-	typedef Misc::OrderedTuple<2> HalfEdge; // Class for directed edges as hash table keys
+	typedef Misc::OrderedTuple<int,2> HalfEdge; // Class for directed edges as hash table keys
 	typedef Misc::HashTable<HalfEdge,std::pair<int,int>,HalfEdge> HalfEdgeHasher; // Class to map directed edges to face indices and previous vertex indices
 	typedef Misc::HashTable<int,void> VertexIndexHasher; // Class for sets of vertex indices
-	typedef Misc::OrderedTuple<2> VertexFace; // Class for vertex/face index pairs as hash table keys
+	typedef Misc::OrderedTuple<int,2> VertexFace; // Class for vertex/face index pairs as hash table keys
 	typedef Misc::HashTable<VertexFace,int,VertexFace> VertexFaceHasher; // Class to map vertex/face index pairs to normal vector indices
 	
 	/* Calculate normal vectors for each face, create a hash table of directed edges, and accumulate vertex normals: */

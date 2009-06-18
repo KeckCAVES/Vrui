@@ -1,6 +1,6 @@
 /***********************************************************************
 DenseMatrix - Helper class to solve systems of dense linear equations.
-Copyright (c) 2000-2007 Oliver Kreylos
+Copyright (c) 2000-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -20,11 +20,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <assert.h>
-#include <math.h>
 #include <string.h>
+#include <Math/Math.h>
 
-#include "DenseMatrix.h"
+#include <Vrui/Tools/DenseMatrix.h>
 
 namespace Vrui {
 
@@ -34,7 +33,6 @@ Methods of class DenseMatrix:
 
 void DenseMatrix::resize(int newNumRows,int newNumColumns)
 	{
-	assert(newNumRows>0&&newNumColumns>0);
 	if(newNumRows!=numRows||newNumColumns!=numColumns)
 		{
 		delete[] rows;
@@ -43,8 +41,6 @@ void DenseMatrix::resize(int newNumRows,int newNumColumns)
 		numColumns=newNumColumns;
 		rows=new double*[numRows];
 		columns=new double[numRows*numColumns];
-		assert(rows!=NULL);
-		assert(columns!=NULL);
 		for(int i=0;i<numRows;++i)
 			rows[i]=columns+numColumns*i;
 		}
@@ -54,9 +50,6 @@ DenseMatrix::DenseMatrix(int sNumRows,int sNumColumns,const double* sEntries)
 	:numRows(sNumRows),numColumns(sNumColumns),rows(new double*[numRows]),
 	 columns(new double[numRows*numColumns])
 	{
-	assert(numRows>0&&numColumns>0);
-	assert(rows!=NULL);
-	assert(columns!=NULL);
 	for(int i=0;i<numRows;++i)
 		rows[i]=columns+numColumns*i;
 	if(sEntries!=NULL)
@@ -67,8 +60,6 @@ DenseMatrix::DenseMatrix(const DenseMatrix& other)
 	:numRows(other.numRows),numColumns(other.numColumns),rows(new double*[numRows]),
 	 columns(new double[numRows*numColumns])
 	{
-	assert(rows!=NULL);
-	assert(columns!=NULL);
 	for(int i=0;i<numRows;++i)
 		rows[i]=columns+numColumns*i;
 	memcpy(columns,other.columns,numRows*numColumns*sizeof(double));
@@ -84,8 +75,6 @@ DenseMatrix& DenseMatrix::operator=(const DenseMatrix& other)
 		numColumns=other.numColumns;
 		rows=new double*[numRows];
 		columns=new double[numRows*numColumns];
-		assert(rows!=NULL);
-		assert(columns!=NULL);
 		for(int i=0;i<numRows;++i)
 			rows[i]=columns+numColumns*i;
 		memcpy(columns,other.columns,numRows*numColumns*sizeof(double));
@@ -271,7 +260,6 @@ DenseMatrix& DenseMatrix::operator*=(const DenseMatrix& matrix2)
 		{
 		/* Compute matrix product in-place: */
 		double* tempRow=new double[numColumns];
-		assert(tempRow!=NULL);
 		double* rowPtr1=columns;
 		for(i=0;i<numRows;++i,rowPtr1+=numColumns)
 			{
@@ -292,7 +280,6 @@ DenseMatrix& DenseMatrix::operator*=(const DenseMatrix& matrix2)
 		{
 		/* Compute matrix product into temporary array: */
 		double* temp=new double[numRows*matrix2.numColumns];
-		assert(temp!=NULL);
 		double* rPtr=temp;
 		double* rowPtr1=columns;
 		for(i=0;i<numRows;++i,rowPtr1+=numColumns)
@@ -338,14 +325,14 @@ double DenseMatrix::findColumnPivot(int start,int& pivotI) const
 	{
 	if(start<0||start>=numRows-1||start>=numColumns-1)
 		throw IndexError();
-	double max=0.0;
+	double maxv=0.0;
 	for(int i=start;i<numRows;++i)
-		if(fabs(rows[i][start])>max)
+		if(maxv<Math::abs(rows[i][start]))
 			{
-			max=fabs(rows[i][start]);
+			maxv=Math::abs(rows[i][start]);
 			pivotI=i;
 			}
-	return max;
+	return maxv;
 	}
 
 double DenseMatrix::findFullPivot(int start,int& pivotI,int& pivotJ) const
@@ -355,9 +342,9 @@ double DenseMatrix::findFullPivot(int start,int& pivotI,int& pivotJ) const
 	double maxv=0.0;
 	for(int i=start;i<numRows;++i)
 		for(int j=start;j<numColumns;++j)
-			if(fabs(rows[i][j])>maxv)
+			if(maxv<Math::abs(rows[i][j]))
 				{
-				maxv=fabs(rows[i][j]);
+				maxv=Math::abs(rows[i][j]);
 				pivotI=i;
 				pivotJ=j;
 				}
@@ -500,7 +487,7 @@ DenseMatrix DenseMatrix::solveLinearEquations(const DenseMatrix& constants) cons
 	for(i=0;i<numRows;++i)
 		for(j=0;j<result.numColumns;++j)
 			{
-			if(isnan(temp.rows[i][numColumns+j]))
+			if(Math::isNan(temp.rows[i][numColumns+j]))
 				throw RankDeficientError();
 			result.rows[i][j]=temp.rows[i][numColumns+j];
 			}

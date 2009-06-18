@@ -21,14 +21,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "PCTracker.h"
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 
 #include "VRDeviceManager.h"
-
-#include "PCTracker.h"
 
 /**************************
 Methods of class PCTracker:

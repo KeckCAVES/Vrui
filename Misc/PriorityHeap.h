@@ -190,7 +190,7 @@ class PriorityHeap
 			/* Allocate a new memory chunk if necessary: */
 			if(allocSize!=source.allocSize)
 				{
-				delete[] memChunk;
+				delete[] static_cast<char*>(memChunk);
 				allocSize=source.allocSize;
 				memChunk=new char[allocSize*sizeof(Content)];
 				heap=static_cast<Content*>(memChunk);

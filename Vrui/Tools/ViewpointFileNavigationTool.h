@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <vector>
-#include <Misc/File.h>
+#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Tools/NavigationTool.h>
 
 /* Forward declarations: */
@@ -42,17 +42,9 @@ class ViewpointFileNavigationToolFactory:public ToolFactory
 	{
 	friend class ViewpointFileNavigationTool;
 	
-	/* Embedded classes: */
-	private:
-	enum FileType // Enumerated type for viewpoint file types
-		{
-		KEYFRAMES,BEZIERCURVESEGMENTS
-		};
-	
 	/* Elements: */
 	private:
-	FileType fileType; // File type of viewpoint data file
-	std::string viewpointFileName; // Name of file from which viewpoint data is loaded
+	std::string viewpointFileName; // Name of file from which viewpoint data is loaded. Tool will show file selection dialog if empty
 	bool showKeyframes; // Flag whether to render the current target keyframe during animation
 	std::string pauseFileName; // Name of file from which scheduled pauses are loaded
 	bool autostart; // Flag if new viewpoint file navigation tools start animation immediately
@@ -62,7 +54,8 @@ class ViewpointFileNavigationToolFactory:public ToolFactory
 	ViewpointFileNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ViewpointFileNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -104,6 +97,9 @@ class ViewpointFileNavigationTool:public NavigationTool
 	Scalar lastParameter; // Curve parameter in last frame
 	
 	/* Private methods: */
+	void readViewpointFile(const char* fileName); // Reads the viewpoint file of the given name
+	void loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData);
 	void writeControlPoint(const ControlPoint& cp,DenseMatrix& b,int rowIndex); // Writes a control point to the spline calculation matrix
 	void interpolate(const ControlPoint& p0,const ControlPoint& p1,Scalar t,ControlPoint& result); // Interpolates between two control points
 	
@@ -111,7 +107,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	public:
 	ViewpointFileNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

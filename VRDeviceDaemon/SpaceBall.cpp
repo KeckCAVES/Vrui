@@ -20,14 +20,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "SpaceBall.h"
+
 #include <Misc/Timer.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/GeometryValueCoders.h>
 
 #include "VRDeviceManager.h"
-
-#include "SpaceBall.h"
 
 /**************************
 Methods of class SpaceBall:

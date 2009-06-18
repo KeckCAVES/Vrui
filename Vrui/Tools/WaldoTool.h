@@ -51,7 +51,8 @@ class WaldoToolFactory:public ToolFactory
 	WaldoToolFactory(ToolManager& toolManager);
 	virtual ~WaldoToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -73,7 +74,7 @@ class WaldoTool:public TransformTool
 	public:
 	WaldoTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData);

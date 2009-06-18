@@ -120,6 +120,9 @@ The header files in the templatized geometry library can be grouped according to
 
 <DT>SplinePatch.h</DT>
 <DD>SplinePatch is a class representing parametric non-uniform rectangular tensor-product B-spline surface patches in affine space. It is templatized by the scalar type and the dimension of the underlying space. The SplinePatch class supports transformation of surface patches with arbitrary transformations.</DD>
+
+<DT>Geoid</DT>
+<DD>Geoid is a class representing reference ellipsoids used to define coordinate transformations in geodesy. It serves as a central place to define the somewhat complex math to convert between common coordinate systems.</DD>
 </DL>
 
 <H3>Spatial Data Structure Classes</H3>
@@ -155,6 +158,9 @@ The header files in the templatized geometry library can be grouped according to
 
 <DT>Endianness.h</DT>
 <DD>Endianness.h contains specialized versions of the Misc::EndiannessSwapper class for several geometry data types.</DD>
+
+<DT>OutputOperators.h</DT>
+<DD>OutputOperators.h contains basic std::ostream-compatible output operators for many geometry classes. The output operators respect the current stream settings for number format, precision, and width, are simple to parse when reading, but not especially pretty.</DD>
 
 <DT>GeometryValueCoders.h</DT>
 <DD>GeometryValueCoders.h contains specialized versions of the Misc::ValueCoder class for several geometry data types.</DD>

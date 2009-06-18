@@ -1,6 +1,6 @@
 /***********************************************************************
 MenuTool - Base class for menu selection tools.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,13 +35,14 @@ class ToolManager;
 
 namespace Vrui {
 
-class MenuTool;
-
 class MenuToolFactory:public ToolFactory
 	{
 	/* Constructors and destructors: */
 	public:
 	MenuToolFactory(ToolManager& toolManager);
+	
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	};
 
 class MenuTool:public UserInterfaceTool

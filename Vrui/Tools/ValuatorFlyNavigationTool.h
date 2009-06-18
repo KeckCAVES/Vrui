@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyNavigationTool - Class providing a fly navigation tool using
 a single valuator.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -51,7 +51,8 @@ class ValuatorFlyNavigationToolFactory:public ToolFactory
 	ValuatorFlyNavigationToolFactory(ToolManager& toolManager);
 	virtual ~ValuatorFlyNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -72,7 +73,7 @@ class ValuatorFlyNavigationTool:public NavigationTool
 	public:
 	ValuatorFlyNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);

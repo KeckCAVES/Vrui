@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_APPLICATION_INCLUDED
 
 #include <Vrui/ToolManager.h>
+#include <Vrui/Tools/Tool.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -36,6 +37,45 @@ namespace Vrui {
 
 class Application
 	{
+	/* Embedded classes: */
+	protected:
+	class ToolBase // Base mix-in class for application tools
+		{
+		/* Constructors and destructors: */
+		public:
+		ToolBase(void)
+			{
+			}
+		
+		/* Methods: */
+		virtual void setApplication(Application* sApplication) =0; // Sets the tool's application pointer
+		};
+	
+	template <class DerivedApplicationParam>
+	class Tool:public ToolBase // Base class for tools that need to link back to the application object owning them
+		{
+		/* Embedded classes: */
+		public:
+		typedef DerivedApplicationParam DerivedApplication; // The derived application class
+		
+		/* Elements: */
+		protected:
+		DerivedApplication* application; // Pointer to the application object owning this tool
+		
+		/* Constructors and destructors: */
+		public:
+		Tool(void)
+			:application(0)
+			{
+			}
+		
+		/* Methods from ToolBase: */
+		virtual void setApplication(Application* sApplication)
+			{
+			application=dynamic_cast<DerivedApplication*>(sApplication);
+			}
+		};
+	
 	/* Elements: */
 	private:
 	bool useSound; // Flag whether the application wants to use spatial sound

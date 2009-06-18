@@ -15,6 +15,9 @@ The Sound library provides facility to record and play back sound using low-leve
 <DT>SoundDataFormat.h</DT>
 <DD>SoundDataFormat is a structure to represent sound data formats (sample resolution, number of channels, sample rate, etc.) in an API-independent format.</DD>
 
+<DT>ALSAPCMDevice.h</DT>
+<DD>Abstraction class for PCM devices as represented by the Advanced Linux Sound Architecture (ALSA) library. This class only exists on Linux, and only if sound support was enabled in the Vrui makefile.</DD>
+
 <DT>SoundRecorder.h</DT>
 <DD>SoundRecorder is a simple class to record sound from a sound capture device to a sound file in several supported formats. The class currently supports raw and WAV files under Linux, and WAV and AIFF files under Mac OS&nbsp;X.</DD>
 

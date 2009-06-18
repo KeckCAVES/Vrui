@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorScalingNavigationTool - Class for tools that allow scaling the
 navigation transformation using a valuator.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,8 +37,8 @@ Methods of class ValuatorScalingNavigationToolFactory:
 
 ValuatorScalingNavigationToolFactory::ValuatorScalingNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorScalingNavigationTool",toolManager),
-	 valuatorThreshold(0),
-	 scalingFactor(0.95)
+	 valuatorThreshold(Scalar(0.25)),
+	 scalingFactor(Scalar(0.25))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -62,6 +62,11 @@ ValuatorScalingNavigationToolFactory::~ValuatorScalingNavigationToolFactory(void
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorScalingNavigationTool::factory=0;
+	}
+
+const char* ValuatorScalingNavigationToolFactory::getName(void) const
+	{
+	return "Valuator Scaling";
 	}
 
 Tool* ValuatorScalingNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -156,7 +161,7 @@ void ValuatorScalingNavigationTool::frame(void)
 			v=(v-t)/s;
 		else
 			v=Scalar(0);
-		currentScale*=Math::pow(factory->scalingFactor,v*getCurrentFrameTime());
+		currentScale*=Math::pow(factory->scalingFactor,v*getFrameTime());
 		
 		/* Compose the new navigation transformation: */
 		NavTrackerState navigation=preScale;

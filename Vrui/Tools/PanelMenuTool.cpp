@@ -2,7 +2,7 @@
 PanelMenuTool - Class for menu tools that attach the program's main menu
 to an input device and allow any widget interaction tool to select items
 from it.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -56,6 +56,11 @@ PanelMenuToolFactory::~PanelMenuToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	PanelMenuTool::factory=0;
+	}
+
+const char* PanelMenuToolFactory::getName(void) const
+	{
+	return "Device-Attached Menu";
 	}
 
 Tool* PanelMenuToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

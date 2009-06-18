@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyNavigationTool - Class providing a fly navigation tool using
 a single valuator.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -42,9 +42,9 @@ Methods of class ValuatorFlyNavigationToolFactory:
 
 ValuatorFlyNavigationToolFactory::ValuatorFlyNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ValuatorFlyNavigationTool",toolManager),
-	 valuatorThreshold(0),
+	 valuatorThreshold(Scalar(0.25)),
 	 flyDirection(Vector(0,1,0)),
-	 flyFactor(getDisplaySize()*Scalar(0.5))
+	 flyFactor(getDisplaySize()*Scalar(2))
 	{
 	/* Initialize tool layout: */
 	layout.setNumDevices(1);
@@ -71,6 +71,11 @@ ValuatorFlyNavigationToolFactory::~ValuatorFlyNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ValuatorFlyNavigationTool::factory=0;
+	}
+
+const char* ValuatorFlyNavigationToolFactory::getName(void) const
+	{
+	return "Valuator Fly only";
 	}
 
 Tool* ValuatorFlyNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -171,7 +176,7 @@ void ValuatorFlyNavigationTool::frame(void)
 		
 		/* Calculate the current flying velocity: */
 		Vector v=ts.transform(factory->flyDirection);
-		v*=currentValue*factory->flyFactor*getCurrentFrameTime();
+		v*=-currentValue*factory->flyFactor*getFrameTime();
 		
 		/* Compose the new navigation transformation: */
 		NavTransform t=NavTransform::translate(v);

@@ -1,7 +1,7 @@
 /***********************************************************************
 DaisyWheelTool - Class for tools to enter text by pointing at characters
 on a dynamic daisy wheel.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -65,6 +65,11 @@ DaisyWheelToolFactory::~DaisyWheelToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	DaisyWheelTool::factory=0;
+	}
+
+const char* DaisyWheelToolFactory::getName(void) const
+	{
+	return "Daisy Wheel";
 	}
 
 Tool* DaisyWheelToolFactory::createTool(const ToolInputAssignment& inputAssignment) const

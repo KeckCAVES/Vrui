@@ -1,6 +1,6 @@
 /***********************************************************************
 TrackballNavigationTool - Class for trackball navigation in 3D space.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,7 +43,8 @@ class TrackballNavigationToolFactory:public ToolFactory
 	TrackballNavigationToolFactory(ToolManager& toolManager);
 	virtual ~TrackballNavigationToolFactory(void);
 	
-	/* Methods: */
+	/* Methods from ToolFactory: */
+	virtual const char* getName(void) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -66,7 +67,7 @@ class TrackballNavigationTool:public NavigationTool
 	public:
 	TrackballNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
-	/* Methods: */
+	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
