@@ -23,6 +23,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "HIDDevice.h"
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <stdio.h>
@@ -34,7 +36,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 
-#include "HIDDevice.h"
 #include "VRDeviceManager.h"
 
 namespace Misc {

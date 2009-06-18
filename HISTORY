@@ -1356,3 +1356,19 @@ Vrui-1.0-061:
 - Removed option to render fake mouse cursors from diverse mouse
   navigation tools.
 - Added virtual compass to Vrui::MouseSurfaceNavigationTool.
+
+Vrui-1.0-062:
+- Fixed up cosmetics in Vrui::MouseSurfaceNavigationTool's virtual
+  compass.
+- Changed API of GLMotif::ListBox to allow multiple selections.
+  Dependent changes:
+  - Changed constructor to take selection mode; removed method to change
+    selection mode after construction.
+  - Added new callbacks and callback data classes.
+  - Added new methods to query and change set of selected list items.
+- Changed constructor of GLMotif::ScrolledListBox to take selection mode
+  argument.
+- Changed GLMotif::FileSelectionBox to use new ListBox API.
+- Added temporary guard against using direct calls to floating-point
+  number classification functions (isnan etc.) on Mac OS X, until I
+  figure out what the hell Apple broke now.

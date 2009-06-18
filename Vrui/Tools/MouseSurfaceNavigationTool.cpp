@@ -647,9 +647,9 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 			glBegin(GL_LINE_LOOP);
 			glVertex(thickness,dialSize*Scalar(-1.25));
 			glVertex(thickness,dialSize*Scalar(1.25));
-			glVertex(thickness*Scalar(2),dialSize*Scalar(1.25));
-			glVertex(Scalar(0),dialSize*Scalar(1.5));
-			glVertex(-thickness*Scalar(2),dialSize*Scalar(1.25));
+			glVertex(thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(Scalar(0),dialSize*Scalar(1.75));
+			glVertex(-thickness*Scalar(2.5),dialSize*Scalar(1.25));
 			glVertex(-thickness,dialSize*Scalar(1.25));
 			glVertex(-thickness,dialSize*Scalar(-1.25));
 			glEnd();

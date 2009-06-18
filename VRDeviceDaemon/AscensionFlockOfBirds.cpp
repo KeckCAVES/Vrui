@@ -20,6 +20,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "AscensionFlockOfBirds.h"
+
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Time.h>
 #include <Misc/StandardValueCoders.h>
@@ -28,8 +30,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Math/Constants.h>
 
 #include "VRDeviceManager.h"
-
-#include "AscensionFlockOfBirds.h"
 
 /**************************************
 Methods of class AscensionFlockOfBirds:

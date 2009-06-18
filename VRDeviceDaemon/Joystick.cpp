@@ -22,6 +22,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "Joystick.h"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -31,8 +33,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 
 #include "VRDeviceManager.h"
-
-#include "Joystick.h"
 
 /*************************
 Methods of class Joystick:

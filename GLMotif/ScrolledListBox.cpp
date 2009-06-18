@@ -64,9 +64,9 @@ void ScrolledListBox::scrollBarCallback(ScrollBar::ValueChangedCallbackData* cbD
 		}
 	}
 
-ScrolledListBox::ScrolledListBox(const char* sName,Container* sParent,int sPreferredWidth,int sPreferredPageSize,bool sManageChild)
+ScrolledListBox::ScrolledListBox(const char* sName,Container* sParent,ListBox::SelectionMode sSelectionMode,int sPreferredWidth,int sPreferredPageSize,bool sManageChild)
 	:Container(sName,sParent,false),
-	 listBox(new ListBox("ListBox",this,sPreferredWidth,sPreferredPageSize,false)),
+	 listBox(new ListBox("ListBox",this,sSelectionMode,sPreferredWidth,sPreferredPageSize,false)),
 	 verticalScrollBar(new ScrollBar("VerticalScrollBar",this,ScrollBar::VERTICAL,true,false)),
 	 horizontalScrollBar(0)
 	{

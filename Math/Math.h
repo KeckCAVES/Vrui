@@ -31,7 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #endif
 
 /* Check if the implementation provides float classification functions: */
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !defined(__DARWIN__)
 #define MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
 #endif
 

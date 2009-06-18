@@ -23,6 +23,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define NONSTANDARD_TEMPLATES
 
+#include "WiimoteTracker.h"
+
 #include <stdio.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
@@ -32,8 +34,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 
 #include "VRDeviceManager.h"
-
-#include "WiimoteTracker.h"
 
 /*******************************
 Methods of class WiimoteTracker:

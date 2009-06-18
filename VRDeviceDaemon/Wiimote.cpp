@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include "Wiimote.h"
+
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
@@ -35,8 +37,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-
-#include "Wiimote.h"
 
 /****************
 Helper functions:

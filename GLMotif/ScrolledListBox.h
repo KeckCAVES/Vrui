@@ -43,7 +43,7 @@ class ScrolledListBox:public Container
 	
 	/* Constructors and destructors: */
 	public:
-	ScrolledListBox(const char* sName,Container* sParent,int sPreferredWidth,int sPreferredPageSize,bool manageChild =true);
+	ScrolledListBox(const char* sName,Container* sParent,ListBox::SelectionMode sSelectionMode,int sPreferredWidth,int sPreferredPageSize,bool manageChild =true);
 	virtual ~ScrolledListBox(void);
 	
 	/* Methods inherited from Widget: */

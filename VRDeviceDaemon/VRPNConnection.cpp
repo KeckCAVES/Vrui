@@ -23,6 +23,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define VRPNCONNECTION_USE_UDP 0
 
+#include "VRPNConnection.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -31,8 +33,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/Time.h>
 #include <Misc/ThrowStdErr.h>
 #include <Comm/FdSet.h>
-
-#include "VRPNConnection.h"
 
 namespace {
 

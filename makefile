@@ -148,7 +148,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000060
+VRUI_VERSION = 1000062
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 

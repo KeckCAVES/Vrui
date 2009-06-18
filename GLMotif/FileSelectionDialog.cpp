@@ -514,7 +514,7 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	pathButtonBox->manageChild();
 	
 	/* Create the file list box: */
-	fileList=new ScrolledListBox("FileList",fileSelectionDialog,50,15);
+	fileList=new ScrolledListBox("FileList",fileSelectionDialog,ListBox::ALWAYS_ONE,50,15);
 	fileList->showHorizontalScrollBar(true);
 	fileList->getListBox()->getItemSelectedCallbacks().add(this,&FileSelectionDialog::listItemSelectedCallback);
 	

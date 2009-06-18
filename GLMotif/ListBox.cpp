@@ -1,6 +1,6 @@
 /***********************************************************************
 ListBox - Class for widgets containing lists of text strings.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -76,8 +76,10 @@ void ListBox::updatePageSlots(void)
 		pageSlots[i].slotBox.size[1]=font->getTextHeight();
 		if(position+i<int(items.size()))
 			{
-			pageSlots[i].item=items[position+i].item;
-			pageSlots[i].textWidth=items[position+i].width;
+			const Item& item=items[position+i];
+			pageSlots[i].item=item.item;
+			pageSlots[i].textWidth=item.width;
+			pageSlots[i].selected=item.selected;
 			pageSlots[i].textTexCoords=font->calcStringTexCoords(pageSlots[i].item);
 			if(horizontalOffset>0.0f)
 				{
@@ -104,6 +106,7 @@ void ListBox::updatePageSlots(void)
 			{
 			pageSlots[i].item=0;
 			pageSlots[i].textWidth=0.0f;
+			pageSlots[i].selected=false;
 			}
 		pageSlots[i].textEnd[0]=pageSlots[i].slotBox.getCorner(0);
 		pageSlots[i].textEnd[0][0]+=pageSlots[i].textWidth;
@@ -115,12 +118,12 @@ void ListBox::updatePageSlots(void)
 	++version;
 	}
 
-ListBox::ListBox(const char* sName,Container* sParent,int sPreferredWidth,int sPreferredPageSize,bool sManageChild)
+ListBox::ListBox(const char* sName,Container* sParent,ListBox::SelectionMode sSelectionMode,int sPreferredWidth,int sPreferredPageSize,bool sManageChild)
 	:Widget(sName,sParent,false),
+	 selectionMode(sSelectionMode),
 	 marginWidth(0.0f),itemSep(0.0f),
 	 font(0),
 	 preferredWidth(sPreferredWidth),preferredPageSize(sPreferredPageSize),
-	 selectionMode(ALWAYS_ONE),
 	 autoResize(false),
 	 itemsBox(Vector(0.0f,0.0f,0.0f),Vector(0.0f,0.0f,0.0f)),
 	 maxItemWidth(0.0f),
@@ -128,8 +131,9 @@ ListBox::ListBox(const char* sName,Container* sParent,int sPreferredWidth,int sP
 	 position(0),
 	 maxVisibleItemWidth(0.0f),
 	 horizontalOffset(0.0f),
-	 selectedItem(-1),
-	 version(0),lastClickTime(0.0)
+	 lastSelectedItem(-1),
+	 version(0),
+	 lastClickedItem(-1),lastClickTime(0.0),numClicks(0)
 	{
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
@@ -166,7 +170,7 @@ Vector ListBox::calcNaturalSize(void) const
 	if(autoResize&&result[0]<maxItemWidth)
 		result[0]=maxItemWidth;
 	result[0]+=2.0f*marginWidth;
-	result[1]=GLfloat(preferredPageSize)*(font->getTextHeight()+itemSep)-itemSep+2.0f*marginWidth;
+	result[1]=GLfloat(preferredPageSize)*(font->getTextHeight()+itemSep)-itemSep+2.0f*marginWidth+1.0e-4f;
 	result[2]=0.0f;
 	
 	return calcExteriorSize(result);
@@ -279,7 +283,7 @@ void ListBox::draw(GLContextData& contextData) const
 		{
 		glVertex(pageSlots[i].slotBox.getCorner(3));
 		glVertex(pageSlots[i].textEnd[1]);
-		if(position+i==selectedItem)
+		if(pageSlots[i].selected)
 			{
 			glColor3f(0.5f,0.5f,0.5f);
 			glVertex(pageSlots[i].slotBox.getCorner(3));
@@ -341,7 +345,7 @@ void ListBox::draw(GLContextData& contextData) const
 		if(dataItem->version!=version)
 			{
 			/* Upload the item string texture again: */
-			if(position+i==selectedItem)
+			if(pageSlots[i].selected)
 				font->uploadStringTexture(pageSlots[i].item,Color(0.5f,0.5f,0.5f),Color(1.0f,1.0f,1.0f));
 			else
 				font->uploadStringTexture(pageSlots[i].item,backgroundColor,foregroundColor);
@@ -372,42 +376,29 @@ void ListBox::pointerButtonDown(Event& event)
 		const Box& b=pageSlots[i].slotBox;
 		if(p[0]>=b.origin[0]&&p[0]<b.origin[0]+b.size[0]&&p[1]>=b.origin[1]&&p[1]<b.origin[1]+b.size[1])
 			{
-			int oldSelectedItem=selectedItem;
-			
-			/* Select or deselect the clicked list item: */
-			if(selectedItem!=position+i)
+			/* Check for a multi-click: */
+			if(lastClickedItem==position+i&&getManager()->getTime()-lastClickTime<0.25)
 				{
-				/* Select the list item: */
-				selectItem(position+i);
-				
-				/* Call the value changed callbacks: */
-				ValueChangedCallbackData cbData(this,oldSelectedItem,selectedItem);
-				valueChangedCallbacks.call(&cbData);
+				/* Increase the click counter: */
+				++numClicks;
+				}
+			else
+				{
+				/* Toggle the list item's selection state: */
+				if(items[position+i].selected)
+					deselectItem(position+i);
+				else
+					selectItem(position+i);
 				
 				/* Reset the click counter: */
 				numClicks=1;
 				}
-			else
-				{
-				/* Check for a double click: */
-				if(getManager()->getTime()-lastClickTime<0.25)
-					{
-					/* Increase the click counter: */
-					++numClicks;
-					}
-				else if(selectionMode==ATMOST_ONE)
-					{
-					/* Deselect the list item: */
-					selectItem(-1);
-					
-					/* Call the value changed callbacks: */
-					ValueChangedCallbackData cbData(this,oldSelectedItem,selectedItem);
-					valueChangedCallbacks.call(&cbData);
-					}
-				}
 			
-			/* Remember the click time: */
+			/* Remember the click event: */
+			lastClickedItem=position+i;
 			lastClickTime=getManager()->getTime();
+			
+			/* Stop looking: */
 			break;
 			}
 		}
@@ -418,8 +409,11 @@ void ListBox::pointerButtonUp(Event& event)
 	if(numClicks>=2)
 		{
 		/* Call the item selection callbacks: */
-		ItemSelectedCallbackData cbData(this,selectedItem);
+		ItemSelectedCallbackData cbData(this,lastClickedItem);
 		itemSelectedCallbacks.call(&cbData);
+		
+		/* Reset the click counter: */
+		numClicks=0;
 		}
 	}
 
@@ -458,12 +452,6 @@ void ListBox::setItemSeparation(GLfloat newItemSep)
 		}
 	}
 
-void ListBox::setSelectionMode(ListBox::SelectionMode newSelectionMode)
-	{
-	/* Set the new selection mode: */
-	selectionMode=newSelectionMode;
-	}
-
 void ListBox::setAutoResize(bool newAutoResize)
 	{
 	/* Set the autoresize flag: */
@@ -472,6 +460,372 @@ void ListBox::setAutoResize(bool newAutoResize)
 	if(autoResize&&maxItemWidth>itemsBox.size[0])
 		{
 		/* Resize the list box to accomodate the largest item: */
+		if(isManaged)
+			parent->requestResize(this,calcNaturalSize());
+		else
+			resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+		}
+	}
+
+void ListBox::insertItem(int index,const char* newItem,bool moveToPage)
+	{
+	/* Add the new item to the list: */
+	Item it;
+	it.item=new char[strlen(newItem)+1];
+	strcpy(it.item,newItem);
+	it.width=font->calcStringBox(newItem).size[0];
+	it.selected=false;
+	items.insert(items.begin()+index,it);
+	
+	{
+	/* Call the list changed callbacks: */
+	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_INSERTED,index);
+	listChangedCallbacks.call(&cbData);
+	}
+	
+	/* Keep track of changes to the page state: */
+	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
+	
+	if(moveToPage)
+		{
+		if(position>index)
+			{
+			/* Move the new item to the beginning of the page: */
+			position=index;
+			reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
+			}
+		else if(position<index-pageSize+1)
+			{
+			/* Move the new item to the end of the page: */
+			position=index-pageSize+1;
+			reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
+			}
+		}
+	
+	if(index<position)
+		{
+		/* Adjust the position by one so that the displayed items don't change: */
+		++position;
+		reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
+		}
+	else if(index<position+pageSize)
+		{
+		/* Update the visible list items: */
+		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
+		calcMaxVisibleItemWidth();
+		
+		/* Adjust the horizontal offset: */
+		if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
+			{
+			horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
+			reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
+			}
+		if(horizontalOffset<0.0f)
+			horizontalOffset=0.0f;
+		
+		updatePageSlots();
+		
+		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
+			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
+		}
+	
+	{
+	/* Call the page change callbacks: */
+	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
+	pageChangedCallbacks.call(&cbData);
+	}
+	
+	{
+	/* Call the selection change callbacks: */
+	SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::NUMITEMS_CHANGED,-1);
+	selectionChangedCallbacks.call(&cbData);
+	}
+	
+	/* Update the selected item if it is affected: */
+	if(lastSelectedItem>=index)
+		{
+		/* Adjust the selected item's index: */
+		++lastSelectedItem;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,lastSelectedItem-1,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	
+	if(maxItemWidth<it.width)
+		{
+		maxItemWidth=it.width;
+		if(autoResize&&maxItemWidth>itemsBox.size[0])
+			{
+			if(isManaged)
+				parent->requestResize(this,calcNaturalSize());
+			else
+				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+			}
+		}
+	}
+
+void ListBox::setItem(int index,const char* newItem)
+	{
+	/* Replace the list item: */
+	GLfloat oldItemWidth=items[index].width;
+	delete[] items[index].item;
+	items[index].item=new char[strlen(newItem)+1];
+	strcpy(items[index].item,newItem);
+	items[index].width=font->calcStringBox(newItem).size[0];
+	
+	{
+	/* Call the list changed callbacks: */
+	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_CHANGED,index);
+	listChangedCallbacks.call(&cbData);
+	}
+	
+	/* Keep track of changes to the page state: */
+	int reasonMask=0x0;
+	
+	if(position<=index&&index<position+pageSize)
+		{
+		/* Update the visible list items: */
+		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
+		calcMaxVisibleItemWidth();
+		
+		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
+			{
+			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
+			
+			/* Adjust the horizontal offset: */
+			if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
+				{
+				horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
+				reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
+				}
+			if(horizontalOffset<0.0f)
+				horizontalOffset=0.0f;
+			}
+		updatePageSlots();
+		}
+	
+	if(reasonMask!=0x0)
+		{
+		/* Call the page change callbacks: */
+		PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
+		pageChangedCallbacks.call(&cbData);
+		}
+	
+	if(maxItemWidth<items[index].width)
+		{
+		maxItemWidth=items[index].width;
+		if(autoResize&&maxItemWidth>itemsBox.size[0])
+			{
+			if(isManaged)
+				parent->requestResize(this,calcNaturalSize());
+			else
+				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+			}
+		}
+	else if(maxItemWidth==oldItemWidth)
+		{
+		/* Find the new widest item:*/
+		maxItemWidth=0.0f;
+		for(std::vector<Item>::const_iterator iIt=items.begin();iIt!=items.end();++iIt)
+			if(maxItemWidth<iIt->width)
+				maxItemWidth=iIt->width;
+		
+		if(autoResize&&maxItemWidth<oldItemWidth&&itemsBox.size[0]==oldItemWidth)
+			{
+			if(isManaged)
+				parent->requestResize(this,calcNaturalSize());
+			else
+				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+			}
+		}
+	}
+
+void ListBox::removeItem(int index)
+	{
+	/* Remove the list item: */
+	GLfloat oldItemWidth=items[index].width;
+	delete[] items[index].item;
+	items.erase(items.begin()+index);
+	
+	{
+	/* Call the list changed callbacks: */
+	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_REMOVED,index);
+	listChangedCallbacks.call(&cbData);
+	}
+	
+	/* Keep track of changes to the page state: */
+	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
+	
+	if(index<position)
+		{
+		/* Adjust the position so that the list of visible items does not change: */
+		--position;
+		reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
+		}
+	else if(index>=position&&index<position+pageSize)
+		{
+		/* Adjust the position if the page overruns the shorter list: */
+		if(position>0&&position>int(items.size())-pageSize)
+			{
+			position=int(items.size())-pageSize;
+			reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
+			}
+		if(position<0)
+			position=0;
+		
+		/* Update the visible list items: */
+		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
+		calcMaxVisibleItemWidth();
+		
+		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
+			{
+			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
+			
+			/* Adjust the horizontal offset: */
+			if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
+				{
+				horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
+				reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
+				}
+			if(horizontalOffset<0.0f)
+				horizontalOffset=0.0f;
+			}
+		
+		updatePageSlots();
+		}
+	
+	{
+	/* Call the page change callbacks: */
+	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
+	pageChangedCallbacks.call(&cbData);
+	}
+	
+	{
+	/* Call the selection change callbacks: */
+	SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::NUMITEMS_CHANGED,-1);
+	selectionChangedCallbacks.call(&cbData);
+	}
+	
+	/* Update the selected item if it is affected: */
+	if(lastSelectedItem==index)
+		{
+		if(selectionMode==ALWAYS_ONE&&!items.empty())
+			{
+			/* Select the next item in the list: */
+			if(lastSelectedItem>int(items.size())-1)
+				lastSelectedItem=int(items.size())-1;
+			items[lastSelectedItem].selected=true;
+			if(lastSelectedItem>=position&&lastSelectedItem<position+pageSize)
+				{
+				/* Update the item's page slot and invalidate the cache: */
+				pageSlots[lastSelectedItem-position].selected=true;
+				++version;
+				}
+			
+			/* Call the selection change callbacks: */
+			SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::ITEM_SELECTED,lastSelectedItem);
+			selectionChangedCallbacks.call(&cbData);
+			}
+		else
+			{
+			/* Select the invalid item: */
+			lastSelectedItem=-1;
+			}
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,index,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	else if(lastSelectedItem>index)
+		{
+		/* Adjust the selected item's index: */
+		--lastSelectedItem;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,lastSelectedItem+1,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	
+	if(maxItemWidth==oldItemWidth)
+		{
+		/* Find the new widest item:*/
+		maxItemWidth=0.0f;
+		for(std::vector<Item>::const_iterator iIt=items.begin();iIt!=items.end();++iIt)
+			if(maxItemWidth<iIt->width)
+				maxItemWidth=iIt->width;
+		
+		if(autoResize&&maxItemWidth<oldItemWidth&&itemsBox.size[0]==oldItemWidth)
+			{
+			if(isManaged)
+				parent->requestResize(this,calcNaturalSize());
+			else
+				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+			}
+		}
+	}
+
+void ListBox::clear(void)
+	{
+	/* Do nothing if the list is already empty: */
+	if(items.empty())
+		return;
+	
+	/* Clear the list: */
+	for(std::vector<Item>::iterator iIt=items.begin();iIt!=items.end();++iIt)
+		delete[] iIt->item;
+	items.clear();
+	
+	{
+	/* Call the list changed callbacks: */
+	ListChangedCallbackData cbData(this,ListChangedCallbackData::LIST_CLEARED,-1);
+	listChangedCallbacks.call(&cbData);
+	}
+	
+	/* Keep track of changes to the page state: */
+	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
+	
+	/* Reset all ancillary data: */
+	GLfloat oldItemWidth=maxItemWidth;
+	maxItemWidth=0.0f;
+	if(position!=0)
+		reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
+	position=0;
+	if(maxVisibleItemWidth!=0.0f)
+		reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
+	maxVisibleItemWidth=0.0f;
+	if(horizontalOffset!=0.0f)
+		reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
+	horizontalOffset=0.0f;
+	
+	/* Update the displayed page: */
+	updatePageSlots();
+	
+	{
+	/* Call the page change callbacks: */
+	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
+	pageChangedCallbacks.call(&cbData);
+	}
+	
+	{
+	/* Call the selection change callbacks: */
+	SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::NUMITEMS_CHANGED,-1);
+	selectionChangedCallbacks.call(&cbData);
+	}
+	
+	if(lastSelectedItem>=0)
+		{
+		/* Select the invalid item: */
+		int oldLastSelectedItem=lastSelectedItem;
+		lastSelectedItem=-1;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	
+	if(autoResize&&itemsBox.size[0]==oldItemWidth)
+		{
 		if(isManaged)
 			parent->requestResize(this,calcNaturalSize());
 		else
@@ -538,364 +892,218 @@ void ListBox::setHorizontalOffset(GLfloat newHorizontalOffset)
 		}
 	}
 
-void ListBox::clear(void)
+int ListBox::getNumSelectedItems(void) const
 	{
-	/* Do nothing if the list is already empty: */
-	if(items.empty())
+	int result=0;
+	
+	/* Increment the counter for each selected item in the list: */
+	for(size_t i=0;i<items.size();++i)
+		if(items[i].selected)
+			++result;
+	
+	return result;
+	}
+
+std::vector<int> ListBox::getSelectedItems(void) const
+	{
+	std::vector<int> result;
+	
+	/* Store the indices of all selected items in the list: */
+	for(size_t i=0;i<items.size();++i)
+		if(items[i].selected)
+			result.push_back(int(i));
+	
+	return result;
+	}
+
+void ListBox::selectItem(int index,bool moveToPage)
+	{
+	/* Bail out if the request is invalid or a no-op: */
+	if(index<0||size_t(index)>=items.size())
+		index=-1;
+	if(selectionMode==ALWAYS_ONE&&index==-1)
+		return;
+	if(selectionMode==MULTIPLE&&(index<0||items[index].selected))
+		return;
+	if(selectionMode!=MULTIPLE&&index==lastSelectedItem)
 		return;
 	
-	/* Clear the list: */
-	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
-	for(std::vector<Item>::iterator iIt=items.begin();iIt!=items.end();++iIt)
-		delete[] iIt->item;
-	items.clear();
-	
-	/* Reset all ancillary data: */
-	GLfloat oldItemWidth=maxItemWidth;
-	maxItemWidth=0.0f;
-	if(position!=0)
-		reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
-	position=0;
-	if(maxVisibleItemWidth!=0.0f)
-		reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
-	maxVisibleItemWidth=0.0f;
-	if(horizontalOffset!=0.0f)
-		reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
-	horizontalOffset=0.0f;
-	selectedItem=-1;
-	
-	/* Update the displayed page: */
-	updatePageSlots();
-	
-	{
-	/* Call the list changed callbacks: */
-	ListChangedCallbackData cbData(this,ListChangedCallbackData::LIST_CLEARED,0);
-	listChangedCallbacks.call(&cbData);
-	}
-	
-	{
-	/* Call the page change callbacks: */
-	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
-	pageChangedCallbacks.call(&cbData);
-	}
-	
-	if(autoResize&&itemsBox.size[0]==oldItemWidth)
+	/* Deselect the previously selected item in single-item selection modes: */
+	if(selectionMode!=MULTIPLE&&lastSelectedItem>=0)
 		{
-		if(isManaged)
-			parent->requestResize(this,calcNaturalSize());
+		/* Deselect the last selected item: */
+		items[lastSelectedItem].selected=false;
+		
+		{
+		/* Call the selection changed callbacks: */
+		SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::ITEM_DESELECTED,lastSelectedItem);
+		selectionChangedCallbacks.call(&cbData);
+		}
+		
+		/* Invalidate the page slot cache if the old selected item was visible: */
+		if(lastSelectedItem>=position&&lastSelectedItem<position+pageSize)
+			{
+			pageSlots[lastSelectedItem-position].selected=false;
+			++version;
+			}
+		}
+	
+	/* Check if the item is valid: */
+	if(index>=0)
+		{
+		/* Select the item: */
+		items[index].selected=true;
+		
+		{
+		/* Call the selection changed callbacks: */
+		SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::ITEM_SELECTED,index);
+		selectionChangedCallbacks.call(&cbData);
+		}
+		
+		if(moveToPage)
+			{
+			/* Move the selected item to the page if it is not visible: */
+			if(position>index)
+				setPosition(index);
+			else if(position<index-pageSize+1)
+				setPosition(index-pageSize+1);
+			else
+				{
+				/* Update the page slot and invalidate the cache: */
+				pageSlots[index-position].selected=true;
+				++version;
+				}
+			}
 		else
-			resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-		}
-	}
-
-void ListBox::addItem(const char* newItem)
-	{
-	/* Add the new item to the list: */
-	Item it;
-	it.item=new char[strlen(newItem)+1];
-	strcpy(it.item,newItem);
-	it.width=font->calcStringBox(newItem).size[0];
-	items.push_back(it);
-	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
-	
-	if(position+pageSize>=int(items.size()))
-		{
-		/* Update the visible list items: */
-		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
-		calcMaxVisibleItemWidth();
-		
-		/* Adjust the horizontal offset: */
-		if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
 			{
-			horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
-			reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
-			}
-		if(horizontalOffset<0.0f)
-			horizontalOffset=0.0f;
-		
-		updatePageSlots();
-		
-		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
-			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
-		}
-	
-	{
-	/* Call the list changed callbacks: */
-	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_INSERTED,items.size()-1);
-	listChangedCallbacks.call(&cbData);
-	}
-	
-	{
-	/* Call the page change callbacks: */
-	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
-	pageChangedCallbacks.call(&cbData);
-	}
-	
-	if(maxItemWidth<it.width)
-		{
-		maxItemWidth=it.width;
-		if(autoResize&&maxItemWidth>itemsBox.size[0])
-			{
-			if(isManaged)
-				parent->requestResize(this,calcNaturalSize());
-			else
-				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-			}
-		}
-	}
-
-void ListBox::insertItem(int index,const char* newItem)
-	{
-	/* Add the new item to the list: */
-	Item it;
-	it.item=new char[strlen(newItem)+1];
-	strcpy(it.item,newItem);
-	it.width=font->calcStringBox(newItem).size[0];
-	items.insert(items.begin()+index,it);
-	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
-	
-	if(index<position)
-		{
-		/* Adjust the position by one so that the displayed items don't change: */
-		++position;
-		reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
-		}
-	else if(index<position+pageSize)
-		{
-		/* Update the visible list items: */
-		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
-		calcMaxVisibleItemWidth();
-		
-		/* Adjust the horizontal offset: */
-		if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
-			{
-			horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
-			reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
-			}
-		if(horizontalOffset<0.0f)
-			horizontalOffset=0.0f;
-		
-		updatePageSlots();
-		
-		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
-			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
-		}
-	
-	/* Update the selected item if it is affected: */
-	if(selectedItem>=index)
-		{
-		/* Adjust the selected item's index: */
-		selectItem(selectedItem+1);
-		}
-	
-	{
-	/* Call the list changed callbacks: */
-	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_INSERTED,index);
-	listChangedCallbacks.call(&cbData);
-	}
-	
-	{
-	/* Call the page change callbacks: */
-	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
-	pageChangedCallbacks.call(&cbData);
-	}
-	
-	if(maxItemWidth<it.width)
-		{
-		maxItemWidth=it.width;
-		if(autoResize&&maxItemWidth>itemsBox.size[0])
-			{
-			if(isManaged)
-				parent->requestResize(this,calcNaturalSize());
-			else
-				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-			}
-		}
-	}
-
-void ListBox::setItem(int index,const char* newItem)
-	{
-	/* Replace the list item: */
-	GLfloat oldItemWidth=items[index].width;
-	delete[] items[index].item;
-	items[index].item=new char[strlen(newItem)+1];
-	strcpy(items[index].item,newItem);
-	items[index].width=font->calcStringBox(newItem).size[0];
-	int reasonMask=0x0;
-	
-	if(position<=index&&index<position+pageSize)
-		{
-		/* Update the visible list items: */
-		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
-		calcMaxVisibleItemWidth();
-		
-		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
-			{
-			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
-			
-			/* Adjust the horizontal offset: */
-			if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
+			/* Invalidate the page slot cache if the selected item is visible: */
+			if(index>=position&&index<position+pageSize)
 				{
-				horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
-				reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
+				pageSlots[index-position].selected=true;
+				++version;
 				}
-			if(horizontalOffset<0.0f)
-				horizontalOffset=0.0f;
-			}
-		updatePageSlots();
-		}
-	
-	/* Call the list changed callbacks: */
-	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_CHANGED,index);
-	listChangedCallbacks.call(&cbData);
-	
-	if(reasonMask!=0x0)
-		{
-		/* Call the page change callbacks: */
-		PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
-		pageChangedCallbacks.call(&cbData);
-		}
-	
-	if(maxItemWidth<items[index].width)
-		{
-		maxItemWidth=items[index].width;
-		if(autoResize&&maxItemWidth>itemsBox.size[0])
-			{
-			if(isManaged)
-				parent->requestResize(this,calcNaturalSize());
-			else
-				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 			}
 		}
-	else if(maxItemWidth==oldItemWidth)
-		{
-		/* Find the new widest item:*/
-		maxItemWidth=0.0f;
-		for(std::vector<Item>::const_iterator iIt=items.begin();iIt!=items.end();++iIt)
-			if(maxItemWidth<iIt->width)
-				maxItemWidth=iIt->width;
-		
-		if(autoResize&&maxItemWidth<oldItemWidth&&itemsBox.size[0]==oldItemWidth)
-			{
-			if(isManaged)
-				parent->requestResize(this,calcNaturalSize());
-			else
-				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-			}
-		}
+	
+	/* Remember the last selected item: */
+	int oldLastSelectedItem=lastSelectedItem;
+	lastSelectedItem=index;
+	
+	{
+	/* Call the value changed callbacks: */
+	ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
+	valueChangedCallbacks.call(&cbData);
+	}
 	}
 
-void ListBox::removeItem(int index)
+void ListBox::deselectItem(int index,bool moveToPage)
 	{
-	/* Remove the list item: */
-	GLfloat oldItemWidth=items[index].width;
-	delete[] items[index].item;
-	items.erase(items.begin()+index);
-	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
-	
-	if(index<position)
-		{
-		/* Adjust the position so that the list of visible items does not change: */
-		--position;
-		reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
-		}
-	else if(index>=position&&index<position+pageSize)
-		{
-		/* Adjust the position if the page overruns the shorter list: */
-		if(position>0&&position>int(items.size())-pageSize)
-			{
-			position=int(items.size())-pageSize;
-			reasonMask|=PageChangedCallbackData::POSITION_CHANGED;
-			}
-		if(position<0)
-			position=0;
-		
-		/* Update the visible list items: */
-		GLfloat oldMaxVisibleItemWidth=maxVisibleItemWidth;
-		calcMaxVisibleItemWidth();
-		
-		if(oldMaxVisibleItemWidth!=maxVisibleItemWidth)
-			{
-			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
-			
-			/* Adjust the horizontal offset: */
-			if(horizontalOffset>0.0f&&horizontalOffset>maxVisibleItemWidth-itemsBox.size[0])
-				{
-				horizontalOffset=maxVisibleItemWidth-itemsBox.size[0];
-				reasonMask|=PageChangedCallbackData::HORIZONTALOFFSET_CHANGED;
-				}
-			if(horizontalOffset<0.0f)
-				horizontalOffset=0.0f;
-			}
-		
-		updatePageSlots();
-		}
-	
-	/* Update the selected item if it is affected: */
-	if(selectedItem==index)
-		{
-		/* Select the next item in the list: */
-		int newSelectedItem=selectedItem;
-		if(newSelectedItem>int(items.size())-1)
-			newSelectedItem=int(items.size())-1;
-		selectItem(newSelectedItem);
-		}
-	else if(selectedItem>index)
-		{
-		/* Adjust the selected item's index: */
-		selectItem(selectedItem-1);
-		}
-	
-	{
-	/* Call the list changed callbacks: */
-	ListChangedCallbackData cbData(this,ListChangedCallbackData::ITEM_REMOVED,index);
-	listChangedCallbacks.call(&cbData);
-	}
-	
-	{
-	/* Call the page change callbacks: */
-	PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
-	pageChangedCallbacks.call(&cbData);
-	}
-	
-	if(maxItemWidth==oldItemWidth)
-		{
-		/* Find the new widest item:*/
-		maxItemWidth=0.0f;
-		for(std::vector<Item>::const_iterator iIt=items.begin();iIt!=items.end();++iIt)
-			if(maxItemWidth<iIt->width)
-				maxItemWidth=iIt->width;
-		
-		if(autoResize&&maxItemWidth<oldItemWidth&&itemsBox.size[0]==oldItemWidth)
-			{
-			if(isManaged)
-				parent->requestResize(this,calcNaturalSize());
-			else
-				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-			}
-		}
-	}
-
-void ListBox::selectItem(int newSelectedItem,bool moveToPage)
-	{
-	if(selectedItem==newSelectedItem)
+	/* Bail out if the request is invalid or a no-op: */
+	if(selectionMode==ALWAYS_ONE)
+		return;
+	if(index<0||size_t(index)>=items.size())
+		return;
+	if(!items[index].selected)
 		return;
 	
-	if(moveToPage&&newSelectedItem>=0)
+	/* Deselect the item: */
+	items[index].selected=false;
+	
+	{
+	/* Call the selection changed callbacks: */
+	SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::ITEM_DESELECTED,index);
+	selectionChangedCallbacks.call(&cbData);
+	}
+	
+	if(moveToPage)
 		{
-		/* Move the selected item to the page if it is not visible: */
-		if(position>newSelectedItem)
-			setPosition(newSelectedItem);
-		else if(position<newSelectedItem-pageSize+1)
-			setPosition(newSelectedItem-pageSize+1);
+		/* Move the deselected item to the page if it is not visible: */
+		if(position>index)
+			setPosition(index);
+		else if(position<index-pageSize+1)
+			setPosition(index-pageSize+1);
+		}
+	else
+		{
+		/* Invalidate the page slot cache if the deselected item is visible: */
+		if(index>=position&&index<position+pageSize)
+			{
+			pageSlots[index-position].selected=false;
+			++version;
+			}
 		}
 	
-	/* Invalidate the page slot cache if the old or new selected items are visible: */
-	if(selectedItem>=position&&selectedItem<position+pageSize)
-		++version;
-	selectedItem=newSelectedItem;
-	if(selectedItem>=position&&selectedItem<position+pageSize)
-		++version;
+	/* Update the last selected item: */
+	if(selectionMode!=MULTIPLE)
+		{
+		/* Select the invalid element: */
+		int oldLastSelectedItem=lastSelectedItem;
+		lastSelectedItem=-1;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	else if(lastSelectedItem!=index)
+		{
+		/* Select the deselected element: */
+		int oldLastSelectedItem=lastSelectedItem;
+		lastSelectedItem=index;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	}
+
+void ListBox::clearSelection(void)
+	{
+	if(selectionMode==MULTIPLE)
+		{
+		/* Deselect all selected items, and check if any items were actually selected: */
+		bool hadSelectedItems=false;
+		for(std::vector<Item>::iterator iIt=items.begin();iIt!=items.end();++iIt)
+			{
+			hadSelectedItems=hadSelectedItems||iIt->selected;
+			iIt->selected=false;
+			}
+		if(hadSelectedItems)
+			{
+			/* Call the selection changed callbacks: */
+			SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::SELECTION_CLEARED,-1);
+			selectionChangedCallbacks.call(&cbData);
+			
+			/* Update the page, assuming that something changed: */
+			updatePageSlots();
+			}
+		}
+	else if(selectionMode==ATMOST_ONE&&lastSelectedItem>=0)
+		{
+		/* Deselect the last selected item: */
+		items[lastSelectedItem].selected=false;
+		
+		/* Call the selection changed callbacks: */
+		SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::SELECTION_CLEARED,-1);
+		selectionChangedCallbacks.call(&cbData);
+		
+		/* Invalidate the page slot cache if the deselected item is visible: */
+		if(lastSelectedItem>=position&&lastSelectedItem<position+pageSize)
+			{
+			pageSlots[lastSelectedItem-position].selected=false;
+			++version;
+			}
+		}
+	
+	if(lastSelectedItem>=0)
+		{
+		/* Select the invalid item: */
+		int oldLastSelectedItem=lastSelectedItem;
+		lastSelectedItem=-1;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
 	}
 
 }
