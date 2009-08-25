@@ -42,6 +42,8 @@ Static elements of class ScalingTransformation:
 **********************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int ScalingTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const ScalingTransformation<ScalarParam,dimensionParam> ScalingTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
 
 /**************************************

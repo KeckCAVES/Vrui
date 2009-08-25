@@ -7,11 +7,11 @@
 
 <H1>Using Vrui Applications</H1>
 
-This document serves as an overview of the Vrui application user interface in desktop simulation mode. It describes basic viewpoint navigation, interaction with menus and dialog boxes, and tool management.
+This document serves as an overview of the Vrui application user interface in desktop simulation mode. It describes basic viewpoint navigation, interaction with menus, dialog boxes, virtual input devices, and tool management.
 
 <H2>Viewpoint Navigation</H2>
 
-The default Vrui application user interface on the desktop uses the mouse (assuming a two-button mouse with scroll wheel) and the left shift key for navigation. The navigation metaphor is the &quot;virtual trackball,&quot; where an imagined free-spinning sphere is centered on the screen, and can be dragged with the left mouse button. All objects in the scene react to dragging as if they were attached to the imaginary sphere. In addition to the virtual trackball, the navigation offers panning in the screen plane, dollying (i.e., translation orthogonally to the screen plane), and zooming (i.e., scaling of the scene with respect to the screen center). To aid navigation in 3D scenes, the navigation tool displays a 3D crosshair in the screen plane when it is active. The crosshair is mostly used to judge whether 3D objects are located in front of or behind the screen plane.<P>
+The default Vrui application user interface on the desktop uses the mouse (assuming a two-button mouse with scroll wheel) and the Z and left shift keys for navigation. The navigation metaphor is the &quot;virtual trackball,&quot; where an imagined free-spinning sphere is centered on the screen, and can be dragged with the left mouse button. All objects in the scene react to dragging as if they were attached to the imaginary sphere. In addition to the virtual trackball, the navigation offers panning in the screen plane, dollying (i.e., translation orthogonally to the screen plane), and zooming (i.e., scaling of the scene with respect to the screen center). To aid navigation in 3D scenes, the navigation tool displays a 3D crosshair in the screen plane when it is active. The crosshair is mostly used to judge whether 3D objects are located in front of or behind the screen plane.<P>
 
 <TABLE WIDTH=100% CELLSPACING=16 CELLPADDING=0 BORDER=0>
 <TR>
@@ -47,17 +47,72 @@ The default mapping is intended for systems without a middle mouse button, or wh
 
 <H3>Simplified Mouse Navigation Tool</H3>
 
-The multiple buttons and keys used by the standard mouse navigation tool can be confusing for new users. To help them get used to Vrui's navigation metaphor, Vrui offers a simplified mouse navigation tool using only a single mouse button and a dialog window to switch between navigation modes (rotating, panning, etc.). This tool can be associated with any desired mouse button by selecting a "MouseDialogNavigationTool" from the "NavigationTool" submenu in the tool selection menu (see Section "Tool Management").<P>
+The multiple buttons and keys used by the standard mouse navigation tool can be confusing for new users. To help them get used to Vrui's navigation metaphor, Vrui offers a simplified mouse navigation tool using only a single mouse button and a dialog window to switch between navigation modes (rotating, panning, etc.). This tool can be associated with any desired mouse button by selecting a "Mouse (via Dialog Box)" tool from the "Navigation" submenu in the tool selection menu (see Section "Tool Management").<P>
 
-When a MouseDialogNavigationTool is assigned to a button, it will open a dialog box in the center of the screen. The dialog contains four radio buttons for the different navigation modes, and a toggle button to turn the navigation crosshair on or off. Users can interact with the dialog as described in Section "Dialog Box Interaction." Each of the tool's four navigation modes works exactly the same way as the corresponding mode in the standard mouse navigation tool.
+When the aforementioned tool is assigned to a button, it will open a dialog box in the center of the screen. The dialog contains four radio buttons for the different navigation modes, and a toggle button to turn the navigation crosshair on or off. Users can interact with the dialog as described in Section "Dialog Box Interaction." Each of the tool's four navigation modes works exactly the same way as the corresponding mode in the standard mouse navigation tool.
 
 <H2>Menu Interaction</H2>
 
-Most Vrui applications contain a main menu that can be opened by pressing and holding the right mouse button. Although the menus (and all other widgets) are represented as 3D objects, they behave almost exactly like regular 2D menus in desktop mode. To select a menu entry, press the right mouse button, move the mouse to the desired menu option (until the menu option becomes highlighted), and then release the right mouse button to select the option.
+Most Vrui applications contain a main menu that can be opened by pressing and holding the right mouse button. Although the menus (and all other widgets) are represented as 3D objects, they behave almost exactly like regular 2D menus in desktop mode. To select a menu entry, press and hold the right mouse button, move the mouse to the desired menu option (until the menu option becomes highlighted), and then release the right mouse button to select the option.
+
+<H3>The Vrui System Menu</H3>
+
+Most Vrui applications have their own main menu, but Vrui itself has a system menu to access functionality within Vrui in an application-independent manner. If a Vrui application does not create a main menu for itself, the Vrui system menu will show up immediately when the right mouse button is pressed. Otherwise, the Vrui system menu will be a submenu at the very bottom of the application-defined main menu.<P>
+
+The Vrui system menu has the following entries:
+<DL>
+<DT>View</DT>
+<DD>This submenu contains entries to store and retrieve viewing setups in an environment-independent format. In other words, if an application is run on a desktop, and one particular 3D object is centered on the screen, then saving the current view and loading it in the same or a different environment will have the same 3D object approximately centered in the environment.
+<DL>
+<DT>Load View</DT>
+<DD>This menu entry opens a file selection dialog box (see below), from which users can select a viewing setup file to load.</DD>
+
+<DT>Save View</DT>
+<DD>This menu entry saves the current viewing setup to a file called SavedViewpointXXXX.view, where the XXXX are a four-digit number making the file name unique.</DD>
+
+<DT>Restore View</DT>
+<DD>This menu entry restores the viewing setup to the one that was most recently saved during the current invocation of the Vrui application. Vrui retains an unspecified number of previously saved viewing setups in a stack.</DD>
+</DL></DD>
+
+<DT>Create Input Device</DT>
+<DD>This menue entry creates a new virtual input device (see below). Newly created input devices appear at a pre-configured position inside a Vrui environment, and they might initially be hidden by other 3D objects, or might be off-screen.</DD>
+
+<DT>Destroy Input Device</DT>
+<DD>This menu entry destroys the least recently created virtual input device, i.e., virtual input devices are destroyed in the same order in which they were created.</DD>
+
+<DT>Quit Program</DT>
+<DD>Selecting this menu entry will quit from the Vrui application immediately, just as pressing the Escape key or closing the application's main window would. Vrui will not ask for confirmation.</DD>
+</DL>
 
 <H2>Dialog Box Interaction</H2>
 
-Many Vrui applications contain stand-alone dialog boxes to change settings inside the application. These dialog boxes are usually brought up by selecting options in an application's main menu (such as &quot;Show Render Dialog&quot;), and appear in the screen plane, at the position the selection was made. Dialog boxes can usually be closed by deselecting the associated option in the main menu. Interacting with dialog boxes (and the widgets they contain) is mapped to the left mouse button. If the left mouse button is clicked while over a dialog box, it interacts with the dialog box; if it is clicked anywhere else, it is used for navigation as explained above. Vrui dialog boxes behave almost identically to regular 2D dialog boxes and widgets, e.g., dialog boxes can be moved by dragging the blue title bar.
+Many Vrui applications contain stand-alone dialog boxes to change settings inside the application. These dialog boxes are usually brought up by selecting options in an application's main menu (such as &quot;Show Render Dialog&quot;), and appear in the screen plane, usually in the center or at the position where the selection was made. Dialog boxes can usually be closed by deselecting the associated option in the main menu. Interacting with dialog boxes (and the widgets they contain) is mapped to the left mouse button. If the left mouse button is clicked while over a dialog box, it interacts with the dialog box; if it is clicked anywhere else, it is used for navigation as explained above. Vrui dialog boxes behave almost identically to regular 2D dialog boxes and widgets, e.g., dialog boxes can be moved by dragging the blue title bar.
+
+<H2>Virtual Input Devices</H2>
+
+The biggest limitation of desktop environments is that they do not provide a means for direct 3D interaction. The typical desktop input device, the mouse, is a 2D device; it can only move in a plane. While Vrui provides several special-purpose tools to support mouse interaction, such as the mouse navigation tools, most 3D interaction tasks cannot be achieved with a mouse without an intermediate visual interaction metaphor. To this end, Vrui uses virtual input devices, which are 3D glyphs representing the position, orientation, and button states of 3D input devices. Virtual input devices are only a representation; in order to interact with them, Vrui offers several tool classes that map interactions with physical input devices, such as a mouse, to interactions with the virtual input devices.
+
+<H3>Virtual Input Device Glyph</H3>
+
+A virtual input device is rendered as a &quot;wireframe&quot; cube, with vertices drawn as small cubes, and edges as thin rectangles. The glyph is centered around the virtual input device's position, and aligned with the device's local coordinate frame. Each button of the virtual input device is represented as a small cube floating above the wireframe cube, with a green cube denoting a pressed button.<P>
+
+An additional small box floating underneath the wireframe cube is used to toggle the virtual input device's navigation behavior. If that cube is grey, the virtual input device will move in physical space, i.e., navigation will not affect the virtual input device, i.e., it will stay fixed relative to the environment and move relative to application objects during navigation. If the cube is green, the virtual input device will move in navigational space, i.e., it will stay in a fixed position and orientation with respect to application objects.<P>
+
+Virtual input devices can be created and destroyed dynamically, either under application control, or via entries in Vrui's system menu (see above).
+
+<H3>Ray-Based Input Device Driver</H3>
+
+A ray-based driver is an input device driver tool that maps 2D interactions with a mouse device to 3D interactions with a virtual input device. The state of a virtual input device's buttons (and its navigation mode button) can be toggled by pressing the button or key bound to the driver tool over the small cubes representing the buttons. The virtual input device's position or orientation can be changed in the following three ways:
+<DL>
+<DT>Face Dragging</DT>
+<DD>If the driver tool's bound button or key is pressed over one of the wireframe cube's faces, dragging the mouse while holding the button will translate the virtual input device in the plane defined by the picked face.</DD>
+
+<DT>Edge Dragging</DT>
+<DD>If the driver tool's bound button or key is pressed over one of the wireframe cube's edges, dragging the mouse orthogonal to the picked edge while holding the button will rotate the virtual input device around an axis parallel to the picked edge, through the wireframe cube's center.</DD>
+
+<DT>Vertex Dragging</DT>
+<DD>If the driver tool's bound button or key is pressed over one of the wireframe cube's vertices, dragging the mouse while holding the button will rotate the virtual input device around the wireframe cube's center using a virtual trackball metaphor similar to the standard mouse navigation tools (Note: this dragging mode is currently somewhat broken).</DD>
+</DL>
 
 <H2>Available Buttons in Desktop Mode</H2>
 
@@ -69,28 +124,58 @@ When switching between planes of buttons using any combination of modifier keys 
 
 <H2>Tool Management</H2>
 
-The basic facility supporting the portability of Vrui applications between VR environments (and the desktop) is the use of so-called &quot;tools&quot; to map input device events such as button or key presses to program functionality. Although Vrui applications start with a default set of tool bindings (which is described in the preceding sections), these bindings can be changed at will. The user interactions described above make use of several classes of tools:
+The basic facility supporting the portability of Vrui applications between VR environments (and the desktop) is the use of so-called &quot;tools&quot; to map input device events such as button or key presses to program functionality. Although Vrui applications start with a default set of tool bindings (which is described in the preceding sections), these bindings can be changed at will. The hierarchy of Vrui tool classes, including the tools already described in preceding sections is:
 <DL>
-<DT>NavigationTool</DT>
-<DD>A NavigationTool maps input device events and motion to 3D viewpoint navigation. The concrete navigation tool described in the first section is a MouseNavigationTool, connected to the left button the Z&nbsp;key, the mouse wheel, and the left shift key.</DD>
+<DT>Navigation</DT>
+<DD>A navigation tool maps input device events and motion to 3D viewpoint navigation. The concrete navigation tool described in the first section is a "Mouse (Multiple Buttons)" navigation tool, connected to the left button the Z&nbsp;key, the mouse wheel, and the left shift key.</DD>
 
-<DT>MenuTool</DT>
-<DD>A MenuTool supports popping up, and interacting with, context menus. The ScreenMenuTool described in the second section always opens menus in the screen plane, and is connected to the right mouse button in the default Vrui desktop configuration.</DD>
-</DL><P>
-
-Other classes of tools are not part of the default set of bindings, but can be bound at runtime to get access to other functions inside the Vrui toolkit itself, or inside Vrui applications:
+<DT>Transformer</DT>
+<DD>A transformer tool takes one or more source input devices (physical or virtual), and transforms them in some way to create another virtual input device that is permanently bound to the source input devices. Transformer tools are a main source of the flexibility of Vrui's input model. The most important concrete transformer tool classes are:
 <DL>
-<DT>MouseTool</DT>
-<DD>The desktop version of Vrui handles the mouse as a pseudo-3D input device located at the viewpoint, and pointing towards the screen plane. A MouseTool creates a virtual input device moving at the mouse's position inside the screen plane, and can be used to perform 3D interactions by attaching other tools to the virtual mouse device. The MouseTool can be found in the &quot;TransformTool&quot; submenu of the Vrui tool selection menu.</DD>
+<DT>Mouse->Screen Projector</DT>
+<DD>This is probably the most important tool class for desktop environments. Since user interactions in Vrui are inherently three-dimensional, the &quot;raw&quot; physical mouse device, which does not have a 3D position, can typically not be used directly. Mouse->screen projector tools create a virtual input device that follows the 2D mouse cursor as it intersects any of the screens present in a Vrui environment. In other words, the virtual device moves in the plane that is defined by the navigation crosshairs drawn by the standard mouse navigation tool.</DD>
+</DL></DD>
 
-<DT>LocatorTool</DT>
-<DD>A LocatorTool is used to notify a Vrui application that an action is to take place at a particular position in 3D space. What exactly this action is is defined by the Vrui application. For example, in the ShowEarthModel example application, a LocatorTool is used to select and query information about earthquakes. The typical way to bind a LocatorTool is to first bind a MouseTool to some mouse button/modifier key combination, and then bind a SixDofLocator tool to the same mouse button/modifier key combination. As a result, the action will take place at the mouse's position inside the screen plane.</DD>
+<DT>User Interface</DT>
+<DD>
+User interface tools map input device events to interactions with a Vrui application's user interface, i.e., menus, dialog boxes, and virtual input devices. They fall into several sub-classes:
+<DL>
+<DT>Menu Handler</DT>
+<DD>A menu handler tool supports popping up, and interacting with, context menus. The "Screen-Aligned Menu" tool described in the second section always opens menus in the screen plane, and is connected to the right mouse button in the default Vrui desktop configuration.</DD>
 
-<DT>DraggingTool</DT>
-<DD>A DraggingTool is similar to a LocatorTool in that it works in cooperation with a Vrui application, but it has different semantics. Whereas a LocatorTool simply causes an action at a particular 3D location, a DraggingTool selects an application object at its 3D position when its associated button is pressed, and then drags that object while the buttons stays pressed. DraggingTools are usually bound to the mouse in the same way as LocatorTools, by first binding a MouseTool and then a SixDofDraggingTool.</DD>
+<DT>Input Device Driver</DT>
+<DD>Input device driver tools are used to control virtual input devices, which provide a simple means to enable fully three-dimensional interaction in a two-dimensional desktop environment. The most important input device driver tool class for desktop environments is:
+<DL>
+<DT>Ray-Based Driver</DT>
+<DD>The ray-based driver tool is meant to map to a mouse, and can translate and rotate virtual input devices and toggle their buttons using a single mouse button or key. Its user interface is described in detail above.</DD>
+</DL></DD>
 
-<DT>MeasurementTool</DT>
-<DD>The MeasurementTool is an example of a high-level tool inside the Vrui toolkit itself. It allows a user to measure positions, distances, and angles in 3D space, either in physical or navigational (model) coordinates. As a Measurement tool measures at 3D positions, it is usually bound to the mouse via a MouseTool. When created, a MeasurementTool will pop up a measurement dialog in the center of the screen. This dialog is used to change the mode of the MeasurementTool, and displays the results of the last measurement operation. The MeasurementTool can be found in the &quot;UtilityTool&quot; submenu of the Vrui tool selection menu.</DD>
+<DT>GUI Interaction</DT>
+<DD>A GUI interaction tool maps input device events to interactions with GUI elements, i.e., menus and dialog boxes. This same functionality is included in the standard mouse navigation tools described above, but is available in a stand-alone tool in case a user does not want to use the standard navigation tools for some reason.</DD>
+</DL></DD>
+
+<DT>Pointer</DT>
+<DD>Pointer tools have a wide variety of different functions, but they share a common purpose, in that they are primarily used to point out features in a 3D application that is used by multiple users at the same time. In that regard, they are a generalization of that secondary function of mouse cursors in 2D desktop environments, or a virtualization of real-life tools such as laser pointers. The most important sub-classes are:
+<DL>
+<DT>Laser Pointer</DT>
+<DD>Laser pointer tools are the simplest pointing tools: they emit a red line from the position of the input device along its main pointing direction.</DD>
+
+<DT>Flashlight</DT>
+<DD>Flashlight tools use a virtual spot light source to illuminate 3D objects, and while their main purpose is to add interactively controlled light sources to a 3D environment, they have a secondary purpose of pointing out those objects.</DD>
+</DL></DD>
+
+<DT>Utility</DT>
+<DD>Utility tools implement functions that do not have a well-defined meaning inside Vrui itself (such as navigation or GUI interaction), but are of interest to users. There are several common utility tools:
+<DL>
+<DT>Measurement Tool</DT>
+<DD>Measurement tools are used to measure positions, distances, or angles in 3D space, using physical, navigational, or user-defined coordinates. They are application-independent per se, but can be combined with application-specific transformer tools for a variety of tasks. The typical scenario for measurement tools in a desktop environment is to bind them to a mouse->screen projector tool to take measurements in the screen plane.</DD>
+</DL></DD>
+
+<DT>Locator</DT>
+<DD>A locator tool is used to notify a Vrui application that an action is to take place at a particular position in 3D space. What exactly this action is is defined by the Vrui application. For example, in the ShowEarthModel example application, a locator tool is used to select and query information about earthquakes. The typical way to bind a locator tool in a desktop environment is to first bind a mouse->screen projector tool to some mouse button/modifier key combination, and then bind a 6-DOF locator tool to the same mouse button/modifier key combination. As a result, the action will take place at the mouse's position inside the screen plane.</DD>
+
+<DT>Dragger</DT>
+<DD>A dragger tool is similar to a locator tool in that it works in cooperation with a Vrui application, but it has different semantics. Whereas a locator tool simply causes an action at a particular 3D location, a dragger tool selects an application object at its 3D position when its associated button is pressed, and then drags that object while the buttons stays pressed. Dragger tools are usually bound to the mouse in the same way as locator tools, by first binding a mouse->screen projector tool and then a 6-DOF dragger tool.</DD>
 </DL>
 
 <H3>Binding Tools</H3>
@@ -99,7 +184,7 @@ Tools can be bound to a previously unbound button by pressing that button and se
 
 <H3>Destroying Tools</H3>
 
-Tools can be destroyed by pointing the mouse at the &quot;tool destruction zone,&quot; the red box in the lower-right hand corner of the screen, and pressing the button (or one of the buttons) the tool is bound to. The tool will be destroyed immediately; afterwards, a new tool can be bound to the same button or buttons as described above.
+Tools can be destroyed by pointing the mouse at the &quot;tool destruction zone,&quot; the red box in the lower-left hand corner of the screen, and pressing the button (or one of the buttons) the tool is bound to. The tool will be destroyed immediately; afterwards, a new tool can be bound to the same button or buttons as described above.
 
 </BODY>
 </HTML>

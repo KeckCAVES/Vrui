@@ -22,6 +22,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 ***********************************************************************/
 
 #define GLX_GLXEXT_PROTOTYPES 1
+#define SAVE_SCREENSHOT_PROJECTION 1
 
 #include <Vrui/VRWindow.h>
 
@@ -70,6 +71,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ToolKillZone.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Vrui.Internal.h>
+
+#if SAVE_SCREENSHOT_PROJECTION
+#include <Misc/File.h>
+#include <GL/GLTransformationWrappers.h>
+#endif
 
 namespace Misc {
 
@@ -1727,6 +1733,30 @@ void VRWindow::draw(void)
 		
 		/* Save the image buffer to the given image file: */
 		Images::writeImageFile(image,screenshotImageFileName.c_str());
+		
+		#if SAVE_SCREENSHOT_PROJECTION
+		
+		/* Temporarily load the navigation-space modelview matrix: */
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glLoadIdentity();
+		glMultMatrix(displayState->modelviewNavigational);
+		
+		/* Query the current projection and modelview matrices: */
+		GLdouble proj[16],mv[16];
+		glGetDoublev(GL_PROJECTION_MATRIX,proj);
+		glGetDoublev(GL_MODELVIEW_MATRIX,mv);
+		
+		glPopMatrix();
+		
+		/* Write the matrices to a projection file: */
+		{
+		Misc::File projFile((screenshotImageFileName+".proj").c_str(),"wb",Misc::File::LittleEndian);
+		projFile.write(proj,16);
+		projFile.write(mv,16);
+		}
+		
+		#endif
 		
 		saveScreenshot=false;
 		}

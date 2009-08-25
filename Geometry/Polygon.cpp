@@ -38,6 +38,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Geometry {
 
+/************************************
+Static elements of class PolygonBase:
+************************************/
+
+template <class ScalarParam,int dimensionParam>
+const int PolygonBase<ScalarParam,dimensionParam>::dimension;
+
 /****************************
 Methods of class PolygonBase:
 ****************************/

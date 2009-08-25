@@ -46,6 +46,9 @@ class Application
 		ToolBase(void)
 			{
 			}
+		virtual ~ToolBase(void)
+			{
+			}
 		
 		/* Methods: */
 		virtual void setApplication(Application* sApplication) =0; // Sets the tool's application pointer

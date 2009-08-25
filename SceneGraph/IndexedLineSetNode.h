@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_INDEXEDLINESETNODE_INCLUDED
 #define SCENEGRAPH_INDEXEDLINESETNODE_INCLUDED
 
+#include <GL/gl.h>
+#include <GL/GLObject.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
 #include <SceneGraph/ColorNode.h>
@@ -30,7 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 namespace SceneGraph {
 
-class IndexedLineSetNode:public GeometryNode
+class IndexedLineSetNode:public GeometryNode,public GLObject
 	{
 	/* Embedded classes: */
 	public:
@@ -38,6 +40,21 @@ class IndexedLineSetNode:public GeometryNode
 	typedef SF<CoordinateNodePointer> SFCoordinateNode;
 	
 	/* Elements: */
+	
+	protected:
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLuint vertexBufferObjectId; // ID of vertex buffer object containing the vertices, if supported
+		GLsizei numLines; // Number of lines in the line set
+		GLsizei* numVertices; // Array of numbers of vertices for each line in the line set
+		unsigned int version; // Version of point set stored in vertex buffer object
+		
+		/* Constructors and destructors: */
+		DataItem(void);
+		virtual ~DataItem(void);
+		};
 	
 	/* Fields: */
 	public:
@@ -47,6 +64,14 @@ class IndexedLineSetNode:public GeometryNode
 	SFBool colorPerVertex;
 	MFInt coordIndex;
 	SFFloat lineWidth;
+	
+	/* Derived state: */
+	protected:
+	unsigned int version; // Version number of indexed line set
+	
+	/* Protected methods: */
+	void uploadColoredLineSet(DataItem* dataItem) const;
+	void uploadLineSet(DataItem* dataItem) const;
 	
 	/* Constructors and destructors: */
 	public:
@@ -59,6 +84,9 @@ class IndexedLineSetNode:public GeometryNode
 	/* Methods from GeometryNode: */
 	virtual Box calcBoundingBox(void) const;
 	virtual void glRenderAction(GLRenderState& renderState) const;
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

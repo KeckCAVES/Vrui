@@ -119,8 +119,8 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>TokenSource</DT>
 <DD>Class to split the character stream from a character source into a stream of tokens, with flexible definitions of syntactic character classes.</DD>
 
-<DT>ASCIIFileReader</DT>
-<DD>Class to efficiently tokenize and parse ASCII (plain text) input files. Supports on-the-fly gunzipping, and memory-mapped I/O.</DD>
+<DT>ValueSource</DT>
+<DD>Class to split the character stream from a character source into a stream of strings or numbers, with flexible definitions of syntactic character classes.</DD>
 
 <DT>ValueCoder.h</DT>
 <DD>ValueCoder is a class to encode/decode values of arbitrary types to/from strings, templatized by the type of encoded/decoded values.</DD>
@@ -139,6 +139,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>FileLocator.h</DT>
 <DD>FileLocator is a class to simplify searching for files in a list of search directories. Search lists can be built explicity, or by deriving standard resource locations from an application's executable name.</DD>
+
+<DT>XBaseTable.h</DT>
+<DD>XBaseTable is a class to read from database tables in XBase (dBASE III, dBASE IV, FoxPro, Clipper,...) format. It currently only supports basic dBASE III data types, and no memo fields.</DD>
 </DL>
 
 </BODY>

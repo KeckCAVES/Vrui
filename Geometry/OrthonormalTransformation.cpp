@@ -43,6 +43,8 @@ Static elements of class OrthonormalTransformation:
 **************************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int OrthonormalTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const OrthonormalTransformation<ScalarParam,dimensionParam> OrthonormalTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
 
 /******************************************

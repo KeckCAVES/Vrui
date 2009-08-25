@@ -131,6 +131,9 @@ struct VruiState
 	/* Light source management: */
 	LightsourceManager* lightsourceManager;
 	
+	/* Clipping plane management: */
+	ClipPlaneManager* clipPlaneManager;
+	
 	/* Viewer management: */
 	int numViewers;
 	Viewer* viewers;

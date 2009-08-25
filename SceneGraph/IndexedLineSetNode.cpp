@@ -27,19 +27,170 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
+#include <GL/GLContextData.h>
+#include <GL/GLExtensionManager.h>
+#include <GL/Extensions/GLARBVertexBufferObject.h>
 #include <GL/GLGeometryWrappers.h>
+#include <GL/GLGeometryVertex.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
 namespace SceneGraph {
 
+/*********************************************
+Methods of class IndexedLineSetNode::DataItem:
+*********************************************/
+
+IndexedLineSetNode::DataItem::DataItem(void)
+	:vertexBufferObjectId(0),
+	 numLines(0),numVertices(0),
+	 version(0)
+	{
+	if(GLARBVertexBufferObject::isSupported())
+		{
+		/* Initialize the vertex buffer object extension: */
+		GLARBVertexBufferObject::initExtension();
+		
+		/* Create the vertex buffer object: */
+		glGenBuffersARB(1,&vertexBufferObjectId);
+		}
+	}
+
+IndexedLineSetNode::DataItem::~DataItem(void)
+	{
+	/* Destroy the vertex buffer object: */
+	if(vertexBufferObjectId!=0)
+		glDeleteBuffersARB(1,&vertexBufferObjectId);
+	
+	delete[] numVertices;
+	}
+
 /***********************************
 Methods of class IndexedLineSetNode:
 ***********************************/
 
+void IndexedLineSetNode::uploadColoredLineSet(DataItem* dataItem) const
+	{
+	/* Define the vertex type used in the vertex array: */
+	typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> Vertex;
+	
+	/* Iterate over the coordinate index array once to count the number of lines and the total number of vertices: */
+	const std::vector<Point>& points=coord.getValue()->point.getValues();
+	const MFInt::ValueList& coordIndices=coordIndex.getValues();
+	size_t numLines=1;
+	size_t totalNumVertices=0;
+	for(MFInt::ValueList::const_iterator coordIt=coordIndices.begin();coordIt!=coordIndices.end();++coordIt)
+		{
+		if(*coordIt>=0)
+			++totalNumVertices;
+		else
+			++numLines;
+		}
+	
+	/* Allocate the vertex buffer and the line size array: */
+	glBufferDataARB(GL_ARRAY_BUFFER_ARB,totalNumVertices*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
+	Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
+	dataItem->numLines=GLsizei(numLines);
+	delete[] dataItem->numVertices;
+	dataItem->numVertices=new GLsizei[numLines];
+	
+	/* Iterate over the coordinate index array again to fill the vertex buffer and the line size array: */
+	const std::vector<Color>& colors=color.getValue()->color.getValues();
+	const MFInt::ValueList& colorIndices=colorIndex.getValues();
+	MFInt::ValueList::const_iterator colorIt=colorIndices.empty()?coordIndices.begin():colorIndices.begin();
+	bool countColors=!colorPerVertex.getValue()&&colorIndices.empty();
+	int colorCounter=0;
+	GLsizei lineIndex=0;
+	GLsizei numVertices=0;
+	MFInt::ValueList::const_iterator coordIt=coordIndices.begin();
+	while(coordIt!=coordIndices.end())
+		{
+		while(coordIt!=coordIndices.end()&&*coordIt>=0)
+			{
+			vPtr->color=countColors?colors[colorCounter]:colors[*colorIt];
+			if(pointTransform.getValue()!=0)
+				vPtr->position=pointTransform.getValue()->transformPoint(points[*coordIt]);
+			else
+				vPtr->position=points[*coordIt];
+			++vPtr;
+			++numVertices;
+			if(colorPerVertex.getValue())
+				++colorIt;
+			++coordIt;
+			}
+		
+		dataItem->numVertices[lineIndex]=numVertices;
+		++lineIndex;
+		numVertices=0;
+		
+		if(countColors)
+			++colorCounter;
+		else
+			++colorIt;
+		if(coordIt!=coordIndices.end())
+			++coordIt;
+		}
+	
+	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+	}
+
+void IndexedLineSetNode::uploadLineSet(DataItem* dataItem) const
+	{
+	/* Define the vertex type used in the vertex array: */
+	typedef GLGeometry::Vertex<Scalar,2,void,0,Scalar,Scalar,3> Vertex;
+	
+	/* Iterate over the coordinate index array once to count the number of lines and the total number of vertices: */
+	const std::vector<Point>& points=coord.getValue()->point.getValues();
+	const MFInt::ValueList& coordIndices=coordIndex.getValues();
+	size_t numLines=1;
+	size_t totalNumVertices=0;
+	for(MFInt::ValueList::const_iterator coordIt=coordIndices.begin();coordIt!=coordIndices.end();++coordIt)
+		{
+		if(*coordIt>=0)
+			++totalNumVertices;
+		else
+			++numLines;
+		}
+	
+	/* Allocate the vertex buffer and the line size array: */
+	glBufferDataARB(GL_ARRAY_BUFFER_ARB,totalNumVertices*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
+	Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
+	dataItem->numLines=GLsizei(numLines);
+	delete[] dataItem->numVertices;
+	dataItem->numVertices=new GLsizei[numLines];
+	
+	/* Iterate over the coordinate index array again to fill the vertex buffer and the line size array: */
+	GLsizei lineIndex=0;
+	GLsizei numVertices=0;
+	MFInt::ValueList::const_iterator coordIt=coordIndices.begin();
+	while(coordIt!=coordIndices.end())
+		{
+		while(coordIt!=coordIndices.end()&&*coordIt>=0)
+			{
+			if(pointTransform.getValue()!=0)
+				vPtr->position=pointTransform.getValue()->transformPoint(points[*coordIt]);
+			else
+				vPtr->position=points[*coordIt];
+			++vPtr;
+			++numVertices;
+			++coordIt;
+			}
+		
+		dataItem->numVertices[lineIndex]=numVertices;
+		++lineIndex;
+		numVertices=0;
+		
+		if(coordIt!=coordIndices.end())
+			++coordIt;
+		}
+	
+	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+	}
+
 IndexedLineSetNode::IndexedLineSetNode(void)
 	:colorPerVertex(true),
-	 lineWidth(Scalar(1))
+	 lineWidth(Scalar(1)),
+	 version(0)
 	{
 	}
 
@@ -75,6 +226,8 @@ void IndexedLineSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 
 void IndexedLineSetNode::update(void)
 	{
+	/* Bump up the indexed line set's version number: */
+	++version;
 	}
 
 Box IndexedLineSetNode::calcBoundingBox(void) const
@@ -98,74 +251,168 @@ Box IndexedLineSetNode::calcBoundingBox(void) const
 
 void IndexedLineSetNode::glRenderAction(GLRenderState& renderState) const
 	{
-	if(coord.getValue()!=0)
+	/* Set up OpenGL state: */
+	renderState.disableMaterials();
+	renderState.disableTextures();
+	glLineWidth(lineWidth.getValue());
+	
+	/* Get the context data item: */
+	DataItem* dataItem=renderState.contextData.retrieveDataItem<DataItem>(this);
+	
+	if(dataItem->vertexBufferObjectId!=0)
 		{
-		/* Set up OpenGL state: */
-		renderState.disableMaterials();
-		renderState.disableTextures();
-		glLineWidth(lineWidth.getValue());
+		/*******************************************************************
+		Render the indexed line set from the vertex buffer:
+		*******************************************************************/
 		
-		/* Draw the line set: */
-		const std::vector<Point>& points=coord.getValue()->point.getValues();
-		const MFInt::ValueList& coordIndices=coordIndex.getValues();
+		typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> ColorVertex;
+		typedef GLGeometry::Vertex<Scalar,2,void,0,Scalar,Scalar,3> Vertex;
+		
+		/* Bind the line set's vertex buffer object: */
+		glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+		
+		if(dataItem->version!=version)
+			{
+			/* Upload the new line set: */
+			if(color.getValue()!=0)
+				uploadColoredLineSet(dataItem);
+			else
+				uploadLineSet(dataItem);
+			dataItem->version=version;
+			
+			/* Mark the vertex and index buffer objects as up-to-date: */
+			dataItem->version=version;
+			}
+		
+		/* Set up the vertex array: */
 		if(color.getValue()!=0)
 			{
-			const std::vector<Color>& colors=color.getValue()->color.getValues();
-			const MFInt::ValueList& colorIndices=colorIndex.getValues();
-			MFInt::ValueList::const_iterator colorIt=colorIndices.empty()?coordIndices.begin():colorIndices.begin();
-			bool countColors=!colorPerVertex.getValue()&&colorIndices.empty();
-			int colorCounter=0;
-			MFInt::ValueList::const_iterator coordIt=coordIndices.begin();
-			while(coordIt!=coordIndices.end())
-				{
-				glBegin(GL_LINE_STRIP);
-				while(coordIt!=coordIndices.end()&&*coordIt>=0)
-					{
-					if(countColors)
-						glColor(colors[colorCounter]);
-					else
-						glColor(colors[*colorIt]);
-					if(pointTransform.getValue()!=0)
-						glVertex(pointTransform.getValue()->transformPoint(points[*coordIt]));
-					else
-						glVertex(points[*coordIt]);
-					if(colorPerVertex.getValue())
-						++colorIt;
-					++coordIt;
-					}
-				glEnd();
-				
-				if(countColors)
-					++colorCounter;
-				else
-					++colorIt;
-				if(coordIt!=coordIndices.end())
-					++coordIt;
-				}
+			GLVertexArrayParts::enable(ColorVertex::getPartsMask());
+			glVertexPointer(static_cast<ColorVertex*>(0));
 			}
 		else
 			{
+			GLVertexArrayParts::enable(Vertex::getPartsMask());
+			glVertexPointer(static_cast<Vertex*>(0));
+			
 			/* Use the current emissive color: */
 			glColor(renderState.emissiveColor);
+			}
+		
+		/* Draw the indexed line set: */
+		GLint baseVertexIndex=0;
+		for(GLsizei i=0;i<dataItem->numLines;++i)
+			{
+			/* Render the line: */
+			glDrawArrays(GL_LINE_STRIP,baseVertexIndex,dataItem->numVertices[i]);
 			
-			MFInt::ValueList::const_iterator coordIt=coordIndices.begin();
-			while(coordIt!=coordIndices.end())
+			/* Go to the next line: */
+			baseVertexIndex+=dataItem->numVertices[i];
+			}
+		
+		/* Disable the vertex array: */
+		if(color.getValue()!=0)
+			GLVertexArrayParts::disable(ColorVertex::getPartsMask());
+		else
+			GLVertexArrayParts::disable(Vertex::getPartsMask());
+		
+		/* Protect the buffer: */
+		glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
+		}
+	else
+		{
+		/*******************************************************************
+		Render the indexed line set directly:
+		*******************************************************************/
+		
+		if(coord.getValue()!=0)
+			{
+			/* Draw the line set: */
+			const std::vector<Point>& points=coord.getValue()->point.getValues();
+			const MFInt::ValueList& coordIndices=coordIndex.getValues();
+			if(color.getValue()!=0)
 				{
-				glBegin(GL_LINE_STRIP);
-				while(*coordIt>=0)
+				const std::vector<Color>& colors=color.getValue()->color.getValues();
+				const MFInt::ValueList& colorIndices=colorIndex.getValues();
+				MFInt::ValueList::const_iterator colorIt=colorIndices.empty()?coordIndices.begin():colorIndices.begin();
+				bool countColors=!colorPerVertex.getValue()&&colorIndices.empty();
+				int colorCounter=0;
+				MFInt::ValueList::const_iterator coordIt=coordIndices.begin();
+				while(coordIt!=coordIndices.end())
 					{
-					if(pointTransform.getValue()!=0)
-						glVertex(pointTransform.getValue()->transformPoint(points[*coordIt]));
+					glBegin(GL_LINE_STRIP);
+					while(coordIt!=coordIndices.end()&&*coordIt>=0)
+						{
+						if(countColors)
+							glColor(colors[colorCounter]);
+						else
+							glColor(colors[*colorIt]);
+						if(pointTransform.getValue()!=0)
+							glVertex(pointTransform.getValue()->transformPoint(points[*coordIt]));
+						else
+							glVertex(points[*coordIt]);
+						if(colorPerVertex.getValue())
+							++colorIt;
+						++coordIt;
+						}
+					glEnd();
+					
+					if(countColors)
+						++colorCounter;
 					else
-						glVertex(points[*coordIt]);
-					++coordIt;
+						++colorIt;
+					if(coordIt!=coordIndices.end())
+						++coordIt;
 					}
-				glEnd();
+				}
+			else
+				{
+				/* Use the current emissive color: */
+				glColor(renderState.emissiveColor);
 				
-				if(coordIt!=coordIndices.end())
-					++coordIt;
+				MFInt::ValueList::const_iterator coordIt=coordIndices.begin();
+				while(coordIt!=coordIndices.end())
+					{
+					glBegin(GL_LINE_STRIP);
+					while(*coordIt>=0)
+						{
+						if(pointTransform.getValue()!=0)
+							glVertex(pointTransform.getValue()->transformPoint(points[*coordIt]));
+						else
+							glVertex(points[*coordIt]);
+						++coordIt;
+						}
+					glEnd();
+					
+					if(coordIt!=coordIndices.end())
+						++coordIt;
+					}
 				}
 			}
+		}
+	}
+
+void IndexedLineSetNode::initContext(GLContextData& contextData) const
+	{
+	/* Create a data item and store it in the context: */
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
+	
+	/* Upload the initial version of the indexed line set: */
+	if(dataItem->vertexBufferObjectId!=0)
+		{
+		/* Bind the line set's vertex buffer object: */
+		glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+		
+		/* Upload the line set: */
+		if(color.getValue()!=0)
+			uploadColoredLineSet(dataItem);
+		else
+			uploadLineSet(dataItem);
+		dataItem->version=version;
+		
+		/* Protect the buffer: */
+		glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
 		}
 	}
 

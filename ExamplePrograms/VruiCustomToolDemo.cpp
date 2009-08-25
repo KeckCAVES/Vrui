@@ -101,10 +101,14 @@ Methods of class VruiCustomToolDemo:
 VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv,char**& appDefaults)
 	:Vrui::Application(argc,argv,appDefaults)
 	{
-	/* Register the custom tool class with the Vrui tool manager: */
+	/* Create a factory object for the custom tool class: */
 	MyToolFactory* myToolFactory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
-	myToolFactory->setNumDevices(1);
-	myToolFactory->setNumButtons(0,2);
+	
+	/* Set the custom tool class' input layout: */
+	myToolFactory->setNumDevices(1); // Needs one input device
+	myToolFactory->setNumButtons(0,2); // Needs two buttons on the first input device
+	
+	/* Register the custom tool class with the Vrui tool manager: */
 	Vrui::getToolManager()->addClass(myToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	}
 

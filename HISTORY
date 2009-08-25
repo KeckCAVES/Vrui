@@ -1372,3 +1372,62 @@ Vrui-1.0-062:
 - Added temporary guard against using direct calls to floating-point
   number classification functions (isnan etc.) on Mac OS X, until I
   figure out what the hell Apple broke now.
+
+Vrui-1.0-063:
+- Added definitions for static constant data members to template classes
+  in Math and Geometry libraries to simplify the life of people who want
+  to use them with non-C++ user code.
+- Fixed some problems in template friend function instantiations for
+  same reason.
+- Added Misc::ValueSource, a class to read strings or numbers from ASCII
+  files represented by CharacterSource objects. Obsoletes the various
+  versions of ASCIIFileReader.
+- Removed Misc::ASCIIFileReader; obsoleted by Misc::ValueSource.
+- Removed Threads::ASCIIFileReader; obsoleted by Misc::ValueSource.
+- Added class Misc::XBaseTable to read from database tables in XBase
+  (dBASE III, FoxPro, Clipper,...) format.
+- Changed makefile to use relative paths when creating symbolic links
+  for generated libraries (suggested by Jordan Van Aalsburg).
+- Changed makefile to remove generated Vrui makefile fragment's
+  dependency on makefile itself; probably not dangerous, but simplifies
+  building Vrui for one installation directory, and then temporarily
+  installing it elsewhere (to create an RPM or Debian package, for
+  example).
+- Changed implementation of Misc::TokenSource to be more in line with
+  Misc::ValueSource.
+- Added skipString() method to Misc::ValueSource.
+- Changed VruiCustomToolDemo example program; added clarification that
+  the custom tool class requires two buttons to bind.
+- Added PCACalculator class from LiDAR Viewer to Geometry library.
+- Removed use of EOF from Misc/MemMappedFile.h, directly using -1 now.
+- Added option to save triggered and averaged point measurements to
+  DeviceTest program.
+- Added AlignTrackingMarkers, a utility program to calibrate rigid
+  bodies from definition files in the format written by the NaturalPoint
+  Optitrack rigid body toolkit.
+- Removed Vrui/Lightsource.cpp by inlining all methods; were trivial
+  anyways.
+- Added classes Vrui::ClipPlane and Vrui::ClipPlaneManager to manage
+  OpenGL clipping planes as part of Vrui state.
+- Added function to retrieve clipping plane manager to Vrui kernel API.
+- Added code to Vrui's display function to set up clipping planes before
+  calling the application's display function.
+- Fixed bug in Vrui::LightsourceManager that overrode physical light
+  sources with navigational light sources if both were defined.
+- Fixed base class initialization bug in Vrui:FlashlightTool.
+- Added Vrui::ClipPlaneTool to interactively add clipping planes to an
+  environment.
+- Fixed bug in Vrui::Application; application object's tool manager
+  callbacks are now installed from inside the constructor as opposed to
+  from inside the run() method, to catch creation of application-
+  specific tools from within an application's constructor.
+- Added getBuffer method to Threads::TripleBuffer to provide a low-level
+  access point to the buffer values bypassing the locking scheme.
+- Added new class GLMotif::NewButton to move towards a new and improved
+  inheritance tree for button widgets. New button widget is a container
+  that can pop in/out arbitrary child widgets. Contains convenience
+  constructors to create "blind" buttons and label buttons.
+- Added Threads::GzippedFileCharacterSource, a class to read gzip-
+  compressed files with readahead and background decompression.
+- Added option to list link flags with packages to
+  BuildRoot/BasicMakefile.

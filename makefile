@@ -148,7 +148,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000062
+VRUI_VERSION = 1000063
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -281,6 +281,7 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/ButtonInputDeviceTool.cpp \
                   Vrui/Tools/WidgetTool.cpp \
                   Vrui/Tools/LaserpointerTool.cpp \
+                  Vrui/Tools/ClipPlaneTool.cpp \
                   Vrui/Tools/JediTool.cpp \
                   Vrui/Tools/FlashlightTool.cpp \
                   Vrui/Tools/MeasurementTool.cpp \
@@ -368,6 +369,12 @@ VRCALIBRATORSDIREXT = VRCalibrators
 VRCALIBRATORSDIR = $(LIBDESTDIR)/$(VRCALIBRATORSDIREXT)
 VRCALIBRATORS = $(VRCALIBRATORS_SOURCES:VRDeviceDaemon/%.cpp=$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT))
 PLUGINS += $(VRCALIBRATORS)
+
+#
+# The VR device driver utility programs:
+#
+
+EXECUTABLES += $(EXEDIR)/AlignTrackingMarkers
 
 # Set the name of the makefile fragment:
 ifdef DEBUG
@@ -497,13 +504,14 @@ MISC_HEADERS = Misc/Utility.h \
                Misc/FileCharacterSource.h \
                Misc/GzippedFileCharacterSource.h \
                Misc/TokenSource.h \
-               Misc/ASCIIFileReader.h \
+               Misc/ValueSource.h \
                Misc/ValueCoder.h \
                Misc/StandardValueCoders.h \
                Misc/ArrayValueCoders.h Misc/ArrayValueCoders.cpp \
                Misc/CompoundValueCoders.h Misc/CompoundValueCoders.cpp \
                Misc/ConfigurationFile.h Misc/ConfigurationFile.icpp \
-               Misc/FileLocator.h
+               Misc/FileLocator.h \
+               Misc/XBaseTable.h
 
 MISC_SOURCES = Misc/StringPrintf.cpp \
                Misc/ThrowStdErr.cpp \
@@ -516,13 +524,14 @@ MISC_SOURCES = Misc/StringPrintf.cpp \
                Misc/FileCharacterSource.cpp \
                Misc/GzippedFileCharacterSource.cpp \
                Misc/TokenSource.cpp \
-               Misc/ASCIIFileReader.cpp \
+               Misc/ValueSource.cpp \
                Misc/ValueCoder.cpp \
                Misc/StandardValueCoders.cpp \
                Misc/ArrayValueCoders.cpp \
                Misc/CompoundValueCoders.cpp \
                Misc/ConfigurationFile.cpp \
-               Misc/FileLocator.cpp
+               Misc/FileLocator.cpp \
+               Misc/XBaseTable.cpp
 
 $(call LIBRARYNAME,libMisc): PACKAGES += $(MYMISC_DEPENDS)
 $(call LIBRARYNAME,libMisc): EXTRACINCLUDEFLAGS += $(MYMISC_INCLUDE)
@@ -578,9 +587,9 @@ THREADS_HEADERS = Threads/Thread.h \
                   Threads/TripleBuffer.h \
                   Threads/RingBuffer.h \
                   Threads/DropoutBuffer.h \
-                  Threads/ASCIIFileReader.h
+                  Threads/GzippedFileCharacterSource.h
 
-THREADS_SOURCES = Threads/ASCIIFileReader.cpp
+THREADS_SOURCES = Threads/GzippedFileCharacterSource.cpp
 
 $(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
 $(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
@@ -676,6 +685,7 @@ GEOMETRY_HEADERS = Geometry/ComponentArray.h Geometry/ComponentArray.cpp \
                    Geometry/SplineCurve.h Geometry/SplineCurve.cpp \
                    Geometry/SplinePatch.h Geometry/SplinePatch.cpp \
                    Geometry/Geoid.h Geometry/Geoid.cpp \
+                   Geometry/PCACalculator.h \
                    Geometry/ValuedPoint.h \
                    Geometry/ClosePointSet.h \
                    Geometry/PointOctree.h Geometry/PointOctree.cpp \
@@ -707,6 +717,7 @@ GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
                    Geometry/SplineCurve.cpp \
                    Geometry/SplinePatch.cpp \
                    Geometry/Geoid.cpp \
+                   Geometry/PCACalculator.cpp \
                    Geometry/PointOctree.cpp \
                    Geometry/PointTwoNTree.cpp \
                    Geometry/PointKdTree.cpp \
@@ -935,6 +946,7 @@ GLMOTIF_HEADERS = GLMotif/Types.h \
                   GLMotif/Label.h \
                   GLMotif/TextField.h \
                   GLMotif/Button.h \
+                  GLMotif/NewButton.h \
                   GLMotif/DecoratedButton.h \
                   GLMotif/Arrow.h \
                   GLMotif/ToggleButton.h \
@@ -968,6 +980,7 @@ GLMOTIF_SOURCES = GLMotif/Event.cpp \
                   GLMotif/Label.cpp \
                   GLMotif/TextField.cpp \
                   GLMotif/Button.cpp \
+                  GLMotif/NewButton.cpp \
                   GLMotif/DecoratedButton.cpp \
                   GLMotif/Arrow.cpp \
                   GLMotif/ToggleButton.cpp \
@@ -1117,9 +1130,13 @@ SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
                      SceneGraph/CoordinateNode.h \
                      SceneGraph/PointSetNode.h \
                      SceneGraph/IndexedLineSetNode.h \
+                     SceneGraph/ElevationGridNode.h \
+                     SceneGraph/IndexedFaceSetNode.h \
                      SceneGraph/ShapeNode.h \
                      SceneGraph/FontStyleNode.h \
-                     SceneGraph/TextNode.h
+                     SceneGraph/TextNode.h \
+                     SceneGraph/ArcInfoExportFileNode.h \
+                     SceneGraph/ESRIShapeFileNode.h
 
 SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/NodeCreator.cpp \
@@ -1146,9 +1163,13 @@ SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/CoordinateNode.cpp \
                      SceneGraph/PointSetNode.cpp \
                      SceneGraph/IndexedLineSetNode.cpp \
+                     SceneGraph/ElevationGridNode.cpp \
+                     SceneGraph/IndexedFaceSetNode.cpp \
                      SceneGraph/ShapeNode.cpp \
                      SceneGraph/FontStyleNode.cpp \
-                     SceneGraph/TextNode.cpp
+                     SceneGraph/TextNode.cpp \
+                     SceneGraph/ArcInfoExportFileNode.cpp \
+                     SceneGraph/ESRIShapeFileNode.cpp
 
 $(call LIBRARYNAME,libSceneGraph): PACKAGES += $(MYSCENEGRAPH_DEPENDS)
 $(call LIBRARYNAME,libSceneGraph): EXTRACINCLUDEFLAGS += $(MYSCENEGRAPH_INCLUDE)
@@ -1175,6 +1196,8 @@ VRUI_HEADERS = Vrui/Geometry.h \
                Vrui/MutexMenu.h \
                Vrui/Lightsource.h \
                Vrui/LightsourceManager.h \
+               Vrui/ClipPlane.h \
+               Vrui/ClipPlaneManager.h \
                Vrui/CoordinateTransform.h \
                Vrui/OrthogonalCoordinateTransform.h \
                Vrui/GeodeticCoordinateTransform.h \
@@ -1225,8 +1248,8 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/InputDeviceAdapterPlayback.cpp \
                Vrui/MultipipeDispatcher.cpp \
                Vrui/MutexMenu.cpp \
-               Vrui/Lightsource.cpp \
                Vrui/LightsourceManager.cpp \
+               Vrui/ClipPlaneManager.cpp \
                Vrui/CoordinateTransform.cpp \
                Vrui/OrthogonalCoordinateTransform.cpp \
                Vrui/GeodeticCoordinateTransform.cpp \
@@ -1471,6 +1494,16 @@ endif
 .PHONY: VRCalibrators
 VRCalibrators: $(VRCALIBRATORS)
 
+#
+# The VR device daemon utility programs:
+#
+
+$(EXEDIR)/AlignTrackingMarkers: PACKAGES += MYVRUI
+$(EXEDIR)/AlignTrackingMarkers: $(OBJDIR)/VRDeviceDaemon/ReadOptiTrackMarkerFile.o \
+                                $(OBJDIR)/VRDeviceDaemon/AlignTrackingMarkers.o
+.PHONY: AlignTrackingMarkers
+AlignTrackingMarkers: $(EXEDIR)/AlignTrackingMarkers
+
 ########################################################################
 # Specify installation rules for header files, libraries, executables,
 # configuration files, and shared files.
@@ -1499,7 +1532,7 @@ endif
 
 # Pseudo-target to dump Vrui compiler and linker flags to a makefile fragment
 $(MAKEFILEFRAGMENT): PACKAGES = MYVRUI
-$(MAKEFILEFRAGMENT): BuildRoot/SystemDefinitions BuildRoot/Packages makefile
+$(MAKEFILEFRAGMENT): 
 	@echo Creating application makefile fragment...
 	@echo "# Makefile fragment for Vrui applications" > $(MAKEFILEFRAGMENT)
 	@echo "# Autogenerated by Vrui installation on $(shell date)" >> $(MAKEFILEFRAGMENT)
@@ -1521,12 +1554,12 @@ endif
 # First argument: library name
 define CREATE_SYMLINK
 @-rm -f $(LIBINSTALLDIR)/$(call DSONAME,$(1)) $(LIBINSTALLDIR)/$(call LINKDSONAME,$(1))
-@ln -s $(LIBINSTALLDIR)/$(call FULLDSONAME,$(1)) $(LIBINSTALLDIR)/$(call DSONAME,$(1))
-@ln -s $(LIBINSTALLDIR)/$(call FULLDSONAME,$(1)) $(LIBINSTALLDIR)/$(call LINKDSONAME,$(1))
+@cd $(LIBINSTALLDIR) ; ln -s $(call FULLDSONAME,$(1)) $(call DSONAME,$(1))
+@cd $(LIBINSTALLDIR) ; ln -s $(call FULLDSONAME,$(1)) $(call LINKDSONAME,$(1))
 
 endef
 
-install: all $(MAKEFILEFRAGMENT)
+install: all
 # Install all header files in HEADERINSTALLDIR:
 	@echo Installing header files...
 	@install -d $(HEADERINSTALLDIR)/Misc

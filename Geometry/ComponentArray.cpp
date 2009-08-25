@@ -35,6 +35,19 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Geometry {
 
+/***************************************
+Static elements of class ComponentArray:
+***************************************/
+
+template <class ScalarParam,int dimensionParam>
+const int ComponentArray<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam>
+const int ComponentArray<ScalarParam,2>::dimension;
+template <class ScalarParam>
+const int ComponentArray<ScalarParam,3>::dimension;
+template <class ScalarParam>
+const int ComponentArray<ScalarParam,4>::dimension;
+
 /*******************************
 Methods of class ComponentArray:
 *******************************/

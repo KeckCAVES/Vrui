@@ -45,6 +45,10 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	SFBool degrees;
 	SFBool colatitude;
 	
+	/* Derived state: */
+	protected:
+	const ReferenceEllipsoidNode::Geoid* re;
+	
 	/* Constructors and destructors: */
 	public:
 	GeodeticToCartesianPointTransformNode(void); // Creates a default node
@@ -56,7 +60,6 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	/* Methods from PointTransformNode: */
 	virtual Point transformPoint(const Point& point) const;
 	virtual Box calcBoundingBox(const std::vector<Point>& points) const;
-	virtual Vector transformVector(const Point& basePoint,const Vector& vector) const;
 	virtual Vector transformNormal(const Point& basePoint,const Vector& normal) const;
 	};
 

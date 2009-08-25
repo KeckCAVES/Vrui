@@ -37,7 +37,6 @@ class PointTransformNode:public Node
 	public:
 	virtual Point transformPoint(const Point& point) const =0; // Transforms a point
 	virtual Box calcBoundingBox(const std::vector<Point>& points) const =0; // Calculates transformed bounding box of a point list
-	virtual Vector transformVector(const Point& basePoint,const Vector& vector) const =0; // Transforms a vector based at the given point
 	virtual Vector transformNormal(const Point& basePoint,const Vector& normal) const =0; // Transforms a normal vector based at the given point
 	};
 

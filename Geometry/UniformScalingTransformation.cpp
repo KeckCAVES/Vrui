@@ -40,6 +40,8 @@ Static elements of class UniformScalingTransformation:
 *****************************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int UniformScalingTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const UniformScalingTransformation<ScalarParam,dimensionParam> UniformScalingTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
 
 #if !defined(NONSTANDARD_TEMPLATES)
