@@ -31,24 +31,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Plugins/FactoryManager.h>
 
+#include <Plugins/FunctionPointerHack.h>
+
 namespace Plugins {
-
-namespace {
-
-/************************************************************************
-Helper function to retrieve function pointers from DSOs without warnings:
-************************************************************************/
-
-typedef void (*FunctionPointer)(void);
-
-inline FunctionPointer nowarninghack_dlsym(void* dsoHandle,const char* functionName)
-	{
-	/* Use a workaround to get rid of warnings in g++'s pedantic mode: */
-	ptrdiff_t intermediate=reinterpret_cast<ptrdiff_t>(dlsym(dsoHandle,functionName));
-	return reinterpret_cast<FunctionPointer>(intermediate);
-	}
-
-}
 
 /*******************************
 Methods of class FactoryManager:

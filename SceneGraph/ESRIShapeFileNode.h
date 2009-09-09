@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/AppearanceNode.h>
+#include <SceneGraph/FontStyleNode.h>
 
 namespace SceneGraph {
 
@@ -35,6 +36,7 @@ class ESRIShapeFileNode:public GroupNode
 	/* Embedded classes: */
 	public:
 	typedef SF<AppearanceNodePointer> SFAppearanceNode;
+	typedef SF<FontStyleNodePointer> SFFontStyleNode;
 	
 	/* Elements: */
 	
@@ -42,6 +44,8 @@ class ESRIShapeFileNode:public GroupNode
 	public:
 	MFString url; // URL for the ESRI shape file to load
 	SFAppearanceNode appearance; // Node defining appearance of geometry loaded from shape file
+	SFString labelField; // Name of attribute table field to be used to label shape file records
+	SFFontStyleNode fontStyle; // Font style for shape file record labels
 	SFBool transformToCartesian; // Flag whether to use the projection defined in the shape file to transform all geometry to Cartesian coordinates
 	SFFloat pointSize;
 	SFFloat lineWidth;

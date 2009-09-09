@@ -1431,25 +1431,4 @@ Vrui-1.0-063:
   compressed files with readahead and background decompression.
 - Added option to list link flags with packages to
   BuildRoot/BasicMakefile.
-
-Vrui-1.0-064:
-- Added methods to print TranslationTransformation and
-  RotationTransformation objects to Geometry/OutputOperators.
-- Fixed minor formatting bug in Geometry/OutputOperators.
-- Added Plugins::ObjectLoader, a light-weight class to load objects
-  from DSOs without the code overhead induced by
-  Plugins::FactoryManager.
-- Isolated the evil dlsym function pointer hack into
-  Plugins/FunctionPointerHack.h for sanity.
-- Added getEntries() methods to Geometry::Matrix to get access to
-  entries as row-major array.
-- Added OpenGL extension class for GL_ARB_texture_float.
 - Added calcOffset() method to Misc::ArrayIndex.
-- Added calcIndex() method to Misc::ArrayIndex.
-- Added functions to read TIFF images in a variety of formats to Images
-  library.
-- Changed build system to optionally support the libtiff TIFF image
-  library. Support is advertised to applications via defining the
-  IMAGES_HAVE_TIFF macro.
-- Added a new input device tool to snap virtual input devices to planes
-  defined by three points in navigational coordinates.

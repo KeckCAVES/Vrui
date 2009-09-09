@@ -24,9 +24,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ESRIShapeFileNode.h>
 
 #include <string.h>
+#include <Misc/SelfDestructPointer.h>
 #include <Misc/File.h>
 #include <Misc/FileCharacterSource.h>
 #include <Misc/ValueSource.h>
+#include <Misc/XBaseTable.h>
+#include <Geometry/Point.h>
+#include <Geometry/AffineCombiner.h>
 #include <Geometry/Geoid.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/ShapeNode.h>
@@ -34,6 +38,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/CoordinateNode.h>
 #include <SceneGraph/PointSetNode.h>
 #include <SceneGraph/IndexedLineSetNode.h>
+#include <SceneGraph/LabelSetNode.h>
 
 namespace SceneGraph {
 
@@ -75,6 +80,84 @@ struct GeographicProjection // Structure for geographic map projections
 		
 		/* Convert the point to Cartesian: */
 		return geoid.geodeticToCartesian(geodetic);
+		}
+	};
+
+class MapProjection // Base class for map projections
+	{
+	/* Elements: */
+	protected:
+	GeographicProjection geoProjection; // Transformation from geodetic coordinates to Cartesian coordinates
+	
+	/* Constructors and destructors: */
+	public:
+	virtual ~MapProjection(void)
+		{
+		}
+	
+	/* Methods: */
+	void setGeoProjection(const GeographicProjection& newGeoProjection) // Sets the map projection's geographic projection
+		{
+		geoProjection=newGeoProjection;
+		}
+	virtual Point toCartesian(double x,double y,double z) const // Transforms a point in projected coordinates to Cartesian coordinates
+		{
+		/* Pass the point directly to the geodetic projection: */
+		return geoProjection.toCartesian(x,y,z);
+		}
+	};
+
+class AlbersProjection:public MapProjection // Class for Albers equal-area conic projection
+	{
+	/* Elements: */
+	public:
+	double centralMeridian; // Central meridian in radians
+	double centralParallel; // Central parallel in radians
+	double standardParallels[2]; // Lower and upper standard parallels in radians
+	double offset[2]; // False easting and northing in linear units
+	double unitFactor; // Conversion factor from linear units to meters
+	double a,e2,e,n,c,rho0; // Derived projection coefficients
+	
+	/* Methods from MapProjection: */
+	virtual Point toCartesian(double x,double y,double z) const
+		{
+		x=(x-offset[0])*unitFactor;
+		y=(y-offset[1])*unitFactor;
+		
+		double longitude=centralMeridian+Math::atan(x/(rho0-y))/n;
+		
+		double rho=Math::sqrt(Math::sqr(x)+Math::sqr(rho0-y));
+		double q=(c-Math::sqr(rho*n/a))/n;
+		double beta=Math::asin(q/(1.0-((1.0-e2)/(2.0*e))*Math::log((1.0-e)/(1.0+e))));
+		double latitude=beta
+		                +(e2*(1.0/3.0+e2*(31.0/180.0+e2*517.0/5040.0)))*Math::sin(2.0*beta)
+		                +(e2*e2*(23.0/360.0+e2*251.0/3780.0))*Math::sin(4.0*beta)
+		                +(e2*e2*e2*761.0/45360.0)*Math::sin(6.0*beta);
+		return geoProjection.toCartesian(longitude,latitude,z);
+		}
+	
+	/* New methods: */
+	void update(void) // Updates derived projection coefficients
+		{
+		a=geoProjection.geoid.radius;
+		e2=geoProjection.geoid.e2;
+		e=Math::sqrt(e2);
+		double sPhi0=Math::sin(centralParallel);
+		double sPhi1=Math::sin(standardParallels[0]);
+		double sPhi2=Math::sin(standardParallels[1]);
+		double cPhi1=Math::cos(standardParallels[0]);
+		double cPhi2=Math::cos(standardParallels[1]);
+		double q0=(1.0-e2)*(sPhi0/(1.0-e2*Math::sqr(sPhi0))-(0.5/e)*Math::log((1.0-e*sPhi0)/(1.0+e*sPhi0)));
+		double q1=(1.0-e2)*(sPhi1/(1.0-e2*Math::sqr(sPhi1))-(0.5/e)*Math::log((1.0-e*sPhi1)/(1.0+e*sPhi1)));
+		double q2=(1.0-e2)*(sPhi2/(1.0-e2*Math::sqr(sPhi2))-(0.5/e)*Math::log((1.0-e*sPhi2)/(1.0+e*sPhi2)));
+		double m1=cPhi1/Math::sqrt(1.0-e2*Math::sqr(sPhi1));
+		double m2=cPhi2/Math::sqrt(1.0-e2*Math::sqr(sPhi2));
+		n=(Math::sqr(m1)-Math::sqr(m2))/(q2-q1);
+		c=Math::sqr(m1)+n*q1;
+		rho0=a*Math::sqrt(c-n*q0)/n;
+		geoProjection.longitudeFirst=true;
+		geoProjection.longitudeFactor=1.0;
+		geoProjection.latitudeFactor=1.0;
 		}
 	};
 
@@ -250,14 +333,14 @@ double parsePrimeMeridian(Misc::ValueSource& prjFile)
 	return offset;
 	}
 
-double parseAngularUnit(Misc::ValueSource& prjFile)
+double parseUnit(Misc::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
 		throw 1; // Missing opening bracket
 	prjFile.skipString();
 	
-	/* Skip the angular unit name: */
+	/* Skip the linear or angular unit name: */
 	if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
 		throw 4; // Missing required value
 	prjFile.skipString();
@@ -267,15 +350,15 @@ double parseAngularUnit(Misc::ValueSource& prjFile)
 		throw 3; // Missing separator
 	prjFile.skipString();
 	
-	/* Read the angular unit's conversion factor to radians: */
+	/* Read the linear or angular unit's conversion factor to meters or radians, respectively: */
 	if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
 		throw 4; // Missing required value
-	double radiansFactor=prjFile.readNumber();
+	double unitFactor=prjFile.readNumber();
 	
 	/* Skip optional fields: */
 	skipOptionalFields(prjFile);
 	
-	return radiansFactor;
+	return unitFactor;
 	}
 
 int parseAxis(Misc::ValueSource& prjFile)
@@ -321,7 +404,7 @@ int parseAxis(Misc::ValueSource& prjFile)
 	return axis;
 	}
 
-GeographicProjection parseGgcs(Misc::ValueSource& prjFile)
+GeographicProjection parseGeogcs(Misc::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -367,7 +450,7 @@ GeographicProjection parseGgcs(Misc::ValueSource& prjFile)
 		throw 4; // Missing required value
 	if(prjFile.readString()!="UNIT")
 		throw 4; // Missing required value
-	double angularUnitFactor=parseAngularUnit(prjFile);
+	double angularUnitFactor=parseUnit(prjFile);
 	
 	/* Check for optional axis specifications: */
 	bool longitudeFirst=true;
@@ -423,10 +506,151 @@ GeographicProjection parseGgcs(Misc::ValueSource& prjFile)
 	return result;
 	}
 
-GeographicProjection parseProjectionFile(Misc::ValueSource& prjFile)
+MapProjection* parseAlbersProjection(const GeographicProjection& geogcs,Misc::ValueSource& prjFile)
 	{
-	GeographicProjection result;
-	bool haveProjection=false;
+	/* Create the result projection: */
+	Misc::SelfDestructPointer<AlbersProjection> result(new AlbersProjection);
+	result->setGeoProjection(geogcs);
+	
+	/* Read all projection parameters: */
+	while(prjFile.peekc()==',')
+		{
+		/* Skip the separator: */
+		prjFile.skipString();
+		
+		/* Read the next keyword: */
+		if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
+			throw 4; // Missing required value
+		
+		std::string keyword=prjFile.readString();
+		if(keyword=="PARAMETER")
+			{
+			/* Check for and skip the opening bracket: */
+			if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
+				throw 1; // Missing opening bracket
+			prjFile.skipString();
+			
+			/* Read the parameter name: */
+			if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
+				throw 4; // Missing required value
+			std::string parameterName=prjFile.readString();
+			
+			/* Check for and skip the field separator: */
+			if(prjFile.peekc()!=',')
+				throw 3; // Missing separator
+			prjFile.skipString();
+			
+			/* Read the parameter value: */
+			if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
+				throw 4; // Missing required value
+			double parameterValue=prjFile.readNumber();
+			
+			/* Process the parameter: */
+			if(parameterName=="Central_Meridian")
+				result->centralMeridian=parameterValue*geogcs.longitudeFactor;
+			else if(parameterName=="Latitude_Of_Origin")
+				result->centralParallel=parameterValue*geogcs.latitudeFactor;
+			else if(parameterName=="Standard_Parallel_1")
+				result->standardParallels[0]=parameterValue*geogcs.latitudeFactor;
+			else if(parameterName=="Standard_Parallel_2")
+				result->standardParallels[1]=parameterValue*geogcs.latitudeFactor;
+			else if(parameterName=="False_Easting")
+				result->offset[0]=parameterValue;
+			else if(parameterName=="False_Northing")
+				result->offset[1]=parameterValue;
+			else
+				throw 5; // Unrecognized parameter
+			
+			/* Check for and skip the closing bracket: */
+			if(prjFile.eof()||(prjFile.peekc()!=']'&&prjFile.peekc()!=')'))
+				throw 2; // Missing closing bracket
+			prjFile.skipString();
+			}
+		else if(keyword=="UNIT")
+			{
+			/* Read the linear unit's conversion factor to meters: */
+			result->unitFactor=parseUnit(prjFile);
+			}
+		else if(keyword=="AXIS")
+			{
+			/* Parse the axis: */
+			int axis=parseAxis(prjFile);
+			}
+		else
+			{
+			/* Skip the keyword: */
+			skipKeyword(prjFile);
+			}
+		}
+	
+	/* Check for and skip the closing bracket: */
+	if(prjFile.eof()||(prjFile.peekc()!=']'&&prjFile.peekc()!=')'))
+		throw 2; // Missing closing bracket
+	prjFile.skipString();
+	
+	result->update();
+	return result.releaseTarget();
+	}
+
+MapProjection* parseProjcs(Misc::ValueSource& prjFile)
+	{
+	/* Check for and skip the opening bracket: */
+	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
+		throw 1; // Missing opening bracket
+	prjFile.skipString();
+	
+	/* Skip the coordinate system name: */
+	if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
+		throw 4; // Missing required value
+	prjFile.skipString();
+	
+	/* Check for and skip the field separator: */
+	if(prjFile.peekc()!=',')
+		throw 3; // Missing separator
+	prjFile.skipString();
+	
+	/* Read the geographic projection: */
+	if(prjFile.readString()!="GEOGCS")
+		throw 4; // Missing required value
+	GeographicProjection geogcs=parseGeogcs(prjFile);
+	
+	/* Check for and skip the field separator: */
+	if(prjFile.peekc()!=',')
+		throw 3; // Missing separator
+	prjFile.skipString();
+	
+	/* Read the projection type: */
+	if(prjFile.readString()!="PROJECTION")
+		throw 4; // Missing required value
+	
+	/* Check for and skip the opening bracket: */
+	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
+		throw 1; // Missing opening bracket
+	prjFile.skipString();
+	
+	/* Read the projection type name: */
+	if(prjFile.eof()||prjFile.peekc()==']'||prjFile.peekc()==')')
+		throw 4; // Missing required value
+	std::string projectionName=prjFile.readString();
+	
+	/* Check for and skip the closing bracket: */
+	if(prjFile.eof()||(prjFile.peekc()!=']'&&prjFile.peekc()!=')'))
+		throw 2; // Missing closing bracket
+	prjFile.skipString();
+	
+	/* Create a map projection: */
+	MapProjection* result=0;
+	if(projectionName=="Albers")
+		result=parseAlbersProjection(geogcs,prjFile);
+	else
+		throw 5; // Unknown projection type
+	
+	return result;
+	}
+
+MapProjection* parseProjectionFile(Misc::ValueSource& prjFile)
+	{
+	MapProjection* result=0;
 	
 	/* Read tokens until the end of file: */
 	while(!prjFile.eof())
@@ -437,8 +661,13 @@ GeographicProjection parseProjectionFile(Misc::ValueSource& prjFile)
 		if(keyword=="GEOGCS")
 			{
 			/* Parse a geographic coordinate system: */
-			result=parseGgcs(prjFile);
-			haveProjection=true;
+			result=new MapProjection;
+			result->setGeoProjection(parseGeogcs(prjFile));
+			}
+		else if(keyword=="PROJCS")
+			{
+			/* Parse a projected coordinate system: */
+			result=parseProjcs(prjFile);
 			}
 		else
 			{
@@ -447,13 +676,13 @@ GeographicProjection parseProjectionFile(Misc::ValueSource& prjFile)
 			}
 		}
 	
-	if(!haveProjection)
+	if(result==0)
 		throw 4; // Missing required value
 	
 	return result;
 	}
 
-void readPointArray(Misc::File& shapeFile,int numPoints,bool readZ,bool readM,const GeographicProjection& projection,bool applyProjection,CoordinateNode* coord)
+void readPointArray(Misc::File& shapeFile,int numPoints,bool readZ,bool readM,const MapProjection* projection,CoordinateNode* coord)
 	{
 	/* Read all points into a temporary array: */
 	Geometry::Point<double,3>* ps=new Geometry::Point<double,3>[numPoints];
@@ -480,7 +709,7 @@ void readPointArray(Misc::File& shapeFile,int numPoints,bool readZ,bool readM,co
 		{
 		/* Ignore the points' measurement range: */
 		double mRange[2];
-		shapeFile.read(mRange[2]);
+		shapeFile.read(mRange,2);
 		
 		/* Ignore the points' measurements: */
 		for(int i=0;i<numPoints;++i)
@@ -488,10 +717,10 @@ void readPointArray(Misc::File& shapeFile,int numPoints,bool readZ,bool readM,co
 		}
 	
 	/* Store all points in the point set: */
-	if(applyProjection)
+	if(projection!=0)
 		{
 		for(int i=0;i<numPoints;++i)
-			coord->point.appendValue(projection.toCartesian(ps[i][0],ps[i][1],ps[i][2]));
+			coord->point.appendValue(projection->toCartesian(ps[i][0],ps[i][1],ps[i][2]));
 		}
 	else
 		{
@@ -523,6 +752,14 @@ void ESRIShapeFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		{
 		vrmlFile.parseSFNode(appearance);
 		}
+	else if(strcmp(fieldName,"labelField")==0)
+		{
+		vrmlFile.parseField(labelField);
+		}
+	else if(strcmp(fieldName,"fontStyle")==0)
+		{
+		vrmlFile.parseSFNode(fontStyle);
+		}
 	else if(strcmp(fieldName,"transformToCartesian")==0)
 		{
 		vrmlFile.parseField(transformToCartesian);
@@ -546,7 +783,7 @@ void ESRIShapeFileNode::update(void)
 		return;
 	
 	/* Read an optional projection to Cartesian coordinates: */
-	GeographicProjection projection;
+	MapProjection* projection=0;
 	bool applyProjection=transformToCartesian.getValue();
 	if(applyProjection)
 		{
@@ -619,6 +856,24 @@ void ESRIShapeFileNode::update(void)
 	double mRange[2];
 	shapeFile.read(mRange,2);
 	
+	/* Open the attribute file: */
+	std::string attributeFileName=url.getValue(0);
+	attributeFileName.append(".dbf");
+	Misc::XBaseTable attributeFile(attributeFileName.c_str());
+	
+	/* Check if we need to create labels: */
+	bool haveLabels=!labelField.getValue().empty();
+	size_t labelFieldIndex=0;
+	if(haveLabels)
+		{
+		/* Search the label field in the attribute file: */
+		for(labelFieldIndex=0;labelFieldIndex<attributeFile.getNumFields();++labelFieldIndex)
+			if(labelField.getValue()==attributeFile.getFieldName(labelFieldIndex))
+				break;
+		if(labelFieldIndex>=attributeFile.getNumFields())
+			haveLabels=false;
+		}
+	
 	/* Prepare the nodes retrieving geometry from shape file records: */
 	ShapeNode* pointsShape=new ShapeNode;
 	pointsShape->appearance.setValue(appearance.getValue());
@@ -636,7 +891,23 @@ void ESRIShapeFileNode::update(void)
 	polylines->coord.setValue(polylinesCoord);
 	polylines->lineWidth.setValue(lineWidth.getValue());
 	
+	ShapeNode* labelsShape=0;
+	LabelSetNode* labels=0;
+	CoordinateNode* labelsCoord=0;
+	if(haveLabels)
+		{
+		labelsShape=new ShapeNode;
+		labelsShape->appearance.setValue(appearance.getValue());
+		labels=new LabelSetNode;
+		labelsShape->geometry.setValue(labels);
+		labelsCoord=new CoordinateNode;
+		labels->coord.setValue(labelsCoord);
+		labels->fontStyle.setValue(fontStyle.getValue());
+		}
+	
 	/* Read all records from the file: */
+	Misc::XBaseTable::Record attributeRecord=attributeFile.makeRecord();
+	size_t attributeRecordIndex=0;
 	Misc::File::Offset filePos=shapeFile.tell();
 	while(filePos<fileSize)
 		{
@@ -645,11 +916,21 @@ void ESRIShapeFileNode::update(void)
 		int recordNumber=shapeFile.read<int>();
 		Misc::File::Offset recordSize=Misc::File::Offset(shapeFile.read<int>())*Misc::File::Offset(sizeof(short))+Misc::File::Offset(2*sizeof(int)); // Rexord size including header in bytes
 		
+		if(haveLabels)
+			{
+			/* Read the record's attribute record: */
+			attributeFile.readRecord(attributeRecordIndex,attributeRecord);
+			}
+		
 		/* Read the record itself (which is little endian): */
 		shapeFile.setEndianness(Misc::File::LittleEndian);
 		
 		/* Read the shape type in the record and the shape definition: */
 		int recordShapeType=shapeFile.read<int>();
+		size_t recordFirstPointIndex=pointsCoord->point.getNumValues();
+		size_t recordFirstPolylineIndex=polylinesCoord->point.getNumValues();
+		bool isPolyline=false;
+		size_t recordNumPoints=0;
 		switch(recordShapeType)
 			{
 			case NULLSHAPE:
@@ -678,10 +959,13 @@ void ESRIShapeFileNode::update(void)
 					}
 				
 				/* Store the point in the point set: */
-				if(applyProjection)
-					pointsCoord->point.appendValue(projection.toCartesian(px,py,pz));
+				isPolyline=false;
+				recordNumPoints=1;
+				if(projection!=0)
+					pointsCoord->point.appendValue(projection->toCartesian(px,py,pz));
 				else
 					pointsCoord->point.appendValue(Point(px,py,pz));
+				
 				break;
 				}
 			
@@ -694,19 +978,20 @@ void ESRIShapeFileNode::update(void)
 				shapeFile.read(dummy,4);
 				
 				/* Read the number of points: */
-				int numPoints=shapeFile.read<int>();
+				recordNumPoints=size_t(shapeFile.read<int>());
 				
 				/* Determine if the points have measurements: */
 				bool readM=false;
 				size_t minSize=sizeof(int)+4*sizeof(double)+sizeof(int); // Size of fixed record header
-				minSize+=numPoints*(2*sizeof(double)); // Size of 2D point array
+				minSize+=recordNumPoints*(2*sizeof(double)); // Size of 2D point array
 				if(recordShapeType==MULTIPOINTZ)
-					minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of Z range and Z values
-				minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of M range and M values
+					minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
+				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
 				readM=(recordShapeType==MULTIPOINTZ||recordShapeType==MULTIPOINTM)&&recordSize>=Misc::File::Offset(minSize);
 				
 				/* Read the points and add them to the point set: */
-				readPointArray(shapeFile,numPoints,recordShapeType==MULTIPOINTZ,readM,projection,applyProjection,pointsCoord);
+				isPolyline=false;
+				readPointArray(shapeFile,recordNumPoints,recordShapeType==MULTIPOINTZ,readM,projection,pointsCoord);
 				
 				break;
 				}
@@ -721,12 +1006,12 @@ void ESRIShapeFileNode::update(void)
 				
 				/* Read the number of parts and points: */
 				int numParts=shapeFile.read<int>();
-				int numPoints=shapeFile.read<int>();
+				recordNumPoints=size_t(shapeFile.read<int>());
 				
 				/* Read the start point indices for each part: */
 				int* partStartIndices=new int[numParts+1];
 				shapeFile.read(partStartIndices,numParts);
-				partStartIndices[numParts]=numPoints;
+				partStartIndices[numParts]=int(recordNumPoints);
 				
 				/* Add vertex indices for all parts to the polyline set: */
 				int polylinesIndexBase=polylinesCoord->point.getNumValues();
@@ -745,14 +1030,15 @@ void ESRIShapeFileNode::update(void)
 				bool readM=false;
 				size_t minSize=sizeof(int)+4*sizeof(double)+sizeof(int)+sizeof(int); // Size of fixed record header
 				minSize+=numParts*sizeof(int); // Size of part start index array
-				minSize+=numPoints*(2*sizeof(double)); // Size of 2D point array
+				minSize+=recordNumPoints*(2*sizeof(double)); // Size of 2D point array
 				if(recordShapeType==POLYLINEZ)
-					minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of Z range and Z values
-				minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of M range and M values
+					minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
+				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
 				readM=(recordShapeType==POLYLINEZ||recordShapeType==POLYLINEM)&&recordSize>=Misc::File::Offset(minSize);
 				
 				/* Read the points and add them to the polyline set: */
-				readPointArray(shapeFile,numPoints,recordShapeType==POLYLINEZ,readM,projection,applyProjection,polylinesCoord);
+				isPolyline=true;
+				readPointArray(shapeFile,recordNumPoints,recordShapeType==POLYLINEZ,readM,projection,polylinesCoord);
 				
 				break;
 				}
@@ -767,12 +1053,12 @@ void ESRIShapeFileNode::update(void)
 				
 				/* Read the number of parts and points: */
 				int numParts=shapeFile.read<int>();
-				int numPoints=shapeFile.read<int>();
+				recordNumPoints=size_t(shapeFile.read<int>());
 				
 				/* Read the start point indices for each part: */
 				int* partStartIndices=new int[numParts+1];
 				shapeFile.read(partStartIndices,numParts);
-				partStartIndices[numParts]=numPoints;
+				partStartIndices[numParts]=int(recordNumPoints);
 				
 				/* Add vertex indices for all parts to the polyline set: */
 				int polylinesIndexBase=polylinesCoord->point.getNumValues();
@@ -791,14 +1077,15 @@ void ESRIShapeFileNode::update(void)
 				bool readM=false;
 				size_t minSize=sizeof(int)+4*sizeof(double)+sizeof(int)+sizeof(int); // Size of fixed record header
 				minSize+=numParts*sizeof(int); // Size of part start index array
-				minSize+=numPoints*(2*sizeof(double)); // Size of 2D point array
+				minSize+=recordNumPoints*(2*sizeof(double)); // Size of 2D point array
 				if(recordShapeType==POLYGONZ)
-					minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of Z range and Z values
-				minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of M range and M values
+					minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
+				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
 				readM=(recordShapeType==POLYGONZ||recordShapeType==POLYGONM)&&recordSize>=Misc::File::Offset(minSize);
 				
 				/* Read the points and add them to the polyline set: */
-				readPointArray(shapeFile,numPoints,recordShapeType==POLYGONZ,readM,projection,applyProjection,polylinesCoord);
+				isPolyline=true;
+				readPointArray(shapeFile,recordNumPoints,recordShapeType==POLYGONZ,readM,projection,polylinesCoord);
 				
 				break;
 				}
@@ -811,12 +1098,12 @@ void ESRIShapeFileNode::update(void)
 				
 				/* Read the number of parts and points: */
 				int numParts=shapeFile.read<int>();
-				int numPoints=shapeFile.read<int>();
+				recordNumPoints=size_t(shapeFile.read<int>());
 				
 				/* Read the start point indices for each part: */
 				int* partStartIndices=new int[numParts+1];
 				shapeFile.read(partStartIndices,numParts);
-				partStartIndices[numParts]=numPoints;
+				partStartIndices[numParts]=int(recordNumPoints);
 				
 				/* Read the part types for each part: */
 				int* partTypes=new int[numParts];
@@ -881,15 +1168,40 @@ void ESRIShapeFileNode::update(void)
 				size_t minSize=sizeof(int)+4*sizeof(double)+sizeof(int)+sizeof(int); // Size of fixed record header
 				minSize+=numParts*sizeof(int); // Size of part start index array
 				minSize+=numParts*sizeof(int); // Size of part type array
-				minSize+=numPoints*(2*sizeof(double)); // Size of 2D point array
-				minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of Z range and Z values
-				minSize+=2*sizeof(double)+numPoints*sizeof(double); // Size of M range and M values
+				minSize+=recordNumPoints*(2*sizeof(double)); // Size of 2D point array
+				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
+				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
 				readM=recordSize>=Misc::File::Offset(minSize);
 				
 				/* Read the points and add them to the polyline set: */
-				readPointArray(shapeFile,numPoints,true,readM,projection,applyProjection,polylinesCoord);
+				isPolyline=true;
+				readPointArray(shapeFile,recordNumPoints,true,readM,projection,polylinesCoord);
 				
 				break;
+				}
+			}
+				
+		if(haveLabels&&recordNumPoints>0)
+			{
+			/* Create a label for the record: */
+			Misc::XBaseTable::Maybe<std::string> label=attributeFile.getFieldString(attributeRecord,labelFieldIndex);
+			if(label.defined)
+				{
+				labels->string.appendValue(label.value);
+
+				/* Calculate the record's centroid: */
+				Point::AffineCombiner cc;
+				if(isPolyline)
+					{
+					for(size_t i=0;i<recordNumPoints;++i)
+						cc.addPoint(polylinesCoord->point.getValue(recordFirstPolylineIndex+i));
+					}
+				else
+					{
+					for(size_t i=0;i<recordNumPoints;++i)
+						cc.addPoint(pointsCoord->point.getValue(recordFirstPointIndex+i));
+					}
+				labelsCoord->point.appendValue(cc.getPoint());
 				}
 			}
 		
@@ -897,6 +1209,7 @@ void ESRIShapeFileNode::update(void)
 		filePos+=recordSize;
 		if(filePos!=shapeFile.tell())
 			Misc::throwStdErr("ESRIShapeFile::update: Record with invalid size %u in file %s",(unsigned int)recordSize,shapeFileName.c_str());
+		++attributeRecordIndex;
 		}
 	
 	/* Finalize the generated nodes: */
@@ -906,13 +1219,24 @@ void ESRIShapeFileNode::update(void)
 	polylinesCoord->update();
 	polylines->update();
 	polylinesShape->update();
+	if(haveLabels)
+		{
+		labelsCoord->update();
+		labels->update();
+		labelsShape->update();
+		}
 	
 	/* Store all generated nodes as children: */
 	if(pointsCoord->point.getNumValues()>0)
 		children.appendValue(pointsShape);
 	if(polylinesCoord->point.getNumValues()>0)
-	children.appendValue(polylinesShape);
+		children.appendValue(polylinesShape);
+	if(haveLabels&&labelsCoord->point.getNumValues()>0)
+		children.appendValue(labelsShape);
 	GroupNode::update();
+	
+	/* Clean up: */
+	delete projection;
 	}
 
 }

@@ -82,6 +82,13 @@ JPEG_INCLUDE = -I$(JPEG_BASEDIR)/$(INCLUDEEXT)
 JPEG_LIBDIR  = -L$(JPEG_BASEDIR)/$(LIBEXT)
 JPEG_LIBS    = -ljpeg
 
+# The TIFF encoding/decoding package
+TIFF_BASEDIR = $(shell $(VRUIPACKAGEROOT)/BuildRoot/FindLibrary.sh tiffio.h libtiff.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+TIFF_DEPENDS = 
+TIFF_INCLUDE = -I$(TIFF_BASEDIR)/$(INCLUDEEXT)
+TIFF_LIBDIR  = -L$(TIFF_BASEDIR)/$(LIBEXT)
+TIFF_LIBS    = -ltiff
+
 # The ALSA low-level sound library
 ALSA_BASEDIR = $(shell $(VRUIPACKAGEROOT)/BuildRoot/FindLibrary.sh alsa/asoundlib.h libasound.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
 ALSA_DEPENDS = 
@@ -254,6 +261,9 @@ ifneq ($(IMAGES_USE_PNG),0)
 endif
 ifneq ($(IMAGES_USE_JPEG),0)
   MYIMAGES_DEPENDS += JPEG
+endif
+ifneq ($(IMAGES_USE_TIFF),0)
+  MYIMAGES_DEPENDS += TIFF
 endif
 MYIMAGES_INCLUDE    = -I$(MYIMAGES_BASEDIR)
 MYIMAGES_LIBDIR     = -L$(MYIMAGES_BASEDIR)/$(MYLIBEXT)

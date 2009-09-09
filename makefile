@@ -55,13 +55,14 @@ USE_RPATH = 1
 # BuildRoot/SystemDefinitions needs to be set to 0.
 GLSUPPORT_USE_TLS = 0
 
-# Set the following two flags to 1 if the image handling library shall
-# contain support for reading/writing PNG and JPEG images, respectively.
-# This requires that libpng and libjpeg are installed on the host
-# computer, and that the paths to their respective header files /
-# libraries are set properly in $(VRUIPACKAGEROOT)/BuildRoot/Packages
-# For now, the following code tries to automatically determine whether
-# PNG and/or JPEG are supported. This might or might not work.
+# Set the following three flags to 1 if the image handling library shall
+# contain support for reading/writing PNG, JPEG, and TIFF images,
+# respectively. This requires that libpng, libjpeg, and libtiff are
+# installed on the host computer, and that the paths to their respective
+# header files / libraries are set properly in
+# $(VRUIPACKAGEROOT)/BuildRoot/Packages. For now, the following code
+# tries to determine automatically whether PNG, JPEG, and/or TIFF are
+# supported. This might or might not work.
 ifneq ($(strip $(PNG_BASEDIR)),)
   IMAGES_USE_PNG = 1
 else
@@ -71,6 +72,11 @@ ifneq ($(strip $(JPEG_BASEDIR)),)
   IMAGES_USE_JPEG = 1
 else
   IMAGES_USE_JPEG = 0
+endif
+ifneq ($(strip $(TIFF_BASEDIR)),)
+  IMAGES_USE_TIFF = 1
+else
+  IMAGES_USE_TIFF = 0
 endif
 
 # Set this to 1 if Vrui shall contain support for saving screenshots in
@@ -148,7 +154,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000063
+VRUI_VERSION = 1000064
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -279,6 +285,7 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/SixDofInputDeviceTool.cpp \
                   Vrui/Tools/RayInputDeviceTool.cpp \
                   Vrui/Tools/ButtonInputDeviceTool.cpp \
+                  Vrui/Tools/PlaneSnapInputDeviceTool.cpp \
                   Vrui/Tools/WidgetTool.cpp \
                   Vrui/Tools/LaserpointerTool.cpp \
                   Vrui/Tools/ClipPlaneTool.cpp \
@@ -415,6 +422,11 @@ ifneq ($(IMAGES_USE_JPEG),0)
 else
 	@echo "JPG image file format disabled"
 endif
+ifneq ($(IMAGES_USE_TIFF),0)
+	@echo "TIFF image file format enabled"
+else
+	@echo "TIFF image file format disabled"
+endif
 ifneq ($(VRUI_USE_PNG),0)
 	@echo "Screenshots will be saved in PNG format"
 else
@@ -544,10 +556,13 @@ libMisc: $(call LIBRARYNAME,libMisc)
 # The Plugin Handling Library (Plugins):
 #
 
-PLUGINS_HEADERS = Plugins/Factory.h \
+PLUGINS_HEADERS = Plugins/FunctionPointerHack.h \
+                  Plugins/ObjectLoader.h Plugins/ObjectLoader.cpp \
+                  Plugins/Factory.h \
                   Plugins/FactoryManager.h Plugins/FactoryManager.cpp
 
-PLUGINS_SOURCES = Plugins/Factory.cpp \
+PLUGINS_SOURCES = Plugins/ObjectLoader.cpp \
+                  Plugins/Factory.cpp \
                   Plugins/FactoryManager.cpp
 
 $(call LIBRARYNAME,libPlugins): PACKAGES += $(MYPLUGINS_DEPENDS)
@@ -824,6 +839,7 @@ GLSUPPORTEXTENSION_HEADERS = GL/Extensions/GLExtension.h \
                              GL/Extensions/GLARBShaderObjects.h \
                              GL/Extensions/GLARBShadow.h \
                              GL/Extensions/GLARBTextureCompression.h \
+                             GL/Extensions/GLARBTextureFloat.h \
                              GL/Extensions/GLARBTextureNonPowerOfTwo.h \
                              GL/Extensions/GLARBVertexBufferObject.h \
                              GL/Extensions/GLARBVertexProgram.h \
@@ -855,6 +871,7 @@ GLSUPPORT_SOURCES = GL/GLValueCoders.cpp \
                     GL/Extensions/GLARBShaderObjects.cpp \
                     GL/Extensions/GLARBShadow.cpp \
                     GL/Extensions/GLARBTextureCompression.cpp \
+                    GL/Extensions/GLARBTextureFloat.cpp \
                     GL/Extensions/GLARBTextureNonPowerOfTwo.cpp \
                     GL/Extensions/GLARBVertexBufferObject.cpp \
                     GL/Extensions/GLARBVertexProgram.cpp \
@@ -1038,6 +1055,9 @@ endif
 ifneq ($(IMAGES_USE_JPEG),0)
   $(call LIBRARYNAME,libImages): CFLAGS += -DIMAGES_USE_JPEG
 endif
+ifneq ($(IMAGES_USE_TIFF),0)
+  $(call LIBRARYNAME,libImages): CFLAGS += -DIMAGES_USE_TIFF
+endif
 $(call LIBRARYNAME,libImages): $(call DEPENDENCIES,MYIMAGES)
 $(call LIBRARYNAME,libImages): $(IMAGES_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libImages
@@ -1135,6 +1155,7 @@ SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
                      SceneGraph/ShapeNode.h \
                      SceneGraph/FontStyleNode.h \
                      SceneGraph/TextNode.h \
+                     SceneGraph/LabelSetNode.h \
                      SceneGraph/ArcInfoExportFileNode.h \
                      SceneGraph/ESRIShapeFileNode.h
 
@@ -1168,6 +1189,7 @@ SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/ShapeNode.cpp \
                      SceneGraph/FontStyleNode.cpp \
                      SceneGraph/TextNode.cpp \
+                     SceneGraph/LabelSetNode.cpp \
                      SceneGraph/ArcInfoExportFileNode.cpp \
                      SceneGraph/ESRIShapeFileNode.cpp
 
@@ -1519,6 +1541,9 @@ ifneq ($(IMAGES_USE_PNG),0)
 endif
 ifneq ($(IMAGES_USE_JPEG),0)
   VRUIAPP_CFLAGS += -DIMAGES_HAVE_JPEG
+endif
+ifneq ($(IMAGES_USE_TIFF),0)
+  VRUIAPP_CFLAGS += -DIMAGES_HAVE_TIFF
 endif
 VRUIAPP_LDIRS = -L$(LIBINSTALLDIR)
 VRUIAPP_LDIRS += $(sort $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_LIBDIR)))

@@ -46,6 +46,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ShapeNode.h>
 #include <SceneGraph/FontStyleNode.h>
 #include <SceneGraph/TextNode.h>
+#include <SceneGraph/LabelSetNode.h>
 #include <SceneGraph/ArcInfoExportFileNode.h>
 #include <SceneGraph/ESRIShapeFileNode.h>
 
@@ -83,6 +84,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType("Shape",new GenericNodeFactory<ShapeNode>());
 	registerNodeType("FontStyle",new GenericNodeFactory<FontStyleNode>());
 	registerNodeType("Text",new GenericNodeFactory<TextNode>());
+	registerNodeType("LabelSet",new GenericNodeFactory<LabelSetNode>());
 	registerNodeType("ArcInfoExportFile",new GenericNodeFactory<ArcInfoExportFileNode>());
 	registerNodeType("ESRIShapeFile",new GenericNodeFactory<ESRIShapeFileNode>());
 	}
