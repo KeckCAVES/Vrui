@@ -338,7 +338,7 @@ void FPSNavigationTool::frame(void)
 			
 			/* Move by the current velocity: */
 			Rotation yawT=Rotation::rotateZ(angles[1]);
-			move+=yawT.inverseTransform(moveVelocity*getFrameTime());
+			move+=yawT.inverseTransform(moveVelocity*getCurrentFrameTime());
 			surfaceFrame.leftMultiply(NavTransform::translate(move));
 			
 			/* Re-align the surface frame */

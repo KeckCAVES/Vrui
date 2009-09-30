@@ -70,7 +70,7 @@ void ShapeNode::glRenderAction(GLRenderState& renderState) const
 		{
 		/* Turn off all appearance aspects: */
 		renderState.disableMaterials();
-		renderState.emissiveColor=GLRenderState::Color(0.0f,0.0f,0.0f);
+		renderState.emissiveColor=GLRenderState::Color(1.0f,1.0f,1.0f);
 		renderState.disableTextures();
 		}
 	

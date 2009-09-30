@@ -30,11 +30,137 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Geometry {
 
-/******************************
-Methods of class PCACalculator:
-******************************/
+namespace {
 
-unsigned int PCACalculator::calcEigenvalues(double eigenvalues[3]) const
+template <int dimensionParam>
+inline
+Geometry::Vector<double,dimensionParam>
+calcEigenvector(
+	const Geometry::Matrix<double,dimensionParam,dimensionParam>& cov,
+	double eigenvalue)
+	{
+	/* Create the modified covariance matrix: */
+	Geometry::Matrix<double,dimensionParam,dimensionParam> c=cov;
+	for(int i=0;i<dimensionParam;++i)
+		c(i,i)-=eigenvalue;
+	
+	/* Find the null space of the modified covariance matrix: */
+	int rowIndices[dimensionParam];
+	for(int i=0;i<dimensionParam;++i)
+		rowIndices[i]=i;
+	for(int step=0;step<dimensionParam-1;++step)
+		{
+		/* Find the full pivot: */
+		double pivot=Math::abs(c(step,step));
+		int pivotRow=step;
+		int pivotCol=step;
+		for(int i=step;i<dimensionParam;++i)
+			for(int j=step;j<dimensionParam;++j)
+				{
+				double val=Math::abs(c(i,j));
+				if(pivot<val)
+					{
+					pivot=val;
+					pivotRow=i;
+					pivotCol=j;
+					}
+				}
+		
+		/* Swap current and pivot rows if necessary: */
+		if(pivotRow!=step)
+			{
+			/* Swap rows step and pivotRow: */
+			for(int j=0;j<dimensionParam;++j)
+				Misc::swap(c(step,j),c(pivotRow,j));
+			}
+		
+		/* Swap current and pivot columns if necessary: */
+		if(pivotCol!=step)
+			{
+			/* Swap columns step and pivotCol: */
+			for(int i=0;i<dimensionParam;++i)
+				Misc::swap(c(i,step),c(i,pivotCol));
+			Misc::swap(rowIndices[step],rowIndices[pivotCol]);
+			}
+		
+		/* Combine all rows with the current row: */
+		for(int i=step+1;i<dimensionParam;++i)
+			{
+			/* Combine rows i and step: */
+			double factor=-c(i,step)/c(step,step);
+			for(int j=step+1;j<dimensionParam;++j)
+				c(i,j)+=c(step,j)*factor;
+			}
+		}
+	
+	/* Calculate the swizzled result using backsubstitution: */
+	double x[3];
+	x[dimensionParam-1]=1.0;
+	for(int i=dimensionParam-2;i>=0;--i)
+		{
+		x[i]=0.0;
+		for(int j=i+1;j<dimensionParam;++j)
+			x[i]-=c(i,j)*x[j];
+		x[i]/=c(i,i);
+		}
+	
+	/* Unswizzle and normalize the result: */
+	Geometry::Vector<double,dimensionParam> result;
+	for(int i=0;i<dimensionParam;++i)
+		result[rowIndices[i]]=x[i];
+	result.normalize();
+	return result;
+	}
+
+}
+
+/*********************************
+Methods of class PCACalculator<2>:
+*********************************/
+
+//template <>
+unsigned int
+PCACalculator<2>::calcEigenvalues(
+	double eigenvalues[2]) const
+	{
+	/* Calculate the coefficients of the covariance matrix' characteristic polynomial: */
+	double mph=0.5*(cov(0,0)+cov(1,1));
+	double q=cov(0,0)*cov(1,1)-cov(0,1)*cov(1,0);
+	double det=Math::sqr(mph)-q;
+	if(det>0.0)
+		{
+		det=Math::sqrt(det);
+		eigenvalues[0]=mph-det;
+		eigenvalues[1]=mph+det;
+		if(Math::abs(eigenvalues[0])<Math::abs(eigenvalues[1]))
+			Misc::swap(eigenvalues[0],eigenvalues[1]);
+		return 2;
+		}
+	else if(det==0.0)
+		{
+		eigenvalues[0]=eigenvalues[1]=mph;
+		return 1;
+		}
+	else
+		return 0;
+	}
+
+//template <>
+PCACalculator<2>::Vector
+PCACalculator<2>::calcEigenvector(
+	double eigenvalue) const
+	{
+	return Geometry::calcEigenvector(cov,eigenvalue);
+	}
+
+/*********************************
+Methods of class PCACalculator<3>:
+*********************************/
+
+//template <>
+unsigned int
+PCACalculator<3>::calcEigenvalues(
+	double eigenvalues[3]) const
 	{
 	/* Calculate the coefficients of the covariance matrix' characteristic polynomial: */
 	double cp[3];
@@ -99,79 +225,19 @@ unsigned int PCACalculator::calcEigenvalues(double eigenvalues[3]) const
 		}
 	}
 
-PCACalculator::Vector PCACalculator::calcEigenvector(double eigenvalue) const
+//template <>
+PCACalculator<3>::Vector
+PCACalculator<3>::calcEigenvector(
+	double eigenvalue) const
 	{
-	/* Create the modified covariance matrix: */
-	Matrix c=cov;
-	for(int i=0;i<3;++i)
-		c(i,i)-=eigenvalue;
-	
-	/* Find the null space of the modified covariance matrix: */
-	int rowIndices[3];
-	for(int i=0;i<3;++i)
-		rowIndices[i]=i;
-	for(int step=0;step<3-1;++step)
-		{
-		/* Find the full pivot: */
-		double pivot=Math::abs(c(step,step));
-		int pivotRow=step;
-		int pivotCol=step;
-		for(int i=step;i<3;++i)
-			for(int j=step;j<3;++j)
-				{
-				double val=Math::abs(c(i,j));
-				if(pivot<val)
-					{
-					pivot=val;
-					pivotRow=i;
-					pivotCol=j;
-					}
-				}
-		
-		/* Swap current and pivot rows if necessary: */
-		if(pivotRow!=step)
-			{
-			/* Swap rows step and pivotRow: */
-			for(int j=0;j<3;++j)
-				Misc::swap(c(step,j),c(pivotRow,j));
-			}
-		
-		/* Swap current and pivot columns if necessary: */
-		if(pivotCol!=step)
-			{
-			/* Swap columns step and pivotCol: */
-			for(int i=0;i<3;++i)
-				Misc::swap(c(i,step),c(i,pivotCol));
-			Misc::swap(rowIndices[step],rowIndices[pivotCol]);
-			}
-		
-		/* Combine all rows with the current row: */
-		for(int i=step+1;i<3;++i)
-			{
-			/* Combine rows i and step: */
-			double factor=-c(i,step)/c(step,step);
-			for(int j=step+1;j<3;++j)
-				c(i,j)+=c(step,j)*factor;
-			}
-		}
-	
-	/* Calculate the swizzled result using backsubstitution: */
-	double x[3];
-	x[3-1]=1.0;
-	for(int i=3-2;i>=0;--i)
-		{
-		x[i]=0.0;
-		for(int j=i+1;j<3;++j)
-			x[i]-=c(i,j)*x[j];
-		x[i]/=c(i,i);
-		}
-	
-	/* Unswizzle and normalize the result: */
-	Vector result;
-	for(int i=0;i<3;++i)
-		result[rowIndices[i]]=x[i];
-	result.normalize();
-	return result;
+	return Geometry::calcEigenvector(cov,eigenvalue);
 	}
+
+/***********************************************************************
+Force instantiation of all standard PCACalculator classes and functions:
+***********************************************************************/
+
+template class PCACalculator<2>;
+template class PCACalculator<3>;
 
 }

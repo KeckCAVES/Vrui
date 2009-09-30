@@ -417,6 +417,8 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 				++i;
 				screenSquareSize=atoi(argv[i]);
 				}
+			else if(strcasecmp(argv[i]+1,"metersToInches")==0)
+				unitScale=1000.0/25.4;
 			else if(strcasecmp(argv[i]+1,"unitScale")==0)
 				{
 				++i;
@@ -464,24 +466,24 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	*********************************************************************/
 	
 	/* Fit a plane to the floor points: */
-	Geometry::PCACalculator floorPca;
+	Geometry::PCACalculator<3> floorPca;
 	for(PointList::const_iterator fpIt=floorPoints.begin();fpIt!=floorPoints.end();++fpIt)
 		floorPca.accumulatePoint(*fpIt);
 	Point floorCentroid=floorPca.calcCentroid();
 	floorPca.calcCovariance();
 	double floorEv[3];
 	floorPca.calcEigenvalues(floorEv);
-	Geometry::PCACalculator::Vector floorNormal=floorPca.calcEigenvector(floorEv[2]);
+	Geometry::PCACalculator<3>::Vector floorNormal=floorPca.calcEigenvector(floorEv[2]);
 	
 	/* Fit a plane to the screen points: */
-	Geometry::PCACalculator screenPca;
+	Geometry::PCACalculator<3> screenPca;
 	for(PointList::const_iterator spIt=screenPoints.begin();spIt!=screenPoints.end();++spIt)
 		screenPca.accumulatePoint(*spIt);
 	Point screenCentroid=screenPca.calcCentroid();
 	screenPca.calcCovariance();
 	double screenEv[3];
 	screenPca.calcEigenvalues(screenEv);
-	Geometry::PCACalculator::Vector screenNormal=screenPca.calcEigenvector(screenEv[2]);
+	Geometry::PCACalculator<3>::Vector screenNormal=screenPca.calcEigenvector(screenEv[2]);
 	
 	/* Flip the floor normal such that it points towards the screen points: */
 	if((screenCentroid-floorCentroid)*floorNormal<Scalar(0))
@@ -657,15 +659,31 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 		size_t numPoints=trackingPoints.size();
 		if(numPoints>ballPoints.size())
 			numPoints=ballPoints.size();
+		
+		/* Calculate the centroid of the tracking points: */
+		Point::AffineCombiner tpCc;
+		for(size_t i=0;i<numPoints;++i)
+			tpCc.addPoint(trackingPoints[i]);
+		Vector tpTranslation=tpCc.getPoint()-Point::origin;
+		for(size_t i=0;i<numPoints;++i)
+			trackingPoints[i]-=tpTranslation;
 		ONTransformFitter ontf(numPoints,&trackingPoints[0],&ballPoints[0]);
-		ontf.setTransform(ONTransformFitter::Transform::rotate(ONTransformFitter::Transform::Rotation::rotateX(Math::rad(Scalar(90)))));
+		//ontf.setTransform(ONTransformFitter::Transform::rotate(ONTransformFitter::Transform::Rotation::rotateX(Math::rad(Scalar(90)))));
 		ONTransformFitter::Scalar result=LevenbergMarquardtMinimizer<ONTransformFitter>::minimize(ontf);
+		ONTransform tsCal=ontf.getTransform();
+		tsCal*=ONTransform::translate(-tpTranslation);
+		
 		std::cout<<"Final distance: "<<result<<std::endl;
-		std::cout<<"Tracking system calibration transformation: "<<ontf.getTransform()<<std::endl;
+		std::cout<<"Tracking system calibration transformation: "<<tsCal<<std::endl;
+		
+		std::cout<<"Configuration settings for tracking calibrator: "<<std::endl;
+		std::cout<<"transformation translate "<<tsCal.getTranslation()*unitScale<<" \\"<<std::endl;
+		std::cout<<"               * scale "<<unitScale<<" \\"<<std::endl;
+		std::cout<<"               * rotate "<<tsCal.getRotation().getAxis()<<", "<<Math::deg(tsCal.getRotation().getAngle())<<std::endl;
 		
 		/* Transform the tracking points with the result transformation: */
 		for(PointList::iterator tpIt=trackingPoints.begin();tpIt!=trackingPoints.end();++tpIt)
-			*tpIt=ontf.getTransform().transform(*tpIt);
+			*tpIt=tsCal.transform(*tpIt+tpTranslation);
 		}
 	
 	/* Initialize the navigation transformation: */

@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui 1.0, build 064
+README for Vrui 1.0, build 065
 Copyright (c) 1998-2009 Oliver Kreylos
 ========================================================================
 
@@ -175,19 +175,20 @@ __BIG_ENDIAN on big-endian machines. The Misc/Endianness.h header file
 includes the appropriate system header files for Linux and Mac OS X, but
 might need to be adapted for other operating systems.
 
-Support for PNG and JPEG
-------------------------
+Support for PNG, JPEG, and TIFF
+-------------------------------
 
 The image handling library that is part of the Vrui toolkit supports
-reading and writing image files in PNG and JPEG formats. These features
-are based on the libpng and libjpeg libraries, respectively. If the host
-computer does not contain either of these libraries, support for PNG and
-JPEG images can be disabled separately in the makefile by setting
-IMAGES_USE_PNG or IMAGES_USE_JPEG to 0, respectively. The Vrui makefile
-now contains code to automatically detect whether libpng and/or libjpeg
-are installed, and sets these two variables accordingly. More precisely,
-the makefile looks for png.h and jpeglib.h in /usr/include and
-/usr/local/include. If either library is installed in a different
+reading and writing image files in PNG, JPEG, and TIFF formats. These
+features are based on the libpng, libjpeg, and libtiff libraries,
+respectively. If the host computer does not contain either of these
+libraries, support for PNG, JPEG, or TIFF images can be disabled
+separately in the makefile by setting IMAGES_USE_PNG, IMAGES_USE_JPEG,
+or IMAGES_USE_TIFF to 0, respectively. The Vrui makefile now contains
+code to automatically detect whether libpng, libjpeg, and/or libtiff are
+installed, and sets these three variables accordingly. More precisely,
+the makefile looks for png.h, jpeglib.h, and tiffio.h in /usr/include
+and /usr/local/include. If either library is installed in a different
 directory on the host system, the makefile variables need to be set
 manually, and the paths to the libraries need to be adjusted in
 BuildRoot/Packages.

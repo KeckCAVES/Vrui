@@ -20,6 +20,8 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#define NONSTANDARD_GLVERTEX_TEMPLATES
+
 #include <SceneGraph/ElevationGridNode.h>
 
 #include <string.h>
@@ -71,10 +73,35 @@ ElevationGridNode::DataItem::~DataItem(void)
 Methods of class ElevationGridNode:
 **********************************/
 
-void ElevationGridNode::uploadVerticesSmooth(void) const
+Vector ElevationGridNode::calcVertexNormal(int x,int z) const
+	{
+	Vector result;
+	int xDim=xDimension.getValue();
+	int zDim=zDimension.getValue();
+	size_t vInd=z*xDim+x;
+	if(x==0)
+		result[0]=-(height.getValue(vInd+1)-height.getValue(vInd))*zSpacing.getValue();
+	else if(x==xDim-1)
+		result[0]=-(height.getValue(vInd)-height.getValue(vInd-1))*zSpacing.getValue();
+	else
+		result[0]=-(height.getValue(vInd+1)-height.getValue(vInd-1))*Scalar(0.5)*zSpacing.getValue();
+	result[1]=xSpacing.getValue()*zSpacing.getValue();
+	if(z==0)
+		result[2]=-(height.getValue(vInd+xDim)-height.getValue(vInd))*xSpacing.getValue();
+	else if(z==zDim-1)
+		result[2]=-(height.getValue(vInd)-height.getValue(vInd-xDim))*xSpacing.getValue();
+	else
+		result[2]=-(height.getValue(vInd+xDim)-height.getValue(vInd-xDim))*Scalar(0.5)*xSpacing.getValue();
+	if(!ccw.getValue())
+		result=-result;
+	result.normalize();
+	return result;
+	}
+
+void ElevationGridNode::uploadIndexedQuadStripSet(void) const
 	{
 	/* Define the vertex type used in the vertex array: */
-	typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> Vertex;
+	typedef GLGeometry::Vertex<Scalar,2,GLubyte,4,Scalar,Scalar,3> Vertex;
 	
 	/* Initialize the vertex buffer object: */
 	int xDim=xDimension.getValue();
@@ -85,40 +112,44 @@ void ElevationGridNode::uploadVerticesSmooth(void) const
 	
 	/* Store all vertices: */
 	Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
+	size_t vInd=0;
 	for(int z=0;z<zDim;++z)
-		for(int x=0;x<xDim;++x,++vPtr)
+		for(int x=0;x<xDim;++x,++vPtr,++vInd)
 			{
 			/* Store the vertex' texture coordinate: */
-			vPtr->texCoord=texCoord.getValue()!=0?texCoord.getValue()->point.getValue(z*xDim+x):Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
+			if(texCoord.getValue()!=0)
+				vPtr->texCoord=texCoord.getValue()->point.getValue(vInd);
+			else
+				vPtr->texCoord=Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
 			
 			/* Store the vertex' color: */
 			if(color.getValue()!=0)
-				vPtr->color=color.getValue()->color.getValue(z*xDim+x);
-			
-			/* Store the vertex' normal: */
-			Vertex::Normal normal;
-			if(x==0)
-				normal[0]=(height.getValue(z*xDim+(x+1))-height.getValue(z*xDim+x))/xSp;
-			else if(x==xDim-1)
-				normal[0]=(height.getValue(z*xDim+x)-height.getValue(z*xDim+(x-1)))/xSp;
+				vPtr->color=Vertex::Color(color.getValue()->color.getValue(vInd));
 			else
-				normal[0]=(height.getValue(z*xDim+(x+1))-height.getValue(z*xDim+(x-1)))/(Scalar(2)*xSp);
-			normal[1]=Scalar(1);
-			if(z==0)
-				normal[2]=(height.getValue((z+1)*xDim+x)-height.getValue(z*xDim+x))/zSp;
-			else if(z==zDim-1)
-				normal[2]=(height.getValue(z*xDim+x)-height.getValue((z-1)*xDim+x))/zSp;
-			else
-				normal[2]=(height.getValue((z+1)*xDim+x)-height.getValue((z-1)*xDim+x))/(Scalar(2)*zSp);
-			if(!ccw.getValue())
-				normal=-normal;
-			normal.normalize();
-			vPtr->normal=normal;
+				vPtr->color=Vertex::Color(255,255,255);
 			
-			/* Store the vertex' position: */
-			vPtr->position[0]=Scalar(x)*Scalar(xSp);
-			vPtr->position[1]=height.getValue(z*xDim+x);
-			vPtr->position[2]=Scalar(z)*Scalar(zSp);
+			/* Calculate the vertex' position and normal: */
+			Point p;
+			p[0]=origin.getValue()[0]+Scalar(x)*Scalar(xSp);
+			p[1]=origin.getValue()[1]+height.getValue(z*xDim+x);
+			p[2]=origin.getValue()[2]+Scalar(z)*Scalar(zSp);
+			Vector n;
+			if(normal.getValue()!=0)
+				n=Geometry::normalize(normal.getValue()->vector.getValue(vInd));
+			else
+				n=calcVertexNormal(x,z);
+			
+			/* Store the vertex position and normal: */
+			if(pointTransform.getValue()!=0)
+				{
+				vPtr->normal=Vertex::Normal(pointTransform.getValue()->transformNormal(p,n));
+				vPtr->position=Vertex::Position(pointTransform.getValue()->transformPoint(p));
+				}
+			else
+				{
+				vPtr->normal=Vertex::Normal(n);
+				vPtr->position=Vertex::Position(p);
+				}
 			}
 	
 	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
@@ -133,8 +164,8 @@ void ElevationGridNode::uploadVerticesSmooth(void) const
 		for(int z=0;z<zDim-1;++z)
 			for(int x=0;x<xDim;++x,iPtr+=2)
 				{
-				iPtr[0]=GLuint((z+1)*xDim+x);
-				iPtr[1]=GLuint(z*xDim+x);
+				iPtr[0]=GLuint(z*xDim+x);
+				iPtr[1]=GLuint((z+1)*xDim+x);
 				}
 		}
 	else
@@ -142,18 +173,18 @@ void ElevationGridNode::uploadVerticesSmooth(void) const
 		for(int z=0;z<zDim-1;++z)
 			for(int x=0;x<xDim;++x,iPtr+=2)
 				{
-				iPtr[0]=GLuint(z*xDim+x);
-				iPtr[1]=GLuint((z+1)*xDim+x);
+				iPtr[0]=GLuint((z+1)*xDim+x);
+				iPtr[1]=GLuint(z*xDim+x);
 				}
 		}
 	
 	glUnmapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB);
 	}
 
-void ElevationGridNode::uploadVerticesFaceted(void) const
+void ElevationGridNode::uploadQuadSet(void) const
 	{
 	/* Define the vertex type used in the vertex array: */
-	typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> Vertex;
+	typedef GLGeometry::Vertex<Scalar,2,GLubyte,4,Scalar,Scalar,3> Vertex;
 	
 	/* Initialize the vertex buffer object: */
 	int xDim=xDimension.getValue();
@@ -164,103 +195,139 @@ void ElevationGridNode::uploadVerticesFaceted(void) const
 	
 	/* Store all vertices: */
 	Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
+	size_t qInd=0;
 	for(int z=0;z<zDim-1;++z)
-		for(int x=0;x<xDim-1;++x,vPtr+=4)
+		for(int x=0;x<xDim-1;++x,vPtr+=4,++qInd)
 			{
-			/* Get the corner heights of the current quad: */
-			Scalar h0=height.getValue(z*xDim+x);
-			Scalar h1=height.getValue(z*xDim+(x+1));
-			Scalar h2=height.getValue((z+1)*xDim+x);
-			Scalar h3=height.getValue((z+1)*xDim+(x+1));
-			
-			/* Calculate the normal vector of the current quad: */
-			Vertex::Normal normal;
-			normal=Vertex::Normal((h0-h1+h2-h3)*zSp,Scalar(2)*xSp*zSp,(h0+h1-h2-h3)*xSp);
-			normal.normalize();
+			size_t vInd=z*xDim+x;
+			Vertex v[4];
 			
 			/* Calculate the corner texture coordinates of the current quad: */
-			Vertex::TexCoord tc[4];
 			if(texCoord.getValue()!=0)
 				{
-				tc[0]=texCoord.getValue()->point.getValue(z*xDim+x);
-				tc[1]=texCoord.getValue()->point.getValue(z*xDim+(x+1));
-				tc[2]=texCoord.getValue()->point.getValue((z+1)*xDim+x);
-				tc[3]=texCoord.getValue()->point.getValue((z+1)*xDim+(x+1));
+				v[0].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd));
+				v[1].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd+1));
+				v[2].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd+xDim+1));
+				v[3].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd+xDim));
 				}
 			else
 				{
-				tc[0]=Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
-				tc[1]=Vertex::TexCoord(Scalar(x+1)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
-				tc[2]=Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z+1)/Scalar(zDim-1));
-				tc[3]=Vertex::TexCoord(Scalar(x+1)/Scalar(xDim-1),Scalar(z+1)/Scalar(zDim-1));
+				v[0].texCoord=Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
+				v[1].texCoord=Vertex::TexCoord(Scalar(x+1)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
+				v[2].texCoord=Vertex::TexCoord(Scalar(x+1)/Scalar(xDim-1),Scalar(z+1)/Scalar(zDim-1));
+				v[3].texCoord=Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z+1)/Scalar(zDim-1));
+				}
+			
+			/* Get the corner colors of the current quad: */
+			if(color.getValue()!=0)
+				{
+				if(colorPerVertex.getValue())
+					{
+					v[0].color=Vertex::Color(color.getValue()->color.getValue(vInd));
+					v[1].color=Vertex::Color(color.getValue()->color.getValue(vInd+1));
+					v[2].color=Vertex::Color(color.getValue()->color.getValue(vInd+xDim+1));
+					v[3].color=Vertex::Color(color.getValue()->color.getValue(vInd+xDim));
+					}
+				else
+					{
+					Vertex::Color c=Vertex::Color(color.getValue()->color.getValue(qInd));
+					for(int i=0;i<4;++i)
+						v[i].color=c;
+					}
+				}
+			else
+				{
+				for(int i=0;i<4;++i)
+					v[i].color=Vertex::Color(255,255,255);
+				}
+			
+			/* Calculate the corner positions of the current quad: */
+			Scalar x0=origin.getValue()[0]+Scalar(x)*xSp;
+			Scalar z0=origin.getValue()[2]+Scalar(z)*zSp;
+			Point cp[4];
+			cp[0]=Point(x0,origin.getValue()[1]+height.getValue(vInd),z0);
+			cp[1]=Point(x0+xSp,origin.getValue()[1]+height.getValue(vInd+1),z0);
+			cp[2]=Point(x0+xSp,origin.getValue()[1]+height.getValue(vInd+xDim+1),z0+zSp);
+			cp[3]=Point(x0,origin.getValue()[1]+height.getValue(vInd+xDim),z0+zSp);
+			
+			/* Calculate the corner normal vectors of the current quad: */
+			Vector cn[4];
+			if(normalPerVertex.getValue())
+				{
+				if(normal.getValue()!=0)
+					{
+					cn[0]=Geometry::normalize(normal.getValue()->vector.getValue(vInd));
+					cn[1]=Geometry::normalize(normal.getValue()->vector.getValue(vInd+1));
+					cn[2]=Geometry::normalize(normal.getValue()->vector.getValue(vInd+xDim+1));
+					cn[3]=Geometry::normalize(normal.getValue()->vector.getValue(vInd+xDim));
+					}
+				else
+					{
+					cn[0]=calcVertexNormal(x,z);
+					cn[1]=calcVertexNormal(x+1,z);
+					cn[2]=calcVertexNormal(x+1,z+1);
+					cn[3]=calcVertexNormal(x,z+1);
+					}
+				}
+			else
+				{
+				Vector n;
+				if(normal.getValue()!=0)
+					n=normal.getValue()->vector.getValue(qInd);
+				else
+					{
+					n[0]=(cp[0][1]-cp[1][1]-cp[2][1]+cp[3][1])*zSp;
+					n[1]=Scalar(2)*xSp*zSp;
+					n[2]=(cp[0][1]+cp[1][1]-cp[2][1]-cp[3][1])*xSp;
+					if(!ccw.getValue())
+						n=-n;
+					}
+				n.normalize();
+				for(int i=0;i<4;++i)
+					cn[i]=n;
+				}
+			
+			/* Set the corner positions and normal vectors of the current quad: */
+			for(int i=0;i<4;++i)
+				{
+				if(pointTransform.getValue()!=0)
+					{
+					v[i].normal=Vertex::Normal(pointTransform.getValue()->transformNormal(cp[i],cn[i]));
+					v[i].position=Vertex::Position(pointTransform.getValue()->transformPoint(cp[i]));
+					}
+				else
+					{
+					v[i].normal=Vertex::Normal(cn[i]);
+					v[i].position=Vertex::Position(cp[i]);
+					}
 				}
 			
 			/* Store the corner vertices of the current quad: */
 			if(ccw.getValue())
 				{
 				/* Store the corner vertices in counter-clockwise order: */
-				vPtr[0].texCoord=tc[0];
-				if(color.getValue()!=0)
-					vPtr[0].color=colorPerVertex.getValue()?color.getValue()->color.getValue(z*xDim+x):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[0].normal=normal;
-				vPtr[0].position=Vertex::Position(Scalar(x)*xSp,h0,Scalar(z)*zSp);
-				vPtr[1].texCoord=tc[1];
-				if(color.getValue()!=0)
-					vPtr[1].color=colorPerVertex.getValue()?color.getValue()->color.getValue(z*xDim+(x+1)):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[1].normal=normal;
-				vPtr[1].position=Vertex::Position(Scalar(x+1)*xSp,h1,Scalar(z)*zSp);
-				vPtr[2].texCoord=tc[3];
-				if(color.getValue()!=0)
-					vPtr[2].color=colorPerVertex.getValue()?color.getValue()->color.getValue((z+1)*xDim+(x+1)):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[2].normal=normal;
-				vPtr[2].position=Vertex::Position(Scalar(x+1)*xSp,h3,Scalar(z+1)*zSp);
-				vPtr[3].texCoord=tc[2];
-				if(color.getValue()!=0)
-					vPtr[3].color=colorPerVertex.getValue()?color.getValue()->color.getValue((z+1)*xDim+x):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[3].normal=normal;
-				vPtr[3].position=Vertex::Position(Scalar(x)*xSp,h2,Scalar(z+1)*zSp);
+				for(int i=0;i<4;++i)
+					vPtr[i]=v[3-i];
 				}
 			else
 				{
-				/* Flip the normal vector: */
-				normal=-normal;
-				
 				/* Store the corner vertices in clockwise order: */
-				vPtr[0].texCoord=tc[0];
-				if(color.getValue()!=0)
-					vPtr[0].color=colorPerVertex.getValue()?color.getValue()->color.getValue(z*xDim+x):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[0].normal=normal;
-				vPtr[0].position=Vertex::Position(Scalar(x)*xSp,h0,Scalar(z)*zSp);
-				vPtr[1].texCoord=tc[2];
-				if(color.getValue()!=0)
-					vPtr[1].color=colorPerVertex.getValue()?color.getValue()->color.getValue((z+1)*xDim+x):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[1].normal=normal;
-				vPtr[1].position=Vertex::Position(Scalar(x)*xSp,h2,Scalar(z+1)*zSp);
-				vPtr[2].texCoord=tc[3];
-				if(color.getValue()!=0)
-					vPtr[2].color=colorPerVertex.getValue()?color.getValue()->color.getValue((z+1)*xDim+(x+1)):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[2].normal=normal;
-				vPtr[2].position=Vertex::Position(Scalar(x+1)*xSp,h3,Scalar(z+1)*zSp);
-				vPtr[3].texCoord=tc[1];
-				if(color.getValue()!=0)
-					vPtr[3].color=colorPerVertex.getValue()?color.getValue()->color.getValue(z*xDim+(x+1)):color.getValue()->color.getValue(z*(xDim-1)+x);
-				vPtr[3].normal=normal;
-				vPtr[3].position=Vertex::Position(Scalar(x+1)*xSp,h1,Scalar(z)*zSp);
+				for(int i=0;i<4;++i)
+					vPtr[i]=v[i];
 				}
 			}
 	
 	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
-	
-	/* Clear the index buffer object (not needed for faceted elevation grids): */
-	glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,0,0,GL_STATIC_DRAW_ARB);
 	}
 
 ElevationGridNode::ElevationGridNode(void)
 	:colorPerVertex(true),normalPerVertex(true),
 	 creaseAngle(0),
+	 origin(Point::origin),
 	 xDimension(0),xSpacing(0),
 	 zDimension(0),zSpacing(0),
-	 ccw(true),solid(true)
+	 ccw(true),solid(true),
+	 version(0)
 	{
 	}
 
@@ -289,6 +356,10 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	else if(strcmp(fieldName,"creaseAngle")==0)
 		{
 		vrmlFile.parseField(creaseAngle);
+		}
+	else if(strcmp(fieldName,"origin")==0)
+		{
+		vrmlFile.parseField(origin);
 		}
 	else if(strcmp(fieldName,"xDimension")==0)
 		{
@@ -324,6 +395,12 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 
 void ElevationGridNode::update(void)
 	{
+	/* Check whether the elevation grid is valid: */
+	valid=xDimension.getValue()>0&&zDimension.getValue()>0&&height.getNumValues()>=size_t(xDimension.getValue())*size_t(zDimension.getValue());
+	
+	/* Check whether the elevation grid can be represented by a set of indexed triangle strips: */
+	indexed=(color.getValue()==0||colorPerVertex.getValue())&&normalPerVertex.getValue();
+	
 	/* Bump up the elevation grid's version number: */
 	++version;
 	}
@@ -332,20 +409,20 @@ Box ElevationGridNode::calcBoundingBox(void) const
 	{
 	Box result=Box::empty;
 	
-	if(height.getNumValues()==size_t(xDimension.getValue())*size_t(zDimension.getValue()))
+	if(valid)
 		{
 		if(pointTransform.getValue()!=0)
 			{
 			/* Return the bounding box of the transformed point coordinates: */
 			MFFloat::ValueList::const_iterator hIt=height.getValues().begin();
 			Point p;
-			p[2]=Scalar(0);
+			p[2]=origin.getValue()[2];
 			for(int z=0;z<zDimension.getValue();++z,p[2]+=zSpacing.getValue())
 				{
-				p[0]=Scalar(0);
+				p[0]=origin.getValue()[0];
 				for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
 					{
-					p[1]=*hIt;
+					p[1]=origin.getValue()[1]+*hIt;
 					result.addPoint(pointTransform.getValue()->transformPoint(p));
 					}
 				}
@@ -363,7 +440,7 @@ Box ElevationGridNode::calcBoundingBox(void) const
 				else if(yMax<*hIt)
 					yMax=*hIt;
 				}
-			result=Box(Point(0,yMin,0),Point(Scalar(xDimension.getValue()-1)*xSpacing.getValue(),yMax,Scalar(zDimension.getValue()-1)*zSpacing.getValue()));
+			result=Box(origin.getValue()+Vector(0,yMin,0),origin.getValue()+Vector(Scalar(xDimension.getValue()-1)*xSpacing.getValue(),yMax,Scalar(zDimension.getValue()-1)*zSpacing.getValue()));
 			}
 		}
 	
@@ -372,73 +449,78 @@ Box ElevationGridNode::calcBoundingBox(void) const
 
 void ElevationGridNode::glRenderAction(GLRenderState& renderState) const
 	{
+	/* Bail out if the elevation grid is invalid: */
+	if(!valid)
+		return;
+	
+	/* Set up OpenGL state: */
+	if(solid.getValue())
+		renderState.enableCulling(GL_BACK);
+	else
+		renderState.disableCulling();
+	
 	/* Get the context data item: */
 	DataItem* dataItem=renderState.contextData.retrieveDataItem<DataItem>(this);
 	
-	if(dataItem->vertexBufferObjectId!=0)
+	typedef GLGeometry::Vertex<Scalar,2,GLubyte,4,Scalar,Scalar,3> Vertex;
+	
+	/* Bind the vertex buffer object: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+	
+	/* Set up the vertex arrays: */
+	int vertexArrayParts=Vertex::getPartsMask();
+	if(color.getValue()==0)
 		{
-		/*******************************************************************
-		Render the elevation grid from the vertex buffer:
-		*******************************************************************/
-		
-		typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> Vertex;
-		
-		/* Bind the vertex and index buffer objects: */
-		glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+		/* Disable the color vertex array: */
+		vertexArrayParts&=~GLVertexArrayParts::Color;
+		}
+	GLVertexArrayParts::enable(vertexArrayParts);
+	glVertexPointer(static_cast<Vertex*>(0));
+	
+	if(indexed)
+		{
+		/* Bind the index buffer object: */
 		glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,dataItem->indexBufferObjectId);
 		
-		/* Check if the buffers need to be updated: */
+		/* Check if the buffers are current: */
 		if(dataItem->version!=version)
 			{
-			/* Upload the new elevation grid geometry: */
-			if(normalPerVertex.getValue()&&(color.getValue()==0||colorPerVertex.getValue()))
-				uploadVerticesSmooth();
-			else
-				uploadVerticesFaceted();
+			/* Upload the set of indexed quad strips: */
+			uploadIndexedQuadStripSet();
 			
+			/* Mark the buffers as up-to-date: */
 			dataItem->version=version;
 			}
 		
-		/* Set up the vertex arrays: */
-		int vertexArrayParts=Vertex::getPartsMask();
-		if(color.getValue()==0)
-			{
-			/* Disable the color vertex array: */
-			vertexArrayParts&=~GLVertexArrayParts::Color;
-			
-			/* Use the current emissive color: */
-			glColor(renderState.emissiveColor);
-			}
-		GLVertexArrayParts::enable(vertexArrayParts);
-		glVertexPointer(static_cast<Vertex*>(0));
+		/* Draw the elevation grid as a set of indexed quad strips: */
+		const GLuint* iPtr=0;
+		for(int z=0;z<zDimension.getValue()-1;++z,iPtr+=xDimension.getValue()*2)
+			glDrawElements(GL_QUAD_STRIP,xDimension.getValue()*2,GL_UNSIGNED_INT,iPtr);
 		
-		/* Draw the elevation grid: */
-		if(normalPerVertex.getValue()&&(color.getValue()==0||colorPerVertex.getValue()))
-			{
-			/* Draw the elevation grid as a series of indexed quad strips: */
-			const GLuint* iPtr=0;
-			for(int z=0;z<zDimension.getValue();++z,iPtr+=xDimension.getValue()*2)
-				glDrawElements(GL_QUAD_STRIP,xDimension.getValue()*2,GL_UNSIGNED_INT,iPtr);
-			}
-		else
-			{
-			/* Draw the elevation grid as a series of quads: */
-			glDrawArrays(GL_QUADS,0,(xDimension.getValue()-1)*(zDimension.getValue()-1)*4);
-			}
-		
-		/* Reset the vertex arrays: */
-		GLVertexArrayParts::disable(vertexArrayParts);
-		
-		/* Protect the buffer objects: */
-		glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
+		/* Protect the index buffer object: */
 		glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
 		}
 	else
 		{
-		/*******************************************************************
-		Render the elevation grid directly:
-		*******************************************************************/
+		/* Check if the buffer is current: */
+		if(dataItem->version!=version)
+			{
+			/* Upload the set of quads: */
+			uploadQuadSet();
+			
+			/* Mark the buffers as up-to-date: */
+			dataItem->version=version;
+			}
+		
+		/* Draw the elevation grid as a set of quads: */
+		glDrawArrays(GL_QUADS,0,(xDimension.getValue()-1)*(zDimension.getValue()-1)*4);
 		}
+	
+	/* Reset the vertex arrays: */
+	GLVertexArrayParts::disable(vertexArrayParts);
+	
+	/* Protect the vertex buffer object: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
 	}
 
 void ElevationGridNode::initContext(GLContextData& contextData) const

@@ -31,11 +31,86 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Geometry {
 
-class PCACalculator
+template <int dimensionParam>
+class PCACalculator // Generic class for n-dimensional PCA
 	{
 	/* Embedded classes: */
 	public:
 	typedef double Scalar; // Scalar type for points, vectors, and matrices
+	static const int dimension=dimensionParam; // Dimension of point space
+	typedef Geometry::Point<double,dimensionParam> Point; // Point type
+	typedef Geometry::Vector<double,dimensionParam> Vector; // Vector type
+	typedef Geometry::Matrix<double,dimensionParam,dimensionParam> Matrix; // Matrix type
+	};
+
+template <>
+class PCACalculator<2> // Class for two-dimensional PCA
+	{
+	/* Embedded classes: */
+	public:
+	typedef double Scalar; // Scalar type for points, vectors, and matrices
+	static const int dimension=2; // Dimension of point space
+	typedef Geometry::Point<double,2> Point; // Point type
+	typedef Geometry::Vector<double,2> Vector; // Vector type
+	typedef Geometry::Matrix<double,2,2> Matrix; // Matrix type
+	
+	/* Elements: */
+	private:
+	double pxpxs,pxpys,pypys,pxs,pys; // Accumulated components of covariance matrix and centroid
+	size_t numPoints; // Number of accumulated points
+	Matrix cov; // The covariance matrix of all accumulated points
+	
+	/* Constructors and destructors: */
+	public:
+	PCACalculator(void)
+		:pxpxs(0.0),pxpys(0.0),pypys(0.0),pxs(0.0),pys(0.0),
+		 numPoints(0)
+		{
+		}
+	
+	/* Methods: */
+	template <class PointParam>
+	void accumulatePoint(const PointParam& point) // Accumulates the given point into the covariance matrix
+		{
+		/* Accumulate the point: */
+		pxpxs+=double(point[0])*double(point[0]);
+		pxpys+=double(point[0])*double(point[1]);
+		pypys+=double(point[1])*double(point[1]);
+		pxs+=double(point[0]);
+		pys+=double(point[1]);
+		++numPoints;
+		}
+	size_t getNumPoints(void) const // Returns the number of accumulated points
+		{
+		return numPoints;
+		};
+	Point calcCentroid(void) const // Returns the centroid of all accumulated points
+		{
+		return Point(pxs/double(numPoints),pys/double(numPoints));
+		}
+	void calcCovariance(void) // Calculates the covariance matrix of all accumulated points
+		{
+		double np=double(numPoints);
+		cov(0,0)=(pxpxs-pxs*pxs/np)/np;
+		cov(0,1)=(pxpys-pxs*pys/np)/np;
+		cov(1,0)=cov(0,1);
+		cov(1,1)=(pypys-pys*pys/np)/np;
+		}
+	const Matrix& getCovariance(void) const // Returns the already computed covariance matrix
+		{
+		return cov;
+		}
+	unsigned int calcEigenvalues(double eigenvalues[2]) const; // Calculates the eigenvalues of the covariance matrix in order of decreasing absolute value; returns the number of distinct real roots
+	Vector calcEigenvector(double eigenvalue) const; // Returns the eigenvector of the covariance matrix for the given eigenvalue
+	};
+
+template <>
+class PCACalculator<3> // Class for three-dimensional PCA
+	{
+	/* Embedded classes: */
+	public:
+	typedef double Scalar; // Scalar type for points, vectors, and matrices
+	static const int dimension=3; // Dimension of point space
 	typedef Geometry::Point<double,3> Point; // Point type
 	typedef Geometry::Vector<double,3> Vector; // Vector type
 	typedef Geometry::Matrix<double,3,3> Matrix; // Matrix type
@@ -96,7 +171,7 @@ class PCACalculator
 		return cov;
 		}
 	unsigned int calcEigenvalues(double eigenvalues[3]) const; // Calculates the eigenvalues of the covariance matrix in order of decreasing absolute value; returns the number of distinct real roots
-	Vector calcEigenvector(double eigenvalues) const; // Returns the eigenvector of the covariance matrix for the given eigenvalue
+	Vector calcEigenvector(double eigenvalue) const; // Returns the eigenvector of the covariance matrix for the given eigenvalue
 	};
 
 }

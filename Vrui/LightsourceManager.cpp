@@ -169,12 +169,12 @@ void LightsourceManager::setLightsources(DisplayState* displayState,GLContextDat
 				{
 				glEnableLight(lightIndex);
 				glLight(lightIndex,lsPtr->getLight());
+				
+				/* Increment the light index: */
+				++lightIndex;
 				}
 			else
 				haveNavigationalLightsources=true;
-			
-			/* Increment the light index: */
-			++lightIndex;
 			}
 		}
 	
@@ -195,10 +195,10 @@ void LightsourceManager::setLightsources(DisplayState* displayState,GLContextDat
 					{
 					glEnableLight(lightIndex);
 					glLight(lightIndex,lsPtr->getLight());
+					
+					/* Increment the light index: */
+					++lightIndex;
 					}
-				
-				/* Increment the light index: */
-				++lightIndex;
 				}
 			}
 		

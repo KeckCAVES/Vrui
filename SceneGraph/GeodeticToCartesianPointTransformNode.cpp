@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <SceneGraph/GeodeticToCartesianPointTransformNode.h>
 
+#include <utility>
 #include <string.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
@@ -40,7 +41,7 @@ Methods of class GeodeticToCartesianPointTransformNode:
 ******************************************************/
 
 GeodeticToCartesianPointTransformNode::GeodeticToCartesianPointTransformNode(void)
-	:longitudeFirst(true),
+	:longitude("X"),latitude("Y"),elevation("Z"),
 	 degrees(false),
 	 colatitude(false),
 	 re(0)
@@ -53,9 +54,17 @@ void GeodeticToCartesianPointTransformNode::parseField(const char* fieldName,VRM
 		{
 		vrmlFile.parseSFNode(referenceEllipsoid);
 		}
-	else if(strcmp(fieldName,"longitudeFirst")==0)
+	else if(strcmp(fieldName,"longitude")==0)
 		{
-		vrmlFile.parseField(longitudeFirst);
+		vrmlFile.parseField(longitude);
+		}
+	else if(strcmp(fieldName,"latitude")==0)
+		{
+		vrmlFile.parseField(latitude);
+		}
+	else if(strcmp(fieldName,"elevation")==0)
+		{
+		vrmlFile.parseField(elevation);
 		}
 	else if(strcmp(fieldName,"degrees")==0)
 		{
@@ -80,14 +89,56 @@ void GeodeticToCartesianPointTransformNode::update(void)
 	
 	/* Get a pointer to the low-level reference ellipsoid: */
 	re=&referenceEllipsoid.getValue()->getRE();
+	
+	/* Get the point component indices: */
+	if(longitude.getValue()=="X")
+		componentIndices[0]=0;
+	else if(longitude.getValue()=="Y")
+		componentIndices[0]=1;
+	else if(longitude.getValue()=="Z")
+		componentIndices[0]=2;
+	if(latitude.getValue()=="X")
+		componentIndices[1]=0;
+	else if(latitude.getValue()=="Y")
+		componentIndices[1]=1;
+	else if(latitude.getValue()=="Z")
+		componentIndices[1]=2;
+	if(elevation.getValue()=="X")
+		componentIndices[2]=0;
+	else if(elevation.getValue()=="Y")
+		componentIndices[2]=1;
+	else if(elevation.getValue()=="Z")
+		componentIndices[2]=2;
+	
+	/* Check whether normal vectors need to be flipped: */
+	int ci[3];
+	for(int i=0;i<3;++i)
+		ci[i]=componentIndices[i];
+	int numSwaps=0;
+	if(ci[0]>ci[1])
+		{
+		std::swap(ci[0],ci[1]);
+		++numSwaps;
+		}
+	if(ci[1]>ci[2])
+		{
+		std::swap(ci[1],ci[2]);
+		++numSwaps;
+		}
+	if(ci[0]>ci[1])
+		{
+		std::swap(ci[0],ci[1]);
+		++numSwaps;
+		}
+	flipNormals=numSwaps%2==1;
 	}
 
 Point GeodeticToCartesianPointTransformNode::transformPoint(const Point& point) const
 	{
 	/* Convert the geodetic point to longitude and latitude in radians and elevation in meters: */
 	ReferenceEllipsoidNode::Geoid::Point geodetic;
-	geodetic[0]=ReferenceEllipsoidNode::Geoid::Scalar(longitudeFirst.getValue()?point[0]:point[1]);
-	geodetic[1]=ReferenceEllipsoidNode::Geoid::Scalar(longitudeFirst.getValue()?point[1]:point[0]);
+	for(int i=0;i<3;++i)
+		geodetic[i]=ReferenceEllipsoidNode::Geoid::Scalar(point[componentIndices[i]]);
 	if(degrees.getValue())
 		{
 		geodetic[0]=Math::rad(geodetic[0]);
@@ -95,7 +146,6 @@ Point GeodeticToCartesianPointTransformNode::transformPoint(const Point& point) 
 		}
 	if(colatitude.getValue())
 		geodetic[1]=Math::div2(Math::Constants<ReferenceEllipsoidNode::Geoid::Scalar>::pi)-geodetic[1];
-	geodetic[2]=ReferenceEllipsoidNode::Geoid::Scalar(point[2]);
 	
 	/* Return the transformed point: */
 	return re->geodeticToCartesian(geodetic);
@@ -113,8 +163,8 @@ Vector GeodeticToCartesianPointTransformNode::transformNormal(const Point& baseP
 	{
 	/* Convert the geodetic base point to longitude and latitude in radians: */
 	ReferenceEllipsoidNode::Geoid::Point geodetic;
-	geodetic[0]=ReferenceEllipsoidNode::Geoid::Scalar(longitudeFirst.getValue()?basePoint[0]:basePoint[1]);
-	geodetic[1]=ReferenceEllipsoidNode::Geoid::Scalar(longitudeFirst.getValue()?basePoint[1]:basePoint[0]);
+	for(int i=0;i<3;++i)
+		geodetic[i]=ReferenceEllipsoidNode::Geoid::Scalar(basePoint[componentIndices[i]]);
 	if(degrees.getValue())
 		{
 		geodetic[0]=Math::rad(geodetic[0]);
@@ -125,7 +175,12 @@ Vector GeodeticToCartesianPointTransformNode::transformNormal(const Point& baseP
 	
 	/* Rotate the normal: */
 	ReferenceEllipsoidNode::Geoid::Orientation o=re->geodeticToCartesianOrientation(geodetic);
-	return o.transform(normal);
+	Vector geodeticNormal;
+	for(int i=0;i<3;++i)
+		geodeticNormal[i]=ReferenceEllipsoidNode::Geoid::Scalar(normal[componentIndices[i]]);
+	if(flipNormals)
+		geodeticNormal=-geodeticNormal;
+	return o.transform(geodeticNormal);
 	}
 
 }

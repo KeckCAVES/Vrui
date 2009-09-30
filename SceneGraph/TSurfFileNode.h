@@ -1,6 +1,5 @@
 /***********************************************************************
-ElevationGridNode - Class for quad-based height fields as renderable
-geometry.
+TSurfFileNode - Class for triangle meshes read from GoCAD TSurf files.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
@@ -20,37 +19,32 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef SCENEGRAPH_ELEVATIONGRIDNODE_INCLUDED
-#define SCENEGRAPH_ELEVATIONGRIDNODE_INCLUDED
+#ifndef SCENEGRAPH_TSURFFILENODE_INCLUDED
+#define SCENEGRAPH_TSURFFILENODE_INCLUDED
 
+#include <vector>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
+#include <GL/GLGeometryVertex.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
-#include <SceneGraph/TextureCoordinateNode.h>
-#include <SceneGraph/ColorNode.h>
-#include <SceneGraph/NormalNode.h>
 
 namespace SceneGraph {
 
-class ElevationGridNode:public GeometryNode,public GLObject
+class TSurfFileNode:public GeometryNode,public GLObject
 	{
 	/* Embedded classes: */
-	public:
-	typedef SF<TextureCoordinateNodePointer> SFTextureCoordinateNode;
-	typedef SF<ColorNodePointer> SFColorNode;
-	typedef SF<NormalNodePointer> SFNormalNode;
-	
-	/* Elements: */
-	
 	protected:
+	typedef GLGeometry::Vertex<void,0,void,0,float,float,3> Vertex; // Type for mesh vertices
+	typedef unsigned int Card; // Type for indices
+	
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
 		public:
 		GLuint vertexBufferObjectId; // ID of vertex buffer object containing the vertices, if supported
 		GLuint indexBufferObjectId; // ID of index buffer object containing the vertex indices, if supported
-		unsigned int version; // Version of point set stored in vertex buffer object
+		unsigned int version; // Version number of triangle mesh in buffers
 		
 		/* Constructors and destructors: */
 		DataItem(void);
@@ -59,35 +53,17 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	
 	/* Fields: */
 	public:
-	SFTextureCoordinateNode texCoord;
-	SFColorNode color;
-	SFBool colorPerVertex;
-	SFNormalNode normal;
-	SFBool normalPerVertex;
-	SFFloat creaseAngle;
-	SFPoint origin;
-	SFInt xDimension;
-	SFFloat xSpacing;
-	SFInt zDimension;
-	SFFloat zSpacing;
-	MFFloat height;
-	SFBool ccw;
-	SFBool solid;
+	MFString url; //  Name of the TSurf input file
 	
-	/* Derived state: */
+	/* Derived elements: */
 	protected:
-	bool valid; // Flag whether the elevation grid has a valid renderable representation
-	bool indexed; // Flag whether the elevation grid is represented as a set of indexed quad strips or a set of quads
-	unsigned int version; // Version number of elevation grid
-	
-	/* Private methods: */
-	Vector calcVertexNormal(int x,int z) const; // Calculates a vertex' normal vector using central differencing
-	void uploadIndexedQuadStripSet(void) const; // Uploads the elevation grid as a set of indexed quad strips
-	void uploadQuadSet(void) const; // Uploads the elevation grid as a set of quads
+	std::vector<Vertex> vertices; // List of mesh vertices
+	std::vector<Card> indices; // List of mesh vertex indices
+	unsigned int version; // Version number of triangle mesh
 	
 	/* Constructors and destructors: */
 	public:
-	ElevationGridNode(void); // Creates a default elevation grid
+	TSurfFileNode(void); // Creates a default line set
 	
 	/* Methods from Node: */
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);

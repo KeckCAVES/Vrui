@@ -154,7 +154,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000064
+VRUI_VERSION = 1000065
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -927,7 +927,7 @@ libGLXSupport: $(call LIBRARYNAME,libGLXSupport)
 #
 
 GLGEOMETRY_HEADERS = GL/GLGeometryWrappers.h \
-                     GL/GLGeometryVertex.h \
+                     GL/GLGeometryVertex.h GL/GLGeometryVertex.cpp \
                      GL/GLTransformationWrappers.h GL/GLTransformationWrappers.cpp \
                      GL/GLFrustum.h \
                      GL/GLPolylineTube.h
@@ -1156,6 +1156,8 @@ SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
                      SceneGraph/FontStyleNode.h \
                      SceneGraph/TextNode.h \
                      SceneGraph/LabelSetNode.h \
+                     SceneGraph/PolygonMesh.h SceneGraph/PolygonMesh.cpp \
+                     SceneGraph/TSurfFileNode.h \
                      SceneGraph/ArcInfoExportFileNode.h \
                      SceneGraph/ESRIShapeFileNode.h
 
@@ -1190,6 +1192,8 @@ SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/FontStyleNode.cpp \
                      SceneGraph/TextNode.cpp \
                      SceneGraph/LabelSetNode.cpp \
+                     SceneGraph/PolygonMesh.cpp \
+                     SceneGraph/TSurfFileNode.cpp \
                      SceneGraph/ArcInfoExportFileNode.cpp \
                      SceneGraph/ESRIShapeFileNode.cpp
 
@@ -1620,6 +1624,8 @@ endif
 	@install -m u=rw,go=r $(VRUI_HEADERS) $(HEADERINSTALLDIR)/Vrui
 	@install -d $(HEADERINSTALLDIR)/Vrui/Tools
 	@install -m u=rw,go=r $(VRUI_TOOLHEADERS) $(HEADERINSTALLDIR)/Vrui/Tools
+	@install -d $(HEADERINSTALLDIR)/SceneGraph
+	@install -m u=rw,go=r $(SCENEGRAPH_HEADERS) $(HEADERINSTALLDIR)/SceneGraph
 # Install all library files in LIBINSTALLDIR:
 	@echo Installing libraries...
 	@install -d $(LIBINSTALLDIR)

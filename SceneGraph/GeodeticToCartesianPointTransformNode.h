@@ -41,13 +41,17 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	/* Fields: */
 	public:
 	SFReferenceEllipsoidNode referenceEllipsoid;
-	SFBool longitudeFirst;
+	SFString longitude;
+	SFString latitude;
+	SFString elevation;
 	SFBool degrees;
 	SFBool colatitude;
 	
 	/* Derived state: */
 	protected:
 	const ReferenceEllipsoidNode::Geoid* re;
+	int componentIndices[3]; // Indices of (longitude, latitude, elevation) components in input points
+	bool flipNormals; // Flag whether to flip normal vectors after transformation
 	
 	/* Constructors and destructors: */
 	public:
