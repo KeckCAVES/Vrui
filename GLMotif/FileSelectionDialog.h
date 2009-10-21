@@ -118,6 +118,7 @@ class FileSelectionDialog:public PopupWindow
 		{
 		return cancelCallbacks;
 		}
+	void defaultCloseCallback(CallbackData* cbData); // Default callback function that simply deletes the dialog
 	};
 
 }

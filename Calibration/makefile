@@ -36,7 +36,8 @@ else
 endif
 
 # List all project targets:
-ALL = MeasureEnvironment \
+ALL = XBackground \
+      MeasureEnvironment \
       ScreenCalibrator \
       AlignTrackingMarkers
 
@@ -61,6 +62,8 @@ o/%.o: %.cpp
 	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
 	
 # List all build rules:
+
+XBackground: o/XBackground.o
 
 MeasureEnvironment: o/TotalStation.o \
                     o/MeasureEnvironment.o

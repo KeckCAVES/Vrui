@@ -410,7 +410,7 @@ RGBImage readTiffFile(const char* imageFileName)
 		uint32* sPtr=rgbaBuffer;
 		RGBImage::Color* dPtr=result.modifyPixels();
 		for(uint32 y=0;y<height;++y)
-			for(uint32 x=0;x<height;++x,++sPtr,++dPtr)
+			for(uint32 x=0;x<width;++x,++sPtr,++dPtr)
 				{
 				(*dPtr)[0]=RGBImage::Scalar(TIFFGetR(*sPtr));
 				(*dPtr)[1]=RGBImage::Scalar(TIFFGetG(*sPtr));

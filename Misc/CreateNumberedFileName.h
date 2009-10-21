@@ -5,7 +5,7 @@ Zero-padded numbers with the given number of digits are inserted
 immediately before the base file name's extension, and the number is
 guaranteed to be higher than any other matchingly numbered file in the
 same directory.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -28,9 +28,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_CREATENUMBEREDFILENAME_INCLUDED
 #define MISC_CREATENUMBEREDFILENAME_INCLUDED
 
+#include <string>
+
 namespace Misc {
 
 char* createNumberedFileName(const char* baseFileName,int numDigits,char* fileNameBuffer);
+std::string createNumberedFileName(const std::string& baseFileName,int numDigits);
 
 }
 

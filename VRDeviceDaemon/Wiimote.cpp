@@ -93,7 +93,8 @@ void Wiimote::writePacket(unsigned char packet[],size_t packetSize)
 	Threads::Mutex::Lock writeSocketLock(writeSocketMutex);
 	
 	/* Write the packet: */
-	write(writeSocket,packet,packetSize);
+	if(write(writeSocket,packet,packetSize)!=ssize_t(packetSize))
+		Misc::throwStdErr("Wiimote::writePacket: Error while writing packet");
 	}
 
 void Wiimote::writeUploadPacket(void)

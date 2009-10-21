@@ -244,6 +244,35 @@ FactoryManager<ManagedFactoryParam>::addClass(
 template <class ManagedFactoryParam>
 inline
 void
+FactoryManager<ManagedFactoryParam>::releaseClass(
+	const char* className)
+	{
+	/* Get an iterator to the requested class: */
+	typename FactoryList::iterator fIt;
+	for(fIt=factories.begin();fIt!=factories.end()&&strcmp(fIt->factory->getClassName(),className)!=0;++fIt)
+		;
+	
+	/* Bail out if the class doesn't exist: */
+	if(fIt==factories.end())
+		return;
+	
+	/* Check if the class still has children: */
+	if(!fIt->factory->getChildren().empty())
+		throw FactoryManagerError(std::string("Class ")+std::string(className)+std::string(" cannot be removed due to dependencies"));
+	
+	/* Destroy factory and close DSO: */
+	if(fIt->destroyFactoryFunction!=0)
+		fIt->destroyFactoryFunction(fIt->factory);
+	if(fIt->dsoHandle!=0)
+		dlclose(fIt->dsoHandle);
+	
+	/* Remove the class from the factory list: */
+	factories.erase(fIt);
+	}
+
+template <class ManagedFactoryParam>
+inline
+void
 FactoryManager<ManagedFactoryParam>::releaseClasses(
 	void)
 	{

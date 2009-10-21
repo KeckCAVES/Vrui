@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_INDEXEDLINESETNODE_INCLUDED
 #define SCENEGRAPH_INDEXEDLINESETNODE_INCLUDED
 
+#include <vector>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #include <SceneGraph/FieldTypes.h>
@@ -47,8 +48,6 @@ class IndexedLineSetNode:public GeometryNode,public GLObject
 		/* Elements: */
 		public:
 		GLuint vertexBufferObjectId; // ID of vertex buffer object containing the vertices, if supported
-		GLsizei numLines; // Number of lines in the line set
-		GLsizei* numVertices; // Array of numbers of vertices for each line in the line set
 		unsigned int version; // Version of point set stored in vertex buffer object
 		
 		/* Constructors and destructors: */
@@ -67,6 +66,8 @@ class IndexedLineSetNode:public GeometryNode,public GLObject
 	
 	/* Derived state: */
 	protected:
+	std::vector<GLsizei> numVertices; // List of numbers of vertices for each line in the line set
+	size_t totalNumVertices; // Total number of vertices in the line set
 	unsigned int version; // Version number of indexed line set
 	
 	/* Protected methods: */

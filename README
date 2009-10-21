@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui 1.0, build 065
+README for Vrui version 1.0, build 066
 Copyright (c) 1998-2009 Oliver Kreylos
 ========================================================================
 
@@ -15,8 +15,8 @@ http://www.keckcaves.org.
 
 Vrui's development was supported by the University of California, Davis,
 by the UC Davis W.M. Keck Center for Active Visualization in the Earth
-Sciences (KeckCAVES, http://www.keckcaves.org), and the W.M Keck
-Foundation.
+Sciences (KeckCAVES, http://www.keckcaves.org), the W.M Keck Foundation,
+and the National Science Foundation.
 
 Quick Installation Guide for the Impatient
 ==========================================

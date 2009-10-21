@@ -154,7 +154,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000065
+VRUI_VERSION = 1000066
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -293,6 +293,7 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/FlashlightTool.cpp \
                   Vrui/Tools/MeasurementTool.cpp \
                   Vrui/Tools/ScreenshotTool.cpp \
+                  Vrui/Tools/SketchingTool.cpp \
                   Vrui/Tools/ViewpointSaverTool.cpp \
                   Vrui/Tools/CurveEditorTool.cpp
 
