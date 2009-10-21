@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/CurveEditorTool.h>
+
 #include <stdio.h>
 #include <stdexcept>
 #include <vector>
@@ -47,8 +49,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 
 #include <Vrui/Tools/DenseMatrix.h>
-
-#include <Vrui/Tools/CurveEditorTool.h>
 
 namespace {
 
@@ -1468,6 +1468,7 @@ void CurveEditorTool::display(GLContextData& contextData) const
 	glEnd();
 	
 	/* Go to navigational coordinates: */
+	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
 	glMultMatrix(getDisplayState(contextData).modelviewNavigational);

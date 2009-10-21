@@ -54,6 +54,7 @@ class InputGraphManager;
 class InputDeviceManager;
 class MutexMenu;
 class LightsourceManager;
+class ClipPlaneManager;
 class Viewer;
 class VRScreen;
 class VRWindow;
@@ -138,8 +139,9 @@ InputDevice* getInputDevice(int index); // Returns pointer to input device of gi
 InputDevice* findInputDevice(const char* name); // Returns pointer to input device of given name (returns 0 if name is not found)
 InputDevice* addVirtualInputDevice(const char* name,int numButtons,int numValuators); // Creates a new ungrabbed virtual input device with the given number of buttons and valuators
 
-/* Manage light sources: */
+/* Manage light sources and clipping planes: */
 LightsourceManager* getLightsourceManager(void); // Returns the light source manager
+ClipPlaneManager* getClipPlaneManager(void); // Returns the clipping plane manager
 
 /* Query information about viewers: */
 Viewer* getMainViewer(void); // Returns pointer to the "main" viewer (the one to use when clueless)

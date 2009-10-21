@@ -65,23 +65,28 @@ Application::Application(int& argc,char**& argv,char**& appDefaults)
 	/* Initialize Vrui: */
 	init(argc,argv,appDefaults);
 	
+	/* Install callbacks with the tool manager: */
+	ToolManager* toolManager=getToolManager();
+	toolManager->getToolCreationCallbacks().add(this,&Application::toolCreationCallback);
+	toolManager->getToolDestructionCallbacks().add(this,&Application::toolDestructionCallback);
+	
 	/* Enable navigation per default: */
 	setNavigationTransformation(NavTransform::identity);
 	}
 
 Application::~Application(void)
 	{
+	/* Uninstall tool manager callbacks: */
+	ToolManager* toolManager=getToolManager();
+	toolManager->getToolCreationCallbacks().remove(this,&Application::toolCreationCallback);
+	toolManager->getToolDestructionCallbacks().remove(this,&Application::toolDestructionCallback);
+	
 	/* Deinitialize Vrui: */
 	deinit();
 	}
 
 void Application::run(void)
 	{
-	/* Install callbacks with the tool manager: */
-	ToolManager* toolManager=getToolManager();
-	toolManager->getToolCreationCallbacks().add(this,&Application::toolCreationCallback);
-	toolManager->getToolDestructionCallbacks().add(this,&Application::toolDestructionCallback);
-	
 	/* Install Vrui callbacks: */
 	setFrameFunction(frameWrapper,this);
 	setDisplayFunction(displayWrapper,this);
@@ -96,10 +101,6 @@ void Application::run(void)
 	
 	/* Run the Vrui main loop: */
 	mainLoop();
-	
-	/* Uninstall tool manager callbacks: */
-	toolManager->getToolCreationCallbacks().remove(this,&Application::toolCreationCallback);
-	toolManager->getToolDestructionCallbacks().remove(this,&Application::toolDestructionCallback);
 	}
 
 void Application::toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData)

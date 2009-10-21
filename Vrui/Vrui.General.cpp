@@ -80,6 +80,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDeviceAdapterDeviceDaemon.h>
 #include <Vrui/MultipipeDispatcher.h>
 #include <Vrui/LightsourceManager.h>
+#include <Vrui/ClipPlaneManager.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Listener.h>
@@ -307,6 +308,7 @@ VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::Multicas
 	 inputDeviceDataSaver(0),
 	 multipipeDispatcher(0),
 	 lightsourceManager(0),
+	 clipPlaneManager(0),
 	 numViewers(0),viewers(0),mainViewer(0),
 	 numScreens(0),screens(0),mainScreen(0),
 	 numProtectors(0),protectors(0),
@@ -382,6 +384,9 @@ VruiState::~VruiState(void)
 	
 	/* Delete viewer management: */
 	delete[] viewers;
+	
+	/* Delete clipping plane management: */
+	delete clipPlaneManager;
 	
 	/* Delete light source management: */
 	delete lightsourceManager;
@@ -473,6 +478,9 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	
 	/* Initialize the light source manager: */
 	lightsourceManager=new LightsourceManager;
+	
+	/* Initialize the clipping plane manager: */
+	clipPlaneManager=new ClipPlaneManager;
 	
 	/* Initialize the viewers: */
 	StringList viewerNames=configFileSection.retrieveValue<StringList>("./viewerNames");
@@ -872,6 +880,12 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	widgetManager->draw(contextData);
 	glDisable(GL_COLOR_MATERIAL);
 	
+	/* Set clipping planes: */
+	if(navigationTransformationEnabled)
+		clipPlaneManager->setClipPlanes(displayState,contextData);
+	else
+		clipPlaneManager->setClipPlanes(contextData);
+	
 	/* Display all loaded vislets: */
 	if(visletManager!=0)
 		visletManager->display(contextData);
@@ -905,6 +919,9 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 		/* Execute transparent rendering pass: */
 		TransparentObject::transparencyPass(contextData);
 		}
+	
+	/* Disable all clipping planes: */
+	clipPlaneManager->disableClipPlanes(contextData);
 	}
 
 void VruiState::sound(ALContextData& contextData) const
@@ -1177,6 +1194,11 @@ InputDevice* addVirtualInputDevice(const char* name,int numButtons,int numValuat
 LightsourceManager* getLightsourceManager(void)
 	{
 	return vruiState->lightsourceManager;
+	}
+
+ClipPlaneManager* getClipPlaneManager(void)
+	{
+	return vruiState->clipPlaneManager;
 	}
 
 Viewer* getMainViewer(void)

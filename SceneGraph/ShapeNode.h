@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_SHAPENODE_INCLUDED
 #define SCENEGRAPH_SHAPENODE_INCLUDED
 
+#include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GraphNode.h>
 #include <SceneGraph/AppearanceNode.h>
 #include <SceneGraph/GeometryNode.h>

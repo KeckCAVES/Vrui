@@ -39,6 +39,8 @@ Static elements of class HVector:
 *******************************/
 
 template <class ScalarParam,int dimensionParam>
+const int HVector<ScalarParam,dimensionParam>::affineDimension;
+template <class ScalarParam,int dimensionParam>
 const HVector<ScalarParam,dimensionParam> HVector<ScalarParam,dimensionParam>::zero(ScalarParam(0),ScalarParam(0));
 template <class ScalarParam,int dimensionParam>
 const HVector<ScalarParam,dimensionParam> HVector<ScalarParam,dimensionParam>::origin(ScalarParam(0),ScalarParam(1));

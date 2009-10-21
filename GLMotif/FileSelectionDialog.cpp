@@ -608,4 +608,14 @@ void FileSelectionDialog::addFileNameFilters(const char* newFileNameFilters)
 		}
 	}
 
+void FileSelectionDialog::defaultCloseCallback(FileSelectionDialog::CallbackData* cbData)
+	{
+	/* Bail out if the callback is not for this dialog: */
+	if(this!=cbData->fileSelectionDialog)
+		return;
+	
+	/* Delete the file selection dialog: */
+	getManager()->deleteWidget(this);
+	}
+
 }

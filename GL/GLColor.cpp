@@ -23,6 +23,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/GLColor.h>
 
+/********************************************************************
+Static elements of class GLColorBase<ScalarParam,numComponentsParam>:
+********************************************************************/
+
+template <class ScalarParam,GLsizei numComponentsParam>
+const GLsizei GLColorBase<ScalarParam,numComponentsParam>::numComponents;
+
 /************************************************************
 Methods of class GLColorBase<ScalarParam,numComponentsParam>:
 ************************************************************/

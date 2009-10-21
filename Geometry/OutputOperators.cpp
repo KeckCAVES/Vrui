@@ -39,6 +39,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Plane.h>
 #include <Geometry/Matrix.h>
 #include <Geometry/Rotation.h>
+#include <Geometry/TranslationTransformation.h>
+#include <Geometry/RotationTransformation.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Geometry/AffineTransformation.h>
@@ -160,11 +162,35 @@ METHODPREFIX
 ostream&
 operator<<(
 	ostream& os,
+	const Geometry::TranslationTransformation<ScalarParam,dimensionParam>& t)
+	{
+	streamsize width=os.width();
+	os<<setw(1)<<'{'<<setw(width)<<t.getTranslation()<<'}';
+	return os;
+	}
+
+template <class ScalarParam,int dimensionParam>
+METHODPREFIX
+ostream&
+operator<<(
+	ostream& os,
+	const Geometry::RotationTransformation<ScalarParam,dimensionParam>& t)
+	{
+	streamsize width=os.width();
+	os<<setw(1)<<'{'<<setw(width)<<t.getRotation()<<'}';
+	return os;
+	}
+
+template <class ScalarParam,int dimensionParam>
+METHODPREFIX
+ostream&
+operator<<(
+	ostream& os,
 	const Geometry::OrthonormalTransformation<ScalarParam,dimensionParam>& t)
 	{
 	streamsize width=os.width();
 	os<<setw(1)<<'{'<<setw(width)<<t.getTranslation();
-	os<<", "<<setw(width)<<t.getRotation();
+	os<<", "<<setw(width)<<t.getRotation()<<'}';
 	return os;
 	}
 

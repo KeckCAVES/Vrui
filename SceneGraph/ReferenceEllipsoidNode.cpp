@@ -34,7 +34,7 @@ Methods of class ReferenceEllipsoidNode:
 
 ReferenceEllipsoidNode::ReferenceEllipsoidNode(void)
 	:radius(6378137.0),
-	 flattening(298.257223563),
+	 flattening(1.0/298.257223563),
 	 scale(1.0e-3)
 	{
 	}
@@ -59,9 +59,8 @@ void ReferenceEllipsoidNode::parseField(const char* fieldName,VRMLFile& vrmlFile
 
 void ReferenceEllipsoidNode::update(void)
 	{
-	r=radius.getValue()*scale.getValue();
-	f=1.0/flattening.getValue();
-	e2=(2.0-f)*f;
+	/* Update the low-level reference ellipsoid: */
+	re=Geoid(radius.getValue()*scale.getValue(),flattening.getValue());
 	}
 
 }
