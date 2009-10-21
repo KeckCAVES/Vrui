@@ -80,6 +80,7 @@ ifneq ($(USE_RPATH),0)
     ifdef LIBINSTALLDIR
       LINKLIBFLAGS += -Wl,-rpath=$(LIBINSTALLDIR)
     endif
+    LINKLIBFLAGS += $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LINKLIBFLAGS))
   endif
 endif
 

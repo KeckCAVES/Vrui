@@ -21,10 +21,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/FPSNavigationTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Ray.h>
+#include <Geometry/Plane.h>
 #include <Geometry/Rotation.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/OrthogonalTransformation.h>
@@ -35,8 +38,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/VRWindow.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/FPSNavigationTool.h>
 
 namespace Vrui {
 
@@ -54,7 +55,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	layout.setNumButtons(0,5);
 	
 	/* Insert class into class hierarchy: */
-	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
+	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
 	navigationToolFactory->addChildClass(this);
 	addParentClass(navigationToolFactory);
 	
@@ -91,7 +92,7 @@ void FPSNavigationToolFactory::destroyTool(Tool* tool) const
 extern "C" void resolveFPSNavigationToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
 	{
 	/* Load base classes: */
-	manager.loadClass("NavigationTool");
+	manager.loadClass("SurfaceNavigationTool");
 	}
 
 extern "C" ToolFactory* createFPSNavigationToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
@@ -159,26 +160,69 @@ void FPSNavigationTool::startNavigating(void)
 		lastMousePos[2]=Scalar(0);
 		mouseAdapter->getWindow()->setCursorPosWithAdjust(lastMousePos.getComponents());
 		mouseAdapter->setMousePosition(mouseAdapter->getWindow(),lastMousePos.getComponents());
-		
-		/* Update the navigation frame on the off chance that the controlling window changed: */
-		ONTransform st=mouseAdapter->getWindow()->getVRScreen()->getScreenTransformation();
-		navFrame=st.getRotation();
-		pos=mouseAdapter->getWindow()->getViewer()->getHeadPosition();
 		}
 	else
-		{
-		pos=getMainViewer()->getHeadPosition();
 		lastMousePos=calcMousePosition();
+	
+	/* Calculate the initial environment-aligned surface frame in navigation coordinates: */
+	headPos=getMainViewer()->getHeadPosition();
+	footPos=getFloorPlane().project(headPos);
+	NavTransform initialSurfaceFrame=NavTransform::translateFromOriginTo(footPos);
+	// initialSurfaceFrame*=NavTransform::rotate(navFrame);
+	initialSurfaceFrame.leftMultiply(getInverseNavigationTransformation());
+	
+	/* Align the initial frame with the application's surface: */
+	surfaceFrame=initialSurfaceFrame;
+	align(surfaceFrame);
+	
+	/* Calculate rotation of initial frame relative to aligned frame: */
+	Rotation rot=Geometry::invert(initialSurfaceFrame.getRotation())*surfaceFrame.getRotation();
+	
+	/* Align initial Z axis with aligned Y-Z plane: */
+	Vector z=rot.getDirection(2);
+	if(z[0]!=Scalar(0))
+		{
+		if(z[1]!=Scalar(0)||z[2]!=Scalar(0))
+			{
+			Vector rollAxis(Scalar(0),z[2],-z[1]);
+			Scalar roll=Math::asin(z[0]);
+			rot.leftMultiply(Rotation::rotateAxis(rollAxis,-roll));
+			}
+		else
+			rot.leftMultiply(Rotation::rotateY(Math::rad(Scalar(z[0]>Scalar(0)?-90:90))));
+		z=rot.getDirection(2);
 		}
-	angles[0]=angles[1]=Scalar(0);
+	
+	/* Calculate the elevation angle: */
+	angles[0]=Math::atan2(-z[1],z[2]);
+	if(angles[0]<Math::rad(Scalar(-90)))
+		angles[0]=Math::rad(Scalar(-90));
+	else if(angles[0]>Math::rad(Scalar(90)))
+		angles[0]=Math::rad(Scalar(90));
+	rot.leftMultiply(Rotation::rotateX(-angles[0]));
+	
+	/* Calculate the azimuth angle: */
+	Vector x=rot.getDirection(0);
+	angles[1]=Math::atan2(x[1],x[0]);
+	rot.leftMultiply(Rotation::rotateZ(-angles[1]));
+	
 	moveVelocity=Vector::zero;
+	
+	/* Apply the new navigation transformation: */
+	applyNavigation();
+	}
 
-	/* Calculate the prescale transformation: */
-	preScale=NavTransform::translateToOriginFrom(pos);
-	preScale*=NavTransform::translateFromOriginTo(pos);
-	preScale*=NavTransform::rotate(Geometry::invert(navFrame));
-	preScale*=NavTransform::translateToOriginFrom(pos);
-	preScale*=getNavigationTransformation();
+void FPSNavigationTool::applyNavigation(void)
+	{
+	/* Compose and apply the navigation transformation: */
+	NavTransform nav=NavTransform::identity;
+	nav*=NavTransform::translateFromOriginTo(headPos);
+	// nav*=NavTransform::rotate(navFrame);
+	nav*=NavTransform::rotate(Rotation::rotateX(angles[0]));
+	nav*=NavTransform::rotate(Rotation::rotateZ(angles[1]));
+	nav*=NavTransform::translate(footPos-headPos);
+	nav*=Geometry::invert(surfaceFrame);
+	setNavigationTransformation(nav);
 	}
 
 void FPSNavigationTool::stopNavigating(void)
@@ -190,22 +234,10 @@ void FPSNavigationTool::stopNavigating(void)
 		mouseAdapter->getWindow()->setCursorPos(oldMousePos);
 		mouseAdapter->getWindow()->showCursor();
 		}
-	
-	/* Reset the navigation transformation to only retain position and yaw angle: */
-	ONTransform::Rotation rot=navFrame;
-	rot*=ONTransform::Rotation::rotateY(angles[0]);
-
-	/* Set the new navigation transformation: */
-	NavTransform nav=NavTransform::translateFromOriginTo(getMainViewer()->getHeadPosition());
-	nav*=NavTransform::rotate(rot);
-	nav*=NavTransform::translateToOriginFrom(getMainViewer()->getHeadPosition());
-	nav*=NavTransform::translateFromOriginTo(pos);
-	nav*=preScale;
-	setNavigationTransformation(nav);
 	}
 
 FPSNavigationTool::FPSNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:NavigationTool(factory,inputAssignment),
+	:SurfaceNavigationTool(factory,inputAssignment),
 	 mouseAdapter(0)
 	{
 	}
@@ -215,9 +247,9 @@ void FPSNavigationTool::initialize(void)
 	/* Get a pointer to the input device's controlling adapter: */
 	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
 	
-	/* Initialize the navigation frame and current position/orientation: */
-	ONTransform st=getMainScreen()->getScreenTransformation();
-	navFrame=st.getRotation();
+	/* Initialize the navigation frame: */
+	Vector right=Geometry::cross(getForwardDirection(),getUpDirection());
+	navFrame=Rotation::fromBaseVectors(right,getForwardDirection());
 	}
 
 const ToolFactory* FPSNavigationTool::getFactory(void) const
@@ -251,30 +283,30 @@ void FPSNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCa
 		
 		case 1:
 			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[0]+=factory->moveSpeed;
-			else // Button has just been released
 				moveVelocity[0]-=factory->moveSpeed;
+			else // Button has just been released
+				moveVelocity[0]+=factory->moveSpeed;
 			break;
 		
 		case 2:
 			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[0]-=factory->moveSpeed;
-			else // Button has just been released
 				moveVelocity[0]+=factory->moveSpeed;
+			else // Button has just been released
+				moveVelocity[0]-=factory->moveSpeed;
 			break;
 		
 		case 3:
 			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[2]-=factory->moveSpeed;
+				moveVelocity[1]-=factory->moveSpeed;
 			else // Button has just been released
-				moveVelocity[2]+=factory->moveSpeed;
+				moveVelocity[1]+=factory->moveSpeed;
 			break;
 		
 		case 4:
 			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[2]+=factory->moveSpeed;
+				moveVelocity[1]+=factory->moveSpeed;
 			else // Button has just been released
-				moveVelocity[2]-=factory->moveSpeed;
+				moveVelocity[1]-=factory->moveSpeed;
 			break;
 		}
 	}
@@ -286,30 +318,34 @@ void FPSNavigationTool::frame(void)
 		{
 		/* Calculate the change in mouse position: */
 		Point mousePos=calcMousePosition();
-		if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1]||moveVelocity[0]!=Scalar(0)||moveVelocity[2]!=Scalar(0))
+		if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1]||moveVelocity[0]!=Scalar(0)||moveVelocity[1]!=Scalar(0))
 			{
-			angles[0]+=(mousePos[0]-lastMousePos[0])/factory->rotateFactor;
-			angles[0]=Math::wrapRad(angles[0]);
-			angles[1]+=(mousePos[1]-lastMousePos[1])/factory->rotateFactor;
-			if(angles[1]<Math::rad(Scalar(-90)))
-				angles[1]=Math::rad(Scalar(-90));
-			else if(angles[1]>Math::rad(Scalar(90)))
-				angles[1]=Math::rad(Scalar(90));
+			angles[1]+=(mousePos[0]-lastMousePos[0])/factory->rotateFactor;
+			angles[1]=Math::wrapRad(angles[1]);
+			angles[0]+=(mousePos[1]-lastMousePos[1])/factory->rotateFactor;
+			if(angles[0]<Math::rad(Scalar(-90)))
+				angles[0]=Math::rad(Scalar(-90));
+			else if(angles[0]>Math::rad(Scalar(90)))
+				angles[0]=Math::rad(Scalar(90));
 			
-			/* Calculate the new orientation and move by the current velocity: */
-			ONTransform::Rotation yawT=ONTransform::Rotation::rotateY(angles[0]);
-			ONTransform::Rotation rot=navFrame;
-			rot*=ONTransform::Rotation::rotateX(angles[1]);
-			rot*=yawT;
-			pos+=yawT.inverseTransform(moveVelocity*getFrameTime());
+			/* Calculate the new head and foot positions: */
+			headPos=getMainViewer()->getHeadPosition();
+			Point newFootPos=getFloorPlane().project(headPos);
+			
+			/* Move the surface frame to the new foot position: */
+			Vector move=newFootPos-footPos;
+			footPos=newFootPos;
+			
+			/* Move by the current velocity: */
+			Rotation yawT=Rotation::rotateZ(angles[1]);
+			move+=yawT.inverseTransform(moveVelocity*getCurrentFrameTime());
+			surfaceFrame.leftMultiply(NavTransform::translate(move));
+			
+			/* Re-align the surface frame */
+			align(surfaceFrame);
 			
 			/* Set the new navigation transformation: */
-			NavTransform nav=NavTransform::translateFromOriginTo(getMainViewer()->getHeadPosition());
-			nav*=NavTransform::rotate(rot);
-			nav*=NavTransform::translateToOriginFrom(getMainViewer()->getHeadPosition());
-			nav*=NavTransform::translateFromOriginTo(pos);
-			nav*=preScale;
-			setNavigationTransformation(nav);
+			applyNavigation();
 			
 			if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1])
 				{

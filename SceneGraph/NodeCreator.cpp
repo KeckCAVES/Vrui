@@ -41,9 +41,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/CoordinateNode.h>
 #include <SceneGraph/PointSetNode.h>
 #include <SceneGraph/IndexedLineSetNode.h>
+#include <SceneGraph/ElevationGridNode.h>
+#include <SceneGraph/IndexedFaceSetNode.h>
 #include <SceneGraph/ShapeNode.h>
 #include <SceneGraph/FontStyleNode.h>
 #include <SceneGraph/TextNode.h>
+#include <SceneGraph/LabelSetNode.h>
+#include <SceneGraph/TSurfFileNode.h>
+#include <SceneGraph/ArcInfoExportFileNode.h>
+#include <SceneGraph/ESRIShapeFileNode.h>
 
 namespace SceneGraph {
 
@@ -74,9 +80,15 @@ NodeCreator::NodeCreator(void)
 	registerNodeType("Coordinate",new GenericNodeFactory<CoordinateNode>());
 	registerNodeType("PointSet",new GenericNodeFactory<PointSetNode>());
 	registerNodeType("IndexedLineSet",new GenericNodeFactory<IndexedLineSetNode>());
+	registerNodeType("ElevationGrid",new GenericNodeFactory<ElevationGridNode>());
+	registerNodeType("IndexedFaceSet",new GenericNodeFactory<IndexedFaceSetNode>());
 	registerNodeType("Shape",new GenericNodeFactory<ShapeNode>());
 	registerNodeType("FontStyle",new GenericNodeFactory<FontStyleNode>());
 	registerNodeType("Text",new GenericNodeFactory<TextNode>());
+	registerNodeType("LabelSet",new GenericNodeFactory<LabelSetNode>());
+	registerNodeType("TSurfFile",new GenericNodeFactory<TSurfFileNode>());
+	registerNodeType("ArcInfoExportFile",new GenericNodeFactory<ArcInfoExportFileNode>());
+	registerNodeType("ESRIShapeFile",new GenericNodeFactory<ESRIShapeFileNode>());
 	}
 
 NodeCreator::~NodeCreator(void)

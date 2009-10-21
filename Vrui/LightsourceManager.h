@@ -1,7 +1,7 @@
 /***********************************************************************
 LightsourceManager - Class to manage light sources in virtual
 environments. Maps created Lightsource objects to OpenGL light sources.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

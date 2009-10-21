@@ -116,13 +116,10 @@ Force instantiation of all standard Interval classes and functions:
 ******************************************************************/
 
 template class Interval<int>;
-Interval<int> intersect(const Interval<int>&,const Interval<int>&);
 
 template class Interval<float>;
-Interval<float> intersect(const Interval<float>&,const Interval<float>&);
 
 template class Interval<double>;
-Interval<double> intersect(const Interval<double>&,const Interval<double>&);
 
 #endif
 

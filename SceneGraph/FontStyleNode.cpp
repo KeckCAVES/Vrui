@@ -136,7 +136,7 @@ void FontStyleNode::update(void)
 		fontStyle=BOLDITALIC;
 	
 	/* Load the requested GL font: */
-	font=new GLFont(fontFileNames[int(SERIF)*4+int(PLAIN)]);
+	font=new GLFont(fontFileNames[int(fontFamily)*4+int(fontStyle)]);
 	font->setAntialiasing(true);
 	
 	/* Set the font's size: */

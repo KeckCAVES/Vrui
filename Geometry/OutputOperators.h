@@ -39,6 +39,10 @@ class Matrix;
 template <class ScalarParam,int dimensionParam>
 class Rotation;
 template <class ScalarParam,int dimensionParam>
+class TranslationTransformation;
+template <class ScalarParam,int dimensionParam>
+class RotationTransformation;
+template <class ScalarParam,int dimensionParam>
 class OrthonormalTransformation;
 template <class ScalarParam,int dimensionParam>
 class OrthogonalTransformation;
@@ -60,6 +64,10 @@ template <class ScalarParam,int numRowsParam,int numColumnsParam>
 ostream& operator<<(ostream& os,const Geometry::Matrix<ScalarParam,numRowsParam,numColumnsParam>& m);
 template <class ScalarParam,int dimensionParam>
 ostream& operator<<(ostream& os,const Geometry::Rotation<ScalarParam,dimensionParam>& r);
+template <class ScalarParam,int dimensionParam>
+ostream& operator<<(ostream& os,const Geometry::TranslationTransformation<ScalarParam,dimensionParam>& t);
+template <class ScalarParam,int dimensionParam>
+ostream& operator<<(ostream& os,const Geometry::RotationTransformation<ScalarParam,dimensionParam>& t);
 template <class ScalarParam,int dimensionParam>
 ostream& operator<<(ostream& os,const Geometry::OrthonormalTransformation<ScalarParam,dimensionParam>& t);
 template <class ScalarParam,int dimensionParam>

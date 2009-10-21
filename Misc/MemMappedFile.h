@@ -169,7 +169,7 @@ class MemMappedFile
 	/* Methods for text file I/O: */
 	int getc(void)
 		{
-		return ioPtr==blockEnd?EOF:int(*(ioPtr++));
+		return ioPtr==blockEnd?-1:int(*(ioPtr++));
 		}
 	int ungetc(int c)
 		{
@@ -179,7 +179,7 @@ class MemMappedFile
 			return c;
 			}
 		else
-			return EOF;
+			return -1;
 		}
 	#if 0
 	void putc(int c)
@@ -212,7 +212,7 @@ class MemMappedFile
 		
 		/* Append the newline character: */
 		if(ioPtr==blockEnd)
-			return EOF;
+			return -1;
 		*(ioPtr++)='\n';
 		
 		return 1;

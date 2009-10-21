@@ -115,7 +115,7 @@ Methods of class ClutchTool:
 
 ClutchTool::ClutchTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment),
-	 last(getDeviceTransformation(0)),
+	 offset(TrackerState::identity),
 	 clutchButtonState(false)
 	{
 	}
@@ -150,8 +150,10 @@ void ClutchTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCal
 		
 		if(mustInit)
 			{
-			/* Remember the current input device transformation: */
-			last=getDeviceTransformation(0);
+			/* Calculate the new offset transformation: */
+			Vector offsetT=transformedDevice->getPosition()-getDevicePosition(0);
+			Rotation offsetR=transformedDevice->getTransformation().getRotation()*Geometry::invert(getDeviceTransformation(0).getRotation());
+			offset=TrackerState(offsetT,offsetR);
 			}
 		}
 	else // Pass-through button
@@ -165,14 +167,10 @@ void ClutchTool::frame(void)
 	{
 	if(!clutchButtonState)
 		{
-		/* Calculate the source device's incremental transformation: */
-		const TrackerState& current=getDeviceTransformation(0);
-		TrackerState delta=current*Geometry::invert(last);
-		last=current;
-		
-		/* Apply the incremental transformation to the transformed device: */
-		TrackerState clutch=transformedDevice->getTransformation();
-		clutch.leftMultiply(delta);
+		/* Update the transformation of the transformed device: */
+		TrackerState clutch=getDeviceTransformation(0);
+		clutch.leftMultiply(TrackerState::rotateAround(getDevicePosition(0),offset.getRotation()));
+		clutch.leftMultiply(TrackerState::translate(offset.getTranslation()));
 		clutch.renormalize();
 		transformedDevice->setTransformation(clutch);
 		}

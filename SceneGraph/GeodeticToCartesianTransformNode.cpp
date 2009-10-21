@@ -79,19 +79,21 @@ void GeodeticToCartesianTransformNode::update(void)
 		}
 	
 	/* Convert the geodetic point to longitude and latitude in radians and height in meters: */
-	double longitude=longitudeFirst.getValue()?geodetic.getValue()[0]:geodetic.getValue()[1];
-	double latitude=longitudeFirst.getValue()?geodetic.getValue()[1]:geodetic.getValue()[0];
+	ReferenceEllipsoidNode::Geoid::Point g;
+	g[0]=ReferenceEllipsoidNode::Geoid::Scalar(longitudeFirst.getValue()?geodetic.getValue()[0]:geodetic.getValue()[1]);
+	g[1]=ReferenceEllipsoidNode::Geoid::Scalar(longitudeFirst.getValue()?geodetic.getValue()[1]:geodetic.getValue()[0]);
 	if(degrees.getValue())
 		{
-		longitude=Math::rad(longitude);
-		latitude=Math::rad(latitude);
+		g[0]=Math::rad(g[0]);
+		g[1]=Math::rad(g[1]);
 		}
 	if(colatitude.getValue())
-		latitude=0.5*Math::Constants<double>::pi-latitude;
-	double height=geodetic.getValue()[2];
+		g[1]=Math::div2(Math::Constants<ReferenceEllipsoidNode::Geoid::Scalar>::pi)-g[1];
+	g[2]=ReferenceEllipsoidNode::Geoid::Scalar(geodetic.getValue()[2]);
 	
 	/* Calculate the current transformation: */
-	transform=referenceEllipsoid.getValue()->geodeticToCartesianFrame(longitude,latitude,height);
+	ReferenceEllipsoidNode::Geoid::Frame frame=referenceEllipsoid.getValue()->getRE().geodeticToCartesianFrame(g);
+	transform=OGTransform(frame.getTranslation(),frame.getRotation(),referenceEllipsoid.getValue()->scale.getValue());
 	}
 
 Box GeodeticToCartesianTransformNode::calcBoundingBox(void) const

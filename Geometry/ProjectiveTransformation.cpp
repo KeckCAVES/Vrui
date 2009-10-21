@@ -220,6 +220,8 @@ Static elements of class ProjectiveTransformation:
 *************************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int ProjectiveTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const ProjectiveTransformation<ScalarParam,dimensionParam> ProjectiveTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
 
 /*****************************************

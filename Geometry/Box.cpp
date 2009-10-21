@@ -1,6 +1,6 @@
 /***********************************************************************
 Box - Class for n-dimensional axis-aligned boxes.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2009 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -364,19 +364,25 @@ Force instantiation of all standard Box classes and functions:
 *************************************************************/
 
 template class Box<int,2>;
-Box<int,2> intersect(const Box<int,2>&,const Box<int,2>&);
+template Box<int,2> add(const Box<int,2>&,const Box<int,2>&);
+template Box<int,2> intersect(const Box<int,2>&,const Box<int,2>&);
 template class Box<int,3>;
-Box<int,3> intersect(const Box<int,3>&,const Box<int,3>&);
+template Box<int,3> add(const Box<int,3>&,const Box<int,3>&);
+template Box<int,3> intersect(const Box<int,3>&,const Box<int,3>&);
 
 template class Box<float,2>;
-Box<float,2> intersect(const Box<float,2>&,const Box<float,2>&);
+template Box<float,2> add(const Box<float,2>&,const Box<float,2>&);
+template Box<float,2> intersect(const Box<float,2>&,const Box<float,2>&);
 template class Box<float,3>;
-Box<float,3> intersect(const Box<float,3>&,const Box<float,3>&);
+template Box<float,3> add(const Box<float,3>&,const Box<float,3>&);
+template Box<float,3> intersect(const Box<float,3>&,const Box<float,3>&);
 
 template class Box<double,2>;
-Box<double,2> intersect(const Box<double,2>&,const Box<double,2>&);
+template Box<double,2> add(const Box<double,2>&,const Box<double,2>&);
+template Box<double,2> intersect(const Box<double,2>&,const Box<double,2>&);
 template class Box<double,3>;
-Box<double,3> intersect(const Box<double,3>&,const Box<double,3>&);
+template Box<double,3> add(const Box<double,3>&,const Box<double,3>&);
+template Box<double,3> intersect(const Box<double,3>&,const Box<double,3>&);
 
 #endif
 

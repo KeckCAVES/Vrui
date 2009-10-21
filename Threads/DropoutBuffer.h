@@ -47,6 +47,8 @@ class DropoutBuffer
 	size_t freeQueueSize; // Number of segments in free queue
 	Value* readSegment; // Segment currently being read from
 	Value* writeSegment; // Segment currently being written to
+	Value** lockedQueue; // Queue of locked segments, in writing order
+	size_t lockedQueueSize; // Number of segments in locked queue
 	
 	/* Constructors and destructors: */
 	public:
@@ -55,7 +57,8 @@ class DropoutBuffer
 		 buffer(new Value[segmentSize*(queueSize+2)]),
 		 readyQueue(new Value*[queueSize]),readyQueueSize(0),
 		 freeQueue(new Value*[queueSize]),freeQueueSize(queueSize),
-		 readSegment(buffer),writeSegment(buffer+segmentSize)
+		 readSegment(buffer),writeSegment(buffer+segmentSize),
+		 lockedQueue(new Value*[queueSize]),lockedQueueSize(0)
 		{
 		/* Initialize free queue: */
 		for(size_t i=0;i<queueSize;++i)
@@ -66,6 +69,7 @@ class DropoutBuffer
 		delete[] buffer;
 		delete[] readyQueue;
 		delete[] freeQueue;
+		delete[] lockedQueue;
 		}
 	
 	/* Methods: */
@@ -85,6 +89,7 @@ class DropoutBuffer
 		delete[] buffer;
 		delete[] readyQueue;
 		delete[] freeQueue;
+		delete[] lockedQueue;
 		
 		/* Allocate new queue structures: */
 		segmentSize=newSegmentSize;
@@ -92,6 +97,7 @@ class DropoutBuffer
 		buffer=new Value[segmentSize*(queueSize+2)];
 		readyQueue=new Value*[queueSize];
 		freeQueue=new Value*[queueSize];
+		lockedQueue=new Value*[queueSize];
 		
 		/* Initialize queue state: */
 		readyQueueSize=0;
@@ -100,6 +106,7 @@ class DropoutBuffer
 			freeQueue[i]=buffer+segmentSize*(i+2);
 		readSegment=buffer;
 		writeSegment=buffer+segmentSize;
+		lockedQueueSize=0;
 		}
 	Value* getWriteSegment(void) // Returns pointer to segment ready for writing
 		{
@@ -150,6 +157,46 @@ class DropoutBuffer
 			readyQueue[i]=readyQueue[i+1];
 		
 		return readSegment;
+		}
+	size_t lockQueue(void) // Locks all ready segments in the queue to be read and discarded at once
+		{
+		Threads::Mutex::Lock queueLock(queueMutex);
+		
+		/* Get the number of ready segments in the queue, but leave at least one segment unlocked: */
+		lockedQueueSize=readyQueueSize;
+		if(lockedQueueSize==queueSize)
+			--lockedQueueSize;
+		
+		/* Copy the ready segments into the locked queue: */
+		for(size_t i=0;i<lockedQueueSize;++i)
+			lockedQueue[i]=readyQueue[i];
+		
+		/* Remove all locked segments from the ready queue: */
+		readyQueueSize-=lockedQueueSize;
+		for(size_t i=0;i<readyQueueSize;++i)
+			readyQueue[i]=readyQueue[i+lockedQueueSize];
+		
+		return lockedQueueSize;
+		}
+	size_t getLockedQueueSize(void) const // Returns the number of elements in the locked queue
+		{
+		return lockedQueueSize;
+		}
+	const Value* getLockedSegment(size_t segmentIndex) const // Returns one of the locked segments in writing order
+		{
+		return lockedQueue[segmentIndex];
+		}
+	void unlockQueue(void) // Removes all locked segments from the queue
+		{
+		Threads::Mutex::Lock queueLock(queueMutex);
+		
+		/* Move all segments from the locked queue to the free queue: */
+		for(size_t i=0;i<lockedQueueSize;++i)
+			freeQueue[freeQueueSize+i]=lockedQueue[i];
+		freeQueueSize+=lockedQueueSize;
+		
+		/* Clear the locked queue: */
+		lockedQueueSize=0;
 		}
 	};
 

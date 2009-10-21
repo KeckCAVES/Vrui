@@ -39,16 +39,28 @@ class Lightsource
 	
 	/* Constructors and destructors: */
 	public:
-	Lightsource(void); // Creates an enabled light source with standard OpenGL parameters
-	Lightsource(const GLLight& sLight); // Creates an enabled light source with the given OpenGL parameters
+	Lightsource(void) // Creates an enabled light source with standard OpenGL parameters
+		:enabled(true)
+		{
+		}
+	Lightsource(const GLLight& sLight) // Creates an enabled light source with the given OpenGL parameters
+		:enabled(true),light(sLight)
+		{
+		}
 	
 	/* Methods: */
 	bool isEnabled(void) const // Returns the enabled flag
 		{
 		return enabled;
 		}
-	void enable(void); // Enables the light source
-	void disable(void); // Disables the light source
+	void enable(void) // Enables the light source
+		{
+		enabled=true;
+		}
+	void disable(void) // Disables the light source
+		{
+		enabled=false;
+		}
 	const GLLight& getLight(void) const // Returns the light source's OpenGL parameters
 		{
 		return light;

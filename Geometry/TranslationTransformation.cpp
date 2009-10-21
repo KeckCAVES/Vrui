@@ -39,6 +39,8 @@ Static elements of class TranslationTransformation:
 **************************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int TranslationTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const TranslationTransformation<ScalarParam,dimensionParam> TranslationTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
 
 #if !defined(NONSTANDARD_TEMPLATES)

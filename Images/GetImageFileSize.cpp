@@ -28,6 +28,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifdef IMAGES_USE_JPEG
 #include <jpeglib.h>
 #endif
+#ifdef IMAGES_USE_TIFF
+#include <tiffio.h>
+#endif
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
 
@@ -195,6 +198,29 @@ void getJpegFileSize(const char* imageFileName,unsigned int& width,unsigned int&
 
 #endif
 
+#ifdef IMAGES_USE_TIFF
+
+/***********************************************
+Function to extract image size from TIFF images:
+***********************************************/
+
+void getTiffFileSize(const char* imageFileName,unsigned int& width,unsigned int& height)
+	{
+	/* Open the TIFF image: */
+	TIFF* image=TIFFOpen(imageFileName,"r");
+	if(image==0)
+		Misc::throwStdErr("Images::getTiffFileSize: Unable to open image file %s",imageFileName);
+	
+	/* Get the image size: */
+	uint32 tiffWidth,tiffHeight;
+	TIFFGetField(image,TIFFTAG_IMAGEWIDTH,&tiffWidth);
+	TIFFGetField(image,TIFFTAG_IMAGELENGTH,&tiffHeight);
+	width=tiffWidth;
+	height=tiffHeight;
+	}
+
+#endif
+
 }
 
 /*****************************************************************************
@@ -224,6 +250,10 @@ void getImageFileSize(const char* imageFileName,unsigned int& width,unsigned int
 	#ifdef IMAGES_USE_JPEG
 	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
 		getJpegFileSize(imageFileName,width,height);
+	#endif
+	#ifdef IMAGES_USE_TIFF
+	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
+		getTiffFileSize(imageFileName,width,height);
 	#endif
 	else
 		Misc::throwStdErr("Images::getImageFileSize: unknown extension in image file name \"%s\"",imageFileName);

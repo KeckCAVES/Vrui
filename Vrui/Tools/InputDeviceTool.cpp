@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/InputDeviceTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Misc/CallbackList.h>
@@ -32,8 +34,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/InputDeviceTool.h>
 
 namespace Vrui {
 

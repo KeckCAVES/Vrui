@@ -200,6 +200,7 @@ class FactoryManager
 		}
 	ManagedFactory* loadClass(const char* className); // Loads an object class at runtime and returns class object pointer
 	void addClass(ManagedFactory* newFactory,DestroyFactoryFunction newDestroyFactoryFunction =0); // Adds an existing factory to the manager
+	void releaseClass(const char* className); // Destroys an object class at runtime; throws exception if class cannot be removed due to dependencies
 	void releaseClasses(void); // Releases all loaded classes
 	ClassIdType getClassId(const ManagedFactory* factory) const; // Returns class ID based on factory object
 	ManagedFactory* getFactory(ClassIdType classId) const; // Returns factory object based on class ID
