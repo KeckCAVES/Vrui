@@ -31,24 +31,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Plugins/FactoryManager.h>
 
+#include <Plugins/FunctionPointerHack.h>
+
 namespace Plugins {
-
-namespace {
-
-/************************************************************************
-Helper function to retrieve function pointers from DSOs without warnings:
-************************************************************************/
-
-typedef void (*FunctionPointer)(void);
-
-inline FunctionPointer nowarninghack_dlsym(void* dsoHandle,const char* functionName)
-	{
-	/* Use a workaround to get rid of warnings in g++'s pedantic mode: */
-	ptrdiff_t intermediate=reinterpret_cast<ptrdiff_t>(dlsym(dsoHandle,functionName));
-	return reinterpret_cast<FunctionPointer>(intermediate);
-	}
-
-}
 
 /*******************************
 Methods of class FactoryManager:
@@ -254,6 +239,35 @@ FactoryManager<ManagedFactoryParam>::addClass(
 		}
 	newFactoryData.classId=ClassIdType(newClassId);
 	factories.push_back(newFactoryData);
+	}
+
+template <class ManagedFactoryParam>
+inline
+void
+FactoryManager<ManagedFactoryParam>::releaseClass(
+	const char* className)
+	{
+	/* Get an iterator to the requested class: */
+	typename FactoryList::iterator fIt;
+	for(fIt=factories.begin();fIt!=factories.end()&&strcmp(fIt->factory->getClassName(),className)!=0;++fIt)
+		;
+	
+	/* Bail out if the class doesn't exist: */
+	if(fIt==factories.end())
+		return;
+	
+	/* Check if the class still has children: */
+	if(!fIt->factory->getChildren().empty())
+		throw FactoryManagerError(std::string("Class ")+std::string(className)+std::string(" cannot be removed due to dependencies"));
+	
+	/* Destroy factory and close DSO: */
+	if(fIt->destroyFactoryFunction!=0)
+		fIt->destroyFactoryFunction(fIt->factory);
+	if(fIt->dsoHandle!=0)
+		dlclose(fIt->dsoHandle);
+	
+	/* Remove the class from the factory list: */
+	factories.erase(fIt);
 	}
 
 template <class ManagedFactoryParam>

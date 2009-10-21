@@ -41,8 +41,14 @@ namespace Geometry {
 Static elements of class Rotation:
 *********************************/
 
+template <class ScalarParam,int dimensionParam>
+const int Rotation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam>
+const int Rotation<ScalarParam,2>::dimension;
 template <class ScalarParam>
 const Rotation<ScalarParam,2> Rotation<ScalarParam,2>::identity; // Default constructor creates identity transformation!
+template <class ScalarParam>
+const int Rotation<ScalarParam,3>::dimension;
 template <class ScalarParam>
 const Rotation<ScalarParam,3> Rotation<ScalarParam,3>::identity; // Default constructor creates identity transformation!
 

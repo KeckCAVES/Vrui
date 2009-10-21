@@ -74,7 +74,7 @@ void ViconTarsus::deviceThreadMethod(void)
 					for(int trackerIndex=0;trackerIndex<getNumTrackers();++trackerIndex)
 						{
 						/* Get the tracker's position: */
-						Vector translation;
+						Vector translation=Vector::zero;
 						bool valid=true;
 						for(int i=0;i<3;++i)
 							{
@@ -89,7 +89,7 @@ void ViconTarsus::deviceThreadMethod(void)
 							if(trackerSixDofs[trackerIndex])
 								{
 								/* Get the tracker's orientation: */
-								PositionOrientation::Rotation::Vector rotation;
+								PositionOrientation::Rotation::Vector rotation=PositionOrientation::Rotation::Vector::zero;
 								bool sixDof=true;
 								for(int i=0;i<3;++i)
 									{

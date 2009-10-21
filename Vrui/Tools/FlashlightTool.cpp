@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/FlashlightTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Point.h>
@@ -32,8 +34,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/LightsourceManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/FlashlightTool.h>
 
 namespace Vrui {
 
@@ -89,7 +89,7 @@ void FlashlightToolFactory::destroyTool(Tool* tool) const
 extern "C" void resolveFlashlightToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
 	{
 	/* Load base classes: */
-	manager.loadClass("UtilityTool");
+	manager.loadClass("PointingTool");
 	}
 
 extern "C" ToolFactory* createFlashlightToolFactory(Plugins::FactoryManager<ToolFactory>& manager)

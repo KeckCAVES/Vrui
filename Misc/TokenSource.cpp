@@ -150,14 +150,13 @@ void TokenSource::setQuote(int character,bool quote)
 	if(quote)
 		{
 		cc[character]|=QUOTE;
-		cc[character]&=~(WHITESPACE|PUNCTUATION|TOKEN|QUOTEDTOKEN);
+		cc[character]&=~(WHITESPACE|PUNCTUATION|TOKEN);
 		}
 	else
 		{
 		cc[character]&=~QUOTE;
 		if(!(cc[character]&(WHITESPACE|PUNCTUATION)))
 			cc[character]|=TOKEN;
-		cc[character]|=QUOTEDTOKEN;
 		}
 	}
 
@@ -170,14 +169,13 @@ void TokenSource::setQuotes(const char* quotes)
 			cc[i]&=~QUOTE;
 			if(!(cc[i]&(WHITESPACE|PUNCTUATION)))
 				cc[i]|=TOKEN;
-			cc[i]|=QUOTEDTOKEN;
 			}
 	
 	/* Mark all characters in the given string as quotes: */
 	for(const char* qPtr=quotes;*qPtr!='\0';++qPtr)
 		{
 		cc[int(*qPtr)]|=QUOTE;
-		cc[int(*qPtr)]&=~(WHITESPACE|PUNCTUATION|TOKEN|QUOTEDTOKEN);
+		cc[int(*qPtr)]&=~(WHITESPACE|PUNCTUATION|TOKEN);
 		}
 	}
 
@@ -213,12 +211,13 @@ const char* TokenSource::readNextToken(void)
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
-		/* Read and remember the quote character: */
+		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
 		int quote=lastChar;
+		cc[quote]&=~QUOTEDTOKEN;
 		lastChar=source.getc();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
-		while(lastChar!=quote&&lastChar!='\n'&&lastChar>=0)
+		while(cc[lastChar]&QUOTEDTOKEN)
 			{
 			if(tokenSize>=tokenBufferSize)
 				resizeTokenBuffer();
@@ -229,6 +228,9 @@ const char* TokenSource::readNextToken(void)
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
 			lastChar=source.getc();
+		
+		/* Add the quote character to the set of quoted token characters again: */
+		cc[quote]|=QUOTEDTOKEN;
 		}
 	else
 		{

@@ -1,6 +1,6 @@
 /***********************************************************************
-FileCharacterSource - High-performance ASCII file reader for gzip-
-compressed standard files.
+GzippedFileCharacterSource - High-performance ASCII file reader for
+gzip-compressed standard files.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).

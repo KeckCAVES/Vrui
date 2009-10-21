@@ -56,6 +56,10 @@ class TripleBuffer
 		}
 	
 	/* Methods: */
+	Value& getBuffer(int bufferIndex) // Low-level method to access triple buffer contents
+		{
+		return buffer[bufferIndex];
+		}
 	Value& startNewValue(void) // Prepares buffer to receive a new value
 		{
 		/* Determine the index of the currently unused buffer (this is thread-safe): */

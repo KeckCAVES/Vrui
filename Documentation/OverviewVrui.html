@@ -40,10 +40,16 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DD>MutexMenu is a class representing GLMotif popup menus that can only be popped up by one menu tool at a time.</DD>
 
 <DT>Lightsource.h</DT>
-<DD>LightSource is a class representing light sources in VR environments.</DD>
+<DD>Lightsource is a class representing light sources in VR environments.</DD>
 
 <DT>LightsourceManager.h</DT>
 <DD>LightsourceManager is a class managing any number of light sources, and mapping them to the limited number of OpenGL light sources during rendering.</DD>
+
+<DT>ClipPlane.h</DT>
+<DD>ClipPlane is a class representing clipping planes in VR environments.</DD>
+
+<DT>ClipPlaneManager.h</DT>
+<DD>ClipPlaneManager is a class managing any number of clipping planes, and mapping them to the limited number of OpenGL clipping planes during rendering.</DD>
 
 <DT>CoordinateTransform.h</DT>
 <DD>CoordinateTransform is a base class for transformations from "user interest" space to Vrui's navigational space. Classes derived from CoordinateTransform can be registered with Vrui's coordinate manager (see below), and are used to display coordinates in a coordinate system of interest to users of certain applications, e.g., geoid coordinates. The base class implements an identity transformation.</DD>

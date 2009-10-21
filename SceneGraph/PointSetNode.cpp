@@ -119,7 +119,7 @@ Box PointSetNode::calcBoundingBox(void) const
 
 void PointSetNode::glRenderAction(GLRenderState& renderState) const
 	{
-	if(coord.getValue()!=0)
+	if(coord.getValue()!=0&&coord.getValue()->point.getNumValues()>0)
 		{
 		/* Get the context data item: */
 		DataItem* dataItem=renderState.contextData.retrieveDataItem<DataItem>(this);
@@ -131,7 +131,7 @@ void PointSetNode::glRenderAction(GLRenderState& renderState) const
 		
 		if(dataItem->vertexBufferObjectId!=0)
 			{
-			typedef GLGeometry::Vertex<void,0,Color::Scalar,Color::numComponents,void,Scalar,3> ColorVertex;
+			typedef GLGeometry::Vertex<void,0,GLubyte,4,void,Scalar,3> ColorVertex;
 			typedef GLGeometry::Vertex<void,0,void,0,void,Scalar,3> Vertex;
 			
 			/* Bind the point set's vertex buffer object: */

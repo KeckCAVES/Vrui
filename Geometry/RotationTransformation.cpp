@@ -39,6 +39,8 @@ Static elements of class RotationTransformation:
 ***********************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int RotationTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const RotationTransformation<ScalarParam,dimensionParam> RotationTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
 
 #if !defined(NONSTANDARD_TEMPLATES)

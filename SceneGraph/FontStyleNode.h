@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 class GLFont;
 namespace SceneGraph {
 class TextNode;
+class LabelSetNode;
 }
 
 namespace SceneGraph {
@@ -37,6 +38,7 @@ namespace SceneGraph {
 class FontStyleNode:public Node
 	{
 	friend class TextNode;
+	friend class LabelSetNode;
 	
 	/* Embedded classes: */
 	protected:

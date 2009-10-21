@@ -29,9 +29,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifdef IMAGES_USE_JPEG
 #include <jpeglib.h>
 #endif
+#ifdef IMAGES_USE_TIFF
+#include <stdarg.h>
+#include <stdexcept>
+#include <tiffio.h>
+#endif
 #include <Misc/Utility.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
+#include <Math/Constants.h>
 
 #include <Images/ReadImageFile.h>
 
@@ -358,6 +364,77 @@ RGBImage readJpegFile(const char* imageFileName)
 
 #endif
 
+#ifdef IMAGES_USE_TIFF
+
+/*********************************
+Function to read TIFF image files:
+*********************************/
+
+void TiffErrorHandler(const char* module,const char* fmt,va_list ap)
+	{
+	char msg[1024];
+	vsnprintf(msg,sizeof(msg),fmt,ap);
+	std::string err="Images::readTiffFile: ";
+	err.append(msg);
+	throw std::runtime_error(err);
+	}
+
+RGBImage readTiffFile(const char* imageFileName)
+	{
+	/* Open the TIFF image: */
+	TIFF* image=TIFFOpen(imageFileName,"r");
+	if(image==0)
+		Misc::throwStdErr("Images::readTiffFile: Unable to open image file %s",imageFileName);
+	
+	/* Set the TIFF error handler: */
+	TIFFSetErrorHandler(TiffErrorHandler);
+	
+	/* Get the image size: */
+	uint32 width,height;
+	TIFFGetField(image,TIFFTAG_IMAGEWIDTH,&width);
+	TIFFGetField(image,TIFFTAG_IMAGELENGTH,&height);
+	
+	/* Create the result image: */
+	RGBImage result(width,height);
+	
+	/* Allocate a temporary RGBA buffer: */
+	uint32* rgbaBuffer=new uint32[height*width];
+	
+	try
+		{
+		/* Read the TIFF image into the temporary buffer: */
+		if(!TIFFReadRGBAImage(image,width,height,rgbaBuffer))
+			Misc::throwStdErr("Images::readTiffFile: Error while reading image file %s",imageFileName);
+		
+		/* Copy the RGB image data into the result image: */
+		uint32* sPtr=rgbaBuffer;
+		RGBImage::Color* dPtr=result.modifyPixels();
+		for(uint32 y=0;y<height;++y)
+			for(uint32 x=0;x<width;++x,++sPtr,++dPtr)
+				{
+				(*dPtr)[0]=RGBImage::Scalar(TIFFGetR(*sPtr));
+				(*dPtr)[1]=RGBImage::Scalar(TIFFGetG(*sPtr));
+				(*dPtr)[2]=RGBImage::Scalar(TIFFGetB(*sPtr));
+				}
+		}
+	catch(...)
+		{
+		/* Clean up: */
+		delete[] rgbaBuffer;
+		TIFFClose(image);
+		
+		/* Re-throw the exception: */
+		throw;
+		}
+	
+	/* Clean up and return the result image: */
+	delete[] rgbaBuffer;
+	TIFFClose(image);
+	return result;
+	}
+
+#endif
+
 /********************************************
 Helper structures for the cursor file reader:
 ********************************************/
@@ -437,6 +514,10 @@ bool canReadImageFileType(const char* imageFileName)
 	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
 		return true;
 	#endif
+	#ifdef IMAGES_USE_TIFF
+	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
+		return true;
+	#endif
 	else
 		return false;
 	}
@@ -468,6 +549,10 @@ RGBImage readImageFile(const char* imageFileName)
 	#ifdef IMAGES_USE_JPEG
 	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
 		return readJpegFile(imageFileName);
+	#endif
+	#ifdef IMAGES_USE_TIFF
+	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
+		return readTiffFile(imageFileName);
 	#endif
 	else
 		{

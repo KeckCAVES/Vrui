@@ -58,7 +58,7 @@ class ClutchTool:public TransformTool
 	/* Elements: */
 	private:
 	static ClutchToolFactory* factory; // Pointer to the factory object for this class
-	TrackerState last; // Last used source input device transformation
+	TrackerState offset; // Offset from source input device to transformed input device
 	bool clutchButtonState; // Current state of the simulated clutch toggle button
 	
 	/* Constructors and destructors: */

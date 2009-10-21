@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdexcept>
 #include <Misc/Timer.h>
 #include <Misc/ConfigurationFile.h>
+#include <Geometry/AffineCombiner.h>
 #include <Vrui/VRDeviceClient.h>
 
 typedef Vrui::VRDeviceState::TrackerState TrackerState;
@@ -109,6 +110,9 @@ int main(int argc,char* argv[])
 	int printMode=0;
 	bool printButtonStates=false;
 	bool printNewlines=false;
+	bool savePositions=false;
+	std::string saveFileName;
+	int triggerIndex=0;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
@@ -132,6 +136,17 @@ int main(int argc,char* argv[])
 				printButtonStates=true;
 			else if(strcasecmp(argv[i],"-n")==0)
 				printNewlines=true;
+			else if(strcasecmp(argv[i],"-save")==0)
+				{
+				savePositions=true;
+				++i;
+				saveFileName=argv[i];
+				}
+			else if(strcasecmp(argv[i],"-trigger")==0)
+				{
+				++i;
+				triggerIndex=atoi(argv[i]);
+				}
 			}
 		else
 			serverName=argv[i];
@@ -172,6 +187,11 @@ int main(int argc,char* argv[])
 		printMode=-1;
 	deviceClient->unlockState();
 	
+	/* Open the save file: */
+	FILE* saveFile=0;
+	if(savePositions)
+		saveFile=fopen(saveFileName.c_str(),"wt");
+	
 	/* Print output header line: */
 	switch(printMode)
 		{
@@ -194,6 +214,7 @@ int main(int argc,char* argv[])
 	bool loop=true;
 	Misc::Timer t;
 	int numPackets=0;
+	bool oldTriggerState=false;
 	while(loop)
 		{
 		/* Print new device state: */
@@ -201,6 +222,32 @@ int main(int argc,char* argv[])
 			std::cout<<"\r";
 		deviceClient->lockState();
 		const Vrui::VRDeviceState& state=deviceClient->getState();
+		
+		if(savePositions&&saveFile!=0)
+			{
+			if(oldTriggerState==false&&state.getButtonState(triggerIndex))
+				{
+				/* Save the current position: */
+				Point::AffineCombiner pc;
+				for(int i=0;i<50;++i)
+					{
+					/* Accumulate the current position: */
+					const TrackerState& ts=state.getTrackerState(trackerIndex);
+					pc.addPoint(ts.positionOrientation.getOrigin());
+					
+					/* Wait for the next packet: */
+					deviceClient->unlockState();
+					deviceClient->getPacket();
+					deviceClient->lockState();
+					}
+				
+				/* Save the accumulated position: */
+				Point p=pc.getPoint();
+				fprintf(saveFile,"%14.8f %14.8f %14.8f\n",p[0],p[1],p[2]);
+				}
+			oldTriggerState=state.getButtonState(triggerIndex);
+			}
+		
 		switch(printMode)
 			{
 			case 0:
@@ -268,6 +315,8 @@ int main(int argc,char* argv[])
 	deviceClient->deactivate();
 	
 	/* Clean up and terminate: */
+	if(saveFile!=0)
+		fclose(saveFile);
 	delete deviceClient;
 	return 0;
 	}

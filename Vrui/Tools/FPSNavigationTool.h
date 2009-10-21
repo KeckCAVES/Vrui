@@ -27,7 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/Tools/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
@@ -59,7 +59,7 @@ class FPSNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class FPSNavigationTool:public NavigationTool
+class FPSNavigationTool:public SurfaceNavigationTool
 	{
 	friend class FPSNavigationToolFactory;
 	
@@ -67,12 +67,13 @@ class FPSNavigationTool:public NavigationTool
 	private:
 	static FPSNavigationToolFactory* factory; // Pointer to the factory object for this class
 	InputDeviceAdapterMouse* mouseAdapter; // Mouse adapter controlling the tool's input device (0 if none)
+	Rotation navFrame; // Constant navigation frame in physical coordinates (x: right, y: front, z: up)
 	
 	/* Transient navigation state: */
-	ONTransform::Rotation navFrame; // Constant navigation frame in physical coordinates (x: right, y: up, z: backwards)
 	Scalar oldMousePos[2]; // Mouse position in input device adapter before navigation started
-	NavTransform preScale; // Transformation from FPS navigation coordinates to previous navigation transformation
-	Point pos; // Current position of the eye point in physical coordinates
+	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
+	Point headPos; // Current position of the head point in physical coordinates
+	Point footPos; // Current position of the foot point in physical coordinates
 	Scalar angles[2]; // Current yaw (around z) and pitch (around x) angles in radians
 	Vector moveVelocity; // Current movement velocity in frame coordinates
 	Point lastMousePos; // Last mouse position in screen coordinates
@@ -80,6 +81,7 @@ class FPSNavigationTool:public NavigationTool
 	/* Private methods: */
 	Point calcMousePosition(void) const; // Calculates the current mouse position in screen coordinates
 	void startNavigating(void); // Enters navigation mode
+	void applyNavigation(void); // Applies the tool's current navigation state to the navigation transformation
 	void stopNavigating(void); // Leaves navigation mode
 	
 	/* Constructors and destructors: */

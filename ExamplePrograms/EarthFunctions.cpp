@@ -20,6 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <Math/Math.h>
 #include <Math/Constants.h>
+#include <Geometry/Geoid.h>
 #include <GL/gl.h>
 #include <GL/GLVertexArrayParts.h>
 #define NONSTANDARD_GLVERTEX_TEMPLATES
@@ -111,60 +112,47 @@ Function to draw a model of Earth using texture-mapped quad strips:
 
 void drawEarth(int numStrips,int numQuads,double scaleFactor)
 	{
-	const double a=6378.14e3; // Equatorial radius in m
-	const double f=1.0/298.247; // Geoid flattening factor
+	Geometry::Geoid<double> wgs84; // Standard reference ellipsoid
 	
 	float texY1=float(0)/float(numStrips);
 	double lat1=(Math::Constants<double>::pi*double(0))/double(numStrips)-0.5*Math::Constants<double>::pi;
 	double s1=Math::sin(lat1);
 	double c1=Math::cos(lat1);
-	double r1=a*(1.0-f*s1*s1)*scaleFactor;
-	double xy1=r1*c1;
-	double z1=r1*s1;
+	double chi1=Math::sqrt(1.0-wgs84.e2*s1*s1);
+	double xy1=wgs84.radius/chi1*c1*scaleFactor;
+	double z1=wgs84.radius*(1.0-wgs84.e2)/chi1*s1*scaleFactor;
 	
 	/* Draw latitude quad strips: */
 	for(int i=1;i<numStrips+1;++i)
 		{
 		float texY0=texY1;
-		double lat0=lat1;
 		double s0=s1;
 		double c0=c1;
-		double r0=r1;
 		double xy0=xy1;
 		double z0=z1;
 		texY1=float(i)/float(numStrips);
 		lat1=(Math::Constants<double>::pi*double(i))/double(numStrips)-0.5*Math::Constants<double>::pi;
 		s1=Math::sin(lat1);
 		c1=Math::cos(lat1);
-		r1=a*(1.0-f*s1*s1)*scaleFactor;
-		xy1=r1*c1;
-		z1=r1*s1;
+		chi1=Math::sqrt(1.0-wgs84.e2*s1*s1);
+		xy1=wgs84.radius/chi1*c1*scaleFactor;
+		z1=wgs84.radius*(1.0-wgs84.e2)/chi1*s1*scaleFactor;
 		
 		glBegin(GL_QUAD_STRIP);
 		for(int j=0;j<=numQuads;++j)
 			{
 			float texX=float(j)/float(numQuads)+0.5f;
-			glTexCoord2f(texX,texY1);
 			double lng=(2.0*Math::Constants<double>::pi*double(j))/double(numQuads);
 			double cl=Math::cos(lng);
 			double sl=Math::sin(lng);
-			double nx1=(1.0-3.0*f*s1*s1)*c1*cl;
-			double ny1=(1.0-3.0*f*s1*s1)*c1*sl;
-			double nz1=(1.0+3.0*f*c1*c1-f)*s1;
-			double nl1=sqrt(nx1*nx1+ny1*ny1+nz1*nz1);
-			glNormal3f(float(nx1/nl1),float(ny1/nl1),float(nz1/nl1));
-			double x1=xy1*cl;
-			double y1=xy1*sl;
-			glVertex3f(float(x1),float(y1),float(z1));
+			
+			glTexCoord2f(texX,texY1);
+			glNormal3d(c1*cl,c1*sl,s1);
+			glVertex3d(xy1*cl,xy1*sl,z1);
+			
 			glTexCoord2f(texX,texY0);
-			double nx0=(1.0-3.0*f*s0*s0)*c0*cl;
-			double ny0=(1.0-3.0*f*s0*s0)*c0*sl;
-			double nz0=(1.0+3.0*f*c0*c0-f)*s0;
-			double nl0=sqrt(nx0*nx0+ny0*ny0+nz0*nz0);
-			glNormal3f(float(nx0/nl0),float(ny0/nl0),float(nz0/nl0));
-			double x0=xy0*cl;
-			double y0=xy0*sl;
-			glVertex3f(float(x0),float(y0),float(z0));
+			glNormal3d(c0*cl,c0*sl,s0);
+			glVertex3d(xy0*cl,xy0*sl,z0);
 			}
 		glEnd();
 		}
@@ -178,8 +166,7 @@ void drawEarth(int numStrips,int numQuads,double scaleFactor,unsigned int vertex
 	{
 	typedef GLVertex<GLfloat,2,void,0,GLfloat,GLfloat,3> Vertex;
 	
-	const double a=6378.14e3; // Equatorial radius in m
-	const double f=1.0/298.247; // Geoid flattening factor
+	Geometry::Geoid<double> wgs84; // Standard reference ellipsoid
 	
 	GLVertexArrayParts::enable(Vertex::getPartsMask());
 	
@@ -191,28 +178,24 @@ void drawEarth(int numStrips,int numQuads,double scaleFactor,unsigned int vertex
 		{
 		float texY=float(i)/float(numStrips);
 		double lat=(double(i)/double(numStrips)-0.5)*Math::Constants<double>::pi;
-		double s0=Math::sin(lat);
-		double c0=Math::cos(lat);
-		double r=a*(1.0-f*s0*s0)*scaleFactor;
-		double xy=r*c0;
-		float z=r*s0;
+		double s=Math::sin(lat);
+		double c=Math::cos(lat);
+		double chi=Math::sqrt(1.0-wgs84.e2*s*s);
+		double xy=wgs84.radius/chi*c*scaleFactor;
+		double z=wgs84.radius*(1.0-wgs84.e2)/chi*s*scaleFactor;
 		for(int j=0;j<=numQuads;++j,++vPtr)
 			{
 			float texX=float(j)/float(numQuads)+0.5f;
+			double lng=(2.0*Math::Constants<double>::pi*double(j))/double(numQuads);
+			double sl=Math::sin(lng);
+			double cl=Math::cos(lng);
 			vPtr->texCoord[0]=texX;
 			vPtr->texCoord[1]=texY;
-			double lng=(2.0*Math::Constants<double>::pi*double(j))/double(numQuads);
-			double s1=Math::sin(lng);
-			double c1=Math::cos(lng);
-			double nx=(1.0-3.0*f*s0*s0)*c0*c1;
-			double ny=(1.0-3.0*f*s0*s0)*c0*s1;
-			double nz=(1.0+3.0*f*c0*c0-f)*s0;
-			double nl=Math::sqrt(nx*nx+ny*ny+nz*nz);
-			vPtr->normal[0]=float(nx/nl);
-			vPtr->normal[1]=float(ny/nl);
-			vPtr->normal[2]=float(nz/nl);
-			vPtr->position[0]=float(xy*c1);
-			vPtr->position[1]=float(xy*s1);
+			vPtr->normal[0]=float(c*cl);
+			vPtr->normal[1]=float(c*sl);
+			vPtr->normal[2]=float(s);
+			vPtr->position[0]=float(xy*cl);
+			vPtr->position[1]=float(xy*sl);
 			vPtr->position[2]=z;
 			}
 		}
@@ -252,18 +235,18 @@ Function to draw a latitude/longitude grid on the Earth's surface:
 
 void drawGrid(int numStrips,int numQuads,int overSample,double scaleFactor)
 	{
-	const double a=6378.14e3; // Equatorial radius in m
-	const double f=1.0/298.247; // Geoid flattening factor
+	Geometry::Geoid<double> wgs84; // Standard reference ellipsoid
 	
-	/* Draw circles of constant latitude (what are they called?): */
+	/* Draw parallels: */
 	for(int i=1;i<numStrips;++i)
 		{
 		double lat=(Math::Constants<double>::pi*double(i))/double(numStrips)-0.5*Math::Constants<double>::pi;
+		
 		double s=Math::sin(lat);
 		double c=Math::cos(lat);
-		double r=a*(1.0-f*s*s)*scaleFactor;
-		double xy=r*c;
-		double z=r*s;
+		double chi=Math::sqrt(1.0-wgs84.e2*s*s);
+		double xy=wgs84.radius/chi*c*scaleFactor;
+		double z=wgs84.radius*(1.0-wgs84.e2)/chi*s*scaleFactor;
 		
 		glBegin(GL_LINE_LOOP);
 		for(int j=0;j<numQuads*overSample;++j)
@@ -271,9 +254,7 @@ void drawGrid(int numStrips,int numQuads,int overSample,double scaleFactor)
 			double lng=(2.0*Math::Constants<double>::pi*double(j))/double(numQuads*overSample);
 			double cl=Math::cos(lng);
 			double sl=Math::sin(lng);
-			double x=xy*cl;
-			double y=xy*sl;
-			glVertex3f(float(x),float(y),float(z));
+			glVertex3d(xy*cl,xy*sl,z);
 			}
 		glEnd();
 		}
@@ -286,20 +267,18 @@ void drawGrid(int numStrips,int numQuads,int overSample,double scaleFactor)
 		double sl=Math::sin(lng);
 		
 		glBegin(GL_LINE_STRIP);
-		glVertex3f(0.0f,0.0f,-a*(1.0-f)*scaleFactor);
+		glVertex3d(0.0,0.0,-wgs84.b*scaleFactor);
 		for(int j=1;j<numStrips*overSample;++j)
 			{
 			double lat=(Math::Constants<double>::pi*double(j))/double(numStrips*overSample)-0.5*Math::Constants<double>::pi;
 			double s=Math::sin(lat);
 			double c=Math::cos(lat);
-			double r=a*(1.0-f*s*s)*scaleFactor;
-			double xy=r*c;
-			double x=xy*cl;
-			double y=xy*sl;
-			double z=r*s;
-			glVertex3f(float(x),float(y),float(z));
+			double chi=Math::sqrt(1.0-wgs84.e2*s*s);
+			double xy=wgs84.radius/chi*c*scaleFactor;
+			double z=wgs84.radius*(1.0-wgs84.e2)/chi*s*scaleFactor;
+			glVertex3d(xy*cl,xy*sl,z);
 			}
-		glVertex3f(0.0f,0.0f,a*(1.0-f)*scaleFactor);
+		glVertex3d(0.0,0.0,wgs84.b*scaleFactor);
 		glEnd();
 		}
 	}

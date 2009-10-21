@@ -378,6 +378,8 @@ Static elements of class AffineTransformation:
 *********************************************/
 
 template <class ScalarParam,int dimensionParam>
+const int AffineTransformation<ScalarParam,dimensionParam>::dimension;
+template <class ScalarParam,int dimensionParam>
 const AffineTransformation<ScalarParam,dimensionParam> AffineTransformation<ScalarParam,dimensionParam>::identity; // Default constructor created identity transformation!
 
 /*************************************

@@ -26,7 +26,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define GEOMETRY_GEOID_INCLUDED
 
 #include <Math/Math.h>
+#include <Math/Constants.h>
 #include <Geometry/Point.h>
+#include <Geometry/Rotation.h>
 #include <Geometry/OrthonormalTransformation.h>
 
 namespace Geometry {
@@ -39,6 +41,7 @@ class Geoid
 	typedef ScalarParam Scalar; // Scalar type for input/output geometry objects
 	static const int dimension=3; // Geoids are always three-dimensional
 	typedef Geometry::Point<Scalar,dimension> Point; // Type for points
+	typedef Geometry::Rotation<Scalar,dimension> Orientation; // Type for coordinate orientations
 	typedef Geometry::OrthonormalTransformation<Scalar,dimension> Frame; // Type for coordinate frames
 	
 	/* Elements: */
@@ -64,9 +67,19 @@ class Geoid
 		return flatteningFactor;
 		}
 	
-	/* Conversions between Geoid-centered Geoid-fixed Cartesian and geodetic (longitude/latitude/elevation) coordinates: */
-	/* Geodetic points are in (longitude, latitude, elevation) in radians and whatever unit was used for the Geoid's radius */
-	/* Cartesian points are (x, y, z) where (0, 0, 0) is the Geoid's centroid, the north pole is at (0, 0, +b), and the 0 meridian is in the y=0 plane */
+	/*********************************************************************
+	Conversions between Geoid-centered Geoid-fixed Cartesian and geodetic
+	(longitude/latitude/elevation) coordinates:
+	Geodetic points are in (longitude, latitude, elevation) in radians and
+	whatever unit was used for the Geoid's radius.
+	Cartesian points are (x, y, z) where (0, 0, 0) is the Geoid's
+	centroid, the north pole is at (0, 0, +b), and the 0 meridian is in
+	the y=0 plane.
+	Cartesian frames have their z axes normal to the ellipsoid pointing to
+	the outside (away from the centroid), and their y axes pointing north
+	along a meridian.
+	*********************************************************************/
+	
 	Point geodeticToCartesian(const Point& geodetic) const // Transforms a point
 		{
 		double sLon=Math::sin(double(geodetic[0]));
@@ -77,7 +90,13 @@ class Geoid
 		double chi=Math::sqrt(1.0-e2*sLat*sLat);
 		return Point(Scalar((radius/chi+elev)*cLat*cLon),Scalar((radius/chi+elev)*cLat*sLon),Scalar((radius*(1.0-e2)/chi+elev)*sLat));
 		}
-	Frame geodeticToCartesianFrame(const Point& geodeticBase) const; // Returns a geoid-tangential coordinate frame at the given base point
+	Orientation geodeticToCartesianOrientation(const Point& geodeticBase) const // Returns a geoid-tangential coordinate orientation at the given base point in geodetic coordinates
+		{
+		Orientation o=Orientation::rotateZ(Scalar(0.5*Math::Constants<double>::pi+double(geodeticBase[0])));
+		o*=Orientation::rotateX(Scalar(0.5*Math::Constants<double>::pi-double(geodeticBase[1])));
+		return o;
+		}
+	Frame geodeticToCartesianFrame(const Point& geodeticBase) const; // Returns a geoid-tangential coordinate frame at the given base point in geodetic coordinates
 	Point cartesianToGeodetic(const Point& cartesian) const; // Transforms a point
 	};
 
