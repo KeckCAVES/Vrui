@@ -154,7 +154,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000066
+VRUI_VERSION = 1000067
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -656,6 +656,7 @@ libComm: $(call LIBRARYNAME,libComm)
 MATH_HEADERS = Math/Math.h \
                Math/Constants.h \
                Math/Interval.h Math/Interval.cpp \
+	       Math/BrokenLine.h \
                Math/Random.h
 
 MATH_SOURCES = Math/Constants.cpp \
@@ -1271,6 +1272,7 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/InputDeviceAdapterIndexMap.cpp \
                Vrui/VRDeviceClient.cpp \
                Vrui/InputDeviceAdapterDeviceDaemon.cpp \
+               Vrui/InputDeviceAdapterJoystick.cpp \
                Vrui/InputDeviceAdapterVisBox.cpp \
                Vrui/InputDeviceAdapterPlayback.cpp \
                Vrui/MultipipeDispatcher.cpp \

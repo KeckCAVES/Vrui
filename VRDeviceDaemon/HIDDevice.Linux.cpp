@@ -191,7 +191,7 @@ void HIDDevice::deviceThreadMethod(void)
 						int valuatorIndex=absAxisMap[events[i].code];
 						if(valuatorIndex>=0)
 							{
-							float newValuatorState=axisConverters[valuatorIndex].convert(events[i].value);
+							float newValuatorState=axisConverters[valuatorIndex].map(events[i].value);
 							if(newValuatorState!=valuatorStates[valuatorIndex]&&reportEvents)
 								setValuatorState(valuatorIndex,newValuatorState);
 							valuatorStates[valuatorIndex]=newValuatorState;
@@ -204,7 +204,7 @@ void HIDDevice::deviceThreadMethod(void)
 						int valuatorIndex=relAxisMap[events[i].code];
 						if(valuatorIndex>=0)
 							{
-							float newValuatorState=axisConverters[valuatorIndex].convert(events[i].value);
+							float newValuatorState=axisConverters[valuatorIndex].map(events[i].value);
 							if(newValuatorState!=valuatorStates[valuatorIndex]&&reportEvents)
 								setValuatorState(valuatorIndex,newValuatorState);
 							valuatorStates[valuatorIndex]=newValuatorState;
@@ -430,7 +430,8 @@ HIDDevice::HIDDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 				
 				/* Initialize converter with queried values: */
 				AxisConverter& converter=axisConverters[absAxisMap[i]];
-				converter.init(absAxisConf.minimum,absAxisConf.maximum,float(absAxisConf.minimum+absAxisConf.maximum)*0.5f,absAxisConf.flat);
+				float mid=Math::mid(absAxisConf.minimum,absAxisConf.maximum);
+				converter=AxisConverter(absAxisConf.minimum,mid-absAxisConf.flat,mid+absAxisConf.flat,absAxisConf.maximum);
 				
 				/* Override axis settings from configuration file: */
 				char axisSettingsTag[20];
@@ -438,7 +439,7 @@ HIDDevice::HIDDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 				converter=configFile.retrieveValue<AxisConverter>(axisSettingsTag,converter);
 				
 				#ifdef VERBOSE
-				printf("Axis %2d: %s\n",absAxisMap[i],converter.encode().c_str());
+				printf("Axis %2d: %s\n",absAxisMap[i],Misc::ValueCoder<AxisConverter>::encode(converter).c_str());
 				fflush(stdout);
 				#endif
 				}
@@ -456,7 +457,7 @@ HIDDevice::HIDDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 				{
 				/* Initialize converter with default values: */
 				AxisConverter& converter=axisConverters[absAxisMap[i]];
-				converter.init(-1.0f,1.0f,0.0f,0.1f);
+				converter=AxisConverter(-1.0f,1.0f);
 				
 				/* Override axis settings from configuration file: */
 				char axisSettingsTag[20];
@@ -464,7 +465,7 @@ HIDDevice::HIDDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 				converter=configFile.retrieveValue<AxisConverter>(axisSettingsTag,converter);
 				
 				#ifdef VERBOSE
-				printf("Axis %2d: %s\n",relAxisMap[i],converter.encode().c_str());
+				printf("Axis %2d: %s\n",relAxisMap[i],Misc::ValueCoder<AxisConverter>::encode(converter).c_str());
 				fflush(stdout);
 				#endif
 				}

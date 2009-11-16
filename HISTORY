@@ -1477,3 +1477,28 @@ Vrui-1.0-066:
 - Added methods to lock / unlock the queue for delayed reading to
   Threads::DropoutBuffer; was required for idempotent read access to
   buffer.
+
+Vrui-1.0-067:
+- Fixed bug in baud rate setting in Comm::SerialPort::setSerialSettings
+  and improved error checking in many methods.
+- Removed optional desktop input devices from Vrui.cfg and split them
+  into separate patch configuration files for 3Dconnexion SpaceBall
+  4000FLX, Logitech/3Dconnexion SpaceTraveler, and Logitech Wingman
+  Extreme 3D Pro.
+- Added configurations for same desktop device types to VRDevices.cfg.
+- Provided default values for essential settings in
+  Vrui::DesktopDeviceTool and Vrui::DesktopDeviceNavigationTool to
+  allow advertising the tool classes without specific configuration
+  sections.
+- Added new input device adapter type Vrui::InputDeviceAdapterJoystick
+  to directly connect to desktop input devices such as joysticks,
+  gamepads, or spaceballs without a VR device daemon. Currently only
+  works on Linux using the joystick API.
+- Added Mac OS X support for Vrui::InputDeviceAdapterJoystick using the
+  IOKit HID API.
+- Fixed printf type mismatches in VRDeviceDaemon/HIDDevice.MacOSX.cpp.
+- Removed macro definition of GL_GLEXT_PROTOTYPES from
+  BuildRoot/Packages for Mac OS X 10.6.
+- Fixed version detection code for Mac OS X.
+- Added new class Math::BrokenLine to simplify range mappings as used in
+  joysticks and other HID input devices.
