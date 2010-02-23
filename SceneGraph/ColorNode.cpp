@@ -34,6 +34,16 @@ ColorNode::ColorNode(void)
 	{
 	}
 
+const char* ColorNode::getStaticClassName(void)
+	{
+	return "Color";
+	}
+
+const char* ColorNode::getClassName(void) const
+	{
+	return "Color";
+	}
+
 void ColorNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"color")==0)

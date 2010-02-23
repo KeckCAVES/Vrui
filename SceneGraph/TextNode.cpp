@@ -57,6 +57,16 @@ TextNode::TextNode(void)
 	{
 	}
 
+const char* TextNode::getStaticClassName(void)
+	{
+	return "Text";
+	}
+
+const char* TextNode::getClassName(void) const
+	{
+	return "Text";
+	}
+
 void TextNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"string")==0)

@@ -87,6 +87,16 @@ IndexedFaceSetNode::IndexedFaceSetNode(void)
 	{
 	}
 
+const char* IndexedFaceSetNode::getStaticClassName(void)
+	{
+	return "IndexedFaceSet";
+	}
+
+const char* IndexedFaceSetNode::getClassName(void) const
+	{
+	return "IndexedFaceSet";
+	}
+
 void IndexedFaceSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"texCoord")==0)

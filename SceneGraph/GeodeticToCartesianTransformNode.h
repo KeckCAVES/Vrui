@@ -57,6 +57,8 @@ class GeodeticToCartesianTransformNode:public GroupNode
 	GeodeticToCartesianTransformNode(void); // Creates a default node
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

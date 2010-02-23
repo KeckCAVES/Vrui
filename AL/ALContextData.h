@@ -1,7 +1,7 @@
 /***********************************************************************
 ALContextData - Class to store per-AL-context data for application
 objects.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This file is part of the OpenAL Support Library (ALSupport).
 
@@ -28,6 +28,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/CallbackList.h>
 #include <AL/ALObject.h>
 
+/* Forward declarations: */
+namespace Geometry {
+template <class ScalarParam,int dimensionParam>
+class Point;
+template <class ScalarParam,int dimensionParam>
+class Vector;
+template <class ScalarParam,int dimensionParam>
+class Rotation;
+template <class ScalarParam,int dimensionParam>
+class OrthonormalTransformation;
+template <class ScalarParam,int dimensionParam>
+class OrthogonalTransformation;
+}
+
 class ALContextData
 	{
 	/* Embedded classes: */
@@ -46,6 +60,17 @@ class ALContextData
 			}
 		};
 	
+	typedef double Scalar; // Scalar type for the implied OpenAL "modelview" affine space
+	typedef Geometry::Point<Scalar,3> Point; // Point type for "modelview" space
+	typedef Geometry::Vector<Scalar,3> Vector; // Vector type for "modelview" space
+	typedef Geometry::Rotation<Scalar,3> Rotation; // Rotation type for "modelview" space
+	typedef Geometry::OrthogonalTransformation<Scalar,3> Transform; // Type to represent "modelview" transformations in OpenAL
+	
+	enum Error // Enumerated type for errors
+		{
+		NO_ERROR,STACK_UNDERFLOW,STACK_OVERFLOW
+		};
+	
 	private:
 	typedef Misc::HashTable<const ALObject*,ALObject::DataItem*> ItemHash; // Class for hash table mapping pointers to data items
 	
@@ -53,6 +78,10 @@ class ALContextData
 	static Misc::CallbackList currentContextDataChangedCallbacks; // List of callbacks called whenever the current context data object changes
 	static ALContextData* currentContextData; // Pointer to the current context data object (associated with the current OpenAL context)
 	ItemHash context; // A hash table for the context
+	size_t modelviewStackSize; // The maximum stack size for the "modelview" matrix stack
+	Transform* modelviewStack; // The OpenAL "modelview" matrix stack
+	Transform* modelview; // Pointer to the top of the "modelview" matrix stack
+	Error lastError; // Last stack error
 	
 	/* Constructors and destructors: */
 	public:
@@ -111,6 +140,70 @@ class ALContextData
 			context.removeEntry(dataIt);
 			}
 		}
+	
+	/* Methods to simulate an OpenGL-like "modelview" matrix stack: */
+	void pushMatrix(void); // Pushes another copy of the current modelview matrix onto the stack
+	void popMatrix(void); // Pops the top matrix off the modelview stack
+	const Transform& getMatrix(void) const // Returns the current modelview matrix
+		{
+		return *modelview;
+		}
+	void loadIdentity(void); // Replaces the current modelview matrix with the identity matrix
+	void translate(const Vector& t); // Multiplies the current modelview matrix with a translation matrix from the right
+	void rotate(const Rotation& r); // Multiplies the current modelview matrix with a rotation matrix from the right
+	void scale(Scalar s); // Multiplies the current modelview matrix with a uniform scaling matrix from the right
+	void loadMatrix(const Transform& t); // Replaces the current modelview matrix with the given matrix
+	void multMatrix(const Transform& t); // Multiplies the current modelview matrix with the given matrix from the right
+	Error getError(void); // Returns the last error and resets the error flag
 	};
+
+/****************************************************************************************
+Namespace-global versions of modelview matrix functions using the current OpenAL context:
+****************************************************************************************/
+
+inline void alPushMatrix(void)
+	{
+	ALContextData::getCurrent()->pushMatrix();
+	}
+
+inline void alPopMatrix(void)
+	{
+	ALContextData::getCurrent()->popMatrix();
+	}
+
+inline const ALContextData::Transform& alGetMatrix(void)
+	{
+	return ALContextData::getCurrent()->getMatrix();
+	}
+
+inline void alLoadIdentity(void)
+	{
+	ALContextData::getCurrent()->loadIdentity();
+	}
+
+inline void alTranslate(const ALContextData::Vector& t)
+	{
+	ALContextData::getCurrent()->translate(t);
+	}
+
+inline void alRotate(const ALContextData::Rotation& r)
+	{
+	ALContextData::getCurrent()->rotate(r);
+	}
+
+inline void alScale(ALContextData::Scalar s)
+	{
+	ALContextData::getCurrent()->scale(s);
+	}
+
+inline void alLoadMatrix(const ALContextData::Transform& t)
+	{
+	ALContextData::getCurrent()->loadMatrix(t);
+	}
+
+inline void alMultMatrix(const ALContextData::Transform& t)
+	{
+	ALContextData::getCurrent()->multMatrix(t);
+	}
 
 #endif

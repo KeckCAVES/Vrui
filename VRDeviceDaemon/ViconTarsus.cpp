@@ -158,6 +158,7 @@ ViconTarsus::ViconTarsus(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceMan
 	#endif
 	pipe.write<int>(1); // Info
 	pipe.write<int>(0); // Request
+	pipe.flush();
 	
 	/* Wait for the server's reply: */
 	if(pipe.read<int>()!=1)
@@ -296,6 +297,7 @@ void ViconTarsus::start(void)
 	#endif
 	pipe.write<int>(3);
 	pipe.write<int>(0);
+	pipe.flush();
 	}
 
 void ViconTarsus::stop(void)
@@ -306,6 +308,7 @@ void ViconTarsus::stop(void)
 	#endif
 	pipe.write<int>(4);
 	pipe.write<int>(0);
+	pipe.flush();
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

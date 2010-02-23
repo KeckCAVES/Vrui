@@ -154,7 +154,7 @@
 
 <TR>
 <TD>node&lt;<EM>index</EM>&gt;WindowNames<BR>windowNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
-<TD>List of names of <A HREF="#windowsections">window sections</A>. Windows are the &quot;glue&quot; that bind <EM>viewers</EM> to <EM>screens</EM> and implement the OpenGL-based 3D rendering used by Vrui. In cluster-based distributed display environments, there must be a <EM>node&lt;index&gt;WindowNames</EM> tag for each cluster node (the master node is always zero; slave nodes are numbered according to their order in the <EM>multipipeSlaves</EM> list, starting at one. Any nodes with empty window lists will not open any windows, but otherwise fully participate in the Vrui application. This is useful for cluster head nodes with low-powered graphics cards, or for dedicated audio rendering nodes.</TD>
+<TD>List of names of <A HREF="#windowsections">window sections</A>. Windows are the &quot;glue&quot; that bind <EM>viewers</EM> to <EM>screens</EM> and implement the OpenGL-based 3D rendering used by Vrui. In cluster-based distributed display environments, there must be a <EM>node&lt;index&gt;WindowNames</EM> tag for each cluster node (the master node is always zero; slave nodes are numbered according to their order in the <EM>multipipeSlaves</EM> list, starting at one). Any nodes with empty window lists will not open any windows, but otherwise fully participate in the Vrui application. This is useful for cluster head nodes with low-powered graphics cards, or for dedicated audio rendering nodes.</TD>
 </TR>
 
 <TR>
@@ -163,8 +163,13 @@
 </TR>
 
 <TR>
-<TD>node&lt;<EM>index</EM>&gt;SoundDeviceName<BR>soundDeviceName</TD><TD><A HREF="#string">string</A></TD>
-<TD>Defines the name of a sound device to use for the given Vrui node. If no sound device name is defined for a node, audio (using OpenAL) will be disabled for that node.</TD>
+<TD>listenerNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>List of names of <A HREF="#listenersections">listener sections</A>. Listeners define how spatial 3D sound is rendered in a Vrui environment. The first listener in the list is considered the <EM>main listener</EM>.</TD>
+</TR>
+
+<TR>
+<TD>node&lt;<EM>index</EM>&gt;SoundContextName<BR>soundContextName</TD><TD><A HREF="#string">string</A></TD>
+<TD>Name of a <A HREF="#soundcontextsection">sound context section</A>. Sound contexts correspond to audio devices and define how spatial 3D sound is rendered in a Vrui environment. In cluster-based distributed display environments, there must be a <EM>node&lt;index&gt;SoundContextName</EM> tag for each cluster node that is supposed to render spatial 3D sound using the OpenAL library (the master node is always zero; slave nodes are numbered according to their order in the <EM>multipipeSlaves</EM> list, starting at one).</TD>
 </TR>
 
 <TR>
@@ -292,6 +297,8 @@
 <DT>DeviceDaemon</DT><DD>Adapter to receive input from Vrui's own stand-alone device driver daemon. Rest of the section contains <A HREF="#inputdeviceadapterdevicedaemonsettings">DeviceDaemon input device adapter settings</A>.</DD>
 
 <DT>VisBox</DT><DD>Adapter to receive input from the proprietary head tracker used in <A HREF="http://www.visbox.com">VisBox</A> systems. Rest of the section contains <A HREF="#inputdeviceadaptervisboxsettings">VisBox input device adapter settings</A>.</DD>
+
+<DT>HID</DT><DD>Adapter to receive input from human interface devices (HIDs) provided by the operating system's input layer. Rest of the section contains <A HREF="#inputdeviceadapterhidsettings">HID input device adapter settings</A>.</DD>
 
 <DT>Playback</DT><DD>Adaper to read back input device data saved in a previous session, using the saveInputDeviceData and inputDeviceDataFileName root section settings (for debugging or to record screenshot movies of VR interactions after the fact). Rest of the section contains <A HREF="#inputdeviceadapterplaybacksettings">playback input device adapter settings</A>.</DD>
 </DL>
@@ -469,6 +476,42 @@
 <TR>
 <TD>deviceGlyphMaterial</TD><TD><A HREF="#material">material</A></TD>
 <TD>Material properties to render the device glyph.</TD>
+</TR>
+</TABLE>
+
+<H3><A NAME="inputdeviceadapterhidsettings">HID Input Device Adapter Settings</A></H3>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>inputDeviceNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>List of names of <A HREF="#hidinputdevicesections">HID input device sections</A>. Each section defines a single input device, i.e., a collection of a set of buttons and valuators (analog axes).</TD>
+</TR>
+
+</TABLE>
+
+<H4><A NAME="hidinputdevicesections">HID Input Device Sections</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR>
+<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
+</TR>
+
+<TR>
+<TD>deviceVendorProductId</TD><TD><A HREF="#string">string</A></TD>
+<TD>A colon-separated pair of hexadecimal numbers defining the vendor and product ID, respectively, of the input device to be used, as defined by the USB specification.</TD>
+</TR>
+
+<TR>
+<TD>deviceIndex</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>Index of the device to be used among devices with the same vendor/product ID. If this value is 0 (the default), the first matching device is used.</TD>
+</TR>
+
+<TR>
+<TD>axis&lt;index&gt;Setting</TD><TD><A HREF="#axissetting">axis value mapper</A></TD>
+<TD>Defines the value mapping for one of the device's absolute or relative analog axes, numbered starting from 0 in the order they are enumerated by the device. Allows to fine-tune the behavior of each device axis individually.</TD>
 </TR>
 </TABLE>
 
@@ -845,6 +888,105 @@
 <TR>
 <TD>swapBarrierName</TD><TD><A HREF="#integer">integer</A></TD>
 <TD></TD>
+</TR>
+</TABLE>
+
+<H2><A NAME="listenersections">Listener Sections</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>Name of the listener used by Vrui itself, and visible to Vrui applications.</TD>
+</TR>
+
+<TR>
+<TD>headTracked</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>Flag whether the listener is attached to an input device or at a fixed position in physical space.</TD>
+</TR>
+
+<TR>
+<TD>headDevice</TD><TD><A HREF="#string">string</A></TD>
+<TD>If the <EM>headTracked</EM> flag is true, the name of the input device to which the listener is attached.</TD>
+</TR>
+
+<TR>
+<TD>headDeviceTransformation</TD><TD><A HREF="#trackerstate">tracker state</A></TD>
+<TD>The transformation from local listener space into physical space (if <EM>headTracked</EM> is false) or local input device space (if <EM>headTracked</EM> is true).</TD>
+</TR>
+
+<TR>
+<TD>headPosition</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>Defines the listener's head position in the listener's local space.</TD>
+</TR>
+
+<TR>
+<TD>listenDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>Defines a forward-pointing vector in the listener's local space.</TD>
+</TR>
+
+<TR>
+<TD>upDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>Defines an up-pointing vector in the listener's local space.</TD>
+</TR>
+
+<TR>
+<TD>gain</TD><TD><A HREF="#number">number</A></TD>
+<TD>Overall gain factor for this listener in all sound contexts.</TD>
+</TR>
+</TABLE>
+
+<H2><A NAME="soundcontextsection">Sound Context Section</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>listenerName</TD><TD><A HREF="#string">string</A></TD>
+<TD>Name of the listener associated with this sound context.</TD>
+</TR>
+
+<TR>
+<TD>deviceName</TD><TD><A HREF="#string">string</A></TD>
+<TD>Name of the OpenAL sound device used by this sound context.</TD>
+</TR>
+
+<TR>
+<TD>speefOfSound</TD><TD><A HREF="#number">number</A></TD>
+<TD>Speed of sound in physical coordinate units/s. Used to compute Dopper shift.</TD>
+</TR>
+
+<TR>
+<TD>dopplerFactor</TD><TD><A HREF="#number">number</A></TD>
+<TD>Exaggeration factor for Dopper shift.</TD>
+</TR>
+
+<TR>
+<TD>distanceAttenuationModel</TD><TD><A HREF="#enumerant">enumerant</A></TD>
+<TD>Distance model for source gain attenuation.
+<DL>
+<DT>Constant</DT>
+<DD>Source gain is unaffected by distance (default setting).</DD>
+
+<DT>Inverse</DT>
+<DD>Source gain is inversely proportional to distance from listener.</DD>
+
+<DT>InverseClamped</DT>
+<DD>Ditto, with minimum and maximum gain clamping.</DD>
+
+<DT>Linear</DT>
+<DD>Source gain drops linearly with distance from listener.</DD>
+
+<DT>LinearClamped</DT>
+<DD>Ditto, with minimum and maximum gain clamping.</DD>
+
+<DT>Exponential</DT>
+<DD>Source gain drops exponentially with distance from listener.</DD>
+
+<DT>ExponentialClamped</DT>
+<DD>Ditto, with minimum and maximum gain clamping.</DD>
+</DL></TD>
 </TR>
 </TABLE>
 
@@ -1432,6 +1574,14 @@ Type of a 3D icon, encoded as a literal. Available values:
 <TR>
 <TD><A NAME="windowposition">window position</A></TD>
 <TD>The position and size of a display window, encoded as a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window position in pixels), followed by a comma and a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window size in pixels).</TD>
+</TR>
+
+<TR>
+<TD><A NAME="axissetting">axis value mapper</A></TD>
+<TD>Defines a mapping from a device's raw absolute or relative axis values to the range [-1, 1] used by Vrui, using a &quot;broken line&quot; model. Encoded as a list of exactly four <A HREF="#number">numbers</A>: the raw value mapped to -1, a pair of raw values defining a &quot;flat zone&quot; such that all raw values between the first and second are mapped to zero, and the raw value mapped to 1.</TD>
+</TR>
+
+Mapping from a tool valuator to a translational or rotational axis on a navigation tool. Encoded as a pair of parentheses containing an <A HREF="#integer">integer</A> (the index of the mapped valuator), followed by a comma and a <A HREF="#vector">vector</A> (the rotation axis or translation vector).</TD>
 </TR>
 
 <TR>

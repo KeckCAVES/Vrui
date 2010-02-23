@@ -1,7 +1,6 @@
 /***********************************************************************
-InputDeviceAdapterJoystick - Class to directly connect a joystick or
-other device supported by the Linux joystick layer to a Vrui input
-device.
+InputDeviceAdapterHID.MacOSX - Mac OSX-specific version of HID input
+device adapter.
 Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -22,88 +21,19 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#ifndef VRUI_INPUTDEVICEADAPTERJOYSTICK_INCLUDED
-#define VRUI_INPUTDEVICEADAPTERJOYSTICK_INCLUDED
+#ifndef VRUI_INPUTDEVICEADAPTERHID_MACOSX_INCLUDED
+#define VRUI_INPUTDEVICEADAPTERHID_MACOSX_INCLUDED
 
-#ifdef __DARWIN__
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDLib.h>
-#endif
+#include <string>
 #include <vector>
-#ifdef __DARWIN__
 #include <Misc/HashTable.h>
-#endif
 #include <Threads/Mutex.h>
 #include <Threads/Thread.h>
 #include <Math/BrokenLine.h>
+#include <MacOSX/AutoRef.h>
 #include <Vrui/InputDeviceAdapter.h>
-
-#ifdef __DARWIN__
-
-/**************
-Helper classes:
-**************/
-
-template <class TypeRefParam>
-class CFAutoRelease // Helper class to automatically release Core Foundation object references upon destruction
-	{
-	/* Embedded classes: */
-	public:
-	typedef TypeRefParam TypeRef; // Underlying Core Foundation reference class
-	
-	/* Elements: */
-	private:
-	TypeRef ref; // Object reference
-	
-	/* Constructors and destructors: */
-	public:
-	CFAutoRelease(void)
-		:ref(0)
-		{
-		}
-	CFAutoRelease(TypeRef sRef)
-		:ref(sRef)
-		{
-		}
-	CFAutoRelease(const CFAutoRelease& source)
-		:ref(source.ref)
-		{
-		if(ref!=0)
-			CFRetain(ref);
-		}
-	CFAutoRelease& operator=(TypeRef sourceRef)
-		{
-		if(ref!=sourceRef&&ref!=0)
-			CFRelease(ref);
-		ref=sourceRef;
-		return *this;
-		}
-	CFAutoRelease& operator=(const CFAutoRelease& source)
-		{
-		if(this!=&source)
-			{
-			if(ref!=0)
-				CFRelease(ref);
-			ref=source.ref;
-			if(ref!=0)
-				CFRetain(ref);
-			}
-		return *this;
-		}
-	~CFAutoRelease(void)
-		{
-		if(ref!=0)
-			CFRelease(ref);
-		}
-	
-	/* Methods: */
-	operator TypeRef(void) const
-		{
-		return ref;
-		}
-	};
-
-#endif
 
 /* Forward declarations: */
 namespace Vrui {
@@ -112,30 +42,24 @@ class InputDevice;
 
 namespace Vrui {
 
-class InputDeviceAdapterJoystick:public InputDeviceAdapter
+class InputDeviceAdapterHID:public InputDeviceAdapter
 	{
 	/* Embedded classes: */
 	private:
-	struct Device // Structure describing a joystick device
+	struct Device // Structure describing a human interface device
 		{
 		/* Elements: */
 		public:
-		#ifdef __LINUX__
-		int deviceFd; // File descriptor for the joystick device
-		#endif
-		#ifdef __DARWIN__
 		std::string name; // Name of device to be created
-		long vendorId,productId; // Vendor and product IDs of the joystick device
+		long vendorId,productId; // Vendor and product IDs of the HID
 		int deviceIndex; // Index of device among all devices with the same vendor/product ID
-		#endif
-		int firstButtonIndex; // Index of joystick's first button in device state array
-		int numButtons; // Number of joystick's buttons
-		int firstValuatorIndex; // Index of joystick's first axis in device state array
-		int numValuators; // Number of joystick's axes
-		Vrui::InputDevice* device; // Pointer to Vrui input device associated with the joystick
+		int firstButtonIndex; // Index of HID's first button in device state array
+		int numButtons; // Number of HID's buttons
+		int firstValuatorIndex; // Index of HID's first axis in device state array
+		int numValuators; // Number of HID's axes
+		Vrui::InputDevice* device; // Pointer to Vrui input device associated with the HID
 		};
 	
-	#ifdef __DARWIN__
 	struct ElementKey // Structure to map (device, element cookie) pairs to button or valuator indices
 		{
 		/* Elements: */
@@ -186,37 +110,34 @@ class InputDeviceAdapterJoystick:public InputDeviceAdapter
 		};
 	
 	typedef Misc::HashTable<ElementKey,ElementDescriptor,ElementKey> ElementMap; // Type for hash tables mapping elements to element descriptors
-	#endif
 	
 	/* Elements: */
 	private:
-	std::vector<Device> devices; // List of joystick devices
+	std::vector<Device> devices; // List of human interface devices
 	Threads::Mutex deviceStateMutex; // Mutex protecting the device state array
 	bool* buttonStates; // Button state array
 	double* valuatorStates; // Valuator state array
-	#ifdef __DARWIN__
-	CFAutoRelease<IOHIDManagerRef> hidManager; // HID manager object
+	MacOSX::AutoRef<IOHIDManagerRef> hidManager; // HID manager object
 	ElementMap elementMap; // Hash table for elements
-	#endif
-	Threads::Thread devicePollingThread; // Thread polling the event files of all joystick devices
+	Threads::Thread devicePollingThread; // Thread polling the event files of all HIDs
 	
 	/* Protected methods from InputDeviceAdapter: */
+	protected:
 	virtual void createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection);
 	
 	/* New private methods: */
-	#ifdef __DARWIN__
+	private:
 	static void hidDeviceValueChangedCallbackWrapper(void* context,IOReturn result,void* device,IOHIDValueRef newValue)
 		{
-		static_cast<InputDeviceAdapterJoystick*>(context)->hidDeviceValueChangedCallback(result,device,newValue);
+		static_cast<InputDeviceAdapterHID*>(context)->hidDeviceValueChangedCallback(result,device,newValue);
 		}
-	void hidDeviceValueChangedCallback(IOReturn result,void* device,IOHIDValueRef newValue); // Callback method when an element on a monitored HID device changes value
-	#endif
-	void* devicePollingThreadMethod(void); // Method polling the event files of all joystick devices
+	void hidDeviceValueChangedCallback(IOReturn result,void* device,IOHIDValueRef newValue); // Callback method when an element on a monitored HID changes value
+	void* devicePollingThreadMethod(void); // Method polling the event files of all HIDs
 	
 	/* Constructors and destructors: */
 	public:
-	InputDeviceAdapterJoystick(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection); // Creates adapter connected to a single joystick device
-	virtual ~InputDeviceAdapterJoystick(void);
+	InputDeviceAdapterHID(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection); // Creates adapter connected to a set of human interface devices
+	virtual ~InputDeviceAdapterHID(void);
 	
 	/* Methods from InputDeviceAdapter: */
 	virtual void updateInputDevices(void);

@@ -36,6 +36,16 @@ InlineNode::InlineNode(void)
 	{
 	}
 
+const char* InlineNode::getStaticClassName(void)
+	{
+	return "Inline";
+	}
+
+const char* InlineNode::getClassName(void) const
+	{
+	return "Inline";
+	}
+
 void InlineNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"url")==0)

@@ -39,6 +39,7 @@ class NodeFactory // Factory base class
 		}
 	
 	/* Methods: */
+	virtual const char* getClassName(void) const =0; // Returns the name of the created node class
 	virtual Node* createNode(void) =0; // Creates a new node
 	};
 
@@ -50,6 +51,10 @@ class GenericNodeFactory:public NodeFactory // Generic factory class
 	typedef NodeParam Node; // Type of created nodes
 	
 	/* Methods from NodeFactory: */
+	virtual const char* getClassName(void) const
+		{
+		return Node::getStaticClassName();
+		}
 	virtual Node* createNode(void)
 		{
 		return new Node;

@@ -742,6 +742,16 @@ ESRIShapeFileNode::ESRIShapeFileNode(void)
 	{
 	}
 
+const char* ESRIShapeFileNode::getStaticClassName(void)
+	{
+	return "ESRIShapeFile";
+	}
+
+const char* ESRIShapeFileNode::getClassName(void) const
+	{
+	return "ESRIShapeFile";
+	}
+
 void ESRIShapeFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"url")==0)

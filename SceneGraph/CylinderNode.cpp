@@ -128,6 +128,16 @@ CylinderNode::CylinderNode(void)
 	{
 	}
 
+const char* CylinderNode::getStaticClassName(void)
+	{
+	return "Cylinder";
+	}
+
+const char* CylinderNode::getClassName(void) const
+	{
+	return "Cylinder";
+	}
+
 void CylinderNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"height")==0)

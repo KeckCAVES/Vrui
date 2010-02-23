@@ -35,6 +35,16 @@ CoordinateNode::CoordinateNode(void)
 	{
 	}
 
+const char* CoordinateNode::getStaticClassName(void)
+	{
+	return "Coordinate";
+	}
+
+const char* CoordinateNode::getClassName(void) const
+	{
+	return "Coordinate";
+	}
+
 void CoordinateNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"point")==0)

@@ -73,6 +73,16 @@ PointSetNode::PointSetNode(void)
 	{
 	}
 
+const char* PointSetNode::getStaticClassName(void)
+	{
+	return "PointSet";
+	}
+
+const char* PointSetNode::getClassName(void) const
+	{
+	return "PointSet";
+	}
+
 void PointSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"color")==0)

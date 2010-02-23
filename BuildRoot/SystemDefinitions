@@ -91,6 +91,7 @@ HOST_ARCH = $(shell uname -m)
 
 ifeq ($(HOST_OS),Linux)
   SYSTEM = LINUX
+	OSSPECFILEINSERT = Linux
   ifeq ($(HOST_ARCH),x86_64)
     LIBEXT = lib64
     OBJDIRBASE = o/64
@@ -100,6 +101,7 @@ endif
 
 ifeq ($(HOST_OS),Darwin)
   SYSTEM = DARWIN
+	OSSPECFILEINSERT = MacOSX
   DSOFILEEXT = dylib
   FULLDSONAME = $(1).$(LDEXT).$(MAJORLIBVERSION).$(MINORLIBVERSION).$(DSOFILEEXT)
   DSONAME = $(1).$(LDEXT).$(MAJORLIBVERSION).$(DSOFILEEXT)
@@ -126,7 +128,7 @@ ifeq ($(HOST_OS),Darwin)
   SYSTEM_UNAME_MAJOR = $(shell expr `uname -r` : "\([0-9]*\).[0-9]*.[0-9].*")
   ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "9"),1)
     ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "10"),1)
-      SYSTEM_DARWIN_VERSION = 10.5
+      SYSTEM_DARWIN_VERSION = 10.6
       SYSTEM_GET_GLEXT_PROTOTYPES = 
     else
       SYSTEM_DARWIN_VERSION = 10.5

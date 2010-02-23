@@ -736,6 +736,7 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 	/* Connect to the device using the L2CAP protocol: */
 	writeSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
 	sockaddr_l2 writeSocketAddress;
+	memset(&writeSocketAddress,0,sizeof(sockaddr_l2));
 	writeSocketAddress.l2_family=AF_BLUETOOTH;
 	writeSocketAddress.l2_psm=htobs(0x11);
 	writeSocketAddress.l2_bdaddr=deviceAddress;
@@ -743,6 +744,7 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to device \"%s\" for writing",deviceName);
 	readSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
 	sockaddr_l2 readSocketAddress;
+	memset(&readSocketAddress,0,sizeof(sockaddr_l2));
 	readSocketAddress.l2_family=AF_BLUETOOTH;
 	readSocketAddress.l2_psm=htobs(0x13);
 	readSocketAddress.l2_bdaddr=deviceAddress;

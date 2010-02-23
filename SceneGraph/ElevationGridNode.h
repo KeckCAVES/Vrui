@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -71,6 +71,8 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	SFInt zDimension;
 	SFFloat zSpacing;
 	MFFloat height;
+	MFString heightUrl;
+	SFBool heightIsY;
 	SFBool ccw;
 	SFBool solid;
 	
@@ -90,6 +92,8 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	ElevationGridNode(void); // Creates a default elevation grid
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

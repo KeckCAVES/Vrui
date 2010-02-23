@@ -75,6 +75,16 @@ TSurfFileNode::TSurfFileNode(void)
 	{
 	}
 
+const char* TSurfFileNode::getStaticClassName(void)
+	{
+	return "TSurfFile";
+	}
+
+const char* TSurfFileNode::getClassName(void) const
+	{
+	return "TSurfFile";
+	}
+
 void TSurfFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"url")==0)

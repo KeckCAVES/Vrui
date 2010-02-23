@@ -456,7 +456,7 @@ HIDDevice::HIDDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 			if(relAxisMap[i]>=0)
 				{
 				/* Initialize converter with default values: */
-				AxisConverter& converter=axisConverters[absAxisMap[i]];
+				AxisConverter& converter=axisConverters[relAxisMap[i]];
 				converter=AxisConverter(-1.0f,1.0f);
 				
 				/* Override axis settings from configuration file: */

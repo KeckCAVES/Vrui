@@ -49,6 +49,8 @@ class ShapeNode:public GraphNode
 	ShapeNode(void); // Creates a shape node with default appearance and no geometry
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	
