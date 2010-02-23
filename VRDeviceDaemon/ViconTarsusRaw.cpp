@@ -204,6 +204,7 @@ void ViconTarsusRaw::start(void)
 	/* Start streaming data: */
 	unsigned int request=ReconPoints|StartStreaming;
 	pipe.write(request);
+	pipe.flush();
 	}
 
 void ViconTarsusRaw::stop(void)
@@ -211,6 +212,7 @@ void ViconTarsusRaw::stop(void)
 	/* Stop streaming data: */
 	unsigned int request=ReconPoints|StopStreaming;
 	pipe.write(request);
+	pipe.flush();
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

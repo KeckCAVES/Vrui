@@ -105,6 +105,16 @@ ConeNode::ConeNode(void)
 	{
 	}
 
+const char* ConeNode::getStaticClassName(void)
+	{
+	return "Cone";
+	}
+
+const char* ConeNode::getClassName(void) const
+	{
+	return "Cone";
+	}
+
 void ConeNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"height")==0)

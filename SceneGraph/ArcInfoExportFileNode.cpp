@@ -69,6 +69,16 @@ ArcInfoExportFileNode::ArcInfoExportFileNode(void)
 	{
 	}
 
+const char* ArcInfoExportFileNode::getStaticClassName(void)
+	{
+	return "ArcInfoExportFile";
+	}
+
+const char* ArcInfoExportFileNode::getClassName(void) const
+	{
+	return "ArcInfoExportFile";
+	}
+
 void ArcInfoExportFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"url")==0)

@@ -66,6 +66,18 @@ const char* CoordinateTransform::getComponentName(int componentIndex) const
 		}
 	}
 
+const char* CoordinateTransform::getUnitName(int componentIndex) const
+	{
+	/* Default units are unknown: */
+	return "";
+	}
+
+const char* CoordinateTransform::getUnitAbbreviation(int componentIndex) const
+	{
+	/* Default units are unknown: */
+	return "";
+	}
+
 Point CoordinateTransform::transform(const Point& navigationPoint) const
 	{
 	return navigationPoint;

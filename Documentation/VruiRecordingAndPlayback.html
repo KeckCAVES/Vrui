@@ -11,7 +11,7 @@ Vrui contains a simple recording facility that allows a user to record a Vrui se
 
 The session recorder has the additional ability of recording an audio track, such as real-time commentary by the recorded user. During playback, the audio track will be synchronized with the Vrui session playback, unless the playback system is overwhelmed (see &quot;maximumFrameRate&quot; setting below). Audio is recorded using the default audio source on the Vrui environment's head node.
 
-<H2>Recording A Vrui Session<H2>
+<H2>Recording A Vrui Session</H2>
 
 Recording is configured via Vrui's configuration file. It is recommended to create a special patch configuration file with all settings relevant for recording, and to merge that patch file only when needed. Recording is enabled by providing the following configuration tags in the environment's root section:
 <DL>
@@ -31,7 +31,7 @@ The configuration file section named in the inputDeviceDataSaver tag contains th
 <DD>Name of file to which audio data is written. Audio recording is only enabled if this tag has a value, and if the file name has a known sound file format extension. The name will be made unique by inserting a four-digit numeric code before the file name extension.</DD>
 
 <DT>sampleResolution, numChannels, sampleRate</DT>
-<DD>These settings define the audio recording format, and the combination of settings must be supported by the system's default audio source. The default values are 8, 1, and 8000, respectively, for 8-bit mono recording at 8&nbsp;KHz. CD-quality recording can be configured by using a sample resolution of 16 bits, 1 or two channels for mono or stereo, respectively, and a sampling rate of 44100&nbsp;Hz</DD>
+<DD>These settings define the audio recording format, and the combination of settings must be supported by the system's default audio source. The default values are 8, 1, and 8000, respectively, for 8-bit mono recording at 8&nbsp;KHz. CD-quality recording can be configured by using a sample resolution of 16 bits, 1 or 2 channels for mono or stereo, respectively, and a sampling rate of 44100&nbsp;Hz.</DD>
 </DL>
 
 <H3>Conflicting Configuration Settings</H3>

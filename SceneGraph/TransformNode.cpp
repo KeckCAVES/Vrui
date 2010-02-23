@@ -44,6 +44,16 @@ TransformNode::TransformNode(void)
 	{
 	}
 
+const char* TransformNode::getStaticClassName(void)
+	{
+	return "Transform";
+	}
+
+const char* TransformNode::getClassName(void) const
+	{
+	return "Transform";
+	}
+
 EventOut* TransformNode::getEventOut(const char* fieldName) const
 	{
 	if(strcmp(fieldName,"center")==0)

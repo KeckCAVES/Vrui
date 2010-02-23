@@ -34,6 +34,16 @@ NormalNode::NormalNode(void)
 	{
 	}
 
+const char* NormalNode::getStaticClassName(void)
+	{
+	return "Normal";
+	}
+
+const char* NormalNode::getClassName(void) const
+	{
+	return "Normal";
+	}
+
 void NormalNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"vector")==0)

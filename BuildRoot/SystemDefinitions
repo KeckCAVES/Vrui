@@ -70,6 +70,7 @@ SYSTEM_HAVE_TLS = 1
 SYSTEM_SEPARATE_LIBPTHREAD = 1
 SYSTEM_GL_WITH_X11 = 0
 SYSTEM_HAVE_GLXGETPROCADDRESS = 1
+SYSTEM_GET_GLEXT_PROTOTYPES = -DGL_GLEXT_PROTOTYPES
 SYSTEM_OPENAL_FRAMEWORK = 0
 
 # Configure if it is safe to sort the list of linked libraries passed to the linker:
@@ -90,6 +91,7 @@ HOST_ARCH = $(shell uname -m)
 
 ifeq ($(HOST_OS),Linux)
   SYSTEM = LINUX
+	OSSPECFILEINSERT = Linux
   ifeq ($(HOST_ARCH),x86_64)
     LIBEXT = lib64
     OBJDIRBASE = o/64
@@ -99,6 +101,7 @@ endif
 
 ifeq ($(HOST_OS),Darwin)
   SYSTEM = DARWIN
+	OSSPECFILEINSERT = MacOSX
   DSOFILEEXT = dylib
   FULLDSONAME = $(1).$(LDEXT).$(MAJORLIBVERSION).$(MINORLIBVERSION).$(DSOFILEEXT)
   DSONAME = $(1).$(LDEXT).$(MAJORLIBVERSION).$(DSOFILEEXT)
@@ -122,9 +125,15 @@ ifeq ($(HOST_OS),Darwin)
   SYSTEM_GL_WITH_X11 = 1
   SYSTEM_HAVE_GLXGETPROCADDRESS = 0
   SYSTEM_OPENAL_FRAMEWORK = 1
-  ifeq ($(shell expr `uname -r` ">=" "9.0.0"),1)
-    SYSTEM_DARWIN_VERSION = 10.5
-    VRUIAPP_LFLAGS += -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+  SYSTEM_UNAME_MAJOR = $(shell expr `uname -r` : "\([0-9]*\).[0-9]*.[0-9].*")
+  ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "9"),1)
+    ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "10"),1)
+      SYSTEM_DARWIN_VERSION = 10.6
+      SYSTEM_GET_GLEXT_PROTOTYPES = 
+    else
+      SYSTEM_DARWIN_VERSION = 10.5
+      VRUIAPP_LFLAGS += -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+    endif
   else
     SYSTEM_DARWIN_VERSION = 10.4
   endif

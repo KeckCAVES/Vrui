@@ -22,6 +22,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/MouseTool.h>
+
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -36,8 +38,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/MouseTool.h>
 
 namespace Vrui {
 
@@ -168,6 +168,7 @@ void MouseTool::frame(void)
 		}
 	else
 		{
+		/* Set the transformed device to the same position / orientation as the source device: */
 		InputDevice* device=input.getDevice(0);
 		transformedDevice->setTransformation(device->getTransformation());
 		transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());

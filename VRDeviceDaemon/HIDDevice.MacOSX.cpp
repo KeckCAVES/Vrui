@@ -130,7 +130,7 @@ void HIDDevice::start(void)
 				 getElementValue ( hidDeviceInterface, pos -> first, &hidEvent ) == kIOReturnSuccess )
 			{
 				setValuatorState ( pos -> second . index,
-				                   pos -> second . converter . convert ( hidEvent . value ) ) ;
+				                   pos -> second . converter . map ( hidEvent . value ) ) ;
 			}
 		}
 		updateState ( ) ;
@@ -367,7 +367,7 @@ void HIDDevice::setupButtonAndAxisMaps ( Misc::ConfigurationFile& configFile )
 			continue ;
 
 		#ifdef VERBOSE
-		printf ( "HIDDevice:    0x%-4X       0x%-4X   0x%-4X   ", usagePage, usage, cookie ) ;
+		printf ( "HIDDevice:    0x%-4X       0x%-4X   0x%-4X   ", (unsigned int)usagePage, (unsigned int)usage, (unsigned int)cookie ) ;
 		fflush ( stdout ) ;
 		#endif
 
@@ -397,7 +397,7 @@ void HIDDevice::setupButtonAndAxisMaps ( Misc::ConfigurationFile& configFile )
 			}
 			else
 			{
-				printf ( "%-6d", min ) ;
+				printf ( "%-6d", int(min) ) ;
 				#endif
 			}
 			long max ( 1 ) ;
@@ -412,10 +412,10 @@ void HIDDevice::setupButtonAndAxisMaps ( Misc::ConfigurationFile& configFile )
 			}
 			else
 			{
-				printf ( "%-6d*\n", max ) ;
+				printf ( "%-6d*\n", int(max) ) ;
 				#endif
 			}
-			converter.init(min,max,(float(min)+float(max))*0.5f,0.0f);
+			converter=AxisConverter(min,max,0.0f);
 		}
 		#ifdef VERBOSE
 		else
@@ -453,7 +453,7 @@ void HIDDevice::setupButtonAndAxisMaps ( Misc::ConfigurationFile& configFile )
 		AxisConverter& converter=absAxisMap[pos->second].converter;
 		converter=configFile.retrieveValue<AxisConverter>(absAxisSettingsTag,converter);
 		#ifdef VERBOSE
-			printf("HIDDevice:    %-5d 0x%-4X 0x%-4X %s\n",index,pos->first,pos->second,converter.encode().c_str());
+			printf("HIDDevice:    %-5d 0x%-4X 0x%-4X %s\n",int(index),(unsigned int)pos->first,(unsigned int)pos->second,Misc::ValueCoder<AxisConverter>::encode(converter).c_str());
 		#endif
 	}
 }
@@ -511,7 +511,7 @@ void HIDDevice::handleEvents ( void )
 		CookieAxisInfoMap::iterator axisPos ( absAxisMap . find ( hidEvent . elementCookie ) ) ;
 		if ( axisPos != absAxisMap . end ( ) ) {
 			setValuatorState ( axisPos -> second . index,
-			                   axisPos -> second . converter . convert ( hidEvent . value ) ) ;
+			                   axisPos -> second . converter . map ( hidEvent . value ) ) ;
 			changed = true ;
 			continue ;
 		}

@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2008 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -61,8 +61,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <AL/ALThingManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/InputDeviceAdapterMouse.h>
-#include <Vrui/Viewer.h>
-#include <Vrui/VRScreen.h>
 #include <Vrui/VRWindow.h>
 #include <Vrui/SoundContext.h>
 #include <Vrui/ToolManager.h>
@@ -145,6 +143,7 @@ void vruiErrorShutdown(bool signalError)
 		delete[] vruiWindows;
 		}
 	ALThingManager::shutdown();
+	#ifdef VRUI_USE_OPENAL
 	if(vruiSoundContexts!=0)
 		{
 		/* Destroy all sound contexts: */
@@ -152,7 +151,7 @@ void vruiErrorShutdown(bool signalError)
 			delete vruiSoundContexts[i];
 		delete[] vruiSoundContexts;
 		}
-	
+	#endif
 	delete[] vruiApplicationName;
 	delete vruiState;
 	
@@ -448,7 +447,6 @@ void init(int& argc,char**& argv,char**&)
 						for(int j=i;j<argc;++j)
 							argv[j]=argv[j+2];
 						--i;
-						break;
 						}
 					else
 						{
@@ -470,7 +468,6 @@ void init(int& argc,char**& argv,char**&)
 						for(int j=i;j<argc;++j)
 							argv[j]=argv[j+2];
 						--i;
-						break;
 						}
 					else
 						{
@@ -824,6 +821,11 @@ void startDisplay(PerDisplayInitFunctionType perDisplayInitFunction,void* userDa
 		std::cerr<<"Caught exception "<<error.what()<<" while initializing rendering windows"<<std::endl;
 		vruiErrorShutdown(true);
 		}
+	catch(...)
+		{
+		std::cerr<<"Caught spurious exception while initializing rendering windows"<<std::endl;
+		vruiErrorShutdown(true);
+		}
 	
 	/* Check if the user gave a viewpoint file on the command line: */
 	if(!vruiState->viewpointFileName.empty())
@@ -863,24 +865,32 @@ void startSound(PerSoundInitFunctionType perSoundInitFunction,void* userData)
 	/* Ready the ALObject manager to initialize its objects per-context: */
 	ALContextData::resetThingManager();
 	
-	/* Create the Vrui sound context: */
-	vruiNumSoundContexts=1;
-	vruiSoundContexts=new SoundContext*[1];
-	for(int i=0;i<vruiNumSoundContexts;++i)
-		vruiSoundContexts[i]=0;
-	for(int i=0;i<vruiNumSoundContexts;++i)
+	try
 		{
 		/* Create a new sound context: */
-		vruiSoundContexts[i]=new SoundContext(vruiConfigFile->getSection(soundContextName.c_str()),vruiState);
+		SoundContext* sc=new SoundContext(vruiConfigFile->getSection(soundContextName.c_str()),vruiState);
+		
+		/* Install the Vrui sound context: */
+		vruiNumSoundContexts=1;
+		vruiSoundContexts=new SoundContext*[1];
+		vruiSoundContexts[0]=sc;
 		
 		/* Initialize all ALObjects for this sound context's context data: */
-		vruiSoundContexts[i]->makeCurrent();
-		vruiSoundContexts[i]->getContextData().updateThings();
+		vruiSoundContexts[0]->makeCurrent();
+		vruiSoundContexts[0]->getContextData().updateThings();
+		}
+	catch(std::runtime_error err)
+		{
+		std::cerr<<"Disabling OpenAL sound due to exception "<<err.what()<<std::endl;
+		}
+	catch(...)
+		{
+		std::cerr<<"Disabling OpenAL sound due to spurious exception"<<std::endl;
 		}
 	#endif
 	}
 
-bool vruiHandleAllEvents(bool allowBlocking)
+bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 	{
 	bool done=false;
 	
@@ -903,7 +913,8 @@ bool vruiHandleAllEvents(bool allowBlocking)
 	if(mustBlock)
 		{
 		/* Fill the file descriptor set to wait for events: */
-		readFds.add(fileno(stdin)); // Return on input on stdin, as well
+		if(checkStdin)
+			readFds.add(fileno(stdin)); // Return on input on stdin, as well
 		if(vruiEventPipe[0]>=0)
 			readFds.add(vruiEventPipe[0]);
 		for(int i=0;i<vruiNumWindows;++i)
@@ -953,7 +964,7 @@ bool vruiHandleAllEvents(bool allowBlocking)
 			}
 	
 	/* Read pending data from stdin and exit if escape key is pressed: */
-	if(readFds.isSet(fileno(stdin)))
+	if(checkStdin&&readFds.isSet(fileno(stdin)))
 		done=fgetc(stdin)==27||done;
 	
 	if(vruiEventPipe[0]>=0)
@@ -977,14 +988,11 @@ bool vruiHandleAllEvents(bool allowBlocking)
 
 void vruiInnerLoopMultiWindow(void)
 	{
-	if(vruiNumWindows==0&&vruiState->master)
-		printf("Press Esc to exit...\n");
-	
 	bool keepRunning=true;
 	while(keepRunning)
 		{
 		/* Handle all events, blocking if there are none unless in continuous mode: */
-		keepRunning=!vruiHandleAllEvents(!vruiState->updateContinuously);
+		keepRunning=!vruiHandleAllEvents(!vruiState->updateContinuously,vruiNumWindows==0&&vruiState->master);
 		
 		/* Check for asynchronous shutdown: */
 		keepRunning=keepRunning&&!vruiAsynchronousShutdown;
@@ -1007,9 +1015,11 @@ void vruiInnerLoopMultiWindow(void)
 		/* Reset the AL thing manager: */
 		ALContextData::resetThingManager();
 		
+		#ifdef VRUI_USE_OPENAL
 		/* Update all sound contexts: */
 		for(int i=0;i<vruiNumSoundContexts;++i)
 			vruiSoundContexts[i]->draw();
+		#endif
 		
 		/* Reset the GL thing manager: */
 		GLContextData::resetThingManager();
@@ -1071,7 +1081,7 @@ void vruiInnerLoopSingleWindow(void)
 	while(true)
 		{
 		/* Handle all events, blocking if there are none unless in continuous mode: */
-		keepRunning=!vruiHandleAllEvents(!vruiState->updateContinuously);
+		keepRunning=!vruiHandleAllEvents(!vruiState->updateContinuously,false);
 		
 		/* Check for asynchronous shutdown: */
 		keepRunning=keepRunning&&!vruiAsynchronousShutdown;
@@ -1094,9 +1104,11 @@ void vruiInnerLoopSingleWindow(void)
 		/* Reset the AL thing manager: */
 		ALContextData::resetThingManager();
 		
+		#ifdef VRUI_USE_OPENAL
 		/* Update all sound contexts: */
 		for(int i=0;i<vruiNumSoundContexts;++i)
 			vruiSoundContexts[i]->draw();
+		#endif
 		
 		/* Reset the GL thing manager: */
 		GLContextData::resetThingManager();
@@ -1131,7 +1143,7 @@ void mainLoop(void)
 	XResetScreenSaver(vruiWindow->getDisplay());
 	#endif
 	
-	if(vruiState->master)
+	if(vruiState->master&&vruiNumWindows==0)
 		{
 		/* Disable line buffering on stdin to detect key presses in the inner loop: */
 		termios term;
@@ -1139,6 +1151,8 @@ void mainLoop(void)
 		term.c_lflag&=~ICANON;
 		tcsetattr(fileno(stdin),TCSANOW,&term);
 		setbuf(stdin,0);
+		
+		printf("Press Esc to exit...\n");
 		}
 	
 	/* Perform the main loop until the ESC key is hit: */
@@ -1167,9 +1181,9 @@ void mainLoop(void)
 		delete[] vruiWindows;
 		}
 	
-	#ifdef VRUI_USE_OPENAL
 	/* Shut down the sound system: */
 	ALThingManager::shutdown();
+	#ifdef VRUI_USE_OPENAL
 	if(vruiSoundContexts!=0)
 		{
 		/* Destroy all sound contexts: */
@@ -1244,6 +1258,16 @@ int getNumWindows(void)
 VRWindow* getWindow(int index)
 	{
 	return vruiWindows[index];
+	}
+
+int getNumSoundContexts(void)
+	{
+	return vruiNumSoundContexts;
+	}
+
+SoundContext* getSoundContext(int index)
+	{
+	return vruiSoundContexts[index];
 	}
 
 ViewSpecification calcViewSpec(int windowIndex,int eyeIndex)

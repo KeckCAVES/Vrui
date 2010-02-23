@@ -54,9 +54,7 @@ void Application::soundWrapper(ALContextData& contextData,void* userData)
 
 void Application::enableSound(void)
 	{
-	#ifdef VRUI_USE_OPENAL
 	useSound=true;
-	#endif
 	}
 
 Application::Application(int& argc,char**& argv,char**& appDefaults)
@@ -95,9 +93,11 @@ void Application::run(void)
 	/* Start the display: */
 	startDisplay(0,0);
 	
+	#ifdef VRUI_USE_OPENAL
 	/* Start the sound renderer if requested: */
 	if(useSound)
 		startSound(initSoundWrapper,this);
+	#endif
 	
 	/* Run the Vrui main loop: */
 	mainLoop();

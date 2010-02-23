@@ -43,6 +43,16 @@ BillboardNode::BillboardNode(void)
 	{
 	}
 
+const char* BillboardNode::getStaticClassName(void)
+	{
+	return "Billboard";
+	}
+
+const char* BillboardNode::getClassName(void) const
+	{
+	return "Billboard";
+	}
+
 void BillboardNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"axisOfRotation")==0)

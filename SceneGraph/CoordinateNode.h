@@ -42,6 +42,8 @@ class CoordinateNode:public Node
 	CoordinateNode(void); // Creates coordinate node with empty point set
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

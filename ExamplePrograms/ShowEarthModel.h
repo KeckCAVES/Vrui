@@ -66,6 +66,8 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 		RotatedGeodeticCoordinateTransform(void);
 		
 		/* Methods from GeodeticCoordinateTransform: */
+		virtual const char* getUnitName(int componentIndex) const;
+		virtual const char* getUnitAbbreviation(int componentIndex) const;
 		virtual Vrui::Point transform(const Vrui::Point& navigationPoint) const;
 		
 		/* New methods: */
