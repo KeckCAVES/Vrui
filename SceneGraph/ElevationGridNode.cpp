@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -34,6 +34,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLGeometryVertex.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
+
+#include <SceneGraph/LoadElevationGrid.h>
 
 namespace SceneGraph {
 
@@ -138,6 +140,12 @@ void ElevationGridNode::uploadIndexedQuadStripSet(void) const
 				n=Geometry::normalize(normal.getValue()->vector.getValue(vInd));
 			else
 				n=calcVertexNormal(x,z);
+			if(!heightIsY.getValue())
+				{
+				std::swap(p[1],p[2]);
+				std::swap(n[1],n[2]);
+				n=-n;
+				}
 			
 			/* Store the vertex position and normal: */
 			if(pointTransform.getValue()!=0)
@@ -290,6 +298,12 @@ void ElevationGridNode::uploadQuadSet(void) const
 			/* Set the corner positions and normal vectors of the current quad: */
 			for(int i=0;i<4;++i)
 				{
+				if(!heightIsY.getValue())
+					{
+					std::swap(cp[i][1],cp[i][2]);
+					std::swap(cn[i][1],cn[i][2]);
+					cn[i]=-cn[i];
+					}
 				if(pointTransform.getValue()!=0)
 					{
 					v[i].normal=Vertex::Normal(pointTransform.getValue()->transformNormal(cp[i],cn[i]));
@@ -326,9 +340,20 @@ ElevationGridNode::ElevationGridNode(void)
 	 origin(Point::origin),
 	 xDimension(0),xSpacing(0),
 	 zDimension(0),zSpacing(0),
+	 heightIsY(true),
 	 ccw(true),solid(true),
 	 version(0)
 	{
+	}
+
+const char* ElevationGridNode::getStaticClassName(void)
+	{
+	return "ElevationGrid";
+	}
+
+const char* ElevationGridNode::getClassName(void) const
+	{
+	return "ElevationGrid";
 	}
 
 void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
@@ -381,6 +406,18 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		{
 		vrmlFile.parseField(height);
 		}
+	else if(strcmp(fieldName,"heightUrl")==0)
+		{
+		vrmlFile.parseField(heightUrl);
+		
+		/* Fully qualify all URLs: */
+		for(size_t i=0;i<heightUrl.getNumValues();++i)
+			heightUrl.setValue(i,vrmlFile.getFullUrl(heightUrl.getValue(i)));
+		}
+	else if(strcmp(fieldName,"heightIsY")==0)
+		{
+		vrmlFile.parseField(heightIsY);
+		}
 	else if(strcmp(fieldName,"ccw")==0)
 		{
 		vrmlFile.parseField(ccw);
@@ -395,6 +432,20 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 
 void ElevationGridNode::update(void)
 	{
+	/* Check whether the height field should be loaded from a file: */
+	if(heightUrl.getNumValues()>0)
+		{
+		try
+			{
+			/* Load the elevation grid's height values: */
+			loadElevationGrid(*this);
+			}
+		catch(std::runtime_error err)
+			{
+			/* Carry on... */
+			}
+		}
+	
 	/* Check whether the elevation grid is valid: */
 	valid=xDimension.getValue()>0&&zDimension.getValue()>0&&height.getNumValues()>=size_t(xDimension.getValue())*size_t(zDimension.getValue());
 	
@@ -414,16 +465,34 @@ Box ElevationGridNode::calcBoundingBox(void) const
 		if(pointTransform.getValue()!=0)
 			{
 			/* Return the bounding box of the transformed point coordinates: */
-			MFFloat::ValueList::const_iterator hIt=height.getValues().begin();
-			Point p;
-			p[2]=origin.getValue()[2];
-			for(int z=0;z<zDimension.getValue();++z,p[2]+=zSpacing.getValue())
+			if(heightIsY.getValue())
 				{
-				p[0]=origin.getValue()[0];
-				for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
+				MFFloat::ValueList::const_iterator hIt=height.getValues().begin();
+				Point p;
+				p[2]=origin.getValue()[2];
+				for(int z=0;z<zDimension.getValue();++z,p[2]+=zSpacing.getValue())
 					{
-					p[1]=origin.getValue()[1]+*hIt;
-					result.addPoint(pointTransform.getValue()->transformPoint(p));
+					p[0]=origin.getValue()[0];
+					for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
+						{
+						p[1]=origin.getValue()[1]+*hIt;
+						result.addPoint(pointTransform.getValue()->transformPoint(p));
+						}
+					}
+				}
+			else
+				{
+				MFFloat::ValueList::const_iterator hIt=height.getValues().begin();
+				Point p;
+				p[1]=origin.getValue()[1];
+				for(int z=0;z<zDimension.getValue();++z,p[1]+=zSpacing.getValue())
+					{
+					p[0]=origin.getValue()[0];
+					for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
+						{
+						p[2]=origin.getValue()[2]+*hIt;
+						result.addPoint(pointTransform.getValue()->transformPoint(p));
+						}
 					}
 				}
 			}
@@ -440,7 +509,10 @@ Box ElevationGridNode::calcBoundingBox(void) const
 				else if(yMax<*hIt)
 					yMax=*hIt;
 				}
-			result=Box(origin.getValue()+Vector(0,yMin,0),origin.getValue()+Vector(Scalar(xDimension.getValue()-1)*xSpacing.getValue(),yMax,Scalar(zDimension.getValue()-1)*zSpacing.getValue()));
+			if(heightIsY.getValue())
+				result=Box(origin.getValue()+Vector(0,yMin,0),origin.getValue()+Vector(Scalar(xDimension.getValue()-1)*xSpacing.getValue(),yMax,Scalar(zDimension.getValue()-1)*zSpacing.getValue()));
+			else
+				result=Box(origin.getValue()+Vector(0,0,yMin),origin.getValue()+Vector(Scalar(xDimension.getValue()-1)*xSpacing.getValue(),Scalar(zDimension.getValue()-1)*zSpacing.getValue(),yMax));
 			}
 		}
 	

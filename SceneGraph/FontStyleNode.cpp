@@ -75,6 +75,16 @@ FontStyleNode::~FontStyleNode(void)
 	delete font;
 	}
 
+const char* FontStyleNode::getStaticClassName(void)
+	{
+	return "FontStyle";
+	}
+
+const char* FontStyleNode::getClassName(void) const
+	{
+	return "FontStyle";
+	}
+
 void FontStyleNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"family")==0)

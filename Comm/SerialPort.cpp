@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <termios.h>
 #include <errno.h>
 #include <Misc/Time.h>
+#include <Misc/ThrowStdErr.h>
 
 #include <Comm/SerialPort.h>
 
@@ -91,7 +92,8 @@ SerialPort::SerialPort(const char* deviceName)
 	term.c_lflag=0; // Don't generate signals or echos
 	term.c_cc[VMIN]=1; // Block read() until at least a single byte is read
 	term.c_cc[VTIME]=0; // No timeout on read()
-	tcsetattr(port,TCSANOW,&term);
+	if(tcsetattr(port,TCSANOW,&term)!=0)
+		throw OpenError(deviceName);
 	
 	/* Flush both queues: */
 	tcflush(port,TCIFLUSH);
@@ -115,14 +117,16 @@ void SerialPort::setPortSettings(int portSettingsMask)
 		fileFlags&=~(FNDELAY|FNONBLOCK);
 	
 	/* Set new flags: */
-	fcntl(port,F_SETFL,fileFlags);
+	if(fcntl(port,F_SETFL,fileFlags)!=0)
+		Misc::throwStdErr("SerialPort::setPortSettings: Error while writing new port settings");
 	}
 
 void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::ParitySettings parity,int numStopbits,bool enableHandshake)
 	{
 	/* Initialize a termios structure: */
 	struct termios term;
-	tcgetattr(port,&term);
+	if(tcgetattr(port,&term)!=0)
+		Misc::throwStdErr("SerialPort::setSerialSettings: Error while reading current port settings");
 	
 	/* Set rate of bits per second: */
 	#ifdef __SGI_IRIX__
@@ -144,7 +148,7 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 		else
 			r=m;
 		}
-	cfsetospeed(&term,bitRates[l][1]);
+	cfsetspeed(&term,bitRates[l][1]);
 	#endif
 	
 	/* Set character size: */
@@ -198,14 +202,16 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 		}
 		
 	/* Set the port: */
-	tcsetattr(port,TCSADRAIN,&term);
+	if(tcsetattr(port,TCSADRAIN,&term)!=0)
+		Misc::throwStdErr("SerialPort::setSerialSettings: Error while writing new port settings");
 	}
 
 void SerialPort::setRawMode(int minNumBytes,int timeOut)
 	{
 	/* Read the current port settings: */
 	struct termios term;
-	tcgetattr(port,&term);
+	if(tcgetattr(port,&term)!=0)
+		Misc::throwStdErr("SerialPort::setRawMode: Error while reading current port settings");
 	
 	/* Disable canonical mode: */
 	term.c_lflag&=~ICANON;
@@ -215,27 +221,31 @@ void SerialPort::setRawMode(int minNumBytes,int timeOut)
 	term.c_cc[VTIME]=cc_t(timeOut);
 	
 	/* Set the port: */
-	tcsetattr(port,TCSANOW,&term);
+	if(tcsetattr(port,TCSANOW,&term)!=0)
+		Misc::throwStdErr("SerialPort::setRawMode: Error while writing new port settings");
 	}
 
 void SerialPort::setCanonicalMode(void)
 	{
 	/* Read the current port settings: */
 	struct termios term;
-	tcgetattr(port,&term);
+	if(tcgetattr(port,&term)!=0)
+		Misc::throwStdErr("SerialPort::setCanonicalMode: Error while reading current port settings");
 	
 	/* Enable canonical mode: */
 	term.c_lflag|=ICANON;
 	
 	/* Set the port: */
-	tcsetattr(port,TCSANOW,&term);
+	if(tcsetattr(port,TCSANOW,&term)!=0)
+		Misc::throwStdErr("SerialPort::setCanonicalMode: Error while writing new port settings");
 	}
 
 void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 	{
 	/* Read the current port settings: */
 	struct termios term;
-	tcgetattr(port,&term);
+	if(tcgetattr(port,&term)!=0)
+		Misc::throwStdErr("SerialPort::setLineControl: Error while reading current port settings");
 	
 	if(respectModemLines)
 		term.c_cflag&=~CLOCAL;
@@ -247,7 +257,8 @@ void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 		term.c_cflag&=~HUPCL;
 	
 	/* Set the port: */
-	tcsetattr(port,TCSANOW,&term);
+	if(tcsetattr(port,TCSANOW,&term)!=0)
+		Misc::throwStdErr("SerialPort::setLineControl: Error while writing new port settings");
 	}
 
 void SerialPort::resetStatistics(void)

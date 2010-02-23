@@ -1,5 +1,5 @@
 /***********************************************************************
-HVector - Class for homogenuous vectors.
+HVector - Class for homogeneous vectors.
 Copyright (c) 2001-2005 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).

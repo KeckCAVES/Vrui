@@ -26,14 +26,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef HIDDEVICE_INCLUDED
 #define HIDDEVICE_INCLUDED
 
-#include <string>
-#include <Threads/Mutex.h>
-
 #ifdef __DARWIN__
-#include <map>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hid/IOHIDLib.h>
+#include <map>
 #endif
+#include <string>
+#include <Threads/Mutex.h>
+#include <Math/BrokenLine.h>
 
 #include "VRDevice.h"
 
@@ -41,40 +41,7 @@ class HIDDevice:public VRDevice
 	{
 	/* Embedded classes: */
 	public:
-	class AxisConverter // Structure to convert raw axis values to the [-1, 1] range
-		{
-		/* Elements: */
-		private:
-		float negMin,negMax,negFactor;
-		float posMin,posMax,posFactor;
-		
-		/* Constructors and destructors: */
-		public:
-		AxisConverter(void) // Dummy constructor
-			{
-			}
-		AxisConverter(const char* start,const char* end,const char** decodeEnd); // Creates axis converter from (min, max, center, flat) string
-		
-		/* Methods: */
-		void init(float min,float max,float center,float flat); // Creates axis converter from integer value ranges
-		std::string encode(void) const; // Encodes axis converter as a string to write to a configuration file
-		float convert(int value) const // Converts raw axis value to valuator value
-			{
-			/* Convert raw value using "broken linear axis" model: */
-			float raw=float(value);
-			float neg=(raw-negMin)*negFactor;
-			if(neg<-1.0f)
-				neg=-1.0f;
-			else if(neg>0.0f)
-				neg=0.0f;
-			float pos=(raw-posMin)*posFactor;
-			if(pos<0.0f)
-				pos=0.0f;
-			else if(pos>1.0f)
-				pos=1.0f;
-			return neg+pos;
-			};
-		};
+	typedef Math::BrokenLine<float> AxisConverter; // Type to convert raw axis values to the [-1, 1] range
 	
 	/* Elements: */
 	private:

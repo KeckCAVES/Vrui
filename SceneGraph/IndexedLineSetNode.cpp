@@ -195,6 +195,16 @@ IndexedLineSetNode::IndexedLineSetNode(void)
 	{
 	}
 
+const char* IndexedLineSetNode::getStaticClassName(void)
+	{
+	return "IndexedLineSet";
+	}
+
+const char* IndexedLineSetNode::getClassName(void) const
+	{
+	return "IndexedLineSet";
+	}
+
 void IndexedLineSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"color")==0)

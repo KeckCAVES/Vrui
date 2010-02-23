@@ -77,6 +77,7 @@ class FPSNavigationTool:public SurfaceNavigationTool
 	Scalar angles[2]; // Current yaw (around z) and pitch (around x) angles in radians
 	Vector moveVelocity; // Current movement velocity in frame coordinates
 	Point lastMousePos; // Last mouse position in screen coordinates
+	Scalar fallVelocity; // Current falling velocity along the aligned surface frame's z axis
 	
 	/* Private methods: */
 	Point calcMousePosition(void) const; // Calculates the current mouse position in screen coordinates

@@ -51,6 +51,7 @@ class GeometryNode:public Node
 	GeometryNode(void); // Creates an empty geometry node
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

@@ -68,6 +68,8 @@ class PointSetNode:public GeometryNode,public GLObject
 	PointSetNode(void); // Creates a default point set (no color or coord node, point size 1.0)
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

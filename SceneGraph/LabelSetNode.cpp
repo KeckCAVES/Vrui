@@ -64,6 +64,16 @@ LabelSetNode::LabelSetNode(void)
 	{
 	}
 
+const char* LabelSetNode::getStaticClassName(void)
+	{
+	return "LabelSet";
+	}
+
+const char* LabelSetNode::getClassName(void) const
+	{
+	return "LabelSet";
+	}
+
 void LabelSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"string")==0)

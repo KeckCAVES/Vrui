@@ -9,7 +9,7 @@
 
 The Vrui configuration file (Vrui.cfg in the installation's etc directory) contains all adjustable settings of the Vrui toolkit, and is how Vrui adapts itself to any VR environment from a desktop system to a high-end VR system like a CAVE. All these environments run the exact same version of the Vrui toolkit and the same applications; they only differ in their configuration file settings.<P>
 
-The Vrui configuration file (from now on referred to as Vrui.cfg) is organized as a tree of named sections, each one containing tag/value pairs (similar to the Windows registry), and stored in a human-readable plain text file. Any lines starting with a hash mark (&quot;#&quot;) are considered comments and ignored. Sections inside Vrui.cfg are bracketed by lines containing only &quot;section &lt;name&gt;&quot; and &quot;endsection&quot;, respectively. Section names containing spaces must be enclosed in double quotes. A tag/value pair is a single line, starting with the tag name and followed by the value string. Multiline value strings can be achieved by ending lines with a single backslash. The format of the value string depends on the data type of the setting associated with the tag; for example, a boolean setting can have &quot;true&quot; or &quot;false&quot; as values, whereas a vector setting has a value string such as &quot;(1.0, -2.0, 0.5)&quot;. String values can be enclosed in double quotes to allow spaces and other special characters.
+The Vrui configuration file (from now on referred to as Vrui.cfg) is organized as a tree of named sections, each one containing tag/value pairs (similar to the Windows registry), stored in a human-readable plain text file. Any lines starting with a hash mark (&quot;#&quot;) are considered comments and ignored. Sections inside Vrui.cfg are bracketed by lines containing only &quot;section &lt;name&gt;&quot; and &quot;endsection&quot;, respectively. Section names containing spaces must be enclosed in double quotes. A tag/value pair is a single line, starting with the tag name and followed by the value string. Multiline value strings can be achieved by ending lines with a single backslash. The format of the value string depends on the data type of the setting associated with the tag; for example, a boolean setting can have &quot;true&quot; or &quot;false&quot; as values, whereas a vector setting has a value string such as &quot;(1.0, -2.0, 0.5)&quot;. String values can be enclosed in double quotes to allow spaces and other special characters.
 
 <H2>Vrui Initialization</H2>
 
@@ -91,7 +91,7 @@ All other settings in the root section are related to the 3D environment represe
 
 <H3>Input Device Adapter Definition</H3>
 
-Each subsection listed in the inputDeviceAdapternames setting defines one source for input device data. A Vrui environment can gather its data from any number of sources; each subsection defines the format of data from one source, and how to integrate that data into the environment's overall input device layout. An input device adapter's settings are:
+Each subsection listed in the inputDeviceAdapterNames setting defines one source for input device data. A Vrui environment can gather its data from any number of sources; each subsection defines the format of data from one source, and how to integrate that data into the environment's overall input device layout. An input device adapter's settings are:
 <DL>
 <DT>inputDeviceAdapterType</DT>
 <DD>Setting defining the type of the input data source. All further settings depend on the type of adapter. The most important available types are:
@@ -102,6 +102,9 @@ Each subsection listed in the inputDeviceAdapternames setting defines one source
 <DT>DeviceDaemon</DT>
 <DD>An input device adapter getting its data from an separate VR device driver, potentially located on a separate computer. The Vrui VR device driver reports its data as a &quot;flat&quot; list of 6-DOF trackers, buttons, and valuators. The rest of the settings describe how to connect to the separate device driver, and how to assemble the flat device data into individual input devices.</DD>
 </DL></DD>
+
+<DT>HID</DT>
+<DD>An input device adapter representing one or more input devices exposed via the operating system's human interface device (HID) subsystem. These are typically desktop devices such as joysticks, spaceballs, gamepads, etc. HID devices can alternatively be connected to a separate VR device daemon and imported via a DeviceDaemon input device adapter, but it is often easier to connect them directly via HID.</DD>
 </DL>
 
 <H3>Viewer Definition</H3>
@@ -185,6 +188,9 @@ Each subsection listed in the windowNames setting defines one window, acting as 
 
 <DT>windowFullscreen</DT>
 <DD>If this boolean setting is true, Vrui ignores the desired window position and size and creates a fullscreen window covering the entire display. Modern window managers will usually grant this request, but some might still draw the resulting window with decoration.</DD>
+
+<DT>autoScreenSize</DT>
+<DD>In &quot;real&quot; VR environments, the positions and sizes of screens are typically measured carefully and entered into their respective screen sections. In desktop environments, however, screen sizes are much more dynamic, i.e., change depending on what kind of monitor is currently plugged in. To reduce configuration effort in such cases, windows can be told to calculate their own size based on information provided by the operating system. If the autoScreenSize tag is set to true, the window will query its display's size, and override the size values configured in its associated screen. This only works if each screen is associated with at most one automatically resizing window.</DD>
 
 <DT>panningViewport</DT>
 <DD>Normal 3D graphics applications do not change the display when the window containing the display is moved on the screen. In Vrui, however, because the display is based on physical coordinates, moving a window on the screen should change what is displayed. In Vrui, one can think of OpenGL/display windows as &quot;real&quot; windows into a virtual 3D space that extends in front of and behind the screen. By setting panningViewport to true, Vrui takes the position and size of its display windows into account when setting up the 3D projection; if the setting is false, Vrui assumes that the window entirely covers the screen as defined in the configuration file. This will lead to bad results if the physical window size does not match the configured screen size, and especially if the window's and screen's aspect ratios do not match. It is generally advisable to either define all desktop windows as panning viewports, or to always use fullscreen windows.</DD>

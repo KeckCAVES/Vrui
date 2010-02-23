@@ -38,6 +38,16 @@ GroupNode::GroupNode(void)
 	{
 	}
 
+const char* GroupNode::getStaticClassName(void)
+	{
+	return "Group";
+	}
+
+const char* GroupNode::getClassName(void) const
+	{
+	return "Group";
+	}
+
 EventOut* GroupNode::getEventOut(const char* fieldName) const
 	{
 	if(strcmp(fieldName,"children")==0)

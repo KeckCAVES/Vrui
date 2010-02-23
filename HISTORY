@@ -1477,3 +1477,99 @@ Vrui-1.0-066:
 - Added methods to lock / unlock the queue for delayed reading to
   Threads::DropoutBuffer; was required for idempotent read access to
   buffer.
+
+Vrui-1.0-067:
+- Fixed bug in baud rate setting in Comm::SerialPort::setSerialSettings
+  and improved error checking in many methods.
+- Removed optional desktop input devices from Vrui.cfg and split them
+  into separate patch configuration files for 3Dconnexion SpaceBall
+  4000FLX, Logitech/3Dconnexion SpaceTraveler, and Logitech Wingman
+  Extreme 3D Pro.
+- Added configurations for same desktop device types to VRDevices.cfg.
+- Provided default values for essential settings in
+  Vrui::DesktopDeviceTool and Vrui::DesktopDeviceNavigationTool to
+  allow advertising the tool classes without specific configuration
+  sections.
+- Added new input device adapter type Vrui::InputDeviceAdapterJoystick
+  to directly connect to desktop input devices such as joysticks,
+  gamepads, or spaceballs without a VR device daemon. Currently only
+  works on Linux using the joystick API.
+- Added Mac OS X support for Vrui::InputDeviceAdapterJoystick using the
+  IOKit HID API.
+- Fixed printf type mismatches in VRDeviceDaemon/HIDDevice.MacOSX.cpp.
+- Removed macro definition of GL_GLEXT_PROTOTYPES from
+  BuildRoot/Packages for Mac OS X 10.6.
+- Fixed version detection code for Mac OS X.
+- Added new class Math::BrokenLine to simplify range mappings as used in
+  joysticks and other HID input devices.
+
+Vrui-1.0-068:
+- Fixed regression bug in VRDeviceDaemon's ViconTarsus and
+  ViconTarsusRaw modules: did not flush TCP pipe after writing request
+  packets.
+- Fixed syntax error in optional code in VRDeviceDaemon's
+  PolhemusFastrak module.
+- Added methods to query unit names to Vrui::CoordinateTransformation.
+- Added unit display to measurement tool.
+- Added Vrui::GenericAbstractToolFactory, a templatized factory class
+  for tool classes that only serve as base classes and are never
+  instantiated.
+- Simplified naming scheme in default Vrui.cfg configuration file. For
+  example, Desktop/DesktopWindow is now just Desktop/Window.
+- Added section for IDAV VR lab's low-cost 3D TV environment to default
+  Vrui.cfg configuration file.
+- Added Comm::TCPSocketCharacterSource, a character source wrapper for
+  TCP sockets. Does not currently include code to detect end-of-file
+  conditions arising when the remote socket disconnects, 'cuz that's
+  kinda hard.
+- Defined a file name insert for OS-specific implementations of cross-
+  platform classes as OSSPECFILEINSERT in BuildRoot/SystemDefinitions.
+  Defaults to Linux on Linux and MacOSX on Mac OSX.
+- Changed makefile to always enable support for OpenAL when building
+  under Mac OSX, since OpenAL seems to be a standard package now.
+- Added new support library for MacOSX, currently only containing
+  MacOSX::AutoRef, a wrapper class to simplify managing Core Foundation
+  object references.
+- Removed Vrui::InputDeviceAdapterJoystick and replaced it with
+  Vrui::InputDeviceAdapterHID, using the same HID interface on Mac OSX
+  and the event HID interface instead of the joystick interface on
+  Linux.
+- Fixed typo in VRDeviceDaemon/HIDDevice.Linux.cpp that led to a
+  segfault when encountering devices with relative axes.
+- Changed socket initialization code in VRDeviceDaemon/Wiimote.cpp to
+  work with newer versions of the bluez bluetooth library.
+- Removed some unused #includes from Vrui/Vrui.Workbench.cpp.
+- Improved Vrui event loop such that Vrui instances which open a display
+  window can once again run as background processes.
+- Added type-inferring wrapper functions for selected OpenAL API calls
+  as AL/ALTemplates.h.
+- Added wrappers to call selected OpenAL API calls with templatized
+  geometry types to AL/ALGeometryWrappers.h.
+- Added "modelview" stack management to ALContextData class to get
+  OpenAL model rendering in line with OpenGL rendering.
+- Added normalization of listenDirection and upDirection vectors to
+  Vrui::Listener's initialization function.
+- Changed handling of sound when OpenAL is not supported; should not
+  change application processing.
+- Added important OpenAL parameters to Vrui::SoundContext and
+  Vrui::Listener classes and their configuration file sections.
+- Added functions to query number of sound contexts and return sound
+  context pointers to Vrui kernel API.
+- Added proper handling of navigation transformation to VruiState::sound
+  method.
+- Added overall gain factor to Vrui::Listener.
+- Added listener and sound context sections to Desktop section in
+  default Vrui configuration file.
+- Improved error handling in Vrui's display and sound initialization
+  routines.
+- Fixed typo in Mac OS X version checking in BuildRoot/
+  SystemDefinitions.
+- Added a new "Dual-Ray Transform Tool" to locate 3D positions by
+  specifying two non-collinear rays using a ray-based input device in
+  a modal interaction sequence.
+- Fixed copypasta bug in command line argument removal in
+  Vrui/Vrui.Workbench.cpp that prohibited use of -mergeConfig and
+  -rootSection options if not at the end of the command line. Found by
+  Tony Bernardin.
+- Reordered code in Vrui's main loop in Vrui/Vrui.Workbench.cpp; does
+  not change functionality.

@@ -24,6 +24,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <stdexcept>
 #include <iostream>
 #include <iomanip>
@@ -45,6 +46,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLExtensionManager.h>
 #include <GL/Extensions/GLARBVertexBufferObject.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GL/GLFrustum.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/Blind.h>
@@ -84,6 +86,42 @@ ShowEarthModel::RotatedGeodeticCoordinateTransform::RotatedGeodeticCoordinateTra
 	:Vrui::GeodeticCoordinateTransform(0.001),
 	 rotationAngle(0),raSin(0),raCos(1)
 	{
+	}
+
+const char* ShowEarthModel::RotatedGeodeticCoordinateTransform::getUnitName(int componentIndex) const
+	{
+	switch(componentIndex)
+		{
+		case 0:
+		case 1:
+			return "degree";
+			break;
+		
+		case 2:
+			return "kilometer";
+			break;
+		
+		default:
+			return "";
+		}
+	}
+
+const char* ShowEarthModel::RotatedGeodeticCoordinateTransform::getUnitAbbreviation(int componentIndex) const
+	{
+	switch(componentIndex)
+		{
+		case 0:
+		case 1:
+			return "deg";
+			break;
+		
+		case 2:
+			return "km";
+			break;
+		
+		default:
+			return "";
+		}
 	}
 
 Vrui::Point ShowEarthModel::RotatedGeodeticCoordinateTransform::transform(const Vrui::Point& navigationPoint) const
@@ -517,7 +555,10 @@ void ShowEarthModel::updateCurrentTime(void)
 	currentTimeValue->setLabel(ctBuffer);
 	
 	for(std::vector<EarthquakeSet*>::iterator esIt=earthquakeSets.begin();esIt!=earthquakeSets.end();++esIt)
-		(*esIt)->selectEvents(currentTime-playSpeed,currentTime);
+		{
+		(*esIt)->setHighlightTime(playSpeed);
+		(*esIt)->setCurrentTime(currentTime);
+		}
 	}
 
 GLMotif::PopupWindow* ShowEarthModel::createAnimationDialog(void)
@@ -589,7 +630,7 @@ GLPolylineTube* ShowEarthModel::readSensorPathFile(const char* sensorPathFileNam
 	result->setNumTubeSegments(12);
 	
 	/* Read the samples: */
-	GLPolylineTube::Point lastPos;
+	GLPolylineTube::Point lastPos=GLPolylineTube::Point::origin;
 	for(unsigned int i=0;i<numSamples;++i)
 		{
 		/* Read next line from file: */
@@ -744,6 +785,11 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 	currentTime=earthquakeTimeRange.first;
 	playSpeed=365.0*24.0*60.0*60.0; // One second per year
 	play=false;
+	for(std::vector<EarthquakeSet*>::iterator esIt=earthquakeSets.begin();esIt!=earthquakeSets.end();++esIt)
+		{
+		(*esIt)->setHighlightTime(playSpeed);
+		(*esIt)->setCurrentTime(currentTime);
+		}
 	
 	/* Create the user interface: */
 	mainMenu=createMainMenu();
@@ -760,6 +806,9 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 		EarthquakeToolFactory* earthquakeToolFactory=new EarthquakeToolFactory(*Vrui::getToolManager(),float(Vrui::getUiSize())*5.0f,0.005f,earthquakeSets[0]);
 		Vrui::getToolManager()->addClass(earthquakeToolFactory,EarthquakeToolFactory::factoryDestructor);
 		}
+	
+	/* Set the navigational coordinate system unit: */
+	Vrui::getCoordinateManager()->setUnit(Vrui::CoordinateManager::KILOMETER,Vrui::Scalar(1));
 	
 	/* Register a geodetic coordinate transformer with Vrui's coordinate manager: */
 	userTransform=new RotatedGeodeticCoordinateTransform;
@@ -796,8 +845,16 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	DataItem* dataItem=new DataItem();
 	contextData.addDataItem(this,dataItem);
 	
+	/* Create the default topography file name: */
+	std::string topographyFileName=SHOWEARTHMODEL_IMAGEDIR;
+	#ifdef IMAGES_HAVE_PNG
+	topographyFileName.append("/EarthTopography.png");
+	#else
+	topographyFileName.append("/EarthTopography.ppm");
+	#endif
+	
 	/* Load the Earth surface texture image from an image file: */
-	Images::RGBImage earthTexture=Images::readImageFile(SHOWEARTHMODEL_TOPOGRAPHY_IMAGEFILENAME);
+	Images::RGBImage earthTexture=Images::readImageFile(topographyFileName.c_str());
 	
 	/* Select the Earth surface texture object: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->surfaceTextureObjectId);
@@ -992,6 +1049,14 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	glPushMatrix();
 	glRotate(rotationAngle,0.0f,0.0f,1.0f);
 	
+	/* Calculate the scaled point size and eye position for this frustum: */
+	glPointSize(earthquakePointSize);
+	GLFrustum<float> frustum;
+	frustum.setFromGL();
+	float pointRadius=earthquakePointSize*float(Vrui::getUiSize())*0.1f;
+	pointRadius*=frustum.getPixelSize()/frustum.getEyeScreenDistance();
+	EarthquakeSet::Point eyePos=frustum.getEye().toPoint();
+	
 	/* Render all opaque surfaces: */
 	glDisable(GL_CULL_FACE);
 	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_TRUE);
@@ -1053,12 +1118,6 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	glEnd();
 	glPopMatrix();
 	#endif
-	
-	/* Render all earthquake sets: */
-	glPointSize(earthquakePointSize);
-	for(unsigned int i=0;i<earthquakeSets.size();++i)
-		if(showEarthquakeSets[i])
-			earthquakeSets[i]->glRenderAction(contextData);
 	
 	/* Render all additional point sets: */
 	static const GLColor<GLfloat,3> pointSetColors[14]=
@@ -1149,6 +1208,17 @@ void ShowEarthModel::display(GLContextData& contextData) const
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_LIGHTING);
 		}
+	
+	/* Draw earthquakes behind the outer core: */
+	glDisable(GL_LIGHTING);
+	for(unsigned int i=0;i<earthquakeSets.size();++i)
+		if(showEarthquakeSets[i])
+			{
+			earthquakeSets[i]->setPointRadius(pointRadius);
+			earthquakeSets[i]->glRenderAction(eyePos,false,contextData);
+			}
+	glEnable(GL_LIGHTING);
+	
 	if(showOuterCore&&outerCoreTransparent)
 		{
 		/* Set up OpenGL to render the outer core: */
@@ -1184,6 +1254,17 @@ void ShowEarthModel::display(GLContextData& contextData) const
 		/* Call the outer core's display list: */
 		glCallList(dataItem->displayListIdBase+2);
 		}
+	
+	/* Draw earthquakes in front of the outer core: */
+	glDisable(GL_LIGHTING);
+	for(unsigned int i=0;i<earthquakeSets.size();++i)
+		if(showEarthquakeSets[i])
+			{
+			earthquakeSets[i]->setPointRadius(pointRadius);
+			earthquakeSets[i]->glRenderAction(eyePos,true,contextData);
+			}
+	glEnable(GL_LIGHTING);
+	
 	if(showSurface&&surfaceTransparent)
 		{
 		/* Set up OpenGL to render the Earth's surface: */

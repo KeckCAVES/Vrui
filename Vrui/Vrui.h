@@ -58,13 +58,14 @@ class ClipPlaneManager;
 class Viewer;
 class VRScreen;
 class VRWindow;
-class DisplayState;
-class Listener;
 class ViewSpecification;
+class Listener;
+class SoundContext;
 class CoordinateManager;
 class Tool;
 class ToolManager;
 class VisletManager;
+class DisplayState;
 }
 
 namespace Vrui {
@@ -166,6 +167,10 @@ Listener* getMainListener(void); // Returns pointer to the "main" listener (the 
 int getNumListeners(void); // Returns number of listeners
 Listener* getListener(int index); // Returns pointer to listener of given index
 Listener* findListener(const char* name); // Returns pointer to listener of given name (returns 0 if name is not found)
+
+/* Query information about sound contexts: */
+int getNumSoundContexts(void); // Returns the number of active sound contexts
+SoundContext* getSoundContext(int index); // Returns pointer to sound context of given index
 
 /* Query information about environment: */
 Scalar getInchFactor(void); // Returns the length of an inch, expressed in Vrui physical units

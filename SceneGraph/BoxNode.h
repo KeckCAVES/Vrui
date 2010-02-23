@@ -52,6 +52,8 @@ class BoxNode:public GeometryNode,public DisplayList
 	BoxNode(void); // Creates a default box (centered at origin, edge length 2)
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

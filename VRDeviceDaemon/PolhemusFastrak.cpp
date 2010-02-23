@@ -507,14 +507,14 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	devicePort.writeString("e1,0\r\n");
 	delay(0.1);
 	
-	#if 0
+	#if 1
 	/* Query stylus tip offset: */
 	devicePort.writeByte('F');
 	delay(0.1);
 	devicePort.writeString("N1,\r\n");
 	delay(0.1);
 	char lineBuffer[80];
-	printf("%s\n",readLine(80,lineBuffer);
+	printf("%s\n",readLine(80,lineBuffer));
 	fflush(stdout);
 	#endif
 	

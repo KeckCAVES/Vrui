@@ -49,7 +49,7 @@ class NodeCreator
 	~NodeCreator(void); // Destroys the node creator
 	
 	/* Methods: */
-	void registerNodeType(const char* nodeTypeName,NodeFactory* nodeFactory); // Registers a node factory for nodes of the given type; node creator inherits factory object
+	void registerNodeType(NodeFactory* nodeFactory); // Registers a node factory for nodes of the given type; node creator inherits factory object
 	Node* createNode(const char* nodeTypeName); // Creates a new node of the given type
 	};
 

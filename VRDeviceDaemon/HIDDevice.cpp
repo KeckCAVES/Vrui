@@ -44,63 +44,32 @@ namespace Misc {
 Helper classes:
 **************/
 
-template <>
-class ValueCoder<HIDDevice::AxisConverter>
+template <class ScalarParam>
+class ValueCoder<Math::BrokenLine<ScalarParam> >
 	{
 	/* Methods: */
 	public:
-	static std::string encode(const HIDDevice::AxisConverter& v)
+	static std::string encode(const Math::BrokenLine<ScalarParam>& v)
 		{
-		return v.encode();
+		/* Encode the broken line as a vector with four elements: */
+		std::vector<ScalarParam> values;
+		values.push_back(v.min);
+		values.push_back(v.deadMin);
+		values.push_back(v.deadMax);
+		values.push_back(v.max);
+		return Misc::ValueCoder<std::vector<ScalarParam> >::encode(values);
 		}
-	static HIDDevice::AxisConverter decode(const char* start,const char* end,const char** decodeEnd =0)
+	static Math::BrokenLine<ScalarParam> decode(const char* start,const char* end,const char** decodeEnd =0)
 		{
-		return HIDDevice::AxisConverter(start,end,decodeEnd);
+		/* Decode a vector with four elements: */
+		std::vector<ScalarParam> values=Misc::ValueCoder<std::vector<ScalarParam> >::decode(start,end,decodeEnd);
+		if(values.size()!=4)
+			throw Misc::DecodingError(std::string("Wrong number of elements in ")+std::string(start,end));
+		return Math::BrokenLine<ScalarParam>(values[0],values[1],values[2],values[3]);
 		}
 	};
 
 }
-
-/*****************************************
-Methods of class HIDDevice::AxisConverter:
-*****************************************/
-
-HIDDevice::AxisConverter::AxisConverter(const char* start,const char* end,const char** decodeEnd)
-	{
-	/* Decode string as vector of floats containing (min, max, center, flat): */
-	std::vector<float> values=Misc::ValueCoder<std::vector<float> >::decode(start,end,decodeEnd);
-	if(values.size()!=4)
-		throw Misc::DecodingError(std::string("Wrong number of elements in ")+std::string(start,end));
-	
-	/* Initialize the converter: */
-	init(values[0],values[1],values[2],values[3]);
-	}
-
-void HIDDevice::AxisConverter::init(float min,float max,float center,float flat)
-	{
-	if(min>max)
-		flat=-flat;
-	negMin=center-flat;
-	negMax=min;
-	negFactor=1.0f/(negMin-negMax);
-	posMin=center+flat;
-	posMax=max;
-	posFactor=1.0f/(posMax-posMin);
-	
-	printf("%f, %f, %f, %f, %f, %f\n",negMax,negMin,negFactor,posMin,posMax,posFactor);
-	}
-
-std::string HIDDevice::AxisConverter::encode(void) const
-	{
-	printf("%f, %f, %f, %f, %f, %f\n",negMax,negMin,negFactor,posMin,posMax,posFactor);
-	
-	std::vector<float> values;
-	values.push_back(negMax);
-	values.push_back(posMax);
-	values.push_back((negMax+posMax)*0.5f);
-	values.push_back(Math::abs(posMin-negMin)*0.5f);
-	return Misc::ValueCoder<std::vector<float> >::encode(values);
-	}
 
 /*************************
 System specific functions:

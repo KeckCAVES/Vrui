@@ -34,6 +34,16 @@ TextureCoordinateNode::TextureCoordinateNode(void)
 	{
 	}
 
+const char* TextureCoordinateNode::getStaticClassName(void)
+	{
+	return "TextureCoordinate";
+	}
+
+const char* TextureCoordinateNode::getClassName(void) const
+	{
+	return "TextureCoordinate";
+	}
+
 void TextureCoordinateNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"point")==0)

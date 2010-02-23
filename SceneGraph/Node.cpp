@@ -31,8 +31,8 @@ namespace SceneGraph {
 Methods of class Node::FieldError:
 *********************************/
 
-Node::FieldError::FieldError(const char* fieldName)
-	:std::runtime_error(Misc::stringPrintf("SceneGraph::Node: Unknown field %s",fieldName))
+Node::FieldError::FieldError(std::string errorString)
+	:std::runtime_error(errorString)
 	{
 	}
 
@@ -46,12 +46,12 @@ Node::~Node(void)
 
 EventOut* Node::getEventOut(const char* fieldName) const
 	{
-	throw FieldError(fieldName);
+	throw FieldError(Misc::stringPrintf("No eventOut %s in node class %s",fieldName,getClassName()));
 	}
 
 EventIn* Node::getEventIn(const char* fieldName)
 	{
-	throw FieldError(fieldName);
+	throw FieldError(Misc::stringPrintf("No eventIn %s in node class %s",fieldName,getClassName()));
 	}
 
 void Node::parseField(const char* fieldName,VRMLFile& vrmlFile)

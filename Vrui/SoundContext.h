@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundContext - Class for OpenAL contexts that are used to map a listener
 to an OpenAL sound device.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -48,6 +48,13 @@ namespace Vrui {
 
 class SoundContext
 	{
+	/* Embedded classes: */
+	public:
+	enum DistanceAttenuationModel // Enumerated type for distance attenuation models
+		{
+		CONSTANT,INVERSE,INVERSE_CLAMPED,LINEAR,LINEAR_CLAMPED,EXPONENTIAL,EXPONENTIAL_CLAMPED
+		};
+	
 	/* Elements: */
 	private:
 	VruiState* vruiState; // Pointer to the Vrui state object this sound context belongs to
@@ -57,6 +64,9 @@ class SoundContext
 	#endif
 	ALContextData* contextData; // An OpenAL context data structure for this sound context
 	Listener* listener; // Pointer to listener listening to this sound context
+	float speedOfSound; // Speed of sound in physical coordinate units/s
+	float dopplerFactor; // Exaggeration factor for Doppler effect
+	DistanceAttenuationModel distanceAttenuationModel; // Distance attenuation model
 	
 	/* Constructors and destructors: */
 	public:

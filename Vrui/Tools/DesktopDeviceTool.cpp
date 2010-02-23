@@ -146,7 +146,7 @@ DesktopDeviceToolFactory::DesktopDeviceToolFactory(ToolManager& toolManager)
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	
 	/* Read number of buttons on raw device: */
-	numButtons=cfs.retrieveValue<int>("./numButtons");
+	numButtons=cfs.retrieveValue<int>("./numButtons",0);
 	buttonToggleFlags=new bool[numButtons];
 	buttonAxisShiftMasks=new int[numButtons];
 	for(int i=0;i<numButtons;++i)
@@ -180,10 +180,10 @@ DesktopDeviceToolFactory::DesktopDeviceToolFactory(ToolManager& toolManager)
 		}
 	
 	/* Read number of valuators on raw device: */
-	numValuators=cfs.retrieveValue<int>("./numValuators");
+	numValuators=cfs.retrieveValue<int>("./numValuators",0);
 	
 	/* Read list of rotational axis descriptors: */
-	AxisDescriptorList rotationalAxisDescriptors=cfs.retrieveValue<AxisDescriptorList>("./rotationalAxes");
+	AxisDescriptorList rotationalAxisDescriptors=cfs.retrieveValue<AxisDescriptorList>("./rotationalAxes",AxisDescriptorList());
 	numRotationAxes=rotationalAxisDescriptors.size();
 	rotationAxes=new AxisDescriptor[numRotationAxes];
 	for(int i=0;i<numRotationAxes;++i)
@@ -191,7 +191,7 @@ DesktopDeviceToolFactory::DesktopDeviceToolFactory(ToolManager& toolManager)
 	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
 	
 	/* Read list of translational axis descriptors: */
-	AxisDescriptorList translationalAxisDescriptors=cfs.retrieveValue<AxisDescriptorList>("./translationalAxes");
+	AxisDescriptorList translationalAxisDescriptors=cfs.retrieveValue<AxisDescriptorList>("./translationalAxes",AxisDescriptorList());
 	numTranslationAxes=translationalAxisDescriptors.size();
 	translationAxes=new AxisDescriptor[numTranslationAxes];
 	for(int i=0;i<numTranslationAxes;++i)

@@ -115,6 +115,16 @@ BoxNode::BoxNode(void)
 	{
 	}
 
+const char* BoxNode::getStaticClassName(void)
+	{
+	return "Box";
+	}
+
+const char* BoxNode::getClassName(void) const
+	{
+	return "Box";
+	}
+
 void BoxNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"center")==0)
