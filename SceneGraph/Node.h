@@ -40,11 +40,11 @@ class Node:public Misc::RefCounted
 	{
 	/* Embedded classes: */
 	public:
-	class FieldError:public std::runtime_error // Error class to signal undefined field names
+	class FieldError:public std::runtime_error // Error class to signal undefined field or event in/out names
 		{
 		/* Constructors and destructors: */
 		public:
-		FieldError(const char* fieldName);
+		FieldError(std::string errorString);
 		};
 	
 	/* Constructors and destructors: */
@@ -52,6 +52,7 @@ class Node:public Misc::RefCounted
 	virtual ~Node(void); // Destroys the node
 	
 	/* Methods: */
+	virtual const char* getClassName(void) const =0; // Returns the class name of a node
 	virtual EventOut* getEventOut(const char* fieldName) const; // Returns an event source for the given field
 	virtual EventIn* getEventIn(const char* fieldName); // Returns an event sink for the given field
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile); // Sets the value of the given field by reading from the VRML 2.0 file

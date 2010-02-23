@@ -261,6 +261,54 @@ void MeasurementTool::resetTool(void)
 	angle->setLabel("");
 	}
 
+void MeasurementTool::updateUnits(void)
+	{
+	const char* xUnit="";
+	const char* yUnit="";
+	const char* zUnit="";
+	const char* dUnit="";
+	
+	switch(coordinateMode)
+		{
+		case MeasurementToolFactory::PHYSICAL:
+			/* Try to glean spatial units from Vrui's inchScale or meterScale settings: */
+			if(Vrui::getInchFactor()==Scalar(1))
+				xUnit=yUnit=zUnit=dUnit="in";
+			else if(Vrui::getMeterFactor()==Scalar(1))
+				xUnit=yUnit=zUnit=dUnit="m";
+			else if(Vrui::getMeterFactor()==Scalar(100))
+				xUnit=yUnit=zUnit=dUnit="cm";
+			else if(Vrui::getMeterFactor()==Scalar(1000))
+				xUnit=yUnit=zUnit=dUnit="mm";
+			break;
+		
+		case MeasurementToolFactory::NAVIGATIONAL:
+			/* Set all spatial units to the coordinate manager's units: */
+			xUnit=yUnit=zUnit=dUnit=getCoordinateManager()->getUnitAbbreviation();
+			break;
+		
+		case MeasurementToolFactory::USER:
+			/* Get positional unit names from the coordinate transformer: */
+			xUnit=userTransform->getUnitAbbreviation(0);
+			yUnit=userTransform->getUnitAbbreviation(1);
+			zUnit=userTransform->getUnitAbbreviation(2);
+			
+			/* Distance unit is still navigational: */
+			dUnit=getCoordinateManager()->getUnitAbbreviation();
+			break;
+		}
+	
+	/* Set all unit labels: */
+	for(int i=0;i<3;++i)
+		{
+		posUnit[i][0]->setLabel(xUnit);
+		posUnit[i][1]->setLabel(yUnit);
+		posUnit[i][2]->setLabel(zUnit);
+		}
+	for(int i=0;i<2;++i)
+		distUnit[i]->setLabel(dUnit);
+	}
+
 void MeasurementTool::changeMeasurementModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
 	{
 	/* Change the measurement mode: */
@@ -307,8 +355,9 @@ void MeasurementTool::changeCoordinateModeCallback(GLMotif::RadioBox::ValueChang
 			break;
 		}
 	
-	/* Reset the tool: */
+	/* Reset the tool and update the displayed units: */
 	resetTool();
+	updateUnits();
 	}
 
 void MeasurementTool::coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData)
@@ -337,18 +386,82 @@ void MeasurementTool::coordTransformChangedCallback(CoordinateManager::Coordinat
 	
 	/* Reset the tool: */
 	resetTool();
+	updateUnits();
 	}
 
 void MeasurementTool::printPosition(Misc::File& file,const Point& pos) const
 	{
-	if(coordinateMode==MeasurementToolFactory::USER)
-		{
-		Point printPos=userTransform->transform(pos);
-		fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",printPos[0],printPos[1],printPos[2]);
-		}
-	else
-		fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",pos[0],pos[1],pos[2]);
+	Point printPos=coordinateMode==MeasurementToolFactory::USER?userTransform->transform(pos):pos;
+	fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",printPos[0],printPos[1],printPos[2]);
 	}
+
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+GLMotif::RowColumn* createPosBox(const char* name,GLMotif::Container* parent,GLMotif::TextField* fields[3],GLMotif::Label* units[3])
+	{
+	GLMotif::RowColumn* result=new GLMotif::RowColumn(name,parent,false);
+	result->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	result->setPacking(GLMotif::RowColumn::PACK_GRID);
+	
+	for(int i=0;i<3;++i)
+		{
+		/* Create a row column widget for the field value and unit: */
+		char fieldName[40];
+		snprintf(fieldName,sizeof(fieldName),"Pos-%d",i+1);
+		GLMotif::RowColumn* fieldBox=new GLMotif::RowColumn(fieldName,result,false);
+		fieldBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+		
+		/* Create the field value text field: */
+		fields[i]=new GLMotif::TextField("Field",fieldBox,12);
+		fields[i]->setPrecision(6);
+		
+		fieldBox->setColumnWeight(0,1.0f);
+		
+		/* Create the unit label: */
+		units[i]=new GLMotif::Label("Unit",fieldBox,"");
+		
+		fieldBox->manageChild();
+		}
+	
+	result->manageChild();
+	
+	return result;
+	}
+
+GLMotif::RowColumn* createDistBox(const char* name,GLMotif::Container* parent,GLMotif::TextField*& field,GLMotif::Label*& unit)
+	{
+	GLMotif::RowColumn* result=new GLMotif::RowColumn(name,parent,false);
+	result->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	result->setPacking(GLMotif::RowColumn::PACK_GRID);
+	
+	/* Create a row column widget for the field value and unit: */
+	GLMotif::RowColumn* fieldBox=new GLMotif::RowColumn("Dist",result,false);
+	fieldBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	
+	/* Create the field value text field: */
+	field=new GLMotif::TextField("Field",fieldBox,16);
+	field->setPrecision(10);
+	
+	fieldBox->setColumnWeight(0,1.0f);
+	
+	/* Create the unit label: */
+	unit=new GLMotif::Label("Unit",fieldBox,"");
+	
+	fieldBox->manageChild();
+	
+	/* Create a blind to keep the distance field half-size: */
+	new GLMotif::Blind("Blind",result);
+	
+	result->manageChild();
+	
+	return result;
+	}
+
+}
 
 MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:UtilityTool(sFactory,inputAssignment),
@@ -362,9 +475,15 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	{
 	for(int i=0;i<3;++i)
 		for(int j=0;j<3;++j)
+			{
 			pos[i][j]=0;
+			posUnit[i][j]=0;
+			}
 	for(int i=0;i<2;++i)
+		{
 		dist[i]=0;
+		distUnit[i]=0;
+		}
 	
 	/* Don't use user coordinate mode if there are no user coordinates: */
 	if(coordinateMode==MeasurementToolFactory::USER&&userTransform==0)
@@ -450,90 +569,29 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	new GLMotif::Label("Pos1Label",measurementBox,"Position 1");
 	
-	GLMotif::RowColumn* pos1Box=new GLMotif::RowColumn("Pos1Box",measurementBox,false);
-	pos1Box->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	pos1Box->setPacking(GLMotif::RowColumn::PACK_GRID);
-	
-	for(int i=0;i<3;++i)
-		{
-		char labelName[40];
-		snprintf(labelName,sizeof(labelName),"Pos1-%d",i+1);
-		pos[0][i]=new GLMotif::TextField(labelName,pos1Box,12);
-		pos[0][i]->setPrecision(6);
-		}
-	
-	pos1Box->manageChild();
+	createPosBox("Pos1Box",measurementBox,pos[0],posUnit[0]);
 	
 	new GLMotif::Label("Pos2Label",measurementBox,"Position 2");
 	
-	GLMotif::RowColumn* pos2Box=new GLMotif::RowColumn("Pos2Box",measurementBox,false);
-	pos2Box->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	pos2Box->setPacking(GLMotif::RowColumn::PACK_GRID);
-	
-	for(int i=0;i<3;++i)
-		{
-		char labelName[40];
-		snprintf(labelName,sizeof(labelName),"Pos2-%d",i+1);
-		pos[1][i]=new GLMotif::TextField(labelName,pos2Box,12);
-		pos[1][i]->setPrecision(6);
-		}
-	
-	pos2Box->manageChild();
+	createPosBox("Pos1Box",measurementBox,pos[1],posUnit[1]);
 	
 	new GLMotif::Label("Dist1Label",measurementBox,"Distance 1");
 	
-	GLMotif::RowColumn* dist1Box=new GLMotif::RowColumn("Dist1Box",measurementBox,false);
-	dist1Box->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	dist1Box->setPacking(GLMotif::RowColumn::PACK_GRID);
-	
-	dist[0]=new GLMotif::TextField("Dist1",dist1Box,16);
-	dist[0]->setPrecision(10);
-	
-	new GLMotif::Blind("Blind",dist1Box);
-	
-	dist1Box->manageChild();
+	createDistBox("Dist1Box",measurementBox,dist[0],distUnit[0]);
 	
 	new GLMotif::Label("Pos3Label",measurementBox,"Position 3");
 	
-	GLMotif::RowColumn* pos3Box=new GLMotif::RowColumn("Pos3Box",measurementBox,false);
-	pos3Box->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	pos3Box->setPacking(GLMotif::RowColumn::PACK_GRID);
-	
-	for(int i=0;i<3;++i)
-		{
-		char labelName[40];
-		snprintf(labelName,sizeof(labelName),"Pos3-%d",i+1);
-		pos[2][i]=new GLMotif::TextField(labelName,pos3Box,12);
-		pos[2][i]->setPrecision(6);
-		}
-	
-	pos3Box->manageChild();
+	createPosBox("Pos1Box",measurementBox,pos[2],posUnit[2]);
 	
 	new GLMotif::Label("Dist2Label",measurementBox,"Distance 2");
 	
-	GLMotif::RowColumn* dist2Box=new GLMotif::RowColumn("Dist2Box",measurementBox,false);
-	dist2Box->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	dist2Box->setPacking(GLMotif::RowColumn::PACK_GRID);
-	
-	dist[1]=new GLMotif::TextField("Dist2",dist2Box,16);
-	dist[1]->setPrecision(10);
-	
-	new GLMotif::Blind("Blind",dist2Box);
-	
-	dist2Box->manageChild();
+	createDistBox("Dist2Box",measurementBox,dist[1],distUnit[1]);
 	
 	new GLMotif::Label("AngleLabel",measurementBox,"Angle");
 	
-	GLMotif::RowColumn* angleBox=new GLMotif::RowColumn("AngleBox",measurementBox,false);
-	angleBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	angleBox->setPacking(GLMotif::RowColumn::PACK_GRID);
-	
-	angle=new GLMotif::TextField("Angle",angleBox,16);
-	angle->setPrecision(10);
-	
-	new GLMotif::Blind("Blind",angleBox);
-	
-	angleBox->manageChild();
+	GLMotif::Label* angleUnit=0;
+	createDistBox("AngleBox",measurementBox,angle,angleUnit);
+	angleUnit->setLabel("deg");
 	
 	measurementBox->manageChild();
 	
@@ -541,6 +599,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	/* Initialize the tool's state: */
 	resetTool();
+	updateUnits();
 	
 	/* Pop up the measurement dialog: */
 	popupPrimaryWidget(measurementDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));

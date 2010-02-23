@@ -36,6 +36,16 @@ AppearanceNode::AppearanceNode(void)
 	{
 	}
 
+const char* AppearanceNode::getStaticClassName(void)
+	{
+	return "Appearance";
+	}
+
+const char* AppearanceNode::getClassName(void) const
+	{
+	return "Appearance";
+	}
+
 void AppearanceNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"material")==0)

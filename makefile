@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2009 Oliver Kreylos
+# Copyright (c) 1998-2010 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -119,10 +119,14 @@ endif
 # set properly in $(VRUIPACKAGEROOT)/BuildRoot/Packages.
 # For now, the following code tries to automatically determine whether
 # OpenAL is supported. This might or might not work.
-ifneq ($(strip $(OPENAL_BASEDIR)),)
+ifeq ($(SYSTEM),DARWIN)
   VRUI_USE_OPENAL = 1
 else
-  VRUI_USE_OPENAL = 0
+  ifneq ($(strip $(OPENAL_BASEDIR)),)
+    VRUI_USE_OPENAL = 1
+  else
+    VRUI_USE_OPENAL = 0
+  endif
 endif
 
 # Set this to 1 if the operating system supports the input abstraction
@@ -154,7 +158,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000066
+VRUI_VERSION = 1000068
 MAJORLIBVERSION = 1
 MINORLIBVERSION = 1
 
@@ -272,6 +276,7 @@ VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
                   Vrui/Tools/ViewpointFileNavigationTool.cpp \
                   Vrui/Tools/ComeHitherNavigationTool.cpp \
                   Vrui/Tools/MouseTool.cpp \
+                  Vrui/Tools/TwoRayTransformTool.cpp \
                   Vrui/Tools/DesktopDeviceTool.cpp \
                   Vrui/Tools/EyeRayTool.cpp \
                   Vrui/Tools/OffsetTool.cpp \
@@ -622,6 +627,7 @@ COMM_HEADERS = Comm/FdSet.h \
                Comm/SerialPort.h \
                Comm/UDPSocket.h \
                Comm/TCPSocket.h \
+               Comm/TCPSocketCharacterSource.h \
                Comm/TCPPipe.h \
                Comm/MulticastPacket.h \
                Comm/GatherOperation.h \
@@ -635,6 +641,7 @@ COMM_SOURCES = Comm/FdSet.cpp \
                Comm/SerialPort.cpp \
                Comm/UDPSocket.cpp \
                Comm/TCPSocket.cpp \
+               Comm/TCPSocketCharacterSource.cpp \
                Comm/TCPPipe.cpp \
                Comm/MulticastPipe.cpp \
                Comm/MulticastPipeMultiplexer.cpp \
@@ -656,11 +663,14 @@ libComm: $(call LIBRARYNAME,libComm)
 MATH_HEADERS = Math/Math.h \
                Math/Constants.h \
                Math/Interval.h Math/Interval.cpp \
-               Math/Random.h
+	       Math/BrokenLine.h \
+               Math/Random.h \
+               Math/MathValueCoders.h
 
 MATH_SOURCES = Math/Constants.cpp \
                Math/Interval.cpp \
-               Math/Random.cpp
+               Math/Random.cpp \
+               Math/MathValueCoders.cpp
 
 $(call LIBRARYNAME,libMath): PACKAGES += $(MYMATH_DEPENDS)
 $(call LIBRARYNAME,libMath): EXTRACINCLUDEFLAGS += $(MYMATH_INCLUDE)
@@ -749,6 +759,12 @@ $(call LIBRARYNAME,libGeometry): $(call DEPENDENCIES,MYGEOMETRY)
 $(call LIBRARYNAME,libGeometry): $(GEOMETRY_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGeometry
 libGeometry: $(call LIBRARYNAME,libGeometry)
+
+#
+# The Mac OSX Support Library (MacOSX)
+#
+
+MACOSX_HEADERS = MacOSX/AutoRef.h
 
 #
 # The OpenGL C++ Wrapper Library (GLWrappers)
@@ -1098,7 +1114,9 @@ libSound: $(call LIBRARYNAME,libSound)
 # The OpenAL Support Library (ALSupport)
 #
 
-ALSUPPORT_HEADERS = AL/ALObject.h \
+ALSUPPORT_HEADERS = AL/ALTemplates.h \
+                    AL/ALGeometryWrappers.h \
+                    AL/ALObject.h \
                     AL/ALContextData.h
 
 ALSUPPORT_SOURCES = AL/ALObject.cpp \
@@ -1151,6 +1169,7 @@ SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
                      SceneGraph/CoordinateNode.h \
                      SceneGraph/PointSetNode.h \
                      SceneGraph/IndexedLineSetNode.h \
+                     SceneGraph/CurveSetNode.h \
                      SceneGraph/ElevationGridNode.h \
                      SceneGraph/IndexedFaceSetNode.h \
                      SceneGraph/ShapeNode.h \
@@ -1187,6 +1206,8 @@ SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
                      SceneGraph/CoordinateNode.cpp \
                      SceneGraph/PointSetNode.cpp \
                      SceneGraph/IndexedLineSetNode.cpp \
+                     SceneGraph/CurveSetNode.cpp \
+                     SceneGraph/LoadElevationGrid.cpp \
                      SceneGraph/ElevationGridNode.cpp \
                      SceneGraph/IndexedFaceSetNode.cpp \
                      SceneGraph/ShapeNode.cpp \
@@ -1248,6 +1269,7 @@ VRUI_HEADERS = Vrui/Geometry.h \
                Vrui/Application.h
 
 VRUI_TOOLHEADERS = Vrui/Tools/Tool.h \
+                   Vrui/Tools/GenericAbstractToolFactory.h \
                    Vrui/Tools/GenericToolFactory.h \
                    Vrui/Tools/LocatorTool.h \
                    Vrui/Tools/DraggingTool.h \
@@ -1271,6 +1293,7 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/InputDeviceAdapterIndexMap.cpp \
                Vrui/VRDeviceClient.cpp \
                Vrui/InputDeviceAdapterDeviceDaemon.cpp \
+               Vrui/InputDeviceAdapterHID.$(OSSPECFILEINSERT).cpp \
                Vrui/InputDeviceAdapterVisBox.cpp \
                Vrui/InputDeviceAdapterPlayback.cpp \
                Vrui/MultipipeDispatcher.cpp \
@@ -1314,6 +1337,11 @@ VRUI_SOURCES = Vrui/TransparentObject.cpp \
                Vrui/Application.cpp
 
 $(OBJDIR)/Vrui/InputDeviceAdapterMouse.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
+ifeq ($(SYSTEM),LINUX)
+  ifneq ($(HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS),0)
+    $(OBJDIR)/Vrui/InputDeviceAdapterHID.Linux.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
+  endif
+endif
 $(OBJDIR)/Vrui/InputDeviceAdapterPlayback.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
@@ -1606,6 +1634,10 @@ install: all
 	@install -m u=rw,go=r $(MATH_HEADERS) $(HEADERINSTALLDIR)/Math
 	@install -d $(HEADERINSTALLDIR)/Geometry
 	@install -m u=rw,go=r $(GEOMETRY_HEADERS) $(HEADERINSTALLDIR)/Geometry
+ifeq ($(SYSTEM),DARWIN)
+	@install -d $(HEADERINSTALLDIR)/MacOSX
+	@install -m u=rw,go=r $(MACOSX_HEADERS) $(HEADERINSTALLDIR)/MacOSX
+endif
 	@install -d $(HEADERINSTALLDIR)/GL
 	@install -m u=rw,go=r $(GLWRAPPERS_HEADERS) $(HEADERINSTALLDIR)/GL
 	@install -m u=rw,go=r $(GLSUPPORT_HEADERS) $(HEADERINSTALLDIR)/GL

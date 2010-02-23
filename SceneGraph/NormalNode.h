@@ -41,6 +41,8 @@ class NormalNode:public Node
 	NormalNode(void); // Creates normal node with empty vector set
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	};

@@ -36,6 +36,16 @@ ShapeNode::ShapeNode(void)
 	{
 	}
 
+const char* ShapeNode::getStaticClassName(void)
+	{
+	return "Shape";
+	}
+
+const char* ShapeNode::getClassName(void) const
+	{
+	return "Shape";
+	}
+
 void ShapeNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"appearance")==0)

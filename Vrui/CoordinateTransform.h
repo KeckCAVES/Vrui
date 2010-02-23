@@ -42,6 +42,8 @@ class CoordinateTransform
 	/* Methods: */
 	virtual int getNumComponents(void) const; // Returns the number of components in a user-space coordinate (usually 3)
 	virtual const char* getComponentName(int componentIndex) const; // Returns the name of the given user-space coordinate component
+	virtual const char* getUnitName(int componentIndex) const; // Returns the name of the unit used for the given user-space coordinate component
+	virtual const char* getUnitAbbreviation(int componentIndex) const; // Returns the abbreviated name of the unit used for the given user-space coordinate component
 	virtual Point transform(const Point& navigationPoint) const; // Transforms a point from navigation space to user space
 	};
 

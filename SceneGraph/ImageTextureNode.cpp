@@ -57,6 +57,16 @@ ImageTextureNode::ImageTextureNode(void)
 	{
 	}
 
+const char* ImageTextureNode::getStaticClassName(void)
+	{
+	return "ImageTexture";
+	}
+
+const char* ImageTextureNode::getClassName(void) const
+	{
+	return "ImageTexture";
+	}
+
 void ImageTextureNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"url")==0)

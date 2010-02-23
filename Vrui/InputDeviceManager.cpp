@@ -35,6 +35,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDeviceAdapterMouse.h>
 #include <Vrui/InputDeviceAdapterDeviceDaemon.h>
 #include <Vrui/InputDeviceAdapterVisBox.h>
+#include <Vrui/InputDeviceAdapterHID.h>
 #include <Vrui/InputDeviceAdapterPlayback.h>
 
 #include <Vrui/InputDeviceManager.h>
@@ -124,6 +125,11 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 				{
 				/* Create VisBox input device adapter: */
 				inputDeviceAdapters[i]=new InputDeviceAdapterVisBox(this,inputDeviceAdapterSection);
+				}
+			else if(inputDeviceAdapterType=="HID")
+				{
+				/* Create HID input device adapter: */
+				inputDeviceAdapters[i]=new InputDeviceAdapterHID(this,inputDeviceAdapterSection);
 				}
 			else if(inputDeviceAdapterType=="Playback")
 				{

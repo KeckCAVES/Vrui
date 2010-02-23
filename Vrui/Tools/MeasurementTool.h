@@ -36,6 +36,7 @@ class File;
 }
 namespace GLMotif {
 class PopupWindow;
+class Label;
 class TextField;
 class RowColumn;
 }
@@ -89,7 +90,9 @@ class MeasurementTool:public UtilityTool
 	GLMotif::PopupWindow* measurementDialogPopup; // Pointer to the measurement dialog window
 	GLMotif::RadioBox* coordinateModes; // Radio box containing the coordinate mode toggles
 	GLMotif::TextField* pos[3][3]; // The coordinate text fields for positions 1, 2, and 3
+	GLMotif::Label* posUnit[3][3]; // The unit labels for positions 1, 2, and 3
 	GLMotif::TextField* dist[2]; // The distance text fields for distances 1 and 2
+	GLMotif::Label* distUnit[2]; // The unit labels for distances 1 and 2
 	GLMotif::TextField* angle; // The angle text field
 	MeasurementToolFactory::MeasurementMode measurementMode; // Measurement mode
 	int numMeasurementPoints; // Number of points to measure in the current mode
@@ -103,6 +106,7 @@ class MeasurementTool:public UtilityTool
 	
 	/* Private methods: */
 	void resetTool(void); // Resets the tool's measurement state
+	void updateUnits(void); // Updates the units displayed in the measurement dialogs
 	void changeMeasurementModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
 	void changeCoordinateModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
 	void coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData);

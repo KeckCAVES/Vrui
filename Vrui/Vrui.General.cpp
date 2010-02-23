@@ -70,6 +70,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #else
 #include <AL/al.h>
 #endif
+#include <AL/ALContextData.h>
 #endif
 #include <Vrui/TransparentObject.h>
 #include <Vrui/VirtualInputDevice.h>
@@ -929,7 +930,20 @@ void VruiState::sound(ALContextData& contextData) const
 	#ifdef VRUI_USE_OPENAL
 	/* Call the user sound function: */
 	if(soundFunction!=0)
+		{
+		if(navigationTransformationEnabled)
+			{
+			/* Go to navigational coordinates: */
+			contextData.pushMatrix();
+			contextData.multMatrix(navigationTransformation);
+			}
 		soundFunction(contextData,soundFunctionData);
+		if(navigationTransformationEnabled)
+			{
+			/* Go back to physical coordinates: */
+			contextData.popMatrix();
+			}
+		}
 	#endif
 	}
 

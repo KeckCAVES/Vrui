@@ -24,6 +24,9 @@ The Comm library contains classes to simplify communications via serial ports, U
 <DT>TCPSocket.h</DT>
 <DD>TCPSocket is a class representing a TCP socket. It can create either a listening socket on the local computer, or connect to a listening socket on a remote computer. It supports reliable exchange of binary data.</DD>
 
+<DT>TCPSocketCharacterSource.h</DT>
+<DD>TCPSocketCharacterSource is a class wrapping a Misc::CharacterSource interface around a TCP socket, to simplify reading text that is sent over a TCP connection. Does not currently detect disconnects from remote socket.</DD>
+
 <DT>TCPPipe.h</DT>
 <DD>TCPPipe is a wrapper around the Comm::TCPSocket class that provides endianness-safe transport of binary data across a TCP connection and type-safe methods to read/write binary data. It supports explicit specification of network byte order, or automatic byte order detection with "receiver makes right" correction.</DD>
 

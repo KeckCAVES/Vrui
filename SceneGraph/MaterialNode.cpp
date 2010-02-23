@@ -46,6 +46,16 @@ MaterialNode::MaterialNode(void)
 	{
 	}
 
+const char* MaterialNode::getStaticClassName(void)
+	{
+	return "Material";
+	}
+
+const char* MaterialNode::getClassName(void) const
+	{
+	return "Material";
+	}
+
 void MaterialNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"ambientIntensity")==0)

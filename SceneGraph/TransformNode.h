@@ -54,6 +54,8 @@ class TransformNode:public GroupNode
 	TransformNode(void); // Creates an empty transform node with an identity transformation
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual EventOut* getEventOut(const char* fieldName) const;
 	virtual EventIn* getEventIn(const char* fieldName);
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);

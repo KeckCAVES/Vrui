@@ -43,6 +43,16 @@ GeodeticToCartesianTransformNode::GeodeticToCartesianTransformNode(void)
 	{
 	}
 
+const char* GeodeticToCartesianTransformNode::getStaticClassName(void)
+	{
+	return "GeodeticToCartesianTransform";
+	}
+
+const char* GeodeticToCartesianTransformNode::getClassName(void) const
+	{
+	return "GeodeticToCartesianTransform";
+	}
+
 void GeodeticToCartesianTransformNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"referenceEllipsoid")==0)

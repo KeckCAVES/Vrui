@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundContext - Class for OpenAL contexts that are used to map a listener
 to an OpenAL sound device.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,6 +21,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/SoundContext.h>
+
+#include <stdio.h>
 #include <string>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
@@ -33,12 +36,104 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <AL/alc.h>
 #include <AL/al.h>
 #endif
+#include <AL/ALTemplates.h>
+#include <AL/ALGeometryWrappers.h>
 #endif
 #include <AL/ALContextData.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/Listener.h>
 #include <Vrui/Vrui.Internal.h>
 
-#include <Vrui/SoundContext.h>
+namespace Misc {
+
+/**************************************************
+Helper class to decode distance attenuation models:
+**************************************************/
+
+template <>
+class ValueCoder<Vrui::SoundContext::DistanceAttenuationModel>
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const Vrui::SoundContext::DistanceAttenuationModel& value)
+		{
+		switch(value)
+			{
+			case Vrui::SoundContext::CONSTANT:
+				return "Constant";
+			
+			case Vrui::SoundContext::INVERSE:
+				return "Inverse";
+			
+			case Vrui::SoundContext::INVERSE_CLAMPED:
+				return "InverseClamped";
+			
+			case Vrui::SoundContext::LINEAR:
+				return "Linear";
+			
+			case Vrui::SoundContext::LINEAR_CLAMPED:
+				return "LinearClamped";
+			
+			case Vrui::SoundContext::EXPONENTIAL:
+				return "Exponential";
+			
+			case Vrui::SoundContext::EXPONENTIAL_CLAMPED:
+				return "ExponentialClamped";
+			}
+		
+		/* Never reached; just to make compiler happy: */
+		return "";
+		}
+	static Vrui::SoundContext::DistanceAttenuationModel decode(const char* start,const char* end,const char** decodeEnd =0)
+		{
+		if(end-start>=8&&strncasecmp(start,"Constant",8)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+8;
+			return Vrui::SoundContext::CONSTANT;
+			}
+		else if(end-start>=14&&strncasecmp(start,"InverseClamped",14)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+14;
+			return Vrui::SoundContext::INVERSE_CLAMPED;
+			}
+		else if(end-start>=7&&strncasecmp(start,"Inverse",7)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+7;
+			return Vrui::SoundContext::INVERSE;
+			}
+		else if(end-start>=13&&strncasecmp(start,"LinearClamped",13)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+13;
+			return Vrui::SoundContext::LINEAR_CLAMPED;
+			}
+		else if(end-start>=6&&strncasecmp(start,"Linear",6)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+6;
+			return Vrui::SoundContext::LINEAR;
+			}
+		else if(end-start>=18&&strncasecmp(start,"ExponentialClamped",18)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+18;
+			return Vrui::SoundContext::EXPONENTIAL_CLAMPED;
+			}
+		else if(end-start>=11&&strncasecmp(start,"Exponential",11)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+11;
+			return Vrui::SoundContext::EXPONENTIAL;
+			}
+		else
+			throw DecodingError(std::string("Unable to convert \"")+std::string(start,end)+std::string("\" to SoundContext::DistanceAttenuationModel"));
+		}
+	};
+
+}
 
 namespace Vrui {
 
@@ -52,14 +147,22 @@ SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSecti
 	 alDevice(0),alContext(0),
 	 #endif
 	 contextData(0),
-	 listener(findListener(configFileSection.retrieveString("./listenerName").c_str()))
+	 listener(findListener(configFileSection.retrieveString("./listenerName").c_str())),
+	 speedOfSound(float(getMeterFactor())*343.0f),
+	 dopplerFactor(1.0f),
+	 distanceAttenuationModel(CONSTANT)
 	{
+	/* Set sound context parameters from configuration file: */
+	speedOfSound=configFileSection.retrieveValue<float>("./speedOfSound",speedOfSound);
+	dopplerFactor=configFileSection.retrieveValue<float>("./dopplerFactor",dopplerFactor);
+	distanceAttenuationModel=configFileSection.retrieveValue<DistanceAttenuationModel>("./distanceAttenuationModel",distanceAttenuationModel);
+	
 	#ifdef VRUI_USE_OPENAL
 	/* Open the OpenAL device: */
 	std::string alDeviceName=configFileSection.retrieveValue<std::string>("./deviceName","Default");
 	alDevice=alcOpenDevice(alDeviceName!="Default"?alDeviceName.c_str():0);
 	if(alDevice==0)
-		Misc::throwStdErr("SoundContext::SoundContext: Could not open OpenAL sound device %s",alDeviceName.c_str());
+		Misc::throwStdErr("SoundContext::SoundContext: Could not open OpenAL sound device \"%s\"",alDeviceName.c_str());
 	
 	/* Create an OpenAL context: */
 	alContext=alcCreateContext(alDevice,0);
@@ -76,6 +179,42 @@ SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSecti
 	/* Initialize the sound context's OpenAL context: */
 	makeCurrent();
 	
+	#ifdef VRUI_USE_OPENAL
+	/* Set global OpenAL parameters: */
+	alSpeedOfSound(speedOfSound);
+	alDopplerFactor(dopplerFactor);
+	switch(distanceAttenuationModel)
+		{
+		case CONSTANT:
+			alDistanceModel(AL_NONE);
+			break;
+		
+		case INVERSE:
+			alDistanceModel(AL_INVERSE_DISTANCE);
+			break;
+		
+		case INVERSE_CLAMPED:
+			alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
+			break;
+		
+		case LINEAR:
+			alDistanceModel(AL_LINEAR_DISTANCE);
+			break;
+		
+		case LINEAR_CLAMPED:
+			alDistanceModel(AL_LINEAR_DISTANCE_CLAMPED);
+			break;
+		
+		case EXPONENTIAL:
+			alDistanceModel(AL_EXPONENT_DISTANCE);
+			break;
+		
+		case EXPONENTIAL_CLAMPED:
+			alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED);
+			break;
+		}
+	#endif
+	
 	/* Initialize application sound state: */
 	if(vruiState->perSoundInitFunction!=0)
 		vruiState->perSoundInitFunction(*contextData,vruiState->perSoundInitFunctionData);
@@ -87,6 +226,8 @@ SoundContext::~SoundContext(void)
 	delete contextData;
 	
 	#ifdef VRUI_USE_OPENAL
+	if(alcGetCurrentContext()==alContext)
+		alcMakeContextCurrent(0);
 	alcDestroyContext(alContext);
 	alcCloseDevice(alDevice);
 	#endif
@@ -94,8 +235,8 @@ SoundContext::~SoundContext(void)
 
 void SoundContext::makeCurrent(void)
 	{
-	/* Activate the sound context's OpenAL context: */
 	#ifdef VRUI_USE_OPENAL
+	/* Activate the sound context's OpenAL context: */
 	alcMakeContextCurrent(alContext);
 	#endif
 	
@@ -105,18 +246,68 @@ void SoundContext::makeCurrent(void)
 
 void SoundContext::draw(void)
 	{
-	#ifdef VRUI_USE_OPENAL
 	makeCurrent();
 	
 	/* Update things in the sound context's AL context data: */
 	contextData->updateThings();
 	
-	/* Set OpenAL parameters: */
-	
-	/* Set the listener: */
+	#ifdef VRUI_USE_OPENAL
+	/* Set the listener in physical coordinates: */
+	contextData->loadIdentity();
+	alListenerPosition(listener->getHeadPosition());
+	alListenerVelocity(Vector::zero);
+	alListenerOrientation(listener->getListenDirection(),listener->getUpDirection());
+	alListenerGain(listener->getGain());
 	
 	/* Render Vrui state: */
 	vruiState->sound(*contextData);
+	
+	/* Check for OpenAL errors: */
+	ALenum error;
+	ALContextData::Error alcdError=ALContextData::NO_ERROR;
+	while((error=alGetError())!=AL_NO_ERROR||(alcdError=contextData->getError())!=ALContextData::NO_ERROR)
+		{
+		printf("AL error: ");
+		switch(error)
+			{
+			case AL_INVALID_ENUM:
+				printf("Invalid enum");
+				break;
+			
+			case AL_INVALID_NAME:
+				printf("Invalid name");
+				break;
+			
+			case AL_INVALID_OPERATION:
+				printf("Invalid operation");
+				break;
+			
+			case AL_INVALID_VALUE:
+				printf("Invalid value");
+				break;
+			
+			case AL_OUT_OF_MEMORY:
+				printf("Out of memory");
+				break;
+			
+			default:
+				;
+			}
+		switch(alcdError)
+			{
+			case ALContextData::STACK_OVERFLOW:
+				printf("Stack overflow");
+				break;
+			
+			case ALContextData::STACK_UNDERFLOW:
+				printf("Stack underflow");
+				break;
+			
+			default:
+				;
+			}
+		printf("\n");
+		}
 	#endif
 	}
 

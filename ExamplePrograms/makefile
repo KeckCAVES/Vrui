@@ -18,8 +18,27 @@
 # USA
 ########################################################################
 
-# Set the Vrui installation directory:
+# Root directory of the Vrui software installation. This must match the
+# same setting in Vrui's makefile. By default the directories match; if
+# the installation directory was adjusted during Vrui's installation, it
+# must be adjusted here as well.
 VRUIDIR = $(HOME)/Vrui-1.0
+
+# Base installation directory for the example programs. If this is set
+# to the default of $(PWD), the example programs do not have to be
+# installed to be run. Created executables and resources will be
+# installed in the bin and share directories under the given base
+# directory, respectively.
+# Important note: Do not use ~ as an abbreviation for the user's home
+# directory here; use $(HOME) instead.
+INSTALLDIR = $(shell pwd)
+
+# Set up destination directories for compilation products:
+OBJDIRBASE = o
+BINDIRBASE = bin
+
+# Set resource directory:
+RESOURCEDIR = share/VruiExamplePrograms
 
 # Set up additional flags for the C++ compiler:
 CFLAGS = 
@@ -29,22 +48,40 @@ ifdef DEBUG
   # Build debug version of the applications, using the debug version of Vrui:
   include $(VRUIDIR)/etc/Vrui.debug.makeinclude
   CFLAGS += -g2 -O0
+  # Set destination directories for created objects:
+  OBJDIR = $(OBJDIRBASE)/debug
+  BINDIR = $(BINDIRBASE)/debug
 else
   # Build release version of the applications, using the release version of Vrui:
   include $(VRUIDIR)/etc/Vrui.makeinclude
   CFLAGS += -g0 -O3
+  # Set destination directories for created objects:
+  OBJDIR = $(OBJDIRBASE)
+  BINDIR = $(BINDIRBASE)
 endif
 
+# Pattern rule to compile C++ sources:
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(OBJDIR)//$(*D)
+	@echo Compiling $<...
+	@g++ -c -o $@ $(VRUI_CFLAGS) $(CFLAGS) $<
+
+# Pattern rule to link executables:
+$(BINDIR)/%: o/%.o
+	@mkdir -p $(BINDIR)
+	@echo Linking $@...
+	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
+	
 # List all project targets:
-ALL = VruiDemo \
-      VruiLocatorDemo \
-      VruiCustomToolDemo \
-      VruiCalibrator \
-      ShowEarthModel \
-      Jello \
-      ClusterJello \
-      SharedJelloServer \
-      SharedJello
+ALL = $(BINDIR)/VruiDemo \
+      $(BINDIR)/VruiLocatorDemo \
+      $(BINDIR)/VruiCustomToolDemo \
+      $(BINDIR)/VruiCalibrator \
+      $(BINDIR)/ShowEarthModel \
+      $(BINDIR)/Jello \
+      $(BINDIR)/ClusterJello \
+      $(BINDIR)/SharedJelloServer \
+      $(BINDIR)/SharedJello
 
 .PHONY: all
 all: $(ALL)
@@ -52,53 +89,56 @@ all: $(ALL)
 # Rule to remove all targets:
 .PHONY: clean
 clean:
-	-rm -rf o
+	-rm -f $(OBJDIR)/*.o
 	-rm -f $(ALL)
 
-# Pattern rule to compile C++ sources:
-o/%.o: %.cpp
-	@mkdir -p o/$(*D)
-	@echo Compiling $<...
-	@g++ -c -o $@ $(VRUI_CFLAGS) $(CFLAGS) $<
+# Rule to clean the source directory for packaging:
+distclean:
+	-rm -rf $(OBJDIRBASE)
+	-rm -rf $(BINDIRBASE)
 
-# Pattern rule to link executables:
-%: o/%.o
-	@echo Linking $@...
-	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
-	
 # List all build rules:
-VruiDemo: o/VruiDemo.o
+$(BINDIR)/VruiDemo: $(OBJDIR)/VruiDemo.o
 
-VruiLocatorDemo: o/VruiLocatorDemo.o
+$(BINDIR)/VruiLocatorDemo: $(OBJDIR)/VruiLocatorDemo.o
 
-VruiCustomToolDemo: o/VruiCustomToolDemo.o
+$(BINDIR)/VruiCustomToolDemo: $(OBJDIR)/VruiCustomToolDemo.o
 
-VruiCalibrator: o/VruiCalibrator.o
+$(BINDIR)/VruiCalibrator: $(OBJDIR)/VruiCalibrator.o
 
-o/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_TOPOGRAPHY_IMAGEFILENAME='"$(shell pwd)/EarthTopography.ppm"'
+$(OBJDIR)/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_IMAGEDIR='"$(INSTALLDIR)/$(RESOURCEDIR)"'
 
-ShowEarthModel: o/EarthFunctions.o \
-                o/PointSet.o \
-                o/SeismicPath.o \
-                o/EarthquakeSet.o \
-                o/EarthquakeTool.o \
-                o/ShowEarthModel.o
+$(BINDIR)/ShowEarthModel: $(OBJDIR)/EarthFunctions.o \
+                          $(OBJDIR)/PointSet.o \
+                          $(OBJDIR)/SeismicPath.o \
+                          $(OBJDIR)/EarthquakeSet.o \
+                          $(OBJDIR)/EarthquakeTool.o \
+                          $(OBJDIR)/ShowEarthModel.o
 
-Jello: o/JelloAtom.o \
-       o/JelloCrystal.o \
-       o/JelloRenderer.o \
-       o/Jello.o
+$(BINDIR)/Jello: $(OBJDIR)/JelloAtom.o \
+                 $(OBJDIR)/JelloCrystal.o \
+                 $(OBJDIR)/JelloRenderer.o \
+                 $(OBJDIR)/Jello.o
 
-ClusterJello: o/JelloAtom.o \
-              o/JelloCrystal.o \
-              o/JelloRenderer.o \
-              o/ClusterJello.o
+$(BINDIR)/ClusterJello: $(OBJDIR)/JelloAtom.o \
+                        $(OBJDIR)/JelloCrystal.o \
+                        $(OBJDIR)/JelloRenderer.o \
+                        $(OBJDIR)/ClusterJello.o
 
-SharedJelloServer: o/JelloAtom.o \
-                   o/JelloCrystal.o \
-                   o/SharedJelloServer.o
+$(BINDIR)/SharedJelloServer: $(OBJDIR)/JelloAtom.o \
+                             $(OBJDIR)/JelloCrystal.o \
+                             $(OBJDIR)/SharedJelloServer.o
 
-SharedJello: o/JelloAtom.o \
-             o/JelloCrystal.o \
-             o/JelloRenderer.o \
-             o/SharedJello.o
+$(BINDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
+                       $(OBJDIR)/JelloCrystal.o \
+                       $(OBJDIR)/JelloRenderer.o \
+                       $(OBJDIR)/SharedJello.o
+
+# Rule to install the example programs in a destination directory
+install: $(ALL)
+	@echo Installing Vrui example programs in $(INSTALLDIR)...
+	@install -d $(INSTALLDIR)
+	@install -d $(INSTALLDIR)/bin
+	@install $(ALL) $(INSTALLDIR)/bin
+	@install -d $(INSTALLDIR)/$(RESOURCEDIR)
+	@install $(RESOURCEDIR)/EarthTopography.png $(RESOURCEDIR)/EarthTopography.ppm $(INSTALLDIR)/$(RESOURCEDIR)

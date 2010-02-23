@@ -39,6 +39,16 @@ ReferenceEllipsoidNode::ReferenceEllipsoidNode(void)
 	{
 	}
 
+const char* ReferenceEllipsoidNode::getStaticClassName(void)
+	{
+	return "ReferenceEllipsoid";
+	}
+
+const char* ReferenceEllipsoidNode::getClassName(void) const
+	{
+	return "ReferenceEllipsoid";
+	}
+
 void ReferenceEllipsoidNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	{
 	if(strcmp(fieldName,"radius")==0)

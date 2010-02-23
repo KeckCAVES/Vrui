@@ -44,6 +44,8 @@ class ArcInfoExportFileNode:public GroupNode
 	ArcInfoExportFileNode(void); // Creates an uninitialized ARC/INFO export file node
 	
 	/* Methods from Node: */
+	static const char* getStaticClassName(void);
+	virtual const char* getClassName(void) const;
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	};

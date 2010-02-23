@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/CoordinateNode.h>
 #include <SceneGraph/PointSetNode.h>
 #include <SceneGraph/IndexedLineSetNode.h>
+#include <SceneGraph/CurveSetNode.h>
 #include <SceneGraph/ElevationGridNode.h>
 #include <SceneGraph/IndexedFaceSetNode.h>
 #include <SceneGraph/ShapeNode.h>
@@ -61,34 +62,35 @@ NodeCreator::NodeCreator(void)
 	:nodeFactoryMap(31)
 	{
 	/* Register the standard node types: */
-	registerNodeType("Group",new GenericNodeFactory<GroupNode>());
-	registerNodeType("Transform",new GenericNodeFactory<TransformNode>());
-	registerNodeType("Billboard",new GenericNodeFactory<BillboardNode>());
-	registerNodeType("ReferenceEllipsoid",new GenericNodeFactory<ReferenceEllipsoidNode>());
-	registerNodeType("GeodeticToCartesianTransform",new GenericNodeFactory<GeodeticToCartesianTransformNode>());
-	registerNodeType("Inline",new GenericNodeFactory<InlineNode>());
-	registerNodeType("Material",new GenericNodeFactory<MaterialNode>());
-	registerNodeType("ImageTexture",new GenericNodeFactory<ImageTextureNode>());
-	registerNodeType("Appearance",new GenericNodeFactory<AppearanceNode>());
-	registerNodeType("GeodeticToCartesianPointTransform",new GenericNodeFactory<GeodeticToCartesianPointTransformNode>());
-	registerNodeType("Box",new GenericNodeFactory<BoxNode>());
-	registerNodeType("Cone",new GenericNodeFactory<ConeNode>());
-	registerNodeType("Cylinder",new GenericNodeFactory<CylinderNode>());
-	registerNodeType("TextureCoordinate",new GenericNodeFactory<TextureCoordinateNode>());
-	registerNodeType("Color",new GenericNodeFactory<ColorNode>());
-	registerNodeType("Normal",new GenericNodeFactory<NormalNode>());
-	registerNodeType("Coordinate",new GenericNodeFactory<CoordinateNode>());
-	registerNodeType("PointSet",new GenericNodeFactory<PointSetNode>());
-	registerNodeType("IndexedLineSet",new GenericNodeFactory<IndexedLineSetNode>());
-	registerNodeType("ElevationGrid",new GenericNodeFactory<ElevationGridNode>());
-	registerNodeType("IndexedFaceSet",new GenericNodeFactory<IndexedFaceSetNode>());
-	registerNodeType("Shape",new GenericNodeFactory<ShapeNode>());
-	registerNodeType("FontStyle",new GenericNodeFactory<FontStyleNode>());
-	registerNodeType("Text",new GenericNodeFactory<TextNode>());
-	registerNodeType("LabelSet",new GenericNodeFactory<LabelSetNode>());
-	registerNodeType("TSurfFile",new GenericNodeFactory<TSurfFileNode>());
-	registerNodeType("ArcInfoExportFile",new GenericNodeFactory<ArcInfoExportFileNode>());
-	registerNodeType("ESRIShapeFile",new GenericNodeFactory<ESRIShapeFileNode>());
+	registerNodeType(new GenericNodeFactory<GroupNode>());
+	registerNodeType(new GenericNodeFactory<TransformNode>());
+	registerNodeType(new GenericNodeFactory<BillboardNode>());
+	registerNodeType(new GenericNodeFactory<ReferenceEllipsoidNode>());
+	registerNodeType(new GenericNodeFactory<GeodeticToCartesianTransformNode>());
+	registerNodeType(new GenericNodeFactory<InlineNode>());
+	registerNodeType(new GenericNodeFactory<MaterialNode>());
+	registerNodeType(new GenericNodeFactory<ImageTextureNode>());
+	registerNodeType(new GenericNodeFactory<AppearanceNode>());
+	registerNodeType(new GenericNodeFactory<GeodeticToCartesianPointTransformNode>());
+	registerNodeType(new GenericNodeFactory<BoxNode>());
+	registerNodeType(new GenericNodeFactory<ConeNode>());
+	registerNodeType(new GenericNodeFactory<CylinderNode>());
+	registerNodeType(new GenericNodeFactory<TextureCoordinateNode>());
+	registerNodeType(new GenericNodeFactory<ColorNode>());
+	registerNodeType(new GenericNodeFactory<NormalNode>());
+	registerNodeType(new GenericNodeFactory<CoordinateNode>());
+	registerNodeType(new GenericNodeFactory<PointSetNode>());
+	registerNodeType(new GenericNodeFactory<IndexedLineSetNode>());
+	registerNodeType(new GenericNodeFactory<CurveSetNode>());
+	registerNodeType(new GenericNodeFactory<ElevationGridNode>());
+	registerNodeType(new GenericNodeFactory<IndexedFaceSetNode>());
+	registerNodeType(new GenericNodeFactory<ShapeNode>());
+	registerNodeType(new GenericNodeFactory<FontStyleNode>());
+	registerNodeType(new GenericNodeFactory<TextNode>());
+	registerNodeType(new GenericNodeFactory<LabelSetNode>());
+	registerNodeType(new GenericNodeFactory<TSurfFileNode>());
+	registerNodeType(new GenericNodeFactory<ArcInfoExportFileNode>());
+	registerNodeType(new GenericNodeFactory<ESRIShapeFileNode>());
 	}
 
 NodeCreator::~NodeCreator(void)
@@ -98,9 +100,9 @@ NodeCreator::~NodeCreator(void)
 		delete nfmIt->getDest();
 	}
 
-void NodeCreator::registerNodeType(const char* nodeTypeName,NodeFactory* nodeFactory)
+void NodeCreator::registerNodeType(NodeFactory* nodeFactory)
 	{
-	nodeFactoryMap.setEntry(NodeFactoryMap::Entry(nodeTypeName,nodeFactory));
+	nodeFactoryMap.setEntry(NodeFactoryMap::Entry(nodeFactory->getClassName(),nodeFactory));
 	}
 
 Node* NodeCreator::createNode(const char* nodeType)

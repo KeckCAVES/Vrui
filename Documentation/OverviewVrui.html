@@ -93,6 +93,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>Tools/Tool.h</DT>
 <DD>Tool is the base class for all tools, i.e., objects associating input devices, buttons, and valuators with toolkit or application functions.</DD>
 
+<DT>Tools/GenericAbstractToolFactory.h</DT>
+<DD>GenericAbstractToolFactory is a helper class to simplify implementing tools that only serve as base classes for other tools and are never actually instantiated. Tool classes managed by instances of this class can have pure virtual methods, and do not need to contain a factory pointer or define the getFactory() method.</DD>
+
 <DT>Tools/GenericToolFactory.h</DT>
 <DD>GenericToolFactory is a helper class to simplify implementing tools.</DD>
 
