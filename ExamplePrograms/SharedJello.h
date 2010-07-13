@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -28,6 +28,8 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <Threads/Thread.h>
 #include <GL/gl.h>
+#include <GLMotif/ToggleButton.h>
+#include <GLMotif/TextFieldSlider.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DraggingToolAdapter.h>
 #include <Vrui/Application.h>
@@ -41,8 +43,6 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 namespace GLMotif {
 class PopupMenu;
 class PopupWindow;
-class TextField;
-class Slider;
 }
 
 class SharedJello:public Vrui::Application
@@ -102,13 +102,11 @@ class SharedJello:public Vrui::Application
 	AtomDraggerList atomDraggers; // List of active atom draggers
 	
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
+	GLMotif::ToggleButton* showSettingsDialogToggle;
 	GLMotif::PopupWindow* settingsDialog; // The settings dialog
-	GLMotif::TextField* jigglinessTextField;
-	GLMotif::Slider* jigglinessSlider;
-	GLMotif::TextField* viscosityTextField;
-	GLMotif::Slider* viscositySlider;
-	GLMotif::TextField* gravityTextField;
-	GLMotif::Slider* gravitySlider;
+	GLMotif::TextFieldSlider* jigglinessSlider;
+	GLMotif::TextFieldSlider* viscositySlider;
+	GLMotif::TextFieldSlider* gravitySlider;
 	
 	/* Private methods: */
 	GLMotif::PopupMenu* createMainMenu(void);
@@ -129,10 +127,10 @@ class SharedJello:public Vrui::Application
 	virtual void display(GLContextData& contextData) const;
 	void centerDisplayCallback(Misc::CallbackData* cbData);
 	void showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
-	void createInputDeviceCallback(Misc::CallbackData* cbData);
-	void jigglinessSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
-	void viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
-	void gravitySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
+	void jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
+	void viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
+	void gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
+	void settingsDialogCloseCallback(Misc::CallbackData* cbData);
 	};
 
 #endif

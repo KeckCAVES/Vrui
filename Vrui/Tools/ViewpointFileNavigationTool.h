@@ -27,11 +27,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <vector>
 #include <GLMotif/FileSelectionDialog.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
-namespace Vrui {
-class DenseMatrix;
+namespace Math {
+class Matrix;
 }
 
 namespace Vrui {
@@ -100,7 +100,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	void readViewpointFile(const char* fileName); // Reads the viewpoint file of the given name
 	void loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData);
-	void writeControlPoint(const ControlPoint& cp,DenseMatrix& b,int rowIndex); // Writes a control point to the spline calculation matrix
+	void writeControlPoint(const ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex); // Writes a control point to the spline calculation matrix
 	void interpolate(const ControlPoint& p0,const ControlPoint& p1,Scalar t,ControlPoint& result); // Interpolates between two control points
 	
 	/* Constructors and destructors: */

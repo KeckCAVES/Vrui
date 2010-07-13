@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_SIXDOFNAVIGATIONTOOL_INCLUDED
 
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 namespace Vrui {
 

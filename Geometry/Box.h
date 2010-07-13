@@ -1,6 +1,6 @@
 /***********************************************************************
 Box - Class for n-dimensional axis-aligned boxes.
-Copyright (c) 2001-2009 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -248,8 +248,8 @@ bool operator!=(const Box<ScalarParam,dimensionParam>& b1,const Box<ScalarParam,
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_BOX_IMPLEMENTATION)
-#include <Geometry/Box.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_BOX_IMPLEMENTATION)
+#include <Geometry/Box.icpp>
 #endif
 
 #endif

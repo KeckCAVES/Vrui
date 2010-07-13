@@ -20,6 +20,10 @@
 # 02111-1307 USA
 ########################################################################
 
+########################################################################
+# Please do not change the following lines
+########################################################################
+
 # Define the root of the toolkit source tree
 VRUIPACKAGEROOT := $(shell pwd)
 
@@ -28,15 +32,23 @@ include $(VRUIPACKAGEROOT)/BuildRoot/SystemDefinitions
 include $(VRUIPACKAGEROOT)/BuildRoot/Packages
 
 ########################################################################
-# Some settings that might need adjustment
+# The root directory where Vrui will be installed when running
+# "make install". This must be a different directory than the one that
+# contains this makefile, i.e., Vrui cannot be built in-tree. If the
+# installation directory is changed from the default, the makefiles of
+# Vrui applications typically need to be changed to use the same
+# installation directory.
+########################################################################
+
+INSTALLDIR = $(HOME)/Vrui-2.0
+
+########################################################################
+# Some settings that might need adjustment. In general, do not bother
+# with these unless something goes wrong during the build process, or
+# you have very specific requirements. Proceed with caution!
 # The settings below are conservative; see the README file for what they
 # mean, and how they depend on capabilities of the host system.
 ########################################################################
-
-# Root directory for the software installation
-# Note: This must a different directory than the one that contains this
-# makefile!
-INSTALLDIR = $(HOME)/Vrui-1.0
 
 # Set this to 1 if Vrui executables and shared libraries shall contain
 # links to any shared libraries they link to. This will relieve a user
@@ -89,17 +101,19 @@ endif
 VRUI_USE_PNG = $(IMAGES_USE_PNG)
 
 # Set this to 1 if the VRWindow class shall be compiled with support for
-# swap locks and swap groups (NVidia extension). If this is set to 1 and
-# the NVidia extension is not there, VRWindow.cpp will generate compiler
-# errors.
+# swap locks and swap groups (NVidia extension). This is only necessary
+# in very rare cases; if you don't already know you need it, leave this
+# setting at 0.
+# If this is set to 1 and the NVidia extension is not there,
+# VRWindow.cpp will generate compiler errors.
 VRWINDOW_CPP_USE_SWAPGROUPS = 0
 
 # Set this to 1 if Vrui shall be able to record sound while capturing a
 # session using an input device data saver, and be able to play back
-# sound while playing back a recorded session. Under Linux, this
-# requires that the ALSA sound library development packages are
-# installed on the host computer, and that the path to the ALSA header
-# files / libraries is set properly in
+# sound while playing back a recorded session. This is always enabled
+# under Mac OS X. Under Linux, this requires that the ALSA sound library
+# development packages are installed on the host computer, and that the
+# path to the ALSA header files / libraries is set properly in
 # $(VRUIPACKAGEROOT)/BuildRoot/Packages.
 # For now, the following code tries to automatically determine whether
 # ALSA is supported. This might or might not work.
@@ -154,13 +168,13 @@ else
 endif
 
 ########################################################################
-# Everything below here should not have to be changed
+# Please do not change anything below this line
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 1000068
-MAJORLIBVERSION = 1
-MINORLIBVERSION = 1
+VRUI_VERSION = 2000000
+MAJORLIBVERSION = 2
+MINORLIBVERSION = 0
 
 # Specify default optimization/debug level
 ifdef DEBUG
@@ -248,59 +262,7 @@ LIBRARIES += $(LIBRARY_NAMES:%=$(call LIBRARYNAME,%))
 # The Vrui VR tool plug-in hierarchy:
 #
 
-VRTOOLS_SOURCES = Vrui/Tools/SixDofLocatorTool.cpp \
-                  Vrui/Tools/ScreenLocatorTool.cpp \
-                  Vrui/Tools/WaldoLocatorTool.cpp \
-                  Vrui/Tools/SixDofDraggingTool.cpp \
-                  Vrui/Tools/WaldoDraggingTool.cpp \
-                  Vrui/Tools/SixDofNavigationTool.cpp \
-                  Vrui/Tools/TrackballNavigationTool.cpp \
-                  Vrui/Tools/ScaleNavigationTool.cpp \
-                  Vrui/Tools/WandNavigationTool.cpp \
-                  Vrui/Tools/FlyNavigationTool.cpp \
-                  Vrui/Tools/ValuatorFlyNavigationTool.cpp \
-                  Vrui/Tools/ValuatorTurnNavigationTool.cpp \
-                  Vrui/Tools/ValuatorFlyTurnNavigationTool.cpp \
-                  Vrui/Tools/ValuatorScalingNavigationTool.cpp \
-                  Vrui/Tools/WalkNavigationTool.cpp \
-                  Vrui/Tools/WalkSurfaceNavigationTool.cpp \
-                  Vrui/Tools/SixDofWithScaleNavigationTool.cpp \
-                  Vrui/Tools/TwoHandedNavigationTool.cpp \
-                  Vrui/Tools/MultiDeviceNavigationTool.cpp \
-                  Vrui/Tools/MouseNavigationTool.cpp \
-                  Vrui/Tools/MouseDialogNavigationTool.cpp \
-                  Vrui/Tools/MouseSurfaceNavigationTool.cpp \
-                  Vrui/Tools/DesktopDeviceNavigationTool.cpp \
-                  Vrui/Tools/FPSNavigationTool.cpp \
-                  Vrui/Tools/HelicopterNavigationTool.cpp \
-                  Vrui/Tools/ViewpointFileNavigationTool.cpp \
-                  Vrui/Tools/ComeHitherNavigationTool.cpp \
-                  Vrui/Tools/MouseTool.cpp \
-                  Vrui/Tools/TwoRayTransformTool.cpp \
-                  Vrui/Tools/DesktopDeviceTool.cpp \
-                  Vrui/Tools/EyeRayTool.cpp \
-                  Vrui/Tools/OffsetTool.cpp \
-                  Vrui/Tools/WaldoTool.cpp \
-                  Vrui/Tools/ClutchTool.cpp \
-                  Vrui/Tools/RevolverTool.cpp \
-                  Vrui/Tools/RayMenuTool.cpp \
-                  Vrui/Tools/RayScreenMenuTool.cpp \
-                  Vrui/Tools/PanelMenuTool.cpp \
-                  Vrui/Tools/ToolManagementTool.cpp \
-                  Vrui/Tools/SixDofInputDeviceTool.cpp \
-                  Vrui/Tools/RayInputDeviceTool.cpp \
-                  Vrui/Tools/ButtonInputDeviceTool.cpp \
-                  Vrui/Tools/PlaneSnapInputDeviceTool.cpp \
-                  Vrui/Tools/WidgetTool.cpp \
-                  Vrui/Tools/LaserpointerTool.cpp \
-                  Vrui/Tools/ClipPlaneTool.cpp \
-                  Vrui/Tools/JediTool.cpp \
-                  Vrui/Tools/FlashlightTool.cpp \
-                  Vrui/Tools/MeasurementTool.cpp \
-                  Vrui/Tools/ScreenshotTool.cpp \
-                  Vrui/Tools/SketchingTool.cpp \
-                  Vrui/Tools/ViewpointSaverTool.cpp \
-                  Vrui/Tools/CurveEditorTool.cpp
+VRTOOLS_SOURCES = $(wildcard Vrui/Tools/*.cpp)
 
 VRTOOLSDIREXT = VRTools
 VRTOOLSDIR= $(LIBDESTDIR)/$(VRTOOLSDIREXT)
@@ -311,13 +273,64 @@ PLUGINS += $(VRTOOLS)
 # The Vrui vislet plug-in hierarchy:
 #
 
-VRVISLETS_SOURCES = Vrui/Vislets/CAVERenderer.cpp \
-                    Vrui/Vislets/SceneGraphViewer.cpp
+VRVISLETS_SOURCES = $(wildcard Vrui/Vislets/*.cpp)
 
 VRVISLETSDIREXT = VRVislets
 VRVISLETSDIR = $(LIBDESTDIR)/$(VRVISLETSDIREXT)
 VRVISLETS = $(VRVISLETS_SOURCES:Vrui/Vislets/%.cpp=$(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT))
 PLUGINS += $(VRVISLETS)
+
+#
+# The VR device driver daemon:
+#
+
+EXECUTABLES += $(EXEDIR)/VRDeviceDaemon
+
+#
+# The VR device driver plug-ins:
+#
+
+VRDEVICES_SOURCES = VRDeviceDaemon/VRDevices/AscensionFlockOfBirds.cpp \
+                    VRDeviceDaemon/VRDevices/PolhemusFastrak.cpp \
+                    VRDeviceDaemon/VRDevices/InterSense.cpp \
+                    VRDeviceDaemon/VRDevices/FakespacePinchGlove.cpp \
+                    VRDeviceDaemon/VRDevices/ArtDTrack.cpp \
+                    VRDeviceDaemon/VRDevices/ViconTarsus.cpp \
+                    VRDeviceDaemon/VRDevices/ViconTarsusRaw.cpp \
+                    VRDeviceDaemon/VRDevices/PCTracker.cpp \
+                    VRDeviceDaemon/VRDevices/PCWand.cpp \
+                    VRDeviceDaemon/VRDevices/MouseButtons.cpp \
+                    VRDeviceDaemon/VRDevices/SpaceBallRaw.cpp \
+                    VRDeviceDaemon/VRDevices/SpaceBall.cpp \
+                    VRDeviceDaemon/VRDevices/HIDDevice.cpp \
+                    VRDeviceDaemon/VRDevices/VRPNClient.cpp \
+                    VRDeviceDaemon/VRDevices/RemoteDevice.cpp \
+                    VRDeviceDaemon/VRDevices/DummyDevice.cpp
+
+ifneq ($(VRDEVICES_USE_INPUT_ABSTRACTION),0)
+  VRDEVICES_SOURCES += VRDeviceDaemon/VRDevices/Joystick.cpp
+endif
+
+ifneq ($(VRDEVICES_USE_BLUETOOTH),0)
+  VRDEVICES_SOURCES += VRDeviceDaemon/VRDevices/WiimoteTracker.cpp
+endif
+
+VRDEVICESDIREXT = VRDevices
+VRDEVICESDIR = $(LIBDESTDIR)/$(VRDEVICESDIREXT)
+VRDEVICES = $(VRDEVICES_SOURCES:VRDeviceDaemon/VRDevices/%.cpp=$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT))
+PLUGINS += $(VRDEVICES)
+
+#
+# The VR tracker calibrator plug-ins:
+#
+
+VRCALIBRATORS_SOURCES = VRDeviceDaemon/VRCalibrators/TransformCalibrator.cpp \
+                        VRDeviceDaemon/VRCalibrators/GridCalibrator.cpp
+
+VRCALIBRATORSDIREXT = VRCalibrators
+VRCALIBRATORSDIR = $(LIBDESTDIR)/$(VRCALIBRATORSDIREXT)
+VRCALIBRATORS = $(VRCALIBRATORS_SOURCES:VRDeviceDaemon/VRCalibrators/%.cpp=$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT))
+PLUGINS += $(VRCALIBRATORS)
 
 #
 # The Vrui device driver test program:
@@ -332,62 +345,13 @@ EXECUTABLES += $(EXEDIR)/DeviceTest
 EXECUTABLES += $(EXEDIR)/PrintInputDeviceDataFile
 
 #
-# The VR device driver daemon:
+# The Vrui calibration utilities:
 #
 
-EXECUTABLES += $(EXEDIR)/VRDeviceDaemon
-
-#
-# The VR device driver plug-ins:
-#
-
-VRDEVICES_SOURCES = VRDeviceDaemon/AscensionFlockOfBirds.cpp \
-                    VRDeviceDaemon/PolhemusFastrak.cpp \
-                    VRDeviceDaemon/InterSense.cpp \
-                    VRDeviceDaemon/FakespacePinchGlove.cpp \
-                    VRDeviceDaemon/ArtDTrack.cpp \
-                    VRDeviceDaemon/ViconTarsus.cpp \
-                    VRDeviceDaemon/ViconTarsusRaw.cpp \
-                    VRDeviceDaemon/PCTracker.cpp \
-                    VRDeviceDaemon/PCWand.cpp \
-                    VRDeviceDaemon/MouseButtons.cpp \
-                    VRDeviceDaemon/SpaceBallRaw.cpp \
-                    VRDeviceDaemon/SpaceBall.cpp \
-                    VRDeviceDaemon/HIDDevice.cpp \
-                    VRDeviceDaemon/VRPNClient.cpp \
-                    VRDeviceDaemon/RemoteDevice.cpp \
-                    VRDeviceDaemon/DummyDevice.cpp
-
-ifneq ($(VRDEVICES_USE_INPUT_ABSTRACTION),0)
-  VRDEVICES_SOURCES += VRDeviceDaemon/Joystick.cpp
-endif
-
-ifneq ($(VRDEVICES_USE_BLUETOOTH),0)
-  VRDEVICES_SOURCES += VRDeviceDaemon/WiimoteTracker.cpp
-endif
-
-VRDEVICESDIREXT = VRDevices
-VRDEVICESDIR = $(LIBDESTDIR)/$(VRDEVICESDIREXT)
-VRDEVICES = $(VRDEVICES_SOURCES:VRDeviceDaemon/%.cpp=$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT))
-PLUGINS += $(VRDEVICES)
-
-#
-# The VR tracker calibrator plug-ins:
-#
-
-VRCALIBRATORS_SOURCES = VRDeviceDaemon/TransformCalibrator.cpp \
-                        VRDeviceDaemon/GridCalibrator.cpp
-
-VRCALIBRATORSDIREXT = VRCalibrators
-VRCALIBRATORSDIR = $(LIBDESTDIR)/$(VRCALIBRATORSDIREXT)
-VRCALIBRATORS = $(VRCALIBRATORS_SOURCES:VRDeviceDaemon/%.cpp=$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT))
-PLUGINS += $(VRCALIBRATORS)
-
-#
-# The VR device driver utility programs:
-#
-
-EXECUTABLES += $(EXEDIR)/AlignTrackingMarkers
+EXECUTABLES += $(EXEDIR)/XBackground \
+               $(EXEDIR)/MeasureEnvironment \
+               $(EXEDIR)/ScreenCalibrator \
+               $(EXEDIR)/AlignTrackingMarkers
 
 # Set the name of the makefile fragment:
 ifdef DEBUG
@@ -396,8 +360,11 @@ else
   MAKEFILEFRAGMENT = Share/Vrui.makeinclude
 endif
 
+# Set the name of the pkg-config meta data file:
+PKGCONFIGFILE = Share/Vrui.pc
+
 # Remember the names of all generated files for "make clean":
-ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT)
+ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT) $(PKGCONFIGFILE)
 
 .PHONY: all
 all: config $(ALL)
@@ -413,8 +380,17 @@ $(EXECUTABLES): $(LIBRARIES)
 config:
 	@echo "---- Configured Vrui options: ----"
 	@echo "Installation directory: $(INSTALLDIR)"
+ifneq ($(USE_RPATH),0)
+	@echo "Run-time library search paths enabled"
+else
+	@echo "Run-time library search paths disabled"
+endif
 ifneq ($(GLSUPPORT_USE_TLS),0)
-	@echo "Multithreaded rendering enabled"
+  ifneq ($(SYSTEM_HAVE_TLS),0)
+	@echo "Multithreaded rendering enabled via TLS"
+  else
+	@echo "Multithreaded rendering enabled via pthreads"
+  endif
 else
 	@echo "Multithreaded rendering disabled"
 endif
@@ -453,7 +429,7 @@ ifneq ($(VRDEVICES_USE_BLUETOOTH),0)
 else
 	@echo "Bluetooth support (for Nintendo Wii controller) disabled"
 endif
-	@echo "--------"
+	@echo "---- End of Vrui configuration options ----"
 
 ########################################################################
 # Specify other actions to be performed on a `make clean'
@@ -487,69 +463,10 @@ DEPENDENCIES = $(patsubst -l%.$(LDEXT),$(call LIBRARYNAME,lib%),$(foreach PACKAG
 # The Miscellaneous Support Library (Misc)
 #
 
-MISC_HEADERS = Misc/Utility.h \
-               Misc/StringPrintf.h \
-               Misc/SelfDestructPointer.h \
-               Misc/RefCounted.h \
-               Misc/Autopointer.h \
-               Misc/ArrayIndex.h \
-               Misc/Array.h \
-               Misc/ChunkedArray.h \
-               Misc/ChunkedQueue.h \
-               Misc/PriorityHeap.h \
-               Misc/PoolAllocator.h \
-               Misc/StandardHashFunction.h \
-               Misc/StringHashFunctions.h \
-               Misc/OrderedTuple.h \
-               Misc/UnorderedTuple.h \
-               Misc/HashTable.h \
-               Misc/OneTimeQueue.h \
-               Misc/ThrowStdErr.h \
-               Misc/Time.h \
-               Misc/Timer.h \
-               Misc/FunctionCalls.h \
-               Misc/CallbackData.h \
-               Misc/CallbackList.h \
-               Misc/TimerEventScheduler.h \
-               Misc/Endianness.h \
-               Misc/File.h \
-               Misc/LargeFile.h \
-               Misc/MemMappedFile.h \
-               Misc/StringMarshaller.h \
-               Misc/FileNameExtensions.h \
-               Misc/CreateNumberedFileName.h \
-               Misc/CharacterSource.h \
-               Misc/FileCharacterSource.h \
-               Misc/GzippedFileCharacterSource.h \
-               Misc/TokenSource.h \
-               Misc/ValueSource.h \
-               Misc/ValueCoder.h \
-               Misc/StandardValueCoders.h \
-               Misc/ArrayValueCoders.h Misc/ArrayValueCoders.cpp \
-               Misc/CompoundValueCoders.h Misc/CompoundValueCoders.cpp \
-               Misc/ConfigurationFile.h Misc/ConfigurationFile.icpp \
-               Misc/FileLocator.h \
-               Misc/XBaseTable.h
+MISC_HEADERS = $(wildcard Misc/*.h) \
+               $(wildcard Misc/*.icpp)
 
-MISC_SOURCES = Misc/StringPrintf.cpp \
-               Misc/ThrowStdErr.cpp \
-               Misc/Timer.cpp \
-               Misc/CallbackList.cpp \
-               Misc/TimerEventScheduler.cpp \
-               Misc/FileNameExtensions.cpp \
-               Misc/CreateNumberedFileName.cpp \
-               Misc/CharacterSource.cpp \
-               Misc/FileCharacterSource.cpp \
-               Misc/GzippedFileCharacterSource.cpp \
-               Misc/TokenSource.cpp \
-               Misc/ValueSource.cpp \
-               Misc/ValueCoder.cpp \
-               Misc/StandardValueCoders.cpp \
-               Misc/ArrayValueCoders.cpp \
-               Misc/CompoundValueCoders.cpp \
-               Misc/ConfigurationFile.cpp \
-               Misc/FileLocator.cpp \
-               Misc/XBaseTable.cpp
+MISC_SOURCES = $(wildcard Misc/*.cpp)
 
 $(call LIBRARYNAME,libMisc): PACKAGES += $(MYMISC_DEPENDS)
 $(call LIBRARYNAME,libMisc): EXTRACINCLUDEFLAGS += $(MYMISC_INCLUDE)
@@ -562,14 +479,10 @@ libMisc: $(call LIBRARYNAME,libMisc)
 # The Plugin Handling Library (Plugins):
 #
 
-PLUGINS_HEADERS = Plugins/FunctionPointerHack.h \
-                  Plugins/ObjectLoader.h Plugins/ObjectLoader.cpp \
-                  Plugins/Factory.h \
-                  Plugins/FactoryManager.h Plugins/FactoryManager.cpp
+PLUGINS_HEADERS = $(wildcard Plugins/*.h) \
+                  $(wildcard Plugins/*.icpp)
 
-PLUGINS_SOURCES = Plugins/ObjectLoader.cpp \
-                  Plugins/Factory.cpp \
-                  Plugins/FactoryManager.cpp
+PLUGINS_SOURCES = $(wildcard Plugins/*.cpp)
 
 $(call LIBRARYNAME,libPlugins): PACKAGES += $(MYPLUGINS_DEPENDS)
 $(call LIBRARYNAME,libPlugins): EXTRACINCLUDEFLAGS += $(MYPLUGINS_INCLUDE)
@@ -582,9 +495,10 @@ libPlugins: $(call LIBRARYNAME,libPlugins)
 # The Realtime Processing Library (Realtime):
 #
 
-REALTIME_HEADERS = Realtime/AlarmTimer.h
+REALTIME_HEADERS = $(wildcard Realtime/*.h) \
+                   $(wildcard Realtime/*.icpp)
 
-REALTIME_SOURCES = Realtime/AlarmTimer.cpp
+REALTIME_SOURCES = $(wildcard Realtime/*.cpp)
 
 $(call LIBRARYNAME,libRealtime): PACKAGES += $(MYREALTIME_DEPENDS)
 $(call LIBRARYNAME,libRealtime): EXTRACINCLUDEFLAGS += $(MYREALTIME_INCLUDE)
@@ -598,19 +512,10 @@ libRealtime: $(call LIBRARYNAME,libRealtime)
 # The Portable Threading Library (Threads)
 #
 
-THREADS_HEADERS = Threads/Thread.h \
-                  Threads/Mutex.h \
-                  Threads/Cond.h \
-                  Threads/MutexCond.h \
-                  Threads/Barrier.h \
-                  Threads/Local.h \
-                  Threads/RefCounted.h \
-                  Threads/TripleBuffer.h \
-                  Threads/RingBuffer.h \
-                  Threads/DropoutBuffer.h \
-                  Threads/GzippedFileCharacterSource.h
+THREADS_HEADERS = $(wildcard Threads/*.h) \
+                  $(wildcard Threads/*.icpp)
 
-THREADS_SOURCES = Threads/GzippedFileCharacterSource.cpp
+THREADS_SOURCES = $(wildcard Threads/*.cpp)
 
 $(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
 $(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
@@ -623,31 +528,10 @@ libThreads: $(call LIBRARYNAME,libThreads)
 # The Portable Communications Library (Comm)
 #
 
-COMM_HEADERS = Comm/FdSet.h \
-               Comm/SerialPort.h \
-               Comm/UDPSocket.h \
-               Comm/TCPSocket.h \
-               Comm/TCPSocketCharacterSource.h \
-               Comm/TCPPipe.h \
-               Comm/MulticastPacket.h \
-               Comm/GatherOperation.h \
-               Comm/MulticastPipe.h \
-               Comm/MulticastPipeMultiplexer.h \
-               Comm/ClusterPipe.h \
-               Comm/ClusterFileCharacterSource.h \
-               Comm/Clusterize.h
+COMM_HEADERS = $(wildcard Comm/*.h) \
+               $(wildcard Comm/*.icpp)
 
-COMM_SOURCES = Comm/FdSet.cpp \
-               Comm/SerialPort.cpp \
-               Comm/UDPSocket.cpp \
-               Comm/TCPSocket.cpp \
-               Comm/TCPSocketCharacterSource.cpp \
-               Comm/TCPPipe.cpp \
-               Comm/MulticastPipe.cpp \
-               Comm/MulticastPipeMultiplexer.cpp \
-               Comm/ClusterPipe.cpp \
-               Comm/ClusterFileCharacterSource.cpp \
-               Comm/Clusterize.cpp
+COMM_SOURCES = $(wildcard Comm/*.cpp)
 
 $(call LIBRARYNAME,libComm): PACKAGES += $(MYCOMM_DEPENDS)
 $(call LIBRARYNAME,libComm): EXTRACINCLUDEFLAGS += $(MYCOMM_INCLUDE)
@@ -660,17 +544,10 @@ libComm: $(call LIBRARYNAME,libComm)
 # The Templatized Math Library (Math)
 #
 
-MATH_HEADERS = Math/Math.h \
-               Math/Constants.h \
-               Math/Interval.h Math/Interval.cpp \
-	       Math/BrokenLine.h \
-               Math/Random.h \
-               Math/MathValueCoders.h
+MATH_HEADERS = $(wildcard Math/*.h) \
+               $(wildcard Math/*.icpp)
 
-MATH_SOURCES = Math/Constants.cpp \
-               Math/Interval.cpp \
-               Math/Random.cpp \
-               Math/MathValueCoders.cpp
+MATH_SOURCES = $(wildcard Math/*.cpp)
 
 $(call LIBRARYNAME,libMath): PACKAGES += $(MYMATH_DEPENDS)
 $(call LIBRARYNAME,libMath): EXTRACINCLUDEFLAGS += $(MYMATH_INCLUDE)
@@ -683,75 +560,10 @@ libMath: $(call LIBRARYNAME,libMath)
 # The Templatized Geometry Library (Geometry)
 #
 
-GEOMETRY_HEADERS = Geometry/ComponentArray.h Geometry/ComponentArray.cpp \
-                   Geometry/Vector.h Geometry/Vector.cpp \
-                   Geometry/Point.h Geometry/Point.cpp \
-                   Geometry/AffineCombiner.h \
-                   Geometry/HVector.h Geometry/HVector.cpp \
-                   Geometry/MatrixHelperFunctions.h \
-                   Geometry/Matrix.h Geometry/Matrix.cpp \
-                   Geometry/Rotation.h Geometry/Rotation.cpp \
-                   Geometry/TranslationTransformation.h Geometry/TranslationTransformation.cpp \
-                   Geometry/RotationTransformation.h Geometry/RotationTransformation.cpp \
-                   Geometry/OrthonormalTransformation.h Geometry/OrthonormalTransformation.cpp \
-                   Geometry/UniformScalingTransformation.h Geometry/UniformScalingTransformation.cpp \
-                   Geometry/OrthogonalTransformation.h Geometry/OrthogonalTransformation.cpp \
-                   Geometry/ScalingTransformation.h Geometry/ScalingTransformation.cpp \
-                   Geometry/AffineTransformation.h Geometry/AffineTransformation.cpp\
-                   Geometry/ProjectiveTransformation.h Geometry/ProjectiveTransformation.cpp \
-                   Geometry/Ray.h \
-                   Geometry/HitResult.h \
-                   Geometry/SolidHitResult.h \
-                   Geometry/Plane.h \
-                   Geometry/Sphere.h \
-                   Geometry/Cylinder.h \
-                   Geometry/Cone.h \
-                   Geometry/Box.h Geometry/Box.cpp \
-                   Geometry/Polygon.h Geometry/Polygon.cpp \
-                   Geometry/SplineCurve.h Geometry/SplineCurve.cpp \
-                   Geometry/SplinePatch.h Geometry/SplinePatch.cpp \
-                   Geometry/Geoid.h Geometry/Geoid.cpp \
-                   Geometry/PCACalculator.h \
-                   Geometry/ValuedPoint.h \
-                   Geometry/ClosePointSet.h \
-                   Geometry/PointOctree.h Geometry/PointOctree.cpp \
-                   Geometry/PointTwoNTree.h Geometry/PointTwoNTree.cpp \
-                   Geometry/PointKdTree.h Geometry/PointKdTree.cpp \
-                   Geometry/ArrayKdTree.h Geometry/ArrayKdTree.cpp \
-                   Geometry/PolygonMesh.h Geometry/PolygonMesh.cpp \
-                   Geometry/Random.h Geometry/Random.cpp \
-                   Geometry/Endianness.h \
-                   Geometry/OutputOperators.h Geometry/OutputOperators.cpp \
-                   Geometry/GeometryValueCoders.h Geometry/GeometryValueCoders.cpp
+GEOMETRY_HEADERS = $(wildcard Geometry/*.h) \
+                   $(wildcard Geometry/*.icpp)
 
-GEOMETRY_SOURCES = Geometry/ComponentArray.cpp \
-                   Geometry/Vector.cpp \
-                   Geometry/Point.cpp \
-                   Geometry/HVector.cpp \
-                   Geometry/Matrix.cpp \
-                   Geometry/Rotation.cpp \
-                   Geometry/TranslationTransformation.cpp \
-                   Geometry/RotationTransformation.cpp \
-                   Geometry/OrthonormalTransformation.cpp \
-                   Geometry/UniformScalingTransformation.cpp \
-                   Geometry/OrthogonalTransformation.cpp \
-                   Geometry/ScalingTransformation.cpp \
-                   Geometry/AffineTransformation.cpp \
-                   Geometry/ProjectiveTransformation.cpp \
-                   Geometry/Box.cpp \
-                   Geometry/Polygon.cpp \
-                   Geometry/SplineCurve.cpp \
-                   Geometry/SplinePatch.cpp \
-                   Geometry/Geoid.cpp \
-                   Geometry/PCACalculator.cpp \
-                   Geometry/PointOctree.cpp \
-                   Geometry/PointTwoNTree.cpp \
-                   Geometry/PointKdTree.cpp \
-                   Geometry/ArrayKdTree.cpp \
-                   Geometry/PolygonMesh.cpp \
-                   Geometry/Random.cpp \
-                   Geometry/OutputOperators.cpp \
-                   Geometry/GeometryValueCoders.cpp
+GEOMETRY_SOURCES = $(wildcard Geometry/*.cpp)
 
 $(call LIBRARYNAME,libGeometry): PACKAGES += $(MYGEOMETRY_DEPENDS)
 $(call LIBRARYNAME,libGeometry): EXTRACINCLUDEFLAGS += $(MYGEOMETRY_INCLUDE)
@@ -764,7 +576,8 @@ libGeometry: $(call LIBRARYNAME,libGeometry)
 # The Mac OSX Support Library (MacOSX)
 #
 
-MACOSX_HEADERS = MacOSX/AutoRef.h
+MACOSX_HEADERS = $(wildcard MacOSX/*.h) \
+                 $(wildcard MacOSX/*.icpp)
 
 #
 # The OpenGL C++ Wrapper Library (GLWrappers)
@@ -787,7 +600,7 @@ GLWRAPPERS_HEADERS = GL/GLTexCoordTemplates.h \
                      GL/GLBox.h \
                      GL/GLVertexArrayTemplates.h \
                      GL/GLVertexArrayParts.h \
-                     GL/GLVertex.h GL/GLVertex.cpp \
+                     GL/GLVertex.h GL/GLVertex.icpp \
                      GL/GLFogEnums.h \
                      GL/GLFogTemplates.h \
                      GL/GLFog.h \
@@ -832,7 +645,8 @@ libGLWrappers: $(call LIBRARYNAME,libGLWrappers)
 # The OpenGL Support Library (GLSupport)
 #
 
-GLSUPPORT_HEADERS = GL/GLValueCoders.h \
+GLSUPPORT_HEADERS = GL/GLPrintError.h \
+                    GL/GLValueCoders.h \
                     GL/TLSHelper.h \
                     GL/GLObject.h \
                     GL/GLContextData.h \
@@ -842,71 +656,28 @@ GLSUPPORT_HEADERS = GL/GLValueCoders.h \
                     GL/GLGeometryShader.h \
                     GL/GLColorMap.h \
                     GL/GLFont.h \
+                    GL/GLString.h \
+                    GL/GLLabel.h \
                     GL/GLLineIlluminator.h \
                     GL/GLModels.h
 
-GLSUPPORTEXTENSION_HEADERS = GL/Extensions/GLExtension.h \
-                             GL/Extensions/GLARBDepthTexture.h \
-                             GL/Extensions/GLARBFragmentProgram.h \
-                             GL/Extensions/GLARBFragmentShader.h \
-                             GL/Extensions/GLARBGeometryShader4.h \
-                             GL/Extensions/GLARBMultitexture.h \
-                             GL/Extensions/GLARBPointParameters.h \
-                             GL/Extensions/GLARBPointSprite.h \
-                             GL/Extensions/GLARBShaderObjects.h \
-                             GL/Extensions/GLARBShadow.h \
-                             GL/Extensions/GLARBTextureCompression.h \
-                             GL/Extensions/GLARBTextureFloat.h \
-                             GL/Extensions/GLARBTextureNonPowerOfTwo.h \
-                             GL/Extensions/GLARBVertexBufferObject.h \
-                             GL/Extensions/GLARBVertexProgram.h \
-                             GL/Extensions/GLARBVertexShader.h \
-                             GL/Extensions/GLEXTFramebufferObject.h \
-                             GL/Extensions/GLEXTGeometryShader4.h \
-                             GL/Extensions/GLEXTPalettedTexture.h \
-                             GL/Extensions/GLEXTTexture3D.h \
-                             GL/Extensions/GLEXTTextureCompressionS3TC.h \
-                             GL/Extensions/GLEXTTextureCubeMap.h \
-                             GL/Extensions/GLNVFogDistance.h \
-                             GL/Extensions/GLNVOcclusionQuery.h \
-                             GL/Extensions/GLNVPointSprite.h \
-                             GL/Extensions/GLNVTextureShader.h
+GLSUPPORTEXTENSION_HEADERS = $(wildcard GL/Extensions/*.h) \
+                             $(wildcard GL/Extensions/*.icpp)
 
-GLSUPPORT_SOURCES = GL/GLValueCoders.cpp \
+GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
+                    GL/GLValueCoders.cpp \
                     GL/GLObject.cpp \
-                    GL/GLThingManager.cpp \
+                    GL/Internal/GLThingManager.cpp \
                     GL/GLContextData.cpp \
                     GL/GLExtensions.cpp \
                     GL/GLExtensionManager.cpp \
-                    GL/Extensions/GLARBDepthTexture.cpp \
-                    GL/Extensions/GLARBFragmentProgram.cpp \
-                    GL/Extensions/GLARBFragmentShader.cpp \
-                    GL/Extensions/GLARBGeometryShader4.cpp \
-                    GL/Extensions/GLARBMultitexture.cpp \
-                    GL/Extensions/GLARBPointParameters.cpp \
-                    GL/Extensions/GLARBPointSprite.cpp \
-                    GL/Extensions/GLARBShaderObjects.cpp \
-                    GL/Extensions/GLARBShadow.cpp \
-                    GL/Extensions/GLARBTextureCompression.cpp \
-                    GL/Extensions/GLARBTextureFloat.cpp \
-                    GL/Extensions/GLARBTextureNonPowerOfTwo.cpp \
-                    GL/Extensions/GLARBVertexBufferObject.cpp \
-                    GL/Extensions/GLARBVertexProgram.cpp \
-                    GL/Extensions/GLARBVertexShader.cpp \
-                    GL/Extensions/GLEXTFramebufferObject.cpp \
-                    GL/Extensions/GLEXTGeometryShader4.cpp \
-                    GL/Extensions/GLEXTPalettedTexture.cpp \
-                    GL/Extensions/GLEXTTexture3D.cpp \
-                    GL/Extensions/GLEXTTextureCompressionS3TC.cpp \
-                    GL/Extensions/GLEXTTextureCubeMap.cpp \
-                    GL/Extensions/GLNVFogDistance.cpp \
-                    GL/Extensions/GLNVOcclusionQuery.cpp \
-                    GL/Extensions/GLNVPointSprite.cpp \
-                    GL/Extensions/GLNVTextureShader.cpp \
+		    $(wildcard GL/Extensions/*.cpp) \
                     GL/GLShader.cpp \
                     GL/GLGeometryShader.cpp \
                     GL/GLColorMap.cpp \
                     GL/GLFont.cpp \
+                    GL/GLString.cpp \
+                    GL/GLLabel.cpp \
                     GL/GLLineIlluminator.cpp \
                     GL/GLModels.cpp
 
@@ -944,9 +715,9 @@ libGLXSupport: $(call LIBRARYNAME,libGLXSupport)
 #
 
 GLGEOMETRY_HEADERS = GL/GLGeometryWrappers.h \
-                     GL/GLGeometryVertex.h GL/GLGeometryVertex.cpp \
-                     GL/GLTransformationWrappers.h GL/GLTransformationWrappers.cpp \
-                     GL/GLFrustum.h \
+                     GL/GLGeometryVertex.h GL/GLGeometryVertex.icpp \
+                     GL/GLTransformationWrappers.h GL/GLTransformationWrappers.icpp \
+                     GL/GLFrustum.h GL/GLFrustum.icpp \
                      GL/GLPolylineTube.h
 
 GLGEOMETRY_SOURCES = GL/GLGeometryVertex.cpp \
@@ -965,75 +736,10 @@ libGLGeometry: $(call LIBRARYNAME,libGLGeometry)
 # The GLMotif 3D User Interface Component Library (GLMotif)
 #
 
-GLMOTIF_HEADERS = GLMotif/Types.h \
-                  GLMotif/Alignment.h \
-                  GLMotif/Event.h \
-                  GLMotif/StyleSheet.h \
-                  GLMotif/Widget.h \
-                  GLMotif/WidgetManager.h \
-                  GLMotif/Container.h \
-                  GLMotif/SingleChildContainer.h \
-                  GLMotif/Margin.h \
-                  GLMotif/Popup.h \
-                  GLMotif/Blind.h \
-                  GLMotif/Separator.h \
-                  GLMotif/Label.h \
-                  GLMotif/TextField.h \
-                  GLMotif/Button.h \
-                  GLMotif/NewButton.h \
-                  GLMotif/DecoratedButton.h \
-                  GLMotif/Arrow.h \
-                  GLMotif/ToggleButton.h \
-                  GLMotif/CascadeButton.h \
-                  GLMotif/DragWidget.h \
-                  GLMotif/Slider.h \
-                  GLMotif/ScrollBar.h \
-                  GLMotif/ListBox.h \
-                  GLMotif/ScrolledListBox.h \
-                  GLMotif/RowColumn.h \
-                  GLMotif/RadioBox.h \
-                  GLMotif/DropdownBox.h \
-                  GLMotif/Menu.h \
-                  GLMotif/SubMenu.h \
-                  GLMotif/PopupMenu.h \
-                  GLMotif/TitleBar.h \
-                  GLMotif/PopupWindow.h \
-                  GLMotif/FileSelectionDialog.h \
-                  GLMotif/WidgetAlgorithms.h GLMotif/WidgetAlgorithms.cpp
+GLMOTIF_HEADERS = $(wildcard GLMotif/*.h) \
+                  $(wildcard GLMotif/*.icpp)
 
-GLMOTIF_SOURCES = GLMotif/Event.cpp \
-                  GLMotif/StyleSheet.cpp \
-                  GLMotif/Widget.cpp \
-                  GLMotif/WidgetManager.cpp \
-                  GLMotif/Container.cpp \
-                  GLMotif/SingleChildContainer.cpp \
-                  GLMotif/Margin.cpp \
-                  GLMotif/Popup.cpp \
-                  GLMotif/Blind.cpp \
-                  GLMotif/Separator.cpp \
-                  GLMotif/Label.cpp \
-                  GLMotif/TextField.cpp \
-                  GLMotif/Button.cpp \
-                  GLMotif/NewButton.cpp \
-                  GLMotif/DecoratedButton.cpp \
-                  GLMotif/Arrow.cpp \
-                  GLMotif/ToggleButton.cpp \
-                  GLMotif/CascadeButton.cpp \
-                  GLMotif/DragWidget.cpp \
-                  GLMotif/Slider.cpp \
-                  GLMotif/ScrollBar.cpp \
-                  GLMotif/ListBox.cpp \
-                  GLMotif/ScrolledListBox.cpp \
-                  GLMotif/RowColumn.cpp \
-                  GLMotif/RadioBox.cpp \
-                  GLMotif/DropdownBox.cpp \
-                  GLMotif/Menu.cpp \
-                  GLMotif/SubMenu.cpp \
-                  GLMotif/PopupMenu.cpp \
-                  GLMotif/TitleBar.cpp \
-                  GLMotif/PopupWindow.cpp \
-                  GLMotif/FileSelectionDialog.cpp \
-                  GLMotif/WidgetAlgorithms.cpp
+GLMOTIF_SOURCES = $(wildcard GLMotif/*.cpp)
 
 $(call LIBRARYNAME,libGLMotif): PACKAGES += $(MYGLMOTIF_DEPENDS)
 $(call LIBRARYNAME,libGLMotif): EXTRACINCLUDEFLAGS += $(MYGLMOTIF_INCLUDE)
@@ -1046,23 +752,10 @@ libGLMotif: $(call LIBRARYNAME,libGLMotif)
 # The Image Handling Library (Images)
 #
 
-IMAGES_HEADERS = Images/Image.h \
-                 Images/RGBImage.h \
-                 Images/RGBAImage.h \
-                 Images/PNMImageFileReader.h Images/PNMImageFileReader.cpp \
-                 Images/TargaImageFileReader.h Images/TargaImageFileReader.cpp \
-                 Images/IFFImageFileReader.h Images/IFFImageFileReader.cpp \
-                 Images/GetImageFileSize.h \
-                 Images/ReadImageFile.h \
-                 Images/WriteImageFile.h
+IMAGES_HEADERS = $(wildcard Images/*.h) \
+                 $(wildcard Images/*.icpp)
 
-IMAGES_SOURCES = Images/Image.cpp \
-                 Images/PNMImageFileReader.cpp \
-                 Images/TargaImageFileReader.cpp \
-                 Images/IFFImageFileReader.cpp \
-                 Images/GetImageFileSize.cpp \
-                 Images/ReadImageFile.cpp \
-                 Images/WriteImageFile.cpp
+IMAGES_SOURCES = $(wildcard Images/*.cpp)
 
 $(call LIBRARYNAME,libImages): PACKAGES += $(MYIMAGES_DEPENDS)
 $(call LIBRARYNAME,libImages): EXTRACINCLUDEFLAGS += $(MYIMAGES_INCLUDE)
@@ -1084,23 +777,22 @@ libImages: $(call LIBRARYNAME,libImages)
 # The basic sound library (Sound)
 #
 
-SOUND_HEADERS = Sound/SoundDataFormat.h
+SOUND_HEADERS = $(wildcard Sound/*.h) \
+                $(wildcard Sound/*.icpp)
 ifeq ($(SYSTEM),LINUX)
+  SOUND_LINUX_HEADERS = 
   ifneq ($(VRUI_USE_SOUND),0)
-    SOUND_HEADERS += Sound/ALSAPCMDevice.h
+    SOUND_LINUX_HEADERS += $(wildcard Sound/Linux/*.h) \
+                           $(wildcard Sound/Linux/*.icpp)
   endif
 endif
-SOUND_HEADERS += Sound/SoundRecorder.h \
-                 Sound/SoundPlayer.h
 
-SOUND_SOURCES = Sound/SoundDataFormat.cpp
+SOUND_SOURCES = $(wildcard Sound/*.cpp)
 ifeq ($(SYSTEM),LINUX)
   ifneq ($(VRUI_USE_SOUND),0)
-    SOUND_SOURCES += Sound/ALSAPCMDevice.cpp
+    SOUND_SOURCES += $(wildcard Sound/Linux/*.cpp)
   endif
 endif
-SOUND_SOURCES += Sound/SoundRecorder.cpp \
-                 Sound/SoundPlayer.cpp
 
 $(call LIBRARYNAME,libSound): PACKAGES += $(MYSOUND_DEPENDS)
 $(call LIBRARYNAME,libSound): EXTRACINCLUDEFLAGS += $(MYSOUND_INCLUDE)
@@ -1114,14 +806,11 @@ libSound: $(call LIBRARYNAME,libSound)
 # The OpenAL Support Library (ALSupport)
 #
 
-ALSUPPORT_HEADERS = AL/ALTemplates.h \
-                    AL/ALGeometryWrappers.h \
-                    AL/ALObject.h \
-                    AL/ALContextData.h
+ALSUPPORT_HEADERS = $(wildcard AL/*.h) \
+                    $(wildcard AL/*.icpp)
 
-ALSUPPORT_SOURCES = AL/ALObject.cpp \
-                    AL/ALThingManager.cpp \
-                    AL/ALContextData.cpp
+ALSUPPORT_SOURCES = $(wildcard AL/*.cpp) \
+                    $(wildcard AL/Internal/*.cpp)
 
 $(call LIBRARYNAME,libALSupport): PACKAGES += $(MYALSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libALSupport): EXTRACINCLUDEFLAGS += $(MYALSUPPORT_INCLUDE)
@@ -1134,90 +823,13 @@ libALSupport: $(call LIBRARYNAME,libALSupport)
 # The Scene Graph Rendering Library (SceneGraph)
 #
 
-SCENEGRAPH_HEADERS = SceneGraph/Geometry.h \
-                     SceneGraph/EventOut.h \
-                     SceneGraph/EventIn.h \
-                     SceneGraph/Route.h \
-                     SceneGraph/Node.h \
-                     SceneGraph/NodeFactory.h \
-                     SceneGraph/NodeCreator.h \
-                     SceneGraph/FieldTypes.h \
-                     SceneGraph/VRMLFile.h \
-                     SceneGraph/GLRenderState.h \
-                     SceneGraph/DisplayList.h \
-                     SceneGraph/GraphNode.h \
-                     SceneGraph/GroupNode.h \
-                     SceneGraph/TransformNode.h \
-                     SceneGraph/BillboardNode.h \
-                     SceneGraph/ReferenceEllipsoidNode.h \
-                     SceneGraph/GeodeticToCartesianTransformNode.h \
-                     SceneGraph/InlineNode.h \
-                     SceneGraph/AttributeNode.h \
-                     SceneGraph/MaterialNode.h \
-                     SceneGraph/TextureNode.h \
-                     SceneGraph/ImageTextureNode.h \
-                     SceneGraph/AppearanceNode.h \
-                     SceneGraph/PointTransformNode.h \
-                     SceneGraph/GeodeticToCartesianPointTransformNode.h \
-                     SceneGraph/GeometryNode.h \
-                     SceneGraph/BoxNode.h \
-                     SceneGraph/ConeNode.h \
-                     SceneGraph/CylinderNode.h \
-                     SceneGraph/TextureCoordinateNode.h \
-                     SceneGraph/ColorNode.h \
-                     SceneGraph/NormalNode.h \
-                     SceneGraph/CoordinateNode.h \
-                     SceneGraph/PointSetNode.h \
-                     SceneGraph/IndexedLineSetNode.h \
-                     SceneGraph/CurveSetNode.h \
-                     SceneGraph/ElevationGridNode.h \
-                     SceneGraph/IndexedFaceSetNode.h \
-                     SceneGraph/ShapeNode.h \
-                     SceneGraph/FontStyleNode.h \
-                     SceneGraph/TextNode.h \
-                     SceneGraph/LabelSetNode.h \
-                     SceneGraph/PolygonMesh.h SceneGraph/PolygonMesh.cpp \
-                     SceneGraph/TSurfFileNode.h \
-                     SceneGraph/ArcInfoExportFileNode.h \
-                     SceneGraph/ESRIShapeFileNode.h
+SCENEGRAPH_HEADERS = $(wildcard SceneGraph/*.h) \
+                     $(wildcard SceneGraph/*.icpp)
 
-SCENEGRAPH_SOURCES = SceneGraph/Node.cpp \
-                     SceneGraph/NodeCreator.cpp \
-                     SceneGraph/VRMLFile.cpp \
-                     SceneGraph/GLRenderState.cpp \
-                     SceneGraph/DisplayList.cpp \
-                     SceneGraph/GroupNode.cpp \
-                     SceneGraph/TransformNode.cpp \
-                     SceneGraph/BillboardNode.cpp \
-                     SceneGraph/ReferenceEllipsoidNode.cpp \
-                     SceneGraph/GeodeticToCartesianTransformNode.cpp \
-                     SceneGraph/InlineNode.cpp \
-                     SceneGraph/MaterialNode.cpp \
-                     SceneGraph/ImageTextureNode.cpp \
-                     SceneGraph/AppearanceNode.cpp \
-                     SceneGraph/GeodeticToCartesianPointTransformNode.cpp \
-                     SceneGraph/GeometryNode.cpp \
-                     SceneGraph/BoxNode.cpp \
-                     SceneGraph/ConeNode.cpp \
-                     SceneGraph/CylinderNode.cpp \
-                     SceneGraph/TextureCoordinateNode.cpp \
-                     SceneGraph/ColorNode.cpp \
-                     SceneGraph/NormalNode.cpp \
-                     SceneGraph/CoordinateNode.cpp \
-                     SceneGraph/PointSetNode.cpp \
-                     SceneGraph/IndexedLineSetNode.cpp \
-                     SceneGraph/CurveSetNode.cpp \
-                     SceneGraph/LoadElevationGrid.cpp \
-                     SceneGraph/ElevationGridNode.cpp \
-                     SceneGraph/IndexedFaceSetNode.cpp \
-                     SceneGraph/ShapeNode.cpp \
-                     SceneGraph/FontStyleNode.cpp \
-                     SceneGraph/TextNode.cpp \
-                     SceneGraph/LabelSetNode.cpp \
-                     SceneGraph/PolygonMesh.cpp \
-                     SceneGraph/TSurfFileNode.cpp \
-                     SceneGraph/ArcInfoExportFileNode.cpp \
-                     SceneGraph/ESRIShapeFileNode.cpp
+SCENEGRAPH_SOURCES = $(wildcard SceneGraph/*.cpp) \
+                     $(wildcard SceneGraph/Internal/*.cpp)
+
+$(OBJDIR)/SceneGraph/Internal/Doom3MaterialManager.o: CFLAGS += -DSCENEGRAPH_DOOM3MATERIALMANAGER_SHADERDIR='"$(SHAREINSTALLDIR)/Shaders/SceneGraph"'
 
 $(call LIBRARYNAME,libSceneGraph): PACKAGES += $(MYSCENEGRAPH_DEPENDS)
 $(call LIBRARYNAME,libSceneGraph): EXTRACINCLUDEFLAGS += $(MYSCENEGRAPH_INCLUDE)
@@ -1230,126 +842,25 @@ libSceneGraph: $(call LIBRARYNAME,libSceneGraph)
 # The Vrui Virtual Reality User Interface Library (Vrui)
 #
 
-VRUI_HEADERS = Vrui/Geometry.h \
-               Vrui/TransparentObject.h \
-               Vrui/GlyphRenderer.h \
-               Vrui/InputDevice.h \
-               Vrui/MouseCursorFaker.h \
-               Vrui/VirtualInputDevice.h \
-               Vrui/InputGraphManager.h \
-               Vrui/InputDeviceManager.h \
-               Vrui/VRDeviceState.h \
-               Vrui/VRDevicePipe.h \
-               Vrui/VRDeviceClient.h \
-               Vrui/MutexMenu.h \
-               Vrui/Lightsource.h \
-               Vrui/LightsourceManager.h \
-               Vrui/ClipPlane.h \
-               Vrui/ClipPlaneManager.h \
-               Vrui/CoordinateTransform.h \
-               Vrui/OrthogonalCoordinateTransform.h \
-               Vrui/GeodeticCoordinateTransform.h \
-               Vrui/CoordinateManager.h \
-               Vrui/Viewer.h \
-               Vrui/VRScreen.h \
-               Vrui/ViewSpecification.h \
-               Vrui/VRWindow.h \
-               Vrui/DisplayState.h \
-               Vrui/Listener.h \
-               Vrui/SoundContext.h \
-               Vrui/ToolInputLayout.h \
-               Vrui/ToolInputAssignment.h \
-               Vrui/LocatorToolAdapter.h \
-               Vrui/DraggingToolAdapter.h \
-               Vrui/ToolManager.h \
-               Vrui/Vislet.h \
-               Vrui/VisletManager.h \
-               Vrui/Vrui.h \
-               Vrui/ClusterSupport.h \
-               Vrui/Application.h
+VRUI_HEADERS = $(wildcard Vrui/*.h) \
+               $(wildcard Vrui/*.icpp)
 
-VRUI_TOOLHEADERS = Vrui/Tools/Tool.h \
-                   Vrui/Tools/GenericAbstractToolFactory.h \
-                   Vrui/Tools/GenericToolFactory.h \
-                   Vrui/Tools/LocatorTool.h \
-                   Vrui/Tools/DraggingTool.h \
-                   Vrui/Tools/NavigationTool.h \
-                   Vrui/Tools/SurfaceNavigationTool.h \
-                   Vrui/Tools/TransformTool.h \
-                   Vrui/Tools/UserInterfaceTool.h \
-                   Vrui/Tools/MenuTool.h \
-                   Vrui/Tools/UtilityTool.h
+VRUI_SOURCES = $(wildcard Vrui/*.cpp) \
+               $(wildcard Vrui/Internal/*.cpp) \
+               $(wildcard Vrui/Internal/$(OSSPECFILEINSERT)/*.cpp)
 
-VRUI_SOURCES = Vrui/TransparentObject.cpp \
-               Vrui/BoxRayDragger.cpp \
-               Vrui/GlyphRenderer.cpp \
-               Vrui/InputDevice.cpp \
-               Vrui/MouseCursorFaker.cpp \
-               Vrui/VirtualInputDevice.cpp \
-               Vrui/InputGraphManager.cpp \
-               Vrui/InputDeviceManager.cpp \
-               Vrui/InputDeviceAdapter.cpp \
-               Vrui/InputDeviceAdapterMouse.cpp \
-               Vrui/InputDeviceAdapterIndexMap.cpp \
-               Vrui/VRDeviceClient.cpp \
-               Vrui/InputDeviceAdapterDeviceDaemon.cpp \
-               Vrui/InputDeviceAdapterHID.$(OSSPECFILEINSERT).cpp \
-               Vrui/InputDeviceAdapterVisBox.cpp \
-               Vrui/InputDeviceAdapterPlayback.cpp \
-               Vrui/MultipipeDispatcher.cpp \
-               Vrui/MutexMenu.cpp \
-               Vrui/LightsourceManager.cpp \
-               Vrui/ClipPlaneManager.cpp \
-               Vrui/CoordinateTransform.cpp \
-               Vrui/OrthogonalCoordinateTransform.cpp \
-               Vrui/GeodeticCoordinateTransform.cpp \
-               Vrui/CoordinateManager.cpp \
-               Vrui/Viewer.cpp \
-               Vrui/VRScreen.cpp \
-               Vrui/ViewSpecification.cpp \
-               Vrui/VRWindow.cpp \
-               Vrui/Listener.cpp \
-               Vrui/SoundContext.cpp \
-               Vrui/ToolInputLayout.cpp \
-               Vrui/ToolInputAssignment.cpp \
-               Vrui/Tools/Tool.cpp \
-               Vrui/Tools/LocatorTool.cpp \
-               Vrui/Tools/DraggingTool.cpp \
-               Vrui/Tools/NavigationTool.cpp \
-               Vrui/Tools/SurfaceNavigationTool.cpp \
-               Vrui/Tools/TransformTool.cpp \
-               Vrui/Tools/UserInterfaceTool.cpp \
-               Vrui/Tools/MenuTool.cpp \
-               Vrui/Tools/InputDeviceTool.cpp \
-               Vrui/Tools/PointingTool.cpp \
-               Vrui/Tools/UtilityTool.cpp \
-               Vrui/LocatorToolAdapter.cpp \
-               Vrui/DraggingToolAdapter.cpp \
-               Vrui/ToolKillZone.cpp \
-               Vrui/ToolKillZoneBox.cpp \
-               Vrui/ToolKillZoneFrustum.cpp \
-               Vrui/ToolManager.cpp \
-               Vrui/Vislet.cpp \
-               Vrui/VisletManager.cpp \
-               Vrui/InputDeviceDataSaver.cpp \
-               Vrui/Vrui.General.cpp \
-               Vrui/Vrui.Workbench.cpp \
-               Vrui/Application.cpp
-
-$(OBJDIR)/Vrui/InputDeviceAdapterMouse.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-ifeq ($(SYSTEM),LINUX)
-  ifneq ($(HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS),0)
-    $(OBJDIR)/Vrui/InputDeviceAdapterHID.Linux.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
-  endif
+$(OBJDIR)/Vrui/Internal/InputDeviceAdapterMouse.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
+ifneq ($(HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS),0)
+  $(OBJDIR)/Vrui/Internal/Linux/InputDeviceAdapterHID.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
 endif
-$(OBJDIR)/Vrui/InputDeviceAdapterPlayback.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
+$(OBJDIR)/Vrui/Internal/InputDeviceAdapterPlayback.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
 $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DAUTOSTEREODIRECTORY='"$(SHAREINSTALLDIR)/Textures"'
 ifneq ($(VRWINDOW_CPP_USE_SWAPGROUPS),0)
   $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DVRWINDOW_USE_SWAPGROUPS
 endif
-$(OBJDIR)/Vrui/Vrui.Workbench.o: CFLAGS += -DSYSVRUICONFIGFILE='"$(ETCINSTALLDIR)/Vrui.cfg"' -DVRUIDEFAULTROOTSECTIONNAME='"Desktop"'
+$(OBJDIR)/Vrui/Internal/Vrui.Workbench.o: CFLAGS += -DSYSVRUICONFIGFILE='"$(ETCINSTALLDIR)/Vrui.cfg"' -DVRUIDEFAULTROOTSECTIONNAME='"Desktop"'
 
 $(call LIBRARYNAME,libVrui): PACKAGES += $(MYVRUI_DEPENDS)
 $(call LIBRARYNAME,libVrui): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
@@ -1394,12 +905,6 @@ else
 	@echo Linking $@...
 	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
 endif
-
-# Dependencies for Vrui tools:
-$(VRTOOLSDIR)/libViewpointFileNavigationTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMatrix.o \
-                                                               $(OBJDIR)/Vrui/Tools/ViewpointFileNavigationTool.o
-$(VRTOOLSDIR)/libCurveEditorTool.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/DenseMatrix.o \
-                                                   $(OBJDIR)/Vrui/Tools/CurveEditorTool.o
 
 # Vrui tool settings:
 $(OBJDIR)/Vrui/Tools/JediTool.o: CFLAGS += -DDEFAULTLIGHTSABERIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Lightsaber.png"'
@@ -1453,26 +958,11 @@ $(VRVISLETSDIR)/libSceneGraphViewer.$(PLUGINFILEEXT): PACKAGES += MYSCENEGRAPH
 .PHONY: VRVislets
 VRVislets: $(VRVISLETS)
 
-# The VR Device Daemon Test program:
-$(EXEDIR)/DeviceTest: PACKAGES += MYVRUI
-$(EXEDIR)/DeviceTest: $(OBJDIR)/Vrui/DeviceTest.o
-.PHONY: DeviceTest
-DeviceTest: $(EXEDIR)/DeviceTest
-
-# The Vrui input device data file printer:
-$(EXEDIR)/PrintInputDeviceDataFile: PACKAGES += MYVRUI
-$(EXEDIR)/PrintInputDeviceDataFile: $(OBJDIR)/Vrui/PrintInputDeviceDataFile.o
-.PHONY: PrintInputDeviceDataFile
-PrintInputDeviceDataFile: $(EXEDIR)/PrintInputDeviceDataFile
-
-
 #
 # The VR device driver daemon:
 #
 
-VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRFactory.cpp \
-                         VRDeviceDaemon/VRFactoryManager.cpp \
-                         VRDeviceDaemon/VRDevice.cpp \
+VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRDevice.cpp \
                          VRDeviceDaemon/VRCalibrator.cpp \
                          VRDeviceDaemon/VRDeviceManager.cpp \
                          VRDeviceDaemon/VRDeviceServer.cpp \
@@ -1496,25 +986,25 @@ VRDeviceDaemon: $(EXEDIR)/VRDeviceDaemon
 #
 
 ifneq ($(HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS),0)
-  $(OBJDIR)/VRDeviceDaemon/HIDDevice.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
+  $(OBJDIR)/VRDeviceDaemon/VRDevices/HIDDevice.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
 endif
 
 ifeq ($(SYSTEM),DARWIN)
   $(VRDEVICESDIR)/libHIDDevice.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -framework System -framework IOKit -framework CoreFoundation
 endif
 
-$(VRDEVICESDIR)/libVRPNClient.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRPNConnection.o \
-                                                $(OBJDIR)/VRDeviceDaemon/VRPNClient.o
+$(VRDEVICESDIR)/libVRPNClient.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/VRPNConnection.o \
+                                                $(OBJDIR)/VRDeviceDaemon/VRDevices/VRPNClient.o
 
 $(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): PLUGINLINKFLAGS += $(BLUETOOTH_LIBDIR) $(BLUETOOTH_LIBS)
-$(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/Wiimote.o \
-                                                    $(OBJDIR)/VRDeviceDaemon/WiimoteTracker.o
+$(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/Wiimote.o \
+                                                    $(OBJDIR)/VRDeviceDaemon/VRDevices/WiimoteTracker.o
 
 # Implicit rule for creating plugins:
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DVERBOSE -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
-$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/%.o
+$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/%.o
 	@mkdir -p $(VRDEVICESDIR)
 ifdef SHOWCOMMAND
 	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
@@ -1534,7 +1024,7 @@ endif
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
-$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/%.o
+$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRCalibrators/%.o
 	@mkdir -p $(VRCALIBRATORSDIR)
 ifdef SHOWCOMMAND
 	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
@@ -1549,13 +1039,47 @@ endif
 .PHONY: VRCalibrators
 VRCalibrators: $(VRCALIBRATORS)
 
-#
-# The VR device daemon utility programs:
-#
+# The VR Device Daemon Test program:
+$(EXEDIR)/DeviceTest: PACKAGES += MYVRUI
+$(EXEDIR)/DeviceTest: $(OBJDIR)/Vrui/Utilities/DeviceTest.o
+.PHONY: DeviceTest
+DeviceTest: $(EXEDIR)/DeviceTest
 
+# The Vrui input device data file printer:
+$(EXEDIR)/PrintInputDeviceDataFile: PACKAGES += MYVRUI
+$(EXEDIR)/PrintInputDeviceDataFile: $(OBJDIR)/Vrui/Utilities/PrintInputDeviceDataFile.o
+.PHONY: PrintInputDeviceDataFile
+PrintInputDeviceDataFile: $(EXEDIR)/PrintInputDeviceDataFile
+
+# The calibration pattern generator:
+$(EXEDIR)/XBackground: PACKAGES += X11
+$(EXEDIR)/XBackground: EXTRACINCLUDEFLAGS += -ICalibration
+$(EXEDIR)/XBackground: $(OBJDIR)/Calibration/XBackground.o
+.PHONY: XBackground
+XBackground: $(EXEDIR)/XBackground
+
+# The measurement utility:
+$(EXEDIR)/MeasureEnvironment: PACKAGES += MYVRUI
+$(EXEDIR)/MeasureEnvironment: EXTRACINCLUDEFLAGS += -ICalibration
+$(EXEDIR)/MeasureEnvironment: $(OBJDIR)/Calibration/TotalStation.o \
+                              $(OBJDIR)/Calibration/NaturalPointClient.o \
+                              $(OBJDIR)/Calibration/MeasureEnvironment.o
+.PHONY: MeasureEnvironment
+MeasureEnvironment: $(EXEDIR)/MeasureEnvironment
+
+# The calibration transformation calculator:
+$(EXEDIR)/ScreenCalibrator: PACKAGES += MYVRUI
+$(EXEDIR)/ScreenCalibrator: EXTRACINCLUDEFLAGS += -ICalibration
+$(EXEDIR)/ScreenCalibrator: $(OBJDIR)/Calibration/ScreenCalibrator.o
+.PHONY: ScreenCalibrator
+ScreenCalibrator: $(EXEDIR)/ScreenCalibrator
+
+# The rigid body transformation calculator:
 $(EXEDIR)/AlignTrackingMarkers: PACKAGES += MYVRUI
-$(EXEDIR)/AlignTrackingMarkers: $(OBJDIR)/VRDeviceDaemon/ReadOptiTrackMarkerFile.o \
-                                $(OBJDIR)/VRDeviceDaemon/AlignTrackingMarkers.o
+$(EXEDIR)/AlignTrackingMarkers: EXTRACINCLUDEFLAGS += -ICalibration
+$(EXEDIR)/AlignTrackingMarkers: $(OBJDIR)/Calibration/ReadOptiTrackMarkerFile.o \
+                                $(OBJDIR)/Calibration/NaturalPointClient.o \
+                                $(OBJDIR)/Calibration/AlignTrackingMarkers.o
 .PHONY: AlignTrackingMarkers
 AlignTrackingMarkers: $(EXEDIR)/AlignTrackingMarkers
 
@@ -1565,10 +1089,9 @@ AlignTrackingMarkers: $(EXEDIR)/AlignTrackingMarkers
 ########################################################################
 
 SYSTEMPACKAGES = $(sort $(patsubst MY%,,$(PACKAGES_RECEXPAND)))
+VRUIAPP_INCLUDEDIRS = -I$(HEADERINSTALLDIR)
+VRUIAPP_INCLUDEDIRS += $(sort $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_INCLUDE)))
 VRUIAPP_CFLAGS = $(CSYSFLAGS)
-VRUIAPP_CFLAGS += -I$(HEADERINSTALLDIR)
-VRUIAPP_CFLAGS += $(sort $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_INCLUDE)))
-VRUIAPP_CFLAGS += $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_CFLAGS)))
 ifneq ($(IMAGES_USE_PNG),0)
   VRUIAPP_CFLAGS += -DIMAGES_HAVE_PNG
 endif
@@ -1578,10 +1101,15 @@ endif
 ifneq ($(IMAGES_USE_TIFF),0)
   VRUIAPP_CFLAGS += -DIMAGES_HAVE_TIFF
 endif
+ifneq ($(VRUI_USE_OPENAL),0)
+  VRUIAPP_CFLAGS += -DVRUI_HAVE_OPENAL
+endif
+VRUIAPP_CFLAGS += $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_CFLAGS)))
 VRUIAPP_LDIRS = -L$(LIBINSTALLDIR)
 VRUIAPP_LDIRS += $(sort $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_LIBDIR)))
 VRUIAPP_LIBS = $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))
 VRUIAPP_LIBS += $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_LIBS))
+VRUIAPP_LFLAGS =
 ifneq ($(SYSTEM_HAVE_RPATH),0)
   ifneq ($(USE_RPATH),0)
     VRUIAPP_LFLAGS += -Wl,-rpath=$(LIBINSTALLDIR)
@@ -1595,7 +1123,7 @@ $(MAKEFILEFRAGMENT):
 	@echo "# Makefile fragment for Vrui applications" > $(MAKEFILEFRAGMENT)
 	@echo "# Autogenerated by Vrui installation on $(shell date)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_VERSION = $(VRUI_VERSION)" >> $(MAKEFILEFRAGMENT)
-	@echo "VRUI_CFLAGS = $(VRUIAPP_CFLAGS)" >> $(MAKEFILEFRAGMENT)
+	@echo "VRUI_CFLAGS = $(VRUIAPP_INCLUDEDIRS) $(VRUIAPP_CFLAGS)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_LIBDIR = $(LIBINSTALLDIR)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_LINKFLAGS = $(VRUIAPP_LDIRS) $(VRUIAPP_LIBS) $(VRUIAPP_LFLAGS)" >> $(MAKEFILEFRAGMENT)
 	@echo "VRUI_PLUGINFILEEXT = $(PLUGINFILEEXT)" >> $(MAKEFILEFRAGMENT)
@@ -1607,6 +1135,26 @@ $(MAKEFILEFRAGMENT):
 ifeq ($(SYSTEM),DARWIN)
 	@echo "export MACOSX_DEPLOYMENT_TARGET = $(SYSTEM_DARWIN_VERSION)" >> $(MAKEFILEFRAGMENT)
 endif
+
+ROGUE_SYSTEMPACKAGES = $(filter %_,$(foreach PACKAGENAME,$(SYSTEMPACKAGES),$(PACKAGENAME)_$($(PACKAGENAME)_PKGNAME)))
+ROGUE_LIBDIRS = $(sort $(foreach PACKAGENAME,$(ROGUE_SYSTEMPACKAGES),$($(PACKAGENAME)LIBDIR)))
+ROGUE_LIBS = $(foreach PACKAGENAME,$(ROGUE_SYSTEMPACKAGES),$($(PACKAGENAME)LIBS))
+
+# Pseudo-target to create a metadata file for pkg-config
+$(PKGCONFIGFILE): PACKAGES = MYVRUI
+$(PKGCONFIGFILE): 
+	@echo Creating pkg-config meta data file...
+	@echo 'prefix=$(INSTALLDIR)' > $(PKGCONFIGFILE)
+	@echo 'exec_prefix=$${prefix}' >> $(PKGCONFIGFILE)
+	@echo 'libdir=$(LIBINSTALLDIR)' >> $(PKGCONFIGFILE)
+	@echo 'includedir=$(HEADERINSTALLDIR)' >> $(PKGCONFIGFILE)
+	@echo '' >> $(PKGCONFIGFILE)
+	@echo 'Name: Vrui' >> $(PKGCONFIGFILE)
+	@echo 'Description: Vrui (Virtual Reality User Interface) development toolkit' >> $(PKGCONFIGFILE)
+	@echo 'Requires: $(strip $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_PKGNAME)))' >> $(PKGCONFIGFILE)
+	@echo 'Version: $(VRUI_VERSION)' >> $(PKGCONFIGFILE)
+	@echo 'Libs: -L$${libdir} $(strip $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))) $(ROGUE_LIBDIRS) $(ROGUE_LIBS) $(VRUIAPP_LFLAGS)' >> $(PKGCONFIGFILE)
+	@echo 'Cflags: -I$${includedir} $(strip $(VRUIAPP_CFLAGS))' >> $(PKGCONFIGFILE)
 
 # Sequence to create symlinks for dynamic libraries:
 # First argument: library name
@@ -1649,14 +1197,18 @@ endif
 	@install -m u=rw,go=r $(GLMOTIF_HEADERS) $(HEADERINSTALLDIR)/GLMotif
 	@install -d $(HEADERINSTALLDIR)/Images
 	@install -m u=rw,go=r $(IMAGES_HEADERS) $(HEADERINSTALLDIR)/Images
-ifneq ($(VRUI_USE_OPENAL),0)
+	@install -d $(HEADERINSTALLDIR)/Sound
+	@install -m u=rw,go=r $(SOUND_HEADERS) $(HEADERINSTALLDIR)/Sound
+ifeq ($(SYSTEM),LINUX)
+  ifneq ($(VRUI_USE_SOUND),0)
+	@install -d $(HEADERINSTALLDIR)/Sound/Linux
+	@install -m u=rw,go=r $(SOUND_LINUX_HEADERS) $(HEADERINSTALLDIR)/Sound/Linux
+  endif
+endif
 	@install -d $(HEADERINSTALLDIR)/AL
 	@install -m u=rw,go=r $(ALSUPPORT_HEADERS) $(HEADERINSTALLDIR)/AL
-endif
 	@install -d $(HEADERINSTALLDIR)/Vrui
 	@install -m u=rw,go=r $(VRUI_HEADERS) $(HEADERINSTALLDIR)/Vrui
-	@install -d $(HEADERINSTALLDIR)/Vrui/Tools
-	@install -m u=rw,go=r $(VRUI_TOOLHEADERS) $(HEADERINSTALLDIR)/Vrui/Tools
 	@install -d $(HEADERINSTALLDIR)/SceneGraph
 	@install -m u=rw,go=r $(SCENEGRAPH_HEADERS) $(HEADERINSTALLDIR)/SceneGraph
 # Install all library files in LIBINSTALLDIR:
@@ -1699,6 +1251,9 @@ endif
 	@install -m u=rw,go=r Share/GLFonts/* $(SHAREINSTALLDIR)/GLFonts
 	@install -d $(SHAREINSTALLDIR)/Textures
 	@install -m u=rw,go=r Share/Textures/* $(SHAREINSTALLDIR)/Textures
+	@install -d $(SHAREINSTALLDIR)/Shaders
+	@install -d $(SHAREINSTALLDIR)/Shaders/SceneGraph
+	@install -m u=rw,go=r Share/Shaders/SceneGraph/* $(SHAREINSTALLDIR)/Shaders/SceneGraph
 # Install makefile fragment in ETCINSTALLDIR:
 	@echo Installing application makefile fragment...
 	@install -m u=rw,go=r $(MAKEFILEFRAGMENT) $(ETCINSTALLDIR)

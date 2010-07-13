@@ -1,7 +1,7 @@
 /***********************************************************************
 SplinePatch - Class for n-dimensional non-uniform, non-rational tensor-
 product B-spline patches.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -147,8 +147,8 @@ class SplinePatch
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_SPLINEPATCH_IMPLEMENTATION)
-#include <Geometry/SplinePatch.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_SPLINEPATCH_IMPLEMENTATION)
+#include <Geometry/SplinePatch.icpp>
 #endif
 
 #endif

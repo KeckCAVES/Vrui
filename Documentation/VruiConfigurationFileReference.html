@@ -312,6 +312,11 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
+<TD>numButtons</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>Defines the number of buttons on the actual mouse device as reported by the windowing system. Is typically 3 in X11-based systems. The total number of buttons in each button plane (see <EM>modifierKeys</EM> setting) is the number of button keys (see the <EM>buttonKeys</EM> setting) plus the number of actual mouse buttons.</TD>
+</TR>
+
+<TR>
 <TD>buttonKeys</TD><TD><A HREF="#list">list</A> of <A HREF="#keyname">key names</A></TD>
 <TD>Lists a subset of keyboard keys that are treated just like mouse buttons by the mouse input device adapter. The total number of buttons in each button plane (see <EM>modifierKeys</EM> setting) is the number of button keys plus the number of actual mouse buttons (see the <EM>numButtons</EM> setting).</TD>
 </TR>
@@ -323,8 +328,8 @@
 </TR>
 
 <TR>
-<TD>numButtons</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Defines the number of buttons on the actual mouse device as reported by the windowing system. Is typically 3 in X11-based systems. The total number of buttons in each button plane (see <EM>modifierKeys</EM> setting) is the number of button keys (see the <EM>buttonKeys</EM> setting) plus the number of actual mouse buttons.</TD>
+<TD>keyboardModeToggleKey</TD><TD><A HREF="#keyname">key name</A></TD>
+<TD>The name of the key used to toggle the keyboard between <EM>input device mode</EM>, where selected button keys and modifier keys control the buttons of a virtual input device, and <EM>keyboard mode</EM>, where the keyboard can be used to enter and edit text as usual. This setting defaults to F1.</TD>
 </TR>
 
 <TR>
@@ -853,6 +858,11 @@
 <TR>
 <TD>navigate</TD><TD><A HREF="#boolean">boolean</A></TD>
 <TD>Flag defining the effect of moving or resizing a panning-viewport window on the displayed 3D scene. If this flag is true, moving the window will move the 3D scene, and resizing the window will scale the 3D scene using a &quot;fake&quot; navigation tool. In effect, navigation will make a Vrui window behave almost exactly like a 3D window in desktop-centric applications, but the 3D scene will still be projected from the correct viewpoint to provide, for example, correct stereoscopic rendering.</TD>
+</TR>
+
+<TR>
+<TD>movePrimaryWidgets</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>Flag to move popped-up primary widgets along with a panning-viewport window when it is moved or resized.</TD>
 </TR>
 
 <TR>
@@ -1448,7 +1458,7 @@ settings</A>.</DD>
 
 <TR>
 <TD><A NAME="keyname">key name</A></TD>
-<TD>Name of a key on the keyboard, expressed as a literal. Labeled keys have their own names, and the following "special" key names are recognized: <B>Space</B>, <B>Tab</B>, <B>Return</B>, <B>Backspace</B>, <B>Left</B>, <B>Up</B>, <B>Right</B>, <B>Down</B>, <B>PageUp</B>, <B>PageDown</B>, <B>Home</B>, <B>End</B>, <B>Insert</B>, <B>Delete</B>, <B>Num0</B>, <B>Num1</B>, <B>Num2</B>, <B>Num3</B>, <B>Num4</B>, <B>Num5</B>, <B>Num6</B>, <B>Num7</B>, <B>Num8</B>, <B>Num9</B>, <B>Num/</B>, <B>Num*</B>, <B>Num-</B>, <B>Num+</B>, <B>NumEnter</B>, <B>NumSep</B>, <B>LeftShift</B>, <B>RightShift</B>, <B>LeftCtrl</B>, <B>RightCtrl</B>, <B>LeftAlt</B>, <B>RightAlt</B>, <B>LeftMeta</B>, <B>RightMeta</B>, <B>LeftSuper</B>, <B>RightSuper</B>, <B>LeftHyper</B>, <B>RightHyper</B>.</TD>
+<TD>Name of a key on the keyboard, expressed as a literal. Labeled keys have their own names, and the following "special" key names are recognized: <B>Space</B>, <B>Tab</B>, <B>Return</B>, <B>Backspace</B>, <B>Left</B>, <B>Up</B>, <B>Right</B>, <B>Down</B>, <B>PageUp</B>, <B>PageDown</B>, <B>Home</B>, <B>End</B>, <B>Insert</B>, <B>Delete</B>, <B>Num0</B>, <B>Num1</B>, <B>Num2</B>, <B>Num3</B>, <B>Num4</B>, <B>Num5</B>, <B>Num6</B>, <B>Num7</B>, <B>Num8</B>, <B>Num9</B>, <B>Num/</B>, <B>Num*</B>, <B>Num-</B>, <B>Num+</B>, <B>NumEnter</B>, <B>NumSep</B>, <B>LeftShift</B>, <B>RightShift</B>, <B>CapsLock</B>, <B>LeftCtrl</B>, <B>RightCtrl</B>, <B>LeftAlt</B>, <B>RightAlt</B>, <B>LeftMeta</B>, <B>RightMeta</B>, <B>LeftSuper</B>, <B>RightSuper</B>, <B>LeftHyper</B>, <B>RightHyper</B>, <B>F1</B>, <B>F2</B>, <B>F3</B>, <B>F4</B>, <B>F5</B>, <B>F6</B>, <B>F7</B>, <B>F8</B>, <B>F9</B>, <B>F10</B>, <B>F11</B>, <B>F12</B>.</TD>
 </TR>
 
 <TR>

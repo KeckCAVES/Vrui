@@ -1,6 +1,6 @@
 /***********************************************************************
 ArrayValueCoders - Generic value coder classes standard C-style arrays.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -43,7 +43,7 @@ class ValueCoderArray
 }
 
 #if !defined(MISC_ARRAYVALUECODERS_IMPLEMENTATION)
-#include <Misc/ArrayValueCoders.cpp>
+#include <Misc/ArrayValueCoders.icpp>
 #endif
 
 #endif

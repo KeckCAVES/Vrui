@@ -585,7 +585,7 @@ TotalStation::Point TotalStation::readNextMeasurement(void)
 	if(*mIt!='*')
 		Misc::throwStdErr("TotalStation::readNextMeasurement: Loss of synchronization");
 	++mIt;
-	double values[3];
+	double values[3]={0.0,0.0,0.0};
 	int componentMask=0x0;
 	while(mIt!=measurement.end())
 		{

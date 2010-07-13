@@ -36,6 +36,13 @@ PopupMenu::PopupMenu(const char* sName,WidgetManager* sManager)
 	{
 	}
 
+Vector PopupMenu::calcHotSpot(void) const
+	{
+	Vector result=Widget::calcHotSpot();
+	result[0]=getExterior().origin[0]+getExterior().size[0]-0.01f;
+	return result;
+	}
+
 bool PopupMenu::findRecipient(Event& event)
 	{
 	/* Call the parent class method: */

@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_DRAGGINGTOOLADAPTER_INCLUDED
 #define VRUI_DRAGGINGTOOLADAPTER_INCLUDED
 
-#include <Vrui/Tools/DraggingTool.h>
+#include <Vrui/DraggingTool.h>
 
 /* Forward declarations: */
 namespace Misc {

@@ -1,7 +1,7 @@
 /***********************************************************************
 VRCalibrator - Abstract base class for classes calibrating tracker
 positions and orientations.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,7 +24,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRCALIBRATOR_INCLUDED
 #define VRCALIBRATOR_INCLUDED
 
-#include <Vrui/VRDeviceState.h>
+#include <Vrui/Internal/VRDeviceState.h>
 
 /* Forward declarations: */
 namespace Misc {

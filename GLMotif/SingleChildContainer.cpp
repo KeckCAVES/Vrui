@@ -1,7 +1,7 @@
 /***********************************************************************
 SingleChildContainer - Base class for containers that contain at most
 one child.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -136,16 +136,28 @@ void SingleChildContainer::addChild(Widget* newChild)
 
 void SingleChildContainer::requestResize(Widget* child,const Vector& newExteriorSize)
 	{
-	/* Calculate the new preferred exterior size: */
-	Vector myExteriorSize=calcExteriorSize(calcInteriorSize(newExteriorSize));
-	
-	if(isManaged)
+	/* Just grant the request if nothing really changed: */
+	if(!isManaged)
 		{
+		/* Resize the child without directly: */
+		child->resize(Box(child->getExterior().origin,newExteriorSize));
+		}
+	else if(newExteriorSize[0]==child->getExterior().size[0]&&newExteriorSize[1]==child->getExterior().size[1])
+		{
+		/* Resize the child at its current position and size: */
+		child->resize(child->getExterior());
+		
+		/* Notify parent widgets that the visual representation has changed: */
+		update();
+		}
+	else
+		{
+		/* Calculate the new preferred exterior size: */
+		Vector myExteriorSize=calcExteriorSize(calcInteriorSize(newExteriorSize));
+		
 		/* Try adjusting the widget size to accomodate the child's new size: */
 		parent->requestResize(this,myExteriorSize);
 		}
-	else
-		resize(Box(Vector(0.0f,0.0f,0.0f),myExteriorSize));
 	}
 
 Widget* SingleChildContainer::getFirstChild(void)

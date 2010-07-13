@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -28,9 +28,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
-#include <Vrui/VRDeviceState.h>
+#include <Vrui/Internal/VRDeviceState.h>
 
-#include "VRFactoryManager.h"
+#include <VRDeviceDaemon/VRFactoryManager.h>
 
 /* Forward declarations: */
 namespace Misc {

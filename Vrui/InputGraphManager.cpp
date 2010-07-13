@@ -31,7 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/VirtualInputDevice.h>
 #include <Vrui/ToolInputAssignment.h>
-#include <Vrui/Tools/Tool.h>
+#include <Vrui/Tool.h>
 #include <Vrui/Vrui.h>
 
 #include <Vrui/InputGraphManager.h>

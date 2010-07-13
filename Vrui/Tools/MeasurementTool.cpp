@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <Geometry/LinearUnit.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
@@ -255,10 +256,10 @@ void MeasurementTool::resetTool(void)
 	/* Clear all coordinate fields: */
 	for(int i=0;i<3;++i)
 		for(int j=0;j<3;++j)
-			pos[i][j]->setLabel("");
+			pos[i][j]->setString("");
 	for(int i=0;i<2;++i)
-		dist[i]->setLabel("");
-	angle->setLabel("");
+		dist[i]->setString("");
+	angle->setString("");
 	}
 
 void MeasurementTool::updateUnits(void)
@@ -284,7 +285,7 @@ void MeasurementTool::updateUnits(void)
 		
 		case MeasurementToolFactory::NAVIGATIONAL:
 			/* Set all spatial units to the coordinate manager's units: */
-			xUnit=yUnit=zUnit=dUnit=getCoordinateManager()->getUnitAbbreviation();
+			xUnit=yUnit=zUnit=dUnit=getCoordinateManager()->getUnit().getAbbreviation();
 			break;
 		
 		case MeasurementToolFactory::USER:
@@ -294,19 +295,19 @@ void MeasurementTool::updateUnits(void)
 			zUnit=userTransform->getUnitAbbreviation(2);
 			
 			/* Distance unit is still navigational: */
-			dUnit=getCoordinateManager()->getUnitAbbreviation();
+			dUnit=getCoordinateManager()->getUnit().getAbbreviation();
 			break;
 		}
 	
 	/* Set all unit labels: */
 	for(int i=0;i<3;++i)
 		{
-		posUnit[i][0]->setLabel(xUnit);
-		posUnit[i][1]->setLabel(yUnit);
-		posUnit[i][2]->setLabel(zUnit);
+		posUnit[i][0]->setString(xUnit);
+		posUnit[i][1]->setString(yUnit);
+		posUnit[i][2]->setString(zUnit);
 		}
 	for(int i=0;i<2;++i)
-		distUnit[i]->setLabel(dUnit);
+		distUnit[i]->setString(dUnit);
 	}
 
 void MeasurementTool::changeMeasurementModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
@@ -358,6 +359,33 @@ void MeasurementTool::changeCoordinateModeCallback(GLMotif::RadioBox::ValueChang
 	/* Reset the tool and update the displayed units: */
 	resetTool();
 	updateUnits();
+	}
+
+void MeasurementTool::posTextFieldLayoutChangedCallback(GLMotif::TextField::LayoutChangedCallbackData* cbData)
+	{
+	/* Find the index of the pos field: */
+	int i,j;
+	for(i=0;i<3;++i)
+		for(j=0;j<3;++j)
+			if(pos[i][j]==cbData->textField)
+				goto found;
+	found:
+	
+	/* Update the field's number format to use the extra space: */
+	int cw=cbData->charWidth;
+	if(cw<12)
+		cw=12;
+	cbData->textField->setPrecision(cw/2);
+	
+	/* Check if the text field has a current value: */
+	if(i<numPoints)
+		{
+		/* Update the text field's display: */
+		Point displayPoint=points[i];
+		if(coordinateMode==MeasurementToolFactory::USER)
+			displayPoint=userTransform->transform(displayPoint);
+		pos[i][j]->setValue(double(displayPoint[j]));
+		}
 	}
 
 void MeasurementTool::coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData)
@@ -502,7 +530,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	GLMotif::RadioBox* measurementModes=new GLMotif::RadioBox("MeasurementModes",modeBox,false);
 	measurementModes->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	measurementModes->setPacking(GLMotif::RowColumn::PACK_GRID);
+	measurementModes->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	measurementModes->setAlignment(GLMotif::Alignment::LEFT);
 	measurementModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
 	
@@ -534,7 +562,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	coordinateModes=new GLMotif::RadioBox("CoordinateModes",modeBox,false);
 	coordinateModes->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	coordinateModes->setPacking(GLMotif::RowColumn::PACK_GRID);
+	coordinateModes->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	coordinateModes->setAlignment(GLMotif::Alignment::LEFT);
 	coordinateModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
 	
@@ -591,8 +619,13 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	GLMotif::Label* angleUnit=0;
 	createDistBox("AngleBox",measurementBox,angle,angleUnit);
-	angleUnit->setLabel("deg");
+	angleUnit->setString("deg");
 	
+	/* Attach layout callbacks to all position text fields: */
+	for(int i=0;i<3;++i)
+		for(int j=0;j<3;++j)
+			pos[i][j]->getLayoutChangedCallbacks().add(this,&MeasurementTool::posTextFieldLayoutChangedCallback);
+
 	measurementBox->manageChild();
 	
 	measurementDialog->manageChild();
@@ -602,7 +635,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	updateUnits();
 	
 	/* Pop up the measurement dialog: */
-	popupPrimaryWidget(measurementDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(measurementDialogPopup);
 	
 	/* Register a callback with the coordinate manager: */
 	getCoordinateManager()->getCoordinateTransformChangedCallbacks().add(this,&MeasurementTool::coordTransformChangedCallback);

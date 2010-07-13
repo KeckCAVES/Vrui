@@ -1,7 +1,7 @@
 /***********************************************************************
 WidgetManager - Class to manage top-level GLMotif UI components and user
 events.
-Copyright (c) 2001-2008 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,12 +20,15 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GLMotif/WidgetManager.h>
+
+#include <string.h>
 #include <GL/gl.h>
+#include <GL/GLLabel.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/Widget.h>
-
-#include <GLMotif/WidgetManager.h>
+#include <GLMotif/WidgetAlgorithms.h>
 
 namespace GLMotif {
 
@@ -50,8 +53,47 @@ WidgetManager::PopupBinding::~PopupBinding(void)
 		}
 	}
 
+const WidgetManager::PopupBinding* WidgetManager::PopupBinding::getSucc(void) const
+	{
+	if(firstSecondary!=0)
+		return firstSecondary;
+	else if(succ!=0)
+		return succ;
+	else
+		{
+		const PopupBinding* bPtr=parent;
+		while(bPtr!=0&&bPtr->succ==0)
+			bPtr=bPtr->parent;
+		if(bPtr!=0)
+			return bPtr->succ;
+		else
+			return 0;
+		}
+	}
+
+WidgetManager::PopupBinding* WidgetManager::PopupBinding::getSucc(void)
+	{
+	if(firstSecondary!=0)
+		return firstSecondary;
+	else if(succ!=0)
+		return succ;
+	else
+		{
+		PopupBinding* bPtr=parent;
+		while(bPtr!=0&&bPtr->succ==0)
+			bPtr=bPtr->parent;
+		if(bPtr!=0)
+			return bPtr->succ;
+		else
+			return 0;
+		}
+	}
+
 WidgetManager::PopupBinding* WidgetManager::PopupBinding::findTopLevelWidget(const Point& point)
 	{
+	if(!visible)
+		return 0;
+	
 	Point widgetPoint=widgetToWorld.inverseTransform(point);
 	PopupBinding* foundBinding=0;
 	
@@ -68,6 +110,9 @@ WidgetManager::PopupBinding* WidgetManager::PopupBinding::findTopLevelWidget(con
 
 WidgetManager::PopupBinding* WidgetManager::PopupBinding::findTopLevelWidget(const Ray& ray)
 	{
+	if(!visible)
+		return 0;
+	
 	Ray widgetRay=ray;
 	widgetRay.inverseTransform(widgetToWorld);
 	PopupBinding* foundBinding=0;
@@ -99,7 +144,11 @@ void WidgetManager::PopupBinding::draw(bool overlayWidgets,GLContextData& contex
 			bPtr->draw(overlayWidgets,contextData);
 		
 		/* Draw the top level widget: */
+		{
+		GLLabel::DeferredRenderer dr(contextData);
 		topLevelWidget->draw(contextData);
+		dr.draw();
+		}
 		
 		if(overlayWidgets)
 			{
@@ -110,7 +159,11 @@ void WidgetManager::PopupBinding::draw(bool overlayWidgets,GLContextData& contex
 			GLboolean colorMask[4];
 			glGetBooleanv(GL_COLOR_WRITEMASK,colorMask);
 			glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);
+			{
+			GLLabel::DeferredRenderer dr(contextData);
 			topLevelWidget->draw(contextData);
+			dr.draw();
+			}
 			glColorMask(colorMask[0],colorMask[1],colorMask[2],colorMask[3]);
 			glDepthRange(depthRange[0],depthRange[1]);
 			}
@@ -122,6 +175,36 @@ void WidgetManager::PopupBinding::draw(bool overlayWidgets,GLContextData& contex
 /******************************
 Methods of class WidgetManager:
 ******************************/
+
+const WidgetManager::PopupBinding* WidgetManager::getRootBinding(const Widget* widget) const
+	{
+	PopupBindingMap::ConstIterator pbmIt=popupBindingMap.findEntry(widget->getRoot());
+	return pbmIt.isFinished()?0:pbmIt->getDest();
+	}
+
+WidgetManager::PopupBinding* WidgetManager::getRootBinding(Widget* widget)
+	{
+	PopupBindingMap::Iterator pbmIt=popupBindingMap.findEntry(widget->getRoot());
+	return pbmIt.isFinished()?0:pbmIt->getDest();
+	}
+
+void WidgetManager::moveSecondaryWidgets(WidgetManager::PopupBinding* parent,const WidgetManager::Transformation& parentTransform)
+	{
+	/* Iterate through the parent's child bindings: */
+	for(PopupBinding* pbPtr=parent->firstSecondary;pbPtr!=0;pbPtr=pbPtr->succ)
+		{
+		/* Calculate the secondary binding's transformation: */
+		Transformation childTransform=parentTransform;
+		childTransform*=pbPtr->widgetToWorld;
+		
+		/* Call the move callback: */
+		WidgetMoveCallbackData cbData(this,childTransform,pbPtr->topLevelWidget,false);
+		widgetMoveCallbacks.call(&cbData);
+		
+		/* Recurse into the child binding: */
+		moveSecondaryWidgets(pbPtr,childTransform);
+		}
+	}
 
 void WidgetManager::deleteQueuedWidgets(void)
 	{
@@ -135,29 +218,6 @@ void WidgetManager::deleteQueuedWidgets(void)
 			pointerGrabWidget=0;
 			}
 		
-		/* Pop down the widget if it is a managed root widget: */
-		if((*dlIt)->getParent()==0)
-			{
-			/* Find the widget's binding: */
-			PopupBinding* bPtr;
-			for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=*dlIt;bPtr=bPtr->getSucc())
-				;
-			
-			if(bPtr!=0)
-				{
-				/* Remove the binding from the list: */
-				if(bPtr->pred!=0)
-					bPtr->pred->succ=bPtr->succ;
-				else if(bPtr->parent!=0)
-					bPtr->parent->firstSecondary=bPtr->succ;
-				else
-					firstBinding=bPtr->succ;
-				if(bPtr->succ!=0)
-					bPtr->succ->pred=bPtr->pred;
-				delete bPtr;
-				}
-			}
-		
 		delete *dlIt;
 		}
 	deletionList.clear();
@@ -165,15 +225,25 @@ void WidgetManager::deleteQueuedWidgets(void)
 
 WidgetManager::WidgetManager(void)
 	:styleSheet(0),timerEventScheduler(0),drawOverlayWidgets(false),
-	 firstBinding(0),
+	 widgetAttributeMap(101),
+	 firstBinding(0),popupBindingMap(31),
 	 time(0.0),
 	 hardGrab(false),pointerGrabWidget(0),
-	 inEventProcessing(false)
+	 textFocusWidget(0),
+	 inEventProcessing(false),
+	 textBufferLength(0),textBuffer(new char[1])
 	{
+	/* Initialize the cut & paste buffer: */
+	textBuffer[0]='\0';
 	}
 
 WidgetManager::~WidgetManager(void)
 	{
+	/* Delete all widget attributes: */
+	for(WidgetAttributeMap::Iterator waIt=widgetAttributeMap.begin();!waIt.isFinished();++waIt)
+		delete waIt->getDest();
+	widgetAttributeMap.clear();
+	
 	/* Delete all bindings: */
 	while(firstBinding!=0)
 		{
@@ -181,6 +251,9 @@ WidgetManager::~WidgetManager(void)
 		delete firstBinding;
 		firstBinding=next;
 		}
+	
+	/* Delete the cut & paste buffer: */
+	delete[] textBuffer;
 	}
 
 void WidgetManager::setStyleSheet(const StyleSheet* newStyleSheet)
@@ -198,100 +271,157 @@ void WidgetManager::setDrawOverlayWidgets(bool newDrawOverlayWidgets)
 	drawOverlayWidgets=newDrawOverlayWidgets;
 	}
 
+void WidgetManager::unmanageWidget(Widget* widget)
+	{
+	/* Check if the widget has an attribute: */
+	WidgetAttributeMap::Iterator waIt=widgetAttributeMap.findEntry(widget);
+	if(!waIt.isFinished())
+		{
+		/* Delete the attribute: */
+		delete waIt->getDest();
+		widgetAttributeMap.removeEntry(waIt);
+		}
+	}
+
 void WidgetManager::popupPrimaryWidget(Widget* topLevelWidget,const WidgetManager::Transformation& widgetToWorld)
 	{
-	PopupBinding* newBinding=new PopupBinding(topLevelWidget,widgetToWorld,0,firstBinding);
-	if(firstBinding!=0)
-		firstBinding->pred=newBinding;
-	firstBinding=newBinding;
+	/* Check if the widget is already popped up: */
+	if(!popupBindingMap.isEntry(topLevelWidget))
+		{
+		/* Pop up the widget: */
+		PopupBinding* newBinding=new PopupBinding(topLevelWidget,widgetToWorld,0,firstBinding);
+		if(firstBinding!=0)
+			firstBinding->pred=newBinding;
+		firstBinding=newBinding;
+		popupBindingMap.setEntry(PopupBindingMap::Entry(topLevelWidget,newBinding));
+		
+		{
+		/* Call the pop-up callbacks: */
+		WidgetPopCallbackData cbData(this,true,topLevelWidget,true);
+		widgetPopCallbacks.call(&cbData);
+		}
+		
+		{
+		/* Call the widget move callbacks: */
+		WidgetMoveCallbackData cbData(this,widgetToWorld,newBinding->topLevelWidget,true);
+		widgetMoveCallbacks.call(&cbData);
+		
+		/* Recurse into the primary binding: */
+		moveSecondaryWidgets(newBinding,widgetToWorld);
+		}
+		}
 	}
 
 void WidgetManager::popupSecondaryWidget(Widget* owner,Widget* topLevelWidget,const Vector& offset)
 	{
-	/* Find the owner's binding: */
-	Widget* root=owner->getRoot();
-	PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
-	
-	if(bPtr!=0)
+	/* Check if the widget is already popped up: */
+	if(!popupBindingMap.isEntry(topLevelWidget))
 		{
-		PopupBinding* newBinding=new PopupBinding(topLevelWidget,Transformation::translate(Transformation::Vector(offset.getXyzw())),bPtr,bPtr->firstSecondary);
-		if(bPtr->firstSecondary!=0)
-			bPtr->firstSecondary->pred=newBinding;
-		bPtr->firstSecondary=newBinding;
+		/* Find the owner's binding: */
+		PopupBinding* ownerBinding=getRootBinding(owner);
+		if(ownerBinding!=0)
+			{
+			Transformation widgetToWorld=Transformation::translate(Transformation::Vector(offset.getXyzw()));
+			PopupBinding* newBinding=new PopupBinding(topLevelWidget,widgetToWorld,ownerBinding,ownerBinding->firstSecondary);
+			if(ownerBinding->firstSecondary!=0)
+				ownerBinding->firstSecondary->pred=newBinding;
+			ownerBinding->firstSecondary=newBinding;
+			popupBindingMap.setEntry(PopupBindingMap::Entry(topLevelWidget,newBinding));
+			
+			{
+			/* Call the pop-up callbacks: */
+			WidgetPopCallbackData cbData(this,true,topLevelWidget,false);
+			widgetPopCallbacks.call(&cbData);
+			}
+			
+			{
+			/* Call the widget move callbacks: */
+			WidgetMoveCallbackData cbData(this,widgetToWorld,newBinding->topLevelWidget,false);
+			widgetMoveCallbacks.call(&cbData);
+
+			/* Recurse into the primary binding: */
+			moveSecondaryWidgets(newBinding,widgetToWorld);
+			}
+			}
 		}
 	}
 
 void WidgetManager::popdownWidget(Widget* widget)
 	{
 	/* Find the widget's binding: */
-	Widget* root=widget->getRoot();
-	PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
-	
-	if(bPtr!=0)
+	Widget* topLevelWidget=widget->getRoot();
+	PopupBindingMap::Iterator pbmIt=popupBindingMap.findEntry(topLevelWidget);
+	if(!pbmIt.isFinished())
 		{
+		PopupBinding* binding=pbmIt->getDest();
+		
+		if(textFocusWidget!=0)
+			{
+			/* Check if the top-level widget contains the current focus widget: */
+			Widget* focusRoot=textFocusWidget->getRoot();
+			if(focusRoot==topLevelWidget)
+				{
+				/* Take focus away from the focus widget: */
+				textFocusWidget->takeTextFocus();
+				
+				/* Reset the focus widget (should be improved): */
+				textFocusWidget=0;
+				}
+			}
+		
+		/* Call the pop-down callbacks: */
+		WidgetPopCallbackData cbData(this,false,topLevelWidget,binding->parent==0);
+		widgetPopCallbacks.call(&cbData);
+		
 		/* Remove the binding from the list: */
-		if(bPtr->pred!=0)
-			bPtr->pred->succ=bPtr->succ;
-		else if(bPtr->parent!=0)
-			bPtr->parent->firstSecondary=bPtr->succ;
+		if(binding->pred!=0)
+			binding->pred->succ=binding->succ;
+		else if(binding->parent!=0)
+			binding->parent->firstSecondary=binding->succ;
 		else
-			firstBinding=bPtr->succ;
-		if(bPtr->succ!=0)
-			bPtr->succ->pred=bPtr->pred;
-		delete bPtr;
+			firstBinding=binding->succ;
+		if(binding->succ!=0)
+			binding->succ->pred=binding->pred;
+		delete binding;
+		popupBindingMap.removeEntry(pbmIt);
 		}
 	}
 
 void WidgetManager::show(Widget* widget)
 	{
 	/* Find the widget's binding: */
-	Widget* root=widget->getRoot();
-	PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
-	
-	/* Mark the binding as visible: */
-	if(bPtr!=0)
-		bPtr->visible=true;
+	PopupBinding* binding=getRootBinding(widget);
+	if(binding!=0)
+		{
+		/* Mark the binding as visible: */
+		binding->visible=true;
+		}
 	}
 
 void WidgetManager::hide(Widget* widget)
 	{
 	/* Find the widget's binding: */
-	Widget* root=widget->getRoot();
-	PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
-	
-	/* Mark the binding as invisible: */
-	if(bPtr!=0)
-		bPtr->visible=false;
+	PopupBinding* binding=getRootBinding(widget);
+	if(binding!=0)
+		{
+		/* Mark the binding as invisible: */
+		binding->visible=false;
+		}
 	}
 
 bool WidgetManager::isManaged(const Widget* widget) const
 	{
-	/* Find the widget's binding: */
-	const Widget* root=widget->getRoot();
-	PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
-	
-	return bPtr!=0;
+	/* Check if the widget's root has an entry in the popup binding map: */
+	return popupBindingMap.isEntry(widget->getRoot());
 	}
 
 bool WidgetManager::isVisible(const Widget* widget) const
 	{
 	/* Find the widget's binding: */
-	const Widget* root=widget->getRoot();
-	PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
+	const PopupBinding* binding=getRootBinding(widget);
 	
-	return bPtr!=0&&bPtr->visible;
+	/* Return true if binding exists and has visible flag set: */
+	return binding!=0&&binding->visible;
 	}
 
 Widget* WidgetManager::findPrimaryWidget(const Point& point)
@@ -334,14 +464,12 @@ Widget* WidgetManager::findPrimaryWidget(const Ray& ray)
 
 WidgetManager::Transformation WidgetManager::calcWidgetTransformation(const Widget* widget) const
 	{
+	Transformation result=Transformation::identity;
+	
 	/* Find the widget's binding: */
-	const Widget* root=widget->getRoot();
-	const PopupBinding* bPtr;
-	for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-		;
+	const PopupBinding* bPtr=getRootBinding(widget);
 	
 	/* Concatenate all transformations up to the primary top level widget: */
-	Transformation result=Transformation::identity;
 	while(bPtr!=0)
 		{
 		result.leftMultiply(bPtr->widgetToWorld);
@@ -353,16 +481,22 @@ WidgetManager::Transformation WidgetManager::calcWidgetTransformation(const Widg
 
 void WidgetManager::setPrimaryWidgetTransformation(Widget* widget,const WidgetManager::Transformation& newWidgetToWorld)
 	{
-	/* Find the widget's top level widget: */
-	Widget* root=widget->getRoot();
+	/* Find the widget's binding: */
+	PopupBinding* bPtr=getRootBinding(widget);
 	
-	/* Find the root amongst the managed top level widgets: */
-	for(PopupBinding* bPtr=firstBinding;bPtr!=0;bPtr=bPtr->succ)
-		if(bPtr->topLevelWidget==root)
-			{
-			bPtr->widgetToWorld=newWidgetToWorld;
-			break;
-			}
+	/* Check if the binding exists and is a top-level binding: */
+	if(bPtr!=0&&bPtr->parent==0)
+		{
+		/* Set the binding's widget transformation: */
+		bPtr->widgetToWorld=newWidgetToWorld;
+		
+		/* Call the widget move callbacks: */
+		WidgetMoveCallbackData cbData(this,newWidgetToWorld,bPtr->topLevelWidget,true);
+		widgetMoveCallbacks.call(&cbData);
+		
+		/* Recurse into the primary binding: */
+		moveSecondaryWidgets(bPtr,newWidgetToWorld);
+		}
 	}
 
 void WidgetManager::deleteWidget(Widget* widget)
@@ -408,7 +542,7 @@ bool WidgetManager::pointerButtonDown(Event& event)
 		/* Find a recipient for this event amongst the primary top-level windows: */
 		PopupBinding* foundTopLevel=0;
 		for(PopupBinding* bPtr=firstBinding;bPtr!=0;bPtr=bPtr->succ)
-			if(bPtr->topLevelWidget->findRecipient(event)&&drawOverlayWidgets)
+			if(bPtr->visible&&bPtr->topLevelWidget->findRecipient(event)&&drawOverlayWidgets)
 				{
 				foundTopLevel=bPtr;
 				break;
@@ -498,7 +632,8 @@ bool WidgetManager::pointerMotion(Event& event)
 		{
 		/* Find a recipient for this event amongst the primary top-level windows: */
 		for(PopupBinding* bPtr=firstBinding;bPtr!=0;bPtr=bPtr->succ)
-			bPtr->topLevelWidget->findRecipient(event);
+			if(bPtr->visible)
+				bPtr->topLevelWidget->findRecipient(event);
 		
 		if(event.getTargetWidget()!=0)
 			{
@@ -521,30 +656,124 @@ void WidgetManager::grabPointer(Widget* widget)
 	{
 	if(pointerGrabWidget==0)
 		{
-		/* Find the widget's binding: */
-		Widget* root=widget->getRoot();
-		PopupBinding* bPtr;
-		for(bPtr=firstBinding;bPtr!=0&&bPtr->topLevelWidget!=root;bPtr=bPtr->getSucc())
-			;
-
-		if(bPtr!=0)
+		/* Check if the widget is popped up: */
+		if(isManaged(widget))
 			{
+			/* Set a hard grab: */
 			hardGrab=true;
 			pointerGrabWidget=widget;
 			pointerGrabWidgetToWorld=calcWidgetTransformation(widget);
 			}
 		}
 	else if(pointerGrabWidget==widget)
+		{
+		/* Turn a soft grab into a hard grab: */
 		hardGrab=true;
+		}
 	}
 
 void WidgetManager::releasePointer(Widget* widget)
 	{
+	/* Check if the given widget has a hard grab: */
 	if(widget==pointerGrabWidget&&hardGrab)
 		{
 		hardGrab=false;
 		pointerGrabWidget=0;
 		}
+	}
+
+bool WidgetManager::requestFocus(Widget* widget)
+	{
+	/* Change the text focus widget: */
+	if(textFocusWidget!=0)
+		textFocusWidget->takeTextFocus();
+	textFocusWidget=widget;
+	
+	return true;
+	}
+
+void WidgetManager::releaseFocus(Widget* widget)
+	{
+	if(textFocusWidget==widget)
+		{
+		/* TODO: Move the text focus to the next widget: */
+		textFocusWidget=0;
+		}
+	}
+
+void WidgetManager::focusPreviousWidget(void)
+	{
+	}
+
+void WidgetManager::focusNextWidget(void)
+	{
+	/* Go to the next focus-accepting widget inside the same top-level widget: */
+	PopupBinding* initialBinding=0;
+	if(textFocusWidget!=0)
+		{
+		/* Take focus away from the widget: */
+		textFocusWidget->takeTextFocus();
+		
+		/* Go to the next widget that will accept focus: */
+		Widget* w=textFocusWidget;
+		do
+			w=getNextWidget(w);
+		while(w!=0&&!w->giveTextFocus());
+		if(w==0)
+			initialBinding=getRootBinding(textFocusWidget);
+		textFocusWidget=w;
+		}
+	
+	/* Traverse the hierarchy of top-level widgets until a focus widget is found: */
+	PopupBinding* bPtr=initialBinding;
+	while(textFocusWidget==0)
+		{
+		/* Go to the next top-level widget: */
+		bPtr=bPtr!=0?bPtr->getSucc():firstBinding;
+		if(bPtr==0)
+			bPtr=firstBinding;
+		
+		/* Bail out if the entire hierarchy was traversed: */
+		if(bPtr==initialBinding)
+			break;
+		
+		/* Go to the first widget that will accept focus: */
+		textFocusWidget=bPtr->topLevelWidget;
+		while(textFocusWidget!=0&&!textFocusWidget->giveTextFocus())
+			textFocusWidget=getNextWidget(textFocusWidget);
+		}
+	}
+
+bool WidgetManager::text(const TextEvent& event)
+	{
+	/* Pass the event to the text focus widget: */
+	if(textFocusWidget!=0)
+		textFocusWidget->textEvent(event);
+	
+	return textFocusWidget!=0;
+	}
+
+bool WidgetManager::textControl(const TextControlEvent& event)
+	{
+	/* Pass the event to the text focus widget: */
+	if(textFocusWidget!=0)
+		textFocusWidget->textControlEvent(event);
+	
+	return textFocusWidget!=0;
+	}
+
+void WidgetManager::setTextBuffer(int newTextBufferLength,const char* newTextBuffer)
+	{
+	/* Reallocate the buffer: */
+	if(textBufferLength!=newTextBufferLength)
+		{
+		delete[] textBuffer;
+		textBufferLength=newTextBufferLength;
+		textBuffer=new char[textBufferLength+1];
+		}
+	
+	/* Copy the new buffer contents: */
+	memcpy(textBuffer,newTextBuffer,textBufferLength+1);
 	}
 
 }

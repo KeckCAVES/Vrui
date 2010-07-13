@@ -1,7 +1,7 @@
 /***********************************************************************
 PolygonMesh - Base class for polygon meshes represented by a split-edge
 data structure.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -317,14 +317,8 @@ class PolygonMesh
 
 }
 
-/***********************************************************************
-Creating standard versions of PolygonMesh does not make much sense. We
-abuse the well-established non-standard template mechanism to create
-required instantiations on-the-fly.
-***********************************************************************/
-
 #if !defined(GEOMETRY_POLYGONMESH_IMPLEMENTATION)
-#include <Geometry/PolygonMesh.cpp>
+#include <Geometry/PolygonMesh.icpp>
 #endif
 
 #endif

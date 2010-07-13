@@ -20,8 +20,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 ***********************************************************************/
 
 #include <iostream>
-#include <Vrui/Tools/Tool.h>
-#include <Vrui/Tools/GenericToolFactory.h>
+#include <Vrui/Tool.h>
+#include <Vrui/GenericToolFactory.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>

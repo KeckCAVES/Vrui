@@ -1,6 +1,6 @@
 /***********************************************************************
 MathValueCoders - Value coder classes for math objects.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -43,8 +43,8 @@ class ValueCoder<Math::BrokenLine<ScalarParam> >
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(MATH_MATHVALUECODERS_IMPLEMENTATION)
-#include <Math/MathValueCoders.cpp>
+#if defined(MATH_NONSTANDARD_TEMPLATES) && !defined(MATH_MATHVALUECODERS_IMPLEMENTATION)
+#include <Math/MathValueCoders.icpp>
 #endif
 
 #endif

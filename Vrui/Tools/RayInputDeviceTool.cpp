@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

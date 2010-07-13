@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_LOCATORTOOLADAPTER_INCLUDED
 #define VRUI_LOCATORTOOLADAPTER_INCLUDED
 
-#include <Vrui/Tools/LocatorTool.h>
+#include <Vrui/LocatorTool.h>
 
 /* Forward declarations: */
 namespace Misc {

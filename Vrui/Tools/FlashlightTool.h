@@ -28,7 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/GLLight.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/Tools/PointingTool.h>
+#include <Vrui/PointingTool.h>
 
 /* Forward declarations: */
 namespace Vrui {

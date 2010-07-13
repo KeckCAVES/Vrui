@@ -32,7 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Geometry.h>
 #include <Vrui/TransparentObject.h>
 
-#include <Vrui/Tools/PointingTool.h>
+#include <Vrui/PointingTool.h>
 
 namespace Vrui {
 

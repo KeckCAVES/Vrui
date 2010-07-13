@@ -20,9 +20,9 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/GLThingManager.h>
-
 #include <GL/GLContextData.h>
+
+#include <GL/Internal/GLThingManager.h>
 
 /**************************************
 Static elements of class GLContextData:
@@ -60,6 +60,11 @@ void GLContextData::destroyThing(const GLObject* thing)
 void GLContextData::resetThingManager(void)
 	{
 	GLThingManager::theThingManager.processActions();
+	}
+
+void GLContextData::shutdownThingManager(void)
+	{
+	GLThingManager::theThingManager.shutdown();
 	}
 
 void GLContextData::updateThings(void)

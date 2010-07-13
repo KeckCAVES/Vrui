@@ -2,7 +2,7 @@
 ScreenCalibrator - Utility to create a calibration transformation
 between Vrui's physical coordinate system and a tracking system's
 internal coordinate system.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -31,7 +31,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/TokenSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
-#define NONSTANDARD_TEMPLATES
+#define GEOMETRY_NONSTANDARD_TEMPLATES
 #include <Geometry/Point.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Vector.h>
@@ -50,7 +50,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Tools/GenericToolFactory.h>
+#include <Vrui/GenericToolFactory.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
@@ -182,7 +182,7 @@ class ScreenCalibrator:public Vrui::Application
 	Vrui::TrackerState trackingPointsTransform;
 	
 	/* Private methods: */
-	void readOptitrackSampleFile(const char* fileName);
+	void readOptitrackSampleFile(const char* fileName,bool flipZ);
 	PointList readTotalstationSurveyFile(const char* fileName,const char* tag) const;
 	
 	/* Constructors and destructors: */
@@ -260,7 +260,7 @@ void ScreenCalibrator::PointQueryTool::buttonCallback(int,int,Vrui::InputDevice:
 Methods of class ScreenCalibrator:
 *********************************/
 
-void ScreenCalibrator::readOptitrackSampleFile(const char* fileName)
+void ScreenCalibrator::readOptitrackSampleFile(const char* fileName,bool flipZ)
 	{
 	/* Open the CSV input file: */
 	Misc::FileCharacterSource file(fileName);
@@ -297,8 +297,11 @@ void ScreenCalibrator::readOptitrackSampleFile(const char* fileName)
 			p[i]=Scalar(atof(tok.readNextToken()));
 			}
 		
-		/* Invert the z component to flip to a right-handed coordinate system: */
-		p[2]=-p[2];
+		if(flipZ)
+			{
+			/* Invert the z component to flip to a right-handed coordinate system: */
+			p[2]=-p[2];
+			}
 		
 		if(strcmp(tok.readNextToken(),"\n")!=0)
 			Misc::throwStdErr("readOptitrackSampleFile: overlong point record in line %u",line);
@@ -396,6 +399,7 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	{
 	/* Parse the command line: */
 	const char* optitrackFileName=0;
+	bool optitrackFlipZ=false;
 	const char* totalstationFileName=0;
 	int screenPixelSize[2]={-1,-1};
 	int screenSquareSize=200;
@@ -424,6 +428,8 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 				++i;
 				unitScale=atof(argv[i]);
 				}
+			else if(strcasecmp(argv[i]+1,"flipZ")==0)
+				optitrackFlipZ=true;
 			else
 				{
 				}
@@ -446,7 +452,7 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	/* Read the Optitrack sample file: */
 	if(optitrackFileName!=0)
 		{
-		readOptitrackSampleFile(optitrackFileName);
+		readOptitrackSampleFile(optitrackFileName,optitrackFlipZ);
 		std::cout<<"Read "<<trackingPoints.size()<<" ball points from Optitrack sample file"<<std::endl;
 		}
 	

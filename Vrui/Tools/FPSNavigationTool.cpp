@@ -32,7 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/VRWindow.h>
@@ -338,7 +338,7 @@ void FPSNavigationTool::frame(void)
 			
 			/* Move by the current velocity: */
 			Rotation yawT=Rotation::rotateZ(angles[1]);
-			move+=yawT.inverseTransform(moveVelocity*getCurrentFrameTime());
+			move+=yawT.inverseTransform(moveVelocity*surfaceFrame.getScaling()*getCurrentFrameTime());
 			surfaceFrame.leftMultiply(NavTransform::translate(move));
 			
 			/* Re-align the surface frame */

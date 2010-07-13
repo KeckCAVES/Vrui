@@ -22,7 +22,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include "VRDeviceManager.h"
+#include <VRDeviceDaemon/VRDeviceManager.h>
 
 #include <stdio.h>
 #include <dlfcn.h>
@@ -31,9 +31,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 
-#include "VRFactory.h"
-#include "VRDevice.h"
-#include "VRCalibrator.h"
+#include <VRDeviceDaemon/VRFactory.h>
+#include <VRDeviceDaemon/VRDevice.h>
+#include <VRDeviceDaemon/VRCalibrator.h>
 
 /********************************
 Methods of class VRDeviceManager:

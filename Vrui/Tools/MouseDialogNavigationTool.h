@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/ToggleButton.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;

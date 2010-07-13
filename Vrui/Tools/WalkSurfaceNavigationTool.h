@@ -31,7 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #include <Vrui/Vrui.h>
-#include <Vrui/Tools/SurfaceNavigationTool.h>
+#include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;

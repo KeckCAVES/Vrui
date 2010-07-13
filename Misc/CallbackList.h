@@ -111,6 +111,44 @@ class CallbackList // Class for lists of callbacks
 			}
 		};
 	
+	/* Class to call arbitrary methods on objects of arbitrary type with an additional parameter of arbitrary type: */
+	template <class CallbackClassParam,class ParameterParam>
+	class MethodParameterCallback:public CallbackListItem
+		{
+		/* Embedded classes: */
+		public:
+		typedef CallbackClassParam CallbackClass; // Class of called objects
+		typedef ParameterParam Parameter; // Type of additional parameter
+		typedef void (CallbackClass::*CallbackMethod)(CallbackData*,const Parameter&); // Type of called callback method
+		
+		/* Elements: */
+		private:
+		CallbackClass* callbackObject; // Pointer to callback object
+		CallbackMethod callbackMethod; // Pointer to callback method
+		Parameter parameter; // Additional parameter
+		
+		/* Constructors and destructors: */
+		public:
+		MethodParameterCallback(CallbackClass* sCallbackObject,CallbackMethod sCallbackMethod,const Parameter& sParameter) // Creates callback for given method on given object with given additional parameter
+			:callbackObject(sCallbackObject),callbackMethod(sCallbackMethod),parameter(sParameter)
+			{
+			}
+		
+		/* Methods: */
+		virtual bool operator==(const CallbackListItem& other) const
+			{
+			if(typeid(other)!=typeid(MethodParameterCallback))
+				return false;
+			const MethodParameterCallback* other2=static_cast<const MethodParameterCallback*>(&other);
+			return callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod&&parameter==other2->parameter;
+			}
+		virtual void call(CallbackData* callbackData) const
+			{
+			/* Call the callback method on the callback object: */
+			(callbackObject->*callbackMethod)(callbackData,parameter);
+			}
+		};
+	
 	/* Class to call arbitrary methods taking a parameter derived from CallbackData on objects of arbitrary type: */
 	template <class CallbackClassParam,class DerivedCallbackDataParam>
 	class MethodCastCallback:public CallbackListItem
@@ -145,6 +183,45 @@ class CallbackList // Class for lists of callbacks
 			{
 			/* Call the callback method on the callback object with downcasted callback data: */
 			(callbackObject->*callbackMethod)(static_cast<DerivedCallbackData*>(callbackData));
+			}
+		};
+	
+	/* Class to call arbitrary methods taking a parameter derived from CallbackData on objects of arbitrary type and an additional parameter of arbitrary type: */
+	template <class CallbackClassParam,class DerivedCallbackDataParam,class ParameterParam>
+	class MethodCastParameterCallback:public CallbackListItem
+		{
+		/* Embedded classes: */
+		public:
+		typedef CallbackClassParam CallbackClass; // Class of called objects
+		typedef DerivedCallbackDataParam DerivedCallbackData; // Class of callback data (must be derived from CallbackData)
+		typedef ParameterParam Parameter; // Type of additional parameter
+		typedef void (CallbackClass::*CallbackMethod)(DerivedCallbackData*); // Type of called callback method
+		
+		/* Elements: */
+		private:
+		CallbackClass* callbackObject; // Pointer to callback object
+		CallbackMethod callbackMethod; // Pointer to callback method
+		Parameter parameter; // Additional parameter
+		
+		/* Constructors and destructors: */
+		public:
+		MethodCastParameterCallback(CallbackClass* sCallbackObject,CallbackMethod sCallbackMethod,const Parameter& sParameter) // Creates callback for given method on given object with given additional parameter
+			:callbackObject(sCallbackObject),callbackMethod(sCallbackMethod),parameter(sParameter)
+			{
+			}
+		
+		/* Methods: */
+		virtual bool operator==(const CallbackListItem& other) const
+			{
+			if(typeid(other)!=typeid(MethodCastParameterCallback))
+				return false;
+			const MethodCastParameterCallback* other2=static_cast<const MethodCastParameterCallback*>(&other);
+			return callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod&&parameter==other2->parameter;
+			}
+		virtual void call(CallbackData* callbackData) const
+			{
+			/* Call the callback method on the callback object with downcasted callback data and the additional parameter: */
+			(callbackObject->*callbackMethod)(static_cast<DerivedCallbackData*>(callbackData),parameter);
 			}
 		};
 	
@@ -201,6 +278,23 @@ class CallbackList // Class for lists of callbacks
 		removeCli(MethodCallback<CallbackClassParam>(removeCallbackObject,removeCallbackMethod));
 		}
 	
+	/* Interface for method callbacks with additional parameter: */
+	template <class CallbackClassParam,class ParameterParam>
+	void add(CallbackClassParam* newCallbackObject,void (CallbackClassParam::*newCallbackMethod)(CallbackData*,const ParameterParam&),const ParameterParam& newParameter) // Adds a callback to the end of the list
+		{
+		addCli(new MethodParameterCallback<CallbackClassParam,ParameterParam>(newCallbackObject,newCallbackMethod,newParameter));
+		}
+	template <class CallbackClassParam,class ParameterParam>
+	void addToFront(CallbackClassParam* newCallbackObject,void (CallbackClassParam::*newCallbackMethod)(CallbackData*,const ParameterParam&),const ParameterParam& newParameter) // Adds a callback to the front of the list
+		{
+		addCliToFront(new MethodParameterCallback<CallbackClassParam,ParameterParam>(newCallbackObject,newCallbackMethod,newParameter));
+		}
+	template <class CallbackClassParam,class ParameterParam>
+	void remove(CallbackClassParam* removeCallbackObject,void (CallbackClassParam::*removeCallbackMethod)(CallbackData*,const ParameterParam&),const ParameterParam& removeParameter) // Removes the first matching callback from the list
+		{
+		removeCli(MethodParameterCallback<CallbackClassParam,ParameterParam>(removeCallbackObject,removeCallbackMethod,removeParameter));
+		}
+	
 	/* Interface for method callbacks with automatic callback data downcast: */
 	template <class CallbackClassParam,class DerivedCallbackDataParam>
 	void add(CallbackClassParam* newCallbackObject,void (CallbackClassParam::*newCallbackMethod)(DerivedCallbackDataParam*)) // Adds a callback to the end of the list
@@ -216,6 +310,23 @@ class CallbackList // Class for lists of callbacks
 	void remove(CallbackClassParam* removeCallbackObject,void (CallbackClassParam::*removeCallbackMethod)(DerivedCallbackDataParam*)) // Removes the first matching callback from the list
 		{
 		removeCli(MethodCastCallback<CallbackClassParam,DerivedCallbackDataParam>(removeCallbackObject,removeCallbackMethod));
+		}
+	
+	/* Interface for method callbacks with automatic callback data downcast and additional parameter: */
+	template <class CallbackClassParam,class DerivedCallbackDataParam,class ParameterParam>
+	void add(CallbackClassParam* newCallbackObject,void (CallbackClassParam::*newCallbackMethod)(DerivedCallbackDataParam*,const ParameterParam&),const ParameterParam& newParameter) // Adds a callback to the end of the list
+		{
+		addCli(new MethodCastParameterCallback<CallbackClassParam,DerivedCallbackDataParam,ParameterParam>(newCallbackObject,newCallbackMethod,newParameter));
+		}
+	template <class CallbackClassParam,class DerivedCallbackDataParam,class ParameterParam>
+	void addToFront(CallbackClassParam* newCallbackObject,void (CallbackClassParam::*newCallbackMethod)(DerivedCallbackDataParam*,const ParameterParam&),const ParameterParam& newParameter) // Adds a callback to the front of the list
+		{
+		addCliToFront(new MethodCastParameterCallback<CallbackClassParam,DerivedCallbackDataParam,ParameterParam>(newCallbackObject,newCallbackMethod,newParameter));
+		}
+	template <class CallbackClassParam,class DerivedCallbackDataParam,class ParameterParam>
+	void remove(CallbackClassParam* removeCallbackObject,void (CallbackClassParam::*removeCallbackMethod)(DerivedCallbackDataParam*,const ParameterParam&),const ParameterParam& removeParameter) // Removes the first matching callback from the list
+		{
+		removeCli(MethodCastParameterCallback<CallbackClassParam,DerivedCallbackDataParam,ParameterParam>(removeCallbackObject,removeCallbackMethod,removeParameter));
 		}
 	
 	/* Callback list calling interface: */

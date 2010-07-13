@@ -26,7 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/Tools/InputDeviceTool.h>
+#include <Vrui/InputDeviceTool.h>
 
 namespace Vrui {
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 WandNavigationTool - Class encapsulating the navigation behaviour of a
 classical CAVE wand.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 namespace Vrui {
 
@@ -60,12 +60,13 @@ class WandNavigationTool:public NavigationTool
 	public:
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
-		IDLE,MOVING,SCALING,SCALING_PAUSED
+		IDLE,PASSTHROUGH,PASSTHROUGH_MOVING,MOVING,SCALING,SCALING_PAUSED
 		};
 	
 	/* Elements: */
 	private:
 	static WandNavigationToolFactory* factory; // Pointer to the factory object for this class
+	InputDevice* buttonDevice; // Pointer to the input device representing the forwarded zoom button
 	
 	/* Transient navigation state: */
 	NavigationMode navigationMode; // The tool's current navigation mode
@@ -80,6 +81,8 @@ class WandNavigationTool:public NavigationTool
 	WandNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
 	/* Methods from Tool: */
+	virtual void initialize(void);
+	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

@@ -64,6 +64,7 @@ class GLContextData
 	static void initThing(const GLObject* thing); // Marks a thing for context initialization
 	static void destroyThing(const GLObject* thing); // Marks a thing for context data removal
 	static void resetThingManager(void); // Resets the thing manager
+	static void shutdownThingManager(void); // Shuts down the thing manager
 	void updateThings(void); // Initializes or deletes all marked things
 	
 	/* Methods to manage the current context: */

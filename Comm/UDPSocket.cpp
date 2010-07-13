@@ -147,6 +147,21 @@ void UDPSocket::connect(std::string hostname,int hostPortId)
 		Misc::throwStdErr("UDPSocket: Unable to connect to host %s on port %d",hostname.c_str(),hostPortId);
 	}
 
+void UDPSocket::accept(void)
+	{
+	/* Wait for an incoming message: */
+	char buffer[256];
+	struct sockaddr_in senderAddress;
+	socklen_t senderAddressLen=sizeof(struct sockaddr_in);
+	ssize_t numBytesReceived=recvfrom(socketFd,buffer,sizeof(buffer),0,(struct sockaddr*)&senderAddress,&senderAddressLen);
+	if(numBytesReceived<0||size_t(numBytesReceived)>sizeof(buffer))
+		Misc::throwStdErr("UDPSocket: Fatal error during accept");
+	
+	/* Connect to the sender: */
+	if(::connect(socketFd,(const struct sockaddr*)&senderAddress,sizeof(struct sockaddr_in))==-1)
+		Misc::throwStdErr("UDPSocket: Unable to connect to message sender");
+	}
+
 void UDPSocket::sendMessage(const void* messageBuffer,size_t messageSize)
 	{
 	ssize_t numBytesSent=send(socketFd,messageBuffer,messageSize,0);

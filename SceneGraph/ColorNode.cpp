@@ -1,6 +1,6 @@
 /***********************************************************************
 ColorNode - Class for nodes defining colors.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ColorNode.h>
 
 #include <string.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 
 namespace SceneGraph {
@@ -42,6 +43,22 @@ const char* ColorNode::getStaticClassName(void)
 const char* ColorNode::getClassName(void) const
 	{
 	return "Color";
+	}
+
+EventOut* ColorNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"color")==0)
+		return makeEventOut(this,color);
+	else
+		return Node::getEventOut(fieldName);
+	}
+
+EventIn* ColorNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"color")==0)
+		return makeEventIn(this,color);
+	else
+		return Node::getEventIn(fieldName);
 	}
 
 void ColorNode::parseField(const char* fieldName,VRMLFile& vrmlFile)

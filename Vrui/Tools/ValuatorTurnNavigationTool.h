@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VALUATORTURNNAVIGATIONTOOL_INCLUDED
 #define VRUI_VALUATORTURNNAVIGATIONTOOL_INCLUDED
 
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
 namespace Vrui {

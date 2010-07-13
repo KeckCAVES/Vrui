@@ -2,7 +2,7 @@
 PanelMenuTool - Class for menu tools that attach the program's main menu
 to an input device and allow any widget interaction tool to select items
 from it.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_PANELMENUTOOL_INCLUDED
 #define VRUI_PANELMENUTOOL_INCLUDED
 
-#include <Vrui/Tools/MenuTool.h>
+#include <Vrui/MenuTool.h>
 
 namespace Vrui {
 

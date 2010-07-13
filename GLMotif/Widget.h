@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -29,6 +29,8 @@ class GLContextData;
 namespace GLMotif {
 class StyleSheet;
 class Event;
+class TextEvent;
+class TextControlEvent;
 class WidgetManager;
 class Container;
 }
@@ -123,18 +125,10 @@ class Widget
 	virtual Vector calcHotSpot(void) const; // Returns a "hot spot" for the widget (usually its center)
 	virtual void setBorderWidth(GLfloat newBorderWidth); // Changes a widget's border width
 	virtual void setBorderType(BorderType newBorderType); // Changes a widget's border type
-	virtual void setBorderColor(const Color& newBorderColor)
-		{
-		borderColor=newBorderColor;
-		}
-	virtual void setBackgroundColor(const Color& newBackgroundColor)
-		{
-		backgroundColor=newBackgroundColor;
-		}
-	virtual void setForegroundColor(const Color& newForegroundColor)
-		{
-		foregroundColor=newForegroundColor;
-		}
+	virtual void setBorderColor(const Color& newBorderColor); // Changes a widget's border color
+	virtual void setBackgroundColor(const Color& newBackgroundColor); // Changes a widget's background color
+	virtual void setForegroundColor(const Color& newForegroundColor); // Changes a widget's foreground color
+	virtual void update(void); // Method called whenever a widget changes its visual representation, to facilitate render caching
 	virtual void draw(GLContextData& contextData) const; // Draws the widget
 	
 	/* User interaction events: */
@@ -144,6 +138,10 @@ class Widget
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);
+	virtual bool giveTextFocus(void); // Method to give text entry focus to a widget; must return false if widget does not accept focus
+	virtual void takeTextFocus(void); // Method to indicate that text entry focus was taken away from the widget
+	virtual void textEvent(const TextEvent& event);
+	virtual void textControlEvent(const TextControlEvent& event);
 	};
 
 }

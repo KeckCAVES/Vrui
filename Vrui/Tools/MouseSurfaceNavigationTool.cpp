@@ -37,7 +37,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/TitleBar.h>
 #include <GLMotif/WidgetManager.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>

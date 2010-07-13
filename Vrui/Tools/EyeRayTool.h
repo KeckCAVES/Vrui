@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_EYERAYTOOL_INCLUDED
 #define VRUI_EYERAYTOOL_INCLUDED
 
-#include <Vrui/Tools/TransformTool.h>
+#include <Vrui/TransformTool.h>
 
 namespace Vrui {
 

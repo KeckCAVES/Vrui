@@ -1,6 +1,6 @@
 /***********************************************************************
 GLFont - Class to represent texture-based fonts and to render 3D text.
-Copyright (c) 1999-2005 Oliver Kreylos
+Copyright (c) 1999-2010 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -19,91 +19,18 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/GLFont.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
 #include <GL/gl.h>
-#include <GL/glext.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLTexEnvTemplates.h>
 #include <GL/GLTexCoordTemplates.h>
 #include <GL/GLVertexTemplates.h>
-#include <GL/GLContextData.h>
-
-#include <GL/GLFont.h>
-
-/*******************************
-Methods of class GLFont::String:
-*******************************/
-
-GLFont::String::String(const GLFont* sFont,const char* sString)
-	:font(sFont),
-	 string(new char[strlen(sString)+1]),
-	 backgroundColor(font->backgroundColor),foregroundColor(font->foregroundColor)
-	{
-	/* Copy the string: */
-	strcpy(string,sString);
-	
-	/* Calculate the string's texel width: */
-	stringWidth=font->calcStringWidth(string);
-	
-	/* Calculate the string's bounding box: */
-	box=font->calcStringBox(stringWidth);
-	
-	/* Calculate the texture width: */
-	for(textureWidth=1;textureWidth<stringWidth;textureWidth<<=1)
-		;
-	
-	/* Calculate the string's texture coordinates: */
-	texCoord=font->calcStringTexCoords(stringWidth,textureWidth);
-	}
-
-GLFont::String::~String(void)
-	{
-	delete[] string;
-	}
-
-void GLFont::String::initContext(GLContextData& contextData) const
-	{
-	/* Create a data item: */
-	DataItem* dataItem=new DataItem;
-	contextData.addDataItem(this,dataItem);
-	
-	/* Upload the string's texture image: */
-	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-	font->uploadStringTexture(string,stringWidth,textureWidth);
-	glBindTexture(GL_TEXTURE_2D,0);
-	}
-
-void GLFont::String::draw(const GLFont::Vector& origin,GLContextData& contextData) const
-	{
-	/* Retrieve the context data item: */
-	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
-	
-	/* Render a textured quad: */
-	glPushAttrib(GL_TEXTURE_BIT);
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-	glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::BLEND);
-	glTexEnvColor(GLTexEnvEnums::TEXTURE_ENV,foregroundColor);
-	glColor(backgroundColor);
-	Box offsetBox=box.offset(origin);
-	glBegin(GL_QUADS);
-	glNormal3f(0.0,0.0,1.0);
-	glTexCoord(texCoord.getCorner(0));
-	glVertex(offsetBox.getCorner(0));
-	glTexCoord(texCoord.getCorner(1));
-	glVertex(offsetBox.getCorner(1));
-	glTexCoord(texCoord.getCorner(3));
-	glVertex(offsetBox.getCorner(3));
-	glTexCoord(texCoord.getCorner(2));
-	glVertex(offsetBox.getCorner(2));
-	glEnd();
-	glBindTexture(GL_TEXTURE_2D,0);
-	glPopAttrib();
-	}
 
 /*********************************
 Methods of class GLFont::CharInfo:
@@ -135,58 +62,6 @@ GLsizei GLFont::calcStringWidth(const char* string) const
 		}
 	
 	return result;
-	}
-
-GLFont::Box GLFont::calcStringBox(GLsizei stringWidth) const
-	{
-	/* Calculate the string's scaled width: */
-	Vector boxSize(GLfloat(stringWidth-1)*textHeight/GLfloat(fontHeight-1),textHeight,0.0f);
-	
-	/* Calculate the string's bounding box origin: */
-	Vector boxOrigin(0.0f,0.0f,0.0f);
-	switch(hAlignment)
-		{
-		case Left:
-			boxOrigin[0]=0.0f;
-			break;
-		
-		case Center:
-			boxOrigin[0]=-0.5f*boxSize[0];
-			break;
-		
-		case Right:
-			boxOrigin[0]=-boxSize[0];
-			break;
-		}
-	switch(vAlignment)
-		{
-		case Top:
-			boxOrigin[1]=-boxSize[1];
-			break;
-		
-		case VCenter:
-			boxOrigin[1]=-0.5f*boxSize[1];
-			break;
-		
-		case Baseline:
-			boxOrigin[1]=-boxSize[1]*GLfloat(baseLine)/GLfloat(fontHeight);
-			break;
-		
-		case Bottom:
-			boxOrigin[1]=0.0f;
-			break;
-		}
-	
-	return Box(boxOrigin,boxSize);
-	}
-
-GLFont::TBox GLFont::calcStringTexCoords(GLsizei stringWidth,GLsizei textureWidth) const
-	{
-	/* Calculate the string's texture coordinates: */
-	GLVector<GLfloat,2> origin(0.5f/GLfloat(textureWidth),0.5f/GLfloat(textureHeight));
-	GLVector<GLfloat,2> size(GLfloat(stringWidth-1)/GLfloat(textureWidth),GLfloat(fontHeight-1)/GLfloat(textureHeight));
-	
-	return TBox(origin,size);
 	}
 
 void GLFont::uploadStringTexture(const char* string,GLsizei stringWidth,GLsizei textureWidth) const
@@ -458,6 +333,127 @@ GLFont::~GLFont(void)
 	delete[] spans;
 	}
 
+GLFont::Vector GLFont::calcStringSize(GLsizei stringWidth) const
+	{
+	/* Return the string's scaled width: */
+	return Vector(GLfloat(stringWidth-1)*textHeight/GLfloat(fontHeight-1),textHeight,0.0f);
+	}
+
+GLFont::Box GLFont::calcStringBox(GLsizei stringWidth) const
+	{
+	/* Calculate the string's scaled width: */
+	Vector boxSize(GLfloat(stringWidth-1)*textHeight/GLfloat(fontHeight-1),textHeight,0.0f);
+	
+	/* Calculate the string's bounding box origin: */
+	Vector boxOrigin(0.0f,0.0f,0.0f);
+	switch(hAlignment)
+		{
+		case Left:
+			boxOrigin[0]=0.0f;
+			break;
+		
+		case Center:
+			boxOrigin[0]=-0.5f*boxSize[0];
+			break;
+		
+		case Right:
+			boxOrigin[0]=-boxSize[0];
+			break;
+		}
+	switch(vAlignment)
+		{
+		case Top:
+			boxOrigin[1]=-boxSize[1];
+			break;
+		
+		case VCenter:
+			boxOrigin[1]=-0.5f*boxSize[1];
+			break;
+		
+		case Baseline:
+			boxOrigin[1]=-boxSize[1]*GLfloat(baseLine)/GLfloat(fontHeight);
+			break;
+		
+		case Bottom:
+			boxOrigin[1]=0.0f;
+			break;
+		}
+	
+	return Box(boxOrigin,boxSize);
+	}
+
+GLFont::TBox GLFont::calcStringTexCoords(GLsizei stringWidth,GLsizei textureWidth) const
+	{
+	/* Calculate the string's texture coordinates: */
+	GLVector<GLfloat,2> origin(0.5f/GLfloat(textureWidth),0.5f/GLfloat(textureHeight));
+	GLVector<GLfloat,2> size(GLfloat(stringWidth-1)/GLfloat(textureWidth),GLfloat(fontHeight-1)/GLfloat(textureHeight));
+	
+	return TBox(origin,size);
+	}
+
+void GLFont::updateString(GLString& string) const
+	{
+	/* Calculate the string's texel width: */
+	string.texelWidth=calcStringWidth(string.string);
+	
+	/* Calculate the string's texture width: */
+	for(string.textureWidth=1;string.textureWidth<string.texelWidth;string.textureWidth<<=1)
+		;
+	
+	/* Calculate the string's texture coordinate box: */
+	string.textureBox=calcStringTexCoords(string.texelWidth,string.textureWidth);
+	}
+
+GLint GLFont::calcCharacterPos(const char* string,GLsizei textureWidth,GLfloat texX) const
+	{
+	/* Convert the texture coordinate to texel space: */
+	texX*=GLfloat(textureWidth);
+	
+	/* Find the character whose box contains the texel-space texture coordinate: */
+	GLint result=0;
+	const char* cPtr=string;
+	GLfloat left=GLfloat(maxLeftLap);
+	while(*cPtr!='\0')
+		{
+		/* Calculate the current character's box extents: */
+		int charIndex=int(*cPtr)-firstCharacter;
+		GLfloat right=left;
+		if(charIndex>=0&&charIndex<numCharacters)
+			right+=GLfloat(characters[charIndex].width);
+		
+		if(texX<(left+right)*0.5f)
+			break;
+		
+		/* Go to the next character: */
+		++result;
+		++cPtr;
+		left=right;
+		}
+	
+	return result;
+	}
+
+GLfloat GLFont::calcCharacterTexCoord(const char* string,GLsizei textureWidth,GLint characterPos) const
+	{
+	/* Find the character's texel position: */
+	const char* cPtr=string;
+	GLint texelPos=maxLeftLap;
+	while(characterPos>0&&*cPtr!='\0')
+		{
+		/* Calculate the current character's box extents: */
+		int charIndex=int(*cPtr)-firstCharacter;
+		if(charIndex>=0&&charIndex<numCharacters)
+			texelPos+=characters[charIndex].width;
+		
+		/* Go to the next character: */
+		--characterPos;
+		++cPtr;
+		}
+	
+	/* Convert the texel position to a texture coordinate: */
+	return GLfloat(texelPos)/GLfloat(textureWidth);
+	}
+
 void GLFont::uploadStringTexture(const char* string) const
 	{
 	/* Calculate the string's texel width: */
@@ -472,6 +468,12 @@ void GLFont::uploadStringTexture(const char* string) const
 	uploadStringTexture(string,stringWidth,textureWidth);
 	}
 
+void GLFont::uploadStringTexture(const GLString& string) const
+	{
+	/* Upload the string's texture image: */
+	uploadStringTexture(string.string,string.texelWidth,string.textureWidth);
+	}
+
 void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor) const
 	{
 	/* Calculate the string's texel width: */
@@ -484,6 +486,12 @@ void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringB
 	
 	/* Upload the string's texture image: */
 	uploadStringTexture(string,stringBackgroundColor,stringForegroundColor,stringWidth,textureWidth);
+	}
+
+void GLFont::uploadStringTexture(const GLString& string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor) const
+	{
+	/* Upload the string's texture image: */
+	uploadStringTexture(string.string,stringBackgroundColor,stringForegroundColor,string.texelWidth,string.textureWidth);
 	}
 
 void GLFont::drawString(const GLFont::Vector& origin,const char* string) const

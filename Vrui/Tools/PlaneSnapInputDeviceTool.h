@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_PLANESNAPINPUTDEVICETOOL_INCLUDED
 
 #include <Geometry/Point.h>
-#include <Vrui/Tools/InputDeviceTool.h>
+#include <Vrui/InputDeviceTool.h>
 
 /* Forward declarations: */
 namespace Vrui {

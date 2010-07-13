@@ -25,6 +25,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/Utility.h>
 
+namespace Geometry {
+
 /*******************************************
 Calculate subdeterminants of a 3 x m matrix:
 *******************************************/
@@ -78,7 +80,7 @@ gaussElimination(
 		if(pivotRow!=step)
 			{
 			/* Swap rows step and pivotRow: */
-			for(int j=0;j<numColumnsParam;++j)
+			for(int j=step;j<numColumnsParam;++j)
 				Misc::swap(matrix[step][j],matrix[pivotRow][j]);
 			}
 		
@@ -92,5 +94,7 @@ gaussElimination(
 			}
 		}
 	}
+
+}
 
 #endif

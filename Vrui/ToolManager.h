@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Plugins/FactoryManager.h>
 #include <Vrui/InputDevice.h>
-#include <Vrui/Tools/Tool.h>
+#include <Vrui/Tool.h>
 
 /* Forward declarations: */
 class GLContextData;

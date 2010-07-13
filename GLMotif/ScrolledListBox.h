@@ -23,9 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_SCROLLEDLISTBOX_INCLUDED
 #define GLMOTIF_SCROLLEDLISTBOX_INCLUDED
 
+#include <GLMotif/Container.h>
 #include <GLMotif/ListBox.h>
 #include <GLMotif/ScrollBar.h>
-#include <GLMotif/Container.h>
 
 namespace GLMotif {
 

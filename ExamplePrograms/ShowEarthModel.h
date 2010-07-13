@@ -29,7 +29,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/GeodeticCoordinateTransform.h>
-#include <Vrui/Tools/LocatorTool.h>
+#include <Vrui/LocatorTool.h>
 #include <Vrui/LocatorToolAdapter.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Application.h>
@@ -46,6 +46,9 @@ class Popup;
 class PopupMenu;
 class PopupWindow;
 class TextField;
+}
+namespace SceneGraph {
+class GroupNode;
 }
 class PointSet;
 class SeismicPath;
@@ -134,6 +137,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	std::vector<PointSet*> pointSets; // Vector of additional point sets to render
 	std::vector<SeismicPath*> seismicPaths; // Vector of seismic paths to render
 	std::vector<GLPolylineTube*> sensorPaths; // Vector of sensor paths to render
+	std::vector<SceneGraph::GroupNode*> sceneGraphs; // Vector of scene graphs to render
 	bool scaleToEnvironment; // Flag if the Earth model should be scaled to fit the environment
 	bool rotateEarth; // Flag if the Earth model should be rotated
 	double lastFrameTime; // Application time when last frame was rendered (to determine Earth angle updates)
@@ -146,6 +150,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	bool showGrid; // Flag if the long/lat grid is rendered
 	std::vector<bool> showEarthquakeSets; // Vector of flags if each of the earthquake sets is rendered
 	std::vector<bool> showPointSets; // Vector of flags if each of the additional point sets is rendered
+	std::vector<bool> showSceneGraphs; // Vector of flags if each of the scene graphs is rendered
 	bool showSeismicPaths; // Flag if the seismic paths are rendered
 	bool showOuterCore; // Flag if the outer core is rendered
 	bool outerCoreTransparent; // Flag if the outer core is rendered transparently
@@ -163,6 +168,8 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	Vrui::NavTransform sphereTransform; // Transformation pre-applied to navigation transformation to lock it to a sphere
 	BaseLocatorList baseLocators; // List of active locators
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
+	GLMotif::ToggleButton* showRenderDialogToggle;
+	GLMotif::ToggleButton* showAnimationDialogToggle;
 	GLMotif::PopupWindow* renderDialog; // The rendering settings dialog
 	GLMotif::PopupWindow* animationDialog; // The animation dialog
 	GLMotif::TextField* currentTimeValue; // Text field showing the current animation time
@@ -195,6 +202,8 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	virtual void display(GLContextData& contextData) const;
 	void alignSurfaceFrame(Vrui::NavTransform& surfaceFrame);
 	void menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
+	void renderDialogCloseCallback(Misc::CallbackData* cbData);
+	void animationDialogCloseCallback(Misc::CallbackData* cbData);
 	void sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void centerDisplayCallback(Misc::CallbackData* cbData);
 	};

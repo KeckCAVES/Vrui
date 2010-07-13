@@ -21,7 +21,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef EARTHQUAKETOOL_INCLUDED
 #define EARTHQUAKETOOL_INCLUDED
 
-#include <Vrui/Tools/TransformTool.h>
+#include <Vrui/TransformTool.h>
 
 /* Forward declarations: */
 class EarthquakeSet;

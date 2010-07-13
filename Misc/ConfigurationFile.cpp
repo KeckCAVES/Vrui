@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -21,11 +21,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Misc/ConfigurationFile.h>
+
 #include <ctype.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
-
-#include <Misc/ConfigurationFile.h>
 
 namespace Misc {
 

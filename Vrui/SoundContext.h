@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundContext - Class for OpenAL contexts that are used to map a listener
 to an OpenAL sound device.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,15 +24,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SOUNDCONTEXT_INCLUDED
 #define VRUI_SOUNDCONTEXT_INCLUDED
 
-#ifdef VRUI_USE_OPENAL
-#ifdef __DARWIN__
-#include <OpenAL/alc.h>
-#include <OpenAL/al.h>
-#else
-#include <AL/alc.h>
-#include <AL/al.h>
-#endif
-#endif
+#include <Vrui/alc.h>
+#include <Vrui/al.h>
 
 /* Forward declarations: */
 namespace Misc {

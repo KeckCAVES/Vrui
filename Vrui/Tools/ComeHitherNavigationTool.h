@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_COMEHITHERNAVIGATIONTOOL_INCLUDED
 #define VRUI_COMEHITHERNAVIGATIONTOOL_INCLUDED
 
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 namespace Vrui {
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/GUIInteractor.h>
+#include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
@@ -72,7 +73,7 @@ class MouseNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseNavigationTool:public NavigationTool
+class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	{
 	friend class MouseNavigationToolFactory;
 	
@@ -103,7 +104,6 @@ class MouseNavigationTool:public NavigationTool
 	NavTrackerState preScale; // Transformation to be applied to the navigation transformation before scaling
 	NavTrackerState rotation; // Current accumulated rotation transformation
 	NavTrackerState postScale; // Transformation to be applied to the navigation transformation after scaling
-	GLMotif::Widget* draggedWidget; // Pointer to currently dragged root widget
 	
 	/* Private methods: */
 	Point calcScreenCenter(void) const; // Calculates the center of the screen containing the input device

@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,8 +25,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_RAYINPUTDEVICETOOL_INCLUDED
 
 #include <Geometry/Ray.h>
-#include <Vrui/BoxRayDragger.h>
-#include <Vrui/Tools/InputDeviceTool.h>
+#include <Vrui/Internal/BoxRayDragger.h>
+#include <Vrui/InputDeviceTool.h>
 
 /* Forward declarations: */
 namespace Vrui {

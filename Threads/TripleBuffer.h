@@ -102,6 +102,10 @@ class TripleBuffer
 		{
 		return buffer[lockedIndex];
 		}
+	Value& getLockedValue(void) // Ditto
+		{
+		return buffer[lockedIndex];
+		}
 	};
 
 }

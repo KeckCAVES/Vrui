@@ -34,6 +34,7 @@ class GLContextData;
 namespace GLMotif {
 class Popup;
 }
+class ALContextData;
 
 namespace Vrui {
 
@@ -69,6 +70,7 @@ class VisletManager:public Plugins::FactoryManager<VisletFactory>
 	GLMotif::Popup* buildVisletMenu(void); // Returns a popup containing a submenu with one toggle button for each managed vislet
 	void frame(void); // Calls the frame function of all loaded vislets
 	void display(GLContextData& contextData) const; // Renders all loaded vislets
+	void sound(ALContextData& contextData) const; // Renders the sound of all loaded vislets
 	};
 
 }

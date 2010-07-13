@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -21,14 +21,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include "VRDeviceServer.h"
+#include <VRDeviceDaemon/VRDeviceServer.h>
 
 #include <stdio.h>
 #include <stdexcept>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 
-#include "VRDeviceManager.h"
+#include <VRDeviceDaemon/VRDeviceManager.h>
 
 /*******************************
 Methods of class VRDeviceServer:

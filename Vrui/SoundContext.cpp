@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundContext - Class for OpenAL contexts that are used to map a listener
 to an OpenAL sound device.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,21 +28,16 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Vrui/alc.h>
+#include <Vrui/al.h>
 #ifdef VRUI_USE_OPENAL
-#ifdef __DARWIN__
-#include <OpenAL/alc.h>
-#include <OpenAL/al.h>
-#else
-#include <AL/alc.h>
-#include <AL/al.h>
-#endif
 #include <AL/ALTemplates.h>
 #include <AL/ALGeometryWrappers.h>
 #endif
 #include <AL/ALContextData.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Listener.h>
-#include <Vrui/Vrui.Internal.h>
+#include <Vrui/Internal/Vrui.h>
 
 namespace Misc {
 
@@ -214,10 +209,6 @@ SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSecti
 			break;
 		}
 	#endif
-	
-	/* Initialize application sound state: */
-	if(vruiState->perSoundInitFunction!=0)
-		vruiState->perSoundInitFunction(*contextData,vruiState->perSoundInitFunctionData);
 	}
 
 SoundContext::~SoundContext(void)
@@ -253,7 +244,7 @@ void SoundContext::draw(void)
 	
 	#ifdef VRUI_USE_OPENAL
 	/* Set the listener in physical coordinates: */
-	contextData->loadIdentity();
+	contextData->resetMatrixStack();
 	alListenerPosition(listener->getHeadPosition());
 	alListenerVelocity(Vector::zero);
 	alListenerOrientation(listener->getListenDirection(),listener->getUpDirection());

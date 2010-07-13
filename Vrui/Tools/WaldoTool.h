@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_WALDOTOOL_INCLUDED
 
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/Tools/TransformTool.h>
+#include <Vrui/TransformTool.h>
 
 /* Forward declarations: */
 namespace Vrui {

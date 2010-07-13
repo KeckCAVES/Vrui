@@ -24,6 +24,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
+#include <Vrui/InputGraphManager.h>
+#include <Vrui/InputDeviceManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
 
@@ -112,8 +114,36 @@ Methods of class WandNavigationTool:
 
 WandNavigationTool::WandNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
+	 buttonDevice(0),
 	 navigationMode(IDLE)
 	{
+	}
+
+void WandNavigationTool::initialize(void)
+	{
+	/* Create a virtual input device to shadow the zoom button: */
+	buttonDevice=addVirtualInputDevice("WandNavigationToolButtonDevice",1,0);
+	
+	/* Disable the virtual device's glyph: */
+	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
+	
+	/* Permanently grab the virtual input device: */
+	getInputGraphManager()->grabInputDevice(buttonDevice,this);
+	
+	/* Initialize the virtual input device's position: */
+	InputDevice* device=input.getDevice(0);
+	buttonDevice->setTransformation(device->getTransformation());
+	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+	}
+
+void WandNavigationTool::deinitialize(void)
+	{
+	/* Release the virtual input device: */
+	getInputGraphManager()->releaseInputDevice(buttonDevice,this);
+	
+	/* Destroy the virtual input device: */
+	getInputDeviceManager()->destroyInputDevice(buttonDevice);
+	buttonDevice=0;
 	}
 
 const ToolFactory* WandNavigationTool::getFactory(void) const
@@ -145,6 +175,11 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 							}
 						break;
 					
+					case PASSTHROUGH:
+						/* Remember that the main button is pressed: */
+						navigationMode=PASSTHROUGH_MOVING;
+						break;
+					
 					case SCALING_PAUSED:
 						/* Determine the scaling center and direction: */
 						scalingCenter=getDevicePosition(0);
@@ -170,6 +205,11 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 				/* Act depending on this tool's current state: */
 				switch(navigationMode)
 					{
+					case PASSTHROUGH_MOVING:
+						/* Remember that the main button is released: */
+						navigationMode=PASSTHROUGH;
+						break;
+					
 					case SCALING:
 						/* Pause scaling until button is pressed again: */
 						
@@ -199,7 +239,11 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 				switch(navigationMode)
 					{
 					case IDLE:
-						/* Ignore the event and pass it through to the tool listening at the output: */
+						/* Pass the button event to the virtual input device: */
+						buttonDevice->setButtonState(0,true);
+						
+						/* Go to pass-through mode: */
+						navigationMode=PASSTHROUGH;
 						break;
 					
 					case MOVING:
@@ -227,6 +271,35 @@ void WandNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonC
 				/* Act depending on this tool's current state: */
 				switch(navigationMode)
 					{
+					case PASSTHROUGH:
+						/* Pass the button event to the virtual input device: */
+						buttonDevice->setButtonState(0,false);
+						
+						/* Go to idle mode: */
+						navigationMode=IDLE;
+						break;
+					
+					case PASSTHROUGH_MOVING:
+						/* Pass the button event to the virtual input device: */
+						buttonDevice->setButtonState(0,false);
+						
+						/* Try activating this tool: */
+						if(activate())
+							{
+							/* Initialize the navigation transformations: */
+							preScale=Geometry::invert(getDeviceTransformation(0));
+							preScale*=getNavigationTransformation();
+							
+							/* Go to MOVING mode: */
+							navigationMode=MOVING;
+							}
+						else
+							{
+							/* Go to idle mode: */
+							navigationMode=IDLE;
+							}
+						break;
+					
 					case SCALING:
 						/* Initialize the transformation parts: */
 						preScale=Geometry::invert(getDeviceTransformation(0));
@@ -258,10 +331,6 @@ void WandNavigationTool::frame(void)
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
 		{
-		case IDLE:
-			/* Do nothing */
-			break;
-		
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
@@ -286,10 +355,15 @@ void WandNavigationTool::frame(void)
 			break;
 			}
 		
-		case SCALING_PAUSED:
+		default:
 			/* Do nothing */
 			break;
 		}
+	
+	/* Update the virtual input device: */
+	InputDevice* device=input.getDevice(0);
+	buttonDevice->setTransformation(device->getTransformation());
+	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 }

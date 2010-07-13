@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_APPLICATION_INCLUDED
 
 #include <Vrui/ToolManager.h>
-#include <Vrui/Tools/Tool.h>
+#include <Vrui/Tool.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -79,19 +79,11 @@ class Application
 			}
 		};
 	
-	/* Elements: */
-	private:
-	bool useSound; // Flag whether the application wants to use spatial sound
-	
 	/* Private methods: */
-	static void initSoundWrapper(ALContextData& contextData,void* userData);
+	private:
 	static void frameWrapper(void* userData);
 	static void displayWrapper(GLContextData& contextData,void* userData);
 	static void soundWrapper(ALContextData& contextData,void* userData);
-	
-	/* Protected methods: */
-	protected:
-	void enableSound(void); // Enables sound use for the application (off by default)
 	
 	/* Constructors and destructors: */
 	public:
@@ -102,7 +94,6 @@ class Application
 	void run(void); // Runs Vrui main loop
 	virtual void toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData);
 	virtual void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData);
-	virtual void initSound(ALContextData& contextData) const; // Initializes application for sound in given OpenAL context
 	virtual void frame(void); // Method called exactly once per frame
 	virtual void display(GLContextData& contextData) const; // Rendering method called at least once per frame
 	virtual void sound(ALContextData& contextData) const; // Sound rendering method called at least once per frame

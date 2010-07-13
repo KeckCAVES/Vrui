@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VIEWPOINTSAVERTOOL_INCLUDED
 
 #include <string>
-#include <Vrui/Tools/UtilityTool.h>
+#include <Vrui/UtilityTool.h>
 
 /* Forward declarations: */
 namespace Misc {

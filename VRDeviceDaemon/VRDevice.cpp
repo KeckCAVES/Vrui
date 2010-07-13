@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -21,7 +21,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include "VRDevice.h"
+#include <VRDeviceDaemon/VRDevice.h>
 
 #ifdef __SGI_IRIX__
 #include <unistd.h>
@@ -34,9 +34,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
 
-#include "VRFactory.h"
-#include "VRCalibrator.h"
-#include "VRDeviceManager.h"
+#include <VRDeviceDaemon/VRFactory.h>
+#include <VRDeviceDaemon/VRCalibrator.h>
+#include <VRDeviceDaemon/VRDeviceManager.h>
 
 /*************************
 Methods of class VRDevice:

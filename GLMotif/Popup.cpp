@@ -1,6 +1,6 @@
 /***********************************************************************
 Popup - Class for top-level GLMotif UI components.
-Copyright (c) 2001-2009 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -61,6 +61,9 @@ Popup::~Popup(void)
 	/* Delete the child widgets: */
 	delete title;
 	delete child;
+	
+	/* Unmanage the widget itself: */
+	manager->unmanageWidget(this);
 	}
 
 Vector Popup::calcNaturalSize(void) const
@@ -150,14 +153,6 @@ void Popup::resize(const Box& newExterior)
 	
 	/* Resize the parent class widget again to calculate the correct z range: */
 	Container::resize(newExterior);
-	}
-
-Vector Popup::calcHotSpot(void) const
-	{
-	if(title!=0)
-		return title->calcHotSpot();
-	else
-		return Widget::calcHotSpot();
 	}
 
 void Popup::draw(GLContextData& contextData) const

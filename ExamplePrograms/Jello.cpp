@@ -1,7 +1,7 @@
 /***********************************************************************
 Jello - VR program to interact with "virtual Jell-O" using a simplified
 force interaction model based on the Nanotech Construction Kit.
-Copyright (c) 2006-2007 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -20,6 +20,8 @@ with Virtual Jell-O; if not, write to the Free Software Foundation,
 Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include "Jello.h"
+
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
@@ -33,11 +35,8 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
-#include <GLMotif/TextField.h>
 #include <GLMotif/Button.h>
 #include <Vrui/Vrui.h>
-
-#include "Jello.h"
 
 /***********************************
 Methods of class Jello::AtomDragger:
@@ -105,7 +104,7 @@ GLMotif::PopupMenu* Jello::createMainMenu(void)
 	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
 	centerDisplayButton->getSelectCallbacks().add(this,&Jello::centerDisplayCallback);
 	
-	GLMotif::ToggleButton* showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
+	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&Jello::showSettingsDialogCallback);
 	
 	mainMenu->manageChild();
@@ -113,65 +112,49 @@ GLMotif::PopupMenu* Jello::createMainMenu(void)
 	return mainMenuPopup;
 	}
 
-void Jello::updateSettingsDialog(void)
-	{
-	/* Update the jiggliness slider: */
-	double jiggliness=(Math::log(double(crystal.getAtomMass()))/Math::log(1.1)+32.0)/64.0;
-	jigglinessTextField->setValue(jiggliness);
-	jigglinessSlider->setValue(jiggliness);
-	
-	/* Update the viscosity slider: */
-	viscosityTextField->setValue(1.0-double(crystal.getAttenuation()));
-	viscositySlider->setValue(1.0-double(crystal.getAttenuation()));
-	
-	/* Update the gravity slider: */
-	gravityTextField->setValue(double(crystal.getGravity()));
-	gravitySlider->setValue(double(crystal.getGravity()));
-	}
-
 GLMotif::PopupWindow* Jello::createSettingsDialog(void)
 	{
 	const GLMotif::StyleSheet& ss=*Vrui::getWidgetManager()->getStyleSheet();
 	
 	settingsDialog=new GLMotif::PopupWindow("SettingsDialog",Vrui::getWidgetManager(),"Settings Dialog");
+	settingsDialog->setCloseButton(true);
+	settingsDialog->setResizableFlags(true,false);
+	settingsDialog->getCloseCallbacks().add(this,&Jello::settingsDialogCloseCallback);
 	
 	GLMotif::RowColumn* settings=new GLMotif::RowColumn("Settings",settingsDialog,false);
-	settings->setNumMinorWidgets(3);
+	settings->setNumMinorWidgets(2);
 	
 	new GLMotif::Label("JigglinessLabel",settings,"Jiggliness");
 	
-	jigglinessTextField=new GLMotif::TextField("JigglinessTextField",settings,6);
-	jigglinessTextField->setFieldWidth(6);
-	jigglinessTextField->setPrecision(4);
-	
-	jigglinessSlider=new GLMotif::Slider("JigglinessSlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
+	jigglinessSlider=new GLMotif::TextFieldSlider("JigglinessSlider",settings,5,ss.fontHeight*10.0f);
+	jigglinessSlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	jigglinessSlider->getTextField()->setFieldWidth(4);
+	jigglinessSlider->getTextField()->setPrecision(2);
 	jigglinessSlider->setValueRange(0.0,1.0,0.01);
+	jigglinessSlider->setValue((Math::log(double(crystal.getAtomMass()))/Math::log(1.1)+32.0)/64.0);
 	jigglinessSlider->getValueChangedCallbacks().add(this,&Jello::jigglinessSliderCallback);
 	
 	new GLMotif::Label("ViscosityLabel",settings,"Viscosity");
 	
-	viscosityTextField=new GLMotif::TextField("ViscosityTextField",settings,6);
-	viscosityTextField->setFieldWidth(6);
-	viscosityTextField->setPrecision(2);
-	
-	viscositySlider=new GLMotif::Slider("ViscositySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
+	viscositySlider=new GLMotif::TextFieldSlider("ViscositySlider",settings,5,ss.fontHeight*10.0f);
+	viscositySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	viscositySlider->getTextField()->setFieldWidth(4);
+	viscositySlider->getTextField()->setPrecision(2);
 	viscositySlider->setValueRange(0.0,1.0,0.01);
+	viscositySlider->setValue(1.0-double(crystal.getAttenuation()));
 	viscositySlider->getValueChangedCallbacks().add(this,&Jello::viscositySliderCallback);
 	
 	new GLMotif::Label("GravityLabel",settings,"Gravity");
 	
-	gravityTextField=new GLMotif::TextField("GravityTextField",settings,6);
-	gravityTextField->setFieldWidth(6);
-	gravityTextField->setPrecision(2);
-	
-	gravitySlider=new GLMotif::Slider("GravitySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
+	gravitySlider=new GLMotif::TextFieldSlider("GravitySlider",settings,5,ss.fontHeight*10.0f);
+	gravitySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	gravitySlider->getTextField()->setFieldWidth(4);
+	gravitySlider->getTextField()->setPrecision(1);
 	gravitySlider->setValueRange(0.0,40.0,0.5);
+	gravitySlider->setValue(double(crystal.getGravity()));
 	gravitySlider->getValueChangedCallbacks().add(this,&Jello::gravitySliderCallback);
 	
 	settings->manageChild();
-	
-	/* Display the current values: */
-	updateSettingsDialog();
 	
 	return settingsDialog;
 	}
@@ -298,33 +281,28 @@ void Jello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallba
 		Vrui::popdownPrimaryWidget(settingsDialog);
 	}
 
-void Jello::jigglinessSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
+void Jello::jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Compute and set the atom mass: */
-	double jiggliness=cbData->value;
-	double atomMass=Math::exp(Math::log(1.1)*(jiggliness*64.0-32.0));
+	double atomMass=Math::exp(Math::log(1.1)*(cbData->value*64.0-32.0));
 	crystal.setAtomMass(atomMass);
-	
-	/* Update the settings dialog: */
-	updateSettingsDialog();
 	}
 
-void Jello::viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
+void Jello::viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the attenuation: */
 	crystal.setAttenuation(Scalar(1.0-cbData->value));
-	
-	/* Update the settings dialog: */
-	updateSettingsDialog();
 	}
 
-void Jello::gravitySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
+void Jello::gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the gravity: */
 	crystal.setGravity(Scalar(cbData->value));
-	
-	/* Update the settings dialog: */
-	updateSettingsDialog();
+	}
+
+void Jello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
+	{
+	showSettingsDialogToggle->setToggle(false);
 	}
 
 int main(int argc,char* argv[])

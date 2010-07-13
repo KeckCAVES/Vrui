@@ -70,6 +70,15 @@ class SelfDestructPointer
 		{
 		return target;
 		}
+	void setTarget(Target* newTarget) // Sets the pointer's target and destroys previous target
+		{
+		/* Delete the previous target: */
+		if(target!=0)
+			delete target;
+		
+		/* Take ownership of the new target: */
+		target=newTarget;
+		}
 	Target* releaseTarget(void) // Returns a standard pointer to the target and releases it from self-destruction
 		{
 		Target* result=target;

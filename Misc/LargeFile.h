@@ -265,7 +265,7 @@ class LargeFile
 				{
 				DataParam temp=data[i];
 				swapEndianness(temp);
-				numBytesWritten+=fwrite(&temp,sizeof(DataParam),1,filePtr);
+				numBytesWritten+=fwrite(&temp,1,sizeof(DataParam),filePtr);
 				}
 			}
 		else

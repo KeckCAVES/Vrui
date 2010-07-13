@@ -12,6 +12,9 @@ The GLSupport library contains classes and functions providing higher-level supp
 <H2>Header Files</H2>
 
 <DL>
+<DT>GLPrintError.h</DT>
+<DD>GLPrintError contains a single helper function, glPrintError, to print clear-text OpenGL error messages to a std::ostream.</DD>
+
 <DT>GLValueCoders.h</DT>
 <DD>GLValueCoders.h contains specialized versions of the Misc::ValueCoder class for several OpenGL-related data types.</DD>
 
@@ -81,6 +84,9 @@ The GLSupport library contains classes and functions providing higher-level supp
 <DT>GLARBVertexShader</DT>
 <DD>The GL_ARB_vertex_shader extension.</DD>
 
+<DT>GLEXTFramebufferBlit</DT>
+<DD>The GL_EXT_framebuffer_blit extension.</DD>
+
 <DT>GLEXTFramebufferObject</DT>
 <DD>The GL_EXT_framebuffer_object extension.</DD>
 
@@ -123,6 +129,12 @@ The GLSupport library contains classes and functions providing higher-level supp
 
 <DT>GLFont.h</DT>
 <DD>GLFont is a class to render 3D text using texture-based fonts. Text is normally rendered by uploading an entire string of text as a single texture (providing for kerning and/or aliasing), and then mapping that texture onto arbitrary polygons.</DD>
+
+<DT>GLString.h</DT>
+<DD>GLString is a class to simplify handling of 3D text using texture-based fonts, by associating a C-style string with the data required to draw said string using a GLFont object.</DD>
+
+<DT>GLLabel.h</DT>
+<DD>GLLabel is a class to simplify drawing 3D text, by encapsulating all data required to draw C-style strings using a texture-based font.</DD>
 
 <DT>GLLineIlluminator.h</DT>
 <DD>GLLineIlluminator is a class to render illuminated lines by tabulating the Phong lighting equation into a texture and manipulating the texture matrix to perform diffuse and specular illumination. It should be considered deprecated, since the same effect is much better achieved using vertex programs.</DD>

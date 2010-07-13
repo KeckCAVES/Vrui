@@ -1,7 +1,7 @@
 /***********************************************************************
 RadioBox - Subclass of RowColumn that contains only mutually exclusive
 ToggleButton objects.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -77,9 +77,6 @@ void RadioBox::addChild(Widget* newChild)
 	if(newToggle==0)
 		Misc::throwStdErr("RadioBox::addChild: Attempt to add child that is not a ToggleButton");
 	
-	/* Call the parent class widget's addChild routine: */
-	RowColumn::addChild(newToggle);
-	
 	/* Set the new toggle's defaults and callbacks: */
 	newToggle->setBorderWidth(0.0f);
 	newToggle->setToggleType(ToggleButton::RADIO_BUTTON);
@@ -94,6 +91,9 @@ void RadioBox::addChild(Widget* newChild)
 		selectedToggle=newToggle;
 		newToggle->setToggle(true);
 		}
+	
+	/* Call the parent class widget's addChild routine: */
+	RowColumn::addChild(newToggle);
 	}
 
 void RadioBox::addToggle(const char* newToggleLabel)

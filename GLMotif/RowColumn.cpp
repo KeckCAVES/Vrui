@@ -1,7 +1,7 @@
 /***********************************************************************
 RowColumn - Container class to arrange children on a two-dimensional
 grid.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -94,12 +94,15 @@ Vector RowColumn::calcGrid(std::vector<GLfloat>& columnWidths,std::vector<GLfloa
 	
 	/* Calculate the overall size: */
 	Vector result(0.0f,0.0f,0.0f);
-	for(std::vector<GLfloat>::iterator cIt=columnWidths.begin();cIt!=columnWidths.end();++cIt)
-		result[0]+=*cIt;
-	for(std::vector<GLfloat>::iterator rIt=rowHeights.begin();rIt!=rowHeights.end();++rIt)
-		result[1]+=*rIt;
-	result[0]+=GLfloat(columnWidths.size()-1)*spacing;
-	result[1]+=GLfloat(rowHeights.size()-1)*spacing;
+	if(!children.empty())
+		{
+		for(std::vector<GLfloat>::iterator cIt=columnWidths.begin();cIt!=columnWidths.end();++cIt)
+			result[0]+=*cIt;
+		for(std::vector<GLfloat>::iterator rIt=rowHeights.begin();rIt!=rowHeights.end();++rIt)
+			result[1]+=*rIt;
+		result[0]+=GLfloat(columnWidths.size()-1)*spacing;
+		result[1]+=GLfloat(rowHeights.size()-1)*spacing;
+		}
 	
 	return result;
 	}
@@ -323,6 +326,10 @@ void RowColumn::draw(GLContextData& contextData) const
 	glColor(backgroundColor);
 	Vector p=getInterior().origin;
 	
+	/* Bail out if there are no children: */
+	if(children.empty())
+		return;
+	
 	/* Draw the top left margin part: */
 	glBegin(GL_TRIANGLE_FAN);
 	glNormal3f(0.0f,0.0f,1.0f);
@@ -479,12 +486,12 @@ void RowColumn::addChild(Widget* newChild)
 	switch(orientation)
 		{
 		case VERTICAL:
-			if((children.size()+numMinorWidgets-1)/numMinorWidgets>=rowWeights.size())
+			if((children.size()+numMinorWidgets-1)/numMinorWidgets>rowWeights.size())
 				rowWeights.push_back(0.0f);
 			break;
 		
 		case HORIZONTAL:
-			if((children.size()+numMinorWidgets-1)/numMinorWidgets>=columnWeights.size())
+			if((children.size()+numMinorWidgets-1)/numMinorWidgets>columnWeights.size())
 				columnWeights.push_back(0.0f);
 			break;
 		}
@@ -500,9 +507,18 @@ void RowColumn::requestResize(Widget* child,const Vector& newExteriorSize)
 	{
 	/* Just grant the request if nothing really changed: */
 	if(!isManaged)
+		{
+		/* Just resize the child: */
 		child->resize(Box(child->getExterior().origin,newExteriorSize));
+		}
 	else if(newExteriorSize[0]==child->getExterior().size[0]&&newExteriorSize[1]==child->getExterior().size[1])
+		{
+		/* Resize the child in its previous box: */
 		child->resize(child->getExterior());
+		
+		/* Invalidate the visual representation: */
+		update();
+		}
 	else
 		{
 		/* Calculate the natural grid size: */

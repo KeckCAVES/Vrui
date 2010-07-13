@@ -24,8 +24,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/File.h>
+#include <Misc/ValueSource.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Comm/ClusterFileCharacterSource.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -207,7 +209,7 @@ SketchingTool::SketchingTool(const ToolFactory* factory,const ToolInputAssignmen
 	controlDialog->manageChild();
 	
 	/* Pop up the control dialog: */
-	popupPrimaryWidget(controlDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(controlDialogPopup);
 	}
 
 SketchingTool::~SketchingTool(void)
@@ -369,7 +371,7 @@ void SketchingTool::loadCurvesCallback(Misc::CallbackData* cbData)
 	loadCurvesDialog->getCancelCallbacks().add(loadCurvesDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
 	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadCurvesDialog,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(loadCurvesDialog);
 	}
 
 void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
@@ -385,44 +387,39 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 	try
 		{
 		/* Open the curve file: */
-		Misc::File curveFile(cbData->selectedFileName.c_str(),"r");
-		FILE* cf=curveFile.getFilePtr();
+		Comm::ClusterFileCharacterSource curvesFile(cbData->selectedFileName.c_str(),openPipe());
+		Misc::ValueSource curvesSource(curvesFile);
+		curvesSource.setPunctuation(',',true);
 		
 		/* Read the curve file header: */
-		char headerBuffer[256];
-		curveFile.gets(headerBuffer,sizeof(headerBuffer));
-		if(strcmp(headerBuffer,"Vrui Curve Editor Tool Curve File\n")!=0)
+		if(!curvesSource.isString("Vrui Curve Editor Tool Curve File"))
 			Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
 		
-		/* Read all curves: */
-		unsigned int numCurves;
-		fscanf(cf,"%u",&numCurves);
+		/* Read all curvesSource: */
+		unsigned int numCurves=curvesSource.readUnsignedInteger();
 		for(unsigned int curveIndex=0;curveIndex<numCurves;++curveIndex)
 			{
 			/* Create a new curve: */
 			Curve* c=new Curve;
 			
 			/* Read the curve's line width and color: */
-			float lineWidth;
-			unsigned int color[3];
-			fscanf(cf,"%f, %u %u %u",&lineWidth,&color[0],&color[1],&color[2]);
-			c->lineWidth=lineWidth;
+			c->lineWidth=GLfloat(curvesSource.readNumber());
+			if(curvesSource.readChar()!=',')
+				Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
 			for(int i=0;i<3;++i)
-				c->color[i]=Curve::Color::Scalar(color[i]);
+				c->color[i]=Curve::Color::Scalar(curvesSource.readUnsignedInteger());
 			c->color[3]=Curve::Color::Scalar(255);
 			
 			/* Read the curve's control points: */
-			unsigned int numControlPoints;
-			fscanf(cf,"%u",&numControlPoints);
+			unsigned int numControlPoints=curvesSource.readUnsignedInteger();
 			for(unsigned int controlPointIndex=0;controlPointIndex<numControlPoints;++controlPointIndex)
 				{
-				double t;
-				double pos[3];
-				fscanf(cf,"%lf, %lf %lf %lf",&t,&pos[0],&pos[1],&pos[2]);
 				Curve::ControlPoint cp;
+				cp.t=Scalar(curvesSource.readNumber());
+				if(curvesSource.readChar()!=',')
+					Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
 				for(int i=0;i<3;++i)
-					cp.pos[i]=Scalar(pos[i]);
-				cp.t=Scalar(t);
+					cp.pos[i]=Point::Scalar(curvesSource.readNumber());
 				c->controlPoints.push_back(cp);
 				}
 			

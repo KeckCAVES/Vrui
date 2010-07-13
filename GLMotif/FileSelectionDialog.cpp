@@ -1,6 +1,6 @@
 /***********************************************************************
 FileSelectionDialog - A popup window to select a file name.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,6 +19,7 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <iostream>
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
@@ -99,10 +100,27 @@ std::string FileSelectionDialog::getCurrentPath(void) const
 		/* Append the button's label to the full path name: */
 		if(i>1)
 			fullPath.push_back('/');
-		fullPath.append(static_cast<Button*>(pathButtonBox->getChild(i))->getLabel());
+		fullPath.append(static_cast<Button*>(pathButtonBox->getChild(i))->getString());
 		}
 	
 	return fullPath;
+	}
+
+void FileSelectionDialog::updateFileNameField(void)
+	{
+	/* Get the current path name: */
+	std::string fullName=getCurrentPath();
+	
+	fullName.push_back('/');
+	int selectedFileName=fileList->getListBox()->getSelectedItem();
+	if(selectedFileName>=0)
+		{
+		/* Append the current file name: */
+		fullName.append(fileList->getListBox()->getItem(selectedFileName));
+		}
+	
+	/* Set the file name field's value: */
+	fileNameField->setString(fullName.c_str());
 	}
 
 bool FileSelectionDialog::readDirectory(void)
@@ -200,6 +218,9 @@ bool FileSelectionDialog::readDirectory(void)
 					}
 				}
 			}
+		
+		/* Close the directory: */
+		closedir(directory);
 		
 		if(pipe!=0)
 			{
@@ -302,12 +323,28 @@ void FileSelectionDialog::setSelectedPathButton(int newSelectedPathButton)
 	
 	/* Read the directory corresponding to the path button: */
 	readDirectory();
+	
+	/* Update the file name field: */
+	updateFileNameField();
 	}
 
 void FileSelectionDialog::pathButtonSelectedCallback(Button::SelectCallbackData* cbData)
 	{
 	/* Change the selected path button: */
 	setSelectedPathButton(pathButtonBox->getChildIndex(cbData->button));
+	}
+
+void FileSelectionDialog::fileNameFieldValueChangedCallback(TextField::ValueChangedCallbackData* cbData)
+	{
+	/* Find the common prefix between the new full file name and the path button box: */
+	const char* fnPtr=fileNameField->getString();
+	
+	}
+
+void FileSelectionDialog::listValueChangedCallback(ListBox::ValueChangedCallbackData* cbData)
+	{
+	/* Update the file name field: */
+	updateFileNameField();
 	}
 
 void FileSelectionDialog::listItemSelectedCallback(ListBox::ItemSelectedCallbackData* cbData)
@@ -408,8 +445,13 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	 pipe(sPipe),
 	 fileNameFilters(sFileNameFilters),
 	 pathButtonBox(0),selectedPathButton(-1),
+	 fileNameField(0),
 	 fileList(0),filterList(0)
 	{
+	/* Add a close button: */
+	setCloseButton(true);
+	getCloseCallbacks().add(this,&FileSelectionDialog::cancelButtonSelectedCallback);
+	
 	/* Create the file selection dialog: */
 	RowColumn* fileSelectionDialog=new RowColumn("FileSelectionDialog",this,false);
 	fileSelectionDialog->setOrientation(RowColumn::VERTICAL);
@@ -513,19 +555,16 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	
 	pathButtonBox->manageChild();
 	
+	/* Create the file name text field: */
+	fileNameField=new GLMotif::TextField("FileNameField",fileSelectionDialog,40);
+	fileNameField->setHAlignment(GLFont::Left);
+	fileNameField->setEditable(true);
+	
 	/* Create the file list box: */
-	fileList=new ScrolledListBox("FileList",fileSelectionDialog,ListBox::ALWAYS_ONE,50,15);
+	fileList=new ScrolledListBox("FileList",fileSelectionDialog,ListBox::ATMOST_ONE,50,15);
 	fileList->showHorizontalScrollBar(true);
 	fileList->getListBox()->getItemSelectedCallbacks().add(this,&FileSelectionDialog::listItemSelectedCallback);
-	
-	/* Select the last path button (to read the initial directory): */
-	setSelectedPathButton(pathButtonIndex);
-	
-	/* Read the initial directory: */
-	if(!readDirectory())
-		{
-		/* This is bad! */
-		}
+	fileList->getListBox()->getValueChangedCallbacks().add(this,&FileSelectionDialog::listValueChangedCallback);
 	
 	/* Create the button box: */
 	RowColumn* buttonBox=new RowColumn("ButtonBox",fileSelectionDialog,false);
@@ -539,7 +578,7 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	filterListItems.push_back("All Files");
 	if(sFileNameFilters!=0)
 		{
-		const char* startPtr=sFileNameFilters;
+		const char* startPtr=fileNameFilters;
 		while(*startPtr!='\0')
 			{
 			const char* endPtr;
@@ -554,6 +593,7 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	filterList=new DropdownBox("FilterList",buttonBox,filterListItems);
 	filterList->setSelectedItem(filterList->getNumItems()-1);
 	filterList->getValueChangedCallbacks().add(this,&FileSelectionDialog::filterListValueChangedCallback);
+	fileNameFilters=filterList->getItem(filterList->getNumItems()-1);
 	}
 	
 	/* Create a separator: */
@@ -580,7 +620,10 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	
 	buttonBox->manageChild();
 	
-	fileSelectionDialog->setRowWeight(1,1.0f);
+	fileSelectionDialog->setRowWeight(2,1.0f);
+	
+	/* Select the last path button (to read the initial directory): */
+	setSelectedPathButton(pathButtonIndex);
 	
 	fileSelectionDialog->manageChild();
 	}

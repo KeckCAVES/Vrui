@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_SCREENLOCATOR_INCLUDED
 
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/LocatorTool.h>
+#include <Vrui/LocatorTool.h>
 
 namespace Vrui {
 

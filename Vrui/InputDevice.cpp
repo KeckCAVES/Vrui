@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDevice - Class to represent input devices (6-DOF tracker with
 associated buttons and valuators) in virtual reality environments.
-Copyright (c) 2000-2005 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -149,6 +149,12 @@ void InputDevice::setDeviceRayDirection(const Vector& newDeviceRayDirection)
 	{
 	/* Set ray direction: */
 	deviceRayDirection=newDeviceRayDirection;
+	}
+
+void InputDevice::setTrackType(int newTrackType)
+	{
+	/* Set the tracking type: */
+	trackType=newTrackType;
 	}
 
 void InputDevice::setTransformation(const TrackerState& newTransformation)

@@ -1,6 +1,6 @@
 /***********************************************************************
 ListBox - Class for widgets containing lists of text strings.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -377,7 +377,7 @@ void ListBox::pointerButtonDown(Event& event)
 		if(p[0]>=b.origin[0]&&p[0]<b.origin[0]+b.size[0]&&p[1]>=b.origin[1]&&p[1]<b.origin[1]+b.size[1])
 			{
 			/* Check for a multi-click: */
-			if(lastClickedItem==position+i&&getManager()->getTime()-lastClickTime<0.25)
+			if(lastClickedItem==position+i&&getManager()->getTime()-lastClickTime<getManager()->getStyleSheet()->multiClickTime)
 				{
 				/* Increase the click counter: */
 				++numClicks;
@@ -483,6 +483,43 @@ void ListBox::insertItem(int index,const char* newItem,bool moveToPage)
 	listChangedCallbacks.call(&cbData);
 	}
 	
+	{
+	/* Call the selection change callbacks: */
+	SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::NUMITEMS_CHANGED,-1);
+	selectionChangedCallbacks.call(&cbData);
+	}
+	
+	/* Update the selected item if it is affected: */
+	if(lastSelectedItem>=index)
+		{
+		/* Adjust the selected item's index: */
+		++lastSelectedItem;
+		
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,lastSelectedItem-1,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+	
+	/* Select this item if it is the first one in an always-one list: */
+	if(lastSelectedItem==-1&&selectionMode==ALWAYS_ONE)
+		{
+		/* Select the new item: */
+		items[index].selected=true;
+		lastSelectedItem=index;
+		
+		{
+		/* Call the selection change callbacks: */
+		SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::ITEM_SELECTED,lastSelectedItem);
+		selectionChangedCallbacks.call(&cbData);
+		}
+		
+		{
+		/* Call the value changed callbacks: */
+		ValueChangedCallbackData cbData(this,-1,lastSelectedItem);
+		valueChangedCallbacks.call(&cbData);
+		}
+		}
+	
 	/* Keep track of changes to the page state: */
 	int reasonMask=PageChangedCallbackData::NUMITEMS_CHANGED;
 	
@@ -535,23 +572,6 @@ void ListBox::insertItem(int index,const char* newItem,bool moveToPage)
 	pageChangedCallbacks.call(&cbData);
 	}
 	
-	{
-	/* Call the selection change callbacks: */
-	SelectionChangedCallbackData cbData(this,SelectionChangedCallbackData::NUMITEMS_CHANGED,-1);
-	selectionChangedCallbacks.call(&cbData);
-	}
-	
-	/* Update the selected item if it is affected: */
-	if(lastSelectedItem>=index)
-		{
-		/* Adjust the selected item's index: */
-		++lastSelectedItem;
-		
-		/* Call the value changed callbacks: */
-		ValueChangedCallbackData cbData(this,lastSelectedItem-1,lastSelectedItem);
-		valueChangedCallbacks.call(&cbData);
-		}
-	
 	if(maxItemWidth<it.width)
 		{
 		maxItemWidth=it.width;
@@ -563,6 +583,9 @@ void ListBox::insertItem(int index,const char* newItem,bool moveToPage)
 				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 			}
 		}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ListBox::setItem(int index,const char* newItem)
@@ -639,6 +662,9 @@ void ListBox::setItem(int index,const char* newItem)
 				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 			}
 		}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ListBox::removeItem(int index)
@@ -763,6 +789,9 @@ void ListBox::removeItem(int index)
 				resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 			}
 		}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ListBox::clear(void)
@@ -831,6 +860,9 @@ void ListBox::clear(void)
 		else
 			resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 		}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ListBox::setPosition(int newPosition)
@@ -868,6 +900,9 @@ void ListBox::setPosition(int newPosition)
 			reasonMask|=PageChangedCallbackData::MAXITEMWIDTH_CHANGED;
 		PageChangedCallbackData cbData(this,reasonMask,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
 		pageChangedCallbacks.call(&cbData);
+		
+		/* Invalidate the visual representation: */
+		update();
 		}
 	}
 
@@ -889,6 +924,9 @@ void ListBox::setHorizontalOffset(GLfloat newHorizontalOffset)
 		/* Call the page change callbacks: */
 		PageChangedCallbackData cbData(this,PageChangedCallbackData::HORIZONTALOFFSET_CHANGED,position,int(items.size()),pageSize,horizontalOffset,maxVisibleItemWidth,itemsBox.size[0]);
 		pageChangedCallbacks.call(&cbData);
+		
+		/* Invalidate the visual representation: */
+		update();
 		}
 	}
 
@@ -994,6 +1032,9 @@ void ListBox::selectItem(int index,bool moveToPage)
 	ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
 	valueChangedCallbacks.call(&cbData);
 	}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ListBox::deselectItem(int index,bool moveToPage)
@@ -1054,6 +1095,9 @@ void ListBox::deselectItem(int index,bool moveToPage)
 		ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
 		valueChangedCallbacks.call(&cbData);
 		}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ListBox::clearSelection(void)
@@ -1104,6 +1148,9 @@ void ListBox::clearSelection(void)
 		ValueChangedCallbackData cbData(this,oldLastSelectedItem,lastSelectedItem);
 		valueChangedCallbacks.call(&cbData);
 		}
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 }

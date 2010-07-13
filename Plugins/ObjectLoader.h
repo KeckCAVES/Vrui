@@ -1,7 +1,7 @@
 /***********************************************************************
 ObjectLoader - Light-weight class to load objects from dynamic shared
 objects.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Plugin Handling Library (Plugins).
 
@@ -105,7 +105,7 @@ class ObjectLoader
 }
 
 #ifndef PLUGINS_OBJECTLOADER_IMPLEMENTATION
-#include <Plugins/ObjectLoader.cpp>
+#include <Plugins/ObjectLoader.icpp>
 #endif
 
 #endif

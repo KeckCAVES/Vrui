@@ -21,12 +21,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ViewpointFileNavigationTool.h>
+
 #include <stdio.h>
 #include <Misc/FileNameExtensions.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
+#include <Math/Matrix.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
@@ -36,10 +39,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/WidgetManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ViewpointFileNavigationTool.h>
-
-#include <Vrui/Tools/DenseMatrix.h>
 
 namespace Vrui {
 
@@ -159,66 +158,68 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 			if(viewpoints.size()>1)
 				{
 				/* Create a big matrix to solve the C^2 spline problem: */
-				int n=viewpoints.size()-1;
-				DenseMatrix A(4*n,4*n);
-				A.zero();
-				DenseMatrix b(4*n,10);
-				b.zero();
+				unsigned int n=viewpoints.size()-1;
+				Math::Matrix A(4*n,4*n,0.0);
+				Math::Matrix b(4*n,10,0.0);
 				
-				A(0,0)=Scalar(1);
+				A(0,0)=1.0;
 				writeControlPoint(viewpoints[0],b,0);
 				
+				double dt1=double(times[1])-double(times[0]);
 				#if 1
 				/* Zero velocity at start: */
-				A(1,0)=Scalar(-3)/(times[1]-times[0]);
-				A(1,1)=Scalar(3)/(times[1]-times[0]);
+				A(1,0)=-3.0/dt1;
+				A(1,1)=3.0/dt1;
 				#else
 				/* Zero acceleration at start: */
-				A(1,0)=Scalar(6)/Math::sqr(times[1]-times[0]);
-				A(1,1)=Scalar(-12)/Math::sqr(times[1]-times[0]);
-				A(1,2)=Scalar(6)/Math::sqr(times[1]-times[0]);
+				A(1,0)=6.0/Math::sqr(dt1);
+				A(1,1)=-12.0/Math::sqr(dt1);
+				A(1,2)=6.0/Math::sqr(dt1);
 				#endif
 				
-				for(int i=1;i<n;++i)
+				for(unsigned int i=1;i<n;++i)
 					{
-					A(i*4-2,i*4-3)=Scalar(6)/Math::sqr(times[i]-times[i-1]);
-					A(i*4-2,i*4-2)=Scalar(-12)/Math::sqr(times[i]-times[i-1]);
-					A(i*4-2,i*4-1)=Scalar(6)/Math::sqr(times[i]-times[i-1]);
-					A(i*4-2,i*4+0)=Scalar(-6)/Math::sqr(times[i+1]-times[i]);
-					A(i*4-2,i*4+1)=Scalar(12)/Math::sqr(times[i+1]-times[i]);
-					A(i*4-2,i*4+2)=Scalar(-6)/Math::sqr(times[i+1]-times[i]);
+					double dt0=double(times[i])-double(times[i-1]);
+					double dt1=double(times[i+1])-double(times[i]);
+					A(i*4-2,i*4-3)=6.0/Math::sqr(dt0);
+					A(i*4-2,i*4-2)=-12.0/Math::sqr(dt0);
+					A(i*4-2,i*4-1)=6.0/Math::sqr(dt0);
+					A(i*4-2,i*4+0)=-6.0/Math::sqr(dt1);
+					A(i*4-2,i*4+1)=12.0/Math::sqr(dt1);
+					A(i*4-2,i*4+2)=-6.0/Math::sqr(dt1);
 					
-					A(i*4-1,i*4-2)=Scalar(-3)/(times[i]-times[i-1]);
-					A(i*4-1,i*4-1)=Scalar(3)/(times[i]-times[i-1]);
-					A(i*4-1,i*4+0)=Scalar(3)/(times[i+1]-times[i]);
-					A(i*4-1,i*4+1)=Scalar(-3)/(times[i+1]-times[i]);
+					A(i*4-1,i*4-2)=-3.0/dt0;
+					A(i*4-1,i*4-1)=3.0/dt0;
+					A(i*4-1,i*4+0)=3/dt1;
+					A(i*4-1,i*4+1)=-3/dt1;
 					
-					A(i*4+0,i*4-1)=Scalar(1);
+					A(i*4+0,i*4-1)=1.0;
 					writeControlPoint(viewpoints[i],b,i*4+0);
 					
-					A(i*4+1,i*4+0)=Scalar(1);
+					A(i*4+1,i*4+0)=1.0;
 					writeControlPoint(viewpoints[i],b,i*4+1);
 					}
 				
+				double dtn=double(times[n])-double(times[n-1]);
 				#if 1
 				/* Zero velocity at end: */
-				A(n*4-2,n*4-2)=Scalar(-3)/(times[n]-times[n-1]);
-				A(n*4-2,n*4-1)=Scalar(3)/(times[n]-times[n-1]);
+				A(n*4-2,n*4-2)=-3.0/dtn;
+				A(n*4-2,n*4-1)=3.0/dtn;
 				#else
 				/* Zero acceleration at end: */
-				A(n*4-2,n*4-3)=Scalar(6)/Math::sqr(times[n]-times[n-1]);
-				A(n*4-2,n*4-2)=Scalar(-12)/Math::sqr(times[n]-times[n-1]);
-				A(n*4-2,n*4-1)=Scalar(6)/Math::sqr(times[n]-times[n-1]);
+				A(n*4-2,n*4-3)=6.0/Math::sqr(dtn);
+				A(n*4-2,n*4-2)=-12.0/Math::sqr(dtn);
+				A(n*4-2,n*4-1)=6.0/Math::sqr(dtn);
 				#endif
 				
-				A(n*4-1,n*4-1)=Scalar(1);
+				A(n*4-1,n*4-1)=1.0;
 				writeControlPoint(viewpoints[n],b,n*4-1);
 				
 				/* Solve the system of equations: */
-				DenseMatrix x=A.solveLinearEquations(b);
+				Math::Matrix x=b/A;
 				
 				/* Create the spline segment list: */
-				for(int i=0;i<n;++i)
+				for(unsigned int i=0;i<n;++i)
 					{
 					SplineSegment s;
 					for(int j=0;j<2;++j)
@@ -340,7 +341,7 @@ void ViewpointFileNavigationTool::loadViewpointFileCancelCallback(GLMotif::FileS
 	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 	}
 
-void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,DenseMatrix& b,int rowIndex)
+void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
 	{
 	for(int j=0;j<3;++j)
 		b(rowIndex,j)=cp.center[j];
@@ -390,7 +391,7 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 		GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",0,".views,.curve",openPipe());
 		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
 		loadViewpointFileDialog->getCancelCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileCancelCallback);
-		popupPrimaryWidget(loadViewpointFileDialog,getNavigationTransformation().transform(getDisplayCenter()));
+		popupPrimaryWidget(loadViewpointFileDialog);
 		}
 	else
 		{

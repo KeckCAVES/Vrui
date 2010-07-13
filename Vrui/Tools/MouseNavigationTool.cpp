@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,11 +31,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <GLMotif/Event.h>
-#include <GLMotif/TitleBar.h>
-#include <GLMotif/WidgetManager.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
@@ -262,10 +259,10 @@ void MouseNavigationTool::startScaling(void)
 
 MouseNavigationTool::MouseNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
+	 GUIInteractor(false,Scalar(0),getDevice(0)),
 	 mouseAdapter(0),
 	 currentValue(0),
-	 dolly(MouseNavigationTool::factory->invertDolly),navigationMode(IDLE),
-	 draggedWidget(0)
+	 dolly(MouseNavigationTool::factory->invertDolly),navigationMode(IDLE)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
 	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
@@ -291,34 +288,16 @@ void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::Button
 					case SPINNING:
 						if(factory->interactWithWidgets)
 							{
-							/* Check if the mouse pointer is over a GLMotif widget: */
-							GLMotif::Event event(false);
-							event.setWorldLocation(getDeviceRay(0));
-							if(getWidgetManager()->pointerButtonDown(event))
+							/* Check if the GUI interactor accepts the event: */
+							GUIInteractor::updateRay();
+							if(GUIInteractor::buttonDown(false))
 								{
+								/* Deactivate this tool if it is spinning: */
 								if(navigationMode==SPINNING)
-									{
-									/* Deactivate this tool: */
 									deactivate();
-									}
 								
 								/* Go to widget interaction mode: */
 								navigationMode=WIDGETING;
-								
-								/* Drag the entire root widget if the event's target widget is a title bar: */
-								if(dynamic_cast<GLMotif::TitleBar*>(event.getTargetWidget())!=0)
-									{
-									/* Start dragging: */
-									draggedWidget=event.getTargetWidget();
-									
-									/* Calculate the dragging transformation: */
-									NavTrackerState initialTracker=NavTrackerState::translateFromOriginTo(calcScreenPos());
-									preScale=Geometry::invert(initialTracker);
-									GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
-									preScale*=NavTrackerState(initialWidget);
-									}
-								else
-									draggedWidget=0;
 								}
 							else
 								{
@@ -354,14 +333,14 @@ void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::Button
 					{
 					case WIDGETING:
 						{
-						/* Deliver the event: */
-						GLMotif::Event event(true);
-						event.setWorldLocation(getDeviceRay(0));
-						getWidgetManager()->pointerButtonUp(event);
+						if(GUIInteractor::isActive())
+							{
+							/* Deliver the event: */
+							GUIInteractor::buttonUp();
+							}
 						
 						/* Deactivate this tool: */
 						navigationMode=IDLE;
-						draggedWidget=0;
 						break;
 						}
 					
@@ -569,31 +548,16 @@ void MouseNavigationTool::frame(void)
 	{
 	/* Update the current mouse position: */
 	currentPos=calcScreenPos();
+	if(factory->interactWithWidgets)
+		{
+		/* Update the GUI interactor: */
+		GUIInteractor::updateRay();
+		GUIInteractor::move();
+		}
 	
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
 		{
-		case IDLE:
-			/* Do nothing */
-			break;
-		
-		case WIDGETING:
-			{
-			/* Deliver the event: */
-			GLMotif::Event event(true);
-			event.setWorldLocation(getDeviceRay(0));
-			getWidgetManager()->pointerMotion(event);
-			
-			if(draggedWidget!=0)
-				{
-				/* Update the dragged widget's transformation: */
-				NavTrackerState current=NavTrackerState::translateFromOriginTo(currentPos);
-				current*=preScale;
-				getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,GLMotif::WidgetManager::Transformation(current));
-				}
-			break;
-			}
-		
 		case ROTATING:
 			{
 			/* Calculate the rotation position: */
@@ -695,11 +659,20 @@ void MouseNavigationTool::frame(void)
 			setNavigationTransformation(t);
 			break;
 			}
+		
+		default:
+			;
 		}
 	}
 
 void MouseNavigationTool::display(GLContextData& contextData) const
 	{
+	if(factory->interactWithWidgets)
+		{
+		/* Draw the GUI interactor's state: */
+		GUIInteractor::glRenderAction(contextData);
+		}
+	
 	if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
 		{
 		/* Save and set up OpenGL state: */

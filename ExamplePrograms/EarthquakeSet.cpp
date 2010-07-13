@@ -34,6 +34,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Threads/GzippedFileCharacterSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
+#include <Geometry/HVector.h>
 #include <Geometry/ValuedPoint.h>
 #include <Geometry/ArrayKdTree.h>
 #include <GL/gl.h>
@@ -523,14 +524,25 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 			/* Get a reference to the event in kd-tree order: */
 			const Event& e=events[treePointIndices[i]];
 			
-			/* Copy the event's time: */
-			vPtr->texCoord[0]=Vertex::TexCoord::Scalar(e.magnitude)-4.0f;
+			/* Copy the event's magnitude and time: */
+			vPtr->texCoord[0]=Vertex::TexCoord::Scalar(e.magnitude);
 			vPtr->texCoord[1]=Vertex::TexCoord::Scalar(e.time);
 			
 			/* Map the event's magnitude to color: */
 			float magnitudeMin=5.0f;
 			float magnitudeMax=9.0f;
 			const int numColors=5;
+			#if 0
+			static const Vertex::Color magColorMap[numColors]=
+				{
+				/* Reduced-saturation color map for anaglyphic viewing: */
+				Vertex::Color(96,160,96),
+				Vertex::Color(96,160,160),
+				Vertex::Color(96,96,160),
+				Vertex::Color(160,96,160),
+				Vertex::Color(160,96,96)
+				};
+			#else
 			static const Vertex::Color magColorMap[numColors]=
 				{
 				Vertex::Color(0,255,0),
@@ -539,6 +551,7 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 				Vertex::Color(255,0,255),
 				Vertex::Color(255,0,0)
 				};
+			#endif
 			if(e.magnitude<=magnitudeMin)
 				vPtr->color=magColorMap[0];
 			else if(e.magnitude>=magnitudeMax)
@@ -567,7 +580,7 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 			uniform float scaledPointRadius; \
 			uniform float highlightTime; \
 			uniform float currentTime; \
-			uniform vec3 frontSphereCenter; \
+			uniform vec4 frontSphereCenter; \
 			uniform float frontSphereRadius2; \
 			uniform bool frontSphereTest; \
 			 \
@@ -582,9 +595,10 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 					/* Transform the vertex to eye coordinates: */ \
 					vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
 					 \
-					/* Calculate point size based on vertex' eye distance along z direction: */ \
+					/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
 					float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
-					pointSize*=gl_MultiTexCoord0.x; \
+					if(gl_MultiTexCoord0.x>5.0) \
+						pointSize*=gl_MultiTexCoord0.x-4.0; \
 					 \
 					/* Adapt point size based on current time and time scale: */ \
 					float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
@@ -794,14 +808,14 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 		dataItem->pointRenderer->useProgram();
 		
 		/* Calculate the front sphere: */
-		Point frontSphereCenter=Geometry::mid(eyePos,Point::origin);
+		Geometry::HVector<Point::Scalar,3> frontSphereCenter=Geometry::mid(eyePos,Point::origin);
 		float frontSphereRadius2=Geometry::sqrDist(eyePos,Point::origin)*0.25f;
 		
 		/* Set the uniform variables: */
 		glUniform1fARB(dataItem->scaledPointRadiusLocation,pointRadius);
 		glUniform1fARB(dataItem->highlightTimeLocation,float(highlightTime));
 		glUniform1fARB(dataItem->currentTimeLocation,float(currentTime));
-		glUniform3fvARB(dataItem->frontSphereCenterLocation,1,frontSphereCenter.getComponents());
+		glUniform4fvARB(dataItem->frontSphereCenterLocation,1,frontSphereCenter.getComponents());
 		glUniform1fARB(dataItem->frontSphereRadius2Location,frontSphereRadius2);
 		glUniform1iARB(dataItem->frontSphereTestLocation,front);
 		glUniform1iARB(dataItem->pointTextureLocation,0);

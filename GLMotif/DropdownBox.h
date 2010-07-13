@@ -1,7 +1,7 @@
 /***********************************************************************
 DropdownBox - Class for labels that show one string out of a list of
 strings and allow changing the selection by choosing from a pop-up list.
-Copyright (c) 2006-2008 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -27,7 +27,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
-#include <GLMotif/Arrow.h>
+#include <GL/gl.h>
+#include <GLMotif/GlyphGadget.h>
 #include <GLMotif/Label.h>
 
 /* Forward declarations: */
@@ -80,7 +81,7 @@ class DropdownBox:public Label
 	Widget* foundChild; // Widget that responded to the last findRecipient call
 	Widget* armedChild; // Currently armed widget
 	GLfloat spacing; // Spacing between label and arrow glyph
-	Arrow arrow; // The dropdown arrow
+	GlyphGadget arrow; // The dropdown arrow
 	GLfloat popupExtrudeSize; // Amount of extrusion for the popup's hit box
 	int numItems; // Number of items in the list
 	Misc::CallbackList valueChangedCallbacks; // List of callbacks to be called when a different list item is selected
@@ -115,6 +116,7 @@ class DropdownBox:public Label
 		{
 		return numItems;
 		}
+	const Widget* getItemWidget(int item) const; // Returns the widget representing the item of the given index
 	const char* getItem(int item) const; // Returns the item of the given index
 	void addItem(const char* newItem); // Adds an item to the drop-down list
 	int getSelectedItem(void) const // Returns the index of the currently selected item

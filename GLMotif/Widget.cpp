@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -67,6 +67,10 @@ Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 
 Widget::~Widget(void)
 	{
+	/* Unmanage the widget if it is currently managed: */
+	if(isManaged)
+		getManager()->unmanageWidget(this);
+	
 	delete[] name;
 	}
 
@@ -101,17 +105,23 @@ Widget* Widget::getRoot(void)
 
 const WidgetManager* Widget::getManager(void) const
 	{
-	return parent->getManager();
+	if(parent!=0)
+		return parent->getManager();
+	else
+		return 0;
+	}
+
+WidgetManager* Widget::getManager(void)
+	{
+	if(parent!=0)
+		return parent->getManager();
+	else
+		return 0;
 	}
 
 const StyleSheet* Widget::getStyleSheet(void) const
 	{
 	return getManager()->getStyleSheet();
-	}
-
-WidgetManager* Widget::getManager(void)
-	{
-	return parent->getManager();
 	}
 
 Vector Widget::calcExteriorSize(const Vector& interiorSize) const
@@ -149,6 +159,9 @@ void Widget::resize(const Box& newExterior)
 	
 	/* Calculate the z range: */
 	zRange=calcZRange();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 Vector Widget::calcHotSpot(void) const
@@ -180,6 +193,42 @@ void Widget::setBorderType(Widget::BorderType newBorderType)
 		parent->requestResize(this,exterior.size);
 	else
 		resize(exterior);
+	}
+
+void Widget::setBorderColor(const Color& newBorderColor)
+	{
+	/* Set the border color: */
+	borderColor=newBorderColor;
+	
+	/* Update the widget: */
+	update();
+	}
+
+void Widget::setBackgroundColor(const Color& newBackgroundColor)
+	{
+	/* Set the background color: */
+	backgroundColor=newBackgroundColor;
+	
+	/* Update the widget: */
+	update();
+	}
+
+void Widget::setForegroundColor(const Color& newForegroundColor)
+	{
+	/* Set the foreground color: */
+	foregroundColor=newForegroundColor;
+	
+	/* Update the widget: */
+	update();
+	}
+
+void Widget::update(void)
+	{
+	if(parent!=0&&isManaged)
+		{
+		/* Notify the parent widget of the update: */
+		parent->update();
+		}
 	}
 
 void Widget::draw(GLContextData&) const
@@ -287,6 +336,27 @@ void Widget::pointerButtonUp(Event&)
 	}
 
 void Widget::pointerMotion(Event&)
+	{
+	/* No default action */
+	}
+
+bool Widget::giveTextFocus(void)
+	{
+	/* Default behavior is to reject focus: */
+	return false;
+	}
+
+void Widget::takeTextFocus(void)
+	{
+	/* No default action */
+	}
+
+void Widget::textEvent(const TextEvent&)
+	{
+	/* No default action */
+	}
+
+void Widget::textControlEvent(const TextControlEvent&)
 	{
 	/* No default action */
 	}

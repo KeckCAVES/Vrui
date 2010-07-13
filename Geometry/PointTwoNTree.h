@@ -1,7 +1,7 @@
 /***********************************************************************
 PointTwoNTree - Abstract class for n-dimensional spatial trees
 (quadtrees, octrees, etc.) with dynamic point insertion/removal.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -174,14 +174,8 @@ class PointTwoNTree
 
 }
 
-/***********************************************************************
-Creating standard versions of PointTwoNTree does not make much sense. We
-abuse the well-established non-standard template mechanism to create
-required instantiations on-the-fly.
-***********************************************************************/
-
 #if !defined(GEOMETRY_POINTTWONTREE_IMPLEMENTATION)
-#include <Geometry/PointTwoNTree.cpp>
+#include <Geometry/PointTwoNTree.icpp>
 #endif
 
 #endif

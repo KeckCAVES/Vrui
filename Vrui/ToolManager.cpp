@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <vector>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/HashTable.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <GLMotif/Button.h>
@@ -37,22 +38,24 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/MutexMenu.h>
-#include <Vrui/Tools/LocatorTool.h>
-#include <Vrui/Tools/DraggingTool.h>
-#include <Vrui/Tools/NavigationTool.h>
-#include <Vrui/Tools/SurfaceNavigationTool.h>
-#include <Vrui/Tools/TransformTool.h>
-#include <Vrui/Tools/UserInterfaceTool.h>
-#include <Vrui/Tools/MenuTool.h>
-#include <Vrui/Tools/InputDeviceTool.h>
-#include <Vrui/Tools/PointingTool.h>
-#include <Vrui/Tools/UtilityTool.h>
-#include <Vrui/ToolKillZone.h>
-#include <Vrui/ToolKillZoneBox.h>
-#include <Vrui/ToolKillZoneFrustum.h>
+#include <Vrui/LocatorTool.h>
+#include <Vrui/DraggingTool.h>
+#include <Vrui/NavigationTool.h>
+#include <Vrui/SurfaceNavigationTool.h>
+#include <Vrui/TransformTool.h>
+#include <Vrui/UserInterfaceTool.h>
+#include <Vrui/MenuTool.h>
+#include <Vrui/InputDeviceTool.h>
+#include <Vrui/PointingTool.h>
+#include <Vrui/UtilityTool.h>
+#include <Vrui/Internal/ToolKillZone.h>
+#include <Vrui/Internal/ToolKillZoneBox.h>
+#include <Vrui/Internal/ToolKillZoneFrustum.h>
 #include <Vrui/Vrui.h>
 
 #include <Vrui/ToolManager.h>
+
+#define DEBUGGING 0
 
 namespace Vrui {
 
@@ -298,6 +301,10 @@ Tool* ToolManager::assignToolSelectionTool(ToolManager::ToolAssignmentSlot& tas)
 		if(newTool==0)
 			Misc::throwStdErr("ToolManager: Tool selection tool class is not a MenuTool");
 		
+		#if DEBUGGING
+		std::cout<<"Assigning tool selection tool "<<newTool<<" to button "<<tas.slotIndex<<" on device "<<tas.device<<std::endl;
+		#endif
+		
 		/* Mark button assignment: */
 		tas.assigned=false;
 		tas.tool=newTool;
@@ -341,6 +348,10 @@ void ToolManager::assignToolSelectionTools(void)
 
 void ToolManager::destroyTool(Tool* tool)
 	{
+	#if DEBUGGING
+	std::cout<<"Destroying tool "<<tool<<std::endl;
+	#endif
+	
 	/* De-initialize the tool: */
 	tool->deinitialize();
 	
@@ -369,6 +380,13 @@ void ToolManager::unassignTool(Tool* tool)
 	for(ToolAssignmentSlotList::iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
 		if(tasIt->tool==tool)
 			{
+			#if DEBUGGING
+			if(tasIt->slotType==ToolAssignmentSlot::BUTTON)
+				std::cout<<"Unassigning tool "<<tasIt->tool<<" from button "<<tasIt->slotIndex<<" on input device "<<tasIt->device<<std::endl;
+			else if(tasIt->slotType==ToolAssignmentSlot::VALUATOR)
+				std::cout<<"Unassigning tool "<<tasIt->tool<<" from valuator "<<tasIt->slotIndex<<" on input device "<<tasIt->device<<std::endl;
+			#endif
+			
 			/* Unassign the tool from the input device/button/valuator combination: */
 			tasIt->assigned=false;
 			tasIt->tool=0;
@@ -379,6 +397,10 @@ void ToolManager::inputDeviceCreationCallback(Misc::CallbackData* cbData)
 	{
 	/* Get pointer to the new device: */
 	InputDevice* newDevice=static_cast<InputDeviceManager::InputDeviceCreationCallbackData*>(cbData)->inputDevice;
+	
+	#if DEBUGGING
+	std::cout<<"Creating tools for input device "<<newDevice<<std::endl;
+	#endif
 	
 	/* Create tool assignment slots for the new input device: */
 	for(int i=0;i<newDevice->getNumButtons();++i)
@@ -413,33 +435,35 @@ void ToolManager::inputDeviceCreationCallback(Misc::CallbackData* cbData)
 
 void ToolManager::inputDeviceDestructionCallback(Misc::CallbackData* cbData)
 	{
-	/* Get pointer to the new device: */
+	/* Get pointer to the device to be destroyed: */
 	InputDevice* device=static_cast<InputDeviceManager::InputDeviceDestructionCallbackData*>(cbData)->inputDevice;
 	
+	#if DEBUGGING
+	std::cout<<"Destroying tools for input device "<<device<<std::endl;
+	#endif
+	
 	/* Create temporary lists of tools and assignment slots that need to be destroyed: */
-	std::vector<Tool*> destroyTools;
+	Misc::HashTable<Tool*,void> destroyTools(17);
 	std::vector<ToolAssignmentSlotList::iterator> destroySlotIterators;
 	for(ToolAssignmentSlotList::iterator tasIt=toolAssignmentSlots.begin();tasIt!=toolAssignmentSlots.end();++tasIt)
 		if(tasIt->device==device)
 			{
 			if(tasIt->tool!=0)
-				destroyTools.push_back(tasIt->tool);
+				destroyTools.setEntry(Misc::HashTable<Tool*,void>::Entry(tasIt->tool));
 			destroySlotIterators.push_back(tasIt);
 			}
 	
-	/* Destroy all tools in the temporary list: */
-	for(std::vector<Tool*>::iterator tIt=destroyTools.begin();tIt!=destroyTools.end();++tIt)
-		{
-		/* Unassign the tool from its slots: */
-		unassignTool(*tIt);
-		
-		/* Destroy the tool: */
-		destroyTool(*tIt);
-		}
+	/* Unassign gathered tools: */
+	for(Misc::HashTable<Tool*,void>::Iterator tIt=destroyTools.begin();!tIt.isFinished();++tIt)
+		unassignTool(tIt->getSource());
 	
-	/* Destroy all tool assignment slots that belong to the destroyed device: */
+	/* Destroy gathered tool assignment slots: */
 	for(std::vector<ToolAssignmentSlotList::iterator>::iterator tasItIt=destroySlotIterators.begin();tasItIt!=destroySlotIterators.end();++tasItIt)
 		toolAssignmentSlots.erase(*tasItIt);
+	
+	/* Destroy gathered tools: */
+	for(Misc::HashTable<Tool*,void>::Iterator tIt=destroyTools.begin();!tIt.isFinished();++tIt)
+		destroyTool(tIt->getSource());
 	
 	/* Assign tool selection tools to all slots that have become unassigned: */
 	assignToolSelectionTools();
@@ -686,6 +710,9 @@ Tool* ToolManager::assignTool(ToolFactory* factory,const ToolInputAssignment& ti
 						destroyTool(tasIt->tool);
 					
 					/* Assign the new tool to the assignment slot: */
+					#if DEBUGGING
+					std::cout<<"Assigning tool "<<newTool<<" to button "<<tasIt->slotIndex<<" on device "<<tasIt->device<<std::endl;
+					#endif
 					tasIt->assigned=true;
 					tasIt->tool=newTool;
 					break;
@@ -704,6 +731,9 @@ Tool* ToolManager::assignTool(ToolFactory* factory,const ToolInputAssignment& ti
 						destroyTool(tasIt->tool);
 					
 					/* Assign the new tool to the assignment slot: */
+					#if DEBUGGING
+					std::cout<<"Assigning tool "<<newTool<<" to valuator "<<tasIt->slotIndex<<" on device "<<tasIt->device<<std::endl;
+					#endif
 					tasIt->assigned=true;
 					tasIt->tool=newTool;
 					break;
@@ -849,6 +879,10 @@ void ToolManager::update(void)
 			{
 			case ToolManagementQueueItem::CREATE_TOOL:
 				{
+				#if DEBUGGING
+				std::cout<<"Creating new tool of class "<<tmqIt->createToolFactory->getName()<<std::endl;
+				#endif
+				
 				/* Create the new tool: */
 				assignTool(tmqIt->createToolFactory,*tmqIt->tia);
 				
@@ -863,6 +897,10 @@ void ToolManager::update(void)
 				
 				if(tool!=0)
 					{
+					#if DEBUGGING
+					std::cout<<"Destroying tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
+					#endif
+					
 					/* Unassign and destroy the tool currently assigned to the slot: */
 					unassignTool(tool);
 					destroyTool(tool);

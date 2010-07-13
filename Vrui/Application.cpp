@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,11 +32,6 @@ namespace Vrui {
 Methods of class Application:
 ****************************/
 
-void Application::initSoundWrapper(ALContextData& contextData,void* userData)
-	{
-	static_cast<Application*>(userData)->initSound(contextData);
-	}
-
 void Application::frameWrapper(void* userData)
 	{
 	static_cast<Application*>(userData)->frame();
@@ -52,13 +47,7 @@ void Application::soundWrapper(ALContextData& contextData,void* userData)
 	static_cast<Application*>(userData)->sound(contextData);
 	}
 
-void Application::enableSound(void)
-	{
-	useSound=true;
-	}
-
 Application::Application(int& argc,char**& argv,char**& appDefaults)
-	:useSound(false)
 	{
 	/* Initialize Vrui: */
 	init(argc,argv,appDefaults);
@@ -90,15 +79,6 @@ void Application::run(void)
 	setDisplayFunction(displayWrapper,this);
 	setSoundFunction(soundWrapper,this);
 	
-	/* Start the display: */
-	startDisplay(0,0);
-	
-	#ifdef VRUI_USE_OPENAL
-	/* Start the sound renderer if requested: */
-	if(useSound)
-		startSound(initSoundWrapper,this);
-	#endif
-	
 	/* Run the Vrui main loop: */
 	mainLoop();
 	}
@@ -115,10 +95,6 @@ void Application::toolCreationCallback(ToolManager::ToolCreationCallbackData* cb
 	}
 
 void Application::toolDestructionCallback(ToolManager::ToolDestructionCallbackData*)
-	{
-	}
-
-void Application::initSound(ALContextData&) const
 	{
 	}
 

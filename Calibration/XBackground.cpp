@@ -297,7 +297,7 @@ void redraw(const WindowState& ws,int winOriginX,int winOriginY,int winWidth,int
 	if(ws.image!=0)
 		{
 		/* Draw the image: */
-		XPutImage(ws.display,ws.window,ws.gc,ws.image,winOriginX,winOriginY,winOriginX,winOriginY,winWidth,winHeight);
+		XPutImage(ws.display,ws.window,ws.gc,ws.image,0,0,winOriginX,winOriginY,winWidth,winHeight);
 		}
 	else
 		{
@@ -450,7 +450,7 @@ int main(int argc,char* argv[])
 			}
 		}
 	
-	unsigned long stereoColors[2]={0x00ff00,0xff00ff};
+	unsigned long stereoColors[2]={0x00df00,0xff20ff};
 	
 	/* Process X events: */
 	bool goOn=true;

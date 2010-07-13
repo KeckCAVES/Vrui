@@ -25,10 +25,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_MEASUREMENTTOOL_INCLUDED
 
 #include <string>
+#include <GLMotif/TextField.h>
 #include <GLMotif/RadioBox.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/CoordinateManager.h>
-#include <Vrui/Tools/UtilityTool.h>
+#include <Vrui/UtilityTool.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -37,7 +38,6 @@ class File;
 namespace GLMotif {
 class PopupWindow;
 class Label;
-class TextField;
 class RowColumn;
 }
 
@@ -101,7 +101,7 @@ class MeasurementTool:public UtilityTool
 	
 	/* Transient state: */
 	int numPoints; // The number of selected measurement points
-	Point points[3]; // The two measurement points
+	Point points[3]; // The up to three measurement points
 	bool dragging; // Flag if the tool is currently dragging one of its measurement points
 	
 	/* Private methods: */
@@ -109,6 +109,7 @@ class MeasurementTool:public UtilityTool
 	void updateUnits(void); // Updates the units displayed in the measurement dialogs
 	void changeMeasurementModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
 	void changeCoordinateModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
+	void posTextFieldLayoutChangedCallback(GLMotif::TextField::LayoutChangedCallbackData* cbData);
 	void coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData);
 	void printPosition(Misc::File& file,const Point& pos) const;
 	

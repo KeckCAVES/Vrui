@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2009 Oliver Kreylos
+# Copyright (c) 2003-2010 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # same setting in Vrui's makefile. By default the directories match; if
 # the installation directory was adjusted during Vrui's installation, it
 # must be adjusted here as well.
-VRUIDIR = $(HOME)/Vrui-1.0
+VRUIDIR = $(HOME)/Vrui-2.0
 
 # Base installation directory for the example programs. If this is set
 # to the default of $(PWD), the example programs do not have to be
@@ -62,18 +62,19 @@ endif
 
 # Pattern rule to compile C++ sources:
 $(OBJDIR)/%.o: %.cpp
-	@mkdir -p $(OBJDIR)//$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
 	@echo Compiling $<...
 	@g++ -c -o $@ $(VRUI_CFLAGS) $(CFLAGS) $<
 
 # Pattern rule to link executables:
-$(BINDIR)/%: o/%.o
+$(BINDIR)/%: $(OBJDIR)/%.o
 	@mkdir -p $(BINDIR)
 	@echo Linking $@...
 	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
 	
 # List all project targets:
 ALL = $(BINDIR)/VruiDemo \
+      $(BINDIR)/VruiDemoSmall \
       $(BINDIR)/VruiLocatorDemo \
       $(BINDIR)/VruiCustomToolDemo \
       $(BINDIR)/VruiCalibrator \
@@ -81,7 +82,8 @@ ALL = $(BINDIR)/VruiDemo \
       $(BINDIR)/Jello \
       $(BINDIR)/ClusterJello \
       $(BINDIR)/SharedJelloServer \
-      $(BINDIR)/SharedJello
+      $(BINDIR)/SharedJello \
+      $(BINDIR)/VruiSoundTest
 
 .PHONY: all
 all: $(ALL)
@@ -99,6 +101,8 @@ distclean:
 
 # List all build rules:
 $(BINDIR)/VruiDemo: $(OBJDIR)/VruiDemo.o
+
+$(BINDIR)/VruiDemoSmall: $(OBJDIR)/VruiDemoSmall.o
 
 $(BINDIR)/VruiLocatorDemo: $(OBJDIR)/VruiLocatorDemo.o
 
@@ -133,6 +137,8 @@ $(BINDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
                        $(OBJDIR)/JelloCrystal.o \
                        $(OBJDIR)/JelloRenderer.o \
                        $(OBJDIR)/SharedJello.o
+
+$(BINDIR)/VruiSoundTest: $(OBJDIR)/VruiSoundTest.o
 
 # Rule to install the example programs in a destination directory
 install: $(ALL)

@@ -34,7 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/RadioBox.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
@@ -320,7 +320,7 @@ MouseDialogNavigationTool::MouseDialogNavigationTool(const ToolFactory* factory,
 	navigationDialog->manageChild();
 	
 	/* Pop up the navigation dialog: */
-	popupPrimaryWidget(navigationDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(navigationDialogPopup);
 	}
 
 MouseDialogNavigationTool::~MouseDialogNavigationTool(void)

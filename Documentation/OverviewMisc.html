@@ -23,6 +23,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>SelfDestructPointer.h</DT>
 <DD>A simple wrapper class around regular pointers that destroys a new()-created object when the pointer object goes out of scope. Light-weight alternative to Misc::AutoPointer to temporarily hold dynamically-allocated objects in contexts when an exception or other error handling might exit the current scope unexpectedly.</DD>
 
+<DT>SelfDestructArray.h</DT>
+<DD>Companion to Misc::SelfDestructPointer for new[]-allocated arrays of objects.</DD>
+
 <DT>RefCounted.h</DT>
 <DD>RefCounted is a base class for reference-counted objects to implement simple automatic garbage collection. It works closely with the Autopointer class.</DD>
 

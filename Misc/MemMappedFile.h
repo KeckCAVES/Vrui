@@ -77,7 +77,7 @@ class MemMappedFile
 	void readRaw(void* buffer,size_t size)
 		{
 		/* Check if the memory block contains enough data: */
-		if(blockEnd-ioPtr<size)
+		if(ioPtr+size>blockEnd)
 			throw ReadError(size,blockEnd-ioPtr);
 		
 		/* Copy data from the memory block: */
@@ -91,7 +91,7 @@ class MemMappedFile
 			throw WriteError(size,0);
 		
 		/* Check if the memory block can hold enough data: */
-		if(blockEnd-ioPtr<size)
+		if(ioPtr+size>blockEnd)
 			throw WriteError(size,blockEnd-ioPtr);
 		
 		/* Copy data into the memory block: */
@@ -241,7 +241,7 @@ class MemMappedFile
 		{
 		size_t numReadItems=numItems;
 		size_t readSize=numReadItems*sizeof(DataParam);
-		if(readSize>blockEnd-ioPtr)
+		if(ioPtr+readSize>blockEnd)
 			{
 			numReadItems=(blockEnd-ioPtr)/sizeof(DataParam);
 			readSize=numReadItems*sizeof(DataParam);

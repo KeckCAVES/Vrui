@@ -31,12 +31,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Vrui/InputGraphManager.h>
-#include <Vrui/InputDeviceAdapter.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
-#include <Vrui/InputDeviceAdapterDeviceDaemon.h>
-#include <Vrui/InputDeviceAdapterVisBox.h>
-#include <Vrui/InputDeviceAdapterHID.h>
-#include <Vrui/InputDeviceAdapterPlayback.h>
+#include <Vrui/Internal/InputDeviceAdapter.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
+#include <Vrui/Internal/InputDeviceAdapterVisBox.h>
+#ifdef __LINUX__
+#include <Vrui/Internal/Linux/InputDeviceAdapterHID.h>
+#endif
+#ifdef __DARWIN__
+#include <Vrui/Internal/MacOSX/InputDeviceAdapterHID.h>
+#endif
+#include <Vrui/Internal/InputDeviceAdapterPlayback.h>
 
 #include <Vrui/InputDeviceManager.h>
 

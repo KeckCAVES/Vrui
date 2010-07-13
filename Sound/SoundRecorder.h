@@ -36,7 +36,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #endif
 #include <Sound/SoundDataFormat.h>
 #ifdef SOUND_USE_ALSA
-#include <Sound/ALSAPCMDevice.h>
+#include <Sound/Linux/ALSAPCMDevice.h>
 #endif
 
 namespace Sound {
