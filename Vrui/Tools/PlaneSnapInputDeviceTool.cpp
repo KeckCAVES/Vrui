@@ -1,7 +1,7 @@
 /***********************************************************************
 PlaneSnapInputDeviceTool - Class for tools that snap a virtual input
 device to a plane defined by three points.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,9 +32,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
+#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -44,10 +44,12 @@ Methods of class PlaneSnapInputDeviceToolFactory:
 
 PlaneSnapInputDeviceToolFactory::PlaneSnapInputDeviceToolFactory(ToolManager& toolManager)
 	:ToolFactory("PlaneSnapInputDeviceTool",toolManager),
+	 useRaySelection(true),
 	 markerSize(getUiSize())
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* inputDeviceToolFactory=toolManager.loadClass("InputDeviceTool");
@@ -56,6 +58,7 @@ PlaneSnapInputDeviceToolFactory::PlaneSnapInputDeviceToolFactory(ToolManager& to
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	useRaySelection=cfs.retrieveValue<bool>("./useRaySelection",useRaySelection);
 	markerSize=cfs.retrieveValue<Scalar>("./markerSize",markerSize);
 	
 	/* Set tool class' factory pointer: */
@@ -71,11 +74,6 @@ PlaneSnapInputDeviceToolFactory::~PlaneSnapInputDeviceToolFactory(void)
 const char* PlaneSnapInputDeviceToolFactory::getName(void) const
 	{
 	return "Plane Snapper";
-	}
-
-const char* PlaneSnapInputDeviceToolFactory::getButtonFunction(int) const
-	{
-	return "Grab Device / Select Points";
 	}
 
 Tool* PlaneSnapInputDeviceToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -125,8 +123,6 @@ PlaneSnapInputDeviceTool::PlaneSnapInputDeviceTool(const ToolFactory* sFactory,c
 	:InputDeviceTool(sFactory,inputAssignment),
 	 numSelectedPoints(0),draggingPoint(false)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* PlaneSnapInputDeviceTool::getFactory(void) const
@@ -134,20 +130,20 @@ const ToolFactory* PlaneSnapInputDeviceTool::getFactory(void) const
 	return factory;
 	}
 
-void PlaneSnapInputDeviceTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void PlaneSnapInputDeviceTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Try activating the tool: */
-		if(interactionDevice->isRayDevice())
+		if(factory->useRaySelection)
 			{
 			/* Pick a virtual input device using ray selection: */
-			activate(calcInteractionRay());
+			activate(getDeviceRay(0));
 			}
 		else
 			{
 			/* Pick a virtual input device using point selection: */
-			activate(getInteractionPosition());
+			activate(getDevicePosition(0));
 			}
 		
 		/* Check if the tool was activated: */
@@ -157,7 +153,7 @@ void PlaneSnapInputDeviceTool::buttonCallback(int,InputDevice::ButtonCallbackDat
 			if(numSelectedPoints==3)
 				{
 				/* Snap the selected virtual input device to the plane defined by the three selected points: */
-				Vector y=(selectedPoints[1]-selectedPoints[0])^(selectedPoints[2]-selectedPoints[0]);
+				Vector y=Geometry::cross(selectedPoints[1]-selectedPoints[0],selectedPoints[2]-selectedPoints[0]);
 				Scalar offset=(selectedPoints[0]*y+selectedPoints[1]*y+selectedPoints[2]*y)/Scalar(3);
 				Vector x=Geometry::normal(y);
 				Point devicePos=getInverseNavigationTransformation().transform(getGrabbedDevice()->getPosition());
@@ -192,7 +188,7 @@ void PlaneSnapInputDeviceTool::frame(void)
 	if(draggingPoint)
 		{
 		/* Set the position of the currently dragged point: */
-		selectedPoints[numSelectedPoints-1]=getInverseNavigationTransformation().transform(getInteractionPosition());
+		selectedPoints[numSelectedPoints-1]=getInverseNavigationTransformation().transform(getDevicePosition(0));
 		}
 	}
 
@@ -206,6 +202,7 @@ void PlaneSnapInputDeviceTool::display(GLContextData& contextData) const
 			glDisable(GL_LIGHTING);
 		GLfloat lineWidth;
 		glGetFloatv(GL_LINE_WIDTH,&lineWidth);
+		glLineWidth(1.0f);
 		
 		/* Calculate the marker size: */
 		Scalar markerSize=factory->markerSize;
@@ -223,11 +220,10 @@ void PlaneSnapInputDeviceTool::display(GLContextData& contextData) const
 			fgColor[i]=1.0f-bgColor[i];
 		fgColor[3]=bgColor[3];
 		
+		glColor(fgColor);
+		glBegin(GL_LINES);
 		
 		/* Mark all measurement points: */
-		glLineWidth(3.0f);
-		glBegin(GL_LINES);
-		glColor(bgColor);
 		for(int i=0;i<numSelectedPoints;++i)
 			{
 			glVertex(selectedPoints[i][0]-markerSize,selectedPoints[i][1],selectedPoints[i][2]);
@@ -237,19 +233,7 @@ void PlaneSnapInputDeviceTool::display(GLContextData& contextData) const
 			glVertex(selectedPoints[i][0],selectedPoints[i][1],selectedPoints[i][2]-markerSize);
 			glVertex(selectedPoints[i][0],selectedPoints[i][1],selectedPoints[i][2]+markerSize);
 			}
-		glEnd();
-		glLineWidth(1.0f);
-		glBegin(GL_LINES);
-		glColor(fgColor);
-		for(int i=0;i<numSelectedPoints;++i)
-			{
-			glVertex(selectedPoints[i][0]-markerSize,selectedPoints[i][1],selectedPoints[i][2]);
-			glVertex(selectedPoints[i][0]+markerSize,selectedPoints[i][1],selectedPoints[i][2]);
-			glVertex(selectedPoints[i][0],selectedPoints[i][1]-markerSize,selectedPoints[i][2]);
-			glVertex(selectedPoints[i][0],selectedPoints[i][1]+markerSize,selectedPoints[i][2]);
-			glVertex(selectedPoints[i][0],selectedPoints[i][1],selectedPoints[i][2]-markerSize);
-			glVertex(selectedPoints[i][0],selectedPoints[i][1],selectedPoints[i][2]+markerSize);
-			}
+		
 		glEnd();
 		
 		/* Restore OpenGL state: */

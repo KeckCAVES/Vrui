@@ -2,7 +2,7 @@
 UnorderedTuple - Class for unordered tuples; intended to be used as hash
 table keys. Implemented by sorting tuple elements. The element type must
 be a signed or unsigned integer type.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -24,8 +24,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #ifndef MISC_UNORDEREDTUPLE_INCLUDED
 #define MISC_UNORDEREDTUPLE_INCLUDED
-
-#include <stddef.h>
 
 namespace Misc {
 

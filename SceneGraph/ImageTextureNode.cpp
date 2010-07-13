@@ -1,6 +1,6 @@
 /***********************************************************************
 ImageTextureNode - Class for textures loaded from external image files.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
-#include <Images/RGBAImage.h>
+#include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
@@ -112,10 +112,10 @@ void ImageTextureNode::setGLState(GLRenderState& renderState) const
 		if(dataItem->version!=version)
 			{
 			/* Load the texture image: */
-			Images::RGBAImage texture=Images::readTransparentImageFile(url.getValue(0).c_str());
+			Images::RGBImage texture=Images::readImageFile(url.getValue(0).c_str());
 			
 			/* Upload the texture image: */
-			texture.glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,false);
+			texture.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB8,false);
 			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
 			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
 			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);

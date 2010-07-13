@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBShaderObjects - OpenGL extension class for the
 GL_ARB_shader_objects extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2008 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -24,16 +24,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define GLEXTENSIONS_GLARBSHADEROBJECTS_INCLUDED
 
 #include <stddef.h>
-#include <stdarg.h>
 #include <vector>
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>
 #include <GL/Extensions/GLExtension.h>
-
-/* Forward declarations: */
-namespace IO {
-class File;
-}
 
 /********************************
 Extension-specific parts of gl.h:
@@ -455,13 +449,8 @@ Helper functions;
 ****************/
 
 void glCompileShaderFromString(GLhandleARB shaderObject,const char* shaderSource); // Compiles a shader from a C-style string; throws exception on errors
-void glCompileShaderFromStrings(GLhandleARB shaderObject,size_t numShaderSources,va_list ap); // Compiles a shader from a list of C-style strings; throws exception on errors
-void glCompileShaderFromStrings(GLhandleARB shaderObject,size_t numShaderSources,...); // Ditto, using variable number of arguments
-void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads and compiles shader from source file of given name; throws exception on errors
-void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName,IO::File& shaderSourceFile); // Ditto, with already-opened IO::File object
+void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads and compiles shader from source file; throws exception on errors
 GLhandleARB glLinkShader(const std::vector<GLhandleARB>& shaderObjects); // Links the given list of vertex and/or fragment shaders into a new shader program and returns its handle; throws exception on errors
-GLhandleARB glLinkShader(size_t numShaderObjects,va_list ap); // Links the given list of vertex and/or fragment shaders into a new shader program and returns its handle; throws exception on errors
-GLhandleARB glLinkShader(size_t numShaderObjects,...); // Ditto, using variable number of arguments
 GLhandleARB glLinkShader(GLhandleARB vertexShaderObject,GLhandleARB fragmentShaderObject); // Links one vertex shader and one fragment shader into a new shader program and returns its handle; throws exception on errors
 
 #endif

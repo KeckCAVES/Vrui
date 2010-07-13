@@ -39,30 +39,33 @@ class GenericToolFactory:public ToolFactory
 	/* Elements: */
 	private:
 	std::string displayName; // Display name for tools of this class
-	std::string* buttonFunctions; // Array of function descriptions for buttons of tools of this class
-	std::string* valuatorFunctions; // Array of function descriptions for valuators of tools of this class
 	
 	/* Constructors and destructors: */
 	public:
-	GenericToolFactory(const char* sClassName,const char* sDisplayName,ToolFactory* parentClass,ToolManager& toolManager); // Creates tool factory with basic settings
-	private:
-	GenericToolFactory(const GenericToolFactory& source); // Prohibit copy constructor
-	GenericToolFactory& operator=(const GenericToolFactory& source); // Prohibit assignment operator
-	public:
-	virtual ~GenericToolFactory(void); // Destroys the tool factory
+	GenericToolFactory(const char* sClassName,const char* sDisplayName,ToolFactory* parentClass,ToolManager& toolManager)
+		:ToolFactory(sClassName,toolManager),
+		 displayName(sDisplayName)
+		{
+		/* Add the tool factory to the class hierarchy: */
+		if(parentClass!=0)
+			{
+			parentClass->addChildClass(this);
+			addParentClass(parentClass);
+			}
+		
+		/* Set the tool class' factory pointer: */
+		CreatedTool::factory=this;
+		}
+	~GenericToolFactory(void)
+		{
+		/* Reset the tool class' factory pointer: */
+		CreatedTool::factory=0;
+		}
 	
-	/* Methods from ToolFactory: */
+	/* Methods: */
 	virtual const char* getName(void) const
 		{
 		return displayName.c_str();
-		}
-	virtual const char* getButtonFunction(int buttonSlotIndex) const
-		{
-		return buttonFunctions[buttonSlotIndex].c_str();
-		}
-	virtual const char* getValuatorFunction(int valuatorSlotIndex) const
-		{
-		return valuatorFunctions[valuatorSlotIndex].c_str();
 		}
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const
 		{
@@ -72,24 +75,20 @@ class GenericToolFactory:public ToolFactory
 		{
 		delete tool;
 		}
-	
-	/* New methods: */
-	void setNumButtons(int newNumButtons,bool newOptionalButtons =false); // Allows clients to override the tool class' layout
-	void setNumValuators(int newNumValuators,bool newOptionalValuators =false); // Allows clients to override the tool class' layout
-	void setButtonFunction(int buttonSlot,const char* newButtonFunction) // Allows clients to set button descriptions
+	void setNumDevices(int newNumDevices)
 		{
-		buttonFunctions[buttonSlot]=newButtonFunction;
+		layout.setNumDevices(newNumDevices);
 		}
-	void setValuatorFunction(int valuatorSlot,const char* newValuatorFunction) // Allows clients to set valuator descriptions
+	void setNumButtons(int deviceIndex,int newNumButtons)
 		{
-		valuatorFunctions[valuatorSlot]=newValuatorFunction;
+		layout.setNumButtons(deviceIndex,newNumButtons);
+		}
+	void setNumValuators(int deviceIndex,int newNumValuators)
+		{
+		layout.setNumValuators(deviceIndex,newNumValuators);
 		}
 	};
 
 }
-
-#ifndef VRUI_GENERICTOOLFACTORY_IMPLEMENTATION
-#include <Vrui/GenericToolFactory.icpp>
-#endif
 
 #endif

@@ -2,7 +2,7 @@
 GeodeticToCartesianTransformNode - Point transformation class to convert
 geodetic coordinates (longitude/latitude/altitude on a reference
 ellipsoid) to Cartesian coordinates.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -39,8 +39,7 @@ GeodeticToCartesianTransformNode::GeodeticToCartesianTransformNode(void)
 	:longitudeFirst(true),
 	 degrees(false),
 	 colatitude(false),
-	 geodetic(Point::origin),
-	 translateOnly(false)
+	 geodetic(Point::origin)
 	{
 	}
 
@@ -76,10 +75,6 @@ void GeodeticToCartesianTransformNode::parseField(const char* fieldName,VRMLFile
 		{
 		vrmlFile.parseField(geodetic);
 		}
-	else if(strcmp(fieldName,"translateOnly")==0)
-		{
-		vrmlFile.parseField(translateOnly);
-		}
 	else
 		GroupNode::parseField(fieldName,vrmlFile);
 	}
@@ -107,17 +102,8 @@ void GeodeticToCartesianTransformNode::update(void)
 	g[2]=ReferenceEllipsoidNode::Geoid::Scalar(geodetic.getValue()[2]);
 	
 	/* Calculate the current transformation: */
-	if(translateOnly.getValue())
-		{
-		/* Calculate a translation from the origin to the given point in geodetic coordinates: */
-		transform=OGTransform::translateFromOriginTo(referenceEllipsoid.getValue()->getRE().geodeticToCartesian(g));
-		}
-	else
-		{
-		/* Calculate the full reference frame transformation: */
-		ReferenceEllipsoidNode::Geoid::Frame frame=referenceEllipsoid.getValue()->getRE().geodeticToCartesianFrame(g);
-		transform=OGTransform(frame.getTranslation(),frame.getRotation(),referenceEllipsoid.getValue()->scale.getValue());
-		}
+	ReferenceEllipsoidNode::Geoid::Frame frame=referenceEllipsoid.getValue()->getRE().geodeticToCartesianFrame(g);
+	transform=OGTransform(frame.getTranslation(),frame.getRotation(),referenceEllipsoid.getValue()->scale.getValue());
 	}
 
 Box GeodeticToCartesianTransformNode::calcBoundingBox(void) const
@@ -142,7 +128,7 @@ Box GeodeticToCartesianTransformNode::calcBoundingBox(void) const
 void GeodeticToCartesianTransformNode::glRenderAction(GLRenderState& renderState) const
 	{
 	/* Push the transformation onto the matrix stack: */
-	GLRenderState::DOGTransform previousTransform=renderState.pushTransform(transform);
+	OGTransform previousTransform=renderState.pushTransform(transform);
 	
 	/* Call the render actions of all children in order: */
 	for(MFGraphNode::ValueList::const_iterator chIt=children.getValues().begin();chIt!=children.getValues().end();++chIt)

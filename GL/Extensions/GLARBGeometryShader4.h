@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBGeometryShader4 - OpenGL extension class for the
 GL_ARB_geometry_shader4 extension.
-Copyright (c) 2007-2012 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2009 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -23,16 +23,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLEXTENSIONS_GLARBGEOMETRYSHADER4_INCLUDED
 #define GLEXTENSIONS_GLARBGEOMETRYSHADER4_INCLUDED
 
-#include <stddef.h>
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>
 #include <GL/Extensions/GLExtension.h>
 #include <GL/Extensions/GLARBShaderObjects.h>
-
-/* Forward declarations: */
-namespace IO {
-class File;
-}
 
 /********************************
 Extension-specific parts of gl.h:
@@ -123,8 +117,6 @@ Helper functions:
 ****************/
 
 GLhandleARB glCompileARBGeometryShader4FromString(const char* shaderSource); // Compiles a new geometry shader object from a C-style string; throws exception on errors
-GLhandleARB glCompileARBGeometryShader4FromStrings(size_t numShaderSources,...); // Compiles a new geometry shader object from a C-style string; throws exception on errors
 GLhandleARB glCompileARBGeometryShader4FromFile(const char* shaderSourceFileName); // Compiles a new geometry shader object from a source file; throws exception on errors
-GLhandleARB glCompileARBGeometryShader4FromFile(const char* shaderSourceFileName,IO::File& shaderSourceFile); // Ditto, with already-opened IO::File object
 
 #endif

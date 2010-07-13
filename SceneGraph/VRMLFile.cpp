@@ -1,7 +1,7 @@
 /***********************************************************************
 VRMLFile - Class to represent a VRML 2.0 file and state required to
 parse its contents.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <Misc/StringPrintf.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/CharacterSource.h>
 #include <Geometry/ComponentArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -112,9 +113,6 @@ void parseRoute(VRMLFile& vrmlFile)
 		{
 		throw VRMLFile::ParseError(vrmlFile,"mismatching field types in route definition");
 		}
-	
-	/* For now, just delete the route again: */
-	delete route;
 	}
 
 /********************************************************************
@@ -262,27 +260,27 @@ class ValueParser<Size>
 		}
 	};
 
-template <class ScalarParam>
-class ValueParser<Geometry::Point<ScalarParam,3> >
+template <>
+class ValueParser<Point>
 	{
 	/* Methods: */
 	public:
-	static Geometry::Point<ScalarParam,3> parseValue(VRMLFile& vrmlFile)
+	static Point parseValue(VRMLFile& vrmlFile)
 		{
-		Geometry::Point<ScalarParam,3> result;
+		Point result;
 		parseComponentArray(result,vrmlFile);
 		return result;
 		}
 	};
 
-template <class ScalarParam>
-class ValueParser<Geometry::Vector<ScalarParam,3> >
+template <>
+class ValueParser<Vector>
 	{
 	/* Methods: */
 	public:
-	static Geometry::Vector<ScalarParam,3> parseValue(VRMLFile& vrmlFile)
+	static Vector parseValue(VRMLFile& vrmlFile)
 		{
-		Geometry::Vector<ScalarParam,3> result;
+		Vector result;
 		parseComponentArray(result,vrmlFile);
 		return result;
 		}
@@ -497,11 +495,10 @@ VRMLFile::ParseError::ParseError(const VRMLFile& vrmlFile,std::string error)
 Methods of class VRMLFile:
 *************************/
 
-VRMLFile::VRMLFile(std::string sSourceUrl,IO::FilePtr sSource,NodeCreator& sNodeCreator,Cluster::Multiplexer* sMultiplexer)
-	:IO::TokenSource(sSource),
+VRMLFile::VRMLFile(std::string sSourceUrl,Misc::CharacterSource& sSource,NodeCreator& sNodeCreator)
+	:Misc::TokenSource(sSource),
 	 sourceUrl(sSourceUrl),
 	 nodeCreator(sNodeCreator),
-	 multiplexer(sMultiplexer),
 	 nodeMap(101),
 	 currentLine(1)
 	{
@@ -511,16 +508,16 @@ VRMLFile::VRMLFile(std::string sSourceUrl,IO::FilePtr sSource,NodeCreator& sNode
 	setQuotes("\"\'");
 	
 	/* Check the VRML file header: */
-	IO::TokenSource::readNextToken();
+	TokenSource::readNextToken();
 	if(!isToken("#"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
-	IO::TokenSource::readNextToken();
+	TokenSource::readNextToken();
 	if(!isToken("VRML"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
-	IO::TokenSource::readNextToken();
+	TokenSource::readNextToken();
 	if(!isToken("V2.0"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
-	IO::TokenSource::readNextToken();
+	TokenSource::readNextToken();
 	if(!isToken("utf8"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
 	
@@ -629,9 +626,5 @@ template void VRMLFile::parseField(MFNode&);
 
 template void VRMLFile::parseField(SF<double>&);
 template void VRMLFile::parseField(MF<double>&);
-template void VRMLFile::parseField(SF<Geometry::Point<double,3> >&);
-template void VRMLFile::parseField(MF<Geometry::Point<double,3> >&);
-template void VRMLFile::parseField(SF<Geometry::Vector<double,3> >&);
-template void VRMLFile::parseField(MF<Geometry::Vector<double,3> >&);
 
 }

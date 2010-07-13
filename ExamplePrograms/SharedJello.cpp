@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -28,7 +28,6 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdexcept>
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
-#include <Cluster/OpenPipe.h>
 #include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
@@ -168,72 +167,68 @@ GLMotif::PopupWindow* SharedJello::createSettingsDialog(void)
 void SharedJello::sendParamUpdate(void)
 	{
 	/* Send a parameter state update to the server: */
-	Threads::Mutex::Lock pipeLock(pipeMutex);
-	
-	writeMessage(CLIENT_PARAMUPDATE,*pipe);
+	{
+	Threads::Mutex::Lock pipeLock(pipe->getMutex());
+	pipe->writeMessage(SharedJelloPipe::CLIENT_PARAMUPDATE);
 	pipe->write<Scalar>(atomMass);
 	pipe->write<Scalar>(attenuation);
 	pipe->write<Scalar>(gravity);
 	
 	pipe->flush();
 	}
+	}
 
 void* SharedJello::communicationThreadMethod(void)
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Run the server communication protocol machine: */
 	try
 		{
-		bool goOn=true;
-		while(goOn)
+		while(true)
 			{
-			/* Wait for and handle the next message: */
-			switch(readMessage(*pipe))
+			/* Wait for the next message: */
+			SharedJelloPipe::MessageIdType message=pipe->readMessage();
+			
+			/* Bail out if disconnecting or an unexpected message was received: */
+			if(message==SharedJelloPipe::DISCONNECT_REPLY)
 				{
-				case SERVER_PARAMUPDATE:
-					/* Read the new simulation parameters: */
-					atomMass=pipe->read<Scalar>();
-					attenuation=pipe->read<Scalar>();
-					gravity=pipe->read<Scalar>();
-					++newParameterVersion;
-
-					/* Request a redraw: */
-					Vrui::requestUpdate();
-					
-					break;
-				
-				case SERVER_UPDATE:
-					{
-					/* Lock the next free crystal slot: */
-					int nextIndex=(lockedIndex+1)%3;
-					if(nextIndex==mostRecentIndex)
-						nextIndex=(nextIndex+1)%3;
-					
-					/* Process the server update message: */
-					crystals[nextIndex]->readAtomStates(*pipe);
-					
-					/* Update the slot's crystal renderer: */
-					renderers[nextIndex]->update();
-					
-					/* Mark the client update slot as most recent: */
-					mostRecentIndex=nextIndex;
-					
-					/* Request a redraw: */
-					Vrui::requestUpdate();
-					
-					break;
-					}
-				
-				case DISCONNECT_REPLY:
-					goOn=false;
-					break;
-				
-				default:
-					Misc::throwStdErr("SharedJello::communicationThreadMethod: Protocol error");
+				break;
 				}
+			else if(message==SharedJelloPipe::SERVER_PARAMUPDATE)
+				{
+				/* Read the new simulation parameters: */
+				atomMass=pipe->read<Scalar>();
+				attenuation=pipe->read<Scalar>();
+				gravity=pipe->read<Scalar>();
+				++newParameterVersion;
+				
+				/* Request a redraw: */
+				Vrui::requestUpdate();
+				}
+			else if(message==SharedJelloPipe::SERVER_UPDATE)
+				{
+				/* Lock the next free crystal slot: */
+				int nextIndex=(lockedIndex+1)%3;
+				if(nextIndex==mostRecentIndex)
+					nextIndex=(nextIndex+1)%3;
+				
+				/* Process the server update message: */
+				crystals[nextIndex]->readAtomStates(*pipe);
+				
+				/* Update the slot's crystal renderer: */
+				renderers[nextIndex]->update();
+				
+				/* Mark the client update slot as most recent: */
+				mostRecentIndex=nextIndex;
+				
+				/* Request a redraw: */
+				Vrui::requestUpdate();
+				}
+			else
+				Misc::throwStdErr("SharedJello::communicationThreadMethod: Protocol error");
 			}
 		}
 	catch(std::runtime_error err)
@@ -241,12 +236,17 @@ void* SharedJello::communicationThreadMethod(void)
 		/* Ignore any connection errors; just disconnect the client */
 		std::cerr<<"Caught exception "<<err.what()<<std::endl<<std::flush;
 		}
+	catch(...)
+		{
+		/* Ignore any connection errors; just disconnect the client */
+		std::cerr<<"Caught spurious exception"<<std::endl<<std::flush;
+		}
 	
 	return 0;
 	}
 
-SharedJello::SharedJello(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
+SharedJello::SharedJello(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults),
 	 pipe(0),
 	 newParameterVersion(1),parameterVersion(1),
 	 lockedIndex(0),mostRecentIndex(1),
@@ -285,30 +285,32 @@ SharedJello::SharedJello(int& argc,char**& argv)
 		Misc::throwStdErr("SharedJello::SharedJello: No server host name or port ID provided");
 	
 	/* Connect to the shared Jell-O server: */
-	pipe=Cluster::openTCPPipe(Vrui::getClusterMultiplexer(),serverHostName,serverPortID);
-	pipe->negotiateEndianness();
+	pipe=new SharedJelloPipe(serverHostName,serverPortID,Vrui::openPipe());
 	
 	/* Initiate the connection: */
-	if(readMessage(*pipe)!=CONNECT_REPLY)
+	if(pipe->readMessage()!=SharedJelloPipe::CONNECT_REPLY)
 		{
 		/* Bail out: */
-		pipe=0;
 		Misc::throwStdErr("SharedJello::SharedJello: Connection refused by shared Jell-O server");
 		}
 	
 	/* Read the Jell-O crystal's domain box: */
-	read(domain,*pipe);
+	Point domainMin=pipe->readPoint();
+	Point domainMax=pipe->readPoint();
+	domain=Box(domainMin,domainMax);
 	
 	/* Read the number of atoms in the Jell-O crystal: */
-	Card na[3];
-	pipe->read(na,3);
-	JelloCrystal::Index numAtoms(na[0],na[1],na[2]);
+	JelloCrystal::Index numAtoms;
+	pipe->read<int>(numAtoms.getComponents(),3);
+	
+	/* Create triple buffer of Jell-O crystals: */
+	for(int i=0;i<3;++i)
+		crystals[i]=new JelloCrystal(numAtoms);
 	
 	/* Wait for the first parameter update message to get the initial simulation parameters: */
-	if(readMessage(*pipe)!=SERVER_PARAMUPDATE)
+	if(pipe->readMessage()!=SharedJelloPipe::SERVER_PARAMUPDATE)
 		{
 		/* Bail out: */
-		pipe=0;
 		Misc::throwStdErr("SharedJello::SharedJello: Connection refused by shared Jell-O server");
 		}
 	atomMass=pipe->read<Scalar>();
@@ -316,18 +318,11 @@ SharedJello::SharedJello(int& argc,char**& argv)
 	gravity=pipe->read<Scalar>();
 	
 	/* Wait for the first server update message to get initial atom positions: */
-	if(readMessage(*pipe)!=SERVER_UPDATE)
+	if(pipe->readMessage()!=SharedJelloPipe::SERVER_UPDATE)
 		{
 		/* Bail out: */
-		pipe=0;
 		Misc::throwStdErr("SharedJello::SharedJello: Connection refused by shared Jell-O server");
 		}
-	
-	/* Create triple buffer of Jell-O crystals: */
-	for(int i=0;i<3;++i)
-		crystals[i]=new JelloCrystal(numAtoms);
-	
-	/* Read the first crystal state: */
 	crystals[mostRecentIndex]->readAtomStates(*pipe);
 	
 	/* Calculate the domain box color: */
@@ -358,23 +353,24 @@ SharedJello::SharedJello(int& argc,char**& argv)
 
 SharedJello::~SharedJello(void)
 	{
-	if(pipe!=0&&!communicationThread.isJoined())
+	if(pipe!=0)
+		{
 		{
 		/* Ask the server to disconnect: */
-		{
-		Threads::Mutex::Lock pipeLock(pipeMutex);
-		writeMessage(DISCONNECT_REQUEST,*pipe);
+		Threads::Mutex::Lock pipeLock(pipe->getMutex());
+		pipe->writeMessage(SharedJelloPipe::DISCONNECT_REQUEST);
 		pipe->flush();
+		pipe->shutdown(false,true);
 		}
-		
-		/* Wait until the communication thread receives the disconnect reply and terminates: */
-		communicationThread.join();
 		}
+	
+	/* Wait until the communication thread receives the disconnect reply and terminates: */
+	communicationThread.join();
 	
 	/* Close the server pipe: */
-	pipe=0;
+	delete pipe;
 	
-	/* Delete the crystal and renderer triple-buffers: */
+	/* Delete the crystal and renderer triple-buffer: */
 	for(int i=0;i<3;++i)
 		{
 		delete renderers[i];
@@ -398,9 +394,9 @@ void SharedJello::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackDa
 		{
 		/* Create an atom dragger object and associate it with the new tool: */
 		AtomDragger* newDragger=new AtomDragger(tool,this,nextDraggerID);
-		++nextDraggerID;
 		
 		/* Add new dragger to list: */
+		++nextDraggerID;
 		atomDraggers.push_back(newDragger);
 		}
 	}
@@ -449,16 +445,17 @@ void SharedJello::frame(void)
 	
 	/* Send a state update to the server: */
 	{
-	Threads::Mutex::Lock pipeLock(pipeMutex);
-	writeMessage(CLIENT_UPDATE,*pipe);
-	pipe->write<Card>(atomDraggers.size());
+	Threads::Mutex::Lock pipeLock(pipe->getMutex());
+	pipe->writeMessage(SharedJelloPipe::CLIENT_UPDATE);
+	pipe->write<int>(atomDraggers.size());
 	for(AtomDraggerList::iterator adIt=atomDraggers.begin();adIt!=atomDraggers.end();++adIt)
 		{
-		pipe->write<Card>((*adIt)->draggerID);
-		pipe->write<Byte>((*adIt)->draggerRayBased?1:0);
-		write((*adIt)->draggerRay,*pipe);
-		write((*adIt)->draggerTransformation,*pipe);
-		pipe->write<Byte>((*adIt)->active?1:0);
+		pipe->write<unsigned int>((*adIt)->draggerID);
+		pipe->write<int>((*adIt)->draggerRayBased?1:0);
+		pipe->writePoint((*adIt)->draggerRay.getOrigin());
+		pipe->writeVector((*adIt)->draggerRay.getDirection());
+		pipe->writeONTransform((*adIt)->draggerTransformation);
+		pipe->write<char>((*adIt)->active?char(1):char(0));
 		}
 	pipe->flush();
 	}
@@ -485,8 +482,8 @@ void SharedJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChanged
 	/* Hide or show settings dialog based on toggle button state: */
 	if(cbData->set)
 		{
-		/* Pop up the settings dialog: */
-		Vrui::popupPrimaryWidget(settingsDialog);
+		/* Pop up the settings dialog at the same position as the main menu: */
+		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);
@@ -524,5 +521,23 @@ void SharedJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
 	showSettingsDialogToggle->setToggle(false);
 	}
 
-/* Create and execute an application object: */
-VRUI_APPLICATION_RUN(SharedJello)
+/*********************
+Main program function:
+*********************/
+
+int main(int argc,char* argv[])
+	{
+	try
+		{
+		char** appDefaults=0;
+		SharedJello sj(argc,argv,appDefaults);
+		sj.run();
+		}
+	catch(std::runtime_error err)
+		{
+		std::cerr<<"Caught exception "<<err.what()<<std::endl;
+		return 1;
+		}
+	
+	return 0;
+	}

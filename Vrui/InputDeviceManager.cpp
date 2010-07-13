@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,23 +25,20 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <utility>
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/Internal/InputDeviceAdapter.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
-#include <Vrui/Internal/InputDeviceAdapterTrackd.h>
 #include <Vrui/Internal/InputDeviceAdapterVisBox.h>
-#ifdef __linux__
+#ifdef __LINUX__
 #include <Vrui/Internal/Linux/InputDeviceAdapterHID.h>
 #endif
-#ifdef __APPLE__
+#ifdef __DARWIN__
 #include <Vrui/Internal/MacOSX/InputDeviceAdapterHID.h>
 #endif
 #include <Vrui/Internal/InputDeviceAdapterPlayback.h>
@@ -97,19 +94,6 @@ InputDeviceManager::~InputDeviceManager(void)
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		delete inputDeviceAdapters[i];
 	delete[] inputDeviceAdapters;
-	
-	/* Delete all leftover input devices: */
-	for(InputDevices::iterator idIt=inputDevices.begin();idIt!=inputDevices.end();++idIt)
-		{
-		InputDevice* device=&(*idIt);
-		
-		/* Call the input device destruction callbacks: */
-		InputDeviceDestructionCallbackData cbData(this,device);
-		inputDeviceDestructionCallbacks.call(&cbData);
-		
-		/* Remove the device from the input graph: */
-		inputGraphManager->removeInputDevice(device);
-		}
 	}
 
 void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& configFileSection)
@@ -117,27 +101,11 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 	/* Retrieve the list of input device adapters: */
 	typedef std::vector<std::string> StringList;
 	StringList inputDeviceAdapterNames=configFileSection.retrieveValue<StringList>("./inputDeviceAdapterNames");
-	
-	/* Remove all duplicates from the list of input device adapters: */
-	for(unsigned int i=0;i<inputDeviceAdapterNames.size()-1;++i)
-		{
-		for(unsigned int j=inputDeviceAdapterNames.size()-1;j>i;--j)
-			{
-			if(inputDeviceAdapterNames[j]==inputDeviceAdapterNames[i])
-				{
-				/* Remove the duplicate list entry: */
-				inputDeviceAdapterNames.erase(inputDeviceAdapterNames.begin()+j);
-				}
-			}
-		}
-	
-	/* Initialize the adapter array: */
 	numInputDeviceAdapters=inputDeviceAdapterNames.size();
 	inputDeviceAdapters=new InputDeviceAdapter*[numInputDeviceAdapters];
 	
 	/* Initialize input device adapters: */
 	int numIgnoredAdapters=0;
-	int mouseAdapterIndex=-1;
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		{
 		/* Go to input device adapter's section: */
@@ -150,30 +118,13 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 			{
 			if(inputDeviceAdapterType=="Mouse")
 				{
-				/* Check if there is already a mouse input device adapter: */
-				if(mouseAdapterIndex>=0)
-					{
-					/* Ignore this input device adapter: */
-					inputDeviceAdapters[i]=0;
-					++numIgnoredAdapters;
-					std::cout<<"InputDeviceManager: Ignoring mouse input device adapter "<<inputDeviceAdapterNames[i]<<" because there is already a mouse input device adapter"<<std::endl;
-					}
-				else
-					{
-					/* Create mouse input device adapter: */
-					inputDeviceAdapters[i]=new InputDeviceAdapterMouse(this,inputDeviceAdapterSection);
-					mouseAdapterIndex=i;
-					}
+				/* Create mouse input device adapter: */
+				inputDeviceAdapters[i]=new InputDeviceAdapterMouse(this,inputDeviceAdapterSection);
 				}
 			else if(inputDeviceAdapterType=="DeviceDaemon")
 				{
 				/* Create device daemon input device adapter: */
 				inputDeviceAdapters[i]=new InputDeviceAdapterDeviceDaemon(this,inputDeviceAdapterSection);
-				}
-			else if(inputDeviceAdapterType=="Trackd")
-				{
-				/* Create trackd input device adapter: */
-				inputDeviceAdapters[i]=new InputDeviceAdapterTrackd(this,inputDeviceAdapterSection);
 				}
 			else if(inputDeviceAdapterType=="VisBox")
 				{
@@ -224,27 +175,9 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 		inputDeviceAdapters=newInputDeviceAdapters;
 		}
 	
-	/* If there is a mouse input device adapter, put it last in the list because it might implicitly depend on other input devices: */
-	if(mouseAdapterIndex>=0&&mouseAdapterIndex<numInputDeviceAdapters-1)
-		std::swap(inputDeviceAdapters[mouseAdapterIndex],inputDeviceAdapters[numInputDeviceAdapters-1]);
-	
 	/* Check if there are any valid input device adapters: */
 	if(numInputDeviceAdapters==0)
 		Misc::throwStdErr("InputDeviceManager: No valid input device adapters found; I refuse to work under conditions like these!");
-	}
-
-void InputDeviceManager::addAdapter(InputDeviceAdapter* newAdapter)
-	{
-	/* Make room in the input device adapter array: */
-	InputDeviceAdapter** newInputDeviceAdapters=new InputDeviceAdapter*[numInputDeviceAdapters+1];
-	for(int i=0;i<numInputDeviceAdapters;++i)
-		newInputDeviceAdapters[i]=inputDeviceAdapters[i];
-	++numInputDeviceAdapters;
-	delete[] inputDeviceAdapters;
-	inputDeviceAdapters=newInputDeviceAdapters;
-	
-	/* Add the new adapter: */
-	inputDeviceAdapters[numInputDeviceAdapters-1]=newAdapter;
 	}
 
 InputDeviceAdapter* InputDeviceManager::findInputDeviceAdapter(InputDevice* device) const
@@ -308,7 +241,7 @@ InputDevice* InputDeviceManager::createInputDevice(const char* deviceName,int tr
 		inputGraphManager->grabInputDevice(newDevicePtr,0); // Passing in null as grabber grabs for the physical layer
 	
 	/* Call the input device creation callbacks: */
-	InputDeviceCreationCallbackData cbData(this,newDevicePtr);
+	InputDeviceCreationCallbackData cbData(newDevicePtr);
 	inputDeviceCreationCallbacks.call(&cbData);
 	
 	/* Return a pointer to the new input device: */
@@ -342,7 +275,7 @@ InputDevice* InputDeviceManager::findInputDevice(const char* deviceName)
 void InputDeviceManager::destroyInputDevice(InputDevice* inputDevice)
 	{
 	/* Call the input device destruction callbacks: */
-	InputDeviceDestructionCallbackData cbData(this,inputDevice);
+	InputDeviceDestructionCallbackData cbData(inputDevice);
 	inputDeviceDestructionCallbacks.call(&cbData);
 	
 	/* Remove the device from the input graph: */
@@ -358,76 +291,11 @@ void InputDeviceManager::destroyInputDevice(InputDevice* inputDevice)
 			}
 	}
 
-std::string InputDeviceManager::getFeatureName(const InputDeviceFeature& feature) const
-	{
-	/* Find the input device adapter owning the given device: */
-	const InputDeviceAdapter* adapter=0;
-	for(int i=0;adapter==0&&i<numInputDeviceAdapters;++i)
-		{
-		/* Search through all input devices: */
-		for(int j=0;j<inputDeviceAdapters[i]->getNumInputDevices();++j)
-			if(inputDeviceAdapters[i]->getInputDevice(j)==feature.getDevice())
-				{
-				adapter=inputDeviceAdapters[i];
-				break;
-				}
-		}
-	
-	if(adapter!=0)
-		{
-		/* Return the feature name defined by the input device adapter: */
-		return adapter->getFeatureName(feature);
-		}
-	else
-		{
-		/* Return a default feature name: */
-		return InputDeviceAdapter::getDefaultFeatureName(feature);
-		}
-	}
-
-int InputDeviceManager::getFeatureIndex(InputDevice* device, const char* featureName) const
-	{
-	/* Find the input device adapter owning the given device: */
-	const InputDeviceAdapter* adapter=0;
-	for(int i=0;adapter==0&&i<numInputDeviceAdapters;++i)
-		{
-		/* Search through all input devices: */
-		for(int j=0;j<inputDeviceAdapters[i]->getNumInputDevices();++j)
-			if(inputDeviceAdapters[i]->getInputDevice(j)==device)
-				{
-				adapter=inputDeviceAdapters[i];
-				break;
-				}
-		}
-	
-	if(adapter!=0)
-		{
-		/* Return the feature index defined by the input device adapter: */
-		return adapter->getFeatureIndex(device,featureName);
-		}
-	else
-		{
-		/* Parse a default feature name: */
-		return InputDeviceAdapter::getDefaultFeatureIndex(device,featureName);
-		}
-	}
-
 void InputDeviceManager::updateInputDevices(void)
 	{
 	/* Grab new data from all input device adapters: */
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		inputDeviceAdapters[i]->updateInputDevices();
-	
-	/* Call the update callbacks: */
-	InputDeviceUpdateCallbackData cbData(this);
-	inputDeviceUpdateCallbacks.call(&cbData);
-	}
-
-void InputDeviceManager::glRenderAction(GLContextData& contextData) const
-	{
-	/* Render all input device adapters: */
-	for(int i=0;i<numInputDeviceAdapters;++i)
-		inputDeviceAdapters[i]->glRenderAction(contextData);
 	}
 
 }

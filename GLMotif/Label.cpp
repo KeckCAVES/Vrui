@@ -101,7 +101,7 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,const GLFon
 	:Widget(sName,sParent,false),
 	 marginWidth(0.0f),
 	 leftInset(0.0f),rightInset(0.0f),
-	 label(sLabel,*sFont),
+	 labelLength(strlen(sLabel)),label(sLabel,*sFont),
 	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
 	{
 	/* Set the label's colors: */
@@ -133,33 +133,6 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,bool sManag
 	
 	/* Set the label: */
 	label.setString(sLabel,*ss->font);
-	
-	/* Set the label's colors: */
-	label.setBackground(backgroundColor);
-	label.setForeground(foregroundColor);
-	
-	/* Label defaults to no border: */
-	setBorderWidth(0.0f);
-	
-	/* Get the margin width: */
-	marginWidth=ss->labelMarginWidth;
-	
-	/* Manage me: */
-	if(sManageChild)
-		manageChild();
-	}
-
-Label::Label(const char* sName,Container* sParent,const char* sLabelBegin,const char* sLabelEnd,bool sManageChild)
-	:Widget(sName,sParent,false),
-	 marginWidth(0.0f),
-	 leftInset(0.0f),rightInset(0.0f),
-	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
-	{
-	/* Get the style sheet: */
-	const StyleSheet* ss=getStyleSheet();
-	
-	/* Set the label: */
-	label.setString(sLabelBegin,sLabelEnd,*ss->font);
 	
 	/* Set the label's colors: */
 	label.setBackground(backgroundColor);
@@ -276,10 +249,11 @@ void Label::setVAlignment(GLFont::VAlignment newVAlignment)
 	update();
 	}
 
-void Label::setString(const char* newLabelBegin,const char* newLabelEnd)
+void Label::setString(const char* newLabel)
 	{
 	/* Update the label text: */
-	label.setString(newLabelBegin,newLabelEnd);
+	labelLength=strlen(newLabel);
+	label.setString(newLabel);
 	
 	if(isManaged)
 		{
@@ -288,11 +262,6 @@ void Label::setString(const char* newLabelBegin,const char* newLabelEnd)
 		}
 	else
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
-	}
-
-void Label::setString(const char* newLabel)
-	{
-	setString(newLabel,newLabel+strlen(newLabel));
 	}
 
 }

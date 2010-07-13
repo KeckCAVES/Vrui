@@ -233,8 +233,6 @@ class ListBox:public Widget,public GLObject
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);
-	virtual bool giveTextFocus(void);
-	virtual void textControlEvent(const TextControlEvent& event);
 	
 	/* Methods inherited from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;

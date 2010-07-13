@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,24 +23,26 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/MouseSurfaceNavigationTool.h>
 
+// DEBUGGING
+//#include <iostream>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-#include <Math/Constants.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
-#include <GL/GLContextData.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/TitleBar.h>
 #include <GLMotif/WidgetManager.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
+#include <Vrui/VRScreen.h>
+#include <Vrui/Viewer.h>
+#include <Vrui/VRWindow.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -54,17 +56,15 @@ MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager
 	 screenScalingDirection(0,-1,0),
 	 scaleFactor(getInchFactor()*Scalar(3)),
 	 wheelScaleFactor(Scalar(0.5)),
-	 throwThreshold(getUiSize()*Scalar(2)),
-	 probeSize(getUiSize()),
-	 maxClimb(getDisplaySize()),
 	 fixAzimuth(false),
-	 showCompass(true),compassSize(getUiSize()*Scalar(5)),compassThickness(getUiSize()*Scalar(0.5)),
-	 showScreenCenter(true),
+	 showCompass(true),
+	 showScreenCenter(false),
 	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(2);
-	layout.setNumValuators(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,2);
+	layout.setNumValuators(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
@@ -77,13 +77,8 @@ MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager
 	screenScalingDirection=cfs.retrieveValue<Vector>("./screenScalingDirection",screenScalingDirection);
 	scaleFactor=cfs.retrieveValue<Scalar>("./scaleFactor",scaleFactor);
 	wheelScaleFactor=cfs.retrieveValue<Scalar>("./wheelScaleFactor",wheelScaleFactor);
-	throwThreshold=cfs.retrieveValue<Scalar>("./throwThreshold",throwThreshold);
-	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
-	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
 	showCompass=cfs.retrieveValue<bool>("./showCompass",showCompass);
-	compassSize=cfs.retrieveValue<Scalar>("./compassSize",compassSize);
-	compassThickness=cfs.retrieveValue<Scalar>("./compassThickness",compassThickness);
 	showScreenCenter=cfs.retrieveValue<bool>("./showScreenCenter",showScreenCenter);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	
@@ -100,26 +95,6 @@ MouseSurfaceNavigationToolFactory::~MouseSurfaceNavigationToolFactory(void)
 const char* MouseSurfaceNavigationToolFactory::getName(void) const
 	{
 	return "Mouse (Multiple Buttons)";
-	}
-
-const char* MouseSurfaceNavigationToolFactory::getButtonFunction(int buttonSlotIndex) const
-	{
-	switch(buttonSlotIndex)
-		{
-		case 0:
-			return "Rotate";
-		
-		case 1:
-			return "Pan";
-		}
-	
-	/* Never reached; just to make compiler happy: */
-	return 0;
-	}
-
-const char* MouseSurfaceNavigationToolFactory::getValuatorFunction(int) const
-	{
-	return "Quick Zoom";
 	}
 
 Tool* MouseSurfaceNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -155,20 +130,6 @@ extern "C" void destroyMouseSurfaceNavigationToolFactory(ToolFactory* factory)
 	delete factory;
 	}
 
-/*****************************************************
-Methods of class MouseSurfaceNavigationTool::DataItem:
-*****************************************************/
-
-MouseSurfaceNavigationTool::DataItem::DataItem(void)
-	:compassDisplayList(glGenLists(1))
-	{
-	}
-
-MouseSurfaceNavigationTool::DataItem::~DataItem(void)
-	{
-	glDeleteLists(compassDisplayList,1);
-	}
-
 /***************************************************
 Static elements of class MouseSurfaceNavigationTool:
 ***************************************************/
@@ -179,16 +140,102 @@ MouseSurfaceNavigationToolFactory* MouseSurfaceNavigationTool::factory=0;
 Methods of class MouseSurfaceNavigationTool:
 *******************************************/
 
+void MouseSurfaceNavigationTool::initNavState(void)
+	{
+	/* Calculate the initial environment-aligned surface frame in navigation coordinates: */
+	physicalFrame=NavTransform::translateFromOriginTo(getDisplayCenter());
+	Vector right=Geometry::cross(getForwardDirection(),getUpDirection());
+	physicalFrame*=NavTransform::rotate(Rotation::fromBaseVectors(right,getForwardDirection()));
+	NavTransform initialSurfaceFrame=getInverseNavigationTransformation()*physicalFrame;
+	// DEBUGGING
+	//std::cout<<"Initial nav transform: "<<getNavigationTransformation()<<std::endl;
+	// DEBUGGING
+	//std::cout<<"initialSurfaceFrame = "<<initialSurfaceFrame<<std::endl;
+	
+	/* Align the initial frame with the application's surface: */
+	surfaceFrame=initialSurfaceFrame;
+	align(surfaceFrame);
+	// DEBUGGING
+	//std::cout<<"surfaceFrame = "<<surfaceFrame<<std::endl;
+	
+	/* Calculate rotation of initial frame relative to aligned frame: */
+	Rotation rot=Geometry::invert(initialSurfaceFrame.getRotation())*surfaceFrame.getRotation();
+	
+	/* Align initial Z axis with aligned Y-Z plane: */
+	Vector z=rot.getDirection(2);
+	// DEBUGGING
+	//std::cout<<"Z = "<<z[0]<<", "<<z[1]<<", "<<z[2]<<std::endl;
+	if(z[0]!=Scalar(0))
+		{
+		#if 1
+		if(z[1]!=Scalar(0)||z[2]!=Scalar(0))
+			{
+			Vector rollAxis(Scalar(0),z[2],-z[1]);
+			Scalar roll=Math::asin(z[0]);
+			// DEBUGGING
+			//std::cout<<"Roll = "<<Math::deg(roll)<<std::endl;
+			rot.leftMultiply(Rotation::rotateAxis(rollAxis,-roll));
+			}
+		else
+			{
+			rot.leftMultiply(Rotation::rotateY(Math::rad(Scalar(z[0]>Scalar(0)?-90:90))));
+			// DEBUGGING
+			//std::cout<<"Roll = "<<Scalar(z[0]>Scalar(0)?-90:90)<<std::endl;
+			}
+		#else
+		Scalar roll=Math::atan2(-z[0],z[2]);
+		// DEBUGGING
+		//std::cout<<"Roll = "<<Math::deg(roll)<<std::endl;
+		rot.leftMultiply(Rotation::rotateY(roll));
+		#endif
+		z=rot.getDirection(2);
+		// DEBUGGING
+		//std::cout<<"Z' = "<<z[0]<<", "<<z[1]<<", "<<z[2]<<std::endl;
+		}
+	
+	/* Calculate the elevation angle: */
+	elevation=Math::atan2(-z[1],z[2]);
+	if(elevation<Scalar(0))
+		elevation=Scalar(0);
+	else if(elevation>Math::rad(Scalar(90)))
+		elevation=Math::rad(Scalar(90));
+	rot.leftMultiply(Rotation::rotateX(-elevation));
+	
+	/* Calculate the azimuth angle: */
+	Vector x=rot.getDirection(0);
+	// DEBUGGING
+	//std::cout<<"X = "<<x[0]<<", "<<x[1]<<", "<<x[2]<<std::endl;
+	azimuth=Math::atan2(x[1],x[0]);
+	rot.leftMultiply(Rotation::rotateZ(-azimuth));
+	
+	// DEBUGGING
+	//std::cout<<"Nav state: "<<Math::deg(azimuth)<<", "<<Math::deg(elevation)<<", "<<rot<<std::endl;
+	}
+
+void MouseSurfaceNavigationTool::applyNavState(void) const
+	{
+	/* Compose and apply the navigation transformation: */
+	NavTransform nav=physicalFrame;
+	nav*=NavTransform::rotate(Rotation::rotateX(elevation));
+	nav*=NavTransform::rotate(Rotation::rotateZ(azimuth));
+	nav*=Geometry::invert(surfaceFrame);
+	setNavigationTransformation(nav);
+	}
+
 Point MouseSurfaceNavigationTool::calcScreenPos(void) const
 	{
 	/* Calculate the ray equation: */
-	Ray ray=getButtonDeviceRay(0);
+	Ray ray=getDeviceRay(0);
 	
-	/* Get the transformation of the screen currently containing the input device: */
-	Scalar viewport[4];
-	ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
+	/* Find the screen currently containing the input device: */
+	const VRScreen* screen;
+	if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
+		screen=mouseAdapter->getWindow()->getVRScreen();
+	else
+		screen=getMainScreen();
 	
-	/* Intersect the device ray with the screen: */
+	/* Intersect ray with the screen: */
+	ONTransform screenT=screen->getScreenTransformation();
 	Vector normal=screenT.getDirection(2);
 	Scalar d=normal*screenT.getOrigin();
 	Scalar divisor=normal*ray.getDirection();
@@ -202,93 +249,15 @@ Point MouseSurfaceNavigationTool::calcScreenPos(void) const
 	return ray(lambda);
 	}
 
-void MouseSurfaceNavigationTool::applyNavState(void) const
-	{
-	/* Compose and apply the navigation transformation: */
-	NavTransform nav=physicalFrame;
-	nav*=NavTransform::rotate(Rotation::rotateX(elevation));
-	nav*=NavTransform::rotate(Rotation::rotateZ(azimuth));
-	nav*=Geometry::invert(surfaceFrame);
-	setNavigationTransformation(nav);
-	}
-
-void MouseSurfaceNavigationTool::initNavState(void)
-	{
-	/* Set up a physical navigation frame around the display's center: */
-	calcPhysicalFrame(getDisplayCenter());
-	
-	/* Calculate the initial environment-aligned surface frame in navigation coordinates: */
-	surfaceFrame=getInverseNavigationTransformation()*physicalFrame;
-	NavTransform newSurfaceFrame=surfaceFrame;
-	
-	/* Align the initial frame with the application's surface and calculate Euler angles: */
-	AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
-	Scalar roll;
-	align(ad,azimuth,elevation,roll);
-	
-	/* Limit elevation angle to down direction: */
-	if(elevation<Scalar(0))
-		elevation=Scalar(0);
-	
-	if(factory->showCompass)
-		{
-		/* Start showing the virtual compass: */
-		showCompass=true;
-		}
-	
-	/* Apply the newly aligned surface frame: */
-	surfaceFrame=newSurfaceFrame;
-	applyNavState();
-	}
-
-void MouseSurfaceNavigationTool::realignSurfaceFrame(NavTransform& newSurfaceFrame)
-	{
-	/* Re-align the surface frame with the surface: */
-	Rotation initialOrientation=newSurfaceFrame.getRotation();
-	AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
-	align(ad);
-	
-	if(!factory->fixAzimuth)
-		{
-		/* Have the azimuth angle track changes in the surface frame's rotation: */
-		Rotation rot=Geometry::invert(initialOrientation)*newSurfaceFrame.getRotation();
-		rot.leftMultiply(Rotation::rotateFromTo(rot.getDirection(2),Vector(0,0,1)));
-		Vector x=rot.getDirection(0);
-		azimuth=wrapAngle(azimuth+Math::atan2(x[1],x[0]));
-		}
-	
-	/* Store and apply the newly aligned surface frame: */
-	surfaceFrame=newSurfaceFrame;
-	applyNavState();
-	}
-
-void MouseSurfaceNavigationTool::navigationTransformationChangedCallback(Misc::CallbackData* cbData)
-	{
-	/* Stop showing the virtual compass if this tool is no longer active: */
-	if(!SurfaceNavigationTool::isActive())
-		showCompass=false;
-	}
-
 MouseSurfaceNavigationTool::MouseSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(factory,inputAssignment),
-	 GUIInteractor(false,Scalar(0),getButtonDevice(0)),
 	 mouseAdapter(0),
-	 currentPos(Point::origin),currentValue(0),
+	 currentValue(0),
 	 navigationMode(IDLE),
-	 showCompass(false)
+	 draggedWidget(0)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
-	InputDevice* rootDevice=getInputGraphManager()->getRootDevice(getButtonDevice(0));
-	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(rootDevice));
-	
-	/* Register a callback when the navigation transformation changes: */
-	getNavigationTransformationChangedCallbacks().add(this,&MouseSurfaceNavigationTool::navigationTransformationChangedCallback);
-	}
-
-MouseSurfaceNavigationTool::~MouseSurfaceNavigationTool(void)
-	{
-	/* Remove then navigation transformation change callback: */
-	getNavigationTransformationChangedCallbacks().remove(this,&MouseSurfaceNavigationTool::navigationTransformationChangedCallback);
+	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
 	}
 
 const ToolFactory* MouseSurfaceNavigationTool::getFactory(void) const
@@ -296,10 +265,10 @@ const ToolFactory* MouseSurfaceNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void MouseSurfaceNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Process based on which button was pressed: */
-	switch(buttonSlotIndex)
+	switch(buttonIndex)
 		{
 		case 0:
 			if(cbData->newButtonState) // Button has just been pressed
@@ -308,27 +277,37 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 				switch(navigationMode)
 					{
 					case IDLE:
-					case THROWING:
 						if(factory->interactWithWidgets)
 							{
-							/* Check if the GUI interactor accepts the event: */
-							GUIInteractor::updateRay();
-							if(GUIInteractor::buttonDown(false))
+							/* Check if the mouse pointer is over a GLMotif widget: */
+							GLMotif::Event event(false);
+							event.setWorldLocation(getDeviceRay(0));
+							if(getWidgetManager()->pointerButtonDown(event))
 								{
-								/* Deactivate this tool if it is throwing: */
-								if(navigationMode==THROWING)
-									deactivate();
-								
 								/* Go to widget interaction mode: */
 								navigationMode=WIDGETING;
+								
+								/* Drag the entire root widget if the event's target widget is a title bar: */
+								if(dynamic_cast<GLMotif::TitleBar*>(event.getTargetWidget())!=0)
+									{
+									/* Start dragging: */
+									draggedWidget=event.getTargetWidget();
+									
+									/* Calculate the dragging transformation: */
+									NavTrackerState initialTracker=NavTrackerState::translateFromOriginTo(calcScreenPos());
+									initialWidget=Geometry::invert(initialTracker);
+									initialWidget*=getWidgetManager()->calcWidgetTransformation(draggedWidget);
+									}
+								else
+									draggedWidget=0;
 								}
 							else
 								{
 								/* Try activating this tool: */
-								if(navigationMode==THROWING||activate())
+								if(activate())
 									{
 									initNavState();
-									currentPos=calcScreenPos();
+									lastPos=calcScreenPos();
 									navigationMode=ROTATING;
 									}
 								}
@@ -336,17 +315,17 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 						else
 							{
 							/* Try activating this tool: */
-							if(navigationMode==THROWING||activate())
+							if(activate())
 								{
 								initNavState();
-								currentPos=calcScreenPos();
+								lastPos=calcScreenPos();
 								navigationMode=ROTATING;
 								}
 							}
 						break;
 					
 					case PANNING:
-						currentPos=calcScreenPos();
+						lastPos=calcScreenPos();
 						navigationMode=SCALING;
 						break;
 					
@@ -362,14 +341,14 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 					{
 					case WIDGETING:
 						{
-						if(GUIInteractor::isActive())
-							{
-							/* Deliver the event: */
-							GUIInteractor::buttonUp();
-							}
+						/* Deliver the event: */
+						GLMotif::Event event(true);
+						event.setWorldLocation(getDeviceRay(0));
+						getWidgetManager()->pointerButtonUp(event);
 						
 						/* Deactivate this tool: */
 						navigationMode=IDLE;
+						draggedWidget=0;
 						break;
 						}
 					
@@ -382,7 +361,7 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 						break;
 					
 					case SCALING:
-						currentPos=calcScreenPos();
+						lastPos=calcScreenPos();
 						navigationMode=PANNING;
 						break;
 					
@@ -400,18 +379,17 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 				switch(navigationMode)
 					{
 					case IDLE:
-					case THROWING:
 						/* Try activating this tool: */
-						if(navigationMode==THROWING||activate())
+						if(activate())
 							{
 							initNavState();
-							currentPos=calcScreenPos();
+							lastPos=calcScreenPos();
 							navigationMode=PANNING;
 							}
 						break;
 					
 					case ROTATING:
-						currentPos=calcScreenPos();
+						lastPos=calcScreenPos();
 						navigationMode=SCALING;
 						break;
 					
@@ -426,31 +404,15 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 				switch(navigationMode)
 					{
 					case PANNING:
-						{
-						/* Check if the input device is still moving: */
-						Point newCurrentPos=calcScreenPos();
-						Vector delta=newCurrentPos-currentPos;
-						if(Geometry::mag(delta)>factory->throwThreshold)
-							{
-							/* Calculate throwing velocity: */
-							throwVelocity=delta/(getApplicationTime()-lastMoveTime);
-							
-							/* Go to throwing mode: */
-							navigationMode=THROWING;
-							}
-						else
-							{
-							/* Deactivate this tool: */
-							deactivate();
-							
-							/* Go to idle mode: */
-							navigationMode=IDLE;
-							}
+						/* Deactivate this tool: */
+						deactivate();
+						
+						/* Go to idle mode: */
+						navigationMode=IDLE;
 						break;
-						}
 					
 					case SCALING:
-						currentPos=calcScreenPos();
+						lastPos=calcScreenPos();
 						navigationMode=ROTATING;
 						break;
 					
@@ -463,7 +425,7 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 		}
 	}
 
-void MouseSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
+void MouseSurfaceNavigationTool::valuatorCallback(int,int,InputDevice::ValuatorCallbackData* cbData)
 	{
 	currentValue=Scalar(cbData->newValuatorValue);
 	if(currentValue!=Scalar(0))
@@ -472,9 +434,8 @@ void MouseSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallb
 		switch(navigationMode)
 			{
 			case IDLE:
-			case THROWING:
 				/* Try activating this tool: */
-				if(navigationMode==THROWING||activate())
+				if(activate())
 					{
 					/* Go to wheel scaling mode: */
 					initNavState();
@@ -509,25 +470,45 @@ void MouseSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallb
 
 void MouseSurfaceNavigationTool::frame(void)
 	{
-	/* Calculate the new mouse position: */
-	Point newCurrentPos=calcScreenPos();
-	if(factory->interactWithWidgets)
-		{
-		/* Update the GUI interactor: */
-		GUIInteractor::updateRay();
-		GUIInteractor::move();
-		}
+	/* Update the current mouse position: */
+	currentPos=calcScreenPos();
 	
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
 		{
+		case IDLE:
+			/* Do nothing */
+			break;
+		
+		case WIDGETING:
+			{
+			/* Deliver the event: */
+			GLMotif::Event event(true);
+			event.setWorldLocation(getDeviceRay(0));
+			getWidgetManager()->pointerMotion(event);
+			
+			if(draggedWidget!=0)
+				{
+				/* Update the dragged widget's transformation: */
+				NavTrackerState current=NavTrackerState::translateFromOriginTo(currentPos);
+				current*=initialWidget;
+				getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,GLMotif::WidgetManager::Transformation(current));
+				}
+			break;
+			}
+		
 		case ROTATING:
 			{
 			/* Calculate the rotation vector: */
-			Vector delta=newCurrentPos-currentPos;
+			Vector delta=currentPos-lastPos;
+			lastPos=currentPos;
 			
 			/* Adjust the azimuth angle: */
-			azimuth=wrapAngle(azimuth+delta[0]/factory->rotateFactor);
+			azimuth+=delta[0]/factory->rotateFactor;
+			if(azimuth<-Math::Constants<Scalar>::pi)
+				azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
+			else if(azimuth>Math::Constants<Scalar>::pi)
+				azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
 			
 			/* Adjust the elevation angle: */
 			elevation-=delta[2]/factory->rotateFactor;
@@ -543,107 +524,92 @@ void MouseSurfaceNavigationTool::frame(void)
 		
 		case PANNING:
 			{
-			NavTransform newSurfaceFrame=surfaceFrame;
-			
 			/* Calculate the translation vector: */
-			Vector delta=newCurrentPos-currentPos;
+			Vector delta=currentPos-lastPos;
+			lastPos=currentPos;
 			delta=Rotation::rotateX(Math::rad(Scalar(-90))).transform(delta);
 			delta=Rotation::rotateZ(-azimuth).transform(delta);
 			
 			/* Translate the surface frame: */
-			newSurfaceFrame*=NavTransform::translate(-delta);
+			surfaceFrame*=NavTransform::translate(-delta);
 			
 			/* Re-align the surface frame with the surface: */
-			realignSurfaceFrame(newSurfaceFrame);
+			NavTransform initialSurfaceFrame=surfaceFrame;
+			align(surfaceFrame);
 			
-			break;
-			}
-		
-		case THROWING:
-			{
-			NavTransform newSurfaceFrame=surfaceFrame;
+			if(!factory->fixAzimuth)
+				{
+				/* Have the azimuth angle track changes in the surface frame's rotation: */
+				Rotation rot=Geometry::invert(initialSurfaceFrame.getRotation())*surfaceFrame.getRotation();
+				rot.leftMultiply(Rotation::rotateFromTo(rot.getDirection(2),Vector(0,0,1)));
+				Vector x=rot.getDirection(0);
+				Scalar azimuthDelta=Math::atan2(x[1],x[0]);
+				azimuth+=azimuthDelta;
+				if(azimuth<-Math::Constants<Scalar>::pi)
+					azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
+				else if(azimuth>Math::Constants<Scalar>::pi)
+					azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+				}
 			
-			/* Calculate the throw translation vector: */
-			Vector delta=throwVelocity*getFrameTime();
-			delta=Rotation::rotateX(Math::rad(Scalar(-90))).transform(delta);
-			delta=Rotation::rotateZ(-azimuth).transform(delta);
-			
-			/* Translate the surface frame: */
-			newSurfaceFrame*=NavTransform::translate(-delta);
-			
-			/* Re-align the surface frame with the surface: */
-			realignSurfaceFrame(newSurfaceFrame);
-			
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
-			
+			/* Apply the new transformation: */
+			applyNavState();
 			break;
 			}
 		
 		case SCALING:
 			{
-			NavTransform newSurfaceFrame=surfaceFrame;
-			
 			/* Calculate the current scaling direction: */
-			Scalar viewport[4];
-			ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
-			Vector scalingDirection=screenT.transform(factory->screenScalingDirection);
+			Vector scalingDirection;
+			if(mouseAdapter!=0)
+				scalingDirection=mouseAdapter->getWindow()->getVRScreen()->getScreenTransformation().transform(factory->screenScalingDirection);
+			else
+				scalingDirection=getMainScreen()->getScreenTransformation().transform(factory->screenScalingDirection);
 			
 			/* Scale the surface frame: */
-			Scalar scale=((newCurrentPos-currentPos)*scalingDirection)/factory->scaleFactor;
-			newSurfaceFrame*=NavTrackerState::scale(Math::exp(-scale));
+			Scalar scale=((currentPos-lastPos)*scalingDirection)/factory->scaleFactor;
+			lastPos=currentPos;
+			surfaceFrame*=NavTrackerState::scale(Math::exp(scale));
 			
-			/* Re-align the surface frame with the surface: */
-			realignSurfaceFrame(newSurfaceFrame);
-			
+			/* Apply the new transformation: */
+			applyNavState();
 			break;
 			}
 		
 		case SCALING_WHEEL:
 			{
-			NavTransform newSurfaceFrame=surfaceFrame;
-			
 			/* Scale the surface frame: */
-			newSurfaceFrame*=NavTrackerState::scale(Math::pow(factory->wheelScaleFactor,-currentValue));
+			surfaceFrame*=NavTrackerState::scale(Math::exp(factory->wheelScaleFactor*currentValue));
 			
-			/* Re-align the surface frame with the surface: */
-			realignSurfaceFrame(newSurfaceFrame);
-			
+			/* Apply the new transformation: */
+			applyNavState();
 			break;
 			}
-		
-		default:
-			;
-		}
-	
-	/* Update the current mouse position: */
-	if(currentPos!=newCurrentPos)
-		{
-		currentPos=calcScreenPos();
-		lastMoveTime=getApplicationTime();
 		}
 	}
 
 void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 	{
-	#if 0 // Don't draw the interaction ray -- it's a mouse tool, it should be invisible
-	if(factory->interactWithWidgets)
-		{
-		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(3.0f,GLColor<GLfloat,4>(1.0f,0.0f,0.0f),contextData);
-		}
-	#endif
-	
-	if(showCompass||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING))
+	if(factory->showCompass||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING))
 		{
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
-		glDepthFunc(GL_LEQUAL);
+		
+		/* Get a pointer to the screen the mouse is on: */
+		const VRWindow* window=0;
+		const VRScreen* screen;
+		if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
+			{
+			window=mouseAdapter->getWindow();
+			screen=window->getVRScreen();
+			}
+		else
+			screen=getMainScreen();
+		ONTransform screenT=screen->getScreenTransformation();
 		
 		/* Go to screen coordinates: */
 		glPushMatrix();
-		Scalar viewport[4];
-		glMultMatrix(getMouseScreenTransform(mouseAdapter,viewport));
+		glMultMatrix(screenT);
 		
 		/* Determine the crosshair colors: */
 		Color bgColor=getBackgroundColor();
@@ -652,56 +618,113 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 			fgColor[i]=1.0f-bgColor[i];
 		fgColor[3]=bgColor[3];
 		
-		if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
+		if(factory->showCompass)
 			{
-			/* Calculate the window's or screen's center: */
-			Scalar centerPos[2];
-			for(int i=0;i<2;++i)
-				centerPos[i]=Math::mid(viewport[2*i+0],viewport[2*i+1]);
+			Scalar dialSize=getUiSize()*Scalar(5);
+			Scalar thickness=getUiSize()*Scalar(0.5);
 			
-			/* Calculate the endpoints of the screen's crosshair lines in screen coordinates: */
-			Point l=Point(viewport[0],centerPos[1],Scalar(0));
-			Point r=Point(viewport[1],centerPos[1],Scalar(0));
-			Point b=Point(centerPos[0],viewport[2],Scalar(0));
-			Point t=Point(centerPos[0],viewport[3],Scalar(0));
-			
-			/* Draw the screen crosshairs: */
-			glLineWidth(3.0f);
-			glColor(bgColor);
-			glBegin(GL_LINES);
-			glVertex(l);
-			glVertex(r);
-			glVertex(b);
-			glVertex(t);
-			glEnd();
-			glLineWidth(1.0f);
-			glColor(fgColor);
-			glBegin(GL_LINES);
-			glVertex(l);
-			glVertex(r);
-			glVertex(b);
-			glVertex(t);
-			glEnd();
-			}
-		
-		if(showCompass)
-			{
-			/* Get the data item: */
-			DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
-			
-			/* Position the compass rose: */
-			glTranslate(viewport[1]-factory->compassSize*Scalar(3),viewport[3]-factory->compassSize*Scalar(3),Scalar(0));
+			glPushMatrix();
+			if(window!=0)
+				glTranslate(window->getScreenViewport()[1]-dialSize*Scalar(3),window->getScreenViewport()[3]-dialSize*Scalar(3),0);
+			else
+				glTranslate(screen->getWidth()-dialSize*Scalar(3),screen->getHeight()-dialSize*Scalar(3),0);
 			glRotate(Math::deg(azimuth),0,0,1);
 			
-			/* Draw the compass rose's background: */
 			glLineWidth(3.0f);
 			glColor(bgColor);
-			glCallList(dataItem->compassDisplayList);
+			glBegin(GL_LINE_LOOP);
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize+thickness),Math::cos(angle)*(dialSize+thickness));
+				}
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize-thickness),Math::cos(angle)*(dialSize-thickness));
+				}
+			glEnd();
+			glBegin(GL_LINE_LOOP);
+			glVertex(thickness,dialSize*Scalar(-1.25));
+			glVertex(thickness,dialSize*Scalar(1.25));
+			glVertex(thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(Scalar(0),dialSize*Scalar(1.75));
+			glVertex(-thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(-1.25));
+			glEnd();
+			glBegin(GL_LINES);
+			glVertex(-dialSize*Scalar(1.25),Scalar(0));
+			glVertex(dialSize*Scalar(1.25),Scalar(0));
+			glEnd();
 			
-			/* Draw the compass rose's foreground: */
 			glLineWidth(1.0f);
 			glColor(fgColor);
-			glCallList(dataItem->compassDisplayList);
+			glBegin(GL_LINE_LOOP);
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize+thickness),Math::cos(angle)*(dialSize+thickness));
+				}
+			for(int i=0;i<30;++i)
+				{
+				Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+				glVertex(Math::sin(angle)*(dialSize-thickness),Math::cos(angle)*(dialSize-thickness));
+				}
+			glEnd();
+			glBegin(GL_LINE_LOOP);
+			glVertex(thickness,dialSize*Scalar(-1.25));
+			glVertex(thickness,dialSize*Scalar(1.25));
+			glVertex(thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(Scalar(0),dialSize*Scalar(1.75));
+			glVertex(-thickness*Scalar(2.5),dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(1.25));
+			glVertex(-thickness,dialSize*Scalar(-1.25));
+			glEnd();
+			glBegin(GL_LINES);
+			glVertex(-dialSize*Scalar(1.25),Scalar(0));
+			glVertex(dialSize*Scalar(1.25),Scalar(0));
+			glEnd();
+			
+			glPopMatrix();
+			}
+		
+		if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
+			{
+			/* Determine the screen containing the input device and find its center: */
+			Scalar centerPos[2];
+			if(mouseAdapter!=0)
+				mouseAdapter->getWindow()->getWindowCenterPos(centerPos);
+			else
+				{
+				centerPos[0]=getMainScreen()->getWidth()*Scalar(0.5);
+				centerPos[1]=getMainScreen()->getHeight()*Scalar(0.5);
+				}
+			
+			/* Calculate the endpoints of the screen's crosshair lines in screen coordinates: */
+			Point l=Point(Scalar(0),centerPos[1],Scalar(0));
+			Point r=Point(screen->getWidth(),centerPos[1],Scalar(0));
+			Point b=Point(centerPos[0],Scalar(0),Scalar(0));
+			Point t=Point(centerPos[0],screen->getHeight(),Scalar(0));
+			
+			/* Draw the screen crosshairs: */
+			glDepthFunc(GL_LEQUAL);
+			glLineWidth(3.0f);
+			glColor(bgColor);
+			glBegin(GL_LINES);
+			glVertex(l);
+			glVertex(r);
+			glVertex(b);
+			glVertex(t);
+			glEnd();
+			glLineWidth(1.0f);
+			glColor(fgColor);
+			glBegin(GL_LINES);
+			glVertex(l);
+			glVertex(r);
+			glVertex(b);
+			glVertex(t);
+			glEnd();
 			}
 		
 		/* Go back to physical coordinates: */
@@ -710,47 +733,6 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 		/* Restore OpenGL state: */
 		glPopAttrib();
 		}
-	}
-
-void MouseSurfaceNavigationTool::initContext(GLContextData& contextData) const
-	{
-	/* Create a data item: */
-	DataItem* dataItem=new DataItem;
-	contextData.addDataItem(this,dataItem);
-	
-	/* Create the compass rose display list: */
-	glNewList(dataItem->compassDisplayList,GL_COMPILE);
-	
-	/* Draw the compass ring: */
-	glBegin(GL_LINE_LOOP);
-	for(int i=0;i<30;++i)
-		{
-		Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
-		glVertex(Math::sin(angle)*(factory->compassSize+factory->compassThickness),Math::cos(angle)*(factory->compassSize+factory->compassThickness));
-		}
-	for(int i=0;i<30;++i)
-		{
-		Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
-		glVertex(Math::sin(angle)*(factory->compassSize-factory->compassThickness),Math::cos(angle)*(factory->compassSize-factory->compassThickness));
-		}
-	glEnd();
-	
-	/* Draw the compass arrow: */
-	glBegin(GL_LINE_LOOP);
-	glVertex(factory->compassThickness,factory->compassSize*Scalar(-1.25));
-	glVertex(factory->compassThickness,factory->compassSize*Scalar(1.25));
-	glVertex(factory->compassThickness*Scalar(2.5),factory->compassSize*Scalar(1.25));
-	glVertex(Scalar(0),factory->compassSize*Scalar(1.75));
-	glVertex(-factory->compassThickness*Scalar(2.5),factory->compassSize*Scalar(1.25));
-	glVertex(-factory->compassThickness,factory->compassSize*Scalar(1.25));
-	glVertex(-factory->compassThickness,factory->compassSize*Scalar(-1.25));
-	glEnd();
-	glBegin(GL_LINES);
-	glVertex(-factory->compassSize*Scalar(1.25),Scalar(0));
-	glVertex(factory->compassSize*Scalar(1.25),Scalar(0));
-	glEnd();
-	
-	glEndList();
 	}
 
 }

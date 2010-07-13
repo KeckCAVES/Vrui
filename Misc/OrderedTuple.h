@@ -25,8 +25,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_ORDEREDTUPLE_INCLUDED
 #define MISC_ORDEREDTUPLE_INCLUDED
 
-#include <stddef.h>
-
 namespace Misc {
 
 template <class ElementParam,int dimensionParam>

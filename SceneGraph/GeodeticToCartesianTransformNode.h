@@ -2,7 +2,7 @@
 GeodeticToCartesianTransformNode - Special transformation node class to
 transform from a local frame on a reference ellipsoid given in geodetic
 coordinates to Cartesian coordinates.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -47,7 +47,6 @@ class GeodeticToCartesianTransformNode:public GroupNode
 	SFBool degrees;
 	SFBool colatitude;
 	SFPoint geodetic;
-	SFBool translateOnly;
 	
 	/* Derived state: */
 	protected:

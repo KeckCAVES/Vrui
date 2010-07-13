@@ -1,7 +1,7 @@
 /***********************************************************************
 ALGeometryWrappers - Wrapper functions to use templatized geometry
 library objects as parameters to OpenAL functions.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the OpenAL Support Library (ALSupport).
 
@@ -23,8 +23,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef ALGEOMETRYWRAPPERS_INCLUDED
 #define ALGEOMETRYWRAPPERS_INCLUDED
 
-#include <AL/Config.h>
-
+#ifdef __DARWIN__
+#include <OpenAL/al.h>
+#else
+#include <AL/al.h>
+#endif
 #include <AL/ALTemplates.h>
 
 /* Forward declarations: */
@@ -34,8 +37,6 @@ class Point;
 template <class ScalarParam,int dimensionParam>
 class Vector;
 }
-
-#if ALSUPPORT_CONFIG_HAVE_OPENAL
 
 /***************************************
 Generic versions of alListener... calls:
@@ -130,7 +131,5 @@ inline void alSourceDirection(ALuint sid,const Geometry::Vector<ScalarParam,3>& 
 	{
 	alSourceDirection(sid,transform.transform(value));
 	}
-
-#endif
 
 #endif

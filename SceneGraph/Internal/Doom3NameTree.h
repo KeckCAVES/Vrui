@@ -142,87 +142,6 @@ class Doom3NameTree
 			}
 		};
 	
-	class NodeIterator // Class to iterate through the children of an interior node
-		{
-		friend class Doom3NameTree;
-		
-		/* Elements: */
-		private:
-		const InteriorNode* node; // Pointer to the node whose children are iterated
-		typename std::vector<InteriorNode*>::const_iterator childNodesIt; // Iterator to current child node
-		typename std::vector<LeafNode*>::const_iterator leafNodesIt; // Iterator to current leaf node
-		
-		/* Constructors and destructors: */
-		public:
-		NodeIterator(void) // Constructs and invalid iterator
-			:node(0)
-			{
-			}
-		private:
-		NodeIterator(const InteriorNode* sNode) // Constructs an iterator for the given interior node
-			:node(sNode),
-			 childNodesIt(node->childNodes.end()),leafNodesIt(node->leafNodes.end())
-			{
-			}
-		
-		/* Methods: */
-		public:
-		bool isValid(void) const // Returns true if the iterator is valid
-			{
-			return node!=0;
-			}
-		bool eod(void) const // Return true if the iterator is at the end of the directory
-			{
-			return childNodesIt==node->childNodes.end()&&leafNodesIt==node->leafNodes.end();
-			}
-		const std::string& getName(void) const // Returns the name of the current node
-			{
-			if(childNodesIt!=node->childNodes.end())
-				return (*childNodesIt)->name;
-			else
-				return (*leafNodesIt)->name;
-			}
-		bool isInterior(void) const // Returns true if the iterator points to an interior node
-			{
-			return node!=0&&childNodesIt!=node->childNodes.end();
-			}
-		bool isLeaf(void) const // Returns true if the iterator points to a leaf node
-			{
-			return node!=0&&leafNodesIt!=node->leafNodes.end();
-			}
-		const LeafNodeValue& getLeafValue(void) const // Returns the value of the current leaf node
-			{
-			return (*leafNodesIt)->value;
-			}
-		NodeIterator& rewind(void) // Rewinds the iterator to the beginning of the directory
-			{
-			childNodesIt=node->childNodes.end();
-			leafNodesIt=node->leafNodes.end();
-			return *this;
-			}
-		NodeIterator& operator++(void)
-			{
-			/* Check for the initial/end-of-list condition: */
-			if(childNodesIt==node->childNodes.end()&&leafNodesIt==node->leafNodes.end())
-				{
-				/* Go to the beginning of the list: */
-				childNodesIt=node->childNodes.begin();
-				if(childNodesIt==node->childNodes.end())
-					leafNodesIt=node->leafNodes.begin();
-				}
-			else if(childNodesIt!=node->childNodes.end())
-				{
-				++childNodesIt;
-				if(childNodesIt==node->childNodes.end())
-					leafNodesIt=node->leafNodes.begin();
-				}
-			else
-				++leafNodesIt;
-			
-			return *this;
-			}
-		};
-	
 	/* Elements: */
 	private:
 	InteriorNode root; // The root node of the tree
@@ -245,7 +164,6 @@ class Doom3NameTree
 		{
 		return const_cast<LeafNode*>(leafId.leaf)->value;
 		}
-	NodeIterator findInteriorNode(const char* nodeName) const; // Returns an iterator for the child nodes of the interior node of the given name
 	template <class TraversalFunctorParam>
 	void traverseTree(TraversalFunctorParam& tf) const // Traverses the entire tree and calls functor methods upon entering/leaving each interior node below the root and encountering each leaf node
 		{

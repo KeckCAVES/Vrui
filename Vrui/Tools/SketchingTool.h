@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColor.h>
 #include <GLMotif/NewButton.h>
 #include <GLMotif/Slider.h>
-#include <Vrui/FileSelectionHelper.h>
+#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/UtilityTool.h>
 
@@ -51,7 +51,6 @@ class SketchingToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	Scalar detailSize; // Minimal length of line segments in curves
 	std::string curveFileName; // Name of file into which curve data is saved
 	
 	/* Constructors and destructors: */
@@ -61,7 +60,6 @@ class SketchingToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -105,11 +103,10 @@ class SketchingTool:public UtilityTool
 	Curve* currentCurve; // Pointer to the currently created curve
 	Point lastPoint; // The last point appended to the curve
 	Point currentPoint; // The current dragging position
-	FileSelectionHelper curvesSelectionHelper; // Helper object to load and save curve files
 	
 	/* Constructors and destructors: */
 	public:
-	SketchingTool(const Vrui::ToolFactory* sFactory,const Vrui::ToolInputAssignment& inputAssignment);
+	SketchingTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
 	virtual ~SketchingTool(void);
 	
 	/* Methods from Vrui::Tool: */
@@ -117,15 +114,16 @@ class SketchingTool:public UtilityTool
 		{
 		return factory;
 		}
-	virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	
 	/* New methods: */
 	void lineWidthSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void colorButtonSelectCallback(GLMotif::NewButton::SelectCallbackData* cbData);
-	void saveCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveCurvesCallback(Misc::CallbackData* cbData);
+	void loadCurvesCallback(Misc::CallbackData* cbData);
+	void loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void deleteAllCurvesCallback(Misc::CallbackData* cbData);
 	};
 

@@ -2,7 +2,7 @@
 GeodeticCoordinateTransform - Coordinate transformation class to be used
 when navigation space is geocentric Cartesian space, and users are
 interested in geodetic coordinates (latitude, longitude, elevation).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,10 +22,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/GeodeticCoordinateTransform.h>
-
 #include <Misc/ThrowStdErr.h>
 #include <Math/Math.h>
+
+#include <Vrui/GeodeticCoordinateTransform.h>
 
 namespace Vrui {
 
@@ -34,7 +34,9 @@ Methods of class GeodeticCoordinateTransform:
 ********************************************/
 
 GeodeticCoordinateTransform::GeodeticCoordinateTransform(double scaleFactor)
-	:geoid(Geoid::getDefaultRadius()*scaleFactor,Geoid::getDefaultFlatteningFactor()),
+	:radius(6378137.0*scaleFactor),
+	 flatteningFactor(1.0/298.257223563),
+	 e2((2.0-flatteningFactor)*flatteningFactor),
 	 colatitude(false),radians(false),depth(false)
 	{
 	}
@@ -63,36 +65,26 @@ const char* GeodeticCoordinateTransform::getComponentName(int componentIndex) co
 
 Point GeodeticCoordinateTransform::transform(const Point& navigationPoint) const
 	{
-	#if 0
+	double spherical[3];
 	
-	/* Calculate the transformation using a not-so-great formula: */
-	Point spherical;
 	double xy=Math::sqrt(Math::sqr(double(navigationPoint[0]))+Math::sqr(double(navigationPoint[1])));
-	spherical[0]=Scalar(Math::atan2(double(navigationPoint[2]),(1.0-e2)*xy));
+	spherical[0]=Math::atan2(double(navigationPoint[2]),(1.0-e2)*xy);
 	double lats=Math::sin(spherical[0]);
 	double nu=radius/Math::sqrt(1.0-e2*Math::sqr(lats));
 	for(int i=0;i<6;++i)
 		{
-		spherical[0]=Scalar(atan2(double(navigationPoint[2])+e2*nu*lats,xy));
+		spherical[0]=atan2(double(navigationPoint[2])+e2*nu*lats,xy);
 		lats=Math::sin(spherical[0]);
 		nu=radius/Math::sqrt(1.0-e2*Math::sqr(lats));
 		}
-	spherical[1]=Scalar(Math::atan2(double(navigationPoint[1]),double(navigationPoint[0])));
-	if(Math::abs(spherical[0])<=Math::rad(Scalar(45)))
-		spherical[2]=Scalar(xy/Math::cos(double(spherical[0]))-nu;
+	spherical[1]=Math::atan2(double(navigationPoint[1]),double(navigationPoint[0]));
+	if(Math::abs(spherical[0])<=Math::rad(45.0))
+		spherical[2]=xy/Math::cos(spherical[0])-nu;
 	else
-		spherical[2]=Scalar(double(navigationPoint[2])/lats-(1.0-e2)*nu);
+		spherical[2]=double(navigationPoint[2])/lats-(1.0-e2)*nu;
 	
-	#else
-	
-	/* Let the geoid do the transformation: */
-	Point spherical=geoid.cartesianToGeodetic(navigationPoint);
-	
-	#endif
-	
-	/* Apply the secondary coordinate transformation: */
 	if(colatitude)
-		spherical[0]=Math::rad(Scalar(90))-spherical[0];
+		spherical[0]=Math::rad(90.0)-spherical[0];
 	if(!radians)
 		{
 		spherical[0]=Math::deg(spherical[0]);
@@ -101,31 +93,17 @@ Point GeodeticCoordinateTransform::transform(const Point& navigationPoint) const
 	if(depth)
 		spherical[2]=-spherical[2];
 	
-	return spherical;
-	}
-
-Point GeodeticCoordinateTransform::inverseTransform(const Point& userPoint) const
-	{
-	/* Apply the inverse secondary coordinate transformation: */
-	Point spherical=userPoint;
-	if(!radians)
-		{
-		spherical[0]=Math::rad(spherical[0]);
-		spherical[1]=Math::rad(spherical[1]);
-		}
-	if(colatitude)
-		spherical[0]=Math::rad(Scalar(90))-spherical[0];
-	if(depth)
-		spherical[2]=-spherical[2];
-	
-	/* Let the geoid do the inverse transformation: */
-	return geoid.geodeticToCartesian(spherical);
+	return Point(spherical);
 	}
 
 void GeodeticCoordinateTransform::setGeoid(double newRadius,double newFlatteningFactor)
 	{
 	/* Set the geoid parameters: */
-	geoid=Geoid(newRadius,newFlatteningFactor);
+	radius=newRadius;
+	flatteningFactor=newFlatteningFactor;
+	
+	/* Calculate the derived geoid parameters: */
+	e2=(2.0-flatteningFactor)*flatteningFactor;
 	}
 
 void GeodeticCoordinateTransform::setColatitude(bool newColatitude)

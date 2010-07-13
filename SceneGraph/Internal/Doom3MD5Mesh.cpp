@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MD5Mesh - Class to represent animated mesh models in Doom3's MD5
 mesh format.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -27,6 +27,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdio.h>
 #include <Misc/Utility.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/BufferCharacterSource.h>
+#include <Misc/File.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/ComponentArray.h>
@@ -152,7 +154,10 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 		}
 	
 	/* Open the mesh file and create a tokenizer for it: */
-	Doom3ValueSource source(fileManager.getFile(meshFileName),meshFileName);
+	size_t fileDataSize;
+	unsigned char* fileData=fileManager.readFile(meshFileName,fileDataSize);
+	Misc::BufferCharacterSource file(fileData,fileDataSize);
+	Doom3ValueSource source(file,meshFileName);
 	
 	/* Parse the mesh file header: */
 	if(!source.isString("MD5Version"))
@@ -222,7 +227,7 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 			Misc::throwStdErr("Doom3MD5Mesh::Doom3MD5Mesh: Malformed joint orientation at %s",source.where().c_str());
 		
 		/* Store the joint's transformation: */
-		j.transform=Transform(translation,Transform::Rotation(orientation));
+		j.transform=Transform(translation,Transform::Rotation::fromQuaternion(orientation));
 		}
 	if(source.readChar()!='}')
 		Misc::throwStdErr("Doom3MD5Mesh::Doom3MD5Mesh: Long joint list at %s",source.where().c_str());
@@ -358,7 +363,7 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 			Vector d2=pvs[2]->position-pvs[0]->position;
 			
 			/* Calculate the triangle's normal vector: */
-			Vector triangleNormal=d1^d2;
+			Vector triangleNormal=Geometry::cross(d1,d2);
 			triangleNormal.normalize();
 			
 			/* Calculate the triangle's tangent vectors: */
@@ -412,6 +417,8 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 				}
 			}
 		}
+	
+	delete[] fileData;
 	}
 
 Doom3MD5Mesh::~Doom3MD5Mesh(void)

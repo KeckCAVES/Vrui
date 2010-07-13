@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupWindow - Class for main windows with a draggable title bar and an
 optional close button.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
-#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+#if USE_RENDERCACHE
 #include <GL/GLContextData.h>
 #endif
 #include <GL/GLFont.h>
@@ -65,7 +65,7 @@ PopupWindow::PopupWindow(const char* sName,WidgetManager* sManager,const char* s
 	 childBorderWidth(0.0f),
 	 child(0),
 	 isResizing(false)
-	 #if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	 #if USE_RENDERCACHE
 	 ,version(1)
 	 #endif
 	{
@@ -96,7 +96,7 @@ PopupWindow::PopupWindow(const char* sName,WidgetManager* sManager,const char* s
 	 childBorderWidth(0.0f),
 	 child(0),
 	 isResizing(false)
-	 #if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	 #if USE_RENDERCACHE
 	 ,version(1)
 	 #endif
 	{
@@ -122,16 +122,14 @@ PopupWindow::PopupWindow(const char* sName,WidgetManager* sManager,const char* s
 
 PopupWindow::~PopupWindow(void)
 	{
-	/* Pop down the widget: */
 	manager->popdownWidget(this);
 	
-	/* Unmanage and delete the title bar widgets: */
-	deleteChild(titleBar);
-	deleteChild(hideButton);
-	deleteChild(closeButton);
+	delete titleBar;
+	delete hideButton;
+	delete closeButton;
+	delete child;
 	
-	/* Unmanage and delete the child: */
-	deleteChild(child);
+	manager->unmanageWidget(this);
 	}
 
 Vector PopupWindow::calcNaturalSize(void) const
@@ -263,13 +261,7 @@ void PopupWindow::resize(const Box& newExterior)
 	Container::resize(newExterior);
 	}
 
-Vector PopupWindow::calcHotSpot(void) const
-	{
-	/* Return the title bar's hot spot: */
-	return titleBar->calcHotSpot();
-	}
-
-#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+#if USE_RENDERCACHE
 
 void PopupWindow::update(void)
 	{
@@ -281,7 +273,7 @@ void PopupWindow::update(void)
 
 void PopupWindow::draw(GLContextData& contextData) const
 	{
-	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	#if USE_RENDERCACHE
 	/* Retrieve the data item: */
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
@@ -388,7 +380,7 @@ void PopupWindow::draw(GLContextData& contextData) const
 	if(child!=0)
 		child->draw(contextData);
 	
-	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	#if USE_RENDERCACHE
 	if(dataItem->version!=version)
 		{
 		/* Finish caching the popup window's visual representation: */
@@ -540,7 +532,8 @@ void PopupWindow::addChild(Widget* newChild)
 	if(newChild!=titleBar&&newChild!=hideButton&&newChild!=closeButton)
 		{
 		/* Delete the current child: */
-		deleteChild(child);
+		delete child;
+		child=0;
 		
 		/* Add the new child: */
 		child=newChild;
@@ -548,22 +541,6 @@ void PopupWindow::addChild(Widget* newChild)
 		/* Resize the widget: */
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 		}
-	}
-
-void PopupWindow::removeChild(Widget* removeChild)
-	{
-	/* Check if the given widget is really the child: */
-	if(child!=0&&child==removeChild)
-		{
-		/* Tell the child that it is being removed: */
-		child->unmanageChild();
-		
-		/* Remove the child: */
-		child=0;
-		}
-	
-	/* Resize the widget: */
-	resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 	}
 
 void PopupWindow::requestResize(Widget* requestChild,const Vector& newExteriorSize)
@@ -626,7 +603,7 @@ Widget* PopupWindow::getNextChild(Widget*)
 	return 0;
 	}
 
-#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+#if USE_RENDERCACHE
 
 void PopupWindow::initContext(GLContextData& contextData) const
 	{
@@ -701,7 +678,6 @@ void PopupWindow::setHideButton(bool enable)
 		hideButton->getSelectCallbacks().add(this,&PopupWindow::hideButtonCallback);
 		Glyph* hbGlyph=new Glyph("Glyph",hideButton,GlyphGadget::LOW_BAR,GlyphGadget::IN);
 		hbGlyph->setBorderWidth(0.0f);
-		
 		hideButton->manageChild();
 		
 		/* Resize the widget: */
@@ -711,7 +687,7 @@ void PopupWindow::setHideButton(bool enable)
 	if(!enable&&hideButton!=0)
 		{
 		/* Delete the hide button: */
-		deleteChild(hideButton);
+		delete hideButton;
 		hideButton=0;
 		
 		/* Resize the widget: */
@@ -734,7 +710,6 @@ void PopupWindow::setCloseButton(bool enable)
 		closeButton->getSelectCallbacks().add(this,&PopupWindow::closeButtonCallback);
 		Glyph* cbGlyph=new Glyph("Glyph",closeButton,GlyphGadget::CROSS,GlyphGadget::IN);
 		cbGlyph->setBorderWidth(0.0f);
-		
 		closeButton->manageChild();
 		
 		/* Resize the widget: */
@@ -744,7 +719,7 @@ void PopupWindow::setCloseButton(bool enable)
 	if(!enable&&closeButton!=0)
 		{
 		/* Delete the close button: */
-		deleteChild(closeButton);
+		delete closeButton;
 		closeButton=0;
 		
 		/* Resize the widget: */
@@ -774,48 +749,6 @@ void PopupWindow::setChildBorderWidth(GLfloat newChildBorderWidth)
 const char* PopupWindow::getTitleString(void) const
 	{
 	return titleBar->getString();
-	}
-
-void PopupWindow::popDownFunction(Misc::CallbackData* cbData)
-	{
-	/* Get the proper callback data structure: */
-	CallbackData* myCbData=dynamic_cast<CallbackData*>(cbData);
-	
-	if(myCbData!=0)
-		{
-		/* Pop down the popup window: */
-		myCbData->popupWindow->getManager()->popdownWidget(myCbData->popupWindow);
-		}
-	}
-
-void PopupWindow::deleteFunction(Misc::CallbackData* cbData)
-	{
-	/* Get the proper callback data structure: */
-	CallbackData* myCbData=dynamic_cast<CallbackData*>(cbData);
-	
-	if(myCbData!=0)
-		{
-		/* Delete the popup window at the next opportunity: */
-		myCbData->popupWindow->getManager()->deleteWidget(myCbData->popupWindow);
-		}
-	}
-
-void PopupWindow::popDownOnClose(void)
-	{
-	/* Install the pop-down callback: */
-	closeCallbacks.add(popDownFunction);
-	}
-
-void PopupWindow::deleteOnClose(void)
-	{
-	/* Install the close callback: */
-	closeCallbacks.add(deleteFunction);
-	}
-
-void PopupWindow::close(void)
-	{
-	/* Delete the popup window at the next opportunity: */
-	getManager()->deleteWidget(this);
 	}
 
 }

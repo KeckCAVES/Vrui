@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -73,11 +73,17 @@ class MeasureEnvironment:public Vrui::Application
 		
 		/* Constructors and destructors: */
 		public:
-		PointSnapperTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
+		PointSnapperTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment)
+			:Vrui::TransformTool(factory,inputAssignment)
+			{
+			}
 		
 		/* Methods from Vrui::Tool: */
 		virtual void initialize(void);
-		virtual const Vrui::ToolFactory* getFactory(void) const;
+		virtual const Vrui::ToolFactory* getFactory(void) const
+			{
+			return factory;
+			}
 		virtual void frame(void);
 		};
 	
@@ -111,7 +117,7 @@ class MeasureEnvironment:public Vrui::Application
 			{
 			return factory;
 			}
-		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		virtual void frame(void);
 		virtual void display(GLContextData& contextData) const;
 		};
@@ -121,8 +127,7 @@ class MeasureEnvironment:public Vrui::Application
 	
 	/* Elements: */
 	TotalStation* totalStation;
-	TotalStation::Scalar basePrismOffset; // Offset that must be applied to all distance measurements
-	TotalStation::Scalar initialPrismOffset;
+	Scalar initialPrismOffset;
 	NaturalPointClient* naturalPointClient;
 	bool naturalPointFlipZ;
 	OGTransform pointTransform; // Transformation applied to all incoming points
@@ -143,9 +148,9 @@ class MeasureEnvironment:public Vrui::Application
 	static PTransform calcNormalization(const PointList& points);
 	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
 	void* pointCollectorThreadMethod(void);
-	void loadMeasurementFile(IO::Directory& directory,const char* fileName);
+	void loadMeasurementFile(const char* fileName);
 	void saveMeasurementFile(const char* fileName);
-	void loadOptitrackSampleFile(IO::Directory& directory,const char* fileName,bool flipZ);
+	void loadOptitrackSampleFile(const char* fileName,bool flipZ);
 	
 	/* Constructors and destructors: */
 	public:
@@ -157,8 +162,8 @@ class MeasureEnvironment:public Vrui::Application
 	virtual void display(GLContextData& contextData) const;
 	
 	/* New methods: */
-	PickResult pickPoint(const Point& point) const;
-	PickResult pickPoint(const Ray& ray) const;
+	PickResult pickPoint(const Point& point,Scalar pointSize) const;
+	PickResult pickPoint(const Ray& ray,Scalar pointSize) const;
 	std::pair<int,int> classifyPickResult(const PickResult& pickResult) const;
 	Point snapToPoint(const Point& point,const PickResult& pickResult) const;
 	void deletePoint(const PickResult& pickResult);

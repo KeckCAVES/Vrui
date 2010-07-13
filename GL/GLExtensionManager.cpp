@@ -1,6 +1,6 @@
 /***********************************************************************
 GLExtensionManager - Class to manage OpenGL extensions.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the OpenGL Support Library (GLSupport).
@@ -29,14 +29,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLX_GLXEXT_PROTOTYPES
 #define GLX_GLXEXT_PROTOTYPES 1
 #endif
-#ifndef GLSUPPORT_HAVE_GLXGETPROCADDRESS
+#ifndef HAVE_GLXGETPROCADDRESS
 #include <dlfcn.h>
 #endif
 #include <GL/glx.h>
 #include <GL/Extensions/GLExtension.h>
 
 #if 0
-#ifdef GLSUPPORT_HAVE_GLXGETPROCADDRESS
+#ifdef HAVE_GLXGETPROCADDRESS
 #ifndef GLX_ARB_get_proc_address
 #define GLX_ARB_get_proc_address 1
 typedef void (*__GLXextFuncPtr)(void);
@@ -57,7 +57,7 @@ Methods of class GLExtensionManager:
 
 GLExtensionManager::FunctionPointer GLExtensionManager::getFunctionPtr(const char* functionName)
 	{
-	#ifdef GLSUPPORT_HAVE_GLXGETPROCADDRESS
+	#ifdef HAVE_GLXGETPROCADDRESS
 	return glXGetProcAddressARB(reinterpret_cast<const GLubyte*>(functionName));
 	#else
 	/* Mac OS X's GLX does not support glXGetProcAddress, strangely enough: */
@@ -139,12 +139,8 @@ bool GLExtensionManager::isExtensionRegistered(const char* extensionName)
 	/* Search the extension name in the list of registered extensions: */
 	ExtensionHash::Iterator eIt=currentExtensionManager->extensions.findEntry(extensionName);
 	
-	/* Throw an exception if the extension is not supported by the current OpenGL context: */
-	if(eIt.isFinished())
-		Misc::throwStdErr("GLExtensionManager: Extension %s not supported by local OpenGL",extensionName);
-	
-	/* Return true if the extension already has an associated extension object: */
-	return eIt->getDest()!=0;
+	/* Return true if the extension exists and has an associated extension object: */
+	return !eIt.isFinished()&&eIt->getDest()!=0;
 	}
 
 void GLExtensionManager::registerExtension(GLExtension* newExtension)

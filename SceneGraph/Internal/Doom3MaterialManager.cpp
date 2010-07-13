@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MaterialManager - Class to manage access to shared Doom3 material
 definitions.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,9 +25,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // DEBUGGING
 #include <iostream>
 
-#include <ctype.h>
 #include <string>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/BufferCharacterSource.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
@@ -67,20 +67,6 @@ class MaterialFileParser // Helper class to parse material files
 		materialManager.parseMaterialFile(fileManager,pathName);
 		};
 	};
-
-/****************
-Helper functions:
-****************/
-
-bool equal(const std::string& s1,const char* s2)
-	{
-	std::string::const_iterator s1It;
-	const char* s2Ptr;
-	for(s1It=s1.begin(),s2Ptr=s2;s1It!=s1.end()&&*s2Ptr!='\0';++s1It,++s2Ptr)
-		if(tolower(*s1It)!=tolower(*s2Ptr))
-			break;
-	return s1It==s1.end()&&*s2Ptr=='\0';
-	}
 
 }
 
@@ -198,28 +184,6 @@ Doom3MaterialManager::DataItem::~DataItem(void)
 		}
 	}
 
-/****************************************************
-Methods of class Doom3MaterialManager::RenderContext:
-****************************************************/
-
-void Doom3MaterialManager::RenderContext::suspend(void)
-	{
-	/* Disable the currently-used shader program: */
-	if(currentProgramIndex!=-1)
-		{
-		currentProgramIndex=-1;
-		glUseProgramObjectARB(0);
-		}
-	
-	/* Return to default OpenGL state: */
-	glEnable(GL_CULL_FACE);
-	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
-	glDisable(GL_ALPHA_TEST);
-	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
-	glActiveTextureARB(GL_TEXTURE0_ARB);
-	}
-
 namespace {
 
 /***************
@@ -282,25 +246,25 @@ Doom3MaterialManager::Expression* Doom3MaterialManager::parseTerm(Doom3ValueSour
 	else
 		{
 		std::string term=source.readString();
-		if(equal(term,"time"))
+		if(term=="time")
 			return new EnvExpression(0);
-		else if(strncasecmp(term.c_str(),"parm",4)==0)
+		else if(strncmp(term.c_str(),"parm",4)==0)
 			{
 			int parmIndex=atoi(term.c_str()+4);
 			if(parmIndex<0||parmIndex>=12)
 				Misc::throwStdErr("Doom3MaterialManager::parseTerm: Unknown variable %s at %s",term.c_str(),source.where().c_str());
 			return new EnvExpression(parmIndex+1);
 			}
-		else if(strncasecmp(term.c_str(),"global",6)==0)
+		else if(strncmp(term.c_str(),"global",6)==0)
 			{
 			int globalIndex=atoi(term.c_str()+6);
 			if(globalIndex<0||globalIndex>=8)
 				Misc::throwStdErr("Doom3MaterialManager::parseTerm: Unknown variable %s at %s",term.c_str(),source.where().c_str());
 			return new EnvExpression(globalIndex+13);
 			}
-		else if(equal(term,"fragmentPrograms"))
+		else if(term=="fragmentPrograms")
 			return new EnvExpression(21);
-		else if(equal(term,"sound"))
+		else if(term=="sound")
 			return new EnvExpression(22);
 		else
 			{
@@ -436,7 +400,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 	std::string mapName=source.readString();
 	
 	/* Check for image functions: */
-	if(equal(mapName,"heightmap"))
+	if(mapName=="heightmap")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -446,7 +410,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeHeightmap(baseImage,bumpiness);
 		}
-	else if(equal(mapName,"addnormals"))
+	else if(mapName=="addnormals")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage1=parseImageMap(source);
@@ -456,7 +420,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeAddNormals(baseImage1,baseImage2);
 		}
-	else if(equal(mapName,"smoothnormals"))
+	else if(mapName=="smoothnormals")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -464,7 +428,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeSmoothNormals(baseImage);
 		}
-	else if(equal(mapName,"add"))
+	else if(mapName=="add")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage1=parseImageMap(source);
@@ -474,7 +438,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeAdd(baseImage1,baseImage2);
 		}
-	else if(equal(mapName,"scale"))
+	else if(mapName=="scale")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -497,7 +461,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeScale(baseImage,factors);
 		}
-	else if(equal(mapName,"invertAlpha"))
+	else if(mapName=="invertAlpha")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -505,7 +469,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeInvertAlpha(baseImage);
 		}
-	else if(equal(mapName,"invertColor"))
+	else if(mapName=="invertColor")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -513,7 +477,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeInvertColor(baseImage);
 		}
-	else if(equal(mapName,"makeIntensity"))
+	else if(mapName=="makeIntensity")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -521,7 +485,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeMakeIntensity(baseImage);
 		}
-	else if(equal(mapName,"makeAlpha"))
+	else if(mapName=="makeAlpha")
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -529,7 +493,7 @@ Doom3TextureManager::ImageID Doom3MaterialManager::parseImageMap(Doom3ValueSourc
 		
 		return textureManager.computeMakeAlpha(baseImage);
 		}
-	else if(equal(mapName,"downsize")) // A Quake 4 thing, actually, but we can parse it
+	else if(mapName=="downsize") // A Quake 4 thing, actually, but we can parse it
 		{
 		checkImageMapSyntax(source,'(');
 		Doom3TextureManager::ImageID baseImage=parseImageMap(source);
@@ -693,7 +657,10 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 	currentEnv.sound=0.0f;
 	
 	/* Read the material file and create a value source: */
-	Doom3ValueSource source(fileManager.getFile(fileName),fileName);
+	size_t fileDataSize;
+	unsigned char* fileData=fileManager.readFile(fileName,fileDataSize);
+	Misc::BufferCharacterSource file(fileData,fileDataSize);
+	Doom3ValueSource source(file,fileName);
 	
 	/* Parse all material definitions in the file: */
 	while(!source.eof())
@@ -717,7 +684,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 				source.skipString();
 				}
 			}
-		else if(equal(materialName,"guide"))
+		else if(materialName=="guide")
 			{
 			/* A guide is a nifty Quake 4 shorthand for material definitions; ignore it for now: */
 			source.skipString(); // Ignore the target material name
@@ -756,9 +723,9 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 			while(!source.eof()&&!(source.peekc()=='.'||(source.peekc()>='0'&&source.peekc()<='9')))
 				{
 				std::string keyword=source.readString();
-				if(equal(keyword,"snap"))
+				if(keyword=="snap")
 					table->snap=true;
-				else if(equal(keyword,"clamp"))
+				else if(keyword=="clamp")
 					table->clamp=true;
 				else if(keyword=="{")
 					{
@@ -795,7 +762,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 		else
 			{
 			/* Skip the optional material keyword: */
-			if(equal(materialName,"material"))
+			if(materialName=="material")
 				materialName=source.readString();
 			
 			/* Check if a material of this name has been requested, and is not yet loaded: */
@@ -825,65 +792,65 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 							/* Read the next setting: */
 							std::string setting=source.readString();
 							
-							if(equal(setting,"if"))
+							if(setting=="if")
 								{
 								/* Parse the expression: */
 								Expression* exp=parseExpression(source);
 								stage.enabled=exp->evaluate(currentEnv)!=0.0f;
 								delete exp;
 								}
-							else if(equal(setting,"blend"))
+							else if(setting=="blend")
 								{
 								/* Parse the blend type: */
 								std::string blendType=source.readString();
-								if(equal(blendType,"blend"))
+								if(blendType=="blend")
 									{
 									stage.blendSrc=GL_SRC_ALPHA;
 									stage.blendDst=GL_ONE_MINUS_SRC_ALPHA;
 									}
-								else if(equal(blendType,"add"))
+								else if(blendType=="add")
 									{
 									stage.blendSrc=GL_ONE;
 									stage.blendDst=GL_ONE;
 									material.additiveMapStage=material.numStages-1;
 									}
-								else if(equal(blendType,"filter"))
+								else if(blendType=="filter")
 									{
 									stage.blendSrc=GL_DST_COLOR;
 									stage.blendDst=GL_ZERO;
 									}
-								else if(equal(blendType,"modulate"))
+								else if(blendType=="modulate")
 									{
 									stage.blendSrc=GL_DST_COLOR;
 									stage.blendDst=GL_ZERO;
 									}
-								else if(equal(blendType,"none"))
+								else if(blendType=="none")
 									{
 									stage.blendSrc=GL_ZERO;
 									stage.blendDst=GL_ONE;
 									}
-								else if(equal(blendType,"bumpmap"))
+								else if(blendType=="bumpmap")
 									{
 									stage.blendType=Material::Stage::BumpMap;
 									stage.blendSrc=GL_ZERO;
 									stage.blendDst=GL_ONE;
 									material.bumpMapStage=material.numStages-1;
 									}
-								else if(equal(blendType,"diffusemap"))
+								else if(blendType=="diffusemap")
 									{
 									stage.blendType=Material::Stage::DiffuseMap;
 									stage.blendSrc=GL_ONE;
 									stage.blendDst=GL_ZERO;
 									material.diffuseMapStage=material.numStages-1;
 									}
-								else if(equal(blendType,"specularmap"))
+								else if(blendType=="specularmap")
 									{
 									stage.blendType=Material::Stage::SpecularMap;
 									stage.blendSrc=GL_ZERO;
 									stage.blendDst=GL_ONE;
 									material.specularMapStage=material.numStages-1;
 									}
-								else if(equal(blendType,"shader"))
+								else if(blendType=="shader")
 									{
 									/* Ignore this extension from Prey */
 									}
@@ -893,27 +860,27 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									for(int blendIndex=0;blendIndex<2;++blendIndex)
 										{
 										GLenum blendMode=GL_ZERO;
-										if(equal(blendType,"gl_zero"))
+										if(blendType=="gl_zero")
 											blendMode=GL_ZERO;
-										else if(equal(blendType,"gl_one"))
+										else if(blendType=="gl_one")
 											blendMode=GL_ONE;
-										else if(equal(blendType,"gl_src_color"))
+										else if(blendType=="gl_src_color")
 											blendMode=GL_SRC_COLOR;
-										else if(equal(blendType,"gl_one_minus_src_color"))
+										else if(blendType=="gl_one_minus_src_color")
 											blendMode=GL_ONE_MINUS_SRC_COLOR;
-										else if(equal(blendType,"gl_dst_color"))
+										else if(blendType=="gl_dst_color")
 											blendMode=GL_DST_COLOR;
-										else if(equal(blendType,"gl_one_minus_dst_color"))
+										else if(blendType=="gl_one_minus_dst_color")
 											blendMode=GL_ONE_MINUS_DST_COLOR;
-										else if(equal(blendType,"gl_src_alpha"))
+										else if(blendType=="gl_src_alpha")
 											blendMode=GL_SRC_ALPHA;
-										else if(equal(blendType,"gl_one_minus_src_alpha"))
+										else if(blendType=="gl_one_minus_src_alpha")
 											blendMode=GL_ONE_MINUS_SRC_ALPHA;
-										else if(equal(blendType,"gl_dst_alpha"))
+										else if(blendType=="gl_dst_alpha")
 											blendMode=GL_DST_ALPHA;
-										else if(equal(blendType,"gl_one_minus_dst_alpha"))
+										else if(blendType=="gl_one_minus_dst_alpha")
 											blendMode=GL_ONE_MINUS_DST_ALPHA;
-										else if(equal(blendType,"gl_src_alpha_saturate"))
+										else if(blendType=="gl_src_alpha_saturate")
 											blendMode=GL_SRC_ALPHA_SATURATE;
 										else
 											Misc::throwStdErr("Doom3MaterialManager::parseMaterialFile: unrecognized blending mode %s at %s",blendType.c_str(),source.where().c_str());
@@ -934,121 +901,121 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 										material.additiveMapStage=material.numStages-1;
 									}
 								}
-							else if(equal(setting,"map"))
+							else if(setting=="map")
 								{
 								/* Recursively parse the image map: */
 								stage.map=parseImageMap(source);
 								}
-							else if(equal(setting,"remoteRenderMap"))
+							else if(setting=="remoteRenderMap")
 								{
 								source.readInteger(); // Skip render map width
 								source.readInteger(); // Skip render map height
 								}
-							else if(equal(setting,"mirrorRenderMap"))
+							else if(setting=="mirrorRenderMap")
 								{
 								source.readInteger(); // Skip render map width
 								source.readInteger(); // Skip render map height
 								}
-							else if(equal(setting,"videomap"))
+							else if(setting=="videomap")
 								{
 								if(source.readString()=="loop")
 									source.skipString(); // Skip the video map name
 								}
-							else if(equal(setting,"soundmap"))
+							else if(setting=="soundmap")
 								{
 								/* Ignore this completely and parse optional waveform keyword on next pass */
 								}
-							else if(equal(setting,"waveform"))
+							else if(setting=="waveform")
 								{
 								/* This is actually an optional continuation of "soundmap" */
 								}
-							else if(equal(setting,"cubeMap"))
+							else if(setting=="cubeMap")
 								{
 								source.skipString(); // Skip the cube map name
 								}
-							else if(equal(setting,"cameraCubeMap"))
+							else if(setting=="cameraCubeMap")
 								{
 								source.skipString(); // Skip the cube map name
 								}
-							else if(equal(setting,"ignoreAlphaTest"))
+							else if(setting=="ignoreAlphaTest")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"nearest"))
+							else if(setting=="nearest")
 								{
 								stage.texInterpMode=GL_NEAREST;
 								}
-							else if(equal(setting,"linear"))
+							else if(setting=="linear")
 								{
 								stage.texInterpMode=GL_LINEAR;
 								}
-							else if(equal(setting,"clamp"))
+							else if(setting=="clamp")
 								{
 								stage.texCoordClampMode=GL_CLAMP;
 								}
-							else if(equal(setting,"zeroclamp"))
+							else if(setting=="zeroclamp")
 								{
 								/* Can't do this for now */
 								}
-							else if(equal(setting,"alphazeroclamp"))
+							else if(setting=="alphazeroclamp")
 								{
 								/* Can't do this for now */
 								}
-							else if(equal(setting,"noclamp"))
+							else if(setting=="noclamp")
 								{
 								stage.texCoordClampMode=GL_REPEAT;
 								}
-							else if(equal(setting,"uncompressed"))
+							else if(setting=="uncompressed")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"highquality"))
+							else if(setting=="highquality")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"forceHighQuality"))
+							else if(setting=="forceHighQuality")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"nopicmip"))
+							else if(setting=="nopicmip")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"vertexColor"))
+							else if(setting=="vertexColor")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"inverseVertexColor"))
+							else if(setting=="inverseVertexColor")
 								{
 								/* Ignore this completely */
 								}
-							else if(equal(setting,"privatePolygonOffset"))
+							else if(setting=="privatePolygonOffset")
 								{
 								source.readNumber(); // Skip polygon offset
 								}
-							else if(equal(setting,"texGen"))
+							else if(setting=="texGen")
 								{
 								std::string texGenType=source.readString();
-								if(equal(texGenType,"normal"))
+								if(texGenType=="normal")
 									{
 									/* Ignore this completely */
 									}
-								else if(equal(texGenType,"reflect"))
+								else if(texGenType=="reflect")
 									{
 									/* Ignore this completely */
 									}
-								else if(equal(texGenType,"skybox"))
+								else if(texGenType=="skybox")
 									{
 									/* Ignore this completely */
 									}
-								else if(equal(texGenType,"wobbleSky"))
+								else if(texGenType=="wobbleSky")
 									{
 									/* Parse and forget three expressions: */
 									for(int i=0;i<3;++i)
 										delete parseExpression(source);
 									}
 								}
-							else if(equal(setting,"scroll"))
+							else if(setting=="scroll")
 								{
 								/* Parse and forget two expressions: */
 								for(int i=0;i<2;++i)
@@ -1058,7 +1025,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete parseExpression(source);
 									}
 								}
-							else if(equal(setting,"translate"))
+							else if(setting=="translate")
 								{
 								/* Parse and forget two expressions: */
 								for(int i=0;i<2;++i)
@@ -1068,7 +1035,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete parseExpression(source);
 									}
 								}
-							else if(equal(setting,"scale"))
+							else if(setting=="scale")
 								{
 								/* Parse and forget two expressions: */
 								for(int i=0;i<2;++i)
@@ -1078,7 +1045,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete parseExpression(source);
 									}
 								}
-							else if(equal(setting,"centerScale"))
+							else if(setting=="centerScale")
 								{
 								/* Parse and forget two expressions: */
 								for(int i=0;i<2;++i)
@@ -1088,7 +1055,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete parseExpression(source);
 									}
 								}
-							else if(equal(setting,"shear"))
+							else if(setting=="shear")
 								{
 								/* Parse and forget two expressions: */
 								for(int i=0;i<2;++i)
@@ -1098,37 +1065,37 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete parseExpression(source);
 									}
 								}
-							else if(equal(setting,"rotate"))
+							else if(setting=="rotate")
 								{
 								/* Parse and forget an expression: */
 								delete parseExpression(source);
 								}
-							else if(equal(setting,"maskRed"))
+							else if(setting=="maskRed")
 								{
 								stage.channelMasks[0]=false;
 								}
-							else if(equal(setting,"maskGreen"))
+							else if(setting=="maskGreen")
 								{
 								stage.channelMasks[1]=false;
 								}
-							else if(equal(setting,"maskBlue"))
+							else if(setting=="maskBlue")
 								{
 								stage.channelMasks[2]=false;
 								}
-							else if(equal(setting,"maskAlpha"))
+							else if(setting=="maskAlpha")
 								{
 								stage.channelMasks[3]=false;
 								}
-							else if(equal(setting,"maskColor"))
+							else if(setting=="maskColor")
 								{
 								for(int i=0;i<3;++i)
 									stage.channelMasks[i]=false;
 								}
-							else if(equal(setting,"maskDepth"))
+							else if(setting=="maskDepth")
 								{
 								stage.channelMasks[4]=false;
 								}
-							else if(equal(setting,"alphaTest"))
+							else if(setting=="alphaTest")
 								{
 								/* Parse the alpha test expression: */
 								Expression* exp=parseExpression(source);
@@ -1139,7 +1106,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"red"))
+							else if(setting=="red")
 								{
 								/* Parse the red expression: */
 								Expression* exp=parseExpression(source);
@@ -1150,7 +1117,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"green"))
+							else if(setting=="green")
 								{
 								/* Parse the green expression: */
 								Expression* exp=parseExpression(source);
@@ -1161,7 +1128,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"blue"))
+							else if(setting=="blue")
 								{
 								/* Parse the blue expression: */
 								Expression* exp=parseExpression(source);
@@ -1172,7 +1139,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"alpha"))
+							else if(setting=="alpha")
 								{
 								/* Parse the alpha expression: */
 								Expression* exp=parseExpression(source);
@@ -1183,7 +1150,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"rgb"))
+							else if(setting=="rgb")
 								{
 								/* Parse the rgb expression: */
 								Expression* exp=parseExpression(source);
@@ -1196,7 +1163,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"rgba"))
+							else if(setting=="rgba")
 								{
 								/* Parse the rgba expression: */
 								Expression* exp=parseExpression(source);
@@ -1209,7 +1176,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								/* Delete the expression: */
 								delete exp;
 								}
-							else if(equal(setting,"color"))
+							else if(setting=="color")
 								{
 								/* Parse four expressions: */
 								for(int i=0;i<4;++i)
@@ -1221,25 +1188,25 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete exp;
 									}
 								}
-							else if(equal(setting,"colored"))
+							else if(setting=="colored")
 								{
 								/* Set vertex color from the current environment: */
 								for(int i=0;i<4;++i)
 									stage.vertexColor[i]=currentEnv.parm[i];
 								}
-							else if(equal(setting,"fragmentProgram"))
+							else if(setting=="fragmentProgram")
 								{
 								source.skipString(); // Skip program name
 								}
-							else if(equal(setting,"vertexProgram"))
+							else if(setting=="vertexProgram")
 								{
 								source.skipString(); // Skip program name
 								}
-							else if(equal(setting,"program"))
+							else if(setting=="program")
 								{
 								source.skipString(); // Skip program name
 								}
-							else if(equal(setting,"vertexparm"))
+							else if(setting=="vertexparm")
 								{
 								source.readInteger(); // Skip texture unit index
 								delete parseExpression(source); // Skip x expression
@@ -1249,7 +1216,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									delete parseExpression(source); // Skip y, z, w expressions
 									}
 								}
-							else if(equal(setting,"fragmentMap"))
+							else if(setting=="fragmentMap")
 								{
 								source.readInteger(); // Skip texture unit index
 								
@@ -1257,40 +1224,40 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 								while(true)
 									{
 									std::string option=source.readString();
-									if(equal(option,"cubeMap"))
+									if(option=="cubeMap")
 										{
 										}
-									else if(equal(option,"cameraCubeMap"))
+									else if(option=="cameraCubeMap")
 										{
 										}
-									else if(equal(option,"nearest"))
+									else if(option=="nearest")
 										{
 										}
-									else if(equal(option,"linear"))
+									else if(option=="linear")
 										{
 										}
-									else if(equal(option,"clamp"))
+									else if(option=="clamp")
 										{
 										}
-									else if(equal(option,"noclamp"))
+									else if(option=="noclamp")
 										{
 										}
-									else if(equal(option,"zeroclamp"))
+									else if(option=="zeroclamp")
 										{
 										}
-									else if(equal(option,"alphazeroclamp"))
+									else if(option=="alphazeroclamp")
 										{
 										}
-									else if(equal(option,"forceHighQuality"))
+									else if(option=="forceHighQuality")
 										{
 										}
-									else if(equal(option,"uncompressed"))
+									else if(option=="uncompressed")
 										{
 										}
-									else if(equal(option,"highquality"))
+									else if(option=="highquality")
 										{
 										}
-									else if(equal(option,"nopicmip"))
+									else if(option=="nopicmip")
 										{
 										}
 									else
@@ -1312,118 +1279,118 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 					else
 						{
 						/* Parse a global token: */
-						if(equal(token,"qer_editorimage"))
+						if(token=="qer_editorimage")
 							{
 							source.skipString(); // Skip the image name
 							}
-						else if(equal(token,"description"))
+						else if(token=="description")
 							{
 							source.skipString(); // Skip the description
 							}
-						else if(equal(token,"polygonOffset"))
+						else if(token=="polygonOffset")
 							{
 							source.skipString(); // Skip the polygon offset
 							}
-						else if(equal(token,"noShadows"))
+						else if(token=="noShadows")
 							{
 							}
-						else if(equal(token,"noSelfShadow"))
+						else if(token=="noSelfShadow")
 							{
 							}
-						else if(equal(token,"forceShadows"))
+						else if(token=="forceShadows")
 							{
 							}
-						else if(equal(token,"noOverlay"))
+						else if(token=="noOverlay")
 							{
 							}
-						else if(equal(token,"forceOverlays"))
+						else if(token=="forceOverlays")
 							{
 							}
-						else if(equal(token,"translucent"))
+						else if(token=="translucent")
 							{
 							material.translucent=true;
 							}
-						else if(equal(token,"clamp"))
+						else if(token=="clamp")
 							{
 							}
-						else if(equal(token,"zeroclamp"))
+						else if(token=="zeroclamp")
 							{
 							}
-						else if(equal(token,"alphazeroclamp"))
+						else if(token=="alphazeroclamp")
 							{
 							}
-						else if(equal(token,"forceOpaque"))
+						else if(token=="forceOpaque")
 							{
 							}
-						else if(equal(token,"twoSided"))
+						else if(token=="twoSided")
 							{
 							material.twoSided=true;
 							}
-						else if(equal(token,"backSided"))
+						else if(token=="backSided")
 							{
 							}
-						else if(equal(token,"mirror"))
+						else if(token=="mirror")
 							{
 							}
-						else if(equal(token,"noFog"))
+						else if(token=="noFog")
 							{
 							}
-						else if(equal(token,"unsmoothedTangents"))
+						else if(token=="unsmoothedTangents")
 							{
 							}
-						else if(equal(token,"guisurf"))
+						else if(token=="guisurf")
 							{
 							source.skipString(); // Skip the GUI surface name
 							}
-						else if(equal(token,"sort"))
+						else if(token=="sort")
 							{
 							source.skipString(); // Skip the sorting order
 							}
-						else if(equal(token,"spectrum"))
+						else if(token=="spectrum")
 							{
 							source.skipString();
 							}
-						else if(equal(token,"deform"))
+						else if(token=="deform")
 							{
 							std::string deformType=source.readString();
-							if(equal(deformType,"sprite"))
+							if(deformType=="sprite")
 								{
 								}
-							else if(equal(deformType,"tube"))
+							else if(deformType=="tube")
 								{
 								}
-							else if(equal(deformType,"flare"))
-								{
-								source.skipString();
-								}
-							else if(equal(deformType,"expand"))
+							else if(deformType=="flare")
 								{
 								source.skipString();
 								}
-							else if(equal(deformType,"move"))
+							else if(deformType=="expand")
 								{
 								source.skipString();
 								}
-							else if(equal(deformType,"turbulent"))
+							else if(deformType=="move")
+								{
+								source.skipString();
+								}
+							else if(deformType=="turbulent")
 								{
 								source.skipString();
 								source.skipString();
 								source.skipString();
 								source.skipString();
 								}
-							else if(equal(deformType,"eyeBall"))
+							else if(deformType=="eyeBall")
 								{
 								}
-							else if(equal(deformType,"particle"))
+							else if(deformType=="particle")
 								{
 								source.skipString();
 								}
-							else if(equal(deformType,"particle2"))
+							else if(deformType=="particle2")
 								{
 								source.skipString();
 								}
 							}
-						else if(equal(token,"decalInfo"))
+						else if(token=="decalInfo")
 							{
 							source.skipString();
 							source.skipString();
@@ -1438,30 +1405,30 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 									Misc::throwStdErr("Doom3MaterialManager::parseMaterialFile: Malformed RGBA color at %s",source.where().c_str());
 								}
 							}
-						else if(equal(token,"renderbump"))
+						else if(token=="renderbump")
 							{
 							/* Skip optional command line parameters: */
 							while(source.peekc()=='-')
 								{
 								/* Read the command line parameter: */
 								std::string parameter=source.readString();
-								if(equal(parameter,"-size"))
+								if(parameter=="-size")
 									{
 									/* Skip the map size: */
 									for(int i=0;i<2;++i)
 										source.readInteger();
 									}
-								else if(equal(parameter,"-aa"))
+								else if(parameter=="-aa")
 									{
 									/* Skip the anti-aliasing setting: */
 									source.readInteger();
 									}
-								else if(equal(parameter,"-trace"))
+								else if(parameter=="-trace")
 									{
 									/* Skip the trace weight: */
 									source.readNumber();
 									}
-								else if(equal(parameter,"-colorMap"))
+								else if(parameter=="-colorMap")
 									{
 									}
 								else
@@ -1475,7 +1442,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 							source.skipString();
 							source.skipString();
 							}
-						else if(equal(token,"diffusemap"))
+						else if(token=="diffusemap")
 							{
 							/* Add a diffuse stage to the material: */
 							Material::Stage& stage=material.addStage();
@@ -1485,7 +1452,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 							/* Remember the diffuse map stage: */
 							material.diffuseMapStage=material.numStages-1;
 							}
-						else if(equal(token,"specularmap"))
+						else if(token=="specularmap")
 							{
 							/* Add a specular stage to the material: */
 							Material::Stage& stage=material.addStage();
@@ -1495,7 +1462,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 							/* Remember the specular map stage: */
 							material.specularMapStage=material.numStages-1;
 							}
-						else if(equal(token,"bumpmap"))
+						else if(token=="bumpmap")
 							{
 							/* Add a bump stage to the material: */
 							Material::Stage& stage=material.addStage();
@@ -1505,143 +1472,143 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 							/* Remember the normal map stage: */
 							material.bumpMapStage=material.numStages-1;
 							}
-						else if(equal(token,"DECAL_MACRO"))
+						else if(token=="DECAL_MACRO")
 							{
 							}
-						else if(equal(token,"noPortalFog"))
+						else if(token=="noPortalFog")
 							{
 							}
-						else if(equal(token,"fogLight"))
+						else if(token=="fogLight")
 							{
 							}
-						else if(equal(token,"blendLight"))
+						else if(token=="blendLight")
 							{
 							}
-						else if(equal(token,"ambientLight"))
+						else if(token=="ambientLight")
 							{
 							}
-						else if(equal(token,"lightFalloffImage"))
+						else if(token=="lightFalloffImage")
 							{
 							source.skipString();
 							}
-						else if(equal(token,"solid"))
+						else if(token=="solid")
 							{
 							material.collisionFlags|=CF_SOLID;
 							}
-						else if(equal(token,"water"))
+						else if(token=="water")
 							{
 							}
-						else if(equal(token,"playerclip"))
+						else if(token=="playerclip")
 							{
 							material.collisionFlags|=CF_PLAYERCLIP;
 							}
-						else if(equal(token,"monsterclip"))
+						else if(token=="monsterclip")
 							{
 							material.collisionFlags|=CF_MONSTERCLIP;
 							}
-						else if(equal(token,"moveableclip"))
+						else if(token=="moveableclip")
 							{
 							material.collisionFlags|=CF_MOVEABLECLIP;
 							}
-						else if(equal(token,"ikclip"))
+						else if(token=="ikclip")
 							{
 							material.collisionFlags|=CF_IKCLIP;
 							}
-						else if(equal(token,"blood"))
+						else if(token=="blood")
 							{
 							}
-						else if(equal(token,"trigger"))
+						else if(token=="trigger")
 							{
 							}
-						else if(equal(token,"aassolid"))
+						else if(token=="aassolid")
 							{
 							}
-						else if(equal(token,"aasobstacle"))
+						else if(token=="aasobstacle")
 							{
 							}
-						else if(equal(token,"flashlight_trigger"))
+						else if(token=="flashlight_trigger")
 							{
 							}
-						else if(equal(token,"nonsolid"))
+						else if(token=="nonsolid")
 							{
 							material.collisionFlags&=~CF_SOLID;
 							}
-						else if(equal(token,"nullNormal"))
+						else if(token=="nullNormal")
 							{
 							}
-						else if(equal(token,"areaportal"))
+						else if(token=="areaportal")
 							{
 							}
-						else if(equal(token,"qer_nocarve"))
+						else if(token=="qer_nocarve")
 							{
 							}
-						else if(equal(token,"discrete"))
+						else if(token=="discrete")
 							{
 							}
-						else if(equal(token,"noFragment"))
+						else if(token=="noFragment")
 							{
 							}
-						else if(equal(token,"slick"))
+						else if(token=="slick")
 							{
 							}
-						else if(equal(token,"collision"))
+						else if(token=="collision")
 							{
 							}
-						else if(equal(token,"noimpact"))
+						else if(token=="noimpact")
 							{
 							}
-						else if(equal(token,"nodamage"))
+						else if(token=="nodamage")
 							{
 							}
-						else if(equal(token,"ladder"))
+						else if(token=="ladder")
 							{
 							}
-						else if(equal(token,"nosteps"))
+						else if(token=="nosteps")
 							{
 							}
-						else if(equal(token,"metal"))
+						else if(token=="metal")
 							{
 							}
-						else if(equal(token,"stone"))
+						else if(token=="stone")
 							{
 							}
-						else if(equal(token,"flesh"))
+						else if(token=="flesh")
 							{
 							}
-						else if(equal(token,"wood"))
+						else if(token=="wood")
 							{
 							}
-						else if(equal(token,"cardboard"))
+						else if(token=="cardboard")
 							{
 							}
-						else if(equal(token,"liquid"))
+						else if(token=="liquid")
 							{
 							}
-						else if(equal(token,"glass"))
+						else if(token=="glass")
 							{
 							}
-						else if(equal(token,"plastic"))
+						else if(token=="plastic")
 							{
 							}
-						else if(equal(token,"ricochet"))
+						else if(token=="ricochet")
 							{
 							}
-						else if(equal(token,"surftype10"))
+						else if(token=="surftype10")
 							{
 							}
-						else if(equal(token,"surftype11"))
+						else if(token=="surftype11")
 							{
 							}
-						else if(equal(token,"surftype12"))
+						else if(token=="surftype12")
 							{
 							}
-						else if(equal(token,"surftype13"))
+						else if(token=="surftype13")
 							{
 							}
-						else if(equal(token,"surftype14"))
+						else if(token=="surftype14")
 							{
 							}
-						else if(equal(token,"surftype15"))
+						else if(token=="surftype15")
 							{
 							}
 						else
@@ -1719,6 +1686,8 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 				}
 			}
 		}
+	
+	delete[] fileData;
 	}
 
 Doom3MaterialManager::RenderContext Doom3MaterialManager::start(GLContextData& contextData,bool useDefaultPipeline) const
@@ -1880,24 +1849,6 @@ bool Doom3MaterialManager::setMaterial(Doom3MaterialManager::RenderContext& rend
 		}
 	else
 		return false;
-	}
-
-void Doom3MaterialManager::disableMaterial(Doom3MaterialManager::RenderContext& renderContext) const
-	{
-	/* Disable the currently-used shader program: */
-	if(renderContext.currentProgramIndex!=-1)
-		{
-		renderContext.currentProgramIndex=-1;
-		glUseProgramObjectARB(0);
-		}
-	
-	/* Return to default OpenGL state: */
-	glEnable(GL_CULL_FACE);
-	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
-	glDisable(GL_ALPHA_TEST);
-	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
-	glActiveTextureARB(GL_TEXTURE0_ARB);
 	}
 
 void Doom3MaterialManager::finish(Doom3MaterialManager::RenderContext& renderContext) const

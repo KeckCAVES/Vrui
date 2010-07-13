@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceClient - Class encapsulating the VR device protocol's client
 side.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,10 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_VRDEVICECLIENT_INCLUDED
 #define VRUI_INTERNAL_VRDEVICECLIENT_INCLUDED
 
-#include <utility>
-#include <vector>
 #include <stdexcept>
-#include <Misc/FunctionCalls.h>
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
@@ -38,9 +35,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 namespace Misc {
 class ConfigurationFileSection;
 }
-namespace Vrui {
-class VRDeviceDescriptor;
-}
 
 namespace Vrui {
 
@@ -50,35 +44,28 @@ class VRDeviceClient
 	public:
 	class ProtocolError:public std::runtime_error // Exception when unexpected protocol messages are received
 		{
-		/* Elements: */
-		public:
-		VRDeviceClient* deviceClient; // Pointer to the device client that encountered the error
-		
 		/* Constructors and destructors: */
-		ProtocolError(const std::string& what_arg,VRDeviceClient* sDeviceClient)
-			:std::runtime_error(what_arg),
-			 deviceClient(sDeviceClient)
+		public:
+		ProtocolError(const std::string& what_arg)
+			:std::runtime_error(what_arg)
 			{
 			}
 		};
 	
-	typedef Misc::FunctionCall<VRDeviceClient*> Callback; // Type for callback functions
-	typedef Misc::FunctionCall<const ProtocolError&> ErrorCallback; // Type for error callback functions called from background thread to signal errors in streaming mode
+	typedef void (*PacketNotificationCBType)(VRDeviceClient* client,void* userData); // Type for packet notification callback functions
 	
 	/* Elements: */
 	private:
 	VRDevicePipe pipe; // Pipe connected to device server
-	unsigned int serverProtocolVersionNumber; // Version number of server protocol
-	std::vector<VRDeviceDescriptor*> virtualDevices; // List of virtual input devices managed by the server
 	Threads::Mutex stateMutex; // Mutex to serialize access to current state
 	VRDeviceState state; // Shadow of server's current state
 	bool active; // Flag if client is active
 	bool streaming; // Flag if client is in streaming mode
-	volatile bool connectionDead; // Flag whether the connection to the server was interrupted while in streaming mode
 	Threads::Thread streamReceiveThread; // Packet receiving thread in stream mode
 	Threads::MutexCond packetSignalCond; // Condition variable to signal packet reception in streaming mode
-	Callback* packetNotificationCallback; // Function called when a new state packet arrives from the server in streaming mode (called from background thread)
-	ErrorCallback* errorCallback; // Function called when a protocol error occurs in streaming mode (called from background thread)
+	Threads::Mutex packetNotificationMutex; // Mutex to serialize access to packet notification callback state
+	PacketNotificationCBType packetNotificationCB; // Pointer to packet notification callback function
+	void* packetNotificationCBData; // Pointer passed to packet notification callback function
 	
 	/* Private methods: */
 	void* streamReceiveThreadMethod(void); // Stream packet receiving thread method
@@ -91,14 +78,6 @@ class VRDeviceClient
 	~VRDeviceClient(void); // Disconnects client from server
 	
 	/* Methods: */
-	int getNumVirtualDevices(void) const // Returns the number of managed virtual input devices
-		{
-		return int(virtualDevices.size());
-		}
-	const VRDeviceDescriptor& getVirtualDevice(int deviceIndex) const // Returns the virtual input device of the given index
-		{
-		return *(virtualDevices[deviceIndex]);
-		}
 	void lockState(void) // Locks current server state
 		{
 		stateMutex.lock();
@@ -114,7 +93,9 @@ class VRDeviceClient
 	void activate(void); // Prepares the server for sending state packets
 	void deactivate(void); // Deactivates server
 	void getPacket(void); // Requests state packet from server; blocks until arrival
-	void startStream(Callback* newPacketNotificationCallback,ErrorCallback* newErrorCallback =0); // Installs given callback functions (device client adopts function objects) and starts streaming mode
+	void enablePacketNotificationCB(PacketNotificationCBType newPacketNotificationCB,void* newPacketNotificationCBData); // Installs packet notification callback
+	void disablePacketNotificationCB(void); // Disables packet notification callback
+	void startStream(void); // Starts streaming mode
 	void stopStream(void); // Stops streaming mode
 	};
 

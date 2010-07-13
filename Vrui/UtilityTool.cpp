@@ -48,6 +48,23 @@ const char* UtilityToolFactory::getName(void) const
 	return "Utility";
 	}
 
+extern "C" ToolFactory* createUtilityToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+	{
+	/* Get pointer to tool manager: */
+	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
+	
+	/* Create factory object and insert it into class hierarchy: */
+	UtilityToolFactory* utilityToolFactory=new UtilityToolFactory(*toolManager);
+	
+	/* Return factory object: */
+	return utilityToolFactory;
+	}
+
+extern "C" void destroyUtilityToolFactory(ToolFactory* factory)
+	{
+	delete factory;
+	}
+
 /****************************
 Methods of class UtilityTool:
 ****************************/

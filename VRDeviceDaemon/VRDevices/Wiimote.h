@@ -1,7 +1,7 @@
 /***********************************************************************
 Wiimote - Class to communicate with a Nintendo Wii controller via
 bluetooth.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -30,7 +30,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Cond.h>
 #include <Threads/MutexCond.h>
 #include <Threads/Thread.h>
-#include <Math/BrokenLine.h>
 #include <Geometry/Vector.h>
 
 /* Forward declarations: */
@@ -44,7 +43,7 @@ class Wiimote
 	public:
 	enum Extension // Enumerated type for extension device types
 		{
-		NONE=0,PARTIALLY_CONNECTED,NUNCHUK,CLASSIC_CONTROLLER,MOTIONPLUS
+		NONE=0,PARTIALLY_CONNECTED,NUNCHUK,CLASSIC_CONTROLLER
 		};
 	
 	enum Button // Enumerated type for button indices
@@ -57,16 +56,7 @@ class Wiimote
 		BUTTON_Z,BUTTON_C
 		};
 	
-	typedef Math::BrokenLine<float> AxisMap; // Type to map raw joystick axis values to normalized values
 	typedef Geometry::Vector<float,3> Vector; // Type for acceleration vectors
-	
-	struct IRTarget // Structure for tracked IR targets
-		{
-		/* Elements: */
-		public:
-		bool valid; // Flag if target is currently valid
-		float pos[2]; // Target's current position in camera coordinates
-		};
 	
 	class EventCallbackData:public Misc::CallbackData // Class to report reception of Wiimote events
 		{
@@ -78,19 +68,28 @@ class Wiimote
 		EventCallbackData(Wiimote* sWiimote)
 			:wiimote(sWiimote)
 			{
-			}
+			};
+		};
+	
+	struct AxisSettings // Structure with calibration settings for a joystick axis
+		{
+		/* Elements: */
+		public:
+		float minValue;
+		float maxValue;
+		float center;
+		float flat;
 		};
 	
 	/* Elements: */
 	private:
-	Threads::Mutex controlSocketMutex; // Mutex to serialize write access to the control socket
-	int controlSocket; // Socket for Wiimote's L2CAP control pipe (channel 0x11)
-	Threads::Mutex dataSocketMutex; // Mutex to serialize write access to the data socket
-	int dataSocket; // Socket for Wiimote's L2CAP data pipe (channel 0x13)
-	Threads::Thread receiverThread; // Thread listening to Wiimote's data pipe
+	Threads::Mutex writeSocketMutex; // Mutex to serialize access to the write socket
+	int writeSocket; // Socket to write to the Wiimote using the L2CAP protocol, channel 0x11
+	int readSocket; // Socket to read from the Wiimote using the L2CAP protocol, channel 0x13
+	Threads::Thread receiverThread; // ID of data receiving thread
 	
 	/* Current Wiimote mode: */
-	AxisMap joystickAxes[2]; // Settings for the nunchuk controller's analog joystick axes
+	AxisSettings joystickAxes[2]; // Settings for the nunchuk controller's analog joystick axes
 	float accelerometerZeros[6]; // Zero values for the Wiimote's and extension device's accelerometers
 	float accelerometerGains[6]; // Gain values (normalized for gravity) for the Wiimote's and extension device's accelerometers
 	bool needExtensionCalibration; // Flag whether calibration data for extension devices needs to be downloaded
@@ -103,13 +102,15 @@ class Wiimote
 	Misc::CallbackList eventCallbacks; // List of callbacks upon Wiimote event reception
 	
 	/* Current Wiimote state: */
-	int batteryLevel; // Current battery level in percent
+	int batteryLevel; // Current battery level (0-200)
 	Extension extensionDevice; // Type of currently connected extension device
 	int buttonState; // Bit field of Wiimote core buttons followed by extension buttons
 	float joystick[2]; // Analog joystick values for nunchuck extension device
 	int rawAccelerometers[6]; // Raw accelerometer values for Wiimote and any connected extension device
 	float accelerometers[6]; // Accelerometer values for Wiimote and any connected extension device
-	IRTarget targets[4]; // State of up to four targets tracked by the IR camera
+	bool trackValids[4]; // Valid flags for targets tracked by the IR camera
+	float trackXs[4]; // X positions of targets tracked by the IR camera
+	float trackYs[4]; // X positions of targets tracked by the IR camera
 	
 	/* State to read bulk data from the Wiimote: */
 	Threads::Mutex downloadMutex; // Mutex serializing access to the data download facility
@@ -134,7 +135,6 @@ class Wiimote
 	
 	/* Private methods: */
 	void writePacket(unsigned char packet[],size_t packetSize); // Safely writes a packet to the Wiimote; modifies packet with rumble flag
-	void waitForPacket(unsigned char packetType,unsigned char* packet,size_t packetSize); // Waits until a valid packet of the given type is received; throws exception on error
 	void writeUploadPacket(void); // Writes the next chunk of data from the upload area to the Wiimote
 	void setReportingMode(bool insideReader =false); // Sets the Wiimote's data reporting mode based on the currently requested features
 	void updateCoreButtons(unsigned char* buttonData); // Updates core button state
@@ -152,38 +152,49 @@ class Wiimote
 	~Wiimote(void); // Disconnects from the Wiimote
 	
 	/* Methods: */
-	int getBatteryLevel(void); // Queries and returns the current battery charge level in percent
+	int getBatteryLevel(void) const // Returns the current battery charge level in percent
+		{
+		return (batteryLevel+1)/2;
+		};
 	Extension getExtensionDevice(void) const // Returns the type of the currently connected extension device
 		{
 		return extensionDevice;
-		}
+		};
 	int getNumButtons(void) const; // Returns the number of buttons on the Wiimote and all extension devices
 	void waitForEvent(void); // Suspends the calling thread until a data packet arrives from the Wiimote
 	Misc::CallbackList& getEventCallbacks(void) // Returns the event reception callback list
 		{
 		return eventCallbacks;
-		}
+		};
 	bool getButtonState(int buttonName) const // Returns the current state of the given button
 		{
 		return (buttonState&(1<<buttonName))!=0x0;
-		}
+		};
 	float getJoystickValue(int axisIndex) const // Returns the current value of the given axis of the nunchuck extension's joystick
 		{
 		return joystick[axisIndex];
-		}
+		};
 	int getRawAccelerometerValue(int accelerometerIndex) const // Returns the current raw value of the given accelerometer
 		{
 		return rawAccelerometers[accelerometerIndex];
-		}
+		};
 	float getAccelerometerValue(int accelerometerIndex) const // Returns the current value of the given accelerometer
 		{
 		return accelerometers[accelerometerIndex];
-		}
+		};
 	Vector getAcceleration(int deviceIndex) const; // Returns acceleration vector of given device (0: Wiimote, 1: Nunchuk extension)
-	const IRTarget& getIRTarget(int targetIndex) const // Returns the given IR tracking target
+	bool getIRTargetValid(int targetIndex) const // Returns the valid flag for the given IR tracking target
 		{
-		return targets[targetIndex];
-		}
+		return trackValids[targetIndex];
+		};
+	float getIRTargetX(int targetIndex) const // Returns the X position of the given IR tracking target
+		{
+		return trackXs[targetIndex];
+		};
+	float getIRTargetY(int targetIndex) const // Returns the Y position of the given IR tracking target
+		{
+		return trackYs[targetIndex];
+		};
 	void setLEDState(int newLedMask); // Sets the status of the Wiimote's LEDs
 	void setRumble(bool enable); // Enables/disables the rumble pack
 	void requestContinuousReports(bool enable); // Enables/disables continuous data reporting

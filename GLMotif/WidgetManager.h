@@ -196,27 +196,6 @@ class WidgetManager
 			}
 		};
 	
-	class EventProcessingLocker // Helper class to safely signal ongoing event processing to the rest of the manager
-		{
-		/* Elements: */
-		private:
-		WidgetManager* manager; // Pointer to locked manager
-		
-		/* Constructors and destructors: */
-		public:
-		EventProcessingLocker(WidgetManager* sManager) // Starts event processing
-			:manager(sManager)
-			{
-			manager->inEventProcessing=true;
-			}
-		~EventProcessingLocker(void) // Stops event processing
-			{
-			manager->inEventProcessing=false;
-			if(!manager->deletionList.empty())
-				manager->deleteQueuedWidgets();
-			}
-		};
-	
 	private:
 	typedef Misc::HashTable<const Widget*,WidgetAttributeBase*> WidgetAttributeMap; // Type for hash tables mapping widgets to widget attributes
 	
@@ -291,7 +270,7 @@ class WidgetManager
 	template <class AttributeParam>
 	const AttributeParam& getWidgetAttribute(const Widget* widget) const // Returns a widget attribute of arbitrary type
 		{
-		WidgetAttributeMap::ConstIterator waIt=widgetAttributeMap.findEntry(widget);
+		WidgetAttributeMap::Iterator waIt=widgetAttributeMap.findEntry(widget);
 		if(waIt.isFinished())
 			Misc::throwStdErr("GLMotif::WidgetManager::getWidgetAttribute: No attribute for widget %p",widget);
 		const WidgetAttribute<AttributeParam>* wa=dynamic_cast<const WidgetAttribute<AttributeParam>*>(waIt->getDest());
@@ -349,9 +328,8 @@ class WidgetManager
 	void releaseFocus(Widget* widget); // Allows a widget to release the text entry focus; must be called by focus-holding widgets before destruction
 	void focusPreviousWidget(void); // Moves the text entry focus to the previous widget in the list
 	void focusNextWidget(void); // Moves the text entry focus to the next widget in the list
-	bool text(const TextEvent& textEvent); // Handles a text event; returns true if event was received by a widget
-	bool textControl(Event& event,const TextControlEvent& textControlEvent); // Handles a text control event; returns true if event was received by a widget
-	bool textControl(const TextControlEvent& textControlEvent); // Ditto; sends text control event to current focus widget
+	bool text(const TextEvent& event); // Handles a text event; returns true if event was received by a widget
+	bool textControl(const TextControlEvent& event); // Handles a text control event; returns true if event was received by a widget
 	int getTextBufferLength(void) const // Returns length of current cut & paste buffer
 		{
 		return textBufferLength;

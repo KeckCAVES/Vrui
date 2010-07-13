@@ -1,7 +1,7 @@
 /***********************************************************************
 GLFrustum - Class describing an OpenGL view frustum in model coordinates
 to perform software-based frustum culling and LOD calculation.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the OpenGL Wrapper Library for the Templatized
 Geometry Library (GLGeometry).
@@ -84,13 +84,13 @@ GLFrustum<ScalarParam>::setFromGL(
 	Vector fv67=frustumVertices[6]-frustumVertices[7];
 	Vector fv57=frustumVertices[5]-frustumVertices[7];
 	Vector fv37=frustumVertices[3]-frustumVertices[7];
-	frustumPlanes[0]=Plane(fv40^fv20,frustumVertices[0]);
-	frustumPlanes[1]=Plane(fv57^fv37,frustumVertices[7]);
-	frustumPlanes[2]=Plane(fv10^fv40,frustumVertices[0]);
-	frustumPlanes[3]=Plane(fv37^fv67,frustumVertices[7]);
-	frustumPlanes[4]=Plane(fv20^fv10,frustumVertices[0]);
+	frustumPlanes[0]=Plane(Geometry::cross(fv40,fv20),frustumVertices[0]);
+	frustumPlanes[1]=Plane(Geometry::cross(fv57,fv37),frustumVertices[7]);
+	frustumPlanes[2]=Plane(Geometry::cross(fv10,fv40),frustumVertices[0]);
+	frustumPlanes[3]=Plane(Geometry::cross(fv37,fv67),frustumVertices[7]);
+	frustumPlanes[4]=Plane(Geometry::cross(fv20,fv10),frustumVertices[0]);
 	Scalar screenArea=Geometry::mag(frustumPlanes[4].getNormal());
-	frustumPlanes[5]=Plane(fv67^fv57,frustumVertices[7]);
+	frustumPlanes[5]=Plane(Geometry::cross(fv67,fv57),frustumVertices[7]);
 	for(int i=0;i<6;++i)
 		frustumPlanes[i].normalize();
 	

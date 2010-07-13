@@ -24,7 +24,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/WidgetTool.h>
 
-#include <Misc/ThrowStdErr.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
@@ -40,7 +39,8 @@ WidgetToolFactory::WidgetToolFactory(ToolManager& toolManager)
 	:ToolFactory("WidgetTool",toolManager)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UserInterfaceTool");
@@ -60,11 +60,6 @@ WidgetToolFactory::~WidgetToolFactory(void)
 const char* WidgetToolFactory::getName(void) const
 	{
 	return "GUI Interaction";
-	}
-
-const char* WidgetToolFactory::getButtonFunction(int) const
-	{
-	return "Interact";
 	}
 
 Tool* WidgetToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -112,20 +107,15 @@ Methods of class WidgetTool:
 
 WidgetTool::WidgetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:UserInterfaceTool(factory,inputAssignment),
-	 GUIInteractor(isUseEyeRay(),getRayOffset(),getButtonDevice(0)),
+	 GUIInteractor(isUseEyeRay(),getRayOffset(),getDevice(0)),
 	 buttonDevice(0)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 void WidgetTool::initialize(void)
 	{
 	/* Create a virtual input device to shadow the button: */
 	buttonDevice=addVirtualInputDevice("WidgetToolButtonDevice",1,0);
-	
-	/* Copy the source device's tracking type: */
-	buttonDevice->setTrackType(interactionDevice->getTrackType());
 	
 	/* Disable the virtual device's glyph: */
 	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
@@ -134,8 +124,9 @@ void WidgetTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	buttonDevice->setTransformation(interactionDevice->getTransformation());
+	InputDevice* device=input.getDevice(0);
+	buttonDevice->setTransformation(device->getTransformation());
+	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void WidgetTool::deinitialize(void)
@@ -153,13 +144,18 @@ const ToolFactory* WidgetTool::getFactory(void) const
 	return factory;
 	}
 
-void WidgetTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void WidgetTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Check if the GUI interactor accepts the event: */
 		GUIInteractor::updateRay();
-		if(!GUIInteractor::buttonDown(false))
+		if(GUIInteractor::buttonDown(false))
+			{
+			/* Cancel processing of this callback to preempt cascaded tools: */
+			cbData->callbackList->requestInterrupt();
+			}
+		else
 			{
 			/* Pass the button event to the virtual input device: */
 			buttonDevice->setButtonState(0,true);
@@ -172,6 +168,9 @@ void WidgetTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			{
 			/* Deliver the event: */
 			GUIInteractor::buttonUp();
+			
+			/* Cancel processing of this callback to preempt cascaded tools: */
+			cbData->callbackList->requestInterrupt();
 			}
 		else
 			{
@@ -188,58 +187,15 @@ void WidgetTool::frame(void)
 	GUIInteractor::move();
 	
 	/* Update the virtual input device: */
-	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	buttonDevice->setTransformation(interactionDevice->getTransformation());
+	InputDevice* device=input.getDevice(0);
+	buttonDevice->setTransformation(device->getTransformation());
+	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void WidgetTool::display(GLContextData& contextData) const
 	{
-	if(isDrawRay())
-		{
-		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(getRayWidth(),getRayColor(),contextData);
-		}
-	}
-
-std::vector<InputDevice*> WidgetTool::getForwardedDevices(void)
-	{
-	std::vector<InputDevice*> result;
-	result.push_back(buttonDevice);
-	return result;
-	}
-
-InputDeviceFeatureSet WidgetTool::getSourceFeatures(const InputDeviceFeature& forwardedFeature)
-	{
-	/* Paranoia: Check if the forwarded feature is on the transformed device: */
-	if(forwardedFeature.getDevice()!=buttonDevice)
-		Misc::throwStdErr("WidgetTool::getSourceFeatures: Forwarded feature is not on transformed device");
-	
-	/* Return the source feature: */
-	InputDeviceFeatureSet result;
-	result.push_back(input.getButtonSlotFeature(0));
-	return result;
-	}
-
-InputDevice* WidgetTool::getSourceDevice(const InputDevice* forwardedDevice)
-	{
-	/* Paranoia: Check if the forwarded device is the same as the transformed device: */
-	if(forwardedDevice!=buttonDevice)
-		Misc::throwStdErr("WidgetTool::getSourceDevice: Given forwarded device is not transformed device");
-	
-	/* Return the designated source device: */
-	return interactionDevice;
-	}
-
-InputDeviceFeatureSet WidgetTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)
-	{
-	/* Paranoia: Check if the source feature belongs to this tool: */
-	if(input.findFeature(sourceFeature)!=0)
-		Misc::throwStdErr("WidgetTool::getForwardedFeatures: Source feature is not part of tool's input assignment");
-	
-	/* Return the forwarded feature: */
-	InputDeviceFeatureSet result;
-	result.push_back(InputDeviceFeature(buttonDevice,InputDevice::BUTTON,0));
-	return result;
+	/* Draw the GUI interactor's state: */
+	GUIInteractor::glRenderAction(contextData);
 	}
 
 }

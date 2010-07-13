@@ -2,7 +2,7 @@
 MouseDialogNavigationTool - Class providing a newbie-friendly interface
 to the standard MouseNavigationTool using a dialog box of navigation
 options.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/ToggleButton.h>
-#include <Vrui/GUIInteractor.h>
 #include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
@@ -59,7 +58,6 @@ class MouseDialogNavigationToolFactory:public ToolFactory
 	Scalar dollyFactor; // Distance the device has to be moved along the scaling line to dolly by one physical unit
 	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
 	Scalar spinThreshold; // Distance the device has to be moved on the last step of rotation to activate spinning
-	bool interactWithWidgets; // Flag if the mouse navigation tool doubles as a widget tool (this is an evil hack)
 	
 	/* Constructors and destructors: */
 	public:
@@ -72,7 +70,7 @@ class MouseDialogNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseDialogNavigationTool:public NavigationTool,public GUIInteractor
+class MouseDialogNavigationTool:public NavigationTool
 	{
 	friend class MouseDialogNavigationToolFactory;
 	
@@ -85,12 +83,13 @@ class MouseDialogNavigationTool:public NavigationTool,public GUIInteractor
 	
 	/* Elements: */
 	static MouseDialogNavigationToolFactory* factory; // Pointer to the factory object for this class
+	
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
+	
 	GLMotif::PopupWindow* navigationDialogPopup; // Pointer to the navigation dialog window
 	
 	/* Transient navigation state: */
 	Point currentPos; // Current projected position of mouse input device on screen
-	double lastMoveTime; // Application time at which the projected position last changed
 	NavigationMode navigationMode; // The tool's current navigation mode
 	bool spinning; // Flag whether the tool is currently spinning
 	Point screenCenter; // Center of screen; center of rotation and scaling operations
@@ -121,7 +120,7 @@ class MouseDialogNavigationTool:public NavigationTool,public GUIInteractor
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

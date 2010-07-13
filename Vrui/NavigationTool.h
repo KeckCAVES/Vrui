@@ -40,8 +40,6 @@ class NavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
-	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	};
 
 class NavigationTool:public Tool

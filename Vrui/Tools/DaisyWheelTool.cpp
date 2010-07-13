@@ -1,7 +1,7 @@
 /***********************************************************************
 DaisyWheelTool - Class for tools to enter text by pointing at characters
 on a dynamic daisy wheel.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/DaisyWheelTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -35,8 +33,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/TextEvent.h>
 #include <GLMotif/TextControlEvent.h>
 #include <GLMotif/WidgetManager.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/DaisyWheelTool.h>
 
 namespace Vrui {
 
@@ -51,7 +51,8 @@ DaisyWheelToolFactory::DaisyWheelToolFactory(ToolManager& toolManager)
 	 maxYOffset(getUiSize())
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UserInterfaceTool");
@@ -160,9 +161,6 @@ DaisyWheelTool::DaisyWheelTool(const ToolFactory* factory,const ToolInputAssignm
 	 active(false),buttonDown(false),
 	 selectedPetal(0)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
-	
 	/* Initialize the petal labels: */
 	for(int i=0;i<26;++i)
 		{
@@ -212,7 +210,7 @@ const ToolFactory* DaisyWheelTool::getFactory(void) const
 	return factory;
 	}
 
-void DaisyWheelTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void DaisyWheelTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -222,7 +220,8 @@ void DaisyWheelTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			active=true;
 			
 			/* Store the daisy wheel transformation: */
-			wheelTransform=calcHUDTransform(getInteractionPosition());
+			wheelTransform=getDeviceTransformation(0);
+			wheelTransform*=ONTransform::rotate(Rotation::rotateX(Math::rad(Scalar(90))));
 			
 			/* Initialize the daisy wheel: */
 			petals[selectedPetal].setBackground(GLLabel::Color(0.667f,0.667f,0.667f));

@@ -77,11 +77,11 @@ To create an initial rough calibration of the tracking system with respect to ph
 <OL>
 <LI>Translate by (-32, -68, 36) to align the tracker's origin with the physical origin.</LI>
 
-<LI>Rotate by -90&deg; around the tracker's Z&nbsp;axis to align the tracker's X&nbsp;axis with the physical X&nbsp;axis.</LI>
+<LI>Rotate by -90&nbsp;degrees around the tracker's Z&nbsp;axis to align the tracker's X&nbsp;axis with the physical X&nbsp;axis.</LI>
 
-<LI>Rotate by 90&deg; around the tracker's new X&nbsp;axis to align the tracker's Y and Z&nbsp;axes with the physical Y and Z&nbsp;axes</LI>
+<LI>Rotate by 90&nbsp;degrees around the tracker's new X&nbsp;axis to align the tracker's Y and Z&nbsp;axes with the physical Y and Z&nbsp;axes</LI>
 </OL>
-In the notation used in the device driver's configuration file, this transformation is written as &quot;translate&nbsp;(-32,&nbsp;-68,&nbsp;36)&nbsp;* rotate&nbsp;(0,&nbsp;0,&nbsp;1),&nbsp;-90&nbsp;* rotate&nbsp;(1,&nbsp;0,&nbsp;0),&nbsp;90.&quot; The individual steps of this transformation are illustrated in Figure&nbsp;5.
+In the notation used in the device driver's configuration file, this transformation is written as &quot;translate&nbsp;(-32,&nbsp;-68,&nbsp;36)&nbsp;* rotate&nbsp;-90,&nbsp;(0,&nbsp;0,&nbsp;1)&nbsp;* rotate&nbsp;90,&nbsp;(1,&nbsp;0,&nbsp;0).&quot; The individual steps of this transformation are illustrated in Figure&nbsp;5.
 
 <TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=16 BORDER=0>
 <TR><TD ALIGN=CENTER><IMG SRC="VruiCalibrationFigure5.png"></TD></TR>
@@ -103,9 +103,9 @@ After consistency has been verified, one has to decide how to attach each tracke
 <TR><TD><B>Figure 6:</B> Attachment of trackers to input devices in the example VR environment. Left:&nbsp;attachment of head tracker to VR glasses. Right:&nbsp;attachment of tracker to stylus input device.</TD></TR>
 </TABLE>
 
-We already specified the local viewer coordinate system in one of the earlier sections (X goes to the right, Z goes up). We now need to create a transformation to map local tracker coordinates to an input device coordinate system compatible with the local viewer system. We already assumed the viewer system's origin was above the center of the glasses; the only necessary change is to rotate by -90&deg; around the tracker's Z&nbsp;axis to align all axes. In the VR device driver's configuration file, this post-transformation is written as &quot;rotate&nbsp;(0,&nbsp;0,&nbsp;1),&nbsp;-90.&quot;<P>
+We already specified the local viewer coordinate system in one of the earlier sections (X goes to the right, Z goes up). We now need to create a transformation to map local tracker coordinates to an input device coordinate system compatible with the local viewer system. We already assumed the viewer system's origin was above the center of the glasses; the only necessary change is to rotate by -90&nbsp;degrees around the tracker's Z&nsbp;axis to align all axes. In the VR device driver's configuration file, this post-transformation is written as &quot;rotate&nbsp;-90,&nbsp;(0,&nbsp;0,&nbsp;1).&quot;<P>
 
-To define the stylus device's coordinate system, we decide to align the Y&nbsp;axis with the length of the stylus pointing towards the tip, the Z&nbsp;axis pointing in the opposite direction of the stylus' attachment (to the right in Figure&nbsp;6) and the X&nbsp; axis pointing into the image in Figure&nbsp;6. Furthermore, we want to position the origin of the input device system at the tip of the stylus. The post-transformation achieving this is written in the VR device driver's configuration file as &quot;rotate&nbsp;(1,&nbsp;0,&nbsp;0),&nbsp;90&nbsp;* rotate&nbsp;(0,&nbsp;1,&nbsp;0),&nbsp;180&nbsp;* translate&nbsp;(0,&nbsp;8,&nbsp;-1),&quot; assuming the stylus is about 8&nbsp;inches long and about 1&nbsp;inch thick.<P>
+To define the stylus device's coordinate system, we decide to align the Y&nbsp;axis with the length of the stylus pointing towards the tip, the Z&nbsp;axis pointing in the opposite direction of the stylus' attachment (to the right in Figure&nbsp;6) and the X&nbsp; axis pointing into the image in Figure&nbsp;6. Furthermore, we want to position the origin of the input device system at the tip of the stylus. The post-transformation achieving this is written in the VR device driver's configuration file as &quot;rotate&nbsp;90,&nbsp;(1,&nbsp;0,&nbsp;0)&nbsp;* rotate&nbsp;180,&nbsp;(0,&nbsp;1,&nbsp;0)&nbsp;* translate&nbsp;(0,&nbsp;8,&nbsp;-1),&quot; assuming the stylus is about 8&nbsp;inches long and about 1&nbsp;inch thick.<P>
 
 After the head tracker's and stylus device's local transformations have been established, the VR environment is ready for head-tracked stereoscopy. The only required change is to associate the viewer with the head tracker in the Vrui configuration file, replacing the previously fixed viewer transformation. If the tracking system's coordinates are calibrated properly, the <TT>VruiCalibrator</TT> program will now show the stlyus tracker's coordinate frame located at the stylus device's tip, with the green Y&nbsp;axis pointing in the direction of the stylus, and the frame will stay attached to the stylus even when the user walks around the environment and moves the stylus device.
 

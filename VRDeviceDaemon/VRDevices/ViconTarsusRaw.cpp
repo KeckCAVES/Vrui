@@ -1,7 +1,7 @@
 /***********************************************************************
 ViconTarsusRaw - Class for Vicon optical trackers using the raw
 real-time streaming protocol.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -151,15 +151,12 @@ void ViconTarsusRaw::deviceThreadMethod(void)
 
 ViconTarsusRaw::ViconTarsusRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
-	 pipe(configFile.retrieveString("./serverName").c_str(),configFile.retrieveValue<int>("./serverPort",803)),
+	 pipe(configFile.retrieveString("./serverName"),configFile.retrieveValue<int>("./serverPort",803),Comm::TCPPipe::LittleEndian),
 	 predictionLimit(1U),
 	 markerTimeout(6U),
 	 defaultPosition(Point::origin),
 	 markerStates(0)
 	{
-	/* Set the pipe's endianness: */
-	pipe.setEndianness(Misc::LittleEndian);
-	
 	/* Read the maximum number of supported markers: */
 	maxNumMarkers=configFile.retrieveValue<int>("./maxNumMarkers");
 	
@@ -221,10 +218,10 @@ void ViconTarsusRaw::stop(void)
 	stopDeviceThread();
 	
 	/* Flush the communications pipe: */
-	while(pipe.waitForData(Misc::Time(0,100000000)))
+	while(pipe.waitForData(0,100000,false))
 		{
 		char buffer[256];
-		pipe.readUpTo(buffer,sizeof(buffer));
+		pipe.Comm::TCPSocket::read(buffer,sizeof(buffer));
 		}
 	}
 

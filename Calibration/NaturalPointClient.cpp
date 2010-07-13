@@ -1,7 +1,7 @@
 /***********************************************************************
 Client to read tracking data from a NaturalPoint OptiTrack tracking
 system.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -423,7 +423,7 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 void* NaturalPointClient::commandHandlingThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{
@@ -441,7 +441,7 @@ void* NaturalPointClient::commandHandlingThreadMethod(void)
 void* NaturalPointClient::dataHandlingThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{
@@ -464,6 +464,9 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 	 dataSocketFd(0),dataBuffer(65536,PacketBuffer::LittleEndian),
 	 nextModelDef(0)
 	{
+	/* Start the command response receiving thread: */
+	commandHandlingThread.start(this,&NaturalPointClient::commandHandlingThreadMethod);
+	
 	/* Create the data multicast UDP socket: */
 	dataSocketFd=socket(PF_INET,SOCK_DGRAM,0);
 	if(dataSocketFd<0)
@@ -542,9 +545,6 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 		Misc::throwStdErr("NaturalPointClient: error %s during setsockopt",strerror(myerrno));
 		}
 	
-	/* Start the command response receiving thread: */
-	commandHandlingThread.start(this,&NaturalPointClient::commandHandlingThreadMethod);
-	
 	/* Start the data receiving thread: */
 	dataHandlingThread.start(this,&NaturalPointClient::dataHandlingThreadMethod);
 	
@@ -563,11 +563,6 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 		}
 	if(numPingTries>=5)
 		{
-		/* Clean up and signal a connection error: */
-		commandHandlingThread.cancel();
-		commandHandlingThread.join();
-		dataHandlingThread.cancel();
-		dataHandlingThread.join();
 		close(dataSocketFd);
 		Misc::throwStdErr("NaturalPointClient: Unable to connect to server %s",serverHostName);
 		}

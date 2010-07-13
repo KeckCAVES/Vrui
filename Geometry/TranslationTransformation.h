@@ -1,6 +1,6 @@
 /***********************************************************************
 TranslationTransformation - Class for n-dimensional translations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -32,10 +32,6 @@ namespace Geometry {
 /* Forward declarations for friend functions: */
 template <class ScalarParam,int dimensionParam>
 class TranslationTransformation;
-template <class ScalarParam,int dimensionParam>
-bool operator==(const TranslationTransformation<ScalarParam,dimensionParam>& t1,const TranslationTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
-bool operator!=(const TranslationTransformation<ScalarParam,dimensionParam>& t1,const TranslationTransformation<ScalarParam,dimensionParam>& t2);
 template <class ScalarParam,int dimensionParam>
 TranslationTransformation<ScalarParam,dimensionParam> operator*(const TranslationTransformation<ScalarParam,dimensionParam>&,const TranslationTransformation<ScalarParam,dimensionParam>&);
 template <class ScalarParam,int dimensionParam>
@@ -92,10 +88,6 @@ class TranslationTransformation
 			t[i]=-sP[i];
 		return TranslationTransformation(t);
 		}
-	
-	/* Comparison operators: */
-	friend bool operator==<>(const TranslationTransformation& t1,const TranslationTransformation& t2);
-	friend bool operator!=<>(const TranslationTransformation& t1,const TranslationTransformation& t2);
 	
 	/* Low-level manipulation functions: */
 	const Vector& getTranslation(void) const // Returns the translation vector
@@ -179,16 +171,6 @@ class TranslationTransformation
 	};
 
 /* Friend functions of class TranslationTransformation: */
-template <class ScalarParam,int dimensionParam>
-inline bool operator==(const TranslationTransformation<ScalarParam,dimensionParam>& t1,const TranslationTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.translation==t2.translation;
-	}
-template <class ScalarParam,int dimensionParam>
-inline bool operator!=(const TranslationTransformation<ScalarParam,dimensionParam>& t1,const TranslationTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.translation!=t2.translation;
-	}
 template <class ScalarParam,int dimensionParam>
 inline TranslationTransformation<ScalarParam,dimensionParam> operator*(const TranslationTransformation<ScalarParam,dimensionParam>& t1,const TranslationTransformation<ScalarParam,dimensionParam>& t2)
 	{

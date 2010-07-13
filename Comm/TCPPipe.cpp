@@ -1,7 +1,7 @@
 /***********************************************************************
-TCPPipe - Class for high-performance reading/writing from/to connected
-TCP sockets.
-Copyright (c) 2010-2011 Oliver Kreylos
+TCPPipe - Class layering an endianness-safe pipe abstraction with
+buffered typed read/writes over a TCPSocket.
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -21,19 +21,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Comm/TCPPipe.h>
-
-#include <unistd.h>
-#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/FdSet.h>
-#include <Comm/ListeningTCPSocket.h>
+
+#include <Comm/TCPPipe.h>
 
 namespace Comm {
 
@@ -41,279 +35,219 @@ namespace Comm {
 Methods of class TCPPipe:
 ************************/
 
-size_t TCPPipe::readData(IO::File::Byte* buffer,size_t bufferSize)
+void TCPPipe::bufferedRead(void* data,size_t dataSize)
 	{
-	/* Read more data from source: */
-	ssize_t readResult;
-	do
+	char* dPtr=static_cast<char*>(data);
+	while(dataSize>0)
 		{
-		readResult=::read(fd,buffer,bufferSize);
-		}
-	while(readResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
-	
-	/* Handle the result from the read call: */
-	if(readResult<0)
-		{
-		/* Unknown error; probably a bad thing: */
-		int errorCode=errno;
-		Misc::throwStdErr("Comm::TCPPipe: Fatal error %d while reading from source",errorCode);
-		}
-	
-	return size_t(readResult);
-	}
-
-void TCPPipe::writeData(const IO::File::Byte* buffer,size_t bufferSize)
-	{
-	while(bufferSize>0)
-		{
-		ssize_t writeResult=::write(fd,buffer,bufferSize);
-		if(writeResult>0)
+		/* Receive more data if the read buffer is empty: */
+		if(readSize==0)
 			{
-			/* Prepare to write more data: */
-			buffer+=writeResult;
-			bufferSize-=writeResult;
+			/* Read available data from the TCP socket: */
+			readSize=TCPSocket::read(readBuffer,bufferSize);
+			
+			/* Reset the read buffer: */
+			rbPos=readBuffer;
 			}
-		else if(errno==EPIPE)
-			{
-			/* Other side hung up: */
-			Misc::throwStdErr("Comm::TCPPipe: Connection terminated by peer");
-			}
-		else if(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))
-			{
-			/* Do nothing and try again */
-			}
-		else if(writeResult==0)
-			{
-			/* Sink has reached end-of-file: */
-			throw WriteError(bufferSize);
-			}
-		else
-			{
-			/* Unknown error; probably a bad thing: */
-			int errorCode=errno;
-			Misc::throwStdErr("Comm::TCPPipe: Fatal error %d while writing to sink",errorCode);
-			}
+		
+		/* Determine the number of bytes to read in a single go: */
+		size_t bytes=dataSize;
+		if(bytes>readSize)
+			bytes=readSize;
+		
+		/* Copy bytes from the read buffer: */
+		memcpy(dPtr,rbPos,bytes);
+		rbPos+=bytes;
+		readSize-=bytes;
+		dPtr+=bytes;
+		dataSize-=bytes;
 		}
 	}
 
-TCPPipe::TCPPipe(const char* hostName,int portId)
-	:NetPipe(ReadWrite),
-	 fd(-1)
+void TCPPipe::bufferedWrite(const void* data,size_t dataSize)
 	{
-	/* Create the socket file descriptor: */
-	fd=socket(PF_INET,SOCK_STREAM,0);
-	if(fd<0)
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to create socket");
-	
-	/* Bind the socket file descriptor: */
-	struct sockaddr_in mySocketAddress;
-	mySocketAddress.sin_family=AF_INET;
-	mySocketAddress.sin_port=0;
-	mySocketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-	if(bind(fd,(struct sockaddr*)&mySocketAddress,sizeof(struct sockaddr_in))==-1)
+	const char* dPtr=static_cast<const char*>(data);
+	while(dataSize>0)
 		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to bind socket to port");
-		}
-	
-	/* Lookup host's IP address: */
-	struct hostent* hostEntry=gethostbyname(hostName);
-	if(hostEntry==0)
-		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to resolve host name %s",hostName);
-		}
-	struct in_addr hostNetAddress;
-	hostNetAddress.s_addr=ntohl(((struct in_addr*)hostEntry->h_addr_list[0])->s_addr);
-	
-	/* Connect to the remote host: */
-	struct sockaddr_in hostAddress;
-	hostAddress.sin_family=AF_INET;
-	hostAddress.sin_port=htons(portId);
-	hostAddress.sin_addr.s_addr=htonl(hostNetAddress.s_addr);
-	if(connect(fd,(const struct sockaddr*)&hostAddress,sizeof(struct sockaddr_in))==-1)
-		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to connect to host %s on port %d",hostName,portId);
-		}
-	
-	/* Set the TCP_NODELAY socket option: */
-	int flag=1;
-	if(setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&flag,sizeof(flag))==-1)
-		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Cluster::TCPPipe::TCPPipe: Unable to disable Nagle's algorithm on socket");
+		/* Determine the number of bytes to write in a single go: */
+		size_t bytes=dataSize;
+		if(bytes>writeSize)
+			bytes=writeSize;
+		
+		/* Copy bytes into the write buffer: */
+		memcpy(wbPos,dPtr,bytes);
+		wbPos+=bytes;
+		writeSize-=bytes;
+		dPtr+=bytes;
+		dataSize-=bytes;
+		
+		/* Send the write buffer if full: */
+		if(writeSize==0)
+			{
+			/* Send data across the TCP socket: */
+			blockingWrite(writeBuffer,bufferSize);
+			
+			/* Reset the write buffer: */
+			wbPos=writeBuffer;
+			writeSize=bufferSize;
+			}
 		}
 	}
 
-TCPPipe::TCPPipe(ListeningTCPSocket& listenSocket)
-	:NetPipe(ReadWrite),
-	 fd(-1)
+void TCPPipe::initializePipe(TCPPipe::Endianness sEndianness)
 	{
-	/* Wait for a connection attempt on the listening socket: */
-	fd=accept(listenSocket.getFd(),0,0);
-	if(fd==-1)
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to accept connection");
+	/* Set socket options: */
+	TCPSocket::setNoDelay(true);
 	
-	/* Set the TCP_NODELAY socket option: */
-	int flag=1;
-	setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&flag,sizeof(flag));
+	if(sEndianness==LittleEndian)
+		{
+		#if __BYTE_ORDER==__BIG_ENDIAN
+		readMustSwapEndianness=writeMustSwapEndianness=true;
+		#endif
+		}
+	else if(sEndianness==BigEndian)
+		{
+		#if __BYTE_ORDER==__LITTLE_ENDIAN
+		readMustSwapEndianness=writeMustSwapEndianness=true;
+		#endif
+		}
+	else if(sEndianness==Automatic)
+		{
+		/* Exchange a magic value to test for endianness on the other end: */
+		unsigned int magic=0x12345678U;
+		blockingWrite(&magic,sizeof(unsigned int));
+		blockingRead(&magic,sizeof(unsigned int));
+		if(magic==0x78563412U)
+			readMustSwapEndianness=true;
+		else if(magic!=0x12345678U)
+			Misc::throwStdErr("Comm::TCPPipe: Unable to establish connection with host %s on port %d",getPeerHostname().c_str(),getPeerPortId());
+		}
+	
+	/* Allocate the read and write buffers: */
+	int maxSegSize=-1;
+	socklen_t maxSegLen=sizeof(int);
+	if(getsockopt(getFd(),IPPROTO_TCP,TCP_MAXSEG,&maxSegSize,&maxSegLen)<0)
+		Misc::throwStdErr("Comm::TCPPipe: Unable to determine maximum TCP segment size");
+	bufferSize=size_t(maxSegSize);
+	readBuffer=new char[bufferSize];
+	rbPos=readBuffer;
+	readSize=0;
+	writeBuffer=new char[bufferSize];
+	wbPos=writeBuffer;
+	writeSize=bufferSize;
+	}
+
+TCPPipe::TCPPipe(std::string hostname,int portId,TCPPipe::Endianness sEndianness)
+	:TCPSocket(hostname,portId),
+	 readMustSwapEndianness(false),writeMustSwapEndianness(false),
+	 readBuffer(0),writeBuffer(0)
+	{
+	/* Set up the socket, endianness conversion, and read/write buffers: */
+	initializePipe(sEndianness);
+	}
+
+TCPPipe::TCPPipe(const TCPSocket& socket,TCPPipe::Endianness sEndianness)
+	:TCPSocket(socket),
+	 readMustSwapEndianness(false),
+	 writeMustSwapEndianness(false),
+	 readBuffer(0),writeBuffer(0)
+	{
+	/* Set up the socket, endianness conversion, and read/write buffers: */
+	initializePipe(sEndianness);
 	}
 
 TCPPipe::~TCPPipe(void)
 	{
-	/* Close the socket: */
-	if(fd>=0)
-		close(fd);
-	}
-
-int TCPPipe::getFd(void) const
-	{
-	return fd;
-	}
-
-bool TCPPipe::waitForData(void) const
-	{
-	/* Check if there is unread data in the buffer: */
-	if(getUnreadDataSize()>0)
-		return true;
-	
-	/* Wait for data on the socket and return whether data is available: */
-	Misc::FdSet readFds(fd);
-	return Misc::pselect(&readFds,0,0,0)>=0&&readFds.isSet(fd);
-	}
-
-bool TCPPipe::waitForData(const Misc::Time& timeout) const
-	{
-	/* Check if there is unread data in the buffer: */
-	if(getUnreadDataSize()>0)
-		return true;
-	
-	/* Wait for data on the socket and return whether data is available: */
-	Misc::FdSet readFds(fd);
-	return Misc::pselect(&readFds,0,0,timeout)>=0&&readFds.isSet(fd);
-	}
-
-void TCPPipe::shutdown(bool read,bool write)
-	{
-	/* Flush the write buffer: */
-	flush();
-	
-	/* Shut down the socket: */
-	if(read&&write)
-		::shutdown(fd,SHUT_RDWR);
-	else if(read)
-		::shutdown(fd,SHUT_RD);
-	else if(write)
-		::shutdown(fd,SHUT_WR);
-	}
-
-int TCPPipe::getPortId(void) const
-	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
-	return ntohs(socketAddress.sin_port);
-	}
-
-std::string TCPPipe::getAddress(void) const
-	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
-	char resultBuffer[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET,&socketAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN);
-	return std::string(resultBuffer);
-	}
-
-std::string TCPPipe::getHostName(void) const
-	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
-	
-	/* Lookup host's name: */
-	std::string result;
-	struct hostent* hostEntry=gethostbyaddr((const char*)&socketAddress.sin_addr,sizeof(struct in_addr),AF_INET);
-	if(hostEntry==0)
+	try
 		{
-		/* Fall back to returning address in dotted notation: */
-		char addressBuffer[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET,&socketAddress.sin_addr,addressBuffer,INET_ADDRSTRLEN);
-		result=std::string(addressBuffer);
+		/* Send any leftover data still in the write buffer: */
+		if(writeSize<bufferSize)
+			blockingWrite(writeBuffer,bufferSize-writeSize);
 		}
-	else
-		result=std::string(hostEntry->h_name);
+	catch(...)
+		{
+		/* This was a best effort to flush the pipe; if it fails, the pipe was probably already dead anyways... */
+		}
+	
+	/* Delete the buffers: */
+	delete[] readBuffer;
+	delete[] writeBuffer;
+	}
+
+/***********************************
+Specializations of template methods:
+***********************************/
+
+template <>
+std::string
+TCPPipe::read<std::string>(
+	void)
+	{
+	std::string result;
+	
+	/* Read the string's length: */
+	unsigned int length;
+	bufferedRead(&length,sizeof(unsigned int));
+	if(readMustSwapEndianness)
+		Misc::swapEndianness(length);
+	
+	/* Read the string in chunks (unfortunately, there is no API to read directly into the std::string): */
+	result.reserve(length+1); // Specification is not clear whether reserve() includes room for the terminating NUL character
+	unsigned int lengthLeft=length;
+	while(lengthLeft>0)
+		{
+		char buffer[256];
+		size_t readLength=lengthLeft;
+		if(readLength>sizeof(buffer))
+			readLength=sizeof(buffer);
+		bufferedRead(buffer,readLength);
+		result.append(buffer,readLength);
+		lengthLeft-=readLength;
+		}
 	
 	return result;
 	}
 
-int TCPPipe::getPeerPortId(void) const
+template <>
+std::string&
+TCPPipe::read<std::string>(
+	std::string& string)
 	{
-	struct sockaddr_in peerAddress;
-	#ifdef __SGI_IRIX__
-	int peerAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t peerAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
-	return ntohs(peerAddress.sin_port);
-	}
-
-std::string TCPPipe::getPeerAddress(void) const
-	{
-	struct sockaddr_in peerAddress;
-	#ifdef __SGI_IRIX__
-	int peerAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t peerAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
-	char resultBuffer[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET,&peerAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN);
-	return std::string(resultBuffer);
-	}
-
-std::string TCPPipe::getPeerHostName(void) const
-	{
-	struct sockaddr_in peerAddress;
-	#ifdef __SGI_IRIX__
-	int peerAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t peerAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
+	/* Read the string's length: */
+	unsigned int length;
+	bufferedRead(&length,sizeof(unsigned int));
+	if(readMustSwapEndianness)
+		Misc::swapEndianness(length);
 	
-	/* Lookup host's name: */
-	std::string result;
-	struct hostent* hostEntry=gethostbyaddr((const char*)&peerAddress.sin_addr,sizeof(struct in_addr),AF_INET);
-	if(hostEntry==0)
+	/* Read the string in chunks (unfortunately, there is no API to read directly into the std::string): */
+	string.reserve(length+1); // Specification is not clear whether reserve() includes room for the terminating NUL character
+	unsigned int lengthLeft=length;
+	while(lengthLeft>0)
 		{
-		/* Fall back to returning address in dotted notation: */
-		char addressBuffer[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET,&peerAddress.sin_addr,addressBuffer,INET_ADDRSTRLEN);
-		result=std::string(addressBuffer);
+		char buffer[256];
+		size_t readLength=lengthLeft;
+		if(readLength>sizeof(buffer))
+			readLength=sizeof(buffer);
+		bufferedRead(buffer,readLength);
+		string.append(buffer,readLength);
+		lengthLeft-=readLength;
 		}
-	else
-		result=std::string(hostEntry->h_name);
+	return string;
+	}
+
+template <>
+void
+TCPPipe::write<std::string>(
+	const std::string& string)
+	{
+	/* Write the string's length: */
+	unsigned int length=string.length();
+	if(writeMustSwapEndianness)
+		Misc::swapEndianness(length);
+	bufferedWrite(&length,sizeof(unsigned int));
 	
-	return result;
+	/* Write the string's characters: */
+	bufferedWrite(string.data(),string.length()*sizeof(char));
 	}
 
 }

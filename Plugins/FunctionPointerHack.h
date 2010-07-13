@@ -1,7 +1,7 @@
 /***********************************************************************
 FunctionPointerHack - Evil hack to cast a pointer returned from dlsym
 into a function pointer without a warning.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2009 Oliver Kreylos
 
 This file is part of the Plugin Handling Library (Plugins).
 
@@ -23,7 +23,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef PLUGINS_FUNCTIONPOINTERHACK_INCLUDED
 #define PLUGINS_FUNCTIONPOINTERHACK_INCLUDED
 
-#include <stddef.h>
 #include <dlfcn.h>
 
 namespace Plugins {

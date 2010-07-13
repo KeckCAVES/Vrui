@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -64,7 +64,7 @@ Rotation<ScalarParam,3> Rotation<ScalarParam,3>::rotateFromTo(const typename Rot
 	else if(cosAngle<=Scalar(1)-Math::Constants<Scalar>::epsilon)
 		{
 		/* Rotate around a vector orthogonal to both vectors, by the angle between the vectors: */
-		Vector axis=from^to;
+		Vector axis=Geometry::cross(from,to);
 		return Rotation(axis,Math::acos(cosAngle));
 		}
 	else
@@ -77,8 +77,8 @@ Rotation<ScalarParam,3> Rotation<ScalarParam,3>::fromBaseVectors(const typename 
 	{
 	/* Create an orthonormal coordinate frame retaining the x vector and adjusting the y vector: */
 	Vector x=normalize(xAxis);
-	Vector z=normalize(x^yAxis);
-	Vector y=z^x;
+	Vector z=normalize(cross(x,yAxis));
+	Vector y=cross(z,x);
 	
 	/* Convert the frame into a linear matrix and create a rotation from that: */
 	Geometry::Matrix<Scalar,3,3> rotationMatrix;
@@ -99,7 +99,7 @@ Rotation<ScalarParam,3> Rotation<ScalarParam,3>::fromMatrix(const MatrixParam& m
 	/* Convert the matrix into a unit quaternion: */
 	Scalar q[4];
 	Scalar trace=Scalar(matrix(0,0))+Scalar(matrix(1,1))+Scalar(matrix(2,2))+Scalar(1);
-	if(trace>Scalar(2))
+	if(trace>Scalar(0))
 		{
 		Scalar s=Math::sqrt(trace);
 		q[3]=Math::div2(s);
@@ -246,32 +246,6 @@ Rotation<ScalarParam,3> operator*(const Rotation<ScalarParam,3>& r1,const Rotati
 	result.q[1]=r1.q[2]*r2.q[0]-r1.q[0]*r2.q[2]+r1.q[3]*r2.q[1]+r1.q[1]*r2.q[3];
 	result.q[2]=r1.q[0]*r2.q[1]-r1.q[1]*r2.q[0]+r1.q[3]*r2.q[2]+r1.q[2]*r2.q[3];
 	result.q[3]=r1.q[3]*r2.q[3]-r1.q[0]*r2.q[0]-r1.q[1]*r2.q[1]-r1.q[2]*r2.q[2];
-	return result;
-	}
-
-template <class ScalarParam>
-inline
-Rotation<ScalarParam,3>& Rotation<ScalarParam,3>::operator/=(const Rotation<ScalarParam,3>& other)
-	{
-	Scalar nX=q[1]*other.q[2]-q[2]*other.q[1]+q[3]*other.q[0]-q[0]*other.q[3];
-	Scalar nY=q[2]*other.q[0]-q[0]*other.q[2]+q[3]*other.q[1]-q[1]*other.q[3];
-	Scalar nZ=q[0]*other.q[1]-q[1]*other.q[0]+q[3]*other.q[2]-q[2]*other.q[3];
-	q[3]=-q[3]*other.q[3]-q[0]*other.q[0]-q[1]*other.q[1]-q[2]*other.q[2];
-	q[0]=nX;
-	q[1]=nY;
-	q[2]=nZ;
-	return *this;
-	}
-
-template <class ScalarParam>
-inline
-Rotation<ScalarParam,3> operator/(const Rotation<ScalarParam,3>& r1,const Rotation<ScalarParam,3>& r2)
-	{
-	Rotation<ScalarParam,3> result;
-	result.q[0]=r1.q[1]*r2.q[2]-r1.q[2]*r2.q[1]+r1.q[3]*r2.q[0]-r1.q[0]*r2.q[3];
-	result.q[1]=r1.q[2]*r2.q[0]-r1.q[0]*r2.q[2]+r1.q[3]*r2.q[1]-r1.q[1]*r2.q[3];
-	result.q[2]=r1.q[0]*r2.q[1]-r1.q[1]*r2.q[0]+r1.q[3]*r2.q[2]-r1.q[2]*r2.q[3];
-	result.q[3]=-r1.q[3]*r2.q[3]-r1.q[0]*r2.q[0]-r1.q[1]*r2.q[1]-r1.q[2]*r2.q[2];
 	return result;
 	}
 

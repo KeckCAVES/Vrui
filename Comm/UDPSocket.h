@@ -1,6 +1,6 @@
 /***********************************************************************
 UDPSocket - Wrapper class for UDP sockets ensuring exception safety.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 

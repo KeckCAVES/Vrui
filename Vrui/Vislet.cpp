@@ -1,7 +1,7 @@
 /***********************************************************************
 Vislet - Abstract base class for application-independent visualization
 plug-ins that can be loaded into Vrui applications on demand.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2007 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,7 +54,7 @@ Methods of class Vislet:
 ***********************/
 
 Vislet::Vislet(void)
-	:active(false)
+	:active(true)
 	{
 	}
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 Polygon - Class for planar polygons in affine space.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -188,7 +188,7 @@ Polygon<ScalarParam,dimensionParam>::calcNormal(
 		/* Calculate the cross product of the vertex' two incident edges: */
 		const Point* p3=&vertices[i];
 		Vector d2=*p3-*p2;
-		normal+=d1^d2;
+		normal+=cross(d1,d2);
 		
 		/* Go to the next vertex: */
 		p2=p3;
@@ -216,7 +216,7 @@ Polygon<ScalarParam,dimensionParam>::calcPlane(
 		const Point* p3=&vertices[i];
 		ac.addPoint(*p3);
 		Vector d2=*p3-*p2;
-		normal+=d1^d2;
+		normal+=cross(d1,d2);
 		
 		/* Go to the next vertex: */
 		p2=p3;

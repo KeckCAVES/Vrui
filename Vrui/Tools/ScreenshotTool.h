@@ -2,7 +2,7 @@
 ScreenshotTool - Class for tools to save save screenshots from immersive
 environments by overriding a selected window's screen and viewer with
 virtual ones attached to an input device.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -62,7 +62,6 @@ class ScreenshotToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -90,7 +89,7 @@ class ScreenshotTool:public UtilityTool
 	Point eyePosition; // Fixed eye position in device coordinates if not using the main viewer
 	
 	/* Transient state: */
-	double showFrameTime; // Application time after which the frame will be drawn (to disable frame when a screenshot is requested)
+	unsigned int frameCounter,screenshotFrameCounter; // Counters to disable drawing the screen frame when a screenshot is requested
 	
 	/* Constructors and destructors: */
 	public:
@@ -100,7 +99,7 @@ class ScreenshotTool:public UtilityTool
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/StringPrintf.h>
 #include <Misc/ThrowStdErr.h>
-#include <IO/File.h>
+#include <Misc/MemMappedFile.h>
 #include <Math/Math.h>
 #include <Geometry/Vector.h>
 #include <GL/gl.h>
@@ -147,14 +147,14 @@ Doom3TextureManager::ImageID Doom3TextureManager::loadTexture(const char* textur
 	/* Store a new image structure in the image tree: */
 	imageID=imageTree.insertLeaf(textureName,Image());
 	
-	/* Create a texture image: */
-	Image& image=imageTree.getLeafValue(imageID);
-	image.textureIndex=numTextures;
-	++numTextures;
-	
 	/* Check for built-in texture names: */
 	if(textureName[0]=='_')
 		{
+		/* Create a texture image: */
+		Image& image=imageTree.getLeafValue(imageID);
+		image.textureIndex=numTextures;
+		++numTextures;
+		
 		/* Determine the fill color value: */
 		Images::RGBAImage::Color imageColor;
 		if(strcasecmp(textureName,"_black.tga")==0)
@@ -172,21 +172,19 @@ Doom3TextureManager::ImageID Doom3TextureManager::loadTexture(const char* textur
 		}
 	else
 		{
-		try
-			{
-			/* Read the texture image file: */
-			IO::FilePtr imageFile=fileManager.getFile(textureName);
-			Images::TargaImageFileReader<IO::File> targaReader(*imageFile);
-			
-			/* Initialize the texture image: */
-			image.image=targaReader.readImage<Images::RGBAImage>();
-			}
-		catch(Doom3FileManager::ReadError err)
-			{
-			/* Initialize the texture image: */
-			image.image=Images::RGBAImage(2,2);
-			image.image.clear(Images::RGBAImage::Color(255,0,255,255));
-			}
+		/* Load the texture image file: */
+		size_t imageSize;
+		unsigned char* imageData=fileManager.readFile(textureName,imageSize);
+		
+		/* Read the image file: */
+		Misc::MemMappedFile imageFile(imageData,imageSize,Misc::MemMappedFile::LittleEndian);
+		Images::TargaImageFileReader<Misc::MemMappedFile> targaReader(imageFile);
+		
+		/* Initialize the texture image: */
+		Image& image=imageTree.getLeafValue(imageID);
+		image.image=targaReader.readImage<Images::RGBAImage>();
+		image.textureIndex=numTextures;
+		++numTextures;
 		}
 	
 	/* Return the image ID: */
@@ -215,17 +213,17 @@ Doom3TextureManager::ImageID Doom3TextureManager::computeHeightmap(const Doom3Te
 			{
 			Geometry::Vector<float,3> g;
 			if(x==0)
-				g[0]=float(sourceRow[x][0])-float(sourceRow[x+1][0]);
+				g[0]=float(sourceRow[x+1][0])-float(sourceRow[x][0]);
 			else if(x==resultImage.getWidth()-1)
-				g[0]=float(sourceRow[x-1][0])-float(sourceRow[x][0]);
+				g[0]=float(sourceRow[x][0])-float(sourceRow[x-1][0]);
 			else
-				g[0]=(float(sourceRow[x-1][0])-float(sourceRow[x+1][0]))*0.5f;
+				g[0]=float(sourceRow[x+1][0])-float(sourceRow[x-1][0]);
 			if(y==0)
-				g[1]=float(sourceRow[x][0])-float((sourceRow+resultImage.getWidth())[x][0]);
+				g[1]=float((sourceRow+resultImage.getWidth())[x][0])-float(sourceRow[x][0]);
 			else if(y==resultImage.getHeight()-1)
-				g[1]=float((sourceRow-resultImage.getWidth())[x][0])-float(sourceRow[x][0]);
+				g[1]=float(sourceRow[x][0])-float((sourceRow-resultImage.getWidth())[x][0]);
 			else
-				g[1]=(float((sourceRow-resultImage.getWidth())[x][0])-float((sourceRow+resultImage.getWidth())[x][0]))*0.5f;
+				g[1]=float((sourceRow+resultImage.getWidth())[x][0])-float((sourceRow-resultImage.getWidth())[x][0]);
 			g[2]=128.0f/bumpiness;
 			destRow[x]=encodeNormal(g);
 			}

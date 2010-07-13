@@ -2,7 +2,7 @@
 SoundPlayer - Simple class to play sound from a sound file on the local
 file system to a playback device. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -24,21 +24,19 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SOUND_SOUNDPLAYER_INCLUDED
 #define SOUND_SOUNDPLAYER_INCLUDED
 
-#include <Sound/Config.h>
-
 #include <Threads/MutexCond.h>
-#if SOUND_CONFIG_HAVE_ALSA
-#include <IO/SeekableFile.h>
+#ifdef SOUND_USE_ALSA
+#include <Misc/File.h>
 #include <Threads/Thread.h>
 #endif
-#ifdef __APPLE__
+#ifdef __DARWIN__
 #include <CoreAudio/CoreAudioTypes.h>
 #include <AudioToolbox/AudioQueue.h>
 #include <AudioToolbox/AudioConverter.h>
 #include <AudioToolbox/AudioFile.h>
 #endif
 
-#if SOUND_CONFIG_HAVE_ALSA
+#ifdef SOUND_USE_ALSA
 #include <Sound/Linux/ALSAPCMDevice.h>
 #endif
 #include <Sound/SoundDataFormat.h>
@@ -49,7 +47,20 @@ class SoundPlayer
 	{
 	/* Elements: */
 	private:
-	#ifdef __APPLE__
+	#ifdef __LINUX__
+	#ifdef SOUND_USE_ALSA
+	Misc::File inputFile; // File from which to read the sound data
+	#endif
+	SoundDataFormat format; // Format of the sound data in the input file
+	#ifdef SOUND_USE_ALSA
+	size_t bytesPerFrame; // Number of bytes per frame of sound data
+	ALSAPCMDevice pcmDevice; // Pointer to the ALSA PCM device used for playback
+	size_t sampleBufferSize; // Size of the sample buffer in bytes
+	char* sampleBuffer; // A buffer to write sound data to the PCM device
+	Threads::Thread playingThread; // Thread ID of the background playing thread
+	#endif
+	#endif
+	#ifdef __DARWIN__
 	AudioFileID inputFile; // Handle of the audio file
 	AudioStreamBasicDescription format; // Audio data format description
 	AudioQueueRef queue; // Handle of the audio playback queue
@@ -58,28 +69,16 @@ class SoundPlayer
 	AudioQueueBufferRef buffers[2]; // Array of audio buffers
 	AudioStreamPacketDescription* packetDescriptors; // Array of packet descriptors for the packets in one buffer, or 0 for CBR formats
 	SInt64 numPlayedPackets; // Total number of packets read from the output file
-	#else
-	#if SOUND_CONFIG_HAVE_ALSA
-	IO::SeekableFilePtr inputFile; // File from which to read the sound data
-	#endif
-	SoundDataFormat format; // Format of the sound data in the input file
-	#if SOUND_CONFIG_HAVE_ALSA
-	size_t bytesPerFrame; // Number of bytes per frame of sound data
-	ALSAPCMDevice pcmDevice; // Pointer to the ALSA PCM device used for playback
-	size_t sampleBufferSize; // Size of the sample buffer in bytes
-	char* sampleBuffer; // A buffer to write sound data to the PCM device
-	Threads::Thread playingThread; // Thread ID of the background playing thread
-	#endif
 	#endif
 	bool active; // Flag whether the sound player is currently playing
 	Threads::MutexCond finishedPlayingCond; // Signal to notify the main thread when playing thread is finished
 	
 	/* Private methods: */
-	#if SOUND_CONFIG_HAVE_ALSA
+	#ifdef SOUND_USE_ALSA
 	bool readWAVHeader(void); // Reads a WAV file's header and extracts the sound data format; returns true if input file is compatible WAV file
 	void* playingThreadMethod(void); // The background playing thread's method
 	#endif
-	#ifdef __APPLE__
+	#ifdef __DARWIN__
 	static void handleOutputBufferWrapper(void* aqData,AudioQueueRef inAQ,AudioQueueBufferRef inBuffer)
 		{
 		/* Get a pointer to the SoundPlayer structure: */

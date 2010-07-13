@@ -1,6 +1,6 @@
 /***********************************************************************
 AscensionFlockOfBirds - Class for tracking device of same name.
-Copyright (c) 2000-2011 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 

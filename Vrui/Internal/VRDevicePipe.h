@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevicePipe - Class defining the client-server protocol for remote VR
 devices and VR applications.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,15 +24,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_VRDEVICEPIPE_INCLUDED
 #define VRUI_INTERNAL_VRDEVICEPIPE_INCLUDED
 
-#include <Comm/TCPPipe.h>
+#include <Comm/TCPSocket.h>
+#include <Vrui/Internal/VRDeviceState.h>
 
 namespace Vrui {
 
-class VRDevicePipe:public Comm::TCPPipe
+class VRDevicePipe
 	{
 	/* Embedded classes: */
 	public:
-	static const unsigned int protocolVersionNumber; // Version number of client/server protocol
 	typedef unsigned short int MessageIdType; // Network type for protocol messages
 	
 	enum MessageId // Enumerated type for protocol messages
@@ -49,24 +49,90 @@ class VRDevicePipe:public Comm::TCPPipe
 		STOPSTREAM_REPLY // Server's reply after last stream packet has been sent
 		};
 	
+	/* Elements: */
+	private:
+	Comm::TCPSocket socket; // Socket representing the other end of a connection
+	
 	/* Constructors and destructors: */
-	VRDevicePipe(const char* hostName,int portId) // Creates a pipe connected to a remote host
-		:Comm::TCPPipe(hostName,portId)
-		{
-		}
-	VRDevicePipe(Comm::ListeningTCPSocket& listenSocket) // Creates a pipe for the next incoming TCP connection on the given listening socket
-		:Comm::TCPPipe(listenSocket)
+	public:
+	VRDevicePipe(const Comm::TCPSocket& sSocket) // Creates pipe wrapper for existing socket
+		:socket(sSocket)
 		{
 		}
 	
-	/* New methods: */
+	/* Methods: */
+	Comm::TCPSocket& getSocket(void) // Returns TCP socket object
+		{
+		return socket;
+		}
 	void writeMessage(MessageId messageId) // Writes a protocol message to the pipe
 		{
-		write<MessageIdType>(messageId);
+		MessageIdType message=messageId;
+		/* Need to do endianness conversion here... */
+		socket.blockingWrite(&message,sizeof(MessageIdType));
 		}
 	MessageIdType readMessage(void) // Reads a protocol message from the pipe
 		{
-		return read<MessageIdType>();
+		MessageIdType message;
+		socket.blockingRead(&message,sizeof(MessageIdType));
+		/* Need to do endianness conversion here... */
+		return message;
+		}
+	template <class DataParam>
+	void write(const DataParam& data) // Writes an element of the given data type to the pipe
+		{
+		/* Need to do endianness conversion here... */
+		socket.blockingWrite(&data,sizeof(DataParam));
+		}
+	template <class DataParam>
+	DataParam read(void) // Reads an element of the given data type from the pipe
+		{
+		DataParam result;
+		socket.blockingRead(&result,sizeof(DataParam));
+		/* Need to do endianness conversion here... */
+		return result;
+		}
+	template <class DataParam>
+	void write(size_t numElements,const DataParam* elements) // Writes an array of elements to the pipe
+		{
+		/* Need to do endianness conversion here... */
+		socket.blockingWrite(elements,numElements*sizeof(DataParam));
+		}
+	template <class DataParam>
+	void read(int numElements,DataParam* elements) // Reads an array of elements from the pipe
+		{
+		socket.blockingRead(elements,numElements*sizeof(DataParam));
+		/* Need to do endianness conversion here... */
+		}
+	void flush(void) // Finishes writing data of a single message to the pipe
+		{
+		}
+	
+	/* Higher-level IO methods: */
+	void writeLayout(const VRDeviceState& state) // Writes server layout
+		{
+		write(state.getNumTrackers());
+		write(state.getNumButtons());
+		write(state.getNumValuators());
+		}
+	void readLayout(VRDeviceState& state) // Reads server layout
+		{
+		int numTrackers=read<int>();
+		int numButtons=read<int>();
+		int numValuators=read<int>();
+		state.setLayout(numTrackers,numButtons,numValuators);
+		}
+	void writeState(const VRDeviceState& state) // Writes current state
+		{
+		write(state.getNumTrackers(),state.getTrackerStates());
+		write(state.getNumButtons(),state.getButtonStates());
+		write(state.getNumValuators(),state.getValuatorStates());
+		}
+	void readState(VRDeviceState& state) // Reads current state
+		{
+		read(state.getNumTrackers(),state.getTrackerStates());
+		read(state.getNumButtons(),state.getButtonStates());
+		read(state.getNumValuators(),state.getValuatorStates());
 		}
 	};
 

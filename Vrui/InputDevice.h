@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDevice - Class to represent input devices (6-DOF tracker with
 associated buttons and valuators) in virtual reality environments.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CallbackList.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
-#include <Geometry/Ray.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Vrui/Geometry.h>
 
@@ -43,11 +42,6 @@ class InputDevice // Class for input devices
 		TRACK_POS=0x1, // 3D position
 		TRACK_DIR=0x2, // One 3D direction
 		TRACK_ORIENT=0x4 // Full 3D orientation
-		};
-	
-	enum FeatureType // Enumerated type for feature types, i.e., buttons and valuators
-		{
-		BUTTON,VALUATOR
 		};
 	
 	struct CallbackData:public Misc::CallbackData // Generic callback data for input device events
@@ -97,6 +91,7 @@ class InputDevice // Class for input devices
 	private:
 	char* deviceName; // Arbitrary label to identify input devices
 	int trackType; // Bitfield of tracking capabilities
+	Vector deviceRayDirection; // Preferred direction of ray devices in device coordinates
 	int numButtons; // Number of buttons on that device
 	int numValuators; // Number of valuators on that device
 	
@@ -106,10 +101,8 @@ class InputDevice // Class for input devices
 	Misc::CallbackList* valuatorCallbacks; // List of valuator callbacks for each valuator
 	
 	/* Current device state: */
-	Vector deviceRayDirection; // Preferred direction of ray devices in device coordinates
-	Scalar deviceRayStart; // Ray parameter value from which the device ray is considered valid
 	TrackerState transformation; // Full (orthonormal) transformation of locator device
-	Vector linearVelocity,angularVelocity; // Velocities of locator device in physical units/second and radians/second, respectively
+	Vector linearVelocity,angularVelocity; // Velocities of locator device in units/second
 	bool* buttonStates; // Array of button press state(s)
 	double* valuatorValues; // Array of valuator values, normalized from -1 to 1
 	
@@ -130,7 +123,7 @@ class InputDevice // Class for input devices
 	
 	/* Methods: */
 	InputDevice& set(const char* sDeviceName,int sTrackType,int sNumButtons =0,int sNumValuators =0); // Changes input device's layout after creation
-	void setTrackType(int newTrackType); // Overrides the tracking type of an existing input device
+	void setDeviceRayDirection(const Vector& newDeviceRayDirection); // Sets input device's ray direction in device coordinates
 	
 	/* Device layout access methods: */
 	const char* getDeviceName(void) const
@@ -165,6 +158,10 @@ class InputDevice // Class for input devices
 		{
 		return trackType==(TRACK_POS|TRACK_DIR|TRACK_ORIENT);
 		}
+	const Vector& getDeviceRayDirection(void) const
+		{
+		return deviceRayDirection;
+		}
 	int getNumButtons(void) const
 		{
 		return numButtons;
@@ -172,46 +169,6 @@ class InputDevice // Class for input devices
 	int getNumValuators(void) const
 		{
 		return numValuators;
-		}
-	
-	/* Feature-based accessor methods: */
-	int getNumFeatures(void) const // Returns the number of buttons and valuators
-		{
-		return numButtons+numValuators;
-		}
-	FeatureType getFeatureType(int featureIndex) const // Returns the type of the given feature
-		{
-		return featureIndex<numButtons?BUTTON:VALUATOR;
-		}
-	bool isFeatureButton(int featureIndex) const // Returns true if the given feature is a button
-		{
-		return featureIndex<numButtons;
-		}
-	bool isFeatureValuator(int featureIndex) const // Returns true if the given feature is a valuator
-		{
-		return featureIndex>=numButtons;
-		}
-	int getFeatureIndex(FeatureType featureType,int featureTypeIndex) const // Returns the feature index of the given button or valuator
-		{
-		if(featureType==BUTTON)
-			return featureTypeIndex;
-		else
-			return numButtons+featureTypeIndex;
-		}
-	int getButtonFeatureIndex(int buttonIndex) const // Returns the feature index of the given button
-		{
-		return buttonIndex;
-		}
-	int getValuatorFeatureIndex(int valuatorIndex) const // Returns the feature index for the given valuator
-		{
-		return numButtons+valuatorIndex;
-		}
-	int getFeatureTypeIndex(int featureIndex) const // Returns the index of a feature among features of its type, i.e., returns raw button or valuator index
-		{
-		if(featureIndex<numButtons)
-			return featureIndex;
-		else
-			return featureIndex-numButtons;
 		}
 	
 	/* Callback registration methods: */
@@ -227,16 +184,9 @@ class InputDevice // Class for input devices
 		{
 		return valuatorCallbacks[valuatorIndex];
 		}
-	Misc::CallbackList& getFeatureCallbacks(int featureIndex) // Returns callback list for button or valuator feature
-		{
-		if(featureIndex<numButtons)
-			return buttonCallbacks[featureIndex];
-		else
-			return valuatorCallbacks[featureIndex-numButtons];
-		}
 	
 	/* Device state manipulation methods: */
-	void setDeviceRay(const Vector& newDeviceRayDirection,Scalar newDeviceRayStart); // Sets input device's ray direction and starting parameter in device coordinates
+	void setTrackType(int newTrackType); // Overrides the tracking type of an existing input device
 	void setTransformation(const TrackerState& newTransformation);
 	void setLinearVelocity(const Vector& newLinearVelocity)
 		{
@@ -252,31 +202,9 @@ class InputDevice // Class for input devices
 	void setValuator(int index,double value);
 	
 	/* Current state access methods: */
-	const Vector& getDeviceRayDirection(void) const // Returns the device ray direction in device coordinates
-		{
-		return deviceRayDirection;
-		}
-	Scalar getDeviceRayStart(void) const
-		{
-		return deviceRayStart;
-		}
 	Point getPosition(void) const
 		{
 		return transformation.getOrigin();
-		}
-	Vector getRayDirection(void) const // Returns the device ray direction in physical coordinates
-		{
-		return transformation.transform(deviceRayDirection);
-		}
-	Ray getRay(void) const // Returns the device's ray in physical coordinates
-		{
-		/* Create the ray in physical coordinates: */
-		Ray result(transformation.getOrigin(),transformation.transform(deviceRayDirection));
-		
-		/* Offset the ray's origin by the ray start parameter: */
-		result.setOrigin(result.getOrigin()+result.getDirection()*deviceRayStart);
-		
-		return result;
 		}
 	const TrackerState::Rotation& getOrientation(void) const
 		{
@@ -285,6 +213,10 @@ class InputDevice // Class for input devices
 	const TrackerState& getTransformation(void) const
 		{
 		return transformation;
+		}
+	Vector getRayDirection(void) const
+		{
+		return transformation.transform(deviceRayDirection);
 		}
 	const Vector& getLinearVelocity(void) const
 		{

@@ -1,7 +1,7 @@
 /***********************************************************************
 FlyNavigationTool - Class encapsulating the behaviour of the old
 infamous Vrui single-handed flying navigation tool.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/NavigationTool.h>
 
+/* Forward declarations: */
+namespace Vrui {
+class Viewer;
+}
+
 namespace Vrui {
 
 class FlyNavigationTool;
@@ -46,7 +51,6 @@ class FlyNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -58,6 +62,7 @@ class FlyNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static FlyNavigationToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Constructors and destructors: */
 	public:
@@ -65,7 +70,7 @@ class FlyNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

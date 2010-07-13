@@ -1,7 +1,7 @@
 /***********************************************************************
 PCWand - Class for communicating with button/valuator devices on a
 dedicated DOS PC.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -40,15 +40,15 @@ void PCWand::deviceThreadMethod(void)
 	while(true)
 		{
 		/* Wait for next message: */
-		unsigned char byte=(unsigned char)devicePort.getChar();
+		unsigned char byte=(unsigned char)devicePort.readByte();
 		
 		/* Parse message: */
 		if(byte>='0'&&byte<='1')
 			{
 			/* It's a valuator value packet; skip the next byte and read the value: */
 			int valuatorIndex=byte-'0';
-			devicePort.getChar();
-			unsigned char valueByte=(unsigned char)devicePort.getChar();
+			devicePort.readByte();
+			unsigned char valueByte=(unsigned char)devicePort.readByte();
 			float value=(float(valueByte)*2.0f)/255.f-1.0f;
 			deviceValuatorStates[valuatorIndex]=value;
 			
@@ -98,9 +98,8 @@ PCWand::PCWand(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc:
 	setNumValuators(2,configFile);
 	
 	/* Set device port parameters: */
-	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate");
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
 	devicePort.setRawMode(1,0);
 	
 	/* Initialize device values: */

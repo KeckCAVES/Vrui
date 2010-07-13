@@ -26,7 +26,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
-#include <Misc/FunctionCalls.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Geometry/Ray.h>
 #include <Vrui/Geometry.h>
@@ -47,15 +46,11 @@ class DraggingToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	};
 
 class DraggingTool:public Tool
 	{
 	/* Embedded classes: */
-	typedef Misc::FunctionCall<Misc::ConfigurationFileSection&> StoreStateFunction; // Type for functions to store state to a configuration file
-	typedef Misc::FunctionCall<std::string&> GetNameFunction; // Type for functions to return a descriptive name for a dragging tool associate
-	
 	public:
 	class IdleMotionCallbackData:public Misc::CallbackData
 		{
@@ -133,8 +128,6 @@ class DraggingTool:public Tool
 	
 	/* Elements: */
 	protected:
-	StoreStateFunction* storeStateFunction; // Function to be called when the tool stores its state to a configuration file
-	GetNameFunction* getNameFunction; // Function to be called when the tool is asked for its name
 	Misc::CallbackList idleMotionCallbacks; // List of callbacks to be called when not dragging
 	Misc::CallbackList dragStartCallbacks; // List of callbacks to be called when dragging starts
 	Misc::CallbackList dragCallbacks; // List of callbacks to be called during dragging
@@ -143,15 +136,8 @@ class DraggingTool:public Tool
 	/* Constructors and destructors: */
 	public:
 	DraggingTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
-	virtual ~DraggingTool(void);
-	
-	/* Methods from Tool: */
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
-	virtual std::string getName(void) const;
 	
 	/* New methods: */
-	void setStoreStateFunction(StoreStateFunction* newStoreStateFunction); // Adopts the given function, to be called when the tool stores its state to a configuration file
-	void setGetNameFunction(GetNameFunction* newGetNameFunction); // Adopts the given function, to be called when the tool is asked for its name
 	Misc::CallbackList& getIdleMotionCallbacks(void) // Returns list of idle motion callbacks
 		{
 		return idleMotionCallbacks;

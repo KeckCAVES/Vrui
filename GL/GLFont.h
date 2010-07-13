@@ -1,6 +1,6 @@
 /***********************************************************************
 GLFont - Class to represent texture-based fonts and to render 3D text.
-Copyright (c) 1999-2011 Oliver Kreylos
+Copyright (c) 1999-2010 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLString.h>
 
 /* Forward declarations: */
-namespace IO {
+namespace Misc {
 class File;
 }
 
@@ -66,7 +66,7 @@ class GLFont
 		GLsizei spanOffset; // Offset of span descriptors in main array
 		
 		/* Methods: */
-		void read(IO::File& file); // Reads a CharInfo structure from a font file
+		void read(Misc::File& file); // Reads a CharInfo structure from a font file
 		};
 	
 	/* Elements: */
@@ -96,8 +96,7 @@ class GLFont
 	GLsizei calcStringWidth(const char* string) const; // Calculates the texel width of a string
 	void uploadStringTexture(const char* string,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string
 	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string using the given colors
-	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string using the given colors, selection range, and selection colors
-	void loadFont(IO::File& file); // Loads font from given file
+	void loadFont(Misc::File& file); // Loads font from given file
 	
 	/* Constructors and Destructors: */
 	public:
@@ -216,8 +215,6 @@ class GLFont
 	void uploadStringTexture(const GLString& string) const; // Ditto
 	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor) const; // Uploads a string's texture image with the given colors
 	void uploadStringTexture(const GLString& string,const Color& stringBackgroundColor,const Color& stringForegroundColor) const; // Ditto
-	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const; // Uploads a string's texture image with the given colors, selection range, and selection colors
-	void uploadStringTexture(const GLString& string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const; // Ditto
 	void drawString(const Vector& origin,const char* string) const; // Draws a simple, one-line string
 	};
 

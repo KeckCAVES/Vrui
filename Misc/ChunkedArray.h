@@ -24,7 +24,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_CHUNKEDARRAY_INCLUDED
 #define MISC_CHUNKEDARRAY_INCLUDED
 
-#include <stddef.h>
 #include <new>
 
 namespace Misc {

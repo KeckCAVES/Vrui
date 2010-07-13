@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -26,9 +26,11 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "ClusterJello.h"
 
 #include <stdlib.h>
+#include <iostream>
 #include <vector>
+#include <stdexcept>
 #include <Misc/Timer.h>
-#include <Cluster/MulticastPipe.h>
+#include <Comm/MulticastPipe.h>
 #include <Math/Math.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
@@ -272,7 +274,7 @@ void* ClusterJello::simulationThreadMethodMaster(void)
 				{
 				/* Broadcast the crystal state to all slave nodes: */
 				crystal->writeAtomStates(*clusterPipe);
-				clusterPipe->flush();
+				clusterPipe->finishMessage();
 				}
 			
 			/* Update the application's proxy crystal state: */
@@ -308,8 +310,8 @@ void* ClusterJello::simulationThreadMethodSlave(void)
 	return 0;
 	}
 
-ClusterJello::ClusterJello(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
+ClusterJello::ClusterJello(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults),
 	 clusterPipe(Vrui::openPipe()),
 	 crystal(0),
 	 atomLocks(17),
@@ -345,7 +347,7 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 		Vrui::write(clusterPipe,currentSimulationParameters.atomMass);
 		Vrui::write(clusterPipe,currentSimulationParameters.attenuation);
 		Vrui::write(clusterPipe,currentSimulationParameters.gravity);
-		Vrui::flush(clusterPipe);
+		Vrui::finishMessage(clusterPipe);
 		
 		/* Start the simulation thread: */
 		simulationThread.start(this,&ClusterJello::simulationThreadMethodMaster);
@@ -468,7 +470,7 @@ void ClusterJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChange
 	if(cbData->set)
 		{
 		/* Pop up the settings dialog at the same position as the main menu: */
-		Vrui::popupPrimaryWidget(settingsDialog);
+		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);
@@ -506,5 +508,24 @@ void ClusterJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
 	showSettingsDialogToggle->setToggle(false);
 	}
 
-/* Create and execute an application object: */
-VRUI_APPLICATION_RUN(ClusterJello)
+int main(int argc,char* argv[])
+	{
+	try
+		{
+		/* Create an application object: */
+		char** appDefaults=0;
+		ClusterJello app(argc,argv,appDefaults);
+		
+		/* Run the Vrui main loop: */
+		app.run();
+		}
+	catch(std::runtime_error err)
+		{
+		/* Print an error message and bail out: */
+		std::cerr<<"Caught exception: "<<err.what()<<std::endl;
+		return 1;
+		}
+	
+	/* Exit to OS: */
+	return 0;
+	}

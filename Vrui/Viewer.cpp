@@ -1,6 +1,6 @@
 /***********************************************************************
 Viewer - Class for viewers/observers in VR environments.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLLightTemplates.h>
 #include <GL/GLLight.h>
 #include <GL/GLValueCoders.h>
+#include <Vrui/InputDevice.h>
 #include <Vrui/Lightsource.h>
 #include <Vrui/LightsourceManager.h>
 #include <Vrui/Vrui.h>
@@ -45,14 +46,14 @@ Methods of class Viewer:
 Viewer::Viewer(void)
 	:viewerName(0),
 	 headTracked(false),headDevice(0),
-	 headDeviceTransformation(TrackerState::identity),
 	 deviceViewDirection(0,1,0),
 	 deviceMonoEyePosition(Point::origin),
 	 deviceLeftEyePosition(Point::origin),
 	 deviceRightEyePosition(Point::origin),
 	 lightsource(0),
 	 headLightDevicePosition(Point::origin),
-	 headLightDeviceDirection(0,1,0)
+	 headLightDeviceDirection(0,1,0),
+	 headDeviceTransformation(TrackerState::identity)
 	{
 	/* Create the viewer's light source: */
 	lightsource=getLightsourceManager()->createLightsource(true);
@@ -111,9 +112,10 @@ void Viewer::initialize(const Misc::ConfigurationFileSection& configFileSection)
 	lightsource->getLight().spotCutoff=configFileSection.retrieveValue<GLfloat>("./headLightSpotCutoff",180.0f);
 	lightsource->getLight().spotExponent=configFileSection.retrieveValue<GLfloat>("./headLightSpotExponent",0.0f);
 	
-	/* Initialize head light source if head tracking is disabled: */
+	/* Initialize transient state if head tracking is disabled: */
 	if(!headTracked)
 		{
+		/* Initialize transient state: */
 		Point hlp=headDeviceTransformation.transform(headLightDevicePosition);
 		lightsource->getLight().position=GLLight::Position(GLfloat(hlp[0]),GLfloat(hlp[1]),GLfloat(hlp[2]),1.0f);
 		Vector hld=headDeviceTransformation.transform(headLightDeviceDirection);
@@ -170,14 +172,16 @@ void Viewer::setHeadlightState(bool newHeadlightState)
 
 void Viewer::update(void)
 	{
-	/* Update head light source state if head tracking is enabled: */
+	/* Update state if head tracking is enabled: */
 	if(headTracked)
 		{
+		/* Update the head device transformation: */
+		headDeviceTransformation=headDevice->getTransformation();
+		
 		/* Update head light source state: */
-		const TrackerState& headTransform=headTracked?headDevice->getTransformation():headDeviceTransformation;
-		Point hlp=headTransform.transform(headLightDevicePosition);
+		Point hlp=headDeviceTransformation.transform(headLightDevicePosition);
 		lightsource->getLight().position=GLLight::Position(GLfloat(hlp[0]),GLfloat(hlp[1]),GLfloat(hlp[2]),1.0f);
-		Vector hld=headTransform.transform(headLightDeviceDirection);
+		Vector hld=headDeviceTransformation.transform(headLightDeviceDirection);
 		hld.normalize();
 		lightsource->getLight().spotDirection=GLLight::SpotDirection(GLfloat(hld[0]),GLfloat(hld[1]),GLfloat(hld[2]));
 		}

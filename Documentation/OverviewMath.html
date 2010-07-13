@@ -27,14 +27,8 @@ The Math library contains functions providing overloaded entry points for the st
 <DT>Random.h</DT>
 <DD>Random.h contains convenience functions to create random numbers of different distributions.</DD>
 
-<DT>Noise.h</DT>
-<DD>Noise is a class implementing Ken Perlin's improved 3D band-limited noise function, following his 2002 SIGGRAPH paper. The static Noise::noise method is templatized by scalar type. Client code can #define MATH_NOISE_NONSTANDARD_TEMPLATES to inline the noise method, for a small speed boost.</DD>
-
 <DT>BrokenLine.h</DT>
 <DD>BrokenLine is a class describing constant piecewise linear mappings from a source interval to the interval [-1, 1] using a &quot;broken line&quot; model with two linear ramps and a flat &quot;dead zone&quot; in the middle.</DD>
-
-<DT>MathMarshallers.h</DT>
-<DD>MathMarshallers contains specializations of the Misc::Marshaller templatized class for objects from the Math library.</DD>
 
 <DT>MathValueCoders.h</DT>
 <DD>MathValueCoders contains specializations of the Misc::ValueCoder templatized class for objects from the Math library.</DD>

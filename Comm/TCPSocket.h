@@ -107,15 +107,7 @@ class TCPSocket
 	bool waitForData(const Misc::Time& timeout,bool throwException =true) const; // Waits for incoming data on TCP socket; returns true if data is ready; (optionally) throws exception if wait times out
 	size_t read(void* buffer,size_t count); // Reads raw buffer from TCP socket; returns number of bytes read
 	void blockingRead(void* buffer,size_t count); // Reads raw buffer from TCP socket; blocks until data completely read
-	void readRaw(void* data,size_t dataSize) // Alternate name for blockingRead method to get APIs unified
-		{
-		blockingRead(data,dataSize);
-		}
 	void blockingWrite(const void* buffer,size_t count); // Writes raw buffer to TCP socket; blocks until data completely written
-	void writeRaw(const void* data,size_t dataSize) // Alternate name for blockingWrite method to get APIs unified
-		{
-		blockingWrite(data,dataSize);
-		}
 	void flush(void); // Send any data in the socket's send buffer immediately (required at message boundaries when TCP_CORK is enabled)
 	};
 

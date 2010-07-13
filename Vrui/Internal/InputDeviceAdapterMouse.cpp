@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMouse - Class to convert mouse and keyboard into a
 Vrui input device.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,28 +23,25 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
-#include <X11/cursorfont.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Geometry/Point.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/Ray.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GLMotif/WidgetManager.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDevice.h>
-#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputGraphManager.h>
+#include <Vrui/Internal/MouseCursorFaker.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
+#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -143,7 +140,7 @@ int InputDeviceAdapterMouse::getKeyCode(std::string keyName)
 	for(int i=0;i<keyMapSize&&result==NoSymbol;++i)
 		if(keyName==keyMap[i].name)
 			result=keyMap[i].keysym;
-	
+		
 	/* Check for X11 key names: */
 	if(result==NoSymbol)
 		result=XStringToKeysym(keyName.c_str());
@@ -154,105 +151,16 @@ int InputDeviceAdapterMouse::getKeyCode(std::string keyName)
 	return result;
 	}
 
-std::string InputDeviceAdapterMouse::getKeyName(int keyCode)
-	{
-	/* Check for built-in legacy key names first: */
-	const int keyMapSize=sizeof(keyMap)/sizeof(KeyMapItem);
-	for(int i=0;i<keyMapSize;++i)
-		if(keyCode==keyMap[i].keysym)
-			return std::string(keyMap[i].name);
-	
-	/* Check for X11 key names: */
-	char* name=XKeysymToString(keyCode);
-	if(name!=0)
-		return std::string(name);
-	
-	Misc::throwStdErr("InputDeviceAdapterMouse: Unknown key code %d",keyCode);
-	
-	/* Never reached; just to make compiler happy: */
-	return std::string();
-	}
-
-int InputDeviceAdapterMouse::getButtonIndex(int keyCode) const
-	{
-	for(int i=0;i<numButtonKeys;++i)
-		if(buttonKeyCodes[i]==keyCode)
-			return i;
-	
-	return -1;
-	}
-
-int InputDeviceAdapterMouse::getModifierIndex(int keyCode) const
-	{
-	for(int i=0;i<numModifierKeys;++i)
-		if(modifierKeyCodes[i]==keyCode)
-			return i;
-	
-	return -1;
-	}
-
-bool InputDeviceAdapterMouse::changeButtonState(int stateIndex,bool newState)
-	{
-	/* Check if the button state actually changed: */
-	if(buttonStates[stateIndex]==newState)
-		return false;
-	
-	/* Keep track of the total number of pressed buttons: */
-	if(buttonStates[stateIndex])
-		--numPressedButtons;
-	else
-		++numPressedButtons;
-	
-	/* Set the new button state: */
-	buttonStates[stateIndex]=newState;
-	
-	/* Grab or release the mouse pointer if necessary: */
-	if(numPressedButtons>0&&grabWindow==0)
-		{
-		/* Try grabbing the mouse pointer: */
-		if(window->grabPointer())
-			grabWindow=window;
-		}
-	if(numPressedButtons==0&&grabWindow!=0)
-		{
-		/* Release the mouse pointer: */
-		grabWindow->releasePointer();
-		grabWindow=0;
-		}
-	
-	return true;
-	}
-
 void InputDeviceAdapterMouse::changeModifierKeyMask(int newModifierKeyMask)
 	{
 	/* Copy all button states from the old layer to the new layer: */
 	bool* oldLayer=buttonStates+(numButtons+numButtonKeys)*modifierKeyMask;
 	bool* newLayer=buttonStates+(numButtons+numButtonKeys)*newModifierKeyMask;
 	for(int i=0;i<numButtons+numButtonKeys;++i)
-		{
-		if(newLayer[i]&&!oldLayer[i])
-			--numPressedButtons;
-		if(!newLayer[i]&&oldLayer[i])
-			++numPressedButtons;
 		newLayer[i]=oldLayer[i];
-		}
 	
 	/* Change the modifier key mask: */
 	modifierKeyMask=newModifierKeyMask;
-	
-	/* Grab or release the mouse pointer if necessary: */
-	if(numPressedButtons>0&&grabWindow==0)
-		{
-		/* Try grabbing the mouse pointer: */
-		if(window->grabPointer())
-			grabWindow=window;
-		}
-	if(numPressedButtons==0&&grabWindow!=0)
-		{
-		/* Release the mouse pointer: */
-		grabWindow->releasePointer();
-		grabWindow=0;
-		}
 	}
 
 InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
@@ -262,21 +170,18 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	 numModifierKeys(0),modifierKeyCodes(0),
 	 numButtonStates(0),
 	 keyboardModeToggleKeyCode(0),controlKeyMap(101),
-	 modifierKeyMask(0x0),buttonStates(0),numPressedButtons(0),
+	 modifierKeyMask(0x0),buttonStates(0),
 	 keyboardMode(false),
 	 numMouseWheelTicks(0),
 	 nextEventOrdinal(0),
 	 window(0),
-	 grabWindow(0),
-	 mouseLocked(false),
-	 fakeMouseCursor(false)
+	 mouseCursorFaker(0)
 	{
 	typedef std::vector<std::string> StringList;
 	
 	/* Allocate new adapter state arrays: */
 	numInputDevices=1;
 	inputDevices=new InputDevice*[numInputDevices];
-	inputDevices[0]=0;
 	
 	/* Retrieve the number of mouse buttons: */
 	numButtons=configFileSection.retrieveValue<int>("./numButtons",0);
@@ -308,7 +213,8 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	int numValuators=1<<numModifierKeys;
 	
 	/* Create new input device: */
-	InputDevice* newDevice=inputDeviceManager->createInputDevice("Mouse",InputDevice::TRACK_POS|InputDevice::TRACK_DIR,numButtonStates,numValuators,true);
+	InputDevice* newDevice=inputDeviceManager->createInputDevice("Mouse",InputDevice::TRACK_POS|InputDevice::TRACK_DIR,numButtonStates,numValuators+4,true);
+	newDevice->setDeviceRayDirection(Vector(0,1,0));
 	
 	/* Store the input device: */
 	inputDevices[0]=newDevice;
@@ -329,169 +235,40 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	for(int i=0;i<numValuators;++i)
 		numMouseWheelTicks[i]=0;
 	
-	/* Initialize the mouse position: */
-	mousePos[0]=mousePos[1]=0;
-	
 	/* Check if this adapter is supposed to draw a fake mouse cursor: */
-	fakeMouseCursor=configFileSection.retrieveValue<bool>("./fakeMouseCursor",fakeMouseCursor);
-	if(fakeMouseCursor)
+	if(configFileSection.retrieveValue<bool>("./fakeMouseCursor",false))
 		{
-		/* Enable the device's glyph as a cursor: */
-		Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
-		deviceGlyph.enable();
-		deviceGlyph.setGlyphType(Glyph::CURSOR);
+		/* Read the cursor file name and nominal size: */
+		std::string mouseCursorImageFileName=configFileSection.retrieveString("./mouseCursorImageFileName",DEFAULTMOUSECURSORIMAGEFILENAME);
+		unsigned int mouseCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./mouseCursorNominalSize",24);
+		
+		/* Create the mouse cursor faker: */
+		mouseCursorFaker=new MouseCursorFaker(newDevice,mouseCursorImageFileName.c_str(),mouseCursorNominalSize);
+		mouseCursorFaker->setCursorSize(configFileSection.retrieveValue<Size>("./mouseCursorSize",mouseCursorFaker->getCursorSize()));
+		mouseCursorFaker->setCursorHotspot(configFileSection.retrieveValue<Vector>("./mouseCursorHotspot",mouseCursorFaker->getCursorHotspot()));
 		}
 	}
 
 InputDeviceAdapterMouse::~InputDeviceAdapterMouse(void)
 	{
+	delete mouseCursorFaker;
 	delete[] buttonKeyCodes;
 	delete[] modifierKeyCodes;
 	delete[] buttonStates;
 	delete[] numMouseWheelTicks;
 	}
 
-std::string InputDeviceAdapterMouse::getFeatureName(const InputDeviceFeature& feature) const
-	{
-	std::string result;
-	
-	/* Calculate the feature's modifier mask: */
-	int featureModifierMask=0x0;
-	if(feature.isButton())
-		featureModifierMask=feature.getIndex()/(numButtons+numButtonKeys);
-	if(feature.isValuator())
-		featureModifierMask=feature.getIndex();
-	
-	/* Create the feature's modifier prefix: */
-	for(int i=0;i<numModifierKeys;++i)
-		if(featureModifierMask&(0x1<<i))
-			{
-			/* Append the modifier key's name to the prefix: */
-			result.append(getKeyName(modifierKeyCodes[i]));
-			result.push_back('+');
-			}
-	
-	/* Append the feature's name: */
-	if(feature.isButton())
-		{
-		int buttonIndex=feature.getIndex()%(numButtons+numButtonKeys);
-		
-		/* Check if the button is a mouse button or a button key: */
-		if(buttonIndex<numButtons)
-			{
-			/* Append a mouse button name: */
-			char buttonName[40];
-			snprintf(buttonName,sizeof(buttonName),"Mouse%d",buttonIndex+1);
-			result.append(buttonName);
-			}
-		else
-			{
-			/* Append a button key name: */
-			result.append(getKeyName(buttonKeyCodes[buttonIndex-numButtons]));
-			}
-		}
-	if(feature.isValuator())
-		result.append("MouseWheel");
-	
-	return result;
-	}
-
-int InputDeviceAdapterMouse::getFeatureIndex(InputDevice* device,const char* featureName) const
-	{
-	int result=-1;
-	
-	/* Extract a modifier key mask from the feature name: */
-	int featureModifierKeyMask=0x0;
-	const char* fPtr=featureName;
-	bool matchedPrefix;
-	do
-		{
-		/* Match the current prefix against a modifier key name: */
-		matchedPrefix=false;
-		for(int i=0;!matchedPrefix&&i<numModifierKeys;++i)
-			{
-			/* Get the modifier key name: */
-			std::string modifierKeyName=getKeyName(modifierKeyCodes[i]);
-			
-			/* Match against the prefix: */
-			const char* mknPtr=modifierKeyName.c_str();
-			const char* prefixPtr;
-			for(prefixPtr=fPtr;*mknPtr!='\0'&&*prefixPtr==*mknPtr;++prefixPtr,++mknPtr)
-				;
-			
-			/* Check for successful match: */
-			if(*mknPtr=='\0'&&*prefixPtr=='+')
-				{
-				/* Update the modifier key mask: */
-				featureModifierKeyMask|=0x1<<i;
-				
-				/* Skip the prefix and start over: */
-				fPtr=prefixPtr+1;
-				matchedPrefix=true;
-				}
-			}
-		}
-	while(matchedPrefix);
-	
-	/* Check if the feature suffix matches a mouse feature or a button key: */
-	if(strncmp(fPtr,"Mouse",5)==0)
-		{
-		fPtr+=5;
-		
-		/* Check if the feature is the mouse wheel or a mouse button: */
-		if(strcmp(fPtr,"Wheel")==0)
-			{
-			/* Return the mouse wheel feature: */
-			result=device->getValuatorFeatureIndex(featureModifierKeyMask);
-			}
-		else
-			{
-			/* Return a mouse button feature: */
-			int buttonIndex=atoi(fPtr)-1;
-			result=device->getButtonFeatureIndex((numButtons+numButtonKeys)*featureModifierKeyMask+buttonIndex);
-			}
-		}
-	else
-		{
-		/* Match the feature suffix against a button key name: */
-		for(int i=0;i<numButtonKeys;++i)
-			if(getKeyName(buttonKeyCodes[i])==fPtr)
-				{
-				result=device->getButtonFeatureIndex((numButtons+numButtonKeys)*featureModifierKeyMask+numButtons+i);
-				break;
-				}
-		}
-	
-	return result;
-	}
-
 void InputDeviceAdapterMouse::updateInputDevices(void)
 	{
 	if(window!=0)
 		{
-		/* Set mouse device's transformation and device ray: */
-		Point lastMousePos=inputDevices[0]->getPosition();
-		window->updateMouseDevice(mousePos,inputDevices[0]);
-		
-		/* Calculate the mouse device's linear velocity: */
-		inputDevices[0]->setLinearVelocity((inputDevices[0]->getPosition()-lastMousePos)/Vrui::getFrameTime());
-		
-		if(mouseLocked)
-			{
-			/* Move the mouse cursor back to the window center: */
-			int windowCenter[2];
-			window->getWindowCenterPos(windowCenter);
-			if(mousePos[0]!=windowCenter[0]||mousePos[1]!=windowCenter[1])
-				{
-				for(int i=0;i<2;++i)
-					mousePos[i]=windowCenter[i];
-				window->setCursorPos(mousePos[0],mousePos[1]);
-				
-				/* Reset the mouse device's ray and transformation to the locked values: */
-				inputDevices[0]->setDeviceRay(lockedRayDirection,lockedRayStart);
-				inputDevices[0]->setTransformation(lockedTransformation);
-				}
-			}
+		/* Set mouse device transformation: */
+		Ray mouseRay=window->reprojectWindowPos(mousePos);
+		Point mousePos=mouseRay.getOrigin();
+		Vector mouseY=mouseRay.getDirection();
+		Vector mouseX=Geometry::cross(mouseY,window->getVRScreen()->getScreenTransformation().getDirection(1));
+		TrackerState::Rotation rot=TrackerState::Rotation::fromBaseVectors(mouseX,mouseY);
+		inputDevices[0]->setTransformation(TrackerState(mousePos-Point::origin,rot));
 		
 		/* Set mouse device button states: */
 		for(int i=0;i<numButtonStates;++i)
@@ -501,26 +278,19 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 		int numValuators=1<<numModifierKeys;
 		for(int i=0;i<numValuators;++i)
 			{
-			/* Convert the mouse wheel tick count into a valuator value (ugh): */
 			double mouseWheelValue=double(numMouseWheelTicks[i])/3.0;
 			if(mouseWheelValue<-1.0)
 				mouseWheelValue=-1.0;
 			else if(mouseWheelValue>1.0)
 				mouseWheelValue=1.0;
 			inputDevices[0]->setValuator(i,mouseWheelValue);
-			
-			/* If there were mouse ticks, request another Vrui frame in a short while because there will be no "no mouse ticks" message: */
-			if(numMouseWheelTicks[i]!=0)
-				scheduleUpdate(getApplicationTime()+0.1);
 			numMouseWheelTicks[i]=0;
 			}
 		
-		#if 0
 		inputDevices[0]->setValuator(numValuators+0,Scalar(2)*mousePos[0]/window->getVRScreen()->getWidth()-Scalar(1));
 		inputDevices[0]->setValuator(numValuators+1,Scalar(2)*mousePos[1]/window->getVRScreen()->getHeight()-Scalar(1));
 		inputDevices[0]->setValuator(numValuators+2,0.0);
 		inputDevices[0]->setValuator(numValuators+3,0.0);
-		#endif
 		}
 	
 	if(!textEvents.empty()||!textControlEvents.empty())
@@ -554,52 +324,20 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 		}
 	}
 
-void InputDeviceAdapterMouse::setMousePosition(VRWindow* newWindow,const int newMousePos[2])
+void InputDeviceAdapterMouse::setMousePosition(VRWindow* newWindow,const Scalar newMousePos[2])
 	{
 	/* Set current mouse position: */
 	window=newWindow;
 	mousePos[0]=newMousePos[0];
 	mousePos[1]=newMousePos[1];
 	
-	// requestUpdate();
+	requestUpdate();
 	}
 
-bool InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char* string)
+void InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char* string)
 	{
-	bool stateChanged=false;
-	
 	if(keyCode==keyboardModeToggleKeyCode)
-		{
 		keyboardMode=!keyboardMode;
-		if(fakeMouseCursor)
-			{
-			/* Change the glyph renderer's cursor type to a text cursor: */
-			}
-		else if(keyboardMode)
-			{
-			/* Change the cursor in all windows to a text cursor: */
-			for(int i=0;i<getNumWindows();++i)
-				{
-				VRWindow* win=Vrui::getWindow(i);
-				if(win!=0)
-					{
-					Cursor cursor=XCreateFontCursor(win->getContext().getDisplay(),XC_xterm);
-					XDefineCursor(win->getContext().getDisplay(),win->getWindow(),cursor);
-					XFreeCursor(win->getContext().getDisplay(),cursor);
-					}
-				}
-			}
-		else
-			{
-			/* Change the cursor in all windows back to the regular: */
-			for(int i=0;i<getNumWindows();++i)
-				{
-				VRWindow* win=Vrui::getWindow(i);
-				if(win!=0)
-					XUndefineCursor(win->getContext().getDisplay(),win->getWindow());
-				}
-			}
-		}
 	else if(keyboardMode)
 		{
 		/* Process the key event: */
@@ -616,225 +354,81 @@ bool InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char
 			textEvents.push_back(std::pair<int,GLMotif::TextEvent>(nextEventOrdinal,GLMotif::TextEvent(string)));
 			++nextEventOrdinal;
 			}
-		
-		stateChanged=true;
 		}
 	else
 		{
-		/* Check if the key is a button key: */
-		int buttonIndex=getButtonIndex(keyCode);
-		if(buttonIndex>=0)
-			{
-			/* Set button state: */
-			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
-			stateChanged=changeButtonState(stateIndex,true);
-			}
-		
-		/* Check if the key is a modifier key: */
-		int modifierIndex=getModifierIndex(keyCode);
-		if(modifierIndex>=0)
-			{
-			/* Change current modifier mask: */
-			changeModifierKeyMask(modifierKeyMask|(0x1<<modifierIndex));
-			stateChanged=true;
-			}
-		}
-	
-	// requestUpdate();
-	
-	return stateChanged;
-	}
-
-bool InputDeviceAdapterMouse::keyReleased(int keyCode)
-	{
-	bool stateChanged=false;
-	
-	if(!keyboardMode)
-		{
-		/* Check if the key is a button key: */
-		int buttonIndex=getButtonIndex(keyCode);
-		if(buttonIndex>=0)
-			{
-			/* Set button state: */
-			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
-			stateChanged=changeButtonState(stateIndex,false);
-			}
-		
-		/* Check if the key is a modifier key: */
-		int modifierIndex=getModifierIndex(keyCode);
-		if(modifierIndex>=0)
-			{
-			/* Change current modifier mask: */
-			changeModifierKeyMask(modifierKeyMask&~(0x1<<modifierIndex));
-			stateChanged=true;
-			}
-		
-		// requestUpdate();
-		}
-	
-	return stateChanged;
-	}
-
-void InputDeviceAdapterMouse::resetKeys(const XKeymapEvent& event)
-	{
-	/* Calculate the new modifier key mask: */
-	int newModifierKeyMask=0x0;
-	for(int i=0;i<256;++i)
-		if(event.key_vector[i>>3]&(0x1<<(i&0x7)))
-			{
-			/* Convert the keycode to a keysym: */
-			XKeyEvent keyEvent;
-			keyEvent.type=KeyPress;
-			keyEvent.serial=event.serial;
-			keyEvent.send_event=event.send_event;
-			keyEvent.display=event.display;
-			keyEvent.window=event.window;
-			keyEvent.state=0x0;
-			keyEvent.keycode=i;
-			KeySym keyCode=XLookupKeysym(&keyEvent,0);
-			
-			int modifierIndex=getModifierIndex(keyCode);
-			if(modifierIndex>=0)
-				newModifierKeyMask|=0x1<<modifierIndex;
-			}
-	
-	/* Set the new modifier key mask: */
-	changeModifierKeyMask(newModifierKeyMask);
-	
-	/* Set the states of all button keys: */
-	for(int i=0;i<numButtonKeys;++i)
-		{
-		int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+i;
-		changeButtonState(stateIndex,false);
-		}
-	for(int i=0;i<256;++i)
-		if(event.key_vector[i>>3]&(0x1<<(i&0x7)))
-			{
-			/* Convert the keycode to a keysym: */
-			XKeyEvent keyEvent;
-			keyEvent.type=KeyPress;
-			keyEvent.serial=event.serial;
-			keyEvent.send_event=event.send_event;
-			keyEvent.display=event.display;
-			keyEvent.window=event.window;
-			keyEvent.state=0x0;
-			keyEvent.keycode=i;
-			KeySym keyCode=XLookupKeysym(&keyEvent,0);
-			
-			int buttonIndex=getButtonIndex(keyCode);
-			if(buttonIndex>=0)
+		/* Check key code against list of button keys: */
+		for(int i=0;i<numButtonKeys;++i)
+			if(buttonKeyCodes[i]==keyCode)
 				{
-				int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
-				changeButtonState(stateIndex,true);
+				/* Set button state: */
+				int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+i;
+				buttonStates[stateIndex]=true;
+				break;
 				}
-			}
+		
+		/* Check key code against list of modifier keys: */
+		for(int i=0;i<numModifierKeys;++i)
+			if(modifierKeyCodes[i]==keyCode)
+				{
+				/* Change current modifier mask: */
+				changeModifierKeyMask(modifierKeyMask|(1<<i));
+				break;
+				}
+		}
 	
-	// requestUpdate();
+	requestUpdate();
 	}
 
-bool InputDeviceAdapterMouse::setButtonState(int buttonIndex,bool newButtonState)
+void InputDeviceAdapterMouse::keyReleased(int keyCode)
 	{
-	bool stateChanged=false;
+	/* Check key code against list of button keys: */
+	for(int i=0;i<numButtonKeys;++i)
+		if(buttonKeyCodes[i]==keyCode)
+			{
+			/* Set button state: */
+			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+i;
+			buttonStates[stateIndex]=false;
+			break;
+			}
 	
+	/* Check key code against list of modifier keys: */
+	for(int i=0;i<numModifierKeys;++i)
+		if(modifierKeyCodes[i]==keyCode)
+			{
+			/* Change current modifier mask: */
+			changeModifierKeyMask(modifierKeyMask&~(1<<i));
+			break;
+			}
+	
+	requestUpdate();
+	}
+
+void InputDeviceAdapterMouse::setButtonState(int buttonIndex,bool newButtonState)
+	{
 	/* Check if given button is represented: */
 	if(buttonIndex>=0&&buttonIndex<numButtons)
 		{
 		/* Set current button state: */
 		int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+buttonIndex;
-		stateChanged=changeButtonState(stateIndex,newButtonState);
-		
-		// requestUpdate();
+		buttonStates[stateIndex]=newButtonState;
 		}
 	
-	return stateChanged;
+	requestUpdate();
 	}
 
 void InputDeviceAdapterMouse::incMouseWheelTicks(void)
 	{
 	++numMouseWheelTicks[modifierKeyMask];
 	
-	// requestUpdate();
+	requestUpdate();
 	}
 
 void InputDeviceAdapterMouse::decMouseWheelTicks(void)
 	{
 	--numMouseWheelTicks[modifierKeyMask];
 	
-	// requestUpdate();
-	}
-
-void InputDeviceAdapterMouse::lockMouse(void)
-	{
-	/* Do nothing if the mouse is already locked, or if the current window is unknown: */
-	if(mouseLocked||window==0)
-		return;
-	
-	mouseLocked=true;
-	
-	/* Remember the current mouse pointer position to restore it upon unlock: */
-	for(int i=0;i<2;++i)
-		lockedMousePos[i]=mousePos[i];
-	
-	/* Move the mouse pointer to the center of the current window: */
-	window->getWindowCenterPos(mousePos);
-	window->updateMouseDevice(mousePos,inputDevices[0]);
-	inputDevices[0]->setLinearVelocity(Vector::zero);
-	window->setCursorPos(mousePos[0],mousePos[1]);
-	
-	/* Hide the mouse cursor: */
-	if(fakeMouseCursor)
-		getInputGraphManager()->getInputDeviceGlyph(inputDevices[0]).disable();
-	else
-		window->hideCursor();
-	
-	/* Remember the mouse transformation and ray at the window center: */
-	lockedRayDirection=inputDevices[0]->getDeviceRayDirection();
-	lockedRayStart=inputDevices[0]->getDeviceRayStart();
-	lockedTransformation=inputDevices[0]->getTransformation();
-	}
-
-void InputDeviceAdapterMouse::unlockMouse(void)
-	{
-	/* Do nothing if the mouse is not locked: */
-	if(!mouseLocked)
-		return;
-	
-	mouseLocked=false;
-	
-	/* Move the mouse pointer back to its pre-lock position: */
-	for(int i=0;i<2;++i)
-		mousePos[i]=lockedMousePos[i];
-	window->setCursorPos(mousePos[0],mousePos[1]);
-	window->updateMouseDevice(mousePos,inputDevices[0]);
-	inputDevices[0]->setLinearVelocity(Vector::zero);
-	
-	/* Show the mouse cursor: */
-	if(fakeMouseCursor)
-		getInputGraphManager()->getInputDeviceGlyph(inputDevices[0]).enable();
-	else
-		window->showCursor();
-	}
-
-ONTransform getMouseScreenTransform(InputDeviceAdapterMouse* mouseAdapter,Scalar viewport[4])
-	{
-	/* Check if the mouse adapter is valid: */
-	VRScreen* screen=0;
-	if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
-		{
-		/* Use the window associated with the mouse adapter: */
-		VRWindow* window=mouseAdapter->getWindow();
-		screen=window->getVRScreen();
-		window->getScreenViewport(viewport);
-		}
-	else
-		{
-		/* Use the main screen: */
-		screen=getMainScreen();
-		screen->getViewport(viewport);
-		}
-	
-	/* Return the screen's transformation: */
-	return screen->getScreenTransformation();
+	requestUpdate();
 	}
 
 }

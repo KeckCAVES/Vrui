@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,11 +26,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/OrthonormalTransformation.h>
-#include <GL/GLValueCoders.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -41,8 +40,7 @@ Methods of class UserInterfaceToolFactory:
 UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	:ToolFactory("UserInterfaceTool",toolManager),
 	 useEyeRay(false),
-	 rayOffset(getUiSize()*Scalar(2)),
-	 drawRay(true),rayColor(1.0f,0.0f,0.0f),rayWidth(3.0f)
+	 rayOffset(getUiSize()*Scalar(2))
 	{
 	#if 0
 	/* Insert class into class hierarchy: */
@@ -54,15 +52,7 @@ UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
-	if(useEyeRay)
-		{
-		/* The default is not to draw the interaction ray when eye rays are used: */
-		drawRay=false;
-		}
 	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
-	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
-	rayColor=cfs.retrieveValue<GLColor<GLfloat,4> >("./rayColor",rayColor);
-	rayWidth=cfs.retrieveValue<GLfloat>("./rayWidth",rayWidth);
 	
 	/* Set tool class' factory pointer: */
 	UserInterfaceTool::factory=this;
@@ -77,6 +67,23 @@ UserInterfaceToolFactory::~UserInterfaceToolFactory(void)
 const char* UserInterfaceToolFactory::getName(void) const
 	{
 	return "User Interface";
+	}
+
+extern "C" ToolFactory* createUserInterfaceToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+	{
+	/* Get pointer to tool manager: */
+	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
+	
+	/* Create factory object and insert it into class hierarchy: */
+	UserInterfaceToolFactory* userInterfaceToolFactory=new UserInterfaceToolFactory(*toolManager);
+	
+	/* Return factory object: */
+	return userInterfaceToolFactory;
+	}
+
+extern "C" void destroyUserInterfaceToolFactory(ToolFactory* factory)
+	{
+	delete factory;
 	}
 
 /******************************************
@@ -97,14 +104,14 @@ Ray UserInterfaceTool::calcInteractionRay(void) const
 		{
 		/* Shoot a ray from the main viewer: */
 		Point start=getMainViewer()->getHeadPosition();
-		Vector direction=interactionDevice->getPosition()-start;
+		Vector direction=getDevicePosition(0)-start;
 		direction.normalize();
 		result=Ray(start,direction);
 		}
 	else
 		{
 		/* Use the device's ray direction: */
-		result=Ray(interactionDevice->getPosition(),interactionDevice->getRayDirection());
+		result=getDeviceRay(0);
 		
 		/* Offset the ray start point backwards: */
 		result.setOrigin(result.getOrigin()-result.getDirection()*(factory->rayOffset/result.getDirection().mag()));
@@ -133,8 +140,7 @@ ONTransform UserInterfaceTool::calcScreenTransform(const Ray& ray) const
 	}
 
 UserInterfaceTool::UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:Tool(factory,inputAssignment),
-	 interactionDevice(0)
+	:Tool(factory,inputAssignment)
 	{
 	}
 

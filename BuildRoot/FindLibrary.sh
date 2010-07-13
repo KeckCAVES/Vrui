@@ -3,7 +3,7 @@
 # Shell script to find include and library file directories for
 # libraries that might be installed in non-standard places, or not be
 # installed at all.
-# Copyright (c) 2008-2011 Oliver Kreylos
+# Copyright (c) 2008 Oliver Kreylos
 # 
 # This file is part of the WhyTools Build Environment.
 # 
@@ -58,7 +58,7 @@ do
 	then
 		FOUNDLIBDIR=$BASEDIR/$LIBEXT
 	fi
-	if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER ] # -a -e $BASEDIR/$LIBEXT/$SEARCH_DSO ] Let's leave this off for the moment
+	if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER -a -e $BASEDIR/$LIBEXT/$SEARCH_DSO ]
 	then
 		FOUNDBASEDIR=$BASEDIR
 	fi

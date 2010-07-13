@@ -24,15 +24,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SOUNDCONTEXT_INCLUDED
 #define VRUI_SOUNDCONTEXT_INCLUDED
 
-#include <AL/Config.h>
-
-#if ALSUPPORT_CONFIG_HAVE_OPENAL
-#ifdef __APPLE__
-#include <OpenAL/alc.h>
-#else
-#include <AL/alc.h>
-#endif
-#endif
+#include <Vrui/alc.h>
+#include <Vrui/al.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -58,7 +51,7 @@ class SoundContext
 	/* Elements: */
 	private:
 	VruiState* vruiState; // Pointer to the Vrui state object this sound context belongs to
-	#if ALSUPPORT_CONFIG_HAVE_OPENAL
+	#ifdef VRUI_USE_OPENAL
 	ALCdevice* alDevice; // Pointer to OpenAL sound device
 	ALCcontext* alContext; // Pointer to OpenAL sound context
 	#endif

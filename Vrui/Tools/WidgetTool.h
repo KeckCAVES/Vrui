@@ -26,7 +26,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_WIDGETTOOL_INCLUDED
 
 #include <Vrui/GUIInteractor.h>
-#include <Vrui/DeviceForwarder.h>
 #include <Vrui/UserInterfaceTool.h>
 
 /* Forward declarations: */
@@ -49,12 +48,11 @@ class WidgetToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class WidgetTool:public UserInterfaceTool,public GUIInteractor,public DeviceForwarder
+class WidgetTool:public UserInterfaceTool,public GUIInteractor
 	{
 	friend class WidgetToolFactory;
 	
@@ -71,15 +69,9 @@ class WidgetTool:public UserInterfaceTool,public GUIInteractor,public DeviceForw
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	
-	/* Methods from DeviceForwarder: */
-	virtual std::vector<InputDevice*> getForwardedDevices(void);
-	virtual InputDeviceFeatureSet getSourceFeatures(const InputDeviceFeature& forwardedFeature);
-	virtual InputDevice* getSourceDevice(const InputDevice* forwardedDevice);
-	virtual InputDeviceFeatureSet getForwardedFeatures(const InputDeviceFeature& sourceFeature);
 	};
 
 }

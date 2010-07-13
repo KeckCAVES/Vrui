@@ -2,7 +2,7 @@
 ScreenshotTool - Class for tools to save save screenshots from immersive
 environments by overriding a selected window's screen and viewer with
 virtual ones attached to an input device.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,26 +22,24 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ScreenshotTool.h>
-
-#include <Images/Config.h>
-
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Cluster/MulticastPipe.h>
+#include <Comm/MulticastPipe.h>
 #include <Math/Math.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ScreenshotTool.h>
 
 namespace Vrui {
 
@@ -51,7 +49,7 @@ Methods of class ScreenshotToolFactory:
 
 ScreenshotToolFactory::ScreenshotToolFactory(ToolManager& toolManager)
 	:ToolFactory("ScreenshotTool",toolManager),
-	 #if IMAGES_CONFIG_HAVE_PNG
+	 #ifdef VRUI_USE_PNG
 	 screenshotFileName("ScreenshotTool.png"),
 	 #else
 	 screenshotFileName("ScreenshotTool.ppm"),
@@ -64,7 +62,8 @@ ScreenshotToolFactory::ScreenshotToolFactory(ToolManager& toolManager)
 	 eyeOffset(screenSize*Scalar(0.1),0,0)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -97,11 +96,6 @@ ScreenshotToolFactory::~ScreenshotToolFactory(void)
 const char* ScreenshotToolFactory::getName(void) const
 	{
 	return "Virtual Still Camera";
-	}
-
-const char* ScreenshotToolFactory::getButtonFunction(int) const
-	{
-	return "Take Picture";
 	}
 
 Tool* ScreenshotToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -153,7 +147,7 @@ ScreenshotTool::ScreenshotTool(const ToolFactory* factory,const ToolInputAssignm
 	 originalScreen(0),originalViewer(0),
 	 virtualScreen(0),virtualViewer(0),
 	 eyePosition(Point::origin),
-	 showFrameTime(0.0)
+	 frameCounter(0),screenshotFrameCounter(~0x0)
 	{
 	}
 
@@ -181,7 +175,7 @@ void ScreenshotTool::initialize(void)
 		virtualScreen=new VRScreen;
 		
 		/* Attach the virtual screen to the input device: */
-		virtualScreen->attachToDevice(getButtonDevice(0));
+		virtualScreen->attachToDevice(getDevice(0));
 		
 		/* Set the screen size: */
 		screenW=windowW*scale;
@@ -196,11 +190,11 @@ void ScreenshotTool::initialize(void)
 		if(factory->useMainViewer)
 			{
 			/* Calculate the initial screen transformation by aligning the screen'z z direction with the viewing direction: */
-			eyePosition=getButtonDeviceTransformation(0).inverseTransform(getMainViewer()->getHeadPosition());
+			eyePosition=getDeviceTransformation(0).inverseTransform(getMainViewer()->getHeadPosition());
 			Vector viewDir=eyePosition-screenCenter;
 			vertical=factory->vertical-viewDir*((factory->vertical*viewDir)/Geometry::sqr(viewDir));
 			vertical.normalize();
-			horizontal=vertical^viewDir;
+			horizontal=Geometry::cross(vertical,viewDir);
 			horizontal.normalize();
 			}
 		else
@@ -233,7 +227,7 @@ void ScreenshotTool::initialize(void)
 			virtualViewer=new Viewer;
 			
 			/* Attach the virtual viewer to the input device: */
-			virtualViewer->attachToDevice(getButtonDevice(0));
+			virtualViewer->attachToDevice(getDevice(0));
 			
 			/* Calculate the viewer's eye positions in device coordinates: */
 			eyePosition=factory->monoEyePosition;
@@ -263,7 +257,7 @@ void ScreenshotTool::initialize(void)
 			for(int i=0;i<4;++i)
 				getMainPipe()->write(screenBox[i].getComponents(),3);
 			getMainPipe()->write(eyePosition.getComponents(),3);
-			getMainPipe()->flush();
+			getMainPipe()->finishMessage();
 			}
 		}
 	else
@@ -297,7 +291,7 @@ const ToolFactory* ScreenshotTool::getFactory(void) const
 	return factory;
 	}
 
-void ScreenshotTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void ScreenshotTool::buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Screenshot button has just been pressed
 		{
@@ -311,8 +305,8 @@ void ScreenshotTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallb
 			window->requestScreenshot(screenshotFileName);
 			}
 		
-		/* Don't draw the screen frame for one second: */
-		showFrameTime=getApplicationTime()+1.0;
+		/* Don't draw the screen frame on this frame: */
+		screenshotFrameCounter=frameCounter+1; // Button callback is called before frame method!
 		}
 	}
 
@@ -325,11 +319,11 @@ void ScreenshotTool::frame(void)
 		if(isMaster())
 			{
 			/* Calculate the current screen transformation by aligning the screen'z z direction with the viewing direction: */
-			eyePosition=getButtonDeviceTransformation(0).inverseTransform(getMainViewer()->getHeadPosition());
+			eyePosition=getDeviceTransformation(0).inverseTransform(getMainViewer()->getHeadPosition());
 			Vector viewDir=eyePosition-screenCenter;
 			Vector vertical=factory->vertical-viewDir*((factory->vertical*viewDir)/Geometry::sqr(viewDir));
 			vertical.normalize();
-			Vector horizontal=vertical^viewDir;
+			Vector horizontal=Geometry::cross(vertical,viewDir);
 			horizontal.normalize();
 			ONTransform::Vector screenTranslation=screenCenter-horizontal*Math::div2(screenW)-vertical*Math::div2(screenH)-Point::origin;
 			ONTransform::Rotation screenRotation=ONTransform::Rotation::fromBaseVectors(horizontal,vertical);
@@ -349,7 +343,7 @@ void ScreenshotTool::frame(void)
 				for(int i=0;i<4;++i)
 					getMainPipe()->write(screenBox[i].getComponents(),3);
 				getMainPipe()->write(eyePosition.getComponents(),3);
-				getMainPipe()->flush();
+				getMainPipe()->finishMessage();
 				}
 			}
 		else
@@ -363,14 +357,17 @@ void ScreenshotTool::frame(void)
 		}
 	else if(isMaster())
 		virtualViewer->update();
+	
+	/* Increment the frame counter: */
+	++frameCounter;
 	}
 
 void ScreenshotTool::display(GLContextData& contextData) const
 	{
-	if(getApplicationTime()>=showFrameTime)
+	if(frameCounter!=screenshotFrameCounter)
 		{
 		/* Get the input device's current transformation: */
-		const Vrui::TrackerState& transformation=getButtonDeviceTransformation(0);
+		const Vrui::TrackerState& transformation=getDeviceTransformation(0);
 		
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);

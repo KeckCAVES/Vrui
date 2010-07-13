@@ -47,18 +47,7 @@ class RGBImage:public Image<GLubyte,3>
 		:Base(source)
 		{
 		}
-	template <class SourceScalarParam,int sourceNumComponentsParam>
-	RGBImage(const Image<SourceScalarParam,sourceNumComponentsParam>& source) // Creates an image from given source image with different number of channels and/or scalar type
-		:Base(source)
-		{
-		}
 	RGBImage& operator=(const RGBImage& source) // Assigns an existing image (does not copy image representation)
-		{
-		Base::operator=(source);
-		return *this;
-		}
-	template <class SourceScalarParam,int sourceNumComponentsParam>
-	RGBImage& operator=(const Image<SourceScalarParam,sourceNumComponentsParam>& source) // Creates an image from given source image with different number of channels and/or scalar type
 		{
 		Base::operator=(source);
 		return *this;

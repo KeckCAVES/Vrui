@@ -2,7 +2,7 @@
 SixDofWithScaleNavigationTool - Class for simple 6-DOF dragging using a
 single input device, with an additional input device used as a slider
 for zooming.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,8 +22,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/SixDofWithScaleNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -33,10 +31,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GL/GLModels.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/InputDeviceManager.h>
-#include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/SixDofWithScaleNavigationTool.h>
 
 namespace Vrui {
 
@@ -62,12 +60,14 @@ Methods of class SixDofWithScaleNavigationToolFactory:
 
 SixDofWithScaleNavigationToolFactory::SixDofWithScaleNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("SixDofWithScaleNavigationTool",toolManager),
-	 scaleDeviceDistance(getInchFactor()*Scalar(4)),
+	 scaleDeviceDistance(getInchFactor()*Scalar(6)),
 	 deviceScaleDirection(0,1,0),
-	 scaleFactor(getInchFactor()*Scalar(8))
+	 scaleFactor(getInchFactor()*Scalar(12))
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(2);
+	layout.setNumDevices(2);
+	layout.setNumButtons(0,1);
+	layout.setNumButtons(1,0);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -93,22 +93,7 @@ SixDofWithScaleNavigationToolFactory::~SixDofWithScaleNavigationToolFactory(void
 
 const char* SixDofWithScaleNavigationToolFactory::getName(void) const
 	{
-	return "6-DOF + Scaling Device";
-	}
-
-const char* SixDofWithScaleNavigationToolFactory::getButtonFunction(int buttonSlotIndex) const
-	{
-	switch(buttonSlotIndex)
-		{
-		case 0:
-			return "Grab Space / Zoom";
-		
-		case 1:
-			return "Forwarded Button";
-		}
-	
-	/* Never reached; just to make compiler happy: */
-	return 0;
+	return "6-DOF plus Scaling Device";
 	}
 
 Tool* SixDofWithScaleNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -192,41 +177,8 @@ Methods of class SixDofWithScaleNavigationTool:
 
 SixDofWithScaleNavigationTool::SixDofWithScaleNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
-	 buttonDevice(0),
 	 navigationMode(IDLE)
 	{
-	}
-
-void SixDofWithScaleNavigationTool::initialize(void)
-	{
-	/* Get the source input device: */
-	InputDevice* device=getButtonDevice(1);
-	
-	/* Create a virtual input device to shadow the zoom button: */
-	buttonDevice=addVirtualInputDevice("SixDofWithScaleNavigationToolButtonDevice",1,0);
-	
-	/* Copy the source device's tracking type: */
-	buttonDevice->setTrackType(device->getTrackType());
-	
-	/* Disable the virtual device's glyph: */
-	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
-	
-	/* Permanently grab the virtual input device: */
-	getInputGraphManager()->grabInputDevice(buttonDevice,this);
-	
-	/* Initialize the virtual input device's position: */
-	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
-	buttonDevice->setTransformation(device->getTransformation());
-	}
-
-void SixDofWithScaleNavigationTool::deinitialize(void)
-	{
-	/* Release the virtual input device: */
-	getInputGraphManager()->releaseInputDevice(buttonDevice,this);
-	
-	/* Destroy the virtual input device: */
-	getInputDeviceManager()->destroyInputDevice(buttonDevice);
-	buttonDevice=0;
 	}
 
 const ToolFactory* SixDofWithScaleNavigationTool::getFactory(void) const
@@ -234,58 +186,46 @@ const ToolFactory* SixDofWithScaleNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void SixDofWithScaleNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void SixDofWithScaleNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
-	switch(buttonSlotIndex)
+	if(cbData->newButtonState) // Button has just been pressed
 		{
-		case 0:
-			if(cbData->newButtonState) // Button has just been pressed
+		if(navigationMode==IDLE&&activate())
+			{
+			/* Decide whether to go to moving or scaling mode: */
+			if(Geometry::sqrDist(getDevicePosition(0),getDevicePosition(1))<=factory->scaleDeviceDistance2) // Want to scale
 				{
-				if(navigationMode==IDLE&&activate())
-					{
-					/* Decide whether to go to moving or scaling mode: */
-					if(Geometry::sqrDist(getButtonDevicePosition(0),getButtonDevicePosition(1))<=factory->scaleDeviceDistance2) // Want to scale
-						{
-						/* Determine the scaling center and initial scale: */
-						scalingCenter=getButtonDevicePosition(1);
-						Vector scaleDirection=getButtonDeviceTransformation(1).transform(factory->deviceScaleDirection);
-						initialScale=getButtonDevicePosition(0)*scaleDirection;
-						
-						/* Initialize the navigation transformations: */
-						preScale=NavTrackerState::translateFromOriginTo(scalingCenter);
-						postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
-						postScale*=getNavigationTransformation();
-						
-						/* Go from MOVING to SCALING mode: */
-						navigationMode=SCALING;
-						}
-					else // Want to move
-						{
-						/* Initialize the navigation transformations: */
-						preScale=Geometry::invert(getDeviceTransformation(0));
-						preScale*=getNavigationTransformation();
-						
-						/* Go from IDLE to MOVING mode: */
-						navigationMode=MOVING;
-						}
-					}
-				}
-			else // Button has just been released
-				{
-				/* Deactivate this tool: */
-				deactivate();
+				/* Determine the scaling center and initial scale: */
+				scalingCenter=getDevicePosition(1);
+				Vector scaleDirection=getDeviceTransformation(1).transform(factory->deviceScaleDirection);
+				initialScale=getDevicePosition(0)*scaleDirection;
 				
-				/* Go from MOVING or SCALING to IDLE mode: */
-				navigationMode=IDLE;
+				/* Initialize the navigation transformations: */
+				preScale=NavTrackerState::translateFromOriginTo(scalingCenter);
+				postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
+				postScale*=getNavigationTransformation();
+				
+				/* Go from MOVING to SCALING mode: */
+				navigationMode=SCALING;
 				}
-			
-			break;
+			else // Want to move
+				{
+				/* Initialize the navigation transformations: */
+				preScale=Geometry::invert(getDeviceTransformation(0));
+				preScale*=getNavigationTransformation();
+				
+				/* Go from IDLE to MOVING mode: */
+				navigationMode=MOVING;
+				}
+			}
+		}
+	else // Button has just been released
+		{
+		/* Deactivate this tool: */
+		deactivate();
 		
-		case 1:
-			/* Pass the button event to the virtual input device: */
-			buttonDevice->setButtonState(0,cbData->newButtonState);
-			
-			break;
+		/* Go from MOVING or SCALING to IDLE mode: */
+		navigationMode=IDLE;
 		}
 	}
 
@@ -301,7 +241,7 @@ void SixDofWithScaleNavigationTool::frame(void)
 		case MOVING:
 			{
 			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=getButtonDeviceTransformation(0);
+			NavTrackerState navigation=getDeviceTransformation(0);
 			navigation*=preScale;
 			
 			/* Update Vrui's navigation transformation: */
@@ -313,8 +253,8 @@ void SixDofWithScaleNavigationTool::frame(void)
 			{
 			/* Compose the new navigation transformation: */
 			NavTrackerState navigation=preScale;
-			Vector scaleDirection=getButtonDeviceTransformation(1).transform(factory->deviceScaleDirection);
-			Scalar currentScale=Math::exp((getButtonDevicePosition(0)*scaleDirection-initialScale)/factory->scaleFactor);
+			Vector scaleDirection=getDeviceTransformation(1).transform(factory->deviceScaleDirection);
+			Scalar currentScale=Math::exp((getDevicePosition(0)*scaleDirection-initialScale)/factory->scaleFactor);
 			navigation*=NavTrackerState::scale(currentScale);
 			navigation*=postScale;
 			
@@ -323,11 +263,6 @@ void SixDofWithScaleNavigationTool::frame(void)
 			break;
 			}
 		}
-	
-	/* Update the virtual input device: */
-	InputDevice* device=getButtonDevice(1);
-	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
-	buttonDevice->setTransformation(device->getTransformation());
 	}
 
 void SixDofWithScaleNavigationTool::display(GLContextData& contextData) const
@@ -337,58 +272,13 @@ void SixDofWithScaleNavigationTool::display(GLContextData& contextData) const
 	
 	/* Translate coordinate system to scaling device's position and orientation: */
 	glPushMatrix();
-	glMultMatrix(getButtonDeviceTransformation(1));
+	glMultMatrix(getDeviceTransformation(1));
 	
 	/* Execute the tool model display list: */
 	glCallList(dataItem->modelListId);
 	
 	/* Go back to physical coordinate system: */
 	glPopMatrix();
-	}
-
-std::vector<InputDevice*> SixDofWithScaleNavigationTool::getForwardedDevices(void)
-	{
-	std::vector<InputDevice*> result;
-	result.push_back(buttonDevice);
-	return result;
-	}
-
-InputDeviceFeatureSet SixDofWithScaleNavigationTool::getSourceFeatures(const InputDeviceFeature& forwardedFeature)
-	{
-	/* Paranoia: Check if the forwarded feature is on the transformed device: */
-	if(forwardedFeature.getDevice()!=buttonDevice)
-		Misc::throwStdErr("SixDofWithScaleNavigationTool::getSourceFeatures: Forwarded feature is not on transformed device");
-	
-	/* Return the source feature: */
-	InputDeviceFeatureSet result;
-	result.push_back(input.getButtonSlotFeature(1));
-	return result;
-	}
-
-InputDevice* SixDofWithScaleNavigationTool::getSourceDevice(const InputDevice* forwardedDevice)
-	{
-	/* Paranoia: Check if the forwarded device is the same as the transformed device: */
-	if(forwardedDevice!=buttonDevice)
-		Misc::throwStdErr("SixDofWithScaleNavigationTool::getSourceDevice: Given forwarded device is not transformed device");
-	
-	/* Return the source device: */
-	return getButtonDevice(1);
-	}
-
-InputDeviceFeatureSet SixDofWithScaleNavigationTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)
-	{
-	/* Get the source feature's assignment slot index: */
-	int slotIndex=input.findFeature(sourceFeature);
-	
-	/* Paranoia: Check if the source feature belongs to this tool: */
-	if(slotIndex<0)
-		Misc::throwStdErr("SixDofWithScaleNavigationTool::getForwardedFeatures: Source feature is not part of tool's input assignment");
-	
-	/* Return the forwarded feature: */
-	InputDeviceFeatureSet result;
-	if(slotIndex==1)
-		result.push_back(InputDeviceFeature(buttonDevice,InputDevice::BUTTON,0));
-	return result;
 	}
 
 }

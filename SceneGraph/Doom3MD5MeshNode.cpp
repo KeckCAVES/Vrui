@@ -69,42 +69,23 @@ void Doom3MD5MeshNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 
 void Doom3MD5MeshNode::update(void)
 	{
-	/* Delete the current mesh: */
-	delete mesh;
-	mesh=0;
+	/* Load an MD5 mesh of the given name: */
+	mesh=new Doom3MD5Mesh(*dataContext.getValue()->getFileManager(),*dataContext.getValue()->getMaterialManager(),model.getValue().c_str());
 	
-	try
-		{
-		/* Load an MD5 mesh of the given name: */
-		mesh=new Doom3MD5Mesh(*dataContext.getValue()->getFileManager(),*dataContext.getValue()->getMaterialManager(),model.getValue().c_str());
-		
-		/* Tell the material manager to load all requested materials: */
-		dataContext.getValue()->getMaterialManager()->loadMaterials(*dataContext.getValue()->getFileManager());
-		}
-	catch(std::runtime_error err)
-		{
-		/* Just delete the mesh again: */
-		delete mesh;
-		mesh=0;
-		}
+	/* Tell the material manager to load all requested materials: */
+	dataContext.getValue()->getMaterialManager()->loadMaterials(*dataContext.getValue()->getFileManager());
 	}
 
 Box Doom3MD5MeshNode::calcBoundingBox(void) const
 	{
 	/* Return the mesh's bounding box: */
-	if(mesh!=0)
-		return mesh->calcBoundingBox();
-	else
-		return Box::empty;
+	return mesh->calcBoundingBox();
 	}
 
 void Doom3MD5MeshNode::glRenderAction(GLRenderState& renderState) const
 	{
-	if(mesh!=0)
-		{
-		/* Draw the mesh: */
-		mesh->drawSurface(renderState.contextData,false);
-		}
+	/* Draw the mesh: */
+	mesh->drawSurface(renderState.contextData,false);
 	}
 
 }

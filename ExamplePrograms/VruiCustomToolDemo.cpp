@@ -2,7 +2,7 @@
 VruiCustomToolDemo - VR application showing how to create application-
 specific tools and register them with the Vrui tool manager, and how
 custom tools can interact with the VR application.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2009 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -47,12 +47,12 @@ class VruiCustomToolDemo:public Vrui::Application
 		
 		/* Methods: */
 		virtual const Vrui::ToolFactory* getFactory(void) const;
-		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int deviceIndex,int buttonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		};
 	
 	/* Constructors and destructors: */
 	public:
-	VruiCustomToolDemo(int& argc,char**& argv);
+	VruiCustomToolDemo(int& argc,char**& argv,char**& appDefaults);
 	
 	/* Methods: */
 	void selectApplicationObject(void); // Dummy method to show how custom tools can interact with the application
@@ -78,19 +78,19 @@ const Vrui::ToolFactory* VruiCustomToolDemo::MyTool::getFactory(void) const
 	return factory;
 	}
 
-void VruiCustomToolDemo::MyTool::buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
+void VruiCustomToolDemo::MyTool::buttonCallback(int deviceIndex,int buttonIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
-		std::cout<<"MyTool: Button "<<buttonSlotIndex<<" has just been pressed"<<std::endl;
+		std::cout<<"MyTool: Button "<<buttonIndex<<" has just been pressed"<<std::endl;
 		
 		/* Call an application method if the second button was pressed: */
-		if(buttonSlotIndex==1)
+		if(buttonIndex==1)
 			application->selectApplicationObject();
 		}
 	else // Button has just been released
 		{
-		std::cout<<"MyTool: Button "<<buttonSlotIndex<<" has just been released"<<std::endl;
+		std::cout<<"MyTool: Button "<<buttonIndex<<" has just been released"<<std::endl;
 		}
 	}
 
@@ -98,17 +98,15 @@ void VruiCustomToolDemo::MyTool::buttonCallback(int buttonSlotIndex,Vrui::InputD
 Methods of class VruiCustomToolDemo:
 ***********************************/
 
-VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv)
-	:Vrui::Application(argc,argv)
+VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults)
 	{
 	/* Create a factory object for the custom tool class: */
 	MyToolFactory* myToolFactory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
 	
 	/* Set the custom tool class' input layout: */
-	myToolFactory->setNumButtons(2,true); // Needs two buttons and can take optional buttons
-	myToolFactory->setButtonFunction(0,"Does nothing");
-	myToolFactory->setButtonFunction(1,"Select Application Object");
-	myToolFactory->setButtonFunction(2,"Optional Button");
+	myToolFactory->setNumDevices(1); // Needs one input device
+	myToolFactory->setNumButtons(0,2); // Needs two buttons on the first input device
 	
 	/* Register the custom tool class with the Vrui tool manager: */
 	Vrui::getToolManager()->addClass(myToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
@@ -119,5 +117,19 @@ void VruiCustomToolDemo::selectApplicationObject(void)
 	std::cout<<"VruiCustomToolDemo: selectApplicationObject has just been called"<<std::endl;
 	}
 
-/* Create and execute an application object: */
-VRUI_APPLICATION_RUN(VruiCustomToolDemo)
+/*************
+Main function:
+*************/
+
+int main(int argc,char* argv[])
+	{
+	/* Create an application object: */
+	char** appDefaults=0; // This is an additional parameter no one ever uses
+	VruiCustomToolDemo app(argc,argv,appDefaults);
+	
+	/* Run the Vrui main loop: */
+	app.run();
+	
+	/* Exit to OS: */
+	return 0;
+	}

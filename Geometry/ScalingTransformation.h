@@ -1,7 +1,7 @@
 /***********************************************************************
 ScalingTransformation - Class for n-dimensional non-uniform scaling
 transformations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -38,10 +38,6 @@ class UniformScalingTransformation;
 /* Forward declarations for friend functions: */
 template <class ScalarParam,int dimensionParam>
 class ScalingTransformation;
-template <class ScalarParam,int dimensionParam>
-bool operator==(const ScalingTransformation<ScalarParam,dimensionParam>& t1,const ScalingTransformation<ScalarParam,dimensionParam>& t2);
-template <class ScalarParam,int dimensionParam>
-bool operator!=(const ScalingTransformation<ScalarParam,dimensionParam>& t1,const ScalingTransformation<ScalarParam,dimensionParam>& t2);
 template <class ScalarParam,int dimensionParam>
 ScalingTransformation<ScalarParam,dimensionParam> operator*(const ScalingTransformation<ScalarParam,dimensionParam>&,const ScalingTransformation<ScalarParam,dimensionParam>&);
 template <class ScalarParam,int dimensionParam>
@@ -90,10 +86,6 @@ class ScalingTransformation
 		{
 		return ScalingTransformation(sScaling);
 		}
-	
-	/* Comparison operators: */
-	friend bool operator==<>(const ScalingTransformation& t1,const ScalingTransformation& t2);
-	friend bool operator!=<>(const ScalingTransformation& t1,const ScalingTransformation& t2);
 	
 	/* Low-level manipulation functions: */
 	const Scale& getScaling(void) const // Returns the scaling factor
@@ -193,16 +185,6 @@ class ScalingTransformation
 	};
 
 /* Friend functions of class ScalingTransformation: */
-template <class ScalarParam,int dimensionParam>
-inline bool operator==(const ScalingTransformation<ScalarParam,dimensionParam>& t1,const ScalingTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.scaling==t2.scaling;
-	}
-template <class ScalarParam,int dimensionParam>
-inline bool operator!=(const ScalingTransformation<ScalarParam,dimensionParam>& t1,const ScalingTransformation<ScalarParam,dimensionParam>& t2)
-	{
-	return t1.scaling!=t2.scaling;
-	}
 template <class ScalarParam,int dimensionParam>
 inline ScalingTransformation<ScalarParam,dimensionParam> operator*(const ScalingTransformation<ScalarParam,dimensionParam>& t1,const ScalingTransformation<ScalarParam,dimensionParam>& t2)
 	{

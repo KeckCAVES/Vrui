@@ -2,7 +2,7 @@
 ReferenceEllipsoidNode - Class for nodes defining reference ellipsoid
 (geodesic data) for geodesic coordinate systems and transformations
 between them.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

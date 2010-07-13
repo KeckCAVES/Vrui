@@ -85,10 +85,6 @@ class LinearUnit
 		{
 		return abbreviations[unit];
 		}
-	Scalar getFactor(void) const // Returns the unit's scaling factor
-		{
-		return factor;
-		}
 	bool isMetric(void) const // Returns true if the unit is metric
 		{
 		return metrics[unit];

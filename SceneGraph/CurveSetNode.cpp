@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveSetNode - Class for sets of curves written by curve tracing
 application.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,8 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/CurveSetNode.h>
 
 #include <string.h>
-#include <IO/ValueSource.h>
-#include <Cluster/OpenFile.h>
+#include <Misc/ValueSource.h>
+#include <Threads/GzippedFileCharacterSource.h>
 #include <Geometry/Box.h>
 #include <GL/gl.h>
 #include <GL/GLVertexTemplates.h>
@@ -43,10 +43,9 @@ namespace SceneGraph {
 Methods of class CurveSetNode::DataItem:
 ***************************************/
 
-CurveSetNode::DataItem::DataItem(GLContextData& contextData)
+CurveSetNode::DataItem::DataItem(void)
 	:vertexBufferObjectId(0),
-	 version(0),
-	 lineLightingShader(contextData)
+	 version(0)
 	{
 	if(GLARBVertexBufferObject::isSupported())
 		{
@@ -93,27 +92,26 @@ void CurveSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		/* Fully qualify all URLs: */
 		for(size_t i=0;i<url.getNumValues();++i)
 			url.setValue(i,vrmlFile.getFullUrl(url.getValue(i)));
-		
-		multiplexer=vrmlFile.getMultiplexer();
 		}
-	else if(strcmp(fieldName,"color")==0)
-		vrmlFile.parseField(color);
 	else if(strcmp(fieldName,"lineWidth")==0)
+		{
 		vrmlFile.parseField(lineWidth);
+		}
 	else if(strcmp(fieldName,"pointSize")==0)
+		{
 		vrmlFile.parseField(pointSize);
+		}
 	else
 		GeometryNode::parseField(fieldName,vrmlFile);
 	}
 
 void CurveSetNode::update(void)
 	{
-	/* Re-read the curve vertex list: */
-	vertices.clear();
 	for(size_t fileIndex=0;fileIndex<url.getNumValues();++fileIndex)
 		{
 		/* Open the curve file: */
-		IO::ValueSource source(Cluster::openFile(multiplexer,url.getValue(fileIndex).c_str()));
+		Threads::GzippedFileCharacterSource curveFile(url.getValue(fileIndex).c_str());
+		Misc::ValueSource source(curveFile);
 		source.skipWs();
 		
 		/* Read the number of curves: */
@@ -140,13 +138,6 @@ void CurveSetNode::update(void)
 			}
 		}
 	
-	if(pointTransform.getValue()!=0)
-		{
-		/* Transform all curve vertices: */
-		for(std::vector<Point>::iterator vIt=vertices.begin();vIt!=vertices.end();++vIt)
-			*vIt=pointTransform.getValue()->transformPoint(*vIt);
-		}
-	
 	/* Bump up the indexed line set's version number: */
 	++version;
 	}
@@ -155,9 +146,17 @@ Box CurveSetNode::calcBoundingBox(void) const
 	{
 	Box result=Box::empty;
 	
-	/* Add all vertices to the box: */
-	for(std::vector<Point>::const_iterator vIt=vertices.begin();vIt!=vertices.end();++vIt)
-		result.addPoint(*vIt);
+	if(pointTransform.getValue()!=0)
+		{
+		/* Return the bounding box of the transformed point coordinates: */
+		return pointTransform.getValue()->calcBoundingBox(vertices);
+		}
+	else
+		{
+		/* Add all vertices to the box: */
+		for(std::vector<Point>::const_iterator vIt=vertices.begin();vIt!=vertices.end();++vIt)
+			result.addPoint(*vIt);
+		}
 	
 	return result;
 	}
@@ -165,7 +164,13 @@ Box CurveSetNode::calcBoundingBox(void) const
 void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 	{
 	/* Set up OpenGL state: */
+	renderState.disableMaterials();
+	renderState.disableTextures();
 	glLineWidth(lineWidth.getValue());
+	glPointSize(pointSize.getValue());
+	
+	/* Use the current emissive color: */
+	glColor(renderState.emissiveColor);
 	
 	/* Get the context data item: */
 	DataItem* dataItem=renderState.contextData.retrieveDataItem<DataItem>(this);
@@ -176,7 +181,7 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 		Render the curve set from the vertex buffer:
 		*******************************************************************/
 		
-		typedef GLGeometry::Vertex<void,0,void,0,Scalar,Scalar,3> Vertex;
+		typedef GLGeometry::Vertex<void,0,void,0,void,Scalar,3> Vertex;
 		
 		/* Bind the curve set's vertex buffer object: */
 		glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
@@ -188,25 +193,30 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
 			
 			/* Copy curve vertices into the vertex buffer: */
-			for(std::vector<Point>::const_iterator vIt=vertices.begin();vIt!=vertices.end();++vIt,++vPtr)
+			for(std::vector<Point>::const_iterator vIt=vertices.begin();vIt!=vertices.end();++vIt)
 				{
-				if(vIt==vertices.begin())
-					vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[1]-vIt[0]));
-				else if(vIt==vertices.end()-1)
-					vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[0]-vIt[-1]));
+				if(pointTransform.getValue()!=0)
+					vPtr->position=pointTransform.getValue()->transformPoint(*vIt);
 				else
-					vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[1]-vIt[-1]));
-				vPtr->position=Vertex::Position(*vIt);
+					vPtr->position=*vIt;
+				++vPtr;
 				}
 			
 			/* Copy curve end points into the vertex buffer: */
 			GLsizei baseIndex=0;
-			for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt,vPtr+=2)
+			for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
 				{
-				vPtr[0].normal=Vertex::Normal::zero;
-				vPtr[0].position=Vertex::Position(vertices[baseIndex]);
-				vPtr[1].normal=Vertex::Normal::zero;
-				vPtr[1].position=Vertex::Position(vertices[baseIndex+*nvIt-1]);
+				if(pointTransform.getValue()!=0)
+					{
+					vPtr[0].position=pointTransform.getValue()->transformPoint(vertices[baseIndex]);
+					vPtr[1].position=pointTransform.getValue()->transformPoint(vertices[baseIndex+*nvIt-1]);
+					}
+				else
+					{
+					vPtr[0].position=vertices[baseIndex];
+					vPtr[1].position=vertices[baseIndex+*nvIt-1];
+					}
+				vPtr+=2;
 				baseIndex+=*nvIt;
 				}
 			
@@ -222,10 +232,6 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 		glVertexPointer(static_cast<Vertex*>(0));
 		
 		/* Draw all curves: */
-		if(renderState.lightingEnabled)
-			dataItem->lineLightingShader.activate();
-		else
-			glColor(color.getValue());
 		GLint baseVertexIndex=0;
 		for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
 			{
@@ -238,20 +244,9 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			/* Go to the next curve: */
 			baseVertexIndex+=*nvIt;
 			}
-		if(renderState.lightingEnabled)
-			dataItem->lineLightingShader.deactivate();
 		
-		if(pointSize.getValue()>Scalar(0))
-			{
-			/* Set up OpenGL state: */
-			renderState.disableMaterials();
-			renderState.disableTextures();
-			glPointSize(pointSize.getValue());
-			glColor(color.getValue());
-			
-			/* Draw the endpoints of all curves: */
-			glDrawArrays(GL_POINTS,baseVertexIndex,numVertices.size()*2);
-			}
+		/* Draw the endpoints of all curves: */
+		glDrawArrays(GL_POINTS,baseVertexIndex,numVertices.size()*2);
 		
 		/* Disable the vertex array: */
 		GLVertexArrayParts::disable(Vertex::getPartsMask());
@@ -272,7 +267,12 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			/* Render the curve: */
 			glBegin(GL_LINE_STRIP);
 			for(GLsizei i=0;i<*nvIt;++i,++vIt)
-				glVertex(*vIt);
+				{
+				if(pointTransform.getValue()!=0)
+					glVertex(pointTransform.getValue()->transformPoint(*vIt));
+				else
+					glVertex(*vIt);
+				}
 			glEnd();
 			}
 		
@@ -280,8 +280,16 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 		GLint baseVertexIndex=0;
 		for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
 			{
-			glVertex(vertices[baseVertexIndex]);
-			glVertex(vertices[baseVertexIndex+*nvIt-1]);
+			if(pointTransform.getValue()!=0)
+				{
+				glVertex(pointTransform.getValue()->transformPoint(vertices[baseVertexIndex]));
+				glVertex(pointTransform.getValue()->transformPoint(vertices[baseVertexIndex+*nvIt-1]));
+				}
+			else
+				{
+				glVertex(vertices[baseVertexIndex]);
+				glVertex(vertices[baseVertexIndex+*nvIt-1]);
+				}
 			
 			/* Go to the next curve: */
 			baseVertexIndex+=*nvIt;
@@ -292,7 +300,7 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 void CurveSetNode::initContext(GLContextData& contextData) const
 	{
 	/* Create a data item and store it in the context: */
-	DataItem* dataItem=new DataItem(contextData);
+	DataItem* dataItem=new DataItem;
 	contextData.addDataItem(this,dataItem);
 	}
 

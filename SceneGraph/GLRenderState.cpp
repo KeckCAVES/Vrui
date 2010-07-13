@@ -1,7 +1,7 @@
 /***********************************************************************
 GLRenderState - Class encapsulating the traversal state of a scene graph
 during OpenGL rendering.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -32,15 +32,12 @@ namespace SceneGraph {
 Methods of class GLRenderState:
 ******************************/
 
-GLRenderState::GLRenderState(GLContextData& sContextData,const GLRenderState::DOGTransform& initialTransform,const Point& sBaseViewerPos,const Vector& sBaseUpVector)
+GLRenderState::GLRenderState(GLContextData& sContextData,const Point& sBaseViewerPos,const Vector& sBaseUpVector)
 	:contextData(sContextData),
 	 baseViewerPos(sBaseViewerPos),baseUpVector(sBaseUpVector),
-	 currentTransform(initialTransform),
+	 currentTransform(OGTransform::identity),
 	 emissiveColor(0.0f,0.0f,0.0f)
 	{
-	/* Install the initial transformation: */
-	glLoadMatrix(currentTransform);
-	
 	/* Initialize the view frustum from the current OpenGL context: */
 	baseFrustum.setFromGL();
 	
@@ -69,39 +66,27 @@ GLRenderState::GLRenderState(GLContextData& sContextData,const GLRenderState::DO
 	separateSpecularColorEnabled=lightModelColorControl==GL_SEPARATE_SPECULAR_COLOR;
 	}
 
-GLRenderState::DOGTransform GLRenderState::pushTransform(const OGTransform& deltaTransform)
+OGTransform GLRenderState::pushTransform(const OGTransform& deltaTransform)
 	{
+	/* Push the new matrix onto the OpenGL matrix stack: */
+	glPushMatrix();
+	glMultMatrix(deltaTransform);
+	
 	/* Update the current transformation: */
-	DOGTransform result=currentTransform;
+	OGTransform result=currentTransform;
 	currentTransform*=deltaTransform;
 	currentTransform.renormalize();
-	
-	/* Set up the new transformation: */
-	glLoadMatrix(currentTransform);
 	
 	return result;
 	}
 
-GLRenderState::DOGTransform GLRenderState::pushTransform(const GLRenderState::DOGTransform& deltaTransform)
+void GLRenderState::popTransform(const OGTransform& previousTransform)
 	{
-	/* Update the current transformation: */
-	DOGTransform result=currentTransform;
-	currentTransform*=deltaTransform;
-	currentTransform.renormalize();
+	/* Pop the last matrix off the OpenGL matrix stack: */
+	glPopMatrix();
 	
-	/* Set up the new transformation: */
-	glLoadMatrix(currentTransform);
-	
-	return result;
-	}
-
-void GLRenderState::popTransform(const GLRenderState::DOGTransform& previousTransform)
-	{
 	/* Reinstate the current transformation: */
 	currentTransform=previousTransform;
-	
-	/* Set up the new transformation: */
-	glLoadMatrix(currentTransform);
 	}
 
 bool GLRenderState::doesBoxIntersectFrustum(const Box& box) const

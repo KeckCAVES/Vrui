@@ -1,23 +1,11 @@
 /***********************************************************************
 VruiSoundTest - Small application to illustrate principles of spatial
 audio programming using Vrui's OpenAL interface.
-Copyright (c) 2010-2013 Oliver Kreylos
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2 of the License, or (at your
-option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+Copyright (c) 2010 Oliver Kreylos
 ***********************************************************************/
 
+#include <stdexcept>
+#include <iostream>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
@@ -27,8 +15,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLContextData.h>
 #include <GL/GLModels.h>
 #include <GL/GLGeometryWrappers.h>
-#include <AL/Config.h>
+#include <Vrui/al.h>
+#ifdef VRUI_HAVE_OPENAL
 #include <AL/ALGeometryWrappers.h>
+#endif
 #include <AL/ALObject.h>
 #include <AL/ALContextData.h>
 #include <Vrui/Application.h>
@@ -60,7 +50,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 		{
 		/* Elements: */
 		public:
-		#if ALSUPPORT_CONFIG_HAVE_OPENAL
+		#ifdef VRUI_HAVE_OPENAL
 		ALuint sources[3]; // Three sound sources
 		ALuint buffers[3]; // Sample buffers for the three sound sources
 		#endif
@@ -69,7 +59,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 		public:
 		ALDataItem(void)
 			{
-			#if ALSUPPORT_CONFIG_HAVE_OPENAL
+			#ifdef VRUI_HAVE_OPENAL
 			/* Generate buffers and sources: */
 			alGenSources(3,sources);
 			alGenBuffers(3,buffers);
@@ -77,7 +67,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 			}
 		virtual ~ALDataItem(void)
 			{
-			#if ALSUPPORT_CONFIG_HAVE_OPENAL
+			#ifdef VRUI_HAVE_OPENAL
 			/* Destroy buffers and sources: */
 			alDeleteSources(3,sources);
 			alDeleteBuffers(3,buffers);
@@ -90,7 +80,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 	
 	/* Constructors and destructors: */
 	public:
-	VruiSoundTest(int& argc,char**& argv);
+	VruiSoundTest(int& argc,char**& argv,char**& appDefaults);
 	virtual ~VruiSoundTest(void);
 	
 	/* Methods from GLObject: */
@@ -109,8 +99,8 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 Methods of class VruiSoundTest:
 ******************************/
 
-VruiSoundTest::VruiSoundTest(int& argc,char**& argv)
-	:Vrui::Application(argc,argv)
+VruiSoundTest::VruiSoundTest(int& argc,char**& argv,char**& appDefaults)
+	:Vrui::Application(argc,argv,appDefaults)
 	{
 	/* Request sound processing: */
 	Vrui::requestSound();
@@ -149,7 +139,7 @@ void VruiSoundTest::initContext(ALContextData& contextData) const
 	ALDataItem* dataItem=new ALDataItem;
 	contextData.addDataItem(this,dataItem);
 	
-	#if ALSUPPORT_CONFIG_HAVE_OPENAL
+	#ifdef VRUI_HAVE_OPENAL
 	/* Upload sound data into the sound buffers: */
 	const int pcmFreq=44100;
 	ALubyte* pcmData=new ALubyte[pcmFreq];
@@ -243,7 +233,7 @@ void VruiSoundTest::sound(ALContextData& contextData) const
 	/* Update the positions and gains of the sources: */
 	for(int i=0;i<3;++i)
 		{
-		#if ALSUPPORT_CONFIG_HAVE_OPENAL
+		#ifdef VRUI_HAVE_OPENAL
 		/* Set the source position transformed to physical coordinates: */
 		alSourcePosition(dataItem->sources[i],ALPoint(positions[i]),transform);
 		
@@ -254,4 +244,19 @@ void VruiSoundTest::sound(ALContextData& contextData) const
 		}
 	}
 
-VRUI_APPLICATION_RUN(VruiSoundTest)
+int main(int argc,char* argv[])
+	{
+	try
+		{
+		char** appDefaults=0;
+		VruiSoundTest app(argc,argv,appDefaults);
+		app.run();
+		}
+	catch(std::runtime_error err)
+		{
+		std::cerr<<"Caught exception "<<err.what()<<std::endl;
+		return 1;
+		}
+	
+	return 0;
+	}

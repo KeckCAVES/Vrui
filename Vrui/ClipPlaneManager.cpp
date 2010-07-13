@@ -1,7 +1,7 @@
 /***********************************************************************
 ClipPlaneManager - Class to manage clipping planes in virtual
 environments. Maps created ClipPlane objects to OpenGL clipping planes.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,13 +25,26 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Plane.h>
 #include <GL/gl.h>
-#include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/DisplayState.h>
 
 namespace Vrui {
+
+/*******************************************
+Methods of class ClipPlaneManager::DataItem:
+*******************************************/
+
+ClipPlaneManager::DataItem::DataItem(void)
+	:lastNumClipPlanes(0)
+	{
+	/* Query the maximum number of clipping planes from OpenGL: */
+	glGetIntegerv(GL_MAX_CLIP_PLANES,&numClipPlanes);
+	}
+
+ClipPlaneManager::DataItem::~DataItem(void)
+	{
+	}
 
 /*********************************
 Methods of class ClipPlaneManager:
@@ -51,6 +64,13 @@ ClipPlaneManager::~ClipPlaneManager(void)
 		delete firstClipPlane;
 		firstClipPlane=succ;
 		}
+	}
+
+void ClipPlaneManager::initContext(GLContextData& contextData) const
+	{
+	/* Create a new context data item: */
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
 	}
 
 ClipPlane* ClipPlaneManager::createClipPlane(bool physical)
@@ -106,27 +126,64 @@ void ClipPlaneManager::destroyClipPlane(ClipPlane* clipPlane)
 		}
 	}
 
-void ClipPlaneManager::setClipPlanes(bool navigationEnabled,DisplayState* displayState,GLContextData& contextData) const
+void ClipPlaneManager::setClipPlanes(GLContextData& contextData) const
 	{
-	/* Get the clipping plane state tracker: */
-	GLClipPlaneTracker* cpt=contextData.getClipPlaneTracker();
+	/* Retrieve the data item: */
+	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	
+	/* Process all clipping planes: */
+	GLsizei clipPlaneIndex=0;
+	for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0&&clipPlaneIndex<dataItem->numClipPlanes;cpPtr=cpPtr->succ)
+		{
+		if(cpPtr->isEnabled())
+			{
+			/* Enable the OpenGL clipping plane: */
+			if(clipPlaneIndex>=dataItem->lastNumClipPlanes)
+				glEnable(GL_CLIP_PLANE0+clipPlaneIndex);
+			
+			/* Set the OpenGL clipping plane's plane equation: */
+			GLdouble plane[4];
+			for(int i=0;i<3;++i)
+				plane[i]=cpPtr->getPlane().getNormal()[i];
+			plane[3]=-cpPtr->getPlane().getOffset();
+			glClipPlane(GL_CLIP_PLANE0+clipPlaneIndex,plane);
+			
+			/* Increment the clipping plane index: */
+			++clipPlaneIndex;
+			}
+		}
+	
+	/* Disable all unused clipping planes still enabled from the last pass: */
+	for(GLsizei i=clipPlaneIndex;i<dataItem->lastNumClipPlanes;++i)
+		glDisable(GL_CLIP_PLANE0+i);
+	dataItem->lastNumClipPlanes=clipPlaneIndex;
+	}
+
+void ClipPlaneManager::setClipPlanes(DisplayState* displayState,GLContextData& contextData) const
+	{
+	/* Retrieve the data item: */
+	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
 	/* Process all physical clipping planes first: */
 	GLsizei clipPlaneIndex=0;
 	bool haveNavigationalClipPlanes=false;
-	for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0&&clipPlaneIndex<cpt->getMaxNumClipPlanes();cpPtr=cpPtr->succ)
+	for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0&&clipPlaneIndex<dataItem->numClipPlanes;cpPtr=cpPtr->succ)
 		{
 		if(cpPtr->isEnabled())
 			{
-			/* Only set clipping plane now if it is physical, or if there is no navigation transformation: */
-			if(cpPtr->physical||!navigationEnabled)
+			/* Only set clipping plane now if it is physical: */
+			if(cpPtr->physical)
 				{
-				/* Set the clipping plane in the clipping plane tracker and OpenGL: */
-				GLClipPlaneTracker::Plane plane;
+				/* Enable the OpenGL clipping plane: */
+				if(clipPlaneIndex>=dataItem->lastNumClipPlanes)
+					glEnable(GL_CLIP_PLANE0+clipPlaneIndex);
+				
+				/* Set the OpenGL clipping plane's plane equation: */
+				GLdouble plane[4];
 				for(int i=0;i<3;++i)
 					plane[i]=cpPtr->getPlane().getNormal()[i];
 				plane[3]=-cpPtr->getPlane().getOffset();
-				cpt->enableClipPlane(clipPlaneIndex,plane);
+				glClipPlane(GL_CLIP_PLANE0+clipPlaneIndex,plane);
 				
 				/* Increment the clipping plane index: */
 				++clipPlaneIndex;
@@ -136,7 +193,7 @@ void ClipPlaneManager::setClipPlanes(bool navigationEnabled,DisplayState* displa
 			}
 		}
 	
-	if(haveNavigationalClipPlanes&&clipPlaneIndex<cpt->getMaxNumClipPlanes())
+	if(haveNavigationalClipPlanes&&clipPlaneIndex<dataItem->numClipPlanes)
 		{
 		/* Temporarily go to navigational coordinates: */
 		glPushMatrix();
@@ -144,16 +201,20 @@ void ClipPlaneManager::setClipPlanes(bool navigationEnabled,DisplayState* displa
 		glMultMatrix(displayState->modelviewNavigational);
 		
 		/* Process all navigational clipping planes: */
-		for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0&&clipPlaneIndex<cpt->getMaxNumClipPlanes();cpPtr=cpPtr->succ)
+		for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0&&clipPlaneIndex<dataItem->numClipPlanes;cpPtr=cpPtr->succ)
 			{
-			if(cpPtr->isEnabled()&&!cpPtr->physical)
+			if(cpPtr->isEnabled()&&cpPtr->physical)
 				{
-				/* Set the clipping plane in the clipping plane tracker and OpenGL: */
-				GLClipPlaneTracker::Plane plane;
+				/* Enable the OpenGL clipping plane: */
+				if(clipPlaneIndex>=dataItem->lastNumClipPlanes)
+					glEnable(GL_CLIP_PLANE0+clipPlaneIndex);
+				
+				/* Set the OpenGL clipping plane's plane equation: */
+				GLdouble plane[4];
 				for(int i=0;i<3;++i)
 					plane[i]=cpPtr->getPlane().getNormal()[i];
 				plane[3]=-cpPtr->getPlane().getOffset();
-				cpt->enableClipPlane(clipPlaneIndex,plane);
+				glClipPlane(GL_CLIP_PLANE0+clipPlaneIndex,plane);
 				
 				/* Increment the clipping plane index: */
 				++clipPlaneIndex;
@@ -165,74 +226,21 @@ void ClipPlaneManager::setClipPlanes(bool navigationEnabled,DisplayState* displa
 		}
 	
 	/* Disable all unused clipping planes still enabled from the last pass: */
-	while(clipPlaneIndex<cpt->getMaxNumClipPlanes())
-		{
-		cpt->disableClipPlane(clipPlaneIndex);
-		++clipPlaneIndex;
-		}
+	for(GLsizei i=clipPlaneIndex;i<dataItem->lastNumClipPlanes;++i)
+		glDisable(GL_CLIP_PLANE0+i);
+	dataItem->lastNumClipPlanes=clipPlaneIndex;
 	}
 
-void ClipPlaneManager::clipRay(bool physical,Ray& ray,Scalar& lambdaMax) const
+void ClipPlaneManager::disableClipPlanes(GLContextData& contextData)
 	{
-	/* Calculate the ray interval inside all clipping planes: */
-	Scalar lambda1=Scalar(0);
-	Scalar lambda2=lambdaMax;
-	for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0;cpPtr=cpPtr->succ)
-		if(cpPtr->isEnabled())
-			{
-			/* Get the clipping plane's plane equation in the same coordinate system as the ray's: */
-			Plane plane=cpPtr->getPlane();
-			if(physical&&!cpPtr->physical)
-				{
-				/* Transform the clipping plane to physical space: */
-				plane.transform(getNavigationTransformation());
-				}
-			else if(!physical&&cpPtr->physical)
-				{
-				/* Transform the clipping plane to navigational space: */
-				plane.transform(getInverseNavigationTransformation());
-				}
-			
-			/* Intersect the plane and the ray: */
-			Scalar divisor=plane.getNormal()*ray.getDirection();
-			if(divisor!=Scalar(0))
-				{
-				Scalar lambda=(plane.getOffset()-plane.getNormal()*ray.getOrigin())/divisor;
-				
-				/* Check if the ray enters or exits the clipping plane's half-space: */
-				if(divisor<Scalar(0))
-					{
-					/* Ray exits: */
-					if(lambda2>lambda)
-						lambda2=lambda;
-					}
-				else
-					{
-					/* Ray enters: */
-					if(lambda1<lambda)
-						lambda1=lambda;
-					}
-				}
-			}
+	/* Retrieve the data item: */
+	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
-	/* Adjust the ray: */
-	if(lambda1<lambda2)
-		{
-		if(lambda1>Scalar(0))
-			{
-			/* Adjust the ray's origin: */
-			ray.setOrigin(ray(lambda1));
-			lambda2-=lambda1;
-			}
-		
-		/* Adjust the maximum ray intercept: */
-		lambdaMax=lambda2;
-		}
-	else
-		{
-		/* Invalidate the ray: */
-		lambdaMax=Scalar(0);
-		}
+	/* Disable all previously enabled clipping planes: */
+	for(GLsizei clipPlaneIndex=0;clipPlaneIndex<dataItem->lastNumClipPlanes;++clipPlaneIndex)
+		glDisable(GL_CLIP_PLANE0+clipPlaneIndex);
+	
+	dataItem->lastNumClipPlanes=0;
 	}
 
 }

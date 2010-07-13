@@ -1,6 +1,6 @@
 /***********************************************************************
 TextField - Class for labels displaying values as text.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -21,10 +21,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <stdio.h>
-#include <Misc/PrintInteger.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
-#include <GL/GLVertexTemplates.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/TextEvent.h>
 #include <GLMotif/TextControlEvent.h>
@@ -75,8 +73,8 @@ void TextField::setCursorPos(int newCursorPos)
 	cursorPos=newCursorPos;
 	if(cursorPos<0)
 		cursorPos=0;
-	if(cursorPos>label.getLength())
-		cursorPos=label.getLength();
+	if(cursorPos>labelLength)
+		cursorPos=labelLength;
 	
 	/* Calculate the model-space cursor position: */
 	cursorModelPos=label.calcCharacterPos(cursorPos);
@@ -95,14 +93,15 @@ void TextField::insert(int insertLength,const char* insert)
 		}
 	int newLabelLength=selectionStart; // Length of old pre-selection text
 	newLabelLength+=insertLength; // Length of inserted text
-	newLabelLength+=label.getLength()-selectionEnd; // Length of old post-selection text
+	newLabelLength+=labelLength-selectionEnd; // Length of old post-selection text
 	char* newLabel=new char[newLabelLength+1];
 	memcpy(newLabel,label.getString(),selectionStart); // Copy old pre-selection text
 	memcpy(newLabel+selectionStart,insert,insertLength); // Copy inserted text
-	memcpy(newLabel+selectionStart+insertLength,label.getString()+selectionEnd,label.getLength()-selectionEnd+1); // Copy old post-selection text and string terminator
+	memcpy(newLabel+selectionStart+insertLength,label.getString()+selectionEnd,labelLength-selectionEnd+1); // Copy old post-selection text and string terminator
 	
 	/* Update the label: */
-	label.adoptString(newLabelLength,newLabel);
+	labelLength=newLabelLength;
+	label.adoptString(newLabel);
 	edited=true;
 	
 	/* Adjust the label position: */
@@ -117,7 +116,7 @@ TextField::TextField(const char* sName,Container* sParent,const GLFont* sFont,GL
 	:Label(sName,sParent,"",sFont,false),
 	 charWidth(sCharWidth),
 	 fieldWidth(-1),precision(-1),floatFormat(SMART),
-	 editable(false),focus(false),anchorPos(0),cursorPos(0),cursorModelPos(0.0f),buttonDownTime(0.0),edited(false)
+	 editable(false),hasFocus(false),anchorPos(0),cursorPos(0),cursorModelPos(0.0f),buttonDownTime(0.0),edited(false)
 	{
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
@@ -138,7 +137,7 @@ TextField::TextField(const char* sName,Container* sParent,GLint sCharWidth,bool 
 	:Label(sName,sParent,"",false),
 	 charWidth(sCharWidth),
 	 fieldWidth(-1),precision(-1),floatFormat(SMART),
-	 editable(false),focus(false),anchorPos(0),cursorPos(0),cursorModelPos(0.0f),buttonDownTime(0.0),edited(false)
+	 editable(false),hasFocus(false),anchorPos(0),cursorPos(0),cursorModelPos(0.0f),buttonDownTime(0.0),edited(false)
 	{
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
@@ -157,7 +156,7 @@ TextField::TextField(const char* sName,Container* sParent,GLint sCharWidth,bool 
 
 TextField::~TextField(void)
 	{
-	if(focus)
+	if(hasFocus)
 		{
 		/* Tell the widget's manager to release this widget's text entry focus: */
 		WidgetManager* manager=getManager();
@@ -168,43 +167,11 @@ TextField::~TextField(void)
 
 void TextField::draw(GLContextData& contextData) const
 	{
-	if(editable&&focus)
+	/* Call the base class method: */
+	Label::draw(contextData);
+	
+	if(editable&&hasFocus)
 		{
-		/* Call the base class method: */
-		Widget::draw(contextData);
-		
-		/* Draw the label margin: */
-		glColor(backgroundColor);
-		glBegin(GL_QUAD_STRIP);
-		glNormal3f(0.0f,0.0f,1.0f);
-		glVertex(label.getLabelBox().getCorner(0));
-		glVertex(getInterior().getCorner(0));
-		glVertex(label.getLabelBox().getCorner(1));
-		glVertex(getInterior().getCorner(1));
-		glVertex(label.getLabelBox().getCorner(3));
-		glVertex(getInterior().getCorner(3));
-		glVertex(label.getLabelBox().getCorner(2));
-		glVertex(getInterior().getCorner(2));
-		glVertex(label.getLabelBox().getCorner(0));
-		glVertex(getInterior().getCorner(0));
-		glEnd();
-		
-		/* Draw the label itself: */
-		if(anchorPos!=cursorPos)
-			{
-			GLsizei start=GLsizei(anchorPos);
-			GLsizei end=GLsizei(cursorPos);
-			if(start>end)
-				{
-				GLsizei t=start;
-				start=end;
-				end=t;
-				}
-			label.draw(start,end,getManager()->getStyleSheet()->selectionBgColor,getManager()->getStyleSheet()->selectionFgColor,contextData);
-			}
-		else
-			label.draw(contextData);
-		
 		/* Draw the cursor: */
 		GLfloat x0=cursorModelPos-marginWidth;
 		GLfloat x1=cursorModelPos;
@@ -249,11 +216,6 @@ void TextField::draw(GLContextData& contextData) const
 		glVertex3f(x1,y2,z1);
 		glEnd();
 		}
-	else
-		{
-		/* Call the base class method: */
-		Label::draw(contextData);
-		}
 	}
 
 void TextField::pointerButtonDown(Event& event)
@@ -264,29 +226,27 @@ void TextField::pointerButtonDown(Event& event)
 	
 	/* Request text entry focus: */
 	WidgetManager* manager=getManager();
-	if(manager!=0&&(focus||manager->requestFocus(this)))
+	if(manager!=0&&(hasFocus||manager->requestFocus(this)))
 		{
 		/* Check if this was a double-click: */
 		double time=getManager()->getTime();
-		lastPointerPos=event.getWidgetPoint().getPoint()[0];
 		if(time-buttonDownTime<getManager()->getStyleSheet()->multiClickTime)
 			{
 			/* Select the entire text field: */
 			anchorPos=0;
-			setCursorPos(label.getLength());
+			setCursorPos(labelLength);
 			}
 		else
 			{
 			/* Move the cursor to the selected character: */
-			setCursorPos(label.calcCharacterIndex(lastPointerPos));
+			setCursorPos(label.calcCharacterIndex(event.getWidgetPoint().getPoint()[0]));
 			anchorPos=cursorPos;
 			}
 		
-		focus=true;
+		hasFocus=true;
 		buttonDownTime=time;
 		
 		/* Invalidate the visual representation: */
-		label.invalidate();
 		update();
 		}
 	}
@@ -302,13 +262,9 @@ void TextField::pointerMotion(Event& event)
 		return;
 	
 	/* Move the cursor to the selected character: */
-	GLfloat pointerPos=event.calcWidgetPoint(this).getPoint()[0];
-	if(lastPointerPos!=pointerPos)
-		setCursorPos(label.calcCharacterIndex(pointerPos));
-	lastPointerPos=pointerPos;
+	setCursorPos(label.calcCharacterIndex(event.getWidgetPoint().getPoint()[0]));
 	
 	/* Invalidate the visual representation: */
-	label.invalidate();
 	update();
 	}
 
@@ -316,16 +272,13 @@ bool TextField::giveTextFocus(void)
 	{
 	if(editable)
 		{
-		#if 0
 		/* Adjust the selection range: */
 		anchorPos=0;
-		setCursorPos(label.getLength());
-		#endif
+		setCursorPos(labelLength);
 		
-		focus=true;
+		hasFocus=true;
 		
 		/* Invalidate the visual representation: */
-		label.invalidate();
 		update();
 		}
 	
@@ -335,13 +288,13 @@ bool TextField::giveTextFocus(void)
 
 void TextField::takeTextFocus(void)
 	{
-	focus=false;
+	hasFocus=false;
 	
 	/* Call value changed callbacks if the text field has been edited: */
 	if(edited)
 		{
 		/* Call the value changed callbacks: */
-		ValueChangedCallbackData cbData(this,label.getString(),false);
+		ValueChangedCallbackData cbData(this,label.getString());
 		valueChangedCallbacks.call(&cbData);
 		
 		/* Clear the flag: */
@@ -349,7 +302,6 @@ void TextField::takeTextFocus(void)
 		}
 	
 	/* Invalidate the visual representation: */
-	label.invalidate();
 	update();
 	}
 
@@ -363,7 +315,6 @@ void TextField::textEvent(const TextEvent& event)
 	insert(event.getTextLength(),event.getText());
 	
 	/* Invalidate the visual representation: */
-	label.invalidate();
 	update();
 	}
 
@@ -403,7 +354,7 @@ void TextField::textControlEvent(const TextControlEvent& event)
 		case TextControlEvent::CURSOR_DOWN:
 		case TextControlEvent::CURSOR_PAGE_DOWN:
 		case TextControlEvent::CURSOR_TEXT_END:
-			setCursorPos(label.getLength());
+			setCursorPos(labelLength);
 			if(!event.selection)
 				anchorPos=cursorPos;
 			break;
@@ -414,7 +365,7 @@ void TextField::textControlEvent(const TextControlEvent& event)
 			if(cursorPos==anchorPos)
 				{
 				/* Select the character right of the cursor if deleting on empty selection: */
-				if(event.event==TextControlEvent::DELETE&&cursorPos<label.getLength())
+				if(event.event==TextControlEvent::DELETE&&cursorPos<labelLength)
 					++cursorPos;
 				
 				/* Select the character left of the cursor if backspacing on empty selection: */
@@ -465,22 +416,17 @@ void TextField::textControlEvent(const TextControlEvent& event)
 			break;
 		
 		case TextControlEvent::CONFIRM:
-			{
-			/* Call value changed callbacks whether or not the text field has been edited: */
-			ValueChangedCallbackData cbData(this,label.getString(),true);
-			valueChangedCallbacks.call(&cbData);
-			
-			/* Clear the edit flag: */
-			edited=false;
-			
-			/* Give up the text entry focus: */
-			getManager()->releaseFocus(this);
-			focus=false;
-			
-			/* Invalidate the visual representation: */
-			update();
+			/* Call value changed callbacks if the text field has been edited: */
+			if(edited)
+				{
+				/* Call the value changed callbacks: */
+				ValueChangedCallbackData cbData(this,label.getString());
+				valueChangedCallbacks.call(&cbData);
+				
+				/* Clear the flag: */
+				edited=false;
+				}
 			break;
-			}
 		
 		case TextControlEvent::EVENTTYPE_END:
 			/* Just to make compiler happy... */
@@ -488,7 +434,6 @@ void TextField::textControlEvent(const TextControlEvent& event)
 		}
 	
 	/* Invalidate the visual representation: */
-	label.invalidate();
 	update();
 	}
 
@@ -516,19 +461,23 @@ void TextField::resize(const Box& newExterior)
 	layoutChangedCallbacks.call(&cbData);
 	}
 
-void TextField::setString(const char* newLabelBegin,const char* newLabelEnd)
+void TextField::setString(const char* newLabel)
 	{
 	/* Update the label text: */
-	label.setString(newLabelBegin,newLabelEnd);
+	labelLength=strlen(newLabel);
+	label.setString(newLabel);
 	
 	/* Adjust the label position: */
 	positionLabel();
 	
 	/* Check the selection range of editable text fields: */
-	if(editable&&focus)
+	if(editable&&hasFocus)
 		{
-		setCursorPos(label.getLength());
-		anchorPos=0;
+		setCursorPos(cursorPos);
+		if(anchorPos<0)
+			anchorPos=0;
+		if(anchorPos>labelLength)
+			anchorPos=labelLength;
 		}
 	
 	/* Invalidate the visual representation: */
@@ -576,7 +525,7 @@ void TextField::setEditable(bool newEditable)
 void TextField::setSelection(int newAnchorPos,int newCursorPos)
 	{
 	/* Bail out if the text field is not editable or doesn't have the focus: */
-	if(!editable) // ||!focus)
+	if(!editable||!hasFocus)
 		return;
 	
 	/* Set the selection range: */
@@ -584,11 +533,10 @@ void TextField::setSelection(int newAnchorPos,int newCursorPos)
 	anchorPos=newAnchorPos;
 	if(anchorPos<0)
 		anchorPos=0;
-	if(anchorPos>label.getLength())
-		anchorPos=label.getLength();
+	if(anchorPos>labelLength)
+		anchorPos=labelLength;
 	
 	/* Invalidate the visual representation: */
-	label.invalidate();
 	update();
 	}
 
@@ -600,31 +548,23 @@ void TextField::setValue(const ValueParam& value)
 template <>
 void TextField::setValue<int>(const int& value)
 	{
-	char valueString[81];
+	char valueString[80];
 	if(fieldWidth>=0)
-		{
-		char* vsPtr=Misc::print(value,valueString+80);
-		for(int width=(valueString+80)-vsPtr;width<fieldWidth&&width<80;++width)
-			*(--vsPtr)=' ';
-		setString(vsPtr);
-		}
+		snprintf(valueString,sizeof(valueString),"%*d",fieldWidth,value);
 	else
-		setString(Misc::print(value,valueString+11));
+		snprintf(valueString,sizeof(valueString),"%d",value);
+	setString(valueString);
 	}
 
 template <>
 void TextField::setValue<unsigned int>(const unsigned int& value)
 	{
-	char valueString[81];
+	char valueString[80];
 	if(fieldWidth>=0)
-		{
-		char* vsPtr=Misc::print(value,valueString+80);
-		for(int width=(valueString+80)-vsPtr;width<fieldWidth&&width<80;++width)
-			*(--vsPtr)=' ';
-		setString(vsPtr);
-		}
+		snprintf(valueString,sizeof(valueString),"%*u",fieldWidth,value);
 	else
-		setString(Misc::print(value,valueString+10));
+		snprintf(valueString,sizeof(valueString),"%u",value);
+	setString(valueString);
 	}
 
 template <>

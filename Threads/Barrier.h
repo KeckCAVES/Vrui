@@ -1,7 +1,7 @@
 /***********************************************************************
 Barrier - Class implementing synchronization points where a fixed number
 of threads have to come together before any can proceed.
-Copyright (c) 2006-2011 Oliver Kreylos
+Copyright (c) 2006 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -24,34 +24,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define THREADS_BARRIER_INCLUDED
 
 #include <pthread.h>
-#include <stdexcept>
 
 namespace Threads {
 
 class Barrier
 	{
-	/* Embedded classes: */
-	public:
-	class Error:public std::runtime_error // Base exception class for barrier-related errors
-		{
-		/* Constructors and destructors: */
-		public:
-		Error(const char* msg)
-			:std::runtime_error(msg)
-			{
-			}
-		};
-	
-	class BarrierBusy:public Error // Exception class thrown when trying to resize an active barrier
-		{
-		/* Constructors and destructors: */
-		public:
-		BarrierBusy(void)
-			:Error("Barrier::setNumSynchronizingThreads: Barrier is busy")
-			{
-			}
-		};
-	
 	/* Elements: */
 	private:
 	pthread_mutex_t mutex; // A mutex serializing access to the barrier structure
@@ -94,9 +71,10 @@ class Barrier
 		/* Check if the barrier is in the middle of a synchronization: */
 		if(numWaitingThreads!=0)
 			{
-			/* Unlock the mutex and throw an exception: */
-			pthread_mutex_unlock(&mutex);
-			throw BarrierBusy();
+			/* Wait until the current synchronization is complete: */
+			unsigned int currentFrame=frame;
+			while(currentFrame==frame)
+				pthread_cond_wait(&cond,&mutex);
 			}
 		
 		/* Set the number of synchronizing threads: */
@@ -105,10 +83,8 @@ class Barrier
 		/* Unlock the mutex: */
 		pthread_mutex_unlock(&mutex);
 		}
-	bool synchronize(void) // Enters the synchronization point; blocks the calling thread until synchronization is complete; returns true for exactly one of the callers upon wakeup
+	void synchronize(void) // Enters the synchronization point; blocks the calling thread until synchronization is complete
 		{
-		bool result=false;
-		
 		/* Lock the mutex: */
 		pthread_mutex_lock(&mutex);
 		
@@ -124,9 +100,6 @@ class Barrier
 			
 			/* Wake up all waiting threads: */
 			pthread_cond_broadcast(&cond);
-			
-			/* This is the one call returning true: */
-			result=true;
 			}
 		else
 			{
@@ -138,8 +111,6 @@ class Barrier
 		
 		/* Unlock the mutex: */
 		pthread_mutex_unlock(&mutex);
-		
-		return result;
 		}
 	};
 

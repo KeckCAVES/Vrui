@@ -1,29 +1,35 @@
 /***********************************************************************
 PolygonMesh - Class providing the infrastructure for algorithms working
-on meshes of convex polygons
-Copyright (c) 2001-2005 Oliver Kreylos
+on meshes of convex polygons.
+Copyright (c) 2001-2006 Oliver Kreylos
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
 #ifndef POLYGONMESH_INCLUDED
 #define POLYGONMESH_INCLUDED
 
-#include <vector>
+#include <assert.h>
 #include <Misc/PoolAllocator.h>
-#include <Misc/HashTable.h>
-#include <Geometry/Point.h>
-#include <Geometry/Vector.h>
-#include <GL/gl.h>
-#include <GL/GLColor.h>
 
+template <class PointType>
 class PolygonMesh
 	{
 	/* Embedded classes: */
 	public:
-	typedef float Scalar;
-	static const int dimension=3;
-	typedef Geometry::Point<Scalar,dimension> Point;
-	typedef Geometry::Vector<Scalar,dimension> Vector;
-	typedef GLColor<GLubyte,4> Color;
+	typedef PointType Point;
 	
 	/* Forward declarations: */
 	class Vertex;
@@ -40,17 +46,13 @@ class PolygonMesh
 	class FaceEdgeIterator;
 	class ConstFaceEdgeIterator;
 	
-	class Vertex:public Point // Basic data structure for representing mesh vertices
+	class Vertex:public PointType // Basic data structure for representing mesh vertices
 		{
 		friend class VertexIterator;
 		friend class ConstVertexIterator;
 		friend class PolygonMesh;
 		
 		/* Elements: */
-		public:
-		unsigned int version; // If this is equal to mesh's version number, vertex was updated
-		Color color; // Vertex color
-		Vector normal; // Vertex normal vector
 		private:
 		Edge* edge; // Pointer to one half-edge starting at the vertex
 		/* Pointers to form a double-linked list: */
@@ -58,17 +60,18 @@ class PolygonMesh
 		Vertex* succ;
 		
 		/* Constructors and destructors: */
-		Vertex(const Point& sPoint,const Color& sColor,Vertex* sSucc) // Constructs vertex from a point and a color
-			:Point(sPoint),color(sColor),
-			 edge(0),pred(0),succ(sSucc)
+		template <class InputPointType>
+		Vertex(const InputPointType& sPoint,Vertex* sSucc) // Constructs vertex from a point
+			:PointType(sPoint),edge(0),pred(0),succ(sSucc)
 			{
 			};
 		
 		/* Methods: */
 		public:
-		void setPoint(const Point& sPoint)
+		template <class InputPointType>
+		void setPoint(const InputPointType& sPoint)
 			{
-			Point::operator=(sPoint);
+			PointType::operator=(sPoint);
 			};
 		const Edge* getEdge(void) const
 			{
@@ -89,69 +92,6 @@ class PolygonMesh
 			};
 		bool isInterior(void) const; // Checks if the vertex is completely surrounded by faces
 		void checkVertex(void) const;
-		};
-	
-	class VertexCombiner // Class to calculate affine combinations of mesh vertices
-		{
-		/* Elements: */
-		private:
-		float pointSum[3]; // Non-normalized point components
-		float colorSum[4]; // Non-normalized color components
-		float weightSum; // Sum of affine weights used in combination
-		
-		/* Constructors and destructors: */
-		public:
-		VertexCombiner(void)
-			:weightSum(0.0f)
-			{
-			for(int i=0;i<3;++i)
-				pointSum[i]=0.0f;
-			for(int i=0;i<4;++i)
-				colorSum[i]=0.0f;
-			};
-		
-		/* Methods: */
-		Point getPoint(void) const // Returns the created point
-			{
-			Point result;
-			for(int i=0;i<3;++i)
-				result[i]=pointSum[i]/weightSum;
-			return result;
-			};
-		Color getColor(void) const // Returns the created color
-			{
-			Color result;
-			for(int i=0;i<4;++i)
-				result[i]=GLubyte(Math::floor(colorSum[i]/weightSum+0.5f));
-			return result;
-			};
-		VertexCombiner& reset(void) // Resets the combiner to "empty"
-			{
-			for(int i=0;i<3;++i)
-				pointSum[i]=0.0f;
-			for(int i=0;i<4;++i)
-				colorSum[i]=0.0f;
-			weightSum=0.0f;
-			return *this;
-			};
-		VertexCombiner& addVertex(const Vertex* vPtr) // Adds vertex with affine weight 1
-			{
-			for(int i=0;i<3;++i)
-				pointSum[i]+=(*vPtr)[i];
-			for(int i=0;i<4;++i)
-				colorSum[i]+=float(vPtr->color[i]);
-			weightSum+=1.0f;
-			return *this;
-			};
-		VertexCombiner& addVertex(const Vertex* vPtr,float weight) // Adds vertex with given affine weight
-			{
-			for(int i=0;i<3;++i)
-				pointSum[i]+=(*vPtr)[i]*weight;
-			for(int i=0;i<4;++i)
-				colorSum[i]+=float(vPtr->color[i])*weight;
-			weightSum+=weight;
-			return *this;
-			};
 		};
 	
 	class Edge // Basic data structure for representing vertices, edges and polygons and their adjacency
@@ -225,22 +165,6 @@ class PolygonMesh
 			{
 			return facePred->opposite;
 			};
-		const Edge* getEndVertexPred(void) const // Returns next half-edge around edge end vertex in clockwise order, 0 if doesn't exist
-			{
-			return faceSucc->opposite;
-			};
-		Edge* getEndVertexPred(void) // Ditto
-			{
-			return faceSucc->opposite;
-			};
-		const Edge* getEndVertexSucc(void) const // Returns next half-edge around edge end vertex in counter-clockwise order, 0 if doesn't exist
-			{
-			return opposite!=0?opposite->facePred:0;
-			};
-		Edge* getEndVertexSucc(void) // Ditto
-			{
-			return opposite!=0?opposite->facePred:0;
-			};
 		const Edge* getOpposite(void) const
 			{
 			return opposite;
@@ -285,56 +209,41 @@ class PolygonMesh
 		
 		/* Elements: */
 		private:
-		const Vertex* vertices[2]; // Pointers to the two vertices (ordered by size_t order)
+		const void* vertices[2]; // Pointers to the two vertices
 		
 		/* Constructors and destructors: */
 		public:
 		VertexPair(void)
 			{
 			};
-		VertexPair(const Vertex* sVertex1,const Vertex* sVertex2)
+		VertexPair(const void* sVertex1,const void* sVertex2)
 			{
-			if(reinterpret_cast<size_t>(sVertex1)<reinterpret_cast<size_t>(sVertex2))
-				{
-				vertices[0]=sVertex1;
-				vertices[1]=sVertex2;
-				}
-			else
-				{
-				vertices[0]=sVertex2;
-				vertices[1]=sVertex1;
-				}
+			vertices[0]=sVertex1;
+			vertices[1]=sVertex2;
 			};
 		VertexPair(const Edge& edge)
 			{
-			const Vertex* v1=edge.getStart();
-			const Vertex* v2=edge.getEnd();
-			if(reinterpret_cast<size_t>(v1)<reinterpret_cast<size_t>(v2))
-				{
-				vertices[0]=v1;
-				vertices[1]=v2;
-				}
-			else
-				{
-				vertices[0]=v2;
-				vertices[1]=v1;
-				}
+			vertices[0]=edge.getStart();
+			vertices[1]=edge.getEnd();
 			};
 		
 		/* Methods: */
 		friend bool operator==(const VertexPair& p1,const VertexPair& p2)
 			{
-			return p1.vertices[0]==p2.vertices[0]&&p1.vertices[1]==p2.vertices[1];
+			return (p1.vertices[0]==p2.vertices[0]&&p1.vertices[1]==p2.vertices[1])||(p1.vertices[0]==p2.vertices[1]&&p1.vertices[1]==p2.vertices[0]);
 			};
 		friend bool operator!=(const VertexPair& p1,const VertexPair& p2)
 			{
-			return p1.vertices[0]!=p2.vertices[0]||p1.vertices[1]!=p2.vertices[1];
+			return (p1.vertices[0]!=p2.vertices[0]||p1.vertices[1]!=p2.vertices[1])&&(p1.vertices[0]!=p2.vertices[1]||p1.vertices[1]!=p2.vertices[0]);
 			};
 		static size_t hash(const VertexPair& p,size_t tableSize)
 			{
 			size_t val1=reinterpret_cast<size_t>(p.vertices[0]);
 			size_t val2=reinterpret_cast<size_t>(p.vertices[1]);
-			return (val1*17+val2*31)%tableSize;
+			if(val1>val2)
+				return (val2*17+val1*31)%tableSize;
+			else
+				return (val1*17+val2*31)%tableSize;
 			};
 		};
 	
@@ -418,7 +327,7 @@ class PolygonMesh
 			};
 		bool isUpperHalf(void) const // Checks if an edge iterator is the "dominant" part of a pair of half edges
 			{
-			return reinterpret_cast<size_t>(edge)>reinterpret_cast<size_t>(edge->getOpposite());
+			return edge>edge->getOpposite();
 			};
 		VertexPair getVertexPair(void) const
 			{
@@ -457,10 +366,6 @@ class PolygonMesh
 			:loopStart(sEdge),edge(sEdge)
 			{
 			};
-		ConstEdgeIterator(const EdgeIterator& eIt)
-			:loopStart(eIt.loopStart),edge(eIt.edge)
-			{
-			};
 		
 		/* Methods: */
 		friend bool operator==(const ConstEdgeIterator& it1,const ConstEdgeIterator& it2)
@@ -481,7 +386,7 @@ class PolygonMesh
 			};
 		bool isUpperHalf(void) const // Checks if an edge iterator is the "dominant" part of a pair of half edges
 			{
-			return reinterpret_cast<size_t>(edge)>reinterpret_cast<size_t>(edge->getOpposite());
+			return edge>edge->getOpposite();
 			};
 		VertexPair getVertexPair(void) const
 			{
@@ -550,7 +455,7 @@ class PolygonMesh
 			{
 			return VertexEdgeIterator();
 			};
-		Point& getPoint(void) const
+		PointType& getPoint(void) const
 			{
 			return *vertex;
 			};
@@ -619,7 +524,7 @@ class PolygonMesh
 			{
 			return ConstVertexEdgeIterator();
 			};
-		const Point& getPoint(void) const
+		const PointType& getPoint(void) const
 			{
 			return *vertex;
 			};
@@ -885,21 +790,6 @@ class PolygonMesh
 			};
 		};
 	
-	typedef Misc::HashTable<VertexPair,Edge*,VertexPair> EdgeHasher;
-	
-	class CollapsedEdge // Class representing a collapsed edge, with enough information to undo the collapse
-		{
-		friend class PolygonMesh;
-		
-		/* Elements: */
-		private:
-		Edge* edges[2]; // Two half edges starting at the collapsed edge vertex that need to be pried apart when undoing
-		Vector offsets[2]; // Offset vectors to add to the collapsed edge vertex to reconstruct the original vertices
-		
-		/* Constructors and destructors: */
-		CollapsedEdge(...);
-		};
-	
 	/* Elements: */
 	protected:
 	/* Allocators for vertices, edges and faces: */
@@ -907,17 +797,14 @@ class PolygonMesh
 	Misc::PoolAllocator<Edge> edgeAllocator;
 	Misc::PoolAllocator<Face> faceAllocator;
 	
-	unsigned int version; // Version number of the entire mesh
-	int numVertices; // Number of vertices in the mesh
 	Vertex* vertices; // Pointer to head of vertex list
 	Vertex* lastVertex; // Pointer to tail of vertex list
-	int numEdges; // Number of edges in the mesh
-	int numFaces; // Number of faces in the mesh
 	Face* faces; // Pointer to head of face list
 	Face* lastFace; // Pointer to tail of face list
 	
 	/* Protected methods: */
-	Vertex* newVertex(const Point& p,const Color& c); // Creates a new vertex
+	template <class InputPointType>
+	Vertex* newVertex(const InputPointType& p); // Creates a new vertex
 	void deleteVertex(Vertex* vertex); // Deletes a vertex
 	Edge* newEdge(void); // Creates a new edge
 	void deleteEdge(Edge* edge); // Deletes an edge
@@ -927,29 +814,16 @@ class PolygonMesh
 	/* Constructors and destructors: */
 	public:
 	PolygonMesh(void) // Creates empty mesh
-		:version(0),
-		 numVertices(0),vertices(0),lastVertex(0),
-		 numEdges(0),
-		 numFaces(0),faces(0),lastFace(0)
+		:vertices(0),lastVertex(0),faces(0),lastFace(0)
 		{
 		};
+	template <class InputPointType>
+	PolygonMesh(int numPoints,const InputPointType* points,const int* vertexIndices,int numSharpEdges,const int* sharpEdgeIndices); // Creates polygon mesh from face list
 	PolygonMesh(const PolygonMesh& source); // Copies a polygon mesh
 	~PolygonMesh(void);
 	
 	/* Methods: */
-	VertexIterator addVertex(const Point& pos,const Color& color)
-		{
-		return VertexIterator(newVertex(pos,color));
-		};
-	EdgeHasher* startAddingFaces(void);
-	FaceIterator addFace(int numVertices,const VertexIterator vertices[],EdgeHasher* edgeHasher);
-	FaceIterator addFace(const std::vector<VertexIterator>& vertices,EdgeHasher* edgeHasher);
-	void setEdgeSharpness(VertexIterator v1,VertexIterator v2,int sharpness,EdgeHasher* edgeHasher);
-	void finishAddingFaces(EdgeHasher* edgeHasher);
-	int getNumVertices(void) const
-		{
-		return numVertices;
-		};
+	int getNumVertices(void) const;
 	VertexIterator beginVertices(void)
 		{
 		return VertexIterator(vertices);
@@ -966,18 +840,17 @@ class PolygonMesh
 		{
 		return ConstVertexIterator(0);
 		};
-	Vertex* createVertex(const Point& p,const Color& c,Vertex* succ =0) // Creates a new vertex without adding it to the main vertex list
+	template <class InputPointType>
+	Vertex* createVertex(const InputPointType& p,Vertex* succ =0) // Creates a new vertex without adding it to the main vertex list
 		{
-		return new(vertexAllocator.allocate()) Vertex(p,c,succ);
+		return new(vertexAllocator.allocate()) Vertex(p,succ);
 		};
-	int getNumEdges(void) const
+	template <class InputPointType>
+	VertexIterator addVertex(const InputPointType& p) // Creates a new vertex and adds it to the main vertex list
 		{
-		return numEdges;
+		return VertexIterator(newVertex(p));
 		};
-	int getNumFaces(void) const
-		{
-		return numFaces;
-		};
+	int getNumFaces(void) const;
 	FaceIterator beginFaces(void)
 		{
 		return FaceIterator(faces);
@@ -994,22 +867,13 @@ class PolygonMesh
 		{
 		return ConstFaceIterator(0);
 		};
-	void updateVertexNormals(void); // Recalculates the normal vectors of all updated vertices
-	void validateVertices(void) // Marks all vertices as up-to-date
-		{
-		++version;
-		};
-	void invalidateVertex(const VertexIterator& vertexIt) // Invalidates a vertex
-		{
-		vertexIt->version=version;
-		};
-	void removeSingularVertex(const VertexIterator& vertexIt); // Removes a singular vertex (a vertex without edges)
-	void removeVertex(const VertexIterator& vertexIt); // Removes a vertex by turning its platelet into a hole
+	FaceIterator removeVertex(const VertexIterator& vertexIt); // Removes a vertex by removing all incident edges
 	FaceIterator vertexToFace(const VertexIterator& vertexIt); // Converts a vertex into a face by splitting triangles off all adjacent faces
 	VertexIterator splitEdge(const EdgeIterator& edgeIt,Vertex* edgePoint); // Splits an existing edge using an existing unlinked vertex
-	VertexIterator splitEdge(const EdgeIterator& edgeIt,const Point& p,const Color& c) // Splits an existing edge by creating a new vertex
+	template <class InputPointType>
+	VertexIterator splitEdge(const EdgeIterator& edgeIt,const InputPointType& p) // Splits an existing edge by creating a new vertex
 		{
-		return splitEdge(edgeIt,createVertex(p,c));
+		return splitEdge(edgeIt,createVertex(p));
 		};
 	void rotateEdge(const EdgeIterator& edgeIt); // Rotates an edge in counter-clockwise direction
 	FaceIterator removeEdge(const EdgeIterator& edgeIt); // Joins two faces by removing an edge
@@ -1023,7 +887,6 @@ class PolygonMesh
 		if(edgeIt->getOpposite()!=0)
 			edgeIt->getOpposite()->sharpness=newSharpness;
 		};
-	void removeFace(const FaceIterator& faceIt); // Removes a face by replacing it with a hole
 	void triangulateFace(const FaceIterator& faceIt); // Splits a face into triangles by inserting new edges
 	EdgeIterator splitFace(const VertexIterator& vIt1,const VertexIterator& vIt2); // Splits a face by connecting two points by a new edge
 	VertexIterator splitFace(const FaceIterator& faceIt,Vertex* facePoint); // Splits an existing face into a triangle fan around the existing unlinked vertex
@@ -1041,5 +904,9 @@ class PolygonMesh
 	FaceIterator splitFaceDooSabin(const FaceIterator& faceIt); // Insets a face as in Doo-Sabin subdivision
 	void checkMesh(void) const; // Checks the mesh for sanity
 	};
+
+#ifndef POLYGONMESH_IMPLEMENTATION
+#include "PolygonMesh.cpp"
+#endif
 
 #endif

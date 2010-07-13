@@ -1,7 +1,7 @@
 /***********************************************************************
-TCPPipe - Class for high-performance reading/writing from/to connected
-TCP sockets.
-Copyright (c) 2010-2011 Oliver Kreylos
+TCPPipe - Class layering an endianness-safe pipe abstraction with
+buffered typed read/writes over a TCPSocket.
+Copyright (c) 2007-2009 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -24,52 +24,214 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_TCPPIPE_INCLUDED
 #define COMM_TCPPIPE_INCLUDED
 
-#include <Comm/NetPipe.h>
-
-/* Forward declarations: */
-namespace Comm {
-class ListeningTCPSocket;
-}
+#include <string.h>
+#include <string>
+#include <Misc/Endianness.h>
+#include <Comm/TCPSocket.h>
 
 namespace Comm {
 
-class TCPPipe:public NetPipe
+class TCPPipe:public TCPSocket
 	{
+	/* Embedded classes: */
+	public:
+	enum Endianness // Enumerated type to enforce pipe endianness
+		{
+		DontCare,LittleEndian,BigEndian,Automatic
+		};
+	
 	/* Elements: */
 	private:
-	int fd; // File descriptor of the underlying TCP socket
+	bool readMustSwapEndianness; // Flag if incoming data has to be endianness-swapped
+	bool writeMustSwapEndianness; // Flag if outgoing data has to be endianness-swapped
+	size_t bufferSize; // Size of read and write buffers in bytes
+	char* readBuffer; // Buffer to store incoming data between read<> calls
+	char* rbPos; // Current position in read buffer
+	size_t readSize; // Number of bytes left in read buffer
+	char* writeBuffer; // Buffer to store outgoing data between write<> calls
+	char* wbPos; // Current position in write buffer
+	size_t writeSize; // Number of bytes left in write buffer
 	
-	/* Protected methods from IO::File: */
-	protected:
-	virtual size_t readData(Byte* buffer,size_t bufferSize);
-	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	/* Private methods: */
+	void directRead(void* data,size_t dataSize)
+		{
+		memcpy(data,rbPos,dataSize);
+		rbPos+=dataSize;
+		readSize-=dataSize;
+		}
+	void directWrite(const void* data,size_t dataSize)
+		{
+		memcpy(wbPos,data,dataSize);
+		wbPos+=dataSize;
+		writeSize-=dataSize;
+		}
+	void bufferedRead(void* data,size_t dataSize);
+	void bufferedWrite(const void* data,size_t dataSize);
+	void initializePipe(Endianness sEndianness);
 	
 	/* Constructors and destructors: */
 	public:
-	TCPPipe(const char* hostName,int portId); // Opens a TCP socket connected to the given port on the given host with "DontCare" endianness setting
-	TCPPipe(ListeningTCPSocket& listenSocket); // Opens a TCP socket connected to a waiting incoming socket on the given listening socket with "DontCare" endianness setting
+	TCPPipe(std::string hostname,int portId,Endianness sEndianness =Automatic); // Creates a pipe connected to a remote host
+	TCPPipe(const TCPSocket& socket,Endianness sEndianness =Automatic); // Creates a pipe layered over an existing (receiving) TCP socket
 	private:
 	TCPPipe(const TCPPipe& source); // Prohibit copy constructor
 	TCPPipe& operator=(const TCPPipe& source); // Prohibit assignment operator
 	public:
-	virtual ~TCPPipe(void);
+	~TCPPipe(void); // Destroys pipe
 	
-	/* Methods from IO::File: */
-	virtual int getFd(void) const;
+	/* Override methods to adapt behavior of base TCPSocket: */
+	void setNoDelay(bool enable) // Dummy override function to prohibit disabling TCP_NODELAY, which interferes with new stream handling algorithm
+		{
+		/* Do nothing! */
+		}
+	void setCork(bool enable) // Dummy override function to prohibit enabling TCP_CORK, which interferes with new stream handling algorithm
+		{
+		/* Do nothing! */
+		}
+	bool waitForData(long timeoutSeconds,long timeoutMicroseconds,bool throwException =true) const // Overrides TCPSocket's waitForData method
+		{
+		/* Check the read buffer before checking the TCP socket: */
+		if(readSize==0)
+			return TCPSocket::waitForData(timeoutSeconds,timeoutMicroseconds,throwException);
+		else
+			return true;
+		}
+	bool waitForData(const Misc::Time& timeout,bool throwException =true) const // Overrides TCPSocket's waitForData method
+		{
+		/* Check the read buffer before checking the TCP socket: */
+		if(readSize==0)
+			return TCPSocket::waitForData(timeout,throwException);
+		else
+			return true;
+		}
+	size_t readRaw(void* buffer,size_t count) // Replacement for TCPSocket's raw read method
+		{
+		if(readSize==0)
+			{
+			/* Read available data from the TCP socket: */
+			readSize=TCPSocket::read(readBuffer,bufferSize);
+			
+			/* Reset the read buffer: */
+			rbPos=readBuffer;
+			}
+		
+		/* Return data from the buffer: */
+		if(count>readSize)
+			count=readSize;
+		memcpy(buffer,rbPos,count);
+		rbPos+=count;
+		readSize-=count;
+		
+		return count;
+		}
+	void flush(void) // Sends any data left in the write buffer
+		{
+		if(writeSize<bufferSize)
+			{
+			/* Send leftover data: */
+			blockingWrite(writeBuffer,bufferSize-writeSize);
+			
+			/* Reset the write buffer: */
+			wbPos=writeBuffer;
+			writeSize=bufferSize;
+			}
+		}
 	
-	/* Methods from Pipe: */
-	virtual bool waitForData(void) const;
-	virtual bool waitForData(const Misc::Time& timeout) const;
-	virtual void shutdown(bool read,bool write);
+	/* New methods: */
+	size_t getBufferSize(void) const // Returns the size of the read and write buffers
+		{
+		return bufferSize;
+		}
 	
-	/* Methods from NetPipe: */
-	virtual int getPortId(void) const;
-	virtual std::string getAddress(void) const;
-	virtual std::string getHostName(void) const;
-	virtual int getPeerPortId(void) const;
-	virtual std::string getPeerAddress(void) const;
-	virtual std::string getPeerHostName(void) const;
+	/* Typed read/write methods: */
+	template <class DataParam>
+	DataParam read(void) // Reads single value
+		{
+		DataParam result;
+		if(sizeof(DataParam)<readSize)
+			directRead(&result,sizeof(DataParam));
+		else
+			bufferedRead(&result,sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(result);
+		return result;
+		}
+	template <class DataParam>
+	DataParam& read(DataParam& data) // Reads single value through reference
+		{
+		if(sizeof(DataParam)<readSize)
+			directRead(&data,sizeof(DataParam));
+		else
+			bufferedRead(&data,sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(data);
+		return data;
+		}
+	template <class DataParam>
+	void read(DataParam* data,size_t numItems) // Reads array of values
+		{
+		if(numItems*sizeof(DataParam)<readSize)
+			directRead(data,numItems*sizeof(DataParam));
+		else
+			bufferedRead(data,numItems*sizeof(DataParam));
+		if(readMustSwapEndianness)
+			Misc::swapEndianness(data,numItems);
+		}
+	template <class DataParam>
+	void write(const DataParam& data) // Writes single value
+		{
+		if(writeMustSwapEndianness)
+			{
+			DataParam temp=data;
+			Misc::swapEndianness(temp);
+			if(sizeof(DataParam)<writeSize)
+				directWrite(&temp,sizeof(DataParam));
+			else
+				bufferedWrite(&temp,sizeof(DataParam));
+			}
+		else
+			{
+			if(sizeof(DataParam)<writeSize)
+				directWrite(&data,sizeof(DataParam));
+			else
+				bufferedWrite(&data,sizeof(DataParam));
+			}
+		}
+	template <class DataParam>
+	void write(const DataParam* data,size_t numItems) // Writes array of values
+		{
+		if(writeMustSwapEndianness)
+			{
+			for(size_t i=0;i<numItems;++i)
+				{
+				DataParam temp=data[i];
+				Misc::swapEndianness(temp);
+				if(sizeof(DataParam)<writeSize)
+					directWrite(&temp,sizeof(DataParam));
+				else
+					bufferedWrite(&temp,sizeof(DataParam));
+				}
+			}
+		else
+			{
+			if(numItems*sizeof(DataParam)<writeSize)
+				directWrite(data,numItems*sizeof(DataParam));
+			else
+				bufferedWrite(data,numItems*sizeof(DataParam));
+			}
+		}
 	};
+
+/***********************************
+Specializations of template methods:
+***********************************/
+
+template <>
+std::string TCPPipe::read<std::string>(void);
+template <>
+std::string& TCPPipe::read<std::string>(std::string&);
+template <>
+void TCPPipe::write<std::string>(const std::string&);
 
 }
 

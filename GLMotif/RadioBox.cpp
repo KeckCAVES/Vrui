@@ -150,7 +150,7 @@ void RadioBox::setSelectedToggle(int newSelectedToggleIndex)
 	WidgetList::iterator chIt;
 	for(chIt=children.begin();chIt!=children.end()&&newSelectedToggleIndex>0;++chIt,--newSelectedToggleIndex)
 		;
-	ToggleButton* newSelectedToggle=chIt!=children.end()?static_cast<ToggleButton*>(*chIt):0;
+	ToggleButton* newSelectedToggle=static_cast<ToggleButton*>(*chIt);
 	
 	if(newSelectedToggle!=0||selectionMode==ATMOST_ONE)
 		{

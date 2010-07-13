@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3FileManager - Class to read files from sets of pk3/pk4 files and
 patch directories.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,37 +25,23 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <vector>
-#include <stdexcept>
-#include <Misc/ThrowStdErr.h>
-#include <IO/File.h>
-#include <IO/SeekableFile.h>
-#include <IO/Directory.h>
-#include <IO/ZipArchive.h>
 #include <SceneGraph/Internal/Doom3NameTree.h>
-
-/* Forward declarations: */
-namespace SceneGraph {
-class Doom3FileManagerDirectory;
-}
+#include <SceneGraph/Internal/Doom3PakFile.h>
 
 namespace SceneGraph {
 
 class Doom3FileManager
 	{
-	friend class Doom3FileManagerDirectory;
-	
 	/* Embedded classes: */
 	private:
-	typedef IO::ZipArchive PakFile; // Doom 3 pak files are just ZIP archives in disguise
-	
 	struct PakFileHandle // Structure containing data necessary to read a file from a pak archive
 		{
 		/* Elements: */
-		PakFile* pakFile; // The pak archive containing the file
-		PakFile::FileID fileID; // Handle to access the file inside the pak archive
+		Doom3PakFile* pakFile; // Pointer to the pak archive containing the file
+		Doom3PakFile::FileID fileID; // Handle to access the file inside the pak archive
 		
 		/* Constructors and destructors: */
-		PakFileHandle(PakFile* sPakFile,const PakFile::FileID& sFileID)
+		PakFileHandle(Doom3PakFile* sPakFile,const Doom3PakFile::FileID& sFileID)
 			:pakFile(sPakFile),fileID(sFileID)
 			{
 			};
@@ -142,31 +128,19 @@ class Doom3FileManager
 			};
 		};
 	
-	public:
-	class ReadError:public std::runtime_error // Exception class to report file reading errors
-		{
-		/* Constructors and destructors: */
-		public:
-		ReadError(const char* fileName)
-			:std::runtime_error(Misc::printStdErrMsg("Doom3FileManager::readFile: File %s not found",fileName))
-			{
-			}
-		};
-	
 	/* Elements: */
-	private:
-	std::vector<PakFile*> pakFiles; // The list of pk3/pk4 files
+	std::vector<Doom3PakFile*> pakFiles; // The list of pk3/pk4 files
 	PakFileTree pakFileTree; // The tree containing the pak archive's files
 	
 	/* Constructors and destructors: */
 	public:
 	Doom3FileManager(void); // Creates an empty file manager
-	Doom3FileManager(IO::DirectoryPtr baseDirectory,const char* pakFilePrefix); // Creates a file manager by loading all pk3/pk4 files that match the given prefix in the given directory
+	Doom3FileManager(const char* baseDirectory,const char* pakFilePrefix); // Creates a file manager by loading all pk3/pk4 files that match the given prefix in the given directory
 	~Doom3FileManager(void); // Destroys the file manager
 	
 	/* Methods: */
-	void addPakFile(IO::FilePtr pakFile); // Adds a pk3/pk4 file to the file manager
-	void addPakFiles(IO::DirectoryPtr baseDirectory,const char* pakFilePrefix); // Adds all pk3/pk4 files that match the given prefix from the given base directory
+	void addPakFile(const char* pakFileName); // Adds a pk3/pk4 file to the file manager
+	void addPakFiles(const char* baseDirectory,const char* pakFilePrefix); // Adds all pk3/pk4 files that match the given prefix from the given base directory
 	template <class ClientFunctorParam>
 	void searchFileTree(ClientFunctorParam& cf) const // Searches the entire file tree and calls the client functor for each file
 		{
@@ -187,9 +161,7 @@ class Doom3FileManager
 		DirectorySearcher<ClientFunctorParam,NameFilterParam> ds(cf,nf);
 		pakFileTree.traverseTree(ds);
 		}
-	IO::FilePtr getFile(const char* fileName); // Returns a file as a streaming reader; throws ReadError if file not found
-	IO::SeekableFilePtr getSeekableFile(const char* fileName); // Returns a file as a seekable reader; throws ReadError if file not found
-	IO::DirectoryPtr getDirectory(const char* directoryName); // Returns a directory object to traverse the file manager's directory tree
+	unsigned char* readFile(const char* fileName,size_t& fileSize); // Reads a file
 	};
 
 }

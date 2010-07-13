@@ -1,7 +1,7 @@
 /***********************************************************************
 PCTracker - Class for communicating with tracking devices on a dedicated
 DOS PC.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 

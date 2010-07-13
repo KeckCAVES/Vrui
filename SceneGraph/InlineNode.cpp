@@ -1,7 +1,7 @@
 /***********************************************************************
 InlineNode - Class for group nodes that read their children from an
 external VRML file.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/InlineNode.h>
 
 #include <string.h>
-#include <Cluster/OpenFile.h>
+#include <Misc/FileCharacterSource.h>
 #include <SceneGraph/VRMLFile.h>
 
 namespace SceneGraph {
@@ -54,7 +54,8 @@ void InlineNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		
 		/* Load the external VRML file: */
 		std::string externalFileName=vrmlFile.getFullUrl(url.getValue(0));
-		SceneGraph::VRMLFile externalVrmlFile(externalFileName,Cluster::openFile(vrmlFile.getMultiplexer(),externalFileName.c_str()),vrmlFile.getNodeCreator(),vrmlFile.getMultiplexer());
+		Misc::FileCharacterSource externalFile(externalFileName.c_str());
+		SceneGraph::VRMLFile externalVrmlFile(externalFileName,externalFile,vrmlFile.getNodeCreator());
 		externalVrmlFile.parse(this);
 		}
 	else

@@ -2,7 +2,7 @@
 SixDofWithScaleNavigationTool - Class for simple 6-DOF dragging using a
 single input device, with an additional input device used as a slider
 for zooming.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
-#include <Vrui/DeviceForwarder.h>
 #include <Vrui/NavigationTool.h>
 
 namespace Vrui {
@@ -67,7 +66,6 @@ class SixDofWithScaleNavigationToolFactory:public ToolFactory,public GLObject
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	
@@ -75,7 +73,7 @@ class SixDofWithScaleNavigationToolFactory:public ToolFactory,public GLObject
 	virtual void initContext(GLContextData& contextData) const;
 	};
 
-class SixDofWithScaleNavigationTool:public NavigationTool,public DeviceForwarder
+class SixDofWithScaleNavigationTool:public NavigationTool
 	{
 	friend class SixDofWithScaleNavigationToolFactory;
 	
@@ -87,7 +85,6 @@ class SixDofWithScaleNavigationTool:public NavigationTool,public DeviceForwarder
 	/* Elements: */
 	private:
 	static SixDofWithScaleNavigationToolFactory* factory; // Pointer to the factory object for this class
-	InputDevice* buttonDevice; // Pointer to the input device representing the forwarded second button
 	
 	/* Transient navigation state: */
 	NavigationMode navigationMode; // The tool's current navigation mode
@@ -101,18 +98,10 @@ class SixDofWithScaleNavigationTool:public NavigationTool,public DeviceForwarder
 	SixDofWithScaleNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
 	/* Methods from Tool: */
-	virtual void initialize(void);
-	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	
-	/* Methods from DeviceForwarder: */
-	virtual std::vector<InputDevice*> getForwardedDevices(void);
-	virtual InputDeviceFeatureSet getSourceFeatures(const InputDeviceFeature& forwardedFeature);
-	virtual InputDevice* getSourceDevice(const InputDevice* forwardedDevice);
-	virtual InputDeviceFeatureSet getForwardedFeatures(const InputDeviceFeature& sourceFeature);
 	};
 
 }

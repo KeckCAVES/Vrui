@@ -1,7 +1,7 @@
 /***********************************************************************
 AlarmTimer - Class to implement one-off alarm timers using the real-time
 signal mechanism.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2006 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the Realtime Processing Library (Realtime).
@@ -25,17 +25,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef REALTIME_ALARMTIMER_INCLUDED
 #define REALTIME_ALARMTIMER_INCLUDED
 
-#include <Realtime/Config.h>
-
 #include <time.h>
-#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
-#include <signal.h>
-#else
+#ifndef REALTIME_HAVE_POSIX_TIMERS
 #include <Misc/Time.h>
 #endif
 
 /* Forward declarations: */
-#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
+#ifdef REALTIME_HAVE_POSIX_TIMERS
+struct siginfo;
 namespace Misc {
 class Time;
 }
@@ -47,20 +44,20 @@ class AlarmTimer
 	{
 	/* Elements: */
 	private:
-	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
+	#ifdef REALTIME_HAVE_POSIX_TIMERS
 	static unsigned int numAlarmTimers; // Counts number of currently existing timer objects, to handle initialization
 	timer_t timerId; // ID of per-process timer used by this object
 	#endif
 	volatile bool armed; // Flag if the timer is currently armed
-	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
+	#ifdef REALTIME_HAVE_POSIX_TIMERS
 	volatile bool expired; // Flag if an armed timer has expired
 	#else
 	Misc::Time expireTime; // Time at which the timer expires
 	#endif
 	
 	/* Private methods: */
-	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
-	static void signalHandler(int signal,siginfo_t* sigInfo,void* context); // Handler function for the timer signal
+	#ifdef REALTIME_HAVE_POSIX_TIMERS
+	static void signalHandler(int signal,siginfo* sigInfo,void* context); // Handler function for the timer signal
 	#endif
 	
 	/* Constructors and destructors: */
@@ -75,7 +72,7 @@ class AlarmTimer
 		}
 	bool isExpired(void) const // Returns true if an armed timer has expired
 		{
-		#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
+		#ifdef REALTIME_HAVE_POSIX_TIMERS
 		return expired;
 		#else
 		return Misc::Time::now()>=expireTime;

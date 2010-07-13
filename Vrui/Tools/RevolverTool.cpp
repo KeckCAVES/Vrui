@@ -2,7 +2,7 @@
 RevolverTool - Class to control multiple buttons (and tools) from a
 single button using a revolver metaphor. Generalized from the rotator
 tool initially developed by Braden Pellett and Jordan van Aalsburg.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,21 +22,21 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/RevolverTool.h>
-
+#include <stdio.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <GL/gl.h>
-#include <GL/GLMatrixTemplates.h>
+#include <GL/GLContextData.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/InputDeviceManager.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/RevolverTool.h>
 
 namespace Vrui {
 
@@ -46,7 +46,7 @@ Methods of class RevolverToolFactory:
 
 RevolverToolFactory::RevolverToolFactory(ToolManager& toolManager)
 	:ToolFactory("RevolverTool",toolManager),
-	 numChambers(6)
+	 numButtons(6)
 	{
 	/* Insert class into class hierarchy: */
 	TransformToolFactory* transformToolFactory=dynamic_cast<TransformToolFactory*>(toolManager.loadClass("TransformTool"));
@@ -55,11 +55,12 @@ RevolverToolFactory::RevolverToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	numChambers=cfs.retrieveValue<int>("./numChambers",numChambers);
+	numButtons=cfs.retrieveValue<int>("./numButtons",numButtons);
 	
 	/* Initialize tool layout: */
-	layout.setNumButtons(1,true);
-	layout.setNumValuators(0,true);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,2);
+	layout.setNumValuators(0,0);
 	
 	/* Set tool class' factory pointer: */
 	RevolverTool::factory=this;
@@ -74,14 +75,6 @@ RevolverToolFactory::~RevolverToolFactory(void)
 const char* RevolverToolFactory::getName(void) const
 	{
 	return "Revolver Multi-Button";
-	}
-
-const char* RevolverToolFactory::getButtonFunction(int buttonSlotIndex) const
-	{
-	if(buttonSlotIndex==0)
-		return "Cycle Chamber";
-	else
-		return ToolFactory::getButtonFunction(buttonSlotIndex-1);
 	}
 
 Tool* RevolverToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -117,6 +110,175 @@ extern "C" void destroyRevolverToolFactory(ToolFactory* factory)
 	delete factory;
 	}
 
+/***************************************
+Methods of class RevolverTool::DataItem:
+***************************************/
+
+RevolverTool::DataItem::DataItem(GLfloat sDigitHeight)
+	:digitHeight(sDigitHeight),
+	 spacing(digitHeight*0.25f),
+	 digitListBase(glGenLists(11))
+	{
+	/* Create the digit drawing display lists: */
+	GLfloat s=digitHeight*0.5f;
+	
+	glNewList(digitListBase+0,GL_COMPILE);
+	glBegin(GL_LINE_LOOP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glEnd();
+	digitWidths[0]=s;
+	glEndList();
+	
+	glNewList(digitListBase+1,GL_COMPILE);
+	glBegin(GL_LINES);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glEnd();
+	digitWidths[1]=0.0f;
+	glEndList();
+	
+	glNewList(digitListBase+2,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glEnd();
+	digitWidths[2]=s;
+	glEndList();
+	
+	glNewList(digitListBase+3,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glEnd();
+	digitWidths[3]=s;
+	glEndList();
+	
+	glNewList(digitListBase+4,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glEnd();
+	digitWidths[4]=s;
+	glEndList();
+	
+	glNewList(digitListBase+5,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glEnd();
+	digitWidths[5]=s;
+	glEndList();
+	
+	glNewList(digitListBase+6,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glEnd();
+	digitWidths[6]=s;
+	glEndList();
+	
+	glNewList(digitListBase+7,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glEnd();
+	digitWidths[7]=s;
+	glEndList();
+	
+	glNewList(digitListBase+8,GL_COMPILE);
+	glBegin(GL_LINE_LOOP);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(0.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glEnd();
+	digitWidths[8]=s;
+	glEndList();
+	
+	glNewList(digitListBase+9,GL_COMPILE);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(0.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,2.0f*s);
+	glVertex3f(1.0f*s,0.0f,0.0f*s);
+	glEnd();
+	digitWidths[9]=s;
+	glEndList();
+	
+	glNewList(digitListBase+10,GL_COMPILE);
+	glBegin(GL_LINES);
+	glVertex3f(0.0f*s,0.0f,1.0f*s);
+	glVertex3f(1.0f*s,0.0f,1.0f*s);
+	glEnd();
+	digitWidths[10]=s;
+	glEndList();
+	}
+
+RevolverTool::DataItem::~DataItem(void)
+	{
+	glDeleteLists(digitListBase,11);
+	}
+
+void RevolverTool::DataItem::writeNumber(const Point& position,int number)
+	{
+	/* Convert the number to a string: */
+	char buffer[20];
+	snprintf(buffer,sizeof(buffer),"%d",number);
+	
+	/* Calculate the number's width: */
+	GLfloat width=-spacing;
+	for(const char* bPtr=buffer;*bPtr!='\0';++bPtr)
+		{
+		int index=*bPtr=='-'?10:int(*bPtr)-int('0');
+		width+=digitWidths[index];
+		width+=spacing;
+		}
+	
+	/* Write the number: */
+	glPushMatrix();
+	glTranslated(position[0]-width*0.5f,position[1],position[2]-digitHeight*0.5f);
+	
+	for(const char* bPtr=buffer;*bPtr!='\0';++bPtr)
+		{
+		GLuint index=*bPtr=='-'?GLuint(10):GLuint(*bPtr)-GLuint('0');
+		glCallList(digitListBase+index);
+		glTranslatef(digitWidths[index]+spacing,0.0f,0.0f);
+		}
+	
+	glPopMatrix();
+	}
+
 /*************************************
 Static elements of class RevolverTool:
 *************************************/
@@ -129,42 +291,19 @@ Methods of class RevolverTool:
 
 RevolverTool::RevolverTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment),
-	 numberRenderer(float(getUiSize())*1.5f,true),
-	 currentChamber(0),
+	 mappedButtonIndex(0),
 	 showNumbersTime(0.0)
 	{
-	/* Set the transformation source device: */
-	if(input.getNumButtonSlots()>1)
-		sourceDevice=getButtonDevice(1);
-	else if(input.getNumValuatorSlots()>0)
-		sourceDevice=getValuatorDevice(0);
-	else
-		sourceDevice=getButtonDevice(0); // User didn't select anything to forward; let's just pretend it makes sense
 	}
 
 RevolverTool::~RevolverTool(void)
 	{
 	}
 
-void RevolverTool::configure(const Misc::ConfigurationFileSection& configFileSection)
-	{
-	/* Read the current chamber index: */
-	currentChamber=configFileSection.retrieveValue<int>("./currentChamber",currentChamber);
-	}
-
-void RevolverTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
-	{
-	/* Write the current chamber index: */
-	configFileSection.storeValue<int>("./currentChamber",currentChamber);
-	}
-
 void RevolverTool::initialize(void)
 	{
 	/* Create a virtual input device to shadow the source input device: */
-	transformedDevice=addVirtualInputDevice("RevolverToolTransformedDevice",factory->numChambers*(input.getNumButtonSlots()-1),factory->numChambers*input.getNumValuatorSlots());
-	
-	/* Copy the source device's tracking type: */
-	transformedDevice->setTrackType(sourceDevice->getTrackType());
+	transformedDevice=addVirtualInputDevice("TransformedDevice",factory->numButtons,0);
 	
 	/* Disable the virtual input device's glyph: */
 	getInputGraphManager()->getInputDeviceGlyph(transformedDevice).disable();
@@ -173,7 +312,7 @@ void RevolverTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(transformedDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(sourceDevice->getTransformation());
+	transformedDevice->setTransformation(getDeviceTransformation(0));
 	}
 
 const ToolFactory* RevolverTool::getFactory(void) const
@@ -181,36 +320,24 @@ const ToolFactory* RevolverTool::getFactory(void) const
 	return factory;
 	}
 
-void RevolverTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+void RevolverTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	if(buttonSlotIndex==0)
-		{
-		if(cbData->newButtonState)
-			{
-			/* Change the currently mapped button set: */
-			currentChamber=(currentChamber+1)%factory->numChambers;
-			
-			/* Set the newly mapped chamber's state to the input device's buttons' and valuators' states: */
-			for(int i=1;i<input.getNumButtonSlots();++i)
-				transformedDevice->setButtonState((i-1)*factory->numChambers+currentChamber,getButtonState(i));
-			for(int i=0;i<input.getNumValuatorSlots();++i)
-				transformedDevice->setValuator(i*factory->numChambers+currentChamber,getValuatorState(i));
-			
-			/* Show the current button assignment for one second: */
-			showNumbersTime=getApplicationTime()+1.0;
-			}
-		}
-	else
+	if(deviceButtonIndex==0)
 		{
 		/* Pass the button event through to the virtual input device: */
-		transformedDevice->setButtonState((buttonSlotIndex-1)*factory->numChambers+currentChamber,cbData->newButtonState);
+		transformedDevice->setButtonState(mappedButtonIndex,cbData->newButtonState);
 		}
-	}
-
-void RevolverTool::valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData)
-	{
-	/* Pass the valuator event through to the virtual input device: */
-	transformedDevice->setValuator(valuatorSlotIndex*factory->numChambers+currentChamber,cbData->newValuatorValue);
+	else if(cbData->newButtonState)
+		{
+		/* Change the currently mapped button: */
+		mappedButtonIndex=(mappedButtonIndex+1)%factory->numButtons;
+		
+		/* Set the newly mapped button's state to the input device's button's state: */
+		transformedDevice->setButtonState(mappedButtonIndex,getDeviceButtonState(0,0));
+		
+		/* Show the current button assignment: */
+		showNumbersTime=getApplicationTime()+1.0;
+		}
 	}
 
 void RevolverTool::frame(void)
@@ -220,16 +347,16 @@ void RevolverTool::frame(void)
 	
 	/* Request a rendering update while the animation is going: */
 	if(getApplicationTime()<showNumbersTime)
-		{
-		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
-		}
+		requestUpdate();
 	}
 
 void RevolverTool::display(GLContextData& contextData) const
 	{
 	if(getApplicationTime()<showNumbersTime)
 		{
+		/* Get the context data item: */
+		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+		
 		/* Set up OpenGL state: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
@@ -238,22 +365,19 @@ void RevolverTool::display(GLContextData& contextData) const
 		glPushMatrix();
 		
 		/* Draw the "revolver chambers:" */
-		glMultMatrix(calcHUDTransform(sourceDevice->getPosition()));
+		glMultMatrix(getDeviceTransformation(0));
 		
-		Scalar chamberAngle=Scalar(2)*Math::Constants<Scalar>::pi/Scalar(factory->numChambers);
+		Scalar chamberAngle=Scalar(2)*Math::Constants<Scalar>::pi/Scalar(factory->numButtons);
 		Scalar angleOffset=Scalar(0);
 		double animTime=(getApplicationTime()-(showNumbersTime-1.0))*2.0;
 		if(animTime<1.0)
 			angleOffset=chamberAngle*Scalar(1.0-animTime);
 		
-		for(int i=0;i<factory->numChambers;++i)
+		for(int i=0;i<factory->numButtons;++i)
 			{
 			Scalar angle=chamberAngle*Scalar(i)+angleOffset;
-			GLNumberRenderer::Vector pos;
-			pos[0]=Math::sin(angle)*Scalar(getUiSize()*4.0f);
-			pos[1]=Math::cos(angle)*Scalar(getUiSize()*4.0f);
-			pos[2]=0.0f;
-			numberRenderer.drawNumber(pos,(currentChamber+i)%factory->numChambers+1,contextData,0,0);
+			Point position(Math::sin(angle)*Scalar(getUiSize()*4.0f),Scalar(0),Math::cos(angle)*Scalar(getUiSize()*4.0f));
+			dataItem->writeNumber(position,(mappedButtonIndex+i)%factory->numButtons+1);
 			}
 		
 		glPopMatrix();
@@ -261,74 +385,11 @@ void RevolverTool::display(GLContextData& contextData) const
 		}
 	}
 
-InputDeviceFeatureSet RevolverTool::getSourceFeatures(const InputDeviceFeature& forwardedFeature)
+void RevolverTool::initContext(GLContextData& contextData) const
 	{
-	/* Paranoia: Check if the forwarded feature is on the transformed device: */
-	if(forwardedFeature.getDevice()!=transformedDevice)
-		Misc::throwStdErr("RevolverTool::getSourceFeatures: Forwarded feature is not on transformed device");
-	
-	/* Create an empty feature set: */
-	InputDeviceFeatureSet result;
-	
-	if(forwardedFeature.isButton())
-		{
-		/* Find the source button slot index: */
-		int buttonSlotIndex=forwardedFeature.getIndex()/factory->numChambers+1;
-		
-		/* Add the button slot's feature to the result set: */
-		result.push_back(input.getButtonSlotFeature(buttonSlotIndex));
-		}
-	
-	if(forwardedFeature.isValuator())
-		{
-		/* Find the source valuator slot index: */
-		int valuatorSlotIndex=forwardedFeature.getIndex()/factory->numChambers;
-		
-		/* Add the valuator slot's feature to the result set: */
-		result.push_back(input.getValuatorSlotFeature(valuatorSlotIndex));
-		}
-	
-	return result;
-	}
-
-InputDeviceFeatureSet RevolverTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)
-	{
-	/* Find the input assignment slot for the given feature: */
-	int slotIndex=input.findFeature(sourceFeature);
-	
-	/* Check if the source feature belongs to this tool: */
-	if(slotIndex<0)
-		Misc::throwStdErr("RevolverTool::getForwardedFeatures: Source feature is not part of tool's input assignment");
-	
-	/* Create an empty feature set: */
-	InputDeviceFeatureSet result;
-	
-	/* Check if the feature is a button or valuator: */
-	if(sourceFeature.isButton())
-		{
-		/* Get the slot's button slot index: */
-		int buttonSlotIndex=input.getButtonSlotIndex(slotIndex);
-		
-		/* Check if the button is part of the forwarded subset: */
-		if(buttonSlotIndex>=1)
-			{
-			/* Add the forwarded feature for the current chamber to the result set: */
-			int baseButtonIndex=(buttonSlotIndex-1)*factory->numChambers;
-			result.push_back(InputDeviceFeature(transformedDevice,InputDevice::BUTTON,baseButtonIndex+currentChamber));
-			}
-		}
-	
-	if(sourceFeature.isValuator())
-		{
-		/* Get the slot's valuator slot index: */
-		int valuatorSlotIndex=input.getValuatorSlotIndex(slotIndex);
-		
-		/* Add the forwarded feature for the current chamber to the result set: */
-		int baseValuatorIndex=valuatorSlotIndex*factory->numChambers;
-		result.push_back(InputDeviceFeature(transformedDevice,InputDevice::VALUATOR,baseValuatorIndex+currentChamber));
-		}
-	
-	return result;
+	/* Create and register a data item: */
+	DataItem* dataItem=new DataItem(getUiSize()*2.0f);
+	contextData.addDataItem(this,dataItem);
 	}
 
 }

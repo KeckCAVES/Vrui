@@ -1,6 +1,6 @@
 /***********************************************************************
 Vector - Class for Euclidean and affine vectors.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

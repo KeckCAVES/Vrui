@@ -40,10 +40,11 @@ Methods of class RayMenuToolFactory:
 RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayMenuTool",toolManager),
 	 initialMenuOffset(getInchFactor()*Scalar(6)),
-	 interactWithWidgets(false)
+	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* menuToolFactory=toolManager.loadClass("MenuTool");
@@ -115,10 +116,8 @@ Methods of class RayMenuTool:
 
 RayMenuTool::RayMenuTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:MenuTool(factory,inputAssignment),
-	 GUIInteractor(isUseEyeRay(),getRayOffset(),getButtonDevice(0))
+	 GUIInteractor(isUseEyeRay(),getRayOffset(),getDevice(0))
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* RayMenuTool::getFactory(void) const
@@ -126,7 +125,7 @@ const ToolFactory* RayMenuTool::getFactory(void) const
 	return factory;
 	}
 
-void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void RayMenuTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -135,18 +134,18 @@ void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 		if(!(factory->interactWithWidgets&&GUIInteractor::buttonDown(false)))
 			{
 			/* Try activating this tool: */
-			if(GUIInteractor::canActivate()&&activate())
+			if(activate())
 				{
 				/***************************************************************
 				Pop up the tool's menu at the appropriate position and
 				orientation:
 				***************************************************************/
 				
-				if(isUseEyeRay()||interactionDevice->isRayDevice())
+				if(isUseEyeRay()||getDevice(0)->isRayDevice())
 					{
 					/* Find the intersection point of the interaction ray and a screen: */
 					std::pair<VRScreen*,Scalar> si=findScreen(GUIInteractor::getRay());
-
+					
 					/* Pop up the menu: */
 					if(si.first!=0)
 						popupPrimaryWidget(menu->getPopup(),GUIInteractor::getRay()(si.second),false);
@@ -158,9 +157,6 @@ void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 					/* Pop up the menu: */
 					popupPrimaryWidget(menu->getPopup(),GUIInteractor::getRay()(factory->initialMenuOffset),false);
 					}
-				
-				/* Grab the pointer: */
-				getWidgetManager()->grabPointer(menu->getPopup());
 				
 				/* Force the event on the GUI interactor: */
 				GUIInteractor::buttonDown(true);
@@ -178,9 +174,6 @@ void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			/* Check if the tool's menu is popped up: */
 			if(MenuTool::isActive())
 				{
-				/* Release the pointer: */
-				getWidgetManager()->releasePointer(menu->getPopup());
-				
 				/* Pop down the menu: */
 				getWidgetManager()->popdownWidget(menu->getPopup());
 				
@@ -203,28 +196,10 @@ void RayMenuTool::frame(void)
 
 void RayMenuTool::display(GLContextData& contextData) const
 	{
-	if(isDrawRay()&&(factory->interactWithWidgets||GUIInteractor::isActive()))
+	if(factory->interactWithWidgets||GUIInteractor::isActive())
 		{
 		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(getRayWidth(),getRayColor(),contextData);
-		}
-	}
-
-Point RayMenuTool::calcHotSpot(void) const
-	{
-	if(isUseEyeRay()||interactionDevice->isRayDevice())
-		{
-		/* Find the intersection point of the interaction ray and a screen: */
-		std::pair<VRScreen*,Scalar> si=findScreen(GUIInteractor::getRay());
-		if(si.first!=0)
-			return GUIInteractor::getRay()(si.second);
-		else
-			return getDisplayCenter();
-		}
-	else
-		{
-		/* Return a position in front of the input device: */
-		return GUIInteractor::getRay()(factory->initialMenuOffset);
+		GUIInteractor::glRenderAction(contextData);
 		}
 	}
 

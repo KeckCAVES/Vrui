@@ -1,6 +1,6 @@
 /***********************************************************************
 AscensionFlockOfBirds - Class for tracking device of same name.
-Copyright (c) 2000-2011 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -37,12 +37,12 @@ Methods of class AscensionFlockOfBirds:
 
 short int AscensionFlockOfBirds::readShort(void)
 	{
-	unsigned char reply[2];
-	devicePort.readRaw(reply,2);
+	char reply[2];
+	devicePort.readBytes(2,reply);
 	short int result=0;
-	result|=reply[1];
+	result|=(unsigned char)reply[1];
 	result<<=8;
-	result|=reply[0];
+	result|=(unsigned char)reply[0];
 	return result;
 	}
 
@@ -52,7 +52,7 @@ void AscensionFlockOfBirds::writeShort(short int value)
 	bytes[0]=char(value&0x0f);
 	value>>=8;
 	bytes[1]=char(value&0x0f);
-	devicePort.writeRaw(bytes,2);
+	devicePort.writeBytes(2,bytes);
 	}
 
 short int AscensionFlockOfBirds::extractShort(const char* lsb) const
@@ -76,7 +76,7 @@ void AscensionFlockOfBirds::deviceThreadMethod(void)
 		{
 		/* Read the next message: */
 		char buffer[13];
-		devicePort.readRaw(buffer,13);
+		devicePort.readBytes(13,buffer);
 
 		/* Check for sync: */
 		if(!(buffer[0]&0x80))
@@ -87,12 +87,12 @@ void AscensionFlockOfBirds::deviceThreadMethod(void)
 			fflush(stdout);
 			#endif
 			while(!(buffer[0]&0x80))
-				buffer[0]=devicePort.getChar();
+				buffer[0]=devicePort.readByte();
 
 			/* Read the rest of the record: */
-			devicePort.readRaw(buffer+1,12);
+			devicePort.readBytes(12,buffer+1);
 			}
-		
+
 		/* Extract data from the buffer: */
 		int deviceTrackerIndex=int(buffer[12])-1;
 		Vrui::VRDeviceState::TrackerState ts;
@@ -167,9 +167,8 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	oldPositionOrientations=new PositionOrientation[numTrackers];
 	
 	/* Set device port parameters: */
-	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate");
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
 	devicePort.setRawMode(1,0);
 	
 	/* Check status of all birds: */
@@ -181,11 +180,10 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 			printf("AscensionFlockOfBirds: Querying status of bird %d... ",i+firstBirdId);
 			fflush(stdout);
 			#endif
-			devicePort.putChar(0xf0|char(i+firstBirdId)); // Talk to bird i
-			devicePort.putChar(0x4f); // Examine value
-			devicePort.putChar(0x00); // Bird status
-			devicePort.flush();
-			if(devicePort.waitForData(Misc::Time(2,0)))
+			devicePort.writeByte(0xf0|char(i+firstBirdId)); // Talk to bird i
+			devicePort.writeByte(0x4f); // Examine value
+			devicePort.writeByte(0x00); // Bird status
+			if(devicePort.waitForByte(Misc::Time(2.0)))
 				{
 				/* Read the bird's answer: */
 				int reply=readShort();
@@ -214,25 +212,23 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	printf("AscensionFlockOfBirds: Resetting flock\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x2f); // FBB Reset
-	devicePort.flush();
-	Misc::sleep(0.25);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x2f); // FBB Reset
+	delay(0.25);
 	#endif
 	
 	/* Query flock configuration: */
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Querying flock configuration\n");
 	fflush(stdout);
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x4f); // Change Value
-	devicePort.putChar(36); // Flock System Status
-	devicePort.flush();
-	Misc::sleep(0.25);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x4f); // Change Value
+	devicePort.writeByte(36); // Flock System Status
+	delay(0.25);
 	
 	/* Receive flock state: */
 	char flockStates[14];
-	devicePort.readRaw(flockStates,14);
+	devicePort.readBytes(14,flockStates);
 	
 	/* Print status of all present birds: */
 	for(int i=0;i<14;++i)
@@ -251,10 +247,9 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	for(int i=0;i<numBirds;++i)
 		if(i+firstBirdId!=ercId)
 			{
-			devicePort.putChar(0xf0|char(i+firstBirdId)); // Talk to bird i
-			devicePort.putChar(0x59); // Position/Angles mode
-			devicePort.flush();
-			Misc::sleep(0.25);
+			devicePort.writeByte(0xf0|char(i+firstBirdId)); // Talk to bird i
+			devicePort.writeByte(0x59); // Position/Angles mode
+			delay(0.25);
 			}
 	
 	/* Set FOB's hemisphere: */
@@ -283,12 +278,11 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	for(int i=0;i<numBirds;++i)
 		if(i+firstBirdId!=ercId)
 			{
-			devicePort.putChar(0xf0|char(i+firstBirdId)); // Talk to bird i
-			devicePort.putChar(0x4c); // Hemisphere
-			devicePort.putChar(hemisphereBytes[hemisphereIndex][0]); // Code (pt 1)
-			devicePort.putChar(hemisphereBytes[hemisphereIndex][1]); // Code (pt 2)
-			devicePort.flush();
-			Misc::sleep(0.25);
+			devicePort.writeByte(0xf0|char(i+firstBirdId)); // Talk to bird i
+			devicePort.writeByte(0x4c); // Hemisphere
+			devicePort.writeByte(hemisphereBytes[hemisphereIndex][0]); // Code (pt 1)
+			devicePort.writeByte(hemisphereBytes[hemisphereIndex][1]); // Code (pt 2)
+			delay(0.25);
 			}
 	
 	/* Set FOB's tracking range: */
@@ -307,21 +301,20 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 		#endif
 		for(int i=0;i<numBirds;++i)
 			{
-			devicePort.putChar(0xf0|char(i+firstBirdId)); // Talk to bird i
-			devicePort.putChar(0x50); // Change Value
-			devicePort.putChar(3); // Position Scaling
+			devicePort.writeByte(0xf0|char(i+firstBirdId)); // Talk to bird i
+			devicePort.writeByte(0x50); // Change Value
+			devicePort.writeByte(3); // Position Scaling
 			if(trackerRange==36.0)
 				{
-				devicePort.putChar(0x0); // 36 inch max range, pt. 1
-				devicePort.putChar(0x0); // 36 inch max range, pt. 2
+				devicePort.writeByte(0x0); // 36 inch max range, pt. 1
+				devicePort.writeByte(0x0); // 36 inch max range, pt. 2
 				}
 			else
 				{
-				devicePort.putChar(0x1); // 72 inch max range, pt. 1
-				devicePort.putChar(0x0); // 72 inch max range, pt. 2
+				devicePort.writeByte(0x1); // 72 inch max range, pt. 1
+				devicePort.writeByte(0x0); // 72 inch max range, pt. 2
 				}
-			devicePort.flush();
-			Misc::sleep(0.25);
+			delay(0.25);
 			}
 		}
 	
@@ -330,24 +323,22 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	printf("AscensionFlockOfBirds: Starting auto-configuration\n");
 	fflush(stdout);
 	#endif
-	Misc::sleep(0.35);
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x50); // Change Value
-	devicePort.putChar(50); // FBB Auto-Configuration
-	devicePort.putChar(char(numBirds)); // numTrackers birds
-	devicePort.flush();
-	Misc::sleep(0.6);
+	delay(0.35);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x50); // Change Value
+	devicePort.writeByte(50); // FBB Auto-Configuration
+	devicePort.writeByte(char(numBirds)); // numTrackers birds
+	delay(0.6);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Enabling group mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x50); // Change Value
-	devicePort.putChar(35); // Group Mode
-	devicePort.putChar(1); // Enable
-	devicePort.flush();
-	Misc::sleep(0.25);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x50); // Change Value
+	devicePort.writeByte(35); // Group Mode
+	devicePort.writeByte(1); // Enable
+	delay(0.25);
 	
 	if(ercId!=-1)
 		{
@@ -356,11 +347,10 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 		printf("AscensionFlockOfBirds: Enabling ERC transmitter\n");
 		fflush(stdout);
 		#endif
-		devicePort.putChar(0xf0|masterId); // Talk to FOB master
-		devicePort.putChar(0x30); // Next Transmitter
-		devicePort.putChar(((ercId&0xf)<<4)|ercTransmitterIndex); // ID of extended range controller and transmitter index
-		devicePort.flush();
-		Misc::sleep(0.25);
+		devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+		devicePort.writeByte(0x30); // Next Transmitter
+		devicePort.writeByte(((ercId&0xf)<<4)|ercTransmitterIndex); // ID of extended range controller and transmitter index
+		delay(0.25);
 		}
 	
 	/* Put birds to sleep: */
@@ -368,24 +358,20 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	printf("AscensionFlockOfBirds: Disabling stream mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x42); // Point
-	devicePort.flush();
-	Misc::sleep(0.25);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x42); // Point
+	delay(0.25);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Disabling tracker device\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x47); // Sleep
-	devicePort.flush();
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x47); // Sleep
 	}
 
 AscensionFlockOfBirds::~AscensionFlockOfBirds(void)
 	{
-	if(isActive())
-		stop();
 	delete[] timers;
 	delete[] notFirstMeasurements;
 	delete[] oldPositionOrientations;
@@ -401,18 +387,16 @@ void AscensionFlockOfBirds::start(void)
 	printf("AscensionFlockOfBirds: Enabling tracker device\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x46); // Run
-	devicePort.flush();
-	Misc::sleep(0.25);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x46); // Run
+	delay(0.25);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Enabling stream mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x40); // Stream
-	devicePort.flush();
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x40); // Stream
 	}
 
 void AscensionFlockOfBirds::stop(void)
@@ -422,18 +406,16 @@ void AscensionFlockOfBirds::stop(void)
 	printf("AscensionFlockOfBirds: Disabling stream mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x42); // Point
-	devicePort.flush();
-	Misc::sleep(0.25);
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x42); // Point
+	delay(0.25);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Disabling tracker device\n");
 	fflush(stdout);
 	#endif
-	devicePort.putChar(0xf0|masterId); // Talk to FOB master
-	devicePort.putChar(0x47); // Sleep
-	devicePort.flush();
+	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
+	devicePort.writeByte(0x47); // Sleep
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

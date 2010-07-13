@@ -1,7 +1,7 @@
 /***********************************************************************
 ClipPlaneTool - Class for tools that add a clipping plane into an
 environment when activated.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,10 +26,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ClipPlane.h>
 #include <Vrui/ClipPlaneManager.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -42,7 +42,8 @@ ClipPlaneToolFactory::ClipPlaneToolFactory(ToolManager& toolManager)
 	 normal(0,1,0)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
@@ -131,7 +132,7 @@ const ToolFactory* ClipPlaneTool::getFactory(void) const
 	return factory;
 	}
 
-void ClipPlaneTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void ClipPlaneTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -152,8 +153,8 @@ void ClipPlaneTool::frame(void)
 	if(active)
 		{
 		/* Get the new normal vector and plane center point: */
-		Vector normal=getButtonDeviceTransformation(0).transform(factory->normal);
-		Point center=getButtonDevicePosition(0);
+		Vector normal=getDeviceTransformation(0).transform(factory->normal);
+		Point center=getDevicePosition(0);
 		
 		/* Set the clipping plane's plane equation: */
 		clipPlane->getPlane()=Plane(normal,center);

@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformNode - Class for group nodes that apply an orthogonal
 transformation to their children.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -146,7 +146,7 @@ Box TransformNode::calcBoundingBox(void) const
 void TransformNode::glRenderAction(GLRenderState& renderState) const
 	{
 	/* Push the transformation onto the matrix stack: */
-	GLRenderState::DOGTransform previousTransform=renderState.pushTransform(transform);
+	OGTransform previousTransform=renderState.pushTransform(transform);
 	
 	/* Call the render actions of all children in order: */
 	for(MFGraphNode::ValueList::const_iterator chIt=children.getValues().begin();chIt!=children.getValues().end();++chIt)

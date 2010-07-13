@@ -1,6 +1,6 @@
 /***********************************************************************
 PolhemusFastrak - Class for tracking device of same name.
-Copyright (c) 1998-2011 Oliver Kreylos
+Copyright (c) 1998-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -28,11 +28,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDevice.h>
 
-/* Forward declarations: */
-namespace Misc {
-class Time;
-}
-
 class PolhemusFastrak:public VRDevice
 	{
 	/* Embedded classes: */
@@ -47,9 +42,12 @@ class PolhemusFastrak:public VRDevice
 	PositionOrientation* oldPositionOrientations; // Array of old tracker positions/orientations
 	
 	/* Private methods: */
-	char* readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline); // Reads a CR/LF terminated line from the serial port and stores it as NUL-terminated string (without CR/LF bytes); terminates early if not completed by deadline
+	float readFloat(const char* lsb) const; // Extracts a floating point number from four bytes of memory (lsb first)
+	char* readLine(int lineBufferSize,char* lineBuffer); // Reads a CR/LF terminated line from the serial port and stores it as NUL-terminated string (without CR/LF bytes)
 	bool readStatusReply(void); // Reads device's reply to a status request
-	bool processRecord(void); // Reads and processes a record from the device; returns true if synchronization with tracker data stream was lost
+	void processBuffer(int station,const char* recordBuffer); // Parses a record read from the device
+	int readRecordSync(char* recordBuffer); // Re-synchronizes to data stream from device and reads next record; returns number of receiver
+	int readRecordNoSync(char* recordBuffer); // Reads record from device without synchronizing; returns number of receiver or -1 if synchronization was lost
 	
 	/* Protected methods: */
 	virtual void deviceThreadMethod(void);

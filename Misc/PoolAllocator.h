@@ -24,8 +24,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_POOLALLOCATOR_INCLUDED
 #define MISC_POOLALLOCATOR_INCLUDED
 
-#include <stddef.h>
-
 namespace Misc {
 
 template <class ContentParam,size_t pageSizeParam =8192>

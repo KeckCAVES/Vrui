@@ -1,7 +1,7 @@
 /***********************************************************************
 ValueCoder - Generic class to encode/decode values into/from human-
 readable strings.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -21,9 +21,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Misc/ValueCoder.h>
-
 #include <ctype.h>
+
+#include <Misc/ValueCoder.h>
 
 namespace Misc {
 
@@ -41,13 +41,17 @@ const char* skipWhitespace(const char* start,const char* end)
 	return start;
 	}
 
-const char* checkSeparator(char separator,const char* start,const char* end)
+const char* skipSeparator(char separator,const char* start,const char* end)
 	{
 	const char* cPtr=start;
 	
-	/* Check for separator character: */
+	/* Skip whitespace characters: */
+	while(cPtr!=end&&isspace(*cPtr))
+		++cPtr;
+	
+	/* Check if separator character is found: */
 	if(cPtr==end||*cPtr!=separator)
-		throw DecodingError("missing separator character");
+		throw DecodingError("Missing separator character");
 	++cPtr;
 	
 	/* Skip whitespace characters: */

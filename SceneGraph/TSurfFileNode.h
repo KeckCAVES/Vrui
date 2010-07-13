@@ -1,6 +1,6 @@
 /***********************************************************************
 TSurfFileNode - Class for triangle meshes read from GoCAD TSurf files.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -28,11 +28,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLGeometryVertex.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
-
-/* Forward declarations: */
-namespace Cluster {
-class Multiplexer;
-}
 
 namespace SceneGraph {
 
@@ -62,7 +57,6 @@ class TSurfFileNode:public GeometryNode,public GLObject
 	
 	/* Derived elements: */
 	protected:
-	Cluster::Multiplexer* multiplexer; // Multiplexer to read TSurf files in a cluster environment
 	std::vector<Vertex> vertices; // List of mesh vertices
 	std::vector<Card> indices; // List of mesh vertex indices
 	unsigned int version; // Version number of triangle mesh

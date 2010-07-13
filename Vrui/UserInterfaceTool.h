@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,8 +25,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_USERINTERFACETOOL_INCLUDED
 
 #include <Geometry/Ray.h>
-#include <GL/gl.h>
-#include <GL/GLColor.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Tool.h>
 
@@ -43,9 +41,6 @@ class UserInterfaceToolFactory:public ToolFactory
 	private:
 	bool useEyeRay; // Flag whether to use an eyeline from the main viewer or the device's ray direction for ray-based interaction
 	Scalar rayOffset; // Amount by which to shift the selection ray backwards to simplify interaction
-	bool drawRay; // Flag whether to draw the interaction ray
-	GLColor<GLfloat,4> rayColor; // Color to draw the ray
-	GLfloat rayWidth; // Cosmetic line width to draw the ray
 	
 	/* Constructors and destructors: */
 	public:
@@ -63,8 +58,6 @@ class UserInterfaceTool:public Tool
 	/* Elements: */
 	private:
 	static UserInterfaceToolFactory* factory; // Pointer to the factory object for this class
-	protected:
-	InputDevice* interactionDevice; // Pointer to the input device used for user interface interaction
 	
 	/* Protected methods: */
 	protected:
@@ -76,24 +69,8 @@ class UserInterfaceTool:public Tool
 		{
 		return factory->rayOffset;
 		}
-	Point getInteractionPosition(void) const // Returns a position for point-based interaction
-		{
-		return interactionDevice->getPosition();
-		}
 	Ray calcInteractionRay(void) const; // Returns a ray for ray-based interaction
 	ONTransform calcScreenTransform(const Ray& ray) const; // Returns a screen-aligned transformation where the given ray intersects a screen
-	bool isDrawRay(void) const // Returns true if the interaction ray is to be drawn
-		{
-		return factory->drawRay;
-		}
-	const GLColor<GLfloat,4>& getRayColor(void) const // Returns the color with which to draw the interaction ray
-		{
-		return factory->rayColor;
-		}
-	GLfloat getRayWidth(void) const // Returns the cosmetic line width with which to draw the interaction ray
-		{
-		return factory->rayWidth;
-		}
 	
 	/* Constructors and destructors: */
 	public:

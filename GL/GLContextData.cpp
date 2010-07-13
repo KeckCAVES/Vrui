@@ -1,7 +1,7 @@
 /***********************************************************************
 GLContextData - Class to store per-GL-context data for application
 objects.
-Copyright (c) 2000-2012 Oliver Kreylos
+Copyright (c) 2000-2008 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -22,8 +22,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/GLContextData.h>
 
-#include <GL/GLLightTracker.h>
-#include <GL/GLClipPlaneTracker.h>
 #include <GL/Internal/GLThingManager.h>
 
 /**************************************
@@ -38,9 +36,7 @@ Methods of class GLContextData:
 ******************************/
 
 GLContextData::GLContextData(int sTableSize,float sWaterMark,float sGrowRate)
-	:context(sTableSize,sWaterMark,sGrowRate),
-	 lightTracker(new GLLightTracker),
-	 clipPlaneTracker(new GLClipPlaneTracker)
+	:context(sTableSize,sWaterMark,sGrowRate)
 	{
 	}
 
@@ -49,10 +45,6 @@ GLContextData::~GLContextData(void)
 	/* Delete all data items in this context: */
 	for(ItemHash::Iterator it=context.begin();!it.isFinished();++it)
 		delete it->getDest();
-	
-	/* Delete the state trackers: */
-	delete lightTracker;
-	delete clipPlaneTracker;
 	}
 
 void GLContextData::initThing(const GLObject* thing)
@@ -63,11 +55,6 @@ void GLContextData::initThing(const GLObject* thing)
 void GLContextData::destroyThing(const GLObject* thing)
 	{
 	GLThingManager::theThingManager.destroyThing(thing);
-	}
-
-void GLContextData::orderThings(const GLObject* thing1,const GLObject* thing2)
-	{
-	GLThingManager::theThingManager.orderThings(thing1,thing2);
 	}
 
 void GLContextData::resetThingManager(void)

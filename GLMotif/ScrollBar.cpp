@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrollBar - Class for horizontal or vertical scroll bars, to be used as
 a component by scrolling widgets like list boxes.
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -30,7 +30,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLVertexTemplates.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Event.h>
-#include <GLMotif/TextControlEvent.h>
 #include <GLMotif/WidgetManager.h>
 
 namespace GLMotif {
@@ -164,7 +163,7 @@ void ScrollBar::scheduleClickRepeat(int increment,ScrollBar::ValueChangedCallbac
 	}
 
 ScrollBar::ScrollBar(const char* sName,Container* sParent,Orientation sOrientation,bool sReverse,bool sManageChild)
-	:Widget(sName,sParent,false),
+	:DragWidget(sName,sParent,false),
 	 orientation(sOrientation),reverse(sReverse),
 	 positionMin(0),positionMax(1000),pageSize(100),
 	 position(500),
@@ -232,7 +231,7 @@ Vector ScrollBar::calcNaturalSize(void) const
 ZRange ScrollBar::calcZRange(void) const
 	{
 	/* Return parent class' z range: */
-	ZRange myZRange=Widget::calcZRange();
+	ZRange myZRange=DragWidget::calcZRange();
 	
 	/* Adjust for shaft depth and button bevels: */
 	myZRange+=ZRange(getInterior().origin[2]-Misc::max(shaftDepth,bevelWidth),getInterior().origin[2]+bevelWidth);
@@ -243,7 +242,7 @@ ZRange ScrollBar::calcZRange(void) const
 void ScrollBar::resize(const Box& newExterior)
 	{
 	/* Resize the parent class widget: */
-	Widget::resize(newExterior);
+	DragWidget::resize(newExterior);
 	
 	/* Adjust the shaft and scroll bar handle positions: */
 	positionButtonsAndShaft();
@@ -253,7 +252,7 @@ void ScrollBar::resize(const Box& newExterior)
 void ScrollBar::setBackgroundColor(const Color& newBackgroundColor)
 	{
 	/* Call the base class method: */
-	Widget::setBackgroundColor(newBackgroundColor);
+	DragWidget::setBackgroundColor(newBackgroundColor);
 	
 	/* Let the arrow glyphs track the background color: */
 	for(int i=0;i<2;++i)
@@ -263,7 +262,7 @@ void ScrollBar::setBackgroundColor(const Color& newBackgroundColor)
 void ScrollBar::draw(GLContextData& contextData) const
 	{
 	/* Draw parent class decorations: */
-	Widget::draw(contextData);
+	DragWidget::draw(contextData);
 	
 	/* Draw filler triangles to merge scroll bar with widget border: */
 	glColor(backgroundColor);
@@ -398,27 +397,11 @@ void ScrollBar::draw(GLContextData& contextData) const
 		}
 	}
 
-bool ScrollBar::findRecipient(Event& event)
-	{
-	if(isDragging())
-		return overrideRecipient(this,event);
-	else
-		return Widget::findRecipient(event);
-	}
-
 void ScrollBar::pointerButtonDown(Event& event)
 	{
-	/* Request focus: */
-	WidgetManager* manager=getManager();
-	if(manager!=0)
-		manager->requestFocus(this);
-	
 	/* Where inside the widget did the event hit? */
 	int mainDim=orientation==HORIZONTAL?0:1;
 	GLfloat picked=event.getWidgetPoint().getPoint()[mainDim];
-	int increment=0;
-	int newPosition=position;
-	ValueChangedCallbackData::ChangeReason reason=ValueChangedCallbackData::DRAGGED;
 	if(picked<shaftBox.origin[mainDim]) // Decrement button selected
 		{
 		/* Arm the decrement button: */
@@ -428,16 +411,54 @@ void ScrollBar::pointerButtonDown(Event& event)
 		arrows[0].setGlyphBox(arrowBevelBox[0]);
 		
 		/* Update the scroll bar position: */
-		increment=reverse?1:-1;
-		newPosition=position+increment;
-		reason=reverse?ValueChangedCallbackData::ITEM_UP:ValueChangedCallbackData::ITEM_DOWN;
+		int increment=reverse?1:-1;
+		int newPosition=position+increment;
+		if(newPosition>positionMax-pageSize)
+			newPosition=positionMax-pageSize;
+		if(newPosition<positionMin)
+			newPosition=positionMin;
+		if(position!=newPosition)
+			{
+			/* Update the scroll bar: */
+			position=newPosition;
+			positionHandle();
+			
+			/* Call the value changed callbacks: */
+			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::ITEM_UP:ValueChangedCallbackData::ITEM_DOWN,position);
+			valueChangedCallbacks.call(&cbData);
+			
+			/* Schedule a timer event for click repeat: */
+			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
+			}
 		}
 	else if(picked<handleBox.origin[mainDim]) // Page down area selected
 		{
 		/* Update the scroll bar position: */
-		increment=reverse?pageSize:-pageSize;
-		newPosition=position+increment;
-		reason=reverse?ValueChangedCallbackData::PAGE_UP:ValueChangedCallbackData::PAGE_DOWN;
+		int increment=reverse?pageSize:-pageSize;
+		int newPosition=position+increment;
+		if(newPosition>positionMax-pageSize)
+			newPosition=positionMax-pageSize;
+		if(newPosition<positionMin)
+			newPosition=positionMin;
+		if(position!=newPosition)
+			{
+			/* Update the scroll bar: */
+			position=newPosition;
+			positionHandle();
+			
+			/* Call the value changed callbacks: */
+			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::PAGE_UP:ValueChangedCallbackData::PAGE_DOWN,position);
+			valueChangedCallbacks.call(&cbData);
+			
+			/* Schedule a timer event for click repeat: */
+			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
+			}
 		}
 	else if(picked<handleBox.origin[mainDim]+handleBox.size[mainDim]) // Scroll bar handle selected
 		{
@@ -448,9 +469,28 @@ void ScrollBar::pointerButtonDown(Event& event)
 	else if(picked<arrowBox[1].origin[mainDim]) // Page up area selected
 		{
 		/* Update the scroll bar position: */
-		increment=reverse?-pageSize:pageSize;
-		newPosition=position+increment;
-		reason=reverse?ValueChangedCallbackData::PAGE_DOWN:ValueChangedCallbackData::PAGE_UP;
+		int increment=reverse?-pageSize:pageSize;
+		int newPosition=position+increment;
+		if(newPosition>positionMax-pageSize)
+			newPosition=positionMax-pageSize;
+		if(newPosition<positionMin)
+			newPosition=positionMin;
+		if(position!=newPosition)
+			{
+			/* Update the scroll bar: */
+			position=newPosition;
+			positionHandle();
+			
+			/* Call the value changed callbacks: */
+			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::PAGE_DOWN:ValueChangedCallbackData::PAGE_UP,position);
+			valueChangedCallbacks.call(&cbData);
+			
+			/* Schedule a timer event for click repeat: */
+			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
+			}
 		}
 	else // Increment button selected
 		{
@@ -461,33 +501,28 @@ void ScrollBar::pointerButtonDown(Event& event)
 		arrows[1].setGlyphBox(arrowBevelBox[1]);
 		
 		/* Update the scroll bar position: */
-		increment=reverse?-1:1;
-		newPosition=position+increment;
-		reason=reverse?ValueChangedCallbackData::ITEM_DOWN:ValueChangedCallbackData::ITEM_UP;
-		}
-	
-	if(newPosition>positionMax-pageSize)
-		newPosition=positionMax-pageSize;
-	if(newPosition<positionMin)
-		newPosition=positionMin;
-	if(position!=newPosition)
-		{
-		/* Update the scroll bar: */
-		position=newPosition;
-		positionHandle();
-		
-		/* Call the value changed callbacks: */
-		ValueChangedCallbackData cbData(this,reason,position);
-		valueChangedCallbacks.call(&cbData);
-		
-		if(increment!=0)
+		int increment=reverse?-1:1;
+		int newPosition=position+increment;
+		if(newPosition>positionMax-pageSize)
+			newPosition=positionMax-pageSize;
+		if(newPosition<positionMin)
+			newPosition=positionMin;
+		if(position!=newPosition)
 			{
+			/* Update the scroll bar: */
+			position=newPosition;
+			positionHandle();
+			
+			/* Call the value changed callbacks: */
+			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::ITEM_DOWN:ValueChangedCallbackData::ITEM_UP,position);
+			valueChangedCallbacks.call(&cbData);
+			
 			/* Schedule a timer event for click repeat: */
-			scheduleClickRepeat(increment,reason,0.5);
+			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
-		
-		/* Invalidate the visual representation: */
-		update();
 		}
 	}
 
@@ -516,7 +551,7 @@ void ScrollBar::pointerButtonUp(Event& event)
 
 void ScrollBar::pointerMotion(Event& event)
 	{
-	if(isDragging())
+	if(isDragging)
 		{
 		int mainDim=orientation==HORIZONTAL?0:1;
 		
@@ -549,77 +584,6 @@ void ScrollBar::pointerMotion(Event& event)
 		}
 	}
 
-bool ScrollBar::giveTextFocus(void)
-	{
-	/* Accept the focus: */
-	return true;
-	}
-
-void ScrollBar::textControlEvent(const TextControlEvent& event)
-	{
-	/* Handle the event: */
-	int newPosition=position;
-	ValueChangedCallbackData::ChangeReason reason=ValueChangedCallbackData::DRAGGED;
-	switch(event.event)
-		{
-		case TextControlEvent::CURSOR_TEXT_START:
-		case TextControlEvent::CURSOR_START:
-			newPosition=reverse?positionMin:positionMax;
-			break;
-		
-		case TextControlEvent::CURSOR_PAGE_UP:
-		case TextControlEvent::CURSOR_WORD_LEFT:
-			newPosition=position+(reverse?-pageSize:pageSize);
-			reason=reverse?ValueChangedCallbackData::PAGE_DOWN:ValueChangedCallbackData::PAGE_UP;
-			break;
-		
-		case TextControlEvent::CURSOR_UP:
-		case TextControlEvent::CURSOR_LEFT:
-			newPosition=position+(reverse?-1:1);
-			reason=reverse?ValueChangedCallbackData::ITEM_UP:ValueChangedCallbackData::ITEM_DOWN;
-			break;
-		
-		case TextControlEvent::CURSOR_DOWN:
-		case TextControlEvent::CURSOR_RIGHT:
-			newPosition=position+(reverse?1:-1);
-			reason=reverse?ValueChangedCallbackData::ITEM_DOWN:ValueChangedCallbackData::ITEM_UP;
-			break;
-		
-		case TextControlEvent::CURSOR_PAGE_DOWN:
-		case TextControlEvent::CURSOR_WORD_RIGHT:
-			newPosition=position+(reverse?pageSize:-pageSize);
-			reason=reverse?ValueChangedCallbackData::PAGE_UP:ValueChangedCallbackData::PAGE_DOWN;
-			break;
-		
-		case TextControlEvent::CURSOR_TEXT_END:
-		case TextControlEvent::CURSOR_END:
-			newPosition=reverse?positionMax:positionMin;
-			break;
-		
-		default:
-			/* Just to make compiler happy... */
-			;
-		}
-	
-	if(newPosition>positionMax-pageSize)
-		newPosition=positionMax-pageSize;
-	if(newPosition<positionMin)
-		newPosition=positionMin;
-	if(newPosition!=position)
-		{
-		/* Update the scroll bar: */
-		position=newPosition;
-		positionHandle();
-		
-		/* Call the value changed callbacks: */
-		ValueChangedCallbackData cbData(this,reason,position);
-		valueChangedCallbacks.call(&cbData);
-		
-		/* Invalidate the visual representation: */
-		update();
-		}
-	}
-
 void ScrollBar::setBevelWidth(GLfloat newBevelWidth)
 	{
 	/* Set the new bevel width: */
@@ -635,19 +599,12 @@ void ScrollBar::setBevelWidth(GLfloat newBevelWidth)
 
 void ScrollBar::setPosition(int newPosition)
 	{
-	/* Check and update the position and reposition the scroll bar handle: */
-	if(newPosition>positionMax-pageSize)
-		newPosition=positionMax-pageSize;
-	if(newPosition<positionMin)
-		newPosition=positionMin;
-	if(position!=newPosition)
-		{
-		position=newPosition;
-		positionHandle();
-		
-		/* Invalidate the visual representation: */
-		update();
-		}
+	/* Update the position and reposition the scroll bar handle: */
+	position=newPosition;
+	positionHandle();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ScrollBar::setPositionRange(int newPositionMin,int newPositionMax,int newPageSize)

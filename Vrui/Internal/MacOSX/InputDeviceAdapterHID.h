@@ -24,10 +24,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_MACOSX_INPUTDEVICEADAPTERHID_INCLUDED
 #define VRUI_INTERNAL_MACOSX_INPUTDEVICEADAPTERHID_INCLUDED
 
-#include <string>
-#include <vector>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDLib.h>
+#include <string>
+#include <vector>
 #include <Misc/HashTable.h>
 #include <Threads/Mutex.h>
 #include <Threads/Thread.h>
@@ -58,8 +58,6 @@ class InputDeviceAdapterHID:public InputDeviceAdapter
 		int firstValuatorIndex; // Index of HID's first axis in device state array
 		int numValuators; // Number of HID's axes
 		Vrui::InputDevice* device; // Pointer to Vrui input device associated with the HID
-		std::vector<std::string> buttonNames; // Array of button feature names
-		std::vector<std::string> valuatorNames; // Array of valuator feature names
 		};
 	
 	struct ElementKey // Structure to map (device, element cookie) pairs to button or valuator indices
@@ -142,8 +140,6 @@ class InputDeviceAdapterHID:public InputDeviceAdapter
 	virtual ~InputDeviceAdapterHID(void);
 	
 	/* Methods from InputDeviceAdapter: */
-	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
-	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
 	};
 

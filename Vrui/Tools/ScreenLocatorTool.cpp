@@ -1,7 +1,7 @@
 /***********************************************************************
 ScreenLocator - Simple locator class to use in simulated VR
 environments.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,8 +21,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/ScreenLocatorTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Point.h>
@@ -32,9 +30,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/ScreenLocatorTool.h>
 
 namespace Vrui {
 
@@ -44,10 +44,11 @@ Methods of class ScreenLocatorToolFactory:
 
 ScreenLocatorToolFactory::ScreenLocatorToolFactory(ToolManager& toolManager)
 	:ToolFactory("ScreenLocatorTool",toolManager),
-	 crosshairSize(getUiSize()*Scalar(2))
+	 crosshairSize(0.25)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* locatorToolFactory=toolManager.loadClass("LocatorTool");
@@ -119,7 +120,7 @@ Methods of class ScreenLocatorTool:
 void ScreenLocatorTool::calcTransformation(void)
 	{
 	/* Calculate the ray equation: */
-	Ray ray=getButtonDeviceRay(0);
+	Ray ray=getDeviceRay(0);
 	
 	/* Find the closest intersection with any screen: */
 	std::pair<VRScreen*,Scalar> si=findScreen(ray);
@@ -142,7 +143,7 @@ const ToolFactory* ScreenLocatorTool::getFactory(void) const
 	return factory;
 	}
 
-void ScreenLocatorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void ScreenLocatorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{

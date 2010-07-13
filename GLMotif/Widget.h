@@ -62,10 +62,6 @@ class Widget
 	Color backgroundColor; // Color of widget's background
 	Color foregroundColor; // Color of widget's foreground
 	
-	/* "Protected" methods: */
-	public:
-	void unmanageChild(void); // Removes the widget from its parent container; must only be called by parent
-	
 	/* Constructors and destructors: */
 	public:
 	Widget(const char* sName,Container* sParent,bool sManageChild =true);

@@ -39,7 +39,7 @@ The configuration file section named in the inputDeviceDataSaver tag contains th
 Several Vrui environment settings conflict with session recording, or make playback of recorded sessions unreliable. It is recommended to change conflicting settings to safe values for recording:
 <DL>
 <DT>Automatic windows</DT>
-<DD>Automatic window management, enabled by setting autoScreenSize, panningViewport, or navigate in a window's configuration file section, makes playback of recorded sessions unreliable because interactive changes in a window's position or size are not recorded. It is best to disable these settings, and explicitly set proper sizes and positions for all screens in an environment. The displaySize setting in the environment's root section should also be set to a reasonable value.</DD>
+<DD>Automatic window management, enabled by setting autoScreenSize, panningViewport, or navigate in a window's configuration file section, makes playback of recorded sessions unreliable because interactive changes in a window's position or size are not recorded. It is best to disable these settings, and explicitly set proper sizes and positions for all screens in an environment.</DD>
 </DL>
 
 <H3>Template Patch Configuration File For Recording</H3>
@@ -48,7 +48,6 @@ The following template file assumes that the environment's root section is calle
 <PRE>
 section Vrui
   section Desktop
-    displaySize 7.5
     inputDeviceDataSaver InputDeviceDataSaver
     maximumFrameRate 45.0
     
@@ -60,14 +59,7 @@ section Vrui
       sampleRate 44100
     endsection
     
-    section Screen
-    	origin (-6.0, 0.0, -4.5)
-    	width 12.0
-    	height 9.0
-    endsection
-    
     section Window
-      windowPos (0, 0), (1024, 768)
       autoScreenSize false
       panningViewport false
       navigate false
@@ -82,68 +74,7 @@ After a session has been recorded, optionally with an audio track, it can be pla
 <DL>
 <DT>inputDeviceAdapterNames (PlaybackAdapter)</DT>
 <DD>This tag defines the list of input device adapters present in a Vrui environment. During playback, only a single adapter of the &quot;Playback&quot; type should be used, and this tag's value defines the name of the section configuring that adapter.</DD>
-
-<DT>inputDeviceDataFileName</DT>
-<DD>The name of the previously saved input device data file to play back.</DD>
-
-<DT>soundFileName</DT>
-<DD>The name of the previously saved sound file to play back.</DD>
-
-<DT>synchronizePlayback</DT>
-<DD>Flag to enable synchronized playback. Vrui will try hard to play back frames in the exact same time sequence as they were recorded. Since frames cannot be skipped, this will not work if the system playing back the frames is slower than the system recording them. Recording frame rate can be throttled with the maximumFrameRate setting.</DD>
-
-<DT>quitWhenDone</DT>
-<DD>Flag whether the Vrui application is to exit when all recorded frames have been played back.</DD>
-
-<DT>saveMovie</DT>
-<DD>Flag to enable saving a movie of the recorded Vrui session. Movies will be saved as sequences of frame images at exactly the specified frame rate, independently of how fast the playback system can generate frames.</DD>
-
-<DT>movieFileNameTemplate</DT>
-<DD>Printf-style template to generate movie frame image files. Must contain exactly one %u placeholder, and no other placeholders.</DD>
-
-<DT>movieWindowIndex</DT>
-<DD>Index of the window from which to record movie frames.</DD>
-
-<DT>movieFrameRate</DT>
-<DD>Desired movie frame rate in frames/second.</DD>
 </DL>
-
-<H3>Template Patch Configuration File For Playback</H3>
-
-The following template file assumes that the environment's root section is called &quot;Desktop,&quot; and that the environment's only window is configured in a section called &quot;Window.&quot; Season to taste.
-<PRE>
-section Vrui
-  section Desktop
-    displaySize 7.5
-    inputDeviceAdapterNames (PlaybackAdapter)
-    
-    section PlaybackAdapter
-      inputDeviceAdapterType Playback
-      inputDeviceDataFileName InputDeviceData0001.dat
-      soundFileName SoundData0001.wav
-      synchronizePlayback true
-      quitWhenDone true
-      saveMovie true
-      movieFileNameTemplate MovieFrame%06u.ppm
-      movieWindowIndex 0
-      movieFrameRate 30.0
-    endsection
-    
-    section Screen
-    	origin (-6.0, 0.0, -4.5)
-    	width 12.0
-    	height 9.0
-    endsection
-    
-    section Window
-      windowPos (0, 0), (1024, 768)
-      autoScreenSize false
-      panningViewport false
-      navigate false
-    endsection
-  endsection
-endsection
-</PRE>
 
 </BODY>
 </HTML>

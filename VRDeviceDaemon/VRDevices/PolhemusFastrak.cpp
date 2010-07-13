@@ -1,6 +1,6 @@
 /***********************************************************************
 PolhemusFastrak - Class for tracking device of same name.
-Copyright (c) 1998-2011 Oliver Kreylos
+Copyright (c) 1998-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -22,7 +22,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDevices/PolhemusFastrak.h>
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <Misc/Endianness.h>
 #include <Misc/ThrowStdErr.h>
@@ -34,105 +33,34 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
 
-namespace {
-
-/****************
-Helper functions:
-****************/
-
-inline bool waitForData(Comm::Pipe& pipe,const Misc::Time& deadline)
-	{
-	/* Check if there is still data in the read buffer: */
-	if(pipe.canReadImmediately())
-		return true;
-	
-	/* Calculate a timeout: */
-	Misc::Time timeout=deadline;
-	timeout-=Misc::Time::now();
-	
-	/* Check if the deadline has already passed: */
-	if(timeout.tv_sec<0)
-		return false;
-	
-	/* Wait for data: */
-	return pipe.waitForData(timeout);
-	}
-
-inline void writeCommand(Comm::Pipe& pipe,char command)
-	{
-	/* Write the command character: */
-	pipe.putChar(command);
-	
-	/* Flush the pipe: */
-	pipe.flush();
-	}
-
-inline void writeCommand(Comm::Pipe& pipe,const char* format,...)
-	{
-	/* Assemble the command string: */
-	static char commandBuffer[256];
-	va_list ap;
-	va_start(ap,format);
-	vsnprintf(commandBuffer,sizeof(commandBuffer),format,ap);
-	va_end(ap);
-	
-	/* Write the command string: */
-	char* cPtr=commandBuffer;
-	while(*cPtr!='\0')
-		pipe.putChar(*(cPtr++));
-	
-	/* Flush the pipe: */
-	pipe.flush();
-	}
-
-int readStationId(Comm::Pipe& pipe)
-	{
-	/* Check for the synchronization sequence: */
-	if(pipe.getChar()!='\r'||pipe.getChar()!='\n'||pipe.getChar()!='0')
-		return -1;
-	
-	/* Extract the station ID: */
-	int stationId=-1;
-	int idTag=pipe.getChar();
-	if(idTag>='1'&&idTag<='4')
-		stationId=idTag-'0';
-	else
-		return -1;
-	
-	/* Check for filler character: */
-	int filler=pipe.getChar();
-	if(filler!=' '&&(filler<'a'||filler>'z')&&(filler<'A'||filler>'Z'))
-		return -1;
-	
-	return stationId;
-	}
-
-}
-
 /********************************
 Methods of class PolhemusFastrak:
 ********************************/
 
-char* PolhemusFastrak::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline)
+float PolhemusFastrak::readFloat(const char* lsb) const
 	{
-	/* Read bytes from the serial port until CR/LF has been read or deadline is reached: */
+	float result=*reinterpret_cast<const float*>(lsb);
+	#if __BYTE_ORDER==__BIG_ENDIAN
+	Misc::swapEndianness(result);
+	#endif
+	return result;
+	}
+
+char* PolhemusFastrak::readLine(int lineBufferSize,char* lineBuffer)
+	{
 	int state=0;
 	char* bufPtr=lineBuffer;
 	int bytesLeft=lineBufferSize-1;
 	while(state<2)
 		{
-		/* Wait for more data: */
-		if(!waitForData(devicePort,deadline))
-			break;
-		
 		/* Read next byte: */
-		int input=devicePort.getChar();
+		int input=devicePort.readByte();
 		
 		/* Process byte: */
 		switch(state)
 			{
 			case 0: // Still waiting for CR
-				if(input=='\r') // CR read?
+				if(input==13) // CR read?
 					{
 					/* Go to next state: */
 					state=1;
@@ -147,7 +75,7 @@ char* PolhemusFastrak::readLine(int lineBufferSize,char* lineBuffer,const Misc::
 				break;
 			
 			case 1: // Waiting for LF
-				if(input=='\n') // LF read?
+				if(input==10) // LF read?
 					{
 					/* Go to final state: */
 					state=2;
@@ -168,20 +96,20 @@ char* PolhemusFastrak::readLine(int lineBufferSize,char* lineBuffer,const Misc::
 
 bool PolhemusFastrak::readStatusReply(void)
 	{
-	/* Create a deadline by which the complete status reply has to have arrived: */
-	Misc::Time deadline=Misc::Time::now();
-	deadline.tv_sec+=10;
-	
-	/* Read bytes from the serial port until the status report's prefix has been matched or the deadline is reached: */
+	int numElapsedWaits=0;
+	char buffer[1024];
 	int state=0;
-	while(state<4)
+	while(numElapsedWaits<100&&state<4)
 		{
-		/* Wait for more data: */
-		if(!waitForData(devicePort,deadline))
-			break;
+		/* Wait for a byte to arrive, but don't wait too long: */
+		if(!devicePort.waitForByte(Misc::Time(0.1)))
+			{
+			++numElapsedWaits;
+			continue;
+			}
 		
 		/* Read next byte and try matching status reply's prefix: */
-		int input=devicePort.getChar();
+		int input=devicePort.readByte();
 		switch(state)
 			{
 			case 0: // Haven't matched anything
@@ -225,8 +153,33 @@ bool PolhemusFastrak::readStatusReply(void)
 		return false;
 	
 	/* Read rest of status reply until final CR/LF pair: */
-	char buffer[256];
-	readLine(sizeof(buffer),buffer,deadline);
+	char* cPtr=buffer;
+	state=0;
+	while(state<2)
+		{
+		int input=devicePort.readByte();
+		*cPtr=char(input);
+		++cPtr;
+		switch(state)
+			{
+			case 0: // Haven't matched anything
+				if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			
+			case 1: // Have matched CR
+				if(input==10)
+					state=2;
+				else if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			}
+		}
+	*cPtr=0;
 	#ifdef VERBOSE
 	printf("PolhemusFastrak: Received status reply\n  %s",buffer);
 	fflush(stdout);
@@ -235,105 +188,40 @@ bool PolhemusFastrak::readStatusReply(void)
 	return true;
 	}
 
-bool PolhemusFastrak::processRecord(void)
+void PolhemusFastrak::processBuffer(int station,const char* recordBuffer)
 	{
-	/* Check for the synchronization sequence: */
-	bool lostSync=false;
-	int stationId=readStationId(devicePort);
-	if(stationId<0)
-		{
-		lostSync=true;
-		
-		/* Re-synchronize with the data stream: */
-		int state=0;
-		while(state<5)
-			{
-			int input=devicePort.getChar();
-			switch(state)
-				{
-				case 0: // Haven't matched anything
-					if(input=='\r')
-						state=1;
-					else
-						state=0;
-					break;
-				
-				case 1: // Have matched CR
-					if(input=='\n')
-						state=2;
-					else if(input=='\r')
-						state=1;
-					else
-						state=0;
-					break;
-				
-				case 2: // Have matched CR/LF
-					if(input=='0')
-						state=3;
-					else if(input=='\r')
-						state=1;
-					else
-						state=0;
-					break;
-				
-				case 3: // Have matched CR/LF + 0
-					if(input>='1'&&input<='4')
-						{
-						stationId=input-'0';
-						state=4;
-						}
-					else if(input=='\r')
-						state=1;
-					else
-						state=0;
-					break;
-				
-				case 4: // Have matched CR/LF + 0 + <receiver number>
-					if(input==' '||(input>='A'&&input<='Z')||(input>='a'&&input<='z'))
-						state=5;
-					else if(input=='\r')
-						{
-						stationId=-1;
-						state=1;
-						}
-					else
-						{
-						stationId=-1;
-						state=0;
-						}
-					break;
-				}
-			}
-		}
-	
-	/* Process the binary part of the record: */
-	int stationIndex=stationId-1;
 	Vrui::VRDeviceState::TrackerState ts;
-	
+		
 	/* Calculate raw position and orientation: */
-	float trans[3];
-	devicePort.read<float>(trans,3);
 	typedef PositionOrientation::Vector Vector;
-	Vector v(trans);
-	float rotAngles[3];
-	devicePort.read<float>(rotAngles,3);
+	typedef Vector::Scalar VScalar;
+	Vector v;
+	v[0]=VScalar(readFloat(recordBuffer+8));
+	v[1]=VScalar(readFloat(recordBuffer+12));
+	v[2]=VScalar(readFloat(recordBuffer+16));
+
 	typedef PositionOrientation::Rotation Rotation;
 	typedef Rotation::Scalar RScalar;
-	Rotation o=Rotation::rotateZ(Math::rad(RScalar(rotAngles[0])));
-	o*=Rotation::rotateY(Math::rad(RScalar(rotAngles[1])));
-	o*=Rotation::rotateX(Math::rad(RScalar(rotAngles[2])));
+	RScalar angles[3];
+	angles[0]=Math::rad(RScalar(readFloat(recordBuffer+20)));
+	angles[1]=Math::rad(RScalar(readFloat(recordBuffer+24)));
+	angles[2]=Math::rad(RScalar(readFloat(recordBuffer+28)));
+	Rotation o=Rotation::identity;
+	o*=Rotation::rotateZ(angles[0]);
+	o*=Rotation::rotateY(angles[1]);
+	o*=Rotation::rotateX(angles[2]);
 	
 	/* Set new position and orientation: */
 	ts.positionOrientation=Vrui::VRDeviceState::TrackerState::PositionOrientation(v,o);
 	
 	/* Calculate linear and angular velocities: */
-	timers[stationIndex].elapse();
-	if(notFirstMeasurements[stationIndex])
+	timers[station].elapse();
+	if(notFirstMeasurements[station])
 		{
 		/* Estimate velocities by dividing position/orientation differences by elapsed time since last measurement: */
-		double time=timers[stationIndex].getTime();
-		ts.linearVelocity=(v-oldPositionOrientations[stationIndex].getTranslation())/Vrui::VRDeviceState::TrackerState::LinearVelocity::Scalar(time);
-		Rotation dO=o*Geometry::invert(oldPositionOrientations[stationIndex].getRotation());
+		double time=timers[station].getTime();
+		ts.linearVelocity=(v-oldPositionOrientations[station].getTranslation())/Vrui::VRDeviceState::TrackerState::LinearVelocity::Scalar(time);
+		Rotation dO=o*Geometry::invert(oldPositionOrientations[station].getRotation());
 		ts.angularVelocity=dO.getScaledAxis()/Vrui::VRDeviceState::TrackerState::AngularVelocity::Scalar(time);
 		}
 	else
@@ -341,21 +229,100 @@ bool PolhemusFastrak::processRecord(void)
 		/* Force initial velocities to zero: */
 		ts.linearVelocity=Vrui::VRDeviceState::TrackerState::LinearVelocity::zero;
 		ts.angularVelocity=Vrui::VRDeviceState::TrackerState::AngularVelocity::zero;
-		notFirstMeasurements[stationIndex]=true;
+		notFirstMeasurements[station]=true;
 		}
-	oldPositionOrientations[stationIndex]=ts.positionOrientation;
+	oldPositionOrientations[station]=ts.positionOrientation;
 	
-	if(stationIndex==0&&stylusEnabled)
+	/* Update button state: */
+	if(station==0&&stylusEnabled)
 		{
-		/* Read the stylus bit: */
-		devicePort.getChar();
-		setButtonState(0,devicePort.getChar()=='1');
+		/* Update stylus button state: */
+		setButtonState(0,recordBuffer[33]=='1');
+		}
+
+	/* Update tracker state: */
+	setTrackerState(station,ts);
+	}
+
+int PolhemusFastrak::readRecordSync(char* recordBuffer)
+	{
+	int station=-1;
+	int state=0;
+	while(state<5)
+		{
+		int input=devicePort.readByte();
+		switch(state)
+			{
+			case 0: // Haven't matched anything
+				if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			
+			case 1: // Have matched CR
+				if(input==10)
+					state=2;
+				else if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			
+			case 2: // Have matched CR/LF
+				if(input=='0')
+					state=3;
+				else if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			
+			case 3: // Have matched CR/LF + 0
+				if(input>='1'&&input<='4')
+					{
+					station=input-'1';
+					state=4;
+					}
+				else if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			
+			case 4: // Have matched CR/LF + 0 + <receiver number>
+				if(input==' '||(input>='A'&&input<='Z')||(input>='a'&&input<='z'))
+					state=5;
+				else if(input==13)
+					state=1;
+				else
+					state=0;
+				break;
+			}
 		}
 	
-	/* Update tracker state: */
-	setTrackerState(stationIndex,ts);
+	/* Read rest of record: */
+	devicePort.readBytes(26,recordBuffer+8);
+	return station;
+	}
+
+int PolhemusFastrak::readRecordNoSync(char* recordBuffer)
+	{
+	/* Read complete record's worth of data: */
+	devicePort.readBytes(31,recordBuffer+3);
 	
-	return lostSync;
+	/* Check if we're still synchronized: */
+	bool nSync=true;
+	nSync=nSync&&recordBuffer[3]==char(13);
+	nSync=nSync&&recordBuffer[4]==char(10);
+	nSync=nSync&&recordBuffer[5]=='0';
+	nSync=nSync&&recordBuffer[6]>='1'&&recordBuffer[6]<='4';
+	nSync=nSync&&(recordBuffer[7]==' '||(recordBuffer[7]>='A'&&recordBuffer[7]<='Z')||(recordBuffer[7]>='a'&&recordBuffer[7]<='z'));
+	if(!nSync)
+		return -1;
+	
+	/* Return station number: */
+	return recordBuffer[6]-'1';
 	}
 
 void PolhemusFastrak::deviceThreadMethod(void)
@@ -364,20 +331,29 @@ void PolhemusFastrak::deviceThreadMethod(void)
 	for(int i=0;i<numTrackers;++i)
 		notFirstMeasurements[i]=false;
 	
-	/* Process first record: */
-	processRecord();
+	/* Read first record in synchronizing mode: */
+	int station;
+	char recordBuffer[256];
+	station=readRecordSync(recordBuffer);
+	
+	/* Parse read buffer: */
+	processBuffer(station,recordBuffer);
 	
 	while(true)
 		{
-		/* Process the next record and check for loss of synchronization: */
-		if(processRecord())
+		/* Try reading record in synchronized mode: */
+		if((station=readRecordNoSync(recordBuffer))<0)
 			{
 			/* Fall back to synchronizing mode: */
 			#ifdef VERBOSE
-			printf("PolhemusFastrak: Lost synchronization with tracker stream\n");
+			printf("PolhemusFastrak: Resynchronizing with tracker stream\n");
 			fflush(stdout);
 			#endif
+			station=readRecordSync(recordBuffer);
 			}
+		
+		/* Parse read buffer: */
+		processBuffer(station,recordBuffer);
 		}
 	}
 
@@ -398,11 +374,9 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	oldPositionOrientations=new PositionOrientation[numTrackers];
 	
 	/* Set device port parameters: */
-	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate");
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
 	devicePort.setRawMode(1,0);
-	devicePort.setEndianness(Misc::LittleEndian);
 	
 	if(configFile.retrieveValue<bool>("./resetDevice",false))
 		{
@@ -411,8 +385,8 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		printf("PolhemusFastrak: Resetting device\n");
 		fflush(stdout);
 		#endif
-		writeCommand(devicePort,'\31');
-		Misc::sleep(15.0);
+		devicePort.writeByte('\31');
+		delay(15.0);
 		}
 	else
 		{
@@ -421,7 +395,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		printf("PolhemusFastrak: Disabling continuous mode\n");
 		fflush(stdout);
 		#endif
-		writeCommand(devicePort,'c');
+		devicePort.writeByte('c');
 		}
 	
 	/* Request status record to check if device is okey-dokey: */
@@ -429,7 +403,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	printf("PolhemusFastrak: Requesting status record\n");
 	fflush(stdout);
 	#endif
-	writeCommand(devicePort,'S');
+	devicePort.writeByte('S');
 	if(!readStatusReply())
 		{
 		/* Try resetting the device, seeing if that helps: */
@@ -437,15 +411,15 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		printf("PolhemusFastrak: Resetting device\n");
 		fflush(stdout);
 		#endif
-		writeCommand(devicePort,'\31');
-		Misc::sleep(15.0);
+		devicePort.writeByte('\31');
+		delay(15.0);
 		
 		/* Request another status record: */
 		#ifdef VERBOSE
 		printf("PolhemusFastrak: Re-requesting status record\n");
 		fflush(stdout);
 		#endif
-		writeCommand(devicePort,'S');
+		devicePort.writeByte('S');
 		if(!readStatusReply())
 			Misc::throwStdErr("PolhemusFastrak: Device not responding");
 		}
@@ -476,40 +450,53 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	#endif
 	for(int i=0;i<numTrackers;++i)
 		{
+		char command[40];
+		
 		/* Enable receiver: */
-		writeCommand(devicePort,"l%d,1\r\n",i+1);
-		Misc::sleep(0.1);
+		snprintf(command,sizeof(command),"l%d,1\r\n",i+1);
+		devicePort.writeString(command);
+		delay(0.1);
 		
 		/* Reset receiver's alignment frame: */
-		writeCommand(devicePort,"R%d\r\n",i+1);
-		Misc::sleep(0.1);
+		snprintf(command,sizeof(command),"R%d\r\n",i+1);
+		devicePort.writeString(command);
+		delay(0.1);
 		
 		/* Disable boresight mode: */
-		writeCommand(devicePort,"b%d\r\n",i+1);
-		Misc::sleep(0.1);
+		snprintf(command,sizeof(command),"b%d\r\n",i+1);
+		devicePort.writeString(command);
+		delay(0.1);
 		
 		/* Set receiver's hemisphere of operation: */
-		writeCommand(devicePort,"H%d,%d,%d,%d\r\n",i+1,hemisphereVectors[hemisphereIndex][0],hemisphereVectors[hemisphereIndex][1],hemisphereVectors[hemisphereIndex][2]);
-		Misc::sleep(0.1);
+		snprintf(command,sizeof(command),"H%d,%d,%d,%d\r\n",i+1,hemisphereVectors[hemisphereIndex][0],hemisphereVectors[hemisphereIndex][1],hemisphereVectors[hemisphereIndex][2]);
+		devicePort.writeString(command);
+		delay(0.1);
 		
 		/* Set receiver's output format: */
-		writeCommand(devicePort,"O%d,2,4,16,1\r\n",i+1);
-		Misc::sleep(0.1);
+		snprintf(command,sizeof(command),"O%d,2,4,16,1\r\n",i+1);
+		devicePort.writeString(command);
+		delay(0.1);
 		}
 	
 	/* Set stylus tip offset: */
-	if(configFile.hasTag("./stylusTipOffset"))
+	try
 		{
-		/* Get the tip offset from the configuration file: */
+		/* Try getting a tip offset from the configuration file: */
 		Geometry::Vector<float,3> tipOffset=configFile.retrieveValue<Geometry::Vector<float,3> >("./stylusTipOffset");
 		
-		/* Set the stylus tip offset: */
+		/* If the tag is there, set the stylus tip offset: */
 		#ifdef VERBOSE
 		printf("PolhemusFastrak: Setting stylus tip offset\n");
 		fflush(stdout);
 		#endif
-		writeCommand(devicePort,"N1,%8.4f,%8.4f,%8.4f\r\n",tipOffset[0],tipOffset[1],tipOffset[2]);
-		Misc::sleep(0.1);
+		char command[80];
+		snprintf(command,sizeof(command),"N1,%8.4f,%8.4f,%8.4f\r\n",tipOffset[0],tipOffset[1],tipOffset[2]);
+		devicePort.writeString(command);
+		delay(0.1);
+		}
+	catch(Misc::ConfigurationFile::TagNotFoundError error)
+		{
+		/* If no tag for stylus offset is given, just leave it to the factory default */
 		}
 	
 	/* Set stylus button to "mouse mode": */
@@ -517,17 +504,17 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	printf("PolhemusFastrak: Setting stylus button mode\n");
 	fflush(stdout);
 	#endif
-	writeCommand(devicePort,"e1,0\r\n");
-	Misc::sleep(0.1);
+	devicePort.writeString("e1,0\r\n");
+	delay(0.1);
 	
 	#if 1
 	/* Query stylus tip offset: */
-	writeCommand(devicePort,'F');
-	Misc::sleep(0.1);
-	writeCommand(devicePort,"N1,\r\n");
-	Misc::sleep(0.1);
+	devicePort.writeByte('F');
+	delay(0.1);
+	devicePort.writeString("N1,\r\n");
+	delay(0.1);
 	char lineBuffer[80];
-	printf("%s\n",readLine(80,lineBuffer,Misc::Time(5,0)));
+	printf("%s\n",readLine(80,lineBuffer));
 	fflush(stdout);
 	#endif
 	
@@ -537,31 +524,29 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	fflush(stdout);
 	#endif
 	if(configFile.retrieveValue<bool>("./enableMetalCompensation",false))
-		writeCommand(devicePort,'D');
+		devicePort.writeByte('D');
 	else
-		writeCommand(devicePort,'d');
-	Misc::sleep(0.1);
+		devicePort.writeByte('d');
+	delay(0.1);
 	
 	/* Set unit mode to inches: */
 	#ifdef VERBOSE
 	printf("PolhemusFastrak: Setting unit mode\n");
 	fflush(stdout);
 	#endif
-	writeCommand(devicePort,'U');
-	Misc::sleep(0.1);
+	devicePort.writeByte('U');
+	delay(0.1);
 	
 	/* Enable binary mode: */
 	#ifdef VERBOSE
 	printf("PolhemusFastrak: Enabling binary mode\n");
 	fflush(stdout);
 	#endif
-	writeCommand(devicePort,'f');
+	devicePort.writeByte('f');
 	}
 
 PolhemusFastrak::~PolhemusFastrak(void)
 	{
-	if(isActive())
-		stop();
 	delete[] timers;
 	delete[] notFirstMeasurements;
 	delete[] oldPositionOrientations;
@@ -577,7 +562,7 @@ void PolhemusFastrak::start(void)
 	printf("PolhemusFastrak: Enabling continuous mode\n");
 	fflush(stdout);
 	#endif
-	writeCommand(devicePort,'C');
+	devicePort.writeByte('C');
 	}
 
 void PolhemusFastrak::stop(void)
@@ -587,7 +572,7 @@ void PolhemusFastrak::stop(void)
 	printf("PolhemusFastrak: Disabling continuous mode\n");
 	fflush(stdout);
 	#endif
-	writeCommand(devicePort,'c');
+	devicePort.writeByte('c');
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

@@ -1,6 +1,6 @@
 /***********************************************************************
 HashTable - Class for storing and finding values (bucketed version)
-Copyright (c) 1998-2011 Oliver Kreylos
+Copyright (c) 1998-2005 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -40,11 +40,7 @@ class HashTableEntry
 	
 	/* Constructors and destructors: */
 	public:
-	HashTableEntry(const Source& sSource) // Creates entry with uninitialized/default destination value
-		:source(sSource)
-		{
-		}
-	HashTableEntry(const Source& sSource,const Dest& sDest) // Elementwise constructor
+	HashTableEntry(const Source& sSource,const Dest& sDest)
 		:source(sSource),dest(sDest)
 		{
 		}
@@ -61,11 +57,6 @@ class HashTableEntry
 	Dest& getDest(void) // Ditto as modifiable L-value
 		{
 		return dest;
-		}
-	HashTableEntry& operator=(const Dest& newDest) // Assigns a new value
-		{
-		dest=newDest;
-		return *this;
 		}
 	};
 
@@ -511,37 +502,6 @@ class HashTable
 		/* Throw an exception if the requested entry does not exist: */
 		if(item==0)
 			throw EntryNotFoundError(findSource);
-		
-		return *item;
-		}
-	Entry& operator[](const Source& source) // Returns reference to entry; inserts new entry if source is not found
-		{
-		/* Calculate the searched entry's hash bucket index: */
-		size_t index=HashFunction::hash(source,tableSize);
-		
-		/* Compare items in the hash bucket until match is found: */
-		HashBucketItem* pred=0;
-		HashBucketItem* item=hashBuckets[index].firstItem;
-		while(item!=0&&item->getSource()!=source)
-			{
-			pred=item;
-			item=item->succ;
-			}
-		
-		if(item==0)
-			{
-			/* Insert new entry with default destination: */
-			item=new(hashBucketItemAllocator.allocate()) HashBucketItem(Entry(source));
-			if(pred!=0)
-				pred->succ=item;
-			else
-				hashBuckets[index].firstItem=item;
-			++usedEntries;
-			
-			/* Grow hash table if necessary: */
-			if(usedEntries>maxEntries)
-				growTable((size_t)(tableSize*growRate)+1);
-			}
 		
 		return *item;
 		}

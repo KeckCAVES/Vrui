@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColorMap - Class to map from scalar values to RGBA colors.
-Copyright (c) 1999-2012 Oliver Kreylos
+Copyright (c) 1999-2005 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -23,8 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Endianness.h>
-#include <IO/File.h>
-#include <IO/OpenFile.h>
+#include <Misc/File.h>
 
 #include <GL/GLColorMap.h>
 
@@ -149,47 +148,6 @@ GLColorMap::GLColorMap(GLsizei sNumEntries,const GLColorMap::Color* sEntries,GLd
 	copyMap(sNumEntries,sEntries,sMin,sMax);
 	}
 
-GLColorMap::GLColorMap(GLsizei numKeys,const Color* colors,const GLdouble* keys,GLsizei sNumEntries)
-	:numEntries(0),entries(0),min(keys[0]),max(keys[numKeys-1])
-	{
-	/* Create entry array: */
-	setNumEntries(sNumEntries);
-	
-	/* Evaluate the color function: */
-	for(GLsizei i=0;i<numEntries;++i)
-		{
-		/* Calculate the key value for this color map entry: */
-		GLdouble val=GLdouble(i)*(max-min)/GLdouble(numEntries-1)+min;
-		
-		/* Find the piecewise linear segment of the color function containing the key value using binary search: */
-		GLsizei l=0;
-		GLsizei r=numKeys;
-		while(r-l>1)
-			{
-			/* Enforce the invariant keys[l]<=val<keys[r]: */
-			GLsizei m=(l+r)>>1;
-			if(keys[m]<=val)
-				l=m;
-			else
-				r=m;
-			}
-		
-		/* Evaluate the linear segment: */
-		if(r<numEntries)
-			{
-			/* Interpolate linearly: */
-			GLfloat w=GLfloat((val-keys[l])/(keys[r]-keys[l]));
-			for(int j=0;j<4;++j)
-				entries[i][j]=colors[l][j]*(1.0f-w)+colors[r][j]*w;
-			}
-		else
-			{
-			/* There is nothing to the right of the last key, so no need to interpolate: */
-			entries[i]=colors[numKeys-1];
-			}
-		}
-	}
-
 GLColorMap::GLColorMap(const char* fileName,GLdouble sMin,GLdouble sMax)
 	:numEntries(0),entries(0),min(sMin),max(sMax)
 	{
@@ -226,9 +184,8 @@ GLColorMap& GLColorMap::load(const char* fileName)
 	setNumEntries(256);
 	
 	/* Load the color entries from file: */
-	IO::FilePtr file(IO::openFile(fileName));
-	file->setEndianness(Misc::BigEndian);
-	file->read(entries,numEntries);
+	Misc::File file(fileName,"rb",Misc::File::BigEndian);
+	file.read(entries,numEntries);
 	
 	return *this;
 	}
@@ -248,9 +205,8 @@ void GLColorMap::save(const char* fileName) const
 		Misc::throwStdErr("GLColorMap::save: Attempt to save color map with wrong number of entries");
 	
 	/* Write color entries to file: */
-	IO::FilePtr file(IO::openFile(fileName,IO::File::WriteOnly));
-	file->setEndianness(Misc::BigEndian);
-	file->write(entries,numEntries);
+	Misc::File file(fileName,"wb",Misc::File::BigEndian);
+	file.write(entries,numEntries);
 	}
 
 GLColorMap& GLColorMap::setScalarRange(GLdouble newMin,GLdouble newMax)

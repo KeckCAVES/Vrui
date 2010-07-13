@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyTurnNavigationTool - Class providing a fly navigation tool
 with turning using two valuators.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -60,7 +60,6 @@ class ValuatorFlyTurnNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -83,7 +82,7 @@ class ValuatorFlyTurnNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	};
 

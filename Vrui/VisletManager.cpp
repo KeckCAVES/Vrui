@@ -1,6 +1,6 @@
 /***********************************************************************
 VisletManager - Class to manage vislet classes.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2007 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -58,8 +58,7 @@ void VisletManager::visletMenuToggleButtonCallback(GLMotif::ToggleButton::ValueC
 
 VisletManager::VisletManager(const Misc::ConfigurationFileSection& sConfigFileSection)
 	:Plugins::FactoryManager<VisletFactory>(sConfigFileSection.retrieveString("./visletDsoNameTemplate",SYSVISLETDSONAMETEMPLATE)),
-	 configFileSection(sConfigFileSection),
-	 visletMenu(0)
+	 configFileSection(sConfigFileSection)
 	{
 	typedef std::vector<std::string> StringList;
 	
@@ -103,7 +102,7 @@ GLMotif::Popup* VisletManager::buildVisletMenu(void)
 	{
 	/* Create the popup and menu: */
 	GLMotif::Popup* visletMenuPopup=new GLMotif::Popup("VisletsMenuPopup",getWidgetManager());
-	visletMenu=new GLMotif::SubMenu("Vislets",visletMenuPopup,false);
+	GLMotif::SubMenu* visletMenu=new GLMotif::SubMenu("Vislets",visletMenuPopup,false);
 	
 	/* Create a toggle button for each vislet: */
 	for(unsigned int i=0;i<vislets.size();++i)
@@ -118,28 +117,6 @@ GLMotif::Popup* VisletManager::buildVisletMenu(void)
 	/* Finalize and return the vislet menu popup: */
 	visletMenu->manageChild();
 	return visletMenuPopup;
-	}
-
-void VisletManager::enable(void)
-	{
-	/* Enable all vislets: */
-	for(size_t i=0;i<vislets.size();++i)
-		if(!vislets[i]->isActive())
-			{
-			vislets[i]->enable();
-			static_cast<GLMotif::ToggleButton*>(visletMenu->getChild(i))->setToggle(vislets[i]->isActive());
-			}
-	}
-
-void VisletManager::disable(void)
-	{
-	/* Disable all vislets: */
-	for(size_t i=0;i<vislets.size();++i)
-		if(vislets[i]->isActive())
-			{
-			vislets[i]->disable();
-			static_cast<GLMotif::ToggleButton*>(visletMenu->getChild(i))->setToggle(vislets[i]->isActive());
-			}
 	}
 
 void VisletManager::frame(void)

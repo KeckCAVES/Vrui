@@ -24,7 +24,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/MutexMenu.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Internal/Vrui.h>
 
 namespace Vrui {
 
@@ -46,10 +45,27 @@ const char* MenuToolFactory::getName(void) const
 	return "Menu Handler";
 	}
 
-const char* MenuToolFactory::getButtonFunction(int) const
+extern "C" void resolveMenuToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
 	{
-	/* By default, menu tools only use a single button: */
-	return "Show Menu";
+	/* Load base classes: */
+	manager.loadClass("UserInterfaceTool");
+	}
+
+extern "C" ToolFactory* createMenuToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+	{
+	/* Get pointer to tool manager: */
+	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
+	
+	/* Create factory object and insert it into class hierarchy: */
+	MenuToolFactory* menuToolFactory=new MenuToolFactory(*toolManager);
+	
+	/* Return factory object: */
+	return menuToolFactory;
+	}
+
+extern "C" void destroyMenuToolFactory(ToolFactory* factory)
+	{
+	delete factory;
 	}
 
 /*************************

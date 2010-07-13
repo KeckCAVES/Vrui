@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -46,7 +46,6 @@ template Matrix<double,3,3>& Rotation<float,3>::writeMatrix(Matrix<double,3,3>&)
 template Matrix<double,3,4>& Rotation<float,3>::writeMatrix(Matrix<double,3,4>&) const;
 template Matrix<double,4,4>& Rotation<float,3>::writeMatrix(Matrix<double,4,4>&) const;
 template Rotation<float,3> operator*(const Rotation<float,3>&,const Rotation<float,3>&);
-template Rotation<float,3> operator/(const Rotation<float,3>&,const Rotation<float,3>&);
 
 template class Rotation<double,3>;
 template Rotation<double,3> Rotation<double,3>::fromMatrix(const Matrix<float,3,3>&);
@@ -62,6 +61,5 @@ template Matrix<double,3,3>& Rotation<double,3>::writeMatrix(Matrix<double,3,3>&
 template Matrix<double,3,4>& Rotation<double,3>::writeMatrix(Matrix<double,3,4>&) const;
 template Matrix<double,4,4>& Rotation<double,3>::writeMatrix(Matrix<double,4,4>&) const;
 template Rotation<double,3> operator*(const Rotation<double,3>&,const Rotation<double,3>&);
-template Rotation<double,3> operator/(const Rotation<double,3>&,const Rotation<double,3>&);
 
 }

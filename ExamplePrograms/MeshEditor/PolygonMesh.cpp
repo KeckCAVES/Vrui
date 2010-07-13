@@ -1,17 +1,28 @@
 /***********************************************************************
 PolygonMesh - Class providing the infrastructure for algorithms working
-on meshes of convex polygons
-Copyright (c) 2001-2005 Oliver Kreylos
+on meshes of convex polygons.
+Copyright (c) 2001-2006 Oliver Kreylos
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <assert.h>
+#define POLYGONMESH_IMPLEMENTATION
+
 #include <new>
-#include <vector>
 #include <iostream>
-#include <Misc/ThrowStdErr.h>
 #include <Misc/HashTable.h>
-#include <Math/Math.h>
-#include <GL/gl.h>
 
 #include "PolygonMesh.h"
 
@@ -19,7 +30,8 @@ Copyright (c) 2001-2005 Oliver Kreylos
 Methods of class PolygonMesh::Vertex:
 ************************************/
 
-int PolygonMesh::Vertex::getNumEdges(void) const
+template <class PointType>
+int PolygonMesh<PointType>::Vertex::getNumEdges(void) const
 	{
 	int result=0;
 	const Edge* ePtr=edge;
@@ -33,7 +45,8 @@ int PolygonMesh::Vertex::getNumEdges(void) const
 	return result;
 	}
 
-bool PolygonMesh::Vertex::isInterior(void) const
+template <class PointType>
+bool PolygonMesh<PointType>::Vertex::isInterior(void) const
 	{
 	if(edge==0)
 		return false;
@@ -48,7 +61,8 @@ bool PolygonMesh::Vertex::isInterior(void) const
 	return ePtr!=0;
 	}
 
-void PolygonMesh::Vertex::checkVertex(void) const
+template <class PointType>
+void PolygonMesh<PointType>::Vertex::checkVertex(void) const
 	{
 	assert(edge!=0);
 	
@@ -72,7 +86,8 @@ void PolygonMesh::Vertex::checkVertex(void) const
 Methods of class PolygonMesh::Face:
 **********************************/
 
-int PolygonMesh::Face::getNumEdges(void) const
+template <class PointType>
+int PolygonMesh<PointType>::Face::getNumEdges(void) const
 	{
 	int result=0;
 	const Edge* ePtr=edge;
@@ -86,7 +101,8 @@ int PolygonMesh::Face::getNumEdges(void) const
 	return result;
 	}
 
-void PolygonMesh::Face::checkFace(void) const
+template <class PointType>
+void PolygonMesh<PointType>::Face::checkFace(void) const
 	{
 	assert(edge!=0);
 	
@@ -106,12 +122,12 @@ void PolygonMesh::Face::checkFace(void) const
 Methods of class PolygonMesh:
 ****************************/
 
-PolygonMesh::Vertex* PolygonMesh::newVertex(const PolygonMesh::Point& p,const PolygonMesh::Color& c)
+template <class PointType>
+template <class InputPointType>
+typename PolygonMesh<PointType>::Vertex* PolygonMesh<PointType>::newVertex(const InputPointType& p)
 	{
 	/* Create a new vertex and link it to the vertex list: */
-	++numVertices;
-	Vertex* newVertex=new(vertexAllocator.allocate()) Vertex(p,c,0);
-	newVertex->version=version;
+	Vertex* newVertex=new(vertexAllocator.allocate()) Vertex(p,0);
 	newVertex->pred=lastVertex;
 	if(lastVertex!=0)
 		lastVertex->succ=newVertex;
@@ -121,7 +137,8 @@ PolygonMesh::Vertex* PolygonMesh::newVertex(const PolygonMesh::Point& p,const Po
 	return newVertex;
 	}
 
-void PolygonMesh::deleteVertex(PolygonMesh::Vertex* vertex)
+template <class PointType>
+void PolygonMesh<PointType>::deleteVertex(typename PolygonMesh<PointType>::Vertex* vertex)
 	{
 	/* Unlink the vertex from the vertex list: */
 	if(vertex->pred!=0)
@@ -136,28 +153,27 @@ void PolygonMesh::deleteVertex(PolygonMesh::Vertex* vertex)
 	/* Delete the vertex: */
 	vertex->~Vertex();
 	vertexAllocator.free(vertex);
-	--numVertices;
 	}
 
-PolygonMesh::Edge* PolygonMesh::newEdge(void)
+template <class PointType>
+typename PolygonMesh<PointType>::Edge* PolygonMesh<PointType>::newEdge(void)
 	{
 	/* Create a new edge: */
-	++numEdges;
 	return new(edgeAllocator.allocate()) Edge;
 	}
 
-void PolygonMesh::deleteEdge(PolygonMesh::Edge* edge)
+template <class PointType>
+void PolygonMesh<PointType>::deleteEdge(typename PolygonMesh<PointType>::Edge* edge)
 	{
 	/* Delete the edge: */
 	edge->~Edge();
 	edgeAllocator.free(edge);
-	--numEdges;
 	}
 
-PolygonMesh::Face* PolygonMesh::newFace(void)
+template <class PointType>
+typename PolygonMesh<PointType>::Face* PolygonMesh<PointType>::newFace(void)
 	{
 	/* Create a new face and link it to the face list: */
-	++numFaces;
 	Face* newFace=new(faceAllocator.allocate()) Face(0);
 	newFace->pred=lastFace;
 	if(lastFace!=0)
@@ -168,7 +184,8 @@ PolygonMesh::Face* PolygonMesh::newFace(void)
 	return newFace;
 	}
 
-void PolygonMesh::deleteFace(PolygonMesh::Face* face)
+template <class PointType>
+void PolygonMesh<PointType>::deleteFace(typename PolygonMesh<PointType>::Face* face)
 	{
 	/* Unlink the face from the face list: */
 	if(face->pred!=0)
@@ -183,19 +200,183 @@ void PolygonMesh::deleteFace(PolygonMesh::Face* face)
 	/* Delete the face: */
 	face->~Face();
 	faceAllocator.free(face);
-	--numFaces;
 	}
 
-PolygonMesh::PolygonMesh(const PolygonMesh& source)
-	:version(0),
-	 numVertices(0),vertices(0),lastVertex(0),
-	 numEdges(0),
-	 numFaces(0),faces(0),lastFace(0)
+template <class PointType>
+template <class InputPointType>
+PolygonMesh<PointType>::PolygonMesh(int numPoints,const InputPointType* points,const int* vertexIndices,int numSharpEdges,const int* sharpEdgeIndices)
+	:vertices(0),lastVertex(0),faces(0),lastFace(0)
+	{
+	/* Local data type for reasons why a face does not conform to a mesh: */
+	enum NonconformanceReason
+		{
+		NONE,NON_MANIFOLD,WRONG_ORIENTATION
+		};
+	
+	/* Create vertices for all given points: */
+	Vertex** vertexArray=new Vertex*[numPoints];
+	for(int i=0;i<numPoints;++i)
+		vertexArray[i]=newVertex(points[i]);
+	
+	/* Count the number of edges (to estimate the hash table size): */
+	int numEdges=0;
+	for(int i=0;vertexIndices[i]>=0||vertexIndices[i+1]>=0;++i)
+		if(vertexIndices[i]>=0)
+			++numEdges;
+	Misc::HashTable<VertexPair,Edge*,VertexPair> companions(numEdges);
+	
+	/* Create (and connect) all polygons: */
+	int faceIndex=0;
+	const int* indexPtr=vertexIndices;
+	while(*indexPtr>=0) // End of face list is denoted by -1
+		{
+		/* Check whether the current polygon conforms with the mesh: */
+		bool faceConforms=true;
+		NonconformanceReason nonconformanceReason=NONE;
+		const int* checkIndexPtr=indexPtr;
+		do
+			{
+			/* Get indices of vertices of current edge: */
+			int i1=checkIndexPtr[0];
+			int i2=checkIndexPtr[1];
+			if(i2<0)
+				i2=indexPtr[0];
+			
+			/* Look for the current edge in the edge hash table: */
+			VertexPair vp(vertexArray[i1],vertexArray[i2]);
+			typename Misc::HashTable<VertexPair,Edge*,VertexPair>::Iterator companionsIt=companions.findEntry(vp);
+			if(companionsIt!=companions.end())
+				{
+				Edge* companion=companionsIt->getDest();
+				
+				/* Test if the companion edge already has an opposite: */
+				if(companion->getOpposite()!=0)
+					{
+					nonconformanceReason=NON_MANIFOLD;
+					faceConforms=false;
+					}
+				
+				/* Test if the two edges are properly oriented: */
+				if(companion->getStart()!=vertexArray[i2]||companion->getEnd()!=vertexArray[i1])
+					{
+					nonconformanceReason=WRONG_ORIENTATION;
+					faceConforms=false;
+					}
+				}
+			
+			/* Go to the next edge: */
+			++checkIndexPtr;
+			}
+		while(*checkIndexPtr>=0);
+		
+		/* Only create the new face if it conforms with the mesh: */
+		if(faceConforms)
+			{
+			/* Create the new polygon: */
+			Face* face=newFace();
+			
+			/* Create the face without connecting it to neighbours yet: */
+			Edge* firstEdge;
+			Edge* lastEdge=0;
+			do
+				{
+				Edge* edge=newEdge();
+				vertexArray[*indexPtr]->setEdge(edge);
+				edge->set(vertexArray[*indexPtr],face,lastEdge,0,0);
+				edge->sharpness=0;
+				if(lastEdge!=0)
+					lastEdge->setFaceSucc(edge);
+				else
+					firstEdge=edge;
+				
+				lastEdge=edge;
+				++indexPtr;
+				}
+			while(*indexPtr>=0);
+			lastEdge->setFaceSucc(firstEdge);
+			firstEdge->setFacePred(lastEdge);
+			face->setEdge(firstEdge);
+			
+			/* Walk around the face again and connect it to its neighbours: */
+			lastEdge=firstEdge;
+			do
+				{
+				VertexPair vp(*lastEdge);
+				typename Misc::HashTable<VertexPair,Edge*,VertexPair>::Iterator companionsIt=companions.findEntry(vp);
+				if(companionsIt!=companions.end())
+					{
+					/* Connect the edge to its companion: */
+					Edge* companion=companionsIt->getDest();
+					assert(companion->getOpposite()==0);
+					assert(companion->getEnd()==lastEdge->getStart());
+					lastEdge->setOpposite(companion);
+					companion->setOpposite(lastEdge);
+					}
+				else
+					{
+					/* Add the edge to the companion table: */
+					companions.setEntry(typename Misc::HashTable<VertexPair,Edge*,VertexPair>::Entry(vp,lastEdge));
+					}
+				
+				lastEdge=lastEdge->getFaceSucc();
+				}
+			while(lastEdge!=firstEdge);
+			}
+		else
+			{
+			/* Print an error message and skip the offending face in the process: */
+			switch(nonconformanceReason)
+				{
+				case NON_MANIFOLD:
+					std::cout<<"Non-manifold edge in face "<<faceIndex<<" with vertex indices ["<<*indexPtr;
+					break;
+				
+				case WRONG_ORIENTATION:
+					std::cout<<"Wrong orientation in face "<<faceIndex<<" with vertex indices ["<<*indexPtr;
+					break;
+				
+				default:
+					;
+				}
+			++indexPtr;
+			while(*indexPtr>=0)
+				{
+				std::cerr<<", "<<*indexPtr;
+				++indexPtr;
+				}
+			std::cout<<"]."<<std::endl;
+			}
+		
+		/* Skip the -1 denoting the end of the current face's vertex list and go to the next face: */
+		++indexPtr;
+		++faceIndex;
+		}
+	
+	/* Sharpify all given edges: */
+	for(int i=0;i<numSharpEdges;++i)
+		{
+		VertexPair vp(vertexArray[sharpEdgeIndices[i*3+0]],vertexArray[sharpEdgeIndices[i*3+1]]);
+		typename Misc::HashTable<VertexPair,Edge*,VertexPair>::Iterator companionsIt=companions.findEntry(vp);
+		if(companionsIt!=companions.end())
+			{
+			/* Set the sharpness of the edge: */
+			companionsIt->getDest()->sharpness=sharpEdgeIndices[i*3+2];
+			companionsIt->getDest()->getOpposite()->sharpness=sharpEdgeIndices[i*3+2];
+			}
+		}
+	
+	/* Delete temporary array of vertices: */
+	delete[] vertexArray;
+	}
+
+template <class PointType>
+PolygonMesh<PointType>::PolygonMesh(const PolygonMesh<PointType>& source)
+	:vertices(0),lastVertex(0),faces(0),lastFace(0)
 	{
 	/* Copy all vertices and associate the copies with their originals: */
 	Misc::HashTable<const Vertex*,Vertex*> vertexMap((source.getNumVertices()*3)/2);
 	for(const Vertex* vPtr=source.vertices;vPtr!=0;vPtr=vPtr->succ)
-		vertexMap.setEntry(Misc::HashTable<const Vertex*,Vertex*>::Entry(vPtr,newVertex(*vPtr,vPtr->color)));
+		vertexMap.setEntry(typename Misc::HashTable<const Vertex*,Vertex*>::Entry(vPtr,newVertex(*vPtr)));
 	
 	/* Count the number of edges in the source mesh to estimate the needed hash table size: */
 	const Face* fPtr;
@@ -211,7 +392,7 @@ PolygonMesh::PolygonMesh(const PolygonMesh& source)
 			}
 		while(fePtr!=firstSourceEdge);
 		}
-	EdgeHasher companions(numEdges);
+	Misc::HashTable<VertexPair,Edge*,VertexPair> companions(numEdges);
 	
 	/* Copy faces one at a time: */
 	for(fPtr=source.faces;fPtr!=0;fPtr=fPtr->succ)
@@ -249,30 +430,27 @@ PolygonMesh::PolygonMesh(const PolygonMesh& source)
 		do
 			{
 			VertexPair vp(*edge);
-			EdgeHasher::Iterator companionsIt=companions.findEntry(vp);
+			typename Misc::HashTable<VertexPair,Edge*,VertexPair>::Iterator companionsIt=companions.findEntry(vp);
 			if(companionsIt!=companions.end())
 				{
 				/* Connect the edge to its companion: */
 				edge->setOpposite(companionsIt->getDest());
 				companionsIt->getDest()->setOpposite(edge);
-				companions.removeEntry(companionsIt);
 				}
 			else
 				{
 				/* Add the edge to the companion table: */
-				companions.setEntry(EdgeHasher::Entry(vp,edge));
+				companions.setEntry(typename Misc::HashTable<VertexPair,Edge*,VertexPair>::Entry(vp,edge));
 				}
 			
 			edge=edge->getFaceSucc();
 			}
 		while(edge!=firstEdge);
 		}
-	
-	/* Calculate all vertex normal vectors: */
-	updateVertexNormals();
 	}
 
-PolygonMesh::~PolygonMesh(void)
+template <class PointType>
+PolygonMesh<PointType>::~PolygonMesh(void)
 	{
 	/* Delete all faces and their associated half-edges: */
 	Face* fPtr=faces;
@@ -308,260 +486,32 @@ PolygonMesh::~PolygonMesh(void)
 		}
 	}
 
-PolygonMesh::EdgeHasher* PolygonMesh::startAddingFaces(void)
+template <class PointType>
+int PolygonMesh<PointType>::getNumVertices(void) const
 	{
-	return new EdgeHasher(101);
+	int result=0;
+	for(const Vertex* vPtr=vertices;vPtr!=0;vPtr=vPtr->succ)
+		++result;
+	
+	return result;
 	}
 
-PolygonMesh::FaceIterator PolygonMesh::addFace(int numVertices,const PolygonMesh::VertexIterator vertices[],PolygonMesh::EdgeHasher* edgeHasher)
+template <class PointType>
+int PolygonMesh<PointType>::getNumFaces(void) const
 	{
-	/* Check whether the given face conforms with the mesh: */
-	for(int i=0;i<numVertices;++i)
-		{
-		/* Look for the current edge in the edge hash table: */
-		Vertex* v1=vertices[i].vertex;
-		Vertex* v2=vertices[(i+1)%numVertices].vertex;
-		EdgeHasher::Iterator ehIt=edgeHasher->findEntry(VertexPair(v1,v2));
-		if(!ehIt.isFinished())
-			{
-			Edge* edge=ehIt->getDest();
-			
-			/* Test if the companion edge already has an opposite: */
-			if(edge->getOpposite()!=0)
-				return FaceIterator(0);
-				// Misc::throwStdErr("PolygonMesh::addFace: Given face would create non-manifold mesh");
-			
-			/* Test if the two edges are properly oriented: */
-			if(edge->getStart()!=v2||edge->getEnd()!=v1)
-				return FaceIterator(0);
-				// Misc::throwStdErr("PolygonMesh::addFace: Given face is oriented wrongly");
-			}
-		}
+	int result=0;
+	for(const Face* fPtr=faces;fPtr!=0;fPtr=fPtr->succ)
+		++result;
 	
-	/* Create the new face without connecting it to neighbours yet: */
-	Face* face=newFace();
-	Edge* firstEdge;
-	Edge* lastEdge=0;
-	for(int i=0;i<numVertices;++i)
-		{
-		Edge* edge=newEdge();
-		vertices[i]->setEdge(edge);
-		edge->set(vertices[i].vertex,face,lastEdge,0,0);
-		edge->sharpness=0;
-		if(lastEdge!=0)
-			lastEdge->setFaceSucc(edge);
-		else
-			firstEdge=edge;
-		lastEdge=edge;
-		}
-	lastEdge->setFaceSucc(firstEdge);
-	firstEdge->setFacePred(lastEdge);
-	face->setEdge(firstEdge);
-	
-	/* Walk around the face again and connect it to its neighbours: */
-	lastEdge=firstEdge;
-	do
-		{
-		VertexPair vp(*lastEdge);
-		EdgeHasher::Iterator ehIt=edgeHasher->findEntry(vp);
-		if(!ehIt.isFinished())
-			{
-			/* Connect the edge to its companion: */
-			Edge* companion=ehIt->getDest();
-			assert(companion->getOpposite()==0);
-			assert(companion->getEnd()==lastEdge->getStart());
-			lastEdge->setOpposite(companion);
-			companion->setOpposite(lastEdge);
-			// edgeHasher->removeEntry(ehIt);
-			}
-		else
-			{
-			/* Add the edge to the companion table: */
-			edgeHasher->setEntry(EdgeHasher::Entry(vp,lastEdge));
-			}
-		
-		lastEdge=lastEdge->getFaceSucc();
-		}
-	while(lastEdge!=firstEdge);
-	
-	return FaceIterator(face);
+	return result;
 	}
-
-PolygonMesh::FaceIterator PolygonMesh::addFace(const std::vector<PolygonMesh::VertexIterator>& vertices,PolygonMesh::EdgeHasher* edgeHasher)
-	{
-	int numVertices=vertices.size();
-	/* Check whether the given face conforms with the mesh: */
-	for(int i=0;i<numVertices;++i)
-		{
-		/* Look for the current edge in the edge hash table: */
-		Vertex* v1=vertices[i].vertex;
-		Vertex* v2=vertices[(i+1)%numVertices].vertex;
-		EdgeHasher::Iterator ehIt=edgeHasher->findEntry(VertexPair(v1,v2));
-		if(!ehIt.isFinished())
-			{
-			Edge* edge=ehIt->getDest();
-			
-			/* Test if the companion edge already has an opposite: */
-			if(edge->getOpposite()!=0)
-				return FaceIterator(0);
-				// Misc::throwStdErr("PolygonMesh::addFace: Given face would create non-manifold mesh");
-			
-			/* Test if the two edges are properly oriented: */
-			if(edge->getStart()!=v2||edge->getEnd()!=v1)
-				return FaceIterator(0);
-				// Misc::throwStdErr("PolygonMesh::addFace: Given face is oriented wrongly");
-			}
-		}
-	
-	/* Create the new face without connecting it to neighbours yet: */
-	Face* face=newFace();
-	Edge* firstEdge;
-	Edge* lastEdge=0;
-	for(int i=0;i<numVertices;++i)
-		{
-		Edge* edge=newEdge();
-		vertices[i]->setEdge(edge);
-		edge->set(vertices[i].vertex,face,lastEdge,0,0);
-		edge->sharpness=0;
-		if(lastEdge!=0)
-			lastEdge->setFaceSucc(edge);
-		else
-			firstEdge=edge;
-		lastEdge=edge;
-		}
-	lastEdge->setFaceSucc(firstEdge);
-	firstEdge->setFacePred(lastEdge);
-	face->setEdge(firstEdge);
-	
-	/* Walk around the face again and connect it to its neighbours: */
-	lastEdge=firstEdge;
-	do
-		{
-		VertexPair vp(*lastEdge);
-		EdgeHasher::Iterator ehIt=edgeHasher->findEntry(vp);
-		if(!ehIt.isFinished())
-			{
-			/* Connect the edge to its companion: */
-			Edge* companion=ehIt->getDest();
-			assert(companion->getOpposite()==0);
-			assert(companion->getEnd()==lastEdge->getStart());
-			lastEdge->setOpposite(companion);
-			companion->setOpposite(lastEdge);
-			// edgeHasher->removeEntry(ehIt);
-			}
-		else
-			{
-			/* Add the edge to the companion table: */
-			edgeHasher->setEntry(EdgeHasher::Entry(vp,lastEdge));
-			}
-		
-		lastEdge=lastEdge->getFaceSucc();
-		}
-	while(lastEdge!=firstEdge);
-	
-	return FaceIterator(face);
-	}
-
-void PolygonMesh::setEdgeSharpness(PolygonMesh::VertexIterator v1,PolygonMesh::VertexIterator v2,int sharpness,PolygonMesh::EdgeHasher* edgeHasher)
-	{
-	/* Find the edge in the mesh: */
-	EdgeHasher::Iterator ehIt=edgeHasher->findEntry(VertexPair(v1.vertex,v2.vertex));
-	if(!ehIt.isFinished())
-		{
-		Edge* edge=ehIt->getDest();
-		edge->sharpness=sharpness;
-		if(edge->getOpposite()!=0)
-			edge->getOpposite()->sharpness=sharpness;
-		}
-	else
-		Misc::throwStdErr("PolygonMesh::setEdgeSharpness: Given edge does not exist in mesh");
-	}
-
-void PolygonMesh::finishAddingFaces(PolygonMesh::EdgeHasher* edgeHasher)
-	{
-	delete edgeHasher;
-	updateVertexNormals();
-	}
-
-void PolygonMesh::updateVertexNormals(void)
-	{
-	/* Update the normals of all changed vertices: */
-	for(Vertex* vPtr=vertices;vPtr!=0;vPtr=vPtr->succ)
-		if(vPtr->version==version&&vPtr->getEdge()!=0)
-			{
-			/* Calculate the vertex' normal vector: */
-			vPtr->normal=Vector::zero;
-			
-			/* Iterate through vertex' platelet: */
-			const Edge* ve=vPtr->getEdge();
-			do
-				{
-				const Edge* ve2=ve->getFacePred();
-				vPtr->normal+=Geometry::cross(*ve->getEnd()-*vPtr,*ve2->getStart()-*vPtr);
-				
-				/* Go to next edge around vertex: */
-				ve=ve2->getOpposite();
-				}
-			while(ve!=0&&ve!=vPtr->getEdge());
-			
-			if(ve==0) // The vertex' platelet is open
-				{
-				ve=vPtr->getEdge()->getOpposite();
-				while(ve!=0)
-					{
-					const Edge* ve2=ve->getFaceSucc();
-					vPtr->normal+=Geometry::cross(*ve2->getEnd()-*vPtr,*ve->getStart()-*vPtr);
-
-					/* Go to next edge around vertex: */
-					ve=ve2->getOpposite();
-					}
-				}
-			}
-	}
-
-void PolygonMesh::removeSingularVertex(const PolygonMesh::VertexIterator& vertexIt)
-	{
-	/* Check if the vertex is singular: */
-	if(vertexIt->getEdge()!=0)
-		return;
-	
-	/* Remove the vertex: */
-	deleteVertex(vertexIt.vertex);
-	}
-
-void PolygonMesh::removeVertex(const PolygonMesh::VertexIterator& vertexIt)
-	{
-	/* Store all faces from the vertex' platelet: */
-	std::vector<Face*> faces;
-	Edge* edge=vertexIt->getEdge();
-	do
-		{
-		/* Store the current face: */
-		faces.push_back(edge->getFace());
-		
-		/* Go to the next face: */
-		edge=edge->getVertexSucc();
-		}
-	while(edge!=0&&edge!=vertexIt->getEdge());
-	if(edge==0)
-		for(edge=vertexIt->getEdge()->getVertexPred();edge!=0;edge=edge->getVertexPred())
-			faces.push_back(edge->getFace());
-	
-	/* Remove all faces: */
-	for(std::vector<Face*>::const_iterator fIt=faces.begin();fIt!=faces.end();++fIt)
-		removeFace(*fIt);
-	
-	/* Delete the vertex: */
-	deleteVertex(vertexIt.vertex);
-	}
-
-#if 0
 
 /******************************************************************
 Do not use this function - put in but abandoned and probably broken
 ******************************************************************/
 
-PolygonMesh::FaceIterator PolygonMesh::removeVertex(const PolygonMesh::VertexIterator& vertexIt)
+template <class PointType>
+typename PolygonMesh<PointType>::FaceIterator PolygonMesh<PointType>::removeVertex(const typename PolygonMesh<PointType>::VertexIterator& vertexIt)
 	{
 	if(vertexIt->isInterior())
 		{
@@ -652,9 +602,8 @@ PolygonMesh::FaceIterator PolygonMesh::removeVertex(const PolygonMesh::VertexIte
 		}
 	}
 
-#endif
-
-PolygonMesh::FaceIterator PolygonMesh::vertexToFace(const PolygonMesh::VertexIterator& vertexIt)
+template <class PointType>
+typename PolygonMesh<PointType>::FaceIterator PolygonMesh<PointType>::vertexToFace(const typename PolygonMesh<PointType>::VertexIterator& vertexIt)
 	{
 	/* Remove solitary vertices: */
 	if(vertexIt->getEdge()==0)
@@ -731,7 +680,8 @@ PolygonMesh::FaceIterator PolygonMesh::vertexToFace(const PolygonMesh::VertexIte
 	return FaceIterator(vertexFace);
 	}
 
-PolygonMesh::VertexIterator PolygonMesh::splitEdge(const PolygonMesh::EdgeIterator& edgeIt,PolygonMesh::Vertex* edgePoint)
+template <class PointType>
+typename PolygonMesh<PointType>::VertexIterator PolygonMesh<PointType>::splitEdge(const typename PolygonMesh<PointType>::EdgeIterator& edgeIt,typename PolygonMesh<PointType>::Vertex* edgePoint)
 	{
 	/* Link vertex to mesh: */
 	edgePoint->pred=lastVertex;
@@ -773,7 +723,8 @@ PolygonMesh::VertexIterator PolygonMesh::splitEdge(const PolygonMesh::EdgeIterat
 	return VertexIterator(edgePoint);
 	}
 
-void PolygonMesh::rotateEdge(const PolygonMesh::EdgeIterator& edgeIt)
+template <class PointType>
+void PolygonMesh<PointType>::rotateEdge(const typename PolygonMesh<PointType>::EdgeIterator& edgeIt)
 	{
 	/* Collect environment of the edge to rotate: */
 	Edge* edge1=edgeIt.edge;
@@ -800,7 +751,8 @@ void PolygonMesh::rotateEdge(const PolygonMesh::EdgeIterator& edgeIt)
 	edge6->set(vertex1,face1,edge3,edge1,edge6->getOpposite());
 	}
 
-PolygonMesh::FaceIterator PolygonMesh::removeEdge(const PolygonMesh::EdgeIterator& edgeIt)
+template <class PointType>
+typename PolygonMesh<PointType>::FaceIterator PolygonMesh<PointType>::removeEdge(const typename PolygonMesh<PointType>::EdgeIterator& edgeIt)
 	{
 	Edge* edge2=edgeIt->getOpposite();
 	if(edge2!=0)
@@ -862,61 +814,17 @@ PolygonMesh::FaceIterator PolygonMesh::removeEdge(const PolygonMesh::EdgeIterato
 		}
 	}
 
-void PolygonMesh::removeFace(const PolygonMesh::FaceIterator& fIt)
-	{
-	Edge* fe;
-	
-	/* Fix the edge pointers of the face's vertices: */
-	fe=fIt->getEdge();
-	do
-		{
-		if(fe->getOpposite()!=0)
-			fe->getStart()->setEdge(fe->getVertexPred());
-		else
-			fe->getStart()->setEdge(fe->getVertexSucc());
-		
-		fe=fe->getFaceSucc();
-		}
-	while(fe!=fIt->getEdge());
-	
-	/* Unlink the face's edges from their opposites: */
-	do
-		{
-		if(fe->getOpposite()!=0)
-			fe->getOpposite()->setOpposite(0);
-		
-		fe=fe->getFaceSucc();
-		}
-	while(fe!=fIt->getEdge());
-	
-	/* Delete the face's edges: */
-	do
-		{
-		Edge* fe2=fe->getFaceSucc();
-		
-		deleteEdge(fe);
-		
-		fe=fe2;
-		}
-	while(fe!=fIt->getEdge());
-	
-	/* Delete the face: */
-	deleteFace(&(*fIt));
-	}
-
-void PolygonMesh::triangulateFace(const PolygonMesh::FaceIterator& fIt)
+template <class PointType>
+void PolygonMesh<PointType>::triangulateFace(const typename PolygonMesh<PointType>::FaceIterator& fIt)
 	{
 	/* Set up an initial triangle at the face's base point: */
 	Face* f=&(*fIt);
 	Edge* e1=f->getEdge();
 	Vertex* v0=e1->getStart();
-	v0->version=version;
 	Edge* e2=e1->getFaceSucc();
 	Vertex* v1=e2->getStart();
-	v1->version=version;
 	Edge* e3=e2->getFaceSucc();
 	Vertex* v2=e3->getStart();
-	v2->version=version;
 	Edge* lastEdge=e1->getFacePred();
 	
 	/* Walk around face: */
@@ -947,17 +855,18 @@ void PolygonMesh::triangulateFace(const PolygonMesh::FaceIterator& fIt)
 		e2=e3;
 		e3=e3->getFaceSucc();
 		v2=e3->getStart();
-		v2->version=version;
 		}
 	}
 
-PolygonMesh::EdgeIterator PolygonMesh::splitFace(const PolygonMesh::VertexIterator& vIt1,const PolygonMesh::VertexIterator& vIt2)
+template <class PointType>
+typename PolygonMesh<PointType>::EdgeIterator PolygonMesh<PointType>::splitFace(const typename PolygonMesh<PointType>::VertexIterator& vIt1,const PolygonMesh<PointType>::VertexIterator& vIt2)
 	{
 	/* Find the face sharing both vertices: */
 	
 	}
 
-PolygonMesh::VertexIterator PolygonMesh::splitFace(const PolygonMesh::FaceIterator& faceIt,PolygonMesh::Vertex* facePoint)
+template <class PointType>
+typename PolygonMesh<PointType>::VertexIterator PolygonMesh<PointType>::splitFace(const typename PolygonMesh<PointType>::FaceIterator& faceIt,typename PolygonMesh<PointType>::Vertex* facePoint)
 	{
 	/* Link the face point to the mesh: */
 	facePoint->pred=lastVertex;
@@ -1016,7 +925,8 @@ PolygonMesh::VertexIterator PolygonMesh::splitFace(const PolygonMesh::FaceIterat
 	return VertexIterator(facePoint);
 	}
 
-PolygonMesh::VertexIterator PolygonMesh::splitFaceCatmullClark(const PolygonMesh::FaceIterator& faceIt,PolygonMesh::Vertex* facePoint)
+template <class PointType>
+typename PolygonMesh<PointType>::VertexIterator PolygonMesh<PointType>::splitFaceCatmullClark(const typename PolygonMesh<PointType>::FaceIterator& faceIt,typename PolygonMesh<PointType>::Vertex* facePoint)
 	{
 	assert(faceIt->getNumEdges()%2==0);
 	
@@ -1079,15 +989,15 @@ PolygonMesh::VertexIterator PolygonMesh::splitFaceCatmullClark(const PolygonMesh
 	return VertexIterator(facePoint);
 	}
 
-PolygonMesh::FaceIterator PolygonMesh::splitFaceDooSabin(const PolygonMesh::FaceIterator& faceIt)
+template <class PointType>
+typename PolygonMesh<PointType>::FaceIterator PolygonMesh<PointType>::splitFaceDooSabin(const typename PolygonMesh<PointType>::FaceIterator& faceIt)
 	{
 	/* Calculate the face's centroid: */
-	VertexCombiner centroidC;
+	PointType centroid=PointType::zero();
 	int numVertices=0;
 	for(FaceEdgeIterator feIt=faceIt.beginEdges();feIt!=faceIt.endEdges();++feIt,++numVertices)
-		centroidC.addVertex(feIt->getStart());
-	Point centroid=centroidC.getPoint();
-	Color centroidColor=centroidC.getColor();
+		centroid.add(*feIt->getStart());
+	centroid.normalize(numVertices);
 	
 	/* Walk around the face again and create the inner face: */
 	Face* innerFace=newFace();
@@ -1096,11 +1006,11 @@ PolygonMesh::FaceIterator PolygonMesh::splitFaceDooSabin(const PolygonMesh::Face
 	for(int i=0;i<numVertices;++i,outerEdge=outerEdge->getFaceSucc())
 		{
 		/* Create a new vertex and a new edge: */
-		Point newPoint=Geometry::mid(centroid,*outerEdge->getStart());
-		Color newColor;
-		for(int i=0;i<4;++i)
-			newColor[i]=GLubyte(Math::floor((centroidColor[i]+GLfloat(outerEdge->getStart()->color[i]))*0.5f+0.5f));
-		Vertex* newV=newVertex(newPoint,newColor);
+		PointType newPoint=PointType::zero();
+		newPoint.add(centroid);
+		newPoint.add(*outerEdge->getStart());
+		newPoint.normalize(2);
+		Vertex* newV=newVertex(newPoint);
 		Edge* newE=newEdge();
 		newV->setEdge(newE);
 		newE->set(newV,innerFace,lastInnerEdge,0,0);
@@ -1154,7 +1064,8 @@ PolygonMesh::FaceIterator PolygonMesh::splitFaceDooSabin(const PolygonMesh::Face
 	return FaceIterator(innerFace);
 	}
 
-void PolygonMesh::checkMesh(void) const
+template <class PointType>
+void PolygonMesh<PointType>::checkMesh(void) const
 	{
 	/* Check all vertices: */
 	for(const Vertex* vPtr=vertices;vPtr!=0;vPtr=vPtr->succ)

@@ -1,6 +1,6 @@
 /***********************************************************************
 GLModels - Helper functions to render simple models using OpenGL.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -32,6 +32,5 @@ void glDrawSphereIcosahedron(GLfloat radius,GLsizei numStrips);
 void glDrawCylinder(GLfloat radius,GLfloat height,GLsizei numStrips);
 void glDrawCone(GLfloat radius,GLfloat height,GLsizei numStrips);
 void glDrawWireframeCube(GLfloat cubeSize,GLfloat edgeSize,GLfloat vertexSize);
-void glDrawArrow(GLfloat shaftRadius,GLfloat tipRadius,GLfloat tipHeight,GLfloat totalHeight,GLsizei numStrips);
 
 #endif

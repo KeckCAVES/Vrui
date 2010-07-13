@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColor - Class to represent color values in RGBA format.
-Copyright (c) 2003-2012 Oliver Kreylos
+Copyright (c) 2003-2005 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 

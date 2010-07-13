@@ -1,7 +1,7 @@
 /***********************************************************************
 InterSense - Class for InterSense IS-900 hybrid inertial/sonic 6-DOF
 tracking devices.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,15 +24,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef INTERSENSE_INCLUDED
 #define INTERSENSE_INCLUDED
 
+#include <Misc/Time.h>
 #include <Misc/Timer.h>
-#include <Comm/Pipe.h>
+#include <Comm/SerialPort.h>
 
 #include <VRDeviceDaemon/VRDevice.h>
-
-/* Forward declarations: */
-namespace Misc {
-class Time;
-}
 
 class InterSense:public VRDevice
 	{
@@ -51,7 +47,7 @@ class InterSense:public VRDevice
 	typedef Vrui::VRDeviceState::TrackerState::PositionOrientation PositionOrientation; // Type for tracker position/orientation
 	
 	/* Elements: */
-	Comm::PipePtr devicePort; // Port to which the tracker device hardware is connected (serial port or TCP socket)
+	Comm::SerialPort serialPort; // Serial port the tracker device hardware is connected to
 	Station* stations; // Array of tracked stations
 	int stationIdToIndex[32]; // Array mapping from station IDs to tracker indices
 	Misc::Timer* timers; // Array of free-running timers for each tracker for velocity estimation
@@ -59,9 +55,12 @@ class InterSense:public VRDevice
 	PositionOrientation* oldPositionOrientations; // Array of old tracker positions/orientations
 	
 	/* Private methods: */
-	char* readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline); // Reads a CR/LF terminated line from the serial port and stores it as NUL-terminated string (without CR/LF bytes); terminates early if not completed by deadline
+	float readFloat(const char* lsb) const; // Extracts a floating point number from four bytes of memory (lsb first)
+	char* readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& timeout); // Reads a CR/LF terminated line from the serial port and stores it as NUL-terminated string (without CR/LF bytes); terminates early if given timeout interval expires
 	bool readStatusReply(void); // Reads device's reply to a status request
-	bool processRecord(void); // Reads and processes a record from the device; returns true if synchronization with tracker data stream was lost
+	void processBuffer(int station,const char* recordBuffer); // Parses a record read from the device
+	int readRecordSync(char* recordBuffer); // Re-synchronizes to data stream from device and reads next record; returns number of receiver
+	int readRecordNoSync(char* recordBuffer); // Reads record from device without synchronizing; returns number of receiver or -1 if synchronization was lost
 	
 	/* Protected methods: */
 	virtual void deviceThreadMethod(void);

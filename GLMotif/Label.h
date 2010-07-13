@@ -35,6 +35,7 @@ class Label:public Widget
 	protected:
 	GLfloat marginWidth; // Width of margin around label string
 	GLfloat leftInset,rightInset; // Additional inset spacing to the left and the right of the label
+	int labelLength; // Current length of label string
 	GLLabel label; // The label string
 	GLFont::HAlignment hAlignment; // Horizontal alignment of label string in widget
 	GLFont::VAlignment vAlignment; // Vertical alignment of label string in widget
@@ -47,7 +48,6 @@ class Label:public Widget
 	public:
 	Label(const char* sName,Container* sParent,const char* sLabel,const GLFont* sFont,bool manageChild =true); // Deprecated
 	Label(const char* sName,Container* sParent,const char* sLabel,bool manageChild =true);
-	Label(const char* sName,Container* sParent,const char* sLabelBegin,const char* sLabelEnd,bool manageChild =true);
 	
 	/* Methods inherited from Widget: */
 	virtual Vector calcNaturalSize(void) const;
@@ -64,20 +64,19 @@ class Label:public Widget
 	void setMarginWidth(GLfloat newMarginWidth); // Changes the margin width
 	void setHAlignment(GLFont::HAlignment newHAlignment); // Changes the horizontal alignment
 	void setVAlignment(GLFont::VAlignment newVAlignment); // Changes the vertical alignment
+	int getLabelLength(void) const // Returns the length of the current label text
+		{
+		return labelLength;
+		}
 	const GLLabel& getLabel(void) const // Returns the label object
 		{
 		return label;
-		}
-	int getLabelLength(void) const // Returns the length of the current label text
-		{
-		return label.getLength();
 		}
 	const char* getString(void) const // Returns the current label text
 		{
 		return label.getString();
 		}
-	virtual void setString(const char* newLabelBegin,const char* newLabelEnd); // Changes the label text
-	void setString(const char* newLabel); // Convenience version of above for C-style strings
+	virtual void setString(const char* newLabel); // Changes the label string
 	};
 
 }

@@ -2,7 +2,7 @@
 SpaceBallRaw - VR device driver class exposing the "raw" interface of a
 6-DOF joystick as a collection of buttons and valuators. The conversion
 from the raw values into 6-DOF states is done at the application end.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -25,13 +25,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <VRDeviceDaemon/VRDevices/SpaceBallRaw.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <unistd.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Time.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-#include <Math/MathValueCoders.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
 
@@ -39,54 +42,77 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 Methods of class SpaceBallRaw:
 *****************************/
 
-bool SpaceBallRaw::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline)
+bool SpaceBallRaw::readLine(int lineBufferSize,char* lineBuffer,double timeout)
 	{
-	bool incomplete=true;
-	while(incomplete&&lineBufferSize>1)
+	int devicePortFd=devicePort.getFd();
+	
+	/* Initialize watched file descriptor sets: */
+	fd_set readFds,writeFds,exceptFds;
+	FD_ZERO(&readFds);
+	FD_ZERO(&writeFds);
+	FD_ZERO(&exceptFds);
+	
+	/* Compute "deadline" as current time + timeout: */
+	Misc::Time deadline=Misc::Time::now();
+	deadline.increment(timeout);
+	
+	/* Return characters until carriage return is read or timeout expires: */
+	int numRead=0;
+	bool lineComplete=false;
+	while(numRead<lineBufferSize-1)
 		{
-		/* Wait for data to become available: */
+		/* Compute time interval until deadline: */
 		Misc::Time timeout=deadline;
 		timeout-=Misc::Time::now();
-		if(timeout.tv_sec<0||!devicePort.waitForData(timeout))
+		if(timeout.tv_sec<0L) // Deadline expired?
 			break;
 		
-		/* Read characters until newline or no more data in serial port's read buffer: */
-		do
+		/* Wait until device ready for reading: */
+		FD_SET(devicePortFd,&readFds);
+		struct timeval tv=timeout;
+		select(devicePortFd+1,&readFds,&writeFds,&exceptFds,&tv);
+		if(FD_ISSET(devicePortFd,&readFds))
 			{
-			*lineBuffer=char(devicePort.getChar());
-			if(*lineBuffer=='\r'||*lineBuffer=='\n')
+			/* Read next available byte from the device port: */
+			if(read(devicePortFd,lineBuffer+numRead,1)!=1)
+				break;
+			
+			/* Check if we just read a CR or LF: */
+			if(lineBuffer[numRead]=='\r'||lineBuffer[numRead]=='\n')
 				{
-				incomplete=false;
+				lineComplete=true;
 				break;
 				}
-			++lineBuffer;
+			else
+				++numRead;
 			}
-		while(lineBufferSize>1&&devicePort.canReadImmediately());
+		else
+			break;
 		}
 	
-	/* Terminate the line buffer and return success flag: */
-	*lineBuffer='\0';
-	return !incomplete;
+	/* Terminate read string and return: */
+	lineBuffer[numRead]='\0';
+	return lineComplete;
 	}
 
 int SpaceBallRaw::readPacket(int packetBufferSize,unsigned char* packetBuffer)
 	{
 	/* Read characters until an end-of-line is encountered: */
 	bool escape=false;
-	int packetSize=0;
-	while(packetSize<packetBufferSize-1)
+	int readBytes=0;
+	while(readBytes<packetBufferSize-1)
 		{
 		/* Read next byte: */
-		unsigned char byte=(unsigned char)(devicePort.getChar());
-		
+		unsigned char byte=(unsigned char)(devicePort.readByte());
+
 		/* Deal with escaped characters: */
 		if(escape)
 			{
 			/* Process escaped character: */
 			if(byte!='^') // Escaped circumflex stays
 				byte&=0x1f;
-			packetBuffer[packetSize]=byte;
-			++packetSize;
+			packetBuffer[readBytes]=byte;
+			++readBytes;
 			escape=false;
 			}
 		else
@@ -98,15 +124,15 @@ int SpaceBallRaw::readPacket(int packetBufferSize,unsigned char* packetBuffer)
 				break;
 			else
 				{
-				packetBuffer[packetSize]=byte;
-				++packetSize;
+				packetBuffer[readBytes]=byte;
+				++readBytes;
 				}
 			}
 		}
 	
 	/* Terminate packet with ASCII NUL and return: */
-	packetBuffer[packetSize]='\0'; 
-	return packetSize;
+	packetBuffer[readBytes]='\0'; 
+	return readBytes;
 	}
 
 void SpaceBallRaw::deviceThreadMethod(void)
@@ -114,7 +140,7 @@ void SpaceBallRaw::deviceThreadMethod(void)
 	/* Receive lines from the serial port until interrupted: */
 	while(true)
 		{
-		/* Read the next data packet: */
+		/* Read characters until an end-of-line is encountered: */
 		unsigned char packet[256];
 		readPacket(256,packet);
 		
@@ -136,7 +162,11 @@ void SpaceBallRaw::deviceThreadMethod(void)
 				for(int i=0;i<6;++i)
 					{
 					/* Convert raw device data to valuator value: */
-					double value=axisConverters[i].map(double(rawData[i]));
+					double value=double(rawData[i])*axisGains[i];
+					if(value<-1.0)
+						value=-1.0;
+					else if(value>1.0)
+						value=1.0;
 					
 					/* Set valuator value: */
 					setValuatorState(i,value);
@@ -177,20 +207,19 @@ SpaceBallRaw::SpaceBallRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 	setNumValuators(6,configFile);
 	
 	/* Read axis manipulation factors: */
-	AxisConverter ac=configFile.retrieveValue<AxisConverter>("./axisConverter",AxisConverter(-1.0,1.0,0.0));
-	AxisConverter linearAc=configFile.retrieveValue<AxisConverter>("./linearAxisConverter",ac);
-	AxisConverter angularAc=configFile.retrieveValue<AxisConverter>("./angularAxisConverter",ac);
+	double axisGain=configFile.retrieveValue<double>("./axisGain",1.0);
+	double linearAxisGain=configFile.retrieveValue<double>("./linearAxisGain",axisGain);
+	double angularAxisGain=configFile.retrieveValue<double>("./angularAxisGain",axisGain);
 	for(int i=0;i<6;++i)
 		{
-		char axisConverterTag[40];
-		snprintf(axisConverterTag,sizeof(axisConverterTag),"./axisConverter%d",i);
-		axisConverters[i]=configFile.retrieveValue<AxisConverter>(axisConverterTag,i<3?linearAc:angularAc);
+		char axisGainTag[40];
+		snprintf(axisGainTag,sizeof(axisGainTag),"./axisGain%d",i);
+		axisGains[i]=configFile.retrieveValue<double>(axisGainTag,i<3?linearAxisGain:angularAxisGain);
 		}
 	
 	/* Set device port parameters: */
-	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate",9600);
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,2,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,2,false);
 	devicePort.setRawMode(1,0);
 	
 	/* Wait for status message from device: */
@@ -202,12 +231,10 @@ SpaceBallRaw::SpaceBallRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 	const int numResponses=4;
 	const char* responseTexts[numResponses]={"\021","@1 Spaceball alive and well","","@2 Firmware version"};
 	int responseLengths[numResponses]={2,27,1,19};
-	Misc::Time deadline=Misc::Time::now();
-	deadline.tv_sec+=10;
 	for(int i=0;i<numResponses;++i)
 		{
 		/* Try reading a line from the device port: */
-		if(!readLine(256,lineBuffer,deadline))
+		if(!readLine(256,lineBuffer,10.0))
 			Misc::throwStdErr("SpaceBallRaw: Timeout while reading status message");
 		
 		/* Check if line is correct SpaceBall response: */
@@ -226,8 +253,7 @@ void SpaceBallRaw::start(void)
 	printf("SpaceBallRaw: Enabling automatic update mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.write<char>("M\r",2);
-	devicePort.flush();
+	devicePort.writeString("M\r");
 	}
 
 void SpaceBallRaw::stop(void)
@@ -237,8 +263,7 @@ void SpaceBallRaw::stop(void)
 	printf("SpaceBallRaw: Disabling automatic update mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.write<char>("-\r",2);
-	devicePort.flush();
+	devicePort.writeString("-\r");
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

@@ -28,6 +28,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/BoxRayDragger.h>
 #include <Vrui/InputDeviceTool.h>
 
+/* Forward declarations: */
+namespace Vrui {
+class Viewer;
+}
+
 namespace Vrui {
 
 class RayInputDeviceTool;
@@ -58,6 +63,7 @@ class RayInputDeviceTool:public InputDeviceTool
 	/* Elements: */
 	private:
 	static RayInputDeviceToolFactory* factory; // Pointer to the factory object for this class
+	const Viewer* viewer; // Viewer associated with the input device tool
 	BoxRayDragger dragger; // A box dragger to calculate dragging transformations
 	
 	/* Transient state: */
@@ -69,7 +75,7 @@ class RayInputDeviceTool:public InputDeviceTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

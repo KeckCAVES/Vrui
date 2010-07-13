@@ -27,9 +27,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 namespace Math {
 
-/* Forward declarations: */
-struct SVD;
-
 class Matrix
 	{
 	/* Embedded classes: */
@@ -177,19 +174,8 @@ class Matrix
 	double determinant(void) const; // Returns the matrix' determinant
 	unsigned int rank(void) const; // Returns the matrix' row rank
 	Matrix kernel(void) const; // Returns a matrix whose column vectors span this matrix' null space
-	std::pair<Matrix,Matrix> solveLinearSystem(const Matrix& coefficients) const; // Returns a pair of matrices defining all solutions to the linear system defined by the matrix and the coefficient column vector. The first matrix contains solution column vectors; the column vectors of the second matrix span the solution space if the system is under-determined
 	std::pair<Matrix,Matrix> qrDecomposition(void) const; // Returns (q, r), the QR decomposition of the matrix
 	std::pair<Matrix,Matrix> jacobiIteration(void) const; // Performs Jacobi iteration on a symmetric matrix; returns orthogonal matrix Q of eigenvectors and column vector E of eigenvalues
-	SVD svd(bool calcU,bool calcV) const; // Performs singular value decomposition on a tall matrix (numRows >= numColumns). Calculates left-singular and right-singular vectors only if respective flags are true
-	};
-
-struct SVD // Structure to return results of singular value decomposition of an m x n matrix (where m >= n)
-	{
-	/* Elements: */
-	public:
-	Matrix u; // m x n matrix of left-singular vectors
-	Matrix sigma; // n x 1 matrix of singular values
-	Matrix v; // n x n matrix of right-singular vectors
 	};
 
 /*************************

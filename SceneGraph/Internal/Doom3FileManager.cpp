@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3FileManager - Class to read files from sets of pk3/pk4 files and
 patch directories.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,181 +23,42 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/Internal/Doom3FileManager.h>
 
 #include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
-#include <utility>
-#include <algorithm>
-#include <Misc/ThrowStdErr.h>
-#include <IO/SeekableFilter.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 namespace SceneGraph {
 
 namespace {
 
-/**************
-Helper classes:
-**************/
+/****************
+Helper functions:
+****************/
 
-typedef std::pair<std::string,unsigned int> PakFileName; // Type for pak file names and indices
-
-class PakFileCompare // Class to compare pak file names according to numerical order
+#ifdef __DARWIN__
+int pakFileFilter(struct dirent* dirent)
+#else
+int pakFileFilter(const struct dirent* dirent)
+#endif
 	{
-	/* Methods: */
-	public:
-	bool operator()(const PakFileName& pfn1,const PakFileName& pfn2) const
-		{
-		return pfn1.second<pfn2.second;
-		}
-	};
+	const char* name=dirent->d_name;
+	if(strncasecmp(name,"pak",3)!=0)
+		return 0;
+	const char* extPtr;
+	for(extPtr=name+3;*extPtr!='\0'&&*extPtr!='.';++extPtr)
+		if(!isdigit(*extPtr))
+			return 0;
+	if(strncasecmp(extPtr,".pk",3)!=0)
+		return 0;
+	if(!isdigit(extPtr[3]))
+		return 0;
+	
+	return 1;
+	}
 
 }
-
-class Doom3FileManagerDirectory:public IO::Directory // Class to traverse the directory structure of a file manager
-	{
-	/* Elements: */
-	private:
-	Doom3FileManager& fileManager; // Reference to the file manager that created this directory
-	std::string pathName; // Absolute path name of this directory
-	Doom3FileManager::PakFileTree::NodeIterator directoryIt; // Iterator to traverse this directory
-	
-	/* Constructors and destructors: */
-	public:
-	Doom3FileManagerDirectory(Doom3FileManager& sFileManager,const std::string& sPathName);
-	
-	/* Methods from IO::Directory: */
-	virtual std::string getName(void) const;
-	virtual std::string getPath(void) const;
-	virtual std::string getPath(const char* relativePath) const;
-	virtual bool hasParent(void) const;
-	virtual IO::DirectoryPtr getParent(void) const;
-	virtual void rewind(void);
-	virtual bool readNextEntry(void);
-	virtual const char* getEntryName(void) const;
-	virtual Misc::PathType getEntryType(void) const;
-	virtual IO::FilePtr openFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly) const;
-	virtual IO::DirectoryPtr openDirectory(const char* directoryName) const;
-	};
-
-/******************************************
-Methods of class Doom3FileManagerDirectory:
-******************************************/
-
-Doom3FileManagerDirectory::Doom3FileManagerDirectory(Doom3FileManager& sFileManager,const std::string& sPathName)
-	:fileManager(sFileManager)
-	{
-	/* Prepend an initial slash to the path name if there is none: */
-	if(sPathName.empty()||sPathName[0]!='/')
-		pathName.push_back('/');
-	pathName.append(sPathName);
-	
-	/* Normalize the path name: */
-	normalizePath(pathName,1);
-	
-	/* Get an iterator to the directory: */
-	directoryIt=fileManager.pakFileTree.findInteriorNode(pathName.c_str()+1); // Skip initial slash
-	if(!directoryIt.isValid())
-		throw OpenError(pathName.c_str());
-	}
-
-std::string Doom3FileManagerDirectory::getName(void) const
-	{
-	return std::string(getLastComponent(pathName,1),pathName.end());
-	}
-
-std::string Doom3FileManagerDirectory::getPath(void) const
-	{
-	return pathName;
-	}
-
-std::string Doom3FileManagerDirectory::getPath(const char* relativePath) const
-	{
-	/* Assemble and normalize the absolute path name: */
-	std::string result=pathName;
-	if(result.length()>1)
-		result.push_back('/');
-	result.append(relativePath);
-	normalizePath(result,1);
-	
-	return result;
-	}
-
-bool Doom3FileManagerDirectory::hasParent(void) const
-	{
-	return pathName.length()>1;
-	}
-
-IO::DirectoryPtr Doom3FileManagerDirectory::getParent(void) const
-	{
-	/* Check for the special case of the root directory: */
-	if(pathName.length()==1)
-		return 0;
-	else
-		{
-		/* Find the last component in the absolute path name: */
-		std::string::const_iterator lastCompIt=getLastComponent(pathName,1);
-		
-		/* Strip off the last slash unless it's the prefix: */
-		if(lastCompIt-pathName.begin()>1)
-			--lastCompIt;
-		
-		/* Open and return the directory corresponding to the path name prefix before the last slash: */
-		return new Doom3FileManagerDirectory(fileManager,std::string(pathName.begin(),lastCompIt));
-		}
-	}
-
-void Doom3FileManagerDirectory::rewind(void)
-	{
-	directoryIt.rewind();
-	}
-
-bool Doom3FileManagerDirectory::readNextEntry(void)
-	{
-	++directoryIt;
-	return !directoryIt.eod();
-	}
-
-const char* Doom3FileManagerDirectory::getEntryName(void) const
-	{
-	return directoryIt.getName().c_str();
-	}
-
-Misc::PathType Doom3FileManagerDirectory::getEntryType(void) const
-	{
-	if(directoryIt.isInterior())
-		return Misc::PATHTYPE_DIRECTORY;
-	else if(directoryIt.isLeaf())
-		return Misc::PATHTYPE_FILE;
-	else
-		return Misc::PATHTYPE_DOES_NOT_EXIST;
-	}
-
-IO::FilePtr Doom3FileManagerDirectory::openFile(const char* fileName,IO::File::AccessMode accessMode) const
-	{
-	if(accessMode==IO::File::WriteOnly||accessMode==IO::File::ReadWrite)
-		Misc::throwStdErr("Doom3FileManagerDirectory::openFile: Cannot write to file %s",fileName);
-	
-	/* Assemble the absolute path name of the given file: */
-	std::string filePath=pathName;
-	if(filePath.length()>1)
-		filePath.push_back('/');
-	filePath.append(fileName);
-	normalizePath(filePath,1);
-	
-	/* Open and return the file: */
-	return fileManager.getFile(filePath.c_str());
-	}
-
-IO::DirectoryPtr Doom3FileManagerDirectory::openDirectory(const char* directoryName) const
-	{
-	/* Assemble the absolute path name of the given directory: */
-	std::string directoryPath=pathName;
-	if(directoryPath.length()>1)
-		directoryPath.push_back('/');
-	directoryPath.append(directoryName);
-	normalizePath(directoryPath,1);
-	
-	/* Open and return the directory: */
-	return fileManager.getDirectory(directoryPath.c_str());
-	}
 
 /*********************************
 Methods of class Doom3FileManager:
@@ -207,7 +68,7 @@ Doom3FileManager::Doom3FileManager(void)
 	{
 	}
 
-Doom3FileManager::Doom3FileManager(IO::DirectoryPtr baseDirectory,const char* pakFilePrefix)
+Doom3FileManager::Doom3FileManager(const char* baseDirectory,const char* pakFilePrefix)
 	{
 	addPakFiles(baseDirectory,pakFilePrefix);
 	}
@@ -215,106 +76,58 @@ Doom3FileManager::Doom3FileManager(IO::DirectoryPtr baseDirectory,const char* pa
 Doom3FileManager::~Doom3FileManager(void)
 	{
 	/* Delete all pak files: */
-	for(std::vector<PakFile*>::iterator pfIt=pakFiles.begin();pfIt!=pakFiles.end();++pfIt)
+	for(std::vector<Doom3PakFile*>::iterator pfIt=pakFiles.begin();pfIt!=pakFiles.end();++pfIt)
 		delete (*pfIt);
 	}
 
-void Doom3FileManager::addPakFile(IO::FilePtr pakFile)
+void Doom3FileManager::addPakFile(const char* pakFileName)
 	{
-	/* Check if the pak file is seekable: */
-	IO::SeekableFilePtr seekablePakFile=pakFile;
-	if(seekablePakFile==0)
-		{
-		/* Wrap the pak file in a seekable filter: */
-		seekablePakFile=new IO::SeekableFilter(pakFile);
-		}
-	
 	/* Open a new pak archive and add it to the list: */
-	PakFile* pak=new PakFile(seekablePakFile);
+	Doom3PakFile* pak=new Doom3PakFile(pakFileName);
 	pakFiles.push_back(pak);
 	
 	/* Read the pak archive's directory and add all files to the pak file tree: */
-	PakFile::DirectoryIterator dIt=pak->readDirectory();
-	while(dIt.isValid())
+	Doom3PakFile::DirectoryIterator* dIt=pak->readDirectory();
+	while(dIt->isValid())
 		{
 		/* Insert the file into the directory structure: */
-		pakFileTree.insertLeaf(dIt.getFileName(),PakFileHandle(pak,dIt));
+		pakFileTree.insertLeaf(dIt->getFileName(),PakFileHandle(pak,dIt->getFileID()));
 		
 		/* Go to the next entry: */
-		pak->getNextEntry(dIt);
+		pak->getNextDirectoryEntry(dIt);
 		}
+	delete dIt;
 	}
 
-void Doom3FileManager::addPakFiles(IO::DirectoryPtr baseDirectory,const char* pakFilePrefix)
+void Doom3FileManager::addPakFiles(const char* baseDirectory,const char* pakFilePrefix)
 	{
-	/* Find all <pakFilePrefix>???.pk[0-9] files in the base directory: */
-	size_t prefixLen=strlen(pakFilePrefix);
-	std::vector<PakFileName> pakFileNames;
-	baseDirectory->rewind();
-	while(baseDirectory->readNextEntry())
-		{
-		/* Check if the entry name matches the pattern: */
-		const char* name=baseDirectory->getEntryName();
-		bool match=strncasecmp(name,pakFilePrefix,prefixLen)==0;
-		unsigned int index=0;
-		const char* extPtr;
-		for(extPtr=name+prefixLen;match&&*extPtr!='\0'&&*extPtr!='.';++extPtr)
-			{
-			if(*extPtr>='0'&&*extPtr<='9')
-				index=index*10U+(unsigned int)(*extPtr-'0');
-			else
-				match=false;
-			}
-		match=match&&strncasecmp(extPtr,".pk",3)==0;
-		match=match&&isdigit(extPtr[3]);
-		
-		if(match)
-			{
-			/* Store the entry name: */
-			pakFileNames.push_back(PakFileName(name,index));
-			}
-		}
-	
-	/* Sort the pak file list: */
-	PakFileCompare pfc;
-	std::sort(pakFileNames.begin(),pakFileNames.end(),pfc);
+	/* Find all pak???.pk[0-9] files in the base directory: */
+	struct dirent** pakFileList;
+	int numPakFiles=scandir(baseDirectory,&pakFileList,pakFileFilter,alphasort);
 	
 	/* Add all pak files in alphabetical (numerical) order: */
-	for(std::vector<PakFileName>::iterator pfnIt=pakFileNames.begin();pfnIt!=pakFileNames.end();++pfnIt)
-		addPakFile(baseDirectory->openFile(pfnIt->first.c_str()));
+	for(int i=0;i<numPakFiles;++i)
+		{
+		char pakFileName[1024];
+		snprintf(pakFileName,sizeof(pakFileName),"%s/%s",baseDirectory,pakFileList[i]->d_name);
+		addPakFile(pakFileName);
+		free(pakFileList[i]);
+		}
+	free(pakFileList);
 	}
 
-IO::FilePtr Doom3FileManager::getFile(const char* fileName)
+unsigned char* Doom3FileManager::readFile(const char* fileName,size_t& fileSize)
 	{
 	/* Search the file in the pak file tree: */
 	PakFileTree::LeafID leafId=pakFileTree.findLeaf(fileName);
 	if(!leafId.isValid())
-		throw ReadError(fileName);
+		Misc::throwStdErr("Doom3FileManager::readFile: File %s not found",fileName);
 	
 	/* Get the file's pak file handle: */
 	const PakFileHandle& pfh=pakFileTree.getLeafValue(leafId);
 	
 	/* Read and return the file: */
-	return pfh.pakFile->openFile(pfh.fileID);
-	}
-
-IO::SeekableFilePtr Doom3FileManager::getSeekableFile(const char* fileName)
-	{
-	/* Search the file in the pak file tree: */
-	PakFileTree::LeafID leafId=pakFileTree.findLeaf(fileName);
-	if(!leafId.isValid())
-		throw ReadError(fileName);
-	
-	/* Get the file's pak file handle: */
-	const PakFileHandle& pfh=pakFileTree.getLeafValue(leafId);
-	
-	/* Read and return the file: */
-	return pfh.pakFile->openSeekableFile(pfh.fileID);
-	}
-
-IO::DirectoryPtr Doom3FileManager::getDirectory(const char* directoryName)
-	{
-	return new Doom3FileManagerDirectory(*this,directoryName);
+	return pfh.pakFile->readFile(pfh.fileID,fileSize);
 	}
 
 }

@@ -1,6 +1,6 @@
 /***********************************************************************
 TrackballNavigationTool - Class for trackball navigation in 3D space.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -20,15 +20,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/TrackballNavigationTool.h>
-
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/TrackballNavigationTool.h>
 
 namespace Vrui {
 
@@ -38,10 +38,11 @@ Methods of class TrackballNavigationToolFactory:
 
 TrackballNavigationToolFactory::TrackballNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("TrackballNavigationTool",toolManager),
-	 rotateFactor(1)
+	 rotateFactor(getInchFactor()*Scalar(3))
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -65,11 +66,6 @@ TrackballNavigationToolFactory::~TrackballNavigationToolFactory(void)
 const char* TrackballNavigationToolFactory::getName(void) const
 	{
 	return "Ray-Based Trackball";
-	}
-
-const char* TrackballNavigationToolFactory::getButtonFunction(int) const
-	{
-	return "Grab Sphere";
 	}
 
 Tool* TrackballNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -118,7 +114,7 @@ Methods of class TrackballNavigationTool:
 Point TrackballNavigationTool::calcTrackballPosition(void) const
 	{
 	/* Get device ray equation: */
-	Ray ray=getButtonDeviceRay(0);
+	Ray ray=getDeviceRay(0);
 	
 	/* Intersect ray with trackball sphere: */
 	Vector d=getDisplayCenter()-ray.getOrigin();
@@ -152,7 +148,7 @@ const ToolFactory* TrackballNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void TrackballNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void TrackballNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -181,7 +177,7 @@ void TrackballNavigationTool::frame(void)
 		/* Calculate incremental transformation from old to new point: */
 		Vector v1=lastDragPosition-getDisplayCenter();
 		Vector v2=dragPosition-getDisplayCenter();
-		Vector axis=v1^v2;
+		Vector axis=Geometry::cross(v1,v2);
 		Scalar axisLen=Geometry::mag(axis);
 		if(axisLen!=Scalar(0))
 			{
@@ -190,7 +186,9 @@ void TrackballNavigationTool::frame(void)
 			Scalar angle=Math::acos((v1*v2)/(Geometry::mag(v1)*Geometry::mag(v2)))*factory->rotateFactor;
 			
 			/* Compose new navigation transformation: */
-			NavTrackerState navigation=NavTrackerState::rotateAround(getDisplayCenter(),NavTrackerState::Rotation::rotateAxis(axis,angle));
+			NavTrackerState navigation=NavTrackerState::translateFromOriginTo(getDisplayCenter());
+			navigation*=NavTrackerState::rotate(NavTrackerState::Rotation::rotateAxis(axis,angle));
+			navigation*=NavTrackerState::translateToOriginFrom(getDisplayCenter());
 			navigation*=getNavigationTransformation();
 			
 			/* Update Vrui's navigation transformation: */

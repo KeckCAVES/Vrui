@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofDraggingTool - Class for simple 6-DOF dragging using a single
 input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -70,7 +70,7 @@ class SixDofDraggingTool:public DraggingTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 Environment-independent part of Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,9 +21,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#define EVILHACK_LOCK_INPUTDEVICE_POS 1
-
-#define DELAY_NAVIGATIONTRANSFORMATION 0
+#define DELAY_NAVIGATIONTRANSFORMATION 1
 #define RENDERFRAMETIMES 0
 #define SAVESHAREDVRUISTATE 0
 
@@ -38,28 +36,21 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <unistd.h>
 #include <time.h>
 #include <iostream>
-#include <Misc/SelfDestructPointer.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/StringPrintf.h>
-#include <Misc/FileNameExtensions.h>
+#include <Misc/File.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/ValueCoder.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Misc/Time.h>
 #include <Misc/TimerEventScheduler.h>
-#include <IO/File.h>
-#include <IO/OpenFile.h>
-#include <Cluster/Multiplexer.h>
-#include <Cluster/MulticastPipe.h>
+#include <Comm/MulticastPipeMultiplexer.h>
+#include <Comm/MulticastPipe.h>
 #include <Math/Constants.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLLightModelTemplates.h>
-#include <GL/GLLightTracker.h>
-#include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
 #include <GL/GLValueCoders.h>
@@ -71,12 +62,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/Container.h>
-#include <GLMotif/Margin.h>
 #include <GLMotif/Menu.h>
 #include <GLMotif/Separator.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/CascadeButton.h>
-#include <AL/Config.h>
+#include <Vrui/al.h>
 #include <AL/ALContextData.h>
 #include <Vrui/TransparentObject.h>
 #include <Vrui/VirtualInputDevice.h>
@@ -90,25 +80,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ClipPlaneManager.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
-#include <Vrui/WindowProperties.h>
 #include <Vrui/Listener.h>
 #include <Vrui/MutexMenu.h>
 #include <Vrui/CoordinateManager.h>
-#include <Vrui/GUIInteractor.h>
-#include <Vrui/Tool.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Internal/ToolKillZone.h>
 #include <Vrui/VisletManager.h>
 #include <Vrui/Internal/InputDeviceDataSaver.h>
 #include <Vrui/Internal/ScaleBar.h>
-#include <Vrui/OpenFile.h>
-
-#if EVILHACK_LOCK_INPUTDEVICE_POS
-
-Vrui::InputDevice* lockedDevice=0;
-Vrui::Vector lockedTranslation;
-
-#endif
 
 namespace Misc {
 
@@ -123,60 +102,48 @@ class ValueCoder<Vrui::VruiState::ScreenProtector>
 	public:
 	static std::string encode(const Vrui::VruiState::ScreenProtector& value)
 		{
-		std::string result;
-		result.push_back('(');
-		result.append(ValueCoder<std::string>::encode(value.inputDevice->getDeviceName()));
-		result.push_back(',');
-		result.push_back(' ');
-		result.append(ValueCoder<Vrui::Point>::encode(value.center));
-		result.push_back(',');
-		result.push_back(' ');
-		result.append(ValueCoder<Vrui::Scalar>::encode(value.radius));
-		result.push_back(')');
+		std::string result="";
+		result+="( ";
+		result+=ValueCoder<std::string>::encode(value.inputDevice->getDeviceName());
+		result+=", ";
+		result+=ValueCoder<Vrui::Point>::encode(value.center);
+		result+=", ";
+		result+=ValueCoder<Vrui::Scalar>::encode(value.radius);
+		result+=" )";
 		return result;
 		}
 	static Vrui::VruiState::ScreenProtector decode(const char* start,const char* end,const char** decodeEnd =0)
 		{
+		Vrui::VruiState::ScreenProtector result;
+		const char* cPtr=start;
 		try
 			{
-			Vrui::VruiState::ScreenProtector result;
-			
-			/* Check for opening parenthesis: */
-			const char* cPtr=start;
-			if(cPtr==end||*cPtr!='(')
-				throw DecodingError("missing opening parenthesis");
+			if(*cPtr!='(')
+				throw DecodingError("Missing opening parenthesis");
 			++cPtr;
 			cPtr=skipWhitespace(cPtr,end);
-			
-			/* Read input device name: */
 			std::string inputDeviceName=ValueCoder<std::string>::decode(cPtr,end,&cPtr);
-			cPtr=skipWhitespace(cPtr,end);
 			result.inputDevice=Vrui::findInputDevice(inputDeviceName.c_str());
 			if(result.inputDevice==0)
-				Misc::throwStdErr("unknown input device \"%s\"",inputDeviceName.c_str());
-			
-			cPtr=checkSeparator(',',cPtr,end);
-			
+				Misc::throwStdErr("Input device \"%s\" not found",inputDeviceName.c_str());
+			cPtr=skipSeparator(',',cPtr,end);
 			result.center=ValueCoder<Vrui::Point>::decode(cPtr,end,&cPtr);
-			cPtr=skipWhitespace(cPtr,end);
-			
-			cPtr=checkSeparator(',',cPtr,end);
-			
+			cPtr=skipSeparator(',',cPtr,end);
 			result.radius=ValueCoder<Vrui::Scalar>::decode(cPtr,end,&cPtr);
 			cPtr=skipWhitespace(cPtr,end);
-			
-			if(cPtr==end||*cPtr!=')')
-				throw DecodingError("missing closing parenthesis");
+			if(*cPtr!=')')
+				throw DecodingError("Missing closing parenthesis");
 			++cPtr;
-			
-			if(decodeEnd!=0)
-				*decodeEnd=cPtr;
-			return result;
 			}
 		catch(std::runtime_error err)
 			{
 			throw DecodingError(std::string("Unable to convert \"")+std::string(start,end)+std::string("\" to ScreenProtector due to ")+err.what());
 			}
+		
+		/* Return result: */
+		if(decodeEnd!=0)
+			*decodeEnd=cPtr;
+		return result;
 		}
 	};
 
@@ -189,7 +156,6 @@ Global state:
 ************/
 
 VruiState* vruiState=0;
-const char* vruiViewpointFileHeader="Vrui viewpoint file v1.0\n";
 
 #if RENDERFRAMETIMES
 const int numFrameTimes=800;
@@ -197,7 +163,7 @@ double frameTimes[numFrameTimes];
 int frameTimeIndex=-1;
 #endif
 #if SAVESHAREDVRUISTATE
-IO::File* vruiSharedStateFile=0;
+Misc::File* vruiSharedStateFile=0;
 #endif
 
 /**********************
@@ -240,54 +206,18 @@ GLMotif::Popup* VruiState::buildViewMenu(void)
 	
 	GLMotif::SubMenu* viewMenu=new GLMotif::SubMenu("View",viewMenuPopup,false);
 	
-	GLMotif::Button* pushViewButton=new GLMotif::Button("PushViewButton",viewMenu,"Push View");
-	pushViewButton->getSelectCallbacks().add(this,&VruiState::pushViewCallback);
+	GLMotif::Button* loadViewButton=new GLMotif::Button("LoadViewButton",viewMenu,"Load View");
+	loadViewButton->getSelectCallbacks().add(this,&VruiState::loadViewCallback);
 	
-	GLMotif::Button* popViewButton=new GLMotif::Button("PushViewButton",viewMenu,"Pop View");
-	popViewButton->getSelectCallbacks().add(this,&VruiState::popViewCallback);
+	GLMotif::Button* saveViewButton=new GLMotif::Button("SaveViewButton",viewMenu,"Save View");
+	saveViewButton->getSelectCallbacks().add(this,&VruiState::saveViewCallback);
 	
-	new GLMotif::Separator("Separator1",viewMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
-	
-	GLMotif::Button* loadViewButton=new GLMotif::Button("LoadViewButton",viewMenu,"Load View...");
-	viewSelectionHelper.addLoadCallback(loadViewButton,this,&VruiState::loadViewCallback);
-	
-	GLMotif::Button* saveViewButton=new GLMotif::Button("LoadViewButton",viewMenu,"Save View...");
-	viewSelectionHelper.addSaveCallback(saveViewButton,this,&VruiState::saveViewCallback);
+	GLMotif::Button* restoreViewButton=new GLMotif::Button("RestoreViewButton",viewMenu,"Restore View");
+	restoreViewButton->getSelectCallbacks().add(this,&VruiState::restoreViewCallback);
 	
 	viewMenu->manageChild();
 	
 	return viewMenuPopup;
-	}
-
-GLMotif::Popup* VruiState::buildDevicesMenu(void)
-	{
-	GLMotif::Popup* devicesMenuPopup=new GLMotif::Popup("DevicesMenuPopup",getWidgetManager());
-	
-	GLMotif::SubMenu* devicesMenu=new GLMotif::SubMenu("Devices",devicesMenuPopup,false);
-	
-	/* Create buttons to create or destroy virtual input device: */
-	GLMotif::Button* createOneButtonDeviceButton=new GLMotif::Button("CreateOneButtonDeviceButton",devicesMenu,"Create One-Button Device");
-	createOneButtonDeviceButton->getSelectCallbacks().add(this,&VruiState::createInputDeviceCallback,1);
-
-	GLMotif::Button* createTwoButtonDeviceButton=new GLMotif::Button("CreateTwoButtonDeviceButton",devicesMenu,"Create Two-Button Device");
-	createTwoButtonDeviceButton->getSelectCallbacks().add(this,&VruiState::createInputDeviceCallback,2);
-	
-	new GLMotif::Separator("Separator1",devicesMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
-	
-	GLMotif::Button* destroyDeviceButton=new GLMotif::Button("DestroyDeviceButton",devicesMenu,"Destroy Oldest Device");
-	destroyDeviceButton->getSelectCallbacks().add(this,&VruiState::destroyInputDeviceCallback);
-	
-	new GLMotif::Separator("Separator2",devicesMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
-	
-	GLMotif::Button* loadInputGraphButton=new GLMotif::Button("LoadInputGraphButton",devicesMenu,"Load Input Graph...");
-	inputGraphSelectionHelper.addLoadCallback(loadInputGraphButton,this,&VruiState::loadInputGraphCallback);
-	
-	GLMotif::Button* saveInputGraphButton=new GLMotif::Button("SaveInputGraphButton",devicesMenu,"Save Input Graph...");
-	inputGraphSelectionHelper.addSaveCallback(saveInputGraphButton,this,&VruiState::saveInputGraphCallback);
-	
-	devicesMenu->manageChild();
-	
-	return devicesMenuPopup;
 	}
 
 void VruiState::buildSystemMenu(GLMotif::Container* parent)
@@ -300,9 +230,12 @@ void VruiState::buildSystemMenu(GLMotif::Container* parent)
 	GLMotif::CascadeButton* viewMenuCascade=new GLMotif::CascadeButton("ViewMenuCascade",parent,"View");
 	viewMenuCascade->setPopup(buildViewMenu());
 	
-	/* Create the devices submenu: */
-	GLMotif::CascadeButton* devicesMenuCascade=new GLMotif::CascadeButton("DevicesMenuCascade",parent,"Devices");
-	devicesMenuCascade->setPopup(buildDevicesMenu());
+	/* Create buttons to create or destroy virtual input device: */
+	GLMotif::Button* createInputDeviceButton=new GLMotif::Button("CreateInputDeviceButton",parent,"Create Input Device");
+	createInputDeviceButton->getSelectCallbacks().add(this,&VruiState::createInputDeviceCallback);
+	
+	GLMotif::Button* destroyInputDeviceButton=new GLMotif::Button("DestroyInputDeviceButton",parent,"Destroy Input Device");
+	destroyInputDeviceButton->getSelectCallbacks().add(this,&VruiState::destroyInputDeviceCallback);
 	
 	/* Create a button to show the scale bar: */
 	GLMotif::ToggleButton* showScaleBarToggle=new GLMotif::ToggleButton("ShowScaleBarToggle",parent,"Show Scale Bar");
@@ -336,61 +269,72 @@ void VruiState::updateNavigationTransformation(const NavTransform& newTransform)
 	inverseNavigationTransformation=newInverseTransform;
 	}
 
-void VruiState::loadViewpointFile(IO::Directory& directory,const char* viewpointFileName)
+bool VruiState::loadViewpointFile(const char* viewpointFileName)
 	{
-	/* Open the viewpoint file: */
-	IO::FilePtr viewpointFile=directory.openFile(viewpointFileName);
-	viewpointFile->setEndianness(Misc::LittleEndian);
+	bool result=false;
 	
-	/* Check the header: */
-	char header[80];
-	viewpointFile->read(header,strlen(vruiViewpointFileHeader));
-	header[strlen(vruiViewpointFileHeader)]='\0';
-	if(strcmp(header,vruiViewpointFileHeader)==0)
+	/* Only load viewpoint file on master; on slave nodes, navigation will be updated by main loop: */
+	if(master)
 		{
-		/* Read the environment's center point in navigational coordinates: */
-		Point center;
-		viewpointFile->read<Scalar>(center.getComponents(),3);
+		try
+			{
+			/* Open the viewpoint file: */
+			Misc::File viewpointFile(viewpointFileName,"rb",Misc::File::LittleEndian);
+			
+			/* Check the header: */
+			char line[80];
+			viewpointFile.gets(line,sizeof(line));
+			if(strcmp(line,"Vrui viewpoint file v1.0\n")==0)
+				{
+				/* Read the environment's center point in navigational coordinates: */
+				Point center;
+				viewpointFile.read<Scalar>(center.getComponents(),3);
+				
+				/* Read the environment's size in navigational coordinates: */
+				Scalar size=viewpointFile.read<Scalar>();
+				
+				/* Read the environment's forward direction in navigational coordinates: */
+				Vector forward;
+				viewpointFile.read<Scalar>(forward.getComponents(),3);
+				
+				/* Read the environment's up direction in navigational coordinates: */
+				Vector up;
+				viewpointFile.read<Scalar>(up.getComponents(),3);
+				
+				/* Construct the navigation transformation: */
+				NavTransform nav=NavTransform::identity;
+				nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+				nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+				nav*=NavTransform::scale(getDisplaySize()/size);
+				nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
+				nav*=NavTransform::translateToOriginFrom(center);
+				setNavigationTransformation(nav);
+				
+				result=true;
+				}
+			}
+		catch(std::runtime_error error)
+			{
+			/* Ignore the error and return a failure code: */
+			}
 		
-		/* Read the environment's size in navigational coordinates: */
-		Scalar size=viewpointFile->read<Scalar>();
-		
-		/* Read the environment's forward direction in navigational coordinates: */
-		Vector forward;
-		viewpointFile->read<Scalar>(forward.getComponents(),3);
-		
-		/* Read the environment's up direction in navigational coordinates: */
-		Vector up;
-		viewpointFile->read<Scalar>(up.getComponents(),3);
-		
-		/* Construct the navigation transformation: */
-		NavTransform nav=NavTransform::identity;
-		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
-		nav*=NavTransform::scale(getDisplaySize()/size);
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(forward^up,forward)));
-		nav*=NavTransform::translateToOriginFrom(center);
-		setNavigationTransformation(nav);
+		if(pipe!=0)
+			{
+			/* Send the result code to the slaves: */
+			pipe->write<int>(result?1:0);
+			pipe->finishMessage();
+			}
 		}
+	else
+		{
+		/* Read the result code from the master: */
+		result=pipe->read<int>()!=0;
+		}
+	
+	return result;
 	}
 
-void VruiState::toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData)
-	{
-	/* Check if the to-be-destroyed tool has a GUI interactor: */
-	GUIInteractor* interactor=dynamic_cast<GUIInteractor*>(cbData->tool);
-	
-	/* Check if it is the most recent one: */
-	if(interactor!=0&&interactor==mostRecentGUIInteractor)
-		{
-		/* Remember the interactor's final hot spot: */
-		mostRecentHotSpot=interactor->calcHotSpot();
-		
-		/* Forget the interactor: */
-		mostRecentGUIInteractor=0;
-		}
-	}
-
-VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* sPipe)
+VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::MulticastPipe* sPipe)
 	:multiplexer(sMultiplexer),
 	 master(multiplexer==0||multiplexer->isMaster()),
 	 pipe(sPipe),
@@ -405,8 +349,6 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 newInputDevicePosition(0.0,0.0,0.0),
 	 virtualInputDevice(0),
 	 inputGraphManager(0),
-	 inputGraphSelectionHelper("SavedInputGraph.inputgraph",".inputgraph",0),
-	 loadInputGraph(false),
 	 inputDeviceManager(0),
 	 inputDeviceDataSaver(0),
 	 multipipeDispatcher(0),
@@ -425,10 +367,8 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 timerEventScheduler(0),
 	 widgetManager(0),
 	 popWidgetsOnScreen(false),
-	 dialogsMenu(0),
 	 systemMenuPopup(0),
 	 mainMenu(0),
-	 viewSelectionHelper("SavedViewpoint.view",".view",0),
 	 navigationTransformationEnabled(false),
 	 delayNavigationTransformation(false),
 	 navigationTransformationChangedMask(0x0),
@@ -439,16 +379,14 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 frameFunction(0),frameFunctionData(0),
 	 displayFunction(0),displayFunctionData(0),
 	 soundFunction(0),soundFunctionData(0),
-	 minimumFrameTime(0.0),nextFrameTime(0.0),
-	 synchFrameTime(0.0),synchWait(false),
+	 minimumFrameTime(0.0),
 	 numRecentFrameTimes(0),recentFrameTimes(0),nextFrameTimeIndex(0),sortedFrameTimes(0),
 	 activeNavigationTool(0),
-	 mostRecentGUIInteractor(0),mostRecentHotSpot(displayCenter),
+	 widgetInteraction(false),motionWidget(0),
 	 updateContinuously(false)
 	{
 	#if SAVESHAREDVRUISTATE
-	vruiSharedStateFile=IO::openFile("/tmp/VruiSharedState.dat",IO::File::WriteOnly);
-	vruiSharedStateFile->setEndianness(IO::File::LittleEndian);
+	vruiSharedStateFile=new Misc::File("/tmp/VruiSharedState.dat","wb",Misc::File::LittleEndian);
 	#endif
 	}
 
@@ -462,17 +400,11 @@ VruiState::~VruiState(void)
 	delete[] recentFrameTimes;
 	delete[] sortedFrameTimes;
 	
-	/* Deregister the popup callback: */
-	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
-	
-	/* Destroy the input graph: */
-	inputGraphManager->clear();
+	/* Delete vislet management: */
+	delete visletManager;
 	
 	/* Delete tool management: */
 	delete toolManager;
-	
-	/* Delete vislet management: */
-	delete visletManager;
 	
 	/* Delete coordinate manager: */
 	delete scaleBar;
@@ -481,8 +413,6 @@ VruiState::~VruiState(void)
 	/* Delete widget management: */
 	delete systemMenuPopup;
 	delete mainMenu;
-	viewSelectionHelper.closeDialogs();
-	inputGraphSelectionHelper.closeDialogs();
 	delete uiStyleSheet.font;
 	delete widgetManager;
 	delete timerEventScheduler;
@@ -577,8 +507,6 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	uiStyleSheet.fgColor=configFileSection.retrieveValue<Color>("./uiFgColor",uiStyleSheet.fgColor);
 	uiStyleSheet.textfieldBgColor=configFileSection.retrieveValue<Color>("./uiTextFieldBgColor",uiStyleSheet.textfieldBgColor);
 	uiStyleSheet.textfieldFgColor=configFileSection.retrieveValue<Color>("./uiTextFieldFgColor",uiStyleSheet.textfieldFgColor);
-	uiStyleSheet.selectionBgColor=configFileSection.retrieveValue<Color>("./uiSelectionBgColor",uiStyleSheet.selectionBgColor);
-	uiStyleSheet.selectionFgColor=configFileSection.retrieveValue<Color>("./uiSelectionFgColor",uiStyleSheet.selectionFgColor);
 	uiStyleSheet.titlebarBgColor=configFileSection.retrieveValue<Color>("./uiTitleBarBgColor",uiStyleSheet.titlebarBgColor);
 	uiStyleSheet.titlebarFgColor=configFileSection.retrieveValue<Color>("./uiTitleBarFgColor",uiStyleSheet.titlebarFgColor);
 	uiStyleSheet.sliderHandleWidth=configFileSection.retrieveValue<double>("./uiSliderWidth",uiStyleSheet.sliderHandleWidth);
@@ -586,10 +514,7 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	uiStyleSheet.sliderShaftColor=configFileSection.retrieveValue<Color>("./uiSliderShaftColor",uiStyleSheet.sliderShaftColor);
 	
 	/* Initialize the glyph renderer: */
-	GLfloat glyphRendererGlyphSize=configFileSection.retrieveValue<GLfloat>("./glyphSize",GLfloat(inchScale));
-	std::string glyphRendererCursorImageFileName=configFileSection.retrieveString("./glyphCursorFileName",DEFAULTGLYPHRENDERERCURSORFILENAME);
-	unsigned int glyphRendererCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./glyphCursorNominalSize",24);
-	glyphRenderer=new GlyphRenderer(glyphRendererGlyphSize,glyphRendererCursorImageFileName,glyphRendererCursorNominalSize);
+	glyphRenderer=new GlyphRenderer(configFileSection.retrieveValue<GLfloat>("./glyphSize",GLfloat(inchScale)));
 	
 	/* Initialize input graph manager: */
 	newInputDevicePosition=configFileSection.retrieveValue<Point>("./newInputDevicePosition",displayCenter);
@@ -613,42 +538,8 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 			inputDeviceDataSaver=new InputDeviceDataSaver(iddsSection,*inputDeviceManager,randomSeed);
 			}
 		}
-	
-	/* If in cluster mode, create a dispatcher to send input device states to the slaves: */
 	if(multiplexer!=0)
-		{
-		multipipeDispatcher=new MultipipeDispatcher(inputDeviceManager,pipe);
-		if(!master)
-			{
-			/* On slaves, multipipe dispatcher is owned by input device manager: */
-			multipipeDispatcher=0;
-			}
-		}
-	
-	/* Update all physical input devices to get initial positions and orientations: */
-	if(master)
-		{
-		inputDeviceManager->updateInputDevices();
-		
-		#if EVILHACK_LOCK_INPUTDEVICE_POS
-		if(lockedDevice!=0)
-			lockedDevice->setTransformation(Vrui::TrackerState(lockedTranslation,lockedDevice->getOrientation()));
-		#endif
-		
-		if(multiplexer!=0)
-			{
-			multipipeDispatcher->updateInputDevices();
-			pipe->flush();
-			}
-		}
-	else
-		{
-		inputDeviceManager->updateInputDevices();
-		}
-	
-	/* Save input device states to data file if requested: */
-	if(inputDeviceDataSaver!=0)
-		inputDeviceDataSaver->saveCurrentState(0.0);
+		multipipeDispatcher=new MultipipeDispatcher(pipe,inputDeviceManager);
 	
 	/* Initialize the update regime: */
 	if(master)
@@ -720,23 +611,6 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	widgetManager->setDrawOverlayWidgets(configFileSection.retrieveValue<bool>("./drawOverlayWidgets",widgetManager->getDrawOverlayWidgets()));
 	widgetManager->getWidgetPopCallbacks().add(this,&VruiState::widgetPopCallback);
 	popWidgetsOnScreen=configFileSection.retrieveValue<bool>("./popWidgetsOnScreen",popWidgetsOnScreen);
-	widgetPlane=ONTransform::translateFromOriginTo(displayCenter);
-	widgetPlane*=ONTransform::rotate(ONTransform::Rotation::fromBaseVectors(forwardDirection^upDirection,upDirection));
-	
-	/* Initialize the directories used to load files: */
-	viewSelectionHelper.setCurrentDirectory(openDirectory("."));
-	inputGraphSelectionHelper.setCurrentDirectory(openDirectory("."));
-	
-	/* Initialize 3D picking: */
-	pointPickDistance=Scalar(uiStyleSheet.size*2.0f);
-	pointPickDistance=configFileSection.retrieveValue<Scalar>("./pointPickDistance",pointPickDistance);
-	Scalar rayPickAngle=Math::deg(Math::atan(pointPickDistance/mainScreen->getScreenTransformation().inverseTransform(mainViewer->getHeadPosition())[2]));
-	rayPickAngle=configFileSection.retrieveValue<Scalar>("./rayPickAngle",rayPickAngle);
-	if(rayPickAngle<Scalar(0))
-		rayPickAngle=Scalar(0);
-	if(rayPickAngle>Scalar(90))
-		rayPickAngle=Scalar(90);
-	rayPickCosine=Math::cos(Math::rad(rayPickAngle));
 	
 	/* Create the coordinate manager: */
 	coordinateManager=new CoordinateManager;
@@ -746,9 +620,6 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	
 	/* Initialize tool manager: */
 	toolManager=new ToolManager(inputDeviceManager,toolSection);
-	
-	/* Register the tool destruction callback: */
-	toolManager->getToolDestructionCallbacks().add(this,&VruiState::toolDestructionCallback);
 	
 	try
 		{
@@ -769,7 +640,7 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 		{
 		pipe->broadcast<unsigned int>(randomSeed);
 		pipe->broadcast<double>(lastFrame);
-		pipe->flush();
+		pipe->finishMessage();
 		}
 	srand(randomSeed);
 	lastFrameDelta=0.0;
@@ -793,9 +664,6 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	nextFrameTimeIndex=0;
 	sortedFrameTimes=new double[numRecentFrameTimes];
 	currentFrameTime=1.0;
-	
-	/* Initialize the hot spot position for dialog windows: */
-	mostRecentHotSpot=displayCenter;
 	}
 
 void VruiState::createSystemMenu(void)
@@ -832,69 +700,31 @@ void VruiState::prepareMainLoop(void)
 	delayNavigationTransformation=true;
 	#endif
 	
-	if(loadInputGraph)
-		{
-		/* Load the requested input graph: */
-		inputGraphManager->loadInputGraph(*inputGraphSelectionHelper.getCurrentDirectory(),inputGraphFileName.c_str(),"InputGraph");
-		loadInputGraph=false;
-		}
-	else
-		{
-		/* Create default tool assignment: */
-		toolManager->loadDefaultTools();
-		}
+	/* Create default tool assignment: */
+	toolManager->loadDefaultTools();
 	
 	/* Check if the user gave a viewpoint file on the command line: */
 	if(!viewpointFileName.empty())
 		{
-		/* Split the given name into directory and file name: */
-		const char* vfn=viewpointFileName.c_str();
-		const char* fileName=Misc::getFileName(vfn);
-		std::string dirName(vfn,fileName);
-		
 		/* Override the navigation transformation: */
-		try
-			{
-			viewSelectionHelper.setCurrentDirectory(openDirectory(dirName.c_str()));
-			loadViewpointFile(*viewSelectionHelper.getCurrentDirectory(),fileName);
-			}
-		catch(std::runtime_error err)
+		if(!loadViewpointFile(viewpointFileName.c_str())&&master)
 			{
 			/* Print a warning message and continue: */
-			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<" due to exception "<<err.what()<<std::endl;
+			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<std::endl;
 			}
 		}
-	
-	/* Enable all vislets: */
-	visletManager->enable();
 	}
 
 void VruiState::update(void)
 	{
-	/*********************************************************************
-	Update the application time and all related state:
-	*********************************************************************/
-	
+	/* Take an application timer snapshot: */
 	double lastLastFrame=lastFrame;
+	lastFrame=appTime.peekTime(); // Result is only used on master node
+	
+	int navBroadcastMask=navigationTransformationChangedMask;
 	if(master)
 		{
-		/* Take an application timer snapshot: */
-		lastFrame=appTime.peekTime();
-		if(synchFrameTime>0.0)
-			{
-			/* Check if the frame needs to be delayed: */
-			if(synchWait&&lastFrame<synchFrameTime)
-				{
-				/* Sleep for a while to reach the synchronized frame time: */
-				vruiDelay(synchFrameTime-lastFrame);
-				}
-			
-			/* Override the free-running timer: */
-			lastFrame=synchFrameTime;
-			synchFrameTime=0.0;
-			synchWait=false;
-			}
-		else if(minimumFrameTime>0.0)
+		if(minimumFrameTime>0.0)
 			{
 			/* Check if the time for the last frame was less than the allowed minimum: */
 			if(lastFrame-lastLastFrame<minimumFrameTime)
@@ -906,8 +736,13 @@ void VruiState::update(void)
 				lastFrame=appTime.peekTime();
 				}
 			}
-		if(multiplexer!=0)
-			pipe->write<double>(lastFrame);
+		
+		/* Update all physical input devices: */
+		inputDeviceManager->updateInputDevices();
+		
+		/* Save input device states to data file if requested: */
+		if(inputDeviceDataSaver!=0)
+			inputDeviceDataSaver->saveCurrentState(lastFrame);
 		
 		/* Update the Vrui application timer and the frame time history: */
 		recentFrameTimes[nextFrameTimeIndex]=lastFrame-lastLastFrame;
@@ -924,51 +759,6 @@ void VruiState::update(void)
 			sortedFrameTimes[j+1]=recentFrameTimes[i];
 			}
 		currentFrameTime=sortedFrameTimes[numRecentFrameTimes/2];
-		if(multiplexer!=0)
-			pipe->write<double>(currentFrameTime);
-		}
-	else
-		{
-		/* Receive application time and current median frame time: */
-		pipe->read<double>(lastFrame);
-		pipe->read<double>(currentFrameTime);
-		}
-	
-	/* Calculate the current frame time delta: */
-	lastFrameDelta=lastFrame-lastLastFrame;
-	
-	#if RENDERFRAMETIMES
-	/* Update the frame time graph: */
-	++frameTimeIndex;
-	if(frameTimeIndex==numFrameTimes)
-		frameTimeIndex=0;
-	frameTimes[frameTimeIndex]=lastFrame-lastLastFrame;
-	#endif
-	
-	/* Reset the next scheduled frame time: */
-	nextFrameTime=0.0;
-	
-	/*********************************************************************
-	Update input device state and distribute all shared state:
-	*********************************************************************/
-	
-	int navBroadcastMask=navigationTransformationChangedMask;
-	if(master)
-		{
-		/* Update all physical input devices: */
-		inputDeviceManager->updateInputDevices();
-		
-		#if EVILHACK_LOCK_INPUTDEVICE_POS
-		if(lockedDevice!=0)
-			lockedDevice->setTransformation(Vrui::TrackerState(lockedTranslation,lockedDevice->getOrientation()));
-		#endif
-		
-		if(multiplexer!=0)
-			multipipeDispatcher->updateInputDevices();
-		
-		/* Save input device states to data file if requested: */
-		if(inputDeviceDataSaver!=0)
-			inputDeviceDataSaver->saveCurrentState(lastFrame);
 		
 		#if DELAY_NAVIGATIONTRANSFORMATION
 		if(navigationTransformationEnabled&&(navigationTransformationChangedMask&0x1))
@@ -979,14 +769,13 @@ void VruiState::update(void)
 			}
 		#endif
 		}
-	else
-		{
-		/* Receive input device states from the master: */
-		inputDeviceManager->updateInputDevices();
-		}
 	
 	if(multiplexer!=0)
 		{
+		/* Broadcast application time and current median frame time: */
+		pipe->broadcast<double>(lastFrame);
+		pipe->broadcast<double>(currentFrameTime);
+		
 		/* Broadcast the current navigation transformation and/or display center/size: */
 		pipe->broadcast<int>(navBroadcastMask);
 		if(navBroadcastMask&0x1)
@@ -1009,7 +798,7 @@ void VruiState::update(void)
 				
 				/* Update the navigation transformation: */
 				navigationTransformationEnabled=true;
-				updateNavigationTransformation(NavTransform(translation,Rotation(rotationQuaternion),scaling));
+				updateNavigationTransformation(NavTransform(translation,Rotation::fromQuaternion(rotationQuaternion),scaling));
 				}
 			}
 		if(navBroadcastMask&0x2)
@@ -1034,8 +823,13 @@ void VruiState::update(void)
 				}
 			}
 		
-		pipe->flush();
+		/* Broadcast the state of all physical input devices and other ancillary data: */
+		multipipeDispatcher->dispatchState();
+		pipe->finishMessage();
 		}
+	
+	/* Calculate the current frame time delta: */
+	lastFrameDelta=lastFrame-lastLastFrame;
 	
 	#if SAVESHAREDVRUISTATE
 	/* Save shared state to a local file for post-mortem analysis purposes: */
@@ -1051,9 +845,13 @@ void VruiState::update(void)
 		}
 	#endif
 	
-	/*********************************************************************
-	Update all managers:
-	*********************************************************************/
+	#if RENDERFRAMETIMES
+	/* Update the frame time graph: */
+	++frameTimeIndex;
+	if(frameTimeIndex==numFrameTimes)
+		frameTimeIndex=0;
+	frameTimes[frameTimeIndex]=lastFrame-lastLastFrame;
+	#endif
 	
 	/* Set the widget manager's time: */
 	widgetManager->setTime(lastFrame);
@@ -1066,28 +864,6 @@ void VruiState::update(void)
 	
 	/* Update the tool manager: */
 	toolManager->update();
-	
-	/* Check if a new input graph needs to be loaded: */
-	if(loadInputGraph)
-		{
-		try
-			{
-			/* Load the input graph from the selected configuration file: */
-			getInputGraphManager()->clear();
-			getInputGraphManager()->loadInputGraph(*inputGraphSelectionHelper.getCurrentDirectory(),inputGraphFileName.c_str(),"InputGraph");
-			}
-		catch(std::runtime_error err)
-			{
-			/* Show an error message: */
-			std::string message="Could not load input graph from file ";
-			message.append(inputGraphFileName);
-			message.append(" due to exception ");
-			message.append(err.what());
-			showErrorMessage("Load Input Graph",message.c_str());
-			}
-		
-		loadInputGraph=false;
-		}
 	
 	/* Update viewer states: */
 	for(int i=0;i<numViewers;++i)
@@ -1106,19 +882,29 @@ void VruiState::update(void)
 	
 	/* Finish any pending messages on the main pipe, in case an application didn't clean up: */
 	if(multiplexer!=0)
-		pipe->flush();
+		pipe->finishMessage();
 	}
 
 void VruiState::display(DisplayState* displayState,GLContextData& contextData) const
 	{
-	/* Initialize lighting state through the display state's light tracker: */
-	GLLightTracker* lt=contextData.getLightTracker();
-	lt->setLightingEnabled(true);
-	lt->setSpecularColorSeparate(false);
-	lt->setLightingTwoSided(false);
-	lt->setColorMaterials(false);
-	lt->setColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
-	lt->setNormalScalingMode(GLLightTracker::NormalScalingNormalize);
+	/* Initialize standard OpenGL settings: */
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_TRUE);
+	glDisable(GL_BLEND);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(GL_CCW);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_NORMALIZE);
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
+	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
+	glDisable(GL_COLOR_MATERIAL);
+	
+	/* Clear the display and Z-buffer: */
+	glClearColor(backgroundColor);
+	glClearDepth(1.0); // Clear depth is "infinity"
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); // Clear color- and Z-buffer
 	
 	/* Enable ambient light source: */
 	glLightModelAmbient(ambientLightColor);
@@ -1129,13 +915,16 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	glMultMatrix(displayState->modelviewPhysical);
 	
 	/* Set light sources: */
-	lightsourceManager->setLightsources(navigationTransformationEnabled,displayState,contextData);
+	if(navigationTransformationEnabled)
+		lightsourceManager->setLightsources(displayState,contextData);
+	else
+		lightsourceManager->setLightsources(contextData);
 	
-	/* Render input device manager's state: */
-	inputDeviceManager->glRenderAction(contextData);
+	/* Render input graph state: */
+	inputGraphManager->glRenderAction(contextData);
 	
-	/* Render input graph devices: */
-	inputGraphManager->glRenderDevices(contextData);
+	/* Render tool manager's state: */
+	toolManager->glRenderAction(contextData);
 	
 	/* Display any realized widgets: */
 	glMaterial(GLMaterialEnums::FRONT,widgetMaterial);
@@ -1145,13 +934,10 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	glDisable(GL_COLOR_MATERIAL);
 	
 	/* Set clipping planes: */
-	clipPlaneManager->setClipPlanes(navigationTransformationEnabled,displayState,contextData);
-	
-	/* Render tool manager's state: */
-	toolManager->glRenderAction(contextData);
-	
-	/* Render input graph tools: */
-	inputGraphManager->glRenderTools(contextData);
+	if(navigationTransformationEnabled)
+		clipPlaneManager->setClipPlanes(displayState,contextData);
+	else
+		clipPlaneManager->setClipPlanes(contextData);
 	
 	/* Display all loaded vislets: */
 	if(visletManager!=0)
@@ -1191,16 +977,13 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 		glDepthMask(GL_TRUE);
 		}
 	
-	/* Temporarily disable all clipping planes, bypassing the OpenGL context's clipping plane tracker: */
-	GLClipPlaneTracker* cpt=contextData.getClipPlaneTracker();
-	for(int i=0;i<cpt->getMaxNumClipPlanes();++i)
-		if(cpt->getClipPlaneState(i).isEnabled())
-			glDisable(GL_CLIP_PLANE0+i);
+	/* Disable all clipping planes: */
+	clipPlaneManager->disableClipPlanes(contextData);
 	}
 
 void VruiState::sound(ALContextData& contextData) const
 	{
-	#if ALSUPPORT_CONFIG_HAVE_OPENAL
+	#ifdef VRUI_USE_OPENAL
 	/* Display all loaded vislets: */
 	if(visletManager!=0)
 		visletManager->sound(contextData);
@@ -1226,11 +1009,14 @@ void VruiState::sound(ALContextData& contextData) const
 
 void VruiState::finishMainLoop(void)
 	{
-	/* Disable all vislets: */
-	visletManager->disable();
-	
 	/* Deregister the popup callback: */
 	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
+	}
+
+void VruiState::fileSelectionDialogCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData)
+	{
+	/* Destroy the file selection dialog: */
+	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 	}
 
 void VruiState::dialogsMenuCallback(GLMotif::SubMenu::EntrySelectCallbackData* cbData)
@@ -1244,20 +1030,8 @@ void VruiState::dialogsMenuCallback(GLMotif::SubMenu::EntrySelectCallbackData* c
 	GLMotif::WidgetManager* wm=getWidgetManager();
 	if(wm->isVisible(dialog))
 		{
-		/* Initialize the pop-up position: */
-		Point hotSpot=mostRecentHotSpot;
-		
-		/* Check if there is a most-recently used GUI interactor: */
-		if(mostRecentGUIInteractor!=0)
-			{
-			/* Get the most recent interactor's hot spot: */
-			hotSpot=mostRecentGUIInteractor->calcHotSpot();
-			}
-		
-		/* Move the dialog window to the hot spot position: */
-		ONTransform transform=calcHUDTransform(hotSpot);
-		transform*=ONTransform::translate(-Vector(dialog->calcHotSpot().getXyzw()));
-		wm->setPrimaryWidgetTransformation(dialog,transform);
+		/* Move the dialog window to the current menu position: */
+		wm->setPrimaryWidgetTransformation(dialog,wm->calcWidgetTransformation(cbData->selectedButton));
 		}
 	else
 		{
@@ -1299,49 +1073,70 @@ void VruiState::widgetPopCallback(GLMotif::WidgetManager::WidgetPopCallbackData*
 		}
 	}
 
-void VruiState::loadViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void VruiState::loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected file only if there are no active navigation tools: */
 	if(activeNavigationTool==0)
 		{
 		/* Load the selected viewpoint file: */
-		loadViewpointFile(*cbData->selectedDirectory,cbData->selectedFileName);
+		loadViewpointFile(cbData->selectedFileName.c_str());
 		}
+	
+	/* Destroy the file selection dialog: */
+	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 	}
 
-void VruiState::saveViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void VruiState::loadViewCallback(Misc::CallbackData* cbData)
 	{
-	/* Write the viewpoint file: */
-	IO::FilePtr viewpointFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
-	viewpointFile->setEndianness(Misc::LittleEndian);
+	/* Create a file selection dialog to select a viewpoint file: */
+	GLMotif::FileSelectionDialog* loadViewDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",0,".view",openPipe());
+	loadViewDialog->getOKCallbacks().add(this,&VruiState::loadViewOKCallback);
+	loadViewDialog->getCancelCallbacks().add(this,&VruiState::fileSelectionDialogCancelCallback);
 	
-	/* Write a header identifying this as an environment-independent viewpoint file: */
-	viewpointFile->write<char>(vruiViewpointFileHeader,strlen(vruiViewpointFileHeader));
-	
-	/* Write the environment's center point in navigational coordinates: */
-	Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
-	viewpointFile->write<Scalar>(center.getComponents(),3);
-	
-	/* Write the environment's size in navigational coordinates: */
-	Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
-	viewpointFile->write<Scalar>(size);
-	
-	/* Write the environment's forward direction in navigational coordinates: */
-	Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
-	viewpointFile->write<Scalar>(forward.getComponents(),3);
-	
-	/* Write the environment's up direction in navigational coordinates: */
-	Vector up=getInverseNavigationTransformation().transform(getUpDirection());
-	viewpointFile->write<Scalar>(up.getComponents(),3);
+	/* Show the file selection dialog: */
+	popupPrimaryWidget(loadViewDialog);
 	}
 
-void VruiState::pushViewCallback(Misc::CallbackData* cbData)
+void VruiState::saveViewCallback(Misc::CallbackData* cbData)
 	{
 	/* Push the current navigation transformation onto the stack of navigation transformations: */
 	storedNavigationTransformations.push_back(getNavigationTransformation());
+	
+	if(master)
+		{
+		try
+			{
+			/* Create a uniquely named viewpoint file: */
+			char numberedFileName[40];
+			Misc::File viewpointFile(Misc::createNumberedFileName("SavedViewpoint.view",4,numberedFileName),"wb",Misc::File::LittleEndian);
+			
+			/* Write a header identifying this as an environment-independent viewpoint file: */
+			fprintf(viewpointFile.getFilePtr(),"Vrui viewpoint file v1.0\n");
+			
+			/* Write the environment's center point in navigational coordinates: */
+			Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
+			viewpointFile.write<Scalar>(center.getComponents(),3);
+			
+			/* Write the environment's size in navigational coordinates: */
+			Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
+			viewpointFile.write<Scalar>(size);
+			
+			/* Write the environment's forward direction in navigational coordinates: */
+			Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
+			viewpointFile.write<Scalar>(forward.getComponents(),3);
+			
+			/* Write the environment's up direction in navigational coordinates: */
+			Vector up=getInverseNavigationTransformation().transform(getUpDirection());
+			viewpointFile.write<Scalar>(up.getComponents(),3);
+			}
+		catch(Misc::File::OpenError err)
+			{
+			/* Ignore errors if viewpoint file could not be created */
+			}
+		}
 	}
 
-void VruiState::popViewCallback(Misc::CallbackData* cbData)
+void VruiState::restoreViewCallback(Misc::CallbackData* cbData)
 	{
 	/* Only restore if no navigation tools are active and the stack is not empty: */
 	if(activeNavigationTool==0&&!storedNavigationTransformations.empty())
@@ -1352,10 +1147,10 @@ void VruiState::popViewCallback(Misc::CallbackData* cbData)
 		}
 	}
 
-void VruiState::createInputDeviceCallback(Misc::CallbackData* cbData,const int& numButtons)
+void VruiState::createInputDeviceCallback(Misc::CallbackData* cbData)
 	{
 	/* Create a new one-button virtual input device: */
-	createdVirtualInputDevices.push_back(addVirtualInputDevice("VirtualInputDevice",numButtons,0));
+	createdVirtualInputDevices.push_back(addVirtualInputDevice("VirtualInputDevice",1,0));
 	}
 
 void VruiState::destroyInputDeviceCallback(Misc::CallbackData* cbData)
@@ -1366,19 +1161,6 @@ void VruiState::destroyInputDeviceCallback(Misc::CallbackData* cbData)
 		getInputDeviceManager()->destroyInputDevice(createdVirtualInputDevices.front());
 		createdVirtualInputDevices.pop_front();
 		}
-	}
-
-void VruiState::loadInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
-	{
-	/* Remember to load the given input graph file at the next opportune time: */
-	loadInputGraph=true;
-	inputGraphFileName=cbData->selectedFileName;
-	}
-
-void VruiState::saveInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
-	{
-	/* Save the input graph: */
-	getInputGraphManager()->saveInputGraph(*cbData->selectedDirectory,cbData->selectedFileName,"InputGraph");
 	}
 
 void VruiState::showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
@@ -1429,22 +1211,30 @@ void vruiDelay(double interval)
 	#endif
 	}
 
-void synchronize(double nextFrameTime,bool wait)
+void synchronize(double applicationTime)
 	{
-	vruiState->synchFrameTime=nextFrameTime;
-	vruiState->synchWait=wait;
+	#if 0
+	/* Calculate the drift in true and intended application time: */
+	double delta=applicationTime-vruiState->lastFrame;
+	if(delta>0.0)
+		{
+		/* Block to make up for the difference: */
+		struct timeval timeout;
+		timeout.tv_sec=long(Math::floor(delta));
+		timeout.tv_usec=long(Math::floor((delta-double(timeout.tv_sec))*1000000.0+0.5));
+		select(0,0,0,0,&timeout);
+		}
+	#endif
+	
+	/* Update the true application time: */
+	vruiState->lastFrame=applicationTime;
 	}
 
 void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize)
 	{
-	/* Update the display center: */
 	vruiState->displayCenter=newDisplayCenter;
 	vruiState->displaySize=newDisplaySize;
 	vruiState->navigationTransformationChangedMask|=0x2;
-	
-	/* Update the widget plane: */
-	vruiState->widgetPlane=ONTransform::translateFromOriginTo(vruiState->displayCenter);
-	vruiState->widgetPlane*=ONTransform::rotate(ONTransform::Rotation::fromBaseVectors(vruiState->forwardDirection^vruiState->upDirection,vruiState->upDirection));
 	}
 
 /**********************************
@@ -1469,11 +1259,6 @@ void setSoundFunction(SoundFunctionType soundFunction,void* userData)
 	vruiState->soundFunctionData=userData;
 	}
 
-Cluster::Multiplexer* getClusterMultiplexer(void)
-	{
-	return vruiState->multiplexer;
-	}
-
 bool isMaster(void)
 	{
 	return vruiState->master;
@@ -1495,15 +1280,15 @@ int getNumNodes(void)
 		return 1;
 	}
 
-Cluster::MulticastPipe* getMainPipe(void)
+Comm::MulticastPipe* getMainPipe(void)
 	{
 	return vruiState->pipe;
 	}
 
-Cluster::MulticastPipe* openPipe(void)
+Comm::MulticastPipe* openPipe(void)
 	{
 	if(vruiState->multiplexer!=0)
-		return new Cluster::MulticastPipe(vruiState->multiplexer);
+		return vruiState->multiplexer->openPipe();
 	else
 		return 0;
 	}
@@ -1552,6 +1337,7 @@ InputDevice* addVirtualInputDevice(const char* name,int numButtons,int numValuat
 	{
 	InputDevice* newDevice=vruiState->inputDeviceManager->createInputDevice(name,InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT,numButtons,numValuators);
 	newDevice->setTransformation(TrackerState::translateFromOriginTo(vruiState->newInputDevicePosition));
+	newDevice->setDeviceRayDirection(Vector(0.0,1.0,0.0));
 	vruiState->inputGraphManager->getInputDeviceGlyph(newDevice).enable(Glyph::BOX,vruiState->widgetMaterial);
 	return newDevice;
 	}
@@ -1626,57 +1412,50 @@ std::pair<VRScreen*,Scalar> findScreen(const Ray& ray)
 	VRScreen* closestScreen=0;
 	Scalar closestLambda=Math::Constants<Scalar>::max;
 	for(int screenIndex=0;screenIndex<vruiState->numScreens;++screenIndex)
-		if(vruiState->screens[screenIndex].isIntersect())
+		{
+		VRScreen* screen=&vruiState->screens[screenIndex];
+		
+		/* Calculate screen plane: */
+		ONTransform t=screen->getScreenTransformation();
+		Vector screenNormal=t.getDirection(2);
+		Scalar screenOffset=screenNormal*t.getOrigin();
+		
+		/* Intersect selection ray with screen plane: */
+		Scalar divisor=screenNormal*ray.getDirection();
+		if(divisor!=Scalar(0))
 			{
-			VRScreen* screen=&vruiState->screens[screenIndex];
-			
-			/* Calculate screen plane: */
-			ONTransform t=screen->getScreenTransformation();
-			Vector screenNormal=t.getDirection(2);
-			Scalar screenOffset=screenNormal*t.getOrigin();
-			
-			/* Intersect selection ray with screen plane: */
-			Scalar divisor=screenNormal*ray.getDirection();
-			if(divisor!=Scalar(0))
+			Scalar lambda=(screenOffset-screenNormal*ray.getOrigin())/divisor;
+			if(lambda>=Scalar(0)&&lambda<closestLambda)
 				{
-				Scalar lambda=(screenOffset-screenNormal*ray.getOrigin())/divisor;
-				if(lambda>=Scalar(0)&&lambda<closestLambda)
+				/* Check if the ray intersects the screen: */
+				Point screenPos=t.inverseTransform(ray.getOrigin()+ray.getDirection()*lambda);
+				if(screen->isOffAxis())
 					{
-					/* Check if the ray intersects the screen: */
-					Point screenPos=t.inverseTransform(ray.getOrigin()+ray.getDirection()*lambda);
-					if(screen->isOffAxis())
+					/* Check the intersection point against the projected screen quadrilateral: */
+					VRScreen::PTransform2::Point sp(screenPos[0],screenPos[1]);
+					sp=screen->getScreenHomography().inverseTransform(sp);
+					if(sp[0]>=Scalar(0)&&sp[0]<=screen->getWidth()&&sp[1]>=Scalar(0)&&sp[1]<=screen->getHeight())
 						{
-						/* Check the intersection point against the projected screen quadrilateral: */
-						VRScreen::PTransform2::Point sp(screenPos[0],screenPos[1]);
-						sp=screen->getScreenHomography().inverseTransform(sp);
-						if(sp[0]>=Scalar(0)&&sp[0]<=screen->getWidth()&&sp[1]>=Scalar(0)&&sp[1]<=screen->getHeight())
-							{
-							/* Save the intersection: */
-							closestScreen=screen;
-							closestLambda=lambda;
-							}
+						/* Save the intersection: */
+						closestScreen=screen;
+						closestLambda=lambda;
 						}
-					else
+					}
+				else
+					{
+					/* Check the intersection point against the upright screen rectangle: */
+					if(screenPos[0]>=Scalar(0)&&screenPos[0]<=screen->getWidth()&&screenPos[1]>=Scalar(0)&&screenPos[1]<=screen->getHeight())
 						{
-						/* Check the intersection point against the upright screen rectangle: */
-						if(screenPos[0]>=Scalar(0)&&screenPos[0]<=screen->getWidth()&&screenPos[1]>=Scalar(0)&&screenPos[1]<=screen->getHeight())
-							{
-							/* Save the intersection: */
-							closestScreen=screen;
-							closestLambda=lambda;
-							}
+						/* Save the intersection: */
+						closestScreen=screen;
+						closestLambda=lambda;
 						}
 					}
 				}
 			}
+		}
 	
 	return std::pair<VRScreen*,Scalar>(closestScreen,closestLambda);
-	}
-
-void requestWindowProperties(const WindowProperties& properties)
-	{
-	/* Merge the given properties with the accumulated properties: */
-	vruiState->windowProperties.merge(properties);
 	}
 
 Listener* getMainListener(void)
@@ -1869,119 +1648,56 @@ GLMotif::WidgetManager* getWidgetManager(void)
 	return vruiState->widgetManager;
 	}
 
-const ONTransform& getUiPlane(void)
-	{
-	return vruiState->widgetPlane;
-	}
-
-Point calcUiPoint(const Ray& ray)
-	{
-	if(vruiState->popWidgetsOnScreen)
-		{
-		/* Intersect the ray with the widget plane: */
-		Point planeCenter=vruiState->widgetPlane.getOrigin();
-		Vector planeNormal=vruiState->widgetPlane.getDirection(2);
-		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
-		return ray(lambda);
-		}
-	else
-		{
-		/* Return ray's start: */
-		return ray.getOrigin();
-		}
-	}
-
-ONTransform calcUiTransform(const Ray& ray)
-	{
-	if(vruiState->popWidgetsOnScreen)
-		{
-		/* Intersect the ray with the widget plane: */
-		Point planeCenter=vruiState->widgetPlane.getOrigin();
-		Vector planeNormal=vruiState->widgetPlane.getDirection(2);
-		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
-		
-		/* Move the widget plane transformation to the intersection point: */
-		ONTransform result=vruiState->widgetPlane;
-		result.getTranslation()=ray(lambda)-Point::origin;
-		return result;
-		}
-	else
-		{
-		/* Align the transformation with the viewing direction: */
-		Vector viewDirection=ray.getOrigin()-vruiState->mainViewer->getHeadPosition();
-		Vector x=viewDirection^vruiState->upDirection;
-		Vector y=x^viewDirection;
-		ONTransform result=ONTransform::translateFromOriginTo(ray.getOrigin());
-		result*=ONTransform::rotate(Rotation::fromBaseVectors(x,y));
-		return result;
-		}
-	}
-
-ONTransform calcHUDTransform(const Point& hotSpot)
-	{
-	ONTransform result;
-	
-	if(vruiState->popWidgetsOnScreen)
-		{
-		/* Create a ray from the main viewer through the hot spot: */
-		Point start=vruiState->mainViewer->getHeadPosition();
-		Vector dir=hotSpot-start;
-		
-		/* Intersect the ray with the widget plane: */
-		Point planeCenter=vruiState->widgetPlane.getOrigin();
-		Vector planeNormal=vruiState->widgetPlane.getDirection(2);
-		Scalar lambda=((planeCenter-start)*planeNormal)/(dir*planeNormal);
-		
-		/* Move the widget plane transformation to the intersection point: */
-		ONTransform result=vruiState->widgetPlane;
-		result.getTranslation()=(start+dir*lambda)-Point::origin;
-		return result;
-		}
-	else
-		{
-		/* Align the transformation with the viewing direction: */
-		Vector viewDirection=hotSpot-vruiState->mainViewer->getHeadPosition();
-		Vector x=viewDirection^vruiState->upDirection;
-		Vector y=x^viewDirection;
-		result=ONTransform::translateFromOriginTo(hotSpot);
-		result*=ONTransform::rotate(Rotation::fromBaseVectors(x,y));
-		}
-	
-	return result;
-	}
-
 void popupPrimaryWidget(GLMotif::Widget* topLevel)
 	{
-	/* Initialize the pop-up position: */
-	Point hotSpot=vruiState->mostRecentHotSpot;
-	
-	/* Check if there is a most-recently used GUI interactor: */
-	if(vruiState->mostRecentGUIInteractor!=0)
-		{
-		/* Get the interactor's hot spot: */
-		hotSpot=vruiState->mostRecentGUIInteractor->calcHotSpot();
-		}
-	
-	/* Pop up the widget at the tool's hot spot position: */
-	popupPrimaryWidget(topLevel,hotSpot,false);
+	popupPrimaryWidget(topLevel,vruiState->displayCenter,false);
 	}
 
 void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational)
 	{
 	typedef GLMotif::WidgetManager::Transformation WTransform;
+	typedef WTransform::Point WPoint;
 	typedef WTransform::Vector WVector;
 	
-	/* Calculate the hot spot in physical coordinates: */
-	Point globalHotSpot=hotSpot;
+	WPoint globalHotSpot;
 	if(navigational&&vruiState->navigationTransformationEnabled)
-		globalHotSpot=vruiState->inverseNavigationTransformation.transform(globalHotSpot);
+		globalHotSpot=vruiState->inverseNavigationTransformation.transform(hotSpot);
+	else
+		globalHotSpot=hotSpot;
 	
-	/* Calculate the widget transformation: */
-	WTransform widgetTransformation=calcHUDTransform(globalHotSpot);
+	WTransform widgetTransformation;
+	if(vruiState->popWidgetsOnScreen)
+		{
+		/* Project the global hot spot into the screen plane: */
+		const ONTransform screenT=vruiState->mainScreen->getScreenTransformation();
+		Point screenHotSpot=screenT.inverseTransform(Point(globalHotSpot));
+		// screenHotSpot[1]=Scalar(0);
+		
+		/* Align the widget with the main screen's plane: */
+		widgetTransformation=WTransform(screenT);
+		widgetTransformation*=WTransform::translateFromOriginTo(screenHotSpot);
+		}
+	else
+		{
+		/* Align the widget with the viewing direction: */
+		WVector viewDirection=globalHotSpot-vruiState->mainViewer->getHeadPosition();
+		WVector x=Geometry::cross(viewDirection,vruiState->upDirection);
+		WVector y=Geometry::cross(x,viewDirection);
+		widgetTransformation=WTransform::translateFromOriginTo(globalHotSpot);
+		WTransform::Rotation rot=WTransform::Rotation::fromBaseVectors(x,y);
+		widgetTransformation*=WTransform::rotate(rot);
+		}
 	
 	/* Align the widget's hot spot with the given hot spot: */
+	#if 1
 	GLMotif::Vector widgetHotSpot=topLevel->calcHotSpot();
 	widgetTransformation*=WTransform::translate(-WVector(widgetHotSpot.getXyzw()));
+	#else
+	WVector widgetOffset;
+	for(int i=0;i<3;++i)
+		widgetOffset[i]=topLevel->getExterior().origin[i]+0.5*topLevel->getExterior().size[i];
+	widgetTransformation*=WTransform::translate(-widgetOffset);
+	#endif
 	
 	/* Pop up the widget: */
 	vruiState->widgetManager->popupPrimaryWidget(topLevel,widgetTransformation);
@@ -2008,127 +1724,17 @@ void popdownPrimaryWidget(GLMotif::Widget* topLevel)
 	vruiState->widgetManager->popdownWidget(topLevel);
 	}
 
-namespace {
-
-/**************************************
-Helper function to close error dialogs:
-**************************************/
-
-void closeWindowCallback(Misc::CallbackData* cbData,void*)
-	{
-	/* Check if the callback came from a button: */
-	GLMotif::Button::CallbackData* buttonCbData=dynamic_cast<GLMotif::Button::CallbackData*>(cbData);
-	if(buttonCbData!=0)
-		{
-		/* Close the top-level widget to which the button belongs: */
-		getWidgetManager()->deleteWidget(buttonCbData->button->getRoot());
-		}
-	
-	/* Check if the callback came from a popup window: */
-	GLMotif::PopupWindow::CallbackData* windowCbData=dynamic_cast<GLMotif::PopupWindow::CallbackData*>(cbData);
-	if(windowCbData!=0)
-		{
-		/* Close the popup window: */
-		getWidgetManager()->deleteWidget(windowCbData->popupWindow);
-		}
-	}
-
-}
-
-void showErrorMessage(const char* title,const char* message)
-	{
-	/* Create a popup window: */
-	GLMotif::PopupWindow* errorDialog=new GLMotif::PopupWindow("VruiErrorMessage",getWidgetManager(),title);
-	errorDialog->setResizableFlags(false,false);
-	errorDialog->setHideButton(false);
-	
-	GLMotif::RowColumn* error=new GLMotif::RowColumn("Error",errorDialog,false);
-	error->setOrientation(GLMotif::RowColumn::VERTICAL);
-	error->setPacking(GLMotif::RowColumn::PACK_TIGHT);
-	
-	/* Skip initial whitespace in the error message: */
-	const char* linePtr=message;
-	while(isspace(*linePtr)&&*linePtr!='\0')
-		++linePtr;
-	
-	/* Break the error message into multiple lines: */
-	while(*linePtr!='\0')
-		{
-		/* Find potential line break points: */
-		const char* breakPtr=0;
-		const char* cPtr=linePtr;
-		do
-			{
-			/* Find the end of the current word: */
-			while(!isspace(*cPtr)&&*cPtr!='-'&&*cPtr!='/'&&*cPtr!='\0')
-				++cPtr;
-			
-			/* Skip past dashes and slashes: */
-			while(*cPtr=='-'||*cPtr=='/')
-				++cPtr;
-			
-			/* If the line is already too long, and there is a previous break point, break there: */
-			if(cPtr-linePtr>=40&&breakPtr!=0)
-				break;
-			
-			/* Mark the break point: */
-			breakPtr=cPtr;
-			
-			/* Skip whitespace: */
-			while(isspace(*cPtr)&&*cPtr!='\0')
-				++cPtr;
-			}
-		while(cPtr-linePtr<40&&*breakPtr!='\n'&&*breakPtr!='\0');
-		
-		/* Add the current line: */
-		new GLMotif::Label("ErrorLine",error,linePtr,breakPtr);
-		
-		/* Go to the beginning of the next line: */
-		linePtr=breakPtr;
-		while(isspace(*linePtr)&&*linePtr!='\0')
-			++linePtr;
-		}
-	
-	/* Add an acknowledgment button: */
-	GLMotif::Margin* buttonMargin=new GLMotif::Margin("ButtonMargin",error,false);
-	buttonMargin->setAlignment(GLMotif::Alignment::RIGHT);
-	GLMotif::Button* okButton=new GLMotif::Button("OkButton",buttonMargin,"Too Sad!");
-	okButton->getSelectCallbacks().add(closeWindowCallback,0);
-	
-	buttonMargin->manageChild();
-	
-	error->manageChild();
-	
-	/* Show the popup window: */
-	popupPrimaryWidget(errorDialog);
-	}
-
-Scalar getPointPickDistance(void)
-	{
-	if(vruiState->navigationTransformationEnabled)
-		return vruiState->pointPickDistance*vruiState->inverseNavigationTransformation.getScaling();
-	else
-		return vruiState->pointPickDistance;
-	}
-
-Scalar getRayPickCosine(void)
-	{
-	return vruiState->rayPickCosine;
-	}
-
 void setNavigationTransformation(const NavTransform& newNavigationTransformation)
 	{
+	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
 		/* Schedule a change in navigation transformation for the next frame: */
 		vruiState->newNavigationTransformation=newNavigationTransformation;
 		vruiState->newNavigationTransformation.renormalize();
-		if(!vruiState->navigationTransformationEnabled||vruiState->newNavigationTransformation!=vruiState->navigationTransformation)
-			{
-			vruiState->navigationTransformationChangedMask|=0x1;
-			requestUpdate();	
-			}
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
 		}
 	else
 		{
@@ -2139,27 +1745,21 @@ void setNavigationTransformation(const NavTransform& newNavigationTransformation
 	/* Change the navigation transformation right away: */
 	vruiState->updateNavigationTransformation(newNavigationTransformation);
 	#endif
-	
-	vruiState->navigationTransformationEnabled=true;
 	}
 
 void setNavigationTransformation(const Point& center,Scalar radius)
 	{
-	/* Assemble the new navigation transformation: */
 	NavTransform t=NavTransform::translateFromOriginTo(vruiState->displayCenter);
 	t*=NavTransform::scale(vruiState->displaySize/radius);
 	t*=NavTransform::translateToOriginFrom(center);
-	
+	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
 		/* Schedule a change in navigation transformation for the next frame: */
 		vruiState->newNavigationTransformation=t;
-		if(!vruiState->navigationTransformationEnabled||vruiState->newNavigationTransformation!=vruiState->navigationTransformation)
-			{
-			vruiState->navigationTransformationChangedMask|=0x1;
-			requestUpdate();	
-			}
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
 		}
 	else
 		{
@@ -2170,28 +1770,22 @@ void setNavigationTransformation(const Point& center,Scalar radius)
 	/* Change the navigation transformation right away: */
 	vruiState->updateNavigationTransformation(t);
 	#endif
-	
-	vruiState->navigationTransformationEnabled=true;
 	}
 
 void setNavigationTransformation(const Point& center,Scalar radius,const Vector& up)
 	{
-	/* Assemble the new navigation transformation: */
 	NavTransform t=NavTransform::translateFromOriginTo(vruiState->displayCenter);
 	t*=NavTransform::scale(vruiState->displaySize/radius);
 	t*=NavTransform::rotate(NavTransform::Rotation::rotateFromTo(up,vruiState->upDirection));
 	t*=NavTransform::translateToOriginFrom(center);
-	
+	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
 		/* Schedule a change in navigation transformation for the next frame: */
 		vruiState->newNavigationTransformation=t;
-		if(!vruiState->navigationTransformationEnabled||vruiState->newNavigationTransformation!=vruiState->navigationTransformation)
-			{
-			vruiState->navigationTransformationChangedMask|=0x1;
-			requestUpdate();	
-			}
+		vruiState->navigationTransformationChangedMask|=0x1;
+		requestUpdate();
 		}
 	else
 		{
@@ -2202,16 +1796,10 @@ void setNavigationTransformation(const Point& center,Scalar radius,const Vector&
 	/* Change the navigation transformation right away: */
 	vruiState->updateNavigationTransformation(t);
 	#endif
-	
-	vruiState->navigationTransformationEnabled=true;
 	}
 
 void concatenateNavigationTransformation(const NavTransform& t)
 	{
-	/* Bail out if the incremental transformation is the identity transformation: */
-	if(t==NavTransform::identity)
-		return;
-	
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
@@ -2242,10 +1830,6 @@ void concatenateNavigationTransformation(const NavTransform& t)
 
 void concatenateNavigationTransformationLeft(const NavTransform& t)
 	{
-	/* Bail out if the incremental transformation is the identity transformation: */
-	if(t==NavTransform::identity)
-		return;
-	
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
@@ -2371,33 +1955,6 @@ VisletManager* getVisletManager(void)
 	return vruiState->visletManager;
 	}
 
-Misc::Time getTimeOfDay(void)
-	{
-	Misc::Time result;
-	
-	if(vruiState->master)
-		{
-		/* Query the system's wall clock time: */
-		result=Misc::Time::now();
-		
-		if(vruiState->multiplexer!=0)
-			{
-			/* Send the time value to the slaves: */
-			vruiState->pipe->write(result.tv_sec);
-			vruiState->pipe->write(result.tv_nsec);
-			vruiState->pipe->flush();
-			}
-		}
-	else
-		{
-		/* Receive the time value from the master: */
-		vruiState->pipe->read(result.tv_sec);
-		vruiState->pipe->read(result.tv_nsec);
-		}
-	
-	return result;
-	}
-
 double getApplicationTime(void)
 	{
 	return vruiState->lastFrame;
@@ -2418,12 +1975,6 @@ void updateContinuously(void)
 	vruiState->updateContinuously=true;
 	}
 
-void scheduleUpdate(double nextFrameTime)
-	{
-	if(vruiState->nextFrameTime==0.0||vruiState->nextFrameTime>nextFrameTime)
-		vruiState->nextFrameTime=nextFrameTime;
-	}
-
 const DisplayState& getDisplayState(GLContextData& contextData)
 	{
 	/* Retrieve the display state mapper's data item from the OpenGL context: */
@@ -2432,21 +1983,5 @@ const DisplayState& getDisplayState(GLContextData& contextData)
 	/* Return the embedded display state object: */
 	return dataItem->displayState;
 	}
-
-void setMostRecentGUIInteractor(GUIInteractor* interactor)
-	{
-	vruiState->mostRecentGUIInteractor=interactor;
-	}
-
-#if EVILHACK_LOCK_INPUTDEVICE_POS
-
-void lockDevice(Vrui::InputDevice* device)
-	{
-	lockedDevice=device;
-	if(lockedDevice!=0)
-		lockedTranslation=lockedDevice->getTransformation().getTranslation();
-	}
-	
-#endif
 
 }

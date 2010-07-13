@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2007 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -25,22 +25,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include <string>
 #include <iostream>
 #include <algorithm>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
-#include <IO/ValueSource.h>
+#include <Misc/File.h>
+#include <Misc/ValueSource.h>
+#include <Threads/GzippedFileCharacterSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
-#include <Geometry/Vector.h>
 #include <Geometry/HVector.h>
 #include <Geometry/ValuedPoint.h>
 #include <Geometry/ArrayKdTree.h>
-#include <Geometry/Geoid.h>
 #include <GL/gl.h>
 #include <GL/GLVertexArrayTemplates.h>
-#include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
 #include <GL/Extensions/GLARBMultitexture.h>
@@ -51,13 +49,15 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define NONSTANDARD_GLVERTEX_TEMPLATES
 #include <GL/GLGeometryVertex.h>
 
+#include "EarthFunctions.h"
+
 namespace {
 
 /***********************************************************************
 Helper classes and functions to parse spreadsheet files in text format:
 ***********************************************************************/
 
-inline bool strequal(const std::string& s1,const char* s2)
+bool strequal(std::string s1,const char* s2)
 	{
 	std::string::const_iterator s1It=s1.begin();
 	const char* s2Ptr=s2;
@@ -69,7 +69,7 @@ inline bool strequal(const std::string& s1,const char* s2)
 	return s1It==s1.end()&&*s2Ptr=='\0';
 	}
 
-inline double parseDateTime(const char* date,const char* time)
+double parseDateTime(const char* date,const char* time)
 	{
 	struct tm dateTime;
 	
@@ -83,14 +83,14 @@ inline double parseDateTime(const char* date,const char* time)
 			Misc::throwStdErr("Format error in date string %s",date);
 		++nextPtr;
 		}
-	if(d[0]>=1&&d[0]<=12&&d[1]>=1&&d[1]<=31)
+	if(d[0]>=1&&d[0]<=31&&d[1]>=1&&d[1]<=31)
 		{
 		/* Format is month, day, year: */
 		dateTime.tm_mday=d[1];
 		dateTime.tm_mon=d[0]-1;
 		dateTime.tm_year=d[2]-1900;
 		}
-	else if(d[1]>=1&&d[1]<=12&&d[2]>=1&&d[2]<=31)
+	else if(d[1]>=1&&d[1]<=31&&d[2]>=1&&d[2]<=31)
 		{
 		/* Format is year, month, day: */
 		dateTime.tm_mday=d[2];
@@ -130,12 +130,10 @@ Methods of class EarthquakeSet::DataItem:
 ****************************************/
 
 EarthquakeSet::DataItem::DataItem(void)
-	:vertexBufferObjectId(0),
-	 pointRenderer(0),clipPlaneVersion(0),fog(false),
+	:vertexBufferObjectId(0),pointRenderer(0),
 	 scaledPointRadiusLocation(-1),highlightTimeLocation(-1),
 	 currentTimeLocation(-1),pointTextureLocation(-1),
 	 pointTextureObjectId(0),
-	 eyePos(Point::origin),
 	 sortedPointIndicesBufferObjectId(0)
 	{
 	/* Check if the vertex buffer object extension is supported: */
@@ -194,72 +192,66 @@ EarthquakeSet::DataItem::~DataItem(void)
 Methods of class EarthquakeSet:
 ******************************/
 
-void EarthquakeSet::loadANSSFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor)
+void EarthquakeSet::loadANSSFile(const char* earthquakeFileName,double scaleFactor)
 	{
-	/* Wrap a value source around the input file: */
-	IO::ValueSource source(earthquakeFile);
-	source.setPunctuation("\n");
-	source.skipWs();
+	/* Open the input file: */
+	Misc::File earthquakeFile(earthquakeFileName,"rt");
 	
 	/* Skip the two header lines: */
+	char line[256];
 	for(int i=0;i<2;++i)
-		{
-		source.skipLine();
-		source.skipWs();
-		}
+		earthquakeFile.gets(line,sizeof(line));
 	
 	/* Read the rest of the file: */
-	while(!source.eof())
+	while(!earthquakeFile.eof())
 		{
 		/* Read the next line: */
-		std::string line=source.readLine();
-		source.skipWs();
+		earthquakeFile.gets(line,sizeof(line));
 		
 		/* Skip empty lines: */
-		if(line.empty()||line[0]=='\r')
+		if(line[0]=='\0'||line[0]=='\n')
 			continue;
 		
 		/* Parse an event from the line: */
 		Event e;
 		
 		/* Read date and time: */
-		std::string date(line,0,10);
-		std::string time(line,11,11);
-		e.time=parseDateTime(date.c_str(),time.c_str());
+		line[10]='\0';
+		line[22]='\0';
+		e.time=parseDateTime(line+0,line+11);
 		
 		/* Read event position: */
-		Geometry::Geoid<double>::Point geodeticPosition;
+		float sphericalCoordinates[3];
 		
 		/* Read latitude: */
-		std::string lat(line,23,8);
-		geodeticPosition[1]=Math::rad(atof(lat.c_str()));
+		line[31]='\0';
+		sphericalCoordinates[0]=Math::rad(float(atof(line+23)));
 		
 		/* Read longitude: */
-		std::string lon(line,32,9);
-		geodeticPosition[0]=Math::rad(atof(lon.c_str()));
+		line[41]='\0';
+		sphericalCoordinates[1]=Math::rad(float(atof(line+32)));
 		
-		/* Read depth and convert to ellipsoid height in meters: */
-		std::string dep(line,42,6);
-		geodeticPosition[2]=atof(dep.c_str())*-1000.0;
+		/* Read depth: */
+		line[48]='\0';
+		sphericalCoordinates[2]=float(atof(line+42));
 		
-		/* Convert the spherical position to offset and scaled Cartesian: */
-		Geometry::Geoid<double>::Point cartesianPosition=referenceEllipsoid.geodeticToCartesian(geodeticPosition);
-		for(int i=0;i<3;++i)
-			e.position[i]=float((cartesianPosition[i]+offset[i])*scaleFactor);
+		/* Convert the spherical position to Cartesian: */
+		calcDepthPos<float>(sphericalCoordinates[0],sphericalCoordinates[1],sphericalCoordinates[2]*1000.0f,scaleFactor,e.position.getComponents());
 		
 		/* Read magnitude: */
-		std::string mag(line,49,5);
-		e.magnitude=float(atof(mag.c_str()));
+		line[54]='\0';
+		e.magnitude=float(atof(line+49));
 		
 		/* Save the event: */
 		events.push_back(e);
 		}
 	}
 
-void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor)
+void EarthquakeSet::loadCSVFile(const char* earthquakeFileName,double scaleFactor)
 	{
-	/* Wrap a value source around the input file: */
-	IO::ValueSource source(earthquakeFile);
+	/* Open the input file: */
+	Threads::GzippedFileCharacterSource earthquakeFile(earthquakeFileName);
+	Misc::ValueSource source(earthquakeFile);
 	source.setPunctuation(",\n");
 	source.setQuotes("\"");
 	source.skipWs();
@@ -343,24 +335,14 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 	source.skipWs();
 	
 	/* Check if all required portions have been detected: */
-	if(latIndex<0)
-		throw std::runtime_error("Missing latitude field");
-	if(lngIndex<0)
-		throw std::runtime_error("Missing longitude field");
-	if(radiusIndex<0)
-		throw std::runtime_error("Missing radius/depth/negative depth field");
-	if(dateIndex<0)
-		throw std::runtime_error("Missing date field");
-	if(timeIndex<0)
-		throw std::runtime_error("Missing time field");
-	if(magIndex<0)
-		throw std::runtime_error("Missing magnitude field");
+	if(latIndex<0||lngIndex<0||radiusIndex<0||dateIndex<0||timeIndex<0||magIndex<0)
+		Misc::throwStdErr("EarthquakeSet::EarthquakeSet: Missing earthquake components in input file %s",earthquakeFileName);
 	
 	/* Read lines from the file: */
 	int lineNumber=2;
 	while(!source.eof())
 		{
-		Geometry::Geoid<double>::Point geodeticPosition=Geometry::Geoid<double>::Point::origin; // Only initializing to shut up compiler
+		float sphericalCoordinates[3]={0.0f,0.0f,0.0f};
 		std::string date,time;
 		float magnitude=0.0f;
 		int column=0;
@@ -372,11 +354,11 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 				if(!source.eof()&&source.peekc()!='\n'&&source.peekc()!=',')
 					{
 					if(column==latIndex)
-						geodeticPosition[1]=Math::rad(source.readNumber());
+						sphericalCoordinates[0]=Math::rad(float(source.readNumber()));
 					else if(column==lngIndex)
-						geodeticPosition[0]=Math::rad(source.readNumber());
+						sphericalCoordinates[1]=Math::rad(float(source.readNumber()));
 					else if(column==radiusIndex)
-						geodeticPosition[2]=source.readNumber()*1000.0;
+						sphericalCoordinates[2]=float(source.readNumber());
 					else if(column==dateIndex)
 						date=source.readString();
 					else if(column==timeIndex)
@@ -398,7 +380,7 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 					source.skipString();
 				}
 			}
-		catch(IO::ValueSource::NumberError err)
+		catch(Misc::ValueSource::NumberError err)
 			{
 			/* Ignore the error and the malformed event */
 			}
@@ -414,23 +396,20 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 			Event e;
 			
 			/* Convert the read spherical coordinates to Cartesian coordinates: */
-			Geometry::Geoid<double>::Point cartesianPosition;
-			if(radiusMode==RADIUS)
+			switch(radiusMode)
 				{
-				/* Use a simple formula with a squished sphere: */
-				double xy=Math::cos(geodeticPosition[1])*geodeticPosition[2];
-				cartesianPosition[0]=xy*Math::cos(geodeticPosition[0]);
-				cartesianPosition[1]=xy*Math::sin(geodeticPosition[0]);
-				cartesianPosition[2]=Math::sin(geodeticPosition[1])*geodeticPosition[2]*(1.0-referenceEllipsoid.getFlatteningFactor());
+				case RADIUS:
+					calcRadiusPos<float>(sphericalCoordinates[0],sphericalCoordinates[1],sphericalCoordinates[2]*1000.0f,scaleFactor,e.position.getComponents());
+					break;
+				
+				case DEPTH:
+					calcDepthPos<float>(sphericalCoordinates[0],sphericalCoordinates[1],sphericalCoordinates[2]*1000.0f,scaleFactor,e.position.getComponents());
+					break;
+				
+				case NEGDEPTH:
+					calcDepthPos<float>(sphericalCoordinates[0],sphericalCoordinates[1],-sphericalCoordinates[2]*1000.0f,scaleFactor,e.position.getComponents());
+					break;
 				}
-			else
-				{
-				if(radiusMode==DEPTH)
-					geodeticPosition[2]=-geodeticPosition[2];
-				cartesianPosition=referenceEllipsoid.geodeticToCartesian(geodeticPosition);
-				}
-			for(int i=0;i<3;++i)
-				e.position[i]=float((cartesianPosition[i]+offset[i])*scaleFactor);
 			
 			/* Calculate the event time: */
 			e.time=parseDateTime(date.c_str(),time.c_str());
@@ -445,118 +424,6 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 		++lineNumber;
 		}
 	}
-
-#if EARTHQUAKESET_EXPLICIT_RECURSION
-
-void EarthquakeSet::drawBackToFront(const Point& eyePos,GLuint* bufferPtr) const
-	{
-	/* Set up a traversal stack for explicit recursion: */
-	struct TraversalStack
-		{
-		/* Elements: */
-		public:
-		int left,right; // Left and right boundaries of the current subtree
-		int root; // Root of the current subtree
-		int splitDimension; // Split dimension of the current subtree
-		bool goLeftFirst; // Flag whether to traverse the left or right subtree in stage 0
-		} traversalStack[33]; // 33 is enough for all time! ALL TIME!
-	
-	/* Initialize the traversal stack: */
-	TraversalStack* tsPtr=traversalStack;
-	tsPtr->left=0;
-	tsPtr->right=int(events.size())-1;
-	tsPtr->splitDimension=0;
-	
-	/*********************************************************************
-	Traverse the tree recursively by ping-ponging between stages 0 and 1:
-	*********************************************************************/
-	
-	doTheStage0:
-	
-	/*****************************************************************
-	Stage 0: Traverse into the subtree farther from the eye position.
-	*****************************************************************/
-	
-	/* Calculate the root node index: */
-	tsPtr->root=(tsPtr->left+tsPtr->right)>>1;
-	
-	/* Decide whether to go left or right first: */
-	tsPtr->goLeftFirst=eyePos[tsPtr->splitDimension]>events[tsPtr->root].position[tsPtr->splitDimension];
-	
-	if(tsPtr->goLeftFirst)
-		{
-		if(tsPtr->left<tsPtr->root)
-			{
-			/* Traverse left subtree: */
-			++tsPtr;
-			tsPtr->left=tsPtr[-1].left;
-			tsPtr->right=tsPtr[-1].root-1;
-			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==3)
-				tsPtr->splitDimension=0;
-			
-			goto doTheStage0;
-			}
-		}
-	else
-		{
-		if(tsPtr->root<tsPtr->right)
-			{
-			/* Traverse right subtree: */
-			++tsPtr;
-			tsPtr->left=tsPtr[-1].root+1;
-			tsPtr->right=tsPtr[-1].right;
-			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==3)
-				tsPtr->splitDimension=0;
-			
-			goto doTheStage0;
-			}
-		}
-	
-	doTheStage1:
-	
-	/*****************************************************************
-	Stage 1: Enter the root node's index into the index buffer.
-	*****************************************************************/
-	
-	*bufferPtr=tsPtr->root;
-	++bufferPtr;
-	
-	/*****************************************************************
-	Stage 2: Traverse into the subtree closer to the eye position.
-	*****************************************************************/
-	
-	if(tsPtr->goLeftFirst)
-		{
-		if(tsPtr->root<tsPtr->right)
-			{
-			/* Traverse right subtree, but stay in the same stack frame to avoid tail recursion: */
-			tsPtr->left=tsPtr->root+1;
-			if(++tsPtr->splitDimension==3)
-				tsPtr->splitDimension=0;
-			
-			goto doTheStage0;
-			}
-		}
-	else
-		{
-		if(tsPtr->left<tsPtr->root)
-			{
-			/* Traverse left subtree, but stay in the same stack frame to avoid tail recursion: */
-			tsPtr->right=tsPtr->root-1;
-			if(++tsPtr->splitDimension==3)
-				tsPtr->splitDimension=0;
-			
-			goto doTheStage0;
-			}
-		}
-	
-	/* Return to caller: */
-	--tsPtr;
-	if(tsPtr>=traversalStack)
-		goto doTheStage1;
-	}
-
-#else
 
 void EarthquakeSet::drawBackToFront(int left,int right,int splitDimension,const Point& eyePos,GLuint*& bufferPtr) const
 	{
@@ -598,181 +465,20 @@ void EarthquakeSet::drawBackToFront(int left,int right,int splitDimension,const 
 		}
 	}
 
-#endif
-
-void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem,const GLClipPlaneTracker& cpt) const
-	{
-	/* Start creating the point rendering vertex shader: */
-	std::string vertexProgram="\
-		uniform float scaledPointRadius;\n\
-		uniform float highlightTime;\n\
-		uniform float currentTime;\n";
-	
-	if(dataItem->layeredRendering)
-		{
-		vertexProgram+="\
-			uniform vec4 frontSphereCenter;\n\
-			uniform float frontSphereRadius2;\n\
-			uniform bool frontSphereTest;\n\
-			\n\
-			void main()\n\
-				{\n\
-				/* Check if the point is inside the front sphere: */\n\
-				bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2;\n\
-				if(frontSphereTest)\n\
-					valid=!valid;\n\
-				if(valid)\n\
-					{\n";
-		}
-	else
-		{
-		vertexProgram+="\
-			\n\
-			void main()\n\
-				{\n";
-		}
-	
-	vertexProgram+="\
-				/* Transform the vertex to eye coordinates: */\n\
-				vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex;\n\
-				\n\
-				/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */\n\
-				float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z;\n\
-				if(gl_MultiTexCoord0.x>";
-	char number[20];
-	snprintf(number,sizeof(number),"%f",colorMap.getScalarRangeMin());
-	vertexProgram+=number;
-	vertexProgram+=")\n\
-					pointSize*=gl_MultiTexCoord0.x-(";
-	snprintf(number,sizeof(number),"%f",colorMap.getScalarRangeMin()-1.0);
-	vertexProgram+=number;
-	vertexProgram+=");\n\
-				\n\
-				/* Adapt point size based on current time and time scale: */\n\
-				float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime);\n\
-				if(highlightFactor>0.0&&highlightFactor<=highlightTime)\n\
-					pointSize*=2.0*highlightFactor/highlightTime+1.0;\n\
-				\n\
-				/* Set point size: */\n\
-				gl_PointSize=pointSize;\n\
-				\n";
-	
-	/* Check if fog is enabled: */
-	if(dataItem->fog)
-		{
-		/* Add fog attenuation to the vertex shader: */
-		vertexProgram+="\
-				/* Calculate vertex-eye distance for fog computation: */\n\
-				float eyeDist=-vertexEye.z/vertexEye.w;\n\
-				\n\
-				/* Calculate fog attenuation: */\n\
-				float fogFactor=clamp((eyeDist-gl_Fog.start)/(gl_Fog.end-gl_Fog.start),0.0,1.0);\n\
-				\n\
-				/* Use standard color attenuated by fog: */\n\
-				gl_FrontColor=mix(gl_Color,gl_Fog.color,fogFactor);\n\
-				\n";
-		}
-	else
-		{
-		/* Use unattenuated point colors: */
-		vertexProgram+="\
-				/* Use standard color: */\n\
-				gl_FrontColor=gl_Color;\n\
-				\n";
-		}
-	
-	/* Check if any clipping planes are enabled: */
-	if(cpt.getNumEnabledClipPlanes()!=0)
-		{
-		/* Insert code to calculate the point's distance with respect to all enabled clipping planes: */
-		vertexProgram+=cpt.createCalcClipDistances("vertexEye");
-		}
-	
-	/* Continue creating the point rendering vertex shader: */
-	if(dataItem->layeredRendering)
-		{
-		vertexProgram+="\
-				}\n\
-			else\n\
-				{\n\
-				/* Set point size to zero and color to invisible: */\n\
-				gl_PointSize=0.0;\n\
-				gl_FrontColor=vec4(0.0,0.0,0.0,0.0);\n\
-				}";
-		}
-	vertexProgram+="\
-			\n\
-			/* Use standard vertex position for fragment generation: */\n\
-			gl_Position=ftransform();\n\
-			}\n";
-	
-	/* Create the point rendering fragment shader: */
-	static const char* fragmentProgram="\
-		uniform sampler2D pointTexture;\n\
-		\n\
-		void main()\n\
-			{\n\
-			/* Modulate the sprite texture map by the point color: */\n\
-			gl_FragColor=texture2D(pointTexture,gl_TexCoord[0].xy)*gl_Color;\n\
-			}\n";
-	
-	/* Reset the shader: */
-	dataItem->pointRenderer->reset();
-	
-	/* Compile the vertex and fragment programs: */
-	dataItem->pointRenderer->compileVertexShaderFromString(vertexProgram.c_str());
-	dataItem->pointRenderer->compileFragmentShaderFromString(fragmentProgram);
-	
-	/* Link the shader: */
-	dataItem->pointRenderer->linkShader();
-	
-	/* Get the locations of all uniform variables: */
-	dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
-	dataItem->highlightTimeLocation=dataItem->pointRenderer->getUniformLocation("highlightTime");
-	dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
-	dataItem->currentTimeLocation=dataItem->pointRenderer->getUniformLocation("currentTime");
-	if(dataItem->layeredRendering)
-		{
-		dataItem->frontSphereCenterLocation=dataItem->pointRenderer->getUniformLocation("frontSphereCenter");
-		dataItem->frontSphereRadius2Location=dataItem->pointRenderer->getUniformLocation("frontSphereRadius2");
-		dataItem->frontSphereTestLocation=dataItem->pointRenderer->getUniformLocation("frontSphereTest");
-		}
-	else
-		{
-		dataItem->frontSphereCenterLocation=-1;
-		dataItem->frontSphereRadius2Location=-1;
-		dataItem->frontSphereTestLocation=-1;
-		}
-	dataItem->pointTextureLocation=dataItem->pointRenderer->getUniformLocation("pointTexture");
-	}
-
-EarthquakeSet::EarthquakeSet(IO::DirectoryPtr directory,const char* earthquakeFileName,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,const GLColorMap& sColorMap)
-	:colorMap(sColorMap),
-	 treePointIndices(0),
-	 layeredRendering(false),
+EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,double scaleFactor)
+	:treePointIndices(0),
 	 pointRadius(1.0f),highlightTime(1.0),currentTime(0.0)
 	{
-	/* Open the earthquake file: */
-	IO::FilePtr earthquakeFile=directory->openFile(earthquakeFileName);
-	
-	try
+	/* Check the earthquake file name's extension: */
+	if(Misc::hasCaseExtension(earthquakeFileName,".anss"))
 		{
-		/* Check the earthquake file name's extension: */
-		if(Misc::hasCaseExtension(earthquakeFileName,".anss"))
-			{
-			/* Read an earthquake database snapshot in "readable" ANSS format: */
-			loadANSSFile(earthquakeFile,referenceEllipsoid,offset,scaleFactor);
-			}
-		else
-			{
-			/* Read an earthquake event file in space- or comma-separated format: */
-			loadCSVFile(earthquakeFile,referenceEllipsoid,offset,scaleFactor);
-			}
+		/* Read an earthquake database snapshot in "readable" ANSS format: */
+		loadANSSFile(earthquakeFileName,scaleFactor);
 		}
-	catch(std::runtime_error err)
+	else
 		{
-		/* Wrap and re-throw the exception: */
-		Misc::throwStdErr("EarthquakeSet::EarthquakeSet: Error \"%s\" while reading file %s",err.what(),earthquakeFileName);
+		/* Read an earthquake event file in space- or comma-separated format: */
+		loadCSVFile(earthquakeFileName,scaleFactor);
 		}
 	
 	/* Create a temporary kd-tree to sort the events for back-to-front traversal: */
@@ -823,7 +529,40 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 			vPtr->texCoord[1]=Vertex::TexCoord::Scalar(e.time);
 			
 			/* Map the event's magnitude to color: */
-			vPtr->color=Vertex::Color(colorMap(e.magnitude));
+			float magnitudeMin=5.0f;
+			float magnitudeMax=9.0f;
+			const int numColors=5;
+			#if 0
+			static const Vertex::Color magColorMap[numColors]=
+				{
+				/* Reduced-saturation color map for anaglyphic viewing: */
+				Vertex::Color(96,160,96),
+				Vertex::Color(96,160,160),
+				Vertex::Color(96,96,160),
+				Vertex::Color(160,96,160),
+				Vertex::Color(160,96,96)
+				};
+			#else
+			static const Vertex::Color magColorMap[numColors]=
+				{
+				Vertex::Color(0,255,0),
+				Vertex::Color(0,255,255),
+				Vertex::Color(0,0,255),
+				Vertex::Color(255,0,255),
+				Vertex::Color(255,0,0)
+				};
+			#endif
+			if(e.magnitude<=magnitudeMin)
+				vPtr->color=magColorMap[0];
+			else if(e.magnitude>=magnitudeMax)
+				vPtr->color=magColorMap[numColors-1];
+			else
+				{
+				int baseIndex=int(e.magnitude-magnitudeMin);
+				float weight=(e.magnitude-magnitudeMin)-float(baseIndex);
+				for(int i=0;i<4;++i)
+					vPtr->color[i]=GLubyte(float(magColorMap[baseIndex][i])*(1.0f-weight)+float(magColorMap[baseIndex+1][i]*weight)+0.5f);
+				}
 			
 			/* Copy the event's position: */
 			vPtr->position=e.position;
@@ -837,9 +576,75 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 	if(dataItem->pointRenderer!=0)
 		{
 		/* Create the point rendering shader: */
-		dataItem->fog=glIsEnabled(GL_FOG);
-		dataItem->layeredRendering=layeredRendering;
-		createShader(dataItem,*contextData.getClipPlaneTracker());
+		static const char* vertexProgram="\
+			uniform float scaledPointRadius; \
+			uniform float highlightTime; \
+			uniform float currentTime; \
+			uniform vec4 frontSphereCenter; \
+			uniform float frontSphereRadius2; \
+			uniform bool frontSphereTest; \
+			 \
+			void main() \
+				{ \
+				/* Check if the point is inside the front sphere: */ \
+				bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2; \
+				if(frontSphereTest) \
+					valid=!valid; \
+				if(valid) \
+					{ \
+					/* Transform the vertex to eye coordinates: */ \
+					vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
+					 \
+					/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
+					float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
+					if(gl_MultiTexCoord0.x>5.0) \
+						pointSize*=gl_MultiTexCoord0.x-4.0; \
+					 \
+					/* Adapt point size based on current time and time scale: */ \
+					float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
+					if(highlightFactor>0.0&&highlightFactor<=highlightTime) \
+						pointSize*=2.0*highlightFactor/highlightTime+1.0; \
+					 \
+					/* Set point size: */ \
+					gl_PointSize=pointSize; \
+					 \
+					/* Use standard color: */ \
+					gl_FrontColor=gl_Color; \
+					} \
+				else \
+					{ \
+					/* Set point size to zero and color to invisible: */ \
+					gl_PointSize=0.0; \
+					gl_FrontColor=vec4(0.0,0.0,0.0,0.0); \
+					} \
+				 \
+				/* Use standard vertex position for fragment generation: */ \
+				gl_Position=ftransform(); \
+				}";
+		static const char* fragmentProgram="\
+			uniform sampler2D pointTexture; \
+			 \
+			void main() \
+				{ \
+				gl_FragColor=texture2D(pointTexture,gl_TexCoord[0].xy)*gl_Color; \
+				}";
+		
+		/* Compile the vertex and fragment programs: */
+		dataItem->pointRenderer->compileVertexShaderFromString(vertexProgram);
+		dataItem->pointRenderer->compileFragmentShaderFromString(fragmentProgram);
+		
+		/* Link the shader: */
+		dataItem->pointRenderer->linkShader();
+		
+		/* Get the locations of all uniform variables: */
+		dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
+		dataItem->highlightTimeLocation=dataItem->pointRenderer->getUniformLocation("highlightTime");
+		dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
+		dataItem->currentTimeLocation=dataItem->pointRenderer->getUniformLocation("currentTime");
+		dataItem->frontSphereCenterLocation=dataItem->pointRenderer->getUniformLocation("frontSphereCenter");
+		dataItem->frontSphereRadius2Location=dataItem->pointRenderer->getUniformLocation("frontSphereRadius2");
+		dataItem->frontSphereTestLocation=dataItem->pointRenderer->getUniformLocation("frontSphereTest");
+		dataItem->pointTextureLocation=dataItem->pointRenderer->getUniformLocation("pointTexture");
 		
 		/* Create the point rendering texture: */
 		GLfloat texImage[32][32][4];
@@ -874,24 +679,21 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 		}
 	}
 
-EarthquakeSet::TimeRange EarthquakeSet::getTimeRange(void) const
+std::pair<double,double> EarthquakeSet::getTimeRange(void) const
 	{
-	TimeRange result=TimeRange::empty;
-	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
-		result.addValue(eIt->time);
+	std::pair<double,double> result;
+	
+	std::vector<Event>::const_iterator eIt=events.begin();
+	result.first=result.second=eIt->time;
+	for(++eIt;eIt!=events.end();++eIt)
+		{
+		if(result.first>eIt->time)
+			result.first=eIt->time;
+		else if(result.second<eIt->time)
+			result.second=eIt->time;
+		}
 	
 	return result;
-	}
-
-void EarthquakeSet::enableLayeredRendering(const EarthquakeSet::Point& newEarthCenter)
-	{
-	layeredRendering=true;
-	earthCenter=newEarthCenter;
-	}
-
-void EarthquakeSet::disableLayeredRendering(void)
-	{
-	layeredRendering=false;
 	}
 
 void EarthquakeSet::setPointRadius(float newPointRadius)
@@ -928,13 +730,6 @@ void EarthquakeSet::glRenderAction(GLContextData& contextData) const
 		glActiveTextureARB(GL_TEXTURE0_ARB);
 		glBindTexture(GL_TEXTURE_2D,dataItem->pointTextureObjectId);
 		glTexEnvi(GL_POINT_SPRITE_ARB,GL_COORD_REPLACE_ARB,GL_TRUE);
-		
-		/* Check if the point renderer program conforms to current OpenGL state: */
-		if(contextData.getClipPlaneTracker()->getVersion()!=dataItem->clipPlaneVersion||glIsEnabled(GL_FOG)!=dataItem->fog)
-			{
-			/* Rebuild the point rendering shader: */
-			createShader(dataItem,*contextData.getClipPlaneTracker());
-			}
 		
 		/* Enable the point renderer program: */
 		dataItem->pointRenderer->useProgram();
@@ -1009,37 +804,21 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 		glBindTexture(GL_TEXTURE_2D,dataItem->pointTextureObjectId);
 		glTexEnvi(GL_POINT_SPRITE_ARB,GL_COORD_REPLACE_ARB,GL_TRUE);
 		
-		/* Check if the point renderer program conforms to current OpenGL state: */
-		bool fog=glIsEnabled(GL_FOG);
-		if(dataItem->clipPlaneVersion!=contextData.getClipPlaneTracker()->getVersion()||dataItem->fog!=fog||dataItem->layeredRendering!=layeredRendering)
-			{
-			/* Rebuild the point rendering shader for the new settings: */
-			dataItem->clipPlaneVersion=contextData.getClipPlaneTracker()->getVersion();
-			dataItem->fog=glIsEnabled(GL_FOG);
-			dataItem->layeredRendering=layeredRendering;
-			createShader(dataItem,*contextData.getClipPlaneTracker());
-			}
-		
 		/* Enable the point renderer program: */
 		dataItem->pointRenderer->useProgram();
 		
-		/* Set the main uniform variables: */
+		/* Calculate the front sphere: */
+		Geometry::HVector<Point::Scalar,3> frontSphereCenter=Geometry::mid(eyePos,Point::origin);
+		float frontSphereRadius2=Geometry::sqrDist(eyePos,Point::origin)*0.25f;
+		
+		/* Set the uniform variables: */
 		glUniform1fARB(dataItem->scaledPointRadiusLocation,pointRadius);
 		glUniform1fARB(dataItem->highlightTimeLocation,float(highlightTime));
 		glUniform1fARB(dataItem->currentTimeLocation,float(currentTime));
+		glUniform4fvARB(dataItem->frontSphereCenterLocation,1,frontSphereCenter.getComponents());
+		glUniform1fARB(dataItem->frontSphereRadius2Location,frontSphereRadius2);
+		glUniform1iARB(dataItem->frontSphereTestLocation,front);
 		glUniform1iARB(dataItem->pointTextureLocation,0);
-		
-		if(layeredRendering)
-			{
-			/* Calculate the front sphere: */
-			Geometry::HVector<Point::Scalar,3> frontSphereCenter=Geometry::mid(eyePos,earthCenter);
-			float frontSphereRadius2=Geometry::sqrDist(eyePos,earthCenter)*0.25f;
-			
-			/* Set the layered rendering uniform variables: */
-			glUniform4fvARB(dataItem->frontSphereCenterLocation,1,frontSphereCenter.getComponents());
-			glUniform1fARB(dataItem->frontSphereRadius2Location,frontSphereRadius2);
-			glUniform1iARB(dataItem->frontSphereTestLocation,front);
-			}
 		}
 	else
 		{
@@ -1066,11 +845,7 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 				{
 				/* Re-sort the points according to the new eye position: */
 				GLuint* bufferPtr=static_cast<GLuint*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
-				#if EARTHQUAKESET_EXPLICIT_RECURSION
-				drawBackToFront(eyePos,bufferPtr);
-				#else
 				drawBackToFront(0,int(events.size())-1,0,eyePos,bufferPtr);
-				#endif
 				glUnmapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB);
 				
 				dataItem->eyePos=eyePos;
@@ -1132,11 +907,11 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Poin
 	return result;
 	}
 
-const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray& ray,float coneAngleCos) const
+const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray& ray,float coneAngle) const
 	{
 	const Event* result=0;
 	
-	float coneAngleCos2=Math::sqr(coneAngleCos);
+	float coneAngle2=Math::sqr(coneAngle);
 	float lambdaMin=Math::Constants<float>::max;
 	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
 		{
@@ -1144,7 +919,8 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray&
 		float x=sp*ray.getDirection();
 		if(x>=0.0f&&x<lambdaMin)
 			{
-			if(Math::sqr(x)>coneAngleCos2*Geometry::sqr(sp))
+			float y2=Geometry::sqr(Geometry::cross(sp,ray.getDirection()));
+			if(y2/Math::sqr(x)<=coneAngle2)
 				{
 				result=&(*eIt);
 				lambdaMin=x;

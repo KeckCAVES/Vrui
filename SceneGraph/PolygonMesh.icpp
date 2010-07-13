@@ -3,7 +3,7 @@ PolygonMesh - Class to represent meshes of planar convex polygons. Meant
 as a temporary helper structure to convert polygon soup into an
 efficiently rendered representation, and compute a full set of vertex
 attributes.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -135,7 +135,7 @@ PolygonMesh<MeshVertexParam>::connectFace(
 	Vector d0=v1->position-v0->position;
 	const MeshVertex* v2=&vertices[faceVertexIndices[face.firstVertexIndex+0]];
 	Vector d1=v2->position-v1->position;
-	face.normal=d0^d1;
+	face.normal=Geometry::cross(d0,d1);
 	
 	if(face.numVertices>3)
 		{
@@ -149,7 +149,7 @@ PolygonMesh<MeshVertexParam>::connectFace(
 			d1=v2->position-v1->position;
 			
 			/* Calculate the corner normal, and if it goes against the current accumulated normal, there must be a concave corner somewhere: */
-			Vector cornerNormal=d0^d1;
+			Vector cornerNormal=Geometry::cross(d0,d1);
 			if(cornerNormal*baseNormal<Scalar(0))
 				{
 				cornerNormal=-cornerNormal;
@@ -333,7 +333,7 @@ PolygonMesh<MeshVertexParam>::triangulateFace(
 			
 			/* Check if the corner is concave: */
 			Vector d1=vertices[v2].position-vertices[v1].position;
-			Vector vertexNormal=d0^d1;
+			Vector vertexNormal=Geometry::cross(d0,d1);
 			vertexNormals.push_back(vertexNormal);
 			bool concave=vertexNormal*face.normal<Scalar(0);
 			if(concave)
@@ -374,13 +374,13 @@ PolygonMesh<MeshVertexParam>::triangulateFace(
 					
 					/* Check if the ear contains any concave corners: */
 					Vector d0=vertices[v1].position-vertices[v0].position;
-					Vector plane0Normal=vertexNormals[i1]^d0;
+					Vector plane0Normal=Geometry::cross(vertexNormals[i1],d0);
 					Scalar plane0Offset=Math::div2(plane0Normal*vertices[v0].position+plane0Normal*vertices[v1].position);
 					Vector d1=vertices[v2].position-vertices[v1].position;
-					Vector plane1Normal=vertexNormals[i1]^d1;
+					Vector plane1Normal=Geometry::cross(vertexNormals[i1],d1);
 					Scalar plane1Offset=Math::div2(plane1Normal*vertices[v1].position+plane1Normal*vertices[v2].position);
 					Vector ear=vertices[v2].position-vertices[v0].position;
-					Vector plane2Normal=ear^vertexNormals[i1];
+					Vector plane2Normal=Geometry::cross(ear,vertexNormals[i1]);
 					Scalar plane2Offset=Math::div2(plane2Normal*vertices[v0].position+plane2Normal*vertices[v2].position);
 					bool earClear=true;
 					for(Card j=0;j<numVertices;++j)
@@ -424,7 +424,7 @@ PolygonMesh<MeshVertexParam>::triangulateFace(
 							{
 							Vector d0=vertices[v1].position-vertices[v0].position;
 							Vector d1=vertices[v2].position-vertices[v1].position;
-							Vector vertexNormal=d0^d1;
+							Vector vertexNormal=Geometry::cross(d0,d1);
 							if(vertexNormal*face.normal>=Scalar(0))
 								{
 								// DEBUGGING
@@ -439,7 +439,7 @@ PolygonMesh<MeshVertexParam>::triangulateFace(
 							Card i3=(i2+1)%numVertices;
 							Vector d0=vertices[v2].position-vertices[v1].position;
 							Vector d1=vertices[vertexIndices[i3]].position-vertices[v2].position;
-							Vector vertexNormal=d0^d1;
+							Vector vertexNormal=Geometry::cross(d0,d1);
 							if(vertexNormal*face.normal>=Scalar(0))
 								{
 								// DEBUGGING

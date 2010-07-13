@@ -26,7 +26,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef HIDDEVICE_INCLUDED
 #define HIDDEVICE_INCLUDED
 
-#ifdef __APPLE__
+#ifdef __DARWIN__
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hid/IOHIDLib.h>
 #include <map>
@@ -45,7 +45,7 @@ class HIDDevice:public VRDevice
 	
 	/* Elements: */
 	private:
-	#ifdef __linux__
+	#if defined(__LINUX__)
 	int deviceFd; // File descriptor for the HID device
 	int* keyMap; // Translation map from event key codes to device button indices
 	int* absAxisMap; // Translation map from event absolute axis codes to device valuator indices
@@ -55,8 +55,7 @@ class HIDDevice:public VRDevice
 	Threads::Mutex stateMutex; // Mutex to serialize access to the device state
 	bool* buttonStates; // Array of current button states
 	float* valuatorStates; // Array of current valuator values
-	#endif
-	#ifdef __APPLE__
+	#elif defined(__DARWIN__)
 	typedef std::map<IOHIDElementCookie,int> CookieIndexMap;
 	struct AxisInfo
 		{
@@ -79,11 +78,10 @@ class HIDDevice:public VRDevice
 	#endif
 	
 	/* Private methods: */
-	#ifdef __linux__
+	#if defined(__LINUX__)
 	int findDevice(int vendorId,int productId); // Finds a HID device by vendor ID / product ID
 	int findDevice(const char* deviceName); // Finds a HID device by name
-	#endif
-	#ifdef __APPLE__
+	#elif defined(__DARWIN__)
 	io_object_t findHIDDeviceByVendorIdAndProductId(int targetVendorId,int targetProductId);
 	io_object_t findHIDDeviceByName(const char* targetDeviceName);
 	io_object_t getHIDDevice(Misc::ConfigurationFile& configFile);

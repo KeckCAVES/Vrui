@@ -19,8 +19,6 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Widget.h>
-
 #include <string.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
@@ -31,17 +29,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Event.h>
 #include <GLMotif/Container.h>
 
+#include <GLMotif/Widget.h>
+
 namespace GLMotif {
 
 /***********************
 Methods of class Widget:
 ***********************/
-
-void Widget::unmanageChild(void)
-	{
-	/* Unmanage the child: */
-	isManaged=false;
-	}
 
 Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 	:parent(sParent),isManaged(false),name(new char[strlen(sName)+1]),
@@ -73,14 +67,9 @@ Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 
 Widget::~Widget(void)
 	{
-	/* Tell the widget manager that the widget is to be destroyed: */
-	WidgetManager* manager=getManager();
-	if(manager!=0)
-		manager->unmanageWidget(this);
-	
-	/* Tell the parent container that the widget is to be destroyed: */
+	/* Unmanage the widget if it is currently managed: */
 	if(isManaged)
-		parent->removeChild(this);
+		getManager()->unmanageWidget(this);
 	
 	delete[] name;
 	}

@@ -59,8 +59,6 @@ class ShapeNode:public GraphNode
 	virtual void glRenderAction(GLRenderState& renderState) const;
 	};
 
-typedef Misc::Autopointer<ShapeNode> ShapeNodePointer;
-
 }
 
 #endif

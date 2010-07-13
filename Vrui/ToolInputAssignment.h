@@ -1,6 +1,6 @@
 /***********************************************************************
 ToolInputAssignment - Class defining the input assignments of a tool.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2005 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 namespace Vrui {
 class InputDevice;
-class InputDeviceFeature;
 class ToolInputLayout;
 }
 
@@ -34,95 +33,37 @@ namespace Vrui {
 
 class ToolInputAssignment
 	{
-	/* Embedded classes: */
-	public:
-	struct Slot // Structure for button or valuator assignment slots
-		{
-		/* Elements: */
-		public:
-		InputDevice* device; // Pointer to input device containing slot
-		int index; // Index of slot's button or valuator on input device
-		
-		/* Constructors and destructors: */
-		Slot(void) // Creates unassigned slot
-			:device(0),index(-1)
-			{
-			}
-		Slot(InputDevice* sDevice,int sIndex) // Elementwise constructor
-			:device(sDevice),index(sIndex)
-			{
-			}
-		};
-	
 	/* Elements: */
 	private:
-	int numButtonSlots; // Current number of button slots in the assignment
-	Slot* buttonSlots; // Array of button slots
-	int numValuatorSlots; // Current number of valuator slots in the assignment
-	Slot* valuatorSlots; // Array of valuator slots
+	int numDevices; // Number of devices
+	InputDevice** devices; // Array of pointers to assigned input devices
+	int** buttonIndices; // Arrays of assigned button indices for each input device
+	int** valuatorIndices; // Arrays of assigned valuator indices for each input device
 	
 	/* Constructors and destructors: */
 	public:
 	ToolInputAssignment(const ToolInputLayout& layout); // Creates "empty" assignment for given layout
-	ToolInputAssignment(const ToolInputAssignment& source); // Copies assignment from source
 	private:
+	ToolInputAssignment(const ToolInputAssignment& source); // Disallow copy constructor
 	ToolInputAssignment& operator=(const ToolInputAssignment& source); // Disallow assignment operator
 	public:
 	~ToolInputAssignment(void); // Destroys assignment
 	
 	/* Methods: */
-	void setButtonSlot(int buttonSlotIndex,InputDevice* slotDevice,int slotButtonIndex); // Sets the button assignment of the given index
-	void addButtonSlot(InputDevice* slotDevice,int slotButtonIndex); // Adds an optional button slot to the end of the input assignment
-	void setValuatorSlot(int valuatorSlotIndex,InputDevice* slotDevice,int slotValuatorIndex); // Sets the valuator assignment of the given index
-	void addValuatorSlot(InputDevice* slotDevice,int slotValuatorIndex); // Adds an optional valuator slot to the end of the input assignment
-	int getNumButtonSlots(void) const // Returns the current total number of required and optional button slots in the assignment
+	void setDevice(int deviceIndex,InputDevice* newAssignedDevice); // Assigns an input device
+	void setButtonIndex(int deviceIndex,int buttonIndex,int newAssignedButtonIndex); // Assigns a button index
+	void setValuatorIndex(int deviceIndex,int valuatorIndex,int newAssignedValuatorIndex); // Assigns a valuator index
+	InputDevice* getDevice(int deviceIndex) const // Returns pointer to assigned input device
 		{
-		return numButtonSlots;
+		return devices[deviceIndex];
 		}
-	const Slot& getButtonSlot(int buttonSlotIndex) const // Returns the button slot of the given index
+	int getButtonIndex(int deviceIndex,int buttonIndex) const // Returns index of assigned button
 		{
-		return buttonSlots[buttonSlotIndex];
+		return buttonIndices[deviceIndex][buttonIndex];
 		}
-	InputDeviceFeature getButtonSlotFeature(int buttonSlotIndex) const; // Returns the input device feature in the given button assignment slot
-	int getNumValuatorSlots(void) const // Returns the current total number of required and optional valuator slots in the assignment
+	int getValuatorIndex(int deviceIndex,int valuatorIndex) const // Returns index of assigned valuator
 		{
-		return numValuatorSlots;
-		}
-	const Slot& getValuatorSlot(int valuatorSlotIndex) const // Returns the valuator slot of the given index
-		{
-		return valuatorSlots[valuatorSlotIndex];
-		}
-	InputDeviceFeature getValuatorSlotFeature(int valuatorSlotIndex) const; // Returns the input device feature in the given valuator assignment slot
-	int getNumSlots(void) const // Returns number of button and valuator slots
-		{
-		return numButtonSlots+numValuatorSlots;
-		}
-	bool isSlotButton(int slotIndex) const // Returns true if the given assignment slot is a button slot
-		{
-		return slotIndex<numButtonSlots;
-		}
-	bool isSlotValuator(int slotIndex) const // Returns true if the given assignment slot is a valuator slot
-		{
-		return slotIndex>=numButtonSlots;
-		}
-	InputDevice* getSlotDevice(int slotIndex) const // Returns the input device in the given assignment slot
-		{
-		if(slotIndex<numButtonSlots)
-			return buttonSlots[slotIndex].device;
-		else
-			return valuatorSlots[slotIndex-numButtonSlots].device;
-		}
-	int getSlotFeatureIndex(int slotIndex) const; // Returns the index of the feature in the given assignment slot
-	InputDeviceFeature getSlotFeature(int slotIndex) const; // Returns the input device feature in the given assignment slot
-	bool isAssigned(const InputDeviceFeature& feature) const; // Returns true if the given input device feature is already part of the input assignment
-	int findFeature(const InputDeviceFeature& feature) const; // Returns the slot index of the given feature, or -1 if the feature is not part of the assignment
-	int getButtonSlotIndex(int slotIndex) const // Returns the button slot index of a button slot
-		{
-		return slotIndex;
-		}
-	int getValuatorSlotIndex(int slotIndex) const // Returns the valuator slot index of a valuator slot
-		{
-		return slotIndex-numButtonSlots;
+		return valuatorIndices[deviceIndex][valuatorIndex];
 		}
 	};
 

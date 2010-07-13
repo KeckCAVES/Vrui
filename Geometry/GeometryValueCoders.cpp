@@ -1,7 +1,7 @@
 /***********************************************************************
 GeometryValueCoders - Value coder classes for templatized geometry
 objects.
-Copyright (c) 2003-2013 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

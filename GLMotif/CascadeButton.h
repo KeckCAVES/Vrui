@@ -1,7 +1,7 @@
 /***********************************************************************
 CascadeButton - Class for buttons that pop up secondary top-level
 GLMotif UI components.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

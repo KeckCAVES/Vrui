@@ -1,7 +1,6 @@
 /***********************************************************************
-ArrayValueCoders - Generic value coder classes for standard C-style
-arrays with fixed or dynamic array sizes or array wrapper classes.
-Copyright (c) 2004-2013 Oliver Kreylos
+ArrayValueCoders - Generic value coder classes standard C-style arrays.
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -26,91 +25,19 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/ValueCoder.h>
 
-/* Forward declarations: */
-namespace Misc {
-template <class ElementParam,int sizeParam>
-class FixedArray;
-}
-
 namespace Misc {
 
-template <class ElementParam,size_t numElementsParam>
-class CFixedArrayValueCoder // Value coder class for arrays with compile-time known sizes
-	{
-	/* Elements: */
-	public:
-	ElementParam* elements; // C-style array to which to decode
-	
-	/* Constructors and destructors: */
-	CFixedArrayValueCoder(void)
-		{
-		}
-	CFixedArrayValueCoder(ElementParam* sElements)
-		:elements(sElements)
-		{
-		}
-	
-	/* Methods: */
-	public:
-	static std::string encode(const ElementParam* elements);
-	ElementParam* decode(const char* start,const char* end,const char** decodeEnd =0) const;
-	};
+/**************************
+Generic ValueCoder classes:
+**************************/
 
 template <class ElementParam>
-class FixedArrayValueCoder // Value coder class for arrays with a-priori known sizes
-	{
-	/* Elements: */
-	public:
-	ElementParam* elements; // C-style array to which to decode
-	size_t numElements; // Expected array size
-	
-	/* Constructors and destructors: */
-	FixedArrayValueCoder(size_t sNumElements)
-		:numElements(sNumElements)
-		{
-		}
-	FixedArrayValueCoder(ElementParam* sElements,size_t sNumElements)
-		:elements(sElements),numElements(sNumElements)
-		{
-		}
-	
-	/* Methods: */
-	public:
-	std::string encode(const ElementParam* elements) const;
-	ElementParam* decode(const char* start,const char* end,const char** decodeEnd =0) const;
-	};
-
-template <class ElementParam>
-class DynamicArrayValueCoder // Value coder class for arrays with dynamic sizes up to a maximum
-	{
-	/* Elements: */
-	public:
-	ElementParam* elements; // C-style array to which to decode
-	size_t numElements; // On encode: number of elements actually in array. On decode: maximum number of elements in array; upon return: number of elements in array, may be larger than maximum
-	
-	/* Constructors and destructors: */
-	DynamicArrayValueCoder(size_t sNumElements)
-		:numElements(sNumElements)
-		{
-		}
-	DynamicArrayValueCoder(ElementParam* sElements,size_t sNumElements)
-		:elements(sElements),numElements(sNumElements)
-		{
-		}
-	
-	/* Methods: */
-	public:
-	std::string encode(const ElementParam* elements) const;
-	ElementParam* decode(const char* start,const char* end,const char** decodeEnd =0);
-	};
-
-template <class ElementParam,int sizeParam>
-class ValueCoder<FixedArray<ElementParam,sizeParam> >
+class ValueCoderArray
 	{
 	/* Methods: */
 	public:
-	static std::string encode(const FixedArray<ElementParam,sizeParam>& value);
-	static FixedArray<ElementParam,sizeParam> decode(const char* start,const char* end,const char** decodeEnd =0);
+	static std::string encode(int numElements,const ElementParam* elements);
+	static int decode(int maxNumElements,ElementParam* elements,const char* start,const char* end,const char** decodeEnd =0);
 	};
 
 }

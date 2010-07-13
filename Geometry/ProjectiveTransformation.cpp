@@ -1,7 +1,7 @@
 /***********************************************************************
 ProjectiveTransformation - Class for n-dimensional projective
 transformations.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLFrustum - Class describing an OpenGL view frustum in model coordinates
 to perform software-based frustum culling and LOD calculation.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the OpenGL Wrapper Library for the Templatized
 Geometry Library (GLGeometry).

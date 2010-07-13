@@ -355,10 +355,6 @@ void WidgetManager::popdownWidget(Widget* widget)
 		{
 		PopupBinding* binding=pbmIt->getDest();
 		
-		/* Pop down all secondary widgets belonging to this popup binding: */
-		while(binding->firstSecondary!=0)
-			popdownWidget(binding->firstSecondary->topLevelWidget);
-		
 		if(textFocusWidget!=0)
 			{
 			/* Check if the top-level widget contains the current focus widget: */
@@ -532,9 +528,9 @@ void WidgetManager::draw(GLContextData& contextData) const
 
 bool WidgetManager::pointerButtonDown(Event& event)
 	{
-	EventProcessingLocker epl(this);
-	
 	bool result=false;
+	
+	inEventProcessing=true;
 	
 	if(pointerGrabWidget!=0)
 		{
@@ -579,14 +575,19 @@ bool WidgetManager::pointerButtonDown(Event& event)
 		result=true;
 		}
 	
+	inEventProcessing=false;
+	
+	if(!deletionList.empty())
+		deleteQueuedWidgets();
+	
 	return result;
 	}
 
 bool WidgetManager::pointerButtonUp(Event& event)
 	{
-	EventProcessingLocker epl(this);
-	
 	bool result=false;
+	
+	inEventProcessing=true;
 	
 	if(pointerGrabWidget!=0)
 		{
@@ -603,14 +604,19 @@ bool WidgetManager::pointerButtonUp(Event& event)
 		result=pointerGrabWidget!=0;
 		}
 	
+	inEventProcessing=false;
+	
+	if(!deletionList.empty())
+		deleteQueuedWidgets();
+	
 	return result;
 	}
 
 bool WidgetManager::pointerMotion(Event& event)
 	{
-	EventProcessingLocker epl(this);
-	
 	bool result=false;
+	
+	inEventProcessing=true;
 	
 	if(pointerGrabWidget!=0)
 		{
@@ -637,6 +643,11 @@ bool WidgetManager::pointerMotion(Event& event)
 			result=true;
 			}
 		}
+	
+	inEventProcessing=false;
+	
+	if(!deletionList.empty())
+		deleteQueuedWidgets();
 	
 	return result;
 	}
@@ -733,59 +744,20 @@ void WidgetManager::focusNextWidget(void)
 		}
 	}
 
-bool WidgetManager::text(const TextEvent& textEvent)
+bool WidgetManager::text(const TextEvent& event)
 	{
-	EventProcessingLocker epl(this);
-	
 	/* Pass the event to the text focus widget: */
 	if(textFocusWidget!=0)
-		textFocusWidget->textEvent(textEvent);
+		textFocusWidget->textEvent(event);
 	
 	return textFocusWidget!=0;
 	}
 
-bool WidgetManager::textControl(Event& event,const TextControlEvent& textControlEvent)
+bool WidgetManager::textControl(const TextControlEvent& event)
 	{
-	EventProcessingLocker epl(this);
-	
-	bool result=false;
-	
-	if(pointerGrabWidget!=0)
-		{
-		/* Allow the grabbing widget to modify the event: */
-		pointerGrabWidget->findRecipient(event);
-		
-		/* Pass the event to the grabbing widget: */
-		pointerGrabWidget->textControlEvent(textControlEvent);
-		
-		result=pointerGrabWidget!=0;
-		}
-	else
-		{
-		/* Find a recipient for this event amongst the primary top-level windows: */
-		for(PopupBinding* bPtr=firstBinding;bPtr!=0;bPtr=bPtr->succ)
-			if(bPtr->visible)
-				bPtr->topLevelWidget->findRecipient(event);
-		
-		if(event.getTargetWidget()!=0)
-			{
-			/* Pass the event to the found target: */
-			event.getTargetWidget()->textControlEvent(textControlEvent);
-			
-			result=true;
-			}
-		}
-	
-	return result;
-	}
-
-bool WidgetManager::textControl(const TextControlEvent& textControlEvent)
-	{
-	EventProcessingLocker epl(this);
-	
 	/* Pass the event to the text focus widget: */
 	if(textFocusWidget!=0)
-		textFocusWidget->textControlEvent(textControlEvent);
+		textFocusWidget->textControlEvent(event);
 	
 	return textFocusWidget!=0;
 	}

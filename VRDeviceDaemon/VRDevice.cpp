@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -23,6 +23,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDevice.h>
 
+#ifdef __SGI_IRIX__
+#include <unistd.h>
+#else
+#include <errno.h>
+#include <time.h>
+#endif
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -48,19 +54,47 @@ void* VRDevice::deviceThreadMethodWrapper(void)
 	return 0;
 	}
 
-void VRDevice::setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile,const std::string* trackerNames)
+void VRDevice::deviceThreadMethod(void)
 	{
-	/* Reallocate tracker index mapping and post transformation arrays: */
-	if(numTrackers!=newNumTrackers)
+	}
+
+void VRDevice::delay(double seconds)
+	{
+	#ifdef __SGI_IRIX__
+	long ticks=long(seconds*double(CLK_TCK)+0.5);
+	while((ticks=sginap(ticks))!=0)
+		;
+	#else
+	struct timespec req;
+	req.tv_sec=time_t(Math::floor(seconds));
+	req.tv_nsec=long((seconds-double(req.tv_sec))*1.0e9+0.5);
+	struct timespec rem;
+	while(nanosleep(&req,&rem)==-1&&errno==EINTR)
+		req=rem;
+	#endif
+	}
+
+void VRDevice::setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile)
+	{
+	/* Set number of trackers: */
+	numTrackers=newNumTrackers;
+	
+	/* Create tracker index mapping: */
+	delete[] trackerIndices;
+	trackerIndices=new int[numTrackers];
+	
+	/* Read base for automatic tracker index assignment: */
+	int trackerIndexBase=configFile.retrieveValue<int>("./trackerIndexBase",0);
+	for(int i=0;i<numTrackers;++i)
 		{
-		delete[] trackerIndices;
-		delete[] trackerPostTransformations;
-		numTrackers=newNumTrackers;
-		trackerIndices=new int[numTrackers];
-		trackerPostTransformations=new TrackerPostTransformation[numTrackers];
+		/* Read tracker index: */
+		char indexTagName[40];
+		snprintf(indexTagName,sizeof(indexTagName),"./trackerIndex%d",i);
+		trackerIndices[i]=configFile.retrieveValue<int>(indexTagName,i+trackerIndexBase);
 		}
 	
 	/* Initialize tracker post transformations: */
+	trackerPostTransformations=new TrackerPostTransformation[numTrackers];
 	for(int i=0;i<numTrackers;++i)
 		{
 		/* Read post transformation: */
@@ -74,49 +108,49 @@ void VRDevice::setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& 
 		/* Set the number of trackers in the calibrator: */
 		calibrator->setNumTrackers(numTrackers);
 		}
-	
-	/* Add the trackers to the device daemon's namespace: */
-	for(int i=0;i<numTrackers;++i)
-		trackerIndices[i]=deviceManager->addTracker(trackerNames!=0?trackerNames[i].c_str():0);
 	}
 
-void VRDevice::setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile,const std::string* buttonNames)
+void VRDevice::setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile)
 	{
-	/* Reallocate button index mapping array: */
-	if(numButtons!=newNumButtons)
-		{
-		delete[] buttonIndices;
-		numButtons=newNumButtons;
-		buttonIndices=new int[numButtons];
-		}
+	/* Set number of buttons: */
+	numButtons=newNumButtons;
 	
-	/* Add the buttons to the device daemon's namespace: */
+	/* Create button index mapping: */
+	delete[] buttonIndices;
+	buttonIndices=new int[numButtons];
+	
+	/* Read base for automatic button index assignment: */
+	int buttonIndexBase=configFile.retrieveValue<int>("./buttonIndexBase",0);
 	for(int i=0;i<numButtons;++i)
-		buttonIndices[i]=deviceManager->addButton(buttonNames!=0?buttonNames[i].c_str():0);
+		{
+		/* Read button index: */
+		char indexTagName[40];
+		snprintf(indexTagName,sizeof(indexTagName),"./buttonIndex%d",i);
+		buttonIndices[i]=configFile.retrieveValue<int>(indexTagName,i+buttonIndexBase);
+		}
 	}
 
-void VRDevice::setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile,const std::string* valuatorNames)
+void VRDevice::setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile)
 	{
-	/* Reallocate valuator index mapping and value mapping arrays: */
-	if(numValuators!=newNumValuators)
-		{
-		delete[] valuatorIndices;
-		delete[] valuatorThresholds;
-		delete[] valuatorExponents;
-		numValuators=newNumValuators;
-		valuatorIndices=new int[numValuators];
-		valuatorThresholds=new float[numValuators];
-		valuatorExponents=new float[numValuators];
-		}
-	
 	/* Set number of valuators: */
 	numValuators=newNumValuators;
 	
-	/* Read default valuator threshold and exponent: */
+	/* Create valuator thresholds and exponents and valuator index mapping: */
+	delete[] valuatorThresholds;
+	valuatorThresholds=new float[numValuators];
+	delete[] valuatorExponents;
+	valuatorExponents=new float[numValuators];
+	delete[] valuatorIndices;
+	valuatorIndices=new int[numValuators];
+	
+	/* Read default valuator threshold: */
 	float valuatorThreshold=configFile.retrieveValue<float>("./valuatorThreshold",0.0f);
+	
+	/* Read default valuator exponent: */
 	float valuatorExponent=configFile.retrieveValue<float>("./valuatorExponent",1.0f);
 	
-	/* Read per-valuator thresholds and exponents: */
+	/* Read base for automatic valuator index assignment: */
+	int valuatorIndexBase=configFile.retrieveValue<int>("./valuatorIndexBase",0);
 	for(int i=0;i<numValuators;++i)
 		{
 		/* Read valuator threshold: */
@@ -128,16 +162,12 @@ void VRDevice::setNumValuators(int newNumValuators,const Misc::ConfigurationFile
 		char exponentTagName[40];
 		snprintf(exponentTagName,sizeof(exponentTagName),"./valuatorExponent%d",i);
 		valuatorExponents[i]=configFile.retrieveValue<float>(exponentTagName,valuatorExponent);
+		
+		/* Read valuator index: */
+		char indexTagName[40];
+		snprintf(indexTagName,sizeof(indexTagName),"./valuatorIndex%d",i);
+		valuatorIndices[i]=configFile.retrieveValue<int>(indexTagName,i+valuatorIndexBase);
 		}
-	
-	/* Add the valuators to the device daemon's namespace: */
-	for(int i=0;i<numValuators;++i)
-		valuatorIndices[i]=deviceManager->addValuator(valuatorNames!=0?valuatorNames[i].c_str():0);
-	}
-
-void VRDevice::addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice)
-	{
-	deviceManager->addVirtualDevice(newDevice);
 	}
 
 void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state)
@@ -182,20 +212,15 @@ void VRDevice::startDeviceThread(void)
 		}
 	}
 
-void VRDevice::stopDeviceThread(bool cancel)
+void VRDevice::stopDeviceThread(void)
 	{
 	if(active)
 		{
 		/* Destroy device communication thread: */
-		if(cancel)
-			deviceThread.cancel();
+		deviceThread.cancel();
 		deviceThread.join();
 		active=false;
 		}
-	}
-
-void VRDevice::deviceThreadMethod(void)
-	{
 	}
 
 VRDevice::VRDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
@@ -203,19 +228,18 @@ VRDevice::VRDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,M
 	 numTrackers(0),numButtons(0),numValuators(0),
 	 trackerIndices(0),trackerPostTransformations(0),
 	 buttonIndices(0),
-	 valuatorIndices(0),valuatorThresholds(0),valuatorExponents(0),
+	 valuatorThresholds(0),valuatorExponents(0),
+	 valuatorIndices(0),
 	 active(false),
 	 deviceManager(sDeviceManager),
 	 calibrator(0)
 	{
 	/* Check if the device has an attached calibrator: */
-	if(configFile.hasTag("./calibratorName"))
+	std::string calibratorType=configFile.retrieveString("./calibratorType","None");
+	if(calibratorType!="None")
 		{
-		/* Go to the calibrator's section and read the calibrator type: */
-		configFile.setCurrentSection(configFile.retrieveString("./calibratorName").c_str());
-		std::string calibratorType=configFile.retrieveString("./type");
-		
 		/* Create the calibrator: */
+		configFile.setCurrentSection(configFile.retrieveString("./calibratorName").c_str());
 		calibrator=deviceManager->createCalibrator(calibratorType,configFile);
 		configFile.setCurrentSection("..");
 		}
@@ -223,6 +247,10 @@ VRDevice::VRDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,M
 
 VRDevice::~VRDevice(void)
 	{
+	/* Stop device hardware if it's still active: */
+	if(active)
+		this->stop();
+	
 	/* Delete calibrator: */
 	if(calibrator!=0)
 		VRCalibrator::destroy(calibrator);
@@ -243,4 +271,12 @@ VRDevice::~VRDevice(void)
 void VRDevice::destroy(VRDevice* object)
 	{
 	object->factory->destroyObject(object);
+	}
+
+void VRDevice::start(void)
+	{
+	}
+
+void VRDevice::stop(void)
+	{
 	}

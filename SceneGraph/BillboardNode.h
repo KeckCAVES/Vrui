@@ -1,7 +1,7 @@
 /***********************************************************************
 BillboardNode - Class for group nodes that transform their children to
 always face the viewer.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

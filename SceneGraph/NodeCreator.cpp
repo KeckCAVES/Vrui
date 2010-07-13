@@ -1,6 +1,6 @@
 /***********************************************************************
 NodeCreator - Class to create node objects based on a node type name.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,17 +25,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/TransformNode.h>
 #include <SceneGraph/BillboardNode.h>
-#include <SceneGraph/LODNode.h>
 #include <SceneGraph/ReferenceEllipsoidNode.h>
 #include <SceneGraph/GeodeticToCartesianTransformNode.h>
 #include <SceneGraph/InlineNode.h>
 #include <SceneGraph/MaterialNode.h>
 #include <SceneGraph/ImageTextureNode.h>
 #include <SceneGraph/AppearanceNode.h>
-#include <SceneGraph/AffinePointTransformNode.h>
 #include <SceneGraph/GeodeticToCartesianPointTransformNode.h>
-#include <SceneGraph/UTMPointTransformNode.h>
-#include <SceneGraph/ImageProjectionNode.h>
 #include <SceneGraph/BoxNode.h>
 #include <SceneGraph/ConeNode.h>
 #include <SceneGraph/CylinderNode.h>
@@ -43,12 +39,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ColorNode.h>
 #include <SceneGraph/NormalNode.h>
 #include <SceneGraph/CoordinateNode.h>
-#include <SceneGraph/ColorMapNode.h>
 #include <SceneGraph/PointSetNode.h>
 #include <SceneGraph/IndexedLineSetNode.h>
 #include <SceneGraph/CurveSetNode.h>
 #include <SceneGraph/ElevationGridNode.h>
-#include <SceneGraph/QuadSetNode.h>
 #include <SceneGraph/IndexedFaceSetNode.h>
 #include <SceneGraph/ShapeNode.h>
 #include <SceneGraph/FontStyleNode.h>
@@ -58,7 +52,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ArcInfoExportFileNode.h>
 #include <SceneGraph/ESRIShapeFileNode.h>
 #include <SceneGraph/Doom3DataContextNode.h>
-#include <SceneGraph/Doom3ModelNode.h>
 #include <SceneGraph/Doom3MD5MeshNode.h>
 
 namespace SceneGraph {
@@ -74,17 +67,13 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<GroupNode>());
 	registerNodeType(new GenericNodeFactory<TransformNode>());
 	registerNodeType(new GenericNodeFactory<BillboardNode>());
-	registerNodeType(new GenericNodeFactory<LODNode>());
 	registerNodeType(new GenericNodeFactory<ReferenceEllipsoidNode>());
 	registerNodeType(new GenericNodeFactory<GeodeticToCartesianTransformNode>());
 	registerNodeType(new GenericNodeFactory<InlineNode>());
 	registerNodeType(new GenericNodeFactory<MaterialNode>());
 	registerNodeType(new GenericNodeFactory<ImageTextureNode>());
 	registerNodeType(new GenericNodeFactory<AppearanceNode>());
-	registerNodeType(new GenericNodeFactory<AffinePointTransformNode>());
 	registerNodeType(new GenericNodeFactory<GeodeticToCartesianPointTransformNode>());
-	registerNodeType(new GenericNodeFactory<UTMPointTransformNode>());
-	registerNodeType(new GenericNodeFactory<ImageProjectionNode>());
 	registerNodeType(new GenericNodeFactory<BoxNode>());
 	registerNodeType(new GenericNodeFactory<ConeNode>());
 	registerNodeType(new GenericNodeFactory<CylinderNode>());
@@ -92,12 +81,10 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<ColorNode>());
 	registerNodeType(new GenericNodeFactory<NormalNode>());
 	registerNodeType(new GenericNodeFactory<CoordinateNode>());
-	registerNodeType(new GenericNodeFactory<ColorMapNode>());
 	registerNodeType(new GenericNodeFactory<PointSetNode>());
 	registerNodeType(new GenericNodeFactory<IndexedLineSetNode>());
 	registerNodeType(new GenericNodeFactory<CurveSetNode>());
 	registerNodeType(new GenericNodeFactory<ElevationGridNode>());
-	registerNodeType(new GenericNodeFactory<QuadSetNode>());
 	registerNodeType(new GenericNodeFactory<IndexedFaceSetNode>());
 	registerNodeType(new GenericNodeFactory<ShapeNode>());
 	registerNodeType(new GenericNodeFactory<FontStyleNode>());
@@ -107,7 +94,6 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<ArcInfoExportFileNode>());
 	registerNodeType(new GenericNodeFactory<ESRIShapeFileNode>());
 	registerNodeType(new GenericNodeFactory<Doom3DataContextNode>());
-	registerNodeType(new GenericNodeFactory<Doom3ModelNode>());
 	registerNodeType(new GenericNodeFactory<Doom3MD5MeshNode>());
 	}
 

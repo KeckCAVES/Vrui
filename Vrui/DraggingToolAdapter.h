@@ -1,7 +1,7 @@
 /***********************************************************************
 DraggingToolAdapter - Adapter class to connect a generic dragging tool
 to application functionality.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2008 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -49,8 +49,6 @@ class DraggingToolAdapter
 		{
 		return tool;
 		}
-	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const; // Stores the tool adapter's state to the given configuration file
-	virtual void getName(std::string& name) const; // Returns a descriptive name for the tool adapter
 	virtual void idleMotionCallback(DraggingTool::IdleMotionCallbackData* cbData); // Callback called when not dragging
 	virtual void dragStartCallback(DraggingTool::DragStartCallbackData* cbData); // Callback called before dragging starts
 	virtual void dragCallback(DraggingTool::DragCallbackData* cbData); // Callback called during dragging

@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofDraggingTool - Class for simple 6-DOF dragging using a single
 input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2009 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,10 +21,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Tools/SixDofDraggingTool.h>
-
-#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/Vrui.h>
+
+#include <Vrui/Tools/SixDofDraggingTool.h>
 
 namespace Vrui {
 
@@ -36,7 +36,8 @@ SixDofDraggingToolFactory::SixDofDraggingToolFactory(ToolManager& toolManager)
 	:ToolFactory("SixDofDraggingTool",toolManager)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(1);
+	layout.setNumDevices(1);
+	layout.setNumButtons(0,1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* draggingToolFactory=toolManager.loadClass("DraggingTool");
@@ -112,10 +113,10 @@ const ToolFactory* SixDofDraggingTool::getFactory(void) const
 	return factory;
 	}
 
-void SixDofDraggingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
+void SixDofDraggingTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Get the main device: */
-	InputDevice* device=getButtonDevice(0);
+	/* Get pointer to input device that caused the event: */
+	InputDevice* device=getDevice(deviceIndex);
 	
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -125,7 +126,7 @@ void SixDofDraggingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbD
 			case IDLE:
 				{
 				/* Initialize the dragging transformations: */
-				NavTrackerState initial=Vrui::getDeviceTransformation(device);
+				NavTrackerState initial=Vrui::getDeviceTransformation(getDevice(0));
 				preScale=Geometry::invert(initial);
 				
 				/* Call drag start callbacks: */
@@ -152,7 +153,7 @@ void SixDofDraggingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbD
 			case MOVING:
 				{
 				/* Calculate dragging transformations: */
-				NavTrackerState final=Vrui::getDeviceTransformation(device);
+				NavTrackerState final=Vrui::getDeviceTransformation(getDevice(0));
 				NavTrackerState increment=preScale;
 				increment*=final;
 				
@@ -184,7 +185,7 @@ void SixDofDraggingTool::frame(void)
 		case IDLE:
 			{
 			/* Calculate dragging transformations: */
-			NavTrackerState current=Vrui::getDeviceTransformation(getButtonDevice(0));
+			NavTrackerState current=Vrui::getDeviceTransformation(getDevice(0));
 			
 			/* Call idle motion callbacks: */
 			IdleMotionCallbackData cbData(this,current);
@@ -195,7 +196,7 @@ void SixDofDraggingTool::frame(void)
 		case MOVING:
 			{
 			/* Calculate dragging transformations: */
-			NavTrackerState current=Vrui::getDeviceTransformation(getButtonDevice(0));
+			NavTrackerState current=Vrui::getDeviceTransformation(getDevice(0));
 			NavTrackerState increment=preScale;
 			increment*=current;
 

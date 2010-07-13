@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupWindow - Class for main windows with a draggable title bar and an
 optional close button.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -23,11 +23,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_POPUPWINDOW_INCLUDED
 #define GLMOTIF_POPUPWINDOW_INCLUDED
 
-#define GLMOTIF_POPUPWINDOW_USE_RENDERCACHE 0
+#define USE_RENDERCACHE 0
 
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
-#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+#if USE_RENDERCACHE
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #endif
@@ -42,7 +42,7 @@ class NewButton;
 
 namespace GLMotif {
 
-#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+#if USE_RENDERCACHE
 class PopupWindow:public Container,public GLObject
 #else
 class PopupWindow:public Container
@@ -73,7 +73,7 @@ class PopupWindow:public Container
 			}
 		};
 	
-	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	#if USE_RENDERCACHE
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
@@ -108,7 +108,7 @@ class PopupWindow:public Container
 	int resizeBorderMask; // Bit mask of which borders are being dragged 1 - left, 2 - right, 4 - bottom, 8 - top
 	GLfloat resizeOffset[2]; // Offset from the initial resizing position to the relevant border
 	
-	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	#if USE_RENDERCACHE
 	private:
 	unsigned int version; // Version number of visual representation of popup window and child widgets
 	#endif
@@ -136,8 +136,7 @@ class PopupWindow:public Container
 	virtual Vector calcNaturalSize(void) const;
 	virtual ZRange calcZRange(void) const;
 	virtual void resize(const Box& newExterior);
-	virtual Vector calcHotSpot(void) const;
-	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	#if USE_RENDERCACHE
 	virtual void update(void);
 	#endif
 	virtual void draw(GLContextData& contextData) const;
@@ -148,12 +147,11 @@ class PopupWindow:public Container
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
-	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);
 	
-	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
+	#if USE_RENDERCACHE
 	/* Methods inherited from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;
 	#endif
@@ -176,15 +174,10 @@ class PopupWindow:public Container
 		{
 		return child;
 		}
-	static void popDownFunction(Misc::CallbackData* cbData); // Default callback function that simply pops down, but does not delete, the popup window; cbData must be derived form PopupWindow::CallbackData
-	static void deleteFunction(Misc::CallbackData* cbData); // Default callback function that simply deletes the popup window; cbData must be derived from PopupWindow::CallbackData
 	Misc::CallbackList& getCloseCallbacks(void) // Returns list of callbacks called when the close button is pressed
 		{
 		return closeCallbacks;
 		}
-	void popDownOnClose(void); // Convenience method to pop down the popup window when the close button is selected
-	void deleteOnClose(void); // Convenience method to delete the popup window when the close button is selected
-	virtual void close(void); // Convenience method to safely close and destroy the popup window from within a callback
 	};
 
 }

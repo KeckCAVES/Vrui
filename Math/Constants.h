@@ -23,10 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef MATH_CONSTANTS_INCLUDED
 #define MATH_CONSTANTS_INCLUDED
 
-#ifdef __APPLE__
+#ifdef __ppc__
 #include <machine/limits.h>
-#endif
-#ifdef __linux__
+#else
 #include <limits.h>
 #endif
 
