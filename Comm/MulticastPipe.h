@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -81,6 +81,10 @@ class MulticastPipe
 	void finishMessage(void); // Sends the current message as soon as possible and starts a new message
 	
 	/* Master-side interface: */
+	bool mustSwapOnWrite(void) const // Dummy function always returning false
+		{
+		return false;
+		}
 	void writeRaw(const void* data,size_t size); // Writes uninterpreted binary data of given size to pipe
 	template <class DataParam>
 	void write(const DataParam& data) // Writes single value of arbitrary type
@@ -94,6 +98,10 @@ class MulticastPipe
 		}
 	
 	/* Slave-side interface: */
+	bool mustSwapOnRead(void) const // Dummy function always returning false
+		{
+		return false;
+		}
 	void readRaw(void* data,size_t size); // Reads uninterpreted binary data of given size from pipe
 	template <class DataParam>
 	DataParam read(void) // Reads single value of arbitrary type

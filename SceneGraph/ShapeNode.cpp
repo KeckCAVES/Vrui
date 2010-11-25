@@ -64,7 +64,6 @@ void ShapeNode::update(void)
 	{
 	}
 
-
 Box ShapeNode::calcBoundingBox(void) const
 	{
 	/* Return the geometry node's bounding box: */

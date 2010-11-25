@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadImageFile - Functions to read RGB images from a variety of file
 formats.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -20,16 +20,20 @@ with the Image Handling Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <Images/ReadImageFile.h>
+
+#include <Images/Config.h>
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef IMAGES_USE_PNG
+#if IMAGES_CONFIG_HAVE_PNG
 #include <png.h>
 #endif
-#ifdef IMAGES_USE_JPEG
+#if IMAGES_CONFIG_HAVE_JPEG
 #include <jpeglib.h>
 #endif
-#ifdef IMAGES_USE_TIFF
+#if IMAGES_CONFIG_HAVE_TIFF
 #include <stdarg.h>
 #include <stdexcept>
 #include <tiffio.h>
@@ -38,8 +42,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
 #include <Math/Constants.h>
-
-#include <Images/ReadImageFile.h>
 
 namespace Images {
 
@@ -187,7 +189,7 @@ RGBImage readPnmFile(const char* imageFileName)
 	return result;
 	}
 
-#ifdef IMAGES_USE_PNG
+#if IMAGES_CONFIG_HAVE_PNG
 
 /********************************
 Function to read PNG image files:
@@ -273,7 +275,7 @@ RGBImage readPngFile(const char* imageFileName)
 
 #endif
 
-#ifdef IMAGES_USE_JPEG
+#if IMAGES_CONFIG_HAVE_JPEG
 
 /***************************************************
 Helper structures and functions for the JPEG reader:
@@ -364,7 +366,7 @@ RGBImage readJpegFile(const char* imageFileName)
 
 #endif
 
-#ifdef IMAGES_USE_TIFF
+#if IMAGES_CONFIG_HAVE_TIFF
 
 /*********************************
 Function to read TIFF image files:
@@ -506,15 +508,15 @@ bool canReadImageFileType(const char* imageFileName)
 	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
 	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
 		return true;
-	#ifdef IMAGES_USE_PNG
+	#if IMAGES_CONFIG_HAVE_PNG
 	else if(strcasecmp(extStart,"png")==0)
 		return true;
 	#endif
-	#ifdef IMAGES_USE_JPEG
+	#if IMAGES_CONFIG_HAVE_JPEG
 	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
 		return true;
 	#endif
-	#ifdef IMAGES_USE_TIFF
+	#if IMAGES_CONFIG_HAVE_TIFF
 	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
 		return true;
 	#endif
@@ -542,22 +544,21 @@ RGBImage readImageFile(const char* imageFileName)
 	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
 	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
 		return readPnmFile(imageFileName);
-	#ifdef IMAGES_USE_PNG
+	#if IMAGES_CONFIG_HAVE_PNG
 	else if(strcasecmp(extStart,"png")==0)
 		return readPngFile(imageFileName);
 	#endif
-	#ifdef IMAGES_USE_JPEG
+	#if IMAGES_CONFIG_HAVE_JPEG
 	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
 		return readJpegFile(imageFileName);
 	#endif
-	#ifdef IMAGES_USE_TIFF
+	#if IMAGES_CONFIG_HAVE_TIFF
 	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
 		return readTiffFile(imageFileName);
 	#endif
 	else
 		{
 		Misc::throwStdErr("Images::readImageFile: unknown extension in image file name \"%s\"",imageFileName);
-		
 		return RGBImage(); // Dummy statement just to make the compiler happy
 		}
 	}

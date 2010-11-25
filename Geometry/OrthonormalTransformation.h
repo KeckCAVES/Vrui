@@ -1,7 +1,7 @@
 /***********************************************************************
 OrthonormalTransformation - Class for transformations constructed from
 only translations and rotations.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -234,8 +234,8 @@ OrthonormalTransformation<ScalarParam,dimensionParam> operator*(const RotationTr
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ORTHONORMALTRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/OrthonormalTransformation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ORTHONORMALTRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/OrthonormalTransformation.icpp>
 #endif
 
 #endif

@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLTransformationWrappers.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/DisplayState.h>
 
 namespace Vrui {
@@ -123,6 +124,69 @@ void ClipPlaneManager::destroyClipPlane(ClipPlane* clipPlane)
 		if(lastClipPlane==lsPtr2)
 			lastClipPlane=lsPtr1;
 		delete lsPtr2;
+		}
+	}
+
+void ClipPlaneManager::clipRay(bool physical,Ray& ray,Scalar& lambdaMax) const
+	{
+	/* Calculate the ray interval inside all clipping planes: */
+	Scalar lambda1=Scalar(0);
+	Scalar lambda2=lambdaMax;
+	for(const ClipPlaneListItem* cpPtr=firstClipPlane;cpPtr!=0;cpPtr=cpPtr->succ)
+		if(cpPtr->isEnabled())
+			{
+			/* Get the clipping plane's plane equation in the same coordinate system as the ray's: */
+			Plane plane=cpPtr->getPlane();
+			if(physical&&!cpPtr->physical)
+				{
+				/* Transform the clipping plane to physical space: */
+				plane.transform(getNavigationTransformation());
+				}
+			else if(!physical&&cpPtr->physical)
+				{
+				/* Transform the clipping plane to navigational space: */
+				plane.transform(getInverseNavigationTransformation());
+				}
+			
+			/* Intersect the plane and the ray: */
+			Scalar divisor=plane.getNormal()*ray.getDirection();
+			if(divisor!=Scalar(0))
+				{
+				Scalar lambda=(plane.getOffset()-plane.getNormal()*ray.getOrigin())/divisor;
+				
+				/* Check if the ray enters or exits the clipping plane's half-space: */
+				if(divisor<Scalar(0))
+					{
+					/* Ray exits: */
+					if(lambda2>lambda)
+						lambda2=lambda;
+					}
+				else
+					{
+					/* Ray enters: */
+					if(lambda1<lambda)
+						lambda1=lambda;
+					}
+				}
+			}
+	
+	/* Adjust the ray: */
+	if(lambda1<lambda2)
+		{
+		if(lambda1>Scalar(0))
+			{
+			/* Adjust the ray's origin: */
+			ray.setOrigin(ray(lambda1));
+			lambda2-=lambda1;
+			}
+		
+		/* Adjust the maximum ray intercept: */
+		lambdaMax=lambda2;
+		}
+	else
+		{
+		/* Invalidate the ray: */
+		lambdaMax=Scalar(0);
 		}
 	}
 

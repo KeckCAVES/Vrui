@@ -1,6 +1,6 @@
 /***********************************************************************
 GLValueCoders - Value coder classes for OpenGL abstraction classes.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -28,6 +28,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 /* Forward declarations: */
 template <class ScalarParam,GLsizei numComponentsParam>
 class GLColor;
+template <class ScalarParam,GLsizei numComponentsParam>
+class GLVector;
+template <class ScalarParam,GLsizei numComponentsParam>
+class GLBox;
 class GLMaterial;
 
 namespace Misc {
@@ -52,6 +56,24 @@ class ValueCoder<GLColor<ScalarParam,4> >
 	public:
 	static std::string encode(const GLColor<ScalarParam,4>& value);
 	static GLColor<ScalarParam,4> decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <class ScalarParam,GLsizei numComponentsParam>
+class ValueCoder<GLVector<ScalarParam,numComponentsParam> >
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const GLVector<ScalarParam,numComponentsParam>& value);
+	static GLVector<ScalarParam,numComponentsParam> decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <class ScalarParam,GLsizei numComponentsParam>
+class ValueCoder<GLBox<ScalarParam,numComponentsParam> >
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const GLBox<ScalarParam,numComponentsParam>& value);
+	static GLBox<ScalarParam,numComponentsParam> decode(const char* start,const char* end,const char** decodeEnd =0);
 	};
 
 template <>

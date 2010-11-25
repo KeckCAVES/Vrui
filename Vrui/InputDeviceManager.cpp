@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,13 +30,19 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputGraphManager.h>
-#include <Vrui/InputDeviceAdapter.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
-#include <Vrui/InputDeviceAdapterDeviceDaemon.h>
-#include <Vrui/InputDeviceAdapterVisBox.h>
-#include <Vrui/InputDeviceAdapterHID.h>
-#include <Vrui/InputDeviceAdapterPlayback.h>
+#include <Vrui/Internal/InputDeviceAdapter.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
+#include <Vrui/Internal/InputDeviceAdapterVisBox.h>
+#ifdef __linux__
+#include <Vrui/Internal/Linux/InputDeviceAdapterHID.h>
+#endif
+#ifdef __APPLE__
+#include <Vrui/Internal/MacOSX/InputDeviceAdapterHID.h>
+#endif
+#include <Vrui/Internal/InputDeviceAdapterPlayback.h>
 
 #include <Vrui/InputDeviceManager.h>
 
@@ -89,6 +95,19 @@ InputDeviceManager::~InputDeviceManager(void)
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		delete inputDeviceAdapters[i];
 	delete[] inputDeviceAdapters;
+	
+	/* Delete all leftover input devices: */
+	for(InputDevices::iterator idIt=inputDevices.begin();idIt!=inputDevices.end();++idIt)
+		{
+		InputDevice* device=&(*idIt);
+		
+		/* Call the input device destruction callbacks: */
+		InputDeviceDestructionCallbackData cbData(this,device);
+		inputDeviceDestructionCallbacks.call(&cbData);
+		
+		/* Remove the device from the input graph: */
+		inputGraphManager->removeInputDevice(device);
+		}
 	}
 
 void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& configFileSection)
@@ -175,6 +194,20 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 		Misc::throwStdErr("InputDeviceManager: No valid input device adapters found; I refuse to work under conditions like these!");
 	}
 
+void InputDeviceManager::addAdapter(InputDeviceAdapter* newAdapter)
+	{
+	/* Make room in the input device adapter array: */
+	InputDeviceAdapter** newInputDeviceAdapters=new InputDeviceAdapter*[numInputDeviceAdapters+1];
+	for(int i=0;i<numInputDeviceAdapters;++i)
+		newInputDeviceAdapters[i]=inputDeviceAdapters[i];
+	++numInputDeviceAdapters;
+	delete[] inputDeviceAdapters;
+	inputDeviceAdapters=newInputDeviceAdapters;
+	
+	/* Add the new adapter: */
+	inputDeviceAdapters[numInputDeviceAdapters-1]=newAdapter;
+	}
+
 InputDeviceAdapter* InputDeviceManager::findInputDeviceAdapter(InputDevice* device) const
 	{
 	/* Search all input device adapters: */
@@ -236,7 +269,7 @@ InputDevice* InputDeviceManager::createInputDevice(const char* deviceName,int tr
 		inputGraphManager->grabInputDevice(newDevicePtr,0); // Passing in null as grabber grabs for the physical layer
 	
 	/* Call the input device creation callbacks: */
-	InputDeviceCreationCallbackData cbData(newDevicePtr);
+	InputDeviceCreationCallbackData cbData(this,newDevicePtr);
 	inputDeviceCreationCallbacks.call(&cbData);
 	
 	/* Return a pointer to the new input device: */
@@ -270,7 +303,7 @@ InputDevice* InputDeviceManager::findInputDevice(const char* deviceName)
 void InputDeviceManager::destroyInputDevice(InputDevice* inputDevice)
 	{
 	/* Call the input device destruction callbacks: */
-	InputDeviceDestructionCallbackData cbData(inputDevice);
+	InputDeviceDestructionCallbackData cbData(this,inputDevice);
 	inputDeviceDestructionCallbacks.call(&cbData);
 	
 	/* Remove the device from the input graph: */
@@ -286,11 +319,69 @@ void InputDeviceManager::destroyInputDevice(InputDevice* inputDevice)
 			}
 	}
 
+std::string InputDeviceManager::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Find the input device adapter owning the given device: */
+	const InputDeviceAdapter* adapter=0;
+	for(int i=0;adapter==0&&i<numInputDeviceAdapters;++i)
+		{
+		/* Search through all input devices: */
+		for(int j=0;j<inputDeviceAdapters[i]->getNumInputDevices();++j)
+			if(inputDeviceAdapters[i]->getInputDevice(j)==feature.getDevice())
+				{
+				adapter=inputDeviceAdapters[i];
+				break;
+				}
+		}
+	
+	if(adapter!=0)
+		{
+		/* Return the feature name defined by the input device adapter: */
+		return adapter->getFeatureName(feature);
+		}
+	else
+		{
+		/* Return a default feature name: */
+		return InputDeviceAdapter::getDefaultFeatureName(feature);
+		}
+	}
+
+int InputDeviceManager::getFeatureIndex(InputDevice* device, const char* featureName) const
+	{
+	/* Find the input device adapter owning the given device: */
+	const InputDeviceAdapter* adapter=0;
+	for(int i=0;adapter==0&&i<numInputDeviceAdapters;++i)
+		{
+		/* Search through all input devices: */
+		for(int j=0;j<inputDeviceAdapters[i]->getNumInputDevices();++j)
+			if(inputDeviceAdapters[i]->getInputDevice(j)==device)
+				{
+				adapter=inputDeviceAdapters[i];
+				break;
+				}
+		}
+	
+	if(adapter!=0)
+		{
+		/* Return the feature index defined by the input device adapter: */
+		return adapter->getFeatureIndex(device,featureName);
+		}
+	else
+		{
+		/* Parse a default feature name: */
+		return InputDeviceAdapter::getDefaultFeatureIndex(device,featureName);
+		}
+	}
+
 void InputDeviceManager::updateInputDevices(void)
 	{
 	/* Grab new data from all input device adapters: */
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		inputDeviceAdapters[i]->updateInputDevices();
+	
+	/* Call the update callbacks: */
+	InputDeviceUpdateCallbackData cbData(this);
+	inputDeviceUpdateCallbacks.call(&cbData);
 	}
 
 }

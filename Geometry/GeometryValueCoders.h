@@ -1,7 +1,7 @@
 /***********************************************************************
 GeometryValueCoders - Value coder classes for templatized geometry
 objects.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -175,8 +175,8 @@ class ValueCoder<Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> 
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOMETRYVALUECODERS_IMPLEMENTATION)
-#include <Geometry/GeometryValueCoders.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOMETRYVALUECODERS_IMPLEMENTATION)
+#include <Geometry/GeometryValueCoders.icpp>
 #endif
 
 #endif

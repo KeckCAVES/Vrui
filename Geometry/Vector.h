@@ -1,6 +1,6 @@
 /***********************************************************************
 Vector - Class for Euclidean and affine vectors.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -340,8 +340,8 @@ inline Vector<ScalarParam,3> normal(const Vector<ScalarParam,3>& v)
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_VECTOR_IMPLEMENTATION)
-#include <Geometry/Vector.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_VECTOR_IMPLEMENTATION)
+#include <Geometry/Vector.icpp>
 #endif
 
 #endif

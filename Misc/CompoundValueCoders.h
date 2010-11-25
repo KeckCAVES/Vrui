@@ -1,7 +1,7 @@
 /***********************************************************************
 CompoundValueCoders - Generic value coder classes for vectors and lists
 of other data types.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -21,9 +21,10 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#ifndef COMPOUNDVALUECODERS_INCLUDED
-#define COMPOUNDVALUECODERS_INCLUDED
+#ifndef MISC_COMPOUNDVALUECODERS_INCLUDED
+#define MISC_COMPOUNDVALUECODERS_INCLUDED
 
+#include <utility>
 #include <list>
 #include <vector>
 #include <Misc/ValueCoder.h>
@@ -33,6 +34,15 @@ namespace Misc {
 /**************************
 Generic ValueCoder classes:
 **************************/
+
+template <class FirstParam,class SecondParam>
+class ValueCoder<std::pair<FirstParam,SecondParam> >
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const std::pair<FirstParam,SecondParam>& value);
+	static std::pair<FirstParam,SecondParam> decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
 
 template <class ValueParam>
 class ValueCoder<std::list<ValueParam> >
@@ -55,7 +65,7 @@ class ValueCoder<std::vector<ValueParam> >
 }
 
 #if !defined(MISC_COMPOUNDVALUECODERS_IMPLEMENTATION)
-#include <Misc/CompoundValueCoders.cpp>
+#include <Misc/CompoundValueCoders.icpp>
 #endif
 
 #endif

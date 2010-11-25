@@ -1,6 +1,6 @@
 /***********************************************************************
 ValueSource - Class to read strings or numbers from character sources.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -83,13 +83,54 @@ class ValueSource
 		{
 		return lastChar<0;
 		}
-	void skipWs(void); // Skips whitespace in the character source
+	void skipWs(void) // Skips whitespace in the character source
+		{
+		/* Skip all whitespace characters: */
+		while(cc[lastChar]&WHITESPACE)
+			lastChar=source.getChar();
+		}
 	void skipLine(void); // Skips characters up to and including the next newline character
 	int peekc(void) const // Returns the next character that will be read, without reading it
 		{
 		return lastChar;
 		}
+	int getChar(void) // Returns the next character
+		{
+		int result=lastChar;
+		lastChar=source.getChar();
+		return result;
+		}
+	void ungetChar(int character) // Puts the given character back into the character source
+		{
+		source.ungetChar(lastChar);
+		lastChar=character;
+		}
 	
+	int readChar(void) // Reads and returns a single character
+		{
+		int result=lastChar;
+		lastChar=source.getChar();
+		skipWs();
+		
+		return result;
+		}
+	std::string readLine(void); // Reads characters until the end of the current line, and skips the newline character
+	unsigned int matchString(const char* string); // Tries to match the given string against characters from the current position; ignores character classes and does not skip whitespace; returns position of first mismatch (or length of string)
+	bool isString(const char* string) // Tries to match the given string against characters from the current position; returns true if exact match; stops reading before first mismatch
+		{
+		/* Check if the string was completely matched: */
+		bool result=string[matchString(string)]=='\0';
+		
+		/* Check if the source's string was completely matched, and gobble it up: */
+		while(cc[lastChar]&STRING)
+			{
+			result=false;
+			lastChar=source.getChar();
+			}
+		skipWs();
+		
+		return result;
+		}
 	void skipString(void); // Skips the next string or punctuation character from the character source
 	std::string readString(void); // Reads the next string or punctuation character from the character source
 	int readInteger(void); // Reads the next signed integer from the character source

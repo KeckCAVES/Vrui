@@ -1,6 +1,6 @@
 /***********************************************************************
 CoordinateNode - Class for nodes defining point coordinates.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <Geometry/Box.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 
 namespace SceneGraph {
@@ -43,6 +44,22 @@ const char* CoordinateNode::getStaticClassName(void)
 const char* CoordinateNode::getClassName(void) const
 	{
 	return "Coordinate";
+	}
+
+EventOut* CoordinateNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"point")==0)
+		return makeEventOut(this,point);
+	else
+		return Node::getEventOut(fieldName);
+	}
+
+EventIn* CoordinateNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"point")==0)
+		return makeEventIn(this,point);
+	else
+		return Node::getEventIn(fieldName);
 	}
 
 void CoordinateNode::parseField(const char* fieldName,VRMLFile& vrmlFile)

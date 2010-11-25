@@ -1,7 +1,7 @@
 /***********************************************************************
 OrthogonalTransformation - Class for transformations constructed from
 only translations, rotations and uniform scalings.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -262,8 +262,8 @@ inline OrthogonalTransformation<ScalarParam,dimensionParam> invert(const Orthogo
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ORTHOGONALTRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/OrthogonalTransformation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ORTHOGONALTRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/OrthogonalTransformation.icpp>
 #endif
 
 #endif

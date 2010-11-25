@@ -1,7 +1,7 @@
 /***********************************************************************
 UniformScalingTransformation - Class for n-dimensional uniform scaling
 transformations.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -21,30 +21,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#define GEOMETRY_UNIFORMSCALINGTRANSFORMATION_IMPLEMENTATION
-
-#ifndef METHODPREFIX
-	#ifdef NONSTANDARD_TEMPLATES
-		#define METHODPREFIX inline
-	#else
-		#define METHODPREFIX
-	#endif
-#endif
-
 #include <Geometry/UniformScalingTransformation.h>
 
 namespace Geometry {
-
-/*****************************************************
-Static elements of class UniformScalingTransformation:
-*****************************************************/
-
-template <class ScalarParam,int dimensionParam>
-const int UniformScalingTransformation<ScalarParam,dimensionParam>::dimension;
-template <class ScalarParam,int dimensionParam>
-const UniformScalingTransformation<ScalarParam,dimensionParam> UniformScalingTransformation<ScalarParam,dimensionParam>::identity; // Default constructor creates identity transformation!
-
-#if !defined(NONSTANDARD_TEMPLATES)
 
 /**************************************************************************************
 Force instantiation of all standard UniformScalingTransformation classes and functions:
@@ -54,7 +33,5 @@ template class UniformScalingTransformation<float,2>;
 template class UniformScalingTransformation<double,2>;
 template class UniformScalingTransformation<float,3>;
 template class UniformScalingTransformation<double,3>;
-
-#endif
 
 }

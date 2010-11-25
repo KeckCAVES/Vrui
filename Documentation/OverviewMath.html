@@ -21,11 +21,20 @@ The Math library contains functions providing overloaded entry points for the st
 <DT>Interval.h</DT>
 <DD>Interval is a class representing fully closed intervals, templatized by the underlying scalar type. Interval provides constructors, comparison operators, set arithmetic on intervals, and some interval arithmetic operators.</DD>
 
-<DT>BrokenLine.h</DT>
-<DD>BrokenLine is a class describing constant piecewise linear mappings from a source interval to the interval [-1, 1] using a &quot;broken line&quot; model with two linear ramps and a flat &quot;dead zone&quot; in the middle.</DD>
+<DT>Matrix.h</DT>
+<DD>Matrix is a class representing double-valued matrices of dynamic sizes, and a general set of linear algebra operations.</DD>
 
 <DT>Random.h</DT>
 <DD>Random.h contains convenience functions to create random numbers of different distributions.</DD>
+
+<DT>BrokenLine.h</DT>
+<DD>BrokenLine is a class describing constant piecewise linear mappings from a source interval to the interval [-1, 1] using a &quot;broken line&quot; model with two linear ramps and a flat &quot;dead zone&quot; in the middle.</DD>
+
+<DT>MathMarshallers.h</DT>
+<DD>MathMarshallers contains specializations of the Misc::Marshaller templatized class for objects from the Math library.</DD>
+
+<DT>MathValueCoders.h</DT>
+<DD>MathValueCoders contains specializations of the Misc::ValueCoder templatized class for objects from the Math library.</DD>
 </DL>
 
 </BODY>

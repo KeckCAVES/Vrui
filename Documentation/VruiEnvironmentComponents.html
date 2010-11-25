@@ -1,0 +1,26 @@
+<HTML>
+<HEAD>
+<TITLE></TITLE>
+</HEAD>
+
+<BODY BGCOLOR=#FFFFFF>
+
+<H1>Components Defining a Vrui VR Environment</H1>
+
+The biggest difference between immersive 3D graphics and &quot;regular&quot; 3D graphics is that immersive display systems have a much more direct correspondence to the real world. In a regular 3D graphics system, views are typically defined by virtual cameras, having some position and orientation in world space and some arbitrary field-of-view, and the size of display windows, and the physical size of display screens, are typically not taken into account. For example, by manipulating the virtual camera's field-of-view, graphics systems can simulate telephoto or fisheye lenses.<P>
+
+Immersive display systems, on the other hand, do not simulate cameras, but how (human) observers see the real world. As opposed to regular 3D graphics, which presents virtual photographs to users, immersive displays treat the display as a portal into a virtual world. To create convincing, distortion-free displays, the degrees of freedom available for virtual cameras must be tied to physical constraints. As an example, consider a typical desktop setup with a user sitting about two feet away from a 20" flat-panel monitor (see Figure&nbsp;1). This results in an actual field-of-view of about 37&deg;; much smaller than those typically used by virtual cameras in regular 3D graphics. As a result, the image on the screen will appear distorted: spheres close to the display's edges, for example, will appear as ellipsoids. This distortion is particularly obvious when rotating around the viewpoint, and can even lead to motion sickness. To properly match a 90&deg; field-of-view, the user would have to move very close to the monitor. This, by the way, is the fundamental reason why immersive virtual reality environments typically use very large screens (CAVEs), or small screens very close to the viewer's eyes (HMDs): those are the only ways to create wide fields-of-view without distortion.
+
+<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=16 BORDER=0>
+<TR><TD ALIGN=CENTER><IMG SRC="DesktopOverview.png"></TD></TR>
+<TR><TD><B>Figure 1:</B> Plan view of typical desktop system, where a user (left) is sitting 24" away from a 20" flat-panel monitor (right). The user's actual field-of-view is much smaller than the 90&deg; typically used in regular 3D graphics applications, such as games.</TD></TR>
+</TABLE>
+
+<H3>Viewers and Screens</H3>
+
+To simplify setting up properly calibrated immersive display systems, Vrui does not use the notion of virtual cameras. Instead, it defines 3D viewing parameters based on directly measurable physical entities: <em>viewers</em> and <em>screens</em>. In Vrui, a <em>viewer</em> corresponds to a person observing a virtual environment, and a <em>screen</em> corresponds to a display surface, such as a monitor or a projection screen. Viewers are (in principle) defined by the position of their eyes in physical (&quot;real-world&quot;) space, and screens are defined by rectangles in physical space. The combination of one viewer and one screen exactly defines the parameters of a virtual camera as described above, including field-of-view. More precisely, the viewer-screen model defines a generalized virtual camera: if a viewer is not centered with respect to the screen, this results in an <em>off-axis</em> or <em>skewed</em> camera, and a screen might not even be a rectangle if it is itself the result of an off-axis (i.e., keystoned) projection.<P>
+
+According to this model, Vrui treats every environment, even desktops, as immersive environments defined by a collection of screens and viewers. A desktop system typically has one fixed viewer and one fixed screen; a CAVE-like system has several fixed screens and a single head-tracked viewer; and an HMD-based system has a head-tracked viewer with two small screens at fixed positions relative to the viewer.
+
+</BODY>
+</HTML>

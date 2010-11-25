@@ -2,7 +2,7 @@
 MouseTool - Class to map regular 2D mice into VR environments by
 representing them as virtual input devices sliding along the screen
 planes.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,12 +32,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
 #include <GL/GLTransformationWrappers.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -47,8 +47,8 @@ Methods of class MouseToolFactory:
 
 MouseToolFactory::MouseToolFactory(ToolManager& toolManager)
 	:ToolFactory("MouseTool",toolManager),
-	 crosshairSize(0),
-	 buttonToggleFlag(false)
+	 rayOffset(getUiSize()*Scalar(2)),
+	 crosshairSize(0)
 	{
 	/* Insert class into class hierarchy: */
 	TransformToolFactory* transformToolFactory=dynamic_cast<TransformToolFactory*>(toolManager.loadClass("TransformTool"));
@@ -57,13 +57,12 @@ MouseToolFactory::MouseToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
 	crosshairSize=cfs.retrieveValue<Scalar>("./crosshairSize",crosshairSize);
-	buttonToggleFlag=cfs.retrieveValue<bool>("./buttonToggleFlag",buttonToggleFlag);
 	
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,transformToolFactory->getNumButtons());
-	layout.setNumValuators(0,transformToolFactory->getNumValuators());
+	layout.setNumButtons(0,true);
+	layout.setNumValuators(0,true);
 	
 	/* Set tool class' factory pointer: */
 	MouseTool::factory=this;
@@ -126,6 +125,11 @@ Methods of class MouseTool:
 MouseTool::MouseTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment)
 	{
+	/* Set the transformation source device: */
+	if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else
+		sourceDevice=getValuatorDevice(0);
 	}
 
 MouseTool::~MouseTool(void)
@@ -148,36 +152,27 @@ const ToolFactory* MouseTool::getFactory(void) const
 
 void MouseTool::frame(void)
 	{
-	if(transformEnabled)
+	/* Calculate the ray equation: */
+	Ray ray(sourceDevice->getPosition(),sourceDevice->getRayDirection());
+	ray.setOrigin(ray.getOrigin()-ray.getDirection()*(factory->rayOffset/ray.getDirection().mag()));
+	
+	/* Find the closest intersection with any screen: */
+	std::pair<VRScreen*,Scalar> si=findScreen(ray);
+	
+	if(si.first!=0)
 		{
-		/* Calculate the ray equation: */
-		Ray ray=getDeviceRay(0);
+		/* Set the virtual input device's transformation: */
+		TrackerState ts=TrackerState::translateFromOriginTo(ray(si.second));
 		
-		/* Find the closest intersection with any screen: */
-		std::pair<VRScreen*,Scalar> si=findScreen(ray);
-		
-		if(si.first!=0)
-			{
-			/* Set the virtual input device's transformation: */
-			TrackerState ts=TrackerState::translateFromOriginTo(ray(si.second));
-			
-			/* Update the virtual input device's transformation: */
-			transformedDevice->setTransformation(ts);
-			transformedDevice->setDeviceRayDirection(Geometry::normalize(ray.getDirection()));
-			}
-		}
-	else
-		{
-		/* Set the transformed device to the same position / orientation as the source device: */
-		InputDevice* device=input.getDevice(0);
-		transformedDevice->setTransformation(device->getTransformation());
-		transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+		/* Update the virtual input device's transformation: */
+		transformedDevice->setTransformation(ts);
+		transformedDevice->setDeviceRayDirection(Geometry::normalize(ray.getDirection()));
 		}
 	}
 
 void MouseTool::display(GLContextData& contextData) const
 	{
-	if(transformEnabled&&factory->crosshairSize>Scalar(0))
+	if(factory->crosshairSize>Scalar(0))
 		{
 		/* Draw crosshairs at the virtual device's current position: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);

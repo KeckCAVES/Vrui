@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <GL/GLNumberRenderer.h>
+#include <Vrui/SurfaceNavigationTool.h>
 
 namespace Vrui {
 
@@ -49,6 +50,8 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	Scalar brake; // Reverse thrust acceleration in physical coordinate units/s^2
 	Scalar dragCoefficients[3]; // Drag coefficients in local x, y, z directions
 	Scalar viewAngleFactors[2]; // View offset angle factors for hat switch valuators in radians
+	Scalar probeSize; // Size of probe to use when aligning surface frames
+	Scalar maxClimb; // Maximum amount of climb per frame
 	
 	/* Constructors and destructors: */
 	public:
@@ -57,11 +60,13 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class HelicopterNavigationTool:public NavigationTool,public GLObject
+class HelicopterNavigationTool:public SurfaceNavigationTool,public GLObject
 	{
 	friend class HelicopterNavigationToolFactory;
 	
@@ -70,25 +75,27 @@ class HelicopterNavigationTool:public NavigationTool,public GLObject
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
-		GLuint displayListBase; // Base index of display list to render wireframe digits
+		public:
+		GLuint ladderDisplayListId; // ID of display list to render elevation ladder
 		
 		/* Constructors and destructors: */
-		public:
 		DataItem(void);
 		virtual ~DataItem(void);
 		};
 	
 	/* Elements: */
 	static HelicopterNavigationToolFactory* factory; // Pointer to the factory object for this class
+	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-like font
 	
 	/* Transient navigation state: */
-	bool buttons[2]; // Current status of the two control buttons (forward thrust, reverse thrust)
-	Scalar valuators[6]; // Current value of the four control valuators (pitch, roll, rudder, collective) and two view valuators
-	NavTransform pre,post; // Transformations recreating the navigation transformation at the time the tool was activated
-	Point currentPosition; // Current position of virtual helicopter relative to initial transformation
-	Rotation currentOrientation; // Current orientation of virtual helicopter relative to initial transformation
-	Vector currentVelocity; // Current linear velocity of the virtual helicopter
-	double lastFrameTime; // Application time of last frame
+	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
+	Rotation orientation; // Current orientation of virtual helicopter relative to current surface frame
+	Scalar elevation; // Current elevation of virtual helicopter above the surface
+	Vector velocity; // Current linear velocity of the virtual helicopter
+	
+	/* Private methods: */
+	void applyNavState(void);
+	void initNavState(void);
 	
 	/* Constructors and destructors: */
 	public:
@@ -96,8 +103,7 @@ class HelicopterNavigationTool:public NavigationTool,public GLObject
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	

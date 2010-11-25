@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyNavigationTool - Class providing a fly navigation tool using
 a single valuator.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,12 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VALUATORFLYNAVIGATIONTOOL_INCLUDED
 #define VRUI_VALUATORFLYNAVIGATIONTOOL_INCLUDED
 
-#include <Vrui/Tools/NavigationTool.h>
-
-/* Forward declarations: */
-namespace Vrui {
-class Viewer;
-}
+#include <Vrui/NavigationTool.h>
 
 namespace Vrui {
 
@@ -53,6 +48,7 @@ class ValuatorFlyNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -64,7 +60,6 @@ class ValuatorFlyNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ValuatorFlyNavigationToolFactory* factory; // Pointer to the factory object for this class
-	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Transient navigation state: */
 	Scalar currentValue; // Current value of the associated valuator
@@ -75,7 +70,7 @@ class ValuatorFlyNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	};
 

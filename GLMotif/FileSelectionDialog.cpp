@@ -1,6 +1,6 @@
 /***********************************************************************
 FileSelectionDialog - A popup window to select a file name.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,18 +19,17 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <iostream>
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <dirent.h>
-#ifndef _DIRENT_HAVE_D_TYPE
-#include <sys/stat.h>
-#endif
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <Misc/StringMarshaller.h>
+#include <Misc/GetCurrentDirectory.h>
+#include <Misc/FileTests.h>
+#include <Misc/Directory.h>
 #include <Comm/MulticastPipe.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
@@ -99,20 +98,136 @@ std::string FileSelectionDialog::getCurrentPath(void) const
 		/* Append the button's label to the full path name: */
 		if(i>1)
 			fullPath.push_back('/');
-		fullPath.append(static_cast<Button*>(pathButtonBox->getChild(i))->getLabel());
+		fullPath.append(static_cast<Button*>(pathButtonBox->getChild(i))->getString());
 		}
 	
 	return fullPath;
+	}
+
+void FileSelectionDialog::updateFileNameField(void)
+	{
+	/* Get the current path name: */
+	std::string fullName=getCurrentPath();
+	
+	fullName.push_back('/');
+	int selectedFileName=fileList->getListBox()->getSelectedItem();
+	if(selectedFileName>=0)
+		{
+		/* Append the current file name: */
+		fullName.append(fileList->getListBox()->getItem(selectedFileName));
+		}
+	
+	/* Set the file name field's value: */
+	fileNameField->setString(fullName.c_str());
 	}
 
 bool FileSelectionDialog::readDirectory(void)
 	{
 	if(pipe==0||pipe->isMaster())
 		{
-		/* Open the current directory: */
-		std::string fullPath=getCurrentPath();
-		DIR* directory=opendir(fullPath.c_str());
-		if(directory==0)
+		try
+			{
+			/* Open the currently selected directory: */
+			Misc::Directory directory(getCurrentPath().c_str());
+			
+			/* Read all directory entries: */
+			std::vector<std::string> directories;
+			std::vector<std::string> files;
+			while(!directory.eod())
+				{
+				/* Check for hidden entries: */
+				const char* entryName=directory.getEntryName();
+				if(entryName[0]!='.')
+					{
+					/* Determine the type of the directory entry: */
+					Misc::PathType pt=directory.getEntryType();
+					if(pt==Misc::PATHTYPE_DIRECTORY)
+						{
+						/* Store a directory name: */
+						std::string dirName(entryName);
+						dirName.push_back('/');
+						directories.push_back(dirName);
+						}
+					else if(pt==Misc::PATHTYPE_FILE)
+						{
+						/* Check if the file name matches any of the supplied extensions: */
+						bool passesFilters=true;
+						if(fileNameFilters!=0)
+							{
+							/* Find the file name's extension: */
+							const char* extPtr="";
+							for(const char* enPtr=entryName;*enPtr!='\0';++enPtr)
+								if(*enPtr=='.')
+									extPtr=enPtr;
+							
+							/* Match against the list of allowed extensions: */
+							passesFilters=false;
+							const char* filterPtr=fileNameFilters;
+							while(*filterPtr!='\0'&&!passesFilters)
+								{
+								/* Extract the next extension: */
+								const char* extStart=filterPtr;
+								for(;*filterPtr!='\0'&&*filterPtr!=';';++filterPtr)
+									;
+								
+								/* See if it matches: */
+								passesFilters=int(strlen(extPtr))==filterPtr-extStart&&memcmp(extPtr,extStart,filterPtr-extStart)==0;
+								
+								/* Skip the separator: */
+								if(*filterPtr==';')
+									++filterPtr;
+								}
+							}
+						
+						if(passesFilters)
+							{
+							/* Store a file name: */
+							files.push_back(entryName);
+							}
+						}
+					}
+				
+				/* Go to the next directory entry: */
+				directory.readNextEntry();
+				}
+			
+			/* Sort the directory and file names separately: */
+			StringCompare sc;
+			std::sort(directories.begin(),directories.end(),sc);
+			std::sort(files.begin(),files.end(),sc);
+			
+			if(pipe!=0)
+				{
+				/* Send a success code to the slave nodes: */
+				pipe->write<int>(1);
+				
+				/* Send the directory names to the slave nodes: */
+				for(std::vector<std::string>::const_iterator dIt=directories.begin();dIt!=directories.end();++dIt)
+					{
+					/* Write the string: */
+					Misc::writeCppString(*dIt,*pipe);
+					}
+				
+				/* Send the file names to the slave nodes: */
+				for(std::vector<std::string>::const_iterator fIt=files.begin();fIt!=files.end();++fIt)
+					{
+					/* Write the string: */
+					Misc::writeCppString(*fIt,*pipe);
+					}
+				
+				/* Send the list terminator message: */
+				pipe->write<unsigned int>(~0x0U);
+				pipe->finishMessage();
+				}
+			
+			/* Copy all names into the list box: */
+			fileList->getListBox()->clear();
+			for(std::vector<std::string>::const_iterator dIt=directories.begin();dIt!=directories.end();++dIt)
+				fileList->getListBox()->addItem(dIt->c_str());
+			for(std::vector<std::string>::const_iterator fIt=files.begin();fIt!=files.end();++fIt)
+				fileList->getListBox()->addItem(fIt->c_str());
+			}
+		catch(Misc::Directory::OpenError)
 			{
 			if(pipe!=0)
 				{
@@ -122,139 +237,20 @@ bool FileSelectionDialog::readDirectory(void)
 				}
 			return false;
 			}
-		
-		/* Read all directory entries: */
-		std::vector<std::string> directories;
-		std::vector<std::string> files;
-		struct dirent* dirEntry;
-		while((dirEntry=readdir(directory))!=0)
-			{
-			/* Ignore hidden entries: */
-			if(dirEntry->d_name[0]!='.')
-				{
-				/* Determine the type of the directory entry: */
-				int entryType=0; // unkown, directory, file
-				#ifdef _DIRENT_HAVE_D_TYPE
-				if(dirEntry->d_type==DT_DIR)
-					entryType=1;
-				else if(dirEntry->d_type==DT_REG)
-					entryType=2;
-				#else
-				std::string fullName=fullPath;
-				fullName.push_back('/');
-				fullName.append(dirEntry->d_name);
-				struct stat statResult;
-				if(stat(fullName.c_str(),&statResult)==0)
-					{
-					if(S_ISDIR(statResult.st_mode))
-						entryType=1;
-					else if(S_ISREG(statResult.st_mode))
-						entryType=2;
-					}
-				#endif
-				
-				if(entryType==1)
-					{
-					/* Store a directory name: */
-					std::string entryName=dirEntry->d_name;
-					entryName.push_back('/');
-					directories.push_back(entryName);
-					}
-				else if(entryType==2)
-					{
-					/* Check if the file name matches any of the supplied extensions: */
-					bool passesFilters=true;
-					if(fileNameFilters!=0)
-						{
-						/* Find the file name's extension: */
-						const char* extPtr="";
-						for(const char* enPtr=dirEntry->d_name;*enPtr!='\0';++enPtr)
-							if(*enPtr=='.')
-								extPtr=enPtr;
-						
-						/* Match against the list of allowed extensions: */
-						passesFilters=false;
-						const char* filterPtr=fileNameFilters;
-						while(*filterPtr!='\0'&&!passesFilters)
-							{
-							/* Extract the next extension: */
-							const char* extStart=filterPtr;
-							for(;*filterPtr!='\0'&&*filterPtr!=';';++filterPtr)
-								;
-							
-							/* See if it matches: */
-							passesFilters=int(strlen(extPtr))==filterPtr-extStart&&memcmp(extPtr,extStart,filterPtr-extStart)==0;
-							
-							/* Skip the separator: */
-							if(*filterPtr==';')
-								++filterPtr;
-							}
-						}
-					
-					if(passesFilters)
-						{
-						/* Store a file name: */
-						std::string entryName=dirEntry->d_name;
-						files.push_back(entryName);
-						}
-					}
-				}
-			}
-		
-		if(pipe!=0)
-			{
-			/* Send a success code to the slave nodes: */
-			pipe->write<int>(1);
-			}
-		
-		/* Sort the directory and file names separately: */
-		StringCompare sc;
-		std::sort(directories.begin(),directories.end(),sc);
-		std::sort(files.begin(),files.end(),sc);
-		if(pipe!=0)
-			{
-			/* Send the directory names to the slave nodes: */
-			for(std::vector<std::string>::const_iterator dIt=directories.begin();dIt!=directories.end();++dIt)
-				{
-				/* Write the string: */
-				pipe->write<int>(dIt->size());
-				pipe->write<char>(dIt->c_str(),dIt->size()+1);
-				}
-			
-			/* Send the file names to the slave nodes: */
-			for(std::vector<std::string>::const_iterator fIt=files.begin();fIt!=files.end();++fIt)
-				{
-				/* Write the string: */
-				pipe->write<int>(fIt->size());
-				pipe->write<char>(fIt->c_str(),fIt->size()+1);
-				}
-			
-			/* Send the list terminator message: */
-			pipe->write<int>(-1);
-			pipe->finishMessage();
-			}
-		
-		/* Copy all names into the list box: */
-		fileList->getListBox()->clear();
-		for(std::vector<std::string>::const_iterator dIt=directories.begin();dIt!=directories.end();++dIt)
-			fileList->getListBox()->addItem(dIt->c_str());
-		for(std::vector<std::string>::const_iterator fIt=files.begin();fIt!=files.end();++fIt)
-			fileList->getListBox()->addItem(fIt->c_str());
 		}
 	else
 		{
 		/* Read the status flag from the master node: */
-		int success=pipe->read<int>();
-		if(success)
+		if(pipe->read<int>())
 			{
 			/* Clear the list box: */
 			fileList->getListBox()->clear();
 			
 			/* Read the directory and file names: */
-			int length;
-			int bufferSize=128;
+			unsigned int length;
+			unsigned int bufferSize=128;
 			char* buffer=new char[bufferSize];
-			while((length=pipe->read<int>())>=0)
+			while((length=pipe->read<unsigned int>())!=~0x0U)
 				{
 				/* Make sure the buffer is big enough: */
 				if(bufferSize<length+1)
@@ -265,7 +261,8 @@ bool FileSelectionDialog::readDirectory(void)
 					}
 				
 				/* Read the string and add it to the list box: */
-				pipe->read<char>(buffer,length+1);
+				pipe->read<char>(buffer,length);
+				buffer[length]='\0';
 				fileList->getListBox()->addItem(buffer);
 				}
 			delete[] buffer;
@@ -302,12 +299,28 @@ void FileSelectionDialog::setSelectedPathButton(int newSelectedPathButton)
 	
 	/* Read the directory corresponding to the path button: */
 	readDirectory();
+	
+	/* Update the file name field: */
+	updateFileNameField();
 	}
 
 void FileSelectionDialog::pathButtonSelectedCallback(Button::SelectCallbackData* cbData)
 	{
 	/* Change the selected path button: */
 	setSelectedPathButton(pathButtonBox->getChildIndex(cbData->button));
+	}
+
+void FileSelectionDialog::fileNameFieldValueChangedCallback(TextField::ValueChangedCallbackData* cbData)
+	{
+	/* Find the common prefix between the new full file name and the path button box: */
+	const char* fnPtr=fileNameField->getString();
+	
+	}
+
+void FileSelectionDialog::listValueChangedCallback(ListBox::ValueChangedCallbackData* cbData)
+	{
+	/* Update the file name field: */
+	updateFileNameField();
 	}
 
 void FileSelectionDialog::listItemSelectedCallback(ListBox::ItemSelectedCallbackData* cbData)
@@ -408,8 +421,13 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	 pipe(sPipe),
 	 fileNameFilters(sFileNameFilters),
 	 pathButtonBox(0),selectedPathButton(-1),
+	 fileNameField(0),
 	 fileList(0),filterList(0)
 	{
+	/* Add a close button: */
+	setCloseButton(true);
+	getCloseCallbacks().add(this,&FileSelectionDialog::cancelButtonSelectedCallback);
+	
 	/* Create the file selection dialog: */
 	RowColumn* fileSelectionDialog=new RowColumn("FileSelectionDialog",this,false);
 	fileSelectionDialog->setOrientation(RowColumn::VERTICAL);
@@ -426,106 +444,75 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	pathButtonBox->setSpacing(0.0f);
 	
 	/* Create the path buttons for the initial directory: */
-	char* directoryBuffer=0;
+	std::string directory;
 	if(pipe==0||pipe->isMaster())
 		{
 		if(initialDirectory!=0)
 			{
 			/* Copy the given starting directory: */
-			directoryBuffer=new char[strlen(initialDirectory)+1];
-			strcpy(directoryBuffer,initialDirectory);
+			directory=initialDirectory;
 			}
 		else
 			{
 			/* Start from the current directory: */
-			size_t bufferSize=512;
-			while(true)
-				{
-				/* Try reading the current directory into the buffer: */
-				directoryBuffer=new char[bufferSize];
-				if(getcwd(directoryBuffer,bufferSize)!=0)
-					break; // Done!
-				else
-					{
-					/* Delete the current buffer and try again with a bigger one: */
-					delete[] directoryBuffer;
-					bufferSize+=bufferSize;
-					}
-				}
+			directory=Misc::getCurrentDirectory();
 			}
 		
 		if(pipe!=0)
 			{
 			/* Send the initial path to all slave nodes: */
-			int length=strlen(directoryBuffer);
-			pipe->write<int>(length);
-			pipe->write<char>(directoryBuffer,length+1);
+			Misc::writeCppString(directory,*pipe);
 			pipe->finishMessage();
 			}
 		}
 	else
 		{
 		/* Read the initial path from the master node: */
-		int length=pipe->read<int>();
-		directoryBuffer=new char[length+1];
-		pipe->read<char>(directoryBuffer,length+1);
+		directory=Misc::readCppString(*pipe);
 		}
 	
 	/* Create a button for the root directory: */
-	char* pathPtr=directoryBuffer;
-	while(*pathPtr=='/')
-		++pathPtr;
+	std::string::iterator pathIt=directory.begin();
+	while(pathIt!=directory.end()&&*pathIt=='/')
+		++pathIt;
 	Button* rootButton=new Button("RootButton",pathButtonBox,"/");
 	rootButton->setBorderWidth(rootButton->getBorderWidth()*0.5f);
 	rootButton->getSelectCallbacks().add(this,&FileSelectionDialog::pathButtonSelectedCallback);
 	
 	/* Create buttons for all other directories in the path: */
 	int pathButtonIndex=0;
-	while(*pathPtr!='\0')
+	while(pathIt!=directory.end())
 		{
 		/* Extract the name of the next directory: */
-		const char* directoryName=pathPtr;
-		for(++pathPtr;*pathPtr!='\0'&&*pathPtr!='/';++pathPtr)
+		std::string::iterator dirStart=pathIt;
+		for(++pathIt;pathIt!=directory.end()&&*pathIt!='/';++pathIt)
 			;
-		
-		/* Terminate the directory name: */
-		if(*pathPtr=='/')
-			{
-			*pathPtr='\0';
-			++pathPtr;
-			}
 		
 		/* Create a button for the next directory: */
 		char pathButtonName[20];
 		snprintf(pathButtonName,sizeof(pathButtonName),"PathButton%04d",pathButtonIndex);
-		Button* pathButton=new Button(pathButtonName,pathButtonBox,directoryName);
+		Button* pathButton=new Button(pathButtonName,pathButtonBox,std::string(dirStart,pathIt).c_str());
 		pathButton->setBorderWidth(pathButton->getBorderWidth()*0.5f);
 		pathButton->getSelectCallbacks().add(this,&FileSelectionDialog::pathButtonSelectedCallback);
 		++pathButtonIndex;
 		
 		/* Skip slashes: */
-		while(*pathPtr=='/')
-			++pathPtr;
+		while(pathIt!=directory.end()&&*pathIt=='/')
+			++pathIt;
 		}
-	
-	/* Clean up: */
-	delete[] directoryBuffer;
 	
 	pathButtonBox->manageChild();
 	
+	/* Create the file name text field: */
+	fileNameField=new GLMotif::TextField("FileNameField",fileSelectionDialog,40);
+	fileNameField->setHAlignment(GLFont::Left);
+	fileNameField->setEditable(true);
+	
 	/* Create the file list box: */
-	fileList=new ScrolledListBox("FileList",fileSelectionDialog,ListBox::ALWAYS_ONE,50,15);
+	fileList=new ScrolledListBox("FileList",fileSelectionDialog,ListBox::ATMOST_ONE,50,15);
 	fileList->showHorizontalScrollBar(true);
 	fileList->getListBox()->getItemSelectedCallbacks().add(this,&FileSelectionDialog::listItemSelectedCallback);
-	
-	/* Select the last path button (to read the initial directory): */
-	setSelectedPathButton(pathButtonIndex);
-	
-	/* Read the initial directory: */
-	if(!readDirectory())
-		{
-		/* This is bad! */
-		}
+	fileList->getListBox()->getValueChangedCallbacks().add(this,&FileSelectionDialog::listValueChangedCallback);
 	
 	/* Create the button box: */
 	RowColumn* buttonBox=new RowColumn("ButtonBox",fileSelectionDialog,false);
@@ -539,7 +526,7 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	filterListItems.push_back("All Files");
 	if(sFileNameFilters!=0)
 		{
-		const char* startPtr=sFileNameFilters;
+		const char* startPtr=fileNameFilters;
 		while(*startPtr!='\0')
 			{
 			const char* endPtr;
@@ -554,6 +541,7 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	filterList=new DropdownBox("FilterList",buttonBox,filterListItems);
 	filterList->setSelectedItem(filterList->getNumItems()-1);
 	filterList->getValueChangedCallbacks().add(this,&FileSelectionDialog::filterListValueChangedCallback);
+	fileNameFilters=filterList->getItem(filterList->getNumItems()-1);
 	}
 	
 	/* Create a separator: */
@@ -580,7 +568,10 @@ FileSelectionDialog::FileSelectionDialog(WidgetManager* widgetManager,const char
 	
 	buttonBox->manageChild();
 	
-	fileSelectionDialog->setRowWeight(1,1.0f);
+	fileSelectionDialog->setRowWeight(2,1.0f);
+	
+	/* Select the last path button (to read the initial directory): */
+	setSelectedPathButton(pathButtonIndex);
 	
 	fileSelectionDialog->manageChild();
 	}

@@ -2,7 +2,7 @@
 LargeFile - Wrapper class for the stdio FILE interface for files larger
 than 2GB with exception safety, typed data I/O, and automatic
 endianness conversion.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -38,7 +38,7 @@ class LargeFile
 	{
 	/* Embedded classes: */
 	public:
-	#ifdef __DARWIN__
+	#ifdef __APPLE__
 	typedef fpos_t Offset; // Type for file offsets
 	#else
 	typedef off64_t Offset; // Type for file offsets
@@ -90,7 +90,7 @@ class LargeFile
 	public:
 	LargeFile(const char* fileName,const char* sOpenMode,Endianness sEndianness =DontCare) // Opens file by name
 		:openMode(new char[strlen(sOpenMode)+1]),
-		 #ifdef __DARWIN__
+		 #ifdef __APPLE__
 		 filePtr(fopen(fileName,sOpenMode))
 		 #else
 		 filePtr(fopen64(fileName,sOpenMode))
@@ -150,7 +150,7 @@ class LargeFile
 		}
 	void seekSet(Offset offset)
 		{
-		#ifdef __DARWIN__
+		#ifdef __APPLE__
 		fseeko(filePtr,offset,SEEK_SET);
 		#else
 		fseeko64(filePtr,offset,SEEK_SET);
@@ -158,7 +158,7 @@ class LargeFile
 		}
 	void seekCurrent(Offset offset)
 		{
-		#ifdef __DARWIN__
+		#ifdef __APPLE__
 		fseeko(filePtr,offset,SEEK_CUR);
 		#else
 		fseeko64(filePtr,offset,SEEK_CUR);
@@ -166,7 +166,7 @@ class LargeFile
 		}
 	void seekEnd(Offset offset)
 		{
-		#ifdef __DARWIN__
+		#ifdef __APPLE__
 		fseeko(filePtr,offset,SEEK_END);
 		#else
 		fseeko64(filePtr,offset,SEEK_END);
@@ -174,7 +174,7 @@ class LargeFile
 		}
 	Offset tell(void)
 		{
-		#ifdef __DARWIN__
+		#ifdef __APPLE__
 		return ftello(filePtr);
 		#else
 		return ftello64(filePtr);
@@ -209,7 +209,17 @@ class LargeFile
 		return fputs(string,filePtr);
 		}
 	
-	/* Methods for binary file I/O with endianness conversion: */
+	/* Endianness-safe binary I/O interface: */
+	bool mustSwapOnRead(void) // Retusn true if the file must endianness-swap data on read
+		{
+		return mustSwapEndianness;
+		}
+	void readRaw(void* data,size_t dataSize) // Raw read method without Endianness conversion
+		{
+		size_t numBytesRead=fread(data,1,dataSize,filePtr);
+		if(numBytesRead!=dataSize)
+			throw ReadError(dataSize,numBytesRead);
+		}
 	template <class DataParam>
 	DataParam read(void) // Reads single value
 		{
@@ -239,6 +249,16 @@ class LargeFile
 			swapEndianness(data,numItemsRead);
 		return numItemsRead;
 		}
+	bool mustSwapOnWrite(void) // Returns true if the file must endianness-swap data on write
+		{
+		return mustSwapEndianness;
+		}
+	void writeRaw(const void* data,size_t dataSize) // Raw write method without Endianness conversion
+		{
+		size_t numBytesWritten=fwrite(data,1,dataSize,filePtr);
+		if(numBytesWritten!=dataSize)
+			throw WriteError(dataSize,numBytesWritten);
+		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes single value
 		{
@@ -265,7 +285,7 @@ class LargeFile
 				{
 				DataParam temp=data[i];
 				swapEndianness(temp);
-				numBytesWritten+=fwrite(&temp,sizeof(DataParam),1,filePtr);
+				numBytesWritten+=fwrite(&temp,1,sizeof(DataParam),filePtr);
 				}
 			}
 		else

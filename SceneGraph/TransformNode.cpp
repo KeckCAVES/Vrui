@@ -57,15 +57,15 @@ const char* TransformNode::getClassName(void) const
 EventOut* TransformNode::getEventOut(const char* fieldName) const
 	{
 	if(strcmp(fieldName,"center")==0)
-		return makeEO(this,center);
+		return makeEventOut(this,center);
 	else if(strcmp(fieldName,"rotation")==0)
-		return makeEO(this,rotation);
+		return makeEventOut(this,rotation);
 	else if(strcmp(fieldName,"scale")==0)
-		return makeEO(this,scale);
+		return makeEventOut(this,scale);
 	else if(strcmp(fieldName,"scaleOrientation")==0)
-		return makeEO(this,scaleOrientation);
+		return makeEventOut(this,scaleOrientation);
 	else if(strcmp(fieldName,"translation")==0)
-		return makeEO(this,translation);
+		return makeEventOut(this,translation);
 	else
 		return GroupNode::getEventOut(fieldName);
 	}
@@ -73,15 +73,15 @@ EventOut* TransformNode::getEventOut(const char* fieldName) const
 EventIn* TransformNode::getEventIn(const char* fieldName)
 	{
 	if(strcmp(fieldName,"center")==0)
-		return makeEI(this,center);
+		return makeEventIn(this,center);
 	else if(strcmp(fieldName,"rotation")==0)
-		return makeEI(this,rotation);
+		return makeEventIn(this,rotation);
 	else if(strcmp(fieldName,"scale")==0)
-		return makeEI(this,scale);
+		return makeEventIn(this,scale);
 	else if(strcmp(fieldName,"scaleOrientation")==0)
-		return makeEI(this,scaleOrientation);
+		return makeEventIn(this,scaleOrientation);
 	else if(strcmp(fieldName,"translation")==0)
-		return makeEI(this,translation);
+		return makeEventIn(this,translation);
 	else
 		return GroupNode::getEventIn(fieldName);
 	}

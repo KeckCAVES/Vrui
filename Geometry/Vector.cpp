@@ -1,6 +1,6 @@
 /***********************************************************************
 Vector - Class for Euclidean and affine vectors.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -20,28 +20,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#define GEOMETRY_VECTOR_IMPLEMENTATION
-
-#ifndef METHODPREFIX
-	#ifdef NONSTANDARD_TEMPLATES
-		#define METHODPREFIX inline
-	#else
-		#define METHODPREFIX
-	#endif
-#endif
-
-#include <Geometry/Vector.h>
+#include <Geometry/Vector.icpp>
 
 namespace Geometry {
-
-/*******************************
-Static elements of class Vector:
-*******************************/
-
-template <class ScalarParam,int dimensionParam>
-const Vector<ScalarParam,dimensionParam> Vector<ScalarParam,dimensionParam>::zero(ScalarParam(0));
-
-#if !defined(NONSTANDARD_TEMPLATES)
 
 /****************************************************************
 Force instantiation of all standard Vector classes and functions:
@@ -64,7 +45,5 @@ template const Vector<double,2> Vector<double,2>::zero;
 template const Vector<double,3> Vector<double,3>::zero;
 
 template const Vector<double,4> Vector<double,4>::zero;
-
-#endif
 
 }

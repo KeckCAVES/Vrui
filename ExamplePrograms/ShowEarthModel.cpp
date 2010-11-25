@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -21,6 +21,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define CLIP_SCREEN 0
 
+#include <Images/Config.h>
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,11 +32,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <iomanip>
 #include <vector>
 #include <Misc/FunctionCalls.h>
-#include <Misc/File.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/File.h>
+#include <Misc/FileCharacterSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Geoid.h>
+#include <Geometry/LinearUnit.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLMatrixTemplates.h>
@@ -62,11 +66,16 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/TextField.h>
 #include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
+#include <SceneGraph/NodeCreator.h>
+#include <SceneGraph/GroupNode.h>
+#include <SceneGraph/VRMLFile.h>
+#include <SceneGraph/GLRenderState.h>
 #include <Vrui/CoordinateManager.h>
+#include <Vrui/Viewer.h>
 #if CLIP_SCREEN
 #include <Vrui/VRScreen.h>
 #endif
-#include <Vrui/Tools/SurfaceNavigationTool.h>
+#include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
@@ -238,7 +247,7 @@ ShowEarthModel::DataLocator::DataLocator(Vrui::LocatorTool* sLocatorTool,ShowEar
 	data->manageChild();
 	
 	/* Pop up the data dialog: */
-	Vrui::popupPrimaryWidget(dataDialog,Vrui::getNavigationTransformation().transform(Vrui::getDisplayCenter()));
+	Vrui::popupPrimaryWidget(dataDialog);
 	}
 
 ShowEarthModel::DataLocator::~DataLocator(void)
@@ -248,6 +257,11 @@ ShowEarthModel::DataLocator::~DataLocator(void)
 	
 	/* Delete the data dialog: */
 	delete dataDialog;
+	}
+
+void ShowEarthModel::DataLocator::getName(std::string& name) const
+	{
+	name="Earthquake Data";
 	}
 
 void ShowEarthModel::DataLocator::buttonPressCallback(Vrui::LocatorTool::ButtonPressCallbackData* cbData)
@@ -277,15 +291,15 @@ void ShowEarthModel::DataLocator::buttonPressCallback(Vrui::LocatorTool::ButtonP
 		localtime_r(&tT,&tTm);
 		char tBuffer[20];
 		snprintf(tBuffer,sizeof(tBuffer),"%04d/%02d/%02d %02d:%02d:%02d",tTm.tm_year+1900,tTm.tm_mon+1,tTm.tm_mday,tTm.tm_hour,tTm.tm_min,tTm.tm_sec);
-		timeTextField->setLabel(tBuffer);
+		timeTextField->setString(tBuffer);
 		
 		/* Display the event magnitude: */
 		magnitudeTextField->setValue(selectedEvent->magnitude);
 		}
 	else
 		{
-		timeTextField->setLabel("");
-		magnitudeTextField->setLabel("");
+		timeTextField->setString("");
+		magnitudeTextField->setString("");
 		}
 	}
 
@@ -293,21 +307,45 @@ void ShowEarthModel::DataLocator::glRenderAction(GLContextData& contextData) con
 	{
 	if(selectedEvent!=0)
 		{
-		GLboolean lightingEnabled=glIsEnabled(GL_LIGHTING);
-		if(lightingEnabled)
-			glDisable(GL_LIGHTING);
-		GLfloat pointSize;
-		glGetFloatv(GL_POINT_SIZE,&pointSize);
-		glPointSize(3.0f);
+		/* Save and set up OpenGL state: */
+		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+		glDisable(GL_LIGHTING);
 		
-		glBegin(GL_POINTS);
-		glColor3f(1.0f,1.0f,1.0f);
-		glVertex(selectedEvent->position);
+		/* Determine the marker color: */
+		Vrui::Color bgColor=Vrui::getBackgroundColor();
+		Vrui::Color fgColor;
+		for(int i=0;i<3;++i)
+			fgColor[i]=1.0f-bgColor[i];
+		fgColor[3]=bgColor[3];
+		
+		/* Draw the marker: */
+		Vrui::Point pos=selectedEvent->position;
+		Vrui::Scalar markerSize=Vrui::getUiSize()/Vrui::getNavigationTransformation().getScaling();
+		
+		glLineWidth(3.0f);
+		glColor(bgColor);
+		glBegin(GL_LINES);
+		glVertex(pos[0]-markerSize,pos[1],pos[2]);
+		glVertex(pos[0]+markerSize,pos[1],pos[2]);
+		glVertex(pos[0],pos[1]-markerSize,pos[2]);
+		glVertex(pos[0],pos[1]+markerSize,pos[2]);
+		glVertex(pos[0],pos[1],pos[2]-markerSize);
+		glVertex(pos[0],pos[1],pos[2]+markerSize);
 		glEnd();
 		
-		glPointSize(pointSize);
-		if(lightingEnabled)
-			glEnable(GL_LIGHTING);
+		glLineWidth(1.0f);
+		glColor(fgColor);
+		glBegin(GL_LINES);
+		glVertex(pos[0]-markerSize,pos[1],pos[2]);
+		glVertex(pos[0]+markerSize,pos[1],pos[2]);
+		glVertex(pos[0],pos[1]-markerSize,pos[2]);
+		glVertex(pos[0],pos[1]+markerSize,pos[2]);
+		glVertex(pos[0],pos[1],pos[2]-markerSize);
+		glVertex(pos[0],pos[1],pos[2]+markerSize);
+		glEnd();
+		
+		/* Reset OpenGL state: */
+		glPopAttrib();
 		}
 	}
 
@@ -395,6 +433,23 @@ GLMotif::Popup* ShowEarthModel::createRenderTogglesMenu(void)
 		showSeismicPathsToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
 		}
 	
+	/* Create toggles for each scene graph: */
+	for(unsigned int i=0;i<sceneGraphs.size();++i)
+		{
+		/* Create a unique name for the toggle button widget: */
+		char toggleName[256];
+		snprintf(toggleName,sizeof(toggleName),"ShowSceneGraphToggle%04d",i);
+		
+		/* Create a label to display in the submenu: */
+		char toggleLabel[256];
+		snprintf(toggleLabel,sizeof(toggleLabel),"Show Scene Graph %d",i);
+		
+		/* Create a toggle button to render the scene graph: */
+		GLMotif::ToggleButton* showSceneGraphToggle=new GLMotif::ToggleButton(toggleName,renderTogglesMenu,toggleLabel);
+		showSceneGraphToggle->setToggle(showSceneGraphs[i]);
+		showSceneGraphToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
+		}
+	
 	/* Create a toggle button to render the outer core: */
 	GLMotif::ToggleButton* showOuterCoreToggle=new GLMotif::ToggleButton("ShowOuterCoreToggle",renderTogglesMenu,"Show Outer Core");
 	showOuterCoreToggle->setToggle(showOuterCore);
@@ -450,12 +505,12 @@ GLMotif::PopupMenu* ShowEarthModel::createMainMenu(void)
 	centerDisplayButton->getSelectCallbacks().add(this,&ShowEarthModel::centerDisplayCallback);
 	
 	/* Create a toggle button to show the render settings dialog: */
-	GLMotif::ToggleButton* showRenderDialogToggle=new GLMotif::ToggleButton("ShowRenderDialogToggle",mainMenu,"Show Render Dialog");
+	showRenderDialogToggle=new GLMotif::ToggleButton("ShowRenderDialogToggle",mainMenu,"Show Render Dialog");
 	showRenderDialogToggle->setToggle(false);
 	showRenderDialogToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
 	
 	/* Create a toggle button to show the animation dialog: */
-	GLMotif::ToggleButton* showAnimationDialogToggle=new GLMotif::ToggleButton("ShowAnimationDialogToggle",mainMenu,"Show Animation Dialog");
+	showAnimationDialogToggle=new GLMotif::ToggleButton("ShowAnimationDialogToggle",mainMenu,"Show Animation Dialog");
 	showAnimationDialogToggle->setToggle(false);
 	showAnimationDialogToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
 	
@@ -472,6 +527,8 @@ GLMotif::PopupWindow* ShowEarthModel::createRenderDialog(void)
 	
 	GLMotif::PopupWindow* renderDialogPopup=new GLMotif::PopupWindow("RenderDialogPopup",Vrui::getWidgetManager(),"Display Settings");
 	renderDialogPopup->setResizableFlags(true,false);
+	renderDialogPopup->setCloseButton(true);
+	renderDialogPopup->getCloseCallbacks().add(this,&ShowEarthModel::renderDialogCloseCallback);
 	
 	GLMotif::RowColumn* renderDialog=new GLMotif::RowColumn("RenderDialog",renderDialogPopup,false);
 	renderDialog->setOrientation(GLMotif::RowColumn::VERTICAL);
@@ -540,6 +597,22 @@ GLMotif::PopupWindow* ShowEarthModel::createRenderDialog(void)
 	earthquakePointSizeSlider->setValue(earthquakePointSize);
 	earthquakePointSizeSlider->getValueChangedCallbacks().add(this,&ShowEarthModel::sliderCallback);
 	
+	GLMotif::ToggleButton* useFogToggle=new GLMotif::ToggleButton("UseFogToggle",renderDialog,"Use Fog");
+	useFogToggle->setBorderWidth(0.0f);
+	useFogToggle->setMarginWidth(0.0f);
+	useFogToggle->setHAlignment(GLFont::Left);
+	useFogToggle->setToggle(fog);
+	useFogToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
+	
+	new GLMotif::Blind("Blind4",renderDialog);
+	
+	new GLMotif::Label("BackplaneDistanceLabel",renderDialog,"Backplane Distance");
+	
+	GLMotif::Slider* backplaneDistanceSlider=new GLMotif::Slider("BackplaneDistanceSlider",renderDialog,GLMotif::Slider::HORIZONTAL,ss.fontHeight*5.0f);
+	backplaneDistanceSlider->setValueRange(Vrui::getFrontplaneDist()*2.0,Vrui::getBackplaneDist()*2.0,0.0);
+	backplaneDistanceSlider->setValue(Vrui::getBackplaneDist());
+	backplaneDistanceSlider->getValueChangedCallbacks().add(this,&ShowEarthModel::sliderCallback);
+	
 	renderDialog->manageChild();
 	
 	return renderDialogPopup;
@@ -552,7 +625,7 @@ void ShowEarthModel::updateCurrentTime(void)
 	localtime_r(&ctT,&ctTm);
 	char ctBuffer[20];
 	snprintf(ctBuffer,sizeof(ctBuffer),"%04d/%02d/%02d %02d:%02d:%02d",ctTm.tm_year+1900,ctTm.tm_mon+1,ctTm.tm_mday,ctTm.tm_hour,ctTm.tm_min,ctTm.tm_sec);
-	currentTimeValue->setLabel(ctBuffer);
+	currentTimeValue->setString(ctBuffer);
 	
 	for(std::vector<EarthquakeSet*>::iterator esIt=earthquakeSets.begin();esIt!=earthquakeSets.end();++esIt)
 		{
@@ -567,6 +640,8 @@ GLMotif::PopupWindow* ShowEarthModel::createAnimationDialog(void)
 	
 	GLMotif::PopupWindow* animationDialogPopup=new GLMotif::PopupWindow("AnimationDialogPopup",Vrui::getWidgetManager(),"Animation");
 	animationDialogPopup->setResizableFlags(true,false);
+	animationDialogPopup->setCloseButton(true);
+	animationDialogPopup->getCloseCallbacks().add(this,&ShowEarthModel::animationDialogCloseCallback);
 	
 	GLMotif::RowColumn* animationDialog=new GLMotif::RowColumn("AnimationDialog",animationDialogPopup,false);
 	animationDialog->setNumMinorWidgets(3);
@@ -672,15 +747,17 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 	 innerCoreMaterial(GLMaterial::Color(1.0f,0.0f,0.0f,0.333f),GLMaterial::Color(1.0f,1.0f,1.0f),50.0f),
 	 earthquakePointSize(3.0f),
 	 sensorPathMaterial(GLMaterial::Color(1.0f,1.0f,0.0f),GLMaterial::Color(1.0f,1.0f,1.0f),50.0f),
+	 fog(false),bpDist(float(Vrui::getBackplaneDist())),
 	 lockToSphere(false),
 	 mainMenu(0),renderDialog(0),animationDialog(0)
 	{
 	/* Parse the command line: */
 	enum FileMode
 		{
-		POINTSETFILE,EARTHQUAKESETFILE,SEISMICPATHFILE,SENSORPATHFILE
+		POINTSETFILE,EARTHQUAKESETFILE,SEISMICPATHFILE,SENSORPATHFILE,SCENEGRAPHFILE
 		} fileMode=POINTSETFILE; // Treat all file names as point set files initially
 	float colorMask[3]={1.0f,1.0f,1.0f}; // Initial color mask for point set files
+	SceneGraph::NodeCreator* sceneGraphNodeCreator=0;
 	for(int i=1;i<argc;++i)
 		{
 		/* Check if the current command line argument is a switch or a file name: */
@@ -695,6 +772,8 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 				fileMode=SEISMICPATHFILE; // Treat all following file names as seismic path files
 			else if(strcasecmp(argv[i]+1,"sensorpath")==0)
 				fileMode=SENSORPATHFILE; // Treat all following file names as sensor path files
+			else if(strcasecmp(argv[i]+1,"scenegraph")==0)
+				fileMode=SCENEGRAPHFILE; // Treat all following file names as scene graph files
 			else if(strcasecmp(argv[i]+1,"rotate")==0)
 				rotateEarth=true;
 			else if(strcasecmp(argv[i]+1,"norotate")==0)
@@ -715,6 +794,14 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 					++i;
 					colorMask[j]=float(atof(argv[i]));
 					}
+				}
+			else if(strcasecmp(argv[i]+1,"fog")==0)
+				fog=true;
+			else if(strcasecmp(argv[i]+1,"bpdist")==0)
+				{
+				++i;
+				bpDist=float(atof(argv[i]));
+				Vrui::setBackplaneDist(bpDist);
 				}
 			else
 				std::cout<<"Unrecognized switch "<<argv[i]<<std::endl;
@@ -757,6 +844,37 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 					sensorPaths.push_back(path);
 					break;
 					}
+				
+				case SCENEGRAPHFILE:
+					{
+					/* Create a node creator if there isn't one already: */
+					if(sceneGraphNodeCreator==0)
+						sceneGraphNodeCreator=new SceneGraph::NodeCreator;
+					
+					/* Create the scene graph's root node: */
+					SceneGraph::GroupNode* root=new SceneGraph::GroupNode;
+					root->ref();
+					
+					/* Load the VRML file: */
+					try
+						{
+						Misc::FileCharacterSource inputFile(argv[i]);
+						SceneGraph::VRMLFile vrmlFile(argv[i],inputFile,*sceneGraphNodeCreator);
+						vrmlFile.parse(root);
+						root->update();
+						
+						/* Store the scene graph's root node: */
+						sceneGraphs.push_back(root);
+						showSceneGraphs.push_back(false);
+						}
+					catch(std::runtime_error err)
+						{
+						/* Print an error message and ignore the scene graph: */
+						std::cerr<<"Ignoring scene graph file "<<argv[i]<<" due to exception "<<err.what()<<std::endl;
+						delete root;
+						}
+					break;
+					}
 				}
 			}
 		}
@@ -791,6 +909,8 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 		(*esIt)->setCurrentTime(currentTime);
 		}
 	
+	delete sceneGraphNodeCreator;
+	
 	/* Create the user interface: */
 	mainMenu=createMainMenu();
 	Vrui::setMainMenu(mainMenu);
@@ -803,12 +923,12 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 	if(!earthquakeSets.empty())
 		{
 		/* Register the custom tool class with the Vrui tool manager: */
-		EarthquakeToolFactory* earthquakeToolFactory=new EarthquakeToolFactory(*Vrui::getToolManager(),float(Vrui::getUiSize())*5.0f,0.005f,earthquakeSets[0]);
+		EarthquakeToolFactory* earthquakeToolFactory=new EarthquakeToolFactory(*Vrui::getToolManager(),earthquakeSets[0]);
 		Vrui::getToolManager()->addClass(earthquakeToolFactory,EarthquakeToolFactory::factoryDestructor);
 		}
 	
 	/* Set the navigational coordinate system unit: */
-	Vrui::getCoordinateManager()->setUnit(Vrui::CoordinateManager::KILOMETER,Vrui::Scalar(1));
+	Vrui::getCoordinateManager()->setUnit(Geometry::LinearUnit(Geometry::LinearUnit::KILOMETER,1));
 	
 	/* Register a geodetic coordinate transformer with Vrui's coordinate manager: */
 	userTransform=new RotatedGeodeticCoordinateTransform;
@@ -826,12 +946,16 @@ ShowEarthModel::~ShowEarthModel(void)
 		delete *psIt;
 	
 	/* Delete all seismic paths: */
-	for(std::vector<SeismicPath*>::iterator pIt=seismicPaths.begin();pIt!=seismicPaths.end();++pIt)
-		delete *pIt;
+	for(std::vector<SeismicPath*>::iterator spIt=seismicPaths.begin();spIt!=seismicPaths.end();++spIt)
+		delete *spIt;
 	
 	/* Delete all sensor paths: */
-	for(std::vector<GLPolylineTube*>::iterator pIt=sensorPaths.begin();pIt!=sensorPaths.end();++pIt)
-		delete *pIt;
+	for(std::vector<GLPolylineTube*>::iterator spIt=sensorPaths.begin();spIt!=sensorPaths.end();++spIt)
+		delete *spIt;
+	
+	/* Delete all scene graphs: */
+	for(std::vector<SceneGraph::GroupNode*>::iterator sgIt=sceneGraphs.begin();sgIt!=sceneGraphs.end();++sgIt)
+		delete *sgIt;
 	
 	/* Delete the user interface: */
 	delete mainMenu;
@@ -847,7 +971,7 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	
 	/* Create the default topography file name: */
 	std::string topographyFileName=SHOWEARTHMODEL_IMAGEDIR;
-	#ifdef IMAGES_HAVE_PNG
+	#if IMAGES_CONFIG_HAVE_PNG
 	topographyFileName.append("/EarthTopography.png");
 	#else
 	topographyFileName.append("/EarthTopography.ppm");
@@ -855,6 +979,28 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	
 	/* Load the Earth surface texture image from an image file: */
 	Images::RGBImage earthTexture=Images::readImageFile(topographyFileName.c_str());
+	
+	#if 0
+	/* Reduce the Earth surface texture's saturation to make it 3D-friendly: */
+	for(unsigned int y=0;y<earthTexture.getHeight();++y)
+		{
+		Images::RGBImage::Color* rowPtr=earthTexture.modifyPixelRow(y);
+		for(unsigned int x=0;x<earthTexture.getWidth();++x)
+			{
+			float value=float(rowPtr[x][0])*0.299f+float(rowPtr[x][1])*0.587f+float(rowPtr[x][2])*0.114f;
+			for(int i=0;i<3;++i)
+				{
+				float newC=(float(rowPtr[x][i])-value)*0.25f+value;
+				if(newC<0.5f)
+					rowPtr[x][i]=0;
+				else if(newC>=254.5f)
+					rowPtr[x][i]=255;
+				else
+					rowPtr[x][i]=Images::RGBImage::Color::Scalar(newC+0.5f);
+				}
+			}
+		}
+	#endif
 	
 	/* Select the Earth surface texture object: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->surfaceTextureObjectId);
@@ -913,7 +1059,7 @@ void ShowEarthModel::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbac
 	if(surfaceNavigationTool!=0)
 		{
 		/* Set the new tool's alignment function: */
-		surfaceNavigationTool->setAlignFunction(Misc::createFunctionCall<Vrui::NavTransform&,ShowEarthModel>(this,&ShowEarthModel::alignSurfaceFrame));
+		surfaceNavigationTool->setAlignFunction(Misc::createFunctionCall<const Vrui::SurfaceNavigationTool::AlignmentData&,ShowEarthModel>(this,&ShowEarthModel::alignSurfaceFrame));
 		}
 	}
 
@@ -1023,7 +1169,7 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
 	/* Save OpenGL state: */
-	glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_LIGHTING_BIT|GL_POLYGON_BIT);
+	glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_POLYGON_BIT);
 	
 	if(lockToSphere)
 		{
@@ -1056,6 +1202,21 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	float pointRadius=earthquakePointSize*float(Vrui::getUiSize())*0.1f;
 	pointRadius*=frustum.getPixelSize()/frustum.getEyeScreenDistance();
 	EarthquakeSet::Point eyePos=frustum.getEye().toPoint();
+	
+	if(fog)
+		{
+		/* Enable fog: */
+		glEnable(GL_FOG);
+		glFogi(GL_FOG_MODE,GL_LINEAR);
+		
+		/* Calculate the minimum and maximum distance values: */
+		float centerDist=-(1.0f/frustum.getEyeScreenDistance()-frustum.getScreenPlane().calcDistance(GLFrustum<float>::Point::origin))*Vrui::getNavigationTransformation().getScaling();
+		float radius=float(6378.137*Vrui::getNavigationTransformation().getScaling());
+		std::cout<<centerDist<<", "<<radius<<std::endl;
+		glFogf(GL_FOG_START,centerDist-radius);
+		glFogf(GL_FOG_END,centerDist+radius);
+		glFogfv(GL_FOG_COLOR,Vrui::getBackgroundColor().getRgba());
+		}
 	
 	/* Render all opaque surfaces: */
 	glDisable(GL_CULL_FACE);
@@ -1096,28 +1257,36 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
 	glEnable(GL_CULL_FACE);
 	
+	/* Render all sensor paths: */
+	glMaterial(GLMaterialEnums::FRONT,sensorPathMaterial);
+	for(std::vector<GLPolylineTube*>::const_iterator spIt=sensorPaths.begin();spIt!=sensorPaths.end();++spIt)
+		(*spIt)->glRenderAction(contextData);
+	
+	if(!sceneGraphs.empty())
+		{
+		/* Calculate the full navigation transformation: */
+		Vrui::NavTransform t=Vrui::getNavigationTransformation();
+		if(lockToSphere)
+			t*=sphereTransform;
+		t*=Vrui::NavTransform::rotate(Vrui::Rotation::rotateZ(Math::rad(rotationAngle)));
+		
+		/* Save OpenGL state: */
+		glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
+		
+		/* Create a render state to traverse the scene graph: */
+		SceneGraph::GLRenderState renderState(contextData,t.inverseTransform(Vrui::getMainViewer()->getHeadPosition()),t.inverseTransform(Vrui::getUpDirection()));
+		
+		/* Render all scene graphs: */
+		for(unsigned int i=0;i<sceneGraphs.size();++i)
+			if(showSceneGraphs[i])
+				sceneGraphs[i]->glRenderAction(renderState);
+		
+		/* Reset OpenGL state: */
+		glPopAttrib();
+		}
+	
 	/* Disable lighting to render point/line models: */
 	glDisable(GL_LIGHTING);
-	
-	// DEBUGGING
-	#if 0
-	glPushMatrix();
-	glMultMatrix(navFrame);
-	glBegin(GL_LINES);
-	glColor3f(1.0f,0.0f,0.0f);
-	glVertex3f(0.0f,0.0f,0.0f);
-	glVertex3f(1.0f,0.0f,0.0f);
-	
-	glColor3f(0.0f,1.0f,0.0f);
-	glVertex3f(0.0f,0.0f,0.0f);
-	glVertex3f(0.0f,1.0f,0.0f);
-	
-	glColor3f(0.0f,0.0f,1.0f);
-	glVertex3f(0.0f,0.0f,0.0f);
-	glVertex3f(0.0f,0.0f,1.0f);
-	glEnd();
-	glPopMatrix();
-	#endif
 	
 	/* Render all additional point sets: */
 	static const GLColor<GLfloat,3> pointSetColors[14]=
@@ -1160,11 +1329,6 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	
 	/* Enable lighting again to render transparent surfaces: */
 	glEnable(GL_LIGHTING);
-	
-	/* Render all sensor paths: */
-	glMaterial(GLMaterialEnums::FRONT,sensorPathMaterial);
-	for(std::vector<GLPolylineTube*>::const_iterator spIt=sensorPaths.begin();spIt!=sensorPaths.end();++spIt)
-		(*spIt)->glRenderAction(contextData);
 	
 	/* Render all locators: */
 	for(BaseLocatorList::const_iterator blIt=baseLocators.begin();blIt!=baseLocators.end();++blIt)
@@ -1300,14 +1464,19 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-void ShowEarthModel::alignSurfaceFrame(Vrui::NavTransform& surfaceFrame)
+void ShowEarthModel::alignSurfaceFrame(const Vrui::SurfaceNavigationTool::AlignmentData& alignmentData)
 	{
 	/* Create a geoid: */
 	typedef Geometry::Geoid<Vrui::Scalar> Geoid;
 	Geoid geoid(6378.14,1.0/298.247); // Same geoid as used in EarthFunctions.cpp
 	
 	/* Convert the surface frame's base point to geodetic latitude/longitude: */
-	Geoid::Point geodeticBase=geoid.cartesianToGeodetic(surfaceFrame.getOrigin());
+	Geoid::Point base=alignmentData.surfaceFrame.getOrigin();
+	Geoid::Point geodeticBase;
+	if(Geometry::sqr(base)<Geoid::Scalar(1))
+		geodeticBase=Geoid::Point(Math::rad(-121.738056),Math::rad(38.553889),0.0);
+	else
+		geodeticBase=geoid.cartesianToGeodetic(base);
 	
 	/* Snap the base point to the surface: */
 	geodeticBase[2]=Geoid::Scalar(0);
@@ -1316,9 +1485,7 @@ void ShowEarthModel::alignSurfaceFrame(Vrui::NavTransform& surfaceFrame)
 	Geoid::Frame frame=geoid.geodeticToCartesianFrame(geodeticBase);
 	
 	/* Update the passed frame: */
-	surfaceFrame=Vrui::NavTransform(frame.getTranslation(),frame.getRotation(),surfaceFrame.getScaling());
-	// DEBUGGING
-	//navFrame=surfaceFrame;
+	alignmentData.surfaceFrame=Vrui::NavTransform(frame.getTranslation(),frame.getRotation(),alignmentData.surfaceFrame.getScaling());
 	}
 
 void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
@@ -1340,6 +1507,11 @@ void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChange
 		int pointSetIndex=atoi(cbData->toggle->getName()+18);
 		showPointSets[pointSetIndex]=cbData->set;
 		}
+	else if(strncmp(cbData->toggle->getName(),"ShowSceneGraphToggle",20)==0)
+		{
+		int sceneGraphIndex=atoi(cbData->toggle->getName()+20);
+		showSceneGraphs[sceneGraphIndex]=cbData->set;
+		}
 	else if(strcmp(cbData->toggle->getName(),"ShowSeismicPathsToggle")==0)
 		showSeismicPaths=cbData->set;
 	else if(strcmp(cbData->toggle->getName(),"ShowOuterCoreToggle")==0)
@@ -1350,6 +1522,8 @@ void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChange
 		showInnerCore=cbData->set;
 	else if(strcmp(cbData->toggle->getName(),"InnerCoreTransparentToggle")==0)
 		innerCoreTransparent=cbData->set;
+	else if(strcmp(cbData->toggle->getName(),"UseFogToggle")==0)
+		fog=cbData->set;
 	else if(strcmp(cbData->toggle->getName(),"RotateEarthToggle")==0)
 		{
 		rotateEarth=cbData->set;
@@ -1392,7 +1566,7 @@ void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChange
 		if(cbData->set)
 			{
 			/* Open the render dialog at the same position as the main menu: */
-			Vrui::getWidgetManager()->popupPrimaryWidget(renderDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
+			Vrui::popupPrimaryWidget(renderDialog);
 			}
 		else
 			{
@@ -1405,7 +1579,7 @@ void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChange
 		if(cbData->set)
 			{
 			/* Open the animation dialog at the same position as the main menu: */
-			Vrui::getWidgetManager()->popupPrimaryWidget(animationDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
+			Vrui::popupPrimaryWidget(animationDialog);
 			}
 		else
 			{
@@ -1415,6 +1589,16 @@ void ShowEarthModel::menuToggleSelectCallback(GLMotif::ToggleButton::ValueChange
 		}
 	else if(strcmp(cbData->toggle->getName(),"PlayToggle")==0)
 		play=cbData->set;
+	}
+
+void ShowEarthModel::renderDialogCloseCallback(Misc::CallbackData* cbData)
+	{
+	showRenderDialogToggle->setToggle(false);
+	}
+
+void ShowEarthModel::animationDialogCloseCallback(Misc::CallbackData* cbData)
+	{
+	showAnimationDialogToggle->setToggle(false);
 	}
 
 void ShowEarthModel::sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
@@ -1440,6 +1624,11 @@ void ShowEarthModel::sliderCallback(GLMotif::Slider::ValueChangedCallbackData* c
 	else if(strcmp(cbData->slider->getName(),"EarthquakePointSizeSlider")==0)
 		{
 		earthquakePointSize=float(cbData->value);
+		}
+	else if(strcmp(cbData->slider->getName(),"BackplaneDistanceSlider")==0)
+		{
+		bpDist=float(cbData->value);
+		Vrui::setBackplaneDist(bpDist);
 		}
 	else if(strcmp(cbData->slider->getName(),"CurrentTimeSlider")==0)
 		{

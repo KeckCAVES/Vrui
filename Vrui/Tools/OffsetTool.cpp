@@ -1,7 +1,7 @@
 /***********************************************************************
 OffsetTool - Class to offset the position of an input device by a fixed
 amount to extend the user's arm.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,14 +21,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/OffsetTool.h>
+
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/OffsetTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -50,9 +50,8 @@ OffsetToolFactory::OffsetToolFactory(ToolManager& toolManager)
 	offset=cfs.retrieveValue<ONTransform>("./offset",offset);
 	
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,transformToolFactory->getNumButtons());
-	layout.setNumValuators(0,transformToolFactory->getNumValuators());
+	layout.setNumButtons(0,true);
+	layout.setNumValuators(0,true);
 	
 	/* Set tool class' factory pointer: */
 	OffsetTool::factory=this;
@@ -115,6 +114,11 @@ Methods of class OffsetTool:
 OffsetTool::OffsetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment)
 	{
+	/* Set the transformation source device: */
+	if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else
+		sourceDevice=getValuatorDevice(0);
 	}
 
 OffsetTool::~OffsetTool(void)
@@ -129,9 +133,8 @@ const ToolFactory* OffsetTool::getFactory(void) const
 void OffsetTool::frame(void)
 	{
 	/* Calculate the transformed device's transformation: */
-	TrackerState offsetT=getDeviceTransformation(0);
-	if(transformEnabled)
-		offsetT*=factory->offset;
+	TrackerState offsetT=sourceDevice->getTransformation();
+	offsetT*=factory->offset;
 	transformedDevice->setTransformation(offsetT);
 	}
 

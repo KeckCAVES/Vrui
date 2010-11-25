@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoLocatorTool - Class for 6-DOF localization with scaled-down
 transformations while the tool button is pressed.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,12 +21,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/WaldoLocatorTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/WaldoLocatorTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -39,8 +39,7 @@ WaldoLocatorToolFactory::WaldoLocatorToolFactory(ToolManager& toolManager)
 	 linearScale(0.25),angularScale(0.25)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* locatorToolFactory=toolManager.loadClass("LocatorTool");
@@ -121,7 +120,7 @@ const ToolFactory* WaldoLocatorTool::getFactory(void) const
 	return factory;
 	}
 
-void WaldoLocatorTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCallbackData* cbData)
+void WaldoLocatorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -129,7 +128,7 @@ void WaldoLocatorTool::buttonCallback(int deviceIndex,int,InputDevice::ButtonCal
 		active=true;
 		
 		/* Initialize the scaled transformation: */
-		initial=Vrui::getDeviceTransformation(getDevice(0));
+		initial=Vrui::getDeviceTransformation(getButtonDevice(0));
 		increment=NavTrackerState::identity;
 		last=initial;
 		
@@ -154,7 +153,7 @@ void WaldoLocatorTool::frame(void)
 	if(active)
 		{
 		/* Update the incremental transformation: */
-		NavTrackerState dev=Vrui::getDeviceTransformation(getDevice(0));
+		NavTrackerState dev=Vrui::getDeviceTransformation(getButtonDevice(0));
 		NavTrackerState update=dev;
 		update*=Geometry::invert(last);
 		last=dev;
@@ -176,7 +175,7 @@ void WaldoLocatorTool::frame(void)
 	else
 		{
 		/* Call motion callbacks with the true device transformation: */
-		MotionCallbackData cbData(this,Vrui::getDeviceTransformation(getDevice(0)));
+		MotionCallbackData cbData(this,Vrui::getDeviceTransformation(getButtonDevice(0)));
 		motionCallbacks.call(&cbData);
 		}
 	}

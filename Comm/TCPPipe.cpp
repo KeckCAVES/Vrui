@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Class layering an endianness-safe pipe abstraction with
 buffered typed read/writes over a TCPSocket.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 

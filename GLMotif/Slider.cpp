@@ -1,6 +1,6 @@
 /***********************************************************************
 Slider - Class for horizontal or vertical sliders.
-Copyright (c) 2001-2008 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -94,17 +94,26 @@ void Slider::clickRepeatTimerEventCallback(Misc::TimerEventScheduler::CallbackDa
 			newValue=valueMin;
 		else if(newValue>valueMax)
 			newValue=valueMax;
-		bool changed=newValue!=value;
-		value=newValue;
-		positionSlider();
-		if(changed)
+		if(newValue!=value)
 			{
+			/* Update the slider's state: */
+			value=newValue;
+			positionSlider();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,ValueChangedCallbackData::CLICKED,value);
 			valueChangedCallbacks.call(&cbData);
 			
-			/* Schedule a timer event for click repeat: */
-			nextClickEventTime+=0.1;
-			getManager()->getTimerEventScheduler()->scheduleEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+			Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
+			if(tes!=0)
+				{
+				/* Schedule a timer event for click repeat: */
+				nextClickEventTime+=0.1;
+				tes->scheduleEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+				}
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	}
@@ -177,7 +186,9 @@ Slider::Slider(const char* sName,Container* sParent,Slider::Orientation sOrienta
 Slider::~Slider(void)
 	{
 	/* Need to remove all click-repeat timer events from the event scheduler, just in case: */
-	getManager()->getTimerEventScheduler()->removeAllEvents(this,&Slider::clickRepeatTimerEventCallback);
+	Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
+	if(tes!=0)
+		tes->removeAllEvents(this,&Slider::clickRepeatTimerEventCallback);
 	}
 
 Vector Slider::calcNaturalSize(void) const
@@ -425,11 +436,13 @@ void Slider::pointerButtonDown(Event& event)
 		GLfloat newValue=value-valueIncrement;
 		if(newValue<valueMin)
 			newValue=valueMin;
-		bool changed=newValue!=value;
-		value=newValue;
-		positionSlider();
-		if(changed)
+		if(newValue!=value)
 			{
+			/* Update the slider: */
+			value=newValue;
+			positionSlider();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,ValueChangedCallbackData::CLICKED,value);
 			valueChangedCallbacks.call(&cbData);
 			
@@ -437,8 +450,14 @@ void Slider::pointerButtonDown(Event& event)
 			isClicking=true;
 			clickValueIncrement=-valueIncrement;
 			Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
-			nextClickEventTime=tes->getCurrentTime()+0.5;
-			tes->scheduleEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+			if(tes!=0)
+				{
+				nextClickEventTime=tes->getCurrentTime()+0.5;
+				tes->scheduleEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+				}
+			
+			/* Update the visual representation: */
+			update();
 			}
 		}
 	else if(picked>sliderBox.origin[dimension]+sliderBox.size[dimension]) // Hit above slider?
@@ -447,11 +466,13 @@ void Slider::pointerButtonDown(Event& event)
 		GLfloat newValue=value+valueIncrement;
 		if(newValue>valueMax)
 			newValue=valueMax;
-		bool changed=newValue!=value;
-		value=newValue;
-		positionSlider();
-		if(changed)
+		if(newValue!=value)
 			{
+			/* Update the slider: */
+			value=newValue;
+			positionSlider();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,ValueChangedCallbackData::CLICKED,value);
 			valueChangedCallbacks.call(&cbData);
 			
@@ -459,8 +480,14 @@ void Slider::pointerButtonDown(Event& event)
 			isClicking=true;
 			clickValueIncrement=valueIncrement;
 			Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
-			nextClickEventTime=tes->getCurrentTime()+0.5;
-			tes->scheduleEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+			if(tes!=0)
+				{
+				nextClickEventTime=tes->getCurrentTime()+0.5;
+				tes->scheduleEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+				}
+			
+			/* Update the visual representation: */
+			update();
 			}
 		}
 	else // Hit slider!
@@ -477,7 +504,8 @@ void Slider::pointerButtonUp(Event& event)
 	
 	/* Cancel any pending click-repeat events: */
 	Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
-	tes->removeEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
+	if(tes!=0)
+		tes->removeEvent(nextClickEventTime,this,&Slider::clickRepeatTimerEventCallback);
 	isClicking=false;
 	}
 
@@ -489,7 +517,7 @@ void Slider::pointerMotion(Event& event)
 		int dimension=orientation==HORIZONTAL?0:1;
 		GLfloat newSliderPosition=event.getWidgetPoint().getPoint()[dimension]+dragOffset;
 		
-		/* Calculate the new slider value: */
+		/* Calculate the new slider value and reposition the slider: */
 		GLfloat newValue=(newSliderPosition-shaftBox.origin[dimension])*(valueMax-valueMin)/(shaftBox.size[dimension]-sliderLength)+valueMin;
 		if(newValue<valueMin)
 			newValue=valueMin;
@@ -497,15 +525,18 @@ void Slider::pointerMotion(Event& event)
 			newValue=valueMax;
 		if(valueIncrement>0.0f)
 			newValue=GLfloat(floor(double(newValue)/double(valueIncrement)+0.5)*double(valueIncrement));
-		
-		/* Store the new value and update the slider handle's position: */
-		bool changed=newValue!=value;
-		value=newValue;
-		positionSlider();
-		if(changed)
+		if(newValue!=value)
 			{
+			/* Update the slider: */
+			value=newValue;
+			positionSlider();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,ValueChangedCallbackData::DRAGGED,value);
 			valueChangedCallbacks.call(&cbData);
+			
+			/* Update the visual representation: */
+			update();
 			}
 		}
 	}
@@ -529,6 +560,9 @@ void Slider::setValue(GLfloat newValue)
 	/* Update the value and reposition the slider: */
 	value=newValue;
 	positionSlider();
+	
+	/* Update the visual representation: */
+	update();
 	}
 
 void Slider::setValueRange(GLfloat newValueMin,GLfloat newValueMax,GLfloat newValueIncrement)
@@ -546,6 +580,9 @@ void Slider::setValueRange(GLfloat newValueMin,GLfloat newValueMax,GLfloat newVa
 	if(valueIncrement>0.0f)
 		value=GLfloat(floor(double(value)/double(valueIncrement)+0.5)*double(valueIncrement));
 	positionSlider();
+	
+	/* Update the visual representation: */
+	update();
 	}
 
 }

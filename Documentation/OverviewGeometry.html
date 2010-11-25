@@ -128,6 +128,12 @@ The header files in the templatized geometry library can be grouped according to
 <H3>Spatial Data Structure Classes</H3>
 
 <DL>
+<DT>PointPicker.h</DT>
+<DD>PointPicker is a functor class to pick a point from a container based on distance from a query point. It is templatized by the scalar type and the dimension of the underlying space.</DD>
+
+<DT>RayPicker.h</DT>
+<DD>RayPicker is a functor class to pick a point from a container based on distance along a query ray, with the constraint that the point has to lie within a cone of given apex angle around the ray. It is templatized by the scalar type and the dimension of the underlying space.</DD>
+
 <DT>ValuedPoint.h</DT>
 <DD>ValuedPoint is a class derived from the Point class, describing an affine point with a single associated data value of arbitrary type. It is templatized by the underlying point type and the type of associated data value.</DD>
 
@@ -162,8 +168,14 @@ The header files in the templatized geometry library can be grouped according to
 <DT>OutputOperators.h</DT>
 <DD>OutputOperators.h contains basic std::ostream-compatible output operators for many geometry classes. The output operators respect the current stream settings for number format, precision, and width, are simple to parse when reading, but not especially pretty.</DD>
 
+<DT>GeometryMarshallers.h</DT>
+<DD>GeometryMarshallers.h contains specialized versions of the Misc::Marshaller class for several geometry data types.</DD>
+
 <DT>GeometryValueCoders.h</DT>
 <DD>GeometryValueCoders.h contains specialized versions of the Misc::ValueCoder class for several geometry data types.</DD>
+
+<DT>LinearUnit.h</DT>
+<DD>LinearUnit is a class to define common units of length measurements and their conversions.</DD>
 </DL>
 
 </BODY>

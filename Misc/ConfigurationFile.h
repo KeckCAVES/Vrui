@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -101,7 +101,9 @@ class ConfigurationFileBase
 		~Section(void);
 		
 		/* Methods: */
+		void clear(void); // Removes all subsections and tag/value pairs from the section
 		Section* addSubsection(const std::string& subsectionName); // Adds a subsection to a section
+		void removeSubsection(const std::string& subsectionName); // Removes the given subsection from the section; does nothing if subsection does not exist
 		void addTagValue(const std::string& newTag,const std::string& newValue); // Adds a new tag/value pair to the section
 		void removeTag(const std::string& tag); // Removes the given tag from the section; does nothing if tag does not exist
 		bool isEdited(void) const; // Checks if this section (or any of its subsections) has been edited since the last save
@@ -116,6 +118,7 @@ class ConfigurationFileBase
 		Section* getSection(const char* relativePath,const char** pathSuffix =0); // Returns section reached from this section following given path; tries its best to create sections that do not exist
 		
 		/* Tag value retrieval methods: */
+		bool hasTag(const char* relativeTagPath) const; // Returns true if the relative tag path exists
 		const std::string& retrieveTagValue(const char* relativeTagPath) const; // Retrieves value of relative tag path; throws exception if tag does not exist
 		std::string retrieveTagValue(const char* relativeTagPath,const std::string& defaultValue) const; // Retrieves value of relative tag path; returns default value if tag does not already exist
 		const std::string& retrieveTagValue(const char* relativeTagPath,const std::string& defaultValue); // Retrieves value of relative tag path; tries its best to create tag if it does not already exist
@@ -138,7 +141,48 @@ class ConfigurationFileBase
 		/* Methods: */
 		public:
 		
+		/* Subsection iteration methods: */
+		bool isValid(void) const // Returns false if the section does not exist
+			{
+			return baseSection!=0;
+			}
+		std::string getName(void) const // Returns name of section under its parent section
+			{
+			return baseSection->name;
+			}
+		friend bool operator==(const SectionValueCoder& sIt1,const SectionValueCoder& sIt2) // Equality operator
+			{
+			return sIt1.baseSection==sIt2.baseSection;
+			}
+		friend bool operator!=(const SectionValueCoder& sIt1,const SectionValueCoder& sIt2) // Inequality operator
+			{
+			return sIt1.baseSection!=sIt2.baseSection;
+			}
+		SectionValueCoder& operator++(void) // Moves to next subsection under same parent section (pre-increment)
+			{
+			baseSection=baseSection->sibling;
+			return *this;
+			}
+		SectionValueCoder operator++(int) // Ditto (post-increment)
+			{
+			SectionValueCoder result=*this;
+			baseSection=baseSection->sibling;
+			return result;
+			}
+		SectionValueCoder beginSubsections(void) const // Returns pointer to first subsection
+			{
+			return SectionValueCoder(baseSection->firstSubsection);
+			}
+		SectionValueCoder endSubsections(void) const // Returns iterator one past last subsection
+			{
+			return SectionValueCoder(0);
+			}
+		
 		/* String access methods: */
+		bool hasTag(const char* tag) const // Returns true if the given tag exists
+			{
+			return baseSection->hasTag(tag);
+			}
 		const std::string& retrieveString(const char* tag) const // Retrieves string value; throws exception if tag does not exist
 			{
 			return baseSection->retrieveTagValue(tag);
@@ -307,7 +351,13 @@ class ConfigurationFileBase
 		}
 	void merge(const char* mergeFileName); // Merges in contents of given configuration file
 	void mergeCommandline(int& argc,char**& argv); // Merges and removes "-tag value" pairs given on command line
-	void save(void); // Saves the current in-memory state of the configuration file
+	void saveAs(const char* newFileName); // Saves the current in-memory state of the configuration file to the given file name
+	void save(void) // Saves the current in-memory state of the configuration file
+		{
+		/* Check if the configuration was edited: */
+		if(rootSection->isEdited())
+			saveAs(fileName.c_str());
+		}
 	template <class PipeParam>
 	void writeToPipe(PipeParam& pipe) const; // Writes the in-memory representation of the configuration file to a pipe
 	
@@ -333,12 +383,23 @@ class ConfigurationFileSection:public ConfigurationFileBase::SectionValueCoder
 		:ConfigurationFileBase::SectionValueCoder(sBaseSection)
 		{
 		}
+	public:
+	ConfigurationFileSection(const ConfigurationFileBase::SectionValueCoder& source) // Creates from base class
+		:ConfigurationFileBase::SectionValueCoder(source)
+		{
+		}
 	
 	/* Methods: */
-	public:
+	bool isValid(void) const // Returns true if the section pointer is valid
+		{
+		return baseSection!=0;
+		}
 	std::string getPath(void) const; // Returns absolute path to current section
 	void setSection(const char* relativePath); // Changes current section
 	ConfigurationFileSection getSection(const char* relativePath) const; // Returns pointer to given section relative to current section
+	void clear(void); // Removes all subsections and tag/value pairs from the current section
+	void removeSubsection(const std::string& subsectionName); // Removes the given subsection from the current section
+	void removeTag(const std::string& tagName); // Removes the given tag from the current section
 	};
 
 class ConfigurationFile:public ConfigurationFileBase,public ConfigurationFileBase::SectionValueCoder

@@ -2,7 +2,7 @@
 ClutchTool - Class to offset the position and orientation of an input
 device using a "clutch" button to disengage a virtual device from a
 source device.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,14 +22,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ClutchTool.h>
+
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ClutchTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -41,6 +41,10 @@ ClutchToolFactory::ClutchToolFactory(ToolManager& toolManager)
 	:ToolFactory("ClutchTool",toolManager),
 	 clutchButtonToggleFlag(false)
 	{
+	/* Initialize tool layout: */
+	layout.setNumButtons(1,true);
+	layout.setNumValuators(0,true);
+	
 	/* Insert class into class hierarchy: */
 	TransformToolFactory* transformToolFactory=dynamic_cast<TransformToolFactory*>(toolManager.loadClass("TransformTool"));
 	transformToolFactory->addChildClass(this);
@@ -49,11 +53,6 @@ ClutchToolFactory::ClutchToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	clutchButtonToggleFlag=cfs.retrieveValue<bool>("./clutchButtonToggleFlag",clutchButtonToggleFlag);
-	
-	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,transformToolFactory->getNumButtons()+1);
-	layout.setNumValuators(0,transformToolFactory->getNumValuators());
 	
 	/* Set tool class' factory pointer: */
 	ClutchTool::factory=this;
@@ -68,6 +67,19 @@ ClutchToolFactory::~ClutchToolFactory(void)
 const char* ClutchToolFactory::getName(void) const
 	{
 	return "Clutch Transformation";
+	}
+
+const char* ClutchToolFactory::getButtonFunction(int buttonSlotIndex) const
+	{
+	if(buttonSlotIndex==0)
+		{
+		if(clutchButtonToggleFlag)
+			return "Toggle Clutch";
+		else
+			return "Disengage Clutch";
+		}
+	else
+		return ToolFactory::getButtonFunction(buttonSlotIndex-1);
 	}
 
 Tool* ClutchToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -118,6 +130,13 @@ ClutchTool::ClutchTool(const ToolFactory* factory,const ToolInputAssignment& inp
 	 offset(TrackerState::identity),
 	 clutchButtonState(false)
 	{
+	/* Set the transformation source device: */
+	if(input.getNumButtonSlots()>1)
+		sourceDevice=getButtonDevice(1);
+	else if(input.getNumValuatorSlots()>0)
+		sourceDevice=getValuatorDevice(0);
+	else
+		sourceDevice=getButtonDevice(0); // User didn't select anything to forward; let's just pretend it makes sense
 	}
 
 ClutchTool::~ClutchTool(void)
@@ -129,9 +148,9 @@ const ToolFactory* ClutchTool::getFactory(void) const
 	return factory;
 	}
 
-void ClutchTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData)
+void ClutchTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	if(deviceButtonIndex==0) // Clutch button
+	if(buttonSlotIndex==0) // Clutch button
 		{
 		bool mustInit=false;
 		if(factory->clutchButtonToggleFlag)
@@ -151,15 +170,15 @@ void ClutchTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCal
 		if(mustInit)
 			{
 			/* Calculate the new offset transformation: */
-			Vector offsetT=transformedDevice->getPosition()-getDevicePosition(0);
-			Rotation offsetR=transformedDevice->getTransformation().getRotation()*Geometry::invert(getDeviceTransformation(0).getRotation());
+			Vector offsetT=transformedDevice->getPosition()-getButtonDevicePosition(0);
+			Rotation offsetR=transformedDevice->getTransformation().getRotation()*Geometry::invert(sourceDevice->getTransformation().getRotation());
 			offset=TrackerState(offsetT,offsetR);
 			}
 		}
 	else // Pass-through button
 		{
-		if(setButtonState(deviceButtonIndex-1,cbData->newButtonState))
-			transformedDevice->setButtonState(deviceButtonIndex-1,buttonStates[deviceButtonIndex-1]);
+		/* Let transform tool handle it: */
+		TransformTool::buttonCallback(buttonSlotIndex,cbData);
 		}
 	}
 
@@ -168,8 +187,8 @@ void ClutchTool::frame(void)
 	if(!clutchButtonState)
 		{
 		/* Update the transformation of the transformed device: */
-		TrackerState clutch=getDeviceTransformation(0);
-		clutch.leftMultiply(TrackerState::rotateAround(getDevicePosition(0),offset.getRotation()));
+		TrackerState clutch=sourceDevice->getTransformation();
+		clutch.leftMultiply(TrackerState::rotateAround(sourceDevice->getPosition(),offset.getRotation()));
 		clutch.leftMultiply(TrackerState::translate(offset.getTranslation()));
 		clutch.renormalize();
 		transformedDevice->setTransformation(clutch);

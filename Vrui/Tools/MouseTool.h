@@ -2,7 +2,7 @@
 MouseTool - Class to map regular 2D mice into VR environments by
 representing them as virtual input devices sliding along the screen
 planes.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_MOUSETOOL_INCLUDED
 #define VRUI_MOUSETOOL_INCLUDED
 
-#include <Vrui/Tools/TransformTool.h>
+#include <Vrui/TransformTool.h>
 
 namespace Vrui {
 
@@ -37,8 +37,8 @@ class MouseToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
+	Scalar rayOffset; // Amount by which to set back the intersection ray's position
 	Scalar crosshairSize; // Size of the screen-aligned crosshairs
-	bool buttonToggleFlag; // Flag whether the associated mouse button acts as a toggle
 	
 	/* Constructors and destructors: */
 	public:

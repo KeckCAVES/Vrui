@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -33,6 +33,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
+#include <Math/Matrix.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
@@ -44,11 +45,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/TextField.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
-#include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/DenseMatrix.h>
 
 namespace {
 
@@ -86,8 +85,7 @@ CurveEditorToolFactory::CurveEditorToolFactory(ToolManager& toolManager)
 	 curveRadius(getUiSize())
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -114,6 +112,11 @@ CurveEditorToolFactory::~CurveEditorToolFactory(void)
 const char* CurveEditorToolFactory::getName(void) const
 	{
 	return "Viewpoint Curve Editor";
+	}
+
+const char* CurveEditorToolFactory::getButtonFunction(int) const
+	{
+	return "Pick Keyframe";
 	}
 
 Tool* CurveEditorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -159,14 +162,14 @@ CurveEditorToolFactory* CurveEditorTool::factory=0;
 Methods of class CurveEditorTool:
 ********************************/
 
-void CurveEditorTool::writeControlPoint(const CurveEditorTool::ControlPoint& cp,DenseMatrix& b,int rowIndex)
+void CurveEditorTool::writeControlPoint(const CurveEditorTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
 	{
-	for(int j=0;j<3;++j)
+	for(unsigned int j=0;j<3;++j)
 		b(rowIndex,j)=cp.center[j];
 	b(rowIndex,3)=cp.size;
-	for(int j=0;j<3;++j)
+	for(unsigned int j=0;j<3;++j)
 		b(rowIndex,4+j)=cp.forward[j];
-	for(int j=0;j<3;++j)
+	for(unsigned int j=0;j<3;++j)
 		b(rowIndex,7+j)=cp.up[j];
 	}
 
@@ -175,20 +178,18 @@ void CurveEditorTool::calculateC2Spline(void)
 	if(numVertices>1)
 		{
 		/* Create a big matrix to solve the C^2 spline problem: */
-		int numSegments=numVertices-1;
-		DenseMatrix A(4*numSegments,4*numSegments);
-		A.zero();
-		DenseMatrix b(4*numSegments,10);
-		b.zero();
+		unsigned int numSegments=numVertices-1;
+		Math::Matrix A(4*numSegments,4*numSegments,0.0);
+		Math::Matrix b(4*numSegments,10,0.0);
 		
 		Vertex* v0=firstVertex;
 		Segment* s0=firstVertex->segments[1];
-		int rowIndex=0;
-		int base=0;
+		unsigned int rowIndex=0;
+		unsigned int base=0;
 		
 		/* Interpolate the first curve vertex: */
 		A(rowIndex,base+0)=1.0;
-		writeControlPoint(*v0,b,0);
+		writeControlPoint(*v0,b,rowIndex);
 		++rowIndex;
 		
 		switch(c2BoundaryCondition)
@@ -212,7 +213,7 @@ void CurveEditorTool::calculateC2Spline(void)
 		++rowIndex;
 		base+=4;
 		
-		for(int segmentIndex=1;segmentIndex<numSegments;++segmentIndex)
+		for(unsigned int segmentIndex=1;segmentIndex<numSegments;++segmentIndex)
 			{
 			Vertex* v1=s0->vertices[1];
 			Segment* s1=v1->segments[1];
@@ -276,12 +277,13 @@ void CurveEditorTool::calculateC2Spline(void)
 		writeControlPoint(*v1,b,rowIndex);
 		
 		/* Solve the system of equations: */
-		DenseMatrix x=A.solveLinearEquations(b);
+		Math::Matrix x=b/A;
+		Math::Matrix bp=A*x;
 		
 		/* Update the curve representation: */
 		v0=firstVertex;
 		rowIndex=0;
-		for(int segmentIndex=0;segmentIndex<numSegments;++segmentIndex)
+		for(unsigned int segmentIndex=0;segmentIndex<numSegments;++segmentIndex)
 			{
 			s0=v0->segments[1];
 			
@@ -539,13 +541,24 @@ void CurveEditorTool::autoPlayToggleValueChangedCallback(GLMotif::ToggleButton::
 
 void CurveEditorTool::loadCurveCallback(Misc::CallbackData*)
 	{
+	/* Create a file selection dialog to select a curve file: */
+	GLMotif::FileSelectionDialog* loadCurveDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curve...",0,".curve",openPipe());
+	loadCurveDialog->getOKCallbacks().add(this,&CurveEditorTool::loadCurveOKCallback);
+	loadCurveDialog->getCancelCallbacks().add(loadCurveDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	
+	/* Show the file selection dialog: */
+	popupPrimaryWidget(loadCurveDialog);
+	}
+
+void CurveEditorTool::loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
 	try
 		{
 		/* Create intermediate lists of vertices and segments: */
 		std::vector<Vertex> vertices;
 		std::vector<Segment> segments;
 		
-		Misc::File curveFile("Curve.dat","rt");
+		Misc::File curveFile(cbData->selectedFileName.c_str(),"rt");
 		
 		/* Read the first vertex: */
 		Vertex v;
@@ -638,6 +651,9 @@ void CurveEditorTool::loadCurveCallback(Misc::CallbackData*)
 		{
 		/* Ignore the error */
 		}
+	
+	/* Destroy the file selection dialog: */
+	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 	}
 
 void CurveEditorTool::saveCurveCallback(Misc::CallbackData*)
@@ -684,7 +700,8 @@ void CurveEditorTool::saveCurveCallback(Misc::CallbackData*)
 			}
 		catch(std::runtime_error)
 			{
-			/* Ignore error */
+			/* Show an error message: */
+			showErrorMessage("Viewpoint Curve Editor","Could not create curve file; did not save curve");
 			}
 		}
 	}
@@ -1283,7 +1300,7 @@ CurveEditorTool::CurveEditorTool(const ToolFactory* sFactory,const ToolInputAssi
 	curveEditorDialog->manageChild();
 	
 	/* Pop up the curve editor dialog: */
-	popupPrimaryWidget(curveEditorDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(curveEditorDialogPopup);
 	}
 
 CurveEditorTool::~CurveEditorTool(void)
@@ -1313,11 +1330,11 @@ const ToolFactory* CurveEditorTool::getFactory(void) const
 	return factory;
 	}
 
-void CurveEditorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void CurveEditorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
-		Point p=getInverseNavigationTransformation().transform(getDevicePosition(0));
+		Point p=getInverseNavigationTransformation().transform(getButtonDevicePosition(0));
 		Scalar scale=getInverseNavigationTransformation().getScaling();
 		
 		/* Check if the device selected an existing tangent handle, an existing control point, or the curve (in that order): */

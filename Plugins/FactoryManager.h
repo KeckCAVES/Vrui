@@ -2,7 +2,7 @@
 FactoryManager - Generic base class for managers of factory classes
 derived from a common base class. Intended to manage loading of dynamic
 shared objects.
-Copyright (c) 2003-2006 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Plugin Handling Library (Plugins).
 
@@ -225,7 +225,7 @@ class FactoryManager
 }
 
 #ifndef PLUGINS_FACTORYMANAGER_IMPLEMENTATION
-#include <Plugins/FactoryManager.cpp>
+#include <Plugins/FactoryManager.icpp>
 #endif
 
 #endif

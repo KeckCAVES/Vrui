@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,15 +22,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 ***********************************************************************/
 
 #define GLX_GLXEXT_PROTOTYPES 1
-#define SAVE_SCREENSHOT_PROJECTION 1
+#define SAVE_SCREENSHOT_PROJECTION 0
+#define RENDERFRAMETIMES 0
 
 #include <Vrui/VRWindow.h>
 
-#define RENDERFRAMETIMES 0
+#include <Images/Config.h>
 
 #include <stdio.h>
+#include <iostream>
 #include <X11/keysym.h>
-#ifndef VRUI_USE_PNG
+#if SAVE_SCREENSHOT_PROJECTION
 #include <Misc/File.h>
 #endif
 #include <Misc/ThrowStdErr.h>
@@ -50,6 +52,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 // #include <GL/glxext.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLMatrixTemplates.h>
+#include <GL/GLPrintError.h>
 #include <GL/GLExtensionManager.h>
 #include <GL/Extensions/GLARBMultitexture.h>
 #include <GL/Extensions/GLARBShaderObjects.h>
@@ -58,19 +61,21 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GLMotif/WidgetManager.h>
 #include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
 #include <Images/WriteImageFile.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
-#include <Vrui/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ViewSpecification.h>
-#include <Vrui/Tools/Tool.h>
+#include <Vrui/Tool.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/ToolKillZone.h>
-#include <Vrui/Vrui.h>
-#include <Vrui/Vrui.Internal.h>
+#include <Vrui/Internal/ToolKillZone.h>
+#include <Vrui/Internal/MovieSaver.h>
+#include <Vrui/Internal/Vrui.h>
 
 #if SAVE_SCREENSHOT_PROJECTION
 #include <Misc/File.h>
@@ -183,10 +188,12 @@ class ValueCoder<GLWindow::WindowPos>
 	public:
 	static std::string encode(const GLWindow::WindowPos& value)
 		{
-		std::string result="";
-		result+=ValueCoderArray<int>::encode(2,value.origin);
-		result+=", ";
-		result+=ValueCoderArray<int>::encode(2,value.size);
+		std::string result;
+		
+		result.append(FixedArrayValueCoder<int>::encode(value.origin,2));
+		result.push_back(',');
+		result.push_back(' ');
+		result.append(FixedArrayValueCoder<int>::encode(value.size,2));
 		return result;
 		}
 	static GLWindow::WindowPos decode(const char* start,const char* end,const char** decodeEnd =0)
@@ -194,29 +201,25 @@ class ValueCoder<GLWindow::WindowPos>
 		try
 			{
 			GLWindow::WindowPos result;
-			const char* tokenPtr=start;
+			const char* cPtr=start;
 			
 			/* Parse the origin: */
-			int numComponents;
-			numComponents=ValueCoderArray<int>::decode(2,result.origin,tokenPtr,end,&tokenPtr);
-			if(numComponents!=2)
-				throw 42;
+			FixedArrayValueCoder<int>::decode(result.origin,2,cPtr,end,&cPtr);
+			cPtr=skipWhitespace(cPtr,end);
 			
-			/* Skip whitespace and check for separating comma: */
-			tokenPtr=skipSeparator(',',tokenPtr,end);
+			/* Check for separating comma: */
+			cPtr=checkSeparator(',',cPtr,end);
 			
 			/* Parse the size: */
-			numComponents=ValueCoderArray<int>::decode(2,result.size,tokenPtr,end,&tokenPtr);
-			if(numComponents!=2)
-				throw 42;
+			FixedArrayValueCoder<int>::decode(result.size,2,cPtr,end,&cPtr);
 			
 			if(decodeEnd!=0)
-				*decodeEnd=tokenPtr;
+				*decodeEnd=cPtr;
 			return result;
 			}
-		catch(...)
+		catch(std::runtime_error err)
 			{
-			throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to GLWindow::WindowPos"));
+			throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to GLWindow::WindowPos due to ")+err.what());
 			}
 		}
 	};
@@ -252,6 +255,15 @@ int* VRWindow::getVisualProperties(const Misc::ConfigurationFileSection& configF
 	
 	/* Add standard properties first: */
 	visualPropertyList[numProperties++]=GLX_RGBA;
+	
+	/* Don't forget to ask for reasonable channel sizes: */
+	visualPropertyList[numProperties++]=GLX_RED_SIZE;
+	visualPropertyList[numProperties++]=8;
+	visualPropertyList[numProperties++]=GLX_GREEN_SIZE;
+	visualPropertyList[numProperties++]=8;
+	visualPropertyList[numProperties++]=GLX_BLUE_SIZE;
+	visualPropertyList[numProperties++]=8;
+	
 	visualPropertyList[numProperties++]=GLX_DEPTH_SIZE;
 	visualPropertyList[numProperties++]=16;
 	visualPropertyList[numProperties++]=GLX_DOUBLEBUFFER;
@@ -280,6 +292,7 @@ int* VRWindow::getVisualProperties(const Misc::ConfigurationFileSection& configF
 void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye)
 	{
 	/* Update the window's display state object: */
+	displayState->resized=resizeViewport;
 	displayState->eyePosition=eye;
 	displayState->screen=screens[screenIndex];
 	
@@ -421,7 +434,7 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 		char buffer[20];
 		snprintf(buffer,sizeof(buffer),"%6.1f fps",1.0/vruiState->currentFrameTime);
 		glDisable(GL_LIGHTING);
-		showFpsFont->drawString(GLFont::Vector(showFpsFont->getCharacterWidth()*9.5f,0.0f,0.0f),buffer);
+		showFpsFont->drawString(GLFont::Vector(showFpsFont->getCharacterWidth()*9.5f+2.0f,2.0f,0.0f),buffer);
 		glEnable(GL_LIGHTING);
 		#endif
 		
@@ -472,17 +485,18 @@ bool VRWindow::calcMousePos(int x,int y,Scalar mousePos[2]) const
 VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& configFileSection,VruiState* sVruiState,InputDeviceAdapterMouse* sMouseAdapter)
 	:GLWindow(getDisplayName(configFileSection).c_str(),
 	          windowName,
-						configFileSection.retrieveValue<GLWindow::WindowPos>("./windowPos",GLWindow::WindowPos(800,600)),
+	          configFileSection.retrieveValue<GLWindow::WindowPos>("./windowPos",GLWindow::WindowPos(800,600)),
 	          getVisualProperties(configFileSection)),
 	 vruiState(sVruiState),
 	 mouseAdapter(sMouseAdapter),
-	 extensionManager(new GLExtensionManager),
+	 extensionManager(0),
 	 contextData(new GLContextData(101)),displayState(vruiState->registerContext(*contextData)),
 	 viewer(findViewer(configFileSection.retrieveString("./viewerName").c_str())),
 	 windowType(configFileSection.retrieveValue<WindowType>("./windowType")),
 	 multisamplingLevel(configFileSection.retrieveValue<int>("./multisamplingLevel",1)),
 	 panningViewport(configFileSection.retrieveValue<bool>("./panningViewport",false)),
 	 navigate(configFileSection.retrieveValue<bool>("./navigate",false)),
+	 movePrimaryWidgets(configFileSection.retrieveValue<bool>("./movePrimaryWidgets",false)),
 	 hasFramebufferObjectExtension(false),
 	 ivEyeIndexOffset(0),
 	 ivRightViewportTextureID(0),ivRightDepthbufferObjectID(0),ivRightFramebufferObjectID(0),
@@ -496,7 +510,8 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	 trackToolKillZone(false),
 	 dirty(true),
 	 resizeViewport(true),
-	 saveScreenshot(false)
+	 saveScreenshot(false),
+	 movieSaver(0)
 	{
 	/* Get the screen(s) this window projects onto: */
 	screens[0]=findScreen(configFileSection.retrieveString("./leftScreenName","").c_str());
@@ -637,12 +652,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		{
 		/* Set the viewport dimensions to the full screen: */
 		for(int i=0;i<2;++i)
-			{
-			viewports[i][0]=Scalar(0);
-			viewports[i][1]=screens[i]->getWidth();
-			viewports[i][2]=Scalar(0);
-			viewports[i][3]=screens[i]->getHeight();
-			}
+			screens[i]->getViewport(viewports[i]);
 		}
 	
 	/* Check if the window is supposed to track the tool manager's tool kill zone: */
@@ -652,9 +662,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		std::string toolKillZonePosValue=configFileSection.retrieveString("./toolKillZonePos");
 		const char* start=toolKillZonePosValue.data();
 		const char* end=start+toolKillZonePosValue.length();
-		int numComponents=Misc::ValueCoderArray<Scalar>::decode(2,toolKillZonePos,start,end,0);
-		if(numComponents!=2)
-			throw 42;
+		Misc::FixedArrayValueCoder<Scalar>::decode(toolKillZonePos,2,start,end,0);
 		trackToolKillZone=true;
 		
 		/* Move the tool kill zone to the desired position: */
@@ -684,6 +692,8 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	
 	/* Initialize the window's OpenGL context: */
 	makeCurrent();
+	extensionManager=new GLExtensionManager;
+	GLExtensionManager::makeCurrent(extensionManager);
 	glViewport(0,0,getWindowWidth(),getWindowHeight());
 	glClearColor(getBackgroundColor());
 	if(multisamplingLevel>1)
@@ -872,13 +882,18 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		}
 	#endif
 	
-	/* Initialize application display state: */
-	if(vruiState->perDisplayInitFunction!=0)
-		vruiState->perDisplayInitFunction(*contextData,vruiState->perDisplayInitFunctionData);
+	/* Check if the window is supposed to save a movie: */
+	if(configFileSection.retrieveValue<bool>("./saveMovie",false))
+		{
+		/* Create a movie saver object: */
+		movieSaver=MovieSaver::createMovieSaver(configFileSection);
+		}
 	}
 
 VRWindow::~VRWindow(void)
 	{
+	delete movieSaver;
+	
 	makeCurrent();
 	if(windowType==INTERLEAVEDVIEWPORT_STEREO)
 		{
@@ -1083,22 +1098,6 @@ ViewSpecification VRWindow::calcViewSpec(int eyeIndex) const
 	return result;
 	}
 
-Scalar* VRWindow::getWindowCenterPos(Scalar windowCenterPos[2]) const
-	{
-	if(windowType!=SPLITVIEWPORT_STEREO&&panningViewport)
-		{
-		windowCenterPos[0]=(Scalar(getWindowOrigin()[0]+GLWindow::getWindowSize()[0]/2)+Scalar(0.5))*screens[0]->getWidth()/Scalar(displaySize[0]);
-		windowCenterPos[1]=(Scalar(displaySize[1]-getWindowOrigin()[1]-GLWindow::getWindowSize()[1]/2)-Scalar(0.5))*screens[0]->getHeight()/Scalar(displaySize[1]);
-		}
-	else
-		{
-		windowCenterPos[0]=Math::div2(screens[0]->getWidth());
-		windowCenterPos[1]=Math::div2(screens[0]->getHeight());
-		}
-	
-	return windowCenterPos;
-	}
-
 void VRWindow::setCursorPos(const Scalar newCursorPos[2])
 	{
 	/* Convert from screen coordinates to window coordinates: */
@@ -1229,10 +1228,19 @@ bool VRWindow::processEvent(const XEvent& event)
 						/* Deactivate the fake navigation tool: */
 						deactivateNavigationTool(reinterpret_cast<Tool*>(this));
 						}
-					
-					/* Update the display center and size: */
-					setDisplayCenter(newCenter,getDisplaySize()*newSize/oldSize);
 					}
+				
+				if(movePrimaryWidgets)
+					{
+					/* Move all primary popped-up widgets with the window: */
+					GLMotif::WidgetManager* wm=getWidgetManager();
+					GLMotif::WidgetManager::Transformation wt=GLMotif::WidgetManager::Transformation::translate(translate);
+					for(GLMotif::WidgetManager::PoppedWidgetIterator wIt=wm->beginPrimaryWidgets();wIt!=wm->endPrimaryWidgets();++wIt)
+						wIt.setWidgetToWorld(wt*wIt.getWidgetToWorld());
+					}
+				
+				/* Update the display center and size: */
+				setDisplayCenter(newCenter,getDisplaySize()*newSize/oldSize);
 				
 				requestUpdate();
 				}
@@ -1334,15 +1342,16 @@ bool VRWindow::processEvent(const XEvent& event)
 		case KeyRelease:
 			{
 			/* Convert event key index to keysym: */
-			#if 1
+			#if 0
 			XKeyEvent keyEvent=event.xkey;
 			KeySym keySym=XLookupKeysym(&keyEvent,0);
 			#else
-			char buffer[20];
+			char keyString[20];
 			KeySym keySym;
 			XComposeStatus compose;
 			XKeyEvent keyEvent=event.xkey;
-			XLookupString(&keyEvent,buffer,sizeof(buffer),&keySym,&compose);
+			int keyStringLen=XLookupString(&keyEvent,keyString,sizeof(keyString),&keySym,&compose);
+			keyString[keyStringLen]='\0';
 			#endif
 			
 			if(event.type==KeyPress)
@@ -1351,11 +1360,10 @@ bool VRWindow::processEvent(const XEvent& event)
 				switch(keySym)
 					{
 					case XK_Print:
-					case XK_p:
 						{  
 						saveScreenshot=true;
 						char numberedFileName[256];
-						#ifdef VRUI_USE_PNG
+						#if IMAGES_CONFIG_HAVE_PNG
 						/* Save the screenshot as a PNG file: */
 						screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.png",4,numberedFileName);
 						#else
@@ -1373,7 +1381,7 @@ bool VRWindow::processEvent(const XEvent& event)
 				if(mouseAdapter!=0)
 					{
 					/* Send key event to input device adapter: */
-					mouseAdapter->keyPressed(keySym);
+					mouseAdapter->keyPressed(keySym,keyEvent.state,keyString);
 					}
 				}
 			else
@@ -1386,6 +1394,25 @@ bool VRWindow::processEvent(const XEvent& event)
 				}
 			break;
 			}
+		
+		case EnterNotify:
+			if(mouseAdapter!=0)
+				{
+				/* Create a fake XKeymap event: */
+				XKeymapEvent keymapEvent;
+				keymapEvent.type=KeymapNotify;
+				keymapEvent.serial=event.xcrossing.serial;
+				keymapEvent.send_event=event.xcrossing.send_event;
+				keymapEvent.display=event.xcrossing.display;
+				keymapEvent.window=event.xcrossing.window;
+				
+				/* Query the current key map: */
+				XQueryKeymap(getDisplay(),keymapEvent.key_vector);
+				
+				/* Reset the input device adapter's key states: */
+				mouseAdapter->resetKeys(keymapEvent);
+				}
+			break;
 		
 		default:
 			/* Call base class method: */
@@ -1416,8 +1443,6 @@ void VRWindow::draw(void)
 		/* Clear the entire window (important if the usual rendering mode masks part of the frame buffer): */
 		glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		
-		resizeViewport=false;
 		}
 	
 	/* Update things in the window's GL context data: */
@@ -1678,46 +1703,7 @@ void VRWindow::draw(void)
 		}
 	
 	/* Check for OpenGL errors: */
-	GLenum error;
-	while((error=glGetError())!=GL_NO_ERROR)
-		{
-		printf("GL error: ");
-		switch(error)
-			{
-			case 0:
-				printf("Internal error in glGetError()");
-				break;
-			
-			case GL_INVALID_ENUM:
-				printf("Invalid enum");
-				break;
-			
-			case GL_INVALID_VALUE:
-				printf("Invalid value");
-				break;
-			
-			case GL_INVALID_OPERATION:
-				printf("Invalid operation");
-				break;
-			
-			case GL_STACK_OVERFLOW:
-				printf("Stack overflow");
-				break;
-			
-			case GL_STACK_UNDERFLOW:
-				printf("Stack underflow");
-				break;
-			
-			case GL_OUT_OF_MEMORY:
-				printf("Out of memory");
-				break;
-			
-			case GL_TABLE_TOO_LARGE:
-				printf("Table too large");
-				break;
-			}
-		printf("\n");
-		}
+	glPrintError(std::cerr);
 	
 	/* Take a screen shot if requested: */
 	if(saveScreenshot)
@@ -1761,7 +1747,32 @@ void VRWindow::draw(void)
 		saveScreenshot=false;
 		}
 	
-	/* Window is not up-to-date: */
+	/* Check if the window is supposed to save a movie: */
+	if(movieSaver!=0)
+		{
+		/* Get a fresh frame buffer: */
+		MovieSaver::FrameBuffer& frameBuffer=movieSaver->startNewFrame();
+		
+		/* Update the frame buffer's size and prepare it for writing: */
+		frameBuffer.setFrameSize(getWindowWidth(),getWindowHeight());
+		frameBuffer.prepareWrite();
+		
+		/* Wait for the OpenGL pipeline to finish: */
+		glFinish();
+		
+		/* Read the window contents into the movie saver's frame buffer: */
+		glPixelStorei(GL_PACK_ALIGNMENT,1);
+		glPixelStorei(GL_PACK_SKIP_PIXELS,0);
+		glPixelStorei(GL_PACK_ROW_LENGTH,0);
+		glPixelStorei(GL_PACK_SKIP_ROWS,0);
+		glReadPixels(0,0,getWindowWidth(),getWindowHeight(),GL_RGB,GL_UNSIGNED_BYTE,frameBuffer.getBuffer());
+		
+		/* Post the new frame: */
+		movieSaver->postNewFrame();
+		}
+	
+	/* Window is now up-to-date: */
+	resizeViewport=false;
 	dirty=false;
 	}
 

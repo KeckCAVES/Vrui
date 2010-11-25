@@ -869,6 +869,7 @@ MulticastPipeMultiplexer::MulticastPipeMultiplexer(unsigned int sNumSlaves,unsig
 			if(setsockopt(socketFd,IPPROTO_IP,IP_MULTICAST_IF,&multicastInterfaceAddress,sizeof(struct in_addr))<0)
 				{
 				int myerrno=errno;
+				close(socketFd);
 				Misc::throwStdErr("MulticastMultiplexer::MulticastMultiplexer: Node %u: error %s during setsockopt",nodeIndex,strerror(myerrno));
 				}
 			}
@@ -889,6 +890,7 @@ MulticastPipeMultiplexer::MulticastPipeMultiplexer(unsigned int sNumSlaves,unsig
 			if(setsockopt(socketFd,IPPROTO_IP,IP_ADD_MEMBERSHIP,&addGroupRequest,sizeof(struct ip_mreq))<0)
 				{
 				int myerrno=errno;
+				close(socketFd);
 				Misc::throwStdErr("MulticastMultiplexer::MulticastMultiplexer: Node %u: error %s during setsockopt",nodeIndex,strerror(myerrno));
 				}
 			}

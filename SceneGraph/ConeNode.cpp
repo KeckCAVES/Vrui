@@ -1,6 +1,6 @@
 /***********************************************************************
 ConeNode - Class for upright circular cones as renderable geometry.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/GLNormalTemplates.h>
 #include <GL/GLVertexTemplates.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
@@ -113,6 +114,38 @@ const char* ConeNode::getStaticClassName(void)
 const char* ConeNode::getClassName(void) const
 	{
 	return "Cone";
+	}
+
+EventOut* ConeNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"height")==0)
+		return makeEventOut(this,height);
+	else if(strcmp(fieldName,"bottomRadius")==0)
+		return makeEventOut(this,bottomRadius);
+	else if(strcmp(fieldName,"numSegments")==0)
+		return makeEventOut(this,numSegments);
+	else if(strcmp(fieldName,"side")==0)
+		return makeEventOut(this,side);
+	else if(strcmp(fieldName,"bottom")==0)
+		return makeEventOut(this,bottom);
+	else
+		return GeometryNode::getEventOut(fieldName);
+	}
+
+EventIn* ConeNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"height")==0)
+		return makeEventIn(this,height);
+	else if(strcmp(fieldName,"bottomRadius")==0)
+		return makeEventIn(this,bottomRadius);
+	else if(strcmp(fieldName,"numSegments")==0)
+		return makeEventIn(this,numSegments);
+	else if(strcmp(fieldName,"side")==0)
+		return makeEventIn(this,side);
+	else if(strcmp(fieldName,"bottom")==0)
+		return makeEventIn(this,bottom);
+	else
+		return GeometryNode::getEventIn(fieldName);
 	}
 
 void ConeNode::parseField(const char* fieldName,VRMLFile& vrmlFile)

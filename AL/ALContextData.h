@@ -1,7 +1,7 @@
 /***********************************************************************
 ALContextData - Class to store per-AL-context data for application
 objects.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the OpenAL Support Library (ALSupport).
 
@@ -92,6 +92,7 @@ class ALContextData
 	static void initThing(const ALObject* thing); // Marks a thing for context initialization
 	static void destroyThing(const ALObject* thing); // Marks a thing for context data removal
 	static void resetThingManager(void); // Resets the thing manager
+	static void shutdownThingManager(void); // Shuts down the thing manager
 	void updateThings(void); // Initializes or deletes all marked things
 	
 	/* Methods to manage the current context: */
@@ -142,6 +143,7 @@ class ALContextData
 		}
 	
 	/* Methods to simulate an OpenGL-like "modelview" matrix stack: */
+	void resetMatrixStack(void); // Pops all matrices from the modelview stack and loads the identity matrix
 	void pushMatrix(void); // Pushes another copy of the current modelview matrix onto the stack
 	void popMatrix(void); // Pops the top matrix off the modelview stack
 	const Transform& getMatrix(void) const // Returns the current modelview matrix

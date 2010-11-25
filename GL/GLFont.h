@@ -1,6 +1,6 @@
 /***********************************************************************
 GLFont - Class to represent texture-based fonts and to render 3D text.
-Copyright (c) 1999-2005 Oliver Kreylos
+Copyright (c) 1999-2010 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLColor.h>
 #include <GL/GLVector.h>
 #include <GL/GLBox.h>
-#include <GL/GLObject.h>
+#include <GL/GLString.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -52,58 +52,6 @@ class GLFont
 		{
 		Top,VCenter,Baseline,Bottom
 		};
-	
-	class String:public GLObject // Class to simplify caching string textures
-		{
-		/* Embedded classes: */
-		private:
-		struct DataItem:public GLObject::DataItem
-			{
-			/* Elements: */
-			public:
-			GLuint textureObjectId;
-			
-			/* Constructors and destructors: */
-			DataItem(void)
-				{
-				glGenTextures(1,&textureObjectId);
-				}
-			~DataItem(void)
-				{
-				glDeleteTextures(1,&textureObjectId);
-				}
-			};
-		
-		/* Elements: */
-		private:
-		const GLFont* font; // Pointer to the font for this string
-		char* string; // The string
-		GLsizei stringWidth; // Width of string in texels
-		Box box; // String's bounding box
-		GLsizei textureWidth; // Width of string's texture map
-		TBox texCoord; // String's texture coordinates
-		Color backgroundColor; // String's background color
-		Color foregroundColor; // String's foreground color
-		
-		/* Constructors and destructors: */
-		public:
-		String(const GLFont* sFont,const char* sString);
-		~String(void);
-		
-		/* Methods: */
-		void setBackgroundColor(const Color& newBackgroundColor)
-			{
-			backgroundColor=newBackgroundColor;
-			}
-		void setForegroundColor(const Color& newForegroundColor)
-			{
-			foregroundColor=newForegroundColor;
-			}
-		virtual void initContext(GLContextData& contextData) const;
-		void draw(const Vector& origin,GLContextData& contextData) const; // Draws the string
-		};
-	
-	friend class String;
 	
 	private:
 	struct CharInfo
@@ -146,10 +94,9 @@ class GLFont
 	
 	/* Private methods: */
 	GLsizei calcStringWidth(const char* string) const; // Calculates the texel width of a string
-	Box calcStringBox(GLsizei stringWidth) const; // Returns the bounding box of a string
-	TBox calcStringTexCoords(GLsizei stringWidth,GLsizei textureWidth) const; // Calculates the texture coordinates needed to render a string
 	void uploadStringTexture(const char* string,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string
 	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string using the given colors
+	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string using the given colors, selection range, and selection colors
 	void loadFont(Misc::File& file); // Loads font from given file
 	
 	/* Constructors and Destructors: */
@@ -169,6 +116,14 @@ class GLFont
 	GLfloat getTextHeight(void) const // Returns the font's scaled height
 		{
 		return textHeight;
+		}
+	const Color& getBackgroundColor(void) const // Returns the font's background color
+		{
+		return backgroundColor;
+		}
+	const Color& getForegroundColor(void) const // Returns the font's foreground color
+		{
+		return foregroundColor;
 		}
 	void setTextHeight(GLfloat newTextHeight) // Sets the font's scaled height
 		{
@@ -200,11 +155,26 @@ class GLFont
 		{
 		antialiasing=newAntialiasing;
 		}
-	Box calcStringBox(const char* string) const // Returns the bounding box of a string
+	Vector calcStringSize(GLsizei stringWidth) const; // Returns the size of the bounding box of a string
+	Vector calcStringSize(const char* string) const // Ditto
+		{
+		return calcStringSize(calcStringWidth(string));
+		}
+	Vector calcStringSize(const GLString& string) const // Ditto
+		{
+		return calcStringSize(string.texelWidth);
+		}
+	Box calcStringBox(GLsizei stringWidth) const; // Returns the bounding box of a string
+	Box calcStringBox(const char* string) const // Ditto
 		{
 		return calcStringBox(calcStringWidth(string));
 		}
-	TBox calcStringTexCoords(const char* string) const // Calculates the texture coordinates needed to render a string
+	Box calcStringBox(const GLString& string) const // Ditto
+		{
+		return calcStringBox(string.texelWidth);
+		}
+	TBox calcStringTexCoords(GLsizei stringWidth,GLsizei textureWidth) const; // Calculates the texture coordinates needed to render a string
+	TBox calcStringTexCoords(const char* string) const // Ditto
 		{
 		GLsizei stringWidth=calcStringWidth(string);
 		GLsizei textureWidth;
@@ -213,8 +183,41 @@ class GLFont
 		
 		return calcStringTexCoords(stringWidth,textureWidth);
 		}
+	void updateString(GLString& string) const; // Updates the font-related data of the given string object
+	GLint calcCharacterPos(const char* string,GLsizei textureWidth,GLfloat texX) const; // Returns the index of the string's character which lies underneath the given horizontal texture coordinate
+	GLint calcCharacterPos(const char* string,GLfloat texX) const // Ditto
+		{
+		GLsizei stringWidth=calcStringWidth(string);
+		GLsizei textureWidth;
+		for(textureWidth=1;textureWidth<stringWidth;textureWidth<<=1)
+			;
+		
+		return calcCharacterPos(string,textureWidth,texX);
+		}
+	GLint calcCharacterPos(const GLString& string,GLfloat texX) const // Ditto
+		{
+		return calcCharacterPos(string.string,string.textureWidth,texX);
+		}
+	GLfloat calcCharacterTexCoord(const char* string,GLsizei textureWidth,GLint characterPos) const; // Returns the texture coordinate of the right side of the character of the given position in the string
+	GLfloat calcCharacterTexCoord(const char* string,GLint characterPos) const // Ditto
+		{
+		GLsizei stringWidth=calcStringWidth(string);
+		GLsizei textureWidth;
+		for(textureWidth=1;textureWidth<stringWidth;textureWidth<<=1)
+			;
+		
+		return calcCharacterTexCoord(string,textureWidth,characterPos);
+		}
+	GLfloat calcCharacterTexCoord(const GLString& string,GLint characterPos) const // Ditto
+		{
+		return calcCharacterTexCoord(string.string,string.textureWidth,characterPos);
+		}
 	void uploadStringTexture(const char* string) const; // Uploads a string's texture image
+	void uploadStringTexture(const GLString& string) const; // Ditto
 	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor) const; // Uploads a string's texture image with the given colors
+	void uploadStringTexture(const GLString& string,const Color& stringBackgroundColor,const Color& stringForegroundColor) const; // Ditto
+	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const; // Uploads a string's texture image with the given colors, selection range, and selection colors
+	void uploadStringTexture(const GLString& string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const; // Ditto
 	void drawString(const Vector& origin,const char* string) const; // Draws a simple, one-line string
 	};
 

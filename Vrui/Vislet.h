@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 class GLContextData;
+class ALContextData;
 namespace Vrui {
 class VisletManager;
 }
@@ -67,7 +68,8 @@ class Vislet
 	virtual void disable(void); // Disables the vislet
 	virtual void enable(void); // Enables the vislet
 	virtual void frame(void); // Method called exactly once every frame
-	virtual void display(GLContextData& contextData) const; // Method for rendering the vislet's current state into the current OpenGL context
+	virtual void display(GLContextData& contextData) const; // Method for rendering the vislet's current state into the given OpenGL context
+	virtual void sound(ALContextData& contextData) const; // Method for rendering the vislet's current sound state into the given OpenAL context
 	};
 
 }

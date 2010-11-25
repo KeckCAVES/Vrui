@@ -1,6 +1,6 @@
 /***********************************************************************
 DecoratedButton - Class for buttons with decoration around their labels.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLTransformationWrappers - Wrapper functions to use templatized geometry
 library transformation objects as parameters to OpenGL matrix functions.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the OpenGL Wrapper Library for the Templatized
 Geometry Library (GLGeometry).
@@ -114,8 +114,8 @@ inline Geometry::ProjectiveTransformation<ScalarParam,3> glGetTextureMatrix(void
 	return glGetMatrix<ScalarParam>(GLMatrixEnums::TEXTURE);
 	}
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GLTRANSFORMATIONWRAPPERS_IMPLEMENTATION)
-#include <GL/GLTransformationWrappers.cpp>
+#if defined(GLGEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GLTRANSFORMATIONWRAPPERS_IMPLEMENTATION)
+#include <GL/GLTransformationWrappers.icpp>
 #endif
 
 #endif

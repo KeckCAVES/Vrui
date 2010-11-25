@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_MATERIALNODE_INCLUDED
 #define SCENEGRAPH_MATERIALNODE_INCLUDED
 
+#include <Misc/Autopointer.h>
 #include <GL/GLMaterial.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/AttributeNode.h>

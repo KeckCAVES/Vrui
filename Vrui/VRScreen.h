@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -81,6 +81,14 @@ class VRScreen
 	Scalar getHeight(void) const // Returns height of screen in physical units
 		{
 		return screenSize[1];
+		}
+	Scalar* getViewport(Scalar resultViewport[4]) const // Copies screen's viewport into provided array and returns pointer to array
+		{
+		resultViewport[0]=Scalar(0);
+		resultViewport[1]=screenSize[0];
+		resultViewport[2]=Scalar(0);
+		resultViewport[3]=screenSize[1];
+		return resultViewport;
 		}
 	const ONTransform& getTransform(void) const // Returns screen transformation from physical or device coordinates
 		{

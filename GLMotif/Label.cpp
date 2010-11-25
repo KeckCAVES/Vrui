@@ -1,6 +1,6 @@
 /***********************************************************************
 Label - Class for (text) labels.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -22,10 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
-#include <GL/GLTexCoordTemplates.h>
 #include <GL/GLVertexTemplates.h>
-#include <GL/GLTexEnvTemplates.h>
-#include <GL/GLContextData.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Container.h>
 
@@ -39,20 +36,27 @@ Methods of class Label:
 
 void Label::positionLabel(void)
 	{
+	/* Reset the label box: */
+	label.resetBox();
+	
 	/* Position the label box according to the alignment parameters: */
-	labelBox.origin=getInterior().origin;
-	labelBox.doOffset(Vector(marginWidth+leftInset,marginWidth,0.0f));
+	Box labelSpace=getInterior();
+	labelSpace.origin[0]+=marginWidth+leftInset;
+	labelSpace.size[0]-=marginWidth+leftInset+rightInset+marginWidth;
+	labelSpace.origin[1]+=marginWidth;
+	labelSpace.size[1]-=marginWidth+marginWidth;
+	Vector newOrigin=labelSpace.origin;
 	switch(hAlignment)
 		{
 		case GLFont::Left:
 			break;
 		
 		case GLFont::Center:
-			labelBox.origin[0]+=0.5f*(getInterior().size[0]-2.0f*marginWidth-leftInset-rightInset-labelBox.size[0]);
+			newOrigin[0]+=0.5f*(labelSpace.size[0]-label.getLabelSize()[0]);
 			break;
 		
 		case GLFont::Right:
-			labelBox.origin[0]+=getInterior().size[0]-2.0f*marginWidth-leftInset-rightInset-labelBox.size[0];
+			newOrigin[0]+=labelSpace.size[0]-label.getLabelSize()[0];
 			break;
 		}
 	switch(vAlignment)
@@ -65,49 +69,17 @@ void Label::positionLabel(void)
 			break;
 		
 		case GLFont::VCenter:
-			labelBox.origin[1]+=0.5f*(getInterior().size[1]-2.0f*marginWidth-labelBox.size[1]);
+			newOrigin[1]+=0.5f*(labelSpace.size[1]-label.getLabelSize()[1]);
 			break;
 		
 		case GLFont::Top:
-			labelBox.origin[1]+=getInterior().size[1]-2.0f*marginWidth-labelBox.size[1];
+			newOrigin[1]+=labelSpace.size[1]-label.getLabelSize()[1];
 			break;
 		}
-	}
-
-void Label::drawLabel(GLContextData& contextData) const
-	{
-	/* Retrieve the context data: */
-	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	label.setOrigin(newOrigin);
 	
-	/* Draw the label: */
-	glPushAttrib(GL_TEXTURE_BIT);
-	GLint lightModelColorControl;
-	glGetIntegerv(GL_LIGHT_MODEL_COLOR_CONTROL,&lightModelColorControl);
-	glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-	if(dataItem->stringVersion!=labelVersion) // Has the string been changed?
-		{
-		/* Upload the label string texture again: */
-		font->uploadStringTexture(label,backgroundColor,foregroundColor);
-		dataItem->stringVersion=labelVersion;
-		}
-	glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::MODULATE);
-	glColor4f(1.0f,1.0f,1.0f,backgroundColor[3]);
-	glBegin(GL_QUADS);
-	glNormal3f(0.0f,0.0f,1.0f);
-	glTexCoord(labelTexCoords.getCorner(0));
-	glVertex(labelBox.getCorner(0));
-	glTexCoord(labelTexCoords.getCorner(1));
-	glVertex(labelBox.getCorner(1));
-	glTexCoord(labelTexCoords.getCorner(3));
-	glVertex(labelBox.getCorner(3));
-	glTexCoord(labelTexCoords.getCorner(2));
-	glVertex(labelBox.getCorner(2));
-	glEnd();
-	glBindTexture(GL_TEXTURE_2D,0);
-	glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,lightModelColorControl);
-	glPopAttrib();
+	/* Clip the label to the maximum label space: */
+	label.clipBox(labelSpace);
 	}
 
 void Label::setInsets(GLfloat newLeftInset,GLfloat newRightInset)
@@ -129,9 +101,13 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,const GLFon
 	:Widget(sName,sParent,false),
 	 marginWidth(0.0f),
 	 leftInset(0.0f),rightInset(0.0f),
-	 font(sFont),
-	 labelVersion(0),label(0),hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
+	 label(sLabel,*sFont),
+	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
 	{
+	/* Set the label's colors: */
+	label.setBackground(backgroundColor);
+	label.setForeground(foregroundColor);
+	
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
 	
@@ -140,9 +116,6 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,const GLFon
 	
 	/* Get the margin width: */
 	marginWidth=ss->labelMarginWidth;
-	
-	/* Set the label string: */
-	setLabel(sLabel);
 	
 	/* Manage me: */
 	if(sManageChild)
@@ -153,11 +126,17 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,bool sManag
 	:Widget(sName,sParent,false),
 	 marginWidth(0.0f),
 	 leftInset(0.0f),rightInset(0.0f),
-	 font(0),
-	 labelVersion(0),label(0),hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
+	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
 	{
 	/* Get the style sheet: */
 	const StyleSheet* ss=getStyleSheet();
+	
+	/* Set the label: */
+	label.setString(sLabel,*ss->font);
+	
+	/* Set the label's colors: */
+	label.setBackground(backgroundColor);
+	label.setForeground(foregroundColor);
 	
 	/* Label defaults to no border: */
 	setBorderWidth(0.0f);
@@ -165,26 +144,42 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,bool sManag
 	/* Get the margin width: */
 	marginWidth=ss->labelMarginWidth;
 	
-	/* Get the font: */
-	font=ss->font;
+	/* Manage me: */
+	if(sManageChild)
+		manageChild();
+	}
+
+Label::Label(const char* sName,Container* sParent,const char* sLabelBegin,const char* sLabelEnd,bool sManageChild)
+	:Widget(sName,sParent,false),
+	 marginWidth(0.0f),
+	 leftInset(0.0f),rightInset(0.0f),
+	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
+	{
+	/* Get the style sheet: */
+	const StyleSheet* ss=getStyleSheet();
 	
-	/* Set the label string: */
-	setLabel(sLabel);
+	/* Set the label: */
+	label.setString(sLabelBegin,sLabelEnd,*ss->font);
+	
+	/* Set the label's colors: */
+	label.setBackground(backgroundColor);
+	label.setForeground(foregroundColor);
+	
+	/* Label defaults to no border: */
+	setBorderWidth(0.0f);
+	
+	/* Get the margin width: */
+	marginWidth=ss->labelMarginWidth;
 	
 	/* Manage me: */
 	if(sManageChild)
 		manageChild();
 	}
 
-Label::~Label(void)
-	{
-	delete[] label;
-	}
-
 Vector Label::calcNaturalSize(void) const
 	{
 	/* Return size of text plus margin: */
-	Vector result=labelBox.size;
+	Vector result=label.calcNaturalSize();
 	result[0]+=2.0f*marginWidth+leftInset+rightInset;
 	result[1]+=2.0f*marginWidth;
 	
@@ -202,14 +197,20 @@ void Label::resize(const Box& newExterior)
 
 void Label::setBackgroundColor(const Color& newBackgroundColor)
 	{
+	/* Set the widget's background color: */
 	Widget::setBackgroundColor(newBackgroundColor);
-	++labelVersion;
+	
+	/* Set the label's background color: */
+	label.setBackground(newBackgroundColor);
 	}
 
 void Label::setForegroundColor(const Color& newForegroundColor)
 	{
+	/* Set the widget's foreground color: */
 	Widget::setForegroundColor(newForegroundColor);
-	++labelVersion;
+	
+	/* Set the label's foreground color: */
+	label.setForeground(newForegroundColor);
 	}
 
 void Label::draw(GLContextData& contextData) const
@@ -221,32 +222,20 @@ void Label::draw(GLContextData& contextData) const
 	glColor(backgroundColor);
 	glBegin(GL_QUAD_STRIP);
 	glNormal3f(0.0f,0.0f,1.0f);
-	glVertex(labelBox.getCorner(0));
+	glVertex(label.getLabelBox().getCorner(0));
 	glVertex(getInterior().getCorner(0));
-	glVertex(labelBox.getCorner(1));
+	glVertex(label.getLabelBox().getCorner(1));
 	glVertex(getInterior().getCorner(1));
-	glVertex(labelBox.getCorner(3));
+	glVertex(label.getLabelBox().getCorner(3));
 	glVertex(getInterior().getCorner(3));
-	glVertex(labelBox.getCorner(2));
+	glVertex(label.getLabelBox().getCorner(2));
 	glVertex(getInterior().getCorner(2));
-	glVertex(labelBox.getCorner(0));
+	glVertex(label.getLabelBox().getCorner(0));
 	glVertex(getInterior().getCorner(0));
 	glEnd();
 	
-	/* Draw the label texture: */
-	drawLabel(contextData);
-	}
-
-void Label::initContext(GLContextData& contextData) const
-	{
-	/* Create a context data item: */
-	DataItem* dataItem=new DataItem(labelVersion);
-	contextData.addDataItem(this,dataItem);
-	
-	/* Upload the string texture: */
-	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
-	font->uploadStringTexture(label,backgroundColor,foregroundColor);
-	glBindTexture(GL_TEXTURE_2D,0);
+	/* Draw the label itself: */
+	label.draw(contextData);
 	}
 
 void Label::setMarginWidth(GLfloat newMarginWidth)
@@ -270,6 +259,9 @@ void Label::setHAlignment(GLFont::HAlignment newHAlignment)
 	
 	/* Update the label position: */
 	positionLabel();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void Label::setVAlignment(GLFont::VAlignment newVAlignment)
@@ -279,20 +271,15 @@ void Label::setVAlignment(GLFont::VAlignment newVAlignment)
 	
 	/* Update the label position: */
 	positionLabel();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
-void Label::setLabel(const char* newLabel)
+void Label::setString(const char* newLabelBegin,const char* newLabelEnd)
 	{
-	/* Copy the new label string: */
-	delete[] label;
-	size_t len=strlen(newLabel);
-	label=new char[len+1];
-	memcpy(label,newLabel,len+1);
-	++labelVersion;
-	
-	/* Calculate the label's bounding box size and texture coordinates: */
-	labelBox=font->calcStringBox(label);
-	labelTexCoords=font->calcStringTexCoords(label);
+	/* Update the label text: */
+	label.setString(newLabelBegin,newLabelEnd);
 	
 	if(isManaged)
 		{
@@ -301,6 +288,11 @@ void Label::setLabel(const char* newLabel)
 		}
 	else
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+	}
+
+void Label::setString(const char* newLabel)
+	{
+	setString(newLabel,newLabel+strlen(newLabel));
 	}
 
 }

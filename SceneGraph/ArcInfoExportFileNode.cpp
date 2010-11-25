@@ -1,7 +1,7 @@
 /***********************************************************************
 ArcInfoExportFileNode - Class to represent an ARC/INFO export file as a
 collection of line sets, point sets, and face sets.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <Misc/FileCharacterSource.h>
 #include <Misc/ValueSource.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/ShapeNode.h>
 #include <SceneGraph/ColorNode.h>
@@ -87,6 +88,22 @@ void ArcInfoExportFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		}
 	else
 		GroupNode::parseField(fieldName,vrmlFile);
+	}
+
+EventOut* ArcInfoExportFileNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"url")==0)
+		return makeEventOut(this,url);
+	else
+		return GroupNode::getEventOut(fieldName);
+	}
+
+EventIn* ArcInfoExportFileNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"url")==0)
+		return makeEventIn(this,url);
+	else
+		return GroupNode::getEventIn(fieldName);
 	}
 
 void ArcInfoExportFileNode::update(void)

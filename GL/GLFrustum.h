@@ -1,7 +1,7 @@
 /***********************************************************************
 GLFrustum - Class describing an OpenGL view frustum in model coordinates
 to perform software-based frustum culling and LOD calculation.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the OpenGL Wrapper Library for the Templatized
 Geometry Library (GLGeometry).
@@ -102,8 +102,8 @@ class GLFrustum
 	bool doesSphereIntersect(const Point& center,Scalar radius) const; // Returns false if the given sphere is guaranteed not to intersect the frustum
 	};
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GLFRUSTUM_IMPLEMENTATION)
-#include <GL/GLFrustum.cpp>
+#if defined(GLGEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GLFRUSTUM_IMPLEMENTATION)
+#include <GL/GLFrustum.icpp>
 #endif
 
 #endif

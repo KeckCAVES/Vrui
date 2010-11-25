@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Class layering an endianness-safe pipe abstraction with
 buffered typed read/writes over a TCPSocket.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -104,7 +104,7 @@ class TCPPipe:public TCPSocket
 		else
 			return true;
 		}
-	size_t readRaw(void* buffer,size_t count) // Replacement for TCPSocket's raw read method
+	size_t readUpto(void* buffer,size_t count) // Replacement for TCPSocket's raw read method; reads between one and count bytes and returns number of bytes read
 		{
 		if(readSize==0)
 			{
@@ -143,12 +143,23 @@ class TCPPipe:public TCPSocket
 		return bufferSize;
 		}
 	
-	/* Typed read/write methods: */
+	/* Endianness-safe binary I/O interface: */
+	bool mustSwapOnRead(void) // Retusn true if the pipe must endianness-swap data on read
+		{
+		return readMustSwapEndianness;
+		}
+	void readRaw(void* data,size_t dataSize) // Reads raw data without endianness conversion
+		{
+		if(dataSize<=readSize)
+			directRead(data,dataSize);
+		else
+			bufferedRead(data,dataSize);
+		}
 	template <class DataParam>
 	DataParam read(void) // Reads single value
 		{
 		DataParam result;
-		if(sizeof(DataParam)<readSize)
+		if(sizeof(DataParam)<=readSize)
 			directRead(&result,sizeof(DataParam));
 		else
 			bufferedRead(&result,sizeof(DataParam));
@@ -159,7 +170,7 @@ class TCPPipe:public TCPSocket
 	template <class DataParam>
 	DataParam& read(DataParam& data) // Reads single value through reference
 		{
-		if(sizeof(DataParam)<readSize)
+		if(sizeof(DataParam)<=readSize)
 			directRead(&data,sizeof(DataParam));
 		else
 			bufferedRead(&data,sizeof(DataParam));
@@ -170,12 +181,23 @@ class TCPPipe:public TCPSocket
 	template <class DataParam>
 	void read(DataParam* data,size_t numItems) // Reads array of values
 		{
-		if(numItems*sizeof(DataParam)<readSize)
+		if(numItems*sizeof(DataParam)<=readSize)
 			directRead(data,numItems*sizeof(DataParam));
 		else
 			bufferedRead(data,numItems*sizeof(DataParam));
 		if(readMustSwapEndianness)
 			Misc::swapEndianness(data,numItems);
+		}
+	bool mustSwapOnWrite(void) // Returns true if the pipe must endianness-swap data on write
+		{
+		return writeMustSwapEndianness;
+		}
+	void writeRaw(const void* data,size_t dataSize) // Writes raw data without endianness conversion
+		{
+		if(dataSize<=writeSize)
+			directWrite(data,dataSize);
+		else
+			bufferedWrite(data,dataSize);
 		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes single value
@@ -184,14 +206,14 @@ class TCPPipe:public TCPSocket
 			{
 			DataParam temp=data;
 			Misc::swapEndianness(temp);
-			if(sizeof(DataParam)<writeSize)
+			if(sizeof(DataParam)<=writeSize)
 				directWrite(&temp,sizeof(DataParam));
 			else
 				bufferedWrite(&temp,sizeof(DataParam));
 			}
 		else
 			{
-			if(sizeof(DataParam)<writeSize)
+			if(sizeof(DataParam)<=writeSize)
 				directWrite(&data,sizeof(DataParam));
 			else
 				bufferedWrite(&data,sizeof(DataParam));
@@ -206,7 +228,7 @@ class TCPPipe:public TCPSocket
 				{
 				DataParam temp=data[i];
 				Misc::swapEndianness(temp);
-				if(sizeof(DataParam)<writeSize)
+				if(sizeof(DataParam)<=writeSize)
 					directWrite(&temp,sizeof(DataParam));
 				else
 					bufferedWrite(&temp,sizeof(DataParam));
@@ -214,7 +236,7 @@ class TCPPipe:public TCPSocket
 			}
 		else
 			{
-			if(numItems*sizeof(DataParam)<writeSize)
+			if(numItems*sizeof(DataParam)<=writeSize)
 				directWrite(data,numItems*sizeof(DataParam));
 			else
 				bufferedWrite(data,numItems*sizeof(DataParam));

@@ -1,7 +1,7 @@
 /***********************************************************************
 CharacterSource - Base class to implement high-performance ASCII file
 readers.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -30,15 +30,28 @@ Methods of class CharacterSource:
 ********************************/
 
 CharacterSource::CharacterSource(size_t sBufferSize)
-	:bufferSize(sBufferSize),buffer(new unsigned char[bufferSize]),bufferEnd(buffer+bufferSize),
+	:bufferSize(sBufferSize),
+	 allocBuffer(new unsigned char[bufferSize+10]), // 10 characters maximum guaranteed ungetc()
+	 buffer(allocBuffer+10),bufferEnd(buffer+bufferSize),
 	 eofPtr(0),rPtr(bufferEnd)
 	{
 	}
 
 CharacterSource::~CharacterSource(void)
 	{
-	/* Delete the read buffer: */
-	delete[] buffer;
+	/* Delete the allocated buffer: */
+	delete[] allocBuffer;
+	}
+
+void CharacterSource::ungetChar(int character)
+	{
+	/* Check if the end of the unget buffer has been reached: */
+	if(rPtr==allocBuffer)
+		throw UngetError();
+	
+	/* Return the character to the source: */
+	--rPtr;
+	*rPtr=(unsigned char)character;
 	}
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 Matrix - Class for n x m matrices, used internally in the implementation
 of affine and projective transformations.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -317,8 +317,8 @@ inline ComponentArray<ScalarParam,numColumnsParam> operator/(const ComponentArra
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_MATRIX_IMPLEMENTATION)
-#include <Geometry/Matrix.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_MATRIX_IMPLEMENTATION)
+#include <Geometry/Matrix.icpp>
 #endif
 
 #endif

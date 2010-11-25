@@ -1,7 +1,7 @@
 /***********************************************************************
 AppearanceNode - Class defining the appearance (material properties,
 textures) of a shape node.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/AppearanceNode.h>
 
 #include <string.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
@@ -44,6 +45,30 @@ const char* AppearanceNode::getStaticClassName(void)
 const char* AppearanceNode::getClassName(void) const
 	{
 	return "Appearance";
+	}
+
+EventOut* AppearanceNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"material")==0)
+		return makeEventOut(this,material);
+	else if(strcmp(fieldName,"texture")==0)
+		return makeEventOut(this,texture);
+	else if(strcmp(fieldName,"textureTransform")==0)
+		return makeEventOut(this,textureTransform);
+	else
+		return AttributeNode::getEventOut(fieldName);
+	}
+
+EventIn* AppearanceNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"material")==0)
+		return makeEventIn(this,material);
+	else if(strcmp(fieldName,"texture")==0)
+		return makeEventIn(this,texture);
+	else if(strcmp(fieldName,"textureTransform")==0)
+		return makeEventIn(this,textureTransform);
+	else
+		return AttributeNode::getEventIn(fieldName);
 	}
 
 void AppearanceNode::parseField(const char* fieldName,VRMLFile& vrmlFile)

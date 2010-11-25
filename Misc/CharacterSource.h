@@ -1,7 +1,7 @@
 /***********************************************************************
 CharacterSource - Base class to implement high-performance ASCII file
 readers.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -56,9 +56,20 @@ class CharacterSource
 			}
 		};
 	
+	class UngetError:public std::runtime_error // Exception class to report errors while putting characters back into the source
+		{
+		/* Constructors and destructors: */
+		public:
+		UngetError(void)
+			:std::runtime_error("CharacterSource: Error while returning characters to source")
+			{
+			}
+		};
+	
 	/* Elements: */
 	protected:
 	size_t bufferSize; // Size of file access buffer
+	unsigned char* allocBuffer; // Allocated buffer; slightly enlarged to guarantee certain number of ungetc() calls
 	unsigned char* buffer; // Buffer for efficient file access
 	unsigned char* bufferEnd; // Pointer behind last valid character in buffer
 	unsigned char* eofPtr; // Pointer after the last character in the last buffer in the file, or 0 if there are more buffers
@@ -77,7 +88,7 @@ class CharacterSource
 		{
 		return rPtr==eofPtr;
 		}
-	inline int getc(void) // Returns the next character from the input file, or EOF (-1) if the entire file has been read
+	inline int getChar(void) // Returns the next character from the input file, or EOF (-1) if the entire file has been read
 		{
 		/* Check if the current buffer has been read: */
 		if(rPtr==bufferEnd)
@@ -99,6 +110,7 @@ class CharacterSource
 		/* Return the next character from the current buffer: */
 		return *(rPtr++);
 		}
+	void ungetChar(int character); // Puts the given character back into the buffer; throws exception if there is no room in the unget buffer
 	};
 
 }

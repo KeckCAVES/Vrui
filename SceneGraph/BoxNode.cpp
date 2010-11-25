@@ -1,6 +1,6 @@
 /***********************************************************************
 BoxNode - Class for axis-aligned boxes as renderable geometry.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Math/Math.h>
 #include <GL/gl.h>
 #include <GL/GLVertexTemplates.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
@@ -123,6 +124,26 @@ const char* BoxNode::getStaticClassName(void)
 const char* BoxNode::getClassName(void) const
 	{
 	return "Box";
+	}
+
+EventOut* BoxNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"center")==0)
+		return makeEventOut(this,center);
+	else if(strcmp(fieldName,"size")==0)
+		return makeEventOut(this,size);
+	else
+		return GeometryNode::getEventOut(fieldName);
+	}
+
+EventIn* BoxNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"center")==0)
+		return makeEventIn(this,center);
+	else if(strcmp(fieldName,"size")==0)
+		return makeEventIn(this,size);
+	else
+		return GeometryNode::getEventIn(fieldName);
 	}
 
 void BoxNode::parseField(const char* fieldName,VRMLFile& vrmlFile)

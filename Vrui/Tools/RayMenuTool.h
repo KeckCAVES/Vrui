@@ -1,6 +1,6 @@
 /***********************************************************************
 RayMenuTool - Class for menu selection tools using ray selection.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,18 +23,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_RAYMENUTOOL_INCLUDED
 #define VRUI_RAYMENUTOOL_INCLUDED
 
-#include <Geometry/Ray.h>
-#include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Geometry.h>
-#include <Vrui/Tools/MenuTool.h>
-
-/* Forward declarations: */
-namespace GLMotif {
-class Widget;
-}
-namespace Vrui {
-class Viewer;
-}
+#include <Vrui/GUIInteractor.h>
+#include <Vrui/MenuTool.h>
 
 namespace Vrui {
 
@@ -60,22 +50,13 @@ class RayMenuToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class RayMenuTool:public MenuTool
+class RayMenuTool:public MenuTool,public GUIInteractor
 	{
 	friend class RayMenuToolFactory;
 	
 	/* Elements: */
 	private:
 	static RayMenuToolFactory* factory; // Pointer to the factory object for this class
-	const Viewer* viewer; // Viewer associated with the menu tool
-	
-	/* Transient state: */
-	Ray selectionRay; // Current selection ray
-	bool insideWidget; // Flag if the tool is currently able to interact with a widget
-	bool widgetActive; // Flag if the widget tool is currently active
-	bool dragging; // Flag if the widget tool is currently dragging a primary top-level widget
-	GLMotif::Widget* draggedWidget; // Pointer to currently dragged widget
-	NavTrackerState preScale; // Current dragging transformation
 	
 	/* Constructors and destructors: */
 	public:
@@ -83,9 +64,12 @@ class RayMenuTool:public MenuTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	
+	/* Methods from GUIInteractor: */
+	virtual Point calcHotSpot(void) const;
 	};
 
 }

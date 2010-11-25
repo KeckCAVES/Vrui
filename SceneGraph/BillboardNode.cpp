@@ -1,7 +1,7 @@
 /***********************************************************************
 BillboardNode - Class for group nodes that transform their children to
 always face the viewer.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
@@ -51,6 +52,22 @@ const char* BillboardNode::getStaticClassName(void)
 const char* BillboardNode::getClassName(void) const
 	{
 	return "Billboard";
+	}
+
+EventOut* BillboardNode::getEventOut(const char* fieldName) const
+	{
+	if(strcmp(fieldName,"axisOfRotation")==0)
+		return makeEventOut(this,axisOfRotation);
+	else
+		return GroupNode::getEventOut(fieldName);
+	}
+
+EventIn* BillboardNode::getEventIn(const char* fieldName)
+	{
+	if(strcmp(fieldName,"axisOfRotation")==0)
+		return makeEventIn(this,axisOfRotation);
+	else
+		return GroupNode::getEventIn(fieldName);
 	}
 
 void BillboardNode::parseField(const char* fieldName,VRMLFile& vrmlFile)

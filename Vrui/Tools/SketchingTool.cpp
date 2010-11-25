@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,8 +24,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/File.h>
+#include <Misc/ValueSource.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Comm/ClusterFileCharacterSource.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -37,9 +39,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/TextField.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -49,11 +51,11 @@ Methods of class SketchingToolFactory:
 
 SketchingToolFactory::SketchingToolFactory(ToolManager& toolManager)
 	:ToolFactory("SketchingTool",toolManager),
+	 detailSize(getUiSize()),
 	 curveFileName("SketchingTool.curves")
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -62,6 +64,7 @@ SketchingToolFactory::SketchingToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	detailSize=cfs.retrieveValue<Scalar>("./detailSize",detailSize);
 	curveFileName=cfs.retrieveString("./curveFileName",curveFileName);
 	
 	/* Set tool class' factory pointer: */
@@ -77,6 +80,11 @@ SketchingToolFactory::~SketchingToolFactory(void)
 const char* SketchingToolFactory::getName(void) const
 	{
 	return "Curve Editor";
+	}
+
+const char* SketchingToolFactory::getButtonFunction(int) const
+	{
+	return "Draw Curves";
 	}
 
 Tool* SketchingToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -207,7 +215,7 @@ SketchingTool::SketchingTool(const ToolFactory* factory,const ToolInputAssignmen
 	controlDialog->manageChild();
 	
 	/* Pop up the control dialog: */
-	popupPrimaryWidget(controlDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(controlDialogPopup);
 	}
 
 SketchingTool::~SketchingTool(void)
@@ -219,7 +227,7 @@ SketchingTool::~SketchingTool(void)
 		delete *cIt;
 	}
 
-void SketchingTool::buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
+void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Check if the button has just been pressed: */
 	if(cbData->newButtonState)
@@ -236,7 +244,7 @@ void SketchingTool::buttonCallback(int deviceIndex,int buttonIndex,InputDevice::
 		/* Append the curve's first control point: */
 		Curve::ControlPoint cp;
 		const NavTransform& invNav=getInverseNavigationTransformation();
-		cp.pos=lastPoint=invNav.transform(getDevicePosition(0));
+		cp.pos=lastPoint=invNav.transform(getButtonDevicePosition(0));
 		cp.t=getApplicationTime();
 		currentCurve->controlPoints.push_back(cp);
 		}
@@ -260,10 +268,10 @@ void SketchingTool::frame(void)
 		{
 		/* Get the current dragging point: */
 		const NavTransform& invNav=getInverseNavigationTransformation();
-		currentPoint=invNav.transform(getDevicePosition(0));
+		currentPoint=invNav.transform(getButtonDevicePosition(0));
 		
 		/* Check if the dragging point is far enough away from the most recent curve vertex: */
-		if(Geometry::sqrDist(currentPoint,lastPoint)>=Math::sqr(getUiSize()*invNav.getScaling()))
+		if(Geometry::sqrDist(currentPoint,lastPoint)>=Math::sqr(factory->detailSize*invNav.getScaling()))
 			{
 			/* Append the current dragging point to the curve: */
 			Curve::ControlPoint cp;
@@ -356,7 +364,8 @@ void SketchingTool::saveCurvesCallback(Misc::CallbackData* cbData)
 			}
 		catch(std::runtime_error err)
 			{
-			/* Ignore the error */
+			/* Show an error message: */
+			showErrorMessage("Curve Editor","Could not create curve file; did not save curves");
 			}
 		}
 	}
@@ -369,7 +378,7 @@ void SketchingTool::loadCurvesCallback(Misc::CallbackData* cbData)
 	loadCurvesDialog->getCancelCallbacks().add(loadCurvesDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
 	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadCurvesDialog,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(loadCurvesDialog);
 	}
 
 void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
@@ -385,44 +394,39 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 	try
 		{
 		/* Open the curve file: */
-		Misc::File curveFile(cbData->selectedFileName.c_str(),"r");
-		FILE* cf=curveFile.getFilePtr();
+		Comm::ClusterFileCharacterSource curvesFile(cbData->selectedFileName.c_str(),openPipe());
+		Misc::ValueSource curvesSource(curvesFile);
+		curvesSource.setPunctuation(',',true);
 		
 		/* Read the curve file header: */
-		char headerBuffer[256];
-		curveFile.gets(headerBuffer,sizeof(headerBuffer));
-		if(strcmp(headerBuffer,"Vrui Curve Editor Tool Curve File\n")!=0)
+		if(!curvesSource.isString("Vrui Curve Editor Tool Curve File"))
 			Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
 		
-		/* Read all curves: */
-		unsigned int numCurves;
-		fscanf(cf,"%u",&numCurves);
+		/* Read all curvesSource: */
+		unsigned int numCurves=curvesSource.readUnsignedInteger();
 		for(unsigned int curveIndex=0;curveIndex<numCurves;++curveIndex)
 			{
 			/* Create a new curve: */
 			Curve* c=new Curve;
 			
 			/* Read the curve's line width and color: */
-			float lineWidth;
-			unsigned int color[3];
-			fscanf(cf,"%f, %u %u %u",&lineWidth,&color[0],&color[1],&color[2]);
-			c->lineWidth=lineWidth;
+			c->lineWidth=GLfloat(curvesSource.readNumber());
+			if(curvesSource.readChar()!=',')
+				Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
 			for(int i=0;i<3;++i)
-				c->color[i]=Curve::Color::Scalar(color[i]);
+				c->color[i]=Curve::Color::Scalar(curvesSource.readUnsignedInteger());
 			c->color[3]=Curve::Color::Scalar(255);
 			
 			/* Read the curve's control points: */
-			unsigned int numControlPoints;
-			fscanf(cf,"%u",&numControlPoints);
+			unsigned int numControlPoints=curvesSource.readUnsignedInteger();
 			for(unsigned int controlPointIndex=0;controlPointIndex<numControlPoints;++controlPointIndex)
 				{
-				double t;
-				double pos[3];
-				fscanf(cf,"%lf, %lf %lf %lf",&t,&pos[0],&pos[1],&pos[2]);
 				Curve::ControlPoint cp;
+				cp.t=Scalar(curvesSource.readNumber());
+				if(curvesSource.readChar()!=',')
+					Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
 				for(int i=0;i<3;++i)
-					cp.pos[i]=Scalar(pos[i]);
-				cp.t=Scalar(t);
+					cp.pos[i]=Point::Scalar(curvesSource.readNumber());
 				c->controlPoints.push_back(cp);
 				}
 			

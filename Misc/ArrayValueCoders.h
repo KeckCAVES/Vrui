@@ -1,6 +1,7 @@
 /***********************************************************************
-ArrayValueCoders - Generic value coder classes standard C-style arrays.
-Copyright (c) 2004-2005 Oliver Kreylos
+ArrayValueCoders - Generic value coder classes for standard C-style
+arrays, with fixed or dynamic array sizes.
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -27,6 +28,26 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Misc {
 
+template <class ElementParam>
+class FixedArrayValueCoder // Value coder class for arrays with a-priori known sizes
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const ElementParam* elements,size_t numElements);
+	static void decode(ElementParam* elements,size_t numElements,const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <class ElementParam>
+class DynamicArrayValueCoder // Value coder class for arrays with dynamic sizes
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const ElementParam* elements,size_t numElements);
+	static size_t decode(ElementParam* elements,size_t maxNumElements,const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+#if 0
+
 /**************************
 Generic ValueCoder classes:
 **************************/
@@ -40,10 +61,12 @@ class ValueCoderArray
 	static int decode(int maxNumElements,ElementParam* elements,const char* start,const char* end,const char** decodeEnd =0);
 	};
 
+#endif
+
 }
 
 #if !defined(MISC_ARRAYVALUECODERS_IMPLEMENTATION)
-#include <Misc/ArrayValueCoders.cpp>
+#include <Misc/ArrayValueCoders.icpp>
 #endif
 
 #endif

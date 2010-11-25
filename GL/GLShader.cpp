@@ -282,6 +282,10 @@ void GLShader::linkShader(void)
 		GLsizei linkLogSize;
 		glGetInfoLogARB(programObject,sizeof(linkLogBuffer),&linkLogSize,linkLogBuffer);
 		
+		/* Delete the program object: */
+		glDeleteObjectARB(programObject);
+		programObject=0;
+		
 		/* Signal an error: */
 		Misc::throwStdErr("GLShader::linkShader: Error \"%s\" while linking shader program",linkLogBuffer);
 		}

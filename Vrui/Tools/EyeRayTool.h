@@ -1,7 +1,7 @@
 /***********************************************************************
 EyeRayTool - Class to transform the ray direction of an input device to
 point along the sight line from the main viewer to the input device.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_EYERAYTOOL_INCLUDED
 #define VRUI_EYERAYTOOL_INCLUDED
 
-#include <Vrui/Tools/TransformTool.h>
+#include <Vrui/TransformTool.h>
 
 namespace Vrui {
 

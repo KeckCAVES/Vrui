@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -22,6 +22,8 @@ with Virtual Jell-O; if not, write to the Free Software Foundation,
 Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include "SharedJello.h"
+
 #include <string.h>
 #include <stdexcept>
 #include <iostream>
@@ -35,14 +37,10 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
-#include <GLMotif/TextField.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/ToggleButton.h>
-#include <GLMotif/Slider.h>
-#include <Vrui/Tools/DraggingTool.h>
+#include <Vrui/DraggingTool.h>
 #include <Vrui/Vrui.h>
-
-#include "SharedJello.h"
 
 /*****************************************
 Methods of class SharedJello::AtomDragger:
@@ -100,11 +98,8 @@ GLMotif::PopupMenu* SharedJello::createMainMenu(void)
 	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
 	centerDisplayButton->getSelectCallbacks().add(this,&SharedJello::centerDisplayCallback);
 	
-	GLMotif::ToggleButton* showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
+	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&SharedJello::showSettingsDialogCallback);
-	
-	GLMotif::Button* createInputDeviceButton=new GLMotif::Button("CreateInputDeviceButton",mainMenu,"Create Input Device");
-	createInputDeviceButton->getSelectCallbacks().add(this,&SharedJello::createInputDeviceCallback);
 	
 	mainMenu->manageChild();
 	
@@ -114,16 +109,12 @@ GLMotif::PopupMenu* SharedJello::createMainMenu(void)
 void SharedJello::updateSettingsDialog(void)
 	{
 	/* Update the atom mass slider: */
-	double jiggliness=(Math::log(double(atomMass))/Math::log(1.1)+32.0)/64.0;
-	jigglinessTextField->setValue(jiggliness);
-	jigglinessSlider->setValue(jiggliness);
+	jigglinessSlider->setValue((Math::log(double(atomMass))/Math::log(1.1)+32.0)/64.0);
 	
 	/* Update the viscosity slider: */
-	viscosityTextField->setValue(1.0-double(attenuation));
 	viscositySlider->setValue(1.0-double(attenuation));
 	
 	/* Update the gravity slider: */
-	gravityTextField->setValue(double(gravity));
 	gravitySlider->setValue(double(gravity));
 	}
 
@@ -132,48 +123,38 @@ GLMotif::PopupWindow* SharedJello::createSettingsDialog(void)
 	const GLMotif::StyleSheet& ss=*Vrui::getWidgetManager()->getStyleSheet();
 	
 	settingsDialog=new GLMotif::PopupWindow("SettingsDialog",Vrui::getWidgetManager(),"Settings Dialog");
+	settingsDialog->setCloseButton(true);
+	settingsDialog->setResizableFlags(true,false);
+	settingsDialog->getCloseCallbacks().add(this,&SharedJello::settingsDialogCloseCallback);
 	
 	GLMotif::RowColumn* settings=new GLMotif::RowColumn("Settings",settingsDialog,false);
-	settings->setNumMinorWidgets(3);
-	
-	double jiggliness=(Math::log(double(atomMass))/Math::log(1.1)+32.0)/64.0;
+	settings->setNumMinorWidgets(2);
 	
 	new GLMotif::Label("JigglinessLabel",settings,"Jiggliness",ss.font);
 	
-	jigglinessTextField=new GLMotif::TextField("JigglinessTextField",settings,6);
-	jigglinessTextField->setFieldWidth(6);
-	jigglinessTextField->setPrecision(4);
-	jigglinessTextField->setValue(jiggliness);
-	
-	jigglinessSlider=new GLMotif::Slider("JigglinessSlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
+	jigglinessSlider=new GLMotif::TextFieldSlider("JigglinessSlider",settings,5,ss.fontHeight*10.0f);
+	jigglinessSlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	jigglinessSlider->getTextField()->setFieldWidth(4);
+	jigglinessSlider->getTextField()->setPrecision(2);
 	jigglinessSlider->setValueRange(0.0,1.0,0.01);
-	jigglinessSlider->setValue(jiggliness);
 	jigglinessSlider->getValueChangedCallbacks().add(this,&SharedJello::jigglinessSliderCallback);
-	
-	double viscosity=1.0-double(attenuation);
 	
 	new GLMotif::Label("ViscosityLabel",settings,"Viscosity");
 	
-	viscosityTextField=new GLMotif::TextField("ViscosityTextField",settings,6);
-	viscosityTextField->setFieldWidth(6);
-	viscosityTextField->setPrecision(2);
-	viscosityTextField->setValue(viscosity);
-	
-	viscositySlider=new GLMotif::Slider("ViscositySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
+	viscositySlider=new GLMotif::TextFieldSlider("ViscositySlider",settings,5,ss.fontHeight*10.0f);
+	viscositySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	viscositySlider->getTextField()->setFieldWidth(4);
+	viscositySlider->getTextField()->setPrecision(2);
 	viscositySlider->setValueRange(0.0,1.0,0.01);
-	viscositySlider->setValue(viscosity);
 	viscositySlider->getValueChangedCallbacks().add(this,&SharedJello::viscositySliderCallback);
 	
 	new GLMotif::Label("GravityLabel",settings,"Gravity");
 	
-	gravityTextField=new GLMotif::TextField("GravityTextField",settings,6);
-	gravityTextField->setFieldWidth(6);
-	gravityTextField->setPrecision(2);
-	gravityTextField->setValue(double(gravity));
-	
-	gravitySlider=new GLMotif::Slider("GravitySlider",settings,GLMotif::Slider::HORIZONTAL,ss.fontHeight*10.0f);
+	gravitySlider=new GLMotif::TextFieldSlider("GravitySlider",settings,5,ss.fontHeight*10.0f);
+	gravitySlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	gravitySlider->getTextField()->setFieldWidth(4);
+	gravitySlider->getTextField()->setPrecision(1);
 	gravitySlider->setValueRange(0.0,40.0,0.5);
-	gravitySlider->setValue(double(gravity));
 	gravitySlider->getValueChangedCallbacks().add(this,&SharedJello::gravitySliderCallback);
 	
 	settings->manageChild();
@@ -501,28 +482,23 @@ void SharedJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChanged
 	/* Hide or show settings dialog based on toggle button state: */
 	if(cbData->set)
 		{
-		/* Pop up the settings dialog at the same position as the main menu: */
-		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
+		/* Pop up the settings dialog: */
+		Vrui::popupPrimaryWidget(settingsDialog);
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);
 	}
 
-void SharedJello::createInputDeviceCallback(Misc::CallbackData* cbData)
-	{
-	}
-
-void SharedJello::jigglinessSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
+void SharedJello::jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Compute and set the atom mass: */
-	double jiggliness=cbData->value;
-	atomMass=Scalar(Math::exp(Math::log(1.1)*(jiggliness*64.0-32.0)));
+	atomMass=Scalar(Math::exp(Math::log(1.1)*(cbData->value*64.0-32.0)));
 	
 	/* Send a parameter update to the server: */
 	sendParamUpdate();
 	}
 
-void SharedJello::viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
+void SharedJello::viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the attenuation: */
 	attenuation=Scalar(1)-Scalar(cbData->value);
@@ -531,13 +507,18 @@ void SharedJello::viscositySliderCallback(GLMotif::Slider::ValueChangedCallbackD
 	sendParamUpdate();
 	}
 
-void SharedJello::gravitySliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
+void SharedJello::gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Set the gravity: */
 	gravity=Scalar(cbData->value);
 	
 	/* Send a parameter update to the server: */
 	sendParamUpdate();
+	}
+
+void SharedJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
+	{
+	showSettingsDialogToggle->setToggle(false);
 	}
 
 /*********************
