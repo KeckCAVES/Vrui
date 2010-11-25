@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorScalingNavigationTool - Class for tools that allow scaling the
 navigation transformation using a valuator.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,13 +21,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ValuatorScalingNavigationTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ValuatorScalingNavigationTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -41,8 +41,7 @@ ValuatorScalingNavigationToolFactory::ValuatorScalingNavigationToolFactory(ToolM
 	 scalingFactor(Scalar(0.25))
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumValuators(0,1);
+	layout.setNumValuators(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -67,6 +66,11 @@ ValuatorScalingNavigationToolFactory::~ValuatorScalingNavigationToolFactory(void
 const char* ValuatorScalingNavigationToolFactory::getName(void) const
 	{
 	return "Valuator Scaling";
+	}
+
+const char* ValuatorScalingNavigationToolFactory::getValuatorFunction(int) const
+	{
+	return "Zoom";
 	}
 
 Tool* ValuatorScalingNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -123,7 +127,7 @@ const ToolFactory* ValuatorScalingNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ValuatorScalingNavigationTool::valuatorCallback(int,int,InputDevice::ValuatorCallbackData* cbData)
+void ValuatorScalingNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
 	{
 	currentValue=Scalar(cbData->newValuatorValue);
 	if(Math::abs(currentValue)>factory->valuatorThreshold)
@@ -132,7 +136,7 @@ void ValuatorScalingNavigationTool::valuatorCallback(int,int,InputDevice::Valuat
 		if(!isActive()&&activate())
 			{
 			/* Initialize the navigation transformations: */
-			scalingCenter=getDevicePosition(0);
+			scalingCenter=getValuatorDevicePosition(0);
 			preScale=NavTrackerState::translateFromOriginTo(scalingCenter);
 			postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
 			postScale*=getNavigationTransformation();

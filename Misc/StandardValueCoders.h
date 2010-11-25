@@ -51,6 +51,24 @@ class ValueCoder<bool>
 	};
 
 template <>
+class ValueCoder<short int>
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const short int& value);
+	static short int decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <>
+class ValueCoder<unsigned short int>
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const unsigned short int& value);
+	static unsigned short int decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <>
 class ValueCoder<int>
 	{
 	/* Methods: */

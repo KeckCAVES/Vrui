@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofInputDeviceTool - Class for tools using a 6-DOF input device to
 interact with virtual input devices.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,11 +21,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Misc/CallbackList.h>
+#include <Vrui/Tools/SixDofInputDeviceTool.h>
+
+#include <Misc/StandardValueCoders.h>
+#include <Misc/ConfigurationFile.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/ToolManager.h>
-
-#include <Vrui/Tools/SixDofInputDeviceTool.h>
 
 namespace Vrui {
 
@@ -34,16 +35,21 @@ Methods of class SixDofInputDeviceToolFactory:
 *********************************************/
 
 SixDofInputDeviceToolFactory::SixDofInputDeviceToolFactory(ToolManager& toolManager)
-	:ToolFactory("SixDofInputDeviceTool",toolManager)
+	:ToolFactory("SixDofInputDeviceTool",toolManager),
+	 selectButtonToggle(false)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1,true);
+	layout.setNumValuators(0,true);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* inputDeviceToolFactory=toolManager.loadClass("InputDeviceTool");
 	inputDeviceToolFactory->addChildClass(this);
 	addParentClass(inputDeviceToolFactory);
+	
+	/* Load class settings: */
+	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	selectButtonToggle=cfs.retrieveValue<bool>("./selectButtonToggle",selectButtonToggle);
 	
 	/* Set tool class' factory pointer: */
 	SixDofInputDeviceTool::factory=this;
@@ -104,9 +110,10 @@ Methods of class SixDofInputDeviceTool:
 **************************************/
 
 SixDofInputDeviceTool::SixDofInputDeviceTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
-	:InputDeviceTool(sFactory,inputAssignment),
-	 deactivating(false)
+	:InputDeviceTool(sFactory,inputAssignment)
 	{
+	/* Set the interaction device: */
+	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* SixDofInputDeviceTool::getFactory(void) const
@@ -114,46 +121,52 @@ const ToolFactory* SixDofInputDeviceTool::getFactory(void) const
 	return factory;
 	}
 
-void SixDofInputDeviceTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void SixDofInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	if(cbData->newButtonState) // Button has just been pressed
+	if(buttonSlotIndex==0)
 		{
-		if(isActive())
+		if(factory->selectButtonToggle||input.getNumButtonSlots()>1||input.getNumValuatorSlots()>0) // Always use toggle behavior if the tool has optional buttons/valuators
 			{
-			/* Prepare to deactivate the tool on button release: */
-			deactivating=true;
-			
-			/* Cancel processing of this callback to preempt cascaded tools: */
-			cbData->callbackList->requestInterrupt();
+			/* Toggle state on button press: */
+			if(cbData->newButtonState)
+				{
+				if(isActive())
+					{
+					/* Deactivate the tool: */
+					deactivate();
+					}
+				else
+					{
+					/* Try activating the tool: */
+					if(activate(getInteractionPosition()))
+						{
+						/* Initialize the dragging transformation: */
+						preScale=Geometry::invert(interactionDevice->getTransformation());
+						preScale*=getGrabbedDevice()->getTransformation();
+						}
+					}
+				}
 			}
-		else
+		else if(cbData->newButtonState) // Button has just been pressed
 			{
 			/* Try activating the tool: */
-			if(activate(getDevicePosition(0)))
+			if(activate(getInteractionPosition()))
 				{
 				/* Initialize the dragging transformation: */
-				preScale=Geometry::invert(getDeviceTransformation(0));
+				preScale=Geometry::invert(interactionDevice->getTransformation());
 				preScale*=getGrabbedDevice()->getTransformation();
-				
-				/* Cancel processing of this callback to preempt cascaded tools: */
-				cbData->callbackList->requestInterrupt();
 				}
+			}
+		else // Button has just been released
+			{
+			/* Deactivate the tool: */
+			deactivate();
 			}
 		}
-	else // Button has just been released
+	else
 		{
-		if(isActive())
-			{
-			if(deactivating)
-				{
-				/* Deactivate the tool: */
-				deactivate();
-				deactivating=false;
-				}
-			
-			/* Cancel processing of this callback to preempt cascaded tools: */
-			cbData->callbackList->requestInterrupt();
-			}
+		/* Let input device tool handle it: */
+		InputDeviceTool::buttonCallback(buttonSlotIndex,cbData);
 		}
 	}
 
@@ -162,7 +175,7 @@ void SixDofInputDeviceTool::frame(void)
 	if(isActive())
 		{
 		/* Calculate the current transformation: */
-		TrackerState current=getDeviceTransformation(0);
+		TrackerState current=interactionDevice->getTransformation();
 		current*=preScale;
 		
 		/* Set the grabbed device's position and orientation: */

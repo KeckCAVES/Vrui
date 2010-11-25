@@ -1,6 +1,6 @@
 /***********************************************************************
 FileSelectionDialog - A popup window to select a file name.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string>
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
+#include <GLMotif/TextField.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/ListBox.h>
 #include <GLMotif/DropdownBox.h>
@@ -88,6 +89,7 @@ class FileSelectionDialog:public PopupWindow
 	const char* fileNameFilters; // Current filter expression for file names; semicolon-separated list of allowed extensions
 	RowColumn* pathButtonBox; // Box containing the path component buttons
 	int selectedPathButton; // Index of the currently selected path button; determines the displayed directory
+	TextField* fileNameField; // Text field to directly edit the selected file name
 	ScrolledListBox* fileList; // Scrolled list box containing all directories and matching files in the current directory
 	DropdownBox* filterList; // Drop down box containing the selectable file name filters
 	Misc::CallbackList okCallbacks; // Callbacks to be called when the OK button is selected, or a file name is double-clicked
@@ -95,13 +97,16 @@ class FileSelectionDialog:public PopupWindow
 	
 	/* Private methods: */
 	std::string getCurrentPath(void) const; // Constructs the full path name of the currently displayed directory
+	void updateFileNameField(void); // Updates the file name field in response to directory changes or file selections
 	bool readDirectory(void); // Reads all directories and files from the selected directory into the list box
 	void setSelectedPathButton(int newSelectedPathButton); // Changes the selected path button
 	void pathButtonSelectedCallback(Button::SelectCallbackData* cbData); // Callback called when one of the path buttons is selected
+	void fileNameFieldValueChangedCallback(TextField::ValueChangedCallbackData* cbData); // Callback called when the file name text field changes value
+	void listValueChangedCallback(ListBox::ValueChangedCallbackData* cbData); // Callback when the selected item in the list changes
 	void listItemSelectedCallback(ListBox::ItemSelectedCallbackData* cbData); // Callback when a list item gets double-clicked
 	void filterListValueChangedCallback(DropdownBox::ValueChangedCallbackData* cbData); // Callback when the selected file name filter changes
 	void okButtonSelectedCallback(Misc::CallbackData* cbData); // Callback called when the OK button is pressed
-	void cancelButtonSelectedCallback(Misc::CallbackData* cbData); // Callback called when the Cancel button is pressed
+	void cancelButtonSelectedCallback(Misc::CallbackData* cbData); // Callback called when the Cancel button is pressed or the dialog window is closed
 	
 	/* Constructors and destructors: */
 	public:

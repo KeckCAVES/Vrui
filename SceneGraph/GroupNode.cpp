@@ -51,7 +51,7 @@ const char* GroupNode::getClassName(void) const
 EventOut* GroupNode::getEventOut(const char* fieldName) const
 	{
 	if(strcmp(fieldName,"children")==0)
-		return makeEO(this,children);
+		return makeEventOut(this,children);
 	else
 		return GraphNode::getEventOut(fieldName);
 	}
@@ -59,11 +59,11 @@ EventOut* GroupNode::getEventOut(const char* fieldName) const
 EventIn* GroupNode::getEventIn(const char* fieldName)
 	{
 	if(strcmp(fieldName,"addChildren")==0)
-		return makeEI(this,addChildren);
+		return makeEventIn(this,addChildren);
 	else if(strcmp(fieldName,"removeChildren")==0)
-		return makeEI(this,removeChildren);
+		return makeEventIn(this,removeChildren);
 	else if(strcmp(fieldName,"children")==0)
-		return makeEI(this,children);
+		return makeEventIn(this,children);
 	else
 		return GraphNode::getEventIn(fieldName);
 	}

@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -29,8 +29,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/GeodeticCoordinateTransform.h>
-#include <Vrui/Tools/LocatorTool.h>
+#include <Vrui/LocatorTool.h>
 #include <Vrui/LocatorToolAdapter.h>
+#include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Application.h>
 
@@ -46,6 +47,9 @@ class Popup;
 class PopupMenu;
 class PopupWindow;
 class TextField;
+}
+namespace SceneGraph {
+class GroupNode;
 }
 class PointSet;
 class SeismicPath;
@@ -118,6 +122,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 		virtual ~DataLocator(void);
 		
 		/* Methods: */
+		virtual void getName(std::string& name) const;
 		virtual void buttonPressCallback(Vrui::LocatorTool::ButtonPressCallbackData* cbData);
 		virtual void glRenderAction(GLContextData& contextData) const;
 		void setTimeButtonSelectCallback(Misc::CallbackData* cbData);
@@ -134,6 +139,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	std::vector<PointSet*> pointSets; // Vector of additional point sets to render
 	std::vector<SeismicPath*> seismicPaths; // Vector of seismic paths to render
 	std::vector<GLPolylineTube*> sensorPaths; // Vector of sensor paths to render
+	std::vector<SceneGraph::GroupNode*> sceneGraphs; // Vector of scene graphs to render
 	bool scaleToEnvironment; // Flag if the Earth model should be scaled to fit the environment
 	bool rotateEarth; // Flag if the Earth model should be rotated
 	double lastFrameTime; // Application time when last frame was rendered (to determine Earth angle updates)
@@ -146,6 +152,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	bool showGrid; // Flag if the long/lat grid is rendered
 	std::vector<bool> showEarthquakeSets; // Vector of flags if each of the earthquake sets is rendered
 	std::vector<bool> showPointSets; // Vector of flags if each of the additional point sets is rendered
+	std::vector<bool> showSceneGraphs; // Vector of flags if each of the scene graphs is rendered
 	bool showSeismicPaths; // Flag if the seismic paths are rendered
 	bool showOuterCore; // Flag if the outer core is rendered
 	bool outerCoreTransparent; // Flag if the outer core is rendered transparently
@@ -155,6 +162,8 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMaterial innerCoreMaterial; // OpenGL material properties for the inner core
 	float earthquakePointSize; // Point size to render earthquake hypocenters
 	GLMaterial sensorPathMaterial; // OpenGL material properties for sensor paths
+	bool fog; // Flag whether depth cueing via fog is enabled
+	float bpDist; // Current backplane distance for clipping and fog attenuation
 	double currentTime; // Current animation time in seconds since the epoch in UTC
 	double playSpeed; // Animation playback speed in real-world seconds per visualization second
 	bool play; // Flag if automatic playback is enabled
@@ -163,6 +172,8 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	Vrui::NavTransform sphereTransform; // Transformation pre-applied to navigation transformation to lock it to a sphere
 	BaseLocatorList baseLocators; // List of active locators
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
+	GLMotif::ToggleButton* showRenderDialogToggle;
+	GLMotif::ToggleButton* showAnimationDialogToggle;
 	GLMotif::PopupWindow* renderDialog; // The rendering settings dialog
 	GLMotif::PopupWindow* animationDialog; // The animation dialog
 	GLMotif::TextField* currentTimeValue; // Text field showing the current animation time
@@ -170,9 +181,6 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMotif::TextField* playSpeedValue; // Text field showing the animation speed
 	GLMotif::Slider* playSpeedSlider; // Slider to adjust the animation speed
 	GLMotif::ToggleButton* playToggle; // Toggle button for automatic playback
-	
-	// DEBUGGING
-	//Vrui::NavTransform navFrame;
 	
 	/* Private methods: */
 	GLMotif::Popup* createRenderTogglesMenu(void); // Creates the "Rendering Modes" submenu
@@ -193,8 +201,10 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	void alignSurfaceFrame(Vrui::NavTransform& surfaceFrame);
+	void alignSurfaceFrame(const Vrui::SurfaceNavigationTool::AlignmentData& alignmentData);
 	void menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
+	void renderDialogCloseCallback(Misc::CallbackData* cbData);
+	void animationDialogCloseCallback(Misc::CallbackData* cbData);
 	void sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void centerDisplayCallback(Misc::CallbackData* cbData);
 	};

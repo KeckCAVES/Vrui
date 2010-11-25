@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -21,20 +21,22 @@ with the Basic Sound Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifdef __DARWIN__
+#include <Sound/SoundRecorder.h>
+
+#include <Sound/Config.h>
+
+#ifdef __APPLE__
 #include <math.h>
 #endif
 #include <string.h>
 #include <iostream>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
-#ifdef __DARWIN__
+#ifdef __APPLE__
 #include <CoreFoundation/CFURL.h>
 #endif
 
 #include <Misc/FileNameExtensions.h>
-
-#include <Sound/SoundRecorder.h>
 
 namespace Sound {
 
@@ -42,209 +44,7 @@ namespace Sound {
 Methods of class SoundRecorder:
 ******************************/
 
-#ifdef __LINUX__
-
-/******************************
-Linux version of SoundRecorder:
-******************************/
-
-#ifdef SOUND_USE_ALSA
-
-void SoundRecorder::writeWAVHeader(void)
-	{
-	/* Rewind the file: */
-	outputFile.rewind();
-	
-	/* Calculate the total file size: */
-	size_t dataChunkSize=numRecordedFrames*size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);
-	size_t dataHeaderSize=2*sizeof(int);
-	size_t fmtChunkSize=2*sizeof(int)+4*sizeof(short int);
-	size_t fmtHeaderSize=2*sizeof(int);
-	size_t riffChunkSize=sizeof(int)+fmtHeaderSize+fmtChunkSize+dataHeaderSize+dataChunkSize;
-	
-	/* Write the RIFF chunk: */
-	outputFile.write<char>("RIFF",4);
-	outputFile.write<unsigned int>(riffChunkSize);
-	outputFile.write<char>("WAVE",4);
-	
-	/* Write the fmt chunk: */
-	outputFile.write<char>("fmt ",4);
-	outputFile.write<unsigned int>(fmtChunkSize);
-	outputFile.write<unsigned short>(1); // PCM
-	outputFile.write<unsigned short>(format.samplesPerFrame);
-	outputFile.write<unsigned int>(format.framesPerSecond);
-	outputFile.write<unsigned int>(format.framesPerSecond*format.samplesPerFrame*format.bytesPerSample);
-	outputFile.write<unsigned short>(format.samplesPerFrame*format.bytesPerSample);
-	outputFile.write<unsigned short>(format.bitsPerSample);
-	
-	/* Write the data chunk header: */
-	outputFile.write<char>("data",4);
-	outputFile.write<unsigned int>(dataChunkSize);
-	}
-
-void* SoundRecorder::recordingThreadMethod(void)
-	{
-	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
-	
-	/* Read buffers worth of sound data from the PCM device until interrupted: */
-	while(true)
-		{
-		/* Read pending sound data, up to the buffer size: */
-		size_t numFramesRead=pcmDevice.read(sampleBuffer,sampleBufferSize);
-		
-		/* Write the buffer to the file: */
-		outputFile.write(sampleBuffer,numFramesRead*bytesPerFrame);
-		numRecordedFrames+=numFramesRead;
-		}
-	
-	return 0;
-	}
-
-#endif
-
-SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName)
-	:format(sFormat),
-	#ifdef SOUND_USE_ALSA
-	 outputFileFormat(RAW),
-	 bytesPerFrame(0),
-	 pcmDevice("default",true),
-	 outputFile(outputFileName,"wb",Misc::File::DontCare),
-	 sampleBufferSize(0),sampleBuffer(0),
-	 numRecordedFrames(0),
-	#endif
-	 active(false)
-	{
-	#ifdef SOUND_USE_ALSA
-	
-	/* Sanify the sound data format: */
-	if(format.bitsPerSample<1)
-		format.bitsPerSample=1;
-	format.bitsPerSample=(format.bitsPerSample+7)&~0x7; // Round the number of bits to the next multiple of 8
-	if(format.bitsPerSample==24)
-		format.bytesPerSample=4; // 24 bit sound data padded into 32 bit words
-	else
-		format.bytesPerSample=format.bitsPerSample/8;
-	if(format.samplesPerFrame<1)
-		format.samplesPerFrame=1;
-	
-	/* Determine the output file format from the file name extension: */
-	if(Misc::hasCaseExtension(outputFileName,".wav"))
-		{
-		/* It's a WAV file: */
-		outputFileFormat=WAV;
-		
-		/* Adjust the sound data format for WAV files: */
-		format.signedSamples=format.bitsPerSample>8;
-		format.sampleEndianness=SoundDataFormat::LittleEndian;
-		outputFile.setEndianness(Misc::File::LittleEndian);
-		}
-	else if(Misc::hasCaseExtension(outputFileName,""))
-		{
-		/* It's a raw file: */
-		outputFileFormat=RAW;
-		}
-	else
-		Misc::throwStdErr("SoundRecorder::SoundRecorder: Output file %s has unrecognized extension",outputFileName);
-	
-	/* Calculate the number of bytes per frame: */
-	bytesPerFrame=format.bytesPerSample*format.samplesPerFrame;
-	
-	/* Set the PCM device's parameters according to the sound data format: */
-	pcmDevice.setSoundDataFormat(format);
-	
-	/* Create a sample buffer holding a quarter second of sound: */
-	sampleBufferSize=(size_t(format.framesPerSecond)*250+500)/1000;
-	sampleBuffer=new char[sampleBufferSize*bytesPerFrame];
-	
-	/* Prepare the device for recording: */
-	pcmDevice.prepare();
-	
-	#endif
-	}
-
-SoundRecorder::~SoundRecorder(void)
-	{
-	#ifdef SOUND_USE_ALSA
-	
-	/* Stop the recording thread if still active: */
-	if(active)
-		{
-		recordingThread.cancel();
-		recordingThread.join();
-		
-		/* Stop the PCM device: */
-		pcmDevice.drop();
-		
-		/* Write the final audio file header if necessary: */
-		if(outputFileFormat==WAV)
-			writeWAVHeader();
-		}
-	
-	/* Delete the sample buffer: */
-	delete[] sampleBuffer;
-	
-	#endif
-	}
-
-SoundDataFormat SoundRecorder::getSoundDataFormat(void) const
-	{
-	return format;
-	}
-
-void SoundRecorder::start(void)
-	{
-	/* Do nothing if already started: */
-	if(active)
-		return;
-	
-	#ifdef SOUND_USE_ALSA
-	
-	/* Reset the number of recorded frames: */
-	numRecordedFrames=0;
-	
-	/* Write an empty audio file header if necessary: */
-	if(outputFileFormat==WAV)
-		writeWAVHeader();
-	
-	/* Start the PCM device: */
-	pcmDevice.start();
-	
-	/* Start the background recording thread: */
-	recordingThread.start(this,&SoundRecorder::recordingThreadMethod);
-	
-	#endif
-	
-	active=true;
-	}
-
-void SoundRecorder::stop(void)
-	{
-	/* Do nothing if not started: */
-	if(!active)
-		return;
-	
-	#ifdef SOUND_USE_ALSA
-	
-	/* Kill the background recording thread: */
-	recordingThread.cancel();
-	recordingThread.join();
-	
-	/* Stop the PCM device: */
-	pcmDevice.drop();
-	
-	/* Write the final audio file header if necessary: */
-	if(outputFileFormat==WAV)
-		writeWAVHeader();
-	
-	#endif
-	
-	active=false;
-	}
-
-#endif
-
-#ifdef __DARWIN__
+#ifdef __APPLE__
 
 /*********************************
 Mac OS X version of SoundRecorder:
@@ -456,6 +256,206 @@ void SoundRecorder::stop(void)
 	
 	/* Set the audio file's magic cookie (might have been updated during recording): */
 	setAudioFileMagicCookie();
+	}
+
+#else
+
+/***************************************
+OS-independent version of SoundRecorder:
+***************************************/
+
+#if SOUND_CONFIG_HAVE_ALSA
+
+void SoundRecorder::writeWAVHeader(void)
+	{
+	/* Rewind the file: */
+	outputFile.rewind();
+	
+	/* Calculate the total file size: */
+	size_t dataChunkSize=numRecordedFrames*size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);
+	size_t dataHeaderSize=2*sizeof(int);
+	size_t fmtChunkSize=2*sizeof(int)+4*sizeof(short int);
+	size_t fmtHeaderSize=2*sizeof(int);
+	size_t riffChunkSize=sizeof(int)+fmtHeaderSize+fmtChunkSize+dataHeaderSize+dataChunkSize;
+	
+	/* Write the RIFF chunk: */
+	outputFile.write<char>("RIFF",4);
+	outputFile.write<unsigned int>(riffChunkSize);
+	outputFile.write<char>("WAVE",4);
+	
+	/* Write the fmt chunk: */
+	outputFile.write<char>("fmt ",4);
+	outputFile.write<unsigned int>(fmtChunkSize);
+	outputFile.write<unsigned short>(1); // PCM
+	outputFile.write<unsigned short>(format.samplesPerFrame);
+	outputFile.write<unsigned int>(format.framesPerSecond);
+	outputFile.write<unsigned int>(format.framesPerSecond*format.samplesPerFrame*format.bytesPerSample);
+	outputFile.write<unsigned short>(format.samplesPerFrame*format.bytesPerSample);
+	outputFile.write<unsigned short>(format.bitsPerSample);
+	
+	/* Write the data chunk header: */
+	outputFile.write<char>("data",4);
+	outputFile.write<unsigned int>(dataChunkSize);
+	}
+
+void* SoundRecorder::recordingThreadMethod(void)
+	{
+	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
+	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	
+	/* Read buffers worth of sound data from the PCM device until interrupted: */
+	while(true)
+		{
+		/* Read pending sound data, up to the buffer size: */
+		size_t numFramesRead=pcmDevice.read(sampleBuffer,sampleBufferSize);
+		
+		/* Write the buffer to the file: */
+		outputFile.write(sampleBuffer,numFramesRead*bytesPerFrame);
+		numRecordedFrames+=numFramesRead;
+		}
+	
+	return 0;
+	}
+
+#endif
+
+SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName)
+	:format(sFormat),
+	#if SOUND_CONFIG_HAVE_ALSA
+	 outputFileFormat(RAW),
+	 bytesPerFrame(0),
+	 pcmDevice("default",true),
+	 outputFile(outputFileName,"wb",Misc::File::DontCare),
+	 sampleBufferSize(0),sampleBuffer(0),
+	 numRecordedFrames(0),
+	#endif
+	 active(false)
+	{
+	#if SOUND_CONFIG_HAVE_ALSA
+	
+	/* Sanify the sound data format: */
+	if(format.bitsPerSample<1)
+		format.bitsPerSample=1;
+	format.bitsPerSample=(format.bitsPerSample+7)&~0x7; // Round the number of bits to the next multiple of 8
+	if(format.bitsPerSample==24)
+		format.bytesPerSample=4; // 24 bit sound data padded into 32 bit words
+	else
+		format.bytesPerSample=format.bitsPerSample/8;
+	if(format.samplesPerFrame<1)
+		format.samplesPerFrame=1;
+	
+	/* Determine the output file format from the file name extension: */
+	if(Misc::hasCaseExtension(outputFileName,".wav"))
+		{
+		/* It's a WAV file: */
+		outputFileFormat=WAV;
+		
+		/* Adjust the sound data format for WAV files: */
+		format.signedSamples=format.bitsPerSample>8;
+		format.sampleEndianness=SoundDataFormat::LittleEndian;
+		outputFile.setEndianness(Misc::File::LittleEndian);
+		}
+	else if(Misc::hasCaseExtension(outputFileName,""))
+		{
+		/* It's a raw file: */
+		outputFileFormat=RAW;
+		}
+	else
+		Misc::throwStdErr("SoundRecorder::SoundRecorder: Output file %s has unrecognized extension",outputFileName);
+	
+	/* Calculate the number of bytes per frame: */
+	bytesPerFrame=format.bytesPerSample*format.samplesPerFrame;
+	
+	/* Set the PCM device's parameters according to the sound data format: */
+	pcmDevice.setSoundDataFormat(format);
+	
+	/* Create a sample buffer holding a quarter second of sound: */
+	sampleBufferSize=(size_t(format.framesPerSecond)*250+500)/1000;
+	sampleBuffer=new char[sampleBufferSize*bytesPerFrame];
+	
+	/* Prepare the device for recording: */
+	pcmDevice.prepare();
+	
+	#endif
+	}
+
+SoundRecorder::~SoundRecorder(void)
+	{
+	#if SOUND_CONFIG_HAVE_ALSA
+	
+	/* Stop the recording thread if still active: */
+	if(active)
+		{
+		recordingThread.cancel();
+		recordingThread.join();
+		
+		/* Stop the PCM device: */
+		pcmDevice.drop();
+		
+		/* Write the final audio file header if necessary: */
+		if(outputFileFormat==WAV)
+			writeWAVHeader();
+		}
+	
+	/* Delete the sample buffer: */
+	delete[] sampleBuffer;
+	
+	#endif
+	}
+
+SoundDataFormat SoundRecorder::getSoundDataFormat(void) const
+	{
+	return format;
+	}
+
+void SoundRecorder::start(void)
+	{
+	/* Do nothing if already started: */
+	if(active)
+		return;
+	
+	#if SOUND_CONFIG_HAVE_ALSA
+	
+	/* Reset the number of recorded frames: */
+	numRecordedFrames=0;
+	
+	/* Write an empty audio file header if necessary: */
+	if(outputFileFormat==WAV)
+		writeWAVHeader();
+	
+	/* Start the PCM device: */
+	pcmDevice.start();
+	
+	/* Start the background recording thread: */
+	recordingThread.start(this,&SoundRecorder::recordingThreadMethod);
+	
+	#endif
+	
+	active=true;
+	}
+
+void SoundRecorder::stop(void)
+	{
+	/* Do nothing if not started: */
+	if(!active)
+		return;
+	
+	#if SOUND_CONFIG_HAVE_ALSA
+	
+	/* Kill the background recording thread: */
+	recordingThread.cancel();
+	recordingThread.join();
+	
+	/* Stop the PCM device: */
+	pcmDevice.drop();
+	
+	/* Write the final audio file header if necessary: */
+	if(outputFileFormat==WAV)
+		writeWAVHeader();
+	
+	#endif
+	
+	active=false;
 	}
 
 #endif

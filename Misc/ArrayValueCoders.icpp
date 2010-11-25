@@ -1,0 +1,250 @@
+/***********************************************************************
+ArrayValueCoders - Generic value coder classes for standard C-style
+arrays, with fixed or dynamic array sizes.
+Copyright (c) 2004-2010 Oliver Kreylos
+
+This file is part of the Miscellaneous Support Library (Misc).
+
+The Miscellaneous Support Library is free software; you can
+redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
+
+The Miscellaneous Support Library is distributed in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Miscellaneous Support Library; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define MISC_ARRAYVALUECODERS_IMPLEMENTATION
+
+#include <Misc/ArrayValueCoders.h>
+
+namespace Misc {
+
+/***************************************************
+Methods of class FixedArrayValueCoder<ElementParam>:
+***************************************************/
+
+template <class ElementParam>
+inline
+std::string
+FixedArrayValueCoder<ElementParam>::encode(
+	const ElementParam* elements,
+	size_t numElements)
+	{
+	std::string result;
+	result.push_back('(');
+	
+	for(size_t i=0;i<numElements;++i)
+		{
+		if(i>0)
+			{
+			/* Add a separator: */
+			result.push_back(',');
+			result.push_back(' ');
+			}
+		
+		/* Encode the next element: */
+		result.append(ValueCoder<ElementParam>::encode(elements[i]));
+		}
+	
+	result.push_back(')');
+	return result;
+	}
+
+template <class ElementParam>
+inline
+void
+FixedArrayValueCoder<ElementParam>::decode(
+	ElementParam* elements,
+	size_t numElements,
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	const char* cPtr=start;
+	
+	/* Check for opening parenthesis: */
+	if(cPtr==end||*cPtr!='(')
+		throw DecodingError("missing opening parenthesis");
+	++cPtr;
+	cPtr=skipWhitespace(cPtr,end);
+	
+	/* Decode elements: */
+	for(size_t i=0;i<numElements;++i)
+		{
+		/* Check for comma separator: */
+		if(i>0)
+			cPtr=checkSeparator(',',cPtr,end);
+		
+		/* Decode the next element: */
+		elements[i]=ValueCoder<ElementParam>::decode(cPtr,end,&cPtr);
+		cPtr=skipWhitespace(cPtr,end);
+		}
+	
+	/* Check for closing parenthesis: */
+	if(cPtr==end||*cPtr!=')')
+		throw DecodingError("missing closing parenthesis");
+	++cPtr;
+	
+	if(decodeEnd!=0)
+		*decodeEnd=cPtr;
+	}
+
+/*****************************************************
+Methods of class DynamicArrayValueCoder<ElementParam>:
+*****************************************************/
+
+template <class ElementParam>
+inline
+std::string
+DynamicArrayValueCoder<ElementParam>::encode(
+	const ElementParam* elements,
+	size_t numElements)
+	{
+	std::string result;
+	result.push_back('(');
+	
+	for(size_t i=0;i<numElements;++i)
+		{
+		if(i>0)
+			{
+			/* Add a separator: */
+			result.push_back(',');
+			result.push_back(' ');
+			}
+		
+		/* Encode the next element: */
+		result.append(ValueCoder<ElementParam>::encode(elements[i]));
+		}
+	
+	result.push_back(')');
+	return result;
+	}
+
+template <class ElementParam>
+inline
+size_t
+DynamicArrayValueCoder<ElementParam>::decode(
+	ElementParam* elements,
+	size_t maxNumElements,
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	const char* cPtr=start;
+	
+	/* Check for opening parenthesis: */
+	if(cPtr==end||*cPtr!='(')
+		throw DecodingError("missing opening parenthesis");
+	++cPtr;
+	cPtr=skipWhitespace(cPtr,end);
+	
+	/* Decode elements: */
+	size_t numElements=0;
+	while(cPtr!=end&&*cPtr!=')')
+		{
+		/* Check for comma separator: */
+		if(numElements>0)
+			cPtr=checkSeparator(',',cPtr,end);
+		
+		/* Decode the next element: */
+		if(numElements<maxNumElements)
+			elements[numElements]=ValueCoder<ElementParam>::decode(cPtr,end,&cPtr);
+		else
+			ValueCoder<ElementParam>::decode(cPtr,end,&cPtr);
+		cPtr=skipWhitespace(cPtr,end);
+		++numElements;
+		}
+	
+	/* Check for closing parenthesis: */
+	if(cPtr==end)
+		throw DecodingError("missing closing parenthesis");
+	++cPtr;
+	
+	if(decodeEnd!=0)
+		*decodeEnd=cPtr;
+	return numElements;
+	}
+
+#if 0
+
+/**********************************************
+Methods of class ValueCoderArray<ElementParam>:
+**********************************************/
+
+template <class ElementParam>
+std::string ValueCoderArray<ElementParam>::encode(int numElements,const ElementParam* elements)
+	{
+	std::string result="(";
+	bool notFirstItem=false;
+	for(int i=0;i<numElements;++i)
+		{
+		/* Put a separator between items: */
+		if(notFirstItem)
+			result+=", ";
+		notFirstItem=true;
+		
+		/* Concatenate the result of encoding the next item: */
+		result+=ValueCoder<ElementParam>::encode(elements[i]);
+		}
+	result+=")";
+	
+	return result;
+	}
+
+template <class ElementParam>
+inline int ValueCoderArray<ElementParam>::decode(int maxNumElements,ElementParam* elements,const char* start,const char* end,const char** decodeEnd)
+	{
+	const char* cPtr=start;
+	
+	/* Check for opening parenthesis: */
+	if(cPtr==end||*cPtr!='(')
+		throw DecodingError(std::string("Missing opening parenthesis in ")+std::string(start,end));
+	++cPtr;
+	
+	cPtr=skipWhitespace(cPtr,end);
+	
+	int numElements=0;
+	while(cPtr!=end&&*cPtr!=')')
+		{
+		if(numElements>0)
+			{
+			/* Check for comma separator: */
+			if(*cPtr!=',')
+				throw DecodingError(std::string("Missing comma separator in ")+std::string(start,end));
+			++cPtr;
+			
+			cPtr=skipWhitespace(cPtr,end);
+			}
+		
+		/* Decode next list item (but only store it if there is room): */
+		if(numElements<maxNumElements)
+			elements[numElements]=ValueCoder<ElementParam>::decode(cPtr,end,&cPtr);
+		else
+			ValueCoder<ElementParam>::decode(cPtr,end,&cPtr);
+		
+		cPtr=skipWhitespace(cPtr,end);
+		
+		++numElements;
+		}
+	
+	/* Check for closing parenthesis: */
+	if(cPtr==end)
+		throw DecodingError(std::string("Missing closing parenthesis in ")+std::string(start,end));
+	++cPtr;
+	
+	if(decodeEnd!=0)
+		*decodeEnd=cPtr;
+	return numElements;
+	}
+
+#endif
+
+}

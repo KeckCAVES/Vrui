@@ -80,11 +80,14 @@ class ClipPlaneManager:public GLObject
 	ClipPlaneManager(void); // Creates an empty clipping plane manager
 	virtual ~ClipPlaneManager(void); // Destroys the clipping plane manager
 	
-	/* Methods: */
-	void initContext(GLContextData& contextData) const;
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
+	
+	/* New methods: */
 	ClipPlane* createClipPlane(bool physical); // Creates a disabled clipping plane
 	ClipPlane* createClipPlane(bool physical,const Plane& sPlane); // Creates an enabled clipping plane with the given plane equation
 	void destroyClipPlane(ClipPlane* clipPlane); // Destroys the given clipping plane
+	void clipRay(bool physical,Ray& ray,Scalar& lambdaMax) const; // Clips the given ray (in physical or navigational coordinates) against all enabled clipping planes by adjusting the ray's origin and the maximum ray intercept
 	void setClipPlanes(GLContextData& contextData) const; // Sets the clipping planes in the current OpenGL context
 	void setClipPlanes(DisplayState* displayState,GLContextData& contextData) const; // Sets the clipping planes in the current OpenGL context using the navigation transformations stored in the given display state object
 	void disableClipPlanes(GLContextData& contextData); // Disables all clipping planes

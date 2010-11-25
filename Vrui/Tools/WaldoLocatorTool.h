@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoLocatorTool - Class for 6-DOF localization with scaled-down
 transformations while the tool button is pressed.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_WALDOLOCATORTOOL_INCLUDED
 
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/LocatorTool.h>
+#include <Vrui/LocatorTool.h>
 
 namespace Vrui {
 
@@ -72,7 +72,7 @@ class WaldoLocatorTool:public LocatorTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/SurfaceNavigationTool.h>
+#include <GL/GLNumberRenderer.h>
+#include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
@@ -47,6 +48,11 @@ class FPSNavigationToolFactory:public ToolFactory
 	private:
 	Scalar rotateFactor; // Distance the mouse has to be moved to rotate by one radians
 	Scalar moveSpeed; // Moving speed when pressing move buttons
+	Scalar fallAcceleration; // Acceleration when falling in physical space units per second^2, defaults to g
+	Scalar probeSize; // Size of probe to use when aligning surface frames
+	Scalar maxClimb; // Maximum amount of climb per frame
+	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
+	bool showHud; // Flag whether to draw a heads-up display
 	
 	/* Constructors and destructors: */
 	public:
@@ -55,6 +61,7 @@ class FPSNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -67,23 +74,23 @@ class FPSNavigationTool:public SurfaceNavigationTool
 	private:
 	static FPSNavigationToolFactory* factory; // Pointer to the factory object for this class
 	InputDeviceAdapterMouse* mouseAdapter; // Mouse adapter controlling the tool's input device (0 if none)
-	Rotation navFrame; // Constant navigation frame in physical coordinates (x: right, y: front, z: up)
+	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-style font
 	
 	/* Transient navigation state: */
 	Scalar oldMousePos[2]; // Mouse position in input device adapter before navigation started
+	Point footPos; // Current position of main viewer's foot in physical coordinates
+	Scalar headHeight; // Height of viewer's head above the foot point
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
-	Point headPos; // Current position of the head point in physical coordinates
-	Point footPos; // Current position of the foot point in physical coordinates
-	Scalar angles[2]; // Current yaw (around z) and pitch (around x) angles in radians
+	Scalar azimuth; // Current azimuth of viewer position relative to local coordinate frame
+	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame
 	Vector moveVelocity; // Current movement velocity in frame coordinates
 	Point lastMousePos; // Last mouse position in screen coordinates
-	Scalar fallVelocity; // Current falling velocity along the aligned surface frame's z axis
 	
 	/* Private methods: */
 	Point calcMousePosition(void) const; // Calculates the current mouse position in screen coordinates
-	void startNavigating(void); // Enters navigation mode
-	void applyNavigation(void); // Applies the tool's current navigation state to the navigation transformation
-	void stopNavigating(void); // Leaves navigation mode
+	void applyNavState(void); // Applies the tool's current navigation state to the navigation transformation
+	void initNavState(void); // Initializes the tool's navigation state when it is activated
+	void stopNavState(void); // Leaves navigation mode
 	
 	/* Constructors and destructors: */
 	public:
@@ -92,8 +99,9 @@ class FPSNavigationTool:public SurfaceNavigationTool
 	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
+	virtual void display(GLContextData& contextData) const;
 	};
 
 }

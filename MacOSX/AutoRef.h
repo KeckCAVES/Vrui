@@ -2,7 +2,7 @@
 AutoRef - Helper class to manage Mac OSX Core Foundation object
 references. Templatized by the actual reference type to guarantee type
 safety.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Mac OSX Support Library (MacOSX).
 
@@ -21,10 +21,10 @@ with the Mac OSX Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifdef __DARWIN__
-
 #ifndef MACOSX_AUTOREF_INCLUDED
 #define MACOSX_AUTOREF_INCLUDED
+
+#ifdef __APPLE__
 
 #include <CoreFoundation/CoreFoundation.h>
 

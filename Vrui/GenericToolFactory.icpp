@@ -1,0 +1,143 @@
+/***********************************************************************
+GenericToolFactory - Class for factories for generic user interaction
+tools.
+Copyright (c) 2005-2010 Oliver Kreylos
+
+This file is part of the Virtual Reality User Interface Library (Vrui).
+
+The Virtual Reality User Interface Library is free software; you can
+redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
+
+The Virtual Reality User Interface Library is distributed in the hope
+that it will be useful, but WITHOUT ANY WARRANTY; without even the
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Virtual Reality User Interface Library; if not, write to the
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define VRUI_GENERICTOOLFACTORY_IMPLEMENTATION
+
+#include <Vrui/GenericToolFactory.h>
+
+namespace Vrui {
+
+/***********************************
+Methods of class GenericToolFactory:
+***********************************/
+
+template <class CreatedToolParam>
+inline
+GenericToolFactory<CreatedToolParam>::GenericToolFactory(
+	const char* sClassName,
+	const char* sDisplayName,
+	ToolFactory* parentClass,
+	ToolManager& toolManager)
+	:ToolFactory(sClassName,toolManager),
+	 displayName(sDisplayName),
+	 buttonFunctions(0),valuatorFunctions(0)
+	{
+	/* Add the tool factory to the class hierarchy: */
+	if(parentClass!=0)
+		{
+		parentClass->addChildClass(this);
+		addParentClass(parentClass);
+		}
+	
+	/* Set the tool class' factory pointer: */
+	CreatedTool::factory=this;
+	}
+
+template <class CreatedToolParam>
+inline
+GenericToolFactory<CreatedToolParam>::~GenericToolFactory(
+	void)
+	{
+	/* Delete the function descriptions: */
+	delete[] buttonFunctions;
+	delete[] valuatorFunctions;
+	
+	/* Reset the tool class' factory pointer: */
+	CreatedTool::factory=0;
+	}
+
+template <class CreatedToolParam>
+inline
+void
+GenericToolFactory<CreatedToolParam>::setNumButtons(
+	int newNumButtons,
+	bool newOptionalButtons)
+	{
+	/* Get the previous number of button function descriptions: */
+	int numButtonFunctions=layout.getNumButtons();
+	if(layout.hasOptionalButtons())
+		++numButtonFunctions;
+	
+	/* Forward the call to the layout structure: */
+	layout.setNumButtons(newNumButtons,newOptionalButtons);
+	
+	/* Reallocate the button description array: */
+	int newNumButtonFunctions=layout.getNumButtons();
+	if(layout.hasOptionalButtons())
+		++newNumButtonFunctions;
+	std::string* newButtonFunctions=new std::string[newNumButtonFunctions];
+	if(buttonFunctions!=0)
+		{
+		/* Copy the previous descriptions: */
+		for(int i=0;i<numButtonFunctions;++i)
+			newButtonFunctions[i]=buttonFunctions[i];
+		
+		delete[] buttonFunctions;
+		}
+	
+	/* Initialize new button descriptions: */
+	for(int i=numButtonFunctions;i<newNumButtonFunctions;++i)
+		newButtonFunctions[i]="(unknown button)";
+	
+	/* Install the new button function description array: */
+	buttonFunctions=newButtonFunctions;
+	}
+
+template <class CreatedToolParam>
+inline
+void
+GenericToolFactory<CreatedToolParam>::setNumValuators(
+	int newNumValuators,
+	bool newOptionalValuators)
+	{
+	/* Get the previous number of valuator function descriptions: */
+	int numValuatorFunctions=layout.getNumValuators();
+	if(layout.hasOptionalValuators())
+		++numValuatorFunctions;
+	
+	/* Forward the call to the layout structure: */
+	layout.setNumValuators(newNumValuators,newOptionalValuators);
+	
+	/* Reallocate the valuator description array: */
+	int newNumValuatorFunctions=layout.getNumValuators();
+	if(layout.hasOptionalValuators())
+		++newNumValuatorFunctions;
+	std::string* newValuatorFunctions=new std::string[newNumValuatorFunctions];
+	if(valuatorFunctions!=0)
+		{
+		/* Copy the previous descriptions: */
+		for(int i=0;i<numValuatorFunctions;++i)
+			newValuatorFunctions[i]=valuatorFunctions[i];
+		
+		delete[] valuatorFunctions;
+		}
+	
+	/* Initialize new valuator descriptions: */
+	for(int i=numValuatorFunctions;i<newNumValuatorFunctions;++i)
+		newValuatorFunctions[i]="(unknown valuator)";
+	
+	/* Install the new valuator function description array: */
+	valuatorFunctions=newValuatorFunctions;
+	}
+
+}

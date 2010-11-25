@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeTool - Vrui tool class to snap a virtual input device to
 events in an earthquake data set.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -18,24 +18,23 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include "EarthquakeTool.h"
+
 #include <Geometry/Ray.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/InputGraphManager.h>
-#include <Vrui/Vrui.h>
 
 #include "EarthquakeSet.h"
-
-#include "EarthquakeTool.h"
 
 /**************************************
 Methods of class EarthquakeToolFactory:
 **************************************/
 
-EarthquakeToolFactory::EarthquakeToolFactory(Vrui::ToolManager& toolManager,float sSphereRadius,float sConeAngle,const EarthquakeSet* sQuakes)
+EarthquakeToolFactory::EarthquakeToolFactory(Vrui::ToolManager& toolManager,const EarthquakeSet* sQuakes)
 	:Vrui::ToolFactory("EarthquakeTool",toolManager),
-	 sphereRadius(sSphereRadius),coneAngle(sConeAngle),
 	 quakes(sQuakes)
 	{
 	/* Insert class into class hierarchy: */
@@ -44,9 +43,8 @@ EarthquakeToolFactory::EarthquakeToolFactory(Vrui::ToolManager& toolManager,floa
 	addParentClass(transformToolFactory);
 	
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,transformToolFactory->getNumButtons());
-	layout.setNumValuators(0,transformToolFactory->getNumValuators());
+	layout.setNumButtons(0,true);
+	layout.setNumValuators(0,true);
 	
 	/* Set the custom tool class' factory pointer: */
 	EarthquakeTool::factory=this;
@@ -93,6 +91,11 @@ Methods of class EarthquakeTool:
 EarthquakeTool::EarthquakeTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment)
 	:Vrui::TransformTool(factory,inputAssignment)
 	{
+	/* Set the source device: */
+	if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else
+		sourceDevice=getValuatorDevice(0);
 	}
 
 void EarthquakeTool::initialize(void)
@@ -111,41 +114,31 @@ const Vrui::ToolFactory* EarthquakeTool::getFactory(void) const
 
 void EarthquakeTool::frame(void)
 	{
-	/* Get pointer to input device: */
-	Vrui::InputDevice* iDevice=input.getDevice(0);
+	const EarthquakeSet::Event* event=0;
 	
-	if(transformEnabled)
+	if(sourceDevice->is6DOFDevice())
 		{
-		const EarthquakeSet::Event* event=0;
-		
-		if(iDevice->is6DOFDevice())
-			{
-			/* Snap the device's position to the closest earthquake event: */
-			EarthquakeSet::Point position=EarthquakeSet::Point(Vrui::getNavigationTransformation().inverseTransform(iDevice->getPosition()));
-			event=factory->quakes->selectEvent(position,factory->sphereRadius/float(Vrui::getNavigationTransformation().getScaling()));
-			}
-		else
-			{
-			/* Snap the device's position to the closest earthquake event along a ray: */
-			Vrui::Ray ray(iDevice->getPosition(),iDevice->getRayDirection());
-			ray.transform(Vrui::getInverseNavigationTransformation());
-			ray.normalizeDirection();
-			event=factory->quakes->selectEvent(ray,factory->coneAngle);
-			}
-		
-		if(event!=0)
-			{
-			/* Set the virtual device to the event's position: */
-			Vrui::Point eventPos=Vrui::Point(event->position);
-			Vrui::TrackerState ts=Vrui::TrackerState::translateFromOriginTo(Vrui::getNavigationTransformation().transform(eventPos));
-			transformedDevice->setTransformation(ts);
-			}
-		else
-			transformedDevice->setTransformation(iDevice->getTransformation());
+		/* Snap the device's position to the closest earthquake event: */
+		EarthquakeSet::Point position=EarthquakeSet::Point(Vrui::getNavigationTransformation().inverseTransform(sourceDevice->getPosition()));
+		event=factory->quakes->selectEvent(position,float(Vrui::getPointPickDistance()));
 		}
 	else
 		{
-		transformedDevice->setTransformation(iDevice->getTransformation());
-		transformedDevice->setDeviceRayDirection(iDevice->getDeviceRayDirection());
+		/* Snap the device's position to the closest earthquake event along a ray: */
+		Vrui::Ray ray(sourceDevice->getPosition(),sourceDevice->getRayDirection());
+		ray.transform(Vrui::getInverseNavigationTransformation());
+		ray.normalizeDirection();
+		event=factory->quakes->selectEvent(ray,float(Vrui::getRayPickCosine()));
 		}
+	
+	if(event!=0)
+		{
+		/* Set the virtual device to the event's position: */
+		Vrui::Point eventPos=Vrui::Point(event->position);
+		Vrui::TrackerState ts=Vrui::TrackerState::translateFromOriginTo(Vrui::getNavigationTransformation().transform(eventPos));
+		transformedDevice->setTransformation(ts);
+		}
+	else
+		transformedDevice->setTransformation(sourceDevice->getTransformation());
+	transformedDevice->setDeviceRayDirection(sourceDevice->getDeviceRayDirection());
 	}

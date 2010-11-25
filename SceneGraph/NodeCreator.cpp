@@ -1,6 +1,6 @@
 /***********************************************************************
 NodeCreator - Class to create node objects based on a node type name.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -51,6 +51,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/TSurfFileNode.h>
 #include <SceneGraph/ArcInfoExportFileNode.h>
 #include <SceneGraph/ESRIShapeFileNode.h>
+#include <SceneGraph/Doom3DataContextNode.h>
+#include <SceneGraph/Doom3MD5MeshNode.h>
 
 namespace SceneGraph {
 
@@ -91,6 +93,8 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<TSurfFileNode>());
 	registerNodeType(new GenericNodeFactory<ArcInfoExportFileNode>());
 	registerNodeType(new GenericNodeFactory<ESRIShapeFileNode>());
+	registerNodeType(new GenericNodeFactory<Doom3DataContextNode>());
+	registerNodeType(new GenericNodeFactory<Doom3MD5MeshNode>());
 	}
 
 NodeCreator::~NodeCreator(void)

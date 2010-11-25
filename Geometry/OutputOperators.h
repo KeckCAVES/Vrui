@@ -1,7 +1,7 @@
 /***********************************************************************
 OutputOperators - Basic iostream output operators for templatized
 geometry objects.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -79,8 +79,8 @@ ostream& operator<<(ostream& os,const Geometry::ProjectiveTransformation<ScalarP
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_OUTPUTOPERATORS_IMPLEMENTATION)
-#include <Geometry/OutputOperators.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_OUTPUTOPERATORS_IMPLEMENTATION)
+#include <Geometry/OutputOperators.icpp>
 #endif
 
 #endif

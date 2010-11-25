@@ -71,6 +71,7 @@ class UDPSocket
 	UDPSocket& operator=(const UDPSocket& source); // Assignment operator
 	int getPortId(void) const; // Returns port ID assigned to a socket
 	void connect(std::string hostname,int hostPortId); // Connects the socket to a remote host; throws exception (but does not close socket) on failure
+	void accept(void); // Waits for a (short) incoming message on an unconnected socket and connects to the sender of the message; discards message
 	
 	/* I/O methods: */
 	void sendMessage(const void* messageBuffer,size_t messageSize); // Sends a message on a connected socket

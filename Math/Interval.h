@@ -1,6 +1,6 @@
 /***********************************************************************
 Interval - Class for closed intervals of arbitrary scalar types.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -255,8 +255,8 @@ inline Interval<ScalarParam> operator-(const Interval<ScalarParam>& i1,const Int
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(MATH_INTERVAL_IMPLEMENTATION)
-#include <Math/Interval.cpp>
+#if defined(MATH_NONSTANDARD_TEMPLATES) && !defined(MATH_INTERVAL_IMPLEMENTATION)
+#include <Math/Interval.icpp>
 #endif
 
 #endif

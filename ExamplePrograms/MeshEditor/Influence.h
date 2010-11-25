@@ -1,21 +1,6 @@
 /***********************************************************************
 Influence - Class to encapsulate influence shapes and modification
 actions.
-Copyright (c) 2003-2006 Oliver Kreylos
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2 of the License, or (at your
-option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
 #ifndef INFLUENCE_INCLUDED
@@ -25,21 +10,17 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
-#include <GL/gl.h>
-#include <GL/GLObject.h>
-#include <GL/GLContextData.h>
 
 /* Forward declarations: */
-template <class ScalarParam>
-class Point;
-template <class PointType>
+class GLContextData;
 class AutoTriangleMesh;
+class SphereRenderer;
 
-class Influence:public GLObject
+class Influence
 	{
 	/* Embedded classes: */
 	public:
-	typedef AutoTriangleMesh<Point<float> > Mesh; // Data type for meshes
+	typedef AutoTriangleMesh Mesh; // Data type for meshes
 	typedef Geometry::Point<double,3> Point;
 	typedef Geometry::Vector<double,3> Vector;
 	typedef Geometry::OrthonormalTransformation<double,3> ONTransform;
@@ -57,29 +38,15 @@ class Influence:public GLObject
 		float vec[3];
 
 		/* Constructors and destructors: */
-		VertexMotion(Mesh::VertexIterator sVIt,const float sVec[3])
+		VertexMotion(Mesh::VertexIterator sVIt)
 			:vIt(sVIt)
 			{
-			for(int i=0;i<3;++i)
-				vec[i]=sVec[i];
 			};
-		};
-	
-	private:
-	class DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		GLuint displayListId;
-		
-		/* Constructors and destructors: */
-		public:
-		DataItem(void);
-		virtual ~DataItem(void);
 		};
 	
 	/* Elements: */
 	private:
+	const SphereRenderer* sphereRenderer;
 	
 	/* Influence state: */
 	ONTransform transformation; // Influence's current position and orientation
@@ -104,16 +71,9 @@ class Influence:public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	Influence(double sRadius)  // Creates influence sphere of given radius
-		:transformation(ONTransform::identity),
-		 linearVelocity(Vector::zero),angularVelocity(Vector::zero),
-		 radius(sRadius),radius2(Math::sqr(radius)),
-		 action(EXPLODE),pressure(0.8),density(0.8)
-		{
-		};
+	Influence(const SphereRenderer* sSphereRenderer,double sRadius);  // Creates influence sphere of given radius
 	
 	/* Methods: */
-	virtual void initContext(GLContextData& contextData) const;
 	
 	/* State management: */
 	Point getPosition(void) const

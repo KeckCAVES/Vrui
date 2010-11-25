@@ -1,7 +1,7 @@
 /***********************************************************************
 VRFactoryManager - Class to manage a set of DSOs containing code for a
 set of classes derived from a common base class
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -55,7 +55,7 @@ class VRFactoryManager
 	};
 
 #ifndef VRFACTORYMANAGER_IMPLEMENTATION
-#include "VRFactoryManager.cpp"
+#include <VRDeviceDaemon/VRFactoryManager.icpp>
 #endif
 
 #endif

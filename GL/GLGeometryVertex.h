@@ -1,7 +1,7 @@
 /***********************************************************************
 GLGeometryVertex - Class to encapsulate OpenGL vertex properties using
 geometry data types.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -358,8 +358,8 @@ void glVertexPointer(int vertexPartsMask,
                                               NormalScalarParam,
                                               PositionScalarParam,numPositionComponentsParam>* vertexPointer);
 
-#if defined(NONSTANDARD_GLVERTEX_TEMPLATES) && !defined(GLGEOMETRYVERTEX_IMPLEMENTATION)
-#include <GL/GLGeometryVertex.cpp>
+#if defined(GLGEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GLGEOMETRYVERTEX_IMPLEMENTATION)
+#include <GL/GLGeometryVertex.icpp>
 #endif
 
 #endif

@@ -61,6 +61,9 @@ Most Vrui applications have their own main menu, but Vrui itself has a system me
 
 The Vrui system menu has the following entries:
 <DL>
+<DT>Dialogs</DT>
+<DD>This submenu lists all currently opened (but potentially minimized) stand-alone dialog windows. By selecting a minimized dialog window, the window will be re-opened at its last position. By selecting a non-minimized dialog window, it will be moved to the mouse cursor position.</DD>
+
 <DT>View</DT>
 <DD>This submenu contains entries to store and retrieve viewing setups in an environment-independent format. In other words, if an application is run on a desktop, and one particular 3D object is centered on the screen, then saving the current view and loading it in the same or a different environment will have the same 3D object approximately centered in the environment.
 <DL>
@@ -84,9 +87,11 @@ The Vrui system menu has the following entries:
 <DD>Selecting this menu entry will quit from the Vrui application immediately, just as pressing the Escape key or closing the application's main window would. Vrui will not ask for confirmation.</DD>
 </DL>
 
-<H2>Dialog Box Interaction</H2>
+<H2>Dialog Window Interaction</H2>
 
-Many Vrui applications contain stand-alone dialog boxes to change settings inside the application. These dialog boxes are usually brought up by selecting options in an application's main menu (such as &quot;Show Render Dialog&quot;), and appear in the screen plane, usually in the center or at the position where the selection was made. Dialog boxes can usually be closed by deselecting the associated option in the main menu. Interacting with dialog boxes (and the widgets they contain) is mapped to the left mouse button. If the left mouse button is clicked while over a dialog box, it interacts with the dialog box; if it is clicked anywhere else, it is used for navigation as explained above. Vrui dialog boxes behave almost identically to regular 2D dialog boxes and widgets, e.g., dialog boxes can be moved by dragging the blue title bar.
+Many Vrui applications contain stand-alone dialog windows to change settings inside the application. These dialog windows are usually brought up by selecting options in an application's main menu (such as &quot;Show Render Dialog&quot;), and appear in the screen plane, usually in the center or at the position where the selection was made. Dialog windows can be &quot;minimized&quot; by selecting the &quot;underscore&quot; button in the right-hand side of their title bars. Minimized dialog windows are not displayed, but remember their positions and can be brought back onto the screen by selecting their names from the &quot;Dialogs&quot; submenu in Vrui's system menu (see previous section). Some dialog windows can be closed permanently by clicking the &quot;X&quot; button in the right-hand side of their title bars, or by unchecking the option in an application's menu that opened them initially. Some dialog windows are closed implicitly when their owning entity is destroyed, e.g., a tool's settings dialog windows can only be closed by destroying the tool owning it.<P>
+
+Interacting with dialog windows (and the widgets they contain) is mapped to the left mouse button. If the left mouse button is clicked while over a dialog window, it interacts with the dialog window; if it is clicked anywhere else, it is used for navigation as explained above. Vrui dialog windows behave almost identically to regular 2D dialog windows and widgets, e.g., they can be moved by dragging the blue title bar.
 
 <H2>Virtual Input Devices</H2>
 

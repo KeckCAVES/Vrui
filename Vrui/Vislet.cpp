@@ -88,4 +88,8 @@ void Vislet::display(GLContextData&) const
 	{
 	}
 
+void Vislet::sound(ALContextData&) const
+	{
+	}
+
 }

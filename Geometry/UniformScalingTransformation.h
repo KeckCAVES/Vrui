@@ -1,7 +1,7 @@
 /***********************************************************************
 UniformScalingTransformation - Class for n-dimensional uniform scaling
 transformations.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -173,8 +173,8 @@ inline UniformScalingTransformation<ScalarParam,dimensionParam> invert(const Uni
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_UNIFORMSCALINGTRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/UniformScalingTransformation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_UNIFORMSCALINGTRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/UniformScalingTransformation.icpp>
 #endif
 
 #endif

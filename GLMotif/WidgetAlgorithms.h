@@ -1,6 +1,6 @@
 /***********************************************************************
 WidgetAlgorithms - Functions to perform algorithms on trees of widgets.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -29,6 +29,8 @@ class Widget;
 
 namespace GLMotif {
 
+Widget* getPreviousWidget(Widget* widget); // Returns the predecessor of the given widget inside the same top-level widget in depth-first order
+Widget* getNextWidget(Widget* widget); // Returns the successor of the given widget inside the same top-level widget in depth-first order
 template <class FunctorParam>
 void traverseWidgetTree(Widget* rootWidget,const FunctorParam& functor);
 template <class FunctorParam>
@@ -37,7 +39,7 @@ void traverseWidgetTree(Widget* rootWidget,FunctorParam& functor);
 }
 
 #ifndef GLMOTIF_WIDGETALGORITHMS_IMPLEMENTATION
-#include <GLMotif/WidgetAlgorithms.cpp>
+#include <GLMotif/WidgetAlgorithms.icpp>
 #endif
 
 #endif

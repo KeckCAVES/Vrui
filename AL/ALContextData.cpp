@@ -26,7 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Geometry/Vector.h>
 #include <Geometry/Rotation.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <AL/ALThingManager.h>
+#include <AL/Internal/ALThingManager.h>
 
 /**************************************
 Static elements of class ALContextData:
@@ -74,6 +74,11 @@ void ALContextData::resetThingManager(void)
 	ALThingManager::theThingManager.processActions();
 	}
 
+void ALContextData::shutdownThingManager(void)
+	{
+	ALThingManager::theThingManager.shutdown();
+	}
+
 void ALContextData::updateThings(void)
 	{
 	ALThingManager::theThingManager.updateThings(*this);
@@ -92,6 +97,15 @@ void ALContextData::makeCurrent(ALContextData* newCurrentContextData)
 		/* Call all callbacks: */
 		currentContextDataChangedCallbacks.call(&cbData);
 		}
+	}
+
+void ALContextData::resetMatrixStack(void)
+	{
+	/* Clear the modelview stack: */
+	modelview=modelviewStack;
+	
+	/* Initialize the modelview matrix: */
+	*modelview=Transform::identity;
 	}
 
 void ALContextData::pushMatrix(void)

@@ -1,6 +1,6 @@
 /***********************************************************************
 RotationTransformation - Class for n-dimensional rotations.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -165,8 +165,8 @@ inline RotationTransformation<ScalarParam,dimensionParam> invert(const RotationT
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATIONTRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/RotationTransformation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATIONTRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/RotationTransformation.icpp>
 #endif
 
 #endif

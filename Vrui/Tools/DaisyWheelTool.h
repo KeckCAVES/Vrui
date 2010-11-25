@@ -1,7 +1,7 @@
 /***********************************************************************
 DaisyWheelTool - Class for tools to enter text by pointing at characters
 on a dynamic daisy wheel.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,9 +27,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Ray.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/Tools/UserInterfaceTool.h>
+#include <Vrui/UserInterfaceTool.h>
 
 /* Forward declarations: */
+class GLLabel;
 namespace Vrui {
 class ToolManager;
 }
@@ -44,7 +45,10 @@ class DaisyWheelToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
+	Scalar petalSize; // Half side length of petal label square
 	Scalar innerRadius,outerRadius; // Inner and outer radius of daisy wheel in physical coordinate units
+	Scalar maxPetalAngle; // Angle assigned to selected petal at full zoom
+	Scalar maxYOffset; // Maximum depth offset to stack "petals" in order of distance from selection
 	
 	/* Constructors and destructors: */
 	public:
@@ -53,6 +57,7 @@ class DaisyWheelToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -66,16 +71,21 @@ class DaisyWheelTool:public UserInterfaceTool
 	static DaisyWheelToolFactory* factory; // Pointer to the factory object for this class
 	
 	/* Transient state: */
-	int numCharacters; // Number of characters available on the daisy wheel
-	Scalar* baseWeights; // Array of weights for each character before dynamic scaling
-	Scalar baseWeightSum; // Current sum of base weights for all characters
-	Scalar* dynamicWeights; // Array of dynamic weights for each character
-	Scalar dynamicWeightSum; // Current sum of dynamic weights for all characters
+	int numPetals; // Number of "petals" on the daisy wheel
+	Scalar angleStep; // Angle per petal
+	GLLabel* petals; // Characters associated with each petal
 	bool active; // Flag if the tool is currently active
-	ONTransform wheelTransform; // Transformation from wheel coordinates to physical coordinates
+	bool buttonDown; // Flag whether the tool button is currently pressed
+	bool hasEnteredWheel; // Flag if the selection ray has entered the daisy wheel while the button was down
+	ONTransform wheelTransform; // Transformation from wheel coordinate to physical coordinates
 	Ray selectionRay; // Current selection ray
-	Scalar zoomAngle; // Center angle of zoom region in radians
-	Scalar zoomStrength; // Zooming strength factor
+	Scalar zoomStrength; // Angle zooming strength factor
+	int selectedPetal; // Index of selected petal
+	Scalar selectedAngle; // Angle at which selected petal appears
+	bool rayInPetal; // Flag whether the selection ray is currently intersecting the selected petal
+	
+	/* Private methods: */
+	Scalar calcPetalAngle(Scalar petal) const; // Calculates the display angle of the given petal
 	
 	/* Constructors and destructors: */
 	public:
@@ -84,7 +94,7 @@ class DaisyWheelTool:public UserInterfaceTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

@@ -1,6 +1,6 @@
 /***********************************************************************
 HVector - Class for homogeneous vectors.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -323,8 +323,8 @@ HVector<ScalarParam,dimensionParam> normalize(const HVector<ScalarParam,dimensio
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_HVECTOR_IMPLEMENTATION)
-#include <Geometry/HVector.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_HVECTOR_IMPLEMENTATION)
+#include <Geometry/HVector.icpp>
 #endif
 
 #endif

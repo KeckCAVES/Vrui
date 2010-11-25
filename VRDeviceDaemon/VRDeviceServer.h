@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -26,7 +26,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
 #include <Comm/TCPSocket.h>
-#include <Vrui/VRDevicePipe.h>
+#include <Vrui/Internal/VRDevicePipe.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -42,10 +42,11 @@ class VRDeviceServer
 		{
 		/* Elements: */
 		public:
+		Threads::Mutex pipeMutex; // Mutex serializing write access to the client pipe
 		Vrui::VRDevicePipe pipe; // Pipe connected to the client
 		Threads::Thread communicationThread; // Client communication thread
-		bool active; // Flag if the client is active
-		bool streaming; // Flag if the client is streaming
+		volatile bool active; // Flag if the client is active
+		volatile bool streaming; // Flag if the client is streaming
 		
 		/* Constructors and destructors: */
 		ClientData(const Comm::TCPSocket& socket)
@@ -64,12 +65,13 @@ class VRDeviceServer
 	Threads::Mutex clientListMutex; // Mutex serializing access to the client list
 	ClientList clientList; // List of currently connected clients
 	int numActiveClients; // Number of clients that are currently active
-	//Threads trackerUpdateCompleteMutex; // Mutex to serialize access to tracker update notification condition variable
+	Threads::Thread streamingThread; // Thread to stream device states to clients
 	Threads::MutexCond trackerUpdateCompleteCond; // Tracker update notification condition variable
 	
 	/* Private methods: */
 	void* listenThreadMethod(void); // Connection initiating thread method
 	void* clientCommunicationThreadMethod(ClientData* clientData); // Client communication thread method
+	void* streamingThreadMethod(void); // Method to stream device states to all clients who are currently streaming
 	
 	/* Constructors and destructors: */
 	public:

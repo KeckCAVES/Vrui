@@ -1,0 +1,17 @@
+# Rules to relax permissions on event files for USB joysticks and spaceballs
+
+# Rule for Logitech Wingman Extreme 3D Pro
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c215", ENV{ACL_MANAGE}="1"
+
+# Rule for Logitech / 3DConnexion Space Traveler
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c623", ENV{ACL_MANAGE}="1"
+
+# Rule for Logitech / 3DConnexion Space Pilot
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c625", ENV{ACL_MANAGE}="1"
+
+# Rule for Logitech / 3DConnexion Space Navigator
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c626", ENV{ACL_MANAGE}="1"
+
+# Rule for Logitech / 3DConnexion Space Explorer
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c627", ENV{ACL_MANAGE}="1"
+

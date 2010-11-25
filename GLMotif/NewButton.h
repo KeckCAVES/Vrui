@@ -1,7 +1,7 @@
 /***********************************************************************
 NewButton - New base class for GLMotif UI components reacting to push
 events, implemented as container widgets with a single child.
-Copyright (c) 2001-2009 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

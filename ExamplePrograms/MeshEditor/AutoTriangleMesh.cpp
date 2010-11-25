@@ -1,26 +1,14 @@
 /***********************************************************************
 AutoTriangleMesh - Class for triangular meshes that enforce triangle
 shape constraints under mesh transformations.
-Copyright (c) 2003-2006 Oliver Kreylos
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2 of the License, or (at your
-option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+Copyright (c) 2003-2005 Oliver Kreylos
 ***********************************************************************/
 
-#define AUTOTRIANGLEMESH_IMPLEMENTATION
-
+#include <assert.h>
 #include <stdio.h>
+#include <Math/Math.h>
+#include <GL/gl.h>
+#include <GL/GLColor.h>
 
 #include "AutoTriangleMesh.h"
 
@@ -28,9 +16,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 Methods of class AutoTriangleMesh:
 *********************************/
 
-template <class PointType>
-void AutoTriangleMesh<PointType>::triangulateAllFaces(void)
+void AutoTriangleMesh::triangulateAllFaces(void)
 	{
+	/* Validate all vertices: */
+	++version;
+	
 	/* Find all non-triangular faces and triangulate them: */
 	for(FaceIterator faceIt=BaseMesh::beginFaces();faceIt!=BaseMesh::endFaces();++faceIt)
 		{
@@ -38,72 +28,19 @@ void AutoTriangleMesh<PointType>::triangulateAllFaces(void)
 		if(faceIt->getNumEdges()>3)
 			triangulateFace(faceIt);
 		}
-	}
-
-template <class PointType>
-void AutoTriangleMesh<PointType>::createVertexIndices(void)
-	{
-	/* Reset vertex index counter and mesh version number: */
-	nextVertexIndex=0;
-	version=1;
 	
-	/* Assign vertex indices and version numbers to all vertices: */
-	for(VertexIterator vIt=BaseMesh::beginVertices();vIt!=BaseMesh::endVertices();++vIt)
-		{
-		vIt->index=nextVertexIndex;
-		++nextVertexIndex;
-		vIt->version=version;
-		}
+	/* Re-calculate vertex normal vectors: */
+	updateVertexNormals();
 	}
 
-template <class PointType>
-void AutoTriangleMesh<PointType>::calcNormal(const typename AutoTriangleMesh<PointType>::Vertex* vPtr,float normal[3]) const
-	{
-	/* Set normal vector to zero: */
-	for(int i=0;i<3;++i)
-		normal[i]=0.0f;
-	
-	/* Iterate through vertex' platelet: */
-	const Edge* ve=vPtr->getEdge();
-	do
-		{
-		const Edge* ve2=ve->getFacePred()->getOpposite();
-		float triangleNormal[3];
-		planeNormal(*ve->getStart(),*ve->getEnd(),*ve2->getEnd(),triangleNormal);
-		for(int i=0;i<3;++i)
-			normal[i]+=triangleNormal[i];
-
-		/* Go to next edge around vertex: */
-		ve=ve2;
-		}
-	while(ve!=vPtr->getEdge());
-	}
-
-template <class PointType>
-template <class InputPointType>
-AutoTriangleMesh<PointType>::AutoTriangleMesh(int numPoints,const InputPointType* points,const int* vertexIndices,int numSharpEdges,const int* sharpEdgeIndices)
-	:BaseMesh(numPoints,points,vertexIndices,numSharpEdges,sharpEdgeIndices)
-	{
-	/* Polygon mesh is already created; now triangulate it: */
-	triangulateAllFaces();
-	
-	/* Number all vertices: */
-	createVertexIndices();
-	}
-
-template <class PointType>
-AutoTriangleMesh<PointType>::AutoTriangleMesh(const AutoTriangleMesh<PointType>::BaseMesh& source)
+AutoTriangleMesh::AutoTriangleMesh(const AutoTriangleMesh::BaseMesh& source)
 	:BaseMesh(source)
 	{
 	/* Polygon mesh is already created; now triangulate it: */
 	triangulateAllFaces();
-	
-	/* Number all vertices: */
-	createVertexIndices();
 	}
 
-template <class PointType>
-AutoTriangleMesh<PointType>& AutoTriangleMesh<PointType>::operator=(const AutoTriangleMesh<PointType>::BaseMesh& source)
+AutoTriangleMesh& AutoTriangleMesh::operator=(const AutoTriangleMesh::BaseMesh& source)
 	{
 	if(this!=&source)
 		{
@@ -112,16 +49,54 @@ AutoTriangleMesh<PointType>& AutoTriangleMesh<PointType>::operator=(const AutoTr
 		
 		/* Polygon mesh is already created; now triangulate it: */
 		triangulateAllFaces();
-		
-		/* Number all vertices: */
-		createVertexIndices();
 		}
 	
 	return *this;
 	}
 
-template <class PointType>
-void AutoTriangleMesh<PointType>::splitEdge(const typename AutoTriangleMesh<PointType>::EdgeIterator& edge)
+AutoTriangleMesh::FaceIterator AutoTriangleMesh::addFace(int numVertices,const AutoTriangleMesh::VertexIterator vertices[],AutoTriangleMesh::EdgeHasher* edgeHasher)
+	{
+	/* Add the face directly if it is a triangle; otherwise, triangulate it first: */
+	if(numVertices==3)
+		return BaseMesh::addFace(numVertices,vertices,edgeHasher);
+	else
+		{
+		FaceIterator faceIt;
+		VertexIterator triangleVertices[3];
+		triangleVertices[0]=vertices[0];
+		for(int i=2;i<numVertices;++i)
+			{
+			triangleVertices[1]=vertices[i-1];
+			triangleVertices[2]=vertices[i];
+			faceIt=BaseMesh::addFace(3,triangleVertices,edgeHasher);
+			}
+		
+		return faceIt;
+		}
+	}
+
+AutoTriangleMesh::FaceIterator AutoTriangleMesh::addFace(const std::vector<AutoTriangleMesh::VertexIterator>& vertices,AutoTriangleMesh::EdgeHasher* edgeHasher)
+	{
+	/* Add the face directly if it is a triangle; otherwise, triangulate it first: */
+	if(vertices.size()==3)
+		return BaseMesh::addFace(vertices,edgeHasher);
+	else
+		{
+		FaceIterator faceIt;
+		VertexIterator triangleVertices[3];
+		triangleVertices[0]=vertices[0];
+		for(int i=2;i<vertices.size();++i)
+			{
+			triangleVertices[1]=vertices[i-1];
+			triangleVertices[2]=vertices[i];
+			faceIt=BaseMesh::addFace(3,triangleVertices,edgeHasher);
+			}
+		
+		return faceIt;
+		}
+	}
+
+void AutoTriangleMesh::splitEdge(const AutoTriangleMesh::EdgeIterator& edge)
 	{
 	/* Get triangle topology: */
 	Edge* e1=&(*edge);
@@ -153,9 +128,9 @@ void AutoTriangleMesh<PointType>::splitEdge(const typename AutoTriangleMesh<Poin
 		assert(f2->getEdge()==e4||f2->getEdge()==e5||f2->getEdge()==e6);
 		
 		/* Don't increase aspect ratio of triangles when splitting: */
-		double e4Len2=sqrDist(*v1,*v2);
-		double e5Len2=sqrDist(*v1,*v4);
-		double e6Len2=sqrDist(*v2,*v4);
+		Scalar e4Len2=Geometry::sqrDist(*v1,*v2);
+		Scalar e5Len2=Geometry::sqrDist(*v1,*v4);
+		Scalar e6Len2=Geometry::sqrDist(*v2,*v4);
 		if(e4Len2<e5Len2||e4Len2<e6Len2)
 			{
 			/* Split longest edge in neighbouring triangle first: */
@@ -173,13 +148,11 @@ void AutoTriangleMesh<PointType>::splitEdge(const typename AutoTriangleMesh<Poin
 			}
 		
 		/* Create new vertex for edge midpoint: */
-		Point p=Point::zero();
-		p.add(*edge->getStart());
-		p.add(*edge->getEnd());
-		p.normalize(2);
-		p.index=nextVertexIndex;
-		++nextVertexIndex;
-		typename BaseMesh::Vertex* nv=newVertex(p);
+		Point p=Geometry::mid(*edge->getStart(),*edge->getEnd());
+		Color c;
+		for(int i=0;i<4;++i)
+			c[i]=GLubyte(Math::floor((GLfloat(edge->getStart()->color[i])+GLfloat(edge->getEnd()->color[i]))*0.5f+0.5f));
+		Vertex* nv=newVertex(p,c);
 		
 		/* Create two quadrilaterals: */
 		Edge* ne1=BaseMesh::newEdge();
@@ -230,24 +203,20 @@ void AutoTriangleMesh<PointType>::splitEdge(const typename AutoTriangleMesh<Poin
 		ne6->sharpness=0;
 		nf2->setEdge(ne2);
 		
-		/* Update version numbers of all involved vertices: */
-		++version;
+		/* Invalidate all involved vertices: */
 		v1->version=version;
 		v2->version=version;
 		v3->version=version;
 		v4->version=version;
-		nv->version=version;
 		}
 	else
 		{
 		/* Create new vertex for edge midpoint: */
-		Point p=Point::zero();
-		p.add(*edge->getStart());
-		p.add(*edge->getEnd());
-		p.normalize(2);
-		p.index=nextVertexIndex;
-		++nextVertexIndex;
-		typename BaseMesh::Vertex* nv=newVertex(p);
+		Point p=Geometry::mid(*edge->getStart(),*edge->getEnd());
+		Color c;
+		for(int i=0;i<4;++i)
+			c[i]=GLubyte(Math::floor((GLfloat(edge->getStart()->color[i])+GLfloat(edge->getEnd()->color[i]))*0.5f+0.5f));
+		Vertex* nv=newVertex(p,c);
 		
 		/* Create one quadrilateral: */
 		Edge* ne=BaseMesh::newEdge();
@@ -274,195 +243,408 @@ void AutoTriangleMesh<PointType>::splitEdge(const typename AutoTriangleMesh<Poin
 		ne4->sharpness=0;
 		nf1->setEdge(ne);
 		
-		/* Update version numbers of all involved vertices: */
-		++version;
+		/* Invalidate all involved vertices: */
 		v1->version=version;
 		v2->version=version;
 		v3->version=version;
-		nv->version=version;
 		}
 	}
 
-template <class PointType>
-bool AutoTriangleMesh<PointType>::canCollapseEdge(const typename AutoTriangleMesh<PointType>::ConstEdgeIterator& edge) const
+bool AutoTriangleMesh::canCollapseEdge(const AutoTriangleMesh::Edge* edge) const
 	{
 	/* Get triangle topology: */
-	const Edge* e1=&(*edge);
+	const Edge* e1=edge;
 	const Edge* e2=e1->getFaceSucc();
 	const Edge* e3=e1->getFacePred();
 	const Edge* e4=e1->getOpposite();
-	if(e4==0)
-		return false;
-	
-	const Edge* e5=e4->getFaceSucc();
-	const Edge* e6=e4->getFacePred();
-	const Edge* e7=e2->getOpposite();
-	const Edge* e8=e3->getOpposite();
-	const Edge* e9=e5->getOpposite();
-	const Edge* e10=e6->getOpposite();
-	
-	/* Check if v3 has valence of at least 4: */
-	if(e7->getFacePred()->getOpposite()->getFacePred()==e8)
-		return false;
-	
-	/* Check if v4 has valence of at least 4: */
-	if(e9->getFacePred()->getOpposite()->getFacePred()==e10)
-		return false;
-	
-	/* Check if v1 and v2 together have at least valence 7 (then collapsed v1 will have at least valence 3): */
-	if(e7->getFaceSucc()==e10&&e9->getFaceSucc()==e8)
-		return false;
-	
-	/* Check if platelets of v1 and v2 have common vertices (except each other, of course): */
-	/* Currently highly inefficient at O(n^2); need to optimize! */
-	for(const Edge* ve1=e10->getFacePred();ve1!=e7;ve1=ve1->getOpposite()->getFacePred())
-		for(const Edge* ve2=e8->getFacePred();ve2!=e9;ve2=ve2->getOpposite()->getFacePred())
-			if(ve1->getStart()==ve2->getStart())
+	if(e4!=0) // Edge is interior edge
+		{
+		/* Check if both side edges of top triangle are on the boundary: */
+		const Edge* e7=e2->getOpposite();
+		const Edge* e8=e3->getOpposite();
+		if(e7==0&&e8==0)
+			return false;
+		
+		/* Check if third vertex of top triangle is interior and has valence<=3: */
+		if(e7!=0&&e8!=0&&e7->getVertexSucc()==e8->getFaceSucc())
+			return false;
+		
+		/* Get topology of bottom triangle: */
+		const Edge* e5=e4->getFaceSucc();
+		const Edge* e6=e4->getFacePred();
+		
+		/* Check if both side edges of bottom triangle are on the boundary: */
+		const Edge* e9=e5->getOpposite();
+		const Edge* e10=e6->getOpposite();
+		if(e9==0&&e10==0)
+			return false;
+		
+		/* Check if third vertex of bottom triangle is interior and has valence<=3: */
+		if(e9!=0&&e10!=0&&e9->getVertexSucc()==e10->getFaceSucc())
+			return false;
+		
+		/* Check if both edge's vertices are on the boundary: */
+		const Edge* ve1;
+		for(ve1=e8;ve1!=0&&ve1!=e5;ve1=ve1->getVertexSucc())
+			;
+		bool v1OnBoundary=ve1==0;
+		const Edge* ve2;
+		for(ve2=e10;ve2!=0&&ve2!=e2;ve2=ve2->getVertexSucc())
+			;
+		bool v2OnBoundary=ve2==0;
+		if(v1OnBoundary&&v2OnBoundary)
+			return false;
+		
+		/* Check if the two vertices' platelets share a vertex: */
+		/* Currently highly inefficient at O(n^2); need to optimize! */
+		if(v1OnBoundary) // v1 is on boundary, v2 is interior
+			{
+			/* Go counter-clockwise around v1 until boundary is hit: */
+			if(e8!=0)
+				{
+				for(ve1=e8->getVertexSucc();ve1!=0;ve1=ve1->getVertexSucc())
+					for(ve2=e10->getVertexSucc();ve2!=e2;ve2=ve2->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			
+			/* Go clockwise around v1 until boundary is hit: */
+			if(e9!=0)
+				{
+				for(ve1=e9->getFaceSucc();ve1->getOpposite()!=0;ve1=ve1->getVertexPred())
+					for(ve2=e10->getVertexSucc();ve2!=e2;ve2=ve2->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			}
+		else if(v2OnBoundary) // v2 is on boundary, v1 is interior
+			{
+			/* Go counter-clockwise around v2 until boundary is hit: */
+			if(e10!=0)
+				{
+				for(ve2=e10->getVertexSucc();ve2!=0;ve2=ve2->getVertexSucc())
+					for(ve1=e8->getVertexSucc();ve1!=e5;ve1=ve1->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			
+			/* Go clockwise around v2 until boundary is hit: */
+			if(e7!=0)
+				{
+				for(ve2=e7->getFaceSucc();ve2->getOpposite()!=0;ve2=ve2->getVertexPred())
+					for(ve1=e8->getVertexSucc();ve1!=e5;ve1=ve1->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			}
+		else // v1 and v2 are interior
+			{
+			for(ve1=e8->getVertexSucc();ve1!=e5;ve1=ve1->getVertexSucc())
+				for(ve2=e10->getVertexSucc();ve2!=e2;ve2=ve2->getVertexSucc())
+					if(ve1->getEnd()==ve2->getEnd())
+						return false;
+			}
+		}
+	else // Edge is boundary edge
+		{
+		/* Check if both side edges are on the boundary: */
+		const Edge* e7=e2->getOpposite();
+		const Edge* e8=e3->getOpposite();
+		if(e7==0&&e8==0)
+			return false;
+		
+		if(e7!=0&&e8!=0)
+			{
+			/* Check if third face vertex is interior and has valence<=3: */
+			if(e7->getVertexSucc()==e8->getFaceSucc())
 				return false;
-	
+		
+			/* Check if the two vertices' platelets share a vertex: */
+			/* Currently highly inefficient at O(n^2); need to optimize! */
+			for(const Edge* ve1=e8->getFacePred();ve1!=0;ve1=ve1->getEndVertexSucc())
+				for(const Edge* ve2=e7->getFaceSucc();ve2!=0;ve2=ve2->getVertexPred())
+					if(ve1->getStart()==ve2->getEnd())
+						return false;
+			}
+		}
+			
 	return true;
 	}
 
-template <class PointType>
-bool AutoTriangleMesh<PointType>::collapseEdge(const typename AutoTriangleMesh<PointType>::EdgeIterator& edge)
+bool AutoTriangleMesh::collapseEdge(const AutoTriangleMesh::EdgeIterator& edge)
 	{
 	/* Get triangle topology: */
 	Edge* e1=&(*edge);
 	Edge* e2=e1->getFaceSucc();
 	Edge* e3=e1->getFacePred();
 	Edge* e4=e1->getOpposite();
-	if(e4==0)
-		return false;
-	
-	Edge* e5=e4->getFaceSucc();
-	Edge* e6=e4->getFacePred();
-	Edge* e7=e2->getOpposite();
-	Edge* e8=e3->getOpposite();
-	Edge* e9=e5->getOpposite();
-	Edge* e10=e6->getOpposite();
-	Vertex* v1=e1->getStart();
-	Vertex* v2=e2->getStart();
-	Vertex* v3=e3->getStart();
-	Vertex* v4=e6->getStart();
-	Face* f1=e1->getFace();
-	Face* f2=e4->getFace();
-	
-	/* Check if v3 has valence of at least 4: */
-	if(e7->getFacePred()->getOpposite()->getFacePred()==e8)
-		return false;
-	
-	/* Check if v4 has valence of at least 4: */
-	if(e9->getFacePred()->getOpposite()->getFacePred()==e10)
-		return false;
-	
-	/* Check if v1 and v2 together have at least valence 7 (then collapsed v1 will have at least valence 3): */
-	if(e7->getFaceSucc()==e10&&e9->getFaceSucc()==e8)
-		return false;
-	
-	/* Check if platelets of v1 and v2 have common vertices (except each other, of course): */
-	/* Currently highly inefficient at O(n^2); need to optimize! */
-	for(Edge* ve1=e10->getFacePred();ve1!=e7;ve1=ve1->getOpposite()->getFacePred())
-		for(Edge* ve2=e8->getFacePred();ve2!=e9;ve2=ve2->getOpposite()->getFacePred())
-			if(ve1->getStart()==ve2->getStart())
+	if(e4!=0) // Edge is interior edge
+		{
+		/* Check if both side edges of top triangle are on the boundary: */
+		Edge* e7=e2->getOpposite();
+		Edge* e8=e3->getOpposite();
+		if(e7==0&&e8==0)
+			return false;
+		
+		/* Check if third vertex of top triangle is interior and has valence<=3: */
+		if(e7!=0&&e8!=0&&e7->getVertexSucc()==e8->getFaceSucc())
+			return false;
+		
+		/* Get topology of bottom triangle: */
+		Edge* e5=e4->getFaceSucc();
+		Edge* e6=e4->getFacePred();
+		
+		/* Check if both side edges of bottom triangle are on the boundary: */
+		Edge* e9=e5->getOpposite();
+		Edge* e10=e6->getOpposite();
+		if(e9==0&&e10==0)
+			return false;
+		
+		/* Check if third vertex of bottom triangle is interior and has valence<=3: */
+		if(e9!=0&&e10!=0&&e9->getVertexSucc()==e10->getFaceSucc())
+			return false;
+		
+		/* Check if both edge's vertices are on the boundary: */
+		Edge* ve1;
+		for(ve1=e8;ve1!=0&&ve1!=e5;ve1=ve1->getVertexSucc())
+			;
+		bool v1OnBoundary=ve1==0;
+		Edge* ve2;
+		for(ve2=e10;ve2!=0&&ve2!=e2;ve2=ve2->getVertexSucc())
+			;
+		bool v2OnBoundary=ve2==0;
+		if(v1OnBoundary&&v2OnBoundary)
+			return false;
+		
+		/* Check if the two vertices' platelets share a vertex: */
+		/* Currently highly inefficient at O(n^2); need to optimize! */
+		if(v1OnBoundary) // v1 is on boundary, v2 is interior
+			{
+			/* Go counter-clockwise around v1 until boundary is hit: */
+			if(e8!=0)
+				{
+				for(ve1=e8->getVertexSucc();ve1!=0;ve1=ve1->getVertexSucc())
+					for(ve2=e10->getVertexSucc();ve2!=e2;ve2=ve2->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			
+			/* Go clockwise around v1 until boundary is hit: */
+			if(e9!=0)
+				{
+				for(ve1=e9->getFaceSucc();ve1->getOpposite()!=0;ve1=ve1->getVertexPred())
+					for(ve2=e10->getVertexSucc();ve2!=e2;ve2=ve2->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			}
+		else if(v2OnBoundary) // v2 is on boundary, v1 is interior
+			{
+			/* Go counter-clockwise around v2 until boundary is hit: */
+			if(e10!=0)
+				{
+				for(ve2=e10->getVertexSucc();ve2!=0;ve2=ve2->getVertexSucc())
+					for(ve1=e8->getVertexSucc();ve1!=e5;ve1=ve1->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			
+			/* Go clockwise around v2 until boundary is hit: */
+			if(e7!=0)
+				{
+				for(ve2=e7->getFaceSucc();ve2->getOpposite()!=0;ve2=ve2->getVertexPred())
+					for(ve1=e8->getVertexSucc();ve1!=e5;ve1=ve1->getVertexSucc())
+						if(ve1->getEnd()==ve2->getEnd())
+							return false;
+				}
+			}
+		else // v1 and v2 are interior
+			{
+			for(ve1=e8->getVertexSucc();ve1!=e5;ve1=ve1->getVertexSucc())
+				for(ve2=e10->getVertexSucc();ve2!=e2;ve2=ve2->getVertexSucc())
+					if(ve1->getEnd()==ve2->getEnd())
+						return false;
+			}
+		
+		Vertex* v1=e1->getStart();
+		Vertex* v2=e2->getStart();
+		Vertex* v3=e3->getStart();
+		Vertex* v4=e6->getStart();
+		Face* f1=e1->getFace();
+		Face* f2=e4->getFace();
+		
+		/* Move v1 to edge midpoint: */
+		Point p=Geometry::mid(*v1,*v2);
+		Color c;
+		for(int i=0;i<4;++i)
+			c[i]=GLubyte(Math::floor((GLfloat(v1->color[i])+GLfloat(v2->color[i]))*0.5f+0.5f));
+		v1->setPoint(p);
+		v1->color=c;
+		
+		/* Remove both triangles from mesh: */
+		if(e7!=0)
+			e7->setOpposite(e8);
+		if(e8!=0)
+			e8->setOpposite(e7);
+		if(e7!=0&&e8!=0)
+			{
+			if(e7->sharpness<e8->sharpness)
+				e7->sharpness=e8->sharpness;
+			else
+				e8->sharpness=e7->sharpness;
+			}
+		if(e9!=0)
+			e9->setOpposite(e10);
+		if(e10!=0)
+			e10->setOpposite(e9);
+		if(e9!=0&&e10!=0)
+			{
+			if(e9->sharpness<e10->sharpness)
+				e9->sharpness=e10->sharpness;
+			else
+				e10->sharpness=e9->sharpness;
+			}
+		if(e8!=0)
+			v1->setEdge(e8);
+		else
+			v1->setEdge(e7->getFaceSucc());
+		if(e7!=0)
+			v3->setEdge(e7);
+		else
+			v3->setEdge(e8->getFaceSucc());
+		if(e9!=0)
+			v4->setEdge(e9);
+		else
+			v4->setEdge(e10->getFaceSucc());
+		
+		/* Remove v2 from mesh: */
+		if(v2OnBoundary)
+			{
+			for(Edge* ve2=e10;ve2!=0;ve2=ve2->getVertexSucc())
+				ve2->setStart(v1);
+			for(Edge* ve2=e2->getVertexPred();ve2!=0;ve2=ve2->getVertexPred())
+				ve2->setStart(v1);
+			}
+		else
+			{
+			for(Edge* ve2=e10;ve2!=e8;ve2=ve2->getVertexSucc())
+				ve2->setStart(v1);
+			}
+		
+		/* Delete removed objects: */
+		v2->setEdge(0);
+		f1->setEdge(0);
+		f2->setEdge(0);
+		
+		deleteEdge(e1);
+		deleteEdge(e2);
+		deleteEdge(e3);
+		deleteEdge(e4);
+		deleteEdge(e5);
+		deleteEdge(e6);
+		deleteVertex(v2);
+		deleteFace(f1);
+		deleteFace(f2);
+		
+		/* Invalidate all involved vertices: */
+		v1->version=version;
+		ve1=v1->getEdge();
+		do
+			{
+			ve1->getEnd()->version=version;
+			ve1=ve1->getVertexSucc();
+			}
+		while(ve1!=0&&ve1!=v1->getEdge());
+		if(ve1==0)
+			for(ve1=v1->getEdge()->getVertexPred();ve1!=0;ve1=ve1->getVertexPred())
+				ve1->getEnd()->version=version;
+		}
+	else // Edge is boundary edge
+		{
+		/* Check if both side edges are on the boundary: */
+		Edge* e7=e2->getOpposite();
+		Edge* e8=e3->getOpposite();
+		if(e7==0&&e8==0)
+			return false;
+		
+		if(e7!=0&&e8!=0)
+			{
+			/* Check if third face vertex is interior and has valence<=3: */
+			if(e7->getVertexSucc()==e8->getFaceSucc())
 				return false;
-	
-	assert(v2->getEdge()!=0);
-	assert(f1->getEdge()!=0);
-	assert(f2->getEdge()!=0);
-	
-	assert(e2->getFaceSucc()==e3&&e3->getFacePred()==e2);
-	assert(e5->getFaceSucc()==e6&&e6->getFacePred()==e5);
-	assert(e4->getStart()==v2);
-	assert(e5->getStart()==v1);
-	assert(e7->getOpposite()==e2);
-	assert(e8->getOpposite()==e3);
-	assert(e9->getOpposite()==e5);
-	assert(e10->getOpposite()==e6);
-	assert(e7->getStart()==v3);
-	assert(e8->getStart()==v1);
-	assert(e9->getStart()==v4);
-	assert(e10->getStart()==v2);
-	assert(e2->getFace()==f1);
-	assert(e3->getFace()==f1);
-	assert(e5->getFace()==f2);
-	assert(e6->getFace()==f2);
-	assert(f1->getEdge()==e1||f1->getEdge()==e2||f1->getEdge()==e3);
-	assert(f2->getEdge()==e4||f2->getEdge()==e5||f2->getEdge()==e6);
-	
-	/* Move v1 to edge midpoint: */
-	Point p=Point::zero();
-	p.add(*v1);
-	p.add(*v2);
-	p.normalize(2);
-	p.index=v1->index;
-	v1->setPoint(p);
-	
-	/* Remove both faces from mesh: */
-	e7->setOpposite(e8);
-	e8->setOpposite(e7);
-	if(e7->sharpness<e8->sharpness)
-		e7->sharpness=e8->sharpness;
-	else
-		e8->sharpness=e7->sharpness;
-	e9->setOpposite(e10);
-	e10->setOpposite(e9);
-	if(e9->sharpness<e10->sharpness)
-		e9->sharpness=e10->sharpness;
-	else
-		e10->sharpness=e9->sharpness;
-	v1->setEdge(e8);
-	v3->setEdge(e7);
-	v4->setEdge(e9);
-	
-	/* Remove v2 from mesh: */
-	/* Note: Works currently only for closed meshes! */
-	for(Edge* e=e10;e!=e8;e=e->getVertexSucc())
-		{
-		assert(e->getStart()==v2);
-		e->setStart(v1);
+		
+			/* Check if the two vertices' platelets share a vertex: */
+			/* Currently highly inefficient at O(n^2); need to optimize! */
+			for(const Edge* ve1=e8->getFacePred();ve1!=0;ve1=ve1->getEndVertexSucc())
+				for(const Edge* ve2=e7->getFaceSucc();ve2!=0;ve2=ve2->getVertexPred())
+					if(ve1->getStart()==ve2->getEnd())
+						return false;
+			}
+		
+		Vertex* v1=e1->getStart();
+		Vertex* v2=e2->getStart();
+		Vertex* v3=e3->getStart();
+		Face* f1=e1->getFace();
+		
+		/* Move v1 to edge midpoint: */
+		Point p=Geometry::mid(*v1,*v2);
+		Color c;
+		for(int i=0;i<4;++i)
+			c[i]=GLubyte(Math::floor((GLfloat(v1->color[i])+GLfloat(v2->color[i]))*0.5f+0.5f));
+		v1->setPoint(p);
+		v1->color=c;
+		
+		/* Remove top triangle from mesh: */
+		if(e7!=0)
+			e7->setOpposite(e8);
+		if(e8!=0)
+			e8->setOpposite(e7);
+		if(e7!=0&&e8!=0)
+			{
+			if(e7->sharpness<e8->sharpness)
+				e7->sharpness=e8->sharpness;
+			else
+				e8->sharpness=e7->sharpness;
+			}
+		if(e8!=0)
+			v1->setEdge(e8);
+		else
+			v1->setEdge(e7->getFaceSucc());
+		if(e7!=0)
+			v3->setEdge(e7);
+		else
+			v3->setEdge(e8->getFaceSucc());
+		
+		/* Remove v2 from mesh: */
+		if(e7!=0)
+			for(Edge* ve2=e7->getFaceSucc();ve2!=0;ve2=ve2->getVertexPred())
+				ve2->setStart(v1);
+		
+		/* Delete removed objects: */
+		v2->setEdge(0);
+		f1->setEdge(0);
+		
+		deleteEdge(e1);
+		deleteEdge(e2);
+		deleteEdge(e3);
+		deleteVertex(v2);
+		deleteFace(f1);
+		
+		/* Invalidate all involved vertices: */
+		v1->version=version;
+		for(Edge* ve1=v1->getEdge();ve1!=0;ve1=ve1->getVertexSucc())
+			ve1->getEnd()->version=version;
+		for(Edge* ve1=v1->getEdge()->getVertexPred();ve1!=0;ve1=ve1->getVertexPred())
+			ve1->getEnd()->version=version;
 		}
-	
-	assert(e7->getOpposite()==e8);
-	assert(e8->getOpposite()==e7);
-	assert(e9->getOpposite()==e10);
-	assert(e10->getOpposite()==e9);
-	assert(e7->getStart()==v3);
-	assert(e8->getStart()==v1);
-	assert(e9->getStart()==v4);
-	assert(e10->getStart()==v1);
-	
-	/* Delete removed objects: */
-	v2->setEdge(0);
-	f1->setEdge(0);
-	f2->setEdge(0);
-	
-	deleteEdge(e1);
-	deleteEdge(e2);
-	deleteEdge(e3);
-	deleteEdge(e4);
-	deleteEdge(e5);
-	deleteEdge(e6);
-	deleteVertex(v2);
-	deleteFace(f1);
-	deleteFace(f2);
-	
-	/* Update version numbers of all involved vertices: */
-	++version;
-	v1->version=version;
-	Edge* e=v1->getEdge();
-	do
-		{
-		e->getEnd()->version=version;
-		e=e->getVertexSucc();
-		}
-	while(e!=v1->getEdge());
-	
+			
 	return true;
 	}
 
-template <class PointType>
-void AutoTriangleMesh<PointType>::limitEdgeLength(const typename AutoTriangleMesh<PointType>::BasePoint& center,double radius,double maxEdgeLength)
+void AutoTriangleMesh::limitEdgeLength(const AutoTriangleMesh::Point& center,AutoTriangleMesh::Scalar radius,AutoTriangleMesh::Scalar maxEdgeLength)
 	{
+	Scalar radius2=Math::sqr(radius);
+	
 	/* Iterate through all triangles: */
 	FaceIterator faceIt=BaseMesh::beginFaces();
 	while(faceIt!=BaseMesh::endFaces())
@@ -470,14 +652,14 @@ void AutoTriangleMesh<PointType>::limitEdgeLength(const typename AutoTriangleMes
 		/* Check whether face overlaps area of influence and calculate face's maximum edge length: */
 		bool overlaps=false;
 		Edge* longestEdge=0;
-		double longestEdgeLength2=maxEdgeLength*maxEdgeLength;
+		Scalar longestEdgeLength2=maxEdgeLength*maxEdgeLength;
 		Edge* e=faceIt->getEdge();
 		for(int i=0;i<3;++i)
 			{
-			overlaps=overlaps||sqrDist(*e->getStart(),center)<=radius*radius;
+			overlaps=overlaps||Geometry::sqrDist(*e->getStart(),center)<=radius2;
 			
 			/* Calculate edge's squared length: */
-			double edgeLength2=sqrDist(*e->getStart(),*e->getEnd());
+			Scalar edgeLength2=Geometry::sqrDist(*e->getStart(),*e->getEnd());
 			if(longestEdgeLength2<edgeLength2)
 				{
 				longestEdge=e;
@@ -502,10 +684,9 @@ void AutoTriangleMesh<PointType>::limitEdgeLength(const typename AutoTriangleMes
 		}
 	}
 
-template <class PointType>
-void AutoTriangleMesh<PointType>::ensureEdgeLength(const typename AutoTriangleMesh<PointType>::BasePoint& center,double radius,double minEdgeLength)
+void AutoTriangleMesh::ensureEdgeLength(const AutoTriangleMesh::Point& center,AutoTriangleMesh::Scalar radius,AutoTriangleMesh::Scalar minEdgeLength)
 	{
-	double radius2=radius*radius;
+	Scalar radius2=Math::sqr(radius);
 	
 	/* Iterate through all triangles: */
 	FaceIterator faceIt=BaseMesh::beginFaces();
@@ -516,7 +697,7 @@ void AutoTriangleMesh<PointType>::ensureEdgeLength(const typename AutoTriangleMe
 		Edge* e=faceIt->getEdge();
 		do
 			{
-			if(sqrDist(*e->getStart(),center)<=radius2)
+			if(Geometry::sqrDist(*e->getStart(),center)<=radius2)
 				{
 				overlaps=true;
 				break;
@@ -531,13 +712,13 @@ void AutoTriangleMesh<PointType>::ensureEdgeLength(const typename AutoTriangleMe
 			{
 			/* Calculate face's minimum edge length: */
 			Edge* shortestEdge=0;
-			double shortestEdgeLength2=minEdgeLength*minEdgeLength;
+			Scalar shortestEdgeLength2=Math::sqr(minEdgeLength);
 			Edge* e=faceIt->getEdge();
 			do
 				{
 				/* Calculate edge's squared length: */
 				#if 1
-				double edgeLength2=sqrDist(*e->getStart(),*e->getEnd());
+				Scalar edgeLength2=Geometry::sqrDist(*e->getStart(),*e->getEnd());
 				#else
 				/* Calculate normal vectors for edge's vertices: */
 				float normal1[3],normal2[3];
@@ -562,7 +743,7 @@ void AutoTriangleMesh<PointType>::ensureEdgeLength(const typename AutoTriangleMe
 				float edgeLength=sqrtf(edgeLength2)+5.0f*(dist1+dist2);
 				edgeLength2=edgeLength*edgeLength;
 				#endif
-				if(shortestEdgeLength2>edgeLength2&&canCollapseEdge(e))
+				if(shortestEdgeLength2>edgeLength2&&canCollapseEdge(EdgeIterator(e)))
 					{
 					shortestEdge=e;
 					shortestEdgeLength2=edgeLength2;
@@ -580,7 +761,7 @@ void AutoTriangleMesh<PointType>::ensureEdgeLength(const typename AutoTriangleMe
 			if(shortestEdge!=0)
 				{
 				/* Skip next face if it will be removed by edge collapse: */
-				if(faceIt==shortestEdge->getOpposite()->getFace())
+				if(shortestEdge->getOpposite()!=0&&faceIt==shortestEdge->getOpposite()->getFace())
 					++faceIt;
 				
 				/* Collapse shortest collapsible edge: */

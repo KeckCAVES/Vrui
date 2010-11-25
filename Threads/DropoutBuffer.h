@@ -2,7 +2,7 @@
 DropoutBuffer - Class implementing a generalization of the triple buffer
 communication pattern, where the buffer retains a given number of most
 recent items for a consumer to read.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef THREADS_DROPOUTBUFFER_INCLUDED
 #define THREADS_DROPOUTBUFFER_INCLUDED
 
-#include <Threads/Mutex.h>
+#include <Threads/MutexCond.h>
 
 namespace Threads {
 
@@ -40,7 +40,7 @@ class DropoutBuffer
 	size_t segmentSize; // Size of each buffer segment
 	size_t queueSize; // Maximum number of segments in the queue
 	Value* buffer; // Pointer to the buffer containing all segments
-	Mutex queueMutex; // Mutex protecting the segment queue
+	MutexCond queueMutex; // Mutex protecting the segment queue and condition variable signaling pushing of a new segment
 	Value** readyQueue; // Queue of segments ready for reading, in writing order
 	size_t readyQueueSize; // Number of segments in ready queue
 	Value** freeQueue; // Queue of unused segments ready for writing
@@ -83,7 +83,7 @@ class DropoutBuffer
 		}
 	void resize(size_t newSegmentSize,size_t newQueueSize) // Clears and then resizes the queue
 		{
-		Threads::Mutex::Lock queueLock(queueMutex);
+		Threads::MutexCond::Lock queueLock(queueMutex);
 		
 		/* Delete the old queue structures: */
 		delete[] buffer;
@@ -114,7 +114,7 @@ class DropoutBuffer
 		}
 	void pushSegment(void) // Marks a segment as complete after writing
 		{
-		Threads::Mutex::Lock queueLock(queueMutex);
+		Threads::MutexCond::Lock queueLock(queueMutex);
 		
 		if(freeQueueSize>0)
 			{
@@ -133,14 +133,17 @@ class DropoutBuffer
 			readyQueue[readyQueueSize-1]=writeSegment;
 			writeSegment=newWriteSegment;
 			}
+		
+		/* Signal arrival of a new segment: */
+		queueMutex.broadcast(queueLock);
 		}
 	size_t getQueueSize(void) const // Returns the current size of the queue
 		{
 		return readyQueueSize;
 		}
-	const Value* popSegment(void) // Removes and returns the oldest segment from the queue; returns NULL on empty queue
+	const Value* testPopSegment(void) // Removes and returns the oldest segment from the queue; returns NULL on empty queue
 		{
-		Threads::Mutex::Lock queueLock(queueMutex);
+		Threads::MutexCond::Lock queueLock(queueMutex);
 		
 		/* Check for empty queue: */
 		if(readyQueueSize==0)
@@ -158,9 +161,29 @@ class DropoutBuffer
 		
 		return readSegment;
 		}
+	const Value* popSegment(void) // Removes and returns the oldest segment from the queue; blocks on empty queue
+		{
+		Threads::MutexCond::Lock queueLock(queueMutex);
+		
+		/* Check for empty queue: */
+		while(readyQueueSize==0)
+			queueMutex.wait(queueLock);
+		
+		/* Add the current read segment to the free queue: */
+		freeQueue[freeQueueSize]=readSegment;
+		++freeQueueSize;
+		
+		/* Remove the oldest element from the ready queue and make it the new read segment: */
+		readSegment=readyQueue[0];
+		--readyQueueSize;
+		for(size_t i=0;i<readyQueueSize;++i)
+			readyQueue[i]=readyQueue[i+1];
+		
+		return readSegment;
+		}
 	size_t lockQueue(void) // Locks all ready segments in the queue to be read and discarded at once
 		{
-		Threads::Mutex::Lock queueLock(queueMutex);
+		Threads::MutexCond::Lock queueLock(queueMutex);
 		
 		/* Get the number of ready segments in the queue, but leave at least one segment unlocked: */
 		lockedQueueSize=readyQueueSize;
@@ -188,7 +211,7 @@ class DropoutBuffer
 		}
 	void unlockQueue(void) // Removes all locked segments from the queue
 		{
-		Threads::Mutex::Lock queueLock(queueMutex);
+		Threads::MutexCond::Lock queueLock(queueMutex);
 		
 		/* Move all segments from the locked queue to the free queue: */
 		for(size_t i=0;i<lockedQueueSize;++i)

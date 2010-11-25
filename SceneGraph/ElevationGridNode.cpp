@@ -20,7 +20,7 @@ with the Simple Scene Graph Renderer; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#define NONSTANDARD_GLVERTEX_TEMPLATES
+#define GLGEOMETRY_NONSTANDARD_TEMPLATES
 
 #include <SceneGraph/ElevationGridNode.h>
 
@@ -35,7 +35,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
 
-#include <SceneGraph/LoadElevationGrid.h>
+#include <SceneGraph/Internal/LoadElevationGrid.h>
 
 namespace SceneGraph {
 

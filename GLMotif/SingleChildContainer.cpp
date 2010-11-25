@@ -1,7 +1,7 @@
 /***********************************************************************
 SingleChildContainer - Base class for containers that contain at most
 one child.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,9 +20,12 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Event.h>
-
 #include <GLMotif/SingleChildContainer.h>
+
+#include <GL/gl.h>
+#include <GL/GLColorTemplates.h>
+#include <GL/GLVertexTemplates.h>
+#include <GLMotif/Event.h>
 
 namespace GLMotif {
 
@@ -53,8 +56,7 @@ SingleChildContainer::SingleChildContainer(const char* sName,Container* sParent,
 
 SingleChildContainer::~SingleChildContainer(void)
 	{
-	/* Delete the child widget: */
-	delete child;
+	deleteChild(child);
 	}
 
 Vector SingleChildContainer::calcNaturalSize(void) const
@@ -97,8 +99,20 @@ void SingleChildContainer::draw(GLContextData& contextData) const
 	
 	if(child!=0)
 		{
-		/* Draw the child widgets: */
+		/* Draw the child widget: */
 		child->draw(contextData);
+		}
+	else
+		{
+		/* Fill the widget's interior with the background color: */
+		glBegin(GL_QUADS);
+		glColor(backgroundColor);
+		glNormal3f(0.0f,0.0f,1.0f);
+		glVertex(getInterior().getCorner(0));
+		glVertex(getInterior().getCorner(1));
+		glVertex(getInterior().getCorner(3));
+		glVertex(getInterior().getCorner(2));
+		glEnd();
 		}
 	}
 
@@ -121,8 +135,7 @@ bool SingleChildContainer::findRecipient(Event& event)
 void SingleChildContainer::addChild(Widget* newChild)
 	{
 	/* Delete the current child: */
-	delete child;
-	child=0;
+	deleteChild(child);
 	
 	/* Add the new child: */
 	child=newChild;
@@ -134,18 +147,46 @@ void SingleChildContainer::addChild(Widget* newChild)
 		}
 	}
 
+void SingleChildContainer::removeChild(Widget* removeChild)
+	{
+	/* Check if the given widget is really the child: */
+	if(child!=0&&child==removeChild)
+		{
+		/* Tell the child that it is being removed: */
+		child->unmanageChild();
+		
+		/* Remove the child: */
+		child=0;
+		
+		/* Notify parent widgets that the visual representation has changed: */
+		update();
+		}
+	}
+
 void SingleChildContainer::requestResize(Widget* child,const Vector& newExteriorSize)
 	{
-	/* Calculate the new preferred exterior size: */
-	Vector myExteriorSize=calcExteriorSize(calcInteriorSize(newExteriorSize));
-	
-	if(isManaged)
+	/* Just grant the request if nothing really changed: */
+	if(!isManaged)
 		{
+		/* Resize the child without directly: */
+		child->resize(Box(child->getExterior().origin,newExteriorSize));
+		}
+	else if(newExteriorSize[0]==child->getExterior().size[0]&&newExteriorSize[1]==child->getExterior().size[1])
+		{
+		/* Resize the child at its current position and size: */
+		child->resize(child->getExterior());
+		
+		/* Notify parent widgets that the visual representation has changed: */
+		update();
+		}
+	else
+		{
+		/* Calculate the new preferred exterior size: */
+		Vector myExteriorSize=calcExteriorSize(calcInteriorSize(newExteriorSize));
+		
 		/* Try adjusting the widget size to accomodate the child's new size: */
 		parent->requestResize(this,myExteriorSize);
 		}
-	else
-		resize(Box(Vector(0.0f,0.0f,0.0f),myExteriorSize));
 	}
 
 Widget* SingleChildContainer::getFirstChild(void)

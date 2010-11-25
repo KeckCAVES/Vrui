@@ -69,7 +69,7 @@ TokenSource::TokenSource(CharacterSource& sSource)
 	initCharacterClasses();
 	
 	/* Read the first character from the character source: */
-	lastChar=source.getc();
+	lastChar=source.getChar();
 	}
 
 TokenSource::~TokenSource(void)
@@ -183,18 +183,18 @@ void TokenSource::skipWs(void)
 	{
 	/* Skip all whitespace characters: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getc();
+		lastChar=source.getChar();
 	}
 
 void TokenSource::skipLine(void)
 	{
 	/* Skip everything until the next newline: */
 	while(lastChar>=0&&lastChar!='\n')
-		lastChar=source.getc();
+		lastChar=source.getChar();
 	
 	/* Skip the newline: */
 	if(lastChar=='\n')
-		lastChar=source.getc();
+		lastChar=source.getChar();
 	}
 
 const char* TokenSource::readNextToken(void)
@@ -207,14 +207,14 @@ const char* TokenSource::readNextToken(void)
 		{
 		/* Read a single punctuation character: */
 		tokenBuffer[tokenSize++]=lastChar;
-		lastChar=source.getc();
+		lastChar=source.getChar();
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
 		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
 		int quote=lastChar;
 		cc[quote]&=~QUOTEDTOKEN;
-		lastChar=source.getc();
+		lastChar=source.getChar();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
 		while(cc[lastChar]&QUOTEDTOKEN)
@@ -222,12 +222,12 @@ const char* TokenSource::readNextToken(void)
 			if(tokenSize>=tokenBufferSize)
 				resizeTokenBuffer();
 			tokenBuffer[tokenSize++]=lastChar;
-			lastChar=source.getc();
+			lastChar=source.getChar();
 			}
 		
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
-			lastChar=source.getc();
+			lastChar=source.getChar();
 		
 		/* Add the quote character to the set of quoted token characters again: */
 		cc[quote]|=QUOTEDTOKEN;
@@ -240,7 +240,7 @@ const char* TokenSource::readNextToken(void)
 			if(tokenSize>=tokenBufferSize)
 				resizeTokenBuffer();
 			tokenBuffer[tokenSize++]=lastChar;
-			lastChar=source.getc();
+			lastChar=source.getChar();
 			}
 		}
 	
@@ -249,7 +249,7 @@ const char* TokenSource::readNextToken(void)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getc();
+		lastChar=source.getChar();
 	
 	return tokenBuffer;
 	}

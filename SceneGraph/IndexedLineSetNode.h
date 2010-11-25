@@ -92,6 +92,8 @@ class IndexedLineSetNode:public GeometryNode,public GLObject
 	virtual void initContext(GLContextData& contextData) const;
 	};
 
+typedef Misc::Autopointer<IndexedLineSetNode> IndexedLineSetNodePointer;
+
 }
 
 #endif

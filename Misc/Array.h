@@ -59,7 +59,7 @@ class ArrayBase
 	/* Constructors and destructors: */
 	public:
 	ArrayBase(void) // Dummy constructor; creates uninitialized array
-		:elements(0),endElements(0)
+		:size(0),elements(0),endElements(0)
 		{
 		}
 	ArrayBase(const IndexBase& sSize) // Creates uninitialized array of given size

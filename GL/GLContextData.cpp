@@ -1,7 +1,7 @@
 /***********************************************************************
 GLContextData - Class to store per-GL-context data for application
 objects.
-Copyright (c) 2000-2008 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,9 +20,9 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GL/GLThingManager.h>
-
 #include <GL/GLContextData.h>
+
+#include <GL/Internal/GLThingManager.h>
 
 /**************************************
 Static elements of class GLContextData:
@@ -57,9 +57,19 @@ void GLContextData::destroyThing(const GLObject* thing)
 	GLThingManager::theThingManager.destroyThing(thing);
 	}
 
+void GLContextData::orderThings(const GLObject* thing1,const GLObject* thing2)
+	{
+	GLThingManager::theThingManager.orderThings(thing1,thing2);
+	}
+
 void GLContextData::resetThingManager(void)
 	{
 	GLThingManager::theThingManager.processActions();
+	}
+
+void GLContextData::shutdownThingManager(void)
+	{
+	GLThingManager::theThingManager.shutdown();
 	}
 
 void GLContextData::updateThings(void)

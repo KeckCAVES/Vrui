@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -45,6 +45,7 @@ class VRScreen;
 class ViewSpecification;
 class DisplayState;
 class InputDeviceAdapterMouse;
+class MovieSaver;
 class VruiState;
 }
 
@@ -73,6 +74,7 @@ class VRWindow:public GLWindow
 	GLWindow::WindowPos splitViewportPos[2]; // Positions and sizes of viewports for split-viewport stereo windows
 	bool panningViewport; // Flag whether the window's viewport depends on the window's position on the display screen
 	bool navigate; // Flag if the window should move the display when it is moved/resized
+	bool movePrimaryWidgets; // Flag if the window should move primary popped-up widgets when it is moved/resized
 	int displaySize[2]; // Pixel size of the display containing this window
 	Scalar viewports[2][4]; // Viewport borders (left, right, bottom, top) for each VR screen in VR screen coordinates
 	bool hasFramebufferObjectExtension; // Flag whether the local OpenGL supports GL_EXT_framebuffer_object (for interleaved viewport and autostereoscopic stereo modes)
@@ -107,6 +109,7 @@ class VRWindow:public GLWindow
 	bool resizeViewport; // Flag if the window's OpenGL viewport needs to be resized on the next draw() call
 	bool saveScreenshot; // Flag if the window is to save its contents after the next draw() call
 	std::string screenshotImageFileName; // Name of the image file into which to save the next screen shot
+	MovieSaver* movieSaver; // Pointer to a movie saver object if the window is supposed to write contents to a movie
 	
 	/* Private methods: */
 	static std::string getDisplayName(const Misc::ConfigurationFileSection& configFileSection);
@@ -123,14 +126,14 @@ class VRWindow:public GLWindow
 	void setVRScreen(VRScreen* newScreen); // Overrides the window's screen; caller must know what he's doing
 	void setViewer(Viewer* newViewer); // Overrides the window's viewer; caller must know what he's doing
 	void setScreenViewport(const Scalar newViewport[4]); // Overrides the window's viewport on its screen in screen coordinates
-	const int* getViewportSize(void) const // Returns window's viewport size
+	const int* getViewportSize(void) const // Returns window's viewport size in pixels
 		{
 		if(windowType==SPLITVIEWPORT_STEREO)
 			return splitViewportPos[0].size; // Return size of left viewport for now
 		else
 			return GLWindow::getWindowSize();
 		}
-	int getViewportSize(int dimension) const // Returns one component of the window's viewport size
+	int getViewportSize(int dimension) const // Returns one component of the window's viewport size in pixels
 		{
 		if(windowType==SPLITVIEWPORT_STEREO)
 			return splitViewportPos[0].size[dimension]; // Return size of left viewport for now
@@ -148,6 +151,12 @@ class VRWindow:public GLWindow
 	const Scalar* getScreenViewport(void) const // Returns the window's viewport on its screen in screen coordinates
 		{
 		return viewports[0];
+		}
+	Scalar* getScreenViewport(Scalar resultViewport[4]) const // Ditto, but copies viewport into provided array and returns pointer to array
+		{
+		for(int i=0;i<4;++i)
+			resultViewport[i]=viewports[0][i];
+		return resultViewport;
 		}
 	const Viewer* getViewer(void) const // Returns the viewer this window renders from
 		{
@@ -169,7 +178,12 @@ class VRWindow:public GLWindow
 		{
 		return *contextData;
 		}
-	Scalar* getWindowCenterPos(Scalar windowCenterPos[2]) const; // Returns the center of the window in screen coordinates
+	Scalar* getWindowCenterPos(Scalar windowCenterPos[2]) const // Returns the center of the window in screen coordinates
+		{
+		windowCenterPos[0]=Math::mid(viewports[0][0],viewports[0][1]);
+		windowCenterPos[1]=Math::mid(viewports[0][2],viewports[0][3]);
+		return windowCenterPos;
+		}
 	void setCursorPos(const Scalar newCursorPos[2]); // Sets the cursor position in screen coordinates
 	void setCursorPosWithAdjust(Scalar newCursorPos[2]); // Sets the cursor position in screen coordinates and changes passed values such that they exactly match the next reported cursor position
 	void makeCurrent(void); // Overloaded version of the base class' makeCurrent method

@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,13 +27,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/GUIInteractor.h>
+#include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
-namespace GLMotif {
-class Widget;
-}
 namespace Vrui {
 class InputDeviceAdapterMouse;
 }
@@ -68,11 +66,13 @@ class MouseNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseNavigationTool:public NavigationTool
+class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	{
 	friend class MouseNavigationToolFactory;
 	
@@ -85,7 +85,6 @@ class MouseNavigationTool:public NavigationTool
 	
 	/* Elements: */
 	static MouseNavigationToolFactory* factory; // Pointer to the factory object for this class
-	
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
 	
 	/* Transient navigation state: */
@@ -103,7 +102,6 @@ class MouseNavigationTool:public NavigationTool
 	NavTrackerState preScale; // Transformation to be applied to the navigation transformation before scaling
 	NavTrackerState rotation; // Current accumulated rotation transformation
 	NavTrackerState postScale; // Transformation to be applied to the navigation transformation after scaling
-	GLMotif::Widget* draggedWidget; // Pointer to currently dragged root widget
 	
 	/* Private methods: */
 	Point calcScreenCenter(void) const; // Calculates the center of the screen containing the input device
@@ -119,8 +117,8 @@ class MouseNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2009 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -515,8 +515,8 @@ Rotation<ScalarParam,3> invert(const Rotation<ScalarParam,3>& r)
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATION_IMPLEMENTATION)
-#include <Geometry/Rotation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_ROTATION_IMPLEMENTATION)
+#include <Geometry/Rotation.icpp>
 #endif
 
 #endif

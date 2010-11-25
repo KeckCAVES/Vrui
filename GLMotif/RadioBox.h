@@ -1,7 +1,7 @@
 /***********************************************************************
 RadioBox - Subclass of RowColumn that contains only mutually exclusive
 ToggleButton objects.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

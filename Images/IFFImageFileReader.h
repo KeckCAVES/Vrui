@@ -1,7 +1,7 @@
 /***********************************************************************
 IFFImageFileReader - Class to read images in IFF format from a stream
 data source.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -76,7 +76,7 @@ class IFFImageFileReader
 }
 
 #ifndef IMAGES_IFFIMAGEFILEREADER_IMPLEMENTATION
-#include <Images/IFFImageFileReader.cpp>
+#include <Images/IFFImageFileReader.icpp>
 #endif
 
 #endif

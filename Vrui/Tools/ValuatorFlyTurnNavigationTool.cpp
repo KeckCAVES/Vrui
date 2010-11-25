@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorFlyTurnNavigationTool - Class providing a fly navigation tool
 with turning using two valuators.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ValuatorFlyTurnNavigationTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -29,11 +31,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/Viewer.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ValuatorFlyTurnNavigationTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -53,8 +52,7 @@ ValuatorFlyTurnNavigationToolFactory::ValuatorFlyTurnNavigationToolFactory(ToolM
 	 rotationFactor(Scalar(90))
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumValuators(0,2);
+	layout.setNumValuators(2);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -90,7 +88,22 @@ ValuatorFlyTurnNavigationToolFactory::~ValuatorFlyTurnNavigationToolFactory(void
 
 const char* ValuatorFlyTurnNavigationToolFactory::getName(void) const
 	{
-	return "Valuator Fly and Turn";
+	return "Valuator Fly + Turn";
+	}
+
+const char* ValuatorFlyTurnNavigationToolFactory::getValuatorFunction(int valuatorSlotIndex) const
+	{
+	switch(valuatorSlotIndex)
+		{
+		case 0:
+			return "Fly";
+		
+		case 1:
+			return "Rotate";
+		}
+	
+	/* Never reached; just to make compiler happy: */
+	return 0;
 	}
 
 Tool* ValuatorFlyTurnNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -149,7 +162,7 @@ const ToolFactory* ValuatorFlyTurnNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ValuatorFlyTurnNavigationTool::valuatorCallback(int,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData)
+void ValuatorFlyTurnNavigationTool::valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData)
 	{
 	/* Map the raw valuator value according to a "broken line plus exponent" scheme: */
 	Scalar v=Scalar(cbData->newValuatorValue);
@@ -158,15 +171,15 @@ void ValuatorFlyTurnNavigationTool::valuatorCallback(int,int valuatorIndex,Input
 	if(v<-th)
 		{
 		v=(v+th)/s;
-		currentValues[valuatorIndex]=-Math::pow(-v,factory->valuatorExponent);
+		currentValues[valuatorSlotIndex]=-Math::pow(-v,factory->valuatorExponent);
 		}
 	else if(v>th)
 		{
 		v=(v-th)/s;
-		currentValues[valuatorIndex]=Math::pow(v,factory->valuatorExponent);
+		currentValues[valuatorSlotIndex]=Math::pow(v,factory->valuatorExponent);
 		}
 	else
-		currentValues[valuatorIndex]=Scalar(0);
+		currentValues[valuatorSlotIndex]=Scalar(0);
 	
 	if(currentValues[0]!=Scalar(0)||currentValues[1]!=Scalar(0))
 		{
@@ -190,7 +203,7 @@ void ValuatorFlyTurnNavigationTool::frame(void)
 	if(isActive())
 		{
 		/* Get the current state of the input device: */
-		const TrackerState& ts=getDeviceTransformation(0);
+		const TrackerState& ts=getValuatorDeviceTransformation(0);
 		
 		/* Check whether to change the super acceleration factor: */
 		if(Math::abs(currentValues[0])==Scalar(1))

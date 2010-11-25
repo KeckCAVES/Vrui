@@ -1,7 +1,7 @@
 /***********************************************************************
 OffsetTool - Class to offset the position of an input device by a fixed
 transformation to extend the user's arm.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_OFFSETTOOL_INCLUDED
 
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/Tools/TransformTool.h>
+#include <Vrui/TransformTool.h>
 
 namespace Vrui {
 

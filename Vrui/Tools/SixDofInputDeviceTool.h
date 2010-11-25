@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofInputDeviceTool - Class for tools using a 6-DOF input device to
 interact with virtual input devices.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_SIXDOFINPUTDEVICETOOL_INCLUDED
 
 #include <Geometry/OrthonormalTransformation.h>
-#include <Vrui/Tools/InputDeviceTool.h>
+#include <Vrui/InputDeviceTool.h>
 
 namespace Vrui {
 
@@ -34,6 +34,10 @@ class SixDofInputDeviceTool;
 class SixDofInputDeviceToolFactory:public ToolFactory
 	{
 	friend class SixDofInputDeviceTool;
+	
+	/* Elements: */
+	private:
+	bool selectButtonToggle; // Flag whether the select button acts as a toggle
 	
 	/* Constructors and destructors: */
 	public:
@@ -55,7 +59,6 @@ class SixDofInputDeviceTool:public InputDeviceTool
 	static SixDofInputDeviceToolFactory* factory; // Pointer to the factory object for this class
 	
 	/* Transient dragging state: */
-	bool deactivating; // Flag that tool activation has been initiated (second button press)
 	TrackerState preScale; // Transformation to be applied to the current transformation before scaling
 	
 	/* Constructors and destructors: */
@@ -64,7 +67,7 @@ class SixDofInputDeviceTool:public InputDeviceTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 
