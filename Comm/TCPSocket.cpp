@@ -343,7 +343,7 @@ void TCPSocket::setNoDelay(bool enable)
 
 bool TCPSocket::getCork(void) const
 	{
-	#ifdef __LINUX__
+	#ifdef __linux__
 	/* Get the TCP_CORK socket option: */
 	int flag;
 	socklen_t flagLen=sizeof(int);
@@ -356,7 +356,7 @@ bool TCPSocket::getCork(void) const
 
 void TCPSocket::setCork(bool enable)
 	{
-	#ifdef __LINUX__
+	#ifdef __linux__
 	/* Set the TCP_CORK socket option: */
 	int flag=enable?1:0;
 	setsockopt(socketFd,IPPROTO_TCP,TCP_CORK,&flag,sizeof(int));
@@ -418,11 +418,15 @@ void TCPSocket::blockingRead(void* buffer,size_t count)
 		ssize_t numBytesRead=::read(socketFd,byteBuffer,count);
 		if(numBytesRead!=ssize_t(count))
 			{
-			if(numBytesRead>0||errno==EAGAIN||errno==EINTR)
+			if(numBytesRead>0)
 				{
 				/* Advance result pointer and retry: */
 				count-=numBytesRead;
 				byteBuffer+=numBytesRead;
+				}
+			else if(errno==EAGAIN||errno==EINTR)
+				{
+				/* Do nothing */
 				}
 			else if(numBytesRead==0)
 				{
@@ -473,7 +477,7 @@ void TCPSocket::blockingWrite(const void* buffer,size_t count)
 
 void TCPSocket::flush(void)
 	{
-	#ifdef __LINUX__
+	#ifdef __linux__
 	/* Twiddle the TCP_CORK socket option to flush half-assembled packets: */
 	int flag=0;
 	setsockopt(socketFd,IPPROTO_TCP,TCP_CORK,&flag,sizeof(int));

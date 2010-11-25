@@ -386,8 +386,9 @@ TotalStation::TotalStation(const char* devicePortName,int deviceBaudRate)
 	 prismOffset(0.0)
 	{
 	/* Initialize the device port: */
-	devicePort.setSerialSettings(19200,8,Comm::SerialPort::PARITY_NONE,1,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
 	devicePort.setRawMode(1,0);
+	// devicePort.setLineControl(false,false);
 	
 	/* Power on Total Station: */
 	devicePort.writeString("a\r\n");

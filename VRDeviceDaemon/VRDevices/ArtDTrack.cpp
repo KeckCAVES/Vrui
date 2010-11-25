@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <Misc/Time.h>
 #include <Misc/Endianness.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
@@ -526,6 +527,8 @@ ArtDTrack::ArtDTrack(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 
 ArtDTrack::~ArtDTrack(void)
 	{
+	if(isActive())
+		stop();
 	delete[] devices;
 	delete[] deviceIdToIndex;
 	delete[] trackerStates;
@@ -543,7 +546,7 @@ void ArtDTrack::start(void)
 	const char* msg1="dtrack 10 3";
 	controlSocket.sendMessage(msg1,strlen(msg1)+1);
 	
-	delay(0.5);
+	Misc::sleep(0.5);
 	
 	/* Start sending measurements: */
 	#ifdef VERBOSE
@@ -562,7 +565,7 @@ void ArtDTrack::stop(void)
 	const char* msg1="dtrack 32";
 	controlSocket.sendMessage(msg1,strlen(msg1)+1);
 	
-	delay(0.5);
+	Misc::sleep(0.5);
 	
 	/* Deactivate DTrack: */
 	#ifdef VERBOSE

@@ -89,11 +89,41 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>TimerEventScheduler.h</DT>
 <DD>TimerEventScheduler is a helper class to implement application-level timer events in GLMotif and Vrui.</DD>
 
+<DT>Marshaller.h</DT>
+<DD>Marshaller is a generic base class to read or write data structures from or to binary data sources or sinks.</DD>
+
+<DT>StandardMarshallers.h</DT>
+<DD>StandardMarshallers.h contains specializations of Marshaller for atomic data types.</DD>
+
+<DT>ArrayMarshallers.h</DT>
+<DD>ArrayMarshallers.h contains Marshaller classes for standard C-style arrays with implicit or explicit array sizes.</DD>
+
+<DT>CompoundMarshallers.h</DT>
+<DD>CompoundMarshallers.h contains specializations of Marshaller for standard container data types.</DD>
+
 <DT>Endianness.h</DT>
 <DD>Endianness contains a templatized class EndiannessSwapper that swaps the endianness of objects of arbitrary types using byte-wise exchanges and can be specialized to swap the endianness of aggregate data types. Endianness.h also contains a generic function swapEndianness(), templatized by value data type, that is used by client code. The implementation of swapEndianness() is based on EndiannessSwapper.</DD>
 
+<DT>WriteBuffer.h</DT>
+<DD>WriteBuffer is a class providing an endianness-safe pipe interface for writing to a dynamically-growing memory buffer.</DD>
+
+<DT>GetCurrentDirectory.h</DT>
+<DD>GetCurrentDirectory contains a namespace-global function to retrieve the name of the calling process' current working directory as a string.</DD>
+
+<DT>FileTests.h</DT>
+<DD>FileTests contains namespace-global functions query information about file system objects in an operating system-independent manner.</DD>
+
+<DT>FileNameExtensions.h</DT>
+<DD>FileNameExtensions contains namespace-global functions to manipulate the extensions of file names.</DD>
+
+<DT>CreateNumberedFileName.h</DT>
+<DD>CreateNumberedFileName contains a single namespace-global function to generate unique numbered file names based on a given base name and number of digits. The function searches for all numbered files of the given basename, and creates a new file with a number one higher than the previous maximum. The function has undefined results if called concurrently for the same basename.</DD>
+
 <DT>File.h</DT>
 <DD>File is a class providing a wrapper around the C standard FILE interface that also provides automatic endianness conversion based on the swapEndianness() function declared in Endianness. It ensures correct resource management via construction/destruction, and offers a type-safe interface to read/write binary data from/to files.</DD>
+
+<DT>Directory.h></DT>
+<DD>Directory is an exception-safe wrapper around the POSIX DIR interface.</DD>
 
 <DT>LargeFile.h</DT>
 <DD>LargeFile is a different version of the File class, using the same interface but providing access to files larger than 2GB by using 64-bit file offset values.</DD>
@@ -103,12 +133,6 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>StringMarshaller.h</DT>
 <DD>StringMarshaller contains namespace-global template functions to send/retrieve C or C++ strings via pipe objects that provide type-safe read/write routines, such as Misc::File.</DD>
-
-<DT>FileNameExtensions.h</DT>
-<DD>FileNameExtensions contains namespace-global functions to manipulate the extensions of file names.</DD>
-
-<DT>CreateNumberedFileName.h</DT>
-<DD>CreateNumberedFileName contains a single namespace-global function to generate unique numbered file names based on a given base name and number of digits. The function searches for all numbered files of the given basename, and creates a new file with a number one higher than the previous maximum. The function has undefined results if called concurrently for the same basename.</DD>
 
 <DT>CharacterSource</DT>
 <DD>CharacterSource is the base class for high-performance ASCII file readers.</DD>

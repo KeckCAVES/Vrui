@@ -34,8 +34,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
+#include <Vrui/Internal/Vrui.h>
 
 namespace Vrui {
+
+/**************************************
+Static elements of class GUIInteractor:
+**************************************/
+
+GUIInteractor* GUIInteractor::activeInteractor=0;
 
 /******************************
 Methods of class GUIInteractor:
@@ -112,28 +119,39 @@ NavTrackerState GUIInteractor::calcInteractionTransform(void) const
 
 bool GUIInteractor::buttonDown(bool force)
 	{
-	/* Create a GLMotif event: */
-	GLMotif::Event event(ray,false);
-	
-	/* Check if there is a recipient for the event: */
-	if(getWidgetManager()->pointerButtonDown(event)||force)
+	/* Ensure that no other GUI interactor is currently active: */
+	if(activeInteractor==0||activeInteractor==this)
 		{
-		/* Check whether the target widget is a draggable title bar: */
-		if(dynamic_cast<GLMotif::Draggable*>(event.getTargetWidget())!=0)
+		/* Create a GLMotif event: */
+		GLMotif::Event event(ray,false);
+		
+		/* Check if there is a recipient for the event: */
+		if(getWidgetManager()->pointerButtonDown(event)||force)
 			{
-			/* Drag the entire top-level widget: */
-			draggedWidget=event.getTargetWidget();
-			
-			/* Calculate the dragging transformation: */
-			draggingTransform=calcInteractionTransform();
-			draggingTransform.doInvert();
-			GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
-			draggingTransform*=NavTrackerState(initialWidget);
-			draggingTransform.renormalize();
+			/* Check whether the target widget is a draggable title bar: */
+			if(dynamic_cast<GLMotif::Draggable*>(event.getTargetWidget())!=0)
+				{
+				/* Drag the entire top-level widget: */
+				draggedWidget=event.getTargetWidget();
+				
+				/* Calculate the dragging transformation: */
+				draggingTransform=calcInteractionTransform();
+				draggingTransform.doInvert();
+				GLMotif::WidgetManager::Transformation initialWidget=getWidgetManager()->calcWidgetTransformation(draggedWidget);
+				draggingTransform*=NavTrackerState(initialWidget);
+				draggingTransform.renormalize();
+				}
+
+			/* Go into interaction mode: */
+			interacting=true;
 			}
 		
-		/* Go into interaction mode: */
-		interacting=true;
+		if(interacting&&activeInteractor==0)
+			{
+			/* Activate this interactor: */
+			activeInteractor=this;
+			setMostRecentGUIInteractor(this);
+			}
 		}
 	
 	return interacting;
@@ -150,30 +168,34 @@ void GUIInteractor::buttonUp(void)
 		/* Deactivate the interactor: */
 		interacting=false;
 		draggedWidget=0;
+		activeInteractor=0;
 		}
 	}
 
 void GUIInteractor::move(void)
 	{
-	/* Check if the interactor is pointing at a widget: */
-	pointing=getWidgetManager()->findPrimaryWidget(ray)!=0;
-	
-	/* Check if the interactor is interacting with a widget: */
-	if(interacting)
+	if(activeInteractor==0||activeInteractor==this)
 		{
-		/* Check if the interactor is dragging a top-level widget: */
-		if(draggedWidget!=0)
-			{
-			/* Calculate the new dragging transformation: */
-			NavTrackerState newTransform=calcInteractionTransform();
-			newTransform*=draggingTransform;
-			newTransform.renormalize();
-			getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,newTransform);
-			}
+		/* Check if the interactor is pointing at a widget: */
+		pointing=getWidgetManager()->findPrimaryWidget(ray)!=0;
 		
-		/* Deliver the event: */
-		GLMotif::Event event(ray,true);
-		getWidgetManager()->pointerMotion(event);
+		/* Check if the interactor is interacting with a widget: */
+		if(interacting)
+			{
+			/* Check if the interactor is dragging a top-level widget: */
+			if(draggedWidget!=0)
+				{
+				/* Calculate the new dragging transformation: */
+				NavTrackerState newTransform=calcInteractionTransform();
+				newTransform*=draggingTransform;
+				newTransform.renormalize();
+				getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,newTransform);
+				}
+			
+			/* Deliver the event: */
+			GLMotif::Event event(ray,true);
+			getWidgetManager()->pointerMotion(event);
+			}
 		}
 	}
 
@@ -196,6 +218,30 @@ void GUIInteractor::glRenderAction(GLContextData& contextData) const
 		
 		/* Restore OpenGL state: */
 		glPopAttrib();
+		}
+	}
+
+Point GUIInteractor::calcHotSpot(void) const
+	{
+	if(device->isRayDevice())
+		{
+		/* Get the first screen intersection: */
+		std::pair<VRScreen*,Scalar> si=findScreen(ray);
+		if(si.first!=0)
+			{
+			/* Return the intersection point: */
+			return ray(si.second);
+			}
+		else
+			{
+			/* Return the ray's origin: */
+			return ray.getOrigin();
+			}
+		}
+	else
+		{
+		/* Return the device's position: */
+		return device->getPosition();
 		}
 	}
 

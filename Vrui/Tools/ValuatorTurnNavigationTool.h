@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorTurnNavigationTool - Class providing a rotation navigation tool
 using two valuators.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,11 +25,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VALUATORTURNNAVIGATIONTOOL_INCLUDED
 
 #include <Vrui/NavigationTool.h>
-
-/* Forward declarations: */
-namespace Vrui {
-class Viewer;
-}
 
 namespace Vrui {
 
@@ -56,6 +51,8 @@ class ValuatorTurnNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -67,7 +64,6 @@ class ValuatorTurnNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ValuatorTurnNavigationToolFactory* factory; // Pointer to the factory object for this class
-	const Viewer* viewer; // Viewer associated with the navigation tool
 	
 	/* Transient navigation state: */
 	bool buttonState; // Current value of the associated button
@@ -79,8 +75,8 @@ class ValuatorTurnNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	};
 

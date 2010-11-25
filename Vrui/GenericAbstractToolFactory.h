@@ -58,7 +58,7 @@ class GenericAbstractToolFactory:public ToolFactory
 		{
 		}
 	
-	/* Methods: */
+	/* Methods from class ToolFactory: */
 	virtual const char* getName(void) const
 		{
 		return displayName.c_str();

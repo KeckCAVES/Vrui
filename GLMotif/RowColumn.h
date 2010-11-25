@@ -89,6 +89,7 @@ class RowColumn:public Container
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
+	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);

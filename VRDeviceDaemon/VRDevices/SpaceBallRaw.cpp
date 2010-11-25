@@ -35,6 +35,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
+#include <Math/MathValueCoders.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
 
@@ -162,11 +163,7 @@ void SpaceBallRaw::deviceThreadMethod(void)
 				for(int i=0;i<6;++i)
 					{
 					/* Convert raw device data to valuator value: */
-					double value=double(rawData[i])*axisGains[i];
-					if(value<-1.0)
-						value=-1.0;
-					else if(value>1.0)
-						value=1.0;
+					double value=axisConverters[i].map(double(rawData[i]));
 					
 					/* Set valuator value: */
 					setValuatorState(i,value);
@@ -207,14 +204,14 @@ SpaceBallRaw::SpaceBallRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 	setNumValuators(6,configFile);
 	
 	/* Read axis manipulation factors: */
-	double axisGain=configFile.retrieveValue<double>("./axisGain",1.0);
-	double linearAxisGain=configFile.retrieveValue<double>("./linearAxisGain",axisGain);
-	double angularAxisGain=configFile.retrieveValue<double>("./angularAxisGain",axisGain);
+	AxisConverter ac=configFile.retrieveValue<AxisConverter>("./axisConverter",AxisConverter(-1.0,1.0,0.0));
+	AxisConverter linearAc=configFile.retrieveValue<AxisConverter>("./linearAxisConverter",ac);
+	AxisConverter angularAc=configFile.retrieveValue<AxisConverter>("./angularAxisConverter",ac);
 	for(int i=0;i<6;++i)
 		{
-		char axisGainTag[40];
-		snprintf(axisGainTag,sizeof(axisGainTag),"./axisGain%d",i);
-		axisGains[i]=configFile.retrieveValue<double>(axisGainTag,i<3?linearAxisGain:angularAxisGain);
+		char axisConverterTag[40];
+		snprintf(axisConverterTag,sizeof(axisConverterTag),"./axisConverter%d",i);
+		axisConverters[i]=configFile.retrieveValue<AxisConverter>(axisConverterTag,i<3?linearAc:angularAc);
 		}
 	
 	/* Set device port parameters: */

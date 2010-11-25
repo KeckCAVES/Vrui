@@ -69,7 +69,7 @@ TextFieldSlider::TextFieldSlider(const char* sName,Container* sParent,GLint sCha
 	:Container(sName,sParent,false),
 	 textField(new TextField("TextField",this,sCharWidth,false)),
 	 slider(new Slider("Slider",this,Slider::HORIZONTAL,sShaftLength,false)),
-	 sliderMapping(LINEAR),
+	 sliderMapping(LINEAR),valueType(FLOAT),
 	 valueMin(0.0),valueMax(1000.0),valueIncrement(1.0),value(500.0)
 	{
 	/* Get the style sheet: */
@@ -99,8 +99,8 @@ TextFieldSlider::TextFieldSlider(const char* sName,Container* sParent,GLint sCha
 TextFieldSlider::~TextFieldSlider(void)
 	{
 	/* Delete the child widgets: */
-	delete textField;
-	delete slider;
+	deleteChild(textField);
+	deleteChild(slider);
 	}
 
 Vector TextFieldSlider::calcNaturalSize(void) const
@@ -240,6 +240,11 @@ void TextFieldSlider::addChild(Widget* newChild)
 	/* Only the dedicated children can call this, and they get managed in the constructor, so ignore this */
 	}
 
+void TextFieldSlider::removeChild(Widget* removeChild)
+	{
+	/* This should never be called, so simply ignore it */
+	}
+
 void TextFieldSlider::requestResize(Widget* child,const Vector& newExteriorSize)
 	{
 	if(isManaged)
@@ -317,6 +322,28 @@ void TextFieldSlider::setSliderMapping(SliderMapping newSliderMapping)
 		}
 	}
 
+void TextFieldSlider::setValueType(TextFieldSlider::ValueType newValueType)
+	{
+	/* Set the value type: */
+	valueType=newValueType;
+	
+	/* Update the text field: */
+	switch(valueType)
+		{
+		case UINT:
+			textField->setValue<unsigned int>(value>0.0?(unsigned int)(value+0.5):0);
+			break;
+		
+		case INT:
+			textField->setValue<int>(int(value+0.5));
+			break;
+		
+		case FLOAT:
+			textField->setValue<double>(value);
+			break;
+		}
+	}
+
 void TextFieldSlider::setValueRange(double newValueMin,double newValueMax,double newValueIncrement)
 	{
 	/* Set the value range: */
@@ -325,13 +352,35 @@ void TextFieldSlider::setValueRange(double newValueMin,double newValueMax,double
 	valueIncrement=newValueIncrement;
 	
 	/* Check the value against the range: */
+	bool valueChanged=false;
 	if(value<valueMin)
+		{
 		value=valueMin;
+		valueChanged=true;
+		}
 	if(value>valueMax)
+		{
 		value=valueMax;
-	
-	/* Update the text field: */
-	textField->setValue<double>(value);
+		valueChanged=true;
+		}
+	if(valueChanged)
+		{
+		/* Update the text field: */
+		switch(valueType)
+			{
+			case UINT:
+				textField->setValue<unsigned int>(value>0.0?(unsigned int)(value+0.5):0);
+				break;
+			
+			case INT:
+				textField->setValue<int>(int(value+0.5));
+				break;
+			
+			case FLOAT:
+				textField->setValue<double>(value);
+				break;
+			}
+		}
 	
 	/* Update the slider: */
 	switch(sliderMapping)
@@ -360,7 +409,20 @@ void TextFieldSlider::setValue(double newValue)
 		value=valueMax;
 	
 	/* Update the text field: */
-	textField->setValue<double>(value);
+	switch(valueType)
+		{
+		case UINT:
+			textField->setValue<unsigned int>(value>0.0?(unsigned int)(value+0.5):0);
+			break;
+		
+		case INT:
+			textField->setValue<int>(int(value+0.5));
+			break;
+		
+		case FLOAT:
+			textField->setValue<double>(value);
+			break;
+		}
 	
 	/* Update the slider: */
 	switch(sliderMapping)

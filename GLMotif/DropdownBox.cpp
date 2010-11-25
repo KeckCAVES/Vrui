@@ -62,6 +62,57 @@ void DropdownBox::itemSelectedCallbackWrapper(Misc::CallbackData* cbData,void* u
 		}
 	}
 
+DropdownBox::DropdownBox(const char* sName,Container* sParent,bool sManageChild)
+	:Label(sName,sParent,"",false),
+	 popup(0),items(0),isPopped(false),
+	 foundChild(0),armedChild(0),
+	 arrow(GlyphGadget::FANCY_ARROW_DOWN,GlyphGadget::IN,0.0f),
+	 numItems(0),
+	 selectedItem(-1)
+	{
+	const GLMotif::StyleSheet& ss=*getManager()->getStyleSheet();
+	
+	/* Dropdown box defaults to raised border: */
+	setBorderType(Widget::RAISED);
+	setBorderWidth(ss.buttonBorderWidth);
+	
+	/* Dropdown box defaults to some margin: */
+	setMarginWidth(ss.buttonMarginWidth);
+	
+	/* Set the arrow sizes: */
+	spacing=ss.buttonBorderWidth+2.0f*ss.buttonMarginWidth;
+	arrow.setGlyphSize(ss.size*0.25f);
+	arrow.setBevelSize(ss.size*0.25f);
+	arrow.setGlyphColor(backgroundColor);
+	popupExtrudeSize=ss.size*4.0f;
+	
+	/* Set the label insets: */
+	setInsets(0.0f,arrow.getPreferredBoxSize()+spacing);
+	
+	/* Create a pop-up containing the item labels: */
+	popup=new Popup("Popup",getManager());
+	popup->setBorderWidth(ss.buttonBorderWidth);
+	popup->setBorderType(Widget::PLAIN);
+	popup->setBorderColor(borderColor);
+	popup->setBackgroundColor(backgroundColor);
+	popup->setForegroundColor(foregroundColor);
+	popup->setMarginWidth(0.0f);
+	
+	/* Create a container for the item labels: */
+	items=new RowColumn("Items",popup,false);
+	items->setBorderWidth(0.0f);
+	items->setOrientation(RowColumn::VERTICAL);
+	items->setNumMinorWidgets(1);
+	items->setMarginWidth(0.0f);
+	items->setSpacing(ss.buttonBorderWidth);
+	
+	items->manageChild();
+	
+	/* Manage me: */
+	if(sManageChild)
+		manageChild();
+	}
+
 DropdownBox::DropdownBox(const char* sName,Container* sParent,const std::vector<std::string>& sItems,bool sManageChild)
 	:Label(sName,sParent,sItems[0].c_str(),false),
 	 popup(0),items(0),isPopped(false),
@@ -276,7 +327,7 @@ void DropdownBox::pointerButtonDown(Event& event)
 	event.overrideTargetWidget(foundChild);
 	
 	/* Pop up the secondary top-level widget: */
-	if(!isPopped&&popup!=0)
+	if(numItems>0&&!isPopped&&popup!=0)
 		{
 		/* Calculate the popup's transformation: */
 		Vector offset=getInterior().getCorner(0);
@@ -296,16 +347,16 @@ void DropdownBox::pointerButtonDown(Event& event)
 		popupHitBox.size[2]=popupZRange.second-popupZRange.first;
 		popupHitBox.doOffset(offset);
 		popupHitBox.doOutset(Vector(popupExtrudeSize,popupExtrudeSize,popupExtrudeSize));
+		
+		/* Find a potential event recipient in the popup: */
+		if(popup->findRecipient(event))
+			{
+			armedChild=event.getTargetWidget();
+			armedChild->pointerButtonDown(event);
+			}
+		else
+			armedChild=0;
 		}
-	
-	/* Find a potential event recipient in the popup: */
-	if(popup->findRecipient(event))
-		{
-		armedChild=event.getTargetWidget();
-		armedChild->pointerButtonDown(event);
-		}
-	else
-		armedChild=0;
 	}
 
 void DropdownBox::pointerButtonUp(Event& event)
@@ -404,6 +455,25 @@ const Widget* DropdownBox::getItemWidget(int item) const
 const char* DropdownBox::getItem(int item) const
 	{
 	return static_cast<Button*>(items->getChild(item))->getString();
+	}
+
+void DropdownBox::clearItems(void)
+	{
+	/* Remove all buttons from the drop-down list: */
+	while(numItems>0)
+		{
+		items->removeWidgets(numItems-1);
+		--numItems;
+		}
+	
+	/* Reset the selected item: */
+	selectedItem=-1;
+	
+	/* Resize the widget to accomodate the new list: */
+	if(isManaged)
+		parent->requestResize(this,calcNaturalSize());
+	else
+		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 	}
 
 void DropdownBox::addItem(const char* newItem)

@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#define DEBUGGING 0
+
 #include <VRDeviceDaemon/VRDevices/Wiimote.h>
 
 #include <ctype.h>
@@ -310,6 +312,10 @@ void* Wiimote::receiverThreadMethod(void)
 		ssize_t packetSize=read(readSocket,packet,sizeof(packet));
 		if(packetSize>0&&packet[0]==0xa1)
 			{
+			#if DEBUGGING
+			std::cout<<"Received packet type "<<int(packet[1])<<std::endl;
+			#endif
+			
 			/* Process the data packet: */
 			switch(int(packet[1]))
 				{
@@ -317,6 +323,9 @@ void* Wiimote::receiverThreadMethod(void)
 					{
 					/* Store the battery level: */
 					batteryLevel=int(packet[7]);
+					#if DEBUGGING
+					std::cout<<"Battery level "<<(batteryLevel+1)/2<<"%"<<std::endl;
+					#endif
 					
 					/* Check if the Wiimote has a connected extension device: */
 					if(packet[4]&0x02)
@@ -412,6 +421,10 @@ void* Wiimote::receiverThreadMethod(void)
 				case 0x21: // Data download packet
 					/* Update the button state: */
 					updateCoreButtons(packet+2);
+					
+					#if DEBUGGING
+					std::cout<<"Download packet of size "<<(int(packet[4])>>4)+1<<" from memory offset "<<(int(packet[5])<<8)+int(packet[6])<<std::endl;
+					#endif
 					
 					{
 					/* Lock the download state: */
@@ -546,6 +559,11 @@ void* Wiimote::receiverThreadMethod(void)
 			
 			/* Wake up any suspended listeners: */
 			eventCond.broadcast();
+			}
+		else if(packetSize<0)
+			{
+			/* Signal connection termination: */
+			Misc::throwStdErr("Wiimote::receiverThreadMethod: Connection to Wiimote failed");
 			}
 		}
 	
@@ -760,6 +778,7 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 	writePacket(setLEDs,sizeof(setLEDs));
 	
 	/* Initialize Wiimote state: */
+	batteryLevel=-1;
 	buttonState=0x0;
 	for(int i=0;i<2;++i)
 		joystick[i]=0.0f;
@@ -775,8 +794,13 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 	/* Start the data receiving thread: */
 	receiverThread.start(this,&Wiimote::receiverThreadMethod);
 	
+	/* Request a status packet: */
+	unsigned char requestStatus[]={0x52,0x15,0x00};
+	writePacket(requestStatus,sizeof(requestStatus));
+	
 	/* Wait until the receiver thread processed the status packet: */
-	waitForEvent();
+	while(batteryLevel<0)
+		waitForEvent();
 	
 	/* Go to connected device's section: */
 	char connectedDeviceAddress[19];
@@ -847,6 +871,23 @@ Wiimote::~Wiimote(void)
 	/* Close communications with the Wiimote: */
 	close(writeSocket);
 	close(readSocket);
+	}
+
+int Wiimote::getBatteryLevel(void)
+	{
+	/* Invalidate the battery level: */
+	batteryLevel=-1;
+	
+	/* Send a status request: */
+	unsigned char requestStatus[]={0x52,0x15,0x00};
+	writePacket(requestStatus,sizeof(requestStatus));
+	
+	/* Wait until the receiver thread processed the status packet: */
+	while(batteryLevel<0)
+		waitForEvent();
+	
+	/* Return the battery level in percent: */
+	return (batteryLevel+1)/2;
 	}
 
 int Wiimote::getNumButtons(void) const

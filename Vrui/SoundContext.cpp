@@ -23,17 +23,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/SoundContext.h>
 
+#include <AL/Config.h>
+
 #include <stdio.h>
 #include <string>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Vrui/alc.h>
-#include <Vrui/al.h>
-#ifdef VRUI_USE_OPENAL
 #include <AL/ALTemplates.h>
 #include <AL/ALGeometryWrappers.h>
-#endif
 #include <AL/ALContextData.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Listener.h>
@@ -138,7 +136,7 @@ Methods of class SoundContext:
 
 SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSection,VruiState* sVruiState)
 	:vruiState(sVruiState),
-	 #ifdef VRUI_USE_OPENAL
+	 #if ALSUPPORT_CONFIG_HAVE_OPENAL
 	 alDevice(0),alContext(0),
 	 #endif
 	 contextData(0),
@@ -152,7 +150,7 @@ SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSecti
 	dopplerFactor=configFileSection.retrieveValue<float>("./dopplerFactor",dopplerFactor);
 	distanceAttenuationModel=configFileSection.retrieveValue<DistanceAttenuationModel>("./distanceAttenuationModel",distanceAttenuationModel);
 	
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Open the OpenAL device: */
 	std::string alDeviceName=configFileSection.retrieveValue<std::string>("./deviceName","Default");
 	alDevice=alcOpenDevice(alDeviceName!="Default"?alDeviceName.c_str():0);
@@ -174,7 +172,7 @@ SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSecti
 	/* Initialize the sound context's OpenAL context: */
 	makeCurrent();
 	
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Set global OpenAL parameters: */
 	alSpeedOfSound(speedOfSound);
 	alDopplerFactor(dopplerFactor);
@@ -216,7 +214,7 @@ SoundContext::~SoundContext(void)
 	ALContextData::makeCurrent(0);
 	delete contextData;
 	
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	if(alcGetCurrentContext()==alContext)
 		alcMakeContextCurrent(0);
 	alcDestroyContext(alContext);
@@ -226,7 +224,7 @@ SoundContext::~SoundContext(void)
 
 void SoundContext::makeCurrent(void)
 	{
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Activate the sound context's OpenAL context: */
 	alcMakeContextCurrent(alContext);
 	#endif
@@ -242,7 +240,7 @@ void SoundContext::draw(void)
 	/* Update things in the sound context's AL context data: */
 	contextData->updateThings();
 	
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Set the listener in physical coordinates: */
 	contextData->resetMatrixStack();
 	alListenerPosition(listener->getHeadPosition());

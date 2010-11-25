@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SURFACENAVIGATIONTOOL_INCLUDED
 #define VRUI_SURFACENAVIGATIONTOOL_INCLUDED
 
+#include <Geometry/OrthogonalTransformation.h>
 #include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
@@ -50,13 +51,39 @@ class SurfaceNavigationToolFactory:public ToolFactory
 
 class SurfaceNavigationTool:public NavigationTool
 	{
+	/* Embedded classes: */
+	public:
+	struct AlignmentData // Structure to hold data required to align a surface frame
+		{
+		/* Elements: */
+		public:
+		const NavTransform& prevSurfaceFrame; // The aligned surface frame from a previous call
+		NavTransform& surfaceFrame; // The surface frame to be aligned
+		Scalar probeSize; // Size of a "probe" around the current surface frame's origin; probe shape is defined by application
+		Scalar maxClimb; // Height above the surface frame base point at which the alignment function will start searching
+		
+		/* Constructors and destructors: */
+		AlignmentData(const NavTransform& sPrevSurfaceFrame,NavTransform& sSurfaceFrame,Scalar sProbeSize,Scalar sMaxClimb) // Probe size and maximum climb are given in physical coordinate units
+			:prevSurfaceFrame(sPrevSurfaceFrame),surfaceFrame(sSurfaceFrame),
+			 probeSize(sProbeSize*surfaceFrame.getScaling()),maxClimb(sMaxClimb*surfaceFrame.getScaling())
+			{
+			}
+		};
+	
+	typedef Misc::FunctionCall<const AlignmentData&> AlignFunction; // Type for alignment function objects
+	
 	/* Elements: */
 	private:
-	Misc::FunctionCall<NavTransform&>* alignFunction; // Function call that aligns the passed local navigation frame to the application-defined surface
+	AlignFunction* alignFunction; // Function call that aligns the passed local navigation frame to the application-defined surface
+	protected:
+	NavTransform physicalFrame; // Local navigation coordinate frame (x: right, y: forward, z: up) in physical coordinates
 	
 	/* Protected methods: */
 	protected:
-	void align(NavTransform& surfaceFrame); // Aligns the given navigation frame with an application-defined surface
+	static Point projectToFloor(const Point& p); // Projects the given point to the environment's floor plane along the up direction
+	NavTransform& calcPhysicalFrame(const Point& basePoint); // Calculates a default physical navigation frame at the given base point in physical coordinates
+	void align(const AlignmentData& alignmentData); // Aligns the given navigation frame with an application-defined surface
+	void align(const AlignmentData& alignmentData,Scalar& azimuth,Scalar& elevation,Scalar& roll); // Ditto, and calculates Euler angles of the original surface frame with respect to the aligned surface frame
 	
 	/* Constructors and destructors: */
 	public:
@@ -64,7 +91,7 @@ class SurfaceNavigationTool:public NavigationTool
 	virtual ~SurfaceNavigationTool(void);
 	
 	/* New methods: */
-	void setAlignFunction(Misc::FunctionCall<NavTransform&>* newAlignFunction); // Sets a new align function; inherits function call object
+	void setAlignFunction(AlignFunction* newAlignFunction); // Sets a new align function; inherits function call object
 	};
 
 }

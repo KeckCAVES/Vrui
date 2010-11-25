@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_TRANSFORMTOOL_INCLUDED
 #define VRUI_TRANSFORMTOOL_INCLUDED
 
+#include <Vrui/DeviceForwarder.h>
 #include <Vrui/Tool.h>
 
 /* Forward declarations: */
@@ -39,12 +40,6 @@ class TransformToolFactory:public ToolFactory
 	{
 	friend class TransformTool;
 	
-	/* Elements: */
-	private:
-	int numButtons; // Number of buttons to create on the transformed device
-	bool* buttonToggleFlags; // Array of flags whether each button acts as a toggle
-	int numValuators; // Number of valuators to create on the transformed device
-	
 	/* Constructors and destructors: */
 	public:
 	TransformToolFactory(ToolManager& toolManager);
@@ -52,23 +47,11 @@ class TransformToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	
-	/* New methods: */
-	int getNumButtons(void) const
-		{
-		return numButtons;
-		}
-	bool getButtonToggleFlag(int buttonIndex) const
-		{
-		return buttonToggleFlags[buttonIndex];
-		}
-	int getNumValuators(void) const
-		{
-		return numValuators;
-		}
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	};
 
-class TransformTool:public Tool
+class TransformTool:public Tool,public DeviceForwarder
 	{
 	friend class TransformToolFactory;
 	
@@ -76,28 +59,33 @@ class TransformTool:public Tool
 	private:
 	static TransformToolFactory* factory; // Pointer to the factory object for this class
 	protected:
+	InputDevice* sourceDevice; // Pointer to the source device used to control this tool
 	InputDevice* transformedDevice; // Pointer to the transformed device controlled by this tool
-	bool* buttonStates; // Current states of pass-through buttons (toggled or direct)
-	bool transformEnabled; // Flag whether the tool's transformation should be enabled
-	private:
-	int transformDisablerButtonIndex; // Index of button on whose behalf the transformation was disabled
+	int numPrivateButtons; // Number of initial button slots that are not forwarded to the transformed device
+	int numPrivateValuators; // Number of initial valuator slots that are not forwarded to the transformed device
 	
 	/* Protected methods: */
 	protected:
-	bool setButtonState(int buttonIndex,bool newButtonState); // Sets state of a button; returns true if button state has changed
+	void resetDevice(void); // Resets the transformed device to the source device's position and orientation
 	
 	/* Constructors and destructors: */
 	public:
 	TransformTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~TransformTool(void);
 	
-	/* Methods: */
+	/* Methods from class Tool: */
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int deviceIndex,int deviceValuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
+	
+	/* Methods from class DeviceForwarder: */
+	virtual std::vector<InputDevice*> getForwardedDevices(void);
+	virtual InputDeviceFeatureSet getSourceFeatures(const InputDeviceFeature& forwardedFeature);
+	virtual InputDevice* getSourceDevice(const InputDevice* forwardedDevice);
+	virtual InputDeviceFeatureSet getForwardedFeatures(const InputDeviceFeature& sourceFeature);
 	};
 
 }

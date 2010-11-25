@@ -26,15 +26,20 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define SPACEBALLRAW_INCLUDED
 
 #include <Comm/SerialPort.h>
+#include <Math/BrokenLine.h>
 
 #include <VRDeviceDaemon/VRDevice.h>
 
 class SpaceBallRaw:public VRDevice
 	{
+	/* Embedded classes: */
+	private:
+	typedef Math::BrokenLine<double> AxisConverter; // Type to convert raw axis values to the [-1, 1] range
+	
 	/* Elements: */
 	private:
 	Comm::SerialPort devicePort; // Serial port the tracking device hardware is connected to
-	double axisGains[6]; // Independent gain values for the device's axes
+	AxisConverter axisConverters[6]; // Converters for the device's axes
 	
 	/* Private methods: */
 	bool readLine(int lineBufferSize,char* lineBuffer,double timeout); // Reads a line of text from the space ball with timeout

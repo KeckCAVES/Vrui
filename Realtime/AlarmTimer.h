@@ -25,13 +25,15 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef REALTIME_ALARMTIMER_INCLUDED
 #define REALTIME_ALARMTIMER_INCLUDED
 
+#include <Realtime/Config.h>
+
 #include <time.h>
-#ifndef REALTIME_HAVE_POSIX_TIMERS
+#if !REALTIME_CONFIG_HAVE_POSIX_TIMERS
 #include <Misc/Time.h>
 #endif
 
 /* Forward declarations: */
-#ifdef REALTIME_HAVE_POSIX_TIMERS
+#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 struct siginfo;
 namespace Misc {
 class Time;
@@ -44,19 +46,19 @@ class AlarmTimer
 	{
 	/* Elements: */
 	private:
-	#ifdef REALTIME_HAVE_POSIX_TIMERS
+	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 	static unsigned int numAlarmTimers; // Counts number of currently existing timer objects, to handle initialization
 	timer_t timerId; // ID of per-process timer used by this object
 	#endif
 	volatile bool armed; // Flag if the timer is currently armed
-	#ifdef REALTIME_HAVE_POSIX_TIMERS
+	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 	volatile bool expired; // Flag if an armed timer has expired
 	#else
 	Misc::Time expireTime; // Time at which the timer expires
 	#endif
 	
 	/* Private methods: */
-	#ifdef REALTIME_HAVE_POSIX_TIMERS
+	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 	static void signalHandler(int signal,siginfo* sigInfo,void* context); // Handler function for the timer signal
 	#endif
 	
@@ -72,7 +74,7 @@ class AlarmTimer
 		}
 	bool isExpired(void) const // Returns true if an armed timer has expired
 		{
-		#ifdef REALTIME_HAVE_POSIX_TIMERS
+		#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 		return expired;
 		#else
 		return Misc::Time::now()>=expireTime;

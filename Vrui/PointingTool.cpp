@@ -47,21 +47,10 @@ const char* PointingToolFactory::getName(void) const
 	return "Pointer";
 	}
 
-extern "C" ToolFactory* createPointingToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+const char* PointingToolFactory::getButtonFunction(int) const
 	{
-	/* Get pointer to tool manager: */
-	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
-	
-	/* Create factory object and insert it into class hierarchy: */
-	PointingToolFactory* pointingToolFactory=new PointingToolFactory(*toolManager);
-	
-	/* Return factory object: */
-	return pointingToolFactory;
-	}
-
-extern "C" void destroyPointingToolFactory(ToolFactory* factory)
-	{
-	delete factory;
+	/* By default, pointing tools only use a single button: */
+	return "Point";
 	}
 
 /*****************************

@@ -36,6 +36,7 @@ class PointingToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	};
 
 class PointingTool:public Tool

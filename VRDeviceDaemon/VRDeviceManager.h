@@ -29,12 +29,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
 #include <Vrui/Internal/VRDeviceState.h>
+#include <Vrui/Internal/VRDeviceDescriptor.h>
 
 #include <VRDeviceDaemon/VRFactoryManager.h>
 
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFile;
+}
+namespace Vrui {
+class VRDeviceDescriptor;
 }
 class VRDevice;
 class VRCalibrator;
@@ -72,8 +76,15 @@ class VRDeviceManager
 	CalibratorFactoryManager calibratorFactories; // Factory manager to load VR calibrator classes
 	int numDevices; // Number of managed devices
 	VRDevice** devices; // Array of pointers to VR devices
+	int* trackerIndexBases; // Array of base tracker indices for each VR device
+	int* buttonIndexBases; // Array of base button indices for each VR device
+	int* valuatorIndexBases; // Array of base valuator indices for each VR device
+	std::vector<std::string> trackerNames; // List of tracker names
+	std::vector<std::string> buttonNames; // List of button names
+	std::vector<std::string> valuatorNames; // List of valuator names
 	Threads::Mutex stateMutex; // Mutex serializing access to all state elements
 	Vrui::VRDeviceState state; // Current state of all managed devices
+	std::vector<Vrui::VRDeviceDescriptor*> virtualDevices; // List of virtual devices combining selected trackers, buttons, and valuators
 	unsigned int fullTrackerReportMask; // Bitmask containing 1-bits for all used logical tracker indices
 	unsigned int trackerReportMask; // Bitmask of logical tracker indices that have reported state
 	bool trackerUpdateNotificationEnabled; // Flag if update notification is enabled
@@ -85,7 +96,11 @@ class VRDeviceManager
 	~VRDeviceManager(void);
 	
 	/* Methods: */
+	int addTracker(const char* name =0); // Adds a new tracker to the manager's namespace; returns tracker index
+	int addButton(const char* name =0); // Adds a new button to the manager's namespace; returns button index
+	int addValuator(const char* name =0); // Adds a new valuator to the manager's namespace; returns valuator index
 	VRCalibrator* createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile); // Loads calibrator of given type from current section in configuration file
+	void addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice); // Adds a virtual device; is adopted by device manager
 	void lockState(void) // Locks current device states
 		{
 		stateMutex.lock();

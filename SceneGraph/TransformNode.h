@@ -72,6 +72,8 @@ class TransformNode:public GroupNode
 		}
 	};
 
+typedef Misc::Autopointer<TransformNode> TransformNodePointer;
+
 }
 
 #endif

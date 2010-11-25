@@ -45,7 +45,7 @@ class InputDeviceAdapterIndexMap:public InputDeviceAdapter
 	int** buttonIndexMapping; // Mapping from input device button indices to raw device state button indices
 	int** valuatorIndexMapping; // Mapping from input device valuator indices to raw device state valuator indices
 	
-	/* Protected methods: */
+	/* Protected methods from InputDeviceAdapter: */
 	virtual void createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection);
 	void initializeAdapter(int newNumRawTrackers,int newNumRawButtons,int newNumRawValuators,const Misc::ConfigurationFileSection& configFileSection); // Initializes adapter by reading configuration file section
 	

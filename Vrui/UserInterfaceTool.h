@@ -58,6 +58,8 @@ class UserInterfaceTool:public Tool
 	/* Elements: */
 	private:
 	static UserInterfaceToolFactory* factory; // Pointer to the factory object for this class
+	protected:
+	InputDevice* interactionDevice; // Pointer to the input device used for user interface interaction
 	
 	/* Protected methods: */
 	protected:
@@ -68,6 +70,10 @@ class UserInterfaceTool:public Tool
 	Scalar getRayOffset(void) const // Returns the ray origin offset for ray-based interaction
 		{
 		return factory->rayOffset;
+		}
+	Point getInteractionPosition(void) const // Returns a position for point-based interaction
+		{
+		return interactionDevice->getPosition();
 		}
 	Ray calcInteractionRay(void) const; // Returns a ray for ray-based interaction
 	ONTransform calcScreenTransform(const Ray& ray) const; // Returns a screen-aligned transformation where the given ray intersects a screen

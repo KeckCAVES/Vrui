@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -39,9 +39,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/TextField.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -51,11 +51,11 @@ Methods of class SketchingToolFactory:
 
 SketchingToolFactory::SketchingToolFactory(ToolManager& toolManager)
 	:ToolFactory("SketchingTool",toolManager),
+	 detailSize(getUiSize()),
 	 curveFileName("SketchingTool.curves")
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -64,6 +64,7 @@ SketchingToolFactory::SketchingToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	detailSize=cfs.retrieveValue<Scalar>("./detailSize",detailSize);
 	curveFileName=cfs.retrieveString("./curveFileName",curveFileName);
 	
 	/* Set tool class' factory pointer: */
@@ -79,6 +80,11 @@ SketchingToolFactory::~SketchingToolFactory(void)
 const char* SketchingToolFactory::getName(void) const
 	{
 	return "Curve Editor";
+	}
+
+const char* SketchingToolFactory::getButtonFunction(int) const
+	{
+	return "Draw Curves";
 	}
 
 Tool* SketchingToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -221,7 +227,7 @@ SketchingTool::~SketchingTool(void)
 		delete *cIt;
 	}
 
-void SketchingTool::buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
+void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Check if the button has just been pressed: */
 	if(cbData->newButtonState)
@@ -238,7 +244,7 @@ void SketchingTool::buttonCallback(int deviceIndex,int buttonIndex,InputDevice::
 		/* Append the curve's first control point: */
 		Curve::ControlPoint cp;
 		const NavTransform& invNav=getInverseNavigationTransformation();
-		cp.pos=lastPoint=invNav.transform(getDevicePosition(0));
+		cp.pos=lastPoint=invNav.transform(getButtonDevicePosition(0));
 		cp.t=getApplicationTime();
 		currentCurve->controlPoints.push_back(cp);
 		}
@@ -262,10 +268,10 @@ void SketchingTool::frame(void)
 		{
 		/* Get the current dragging point: */
 		const NavTransform& invNav=getInverseNavigationTransformation();
-		currentPoint=invNav.transform(getDevicePosition(0));
+		currentPoint=invNav.transform(getButtonDevicePosition(0));
 		
 		/* Check if the dragging point is far enough away from the most recent curve vertex: */
-		if(Geometry::sqrDist(currentPoint,lastPoint)>=Math::sqr(getUiSize()*invNav.getScaling()))
+		if(Geometry::sqrDist(currentPoint,lastPoint)>=Math::sqr(factory->detailSize*invNav.getScaling()))
 			{
 			/* Append the current dragging point to the curve: */
 			Curve::ControlPoint cp;
@@ -358,7 +364,8 @@ void SketchingTool::saveCurvesCallback(Misc::CallbackData* cbData)
 			}
 		catch(std::runtime_error err)
 			{
-			/* Ignore the error */
+			/* Show an error message: */
+			showErrorMessage("Curve Editor","Could not create curve file; did not save curves");
 			}
 		}
 	}

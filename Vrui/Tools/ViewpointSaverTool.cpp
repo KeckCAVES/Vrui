@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointSaverTool - Class for tools to save environment-independent
 viewing parameters.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ViewpointSaverTool.h>
+
 #include <stdio.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
@@ -30,10 +32,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ViewpointSaverTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -49,8 +49,7 @@ ViewpointSaverToolFactory::ViewpointSaverToolFactory(ToolManager& toolManager)
 	 viewpointFile(0)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -79,6 +78,11 @@ ViewpointSaverToolFactory::~ViewpointSaverToolFactory(void)
 const char* ViewpointSaverToolFactory::getName(void) const
 	{
 	return "Viewpoint Recorder";
+	}
+
+const char* ViewpointSaverToolFactory::getButtonFunction(int) const
+	{
+	return "Save Viewpoint";
 	}
 
 Tool* ViewpointSaverToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -134,7 +138,7 @@ const ToolFactory* ViewpointSaverTool::getFactory(void) const
 	return factory;
 	}
 
-void ViewpointSaverTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void ViewpointSaverTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{

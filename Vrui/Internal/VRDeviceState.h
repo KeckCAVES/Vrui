@@ -24,7 +24,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_VRDEVICESTATE_INCLUDED
 #define VRUI_INTERNAL_VRDEVICESTATE_INCLUDED
 
+#include <Misc/ArrayMarshallers.h>
+#include <Comm/TCPPipe.h>
 #include <Geometry/OrthonormalTransformation.h>
+#include <Geometry/GeometryMarshallers.h>
 
 namespace Vrui {
 
@@ -58,6 +61,21 @@ class VRDeviceState
 	int numValuators; // Number of represented valuators
 	ValuatorState* valuatorStates; // Array of current valuator states
 	
+	/* Private methods: */
+	void initState(void)
+		{
+		for(int i=0;i<numTrackers;++i)
+			{
+			trackerStates[i].positionOrientation=TrackerState::PositionOrientation::identity;
+			trackerStates[i].linearVelocity=TrackerState::LinearVelocity::zero;
+			trackerStates[i].angularVelocity=TrackerState::AngularVelocity::zero;
+			}
+		for(int i=0;i<numButtons;++i)
+			buttonStates[i]=false;
+		for(int i=0;i<numValuators;++i)
+			valuatorStates[i]=ValuatorState(0);
+		}
+	
 	/* Constructors and destructors: */
 	public:
 	VRDeviceState(void) // Creates empty device state
@@ -71,6 +89,8 @@ class VRDeviceState
 		 numButtons(sNumButtons),buttonStates(new ButtonState[numButtons]),
 		 numValuators(sNumValuators),valuatorStates(new ValuatorState[numValuators])
 		{
+		/* Initialize state arrays: */
+		initState();
 		}
 	~VRDeviceState(void)
 		{
@@ -82,18 +102,28 @@ class VRDeviceState
 	/* Methods: */
 	void setLayout(int newNumTrackers,int newNumButtons,int newNumValuators) // Sets the number of represented trackers, buttons and valuators
 		{
-		/* Delete old state arrays: */
-		delete[] trackerStates;
-		delete[] buttonStates;
-		delete[] valuatorStates;
+		/* Re-allocate state arrays: */
+		if(numTrackers!=newNumTrackers)
+			{
+			delete[] trackerStates;
+			numTrackers=newNumTrackers;
+			trackerStates=new TrackerState[numTrackers];
+			}
+		if(numButtons!=newNumButtons)
+			{
+			delete[] buttonStates;
+			numButtons=newNumButtons;
+			buttonStates=new ButtonState[numButtons];
+			}
+		if(numValuators!=newNumValuators)
+			{
+			delete[] valuatorStates;
+			numValuators=newNumValuators;
+			valuatorStates=new ValuatorState[numValuators];
+			}
 		
-		/* Set new layout: */
-		numTrackers=newNumTrackers;
-		trackerStates=new TrackerState[numTrackers];
-		numButtons=newNumButtons;
-		buttonStates=new ButtonState[numButtons];
-		numValuators=newNumValuators;
-		valuatorStates=new ValuatorState[numValuators];
+		/* Initialize new state arrays: */
+		initState();
 		}
 	int getNumTrackers(void) const // Returns number of represented trackers
 		{
@@ -154,6 +184,68 @@ class VRDeviceState
 	ValuatorState* getValuatorStates(void) // Ditto
 		{
 		return valuatorStates;
+		}
+	void writeLayout(Comm::TCPPipe& pipe) const // Writes device state's layout to given TCP pipe
+		{
+		pipe.write<int>(numTrackers);
+		pipe.write<int>(numButtons);
+		pipe.write<int>(numValuators);
+		}
+	void readLayout(Comm::TCPPipe& pipe) // Reads device state's layout from given TCP pipe
+		{
+		int newNumTrackers=pipe.read<int>();
+		int newNumButtons=pipe.read<int>();
+		int newNumValuators=pipe.read<int>();
+		setLayout(newNumTrackers,newNumButtons,newNumValuators);
+		}
+	void write(Comm::TCPPipe& pipe) const // Writes device state to given TCP pipe
+		{
+		Misc::FixedArrayMarshaller<TrackerState>::write(trackerStates,numTrackers,pipe);
+		Misc::FixedArrayMarshaller<ButtonState>::write(buttonStates,numButtons,pipe);
+		Misc::FixedArrayMarshaller<ValuatorState>::write(valuatorStates,numValuators,pipe);
+		}
+	void read(Comm::TCPPipe& pipe) const // Reads device state from given TCP pipe
+		{
+		Misc::FixedArrayMarshaller<TrackerState>::read(trackerStates,numTrackers,pipe);
+		Misc::FixedArrayMarshaller<ButtonState>::read(buttonStates,numButtons,pipe);
+		Misc::FixedArrayMarshaller<ValuatorState>::read(valuatorStates,numValuators,pipe);
+		}
+	};
+
+}
+
+namespace Misc {
+
+template <>
+class Marshaller<Vrui::VRDeviceState::TrackerState>
+	{
+	/* Embedded classes: */
+	public:
+	typedef Vrui::VRDeviceState::TrackerState Value;
+	
+	/* Methods: */
+	static size_t getSize(const Value& value)
+		{
+		size_t result=Marshaller<Value::PositionOrientation>::getSize(value.positionOrientation);
+		result+=Marshaller<Value::LinearVelocity>::getSize(value.linearVelocity);
+		result+=Marshaller<Value::AngularVelocity>::getSize(value.angularVelocity);
+		return result;
+		}
+	template <class DataSinkParam>
+	static void write(const Value& value,DataSinkParam& sink)
+		{
+		Marshaller<Value::PositionOrientation>::write(value.positionOrientation,sink);
+		Marshaller<Value::LinearVelocity>::write(value.linearVelocity,sink);
+		Marshaller<Value::AngularVelocity>::write(value.angularVelocity,sink);
+		}
+	template <class DataSourceParam>
+	static Value read(DataSourceParam& source)
+		{
+		Value result;
+		result.positionOrientation=Marshaller<Value::PositionOrientation>::read(source);
+		result.linearVelocity=Marshaller<Value::LinearVelocity>::read(source);
+		result.angularVelocity=Marshaller<Value::AngularVelocity>::read(source);
+		return result;
 		}
 	};
 

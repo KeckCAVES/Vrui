@@ -93,6 +93,7 @@ class DropdownBox:public Label
 	
 	/* Constructors and destructors: */
 	public:
+	DropdownBox(const char* sName,Container* sParent,bool manageChild =true); // Creates an empty drop-down box
 	DropdownBox(const char* sName,Container* sParent,const std::vector<std::string>& sItems,bool manageChild =true); // Creates a drop-down box for the given vector of items
 	~DropdownBox(void);
 	
@@ -118,6 +119,7 @@ class DropdownBox:public Label
 		}
 	const Widget* getItemWidget(int item) const; // Returns the widget representing the item of the given index
 	const char* getItem(int item) const; // Returns the item of the given index
+	void clearItems(void); // Removes all items from the drop-down list
 	void addItem(const char* newItem); // Adds an item to the drop-down list
 	int getSelectedItem(void) const // Returns the index of the currently selected item
 		{

@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_COMPOUNDVALUECODERS_INCLUDED
 #define MISC_COMPOUNDVALUECODERS_INCLUDED
 
+#include <utility>
 #include <list>
 #include <vector>
 #include <Misc/ValueCoder.h>
@@ -33,6 +34,15 @@ namespace Misc {
 /**************************
 Generic ValueCoder classes:
 **************************/
+
+template <class FirstParam,class SecondParam>
+class ValueCoder<std::pair<FirstParam,SecondParam> >
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const std::pair<FirstParam,SecondParam>& value);
+	static std::pair<FirstParam,SecondParam> decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
 
 template <class ValueParam>
 class ValueCoder<std::list<ValueParam> >

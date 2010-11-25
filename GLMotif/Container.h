@@ -29,12 +29,24 @@ namespace GLMotif {
 
 class Container:public Widget
 	{
+	/* Protected methods: */
+	protected:
+	static void deleteChild(Widget* child) // Safely unmanages and deletes a child widget
+		{
+		if(child!=0)
+			{
+			child->unmanageChild();
+			delete child;
+			}
+		}
+	
 	/* Constructors and destructors: */
 	public:
 	Container(const char* sName,Container* sParent,bool manageChild =true);
 	
 	/* New methods: */
 	virtual void addChild(Widget* newChild) =0; // Adds a new child to the container
+	virtual void removeChild(Widget* removeChild) =0; // Removes a child from the container
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize) =0; // Allows a child to request a resize of itself
 	virtual Widget* getFirstChild(void) =0; // Returns pointer to the first child widget
 	virtual Widget* getNextChild(Widget* child) =0; // Returns pointer to next child after the given one; returns null at end of list or when given widget is not a child

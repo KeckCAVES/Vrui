@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2007 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -134,6 +134,7 @@ EarthquakeSet::DataItem::DataItem(void)
 	 scaledPointRadiusLocation(-1),highlightTimeLocation(-1),
 	 currentTimeLocation(-1),pointTextureLocation(-1),
 	 pointTextureObjectId(0),
+	 eyePos(Point::origin),
 	 sortedPointIndicesBufferObjectId(0)
 	{
 	/* Check if the vertex buffer object extension is supported: */
@@ -465,6 +466,135 @@ void EarthquakeSet::drawBackToFront(int left,int right,int splitDimension,const 
 		}
 	}
 
+void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem) const
+	{
+	/* Create the point rendering shader: */
+	static const char* vertexProgram="\
+		uniform float scaledPointRadius; \
+		uniform float highlightTime; \
+		uniform float currentTime; \
+		uniform vec4 frontSphereCenter; \
+		uniform float frontSphereRadius2; \
+		uniform bool frontSphereTest; \
+		 \
+		void main() \
+			{ \
+			/* Check if the point is inside the front sphere: */ \
+			bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2; \
+			if(frontSphereTest) \
+				valid=!valid; \
+			if(valid) \
+				{ \
+				/* Transform the vertex to eye coordinates: */ \
+				vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
+				 \
+				/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
+				float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
+				if(gl_MultiTexCoord0.x>5.0) \
+					pointSize*=gl_MultiTexCoord0.x-4.0; \
+				 \
+				/* Adapt point size based on current time and time scale: */ \
+				float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
+				if(highlightFactor>0.0&&highlightFactor<=highlightTime) \
+					pointSize*=2.0*highlightFactor/highlightTime+1.0; \
+				 \
+				/* Set point size: */ \
+				gl_PointSize=pointSize; \
+				 \
+				/* Use standard color: */ \
+				gl_FrontColor=gl_Color; \
+				} \
+			else \
+				{ \
+				/* Set point size to zero and color to invisible: */ \
+				gl_PointSize=0.0; \
+				gl_FrontColor=vec4(0.0,0.0,0.0,0.0); \
+				} \
+			 \
+			/* Use standard vertex position for fragment generation: */ \
+			gl_Position=ftransform(); \
+			}";
+	static const char* vertexProgramFog="\
+		uniform float scaledPointRadius; \
+		uniform float highlightTime; \
+		uniform float currentTime; \
+		uniform vec4 frontSphereCenter; \
+		uniform float frontSphereRadius2; \
+		uniform bool frontSphereTest; \
+		 \
+		void main() \
+			{ \
+			/* Check if the point is inside the front sphere: */ \
+			bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2; \
+			if(frontSphereTest) \
+				valid=!valid; \
+			if(valid) \
+				{ \
+				/* Transform the vertex to eye coordinates: */ \
+				vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
+				 \
+				/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
+				float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
+				if(gl_MultiTexCoord0.x>5.0) \
+					pointSize*=gl_MultiTexCoord0.x-4.0; \
+				 \
+				/* Adapt point size based on current time and time scale: */ \
+				float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
+				if(highlightFactor>0.0&&highlightFactor<=highlightTime) \
+					pointSize*=2.0*highlightFactor/highlightTime+1.0; \
+				 \
+				/* Set point size: */ \
+				gl_PointSize=pointSize; \
+				 \
+				/* Calculate vertex-eye distance for fog computation: */ \
+				float eyeDist=-vertexEye.z/vertexEye.w; \
+				 \
+				/* Calculate fog attenuation: */ \
+				float fogFactor=clamp((eyeDist-gl_Fog.start)/(gl_Fog.end-gl_Fog.start),0.0,1.0); \
+				 \
+				/* Use standard color attenuated by fog: */ \
+				gl_FrontColor=mix(gl_Color,gl_Fog.color,fogFactor); \
+				} \
+			else \
+				{ \
+				/* Set point size to zero and color to invisible: */ \
+				gl_PointSize=0.0; \
+				gl_FrontColor=vec4(0.0,0.0,0.0,0.0); \
+				} \
+			 \
+			/* Use standard vertex position for fragment generation: */ \
+			gl_Position=ftransform(); \
+			}";
+	static const char* fragmentProgram="\
+		uniform sampler2D pointTexture; \
+		 \
+		void main() \
+			{ \
+			gl_FragColor=texture2D(pointTexture,gl_TexCoord[0].xy)*gl_Color; \
+			}";
+	
+	/* Compile the vertex and fragment programs: */
+	dataItem->fog=glIsEnabled(GL_FOG);
+	if(dataItem->fog)
+		dataItem->pointRenderer->compileVertexShaderFromString(vertexProgramFog);
+	else
+		dataItem->pointRenderer->compileVertexShaderFromString(vertexProgram);
+	dataItem->pointRenderer->compileFragmentShaderFromString(fragmentProgram);
+	
+	/* Link the shader: */
+	dataItem->pointRenderer->linkShader();
+	
+	/* Get the locations of all uniform variables: */
+	dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
+	dataItem->highlightTimeLocation=dataItem->pointRenderer->getUniformLocation("highlightTime");
+	dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
+	dataItem->currentTimeLocation=dataItem->pointRenderer->getUniformLocation("currentTime");
+	dataItem->frontSphereCenterLocation=dataItem->pointRenderer->getUniformLocation("frontSphereCenter");
+	dataItem->frontSphereRadius2Location=dataItem->pointRenderer->getUniformLocation("frontSphereRadius2");
+	dataItem->frontSphereTestLocation=dataItem->pointRenderer->getUniformLocation("frontSphereTest");
+	dataItem->pointTextureLocation=dataItem->pointRenderer->getUniformLocation("pointTexture");
+	}
+
 EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,double scaleFactor)
 	:treePointIndices(0),
 	 pointRadius(1.0f),highlightTime(1.0),currentTime(0.0)
@@ -576,75 +706,7 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 	if(dataItem->pointRenderer!=0)
 		{
 		/* Create the point rendering shader: */
-		static const char* vertexProgram="\
-			uniform float scaledPointRadius; \
-			uniform float highlightTime; \
-			uniform float currentTime; \
-			uniform vec4 frontSphereCenter; \
-			uniform float frontSphereRadius2; \
-			uniform bool frontSphereTest; \
-			 \
-			void main() \
-				{ \
-				/* Check if the point is inside the front sphere: */ \
-				bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2; \
-				if(frontSphereTest) \
-					valid=!valid; \
-				if(valid) \
-					{ \
-					/* Transform the vertex to eye coordinates: */ \
-					vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
-					 \
-					/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
-					float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
-					if(gl_MultiTexCoord0.x>5.0) \
-						pointSize*=gl_MultiTexCoord0.x-4.0; \
-					 \
-					/* Adapt point size based on current time and time scale: */ \
-					float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
-					if(highlightFactor>0.0&&highlightFactor<=highlightTime) \
-						pointSize*=2.0*highlightFactor/highlightTime+1.0; \
-					 \
-					/* Set point size: */ \
-					gl_PointSize=pointSize; \
-					 \
-					/* Use standard color: */ \
-					gl_FrontColor=gl_Color; \
-					} \
-				else \
-					{ \
-					/* Set point size to zero and color to invisible: */ \
-					gl_PointSize=0.0; \
-					gl_FrontColor=vec4(0.0,0.0,0.0,0.0); \
-					} \
-				 \
-				/* Use standard vertex position for fragment generation: */ \
-				gl_Position=ftransform(); \
-				}";
-		static const char* fragmentProgram="\
-			uniform sampler2D pointTexture; \
-			 \
-			void main() \
-				{ \
-				gl_FragColor=texture2D(pointTexture,gl_TexCoord[0].xy)*gl_Color; \
-				}";
-		
-		/* Compile the vertex and fragment programs: */
-		dataItem->pointRenderer->compileVertexShaderFromString(vertexProgram);
-		dataItem->pointRenderer->compileFragmentShaderFromString(fragmentProgram);
-		
-		/* Link the shader: */
-		dataItem->pointRenderer->linkShader();
-		
-		/* Get the locations of all uniform variables: */
-		dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
-		dataItem->highlightTimeLocation=dataItem->pointRenderer->getUniformLocation("highlightTime");
-		dataItem->scaledPointRadiusLocation=dataItem->pointRenderer->getUniformLocation("scaledPointRadius");
-		dataItem->currentTimeLocation=dataItem->pointRenderer->getUniformLocation("currentTime");
-		dataItem->frontSphereCenterLocation=dataItem->pointRenderer->getUniformLocation("frontSphereCenter");
-		dataItem->frontSphereRadius2Location=dataItem->pointRenderer->getUniformLocation("frontSphereRadius2");
-		dataItem->frontSphereTestLocation=dataItem->pointRenderer->getUniformLocation("frontSphereTest");
-		dataItem->pointTextureLocation=dataItem->pointRenderer->getUniformLocation("pointTexture");
+		createShader(dataItem);
 		
 		/* Create the point rendering texture: */
 		GLfloat texImage[32][32][4];
@@ -730,6 +792,13 @@ void EarthquakeSet::glRenderAction(GLContextData& contextData) const
 		glActiveTextureARB(GL_TEXTURE0_ARB);
 		glBindTexture(GL_TEXTURE_2D,dataItem->pointTextureObjectId);
 		glTexEnvi(GL_POINT_SPRITE_ARB,GL_COORD_REPLACE_ARB,GL_TRUE);
+		
+		/* Check if the point renderer program conforms to current OpenGL state: */
+		if(glIsEnabled(GL_FOG)!=dataItem->fog)
+			{
+			/* Rebuild the point rendering shader: */
+			createShader(dataItem);
+			}
 		
 		/* Enable the point renderer program: */
 		dataItem->pointRenderer->useProgram();
@@ -907,11 +976,11 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Poin
 	return result;
 	}
 
-const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray& ray,float coneAngle) const
+const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray& ray,float coneAngleCos) const
 	{
 	const Event* result=0;
 	
-	float coneAngle2=Math::sqr(coneAngle);
+	float coneAngleCos2=Math::sqr(coneAngleCos);
 	float lambdaMin=Math::Constants<float>::max;
 	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
 		{
@@ -919,8 +988,7 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray&
 		float x=sp*ray.getDirection();
 		if(x>=0.0f&&x<lambdaMin)
 			{
-			float y2=Geometry::sqr(Geometry::cross(sp,ray.getDirection()));
-			if(y2/Math::sqr(x)<=coneAngle2)
+			if(Math::sqr(x)>coneAngleCos2*Geometry::sqr(sp))
 				{
 				result=&(*eIt);
 				lambdaMin=x;

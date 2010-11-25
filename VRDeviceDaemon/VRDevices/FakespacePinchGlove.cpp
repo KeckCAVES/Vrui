@@ -36,9 +36,9 @@ Methods of class FakespacePinchGlove:
 void FakespacePinchGlove::writeCommand(const char* command)
 	{
 	devicePort.writeByte(command[0]);
-	delay(0.25);
+	Misc::sleep(0.25);
 	devicePort.writeByte(command[1]);
-	delay(0.25);
+	Misc::sleep(0.25);
 	}
 
 char* FakespacePinchGlove::readReply(int stringBufferLen,char* stringBuffer)

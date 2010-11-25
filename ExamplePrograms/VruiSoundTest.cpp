@@ -4,6 +4,8 @@ audio programming using Vrui's OpenAL interface.
 Copyright (c) 2010 Oliver Kreylos
 ***********************************************************************/
 
+#include <AL/Config.h>
+
 #include <stdexcept>
 #include <iostream>
 #include <Math/Math.h>
@@ -15,10 +17,7 @@ Copyright (c) 2010 Oliver Kreylos
 #include <GL/GLContextData.h>
 #include <GL/GLModels.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/al.h>
-#ifdef VRUI_HAVE_OPENAL
 #include <AL/ALGeometryWrappers.h>
-#endif
 #include <AL/ALObject.h>
 #include <AL/ALContextData.h>
 #include <Vrui/Application.h>
@@ -50,7 +49,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 		{
 		/* Elements: */
 		public:
-		#ifdef VRUI_HAVE_OPENAL
+		#if ALSUPPORT_CONFIG_HAVE_OPENAL
 		ALuint sources[3]; // Three sound sources
 		ALuint buffers[3]; // Sample buffers for the three sound sources
 		#endif
@@ -59,7 +58,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 		public:
 		ALDataItem(void)
 			{
-			#ifdef VRUI_HAVE_OPENAL
+			#if ALSUPPORT_CONFIG_HAVE_OPENAL
 			/* Generate buffers and sources: */
 			alGenSources(3,sources);
 			alGenBuffers(3,buffers);
@@ -67,7 +66,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 			}
 		virtual ~ALDataItem(void)
 			{
-			#ifdef VRUI_HAVE_OPENAL
+			#if ALSUPPORT_CONFIG_HAVE_OPENAL
 			/* Destroy buffers and sources: */
 			alDeleteSources(3,sources);
 			alDeleteBuffers(3,buffers);
@@ -139,7 +138,7 @@ void VruiSoundTest::initContext(ALContextData& contextData) const
 	ALDataItem* dataItem=new ALDataItem;
 	contextData.addDataItem(this,dataItem);
 	
-	#ifdef VRUI_HAVE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Upload sound data into the sound buffers: */
 	const int pcmFreq=44100;
 	ALubyte* pcmData=new ALubyte[pcmFreq];
@@ -233,7 +232,7 @@ void VruiSoundTest::sound(ALContextData& contextData) const
 	/* Update the positions and gains of the sources: */
 	for(int i=0;i<3;++i)
 		{
-		#ifdef VRUI_HAVE_OPENAL
+		#if ALSUPPORT_CONFIG_HAVE_OPENAL
 		/* Set the source position transformed to physical coordinates: */
 		alSourcePosition(dataItem->sources[i],ALPoint(positions[i]),transform);
 		

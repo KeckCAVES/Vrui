@@ -138,6 +138,36 @@ class VoidMethodCall:public FunctionCall<ParameterParam>
 		}
 	};
 
+/* Class to call C++ methods on const objects: */
+template <class ParameterParam,class CalleeParam>
+class VoidConstMethodCall:public FunctionCall<ParameterParam>
+	{
+	/* Embedded classes: */
+	public:
+	typedef typename FunctionCall<ParameterParam>::Parameter Parameter;
+	typedef CalleeParam Callee; // Type of called objects
+	typedef void (Callee::*Method)(Parameter) const; // Type for method pointers
+	
+	/* Elements: */
+	private:
+	const Callee* callee; // Object whose method to call
+	Method method; // The method pointer
+	
+	/* Constructors and destructors: */
+	public:
+	VoidConstMethodCall(const Callee* sCallee,Method sMethod) // Creates a functor wrapper for the given method on the given object
+		:callee(sCallee),method(sMethod)
+		{
+		}
+	
+	/* Methods from FunctionCall: */
+	virtual void operator()(Parameter parameter) const
+		{
+		/* Call the method on the provided object: */
+		(callee->*method)(parameter);
+		}
+	};
+
 /* Class to call C++ methods taking a single additional argument of arbitrary type: */
 template <class ParameterParam,class CalleeParam,class ArgumentParam>
 class SingleArgumentMethodCall:public FunctionCall<ParameterParam>
@@ -207,6 +237,16 @@ createFunctionCall(
 	typename VoidMethodCall<ParameterParam,CalleeParam>::Method method)
 	{
 	return new VoidMethodCall<ParameterParam,CalleeParam>(callee,method);
+	}
+
+template <class ParameterParam,class CalleeParam>
+inline
+VoidConstMethodCall<ParameterParam,CalleeParam>*
+createFunctionCall(
+	const typename VoidConstMethodCall<ParameterParam,CalleeParam>::Callee* callee,
+	typename VoidConstMethodCall<ParameterParam,CalleeParam>::Method method)
+	{
+	return new VoidConstMethodCall<ParameterParam,CalleeParam>(callee,method);
 	}
 
 template <class ParameterParam,class CalleeParam,class ArgumentParam>

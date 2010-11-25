@@ -45,7 +45,7 @@ ValueCoder<Math::BrokenLine<ScalarParam> >::encode(
 	components[1]=value.deadMin;
 	components[2]=value.deadMax;
 	components[3]=value.max;
-	return ValueCoderArray<ScalarParam>::encode(4,components);
+	return FixedArrayValueCoder<ScalarParam>::encode(components,4);
 	}
 
 template <class ScalarParam>
@@ -60,9 +60,7 @@ ValueCoder<Math::BrokenLine<ScalarParam> >::decode(
 		{
 		/* Decode the broken line as a vector with four elements: */
 		ScalarParam components[4];
-		int numComponents=ValueCoderArray<ScalarParam>::decode(4,components,start,end,decodeEnd);
-		if(numComponents!=4)
-			throw 42;
+		FixedArrayValueCoder<ScalarParam>::decode(components,4,start,end,decodeEnd);
 		Math::BrokenLine<ScalarParam> result;
 		result.min=components[0];
 		result.deadMin=components[1];
@@ -70,9 +68,9 @@ ValueCoder<Math::BrokenLine<ScalarParam> >::decode(
 		result.max=components[3];
 		return result;
 		}
-	catch(...)
+	catch(std::runtime_error err)
 		{
-		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Math::BrokenLine<Scalar>"));
+		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Math::BrokenLine due to ")+err.what());
 		}
 	}
 

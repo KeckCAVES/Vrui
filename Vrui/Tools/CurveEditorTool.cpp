@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -45,9 +45,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/TextField.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
-#include <Vrui/Vrui.h>
 
 namespace {
 
@@ -85,8 +85,7 @@ CurveEditorToolFactory::CurveEditorToolFactory(ToolManager& toolManager)
 	 curveRadius(getUiSize())
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -113,6 +112,11 @@ CurveEditorToolFactory::~CurveEditorToolFactory(void)
 const char* CurveEditorToolFactory::getName(void) const
 	{
 	return "Viewpoint Curve Editor";
+	}
+
+const char* CurveEditorToolFactory::getButtonFunction(int) const
+	{
+	return "Pick Keyframe";
 	}
 
 Tool* CurveEditorToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -696,7 +700,8 @@ void CurveEditorTool::saveCurveCallback(Misc::CallbackData*)
 			}
 		catch(std::runtime_error)
 			{
-			/* Ignore error */
+			/* Show an error message: */
+			showErrorMessage("Viewpoint Curve Editor","Could not create curve file; did not save curve");
 			}
 		}
 	}
@@ -1325,11 +1330,11 @@ const ToolFactory* CurveEditorTool::getFactory(void) const
 	return factory;
 	}
 
-void CurveEditorTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void CurveEditorTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
-		Point p=getInverseNavigationTransformation().transform(getDevicePosition(0));
+		Point p=getInverseNavigationTransformation().transform(getButtonDevicePosition(0));
 		Scalar scale=getInverseNavigationTransformation().getScaling();
 		
 		/* Check if the device selected an existing tangent handle, an existing control point, or the curve (in that order): */

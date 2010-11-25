@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <vector>
+#include <stdexcept>
+#include <Misc/ThrowStdErr.h>
 #include <SceneGraph/Internal/Doom3NameTree.h>
 #include <SceneGraph/Internal/Doom3PakFile.h>
 
@@ -128,7 +130,19 @@ class Doom3FileManager
 			};
 		};
 	
+	public:
+	class ReadError:public std::runtime_error // Exception class to report file reading errors
+		{
+		/* Constructors and destructors: */
+		public:
+		ReadError(const char* fileName)
+			:std::runtime_error(Misc::printStdErrMsg("Doom3FileManager::readFile: File %s not found",fileName))
+			{
+			}
+		};
+	
 	/* Elements: */
+	private:
 	std::vector<Doom3PakFile*> pakFiles; // The list of pk3/pk4 files
 	PakFileTree pakFileTree; // The tree containing the pak archive's files
 	
@@ -161,7 +175,7 @@ class Doom3FileManager
 		DirectorySearcher<ClientFunctorParam,NameFilterParam> ds(cf,nf);
 		pakFileTree.traverseTree(ds);
 		}
-	unsigned char* readFile(const char* fileName,size_t& fileSize); // Reads a file
+	unsigned char* readFile(const char* fileName,size_t& fileSize); // Reads a file; throws ReadError if file not found
 	};
 
 }

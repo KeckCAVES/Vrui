@@ -43,6 +43,7 @@ class GUIInteractor
 	{
 	/* Elements: */
 	private:
+	static GUIInteractor* activeInteractor; // Static pointer to the currently active GUI interactor, or null
 	bool useEyeRays; // Flag whether ray directions come from the device or from an eye line to the viewer
 	Scalar rayOffset; // Ray origin offset for 6-DOF devices
 	InputDevice* device; // Pointer to input device with which the interaction tool is associated
@@ -64,14 +65,19 @@ class GUIInteractor
 		return ray;
 		}
 	NavTrackerState calcInteractionTransform(void) const; // Calculates a transformation corresponding to the current interaction ray
+	bool canActivate(void) const // Returns true if the interactor can be activated, or is currently active
+		{
+		return activeInteractor==0||activeInteractor==this;
+		}
 	bool isActive(void) const // Returns true if the interactor is distributing events
 		{
 		return interacting;
 		}
-	bool buttonDown(bool force); // Reacts to a button press with the given interaction ray; forces activation if flag is true; returns true if interactor became active
-	void buttonUp(void); // Reacts to a button release with the given interaction ray
+	bool buttonDown(bool force); // Reacts to a button press with the current interaction ray; forces activation if flag is true; returns true if interactor became active
+	void buttonUp(void); // Reacts to a button release with the current interaction ray
 	void move(void); // Reacts to a change in interaction ray
 	void glRenderAction(GLContextData& contextData) const; // Draws the interactor's current state
+	virtual Point calcHotSpot(void) const; // Returns current interaction position of GUI interactor
 	};
 
 }

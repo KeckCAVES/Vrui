@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
+#include <GL/GLNumberRenderer.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
@@ -40,22 +41,9 @@ namespace Vrui {
 
 class WalkSurfaceNavigationTool;
 
-class WalkSurfaceNavigationToolFactory:public ToolFactory,public GLObject
+class WalkSurfaceNavigationToolFactory:public ToolFactory
 	{
 	friend class WalkSurfaceNavigationTool;
-	
-	/* Embedded classes: */
-	private:
-	struct DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		GLuint modelListId; // Display list ID to render movement circles
-		
-		/* Constructors and destructors: */
-		DataItem(void);
-		virtual ~DataItem(void);
-		};
 	
 	/* Elements: */
 	private:
@@ -68,9 +56,13 @@ class WalkSurfaceNavigationToolFactory:public ToolFactory,public GLObject
 	Scalar rotateSpeed; // Maximum rotation speed in radians per second
 	Scalar innerAngle; // Angle of no rotation around central view direction
 	Scalar outerAngle; // Angle where maximum rotation speed is reached
+	Scalar fallAcceleration; // Acceleration when falling in physical space units per second^2, defaults to g
+	Scalar probeSize; // Size of probe to use when aligning surface frames
+	Scalar maxClimb; // Maximum amount of climb per frame
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
 	bool drawMovementCircles; // Flag whether to draw the movement circles
-	Vrui::Color movementCircleColor; // Color for drawing movement circles
+	Color movementCircleColor; // Color for drawing movement circles
+	bool drawHud; // Flag whether to draw a heads-up display
 	
 	/* Constructors and destructors: */
 	public:
@@ -79,32 +71,46 @@ class WalkSurfaceNavigationToolFactory:public ToolFactory,public GLObject
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
-	
-	/* Methods from GLObject: */
-	virtual void initContext(GLContextData& contextData) const;
 	};
 
-class WalkSurfaceNavigationTool:public SurfaceNavigationTool
+class WalkSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	{
 	friend class WalkSurfaceNavigationToolFactory;
+	
+	/* Embedded classes: */
+	private:
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLuint movementCircleListId; // Display list ID to render movement circles
+		GLuint hudListId; // Display list ID to render the hud
+		
+		/* Constructors and destructors: */
+		DataItem(void);
+		virtual ~DataItem(void);
+		};
 	
 	/* Elements: */
 	private:
 	static WalkSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
+	GLNumberRenderer numberRenderer; // Helper class to render numbers using a HUD-style font
 	
 	/* Transient navigation state: */
 	Point centerPoint; // Center point of movement circle while the navigation tool is active
-	NavTransform physicalFrame; // Local coordinate frame in physical coordinates
+	Point footPos; // Position of the main viewer's foot on the last frame
+	Scalar headHeight; // Height of viewer's head above the foot point
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of view relative to local coordinate frame
 	Scalar elevation; // Current elevation of view relative to local coordinate frame
+	Scalar fallVelocity; // Current falling velocity in frame coordinates
 	
 	/* Private methods: */
-	Point getFootPoint(void) const; // Returns the viewer's current "foot" position
-	void initNavState(void); // Initializes the tool's navigation state when it is activated
 	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state
+	void initNavState(void); // Initializes the tool's navigation state when it is activated
 	
 	/* Constructors and destructors: */
 	public:
@@ -112,9 +118,12 @@ class WalkSurfaceNavigationTool:public SurfaceNavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

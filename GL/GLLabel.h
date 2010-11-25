@@ -95,13 +95,16 @@ class GLLabel:public GLString,public GLObject
 		{
 		}
 	GLLabel(const char* sString,const GLFont& sFont); // Creates label from C-style string and font
+	GLLabel(const char* sStringBegin,const char* sStringEnd,const GLFont& sFont); // Creates label from character array and font
 	GLLabel(const GLString& sString,const GLFont& sFont); // Creates label from GL string and font
 	GLLabel(const GLLabel& source); // Copy constructor
 	GLLabel& operator=(const GLLabel& source); // Assignment operator
 	
 	/* Methods from GLString: */
 	void setString(const char* newString,const GLFont& newFont); // Overrides base class method
+	void setString(const char* newStringBegin,const char* newStringEnd,const GLFont& newFont); // Overrides base class method
 	void adoptString(char* newString,const GLFont& font); // Overrides base class method
+	void adoptString(GLsizei newLength,char* newString,const GLFont& font); // Overrides base class method
 	void setFont(const GLFont& newFont); // Overrides base class method
 	
 	/* Methods from GLObject: */
@@ -120,6 +123,10 @@ class GLLabel:public GLString,public GLObject
 		{
 		return foreground;
 		}
+	void invalidate(void) // Invalidates the currently cached version of the label string
+		{
+		++version;
+		}
 	Box::Vector calcNaturalSize(void) const; // Returns the size of the label box as dictated by the font
 	const Box::Vector& getLabelSize(void) const // Returns the size of the label box
 		{
@@ -130,8 +137,10 @@ class GLLabel:public GLString,public GLObject
 		return labelBox;
 		}
 	void setString(const char* newString); // Replaces the string
+	void setString(const char* newStringBegin,const char* newStringEnd); // Ditto
 	void setString(const GLString& newString); // Ditto
 	void adoptString(char* newString); // Takes ownership of the given new[]-allocated string
+	void adoptString(GLsizei newLength,char* newString); // Ditto, if new string length is already known
 	template <class InputColorType>
 	void setBackground(const InputColorType& newBackground) // Sets the background color
 		{
@@ -156,6 +165,7 @@ class GLLabel:public GLString,public GLObject
 	GLint calcCharacterIndex(GLfloat modelPos) const; // Returns the position of the string's character at the given model-space position
 	GLfloat calcCharacterPos(GLint characterPos) const; // Returns the model space position of the right edge of the given character
 	void draw(GLContextData& contextData) const; // Draws the label at the current model-space position and size
+	void draw(GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor,GLContextData& contextData) const; // Ditto, with additional selection range and selection colors
 	};
 
 #endif

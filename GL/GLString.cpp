@@ -30,22 +30,38 @@ Methods of class GLString:
 *************************/
 
 GLString::GLString(const char* sString,const GLFont& font)
-	:string(new char[strlen(sString)+1])
+	:length(strlen(sString)),
+	 string(new char[length+1])
 	{
 	/* Copy the source string: */
-	strcpy(string,sString);
+	memcpy(string,sString,length);
+	string[length]='\0';
+	
+	/* Update the string's font-related data: */
+	font.updateString(*this);
+	}
+
+GLString::GLString(const char* sStringBegin,const char* sStringEnd,const GLFont& font)
+	:length(sStringEnd-sStringBegin),
+	 string(new char[length+1])
+	{
+	/* Copy the source string: */
+	memcpy(string,sStringBegin,length);
+	string[length]='\0';
 	
 	/* Update the string's font-related data: */
 	font.updateString(*this);
 	}
 
 GLString::GLString(const GLString& source)
-	:string(new char[strlen(source.string)+1]),
+	:length(source.length),
+	 string(new char[length+1]),
 	 texelWidth(source.texelWidth),textureWidth(source.textureWidth),
 	 textureBox(source.textureBox)
 	{
 	/* Copy the source string: */
-	strcpy(string,source.string);
+	memcpy(string,source.string,length);
+	string[length]='\0';
 	}
 
 GLString& GLString::operator=(const GLString& source)
@@ -54,8 +70,10 @@ GLString& GLString::operator=(const GLString& source)
 		{
 		/* Copy the source string: */
 		delete[] string;
-		string=new char[strlen(source.string)+1];
-		strcpy(string,source.string);
+		length=source.length;
+		string=new char[length+1];
+		memcpy(string,source.string,length);
+		string[length]='\0';
 		
 		/* Copy the source's texture-related data: */
 		texelWidth=source.texelWidth;
@@ -75,8 +93,23 @@ void GLString::setString(const char* newString,const GLFont& font)
 	{
 	/* Copy the new string: */
 	delete[] string;
-	string=new char[strlen(newString)+1];
-	strcpy(string,newString);
+	length=strlen(newString);
+	string=new char[length+1];
+	memcpy(string,newString,length);
+	string[length]='\0';
+	
+	/* Update the string's font-related data: */
+	font.updateString(*this);
+	}
+
+void GLString::setString(const char* newStringBegin,const char* newStringEnd,const GLFont& font)
+	{
+	/* Copy the new string: */
+	delete[] string;
+	length=newStringEnd-newStringBegin;
+	string=new char[length+1];
+	memcpy(string,newStringBegin,length);
+	string[length]='\0';
 	
 	/* Update the string's font-related data: */
 	font.updateString(*this);
@@ -86,7 +119,20 @@ void GLString::adoptString(char* newString,const GLFont& font)
 	{
 	/* Adopt the new string: */
 	delete[] string;
+	length=strlen(newString);
 	string=newString;
+	
+	/* Update the string's font-related data: */
+	font.updateString(*this);
+	}
+
+void GLString::adoptString(GLsizei newLength,char* newString,const GLFont& font)
+	{
+	/* Adopt the new string: */
+	delete[] string;
+	length=newLength;
+	string=newString;
+	string[length]='\0';
 	
 	/* Update the string's font-related data: */
 	font.updateString(*this);

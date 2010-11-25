@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_INTERNAL_INPUTDEVICEADAPTERPLAYBACK_INCLUDED
 
 #include <string>
+#include <vector>
 #include <Misc/File.h>
 #include <Geometry/Vector.h>
 #include <Vrui/Geometry.h>
@@ -48,22 +49,11 @@ namespace Vrui {
 
 class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	{
-	/* Embedded classes: */
-	private:
-	struct DeviceFileHeader // Structure to store device name and layout in device data files
-		{
-		/* Elements: */
-		public:
-		char name[40];
-		int trackType;
-		int numButtons;
-		int numValuators;
-		Vector deviceRayDirection;
-		};
-	
 	/* Elements: */
 	private:
 	Misc::File inputDeviceDataFile; // File containing the input device data
+	int* deviceFeatureBaseIndices; // Array of base indices in feature name array for each input device
+	std::vector<std::string> deviceFeatureNames; // Array of input device feature names
 	MouseCursorFaker* mouseCursorFaker; // Pointer to object used to render a fake mouse cursor
 	bool synchronizePlayback; // Flag whether to force the Vrui mainloop to run at the speed of the recording; by default, mainloop runs as fast as it can
 	bool quitWhenDone; // Flag whether to quit the Vrui application when all saved data has been played back
@@ -86,11 +76,12 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	InputDeviceAdapterPlayback(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection); // Creates adapter by opening and reading pre-recorded device data file
 	virtual ~InputDeviceAdapterPlayback(void);
 	
-	/* Methods: */
+	/* Methods from InputDeviceAdapter: */
+	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
+	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
 	
 	/* New methods: */
-	friend void swapEndianness(DeviceFileHeader&);
 	bool isDone(void) const // Returns true if file has been entirely read
 		{
 		return done;

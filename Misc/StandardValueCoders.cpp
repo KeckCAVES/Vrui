@@ -422,6 +422,54 @@ bool ValueCoder<bool>::decode(const char* start,const char* end,const char** dec
 		throw DecodingError(std::string("Unable to convert \"")+std::string(start,end)+std::string("\" to bool"));
 	}
 
+/**************************************
+Methods of class ValueCoder<short int>:
+**************************************/
+
+std::string ValueCoder<short int>::encode(const short int& value)
+	{
+	char buffer[40];
+	snprintf(buffer,sizeof(buffer),"%d",int(value));
+	return std::string(buffer);
+	}
+
+short int ValueCoder<short int>::decode(const char* start,const char* end,const char** decodeEnd)
+	{
+	try
+		{
+		return (short int)(parseSignedInteger(start,end,decodeEnd));
+		}
+	catch(...)
+		{
+		/* Re-throw the exception with a meaningful error string: */
+		throw DecodingError(std::string("Unable to convert \"")+std::string(start,end)+std::string("\" to short int"));
+		}
+	}
+
+/***********************************************
+Methods of class ValueCoder<unsigned short int>:
+***********************************************/
+
+std::string ValueCoder<unsigned short int>::encode(const unsigned short int& value)
+	{
+	char buffer[40];
+	snprintf(buffer,sizeof(buffer),"%u",(unsigned int)value);
+	return std::string(buffer);
+	}
+
+unsigned short int ValueCoder<unsigned short int>::decode(const char* start,const char* end,const char** decodeEnd)
+	{
+	try
+		{
+		return (unsigned short int)(parseUnsignedInteger(start,end,decodeEnd));
+		}
+	catch(...)
+		{
+		/* Re-throw the exception with a meaningful error string: */
+		throw DecodingError(std::string("Unable to convert \"")+std::string(start,end)+std::string("\" to unsigned short int"));
+		}
+	}
+
 /********************************
 Methods of class ValueCoder<int>:
 ********************************/

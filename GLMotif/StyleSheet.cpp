@@ -38,6 +38,8 @@ StyleSheet::StyleSheet(void)
 	fgColor=Color(0.0f,0.0f,0.0f);
 	textfieldBgColor=Color(1.0f,1.0f,0.5f);
 	textfieldFgColor=Color(0.0f,0.0f,0.0f);
+	selectionBgColor=Color(0.25f,0.25f,0.25f);
+	selectionFgColor=Color(1.0f,1.0f,1.0f);
 	buttonArmedBackgroundColor=Color(0.5f,0.5f,0.5f);
 	toggleButtonToggleColor=Color(0.0f,1.0f,0.0f);
 	titlebarBgColor=Color(0.0f,0.0f,0.667f);

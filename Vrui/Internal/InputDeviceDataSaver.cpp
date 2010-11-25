@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceDataSaver.h>
 
 #include <iostream>
+#include <Misc/StringMarshaller.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -35,6 +36,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Sound/SoundRecorder.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
 
 namespace Vrui {
@@ -61,27 +63,35 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 	 soundRecorder(0),
 	 firstFrame(true)
 	{
+	/* Write a file identification header: */
+	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
+	inputDeviceDataFile.write<char>(fileHeader,34);
+	
 	/* Save the random number seed: */
 	inputDeviceDataFile.write<unsigned int>(randomSeed);
 	
 	/* Save number of input devices: */
 	inputDeviceDataFile.write<int>(numInputDevices);
 	
-	/* Save layout of all input devices in the input device manager: */
+	/* Save layout and feature names of all input devices in the input device manager: */
 	for(int i=0;i<numInputDevices;++i)
 		{
 		/* Get pointer to the input device: */
 		inputDevices[i]=inputDeviceManager.getInputDevice(i);
 		
-		/* Save input device's layout: */
-		char name[40];
-		strncpy(name,inputDevices[i]->getDeviceName(),40);
-		name[39]='\0';
-		inputDeviceDataFile.write(name,40);
+		/* Save input device's name and layout: */
+		Misc::writeCString(inputDevices[i]->getDeviceName(),inputDeviceDataFile);
 		inputDeviceDataFile.write<int>(inputDevices[i]->getTrackType());
 		inputDeviceDataFile.write<int>(inputDevices[i]->getNumButtons());
 		inputDeviceDataFile.write<int>(inputDevices[i]->getNumValuators());
 		inputDeviceDataFile.write(inputDevices[i]->getDeviceRayDirection().getComponents(),3);
+		
+		/* Save input device's feature names: */
+		for(int j=0;j<inputDevices[i]->getNumFeatures();++j)
+			{
+			std::string featureName=inputDeviceManager.getFeatureName(InputDeviceFeature(inputDevices[i],j));
+			Misc::writeCppString(featureName,inputDeviceDataFile);
+			}
 		}
 	
 	/* Check if the user wants to record a commentary track: */

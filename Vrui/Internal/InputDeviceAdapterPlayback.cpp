@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceAdapterPlayback.h>
 
 #include <ctype.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -37,12 +38,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <Sound/SoundPlayer.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/Internal/MouseCursorFaker.h>
 #include <Vrui/VRWindow.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/Internal/Vrui.h>
 
 namespace Vrui {
@@ -64,25 +66,39 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	 done(false)
 	{
 	/* Read file header: */
+	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
+	char header[34];
+	inputDeviceDataFile.read<char>(header,34);
+	bool haveFeatureNames=strncmp(header,fileHeader,34)==0;
+	if(!haveFeatureNames)
+		{
+		/* Old file format doesn't have the header text: */
+		inputDeviceDataFile.rewind();
+		}
+	
+	/* Read random seed value: */
 	unsigned int randomSeed=inputDeviceDataFile.read<unsigned int>();
 	setRandomSeed(randomSeed);
+	
+	/* Read number of saved input devices: */
 	numInputDevices=inputDeviceDataFile.read<int>();
 	inputDevices=new InputDevice*[numInputDevices];
+	deviceFeatureBaseIndices=new int[numInputDevices];
 	
 	/* Initialize devices: */
 	for(int i=0;i<numInputDevices;++i)
 		{
-		/* Read device's layout from file: */
-		DeviceFileHeader header;
-		inputDeviceDataFile.read(header.name,sizeof(header.name));
-		inputDeviceDataFile.read(header.trackType);
-		inputDeviceDataFile.read(header.numButtons);
-		inputDeviceDataFile.read(header.numValuators);
-		inputDeviceDataFile.read(header.deviceRayDirection.getComponents(),3);
+		/* Read device's name and layout from file: */
+		std::string name=Misc::readCppString(inputDeviceDataFile);
+		int trackType=inputDeviceDataFile.read<int>();
+		int numButtons=inputDeviceDataFile.read<int>();
+		int numValuators=inputDeviceDataFile.read<int>();
+		Vector deviceRayDirection;
+		inputDeviceDataFile.read<Scalar>(deviceRayDirection.getComponents(),3);
 		
 		/* Create new input device: */
-		InputDevice* newDevice=inputDeviceManager->createInputDevice(header.name,header.trackType,header.numButtons,header.numValuators,true);
-		newDevice->setDeviceRayDirection(header.deviceRayDirection);
+		InputDevice* newDevice=inputDeviceManager->createInputDevice(name.c_str(),trackType,numButtons,numValuators,true);
+		newDevice->setDeviceRayDirection(deviceRayDirection);
 		
 		/* Initialize the new device's glyph from the current configuration file section: */
 		Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
@@ -94,6 +110,21 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		
 		/* Store the input device: */
 		inputDevices[i]=newDevice;
+		
+		/* Read or create the device's feature names: */
+		deviceFeatureBaseIndices[i]=int(deviceFeatureNames.size());
+		if(haveFeatureNames)
+			{
+			/* Read feature names from file: */
+			for(int j=0;j<newDevice->getNumFeatures();++j)
+				deviceFeatureNames.push_back(Misc::readCppString(inputDeviceDataFile));
+			}
+		else
+			{
+			/* Create default feature names: */
+			for(int j=0;j<newDevice->getNumFeatures();++j)
+				deviceFeatureNames.push_back(getDefaultFeatureName(InputDeviceFeature(newDevice,j)));
+			}
 		}
 	
 	/* Check if the user wants to use a fake mouse cursor: */
@@ -196,6 +227,49 @@ InputDeviceAdapterPlayback::~InputDeviceAdapterPlayback(void)
 	{
 	delete mouseCursorFaker;
 	delete soundPlayer;
+	delete[] deviceFeatureBaseIndices;
+	}
+
+std::string InputDeviceAdapterPlayback::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Find the input device owning the given feature: */
+	int featureBaseIndex=-1;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		{
+		if(inputDevices[deviceIndex]==feature.getDevice())
+			{
+			featureBaseIndex=deviceFeatureBaseIndices[deviceIndex];
+			break;
+			}
+		}
+	if(featureBaseIndex<0)
+		Misc::throwStdErr("InputDeviceAdapterPlayback::getFeatureName: Unknown device %s",feature.getDevice()->getDeviceName());
+	
+	/* Return the feature name: */
+	return deviceFeatureNames[featureBaseIndex+feature.getFeatureIndex()];
+	}
+
+int InputDeviceAdapterPlayback::getFeatureIndex(InputDevice* device,const char* featureName) const
+	{
+	/* Find the input device owning the given feature: */
+	int featureBaseIndex=-1;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		{
+		if(inputDevices[deviceIndex]==device)
+			{
+			featureBaseIndex=deviceFeatureBaseIndices[deviceIndex];
+			break;
+			}
+		}
+	if(featureBaseIndex<0)
+		Misc::throwStdErr("InputDeviceAdapterPlayback::getFeatureIndex: Unknown device %s",device->getDeviceName());
+	
+	/* Compare the given feature name against the device's feature names: */
+	for(int i=0;i<device->getNumFeatures();++i)
+		if(deviceFeatureNames[featureBaseIndex+i]==featureName)
+			return i;
+	
+	return -1;
 	}
 
 void InputDeviceAdapterPlayback::updateInputDevices(void)

@@ -33,6 +33,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>InputDevice.h</DT>
 <DD>InputDevice is a class representing input devices with an (optional) 6-DOF position/orientation, and any numbers of buttons and valuators (floating-point values ranging from -1 to 1).</DD>
 
+<DT>InputDeviceFeature.h</DT>
+<DD>InputDeviceFeature is a helper class to identify individual buttons or valuators on input devices. InputDeviceFeatureSet is a class for lists of input device features in no particular order.</DD>
+
 <DT>VirtualInputDevice.h</DT>
 <DD>VirtualInputDevice is a helper class to manage and interact with ungrabbed virtual input devices, by representing them as 3D widgets.</DD>
 
@@ -98,6 +101,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DT>GUIInteractor.h</DT>
 <DD>GUIInteractor is a helper class containing common code for tools that allow interaction with graphical user interface elements.</DD>
+
+<DT>DeviceForwarder.h</DT>
+<DD>DeviceForwarder is an abstract mixin class for tools that forward some of their assigned input devices to permanently bound virtual input devices. Used by InputGraphManager and ToolManager to trace event flow through the input graph.</DD>
 
 <DT>ToolInputLayout.h</DT>
 <DD>ToolInputLayout is a helper class describing the interface of a tool class, i.e., the number of devices/buttons/valuators used by each instance of the tool class.</DD>

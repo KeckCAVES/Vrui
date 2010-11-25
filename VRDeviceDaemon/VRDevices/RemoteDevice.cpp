@@ -42,7 +42,7 @@ void RemoteDevice::deviceThreadMethod(void)
 		if(pipe.readMessage()==Vrui::VRDevicePipe::PACKET_REPLY) // Just ignore any other messages
 			{
 			/* Read current server state: */
-			pipe.readState(state);
+			state.read(pipe);
 			
 			/* Copy new state into device manager: */
 			for(int i=0;i<state.getNumValuators();++i)
@@ -67,12 +67,12 @@ RemoteDevice::RemoteDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 	pipe.writeMessage(Vrui::VRDevicePipe::CONNECT_REQUEST);
 	
 	/* Wait for server's reply: */
-	pipe.getSocket().waitForData(10,0); // Throw exception if reply does not arrive in time
+	pipe.waitForData(10,0); // Throw exception if reply does not arrive in time
 	if(pipe.readMessage()!=Vrui::VRDevicePipe::CONNECT_REPLY)
 		Misc::throwStdErr("RemoteDevice: Mismatching message while waiting for CONNECT_REPLY");
 	
 	/* Read server's layout and initialize current state: */
-	pipe.readLayout(state);
+	state.readLayout(pipe);
 	#ifdef VERBOSE
 	printf("RemoteDevice: Serving %d trackers, %d buttons, %d valuators\n",state.getNumTrackers(),state.getNumButtons(),state.getNumValuators());
 	fflush(stdout);

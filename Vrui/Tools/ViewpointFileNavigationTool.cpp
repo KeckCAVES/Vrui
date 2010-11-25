@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,8 +37,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/WidgetManager.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -54,8 +54,7 @@ ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManag
 	 autostart(false)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("NavigationTool");
@@ -84,6 +83,11 @@ const char* ViewpointFileNavigationToolFactory::getName(void) const
 	return "Curve File Animation";
 	}
 
+const char* ViewpointFileNavigationToolFactory::getButtonFunction(int) const
+	{
+	return "Start / Stop";
+	}
+
 Tool* ViewpointFileNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
 	{
 	return new ViewpointFileNavigationTool(this,inputAssignment);
@@ -96,10 +100,8 @@ void ViewpointFileNavigationToolFactory::destroyTool(Tool* tool) const
 
 extern "C" void resolveViewpointFileNavigationToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
 	{
-	#if 0
 	/* Load base classes: */
 	manager.loadClass("NavigationTool");
-	#endif
 	}
 
 extern "C" ToolFactory* createViewpointFileNavigationToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
@@ -335,12 +337,6 @@ void ViewpointFileNavigationTool::loadViewpointFileOKCallback(GLMotif::FileSelec
 	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
 	}
 
-void ViewpointFileNavigationTool::loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData)
-	{
-	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
-	}
-
 void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
 	{
 	for(int j=0;j<3;++j)
@@ -390,7 +386,7 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 		{
 		GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",0,".views,.curve",openPipe());
 		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
-		loadViewpointFileDialog->getCancelCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileCancelCallback);
+		loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 		popupPrimaryWidget(loadViewpointFileDialog);
 		}
 	else
@@ -405,7 +401,7 @@ const ToolFactory* ViewpointFileNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ViewpointFileNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{

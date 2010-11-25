@@ -214,7 +214,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	#endif
 	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 	devicePort.writeByte(0x2f); // FBB Reset
-	delay(0.25);
+	Misc::sleep(0.25);
 	#endif
 	
 	/* Query flock configuration: */
@@ -224,7 +224,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 	devicePort.writeByte(0x4f); // Change Value
 	devicePort.writeByte(36); // Flock System Status
-	delay(0.25);
+	Misc::sleep(0.25);
 	
 	/* Receive flock state: */
 	char flockStates[14];
@@ -249,7 +249,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 			{
 			devicePort.writeByte(0xf0|char(i+firstBirdId)); // Talk to bird i
 			devicePort.writeByte(0x59); // Position/Angles mode
-			delay(0.25);
+			Misc::sleep(0.25);
 			}
 	
 	/* Set FOB's hemisphere: */
@@ -282,7 +282,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 			devicePort.writeByte(0x4c); // Hemisphere
 			devicePort.writeByte(hemisphereBytes[hemisphereIndex][0]); // Code (pt 1)
 			devicePort.writeByte(hemisphereBytes[hemisphereIndex][1]); // Code (pt 2)
-			delay(0.25);
+			Misc::sleep(0.25);
 			}
 	
 	/* Set FOB's tracking range: */
@@ -314,7 +314,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 				devicePort.writeByte(0x1); // 72 inch max range, pt. 1
 				devicePort.writeByte(0x0); // 72 inch max range, pt. 2
 				}
-			delay(0.25);
+			Misc::sleep(0.25);
 			}
 		}
 	
@@ -323,12 +323,12 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	printf("AscensionFlockOfBirds: Starting auto-configuration\n");
 	fflush(stdout);
 	#endif
-	delay(0.35);
+	Misc::sleep(0.35);
 	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 	devicePort.writeByte(0x50); // Change Value
 	devicePort.writeByte(50); // FBB Auto-Configuration
 	devicePort.writeByte(char(numBirds)); // numTrackers birds
-	delay(0.6);
+	Misc::sleep(0.6);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Enabling group mode\n");
@@ -338,7 +338,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	devicePort.writeByte(0x50); // Change Value
 	devicePort.writeByte(35); // Group Mode
 	devicePort.writeByte(1); // Enable
-	delay(0.25);
+	Misc::sleep(0.25);
 	
 	if(ercId!=-1)
 		{
@@ -350,7 +350,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 		devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 		devicePort.writeByte(0x30); // Next Transmitter
 		devicePort.writeByte(((ercId&0xf)<<4)|ercTransmitterIndex); // ID of extended range controller and transmitter index
-		delay(0.25);
+		Misc::sleep(0.25);
 		}
 	
 	/* Put birds to sleep: */
@@ -360,7 +360,7 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 	#endif
 	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 	devicePort.writeByte(0x42); // Point
-	delay(0.25);
+	Misc::sleep(0.25);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Disabling tracker device\n");
@@ -372,6 +372,8 @@ AscensionFlockOfBirds::AscensionFlockOfBirds(VRDevice::Factory* sFactory,VRDevic
 
 AscensionFlockOfBirds::~AscensionFlockOfBirds(void)
 	{
+	if(isActive())
+		stop();
 	delete[] timers;
 	delete[] notFirstMeasurements;
 	delete[] oldPositionOrientations;
@@ -389,7 +391,7 @@ void AscensionFlockOfBirds::start(void)
 	#endif
 	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 	devicePort.writeByte(0x46); // Run
-	delay(0.25);
+	Misc::sleep(0.25);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Enabling stream mode\n");
@@ -408,7 +410,7 @@ void AscensionFlockOfBirds::stop(void)
 	#endif
 	devicePort.writeByte(0xf0|masterId); // Talk to FOB master
 	devicePort.writeByte(0x42); // Point
-	delay(0.25);
+	Misc::sleep(0.25);
 	
 	#ifdef VERBOSE
 	printf("AscensionFlockOfBirds: Disabling tracker device\n");

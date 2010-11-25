@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <utility>
 #include <vector>
 #include <Misc/HashTable.h>
+#include <X11/Xlib.h>
 #include <GLMotif/TextEvent.h>
 #include <GLMotif/TextControlEvent.h>
 #include <Vrui/Geometry.h>
@@ -97,7 +98,10 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	MouseCursorFaker* mouseCursorFaker; // Pointer to object to render a fake mouse cursor
 	
 	/* Private methods: */
-	static int getKeyCode(std::string keyName); // Returns the key code for a named key
+	static int getKeyCode(std::string keyName); // Returns the key code for the given named key
+	static std::string getKeyName(int keyCode); // Returns the key name for the given key code
+	int getButtonIndex(int keyCode) const; // Returns the button key index of the given key, or -1
+	int getModifierIndex(int keyCode) const; // Returns the modifier key index of the given key, or -1
 	void changeModifierKeyMask(int newModifierKeyMask); // Called whenever the current modifier key mask changes
 	
 	/* Constructors and destructors: */
@@ -105,7 +109,9 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	InputDeviceAdapterMouse(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection);
 	virtual ~InputDeviceAdapterMouse(void);
 	
-	/* Methods: */
+	/* Methods from InputDeviceAdapter: */
+	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
+	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
 	
 	/* New methods: */
@@ -113,17 +119,24 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 		{
 		return window;
 		}
-	const Scalar* getMousePosition(void) const // Returns the current mouse position in normalized device coordinates
+	const Scalar* getMousePosition(void) const // Returns the current mouse position in screen coordinates
 		{
 		return mousePos;
 		}
 	void setMousePosition(VRWindow* newWindow,const Scalar newMousePos[2]); // Sets current mouse position in screen coordinates
 	void keyPressed(int keyCode,int modifierMask,const char* string); // Notifies adapter that a key has been pressed
 	void keyReleased(int keyCode); // Notifies adapter that a key has been released
+	void resetKeys(const XKeymapEvent& event); // Resets pressed keys and the modifier key mask when the mouse cursor re-enters a window
 	void setButtonState(int buttonIndex,bool newButtonState); // Sets current button state
 	void incMouseWheelTicks(void); // Increases the number of mouse wheel ticks
 	void decMouseWheelTicks(void); // Decreases the number of mouse wheel ticks
 	};
+
+/****************
+Helper functions:
+****************/
+
+ONTransform getMouseScreenTransform(InputDeviceAdapterMouse* mouseAdapter,Scalar viewport[4]); // Returns screen transformation of appropriate screen for given mouse adapter, and copies screen's viewport dimensions
 
 }
 

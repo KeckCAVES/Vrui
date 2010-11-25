@@ -44,6 +44,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/DisplayState.h>
+#include <Vrui/ToolManager.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -66,6 +67,7 @@ class InputDeviceDataSaver;
 class MultipipeDispatcher;
 class ScaleBar;
 class VisletManager;
+class GUIInteractor;
 }
 
 namespace Vrui {
@@ -131,6 +133,8 @@ struct VruiState
 	Point newInputDevicePosition;
 	VirtualInputDevice* virtualInputDevice;
 	InputGraphManager* inputGraphManager;
+	bool loadInputGraph; // Flag whether to replace the current input graph with one loaded from the given file at the next opportune moment
+	std::string inputGraphFileName; // Name of input graph file to load if loadInputGraph is true
 	
 	/* Input device management: */
 	InputDeviceManager* inputDeviceManager;
@@ -185,6 +189,10 @@ struct VruiState
 	GLMotif::PopupMenu* systemMenuPopup;
 	MutexMenu* mainMenu;
 	
+	/* 3D picking management: */
+	Scalar pointPickDistance;
+	Scalar rayPickCosine;
+	
 	/* Navigation transformation management: */
 	std::string viewpointFileName;
 	bool navigationTransformationEnabled;
@@ -226,8 +234,8 @@ struct VruiState
 	const Tool* activeNavigationTool;
 	
 	/* Transient popup menu/primary widget interaction state: */
-	bool widgetInteraction;
-	GLMotif::Widget* motionWidget;
+	GUIInteractor* mostRecentGUIInteractor; // Pointer to the most-recently used GUI interactor, to calculate an appropriate position to pop up dialog windows
+	Point mostRecentHotSpot; // Final hot spot position when the most-recently used GUI interactor is destroyed
 	
 	/* List of created virtual input devices: */
 	std::deque<InputDevice*> createdVirtualInputDevices;
@@ -238,9 +246,11 @@ struct VruiState
 	/* Private methods: */
 	GLMotif::Popup* buildDialogsMenu(void); // Builds the dialogs submenu
 	GLMotif::Popup* buildViewMenu(void); // Builds the view submenu
+	GLMotif::Popup* buildDevicesMenu(void); // Builds the input devices submenu
 	void buildSystemMenu(GLMotif::Container* parent); // Builds the Vrui system menu inside the given container widget
 	void updateNavigationTransformation(const NavTransform& newTransform); // Updates the working version of the navigation transformation
 	bool loadViewpointFile(const char* viewpointFileName); // Overrides the navigation transformation with viewpoint data stored in the given viewpoint file
+	void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData); // Callback method called when a tool is destroyed
 	
 	/* Constructors and destructors: */
 	VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::MulticastPipe* sPipe); // Initializes basic Vrui state
@@ -270,8 +280,11 @@ struct VruiState
 	void loadViewCallback(Misc::CallbackData* cbData);
 	void saveViewCallback(Misc::CallbackData* cbData);
 	void restoreViewCallback(Misc::CallbackData* cbData);
-	void createInputDeviceCallback(Misc::CallbackData* cbData);
+	void createInputDeviceCallback(Misc::CallbackData* cbData,const int& numButtons);
 	void destroyInputDeviceCallback(Misc::CallbackData* cbData);
+	void loadInputGraphCallback(Misc::CallbackData* cbData);
+	void loadInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveInputGraphCallback(Misc::CallbackData* cbData);
 	void showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void quitCallback(Misc::CallbackData* cbData);
 	};
@@ -286,6 +299,7 @@ extern void setRandomSeed(unsigned int newRandomSeed); // Sets Vrui's random see
 extern void vruiDelay(double interval);
 extern void synchronize(double applicationTime); // Blocks execution until the given application time; can only be called by an input device adapter during its updateInputDevices() method
 extern void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize); // Sets the center and size of Vrui's display environment
+extern void setMostRecentGUIInteractor(GUIInteractor* interactor); // Sets the most-recently-used GUI interaction tool
 
 }
 

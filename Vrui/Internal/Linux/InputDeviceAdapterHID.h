@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_LINUX_INPUTDEVICEADAPTERHID_INCLUDED
 #define VRUI_INTERNAL_LINUX_INPUTDEVICEADAPTERHID_INCLUDED
 
+#include <string>
 #include <vector>
 #include <Threads/Mutex.h>
 #include <Threads/Thread.h>
@@ -58,6 +59,8 @@ class InputDeviceAdapterHID:public InputDeviceAdapter
 		std::vector<int> relAxisMap; // Vector mapping relative axis features to device valuator indices
 		std::vector<AxisValueMapper> axisValueMappers; // Vector of axis value mappers converting from raw HID axis values to [-1, 1]
 		Vrui::InputDevice* device; // Pointer to Vrui input device associated with the HID
+		std::vector<std::string> buttonNames; // Array of button feature names
+		std::vector<std::string> valuatorNames; // Array of valuator feature names
 		};
 	
 	/* Elements: */
@@ -82,6 +85,8 @@ class InputDeviceAdapterHID:public InputDeviceAdapter
 	virtual ~InputDeviceAdapterHID(void);
 	
 	/* Methods from InputDeviceAdapter: */
+	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
+	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
 	};
 

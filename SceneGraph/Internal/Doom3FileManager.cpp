@@ -37,7 +37,7 @@ namespace {
 Helper functions:
 ****************/
 
-#ifdef __DARWIN__
+#ifdef __APPLE__
 int pakFileFilter(struct dirent* dirent)
 #else
 int pakFileFilter(const struct dirent* dirent)
@@ -121,7 +121,7 @@ unsigned char* Doom3FileManager::readFile(const char* fileName,size_t& fileSize)
 	/* Search the file in the pak file tree: */
 	PakFileTree::LeafID leafId=pakFileTree.findLeaf(fileName);
 	if(!leafId.isValid())
-		Misc::throwStdErr("Doom3FileManager::readFile: File %s not found",fileName);
+		throw ReadError(fileName);
 	
 	/* Get the file's pak file handle: */
 	const PakFileHandle& pfh=pakFileTree.getLeafValue(leafId);

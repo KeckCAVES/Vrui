@@ -56,9 +56,9 @@ class VRDevice
 	int* trackerIndices; // Mapping from device tracker indices to "logical" tracker indices
 	TrackerPostTransformation* trackerPostTransformations; // Array of transformations to apply to calibrated tracker measurements
 	int* buttonIndices; // Mapping from device button indices to "logical" button indices
+	int* valuatorIndices; // Mapping from device valuator indices to "logical" valuator indices
 	float* valuatorThresholds; // Array of threshold values around zero for broken-line value mapping
 	float* valuatorExponents; // Array of exponent values for non-linear value mapping
-	int* valuatorIndices; // Mapping from device valuator indices to "logical" valuator indices
 	bool active; // Flag if device is currently active
 	Threads::Thread deviceThread; // Device communication thread
 	VRDeviceManager* deviceManager; // Manager gathering data from VR devices
@@ -69,10 +69,9 @@ class VRDevice
 	
 	/* Protected methods: */
 	protected:
-	static void delay(double seconds); // Waits for specified number of seconds
-	void setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile); // Sets number of trackers
-	void setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile); // Sets number of buttons
-	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile); // Sets number of valuators
+	void setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile,const std::string* trackerNames =0); // Sets number of trackers
+	void setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile,const std::string* buttonNames =0); // Sets number of buttons
+	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile,const std::string* valuatorNames =0); // Sets number of valuators
 	void calcVelocities(int deviceTrackerIndex,Vrui::VRDeviceState::TrackerState& newState); // Calculates tracker velocities based on elapsed time since last measurement
 	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state); // Sets (and calibrates) a tracker (device index given)
 	void setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState); // Sets a button state (device index given)
@@ -113,6 +112,10 @@ class VRDevice
 		{
 		return valuatorIndices[deviceValuatorIndex];
 		};
+	bool isActive(void) const // Returns true if the device is currently active, i.e., device thread is running
+		{
+		return active;
+		}
 	virtual void start(void) =0; // Starts tracking hardware and position reporting
 	virtual void stop(void) =0; // Stops tracking hardware and position reporting
 	};

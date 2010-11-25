@@ -68,7 +68,7 @@ class TwoRayTransformTool:public TransformTool
 	/* Methods from Tool: */
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

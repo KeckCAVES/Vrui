@@ -1,7 +1,7 @@
 /***********************************************************************
 PlaneSnapInputDeviceTool - Class for tools that snap a virtual input
 device to a plane defined by three points.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -42,7 +42,6 @@ class PlaneSnapInputDeviceToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	bool useRaySelection; // Flag whether to use a ray or a point to select virtual input devices
 	Scalar markerSize; // Size of selected point markers in physical units
 	
 	/* Constructors and destructors: */
@@ -52,6 +51,7 @@ class PlaneSnapInputDeviceToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -75,7 +75,7 @@ class PlaneSnapInputDeviceTool:public InputDeviceTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

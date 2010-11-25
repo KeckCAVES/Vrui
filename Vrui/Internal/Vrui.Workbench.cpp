@@ -20,6 +20,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <AL/Config.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -34,6 +36,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Timer.h>
 #include <Misc/StringMarshaller.h>
+#include <Misc/GetCurrentDirectory.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -142,7 +145,7 @@ void vruiErrorShutdown(bool signalError)
 		delete[] vruiWindows;
 		}
 	ALContextData::shutdownThingManager();
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	if(vruiSoundContexts!=0)
 		{
 		/* Destroy all sound contexts: */
@@ -502,15 +505,8 @@ void init(int& argc,char**& argv,char**&)
 				std::string multipipeRemoteCommand=vruiConfigFile->retrieveString("./multipipeRemoteCommand","ssh");
 				masterPort=vruiMultiplexer->getLocalPortNumber();
 				vruiSlavePids=new pid_t[vruiNumSlaves];
-				size_t cwdLen=512;
-				char* cwd=new char[cwdLen];
-				while(getcwd(cwd,cwdLen)==0)
-					{
-					cwdLen=(cwdLen*3)/2;
-					delete[] cwd;
-					cwd=new char[cwdLen];
-					}
-				size_t rcLen=strlen(cwd)+strlen(argv[0])+master.length()+multicastGroup.length()+512;
+				std::string cwd=Misc::getCurrentDirectory();
+				size_t rcLen=cwd.length()+strlen(argv[0])+master.length()+multicastGroup.length()+512;
 				char* rc=new char[rcLen];
 				for(int i=0;i<vruiNumSlaves;++i)
 					{
@@ -519,7 +515,7 @@ void init(int& argc,char**& argv,char**&)
 						{
 						/* Create a command line to run the program from the current working directory: */
 						int ai=0;
-						ai+=snprintf(rc+ai,rcLen-ai,"cd %s ;",cwd);
+						ai+=snprintf(rc+ai,rcLen-ai,"cd '%s' ;",cwd.c_str());
 						ai+=snprintf(rc+ai,rcLen-ai," %s",argv[0]);
 						ai+=snprintf(rc+ai,rcLen-ai," -vruiMultipipeSlave");
 						ai+=snprintf(rc+ai,rcLen-ai," %d %d",vruiNumSlaves,i+1);
@@ -545,7 +541,6 @@ void init(int& argc,char**& argv,char**&)
 					}
 				
 				/* Clean up: */
-				delete[] cwd;
 				delete[] rc;
 				
 				/* Wait until the entire cluster is connected: */
@@ -824,7 +819,7 @@ void startSound(void)
 	if(vruiState->multiplexer!=0)
 		vruiState->pipe->barrier();
 	
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Retrieve the name of the sound context: */
 	std::string soundContextName;
 	if(vruiState->multiplexer!=0)
@@ -1007,7 +1002,7 @@ void vruiInnerLoopMultiWindow(void)
 		/* Reset the AL thing manager: */
 		ALContextData::resetThingManager();
 		
-		#ifdef VRUI_USE_OPENAL
+		#if ALSUPPORT_CONFIG_HAVE_OPENAL
 		/* Update all sound contexts: */
 		for(int i=0;i<vruiNumSoundContexts;++i)
 			vruiSoundContexts[i]->draw();
@@ -1096,7 +1091,7 @@ void vruiInnerLoopSingleWindow(void)
 		/* Reset the AL thing manager: */
 		ALContextData::resetThingManager();
 		
-		#ifdef VRUI_USE_OPENAL
+		#if ALSUPPORT_CONFIG_HAVE_OPENAL
 		/* Update all sound contexts: */
 		for(int i=0;i<vruiNumSoundContexts;++i)
 			vruiSoundContexts[i]->draw();
@@ -1190,7 +1185,7 @@ void mainLoop(void)
 	
 	/* Shut down the sound system: */
 	ALContextData::shutdownThingManager();
-	#ifdef VRUI_USE_OPENAL
+	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	if(vruiSoundContexts!=0)
 		{
 		/* Destroy all sound contexts: */

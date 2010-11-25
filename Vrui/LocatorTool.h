@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
+#include <Misc/FunctionCalls.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Tool.h>
 
@@ -43,12 +44,16 @@ class LocatorToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	};
 
 class LocatorTool:public Tool
 	{
 	/* Embedded classes: */
 	public:
+	typedef Misc::FunctionCall<Misc::ConfigurationFileSection&> StoreStateFunction; // Type for functions to store state to a configuration file
+	typedef Misc::FunctionCall<std::string&> GetNameFunction; // Type for functions to return a descriptive name for a locator tool associate
+	
 	class MotionCallbackData:public Misc::CallbackData
 		{
 		/* Elements: */
@@ -96,6 +101,8 @@ class LocatorTool:public Tool
 	
 	/* Elements: */
 	protected:
+	StoreStateFunction* storeStateFunction; // Function to be called when the tool stores its state to a configuration file
+	GetNameFunction* getNameFunction; // Function to be called when the tool is asked for its name
 	Misc::CallbackList motionCallbacks; // List of callbacks to be called when moving
 	Misc::CallbackList buttonPressCallbacks; // List of callbacks to be called when button is pressed
 	Misc::CallbackList buttonReleaseCallbacks; // List of callbacks to be called when button is released
@@ -103,8 +110,15 @@ class LocatorTool:public Tool
 	/* Constructors and destructors: */
 	public:
 	LocatorTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	virtual ~LocatorTool(void);
+	
+	/* Methods from Tool: */
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual std::string getName(void) const;
 	
 	/* New methods: */
+	void setStoreStateFunction(StoreStateFunction* newStoreStateFunction); // Adopts the given function, to be called when the tool stores its state to a configuration file
+	void setGetNameFunction(GetNameFunction* newGetNameFunction); // Adopts the given function, to be called when the tool is asked for its name
 	Misc::CallbackList& getMotionCallbacks(void) // Returns list of motion callbacks
 		{
 		return motionCallbacks;

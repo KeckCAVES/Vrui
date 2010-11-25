@@ -239,7 +239,7 @@ void InputDevice::disableCallbacks(void)
 	{
 	callbacksEnabled=false;
 	
-	/* Save all button states and valuator values to call the appropriate callbacks whence callbacks are enabled again: */
+	/* Save all button states and valuator values to call the appropriate callbacks once callbacks are enabled again: */
 	for(int i=0;i<numButtons;++i)
 		savedButtonStates[i]=buttonStates[i];
 	for(int i=0;i<numValuators;++i)

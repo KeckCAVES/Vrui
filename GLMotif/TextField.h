@@ -71,10 +71,11 @@ class TextField:public Label
 	GLint fieldWidth,precision; // Field width and precision for numerical values (negative values disable that formatting feature)
 	FloatFormat floatFormat; // Formatting mode for floating-point numbers (default is smart)
 	bool editable; // Flag whether the text field reacts to text and text control events
-	bool hasFocus; // Flag if an editable text field is currently ready to receive text entry events
+	bool focus; // Flag if an editable text field is currently ready to receive text entry events
 	int anchorPos,cursorPos; // Current selection range or cursor position of an editable text field
 	GLfloat cursorModelPos; // Model-space cursor position
 	double buttonDownTime; // Last time the pointer button was pressed on the text field
+	GLfloat lastPointerPos; // Last horizontal pointer position during click/drag event handling
 	bool edited; // Flag if the text field has been edited since the last value change callback
 	Misc::CallbackList layoutChangedCallbacks; // List of callbacks to be called when the displayed character width of the text field changes
 	Misc::CallbackList valueChangedCallbacks; // List of callbacks to be called when the text field changes value due to a user interaction
@@ -103,7 +104,8 @@ class TextField:public Label
 	virtual void textControlEvent(const TextControlEvent& event);
 	
 	/* Methods inherited from Label: */
-	virtual void setString(const char* newLabel);
+	using Label::setString;
+	virtual void setString(const char* newLabelBegin,const char* newLabelEnd);
 	
 	/* New methods: */
 	GLint getCharWidth(void) const // Returns current text field size in characters
@@ -131,6 +133,10 @@ class TextField:public Label
 		return editable;
 		}
 	void setEditable(bool newEditable); // Sets whether the text field can be edited via events
+	bool hasFocus(void) const // Returns true if the text field currently has the input focus
+		{
+		return focus;
+		}
 	void setSelection(int newAnchorPos,int newCursorPos); // Sets the selection range or cursor position of an editable text field
 	template <class ValueParam>
 	void setValue(const ValueParam& value); // Sets the text field to the given value; works for int, unsigned int, float, and double

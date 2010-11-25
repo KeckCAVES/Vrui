@@ -44,7 +44,7 @@ void* VRDeviceClient::streamReceiveThreadMethod(void)
 			/* Read server's state: */
 			{
 			Threads::Mutex::Lock stateLock(stateMutex);
-			pipe.readState(state);
+			state.read(pipe);
 			}
 			
 			/* Signal packet reception: */
@@ -70,15 +70,20 @@ void VRDeviceClient::initClient(void)
 	{
 	/* Initiate connection: */
 	pipe.writeMessage(VRDevicePipe::CONNECT_REQUEST);
+	pipe.write<unsigned int>(VRDevicePipe::protocolVersionNumber);
+	pipe.flush();
 	
 	/* Wait for server's reply: */
-	if(!pipe.getSocket().waitForData(30,0,false))
+	if(!pipe.waitForData(30,0,false))
 		throw ProtocolError("VRDeviceClient: Timeout while waiting for CONNECT_REPLY");
 	if(pipe.readMessage()!=VRDevicePipe::CONNECT_REPLY)
 		throw ProtocolError("VRDeviceClient: Mismatching message while waiting for CONNECT_REPLY");
+	unsigned int serverProtocolVersionNumber=pipe.read<unsigned int>();
+	
+	/* Check server version number or something... */
 	
 	/* Read server's layout and initialize current state: */
-	pipe.readLayout(state);
+	state.readLayout(pipe);
 	}
 
 VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort)
@@ -109,6 +114,7 @@ VRDeviceClient::~VRDeviceClient(void)
 	
 	/* Disconnect from server: */
 	pipe.writeMessage(VRDevicePipe::DISCONNECT_REQUEST);
+	pipe.flush();
 	}
 
 void VRDeviceClient::activate(void)
@@ -116,6 +122,7 @@ void VRDeviceClient::activate(void)
 	if(!active)
 		{
 		pipe.writeMessage(VRDevicePipe::ACTIVATE_REQUEST);
+		pipe.flush();
 		active=true;
 		}
 	}
@@ -126,6 +133,7 @@ void VRDeviceClient::deactivate(void)
 		{
 		active=false;
 		pipe.writeMessage(VRDevicePipe::DEACTIVATE_REQUEST);
+		pipe.flush();
 		}
 	}
 
@@ -142,16 +150,17 @@ void VRDeviceClient::getPacket(void)
 			{
 			/* Send packet request message: */
 			pipe.writeMessage(VRDevicePipe::PACKET_REQUEST);
+			pipe.flush();
 			
 			/* Wait for packet reply message: */
-			pipe.getSocket().waitForData(10,0); // Throw exception if reply does not arrive in time
+			pipe.waitForData(10,0); // Throw exception if reply does not arrive in time
 			if(pipe.readMessage()!=VRDevicePipe::PACKET_REPLY)
 				throw ProtocolError("VRDeviceClient: Mismatching message while waiting for PACKET_REPLY");
 			
 			/* Read server's state: */
 			{
 			Threads::Mutex::Lock stateLock(stateMutex);
-			pipe.readState(state);
+			state.read(pipe);
 			}
 			
 			/* Invoke packet notification callback: */
@@ -175,6 +184,7 @@ void VRDeviceClient::startStream(void)
 		{
 		Threads::MutexCond::Lock packetSignalLock(packetSignalCond);
 		pipe.writeMessage(VRDevicePipe::STARTSTREAM_REQUEST);
+		pipe.flush();
 		packetSignalCond.wait(packetSignalLock);
 		streaming=true;
 		}
@@ -188,6 +198,7 @@ void VRDeviceClient::stopStream(void)
 		/* Send stop streaming message: */
 		streaming=false;
 		pipe.writeMessage(VRDevicePipe::STOPSTREAM_REQUEST);
+		pipe.flush();
 		
 		/* Wait for packet receiving thread to die: */
 		streamReceiveThread.join();

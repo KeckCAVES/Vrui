@@ -29,14 +29,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLX_GLXEXT_PROTOTYPES
 #define GLX_GLXEXT_PROTOTYPES 1
 #endif
-#ifndef HAVE_GLXGETPROCADDRESS
+#ifndef GLSUPPORT_HAVE_GLXGETPROCADDRESS
 #include <dlfcn.h>
 #endif
 #include <GL/glx.h>
 #include <GL/Extensions/GLExtension.h>
 
 #if 0
-#ifdef HAVE_GLXGETPROCADDRESS
+#ifdef GLSUPPORT_HAVE_GLXGETPROCADDRESS
 #ifndef GLX_ARB_get_proc_address
 #define GLX_ARB_get_proc_address 1
 typedef void (*__GLXextFuncPtr)(void);
@@ -57,7 +57,7 @@ Methods of class GLExtensionManager:
 
 GLExtensionManager::FunctionPointer GLExtensionManager::getFunctionPtr(const char* functionName)
 	{
-	#ifdef HAVE_GLXGETPROCADDRESS
+	#ifdef GLSUPPORT_HAVE_GLXGETPROCADDRESS
 	return glXGetProcAddressARB(reinterpret_cast<const GLubyte*>(functionName));
 	#else
 	/* Mac OS X's GLX does not support glXGetProcAddress, strangely enough: */

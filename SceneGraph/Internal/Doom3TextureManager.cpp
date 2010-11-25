@@ -147,14 +147,14 @@ Doom3TextureManager::ImageID Doom3TextureManager::loadTexture(const char* textur
 	/* Store a new image structure in the image tree: */
 	imageID=imageTree.insertLeaf(textureName,Image());
 	
+	/* Create a texture image: */
+	Image& image=imageTree.getLeafValue(imageID);
+	image.textureIndex=numTextures;
+	++numTextures;
+	
 	/* Check for built-in texture names: */
 	if(textureName[0]=='_')
 		{
-		/* Create a texture image: */
-		Image& image=imageTree.getLeafValue(imageID);
-		image.textureIndex=numTextures;
-		++numTextures;
-		
 		/* Determine the fill color value: */
 		Images::RGBAImage::Color imageColor;
 		if(strcasecmp(textureName,"_black.tga")==0)
@@ -172,19 +172,25 @@ Doom3TextureManager::ImageID Doom3TextureManager::loadTexture(const char* textur
 		}
 	else
 		{
-		/* Load the texture image file: */
-		size_t imageSize;
-		unsigned char* imageData=fileManager.readFile(textureName,imageSize);
-		
-		/* Read the image file: */
-		Misc::MemMappedFile imageFile(imageData,imageSize,Misc::MemMappedFile::LittleEndian);
-		Images::TargaImageFileReader<Misc::MemMappedFile> targaReader(imageFile);
-		
-		/* Initialize the texture image: */
-		Image& image=imageTree.getLeafValue(imageID);
-		image.image=targaReader.readImage<Images::RGBAImage>();
-		image.textureIndex=numTextures;
-		++numTextures;
+		try
+			{
+			/* Load the texture image file: */
+			size_t imageSize;
+			unsigned char* imageData=fileManager.readFile(textureName,imageSize);
+			
+			/* Read the image file: */
+			Misc::MemMappedFile imageFile(imageData,imageSize,Misc::MemMappedFile::LittleEndian);
+			Images::TargaImageFileReader<Misc::MemMappedFile> targaReader(imageFile);
+			
+			/* Initialize the texture image: */
+			image.image=targaReader.readImage<Images::RGBAImage>();
+			}
+		catch(Doom3FileManager::ReadError err)
+			{
+			/* Initialize the texture image: */
+			image.image=Images::RGBAImage(2,2);
+			image.image.clear(Images::RGBAImage::Color(255,0,255,255));
+			}
 		}
 	
 	/* Return the image ID: */

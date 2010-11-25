@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -31,6 +31,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Vrui/GeodeticCoordinateTransform.h>
 #include <Vrui/LocatorTool.h>
 #include <Vrui/LocatorToolAdapter.h>
+#include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Application.h>
 
@@ -121,6 +122,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 		virtual ~DataLocator(void);
 		
 		/* Methods: */
+		virtual void getName(std::string& name) const;
 		virtual void buttonPressCallback(Vrui::LocatorTool::ButtonPressCallbackData* cbData);
 		virtual void glRenderAction(GLContextData& contextData) const;
 		void setTimeButtonSelectCallback(Misc::CallbackData* cbData);
@@ -160,6 +162,8 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMaterial innerCoreMaterial; // OpenGL material properties for the inner core
 	float earthquakePointSize; // Point size to render earthquake hypocenters
 	GLMaterial sensorPathMaterial; // OpenGL material properties for sensor paths
+	bool fog; // Flag whether depth cueing via fog is enabled
+	float bpDist; // Current backplane distance for clipping and fog attenuation
 	double currentTime; // Current animation time in seconds since the epoch in UTC
 	double playSpeed; // Animation playback speed in real-world seconds per visualization second
 	bool play; // Flag if automatic playback is enabled
@@ -177,9 +181,6 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMotif::TextField* playSpeedValue; // Text field showing the animation speed
 	GLMotif::Slider* playSpeedSlider; // Slider to adjust the animation speed
 	GLMotif::ToggleButton* playToggle; // Toggle button for automatic playback
-	
-	// DEBUGGING
-	//Vrui::NavTransform navFrame;
 	
 	/* Private methods: */
 	GLMotif::Popup* createRenderTogglesMenu(void); // Creates the "Rendering Modes" submenu
@@ -200,7 +201,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	void alignSurfaceFrame(Vrui::NavTransform& surfaceFrame);
+	void alignSurfaceFrame(const Vrui::SurfaceNavigationTool::AlignmentData& alignmentData);
 	void menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void renderDialogCloseCallback(Misc::CallbackData* cbData);
 	void animationDialogCloseCallback(Misc::CallbackData* cbData);

@@ -1,7 +1,7 @@
 ########################################################################
 # SystemDefinitions - System-dependent settings for the WhyTools build
 # environment.
-# Copyright (c) 1999-2008 Oliver Kreylos
+# Copyright (c) 1999-2010 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -91,9 +91,10 @@ HOST_ARCH = $(shell uname -m)
 
 ifeq ($(HOST_OS),Linux)
   SYSTEM = LINUX
-	OSSPECFILEINSERT = Linux
+  OSSPECFILEINSERT = Linux
   ifeq ($(HOST_ARCH),x86_64)
     LIBEXT = lib64
+    # Set different object and executable file paths for mixed architectures
     OBJDIRBASE = o/64
     EXEDIR = exe/64
   endif
@@ -101,7 +102,7 @@ endif
 
 ifeq ($(HOST_OS),Darwin)
   SYSTEM = DARWIN
-	OSSPECFILEINSERT = MacOSX
+  OSSPECFILEINSERT = MacOSX
   DSOFILEEXT = dylib
   FULLDSONAME = $(1).$(LDEXT).$(MAJORLIBVERSION).$(MINORLIBVERSION).$(DSOFILEEXT)
   DSONAME = $(1).$(LDEXT).$(MAJORLIBVERSION).$(DSOFILEEXT)
@@ -116,7 +117,7 @@ ifeq ($(HOST_OS),Darwin)
   endif
   CPLUGINFLAGS = 
   PLUGINLINKFLAGS = -bundle -undefined dynamic_lookup
-  PLUGINHOSTLINKFLAGS =
+  PLUGINHOSTLINKFLAGS = 
   SYSTEM_HAVE_TRANSITIVE_PLUGINS = 0
   VRUIAPP_LFLAGS = -flat_namespace -bind_at_load 
   SYSTEM_SEPARATE_LIBDL = 0
@@ -125,7 +126,7 @@ ifeq ($(HOST_OS),Darwin)
   SYSTEM_GL_WITH_X11 = 1
   SYSTEM_HAVE_GLXGETPROCADDRESS = 0
   SYSTEM_OPENAL_FRAMEWORK = 1
-  SYSTEM_UNAME_MAJOR = $(shell expr `uname -r` : "\([0-9]*\).[0-9]*.[0-9].*")
+  SYSTEM_UNAME_MAJOR = $(shell expr `uname -r` : "\([0-9]*\)")
   ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "9"),1)
     ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "10"),1)
       SYSTEM_DARWIN_VERSION = 10.6
@@ -165,15 +166,15 @@ ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "3.0.0"),1)
   # gcc versions 3.0.0 and up create dependency file with the same
   # root name and in the same directory as the created object file
   DEPFILETEMPLATE = '$(patsubst %.o,%.d,$@)'
+  ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "4.1.0"),1)
+    # gcc version 4.1.0 and up requires friend injection flag
+    EXTRACSYSFLAGS += -ffriend-injection
+  endif
 else
   COMPILERTYPE = g++
   # gcc version 2.x.y creates dependency file with the same root name as
   # the source file in the current directory:
   DEPFILETEMPLATE = '$(*F).d'
-endif
-ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "4.1.0"),1)
-  # gcc version 4.1.0 and up requires friend injection flag
-	EXTRACSYSFLAGS += -ffriend-injection
 endif
 
 # Package-provided libraries can be built for different compiler

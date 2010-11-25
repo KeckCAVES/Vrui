@@ -62,6 +62,10 @@ class SelfDestructPointer
 		}
 	
 	/* Methods: */
+	bool isValid(void) const // Returns true if the pointer points to a valid object
+		{
+		return target!=0;
+		}
 	Target& operator*(void) const // Indirection operator
 		{
 		return *target;

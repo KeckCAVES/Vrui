@@ -23,7 +23,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/InputDeviceAdapter.h>
 
-#include <string>
+#include <string.h>
+#include <stdio.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
@@ -32,6 +33,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 
@@ -83,6 +85,8 @@ void InputDeviceAdapter::initializeAdapter(const Misc::ConfigurationFileSection&
 	StringList inputDeviceNames=configFileSection.retrieveValue<StringList>("./inputDeviceNames");
 	numInputDevices=inputDeviceNames.size();
 	inputDevices=new InputDevice*[numInputDevices];
+	for(int i=0;i<numInputDevices;++i)
+		inputDevices[i]=0;
 	
 	/* Initialize input devices: */
 	for(int i=0;i<numInputDevices;++i)
@@ -97,8 +101,70 @@ void InputDeviceAdapter::initializeAdapter(const Misc::ConfigurationFileSection&
 
 InputDeviceAdapter::~InputDeviceAdapter(void)
 	{
-	/* Delete adapter state arrays: */
+	/* Destroy all input devices: */
+	for(int i=0;i<numInputDevices;++i)
+		if(inputDevices[i]!=0)
+			inputDeviceManager->destroyInputDevice(inputDevices[i]);
 	delete[] inputDevices;
+	}
+
+std::string InputDeviceAdapter::getDefaultFeatureName(const InputDeviceFeature& feature)
+	{
+	char featureName[40];
+	featureName[0]='\0';
+	
+	/* Check if the feature is a button or a valuator: */
+	if(feature.isButton())
+		{
+		/* Return a default button name: */
+		snprintf(featureName,sizeof(featureName),"Button%d",feature.getIndex());
+		}
+	if(feature.isValuator())
+		{
+		/* Return a default valuator name: */
+		snprintf(featureName,sizeof(featureName),"Valuator%d",feature.getIndex());
+		}
+	
+	return std::string(featureName);
+	}
+
+int InputDeviceAdapter::getDefaultFeatureIndex(InputDevice* device,const char* featureName)
+	{
+	int result=-1;
+	
+	/* Check if the feature names a button or a valuator: */
+	if(strncmp(featureName,"Button",6)==0)
+		{
+		/* Get the button index: */
+		int buttonIndex=atoi(featureName+6);
+		if(buttonIndex<device->getNumButtons())
+			result=device->getButtonFeatureIndex(buttonIndex);
+		else
+			result=-1;
+		}
+	if(strncmp(featureName,"Valuator",8)==0)
+		{
+		/* Get the valuator index: */
+		int valuatorIndex=atoi(featureName+8);
+		if(valuatorIndex<device->getNumValuators())
+			result=device->getValuatorFeatureIndex(valuatorIndex);
+		else
+			result=-1;
+		}
+	
+	return result;
+	}
+
+std::string InputDeviceAdapter::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Return a default feature name: */
+	return getDefaultFeatureName(feature);
+	}
+
+int InputDeviceAdapter::getFeatureIndex(InputDevice* device,const char* featureName) const
+	{
+	/* Parse a default feature name: */
+	return getDefaultFeatureIndex(device,featureName);
 	}
 
 }

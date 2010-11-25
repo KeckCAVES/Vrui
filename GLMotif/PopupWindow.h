@@ -23,11 +23,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_POPUPWINDOW_INCLUDED
 #define GLMOTIF_POPUPWINDOW_INCLUDED
 
-#define USE_RENDERCACHE 0
+#define GLMOTIF_POPUPWINDOW_USE_RENDERCACHE 0
 
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
-#if USE_RENDERCACHE
+#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #endif
@@ -42,7 +42,7 @@ class NewButton;
 
 namespace GLMotif {
 
-#if USE_RENDERCACHE
+#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
 class PopupWindow:public Container,public GLObject
 #else
 class PopupWindow:public Container
@@ -73,7 +73,7 @@ class PopupWindow:public Container
 			}
 		};
 	
-	#if USE_RENDERCACHE
+	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
@@ -108,7 +108,7 @@ class PopupWindow:public Container
 	int resizeBorderMask; // Bit mask of which borders are being dragged 1 - left, 2 - right, 4 - bottom, 8 - top
 	GLfloat resizeOffset[2]; // Offset from the initial resizing position to the relevant border
 	
-	#if USE_RENDERCACHE
+	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
 	private:
 	unsigned int version; // Version number of visual representation of popup window and child widgets
 	#endif
@@ -136,7 +136,8 @@ class PopupWindow:public Container
 	virtual Vector calcNaturalSize(void) const;
 	virtual ZRange calcZRange(void) const;
 	virtual void resize(const Box& newExterior);
-	#if USE_RENDERCACHE
+	virtual Vector calcHotSpot(void) const;
+	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
 	virtual void update(void);
 	#endif
 	virtual void draw(GLContextData& contextData) const;
@@ -147,11 +148,12 @@ class PopupWindow:public Container
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
+	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);
 	
-	#if USE_RENDERCACHE
+	#if GLMOTIF_POPUPWINDOW_USE_RENDERCACHE
 	/* Methods inherited from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;
 	#endif

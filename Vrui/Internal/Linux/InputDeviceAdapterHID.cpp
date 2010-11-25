@@ -36,13 +36,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/input.h>
-#include <string>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Comm/FdSet.h>
 #include <Math/MathValueCoders.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Vrui.h>
 
@@ -286,7 +287,38 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 		}
 	
 	/* Create new input device as a physical device: */
-	newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),InputDevice::TRACK_NONE,newDevice.numButtons,newDevice.numValuators,true);
+	inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),InputDevice::TRACK_NONE,newDevice.numButtons,newDevice.numValuators,true);
+	
+	/* Read the names of all button features: */
+	typedef std::vector<std::string> StringList;
+	StringList buttonNames=configFileSection.retrieveValue<StringList>("./buttonNames",StringList());
+	int buttonIndex=0;
+	for(StringList::iterator bnIt=buttonNames.begin();bnIt!=buttonNames.end()&&buttonIndex<newDevice.numButtons;++bnIt,++buttonIndex)
+		{
+		/* Store the button name: */
+		newDevice.buttonNames.push_back(*bnIt);
+		}
+	for(;buttonIndex<newDevice.numButtons;++buttonIndex)
+		{
+		char buttonName[40];
+		snprintf(buttonName,sizeof(buttonName),"Button%d",buttonIndex);
+		newDevice.buttonNames.push_back(buttonName);
+		}
+	
+	/* Read the names of all valuator features: */
+	StringList valuatorNames=configFileSection.retrieveValue<StringList>("./valuatorNames",StringList());
+	int valuatorIndex=0;
+	for(StringList::iterator vnIt=valuatorNames.begin();vnIt!=valuatorNames.end()&&valuatorIndex<newDevice.numValuators;++vnIt,++valuatorIndex)
+		{
+		/* Store the valuator name: */
+		newDevice.valuatorNames.push_back(*vnIt);
+		}
+	for(;valuatorIndex<newDevice.numValuators;++valuatorIndex)
+		{
+		char valuatorName[40];
+		snprintf(valuatorName,sizeof(valuatorName),"Valuator%d",valuatorIndex);
+		newDevice.valuatorNames.push_back(valuatorName);
+		}
 	
 	/* Store the new device structure: */
 	devices.push_back(newDevice);
@@ -418,6 +450,51 @@ InputDeviceAdapterHID::~InputDeviceAdapterHID(void)
 	/* Close all device files: */
 	for(std::vector<Device>::iterator dIt=devices.begin();dIt!=devices.end();++dIt)
 		close(dIt->deviceFd);
+	}
+
+std::string InputDeviceAdapterHID::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Find the HID structure for the given input device: */
+	std::vector<Device>::const_iterator dIt;
+	for(dIt=devices.begin();dIt!=devices.end()&&dIt->device!=feature.getDevice();++dIt)
+		;
+	if(dIt==devices.end())
+		Misc::throwStdErr("InputDeviceAdapterHID::getFeatureName: Unknown device %s",feature.getDevice()->getDeviceName());
+	
+	/* Check whether the feature is a button or a valuator: */
+	std::string result;
+	if(feature.isButton())
+		{
+		/* Return the button feature's name: */
+		result=dIt->buttonNames[feature.getIndex()];
+		}
+	if(feature.isValuator())
+		{
+		/* Return the valuator feature's name: */
+		result=dIt->valuatorNames[feature.getIndex()];
+		}
+	
+	return result;
+	}
+
+int InputDeviceAdapterHID::getFeatureIndex(InputDevice* device,const char* featureName) const
+	{
+	/* Find the HID structure for the given input device: */
+	std::vector<Device>::const_iterator dIt;
+	for(dIt=devices.begin();dIt!=devices.end()&&dIt->device!=device;++dIt)
+		;
+	if(dIt==devices.end())
+		Misc::throwStdErr("InputDeviceAdapterHID::getFeatureIndex: Unknown device %s",device->getDeviceName());
+	
+	/* Check if the feature names a button or a valuator: */
+	for(int buttonIndex=0;buttonIndex<dIt->numButtons;++buttonIndex)
+		if(dIt->buttonNames[buttonIndex]==featureName)
+			return device->getButtonFeatureIndex(buttonIndex);
+	for(int valuatorIndex=0;valuatorIndex<dIt->numValuators;++valuatorIndex)
+		if(dIt->valuatorNames[valuatorIndex]==featureName)
+			return device->getValuatorFeatureIndex(valuatorIndex);
+	
+	return -1;
 	}
 
 void InputDeviceAdapterHID::updateInputDevices(void)

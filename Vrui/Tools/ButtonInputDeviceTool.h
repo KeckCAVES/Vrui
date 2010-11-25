@@ -1,7 +1,7 @@
 /***********************************************************************
 ButtonInputDeviceTool - Class for tools using buttons (such as keyboard
 keys) to interact with virtual input devices.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -48,6 +48,7 @@ class ButtonInputDeviceToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -78,7 +79,7 @@ class ButtonInputDeviceTool:public InputDeviceTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

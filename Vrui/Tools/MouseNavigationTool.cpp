@@ -31,13 +31,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
+#include <Vrui/Vrui.h>
+#include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/Internal/InputDeviceAdapterMouse.h>
-#include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
+#include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -56,14 +56,13 @@ MouseNavigationToolFactory::MouseNavigationToolFactory(ToolManager& toolManager)
 	 scaleFactor(getInchFactor()*Scalar(3)),
 	 wheelDollyFactor(getInchFactor()*Scalar(-12)),
 	 wheelScaleFactor(Scalar(0.5)),
-	 spinThreshold(getInchFactor()*Scalar(0.25)),
+	 spinThreshold(getUiSize()*Scalar(2)),
 	 showScreenCenter(true),
 	 interactWithWidgets(true)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,3);
-	layout.setNumValuators(0,1);
+	layout.setNumButtons(3);
+	layout.setNumValuators(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -98,6 +97,29 @@ MouseNavigationToolFactory::~MouseNavigationToolFactory(void)
 const char* MouseNavigationToolFactory::getName(void) const
 	{
 	return "Mouse (Multiple Buttons)";
+	}
+
+const char* MouseNavigationToolFactory::getButtonFunction(int buttonSlotIndex) const
+	{
+	switch(buttonSlotIndex)
+		{
+		case 0:
+			return "Rotate";
+		
+		case 1:
+			return "Pan";
+		
+		case 2:
+			return "Zoom/Dolly Switch";
+		}
+	
+	/* Never reached; just to make compiler happy: */
+	return 0;
+	}
+
+const char* MouseNavigationToolFactory::getValuatorFunction(int) const
+	{
+	return "Quick Zoom/Dolly";
 	}
 
 Tool* MouseNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -145,40 +167,30 @@ Methods of class MouseNavigationTool:
 
 Point MouseNavigationTool::calcScreenCenter(void) const
 	{
-	/* Determine the screen containing the input device and the screen's center: */
-	const VRScreen* screen;
-	Point centerPos;
-	if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
-		{
-		screen=mouseAdapter->getWindow()->getVRScreen();
-		mouseAdapter->getWindow()->getWindowCenterPos(centerPos.getComponents());
-		}
-	else
-		{
-		screen=getMainScreen();
-		centerPos[0]=getMainScreen()->getWidth()*Scalar(0.5);
-		centerPos[1]=getMainScreen()->getHeight()*Scalar(0.5);
-		}
-	centerPos[2]=Scalar(0);
+	/* Get the transformation of the screen currently containing the input device: */
+	Scalar viewport[4];
+	ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
 	
-	/* Calculate the center position in physical coordinates: */
-	return screen->getScreenTransformation().transform(centerPos);
+	/* Calculate the screen's center: */
+	Point center;
+	center[0]=Math::mid(viewport[0],viewport[1]);
+	center[1]=Math::mid(viewport[2],viewport[3]);
+	center[2]=Scalar(0);
+	
+	/* Transform the center position to physical coordinates: */
+	return screenT.transform(center);
 	}
 
 Point MouseNavigationTool::calcScreenPos(void) const
 	{
 	/* Calculate the ray equation: */
-	Ray ray=getDeviceRay(0);
+	Ray ray=getButtonDeviceRay(0);
 	
-	/* Find the screen currently containing the input device: */
-	const VRScreen* screen;
-	if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
-		screen=mouseAdapter->getWindow()->getVRScreen();
-	else
-		screen=getMainScreen();
+	/* Get the transformation of the screen currently containing the input device: */
+	Scalar viewport[4];
+	ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
 	
-	/* Intersect ray with the screen: */
-	ONTransform screenT=screen->getScreenTransformation();
+	/* Intersect the device ray with the screen: */
 	Vector normal=screenT.getDirection(2);
 	Scalar d=normal*screenT.getOrigin();
 	Scalar divisor=normal*ray.getDirection();
@@ -200,8 +212,12 @@ void MouseNavigationTool::startRotating(void)
 	/* Calculate initial rotation position: */
 	lastRotationPos=calcScreenPos();
 	
+	/* Get the transformation of the screen currently containing the input device: */
+	Scalar viewport[4];
+	ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
+	
 	/* Calculate the rotation offset vector: */
-	rotateOffset=getMainScreen()->getScreenTransformation().transform(Vector(0,0,factory->rotatePlaneOffset));
+	rotateOffset=screenT.transform(Vector(0,0,factory->rotatePlaneOffset));
 	
 	preScale=NavTrackerState::translateFromOriginTo(screenCenter);
 	rotation=NavTrackerState::identity;
@@ -226,7 +242,7 @@ void MouseNavigationTool::startPanning(void)
 void MouseNavigationTool::startDollying(void)
 	{
 	/* Calculate the dollying direction: */
-	if(mouseAdapter!=0)
+	if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
 		dollyDirection=mouseAdapter->getWindow()->getViewer()->getHeadPosition()-calcScreenCenter();
 	else
 		dollyDirection=getMainViewer()->getHeadPosition()-calcScreenCenter();
@@ -259,13 +275,14 @@ void MouseNavigationTool::startScaling(void)
 
 MouseNavigationTool::MouseNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
-	 GUIInteractor(false,Scalar(0),getDevice(0)),
+	 GUIInteractor(false,Scalar(0),getButtonDevice(0)),
 	 mouseAdapter(0),
 	 currentValue(0),
 	 dolly(MouseNavigationTool::factory->invertDolly),navigationMode(IDLE)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
-	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getDevice(0)));
+	InputDevice* rootDevice=getInputGraphManager()->getRootDevice(getButtonDevice(0));
+	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(rootDevice));
 	}
 
 const ToolFactory* MouseNavigationTool::getFactory(void) const
@@ -273,10 +290,10 @@ const ToolFactory* MouseNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
+void MouseNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Process based on which button was pressed: */
-	switch(buttonIndex)
+	switch(buttonSlotIndex)
 		{
 		case 0:
 			if(cbData->newButtonState) // Button has just been pressed
@@ -470,7 +487,7 @@ void MouseNavigationTool::buttonCallback(int,int buttonIndex,InputDevice::Button
 		}
 	}
 
-void MouseNavigationTool::valuatorCallback(int,int,InputDevice::ValuatorCallbackData* cbData)
+void MouseNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
 	{
 	currentValue=Scalar(cbData->newValuatorValue);
 	if(currentValue!=Scalar(0))
@@ -605,11 +622,9 @@ void MouseNavigationTool::frame(void)
 		case DOLLYING:
 			{
 			/* Calculate the current dollying direction: */
-			Vector dollyingDirection;
-			if(mouseAdapter!=0)
-				dollyingDirection=mouseAdapter->getWindow()->getVRScreen()->getScreenTransformation().transform(factory->screenDollyingDirection);
-			else
-				dollyingDirection=getMainScreen()->getScreenTransformation().transform(factory->screenDollyingDirection);
+			Scalar viewport[4];
+			ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
+			Vector dollyingDirection=screenT.transform(factory->screenDollyingDirection);
 			
 			/* Update the navigation transformation: */
 			Scalar dollyDist=((currentPos-motionStart)*dollyingDirection)/factory->dollyFactor;
@@ -622,11 +637,9 @@ void MouseNavigationTool::frame(void)
 		case SCALING:
 			{
 			/* Calculate the current scaling direction: */
-			Vector scalingDirection;
-			if(mouseAdapter!=0)
-				scalingDirection=mouseAdapter->getWindow()->getVRScreen()->getScreenTransformation().transform(factory->screenScalingDirection);
-			else
-				scalingDirection=getMainScreen()->getScreenTransformation().transform(factory->screenScalingDirection);
+			Scalar viewport[4];
+			ONTransform screenT=getMouseScreenTransform(mouseAdapter,viewport);
+			Vector scalingDirection=screenT.transform(factory->screenScalingDirection);
 			
 			/* Update the navigation transformation: */
 			Scalar scale=((currentPos-motionStart)*scalingDirection)/factory->scaleFactor;
@@ -678,34 +691,12 @@ void MouseNavigationTool::display(GLContextData& contextData) const
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
-		
-		/* Get a pointer to the screen the mouse is on: */
-		const VRScreen* screen;
-		if(mouseAdapter!=0&&mouseAdapter->getWindow()!=0)
-			screen=mouseAdapter->getWindow()->getVRScreen();
-		else
-			screen=getMainScreen();
-		ONTransform screenT=screen->getScreenTransformation();
+		glDepthFunc(GL_LEQUAL);
 		
 		/* Go to screen coordinates: */
 		glPushMatrix();
-		glMultMatrix(screenT);
-		
-		/* Determine the screen containing the input device and find its center: */
-		Scalar centerPos[2];
-		if(mouseAdapter!=0)
-			mouseAdapter->getWindow()->getWindowCenterPos(centerPos);
-		else
-			{
-			centerPos[0]=getMainScreen()->getWidth()*Scalar(0.5);
-			centerPos[1]=getMainScreen()->getHeight()*Scalar(0.5);
-			}
-		
-		/* Calculate the endpoints of the screen's crosshair lines in screen coordinates: */
-		Point l=Point(Scalar(0),centerPos[1],Scalar(0));
-		Point r=Point(screen->getWidth(),centerPos[1],Scalar(0));
-		Point b=Point(centerPos[0],Scalar(0),Scalar(0));
-		Point t=Point(centerPos[0],screen->getHeight(),Scalar(0));
+		Scalar viewport[4];
+		glMultMatrix(getMouseScreenTransform(mouseAdapter,viewport));
 		
 		/* Determine the crosshair colors: */
 		Color bgColor=getBackgroundColor();
@@ -714,8 +705,18 @@ void MouseNavigationTool::display(GLContextData& contextData) const
 			fgColor[i]=1.0f-bgColor[i];
 		fgColor[3]=bgColor[3];
 		
+		/* Calculate the window's or screen's center: */
+		Scalar centerPos[2];
+		for(int i=0;i<2;++i)
+			centerPos[i]=Math::mid(viewport[2*i+0],viewport[2*i+1]);
+		
+		/* Calculate the endpoints of the screen's crosshair lines in screen coordinates: */
+		Point l=Point(viewport[0],centerPos[1],Scalar(0));
+		Point r=Point(viewport[1],centerPos[1],Scalar(0));
+		Point b=Point(centerPos[0],viewport[2],Scalar(0));
+		Point t=Point(centerPos[0],viewport[3],Scalar(0));
+		
 		/* Draw the screen crosshairs: */
-		glDepthFunc(GL_LEQUAL);
 		glLineWidth(3.0f);
 		glColor(bgColor);
 		glBegin(GL_LINES);

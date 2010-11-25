@@ -47,7 +47,7 @@ class VruiCustomToolDemo:public Vrui::Application
 		
 		/* Methods: */
 		virtual const Vrui::ToolFactory* getFactory(void) const;
-		virtual void buttonCallback(int deviceIndex,int buttonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		};
 	
 	/* Constructors and destructors: */
@@ -78,19 +78,19 @@ const Vrui::ToolFactory* VruiCustomToolDemo::MyTool::getFactory(void) const
 	return factory;
 	}
 
-void VruiCustomToolDemo::MyTool::buttonCallback(int deviceIndex,int buttonIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
+void VruiCustomToolDemo::MyTool::buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
-		std::cout<<"MyTool: Button "<<buttonIndex<<" has just been pressed"<<std::endl;
+		std::cout<<"MyTool: Button "<<buttonSlotIndex<<" has just been pressed"<<std::endl;
 		
 		/* Call an application method if the second button was pressed: */
-		if(buttonIndex==1)
+		if(buttonSlotIndex==1)
 			application->selectApplicationObject();
 		}
 	else // Button has just been released
 		{
-		std::cout<<"MyTool: Button "<<buttonIndex<<" has just been released"<<std::endl;
+		std::cout<<"MyTool: Button "<<buttonSlotIndex<<" has just been released"<<std::endl;
 		}
 	}
 
@@ -105,8 +105,10 @@ VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv,char**& appDefault
 	MyToolFactory* myToolFactory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
 	
 	/* Set the custom tool class' input layout: */
-	myToolFactory->setNumDevices(1); // Needs one input device
-	myToolFactory->setNumButtons(0,2); // Needs two buttons on the first input device
+	myToolFactory->setNumButtons(2); // Needs two buttons and can take optional buttons
+	myToolFactory->setButtonFunction(0,"Does nothing");
+	myToolFactory->setButtonFunction(1,"Select Application Object");
+	myToolFactory->setButtonFunction(2,"Optional Button");
 	
 	/* Register the custom tool class with the Vrui tool manager: */
 	Vrui::getToolManager()->addClass(myToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);

@@ -217,10 +217,16 @@ void setMainMenu(GLMotif::PopupMenu* newMainMenu); // Sets the application's mai
 MutexMenu* getMainMenu(void); // Returns pointer to the application's main menu
 Misc::TimerEventScheduler* getTimerEventScheduler(void); // Returns pointer to the scheduler for application timer events
 GLMotif::WidgetManager* getWidgetManager(void); // Returns pointer to the UI component manager
+ONTransform calcHUDTransform(const Point& hotSpot); // Returns a transformation for showing a HUD or GUI element at the given hot spot
 void popupPrimaryWidget(GLMotif::Widget* topLevel); // Shows a top-level UI component at a default position in the environment
-void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational =true); // Shows a top-level UI component in the environment
+void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational =true); // Shows a top-level UI component at the given position in physical or navigational coordinates
 void popupPrimaryScreenWidget(GLMotif::Widget* topLevel,Scalar x,Scalar y); // Shows a top-level UI component aligned to the given screen in the environment
 void popdownPrimaryWidget(GLMotif::Widget* topLevel); // Hides a top-level UI component
+void showErrorMessage(const char* title,const char* message); // Pops up a temporary dialog window to show an error message with an acknowledgment button
+
+/* Manage 3D picking and selection: */
+Scalar getPointPickDistance(void); // Returns the maximum distance to be used for point-based pick queries in navigational space
+Scalar getRayPickCosine(void); // Returns the cosine of the maximum angle to be used for ray-based pick queries
 
 /* Navigation transformation management: */
 void setNavigationTransformation(const NavTransform& newNavigationTransformation); // Sets the navigation transformation
@@ -230,15 +236,15 @@ void concatenateNavigationTransformation(const NavTransform& t); // Concatenates
 void concatenateNavigationTransformationLeft(const NavTransform& t); // Concatenates the given transformation to the navigation transformation from the left
 const NavTransform& getNavigationTransformation(void); // Returns the navigation transformation
 const NavTransform& getInverseNavigationTransformation(void); // Returns the inverse of the navigation transformation
-void disableNavigationTransformation(void); // Disable all navigation; from this point on, model coordinates are physical coordinates
+void disableNavigationTransformation(void); // Disable all navigation; from this point on, navigational coordinates are physical coordinates
 Misc::CallbackList& getNavigationTransformationChangedCallbacks(void); // Returns the lists of callbacks called when the navigation transformation changes
 CoordinateManager* getCoordinateManager(void); // Returns pointer to the coordinate manager
 
 /* Pointer/device position/orientation management: */
-Point getHeadPosition(void); // Returns the current position of the main viewer in model coordinates
-Vector getViewDirection(void); // Returns the view direction of the main viewer in model coordinates
-Point getDevicePosition(InputDevice* device); // Returns the position of the given input device in model coordinates
-NavTrackerState getDeviceTransformation(InputDevice* device); // Returns the transformation of the given input device in model coordiantes
+Point getHeadPosition(void); // Returns the current position of the main viewer in navigational coordinates
+Vector getViewDirection(void); // Returns the view direction of the main viewer in navigational coordinates
+Point getDevicePosition(InputDevice* device); // Returns the position of the given input device in navigational coordinates
+NavTrackerState getDeviceTransformation(InputDevice* device); // Returns the transformation of the given input device in navigational coordiantes
 
 /* Tool management: */
 ToolManager* getToolManager(void); // Returns pointer to the tool manager
@@ -249,7 +255,7 @@ void deactivateNavigationTool(const Tool* tool); // Deactivates a navigation too
 VisletManager* getVisletManager(void); // Returns pointer to the vislet manager
 
 /* Time management: */
-double getApplicationTime(void); // Returns the time since the application was started in seconds
+double getApplicationTime(void); // Returns the time since the application was started in seconds; is identical throughout a Vrui frame and across a cluster
 double getFrameTime(void); // Returns the duration of the last frame in seconds
 double getCurrentFrameTime(void); // Returns the current average time between frames (1/framerate) in seconds
 

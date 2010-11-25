@@ -41,9 +41,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/ProjectiveTransformation.h>
 #include <Geometry/Box.h>
 #include <Geometry/Ray.h>
-#include <Geometry/SolidHitResult.h>
-#include <Geometry/Sphere.h>
 #include <Geometry/PCACalculator.h>
+#include <Geometry/PointPicker.h>
+#include <Geometry/RayPicker.h>
 #include <Geometry/OutputOperators.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
@@ -140,9 +140,11 @@ class ScreenCalibrator:public Vrui::Application
 	typedef double Scalar;
 	typedef Geometry::Point<Scalar,3> Point;
 	typedef Geometry::Vector<Scalar,3> Vector;
+	typedef Geometry::Ray<Scalar,3> Ray;
 	typedef Geometry::OrthonormalTransformation<Scalar,3> ONTransform;
 	typedef Geometry::ProjectiveTransformation<Scalar,3> PTransform;
 	typedef std::vector<Point> PointList;
+	typedef size_t PickResult;
 	
 	class PointQueryTool;
 	typedef Vrui::GenericToolFactory<PointQueryTool> PointQueryToolFactory;
@@ -167,7 +169,7 @@ class ScreenCalibrator:public Vrui::Application
 			{
 			return factory;
 			}
-		virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		};
 	
 	/* Elements: */
@@ -193,8 +195,8 @@ class ScreenCalibrator:public Vrui::Application
 	virtual void display(GLContextData& contextData) const;
 	
 	/* New methods: */
-	int pickPoint(const Vrui::Point& queryPoint,Vrui::Scalar pointSize) const;
-	int pickPoint(const Vrui::Ray& queryRay,Vrui::Scalar pointSize) const;
+	PickResult pickPoint(const Point& queryPoint) const;
+	PickResult pickPoint(const Ray& queryRay) const;
 	};
 
 /*********************************************************
@@ -207,48 +209,40 @@ ScreenCalibrator::PointQueryToolFactory* ScreenCalibrator::PointQueryTool::facto
 Methods of class ScreenCalibrator::PointQueryTool:
 *************************************************/
 
-void ScreenCalibrator::PointQueryTool::buttonCallback(int,int,Vrui::InputDevice::ButtonCallbackData* cbData)
+void ScreenCalibrator::PointQueryTool::buttonCallback(int,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState)
 		{
 		/* Get pointer to input device that caused the event: */
-		Vrui::InputDevice* device=getDevice(0);
+		Vrui::InputDevice* device=getButtonDevice(0);
 		
-		/* Pick a point: */
-		Vrui::Scalar markerSize=Vrui::getUiSize()*Vrui::getInverseNavigationTransformation().getScaling();
-		
-		int pointIndex;
+		size_t pickResult;
 		Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(device);
 		if(device->isRayDevice())
-			pointIndex=application->pickPoint(Vrui::Ray(transform.getOrigin(),transform.transform(device->getDeviceRayDirection())),markerSize);
+			pickResult=application->pickPoint(Ray(transform.getOrigin(),transform.transform(device->getDeviceRayDirection())));
 		else
-			pointIndex=application->pickPoint(transform.getOrigin(),markerSize);
+			pickResult=application->pickPoint(transform.getOrigin());
 		
-		if(pointIndex>=0)
+		if(pickResult!=~PickResult(0))
 			{
 			/* Find what type of point this is: */
-			size_t pi=pointIndex;
-			
-			if(pi<application->trackingPoints.size())
-				std::cout<<"Tracking point "<<pi<<": "<<application->trackingPoints[pi]<<std::endl;
+			if(pickResult<application->trackingPoints.size())
+				std::cout<<"Tracking point "<<pickResult<<": "<<application->trackingPoints[pickResult]<<std::endl;
 			else
 				{
-				pi-=application->trackingPoints.size();
-				
-				if(pi<application->floorPoints.size())
-					std::cout<<"Floor point "<<pi<<": "<<application->floorPoints[pi]<<std::endl;
+				pickResult-=application->trackingPoints.size();
+				if(pickResult<application->floorPoints.size())
+					std::cout<<"Floor point "<<pickResult<<": "<<application->floorPoints[pickResult]<<std::endl;
 				else
 					{
-					pi-=application->floorPoints.size();
-					
-					if(pi<application->screenPoints.size())
-						std::cout<<"Screen point "<<pi<<": "<<application->screenPoints[pi]<<std::endl;
+					pickResult-=application->floorPoints.size();
+					if(pickResult<application->screenPoints.size())
+						std::cout<<"Screen point "<<pickResult<<": "<<application->screenPoints[pickResult]<<std::endl;
 					else
 						{
-						pi-=application->screenPoints.size();
-						
-						if(pi<application->ballPoints.size())
-							std::cout<<"Ball point "<<pi<<": "<<application->ballPoints[pi]<<std::endl;
+						pickResult-=application->screenPoints.size();
+						if(pickResult<application->ballPoints.size())
+							std::cout<<"Ball point "<<pickResult<<": "<<application->ballPoints[pickResult]<<std::endl;
 						}
 					}
 				}
@@ -327,6 +321,8 @@ void ScreenCalibrator::readOptitrackSampleFile(const char* fileName,bool flipZ)
 			
 			lastTimeStamp=timeStamp;
 			}
+		
+		++line;
 		}
 	
 	/* Get the last average point position: */
@@ -397,6 +393,12 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	:Vrui::Application(argc,argv,appDefaults),
 	 trackingPointsMover(0)
 	{
+	/* Create and register the point query tool class: */
+	PointQueryToolFactory* pointQueryToolFactory=new PointQueryToolFactory("PointQueryTool","Point Query",0,*Vrui::getToolManager());
+	pointQueryToolFactory->setNumButtons(1);
+	pointQueryToolFactory->setButtonFunction(0,"Query Point");
+	Vrui::getToolManager()->addClass(pointQueryToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
+	
 	/* Parse the command line: */
 	const char* optitrackFileName=0;
 	bool optitrackFlipZ=false;
@@ -442,12 +444,6 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 			{
 			}
 		}
-	
-	/* Create and register the point query tool class: */
-	PointQueryToolFactory* pointQueryToolFactory=new PointQueryToolFactory("PointQueryTool","Point Query",0,*Vrui::getToolManager());
-	pointQueryToolFactory->setNumDevices(1);
-	pointQueryToolFactory->setNumButtons(0,1);
-	Vrui::getToolManager()->addClass(pointQueryToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Read the Optitrack sample file: */
 	if(optitrackFileName!=0)
@@ -782,126 +778,48 @@ void ScreenCalibrator::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-int ScreenCalibrator::pickPoint(const Vrui::Point& queryPoint,Vrui::Scalar markerSize) const
+ScreenCalibrator::PickResult ScreenCalibrator::pickPoint(const Point& queryPoint) const
 	{
-	int bestPointIndex=-1;
-	Scalar minSqrDist=Math::sqr(markerSize);
+	/* Create a point picker: */
+	Geometry::PointPicker<Scalar,3> picker(queryPoint,Scalar(Vrui::getPointPickDistance()));
 	
-	/* Compare the query point against all points: */
-	size_t indexBase=0;
+	/* Process all points: */
+	for(PointList::const_iterator pIt=trackingPoints.begin();pIt!=trackingPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=floorPoints.begin();pIt!=floorPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=screenPoints.begin();pIt!=screenPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=ballPoints.begin();pIt!=ballPoints.end();++pIt)
+		picker(*pIt);
 	
-	/* Compare against tracking points: */
-	for(size_t i=0;i<trackingPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(queryPoint,trackingPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=int(i+indexBase);
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=trackingPoints.size();
-	
-	/* Compare against floor points: */
-	for(size_t i=0;i<floorPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(queryPoint,floorPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=int(i+indexBase);
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=floorPoints.size();
-	
-	/* Compare against screen points: */
-	for(size_t i=0;i<screenPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(queryPoint,screenPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=int(i+indexBase);
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=screenPoints.size();
-	
-	/* Compare against ball points: */
-	for(size_t i=0;i<ballPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(queryPoint,ballPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=int(i+indexBase);
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=ballPoints.size();
-	
-	return bestPointIndex;
+	/* Return the index of the picked point: */
+	if(picker.havePickedPoint())
+		return picker.getPickIndex();
+	else
+		return ~PickResult(0);
 	}
 
-int ScreenCalibrator::pickPoint(const Vrui::Ray& queryRay,Vrui::Scalar markerSize) const
+ScreenCalibrator::PickResult ScreenCalibrator::pickPoint(const Ray& queryRay) const
 	{
-	int bestPointIndex=-1;
-	Scalar minLambda=Math::Constants<Scalar>::max;
+	/* Create a ray picker: */
+	Geometry::RayPicker<Scalar,3> picker(queryRay,Scalar(Vrui::getRayPickCosine()));
 	
-	/* Compare the query ray against all points: */
-	size_t indexBase=0;
+	/* Process all points: */
+	for(PointList::const_iterator pIt=trackingPoints.begin();pIt!=trackingPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=floorPoints.begin();pIt!=floorPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=screenPoints.begin();pIt!=screenPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=ballPoints.begin();pIt!=ballPoints.end();++pIt)
+		picker(*pIt);
 	
-	/* Compare against tracking points: */
-	for(size_t i=0;i<trackingPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(trackingPoints[i],markerSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(queryRay);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=int(i+indexBase);
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=trackingPoints.size();
-	
-	/* Compare against floor points: */
-	for(size_t i=0;i<floorPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(floorPoints[i],markerSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(queryRay);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=int(i+indexBase);
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=floorPoints.size();
-	
-	/* Compare against screen points: */
-	for(size_t i=0;i<screenPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(screenPoints[i],markerSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(queryRay);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=int(i+indexBase);
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=screenPoints.size();
-	
-	/* Compare against ball points: */
-	for(size_t i=0;i<ballPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(ballPoints[i],markerSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(queryRay);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=int(i+indexBase);
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=ballPoints.size();
-	
-	return bestPointIndex;
+	/* Return the index of the picked point: */
+	if(picker.havePickedPoint())
+		return picker.getPickIndex();
+	else
+		return ~PickResult(0);
 	}
 
 int main(int argc,char* argv[])

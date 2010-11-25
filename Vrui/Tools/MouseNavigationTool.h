@@ -32,9 +32,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 class GLContextData;
-namespace GLMotif {
-class Widget;
-}
 namespace Vrui {
 class InputDeviceAdapterMouse;
 }
@@ -69,6 +66,8 @@ class MouseNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -86,7 +85,6 @@ class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	
 	/* Elements: */
 	static MouseNavigationToolFactory* factory; // Pointer to the factory object for this class
-	
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
 	
 	/* Transient navigation state: */
@@ -119,8 +117,8 @@ class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

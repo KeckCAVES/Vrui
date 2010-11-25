@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -482,8 +482,8 @@ void SharedJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChanged
 	/* Hide or show settings dialog based on toggle button state: */
 	if(cbData->set)
 		{
-		/* Pop up the settings dialog at the same position as the main menu: */
-		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
+		/* Pop up the settings dialog: */
+		Vrui::popupPrimaryWidget(settingsDialog);
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);

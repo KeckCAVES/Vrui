@@ -13,272 +13,292 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>enableMultipipe</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>enableMultipipe</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Master toggle for cluster-based multipipe rendering. If true, Vrui will read the following multipipe... settings and configure itself to run in a distributed environment where applications are replicated across cluster nodes and synchronized by sharing input device data and application-specific data streams. <EM>This is not the appropriate rendering mode for single-system-image multipipe architectures (such as SGI Onyx/Prism).</EM></TD>
 </TR>
 
 <TR>
-<TD>multipipeMaster</TD><TD><A HREF="#string">string</A></TD>
+<TD>multipipeMaster</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Internet host name or dotted-form IP address of the master node in a distributed rendering environment. The master node is the one where users log in and start Vrui applications. Some Vrui settings rely on node indices; the index of the master node is always zero.</TD>
 </TR>
 
 <TR>
-<TD>multipipeMasterPort</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>multipipeMasterPort</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Number of the UDP port used for cluster communication on the master node. This port needs to be accessible from the slave nodes, i.e., it must be accepted by any installed firewalls.</TD>
 </TR>
 
 <TR>
-<TD>multipipeSlaves</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>multipipeSlaves</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of the internet host names or dotted-form IP addresses of the slave nodes in a distributed rendering environment. A Vrui application started on the master node will replicate itself onto these slave nodes using the <EM>multipipeRemoteCommand</EM>. Some Vrui settings rely on node indices; slave nodes are numbered in the order in which they appear in the list, starting at one.</TD>
 </TR>
 
 <TR>
-<TD>multipipeMulticastGroup</TD><TD><A HREF="#string">string</A></TD>
+<TD>multipipeMulticastGroup</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Internet name or dotted-form IP address of the multicast or broadcast address used for communication from the master node to the slave nodes. Vrui uses a multicast protocol if the given address is a valid IETF multicast address, and uses a broadcast protocol otherwise. All nodes in the cluster must be able to receive UDP packets sent to the multicast/broadcast address.</TD>
 </TR>
 
 <TR>
-<TD>multipipeMulticastPort</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>multipipeMulticastPort</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Number of the UDP port used for cluster communication on the slave nodes. This port needs to be accessible from the master node, i.e., it must be accepted by any installed firewalls.</TD>
 </TR>
 
 <TR>
-<TD>multipipeRemoteCommand</TD><TD><A HREF="#string">string</A></TD>
+<TD>multipipeRemoteCommand</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Command used to log in to slave nodes during Vrui application startup. If not specified, this defaults to <EM>ssh</EM>.</TD>
 </TR>
 
 <TR>
-<TD>multipipeConnectionWaitTimeout</TD><TD><A HREF="#number">number</A></TD>
-<TD></TD>
+<TD>multipipeConnectionWaitTimeout</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum time (in seconds) a slave node will try to establish a connection to the master node before giving up with a fatal error.</TD>
 </TR>
 
 <TR>
-<TD>multipipePingTimeout</TD><TD><A HREF="#number">number</A></TD>
+<TD>multipipePingTimeout</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Timeout value for cluster crash detection. If a slave node does not receive data from the master for the specified time (in seconds), it sends a ping request to the master. If too many ping requests time out (see next setting), the slave node exits from Vrui.</TD>
 </TR>
 
 <TR>
-<TD>multipipePingRetries</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>multipipePingRetries</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Maximum number of ping requests sent by a slave node before it exits from Vrui (see previous setting).</TD>
 </TR>
 
 <TR>
-<TD>multipipeReceiveWaitTimeout</TD><TD><A HREF="#number">number</A></TD>
-<TD></TD>
+<TD>multipipeReceiveWaitTimeout</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum time (in seconds) a slave node will wait for a data packet from the master node before assuming packet loss and initiating the packet loss recovery protocol.</TD>
 </TR>
 
 <TR>
-<TD>multipipeBarrierWaitTimeout</TD><TD><A HREF="#number">number</A></TD>
-<TD></TD>
+<TD>multipipeBarrierWaitTimeout</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum time (in seconds) a slave node will wait for a barrier completion message from the master node before assuming packet loss and resending its own barrier arrival message.</TD>
 </TR>
 
 <TR>
-<TD>inchScale</TD><TD><A HREF="#number">number</A></TD>
+<TD>inchScale</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the physical coordinate unit used to describe the Vrui environment by specifying the length of an inch in physical units. For example, if the used physical units are meters, <EM>inchScale</EM> is set to 0.0254.</TD>
 </TR>
 
 <TR>
-<TD>meterScale</TD><TD><A HREF="#number">number</A></TD>
+<TD>meterScale</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the physical coordinate unit used to describe the Vrui environment by specifying the length of a meter in physical units. Alternative to <EM>inchScale</EM> setting, see above. For example, if the used physical units are centimeters, <EM>meterScale</EM> is set to 100.0.</TD>
 </TR>
 
 <TR>
-<TD>displayCenter</TD><TD><A HREF="#point">point</A></TD>
+<TD><A NAME="displayCenter">displayCenter</A></TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines the center point of the Vrui display environment in physical coordinates. The center point is mostly used by applications to initialize their model coordinates. In general, the display center should be a point that is in the middle of the display space accessible by users, such as the screen center for a single-screen environment or the center point of a CAVE.</TD>
 </TR>
 
 <TR>
-<TD>displaySize</TD><TD><A HREF="#number">number</A></TD>
+<TD><A NAME="displaySize">displaySize</A></TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines an approximate size for the Vrui display environment in physical coordinate units. The display size is mostly used by applications to initialize their model coordinates.</TD>
 </TR>
 
 <TR>
-<TD>forwardDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD><A NAME="forwardDirection">forwardDirection</A></TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines a direction vector in physical coordinates that corresponds to the typical direction a user would face when looking at a Vrui display environment. For single-screen environments it is typically a vector pointing into the screen; in CAVEs, it is typically a vector pointing into the back wall.</TD>
 </TR>
 
 <TR>
-<TD>upDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>upDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines a direction vector in physical coordinates that corresponds to &quot;up,&quot; i.e., the opposite direction of local gravity. It is mostly used by Vrui application to initialize their model coordinates such that models appear right side up.</TD>
 </TR>
 
 <TR>
-<TD>floorPlane</TD><TD><A HREF="#plane">plane</A></TD>
+<TD>floorPlane</TD><TD><A HREF="VruiCFGTypes.html#plane">plane</A></TD>
 <TD>Defines a plane in physical coordinates that corresponds to a Vrui display environment's floor. For walk-in environments such as CAVEs or upright display walls it is typically the true floor plane; for desktop-like environments it is typically a plane orthogonal to the &quot;up&quot; direction that is placed a few feet below the screen center.</TD>
 </TR>
 
 <TR>
-<TD>glyphSize</TD><TD><A HREF="#number">number</A></TD>
+<TD>glyphSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Specifies the display size of glyphs such as input device pointers in physical coordinates.</TD>
 </TR>
 
 <TR>
-<TD>newInputDevicePosition</TD><TD><A HREF="#point">point</A></TD>
+<TD>newInputDevicePosition</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Specifies a point in physical coordinates that is used as the initial position for newly created virtual input devices. It is typically identical to the display center, but for single-screen environments, it is typically offset a few inches to be placed in front of the screen to simplify interaction with new virtual input devices.</TD>
 </TR>
 
 <TR>
-<TD>inputDeviceAdapterNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>inputDeviceAdapterNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of the <A HREF="#inputdeviceadaptersections">input device adapter sections</A> that specify all sources of user input recognized by Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>inputDeviceDataSaver</TD><TD><A HREF="#string">string</A></TD>
+<TD>inputDeviceDataSaver</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of <A HREF="#inputdevicedatasaversection">input device data saver section</A>. If this is a valid section name, Vrui will save the state of all physical input devices to a file on every frame. These files can later be played back by creating a playback input device adapter. Saving input device data can be useful during debugging, to capture a session and play it back later from inside a debugger, or to generate 3D movies of someone using a Vrui application.</TD>
 </TR>
 
 <TR>
-<TD>updateContinuously</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether to run Vrui's inner loop continuously. If this is set to false, Vrui will only update its (and the application's state) whenever new data arrives from any input devices. This is the most appropriate mode for non-immersive display environments. If set to true, Vrui will update its internal state as fast as possible, regardless of whether new input device data arrived or not. Applications that use animation will typically override this setting to run smooth animations even if no input device events arrive.</TD>
+<TD>updateContinuously</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to run Vrui's inner loop continuously. If this is set to false, Vrui will only update its (and the application's state) whenever new data arrives from any input devices. This is the most appropriate mode for non-immersive display environments. If set to true, Vrui will update its internal state as fast as possible, regardless of whether new input device data arrived or not. Applications that use animation will typically override this setting to run smooth animations even if no input device events arrive, or explicitly ask for state updates whenever they change their visible state.</TD>
 </TR>
 
 <TR>
-<TD>maximumFrameRate</TD><TD><A HREF="#number">number</A></TD>
+<TD>maximumFrameRate</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>The maximum allowed frame rate for Vrui's main loop. If this parameter is set to a value larger than zero, the Vrui main loop will pad each frame to at least the duration of 1.0/maximFrameRate seconds by blocking before advancing to the next frame. Normally Vrui applications should run as fast as they can to minimize latency; however, some special uses like generating 3D movies by saving input device data (see above) might benefit from a throttled frame rate.</TD>
 </TR>
 
 <TR>
-<TD>viewerNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>viewerNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#viewersections">viewer sections</A>. Viewers define how 3D models are projected onto a Vrui display environment's <EM>screens</EM>. The first viewer in the list is considered the <EM>main viewer</EM> and is treated specially, for example, is used to determine the orientation of pop-up menus.</TD>
 </TR>
 
 <TR>
-<TD>screenNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>screenNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#screensections">screen sections</A>. Together with <EM>viewers</EM>, screens define how 3D models are projected in a Vrui display environment.</TD>
 </TR>
 
 <TR>
-<TD>screenProtectors</TD><TD><A HREF="#list">list</A> of <A HREF="#screenprotector">screen protectors</A></TD>
-<TD></TD>
+<TD>screenProtectors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#screenprotector">screen protectors</A></TD>
+<TD>A list of input devices and associated sphere centers and radii (in device coordinates) to warn users of moving too close to one or more of the environment's configured screens. Screen protection can be enabled on a per-window basis through each window's <EM>protectScreens</EM> setting.</TD>
 </TR>
 
 <TR>
-<TD>node&lt;<EM>index</EM>&gt;WindowNames<BR>windowNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>node&lt;<EM>index</EM>&gt;WindowNames<BR>windowNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#windowsections">window sections</A>. Windows are the &quot;glue&quot; that bind <EM>viewers</EM> to <EM>screens</EM> and implement the OpenGL-based 3D rendering used by Vrui. In cluster-based distributed display environments, there must be a <EM>node&lt;index&gt;WindowNames</EM> tag for each cluster node (the master node is always zero; slave nodes are numbered according to their order in the <EM>multipipeSlaves</EM> list, starting at one). Any nodes with empty window lists will not open any windows, but otherwise fully participate in the Vrui application. This is useful for cluster head nodes with low-powered graphics cards, or for dedicated audio rendering nodes.</TD>
 </TR>
 
 <TR>
-<TD>node&lt;<EM>index</EM>&gt;WindowsMultithreaded<BR>windowsMultithreaded</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>node&lt;<EM>index</EM>&gt;WindowsMultithreaded<BR>windowsMultithreaded</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Toggles between serial and parallel rendering for multiple windows on the same computer. If any Vrui node has multiple windows and this setting is true, Vrui will use multiple threads, one per window, to render to the windows in parallel. The default mode, if this setting is false, is to render to the windows serially from a single thread. The appropriate mode for single-system-image multipipe systems such as SGI Onyx or Prism is to configure them as a non-distributed environment (<EM>enableMultipipe</EM> is false), assign one window to each graphics pipe, and render to these windows in parallel. However, if a node has multiple windows but only a single actual graphics card, it is usually better to render in serial since graphics cards are typically not optimized for rapid context switches.</TD>
 </TR>
 
 <TR>
-<TD>listenerNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>listenerNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#listenersections">listener sections</A>. Listeners define how spatial 3D sound is rendered in a Vrui environment. The first listener in the list is considered the <EM>main listener</EM>.</TD>
 </TR>
 
 <TR>
-<TD>node&lt;<EM>index</EM>&gt;SoundContextName<BR>soundContextName</TD><TD><A HREF="#string">string</A></TD>
+<TD>node&lt;<EM>index</EM>&gt;SoundContextName<BR>soundContextName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of a <A HREF="#soundcontextsection">sound context section</A>. Sound contexts correspond to audio devices and define how spatial 3D sound is rendered in a Vrui environment. In cluster-based distributed display environments, there must be a <EM>node&lt;index&gt;SoundContextName</EM> tag for each cluster node that is supposed to render spatial 3D sound using the OpenAL library (the master node is always zero; slave nodes are numbered according to their order in the <EM>multipipeSlaves</EM> list, starting at one).</TD>
 </TR>
 
 <TR>
-<TD>frontplaneDist</TD><TD><A HREF="#number">number</A></TD>
+<TD>frontplaneDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the distance in physical units of the OpenGL front clipping plane from the eye points of Vrui viewers. This defines how closely a viewer can approach 3D objects before the objects are clipped away.</TD>
 </TR>
 
 <TR>
-<TD>backplaneDist</TD><TD><A HREF="#number">number</A></TD>
+<TD>backplaneDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the distance in physical units of the OpenGL back clipping plane from the eye points of Vrui viewers. This defines how far a 3D object can move into the distance before it is clipped away.</TD>
 </TR>
 
 <TR>
-<TD>backgroundColor</TD><TD><A HREF="#color">color</A></TD>
+<TD>backgroundColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
 <TD>Defines the background color used for all windows in a Vrui display environment, unless overridden by Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>ambientLightColor</TD><TD><A HREF="#color">color</A></TD>
+<TD>ambientLightColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
 <TD>Defines the ambient color component used in the OpenGL lighting equation. This is the light color used when no other lights are present. It should be kept at fairly low values not to wash out display contrast.</TD>
 </TR>
 
 <TR>
-<TD>widgetMaterial</TD><TD><A HREF="#material">material</A></TD>
+<TD>widgetMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
 <TD>Defines the material properties of 3D GUI widgets such as pop-up menus, dialog windows, etc.</TD>
 </TR>
 
 <TR>
-<TD>drawOverlayWidgets</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>drawOverlayWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Switches whether 3D user interface widgets are drawn in an overlay layer above all other 3D graphics. If disabled (the default), 3D widgets are integrated with other 3D graphics and drawn at the proper depth. If enabled, widgets are still drawn at proper depth, but appear to float above other graphics. This makes the user interface more desktop-like and works well in non-stereo mode, but can cause severe eye strain in stereo modes on the desktop and especially in immersive environments.</TD>
 </TR>
 
 <TR>
-<TD>popWidgetsOnScreen</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>If set to true, widgets popped up by Vrui applications will always be aligned with the main screen's plane, unless the application specifies a full widget transformation. This helps with keeping the illusion of a 2D user interface in desktop environemnts. This flag should not be enabled for immersive environments.</TD>
+<TD>popWidgetsOnScreen</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>If set to true, widgets popped up by Vrui applications will always be aligned with the main screen's plane, unless the application specifies a full widget transformation. This helps with keeping the illusion of a 2D user interface in desktop environments. This flag should not be enabled for immersive environments.</TD>
 </TR>
 
 <TR>
-<TD>uiSize</TD><TD><A HREF="#number">number</A></TD>
+<TD><A NAME="uiSize">uiSize</A></TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines a size in physical units used for general layout of 3D GUI widgets, such as border widths, text field margins, etc.</TD>
 </TR>
 
 <TR>
-<TD>uiBgColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiBgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default background color for GLMotif UI components.</TD>
 </TR>
 
 <TR>
-<TD>uiFgColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiFgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default foreground color for GLMotif UI components.</TD>
 </TR>
 
 <TR>
-<TD>uiTextFieldBgColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiTextFieldBgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default background color for GLMotif text fields.</TD>
 </TR>
 
 <TR>
-<TD>uiTextFieldFgColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiTextFieldFgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default foreground color for GLMotif text fields.</TD>
 </TR>
 
 <TR>
-<TD>uiTitleBarBgColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiSelectionBgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default background color for selected text in GLMotif UI components.</TD>
 </TR>
 
 <TR>
-<TD>uiTitleBarFgColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiSelectionFgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default foreground color for selected text in GLMotif UI components.</TD>
 </TR>
 
 <TR>
-<TD>uiFontName</TD><TD><A HREF="#string">string</A></TD>
-<TD>Name of the font used for 3D GUI widgets such as labels, buttons, or text fields. Vrui uses its own texture-based fonts which are installed in the share/GLFonts directory.</TD>
+<TD>uiTitleBarBgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default background color for title bars in GLMotif popup windows.</TD>
 </TR>
 
 <TR>
-<TD>uiFontTextHeight</TD><TD><A HREF="#number">number</A></TD>
-<TD>Defines the height of text for 3D GUI widgets in physical units.</TD>
+<TD>uiTitleBarFgColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Default foreground color for title bars in GLMotif popup windows.</TD>
 </TR>
 
 <TR>
-<TD>uiFontAntialiasing</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Toggles font smoothing for 3D GUI widgets. Should be enabled if text looks &quot;pixellated.&quot;</TD>
+<TD>uiFontName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the font used for 3D UI widgets such as labels, buttons, or text fields. Vrui uses its own texture-based fonts which are installed in the share/GLFonts directory.</TD>
 </TR>
 
 <TR>
-<TD>uiSliderWidth</TD><TD><A HREF="#number">number</A></TD>
-<TD></TD>
+<TD>uiFontTextHeight</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Defines the height of text for 3D UI widgets in physical units.</TD>
 </TR>
 
 <TR>
-<TD>uiSliderHandleColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiFontAntialiasing</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Toggles font smoothing for 3D UI widgets. Should be enabled if text looks &quot;pixellated.&quot;</TD>
 </TR>
 
 <TR>
-<TD>uiSliderShaftColor</TD><TD><A HREF="#color">color</A></TD>
-<TD></TD>
+<TD>uiSliderWidth</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Width of slider handles in GLMotif sliders in physical units.</TD>
 </TR>
 
 <TR>
-<TD>tools</TD><TD><A HREF="#string">string</A></TD>
+<TD>uiSliderHandleColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Color of slider handles in GLMotif sliders.</TD>
+</TR>
+
+<TR>
+<TD>uiSliderShaftColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Color of slider shafts in GLMotif sliders.</TD>
+</TR>
+
+<TR>
+<TD>pointPickDistance</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum &quot;fudge&quot; distance for a point-based 3D pick request.</TD>
+</TR>
+
+<TR>
+<TD>rayPickAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum &quot;fudge&quot; angle in degrees for a ray-based 3D pick request.</TD>
+</TR>
+
+<TR>
+<TD>tools</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of <A HREF="#toolmanagersection">tool manager section</A>. The tool manager is responsible for translating low-level input device events such as button presses into higher-level application functions such as navigation.</TD>
 </TR>
 
 <TR>
-<TD>vislets</TD><TD><A HREF="#string">string</A></TD>
+<TD>vislets</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of <A HREF="#visletmanagersection">vislet manager section</A>. Vislets are additional rendering modules that can be loaded into arbitrary Vrui applications as plug-ins.</TD>
 </TR>
 </TABLE>
@@ -289,7 +309,7 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>inputDeviceAdapterType</TD><TD><A HREF="#enumerant">enumerant</A></TD>
+<TD>inputDeviceAdapterType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
 <TD>
 <DL>
 <DT>Mouse</DT><DD>Adapter for the window system's mouse and keyboard devices. Rest of the section contains <A HREF="#inputdeviceadaptermousesettings">mouse input device adapter settings</A>.</DD>
@@ -312,48 +332,48 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>numButtons</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>numButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Defines the number of buttons on the actual mouse device as reported by the windowing system. Is typically 3 in X11-based systems. The total number of buttons in each button plane (see <EM>modifierKeys</EM> setting) is the number of button keys (see the <EM>buttonKeys</EM> setting) plus the number of actual mouse buttons.</TD>
 </TR>
 
 <TR>
-<TD>buttonKeys</TD><TD><A HREF="#list">list</A> of <A HREF="#keyname">key names</A></TD>
+<TD>buttonKeys</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#keyname">key names</A></TD>
 <TD>Lists a subset of keyboard keys that are treated just like mouse buttons by the mouse input device adapter. The total number of buttons in each button plane (see <EM>modifierKeys</EM> setting) is the number of button keys plus the number of actual mouse buttons (see the <EM>numButtons</EM> setting).</TD>
 </TR>
 
 <TR>
-<TD>modifierKeys</TD><TD><A HREF="#list">list</A> of <A HREF="#keyname">key names</A></TD>
+<TD>modifierKeys</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#keyname">key names</A></TD>
 <TD>Lists the set of modifier keys recognized by the Vrui mouse input device adapter. Modifier keys (and combinations thereof) allow access to several button planes to increase the total number of available buttons. For example, if LeftCtrl and LeftAlt are listed as modifier keys, Vrui will create four button planes (no modifier, LeftCtrl only, LeftAlt only, LeftCtrl+LeftAlt). Buttons are numbered sequentially inside each plane by mouse buttons first and then button keys, and then in order of planes. Planes are ordered according to modifier button combinations in LSB-first binary code. The plane with no modifiers pressed is always zero, and in the preceding example, the (LeftCtrl only) plane is 1, and the (LeftCtrl+LeftAlt) plane is 3.<BR>
 <B>Note</B>: Any buttons (mouse buttons and/or button keys) that are pressed while the button plane is changed stay pressed until their button plane is selected again. This can be very useful especially in desktop-like environments.</TD>
 </TR>
 
 <TR>
-<TD>keyboardModeToggleKey</TD><TD><A HREF="#keyname">key name</A></TD>
+<TD>keyboardModeToggleKey</TD><TD><A HREF="VruiCFGTypes.html#keyname">key name</A></TD>
 <TD>The name of the key used to toggle the keyboard between <EM>input device mode</EM>, where selected button keys and modifier keys control the buttons of a virtual input device, and <EM>keyboard mode</EM>, where the keyboard can be used to enter and edit text as usual. This setting defaults to F1.</TD>
 </TR>
 
 <TR>
-<TD>fakeMouseCursor</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>fakeMouseCursor</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Enables a texture-based mouse cursor to be rendered at the position of the mouse input device controlled by the input device adapter. This is useful in situations where the hardware mouse cursor is not available, or is inappropriate, such as in mouse-controlled cluster environments. This setting defaults to false.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorImageFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>mouseCursorImageFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>The name of the cursor image file from which to load the fake mouse cursor, if enabled.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorNominalSize</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>mouseCursorNominalSize</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>The nominal size of the mouse cursor which is to be loaded from the cursor image file. Nominal sizes are defined in the cursor file itself, and Vrui selects the most closely matching size from the file.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorSize</TD><TD><A HREF="#size">size</A></TD>
+<TD>mouseCursorSize</TD><TD><A HREF="VruiCFGTypes.html#size">size</A></TD>
 <TD>Size of the rendered mouse cursor glyph in physical coordinates. The third component of the given value is ignored.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorHotspot</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>mouseCursorHotspot</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Offset from the bottom-left corner of the mouse cursor image to the cursor "hotspot," i.e., the position that corresponds to the mouse position. Normalized to lie within [0, 1] in both directions; the third component of the given value is ignored.</TD>
 </TR>
 </TABLE>
@@ -364,17 +384,17 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>serverName</TD><TD><A HREF="#string">string</A></TD>
+<TD>serverName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Internet host name or dotted-form IP address of the server computer running the VR device daemon (often the local host). The server computer must be reachable from the Vrui master node via TCP.</TD>
 </TR>
 
 <TR>
-<TD>serverPort</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>serverPort</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Number of the TCP port used to communicate with the VR device daemon. This port must be accessible from the Vrui master node, i.e., it must be enabled in any firewalls.</TD>
 </TR>
 
 <TR>
-<TD>inputDeviceNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>inputDeviceNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#devicedaemoninputdevicesections">DeviceDaemon input device sections</A>. Each section defines a single input device, i.e., a collection of an (optional) tracker and a set of buttons and valuators (analog axes).</TD>
 </TR>
 </TABLE>
@@ -383,12 +403,12 @@
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>
-<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>trackType</TD><TD><A HREF="#enumerant">enumerant</A></TD>
+<TD>trackType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
 <TD>
 <DL>
 <DT>None</DT><DD>The input device does not have a tracker; it only contains buttons and/or valuators.</DD>
@@ -403,53 +423,63 @@
 </TR>
 
 <TR>
-<TD>numButtons</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>numButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Number of buttons on the input device.</TD>
 </TR>
 
 <TR>
-<TD>numValuators</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>numValuators</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Number of valuators (analog axes) on the input device.</TD>
 </TR>
 
 <TR>
-<TD>deviceRayDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
 </TR>
 
 <TR>
-<TD>deviceGlyphType</TD><TD><A HREF="#glyphtype">glyph type</A></TD>
+<TD>deviceGlyphType</TD><TD><A HREF="VruiCFGTypes.html#glyphtype">glyph type</A></TD>
 <TD>Type of glyph used to draw a 3D representation of the input device in the Vrui display environment.</TD>
 </TR>
 
 <TR>
-<TD>deviceGlyphMaterial</TD><TD><A HREF="#material">material</A></TD>
+<TD>deviceGlyphMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
 <TD>Material properties to render the device glyph.</TD>
 </TR>
 
 <TR>
-<TD>trackerIndex</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>trackerIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Index of the device's tracker in the flat tracker name space of the VR device daemon.</TD>
 </TR>
 
 <TR>
-<TD>buttonIndexBase</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>buttonIndexBase</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Base index of the device's buttons in the flat button name space of the VR device daemon. Provides a default index for each device button by adding the button index on the device to the base index.</TD>
 </TR>
 
 <TR>
-<TD>buttonIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>buttonIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Index of one of the device's buttons in the flat button name space of the VR device daemon. Can be used to override default indices for individual buttons.</TD>
 </TR>
 
 <TR>
-<TD>valuatorIndexBase</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>valuatorIndexBase</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Base index of the device's valuators in the flat valuator name space of the VR device daemon. Provides a default index for each device valuator by adding the valuator index on the device to the base index.</TD>
 </TR>
 
 <TR>
-<TD>valuatorIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>valuatorIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Index of one of the device's valuators in the flat valuator name space of the VR device daemon. Can be used to override default indices for individual valuators.</TD>
+</TR>
+
+<TR>
+<TD>buttonNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all buttons on the device. If no names or too few names are given, unnamed buttons are given a &quot;Button&lt;index&gt;&quot; default name.</TD>
+</TR>
+
+<TR>
+<TD>valuatorNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all valuators on the device. If no names or too few names are given, unnamed valuators are given a &quot;Valuator&lt;index&gt;&quot; default name.</TD>
 </TR>
 </TABLE>
 
@@ -459,27 +489,27 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>sharedMemoryKey</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>sharedMemoryKey</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Shared memory key of the shared memory segment the VisBox tracker driver (VisTracker) dumps its data into. Default value is the default VisTracker memory key, 57005 (0xDEAD in hex).</TD>
 </TR>
 
 <TR>
-<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>deviceRayDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
 </TR>
 
 <TR>
-<TD>deviceGlyphType</TD><TD><A HREF="#glyphtype">glyph type</A></TD>
+<TD>deviceGlyphType</TD><TD><A HREF="VruiCFGTypes.html#glyphtype">glyph type</A></TD>
 <TD>Type of glyph used to draw a 3D representation of the input device in the Vrui display environment.</TD>
 </TR>
 
 <TR>
-<TD>deviceGlyphMaterial</TD><TD><A HREF="#material">material</A></TD>
+<TD>deviceGlyphMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
 <TD>Material properties to render the device glyph.</TD>
 </TR>
 </TABLE>
@@ -490,7 +520,7 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>inputDeviceNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>inputDeviceNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#hidinputdevicesections">HID input device sections</A>. Each section defines a single input device, i.e., a collection of a set of buttons and valuators (analog axes).</TD>
 </TR>
 
@@ -500,23 +530,33 @@
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>
-<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>deviceVendorProductId</TD><TD><A HREF="#string">string</A></TD>
+<TD>deviceVendorProductId</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>A colon-separated pair of hexadecimal numbers defining the vendor and product ID, respectively, of the input device to be used, as defined by the USB specification.</TD>
 </TR>
 
 <TR>
-<TD>deviceIndex</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>deviceIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Index of the device to be used among devices with the same vendor/product ID. If this value is 0 (the default), the first matching device is used.</TD>
 </TR>
 
 <TR>
-<TD>axis&lt;index&gt;Setting</TD><TD><A HREF="#axissetting">axis value mapper</A></TD>
+<TD>axis&lt;index&gt;Setting</TD><TD><A HREF="VruiCFGTypes.html#axissetting">axis value mapper</A></TD>
 <TD>Defines the value mapping for one of the device's absolute or relative analog axes, numbered starting from 0 in the order they are enumerated by the device. Allows to fine-tune the behavior of each device axis individually.</TD>
+</TR>
+
+<TR>
+<TD>buttonNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all buttons on the device. If no names or too few names are given, unnamed buttons are given a &quot;Button&lt;index&gt;&quot; default name.</TD>
+</TR>
+
+<TR>
+<TD>valuatorNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all valuators on the device. If no names or too few names are given, unnamed valuators are given a &quot;Valuator&lt;index&gt;&quot; default name.</TD>
 </TR>
 </TABLE>
 
@@ -526,67 +566,77 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>inputDeviceDataFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>inputDeviceDataFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the input file from which to read input device data. The file must have been created by saving input device data from a previous run of the same Vrui application, in the exact same environment; otherwise, results are undefined.</TD>
 </TR>
 
 <TR>
-<TD>fakeMouseCursorDevice</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>device&lt;<EM>index</EM>&gt;GlyphType</TD><TD><A HREF="VruiCFGTypes.html#glyphtype">glyph type</A></TD>
+<TD>Type of glyph used to draw a 3D representation of the input device of the given zero-based index in the Vrui display environment.</TD>
+</TR>
+
+<TR>
+<TD>device&lt;<EM>index</EM>&gt;GlyphMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
+<TD>Material properties to render the device glyph of the given zero-based index.</TD>
+</TR>
+
+<TR>
+<TD>fakeMouseCursorDevice</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>If set to a valid input device index from the loaded input device file, enables a texture-based mouse cursor to be rendered at the position of the selected input device. This is useful when playing back sessions recorded in mouse-controlled environments, since otherwise the mouse cursor would not show up.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorImageFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>mouseCursorImageFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>The name of the cursor image file from which to load the fake mouse cursor, if enabled.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorNominalSize</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>mouseCursorNominalSize</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>The nominal size of the mouse cursor which is to be loaded from the cursor image file. Nominal sizes are defined in the cursor file itself, and Vrui selects the most closely matching size from the file.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorSize</TD><TD><A HREF="#size">size</A></TD>
+<TD>mouseCursorSize</TD><TD><A HREF="VruiCFGTypes.html#size">size</A></TD>
 <TD>Size of the rendered mouse cursor glyph in physical coordinates. The third component of the given value is ignored.</TD>
 </TR>
 
 <TR>
-<TD>mouseCursorHotspot</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>mouseCursorHotspot</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Offset from the bottom-left corner of the mouse cursor image to the cursor "hotspot," i.e., the position that corresponds to the mouse position. Normalized to lie within [0, 1] in both directions; the third component of the given value is ignored.</TD>
 </TR>
 
 <TR>
-<TD>synchronizePlayback</TD><TD><A HREF="#bool">bool</A></TD>
+<TD>synchronizePlayback</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
 <TD>When this flag is set to true, the playback input device adapter will synchronize the timing of Vrui application frames with the time stamps stored in its input file. As a result, the playback should run exactly at the same speed as the original recording.</TD>
 </TR>
 
 <TR>
-<TD>quitWhenDone</TD><TD><A HREF="#bool">bool</A></TD>
+<TD>quitWhenDone</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
 <TD>When this flag is set to true, the playback input device adapter will shut down the Vrui application after reading its entire input file.</TD>
 </TR>
 
 <TR>
-<TD>soundFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>soundFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of a sound file to be played in synchronization with the input device data. The sound file must have been recorded by the input device data saver in the same session as the input device data file.</TD>
 </TR>
 
 <TR>
-<TD>saveMovie</TD><TD><A HREF="#bool">bool</A></TD>
+<TD>saveMovie</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
 <TD>When this flag is set to true, the playback input device adapter will create a movie by saving a sequence of screen shots from a specified window on the master node, exactly at specified intervals.</TD>
 </TR>
 
 <TR>
-<TD>movieFileNameTemplate</TD><TD><A HREF="#string">string</A></TD>
+<TD>movieFileNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Printf-style format string to generate image file names for the screenshots written while generating a movie. The template must contain exactly one integer conversion specifier, of the form %[0-9]*d.</TD>
 </TR>
 
 <TR>
-<TD>movieWindowIndex</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>movieWindowIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>The index of the master node window from which to save screenshots for a movie. This integer must be a valid index in the master node's list of windows; saving movie screenshots from a window on a slave node is not yet supported.</TD>
 </TR>
 
 <TR>
-<TD>movieFrameRate</TD><TD><A HREF="#number">number</A></TD>
+<TD>movieFrameRate</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Target frame rate for the exported movie. The playback input device adapter will export slices at exactly the specified times to guarantee real-time playback even if Vrui's main loop frame rate varies. Movie frames will point sample the sequence of Vrui frames: short Vrui frames might be skipped and not generate movie frames, and long Vrui frames might generate multiple identical movie frames.</TD>
 </TR>
 </TABLE>
@@ -597,27 +647,27 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>inputDeviceDataFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>inputDeviceDataFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the file to which the data of all physical input devices is to be saved. The name of the file will be modified by inserting a unique four-digit sequence number before the file name extension.</TD>
 </TR>
 
 <TR>
-<TD>soundFileName</TD><TD><A HREF="#string">string</A></TD>
+<TD>soundFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of a sound file to be recorded in synchronization with the saved input device data. The sound file can later be played back synchronized to the input device data by the playback input device adapter.</TD>
 </TR>
 
 <TR>
-<TD>sampleResolution</TD><TD><A HREF="#integer">integer</TD>
+<TD>sampleResolution</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</TD>
 <TD>Sampling resolution for sound recording in bits.</TD>
 </TR>
 
 <TR>
-<TD>numChannels</TD><TD><A HREF="#integer">integer</TD>
+<TD>numChannels</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</TD>
 <TD>Number of channels for sound recording. 1&nbsp;= mono, 2&nbsp;= stereo, etc.</TD>
 </TR>
 
 <TR>
-<TD>sampleRate</TD><TD><A HREF="#integer">integer</TD>
+<TD>sampleRate</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</TD>
 <TD>Sample rate for sound recording in Hertz.</TD>
 </TR>
 </TABLE>
@@ -628,72 +678,72 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the viewer used by Vrui itself, and visible to Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>headTracked</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>headTracked</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether the viewer is attached to an input device or at a fixed position in physical space.</TD>
 </TR>
 
 <TR>
-<TD>headDevice</TD><TD><A HREF="#string">string</A></TD>
+<TD>headDevice</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>If the <EM>headTracked</EM> flag is true, the name of the input device the viewer is attached to.</TD>
 </TR>
 
 <TR>
-<TD>headDeviceTransformation</TD><TD><A HREF="#trackerstate">tracker state</A></TD>
+<TD>headDeviceTransformation</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
 <TD>The transformation from local viewer space into physical space (if <EM>headTracked</EM> is false) or local input device space (if <EM>headTracked</EM> is true).</TD>
 </TR>
 
 <TR>
-<TD>viewDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>viewDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines a general viewing direction in local viewer coordinates.</TD>
 </TR>
 
 <TR>
-<TD>monoEyePosition</TD><TD><A HREF="#point">point</A></TD>
+<TD>monoEyePosition</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines a point in local viewer coordinates used for monoscopic rendering.</TD>
 </TR>
 
 <TR>
-<TD>leftEyePosition</TD><TD><A HREF="#point">point</A></TD>
+<TD>leftEyePosition</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines the position of the viewer's left eye in local viewer coordinates.</TD>
 </TR>
 
 <TR>
-<TD>rightEyePosition</TD><TD><A HREF="#point">point</A></TD>
+<TD>rightEyePosition</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines the position of the viewer's right eye in local viewer coordinates.</TD>
 </TR>
 
 <TR>
-<TD>headLightEnabled</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>headLightEnabled</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>If true, attaches a head light source to the viewer.</TD>
 </TR>
 
 <TR>
-<TD>headLightPosition</TD><TD><A HREF="#point">point</A></TD>
+<TD>headLightPosition</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Position of the head light source in lcoal viewer coordinates.</TD>
 </TR>
 
 <TR>
-<TD>headLightDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>headLightDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Direction of the head light source in local viewer coordinates.</TD>
 </TR>
 
 <TR>
-<TD>headLightColor</TD><TD><A HREF="#color">color</A></TD>
+<TD>headLightColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
 <TD>Light color of the head light source.</TD>
 </TR>
 
 <TR>
-<TD>headLightSpotCutoff</TD><TD><A HREF="#number">number</A></TD>
+<TD>headLightSpotCutoff</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Cutoff angle (in degrees) for the head light source. The light source will only affect 3D objects inside a cone around the head light direction with the given opening angle. The opening angle must be either between 0 and 90, or equal to 180 to create a point light source.</TD>
 </TR>
 
 <TR>
-<TD>headLightSpotExponent</TD><TD><A HREF="#number">number</A></TD>
+<TD>headLightSpotExponent</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Coefficient defining the drop-off of light intensity of the head light source around the head light direction. Defines a non-directional point light source if set to zero and increasingly more focused spot lights if set to larger values.</TD>
 </TR>
 </TABLE>
@@ -704,67 +754,67 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the screen used by Vrui itself, and visible to Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>deviceMounted</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>deviceMounted</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Toggles whether the screen is attached to an input device (such as head-mounted displays) or at a fixed position/orientation in physical coordinates.</TD>
 </TR>
 
 <TR>
-<TD>deviceName</TD><TD><A HREF="#string">string</A></TD>
+<TD>deviceName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>If <EM>deviceMounted</EM> is true, gives the name of the input device the screen is attached to.</TD>
 </TR>
 
 <TR>
-<TD>origin</TD><TD><A HREF="#point">point</A></TD>
+<TD>origin</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines the origin (lower-left corner in pixel coordinates) of the screen in physical coordinates (if <EM>deviceMounted</EM> is false) or in local device coordinates (if <EM>deviceMounted</EM> is true).</TD>
 </TR>
 
 <TR>
-<TD>horizontalAxis</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>horizontalAxis</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Direction of the screen's horizontal axis (left to right in pixel coordinates) in physical coordinates (if <EM>deviceMounted</EM> is false) or in local device coordinates (if <EM>deviceMounted</EM> is true).</TD>
 </TR>
 
 <TR>
-<TD>width</TD><TD><A HREF="#number">number</A></TD>
+<TD>width</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Width of the screen in physical units.</TD>
 </TR>
 
 <TR>
-<TD>verticalAxis</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>verticalAxis</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Direction of the screen's vertical axis (bottom to top in pixel coordinates) in physical coordinates (if <EM>deviceMounted</EM> is false) or in local device coordinates (if <EM>deviceMounted</EM> is true).</TD>
 </TR>
 
 <TR>
-<TD>height</TD><TD><A HREF="#number">number</A></TD>
+<TD>height</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Height of the screen in physical units.</TD>
 </TR>
 
 <TR>
-<TD>rotateCenter</TD><TD><A HREF="#point">point</A></TD>
+<TD>rotateCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines the center point of an additional rotation that can be used to easily rotate a screen around any desired axis (such as in adjustable workbenches or flexible CAVEs).</TD>
 </TR>
 
 <TR>
-<TD>rotateAxis</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>rotateAxis</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Axis of an additional rotation around the center point defined by the <EM>rotateCenter</EM> tag.</TD>
 </TR>
 
 <TR>
-<TD>rotateAngle</TD><TD><A HREF="#number">number</A></TD>
+<TD>rotateAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Angle of additional screen rotation in degrees.</TD>
 </TR>
 
 <TR>
-<TD>offAxis</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>offAxis</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether the screen is projected off-axis, i.e., requires a correction homography.</TD>
 </TR>
 
 <TR>
-<TD>homography</TD><TD><A HREF="#matrix">3x3&nbsp;matrix</A></TD>
+<TD>homography</TD><TD><A HREF="VruiCFGTypes.html#matrix">3x3&nbsp;matrix</A></TD>
 <TD>A 3x3 matrix defining a homography in screen space, which transforms the screen's theoretical rectangle into the screen's projected quadrilateral.</TD>
 </TR>
 </TABLE>
@@ -775,47 +825,47 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>viewerName</TD><TD><A HREF="#string">string</A></TD>
+<TD>viewerName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the viewer associated with this window.</TD>
 </TR>
 
 <TR>
-<TD>screenName</TD><TD><A HREF="#string">string</A></TD>
+<TD>screenName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the screen associated with this window.</TD>
 </TR>
 
 <TR>
-<TD>leftScreenName</TD><TD><A HREF="#string">string</A></TD>
-<TD>Name if the left screen if the window's left and right eye views are displayed on different screens (such as in some head-mounted displays).</TD>
+<TD>leftScreenName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the left screen if the window's left and right eye views are displayed on different screens (such as in some head-mounted displays).</TD>
 </TR>
 
 <TR>
-<TD>rightScreenName</TD><TD><A HREF="#string">string</A></TD>
-<TD>Name if the right screen if the window's left and right eye views are displayed on different screens (such as in some head-mounted displays).</TD>
+<TD>rightScreenName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the right screen if the window's left and right eye views are displayed on different screens (such as in some head-mounted displays).</TD>
 </TR>
 
 <TR>
-<TD>protectScreens</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>protectScreens</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether to protect the screens associated with this window from monitored input devices (to prevent users from walking into screens).</TD>
 </TR>
 
 <TR>
-<TD>display</TD><TD><A HREF="#string">string</A></TD>
+<TD>display</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the X11 display to use for this window; defaults to the local display defined by the DISPLAY environment variable.</TD>
 </TR>
 
 <TR>
-<TD>windowPos</TD><TD><A HREF="#windowposition">window position</A></TD>
+<TD>windowPos</TD><TD><A HREF="VruiCFGTypes.html#windowposition">window position</A></TD>
 <TD>Initial position of the window on the display in pixel coordinates.</TD>
 </TR>
 
 <TR>
-<TD>windowFullscreen</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>windowFullscreen</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether to initially maximize the window (removing all window decoration and screen borders).</TD>
 </TR>
 
 <TR>
-<TD>windowType</TD><TD><A HREF="#enumerant">enumerant</A></TD>
+<TD>windowType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
 <TD>
 <DL>
 <DT>Mono</DT><DD>Monoscopic window; uses the associated viewer's monoscopic eye position.</DD>
@@ -830,74 +880,74 @@
 
 <DT>InterleavedViewportStereo</DT><DD>Stereoscopic rendering using two interleaved viewports in the same window, for example by using even pixel columns for the left eye, and odd pixel columns for the right eye. This is the stereo mode often supported by commodity stereoscopic displays like 3D&nbsp;DLP televisions, or polarizing flat panel monitors. The interleaving pattern can not yet be specified; it currently defaults to the pattern used by 3D&nbsp;DLP televisions.</DD>
 
-<DT>QuadbufferStereo</DT><DD>Stereoscopic rendering using a quad-buffered visual (also known as &quot;active&quot; stereo). Is only supported by some graphics cards.</DD>
+<DT>QuadbufferStereo</DT><DD>Stereoscopic rendering using a quad-buffered visual (also known as &quot;active&quot; stereo). Typically only supported by professional-level graphics cards such as Nvidia Quadros.</DD>
 </DL>
 </TD>
 </TR>
 
 <TR>
-<TD>leftViewportPos</TD><TD><A HREF="#windowposition">window position</A></TD>
+<TD>leftViewportPos</TD><TD><A HREF="VruiCFGTypes.html#windowposition">window position</A></TD>
 <TD>Position of the viewport used for left-eye views in SplitViewportStereo stereo mode in window coordinates.</TD>
 </TR>
 
 <TR>
-<TD>rightViewportPos</TD><TD><A HREF="#windowposition">window position</A></TD>
+<TD>rightViewportPos</TD><TD><A HREF="VruiCFGTypes.html#windowposition">window position</A></TD>
 <TD>Position of the viewport used for right-eye views in SplitViewportStereo stereo mode in window coordinates.</TD>
 </TR>
 
 <TR>
-<TD>autoScreenSize</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>autoScreenSize</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>If set to true, instructs the window to query the physical size of its associated X11 screen, and override the configured size of its associated VR screen with the found values. If the X11 server is configured correctly, this will result in accurate physical units in the display window for any connected monitor.</TD>
 </TR>
 
 <TR>
-<TD>panningViewport</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>panningViewport</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag determining the relationship between the display screen containing a window and the Vrui <EM>screen</EM> describing the window's position in physical space. If this flag is set to false (the default), the associated Vrui <EM>screen</EM> is always fully mapped to the window's current position and size. If the flag is true, the Vrui <EM>screen</EM> is considered to map to the display screen containing the window instead. In effect, this means that the window serves as a sliding viewport into the 3D environment as seen through the screen. Moving or resizing a window with a panning viewport will not affect the position or size of the shown model.</TD>
 </TR>
 
 <TR>
-<TD>navigate</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>navigate</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag defining the effect of moving or resizing a panning-viewport window on the displayed 3D scene. If this flag is true, moving the window will move the 3D scene, and resizing the window will scale the 3D scene using a &quot;fake&quot; navigation tool. In effect, navigation will make a Vrui window behave almost exactly like a 3D window in desktop-centric applications, but the 3D scene will still be projected from the correct viewpoint to provide, for example, correct stereoscopic rendering.</TD>
 </TR>
 
 <TR>
-<TD>movePrimaryWidgets</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>movePrimaryWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag to move popped-up primary widgets along with a panning-viewport window when it is moved or resized.</TD>
 </TR>
 
 <TR>
-<TD>toolKillZonePos</TD><TD><A HREF="#windowpoint">window point</A></TD>
+<TD>toolKillZonePos</TD><TD><A HREF="VruiCFGTypes.html#windowpoint">window point</A></TD>
 <TD>Setting to override the position of the tool kill zone when moving/resizing panning-viewport windows. By default, the position of the tool kill zone is given in physical coordinates and does not move with the window. If this tag is set, the tool kill zone will always stay at the given relative window coordinates. Relative window coordinates map (0, 0) to the lower-left window corner and (1, 1) to the top-right window corner.</TD>
 </TR>
 
 <TR>
-<TD>showFps</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>showFps</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag to display the current (filtered) Vrui frame rate in the window.</TD>
 </TR>
 
 <TR>
-<TD>showFpsFontName</TD><TD><A HREF="#string">string</A></TD>
+<TD>showFpsFontName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the font used to display the current frame rate in the window. Vrui uses its own texture-based fonts which are installed in the share/GLFonts directory.</TD>
 </TR>
 
 <TR>
-<TD>multisamplingLevel</TD><TD><A HREF="#integer">integer</A></TD>
+<TD>multisamplingLevel</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Level of OpenGL multisampling to use for the window. Support for this feature, and the available level numbers, are dependent on the model of installed graphics card.</TD>
 </TR>
 
 <TR>
-<TD>joinSwapGroup</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD></TD>
+<TD>joinSwapGroup</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether a window should become part of a swap group (deprecated feature only available on some Nvidia graphics cards).</TD>
 </TR>
 
 <TR>
-<TD>swapGroupName</TD><TD><A HREF="#integer">integer</A></TD>
-<TD></TD>
+<TD>swapGroupName</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Numeric identifier of the swap group the window should join (deprecated feature only available on some Nvidia graphics cards).</TD>
 </TR>
 
 <TR>
-<TD>swapBarrierName</TD><TD><A HREF="#integer">integer</A></TD>
-<TD></TD>
+<TD>swapBarrierName</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Numeric identifier of the swap barrier on which the window should wait before swapping buffers (deprecated feature only available on some Nvidia graphics cards).</TD>
 </TR>
 </TABLE>
 
@@ -907,42 +957,42 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>name</TD><TD><A HREF="#string">string</A></TD>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the listener used by Vrui itself, and visible to Vrui applications.</TD>
 </TR>
 
 <TR>
-<TD>headTracked</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>headTracked</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether the listener is attached to an input device or at a fixed position in physical space.</TD>
 </TR>
 
 <TR>
-<TD>headDevice</TD><TD><A HREF="#string">string</A></TD>
+<TD>headDevice</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>If the <EM>headTracked</EM> flag is true, the name of the input device to which the listener is attached.</TD>
 </TR>
 
 <TR>
-<TD>headDeviceTransformation</TD><TD><A HREF="#trackerstate">tracker state</A></TD>
+<TD>headDeviceTransformation</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
 <TD>The transformation from local listener space into physical space (if <EM>headTracked</EM> is false) or local input device space (if <EM>headTracked</EM> is true).</TD>
 </TR>
 
 <TR>
-<TD>headPosition</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>headPosition</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines the listener's head position in the listener's local space.</TD>
 </TR>
 
 <TR>
-<TD>listenDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>listenDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines a forward-pointing vector in the listener's local space.</TD>
 </TR>
 
 <TR>
-<TD>upDirection</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>upDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines an up-pointing vector in the listener's local space.</TD>
 </TR>
 
 <TR>
-<TD>gain</TD><TD><A HREF="#number">number</A></TD>
+<TD>gain</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Overall gain factor for this listener in all sound contexts.</TD>
 </TR>
 </TABLE>
@@ -953,27 +1003,27 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>listenerName</TD><TD><A HREF="#string">string</A></TD>
+<TD>listenerName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the listener associated with this sound context.</TD>
 </TR>
 
 <TR>
-<TD>deviceName</TD><TD><A HREF="#string">string</A></TD>
+<TD>deviceName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the OpenAL sound device used by this sound context.</TD>
 </TR>
 
 <TR>
-<TD>speefOfSound</TD><TD><A HREF="#number">number</A></TD>
-<TD>Speed of sound in physical coordinate units/s. Used to compute Dopper shift.</TD>
+<TD>speedOfSound</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Speed of sound in physical coordinate units/s. Used to compute Doppler shift.</TD>
 </TR>
 
 <TR>
-<TD>dopplerFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Exaggeration factor for Dopper shift.</TD>
+<TD>dopplerFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Exaggeration factor for Doppler shift.</TD>
 </TR>
 
 <TR>
-<TD>distanceAttenuationModel</TD><TD><A HREF="#enumerant">enumerant</A></TD>
+<TD>distanceAttenuationModel</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
 <TD>Distance model for source gain attenuation.
 <DL>
 <DT>Constant</DT>
@@ -1006,27 +1056,34 @@
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>toolDsoNameTemplate</TD><TD><A HREF="#string">string</A></TD>
-<TD>Defines a template to generate tool DSO file names from tool class names. The template is a printf-style format string with a single %s placeholder that is replaced with the tool class name by the tool manager. The setting defaults to the appropriate template to use the installed Vrui tools. The tool manager splits the given template name into base directory and pattern parts, and initializes its DSO file locator using the base directory.</TD>
+<TD>toolDsoNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Defines a template to generate tool dynamic shared object (DSO) file names from tool class names. The template is a printf-style format string with a single %s placeholder that is replaced with the tool class name by the tool manager. The setting defaults to the appropriate template to use the installed Vrui tools. The tool manager splits the given template name into base directory and pattern parts, and initializes its DSO file locator using the base directory.</TD>
 </TR>
 
 <TR>
-<TD>toolSearchPaths</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>toolSearchPaths</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of additional directories to search for tool plug-in DSOs. The directory extracted from the tool DSO name template is searched first, then all directories from the list in order until a matching DSO file is found.</TD>
 </TR>
 
 <TR>
-<TD>toolClassNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
-<TD>List of names of tool classes recognized by the tool manager (and offered to users via the Tools menu). Tool classes are instantiated in order of appearance in the list; tool classes that depend on other tool classes must be listed after their dependencies.</TD>
+<TD>toolClassNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>List of names of tool classes recognized by the tool manager (and offered to users via the Tools menu). Tool classes are instantiated in order of appearance in the list; tool classes that depend on other tool classes must be listed after their dependencies.<P>
+
+Each tool class can read configuration settings from its own subsection inside the tool manager section, named by the tool class' internal class name. For a list of all core Vrui tool classes, their internal class names, and their configuration file settings, see the <A HREF="VruiToolConfigurationFileReference.html">Vrui Tool Class Configuration File Settings Reference</A>.</TD>
 </TR>
 
 <TR>
-<TD>killZoneBaseDevice</TD><TD><A HREF="#string">string</A></TD>
+<TD>toolSelectionMenuToolClass</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Specifies which subclass of the MenuTool class to use to display Vrui's tool selection menu. A class of the given name must exist, and it must be derived from MenuTool.</TD>
+</TR>
+
+<TR>
+<TD>killZoneBaseDevice</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the input device the tool kill zone is attached to. By default, the tool kill zone is not attached to any input device and positioned in physical coordinates.</TD>
 </TR>
 
 <TR>
-<TD>killZoneType</TD><TD><A HREF="#enumerant">enumerant</A></TD>
+<TD>killZoneType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
 <TD>
 <DL>
 <DT>Box</DT><DD>3D rectangular kill zone. Rest of section contains <A HREF="#killzoneboxsettings">box tool kill zone 
@@ -1038,17 +1095,17 @@ settings</A>.</DD>
 </TR>
 
 <TR>
-<TD>killZoneRender</TD><TD><A HREF="#boolean">boolean</A></TD>
+<TD>killZoneRender</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether to render the tool kill zone in the Vrui display environment.</TD>
 </TR>
 
 <TR>
-<TD>killZoneMaterial</TD><TD><A HREF="#material">material</A></TD>
+<TD>killZoneMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
 <TD>Defines the material properties to render the tool kill zone.</TD>
 </TR>
 
 <TR>
-<TD>toolNames</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>toolNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#toolassignmentsections">tool assignment sections</A>. Tool assignments in this list will be processed by the tool manager during Vrui initialization; in other words, these are the default associations for the Vrui environment.</TD>
 </TR>
 </TABLE>
@@ -1059,12 +1116,12 @@ settings</A>.</DD>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>killZoneCenter</TD><TD><A HREF="#point">point</A></TD>
+<TD>killZoneCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Center point of the kill zone in physical coordinates (if no <EM>killZoneBaseDevice</EM> is specified) or in local device coordinates.</TD>
 </TR>
 
 <TR>
-<TD>killZoneSize</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>killZoneSize</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Size of the kill zone box along the three primary coordinate axes in physical units.</TD>
 </TR>
 </TABLE>
@@ -1075,22 +1132,22 @@ settings</A>.</DD>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>killZoneViewerName</TD><TD><A HREF="#string">string</A></TD>
+<TD>killZoneViewerName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the viewer the kill zone is associated with. The kill zone is defined as a pyramid extending from the viewer's eye position through the rectangle defined by the kill zone center and size in screen coordinates.</TD>
 </TR>
 
 <TR>
-<TD>killZoneScreenName</TD><TD><A HREF="#string">string</A></TD>
+<TD>killZoneScreenName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the screen the kill zone is associated with.</TD>
 </TR>
 
 <TR>
-<TD>killZoneCenter</TD><TD><A HREF="#point">point</A></TD>
+<TD>killZoneCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Center point of the kill zone in local screen coordinates of the screen the kill zone is associated with.</TD>
 </TR>
 
 <TR>
-<TD>killZoneSize</TD><TD><A HREF="#vector">vector</A></TD>
+<TD>killZoneSize</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Size of the kill zone along the three primary axes of screen coordinates of the screen the kill zone is associated with. The third size component corresponds to a direction normal to the screen plane and is ignored.</TD>
 </TR>
 </TABLE>
@@ -1101,33 +1158,18 @@ settings</A>.</DD>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>toolClass</TD><TD><A HREF="#string">string</A></TD>
+<TD>toolClass</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>The name of the tool's class.</TD>
 </TR>
 
 <TR>
-<TD>deviceName&lt;<EM>index</EM>&gt;</TD><TD><A HREF="#string">string</A></TD>
-<TD>The name of the input device the tool is associated with.</TD>
+<TD>buttons</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#featureassignment">feature assignments</A></TD>
+<TD>A list of button features to assign to the tool's button slots.</TD>
 </TR>
 
 <TR>
-<TD>device&lt;<EM>index</EM>&gt;ButtonIndexBase</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Base index of the tool's buttons in the input device's button name space.</TD>
-</TR>
-
-<TR>
-<TD>device&lt;<EM>index</EM>&gt;ButtonIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Index of the given tool button in the input device's button name space. If not provided, defaults to the base index plus the index of the tool button.</TD>
-</TR>
-
-<TR>
-<TD>device&lt;<EM>index</EM>&gt;ValuatorIndexBase</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Base index of the tool's valuators in the input device's valuator name space.</TD>
-</TR>
-
-<TR>
-<TD>device&lt;<EM>index</EM>&gt;ValuatorIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Index of the given tool valuator in the input device's valuator name space. If not provided, defaults to the base index plus the index of the tool valuator.</TD>
+<TD>valuators</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#featureassignment">feature assignments</A></TD>
+<TD>A list of valuator features to assign to the tool's valuator slots.</TD>
 </TR>
 </TABLE>
 
@@ -1137,466 +1179,13 @@ settings</A>.</DD>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>visletDsoNameTemplate</TD><TD><A HREF="#string">string</A></TD>
+<TD>visletDsoNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Defines a template to generate vislet DSO file names from vislet class names. The template is a printf-style format string with a single %s placeholder that is replaced with the vislet class name by the vislet manager. The setting defaults to the appropriate template to use the installed Vrui vislets.</TD>
 </TR>
 
 <TR>
-<TD>visletSearchPaths</TD><TD><A HREF="#list">list</A> of <A HREF="#string">strings</A></TD>
+<TD>visletSearchPaths</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of additional directories to search for vislet plug-in DSOs. The directory extracted from the vislet DSO name template is searched first, then all directories from the list in order until a matching DSO file is found.</TD>
-</TR>
-</TABLE>
-
-<H2>Tool Class Settings</H2>
-
-<H3>MouseNavigationTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>rotatePlaneOffset</TD><TD><A HREF="#number">number</A></TD>
-<TD>The mouse navigation tool uses an offset plane formula to calculate the rotation axis based on the mouse position and mouse motion in screen coordinates. If the plane offset is zero, any mouse movement will rotate around the screen's z axis (roll); a large plane offset will favor rotation around the screen's x and y axes (yaw and pitch, respectively).</TD>
-</TR>
-
-<TR>
-<TD>rotateFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move on screen to rotate the view by one radians.</TD>
-</TR>
-
-<TR>
-<TD>invertDolly</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether to invert the dolly/zoom switch. If this flag is false (the default), pressing the tool buttons 0 and 1 together will zoom, while additionally pressing tool button 2 will dolly in/out of the screen. If this flag is true, the button combinations for zoom and dolly are reversed.</TD>
-</TR>
-
-<TR>
-<TD>screenDollyingDirection</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Direction in screen coordinates in which the mouse pointer has to move to dolly in/out of the screen.</TD>
-</TR>
-
-<TR>
-<TD>screenScalingDirection</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Direction in screen coordinates in which the mouse pointer has to move to zoom in/out.</TD>
-</TR>
-
-<TR>
-<TD>dollyFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move on screen along the dollying direction to dolly in/out by one physical unit.</TD>
-</TR>
-
-<TR>
-<TD>scaleFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move on screen along the scaling direction to zoom in/out by a factor of e (2.71...).</TD>
-</TR>
-
-<TR>
-<TD>wheelDollyFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Amount of dolly movement in physical units triggered by one tick of the mouse wheel.</TD>
-</TR>
-
-<TR>
-<TD>wheelScaleFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Factor of zooming triggered by one tick of the mouse wheel.</TD>
-</TR>
-
-<TR>
-<TD>spinThreshold</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move while tool button 0 is released to trigger spinning animation.</TD>
-</TR>
-
-<TR>
-<TD>showScreenCenter</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether to draw crosshairs highlighting the center of rotation and zooming during navigation.</TD>
-</TR>
-
-<TR>
-<TD>interactWithWidgets</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether the mouse navigation tool's first button can also be used to interact with on-screen 3D GUI widgets. If set to true, the first tool button only starts rotating if it is not pressed over a GUI widget; otherwise, it interacts with the widget. This is an evil hack until a better tool chaining method comes along.</TD>
-</TR>
-</TABLE>
-
-<H3>MouseDialogNavigationTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>rotatePlaneOffset</TD><TD><A HREF="#number">number</A></TD>
-<TD>The mouse navigation tool uses an offset plane formula to calculate the rotation axis based on the mouse position and mouse motion in screen coordinates. If the plane offset is zero, any mouse movement will rotate around the screen's z axis (roll); a large plane offset will favor rotation around the screen's x and y axes (yaw and pitch, respectively).</TD>
-</TR>
-
-<TR>
-<TD>rotateFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move on screen to rotate the view by one radians.</TD>
-</TR>
-
-<TR>
-<TD>screenDollyingDirection</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Direction in screen coordinates in which the mouse pointer has to move to dolly in/out of the screen.</TD>
-</TR>
-
-<TR>
-<TD>screenScalingDirection</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Direction in screen coordinates in which the mouse pointer has to move to zoom in/out.</TD>
-</TR>
-
-<TR>
-<TD>dollyFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move on screen along the dollying direction to dolly in/out by one physical unit.</TD>
-</TR>
-
-<TR>
-<TD>scaleFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move on screen along the scaling direction to zoom in/out by a factor of e (2.71...).</TD>
-</TR>
-
-<TR>
-<TD>spinThreshold</TD><TD><A HREF="#number">number</A></TD>
-<TD>Distance in physical units the mouse pointer has to move while tool button 0 is released to trigger spinning animation.</TD>
-</TR>
-</TABLE>
-
-<H3>FlashlightTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>lightColor</TD><TD><A HREF="#color">color</A></TD>
-<TD>Color of the light emitted by the tool.</TD>
-</TR>
-
-<TR>
-<TD>lightSpotCutoff</TD><TD><A HREF="#number">number</A></TD>
-<TD>Maximum angle in degrees that the tool's light source emits away from the input device's ray direction.</TD>
-</TR>
-
-<TR>
-<TD>lightSpotExponent</TD><TD><A HREF="#number">number</A></TD>
-<TD>Exponent controlling the dropoff in emitted light intensity away from the input device's ray direction.</TD>
-</TR>
-</TABLE>
-
-<H3>FlyNavigationTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>flyDirection</TD><TD><A HREF="#vector">vector</A></TD>
-<TD>Movement direction in input device's coordinate system.</TD>
-</TR>
-
-<TR>
-<TD>flyFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Movement speed in physical coordinate units per second.</TD>
-</TR>
-</TABLE>
-
-<H3>FPSNavigationTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>rotateFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Rotation sensitivity expressed as distance in physical coordinate units the input device has to be moved on the main screen to rotate by an angle of 1&nbsp;radians.</TD>
-</TR>
-
-<TR>
-<TD>moveSpeed</TD><TD><A HREF="#number">number</A></TD>
-<TD>Movement speed in physical coordinate units per second.</TD>
-</TR>
-</TABLE>
-
-<H3>InputDeviceTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>createInputDevice</TD><TD><A HREF="#boolean">boolean</A></TD>
-<TD>Flag whether an input device tool creates a new virtual input device when created.</TD>
-</TR>
-
-<TR>
-<TD>newDeviceNumButtons</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Number of buttons to create on a newly created input device.</TD>
-</TR>
-</TABLE>
-
-<H3>JoystickNavigationTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>numButtons</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Number of buttons to use for all tools of this class.</TD>
-</TR>
-
-<TR>
-<TD>toggleButtonIndices</TD><TD><A HREF="#list">list</A> of <A HREF="#integer">integers</A></TD>
-<TD>List of indices of buttons to treat as toggle buttons.</TD>
-</TR>
-
-<TR>
-<TD>rotateFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Base angular velocity of all rotational axes expressed as radians per second when an axis valuator is at the limit.</TD>
-</TR>
-
-<TR>
-<TD>rotationalAxes</TD><TD><A HREF="#list">list</A> of <A HREF="#axisdescriptor">axis descriptors</A></TD>
-<TD>List of descriptors for rotational axes. The rotation axis' length is used as a multiplicator for the base angular velocity.</TD>
-</TR>
-
-<TR>
-<TD>translateFactor</TD><TD><A HREF="#number">number</A></TD>
-<TD>Base linear velocity of all translational axes expressed as physical coordinate units per second when an axis valuator is at the limit.</TD>
-</TR>
-
-<TR>
-<TD>translationalAxes</TD><TD><A HREF="#list">list</A> of <A HREF="#axisdescriptor">axis descriptors</A></TD>
-<TD>List of descriptors for translational axes. The translation vector's length is used as a multiplicator for the base linear velocity.</TD>
-</TR>
-
-<TR>
-<TD>navigationToggleButtonIndex</TD><TD><A HREF="#integer">integer</A></TD>
-<TD>Index of button to toggle between controlling the virtual input device and navigating the environment.</TD>
-</TR>
-
-<TR>
-<TD>deviceGlyphType</TD><TD><A HREF="#glyphtype">glyph type</A></TD>
-<TD>Type of glyph to render the virtual input device.</TD>
-</TR>
-
-<TR>
-<TD>deviceGlyphMaterial</TD><TD><A HREF="#material">material</A></TD>
-<TD>Material to render the virtual input device glyph.</TD>
-</TR>
-</TABLE>
-
-<H3>LaserpointerTool</H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD>rayLength</TD><TD><A HREF="#number">number</A></TD>
-<TD>Length of the ray emitted by the tool in physical coordinate units.</TD>
-</TR>
-
-<TR>
-<TD>rayLineWidth</TD><TD><A HREF="#number">number</A></TD>
-<TD>Cosmetic line width to render the emitted ray in pixels.</TD>
-</TR>
-
-<TR>
-<TD>rayColor</TD><TD><A HREF="#color">color</A></TD>
-<TD>Color of the emitted ray.</TD>
-</TR>
-</TABLE>
-
-<H3></H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD></TD><TD></TD>
-<TD></TD>
-</TR>
-</TABLE>
-
-<H3></H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD></TD><TD></TD>
-<TD></TD>
-</TR>
-</TABLE>
-
-<H3></H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD></TD><TD></TD>
-<TD></TD>
-</TR>
-</TABLE>
-
-<H3></H3>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
-
-<TR>
-<TD></TD><TD></TD>
-<TD></TD>
-</TR>
-</TABLE>
-
-<H2>Setting Value Types</H2>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Type Name</TH><TH>Description</TH></TR>
-
-<TR>
-<TD><A NAME="boolean">boolean</A></TD>
-<TD>Logical value; can be set to the literals <B>true</B> or <B>false</B>.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="enumerant">enumerant</A></TD>
-<TD>One out of a fixed set of possible choices, expressed as literals. Allowed literal values are listed in the setting's description.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="keyname">key name</A></TD>
-<TD>Name of a key on the keyboard, expressed as a literal. Labeled keys have their own names, and the following "special" key names are recognized: <B>Space</B>, <B>Tab</B>, <B>Return</B>, <B>Backspace</B>, <B>Left</B>, <B>Up</B>, <B>Right</B>, <B>Down</B>, <B>PageUp</B>, <B>PageDown</B>, <B>Home</B>, <B>End</B>, <B>Insert</B>, <B>Delete</B>, <B>Num0</B>, <B>Num1</B>, <B>Num2</B>, <B>Num3</B>, <B>Num4</B>, <B>Num5</B>, <B>Num6</B>, <B>Num7</B>, <B>Num8</B>, <B>Num9</B>, <B>Num/</B>, <B>Num*</B>, <B>Num-</B>, <B>Num+</B>, <B>NumEnter</B>, <B>NumSep</B>, <B>LeftShift</B>, <B>RightShift</B>, <B>CapsLock</B>, <B>LeftCtrl</B>, <B>RightCtrl</B>, <B>LeftAlt</B>, <B>RightAlt</B>, <B>LeftMeta</B>, <B>RightMeta</B>, <B>LeftSuper</B>, <B>RightSuper</B>, <B>LeftHyper</B>, <B>RightHyper</B>, <B>F1</B>, <B>F2</B>, <B>F3</B>, <B>F4</B>, <B>F5</B>, <B>F6</B>, <B>F7</B>, <B>F8</B>, <B>F9</B>, <B>F10</B>, <B>F11</B>, <B>F12</B>.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="integer">integer</A></TD>
-<TD>Positive or negative integer number. Consists of an optional plus or minus sign, followed by a sequence of at least one decimal digits.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="number">number</A></TD>
-<TD>Positive or negative floating-point number. Consists of an optional plus or minus sign, followed by a sequence of at least one decimal digit defining the number's integer part, and an optional dot followed by a sequence of at least one decimal digits defining the number's fractional part.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="string">string</A></TD>
-<TD>A sequence of characters enclosed in double quotes. Strings support C-style escape sequences using the backslash escape charater; e.g., \t gets translated to a TAB character, \" is a double quote, and \\ is a backslash. If a string only contains letters, digits, underscores, or escape sequences, the quotes are optional.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="list">list</A></TD>
-<TD>A list of values of another arbitrary setting value type. A list is encoded as a pair of parentheses containing a comma-separated list of an arbitrary number of values.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="point">point</A></TD>
-<TD>A point in 3D affine space, encoded as a <A HREF="#list">list</A> of exactly three <A HREF="#number">numbers</A> (x, y, and z components).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="vector">vector</A></TD>
-<TD>A vector in 3D affine space, encoded as a <A HREF="#list">list</A> of exactly three <A HREF="#number">numbers</A> (x, y, and z components).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="plane">plane</A></TD>
-<TD>An oriented plane (half-space) in 3D affine space, encoded as a <A HREF="#vector">vector</A> (non-normalized normal vector) followed by a comma and a <A HREF="#number">number</A> (origin distance in terms of normal vector length).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="trackerstate">tracker state</A></TD>
-<TD>
-A position and orientation in 3D affine space, encoded as a sequence of basic transformations separated by multiplication signs. The basic transformations are:
-<DL>
-<DT><B>translate</B> &lt;<EM>translation</EM>&gt;</DT>
-<DD>Translates the coordinate system by the given translation <A HREF="#vector">vector</A>.</DD>
-
-<DT><B>rotate</B> &lt;<EM>axis</EM>&gt;, &lt;<EM>angle</EM>&gt;</DT>
-<DD>Rotates the coordinate system around the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
-</DL>
-</TD>
-</TR>
-
-<TR>
-<TD><A NAME="ogtransform">orthogonal transformation</A></TD>
-<TD>
-A transformation consisting of any combination of translations, rotations, and uniform scalings, encoded as a sequence of basic transformations separated by multiplication signs. The basic transformations are:
-<DL>
-<DT><B>translate</B> &lt;<EM>translation</EM>&gt;</DT>
-<DD>Translates the coordinate system by the given translation <A HREF="#vector">vector</A>.</DD>
-
-<DT><B>rotate</B> &lt;<EM>axis</EM>&gt;, &lt;<EM>angle</EM>&gt;</DT>
-<DD>Rotates the coordinate system around its own origin and the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
-
-<DT><B>scale</B> &lt;<EM>factor</EM>&gt;</DT>
-<DD>Scales the coordinate system around its own origin by the scaling factor <A HREF="#number">number</A>.</DD>
-</DL>
-</TD>
-</TR>
-
-<TR>
-<TD><A NAME="color">color</A></TD>
-<TD>An RGB color with opacity component, encoded as a <A HREF="#list">list</A> of three or four <A HREF="#number">numbers</A> (red, green, blue, and (optional) opacity components, scaled from 0.0 to&nbsp;1.0). If the opacity component is missing, it is initialized to 1.0.</TD>
-</TR>
-
-<TR>
-<TD><A NAME="material">material</A></TD>
-<TD>An OpenGL material property, encoded as a pair of curly braces containing a sequence of semicolon-terminated component settings. Omitted components are set to the OpenGL default values. The available component settings are:
-<DL>
-<DT><B>Ambient&nbsp;=</B> &lt;<EM>ambient color</EM>&gt;</DT><DD>Ambient <A HREF="#color">color</A> of the material.</DD>
-
-<DT><B>Diffuse&nbsp;=</B> &lt;<EM>diffuse color</EM>&gt;</DT><DD>Diffuse <A HREF="#color">color</A> of the material.</DD>
-
-<DT><B>AmbientDiffuse&nbsp;=</B> &lt;<EM>ambient and diffuse color</EM>&gt;</DT><DD>Ambient and diffuse <A HREF="#color">color</A> of the material.</DD>
-
-<DT><B>Specular&nbsp;=</B> &lt;<EM>specular color</EM>&gt;</DT><DD>Specular <A HREF="#color">color</A> of the material.</DD>
-
-<DT><B>Shininess&nbsp;=</B> &lt;<EM>shininess</EM>&gt;</DT><DD>Shininess exponent <A HREF="#number">number</A> of the material.</DD>
-
-<DT><B>Emission&nbsp;=</B> &lt;<EM>emissive color</EM>&gt;</DT><DD>Emissive <A HREF="#color">color</A> of the material.</DD>
-</DL>
-</TD>
-</TR>
-
-<TR>
-<TD><A NAME="glyphtype">glyph type</A></TD>
-<TD>
-Type of a 3D icon, encoded as a literal. Available values:
-<DL>
-<DT></DT><B>None</B><DD>No icon.</DD>
-
-<DT></DT><B>Cone</B><DD>A cone with the apex at the origin, oriented along the y&nbsp;axis.</DD>
-
-<DT></DT><B>Cube</B><DD>A cube centered around the origin.</DD>
-
-<DT></DT><B>Sphere</B><DD>A sphere centered around the origin.</DD>
-
-<DT></DT><B>Crossball</B><DD>A cube centered around the origin, with three cylinders oriented along the x, y, and z axes, respectively.</DD>
-
-<DT></DT><B>Box</B><DD>A "wireframe" box composed of oblong rectangles as edges and cubes as vertices.</DD>
-</DL>
-</TD>
-</TR>
-
-<TR>
-<TD><A NAME="screenprotector">screen protector</A></TD>
-<TD>Description of a sphere around an input device that triggers a visual alarm when touching a protected display screen. Encoded as a set of parentheses containing a <A HREF="#string">string</A> (the name of an input device), followed by a comma and a <A HREF="#point">point</A> (the center of the sphere in the device's coordinate system), followed by a comma and a <A HREF="#number">number</A> (the radius of the sphere).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="windowpoint">window point</A></TD>
-<TD>A point in 2D window space, encoded as a <A HREF="#list">list</A> of exactly two <A HREF="#number">numbers</A> (x and y components, scaled from 0.0 to&nbsp;1.0).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="windowposition">window position</A></TD>
-<TD>The position and size of a display window, encoded as a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window position in pixels), followed by a comma and a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window size in pixels).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="axissetting">axis value mapper</A></TD>
-<TD>Defines a mapping from a device's raw absolute or relative axis values to the range [-1, 1] used by Vrui, using a &quot;broken line&quot; model. Encoded as a list of exactly four <A HREF="#number">numbers</A>: the raw value mapped to -1, a pair of raw values defining a &quot;flat zone&quot; such that all raw values between the first and second are mapped to zero, and the raw value mapped to 1.</TD>
-</TR>
-
-Mapping from a tool valuator to a translational or rotational axis on a navigation tool. Encoded as a pair of parentheses containing an <A HREF="#integer">integer</A> (the index of the mapped valuator), followed by a comma and a <A HREF="#vector">vector</A> (the rotation axis or translation vector).</TD>
-</TR>
-
-<TR>
-<TD><A NAME="axisdescriptor">axis descriptor</A></TD>
-<TD>Mapping from a tool valuator to a translational or rotational axis on a navigation tool. Encoded as a pair of parentheses containing an <A HREF="#integer">integer</A> (the index of the mapped valuator), followed by a comma and a <A HREF="#vector">vector</A> (the rotation axis or translation vector).</TD>
 </TR>
 </TABLE>
 

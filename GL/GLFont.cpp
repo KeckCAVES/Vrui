@@ -230,6 +230,110 @@ void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringB
 	delete[] image;
 	}
 
+void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const GLFont::Color& selectionBackgroundColor,const GLFont::Color& selectionForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const
+	{
+	/* Calculate the proper texture image dimensions: */
+	GLsizei imageWidth,imageHeight;
+	int x,baseLineRow;
+	if(antialiasing)
+		{
+		imageWidth=stringWidth;
+		imageHeight=fontHeight;
+		baseLineRow=baseLine;
+		x=maxLeftLap+1;
+		}
+	else
+		{
+		imageWidth=stringWidth;
+		imageHeight=fontHeight;
+		baseLineRow=baseLine;
+		x=maxLeftLap+1;
+		}
+	
+	/* Convert the string colors to 8-bit RGBA: */
+	GLColor<GLubyte,4> bg=stringBackgroundColor;
+	GLColor<GLubyte,4> fg=stringForegroundColor;
+	GLColor<GLubyte,4> sbg=selectionBackgroundColor;
+	GLColor<GLubyte,4> sfg=selectionForegroundColor;
+	
+	/* Create an RGBA texture image of appropriate size: */
+	GLColor<GLubyte,4>* image=new GLColor<GLubyte,4>[imageWidth*imageHeight];
+	GLColor<GLubyte,4>* iPtr=image;
+	for(int i=imageWidth*imageHeight;i>0;--i,++iPtr)
+		*iPtr=bg;
+	
+	/* Copy all characters into the texture image: */
+	GLsizei index=0;
+	for(const char* cPtr=string;*cPtr!=0;++cPtr,++index)
+		{
+		int charIndex=int(*cPtr)-firstCharacter;
+		if(charIndex>=0&&charIndex<numCharacters)
+			{
+			const CharInfo* ciPtr=&characters[charIndex];
+			const unsigned char* rasterLine=&rasterLines[ciPtr->rasterLineOffset];
+			const unsigned char* span=&spans[ciPtr->spanOffset];
+			
+			GLColor<GLubyte,4> tfg=fg;
+			if(index>=selectionStart&&index<selectionEnd)
+				{
+				/* Change the background color to the selection background color: */
+				for(int y1=0;y1<imageHeight;++y1)
+					{
+					iPtr=&image[imageWidth*y1+x];
+					for(int x1=x;x1<x+ciPtr->width;++x1,++iPtr)
+						*iPtr=sbg;
+					}
+				
+				/* Use the selection foreground color: */
+				tfg=sfg;
+				}
+			
+			/* Copy all raster lines: */
+			for(int y=baseLineRow-ciPtr->descent;y<baseLineRow+ciPtr->ascent;++y,++rasterLine)
+				{
+				/* Copy all spans in this line: */
+				iPtr=&image[imageWidth*y+x+ciPtr->glyphOffset];
+				int numSpans=int(*rasterLine);
+				for(int i=0;i<numSpans;++i,++span)
+					{
+					iPtr+=int((*span)>>3);
+					int numPixels=int((*span)&0x07);
+					for(int j=0;j<numPixels;++j,++iPtr)
+						*iPtr=tfg;
+					}
+				}
+
+			x+=ciPtr->width;
+			}
+		}
+	
+	/* Upload the created texture image: */
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
+	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,textureWidth,textureHeight,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
+	if(antialiasing)
+		{
+		static GLfloat kernel[3]={0.25,0.5,0.25};
+		// static GLfloat kernel[5]={0.125,0.2,0.35,0.2,0.125};
+		glConvolutionParameteri(GL_SEPARABLE_2D,GL_CONVOLUTION_BORDER_MODE,GL_REPLICATE_BORDER);
+		glSeparableFilter2D(GL_SEPARABLE_2D,GL_RGBA8,3,3,GL_LUMINANCE,GL_FLOAT,kernel,kernel);
+		glEnable(GL_SEPARABLE_2D);
+		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,imageWidth,imageHeight,GL_RGBA,GL_UNSIGNED_BYTE,image);
+		glDisable(GL_SEPARABLE_2D);
+		}
+	else
+		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,imageWidth,imageHeight,GL_RGBA,GL_UNSIGNED_BYTE,image);
+	
+	/* Clean up and return: */
+	delete[] image;
+	}
+
 void GLFont::loadFont(Misc::File& file)
 	{
 	/* Load the font file header: */
@@ -492,6 +596,26 @@ void GLFont::uploadStringTexture(const GLString& string,const GLFont::Color& str
 	{
 	/* Upload the string's texture image: */
 	uploadStringTexture(string.string,stringBackgroundColor,stringForegroundColor,string.texelWidth,string.textureWidth);
+	}
+
+void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const
+	{
+	/* Calculate the string's texel width: */
+	GLsizei stringWidth=calcStringWidth(string);
+	
+	/* Calculate the texture width: */
+	GLsizei textureWidth;
+	for(textureWidth=1;textureWidth<stringWidth;textureWidth<<=1)
+		;
+	
+	/* Upload the string's texture image: */
+	uploadStringTexture(string,stringBackgroundColor,stringForegroundColor,selectionStart,selectionEnd,selectionBackgroundColor,selectionForegroundColor,stringWidth,textureWidth);
+	}
+
+void GLFont::uploadStringTexture(const GLString& string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const
+	{
+	/* Upload the string's texture image: */
+	uploadStringTexture(string.string,stringBackgroundColor,stringForegroundColor,selectionStart,selectionEnd,selectionBackgroundColor,selectionForegroundColor,string.texelWidth,string.textureWidth);
 	}
 
 void GLFont::drawString(const GLFont::Vector& origin,const char* string) const

@@ -20,13 +20,13 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GLMotif/RowColumn.h>
+
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Event.h>
-
-#include <GLMotif/RowColumn.h>
 
 namespace GLMotif {
 
@@ -36,12 +36,24 @@ Methods of class RowColumn:
 
 Vector RowColumn::calcGrid(std::vector<GLfloat>& columnWidths,std::vector<GLfloat>& rowHeights) const
 	{
+	/* Initialize the field size arrays: */
+	rowHeights.clear();
+	columnWidths.clear();
+	if(orientation==VERTICAL)
+		{
+		/* Initialize the column widths for all minor widgets: */
+		columnWidths.insert(columnWidths.end(),numMinorWidgets,0.0f);
+		}
+	else
+		{
+		/* Initialize the row heights for all minor widgets: */
+		rowHeights.insert(rowHeights.end(),numMinorWidgets,0.0f);
+		}
+	
 	/* Calculate the natural size of the grid: */
 	GLfloat maxWidth=0.0f;
 	GLfloat maxHeight=0.0f;
-	rowHeights.clear();
 	int rowIndex=0;
-	columnWidths.clear();
 	int columnIndex=0;
 	for(WidgetList::const_iterator chIt=children.begin();chIt!=children.end();++chIt)
 		{
@@ -134,7 +146,7 @@ RowColumn::~RowColumn(void)
 	{
 	/* Delete all children: */
 	for(WidgetList::iterator chIt=children.begin();chIt!=children.end();++chIt)
-		delete *chIt;
+		deleteChild(*chIt);
 	}
 
 Vector RowColumn::calcNaturalSize(void) const
@@ -483,15 +495,16 @@ void RowColumn::addChild(Widget* newChild)
 	nextChildIndex=GLint(children.size());
 	
 	/* Update the number of rows and columns: */
+	size_t numMajors=(children.size()+numMinorWidgets-1)/numMinorWidgets;
 	switch(orientation)
 		{
 		case VERTICAL:
-			if((children.size()+numMinorWidgets-1)/numMinorWidgets>rowWeights.size())
+			if(numMajors>rowWeights.size())
 				rowWeights.push_back(0.0f);
 			break;
 		
 		case HORIZONTAL:
-			if((children.size()+numMinorWidgets-1)/numMinorWidgets>columnWeights.size())
+			if(numMajors>columnWeights.size())
 				columnWeights.push_back(0.0f);
 			break;
 		}
@@ -500,6 +513,46 @@ void RowColumn::addChild(Widget* newChild)
 		{
 		/* Try to resize the widget to accomodate the new child: */
 		parent->requestResize(this,calcNaturalSize());
+		}
+	}
+
+void RowColumn::removeChild(Widget* removeChild)
+	{
+	/* Find the given widget in the list of children: */
+	WidgetList::iterator chIt;
+	GLsizei childIndex=0;
+	for(chIt=children.begin();chIt!=children.end()&&*chIt!=removeChild;++chIt,++childIndex)
+		;
+	if(chIt!=children.end())
+		{
+		/* Remove the child from the list: */
+		children.erase(chIt);
+		
+		/* Update the number of rows and columns: */
+		GLint majorPos=GLint(childIndex%numMinorWidgets);
+		size_t numMajors=(children.size()+numMinorWidgets-1)/numMinorWidgets;
+		switch(orientation)
+			{
+			case VERTICAL:
+				if(numMajors<rowWeights.size())
+					rowWeights.erase(rowWeights.begin()+majorPos);
+				break;
+			
+			case HORIZONTAL:
+				if(numMajors<columnWeights.size())
+					columnWeights.erase(columnWeights.begin()+majorPos);
+				break;
+			}
+		
+		/* Update the child insertion position: */
+		if(nextChildIndex>GLint(children.size()))
+			nextChildIndex=GLint(children.size());
+		
+		if(isManaged)
+			{
+			/* Try to resize the widget to calculate the new layout: */
+			parent->requestResize(this,calcNaturalSize());
+			}
 		}
 	}
 
@@ -615,24 +668,20 @@ void RowColumn::setOrientation(RowColumn::Orientation newOrientation)
 		case VERTICAL:
 			{
 			columnWeights.clear();
-			for(GLsizei i=0;i<numMinorWidgets;++i)
-				columnWeights.push_back(0.0f);
+			columnWeights.insert(columnWeights.end(),numMinorWidgets,0.0f);
 			rowWeights.clear();
 			unsigned int numRows=(children.size()+numMinorWidgets-1)/numMinorWidgets;
-			for(unsigned int i=0;i<numRows;++i)
-				rowWeights.push_back(0.0f);
+			rowWeights.insert(rowWeights.end(),numRows,0.0f);
 			break;
 			}
 		
 		case HORIZONTAL:
 			{
 			rowWeights.clear();
-			for(GLsizei i=0;i<numMinorWidgets;++i)
-				rowWeights.push_back(0.0f);
+			rowWeights.insert(rowWeights.end(),numMinorWidgets,0.0f);
 			columnWeights.clear();
 			unsigned int numColumns=(children.size()+numMinorWidgets-1)/numMinorWidgets;
-			for(unsigned int i=0;i<numColumns;++i)
-				columnWeights.push_back(0.0f);
+			columnWeights.insert(columnWeights.end(),numColumns,0.0f);
 			break;
 			}
 		}
@@ -679,24 +728,20 @@ void RowColumn::setNumMinorWidgets(GLsizei newNumMinorWidgets)
 		case VERTICAL:
 			{
 			columnWeights.clear();
-			for(GLsizei i=0;i<numMinorWidgets;++i)
-				columnWeights.push_back(0.0f);
+			columnWeights.insert(columnWeights.end(),numMinorWidgets,0.0f);
 			rowWeights.clear();
 			unsigned int numRows=(children.size()+numMinorWidgets-1)/numMinorWidgets;
-			for(unsigned int i=0;i<numRows;++i)
-				rowWeights.push_back(0.0f);
+			rowWeights.insert(rowWeights.end(),numRows,0.0f);
 			break;
 			}
 		
 		case HORIZONTAL:
 			{
 			rowWeights.clear();
-			for(GLsizei i=0;i<numMinorWidgets;++i)
-				rowWeights.push_back(0.0f);
+			rowWeights.insert(rowWeights.end(),numMinorWidgets,0.0f);
 			columnWeights.clear();
 			unsigned int numColumns=(children.size()+numMinorWidgets-1)/numMinorWidgets;
-			for(unsigned int i=0;i<numColumns;++i)
-				columnWeights.push_back(0.0f);
+			columnWeights.insert(columnWeights.end(),numColumns,0.0f);
 			break;
 			}
 		}
@@ -841,9 +886,12 @@ void RowColumn::removeWidgets(GLint majorDirectionIndex)
 		lastIndex=int(children.size());
 	for(int i=firstIndex;i<lastIndex;++i)
 		{
+		/* Keep track of the widget's size change: */
 		if(removedSize<children[i]->getExterior().size[dimension])
 			removedSize=children[i]->getExterior().size[dimension];
-		delete children[i];
+		
+		/* Unmanage and delete the child: */
+		deleteChild(children[i]);
 		}
 	children.erase(children.begin()+firstIndex,children.begin()+lastIndex);
 	

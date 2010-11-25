@@ -96,6 +96,7 @@ class GLFont
 	GLsizei calcStringWidth(const char* string) const; // Calculates the texel width of a string
 	void uploadStringTexture(const char* string,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string
 	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string using the given colors
+	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const; // Creates and uploads a texture for a string using the given colors, selection range, and selection colors
 	void loadFont(Misc::File& file); // Loads font from given file
 	
 	/* Constructors and Destructors: */
@@ -215,6 +216,8 @@ class GLFont
 	void uploadStringTexture(const GLString& string) const; // Ditto
 	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor) const; // Uploads a string's texture image with the given colors
 	void uploadStringTexture(const GLString& string,const Color& stringBackgroundColor,const Color& stringForegroundColor) const; // Ditto
+	void uploadStringTexture(const char* string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const; // Uploads a string's texture image with the given colors, selection range, and selection colors
+	void uploadStringTexture(const GLString& string,const Color& stringBackgroundColor,const Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const; // Ditto
 	void drawString(const Vector& origin,const char* string) const; // Draws a simple, one-line string
 	};
 

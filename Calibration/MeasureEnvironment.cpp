@@ -37,8 +37,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Vector.h>
 #include <Geometry/ProjectiveTransformation.h>
-#include <Geometry/Sphere.h>
 #include <Geometry/PCACalculator.h>
+#include <Geometry/PointPicker.h>
+#include <Geometry/RayPicker.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
@@ -93,6 +94,13 @@ MeasureEnvironment::PointSnapperToolFactory* MeasureEnvironment::PointSnapperToo
 Methods of class MeasureEnvironment::PointSnapperTool:
 *****************************************************/
 
+MeasureEnvironment::PointSnapperTool::PointSnapperTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment)
+	:Vrui::TransformTool(factory,inputAssignment)
+	{
+	/* Set the source device: */
+	sourceDevice=getButtonDevice(0);
+	}
+
 void MeasureEnvironment::PointSnapperTool::initialize(void)
 	{
 	/* Initialize the base tool: */
@@ -104,31 +112,22 @@ void MeasureEnvironment::PointSnapperTool::initialize(void)
 
 void MeasureEnvironment::PointSnapperTool::frame(void)
 	{
-	/* Get pointer to input device: */
-	Vrui::InputDevice* iDevice=input.getDevice(0);
-	
-	if(transformEnabled)
-		{
-		/* Pick a point: */
-		Vrui::Scalar pointSize=Vrui::getUiSize()*Vrui::getInverseNavigationTransformation().getScaling();
-		Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(iDevice);
-		Point pos=transform.getOrigin();
-		PickResult pr;
-		if(iDevice->isRayDevice())
-			pr=application->pickPoint(Ray(pos,transform.transform(iDevice->getDeviceRayDirection())),pointSize);
-		else
-			pr=application->pickPoint(pos,pointSize);
-		
-		/* Move the device's origin to the picked point: */
-		pos=application->snapToPoint(pos,pr);
-		
-		/* Set the transformed device's position to the intersection point: */
-		Vrui::TrackerState ts=Vrui::TrackerState::translateFromOriginTo(Vrui::getNavigationTransformation().transform(pos));
-		transformedDevice->setTransformation(ts);
-		}
+	/* Pick a point: */
+	Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(sourceDevice);
+	Point pos=transform.getOrigin();
+	PickResult pr;
+	if(sourceDevice->isRayDevice())
+		pr=application->pickPoint(Ray(pos,transform.transform(sourceDevice->getDeviceRayDirection())));
 	else
-		transformedDevice->setTransformation(iDevice->getTransformation());
-	transformedDevice->setDeviceRayDirection(iDevice->getDeviceRayDirection());
+		pr=application->pickPoint(pos);
+	
+	/* Move the device's origin to the picked point: */
+	pos=application->snapToPoint(pos,pr);
+	
+	/* Set the transformed device's position to the intersection point: */
+	Vrui::TrackerState ts=Vrui::TrackerState::translateFromOriginTo(Vrui::getNavigationTransformation().transform(pos));
+	transformedDevice->setTransformation(ts);
+	transformedDevice->setDeviceRayDirection(sourceDevice->getDeviceRayDirection());
 	}
 
 /***********************************************************
@@ -239,7 +238,7 @@ MeasureEnvironment::PointQueryTool::PointQueryTool(const Vrui::ToolFactory* fact
 	dialog->manageChild();
 	
 	/* Pop up the data dialog: */
-	Vrui::popupPrimaryWidget(dialogPopup,Vrui::getNavigationTransformation().transform(Vrui::getDisplayCenter()));
+	Vrui::popupPrimaryWidget(dialogPopup);
 	}
 
 MeasureEnvironment::PointQueryTool::~PointQueryTool(void)
@@ -248,7 +247,7 @@ MeasureEnvironment::PointQueryTool::~PointQueryTool(void)
 	delete dialogPopup;
 	}
 
-void MeasureEnvironment::PointQueryTool::buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
+void MeasureEnvironment::PointQueryTool::buttonCallback(int,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState)
 		{
@@ -267,17 +266,16 @@ void MeasureEnvironment::PointQueryTool::frame(void)
 	if(dragging)
 		{
 		/* Get pointer to input device: */
-		Vrui::InputDevice* iDevice=input.getDevice(0);
+		Vrui::InputDevice* iDevice=getButtonDevice(0);
 		
 		/* Pick a point: */
-		Vrui::Scalar pointSize=Vrui::getUiSize()*Vrui::getInverseNavigationTransformation().getScaling();
 		Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(iDevice);
 		Point pos=transform.getOrigin();
 		PickResult newPickResult;
 		if(iDevice->isRayDevice())
-			newPickResult=application->pickPoint(Ray(pos,transform.transform(iDevice->getDeviceRayDirection())),pointSize);
+			newPickResult=application->pickPoint(Ray(pos,transform.transform(iDevice->getDeviceRayDirection())));
 		else
-			newPickResult=application->pickPoint(pos,pointSize);
+			newPickResult=application->pickPoint(pos);
 		
 		/* Check if the pick result has changed: */
 		if(pickResult!=newPickResult)
@@ -632,14 +630,14 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	{
 	/* Register the point snapper tool class with the Vrui tool manager: */
 	PointSnapperToolFactory* pointSnapperToolFactory=new PointSnapperToolFactory("PointSnapperTool","Snap To Points",Vrui::getToolManager()->loadClass("TransformTool"),*Vrui::getToolManager());
-	pointSnapperToolFactory->setNumDevices(1);
-	pointSnapperToolFactory->setNumButtons(0,1);
+	pointSnapperToolFactory->setNumButtons(1);
+	pointSnapperToolFactory->setButtonFunction(0,"Transformed Button");
 	Vrui::getToolManager()->addClass(pointSnapperToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Register the point query tool class with the Vrui tool manager: */
 	PointQueryToolFactory* pointQueryToolFactory=new PointQueryToolFactory("PointQueryTool","Query Points",0,*Vrui::getToolManager());
-	pointQueryToolFactory->setNumDevices(1);
-	pointQueryToolFactory->setNumButtons(0,1);
+	pointQueryToolFactory->setNumButtons(1);
+	pointQueryToolFactory->setButtonFunction(0,"Query Point");
 	Vrui::getToolManager()->addClass(pointQueryToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Parse the command line: */
@@ -647,7 +645,7 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	const char* naturalPointServerName=0;
 	int naturalPointCommandPort=1510;
 	const char* naturalPointDataAddress="224.0.0.1";
-	int naturalPointDataPort=1001;
+	int naturalPointDataPort=1511;
 	int totalStationBaudRate=19200;
 	const char* measurementFileName=0;
 	TotalStation::Scalar totalStationUnitScale=TotalStation::Scalar(1);
@@ -796,7 +794,7 @@ MeasureEnvironment::~MeasureEnvironment(void)
 			size_t i=0;
 			for(PointList::const_iterator tpIt=trackerPoints.begin();tpIt!=trackerPoints.end();++tpIt)
 				{
-				pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;;
+				pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;
 				++i;
 				}
 			}
@@ -838,105 +836,48 @@ void MeasureEnvironment::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Point& point,MeasureEnvironment::Scalar pointSize) const
+MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Point& point) const
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
-	PickResult bestPointIndex=~PickResult(0);
-	Scalar minSqrDist=Math::sqr(pointSize);
+	/* Create a point picker: */
+	Geometry::PointPicker<Scalar,3> picker(point,Scalar(Vrui::getPointPickDistance()));
 	
-	/* Compare the query point against all points: */
-	size_t indexBase=0;
+	/* Process all points: */
+	for(PointList::const_iterator pIt=floorPoints.begin();pIt!=floorPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=screenPoints.begin();pIt!=screenPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=ballPoints.begin();pIt!=ballPoints.end();++pIt)
+		picker(*pIt);
 	
-	/* Compare against floor points: */
-	for(size_t i=0;i<floorPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(point,floorPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=i+indexBase;
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=floorPoints.size();
-	
-	/* Compare against screen points: */
-	for(size_t i=0;i<screenPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(point,screenPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=i+indexBase;
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=screenPoints.size();
-	
-	/* Compare against ball points: */
-	for(size_t i=0;i<ballPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(point,ballPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=i+indexBase;
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=ballPoints.size();
-	
-	return bestPointIndex;
+	/* Return the index of the picked point: */
+	if(picker.havePickedPoint())
+		return picker.getPickIndex();
+	else
+		return ~PickResult(0);
 	}
 
-MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Ray& ray,MeasureEnvironment::Scalar pointSize) const
+MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Ray& ray) const
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
-	PickResult bestPointIndex=~PickResult(0);
-	Scalar minLambda=Math::Constants<Scalar>::max;
+	/* Create a ray picker: */
+	Geometry::RayPicker<Scalar,3> picker(ray,Scalar(Vrui::getRayPickCosine()));
 	
-	/* Compare the query ray against all points: */
-	size_t indexBase=0;
+	/* Process all points: */
+	for(PointList::const_iterator pIt=floorPoints.begin();pIt!=floorPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=screenPoints.begin();pIt!=screenPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=ballPoints.begin();pIt!=ballPoints.end();++pIt)
+		picker(*pIt);
 	
-	/* Compare against floor points: */
-	for(size_t i=0;i<floorPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(floorPoints[i],pointSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(ray);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=i+indexBase;
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=floorPoints.size();
-	
-	/* Compare against screen points: */
-	for(size_t i=0;i<screenPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(screenPoints[i],pointSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(ray);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=i+indexBase;
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=screenPoints.size();
-	
-	/* Compare against ball points: */
-	for(size_t i=0;i<ballPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(ballPoints[i],pointSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(ray);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=i+indexBase;
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=ballPoints.size();
-	
-	return bestPointIndex;
+	/* Return the index of the picked point: */
+	if(picker.havePickedPoint())
+		return picker.getPickIndex();
+	else
+		return ~PickResult(0);
 	}
 
 std::pair<int,int> MeasureEnvironment::classifyPickResult(const MeasureEnvironment::PickResult& pickResult) const

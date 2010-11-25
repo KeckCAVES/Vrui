@@ -232,7 +232,10 @@ void ScaleBar::navigationChangedCallback(NavigationTransformationChangedCallback
 		calcSize(cbData->newTransform);
 		
 		/* Resize the widget: */
-		resize(GLMotif::Box(GLMotif::Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+		GLMotif::Vector newSize=calcNaturalSize();
+		GLMotif::Vector newOrigin=GLMotif::Vector(0.0f,0.0f,0.0f);
+		newOrigin[0]=-newSize[0]*0.5f;
+		resize(GLMotif::Box(newOrigin,newSize));
 		}
 	}
 
@@ -248,7 +251,7 @@ ScaleBar::ScaleBar(const char* sName,GLMotif::WidgetManager* sManager)
 	setBorderType(GLMotif::Widget::PLAIN);
 	
 	/* Set default background and foreground colors: */
-	Color bgColor=getBackgroundColor();
+	Color bgColor=Vrui::getBackgroundColor();
 	bgColor[3]=0.0f;
 	Color fgColor;
 	for(int i=0;i<3;++i)
@@ -277,7 +280,10 @@ ScaleBar::ScaleBar(const char* sName,GLMotif::WidgetManager* sManager)
 	calcSize(getNavigationTransformation());
 	
 	/* Resize the widget: */
-	resize(GLMotif::Box(GLMotif::Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+	GLMotif::Vector newSize=calcNaturalSize();
+	GLMotif::Vector newOrigin=GLMotif::Vector(0.0f,0.0f,0.0f);
+	newOrigin[0]=-newSize[0]*0.5f;
+	resize(GLMotif::Box(newOrigin,newSize));
 	
 	/* Register a navigation change callback with the Vrui kernel: */
 	getNavigationTransformationChangedCallbacks().add(this,&ScaleBar::navigationChangedCallback);
@@ -394,11 +400,16 @@ void ScaleBar::draw(GLContextData& contextData) const
 	glVertex2f(x1,y2);
 	glEnd();
 	
+	/* Install a temporary deferred renderer: */
+	{
+	GLLabel::DeferredRenderer dr(contextData);
+	
 	/* Draw the length and scale labels: */
-	glEnable(GL_ALPHA_TEST);
-	glAlphaFunc(GL_GREATER,0.0f);
+	// glEnable(GL_ALPHA_TEST);
+	// glAlphaFunc(GL_GREATER,0.0f);
 	lengthLabel->draw(contextData);
 	scaleLabel->draw(contextData);
+	}
 	
 	/* Restore OpenGL state: */
 	glPopAttrib();
@@ -436,8 +447,13 @@ void ScaleBar::pointerButtonDown(GLMotif::Event& event)
 			newNavScale=getMeterFactor()*newScale/unit.getMeterFactor();
 			}
 		
+		/* Get the current navigation transformation and calculate the display center position in navigation coordinates: */
 		const NavTransform& nav=getNavigationTransformation();
+		Point center=nav.inverseTransform(getDisplayCenter());
+		
+		/* Create the new navigation transformation: */
 		NavTransform newNav=NavTransform(nav.getTranslation(),nav.getRotation(),newNavScale);
+		newNav.leftMultiply(NavTransform::translate(getDisplayCenter()-newNav.transform(center)));
 		setNavigationTransformation(newNav);
 		
 		deactivateNavigationTool(reinterpret_cast<const Tool*>(this));

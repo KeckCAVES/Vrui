@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeTool - Vrui tool class to snap a virtual input device to
 events in an earthquake data set.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -34,13 +34,11 @@ class EarthquakeToolFactory:public Vrui::ToolFactory // Class for factories that
 	
 	/* Elements: */
 	private:
-	float sphereRadius; // Radius of sphere around selection points
-	float coneAngle; // Opening angle of cone around selection rays
 	const EarthquakeSet* quakes; // The earthquake data set used by all earthquake tools
 	
 	/* Constructors and destructors: */
 	public:
-	EarthquakeToolFactory(Vrui::ToolManager& toolManager,float sSphereRadius,float sConeAngle,const EarthquakeSet* sQuakes);
+	EarthquakeToolFactory(Vrui::ToolManager& toolManager,const EarthquakeSet* sQuakes);
 	static void factoryDestructor(Vrui::ToolFactory* factory)
 		{
 		delete factory;

@@ -99,7 +99,7 @@ Rotation<ScalarParam,3> Rotation<ScalarParam,3>::fromMatrix(const MatrixParam& m
 	/* Convert the matrix into a unit quaternion: */
 	Scalar q[4];
 	Scalar trace=Scalar(matrix(0,0))+Scalar(matrix(1,1))+Scalar(matrix(2,2))+Scalar(1);
-	if(trace>Scalar(0))
+	if(trace>Scalar(2))
 		{
 		Scalar s=Math::sqrt(trace);
 		q[3]=Math::div2(s);

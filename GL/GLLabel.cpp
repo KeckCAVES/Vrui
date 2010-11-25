@@ -146,6 +146,14 @@ GLLabel::GLLabel(const char* sString,const GLFont& sFont)
 	{
 	}
 
+GLLabel::GLLabel(const char* sStringBegin,const char* sStringEnd,const GLFont& sFont)
+	:GLString(sStringBegin,sStringEnd,sFont),font(&sFont),
+	 background(font->getBackgroundColor()),foreground(font->getForegroundColor()),
+	 version(1),
+	 labelBox(Box::Vector(0.0f,0.0f,0.0f),font->calcStringSize(texelWidth))
+	{
+	}
+
 GLLabel::GLLabel(const GLString& sString,const GLFont& sFont)
 	:GLString(sString),font(&sFont),
 	 background(font->getBackgroundColor()),foreground(font->getForegroundColor()),
@@ -197,10 +205,36 @@ void GLLabel::setString(const char* newString,const GLFont& newFont)
 	labelBox.size=font->calcStringSize(texelWidth);
 	}
 
+void GLLabel::setString(const char* newStringBegin,const char* newStringEnd,const GLFont& newFont)
+	{
+	/* Replace the string and font: */
+	GLString::setString(newStringBegin,newStringEnd,newFont);
+	font=&newFont;
+	
+	/* Increment the version number: */
+	++version;
+	
+	/* Update the label box size: */
+	labelBox.size=font->calcStringSize(texelWidth);
+	}
+
 void GLLabel::adoptString(char* newString,const GLFont& newFont)
 	{
 	/* Replace the string and font: */
 	GLString::adoptString(newString,newFont);
+	font=&newFont;
+	
+	/* Increment the version number: */
+	++version;
+	
+	/* Update the label box size: */
+	labelBox.size=font->calcStringSize(texelWidth);
+	}
+
+void GLLabel::adoptString(GLsizei newLength,char* newString,const GLFont& newFont)
+	{
+	/* Replace the string and font: */
+	GLString::adoptString(newLength,newString,newFont);
 	font=&newFont;
 	
 	/* Increment the version number: */
@@ -250,10 +284,22 @@ void GLLabel::setString(const char* newString)
 	labelBox.size=font->calcStringSize(texelWidth);
 	}
 
+void GLLabel::setString(const char* newStringBegin,const char* newStringEnd)
+	{
+	/* Replace the string: */
+	GLString::setString(newStringBegin,newStringEnd,*font);
+	
+	/* Increment the version number: */
+	++version;
+	
+	/* Update the label box size: */
+	labelBox.size=font->calcStringSize(texelWidth);
+	}
+
 void GLLabel::setString(const GLString& newString)
 	{
 	/* Replace the string, but use the current font: */
-	GLString::setString(newString.getString(),*font);
+	GLString::setString(newString.getString(),newString.getString()+newString.getLength(),*font);
 	
 	/* Increment the version number: */
 	++version;
@@ -266,6 +312,18 @@ void GLLabel::adoptString(char* newString)
 	{
 	/* Replace the string: */
 	GLString::adoptString(newString,*font);
+	
+	/* Increment the version number: */
+	++version;
+	
+	/* Update the label box size: */
+	labelBox.size=font->calcStringSize(texelWidth);
+	}
+
+void GLLabel::adoptString(GLsizei newLength,char* newString)
+	{
+	/* Replace the string: */
+	GLString::adoptString(newLength,newString,*font);
 	
 	/* Increment the version number: */
 	++version;
@@ -363,6 +421,58 @@ void GLLabel::draw(GLContextData& contextData) const
 		{
 		/* Upload the string's texture image: */
 		font->uploadStringTexture(*this,background,foreground);
+		
+		/* Update the texture version number: */
+		dataItem->version=version;
+		}
+	
+	/* Draw a textured quad: */
+	glColor4f(1.0f,1.0f,1.0f,background[3]);
+	glBegin(GL_QUADS);
+	glNormal3f(0.0f,0.0f,1.0f);
+	glTexCoord(textureBox.getCorner(0));
+	glVertex(labelBox.getCorner(0));
+	glTexCoord(textureBox.getCorner(1));
+	glVertex(labelBox.getCorner(1));
+	glTexCoord(textureBox.getCorner(3));
+	glVertex(labelBox.getCorner(3));
+	glTexCoord(textureBox.getCorner(2));
+	glVertex(labelBox.getCorner(2));
+	glEnd();
+	
+	/* Reset OpenGL state: */
+	glBindTexture(GL_TEXTURE_2D,0);
+	glPopAttrib();
+	}
+
+void GLLabel::draw(GLsizei selectionStart,GLsizei selectionEnd,const GLLabel::Color& selectionBackgroundColor,const GLLabel::Color& selectionForegroundColor,GLContextData& contextData) const
+	{
+	/* Retrieve the context data item: */
+	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	
+	/* Save and set up OpenGL state: */
+	GLbitfield attribPushMask=GL_TEXTURE_BIT;
+	bool lightingOn=glIsEnabled(GL_LIGHTING);
+	if(lightingOn)
+		attribPushMask|=GL_LIGHTING_BIT;
+	glPushAttrib(attribPushMask);
+	glEnable(GL_TEXTURE_2D);
+	if(lightingOn)
+		{
+		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
+		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::MODULATE);
+		}
+	else
+		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::REPLACE);
+	
+	/* Bind the label texture: */
+	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
+	
+	/* Check if the texture object needs to be updated: */
+	if(dataItem->version!=version)
+		{
+		/* Upload the string's texture image: */
+		font->uploadStringTexture(*this,background,foreground,selectionStart,selectionEnd,selectionBackgroundColor,selectionForegroundColor);
 		
 		/* Update the texture version number: */
 		dataItem->version=version;

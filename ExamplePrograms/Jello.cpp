@@ -274,8 +274,8 @@ void Jello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallba
 	/* Hide or show settings dialog based on toggle button state: */
 	if(cbData->set)
 		{
-		/* Pop up the settings dialog at the same position as the main menu: */
-		Vrui::getWidgetManager()->popupPrimaryWidget(settingsDialog,Vrui::getWidgetManager()->calcWidgetTransformation(mainMenu));
+		/* Pop up the settings dialog: */
+		Vrui::popupPrimaryWidget(settingsDialog);
 		}
 	else
 		Vrui::popdownPrimaryWidget(settingsDialog);

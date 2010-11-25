@@ -1,7 +1,7 @@
 ########################################################################
 # Makefile for the Virtual Reality VRML viewer.
 # source dependency maintenance.
-# Copyright (c) 2000-2008 Oliver Kreylos
+# Copyright (c) 2000-2010 Oliver Kreylos
 #
 # This file is part of the Virtual Reality VRML viewer (VRMLViewer).
 #
@@ -22,7 +22,7 @@
 ########################################################################
 
 # Set the Vrui installation directory:
-VRUIDIR = $(HOME)/Vrui-2.0
+VRUIDIR = $(HOME)/Vrui-2.0-001
 
 # Set up additional flags for the C++ compiler:
 CFLAGS = 
@@ -30,11 +30,11 @@ CFLAGS =
 # Include the Vrui application makefile fragment:
 ifdef DEBUG
   # Build debug version of the applications, using the debug version of Vrui:
-  include $(VRUIDIR)/etc/Vrui.debug.makeinclude
+  include $(VRUIDIR)/share/Vrui.debug.makeinclude
   CFLAGS += -g2 -O0
 else
   # Build release version of the applications, using the release version of Vrui:
-  include $(VRUIDIR)/etc/Vrui.makeinclude
+  include $(VRUIDIR)/share/Vrui.makeinclude
   CFLAGS += -g0 -O3 -DNDEBUG
 endif
 

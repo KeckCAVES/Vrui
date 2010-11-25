@@ -470,7 +470,8 @@ Matrix Matrix::inverseFullPivot(void) const
 	
 	/* Perform Gauss elimination with full pivoting on the extended matrix: */
 	int swapSign;
-	gaussFullPivoting(numRows,numRows*2,ext,numRows,columnIndices,swapSign);
+	if(gaussFullPivoting(numRows,numRows*2,ext,numRows,columnIndices,swapSign)<numRows)
+		throw RankDeficientError();
 	
 	/* Create the result matrix by backsubstitution: */
 	Matrix result(numRows,numRows);
@@ -596,7 +597,8 @@ Matrix& Matrix::divideFullPivot(const Matrix& other)
 	
 	/* Perform Gauss elimination with full pivoting on the extended matrix: */
 	int swapSign;
-	gaussFullPivoting(numRows,numRows+numColumns,ext,numRows,columnIndices,swapSign);
+	if(gaussFullPivoting(numRows,numRows+numColumns,ext,numRows,columnIndices,swapSign)<numRows)
+		throw RankDeficientError();
 	
 	/* Ensure that the element array is private: */
 	makePrivate();

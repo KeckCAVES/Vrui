@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_JEDITOOL_INCLUDED
 #define VRUI_JEDITOOL_INCLUDED
 
+#include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <GL/gl.h>
@@ -56,6 +57,7 @@ class JediToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -85,7 +87,6 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 	
 	/* Elements: */
 	static JediToolFactory* factory; // Pointer to the factory object for this class
-	
 	Images::RGBImage lightsaberImage; // The light saber texture image
 	
 	/* Transient state: */
@@ -100,7 +101,7 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	
 	/* Methods from GLObject: */

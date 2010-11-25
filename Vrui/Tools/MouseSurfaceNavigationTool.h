@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <Vrui/GUIInteractor.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
@@ -52,8 +53,12 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	Vector screenScalingDirection; // Direction of scaling vector in screen's coordinates
 	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
 	Scalar wheelScaleFactor; // Scaling factor for one wheel click
+	Scalar probeSize; // Size of probe to use when aligning surface frames
+	Scalar maxClimb; // Maximum amount of climb per frame
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
 	bool showCompass; // Flag whether to draw a virtual compass
+	Scalar compassSize; // Size of compass rose
+	Scalar compassThickness; // Thickness of compass rose's ring
 	bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
 	bool interactWithWidgets; // Flag if the mouse navigation tool doubles as a widget tool (this is an evil hack)
 	
@@ -64,11 +69,13 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseSurfaceNavigationTool:public SurfaceNavigationTool
+class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteractor
 	{
 	friend class MouseSurfaceNavigationToolFactory;
 	
@@ -81,7 +88,6 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool
 	
 	/* Elements: */
 	static MouseSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
-	
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
 	
 	/* Transient navigation state: */
@@ -89,17 +95,16 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool
 	Scalar currentValue; // Value of the associated valuator
 	NavigationMode navigationMode; // The tool's current navigation mode
 	Point lastPos; // Last mouse position during navigation
-	NavTransform physicalFrame; // Local coordinate frame in physical coordinates
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of viewer position relative to local coordinate frame
 	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame
-	GLMotif::Widget* draggedWidget; // Pointer to currently dragged root widget
-	NavTrackerState initialWidget; // Initial widget transformation during widget dragging
 	
 	/* Private methods: */
-	void initNavState(void); // Initializes the tool's navigation state when it is activated
-	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state
 	Point calcScreenPos(void) const; // Calculates the screen position of the input device
+	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state
+	void initNavState(void); // Initializes the tool's navigation state when it is activated
+	void realignSurfaceFrame(NavTransform& newSurfaceFrame); // Re-aligns the tool's surface frame after a relevant change
+	void drawCompass(void) const; // Draws the compass rose
 	
 	/* Constructors and destructors: */
 	public:
@@ -107,8 +112,8 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
-	virtual void valuatorCallback(int deviceIndex,int valuatorIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

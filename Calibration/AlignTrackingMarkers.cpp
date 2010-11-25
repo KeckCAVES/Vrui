@@ -75,7 +75,7 @@ Helper function to query relative marker positions from a NaturalPoint tracking 
 void queryRigidBody(const char* naturalPointServerName,int rigidBodyId,double scale,bool flipZ,std::vector<Geometry::Point<double,3> >& markers)
 	{
 	/* Open a connection to the NaturalPoint server: */
-	NaturalPointClient npc(naturalPointServerName,1510,"224.0.0.1",1001);
+	NaturalPointClient npc(naturalPointServerName,1510,"224.0.0.1",1511);
 	
 	std::cout<<"Server name: "<<npc.getServerName()<<std::endl;
 	std::cout<<"Server version: "<<npc.getServerVersion()[0]<<'.'<<npc.getServerVersion()[1]<<'.'<<npc.getServerVersion()[2]<<'.'<<npc.getServerVersion()[3]<<std::endl;
@@ -168,14 +168,14 @@ class AlignTrackingMarkers:public Vrui::Application
 	class MarkerTool;
 	typedef Vrui::GenericToolFactory<MarkerTool> MarkerToolFactory;
 	
-	class MarkerTool:public Vrui::Tool
+	class MarkerTool:public Vrui::Tool,public Vrui::Application::Tool<AlignTrackingMarkers>
 		{
 		friend class Vrui::GenericToolFactory<MarkerTool>;
 		
 		/* Elements: */
 		private:
 		static MarkerToolFactory* factory;
-		AlignTrackingMarkers* application;
+		
 		GLMotif::PopupWindow* dialogPopup; // Marker tool's measurement dialog box
 		GLMotif::TextField* pos[2][3]; // Current position text fields
 		GLMotif::TextField* dist; // Current distance text field
@@ -193,15 +193,9 @@ class AlignTrackingMarkers:public Vrui::Application
 			{
 			return factory;
 			}
-		virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		virtual void frame(void);
 		virtual void display(GLContextData& contextData) const;
-		
-		/* Methods: */
-		void init(AlignTrackingMarkers* sApplication)
-			{
-			application=sApplication;
-			}
 		};
 	
 	/* Elements: */
@@ -224,10 +218,9 @@ class AlignTrackingMarkers:public Vrui::Application
 	virtual ~AlignTrackingMarkers(void);
 	
 	/* Methods from class Vrui::Application: */
-	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
 	virtual void display(GLContextData& contextData) const;
 	
-	/* Methods: */
+	/* New methods: */
 	Point snap(const Point& p) const; // Snaps a 3D point to the existing markers/lines
 	Point snap(const Ray& ray) const; // Snaps a 3D ray to the existing markers/lines
 	Point snap(const Point& start,const Point& p) const; // Snaps a 3D point to the existing markers/lines, with line start point for angle snapping
@@ -256,7 +249,6 @@ Methods of class AlignTrackingMarkers::MarkerTool:
 
 AlignTrackingMarkers::MarkerTool::MarkerTool(const Vrui::ToolFactory* sFactory,const Vrui::ToolInputAssignment& inputAssignment)
 	:Vrui::Tool(sFactory,inputAssignment),
-	 application(0),
 	 dialogPopup(0),
 	 dragging(false)
 	{
@@ -315,7 +307,7 @@ AlignTrackingMarkers::MarkerTool::MarkerTool(const Vrui::ToolFactory* sFactory,c
 	dialog->manageChild();
 	
 	/* Pop up the measurement dialog: */
-	Vrui::popupPrimaryWidget(dialogPopup,Vrui::getNavigationTransformation().transform(Vrui::getDisplayCenter()));
+	Vrui::popupPrimaryWidget(dialogPopup);
 	}
 
 AlignTrackingMarkers::MarkerTool::~MarkerTool(void)
@@ -325,7 +317,7 @@ AlignTrackingMarkers::MarkerTool::~MarkerTool(void)
 	delete dialogPopup;
 	}
 
-void AlignTrackingMarkers::MarkerTool::buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
+void AlignTrackingMarkers::MarkerTool::buttonCallback(int,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState)
 		{
@@ -358,7 +350,7 @@ void AlignTrackingMarkers::MarkerTool::buttonCallback(int deviceIndex,int device
 void AlignTrackingMarkers::MarkerTool::frame(void)
 	{
 	/* Get pointer to input device that caused the event: */
-	Vrui::InputDevice* device=input.getDevice(0);
+	Vrui::InputDevice* device=getButtonDevice(0);
 	
 	/* Snap the current input device to the existing marker set: */
 	Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(device);
@@ -472,8 +464,8 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 	{
 	/* Create and register the marker tool class: */
 	MarkerToolFactory* markerToolFactory=new MarkerToolFactory("MarkerTool","Marker Selector",0,*Vrui::getToolManager());
-	markerToolFactory->setNumDevices(1);
-	markerToolFactory->setNumButtons(0,1);
+	markerToolFactory->setNumButtons(1);
+	markerToolFactory->setButtonFunction(0,"Select Markers");
 	Vrui::getToolManager()->addClass(markerToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Parse the command line: */
@@ -571,17 +563,6 @@ AlignTrackingMarkers::~AlignTrackingMarkers(void)
 	
 	/* Delete the main menu: */
 	delete mainMenuPopup;
-	}
-
-void AlignTrackingMarkers::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData)
-	{
-	/* Check if the new tool is a marker tool: */
-	MarkerTool* markerTool=dynamic_cast<MarkerTool*>(cbData->tool);
-	if(markerTool!=0)
-		{
-		/* Initialize the tool: */
-		markerTool->init(this);
-		}
 	}
 
 void AlignTrackingMarkers::display(GLContextData& contextData) const

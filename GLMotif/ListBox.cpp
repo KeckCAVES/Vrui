@@ -285,7 +285,7 @@ void ListBox::draw(GLContextData& contextData) const
 		glVertex(pageSlots[i].textEnd[1]);
 		if(pageSlots[i].selected)
 			{
-			glColor3f(0.5f,0.5f,0.5f);
+			glColor(getManager()->getStyleSheet()->selectionBgColor);
 			glVertex(pageSlots[i].slotBox.getCorner(3));
 			glVertex(pageSlots[i].textEnd[1]);
 			glVertex(pageSlots[i].slotBox.getCorner(1));
@@ -346,7 +346,7 @@ void ListBox::draw(GLContextData& contextData) const
 			{
 			/* Upload the item string texture again: */
 			if(pageSlots[i].selected)
-				font->uploadStringTexture(pageSlots[i].item,Color(0.5f,0.5f,0.5f),Color(1.0f,1.0f,1.0f));
+				font->uploadStringTexture(pageSlots[i].item,getManager()->getStyleSheet()->selectionBgColor,getManager()->getStyleSheet()->selectionFgColor);
 			else
 				font->uploadStringTexture(pageSlots[i].item,backgroundColor,foregroundColor);
 			}

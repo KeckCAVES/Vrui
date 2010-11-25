@@ -24,8 +24,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
 
-#include <Vrui/InputDevice.h>
+#include <stdio.h>
+#include <Misc/ThrowStdErr.h>
+#include <Misc/StandardValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
+#include <Misc/ConfigurationFile.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/InputDevice.h>
+#include <Vrui/InputDeviceFeature.h>
 
 namespace Vrui {
 
@@ -36,6 +42,44 @@ Methods of class InputDeviceAdapterDeviceDaemon:
 void InputDeviceAdapterDeviceDaemon::packetNotificationCallback(VRDeviceClient* client,void* userData)
 	{
 	requestUpdate();
+	}
+
+void InputDeviceAdapterDeviceDaemon::createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Call base class method to initialize the input device: */
+	InputDeviceAdapterIndexMap::createInputDevice(deviceIndex,configFileSection);
+	
+	/* Read the list of button names for this device: */
+	/* Read the names of all button features: */
+	typedef std::vector<std::string> StringList;
+	StringList tempButtonNames=configFileSection.retrieveValue<StringList>("./buttonNames",StringList());
+	int buttonIndex=0;
+	for(StringList::iterator bnIt=tempButtonNames.begin();bnIt!=tempButtonNames.end()&&buttonIndex<inputDevices[deviceIndex]->getNumButtons();++bnIt,++buttonIndex)
+		{
+		/* Store the button name: */
+		buttonNames.push_back(*bnIt);
+		}
+	for(;buttonIndex<inputDevices[deviceIndex]->getNumButtons();++buttonIndex)
+		{
+		char buttonName[40];
+		snprintf(buttonName,sizeof(buttonName),"Button%d",buttonIndex);
+		buttonNames.push_back(buttonName);
+		}
+	
+	/* Read the names of all valuator features: */
+	StringList tempValuatorNames=configFileSection.retrieveValue<StringList>("./valuatorNames",StringList());
+	int valuatorIndex=0;
+	for(StringList::iterator vnIt=tempValuatorNames.begin();vnIt!=tempValuatorNames.end()&&valuatorIndex<inputDevices[deviceIndex]->getNumValuators();++vnIt,++valuatorIndex)
+		{
+		/* Store the valuator name: */
+		valuatorNames.push_back(*vnIt);
+		}
+	for(;valuatorIndex<inputDevices[deviceIndex]->getNumValuators();++valuatorIndex)
+		{
+		char valuatorName[40];
+		snprintf(valuatorName,sizeof(valuatorName),"Valuator%d",valuatorIndex);
+		valuatorNames.push_back(valuatorName);
+		}
 	}
 
 InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
@@ -57,6 +101,75 @@ InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
 	deviceClient.stopStream();
 	deviceClient.deactivate();
 	deviceClient.disablePacketNotificationCB();
+	}
+
+std::string InputDeviceAdapterDeviceDaemon::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Find the input device owning the given feature: */
+	bool deviceFound=false;
+	int buttonIndexBase=0;
+	int valuatorIndexBase=0;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		{
+		if(inputDevices[deviceIndex]==feature.getDevice())
+			{
+			deviceFound=true;
+			break;
+			}
+		
+		/* Go to the next device: */
+		buttonIndexBase+=inputDevices[deviceIndex]->getNumButtons();
+		valuatorIndexBase+=inputDevices[deviceIndex]->getNumValuators();
+		}
+	if(!deviceFound)
+		Misc::throwStdErr("InputDeviceAdapterDeviceDaemon::getFeatureName: Unknown device %s",feature.getDevice()->getDeviceName());
+	
+	/* Check whether the feature is a button or a valuator: */
+	std::string result;
+	if(feature.isButton())
+		{
+		/* Return the button feature's name: */
+		result=buttonNames[buttonIndexBase+feature.getIndex()];
+		}
+	if(feature.isValuator())
+		{
+		/* Return the valuator feature's name: */
+		result=valuatorNames[valuatorIndexBase+feature.getIndex()];
+		}
+	
+	return result;
+	}
+
+int InputDeviceAdapterDeviceDaemon::getFeatureIndex(InputDevice* device,const char* featureName) const
+	{
+	/* Find the input device owning the given feature: */
+	bool deviceFound=false;
+	int buttonIndexBase=0;
+	int valuatorIndexBase=0;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		{
+		if(inputDevices[deviceIndex]==device)
+			{
+			deviceFound=true;
+			break;
+			}
+		
+		/* Go to the next device: */
+		buttonIndexBase+=inputDevices[deviceIndex]->getNumButtons();
+		valuatorIndexBase+=inputDevices[deviceIndex]->getNumValuators();
+		}
+	if(!deviceFound)
+		Misc::throwStdErr("InputDeviceAdapterDeviceDaemon::getFeatureIndex: Unknown device %s",device->getDeviceName());
+	
+	/* Check if the feature names a button or a valuator: */
+	for(int buttonIndex=0;buttonIndex<device->getNumButtons();++buttonIndex)
+		if(buttonNames[buttonIndexBase+buttonIndex]==featureName)
+			return device->getButtonFeatureIndex(buttonIndex);
+	for(int valuatorIndex=0;valuatorIndex<device->getNumValuators();++valuatorIndex)
+		if(valuatorNames[valuatorIndexBase+valuatorIndex]==featureName)
+			return device->getValuatorFeatureIndex(valuatorIndex);
+	
+	return -1;
 	}
 
 void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)

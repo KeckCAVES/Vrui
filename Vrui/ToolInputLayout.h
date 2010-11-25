@@ -1,6 +1,6 @@
 /***********************************************************************
 ToolInputLayout - Class to represent the input requirements of tools.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,47 +29,33 @@ class ToolInputLayout // Class describing the input layout of a tool
 	{
 	/* Elements: */
 	private:
-	int numDevices; // Number of devices used as input
-	int* numButtons; // Array of number of buttons used for each device
-	bool** buttonCascadable; // 2D array of button cascadable flags for each button on each device
-	int* numValuators; // Array of number of valuators used for each device
-	bool** valuatorCascadable; // 2D array of valuator cascadable flags for each valuator on each device
+	int numButtons; // Number of required buttons
+	bool optionalButtons; // Flag if the tool can accept additional buttons
+	int numValuators; // Number of required valuators
+	bool optionalValuators; // Flag if the tool can accept additional valuators
 	
 	/* Constructors and destructors: */
 	public:
-	ToolInputLayout(void); // Creates "empty" layout
-	ToolInputLayout(int sNumDevices,const int sNumButtons[],const int sNumValuators[]); // Creates layout from given numbers
-	private:
-	ToolInputLayout(const ToolInputLayout& source); // Disallow copy constructor
-	ToolInputLayout& operator=(const ToolInputLayout& source); // Disallow assignment operator
-	public:
-	~ToolInputLayout(void); // Destroys layout
+	ToolInputLayout(void); // Creates empty layout
 	
 	/* Methods: */
-	void setNumDevices(int newNumDevices); // Changes number of devices used as input; leaves numbers of buttons and valuators of all devices undefined
-	void setNumButtons(int deviceIndex,int newNumButtons); // Sets number of buttons used for given device
-	void setButtonCascadable(int deviceIndex,int buttonIndex,bool newCascadable); // Sets cascadable state of the given button on the given device
-	void setNumValuators(int deviceIndex,int newNumValuators); // Sets number of valuators used for given device
-	void setValuatorCascadable(int deviceIndex,int valuatorIndex,bool newCascadable); // Sets cascadable state of the given valuator on the given device
-	int getNumDevices(void) const // Returns number of devices used
+	void setNumButtons(int newNumButtons,bool newOptionalButtons =false); // Sets the number of required and optional buttons
+	void setNumValuators(int newNumValuators,bool newOptionalValuators =false); // Sets the number of required and optional valuators
+	int getNumButtons(void) const // Returns the number of required buttons
 		{
-		return numDevices;
+		return numButtons;
 		}
-	int getNumButtons(int deviceIndex) const // Returns number of buttons used for given device
+	bool hasOptionalButtons(void) const // Returns true if the tool has optional button slots
 		{
-		return numButtons[deviceIndex];
+		return optionalButtons;
 		}
-	bool isButtonCascadable(int deviceIndex,int buttonIndex) const // Returns true of the given button on the given device is cascadable
+	int getNumValuators(void) const // Returns the number of required valuators
 		{
-		return buttonCascadable[deviceIndex][buttonIndex];
+		return numValuators;
 		}
-	int getNumValuators(int deviceIndex) const // Returns number of valuators used for given device
+	bool hasOptionalValuators(void) const // Returns true if the tool has optional valuator slots
 		{
-		return numValuators[deviceIndex];
-		}
-	bool isValuatorCascadable(int deviceIndex,int valuatorIndex) const // Returns true of the given valuator on the given device is cascadable
-		{
-		return valuatorCascadable[deviceIndex][valuatorIndex];
+		return optionalValuators;
 		}
 	};
 

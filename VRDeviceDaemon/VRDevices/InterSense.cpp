@@ -308,8 +308,8 @@ void InterSense::processBuffer(int station,const char* recordBuffer)
 	/* Update valuator states: */
 	if(stations[station].joystick)
 		{
-		float x=(float(*(unsigned char*)(recordBuffer+33))-127.5f)/127.5f;
-		float y=(float(*(unsigned char*)(recordBuffer+34))-127.5f)/127.5f;
+		float x=(float(*(unsigned char*)(recordBuffer+33))-128.0f)/127.0f;
+		float y=(float(*(unsigned char*)(recordBuffer+34))-128.0f)/127.0f;
 		setValuatorState(stations[station].firstValuatorIndex+0,x);
 		setValuatorState(stations[station].firstValuatorIndex+1,y);
 		}
@@ -475,7 +475,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		fflush(stdout);
 		#endif
 		serialPort.writeByte('\31');
-		delay(15.0);
+		Misc::sleep(15.0);
 		}
 	else
 		{
@@ -501,7 +501,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		fflush(stdout);
 		#endif
 		serialPort.writeByte('\31');
-		delay(15.0);
+		Misc::sleep(15.0);
 		
 		/* Request another status record: */
 		#ifdef VERBOSE
@@ -519,7 +519,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	fflush(stdout);
 	#endif
 	serialPort.writeString("l*\r\n");
-	delay(0.1);
+	Misc::sleep(0.1);
 	char buffer[256];
 	readLine(sizeof(buffer),buffer,Misc::Time(1.0));
 	if(strncmp(buffer,"21l",3)!=0)
@@ -534,7 +534,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 			char command[20];
 			snprintf(command,sizeof(command),"l%d,0\r\n",i+1);
 			serialPort.writeString(command);
-			delay(0.1);
+			Misc::sleep(0.1);
 			}
 		}
 	
@@ -547,7 +547,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		fflush(stdout);
 		#endif
 		serialPort.writeString("MCF\r\n");
-		delay(0.1);
+		Misc::sleep(0.1);
 		int numTransmitters=0;
 		while(true)
 			{
@@ -611,7 +611,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 			
 			/* Upload constellation configuration to device: */
 			serialPort.writeString("MCC\r\n");
-			delay(0.1);
+			Misc::sleep(0.1);
 			for(int i=0;i<numTransmitters;++i)
 				{
 				const Transmitter& t=transmitters[i];
@@ -620,10 +620,10 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 				         "MCF%d, %8.4f, %8.4f, %8.4f, %6.3f, %6.3f, %6.3f, %d\r\n",
 				         i+1,t.pos[0],t.pos[1],t.pos[2],t.dir[0],t.dir[1],t.dir[2],i+transmitterIdBase);
 				serialPort.writeString(transmitterLine);
-				delay(0.1);
+				Misc::sleep(0.1);
 				}
 			serialPort.writeString("MCe\r\n");
-			delay(0.1);
+			Misc::sleep(0.1);
 			}
 		catch(std::runtime_error err)
 			{
@@ -671,45 +671,45 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		/* Enable station: */
 		snprintf(command,sizeof(command),"l%d,1\r\n",stations[i].id);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Reset station's alignment frame: */
 		snprintf(command,sizeof(command),"R%d\r\n",stations[i].id);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Disable boresight mode: */
 		snprintf(command,sizeof(command),"b%d\r\n",stations[i].id);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Reset station's tip offset: */
 		snprintf(command,sizeof(command),"N%d,%8.4f,%8.4f,%8.4f\r\n",stations[i].id,0.0f,0.0f,0.0f);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Set station's output format: */
 		snprintf(command,sizeof(command),"O%d,2,4,22,23,1\r\n",stations[i].id);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Set stations' motion prediction: */
 		int predictionTime=configFile.retrieveValue<int>("./predictionTime",0);
 		snprintf(command,sizeof(command),"Mp%d,%d\r\n",stations[i].id,predictionTime);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Set stations' perceptual enhancement level: */
 		int perceptualEnhancement=configFile.retrieveValue<int>("./perceptualEnhancement",2);
 		snprintf(command,sizeof(command),"MF%d,%d\r\n",stations[i].id,perceptualEnhancement);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Set station's rotational sensitivity: */
 		int rotationalSensitivity=configFile.retrieveValue<int>("./rotationalSensitivity",3);
 		snprintf(command,sizeof(command),"MQ%d,%d\r\n",stations[i].id,rotationalSensitivity);
 		serialPort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Go back to device's section: */
 		configFile.setCurrentSection("..");
@@ -724,7 +724,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		fflush(stdout);
 		#endif
 		serialPort.writeString("ML1\r\n");
-		delay(0.1);
+		Misc::sleep(0.1);
 		}
 	else
 		{
@@ -734,7 +734,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		fflush(stdout);
 		#endif
 		serialPort.writeString("ML0\r\n");
-		delay(0.1);
+		Misc::sleep(0.1);
 		}
 	
 	/* Set unit mode to inches: */
@@ -743,7 +743,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	fflush(stdout);
 	#endif
 	serialPort.writeByte('U');
-	delay(0.1);
+	Misc::sleep(0.1);
 	
 	/* Enable binary mode: */
 	#ifdef VERBOSE
@@ -764,6 +764,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 
 InterSense::~InterSense(void)
 	{
+	if(isActive())
+		stop();
 	delete[] stations;
 	delete[] timers;
 	delete[] notFirstMeasurements;

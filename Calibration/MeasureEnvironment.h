@@ -73,10 +73,7 @@ class MeasureEnvironment:public Vrui::Application
 		
 		/* Constructors and destructors: */
 		public:
-		PointSnapperTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment)
-			:Vrui::TransformTool(factory,inputAssignment)
-			{
-			}
+		PointSnapperTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
 		
 		/* Methods from Vrui::Tool: */
 		virtual void initialize(void);
@@ -117,7 +114,7 @@ class MeasureEnvironment:public Vrui::Application
 			{
 			return factory;
 			}
-		virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		virtual void frame(void);
 		virtual void display(GLContextData& contextData) const;
 		};
@@ -162,8 +159,8 @@ class MeasureEnvironment:public Vrui::Application
 	virtual void display(GLContextData& contextData) const;
 	
 	/* New methods: */
-	PickResult pickPoint(const Point& point,Scalar pointSize) const;
-	PickResult pickPoint(const Ray& ray,Scalar pointSize) const;
+	PickResult pickPoint(const Point& point) const;
+	PickResult pickPoint(const Ray& ray) const;
 	std::pair<int,int> classifyPickResult(const PickResult& pickResult) const;
 	Point snapToPoint(const Point& point,const PickResult& pickResult) const;
 	void deletePoint(const PickResult& pickResult);

@@ -38,7 +38,7 @@ namespace Vrui {
 class Application
 	{
 	/* Embedded classes: */
-	protected:
+	public:
 	class ToolBase // Base mix-in class for application tools
 		{
 		/* Constructors and destructors: */

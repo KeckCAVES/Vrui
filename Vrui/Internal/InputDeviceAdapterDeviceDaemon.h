@@ -25,6 +25,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_INPUTDEVICEADAPTERDEVICEDAEMON_INCLUDED
 #define VRUI_INTERNAL_INPUTDEVICEADAPTERDEVICEDAEMON_INCLUDED
 
+#include <string>
+#include <vector>
 #include <Vrui/Internal/VRDeviceClient.h>
 #include <Vrui/Internal/InputDeviceAdapterIndexMap.h>
 
@@ -40,16 +42,24 @@ class InputDeviceAdapterDeviceDaemon:public InputDeviceAdapterIndexMap
 	/* Elements: */
 	private:
 	VRDeviceClient deviceClient; // Device client delivering "raw" device state
+	std::vector<std::string> buttonNames; // Array of button names for all defined input devices
+	std::vector<std::string> valuatorNames; // Array of valuator names for all defined input devices
 	
 	/* Private methods: */
 	static void packetNotificationCallback(VRDeviceClient* client,void* userData);
+	
+	/* Protected methods from InputDeviceAdapter: */
+	protected:
+	virtual void createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection);
 	
 	/* Constructors and destructors: */
 	public:
 	InputDeviceAdapterDeviceDaemon(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection); // Creates adapter by connecting to server and initializing Vrui input devices
 	virtual ~InputDeviceAdapterDeviceDaemon(void);
 	
-	/* Methods: */
+	/* Methods from InputDeviceAdapter: */
+	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
+	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
 	};
 

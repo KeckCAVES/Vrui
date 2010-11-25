@@ -386,7 +386,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		fflush(stdout);
 		#endif
 		devicePort.writeByte('\31');
-		delay(15.0);
+		Misc::sleep(15.0);
 		}
 	else
 		{
@@ -412,7 +412,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		fflush(stdout);
 		#endif
 		devicePort.writeByte('\31');
-		delay(15.0);
+		Misc::sleep(15.0);
 		
 		/* Request another status record: */
 		#ifdef VERBOSE
@@ -455,27 +455,27 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		/* Enable receiver: */
 		snprintf(command,sizeof(command),"l%d,1\r\n",i+1);
 		devicePort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Reset receiver's alignment frame: */
 		snprintf(command,sizeof(command),"R%d\r\n",i+1);
 		devicePort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Disable boresight mode: */
 		snprintf(command,sizeof(command),"b%d\r\n",i+1);
 		devicePort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Set receiver's hemisphere of operation: */
 		snprintf(command,sizeof(command),"H%d,%d,%d,%d\r\n",i+1,hemisphereVectors[hemisphereIndex][0],hemisphereVectors[hemisphereIndex][1],hemisphereVectors[hemisphereIndex][2]);
 		devicePort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		
 		/* Set receiver's output format: */
 		snprintf(command,sizeof(command),"O%d,2,4,16,1\r\n",i+1);
 		devicePort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		}
 	
 	/* Set stylus tip offset: */
@@ -492,7 +492,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		char command[80];
 		snprintf(command,sizeof(command),"N1,%8.4f,%8.4f,%8.4f\r\n",tipOffset[0],tipOffset[1],tipOffset[2]);
 		devicePort.writeString(command);
-		delay(0.1);
+		Misc::sleep(0.1);
 		}
 	catch(Misc::ConfigurationFile::TagNotFoundError error)
 		{
@@ -505,14 +505,14 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	fflush(stdout);
 	#endif
 	devicePort.writeString("e1,0\r\n");
-	delay(0.1);
+	Misc::sleep(0.1);
 	
 	#if 1
 	/* Query stylus tip offset: */
 	devicePort.writeByte('F');
-	delay(0.1);
+	Misc::sleep(0.1);
 	devicePort.writeString("N1,\r\n");
-	delay(0.1);
+	Misc::sleep(0.1);
 	char lineBuffer[80];
 	printf("%s\n",readLine(80,lineBuffer));
 	fflush(stdout);
@@ -527,7 +527,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 		devicePort.writeByte('D');
 	else
 		devicePort.writeByte('d');
-	delay(0.1);
+	Misc::sleep(0.1);
 	
 	/* Set unit mode to inches: */
 	#ifdef VERBOSE
@@ -535,7 +535,7 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 	fflush(stdout);
 	#endif
 	devicePort.writeByte('U');
-	delay(0.1);
+	Misc::sleep(0.1);
 	
 	/* Enable binary mode: */
 	#ifdef VERBOSE
@@ -547,6 +547,8 @@ PolhemusFastrak::PolhemusFastrak(VRDevice::Factory* sFactory,VRDeviceManager* sD
 
 PolhemusFastrak::~PolhemusFastrak(void)
 	{
+	if(isActive())
+		stop();
 	delete[] timers;
 	delete[] notFirstMeasurements;
 	delete[] oldPositionOrientations;

@@ -24,12 +24,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_INPUTDEVICEADAPTER_INCLUDED
 #define VRUI_INTERNAL_INPUTDEVICEADAPTER_INCLUDED
 
+#include <string>
+
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFileSection;
 }
 namespace Vrui {
 class InputDevice;
+class InputDeviceFeature;
 class InputDeviceManager;
 }
 
@@ -57,6 +60,8 @@ class InputDeviceAdapter
 	virtual ~InputDeviceAdapter(void);
 	
 	/* Methods: */
+	static std::string getDefaultFeatureName(const InputDeviceFeature& feature); // Returns a default name for the given feature
+	static int getDefaultFeatureIndex(InputDevice* device,const char* featureName); // Parses a default feature name into a feature index for the given input device
 	int getNumInputDevices(void) const // Returns number of input devices
 		{
 		return numInputDevices;
@@ -65,6 +70,8 @@ class InputDeviceAdapter
 		{
 		return inputDevices[deviceIndex];
 		}
+	virtual std::string getFeatureName(const InputDeviceFeature& feature) const; // Returns the name of a button or valuator on the given input device, which is owned by this adapter
+	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const; // Returns the index of a feature of the given name on the given input device, or -1 if feature does not exist
 	virtual void updateInputDevices(void) =0; // Updates state of all Vrui input devices owned by this adapter
 	};
 

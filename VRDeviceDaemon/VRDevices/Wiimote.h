@@ -152,10 +152,7 @@ class Wiimote
 	~Wiimote(void); // Disconnects from the Wiimote
 	
 	/* Methods: */
-	int getBatteryLevel(void) const // Returns the current battery charge level in percent
-		{
-		return (batteryLevel+1)/2;
-		};
+	int getBatteryLevel(void); // Queries and returns the current battery charge level in percent
 	Extension getExtensionDevice(void) const // Returns the type of the currently connected extension device
 		{
 		return extensionDevice;

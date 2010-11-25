@@ -68,6 +68,7 @@ class GLThingManager
 	void shutdown(void); // Shuts down the thing manager
 	void initThing(const GLObject* thing); // Marks the given thing for initialization
 	void destroyThing(const GLObject* thing); // Marks the given thing for destruction
+	void orderThings(const GLObject* thing1,const GLObject* thing2); // Orders process list such that thing1 is initialized before thing2; assumes both things exist and have not been initialized yet
 	void processActions(void); // Moves all new actions to the process list
 	void updateThings(GLContextData& contextData) const; // Performs all actions for the current render cycle
 	};

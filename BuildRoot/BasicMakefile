@@ -1,7 +1,7 @@
 ########################################################################
 # BasicMakefile - Definitions and rules to build object files, shared
 # and static libraries, and executables.
-# Copyright (c) 1999-2008 Oliver Kreylos
+# Copyright (c) 1999-2010 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -23,6 +23,13 @@
 ########################################################################
 
 #
+# Commands to configure library option files
+#
+
+# sed command to set the value of a variable in a configuration header:
+CONFIG_SETVAR = sed -i -e "s/$(2) [0-9]*/$(2) $(3)/" $1
+
+#
 # Definitions and commands/rules to compile C/C++ source files
 #
 
@@ -35,11 +42,7 @@ ifndef DEBUGLEVEL
 endif
 
 # Set compiler flags for the system environment:
-CSYSFLAGS = -D__$(SYSTEM)__
-ifneq ($(SYSTEM_HAVE_TLS),0)
-  CSYSFLAGS += -DSYSTEM_HAVE_TLS
-endif
-CSYSFLAGS += $(EXTRACSYSFLAGS)
+CSYSFLAGS = $(EXTRACSYSFLAGS)
 
 #
 # Include list of supported packages

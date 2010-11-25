@@ -26,10 +26,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/OrthonormalTransformation.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -69,23 +69,6 @@ const char* UserInterfaceToolFactory::getName(void) const
 	return "User Interface";
 	}
 
-extern "C" ToolFactory* createUserInterfaceToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
-	{
-	/* Get pointer to tool manager: */
-	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
-	
-	/* Create factory object and insert it into class hierarchy: */
-	UserInterfaceToolFactory* userInterfaceToolFactory=new UserInterfaceToolFactory(*toolManager);
-	
-	/* Return factory object: */
-	return userInterfaceToolFactory;
-	}
-
-extern "C" void destroyUserInterfaceToolFactory(ToolFactory* factory)
-	{
-	delete factory;
-	}
-
 /******************************************
 Static elements of class UserInterfaceTool:
 ******************************************/
@@ -104,14 +87,14 @@ Ray UserInterfaceTool::calcInteractionRay(void) const
 		{
 		/* Shoot a ray from the main viewer: */
 		Point start=getMainViewer()->getHeadPosition();
-		Vector direction=getDevicePosition(0)-start;
+		Vector direction=interactionDevice->getPosition()-start;
 		direction.normalize();
 		result=Ray(start,direction);
 		}
 	else
 		{
 		/* Use the device's ray direction: */
-		result=getDeviceRay(0);
+		result=Ray(interactionDevice->getPosition(),interactionDevice->getRayDirection());
 		
 		/* Offset the ray start point backwards: */
 		result.setOrigin(result.getOrigin()-result.getDirection()*(factory->rayOffset/result.getDirection().mag()));
@@ -140,7 +123,8 @@ ONTransform UserInterfaceTool::calcScreenTransform(const Ray& ray) const
 	}
 
 UserInterfaceTool::UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:Tool(factory,inputAssignment)
+	:Tool(factory,inputAssignment),
+	 interactionDevice(0)
 	{
 	}
 
