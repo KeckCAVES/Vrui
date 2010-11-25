@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2009 Oliver Kreylos
+# Copyright (c) 2003-2010 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # same setting in Vrui's makefile. By default the directories match; if
 # the installation directory was adjusted during Vrui's installation, it
 # must be adjusted here as well.
-VRUIDIR = $(HOME)/Vrui-1.0
+VRUIDIR = $(HOME)/Vrui-2.0-001
 
 # Base installation directory for the example programs. If this is set
 # to the default of $(PWD), the example programs do not have to be
@@ -40,40 +40,54 @@ BINDIRBASE = bin
 # Set resource directory:
 RESOURCEDIR = share/VruiExamplePrograms
 
+# Set installation directory structure:
+BININSTALLDIR = $(INSTALLDIR)/bin
+SHAREINSTALLDIR = $(INSTALLDIR)/$(RESOURCEDIR)
+
 # Set up additional flags for the C++ compiler:
 CFLAGS = 
+
+# Set the share directory of Vrui's installation:
+VRUISHAREDIR = $(VRUIDIR)/share
 
 # Include the Vrui application makefile fragment:
 ifdef DEBUG
   # Build debug version of the applications, using the debug version of Vrui:
-  include $(VRUIDIR)/etc/Vrui.debug.makeinclude
-  CFLAGS += -g2 -O0
+  include $(VRUISHAREDIR)/Vrui.debug.makeinclude
+  
   # Set destination directories for created objects:
   OBJDIR = $(OBJDIRBASE)/debug
   BINDIR = $(BINDIRBASE)/debug
+  
+  # Set compiler flags:
+  CFLAGS += -g2 -O0
 else
   # Build release version of the applications, using the release version of Vrui:
-  include $(VRUIDIR)/etc/Vrui.makeinclude
-  CFLAGS += -g0 -O3
+  include $(VRUISHAREDIR)/Vrui.makeinclude
+  
   # Set destination directories for created objects:
   OBJDIR = $(OBJDIRBASE)
   BINDIR = $(BINDIRBASE)
+  
+  # Set compiler flags:
+  CFLAGS += -g0 -O3
 endif
 
 # Pattern rule to compile C++ sources:
 $(OBJDIR)/%.o: %.cpp
-	@mkdir -p $(OBJDIR)//$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
 	@echo Compiling $<...
 	@g++ -c -o $@ $(VRUI_CFLAGS) $(CFLAGS) $<
 
 # Pattern rule to link executables:
-$(BINDIR)/%: o/%.o
+$(BINDIR)/%: $(OBJDIR)/%.o
 	@mkdir -p $(BINDIR)
 	@echo Linking $@...
 	@g++ -o $@ $^ $(VRUI_LINKFLAGS)
 	
 # List all project targets:
 ALL = $(BINDIR)/VruiDemo \
+      $(BINDIR)/VruiDemoSmall \
       $(BINDIR)/VruiLocatorDemo \
       $(BINDIR)/VruiCustomToolDemo \
       $(BINDIR)/VruiCalibrator \
@@ -81,7 +95,8 @@ ALL = $(BINDIR)/VruiDemo \
       $(BINDIR)/Jello \
       $(BINDIR)/ClusterJello \
       $(BINDIR)/SharedJelloServer \
-      $(BINDIR)/SharedJello
+      $(BINDIR)/SharedJello \
+      $(BINDIR)/VruiSoundTest
 
 .PHONY: all
 all: $(ALL)
@@ -100,13 +115,15 @@ distclean:
 # List all build rules:
 $(BINDIR)/VruiDemo: $(OBJDIR)/VruiDemo.o
 
+$(BINDIR)/VruiDemoSmall: $(OBJDIR)/VruiDemoSmall.o
+
 $(BINDIR)/VruiLocatorDemo: $(OBJDIR)/VruiLocatorDemo.o
 
 $(BINDIR)/VruiCustomToolDemo: $(OBJDIR)/VruiCustomToolDemo.o
 
 $(BINDIR)/VruiCalibrator: $(OBJDIR)/VruiCalibrator.o
 
-$(OBJDIR)/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_IMAGEDIR='"$(INSTALLDIR)/$(RESOURCEDIR)"'
+$(OBJDIR)/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_IMAGEDIR='"$(SHAREINSTALLDIR)"'
 
 $(BINDIR)/ShowEarthModel: $(OBJDIR)/EarthFunctions.o \
                           $(OBJDIR)/PointSet.o \
@@ -134,11 +151,12 @@ $(BINDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
                        $(OBJDIR)/JelloRenderer.o \
                        $(OBJDIR)/SharedJello.o
 
+$(BINDIR)/VruiSoundTest: $(OBJDIR)/VruiSoundTest.o
+
 # Rule to install the example programs in a destination directory
 install: $(ALL)
 	@echo Installing Vrui example programs in $(INSTALLDIR)...
-	@install -d $(INSTALLDIR)
-	@install -d $(INSTALLDIR)/bin
-	@install $(ALL) $(INSTALLDIR)/bin
-	@install -d $(INSTALLDIR)/$(RESOURCEDIR)
-	@install $(RESOURCEDIR)/EarthTopography.png $(RESOURCEDIR)/EarthTopography.ppm $(INSTALLDIR)/$(RESOURCEDIR)
+	@install -d $(BININSTALLDIR)
+	@install $(ALL) $(BININSTALLDIR)
+	@install -d $(SHAREINSTALLDIR)
+	@install $(RESOURCEDIR)/EarthTopography.png $(RESOURCEDIR)/EarthTopography.ppm $(SHAREINSTALLDIR)

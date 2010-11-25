@@ -2,7 +2,7 @@
 ArrayKdTree - Class to store k-dimensional points in a kd-tree. Version
 for fixed sets of points using index-based storage for added performance
 and smaller memory footprint.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -81,8 +81,8 @@ class ArrayKdTree
 		if(right>mid)
 			traverseTree(mid+1,right,traversalFunction);
 		}
-	template <class TraversalFunctionParam>
-	void traverseTreeDirected(int left,int right,int splitDimension,TraversalFunctionParam& traversalFunction) const; // Traverses sub-kd-tree in directed order and calls traversal function for each node
+	template <class DirectedTraversalFunctionParam>
+	void traverseTreeDirected(int left,int right,int splitDimension,DirectedTraversalFunctionParam& traversalFunction) const; // Traverses sub-kd-tree in directed order and calls traversal function for each node
  	void findClosestPoint(int left,int right,int splitDimension,const Point& queryPosition,const StoredPoint*& closestPoint,Scalar& minDist2) const; // Recursively finds closest point in kd-tree
 	void findClosestPoints(int left,int right,int splitDimension,const Point& queryPosition,ClosePointSet& closestPoints) const; // Recursively finds closest points in kd-tree
 	
@@ -141,8 +141,8 @@ class ArrayKdTree
 		{
 		traverseTree(0,numNodes-1,traversalFunction);
 		}
-	template <class TraversalFunctionParam>
-	void traverseTreeDirected(TraversalFunctionParam& traversalFunction) const // Traverses tree in directed order and calls traversal function for each node
+	template <class DirectedTraversalFunctionParam>
+	void traverseTreeDirected(DirectedTraversalFunctionParam& traversalFunction) const // Traverses tree in directed order and calls traversal function for each node
 		{
 		traverseTreeDirected(0,numNodes-1,0,traversalFunction);
 		}
@@ -153,14 +153,45 @@ class ArrayKdTree
 
 }
 
-/***********************************************************************
-Creating standard versions of ArrayKdTree does not make much sense. We
-abuse the well-established non-standard template mechanism to create
-required instantiations on-the-fly.
-***********************************************************************/
+#if 0
+
+/**************************************************
+Interface for non-directed tree traversal functors:
+**************************************************/
+
+template <class StoredPointParam>
+class TraversalFunction
+	{
+	/* Methods: */
+	public:
+	
+	/* Called for each node in the tree, in unspecified order: */
+	void operator()(const ArrayKdTree<StoredPointParam>::StoredPoint& node);
+	};
+
+/**********************************************
+Interface for directed tree traversal functors:
+**********************************************/
+
+template <class StoredPointParam>
+class DirectedTraversalFunction
+	{
+	/* Methods: */
+	public:
+	/* Returns the query position at the center of the traversal: */
+	const ArrayKdTree<StoredPointParam>::Point& getQueryPosition(void) const;
+	
+	/* Called for a subset of nodes in the tree, roughly in order of
+	   increasing Euclidean distance from the query position. Returns
+	   false if the given node's subtree on the far side of the splitting
+	   plane can be culled: */
+	bool operator()(const ArrayKdTree<StoredPointParam>::StoredPoint& node,int splitDimension);
+	};
+
+#endif
 
 #if !defined(GEOMETRY_ARRAYKDTREE_IMPLEMENTATION)
-#include <Geometry/ArrayKdTree.cpp>
+#include <Geometry/ArrayKdTree.icpp>
 #endif
 
 #endif

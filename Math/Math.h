@@ -1,6 +1,6 @@
 /***********************************************************************
 Math - Genericized versions of standard C math functions.
-Copyright (c) 2001-2009 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -27,12 +27,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 /* Check if the implementation provides float versions of math calls: */
 #if defined(__GNUC__) || defined(__INTEL_COMPILER)
-#define MATH_HAVE_FLOAT_CALLS
+#define MATH_CONFIG_HAVE_FLOAT_CALLS
 #endif
 
 /* Check if the implementation provides float classification functions: */
-#if defined(__GNUC__) && !defined(__DARWIN__)
-#define MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+#if defined(__GNUC__) && !defined(__APPLE__)
+#define MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 #endif
 
 namespace Math {
@@ -51,7 +51,7 @@ inline bool isNan(ScalarParam value)
 template <>
 inline bool isNan(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 	return __isnanf(value);
 	#else
 	return isnan(value);
@@ -61,7 +61,7 @@ inline bool isNan(float value)
 template <>
 inline bool isNan(double value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 	return __isnan(value);
 	#else
 	return isnan(value);
@@ -78,7 +78,7 @@ inline bool isInf(ScalarParam value)
 template <>
 inline bool isInf(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 	return __isinff(value);
 	#else
 	return isinf(value);
@@ -88,7 +88,7 @@ inline bool isInf(float value)
 template <>
 inline bool isInf(double value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 	return __isinf(value);
 	#else
 	return isinf(value);
@@ -105,7 +105,7 @@ inline bool isFinite(ScalarParam value)
 template <>
 inline bool isFinite(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 	return __finitef(value);
 	#else
 	return isfinite(value);
@@ -115,7 +115,7 @@ inline bool isFinite(float value)
 template <>
 inline bool isFinite(double value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CLASSIFICATIONS_IN_GLIBC
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CLASSIFICATIONS
 	return __finite(value);
 	#else
 	return isfinite(value);
@@ -183,10 +183,10 @@ inline int abs(int value)
 
 inline float abs(float value)
 	{
-	#ifdef __ppc__
-	return float(fabs(double(value))); // Mac OS doesn't seem to support the float calls
-	#else
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return fabsf(value);
+	#else
+	return float(fabs(double(value)));
 	#endif
 	}
 
@@ -197,7 +197,7 @@ inline double abs(double value)
 
 inline float floor(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return floorf(value);
 	#else
 	return float(::floor(double(value)));
@@ -211,7 +211,7 @@ inline double floor(double value)
 
 inline float ceil(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return ceilf(value);
 	#else
 	return float(::ceil(double(value)));
@@ -297,7 +297,7 @@ Type-safe wrappers around trigonometric functions:
 
 inline float sin(float radians)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return sinf(radians);
 	#else
 	return float(::sin(double(radians)));
@@ -311,7 +311,7 @@ inline double sin(double radians)
 
 inline float cos(float radians)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return cosf(radians);
 	#else
 	return float(::cos(double(radians)));
@@ -325,7 +325,7 @@ inline double cos(double radians)
 
 inline float tan(float radians)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return tanf(radians);
 	#else
 	return float(::tan(double(radians)));
@@ -339,7 +339,7 @@ inline double tan(double radians)
 
 inline float asin(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return asinf(value);
 	#else
 	return float(::asin(double(value)));
@@ -353,7 +353,7 @@ inline double asin(double value)
 
 inline float acos(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return acosf(value);
 	#else
 	return float(::acos(double(value)));
@@ -367,7 +367,7 @@ inline double acos(double value)
 
 inline float atan(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return atanf(value);
 	#else
 	return float(::atan(double(value)));
@@ -381,7 +381,7 @@ inline double atan(double value)
 
 inline float atan2(float counter,float denominator)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return atan2f(counter,denominator);
 	#else
 	return float(::atan2(double(counter),double(denominator)));
@@ -399,7 +399,7 @@ Type-safe wrappers around transcendental functions:
 
 inline float log(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return logf(value);
 	#else
 	return float(::log(double(value)));
@@ -413,7 +413,7 @@ inline double log(double value)
 
 inline float log10(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return log10f(value);
 	#else
 	return float(::log10(double(value)));
@@ -427,7 +427,7 @@ inline double log10(double value)
 
 inline float exp(float value)
 	{
-	#ifdef MATH_HAVE_FLOAT_CALLS
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
 	return expf(value);
 	#else
 	return float(::exp(double(value)));
@@ -441,7 +441,11 @@ inline double exp(double value)
 
 inline float pow(float base,float exponent)
 	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return powf(base,exponent);
+	#else
 	return float(::pow(double(base),double(exponent)));
+	#endif
 	}
 
 inline double pow(double base,double exponent)

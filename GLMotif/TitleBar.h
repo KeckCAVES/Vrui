@@ -26,10 +26,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define GLMOTIF_TITLEBAR_INCLUDED
 
 #include <GLMotif/Label.h>
+#include <GLMotif/Draggable.h>
 
 namespace GLMotif {
 
-class TitleBar:public Label
+class TitleBar:public Label,public Draggable
 	{
 	/* Constructors and destructors: */
 	public:

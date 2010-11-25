@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,16 +30,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
+#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Geometry.h>
-#include <Vrui/Tools/UtilityTool.h>
+#include <Vrui/UtilityTool.h>
 
 /* Forward declarations: */
+namespace Math {
+class Matrix;
+}
 namespace GLMotif {
 class PopupWindow;
 class TextField;
-}
-namespace Vrui {
-class DenseMatrix;
 }
 
 namespace Vrui {
@@ -64,6 +65,7 @@ class CurveEditorToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -173,7 +175,7 @@ class CurveEditorTool:public UtilityTool
 	Vector dragHandleOffset; // Offset from device to dragged vertex tangent handle in navigational coordinates
 	
 	/* Private methods: */
-	static void writeControlPoint(const ControlPoint& cp,DenseMatrix& b,int rowIndex);
+	static void writeControlPoint(const ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex);
 	void calculateC2Spline(void); // Adjusts the curve to form a C^2-continuous spline
 	void setParameterValue(Scalar newParameterValue); // Sets a new curve parameter value and updates the user interface
 	void forceC2ContinuityToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
@@ -183,8 +185,9 @@ class CurveEditorTool:public UtilityTool
 	void nextControlPointCallback(Misc::CallbackData* cbData);
 	void scrubToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void autoPlayToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
-	void loadCurveCallback(Misc::CallbackData* cbData); // Loads curve stored in "Curve.dat"
-	void saveCurveCallback(Misc::CallbackData* cbData); // Saves current curve to "Curve.dat"
+	void loadCurveCallback(Misc::CallbackData* cbData); // Displays a file selection dialog to load a curve
+	void loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData); // Loads selected curve file
+	void saveCurveCallback(Misc::CallbackData* cbData); // Saves current curve to "CurveEditorTool.curve"
 	void appendVertexCallback(Misc::CallbackData* cbData); // Appends current view as new vertex to curve
 	void snapVertexToViewToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void deleteVertexCallback(Misc::CallbackData* cbData); // Deletes picked vertex from curve
@@ -202,7 +205,7 @@ class CurveEditorTool:public UtilityTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

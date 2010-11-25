@@ -28,10 +28,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthonormalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -48,9 +48,8 @@ TwoRayTransformToolFactory::TwoRayTransformToolFactory(ToolManager& toolManager)
 	addParentClass(transformToolFactory);
 	
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,transformToolFactory->getNumButtons());
-	layout.setNumValuators(0,transformToolFactory->getNumValuators());
+	layout.setNumButtons(0,true);
+	layout.setNumValuators(0,true);
 	
 	/* Set tool class' factory pointer: */
 	TwoRayTransformTool::factory=this;
@@ -115,6 +114,11 @@ TwoRayTransformTool::TwoRayTransformTool(const ToolFactory* factory,const ToolIn
 	:TransformTool(factory,inputAssignment),
 	 numRays(0),active(false)
 	{
+	/* Set the transformation source device: */
+	if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else
+		sourceDevice=getValuatorDevice(0);
 	}
 
 TwoRayTransformTool::~TwoRayTransformTool(void)
@@ -135,10 +139,9 @@ const ToolFactory* TwoRayTransformTool::getFactory(void) const
 	return factory;
 	}
 
-void TwoRayTransformTool::buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData)
+void TwoRayTransformTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Check the first tool button: */
-	if(deviceIndex==0&&deviceButtonIndex==0&&getToolManager()->doesButtonHaveTool(transformedDevice,0))
+	if(buttonSlotIndex==0)
 		{
 		if(cbData->newButtonState) // Button was just pressed
 			{
@@ -173,52 +176,43 @@ void TwoRayTransformTool::buttonCallback(int deviceIndex,int deviceButtonIndex,I
 		}
 	else
 		{
-		/* Let the base class handle it: */
-		TransformTool::buttonCallback(deviceIndex,deviceButtonIndex,cbData);
+		/* Let the transform tool handle it: */
+		TransformTool::buttonCallback(buttonSlotIndex,cbData);
 		}
 	}
 
 void TwoRayTransformTool::frame(void)
 	{
-	if(transformEnabled)
+	/* Check if the device is currently dragging a ray: */
+	if(active)
 		{
-		/* Check if the device is currently dragging a ray: */
-		if(active)
+		/* Calculate the device's ray equation in navigational coordinates: */
+		rays[numRays]=Ray(sourceDevice->getPosition(),sourceDevice->getRayDirection());
+		rays[numRays].transform(getInverseNavigationTransformation());
+		
+		/* Check if there are two rays (one final and one intermediate): */
+		if(numRays==1)
 			{
-			/* Calculate the device's ray equation in navigational coordinates: */
-			rays[numRays]=getDeviceRay(0);
-			rays[numRays].transform(getInverseNavigationTransformation());
-			
-			/* Check if there are two rays (one final and one intermediate): */
-			if(numRays==1)
+			/* Calculate the "intersection" point between the two rays: */
+			Geometry::Matrix<Scalar,3,3> a;
+			Geometry::ComponentArray<Scalar,3> b;
+			Vector bin=Geometry::cross(rays[0].getDirection(),rays[1].getDirection());
+			for(int i=0;i<3;++i)
 				{
-				/* Calculate the "intersection" point between the two rays: */
-				Geometry::Matrix<Scalar,3,3> a;
-				Geometry::ComponentArray<Scalar,3> b;
-				Vector bin=Geometry::cross(rays[0].getDirection(),rays[1].getDirection());
-				for(int i=0;i<3;++i)
-					{
-					a(i,0)=rays[0].getDirection()[i];
-					a(i,1)=-rays[1].getDirection()[i];
-					a(i,2)=bin[i];
-					b[i]=rays[1].getOrigin()[i]-rays[0].getOrigin()[i];
-					}
-				Geometry::ComponentArray<Scalar,3> x=b/a;
-				intersection=Geometry::mid(rays[0](x[0]),rays[1](x[1]));
+				a(i,0)=rays[0].getDirection()[i];
+				a(i,1)=-rays[1].getDirection()[i];
+				a(i,2)=bin[i];
+				b[i]=rays[1].getOrigin()[i]-rays[0].getOrigin()[i];
 				}
-			}
-		if(numRays>=(active?1:2))
-			{
-			/* Set the transformed device's position and orientation: */
-			InputDevice* device=input.getDevice(0);
-			transformedDevice->setTransformation(ONTransform(getNavigationTransformation().transform(intersection)-Point::origin,device->getTransformation().getRotation()));
-			transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+			Geometry::ComponentArray<Scalar,3> x=b/a;
+			intersection=Geometry::mid(rays[0](x[0]),rays[1](x[1]));
 			}
 		}
-	else
+	if(numRays>=(active?1:2))
 		{
-		/* Let the base class handle it: */
-		TransformTool::frame();
+		/* Set the transformed device's position and orientation: */
+		transformedDevice->setTransformation(ONTransform(getNavigationTransformation().transform(intersection)-Point::origin,sourceDevice->getTransformation().getRotation()));
+		transformedDevice->setDeviceRayDirection(sourceDevice->getDeviceRayDirection());
 		}
 	}
 

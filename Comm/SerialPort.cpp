@@ -76,7 +76,7 @@ void SerialPort::writeBlocking(size_t numBytes,const char* bytes)
 	}
 
 SerialPort::SerialPort(const char* deviceName)
-	:port(open(deviceName,O_RDWR|O_NOCTTY)),
+	:port(open(deviceName,O_RDWR|O_NOCTTY|O_NDELAY)),
 	 totalBytesReceived(0),totalBytesSent(0),
 	 numReadSpins(0),numWriteSpins(0)
 	{
@@ -86,10 +86,9 @@ SerialPort::SerialPort(const char* deviceName)
 	/* Configure as "raw" port: */
 	struct termios term;
 	tcgetattr(port,&term);
-	term.c_iflag=IGNBRK|IGNPAR; // Don't generate signals or parity errors
-	term.c_oflag=0; // No output processing
+	cfmakeraw(&term);
+	term.c_iflag|=IGNBRK; // Don't generate signals
 	term.c_cflag|=CREAD|CLOCAL; // Enable receiver; no modem line control
-	term.c_lflag=0; // Don't generate signals or echos
 	term.c_cc[VMIN]=1; // Block read() until at least a single byte is read
 	term.c_cc[VTIME]=0; // No timeout on read()
 	if(tcsetattr(port,TCSANOW,&term)!=0)
@@ -173,6 +172,7 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 		}
 	
 	/* Set parity settings: */
+	term.c_cflag&=~(PARENB|PARODD);
 	switch(parity)
 		{
 		case PARITY_ODD:
@@ -188,10 +188,16 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 		}
 	
 	/* Set stop bit settings: */
+	term.c_cflag&=~CSTOPB;
 	if(numStopbits==2)
 		term.c_cflag|=CSTOPB;
 	
 	/* Set handshake settings: */
+	#ifdef __SGI_IRIX__
+	term.c_cflag&=~CNEW_RTSCTS;
+	#else
+	term.c_cflag&=~CRTSCTS;
+	#endif
 	if(enableHandshake)
 		{
 		#ifdef __SGI_IRIX__

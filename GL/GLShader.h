@@ -59,6 +59,10 @@ class GLShader
 	void compileFragmentShader(const char* shaderSourceFileName); // Loads and compiles a fragment shader from a source file
 	void compileFragmentShaderFromString(const char* shaderSource); // Compiles a fragment shader from a source code string
 	void linkShader(void); // Links all previously loaded vertex and fragment shaders into a shader program
+	bool isValid(void) const // Returns true if the shader linked successfully and can be used
+		{
+		return programObject!=0;
+		}
 	int getUniformLocation(const char* uniformName) const; // Returns the index of a uniform variable defined in the shader program
 	void useProgram(void) const; // Installs the shader program in the current OpenGL context
 	static void disablePrograms(void); // Removes any installed shader programs from the current OpenGL context

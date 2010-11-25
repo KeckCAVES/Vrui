@@ -25,9 +25,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Misc/ThrowStdErr.h>
-
 #include <Vrui/CoordinateTransform.h>
+
+#include <Misc/ThrowStdErr.h>
+#include <Geometry/LinearUnit.h>
+#include <Vrui/Vrui.h>
+#include <Vrui/CoordinateManager.h>
 
 namespace Vrui {
 
@@ -68,14 +71,14 @@ const char* CoordinateTransform::getComponentName(int componentIndex) const
 
 const char* CoordinateTransform::getUnitName(int componentIndex) const
 	{
-	/* Default units are unknown: */
-	return "";
+	/* Return the same unit name as registered with the coordinate manager: */
+	return getCoordinateManager()->getUnit().getName();
 	}
 
 const char* CoordinateTransform::getUnitAbbreviation(int componentIndex) const
 	{
-	/* Default units are unknown: */
-	return "";
+	/* Return the same unit name as registered with the coordinate manager: */
+	return getCoordinateManager()->getUnit().getAbbreviation();
 	}
 
 Point CoordinateTransform::transform(const Point& navigationPoint) const

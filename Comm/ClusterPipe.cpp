@@ -3,7 +3,7 @@ ClusterPipe - Class layering an endianness-safe pipe abstraction with
 buffered typed read/writes over a TCPSocket connected to a remote
 process and a MulticastPipe to forward traffic to a cluster connected to
 the local process.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -373,7 +373,7 @@ bool ClusterPipe::waitForData(const Misc::Time& timeout,bool throwException) con
 	return flag!=0;
 	}
 
-size_t ClusterPipe::readRaw(void* buffer,size_t count)
+size_t ClusterPipe::readUpto(void* buffer,size_t count)
 	{
 	if(readSize==0)
 		{

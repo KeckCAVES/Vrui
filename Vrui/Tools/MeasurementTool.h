@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,10 +25,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_MEASUREMENTTOOL_INCLUDED
 
 #include <string>
+#include <GLMotif/TextField.h>
 #include <GLMotif/RadioBox.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/CoordinateManager.h>
-#include <Vrui/Tools/UtilityTool.h>
+#include <Vrui/UtilityTool.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -37,7 +38,6 @@ class File;
 namespace GLMotif {
 class PopupWindow;
 class Label;
-class TextField;
 class RowColumn;
 }
 
@@ -77,6 +77,7 @@ class MeasurementToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -97,18 +98,21 @@ class MeasurementTool:public UtilityTool
 	MeasurementToolFactory::MeasurementMode measurementMode; // Measurement mode
 	int numMeasurementPoints; // Number of points to measure in the current mode
 	MeasurementToolFactory::CoordinateMode coordinateMode; // Coordinate mode
+	Scalar linearUnitScale; // Scaling factor for linear units in navigational space
 	CoordinateTransform* userTransform; // The currently valid user-space coordinate transformation
 	
 	/* Transient state: */
 	int numPoints; // The number of selected measurement points
-	Point points[3]; // The two measurement points
+	Point points[3]; // The up to three measurement points
 	bool dragging; // Flag if the tool is currently dragging one of its measurement points
 	
 	/* Private methods: */
 	void resetTool(void); // Resets the tool's measurement state
 	void updateUnits(void); // Updates the units displayed in the measurement dialogs
+	void updateCurrentPoint(void); // Updates the point / distance / angle display after a change to the currently measured point
 	void changeMeasurementModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
 	void changeCoordinateModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
+	void posTextFieldLayoutChangedCallback(GLMotif::TextField::LayoutChangedCallbackData* cbData);
 	void coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData);
 	void printPosition(Misc::File& file,const Point& pos) const;
 	
@@ -118,8 +122,10 @@ class MeasurementTool:public UtilityTool
 	virtual ~MeasurementTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

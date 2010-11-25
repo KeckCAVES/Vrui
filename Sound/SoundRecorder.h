@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -24,26 +24,28 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SOUND_SOUNDRECORDER_INCLUDED
 #define SOUND_SOUNDRECORDER_INCLUDED
 
-#ifdef SOUND_USE_ALSA
+#include <Sound/Config.h>
+
+#if SOUND_CONFIG_HAVE_ALSA
 #include <Misc/File.h>
 #include <Threads/Thread.h>
 #endif
-#ifdef __DARWIN__
+#ifdef __APPLE__
 #include <CoreAudio/CoreAudioTypes.h>
 #include <AudioToolbox/AudioQueue.h>
 #include <AudioToolbox/AudioConverter.h>
 #include <AudioToolbox/AudioFile.h>
 #endif
 #include <Sound/SoundDataFormat.h>
-#ifdef SOUND_USE_ALSA
-#include <Sound/ALSAPCMDevice.h>
+#if SOUND_CONFIG_HAVE_ALSA
+#include <Sound/Linux/ALSAPCMDevice.h>
 #endif
 
 namespace Sound {
 
 class SoundRecorder
 	{
-	#ifdef SOUND_USE_ALSA
+	#if SOUND_CONFIG_HAVE_ALSA
 	/* Embedded classes: */
 	private:
 	enum AudioFileFormat // Enumerated type for audio file formats
@@ -54,9 +56,16 @@ class SoundRecorder
 	
 	/* Elements: */
 	private:
-	#ifdef __LINUX__
+	#ifdef __APPLE__
+	AudioStreamBasicDescription format; // Audio data format description
+	AudioQueueRef queue; // Handle of the audio recording queue
+	AudioFileID audioFile; // Handle of the audio file
+	UInt32 bufferSize; // Buffer size in bytes
+	AudioQueueBufferRef buffers[2]; // Array of audio buffers
+	SInt64 numRecordedPackets; // Total number of packets written to the output file
+	#else
 	SoundDataFormat format; // The actual format of the recorded sound data
-	#ifdef SOUND_USE_ALSA
+	#if SOUND_CONFIG_HAVE_ALSA
 	AudioFileFormat outputFileFormat; // Format of the output file
 	size_t bytesPerFrame; // Number of bytes per frame of sound data
 	ALSAPCMDevice pcmDevice; // The ALSA PCM device used for recording
@@ -67,22 +76,14 @@ class SoundRecorder
 	Threads::Thread recordingThread; // Thread ID of the background recording thread
 	#endif
 	#endif
-	#ifdef __DARWIN__
-	AudioStreamBasicDescription format; // Audio data format description
-	AudioQueueRef queue; // Handle of the audio recording queue
-	AudioFileID audioFile; // Handle of the audio file
-	UInt32 bufferSize; // Buffer size in bytes
-	AudioQueueBufferRef buffers[2]; // Array of audio buffers
-	SInt64 numRecordedPackets; // Total number of packets written to the output file
-	#endif
 	bool active; // Flag whether the sound recorder is currently recording
 	
 	/* Private methods: */
-	#ifdef SOUND_USE_ALSA
+	#if SOUND_CONFIG_HAVE_ALSA
 	void writeWAVHeader(void); // Writes a valid WAV file header to the beginning of the output file
 	void* recordingThreadMethod(void); // The background recording thread's method
 	#endif
-	#ifdef __DARWIN__
+	#ifdef __APPLE__
 	void setAudioFileMagicCookie(void); // Writes the audio queue's "magic cookie" into the audio file
 	static void handleInputBufferWrapper(void* aqData,AudioQueueRef inAQ,AudioQueueBufferRef inBuffer,const AudioTimeStamp* inStartTime,UInt32 inNumPackets,const AudioStreamPacketDescription* inPacketDesc)
 		{

@@ -1,6 +1,6 @@
 /***********************************************************************
 EventTypes - Classes for typed event sources and sinks.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -162,7 +162,7 @@ class EI<MF<ValueParam> >:public EventIn
 	};
 
 template <class FieldParam>
-EI<FieldParam>* makeEI(Node* sNode,FieldParam& sField)
+EI<FieldParam>* makeEventIn(Node* sNode,FieldParam& sField)
 	{
 	return new EI<FieldParam>(sNode,&sField);
 	}
@@ -252,7 +252,7 @@ class EO<MF<ValueParam> >:public EventOut
 	};
 
 template <class FieldParam>
-EO<FieldParam>* makeEO(const Node* sNode,const FieldParam& sField)
+EO<FieldParam>* makeEventOut(const Node* sNode,const FieldParam& sField)
 	{
 	return new EO<FieldParam>(sNode,&sField);
 	}

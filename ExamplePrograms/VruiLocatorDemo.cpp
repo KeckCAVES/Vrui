@@ -25,7 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/Button.h>
 #include <GLMotif/Menu.h>
 #include <GLMotif/PopupMenu.h>
-#include <Vrui/Tools/LocatorTool.h>
+#include <Vrui/LocatorTool.h>
 #include <Vrui/LocatorToolAdapter.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>

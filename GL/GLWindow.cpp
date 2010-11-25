@@ -42,11 +42,46 @@ void GLWindow::initWindow(const char* sWindowName,int* visualProperties)
 	if(!glXQueryExtension(display,&errorBase,&eventBase))
 		Misc::throwStdErr("GLWindow: GLX extension not supported");
 	
-	/* Find a suitable, OpenGL-capable visual: */
-	static int defaultVisualProperties[]={GLX_RGBA,GLX_DEPTH_SIZE,16,GLX_DOUBLEBUFFER,None};
-	XVisualInfo* visInfo=glXChooseVisual(display,screen,visualProperties!=0?visualProperties:defaultVisualProperties);
+	/* Use default visual properties if none were provided: */
+	static int defaultVisualProperties[]={GLX_RGBA,GLX_RED_SIZE,8,GLX_GREEN_SIZE,8,GLX_BLUE_SIZE,8,GLX_DEPTH_SIZE,16,GLX_DOUBLEBUFFER,None};
+	if(visualProperties==0)
+		visualProperties=defaultVisualProperties;
+	
+	/* Look for a matching visual: */
+	XVisualInfo* visInfo=glXChooseVisual(display,screen,visualProperties);
 	if(visInfo==0)
-		Misc::throwStdErr("GLWindow: No suitable visual found");
+		{
+		/* Reduce any requested color channel sizes, and try again: */
+		for(int i=0;visualProperties[i]!=None;++i)
+			if(visualProperties[i]==GLX_RED_SIZE||visualProperties[i]==GLX_GREEN_SIZE||visualProperties[i]==GLX_BLUE_SIZE)
+				{
+				/* Ask for at least one bit per channel: */
+				++i;
+				visualProperties[i]=1;
+				}
+		
+		/* Search again: */
+		visInfo=glXChooseVisual(display,screen,visualProperties);
+		if(visInfo==0)
+			{
+			/* Reduce any requested depth channel sizes, and try yet again: */
+			for(int i=0;visualProperties[i]!=None;++i)
+				if(visualProperties[i]==GLX_DEPTH_SIZE)
+					{
+					/* Ask for at least one bit of depth channel: */
+					++i;
+					visualProperties[i]=1;
+					}
+			
+			/* Search one last time: */
+			visInfo=glXChooseVisual(display,screen,visualProperties);
+			if(visInfo==0)
+				{
+				/* Now fail: */
+				Misc::throwStdErr("GLWindow: No suitable visual found");
+				}
+			}
+		}
 	
 	/* Create an OpenGL context: */
 	context=glXCreateContext(display,visInfo,0,GL_TRUE);

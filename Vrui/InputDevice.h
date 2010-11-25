@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDevice - Class to represent input devices (6-DOF tracker with
 associated buttons and valuators) in virtual reality environments.
-Copyright (c) 2000-2005 Oliver Kreylos
+Copyright (c) 2000-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -42,6 +42,11 @@ class InputDevice // Class for input devices
 		TRACK_POS=0x1, // 3D position
 		TRACK_DIR=0x2, // One 3D direction
 		TRACK_ORIENT=0x4 // Full 3D orientation
+		};
+	
+	enum FeatureType // Enumerated type for feature types, i.e., buttons and valuators
+		{
+		BUTTON,VALUATOR
 		};
 	
 	struct CallbackData:public Misc::CallbackData // Generic callback data for input device events
@@ -171,6 +176,46 @@ class InputDevice // Class for input devices
 		return numValuators;
 		}
 	
+	/* Feature-based accessor methods: */
+	int getNumFeatures(void) const // Returns the number of buttons and valuators
+		{
+		return numButtons+numValuators;
+		}
+	FeatureType getFeatureType(int featureIndex) const // Returns the type of the given feature
+		{
+		return featureIndex<numButtons?BUTTON:VALUATOR;
+		}
+	bool isFeatureButton(int featureIndex) const // Returns true if the given feature is a button
+		{
+		return featureIndex<numButtons;
+		}
+	bool isFeatureValuator(int featureIndex) const // Returns true if the given feature is a valuator
+		{
+		return featureIndex>=numButtons;
+		}
+	int getFeatureIndex(FeatureType featureType,int featureTypeIndex) const // Returns the feature index of the given button or valuator
+		{
+		if(featureType==BUTTON)
+			return featureTypeIndex;
+		else
+			return numButtons+featureTypeIndex;
+		}
+	int getButtonFeatureIndex(int buttonIndex) const // Returns the feature index of the given button
+		{
+		return buttonIndex;
+		}
+	int getValuatorFeatureIndex(int valuatorIndex) const // Returns the feature index for the given valuator
+		{
+		return numButtons+valuatorIndex;
+		}
+	int getFeatureTypeIndex(int featureIndex) const // Returns the index of a feature among features of its type, i.e., returns raw button or valuator index
+		{
+		if(featureIndex<numButtons)
+			return featureIndex;
+		else
+			return featureIndex-numButtons;
+		}
+	
 	/* Callback registration methods: */
 	Misc::CallbackList& getTrackingCallbacks(void)
 		{
@@ -184,8 +229,16 @@ class InputDevice // Class for input devices
 		{
 		return valuatorCallbacks[valuatorIndex];
 		}
+	Misc::CallbackList& getFeatureCallbacks(int featureIndex) // Returns callback list for button or valuator feature
+		{
+		if(featureIndex<numButtons)
+			return buttonCallbacks[featureIndex];
+		else
+			return valuatorCallbacks[featureIndex-numButtons];
+		}
 	
 	/* Device state manipulation methods: */
+	void setTrackType(int newTrackType); // Overrides the tracking type of an existing input device
 	void setTransformation(const TrackerState& newTransformation);
 	void setLinearVelocity(const Vector& newLinearVelocity)
 		{

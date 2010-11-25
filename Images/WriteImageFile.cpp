@@ -20,16 +20,18 @@ with the Image Handling Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <Images/ReadImageFile.h>
+
+#include <Images/Config.h>
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef IMAGES_USE_PNG
+#if IMAGES_CONFIG_HAVE_PNG
 #include <png.h>
 #endif
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
-
-#include <Images/ReadImageFile.h>
 
 namespace Images {
 
@@ -54,7 +56,7 @@ void writePnmFile(const RGBImage& image,const char* imageFileName)
 		pnmFile.write(image.getPixelRow(y-1),image.getWidth());
 	}
 
-#ifdef IMAGES_USE_PNG
+#if IMAGES_CONFIG_HAVE_PNG
 
 /*********************************
 Function to write PNG image files:
@@ -125,7 +127,7 @@ void writeImageFile(const RGBImage& image,const char* imageFileName)
 	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
 	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
 		writePnmFile(image,imageFileName);
-	#ifdef IMAGES_USE_PNG
+	#if IMAGES_CONFIG_HAVE_PNG
 	else if(strcasecmp(extStart,"png")==0)
 		return writePngFile(image,imageFileName);
 	#endif

@@ -44,6 +44,7 @@ class DisplayState
 	/* Elements: */
 	public:
 	const VRWindow* window; // The VR window being rendered to
+	bool resized; // Flag whether the VR window has changed size since the last redraw
 	const Viewer* viewer; // The viewer whose view is currently rendered
 	int eyeIndex; // Index of the eye currently projected from
 	Point eyePosition; // Exact eye position used for projection

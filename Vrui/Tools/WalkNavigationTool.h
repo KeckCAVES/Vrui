@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkNavigationTool - Class to navigate in a VR environment by walking
 around a fixed center position.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,7 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #include <Vrui/Vrui.h>
-#include <Vrui/Tools/NavigationTool.h>
+#include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
@@ -40,26 +40,12 @@ namespace Vrui {
 
 class WalkNavigationTool;
 
-class WalkNavigationToolFactory:public ToolFactory,public GLObject
+class WalkNavigationToolFactory:public ToolFactory
 	{
 	friend class WalkNavigationTool;
 	
-	/* Embedded classes: */
-	private:
-	struct DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		GLuint modelListId; // Display list ID to render movement circles
-		
-		/* Constructors and destructors: */
-		DataItem(void);
-		virtual ~DataItem(void);
-		};
-	
 	/* Elements: */
 	private:
-	Plane floorPlane; // Plane equation of the VR environment's floor (normal vector points "up")
 	bool centerOnActivation; // Flag if to center navigation on the head position when the tool is activated
 	Point centerPoint; // Center point of movement circles on floor
 	Scalar moveSpeed; // Maximum movement speed
@@ -79,16 +65,27 @@ class WalkNavigationToolFactory:public ToolFactory,public GLObject
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
-	
-	/* Methods from GLObject: */
-	virtual void initContext(GLContextData& contextData) const;
 	};
 
-class WalkNavigationTool:public NavigationTool
+class WalkNavigationTool:public NavigationTool,public GLObject
 	{
 	friend class WalkNavigationToolFactory;
+	
+	/* Embedded classes: */
+	private:
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLuint movementCircleListId; // Display list ID to render movement circles
+		
+		/* Constructors and destructors: */
+		DataItem(void);
+		virtual ~DataItem(void);
+		};
 	
 	/* Elements: */
 	private:
@@ -98,7 +95,10 @@ class WalkNavigationTool:public NavigationTool
 	Point centerPoint; // Center point of movement circle while the navigation tool is active
 	NavTransform preScale; // Previous navigation transformation
 	Vector translation; // Total accumulated translation
-	Scalar rotation; // Total accumulated rotation around up axis
+	Scalar azimuth; // Total accumulated rotation around up axis
+	
+	/* Private methods: */
+	static Point projectToFloor(const Point& p);
 	
 	/* Constructors and destructors: */
 	public:
@@ -106,9 +106,12 @@ class WalkNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

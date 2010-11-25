@@ -135,4 +135,12 @@ void VisletManager::display(GLContextData& contextData) const
 			(*vIt)->display(contextData);
 	}
 
+void VisletManager::sound(ALContextData& contextData) const
+	{
+	/* Call all vislet's sound functions: */
+	for(VisletList::const_iterator vIt=vislets.begin();vIt!=vislets.end();++vIt)
+		if((*vIt)->isActive())
+			(*vIt)->sound(contextData);
+	}
+
 }

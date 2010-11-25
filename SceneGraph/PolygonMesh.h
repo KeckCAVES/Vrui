@@ -3,7 +3,7 @@ PolygonMesh - Class to represent meshes of planar convex polygons. Meant
 as a temporary helper structure to convert polygon soup into an
 efficiently rendered representation, and compute a full set of vertex
 attributes.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -154,7 +154,7 @@ class PolygonMesh
 }
 
 #ifndef SCENEGRAPH_POLYGONMESH_IMPLEMENTATION
-#include <SceneGraph/PolygonMesh.cpp>
+#include <SceneGraph/PolygonMesh.icpp>
 #endif
 
 #endif

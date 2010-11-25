@@ -1,6 +1,6 @@
 /***********************************************************************
 HVector - Class for homogeneous vectors.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -20,32 +20,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#define GEOMETRY_HVECTOR_IMPLEMENTATION
-
-#ifndef METHODPREFIX
-	#ifdef NONSTANDARD_TEMPLATES
-		#define METHODPREFIX inline
-	#else
-		#define METHODPREFIX
-	#endif
-#endif
-
-#include <Geometry/HVector.h>
+#include <Geometry/HVector.icpp>
 
 namespace Geometry {
-
-/*******************************
-Static elements of class HVector:
-*******************************/
-
-template <class ScalarParam,int dimensionParam>
-const int HVector<ScalarParam,dimensionParam>::affineDimension;
-template <class ScalarParam,int dimensionParam>
-const HVector<ScalarParam,dimensionParam> HVector<ScalarParam,dimensionParam>::zero(ScalarParam(0),ScalarParam(0));
-template <class ScalarParam,int dimensionParam>
-const HVector<ScalarParam,dimensionParam> HVector<ScalarParam,dimensionParam>::origin(ScalarParam(0),ScalarParam(1));
-
-#if !defined(NONSTANDARD_TEMPLATES)
 
 /*****************************************************************
 Force instantiation of all standard HVector classes and functions:
@@ -68,7 +45,5 @@ template const HVector<double,2> HVector<double,2>::origin;
 
 template const HVector<double,3> HVector<double,3>::zero;
 template const HVector<double,3> HVector<double,3>::origin;
-
-#endif
 
 }

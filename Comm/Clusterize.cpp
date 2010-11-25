@@ -35,6 +35,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <iostream>
 #include <Misc/StringMarshaller.h>
+#include <Misc/GetCurrentDirectory.h>
 #include <Comm/MulticastPipeMultiplexer.h>
 #include <Comm/MulticastPipe.h>
 
@@ -211,15 +212,8 @@ MulticastPipeMultiplexer* clusterize(int& argc,char**& argv)
 				/* Start the multipipe slaves on all slave nodes: */
 				numSlaves=int(slaves.size());
 				slavePids=new pid_t[numSlaves];
-				size_t cwdLen=512;
-				char* cwd=new char[cwdLen];
-				while(getcwd(cwd,cwdLen)==0)
-					{
-					cwdLen=(cwdLen*3)/2;
-					delete[] cwd;
-					cwd=new char[cwdLen];
-					}
-				size_t rcLen=strlen(cwd)+strlen(argv[0])+master.length()+multicastGroup.length()+512;
+				std::string cwd=Misc::getCurrentDirectory();
+				size_t rcLen=cwd.length()+strlen(argv[0])+master.length()+multicastGroup.length()+512;
 				char* rc=new char[rcLen];
 				for(int i=0;i<numSlaves;++i)
 					{
@@ -232,7 +226,7 @@ MulticastPipeMultiplexer* clusterize(int& argc,char**& argv)
 						
 						/* Create a command line to run the program from the current working directory: */
 						int ai=0;
-						ai+=snprintf(rc+ai,rcLen-ai,"cd %s ;",cwd);
+						ai+=snprintf(rc+ai,rcLen-ai,"cd %s ;",cwd.c_str());
 						ai+=snprintf(rc+ai,rcLen-ai," %s",argv[0]);
 						ai+=snprintf(rc+ai,rcLen-ai," -clusterizeSlaveInstance");
 						ai+=snprintf(rc+ai,rcLen-ai," %d %d",numSlaves,i+1);
@@ -258,7 +252,6 @@ MulticastPipeMultiplexer* clusterize(int& argc,char**& argv)
 					}
 				
 				/* Clean up: */
-				delete[] cwd;
 				delete[] rc;
 				
 				/* Wait until the entire cluster is connected: */

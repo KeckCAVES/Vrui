@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_FONTSTYLENODE_INCLUDED
 #define SCENEGRAPH_FONTSTYLENODE_INCLUDED
 
+#include <Misc/Autopointer.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/Node.h>
 

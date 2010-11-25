@@ -85,6 +85,8 @@ class TextNode:public GeometryNode,public GLObject
 	virtual void initContext(GLContextData& contextData) const;
 	};
 
+typedef Misc::Autopointer<TextNode> TextNodePointer;
+
 }
 
 #endif

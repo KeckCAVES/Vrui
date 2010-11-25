@@ -1,6 +1,6 @@
 /***********************************************************************
 TranslationTransformation - Class for n-dimensional translations.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -184,8 +184,8 @@ inline TranslationTransformation<ScalarParam,dimensionParam> invert(const Transl
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_TRANSLATIONTRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/TranslationTransformation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_TRANSLATIONTRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/TranslationTransformation.icpp>
 #endif
 
 #endif

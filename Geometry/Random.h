@@ -1,7 +1,7 @@
 /***********************************************************************
 Random - Functions to create random points or vectors according to
 several probability distributions.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -74,5 +74,9 @@ randVectorNormal(
 	ScalarParam stddev); // Returns a vector with normally distributed length and uniformly distributed direction
 
 }
+
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_RANDOM_IMPLEMENTATION)
+#include <Geometry/Random.icpp>
+#endif
 
 #endif

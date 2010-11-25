@@ -2,7 +2,7 @@
 Geoid - Class to represent geoids, actually reference ellipsoids, to
 support coordinate system transformations between several spherical or
 ellipsoidal coordinate systems commonly used in geodesy.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -100,8 +100,8 @@ class Geoid
 	Point cartesianToGeodetic(const Point& cartesian) const; // Transforms a point
 	};
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOID_IMPLEMENTATION)
-#include <Geometry/Geoid.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOID_IMPLEMENTATION)
+#include <Geometry/Geoid.icpp>
 #endif
 
 }

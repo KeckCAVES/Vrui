@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,13 +25,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_RAYINPUTDEVICETOOL_INCLUDED
 
 #include <Geometry/Ray.h>
-#include <Vrui/BoxRayDragger.h>
-#include <Vrui/Tools/InputDeviceTool.h>
-
-/* Forward declarations: */
-namespace Vrui {
-class Viewer;
-}
+#include <Vrui/Internal/BoxRayDragger.h>
+#include <Vrui/InputDeviceTool.h>
 
 namespace Vrui {
 
@@ -63,7 +58,6 @@ class RayInputDeviceTool:public InputDeviceTool
 	/* Elements: */
 	private:
 	static RayInputDeviceToolFactory* factory; // Pointer to the factory object for this class
-	const Viewer* viewer; // Viewer associated with the input device tool
 	BoxRayDragger dragger; // A box dragger to calculate dragging transformations
 	
 	/* Transient state: */
@@ -75,7 +69,7 @@ class RayInputDeviceTool:public InputDeviceTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

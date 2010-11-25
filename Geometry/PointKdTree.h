@@ -1,6 +1,6 @@
 /***********************************************************************
 PointKdTree - Class to store k-dimensional points in a kd-tree.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -195,14 +195,8 @@ class PointKdTree
 
 }
 
-/***********************************************************************
-Creating standard versions of PointKdTree does not make much sense. We
-abuse the well-established non-standard template mechanism to create
-required instantiations on-the-fly.
-***********************************************************************/
-
 #if !defined(GEOMETRY_POINTKDTREE_IMPLEMENTATION)
-#include <Geometry/PointKdTree.cpp>
+#include <Geometry/PointKdTree.icpp>
 #endif
 
 #endif

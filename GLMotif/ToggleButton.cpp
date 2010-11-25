@@ -1,6 +1,6 @@
 /***********************************************************************
 ToggleButton - Class for buttons displaying a binary (on/off) status.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -266,6 +266,9 @@ void ToggleButton::setToggleType(ToggleButton::ToggleType newToggleType)
 	
 	/* Position the toggle button: */
 	positionToggle();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ToggleButton::setToggleBorderWidth(GLfloat newToggleBorderWidth)

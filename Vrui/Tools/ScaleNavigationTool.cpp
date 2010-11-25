@@ -1,7 +1,7 @@
 /***********************************************************************
 ScaleNavigationTool - Class for scaling by grabbing space at the scale
 center point and sliding along a device-relative direction
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,14 +21,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ScaleNavigationTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ScaleNavigationTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -39,11 +39,10 @@ Methods of class ScaleNavigationToolFactory:
 ScaleNavigationToolFactory::ScaleNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ScaleNavigationTool",toolManager),
 	 scaleDirection(0,1,0),
-	 scaleFactor(getInchFactor()*Scalar(12))
+	 scaleFactor(getInchFactor()*Scalar(-8))
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -68,6 +67,11 @@ ScaleNavigationToolFactory::~ScaleNavigationToolFactory(void)
 const char* ScaleNavigationToolFactory::getName(void) const
 	{
 	return "Scaling Only";
+	}
+
+const char* ScaleNavigationToolFactory::getButtonFunction(int) const
+	{
+	return "Zoom";
 	}
 
 Tool* ScaleNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -123,7 +127,7 @@ const ToolFactory* ScaleNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ScaleNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void ScaleNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -131,8 +135,8 @@ void ScaleNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData
 		if(activate())
 			{
 			/* Determine the scaling center and direction: */
-			scalingCenter=getDevicePosition(0);
-			scalingDirection=getDeviceTransformation(0).transform(factory->scaleDirection);
+			scalingCenter=getButtonDevicePosition(0);
+			scalingDirection=getButtonDeviceTransformation(0).transform(factory->scaleDirection);
 			initialScale=scalingCenter*scalingDirection;
 			
 			/* Initialize the transformation parts: */
@@ -155,7 +159,7 @@ void ScaleNavigationTool::frame(void)
 		{
 		/* Compose the new navigation transformation: */
 		NavTrackerState navigation=preScale;
-		Scalar currentScale=getDevicePosition(0)*scalingDirection-initialScale;
+		Scalar currentScale=getButtonDevicePosition(0)*scalingDirection-initialScale;
 		navigation*=NavTrackerState::scale(Math::exp(currentScale/factory->scaleFactor));
 		navigation*=postScale;
 		

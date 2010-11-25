@@ -2,7 +2,7 @@
 AlignTrackingMarkers - Utility to define a reasonable coordinate system
 based on tracking marker positions detected by an optical tracking
 system.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -59,11 +59,98 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Tools/Tool.h>
-#include <Vrui/Tools/GenericToolFactory.h>
+#include <Vrui/Tool.h>
+#include <Vrui/GenericToolFactory.h>
 #include <Vrui/Application.h>
 
 #include "ReadOptiTrackMarkerFile.h"
+#include "NaturalPointClient.h"
+
+namespace {
+
+/**************************************************************************************
+Helper function to query relative marker positions from a NaturalPoint tracking server:
+**************************************************************************************/
+
+void queryRigidBody(const char* naturalPointServerName,int rigidBodyId,double scale,bool flipZ,std::vector<Geometry::Point<double,3> >& markers)
+	{
+	/* Open a connection to the NaturalPoint server: */
+	NaturalPointClient npc(naturalPointServerName,1510,"224.0.0.1",1511);
+	
+	std::cout<<"Server name: "<<npc.getServerName()<<std::endl;
+	std::cout<<"Server version: "<<npc.getServerVersion()[0]<<'.'<<npc.getServerVersion()[1]<<'.'<<npc.getServerVersion()[2]<<'.'<<npc.getServerVersion()[3]<<std::endl;
+	std::cout<<"Protocol version: "<<npc.getProtocolVersion()[0]<<'.'<<npc.getProtocolVersion()[1]<<'.'<<npc.getProtocolVersion()[2]<<'.'<<npc.getProtocolVersion()[3]<<std::endl;
+	
+	/* Track the requested rigid body for a number of frames to calculate average relative marker positions: */
+	std::cout<<"Please show the rigid body with ID "<<rigidBodyId<<" to the OptiTrack system"<<std::endl;
+	unsigned int numFrames=0;
+	std::vector<NaturalPointClient::Point> initialMarkers;
+	std::vector<NaturalPointClient::Point::AffineCombiner> markerCombiners;
+	while(numFrames<50)
+		{
+		/* Wait for the next frame from the NaturalPoint engine: */
+		const NaturalPointClient::Frame& frame=npc.waitForNextFrame();
+		
+		/* Check if the frame contains the requested rigid body: */
+		for(std::vector<NaturalPointClient::RigidBody>::const_iterator rbIt=frame.rigidBodies.begin();rbIt!=frame.rigidBodies.end();++rbIt)
+			if(rbIt->id==rigidBodyId)
+				{
+				/* Check if this is the first frame: */
+				if(numFrames==0)
+					{
+					std::cout<<"Found rigid body "<<rigidBodyId<<", capturing frames..."<<std::flush;
+					for(std::vector<NaturalPointClient::Point>::const_iterator mIt=rbIt->markers.begin();mIt!=rbIt->markers.end();++mIt)
+						{
+						/* Transform the marker to rigid body coordinates: */
+						NaturalPointClient::Point m=NaturalPointClient::Point::origin+rbIt->orientation.inverseTransform(*mIt-rbIt->position);
+						
+						/* Store the initial marker position and create an accumulator: */
+						initialMarkers.push_back(m);
+						markerCombiners.push_back(NaturalPointClient::Point::AffineCombiner());
+						}
+					}
+				
+				/* Find the best match for each marker in the initial configuration and accumulate their positions: */
+				for(std::vector<NaturalPointClient::Point>::const_iterator mIt=rbIt->markers.begin();mIt!=rbIt->markers.end();++mIt)
+					{
+					/* Transform the marker to rigid body coordinates: */
+					NaturalPointClient::Point m=NaturalPointClient::Point::origin+rbIt->orientation.inverseTransform(*mIt-rbIt->position);
+					
+					/* Find the best-matching initial marker: */
+					size_t bestIndex=0;
+					NaturalPointClient::Scalar bestDist2=Geometry::sqrDist(m,initialMarkers[0]);
+					for(size_t i=1;i<initialMarkers.size();++i)
+						{
+						NaturalPointClient::Scalar dist2=Geometry::sqrDist(m,initialMarkers[i]);
+						if(bestDist2>dist2)
+							{
+							bestIndex=i;
+							bestDist2=dist2;
+							}
+						}
+					
+					/* Accumulate the point: */
+					markerCombiners[bestIndex].addPoint(m);
+					}
+				
+				++numFrames;
+				}
+		}
+	std::cout<<" done"<<std::endl;
+	
+	/* Store the averaged marker positions: */
+	for(std::vector<NaturalPointClient::Point::AffineCombiner>::iterator mcIt=markerCombiners.begin();mcIt!=markerCombiners.end();++mcIt)
+		{
+		Geometry::Point<double,3> m;
+		for(int i=0;i<3;++i)
+			m[i]=double(mcIt->getPoint()[i])*scale;
+		if(flipZ)
+			m[2]=-m[2];
+		markers.push_back(m);
+		}
+	}
+
+}
 
 class AlignTrackingMarkers:public Vrui::Application
 	{
@@ -81,14 +168,14 @@ class AlignTrackingMarkers:public Vrui::Application
 	class MarkerTool;
 	typedef Vrui::GenericToolFactory<MarkerTool> MarkerToolFactory;
 	
-	class MarkerTool:public Vrui::Tool
+	class MarkerTool:public Vrui::Tool,public Vrui::Application::Tool<AlignTrackingMarkers>
 		{
 		friend class Vrui::GenericToolFactory<MarkerTool>;
 		
 		/* Elements: */
 		private:
 		static MarkerToolFactory* factory;
-		AlignTrackingMarkers* application;
+		
 		GLMotif::PopupWindow* dialogPopup; // Marker tool's measurement dialog box
 		GLMotif::TextField* pos[2][3]; // Current position text fields
 		GLMotif::TextField* dist; // Current distance text field
@@ -106,15 +193,9 @@ class AlignTrackingMarkers:public Vrui::Application
 			{
 			return factory;
 			}
-		virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+		virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
 		virtual void frame(void);
 		virtual void display(GLContextData& contextData) const;
-		
-		/* Methods: */
-		void init(AlignTrackingMarkers* sApplication)
-			{
-			application=sApplication;
-			}
 		};
 	
 	/* Elements: */
@@ -137,10 +218,9 @@ class AlignTrackingMarkers:public Vrui::Application
 	virtual ~AlignTrackingMarkers(void);
 	
 	/* Methods from class Vrui::Application: */
-	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
 	virtual void display(GLContextData& contextData) const;
 	
-	/* Methods: */
+	/* New methods: */
 	Point snap(const Point& p) const; // Snaps a 3D point to the existing markers/lines
 	Point snap(const Ray& ray) const; // Snaps a 3D ray to the existing markers/lines
 	Point snap(const Point& start,const Point& p) const; // Snaps a 3D point to the existing markers/lines, with line start point for angle snapping
@@ -169,7 +249,6 @@ Methods of class AlignTrackingMarkers::MarkerTool:
 
 AlignTrackingMarkers::MarkerTool::MarkerTool(const Vrui::ToolFactory* sFactory,const Vrui::ToolInputAssignment& inputAssignment)
 	:Vrui::Tool(sFactory,inputAssignment),
-	 application(0),
 	 dialogPopup(0),
 	 dragging(false)
 	{
@@ -228,7 +307,7 @@ AlignTrackingMarkers::MarkerTool::MarkerTool(const Vrui::ToolFactory* sFactory,c
 	dialog->manageChild();
 	
 	/* Pop up the measurement dialog: */
-	Vrui::popupPrimaryWidget(dialogPopup,Vrui::getNavigationTransformation().transform(Vrui::getDisplayCenter()));
+	Vrui::popupPrimaryWidget(dialogPopup);
 	}
 
 AlignTrackingMarkers::MarkerTool::~MarkerTool(void)
@@ -238,7 +317,7 @@ AlignTrackingMarkers::MarkerTool::~MarkerTool(void)
 	delete dialogPopup;
 	}
 
-void AlignTrackingMarkers::MarkerTool::buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
+void AlignTrackingMarkers::MarkerTool::buttonCallback(int,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState)
 		{
@@ -250,9 +329,9 @@ void AlignTrackingMarkers::MarkerTool::buttonCallback(int deviceIndex,int device
 		for(int i=0;i<3;++i)
 			{
 			pos[0][i]->setValue(double(s[i]));
-			pos[1][i]->setLabel("");
+			pos[1][i]->setString("");
 			}
-		dist->setLabel("");
+		dist->setString("");
 		
 		dragging=true;
 		}
@@ -271,7 +350,7 @@ void AlignTrackingMarkers::MarkerTool::buttonCallback(int deviceIndex,int device
 void AlignTrackingMarkers::MarkerTool::frame(void)
 	{
 	/* Get pointer to input device that caused the event: */
-	Vrui::InputDevice* device=input.getDevice(0);
+	Vrui::InputDevice* device=getButtonDevice(0);
 	
 	/* Snap the current input device to the existing marker set: */
 	Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(device);
@@ -385,14 +464,17 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 	{
 	/* Create and register the marker tool class: */
 	MarkerToolFactory* markerToolFactory=new MarkerToolFactory("MarkerTool","Marker Selector",0,*Vrui::getToolManager());
-	markerToolFactory->setNumDevices(1);
-	markerToolFactory->setNumButtons(0,1);
+	markerToolFactory->setNumButtons(1);
+	markerToolFactory->setButtonFunction(0,"Select Markers");
 	Vrui::getToolManager()->addClass(markerToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Parse the command line: */
 	const char* fileName=0;
 	const char* bodyName=0;
+	const char* naturalPointServerName=0;
+	int naturalPointRigidBodyId=-1;
 	Scalar scale=Scalar(1);
+	bool flipZ=false;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
@@ -412,6 +494,15 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 				/* Set scale factor from meters to inches: */
 				scale=Scalar(1000)/Scalar(25.4);
 				}
+			else if(strcasecmp(argv[i]+1,"flipZ")==0)
+				flipZ=true;
+			else if(strcasecmp(argv[i]+1,"npc")==0)
+				{
+				++i;
+				naturalPointServerName=argv[i];
+				++i;
+				naturalPointRigidBodyId=atoi(argv[i]);
+				}
 			}
 		else if(fileName==0)
 			fileName=argv[i];
@@ -419,23 +510,31 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 			bodyName=argv[i];
 		}
 	
-	if(fileName==0||bodyName==0)
+	if((fileName==0||bodyName==0)&&(naturalPointServerName==0||naturalPointRigidBodyId==-1))
 		{
-		std::cerr<<"Usage: "<<argv[0]<<" <rigid body definition file name> <rigid body name> [-scale <unit scale factor>] [-inches] [-size <marker size>]"<<std::endl;
-		Misc::throwStdErr("AlignTrackingMarkers::AlignTrackingMarkers: No file name or rigid body name provided");
+		std::cerr<<"Usage: "<<argv[0]<<" ( <rigid body definition file name> <rigid body name> ) | ( -npc <NaturalPoint server name> <rigid body ID> ) [-scale <unit scale factor>] [-inches] [-flipZ] [-size <marker size>]"<<std::endl;
+		Misc::throwStdErr("AlignTrackingMarkers::AlignTrackingMarkers: No file name and rigid body name or NaturalPoint server name and rigid body ID provided");
 		}
 	
-	/* Determine the marker file name's extension: */
-	const char* extPtr=0;
-	for(const char* fnPtr=fileName;*fnPtr!='\0';++fnPtr)
-		if(*fnPtr=='.')
-			extPtr=fnPtr;
-	
-	/* Read the marker file: */
-	if(extPtr!=0&&strcasecmp(extPtr,".rdef")==0)
-		readOptiTrackMarkerFile(fileName,bodyName,scale,markers);
+	if(fileName!=0&&bodyName!=0)
+		{
+		/* Determine the marker file name's extension: */
+		const char* extPtr=0;
+		for(const char* fnPtr=fileName;*fnPtr!='\0';++fnPtr)
+			if(*fnPtr=='.')
+				extPtr=fnPtr;
+		
+		/* Read the marker file: */
+		if(extPtr!=0&&strcasecmp(extPtr,".rdef")==0)
+			readOptiTrackMarkerFile(fileName,bodyName,scale,flipZ,markers);
+		else
+			Misc::throwStdErr("AlignTrackingMarkers::AlignTrackingMarkers: marker file %s has unrecognized extension",fileName);
+		}
 	else
-		Misc::throwStdErr("AlignTrackingMarkers::AlignTrackingMarkers: marker file %s has unrecognized extension",fileName);
+		{
+		/* Get a rigid body definition from the NaturalPoint server: */
+		queryRigidBody(naturalPointServerName,naturalPointRigidBodyId,scale,flipZ,markers);
+		}
 	
 	/* Create the main menu: */
 	mainMenuPopup=createMainMenu();
@@ -464,17 +563,6 @@ AlignTrackingMarkers::~AlignTrackingMarkers(void)
 	
 	/* Delete the main menu: */
 	delete mainMenuPopup;
-	}
-
-void AlignTrackingMarkers::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData)
-	{
-	/* Check if the new tool is a marker tool: */
-	MarkerTool* markerTool=dynamic_cast<MarkerTool*>(cbData->tool);
-	if(markerTool!=0)
-		{
-		/* Initialize the tool: */
-		markerTool->init(this);
-		}
 	}
 
 void AlignTrackingMarkers::display(GLContextData& contextData) const

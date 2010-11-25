@@ -1,7 +1,7 @@
 /***********************************************************************
 ValueCoder - Generic class to encode/decode values into/from human-
 readable strings.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -64,7 +64,7 @@ Helper functions:
 ****************/
 
 const char* skipWhitespace(const char* start,const char* end);
-const char* skipSeparator(char separator,const char* start,const char* end);
+const char* checkSeparator(char separator,const char* start,const char* end);
 
 }
 

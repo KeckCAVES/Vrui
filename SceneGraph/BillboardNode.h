@@ -1,7 +1,7 @@
 /***********************************************************************
 BillboardNode - Class for group nodes that transform their children to
 always face the viewer.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -50,6 +50,8 @@ class BillboardNode:public GroupNode
 	/* Methods from Node: */
 	static const char* getStaticClassName(void);
 	virtual const char* getClassName(void) const;
+	virtual EventOut* getEventOut(const char* fieldName) const;
+	virtual EventIn* getEventIn(const char* fieldName);
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

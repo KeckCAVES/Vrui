@@ -1,6 +1,6 @@
 /***********************************************************************
 ListBox - Class for widgets containing lists of text strings.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -257,6 +257,7 @@ class ListBox:public Widget,public GLObject
 		{
 		return items[index].item;
 		}
+	void insertItem(int index,const char* newItem,bool moveToPage =false); // Inserts a new item before the current item of the given index and moves it to the page if it is not visible and moveToPage is true
 	int addItem(const char* newItem,bool moveToPage =false) // Adds a new item to the end of the list and moves it to the page if it is not visible and moveToPage is true; returns index of new item
 		{
 		/* Insert the item at the end of the list: */
@@ -265,7 +266,6 @@ class ListBox:public Widget,public GLObject
 		/* Return the new item's index: */
 		return int(items.size())-1;
 		}
-	void insertItem(int index,const char* newItem,bool moveToPage =false); // Inserts a new item before the current item of the given index and moves it to the page if it is not visible and moveToPage is true
 	void setItem(int index,const char* newItem); // Sets the text of the given item
 	void removeItem(int index); // Removes the item at the given index
 	void clear(void); // Clears the list

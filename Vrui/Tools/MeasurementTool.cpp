@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,19 +21,26 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/MeasurementTool.h>
+
 #include <stdio.h>
+#include <vector>
 #include <Misc/File.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <Geometry/LinearUnit.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/Blind.h>
 #include <GLMotif/Separator.h>
@@ -41,12 +48,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/TextField.h>
 #include <GLMotif/RowColumn.h>
+#include <GLMotif/WidgetStateHelper.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/CoordinateTransform.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
-#include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/MeasurementTool.h>
 
 namespace Misc {
 
@@ -170,8 +176,7 @@ MeasurementToolFactory::MeasurementToolFactory(ToolManager& toolManager)
 	 measurementFile(0)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("UtilityTool");
@@ -202,6 +207,11 @@ MeasurementToolFactory::~MeasurementToolFactory(void)
 const char* MeasurementToolFactory::getName(void) const
 	{
 	return "Measurement Tool";
+	}
+
+const char* MeasurementToolFactory::getButtonFunction(int) const
+	{
+	return "Measure";
 	}
 
 Tool* MeasurementToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -255,10 +265,10 @@ void MeasurementTool::resetTool(void)
 	/* Clear all coordinate fields: */
 	for(int i=0;i<3;++i)
 		for(int j=0;j<3;++j)
-			pos[i][j]->setLabel("");
+			pos[i][j]->setString("");
 	for(int i=0;i<2;++i)
-		dist[i]->setLabel("");
-	angle->setLabel("");
+		dist[i]->setString("");
+	angle->setString("");
 	}
 
 void MeasurementTool::updateUnits(void)
@@ -280,11 +290,13 @@ void MeasurementTool::updateUnits(void)
 				xUnit=yUnit=zUnit=dUnit="cm";
 			else if(Vrui::getMeterFactor()==Scalar(1000))
 				xUnit=yUnit=zUnit=dUnit="mm";
+			linearUnitScale=Scalar(1);
 			break;
 		
 		case MeasurementToolFactory::NAVIGATIONAL:
 			/* Set all spatial units to the coordinate manager's units: */
-			xUnit=yUnit=zUnit=dUnit=getCoordinateManager()->getUnitAbbreviation();
+			xUnit=yUnit=zUnit=dUnit=getCoordinateManager()->getUnit().getAbbreviation();
+			linearUnitScale=getCoordinateManager()->getUnit().getFactor();
 			break;
 		
 		case MeasurementToolFactory::USER:
@@ -294,19 +306,60 @@ void MeasurementTool::updateUnits(void)
 			zUnit=userTransform->getUnitAbbreviation(2);
 			
 			/* Distance unit is still navigational: */
-			dUnit=getCoordinateManager()->getUnitAbbreviation();
+			dUnit=getCoordinateManager()->getUnit().getAbbreviation();
+			linearUnitScale=getCoordinateManager()->getUnit().getFactor();
 			break;
 		}
 	
 	/* Set all unit labels: */
 	for(int i=0;i<3;++i)
 		{
-		posUnit[i][0]->setLabel(xUnit);
-		posUnit[i][1]->setLabel(yUnit);
-		posUnit[i][2]->setLabel(zUnit);
+		posUnit[i][0]->setString(xUnit);
+		posUnit[i][1]->setString(yUnit);
+		posUnit[i][2]->setString(zUnit);
 		}
 	for(int i=0;i<2;++i)
-		distUnit[i]->setLabel(dUnit);
+		distUnit[i]->setString(dUnit);
+	}
+
+void MeasurementTool::updateCurrentPoint(void)
+	{
+	/* Update the current position display: */
+	if(coordinateMode==MeasurementToolFactory::USER)
+		{
+		Point displayPoint=userTransform->transform(points[numPoints-1]);
+		for(int j=0;j<3;++j)
+			pos[numPoints-1][j]->setValue(double(displayPoint[j])); // Don't apply linear unit scale to user coordinates
+		}
+	else
+		{
+		for(int j=0;j<3;++j)
+			pos[numPoints-1][j]->setValue(double(points[numPoints-1][j])*linearUnitScale);
+		}
+	
+	/* Update the current distance display: */
+	if(numPoints>=2)
+		{
+		/* Calculate the distance between the last and the first measurement points: */
+		Scalar distValue=Geometry::dist(points[0],points[numPoints-1]);
+		dist[numPoints-2]->setValue(double(distValue)*linearUnitScale);
+		}
+
+	/* Update the current angle display: */
+	if(numPoints==3)
+		{
+		/* Calculate the angle between the three measurement points: */
+		Vector d1=points[1]-points[0];
+		Vector d2=points[2]-points[0];
+		Scalar angleValue=(d1*d2)/(d1.mag()*d2.mag());
+		if(angleValue<=Scalar(-1))
+			angleValue=Scalar(180);
+		else if(angleValue>=Scalar(1))
+			angleValue=Scalar(0);
+		else
+			angleValue=Math::deg(Math::acos(angleValue));
+		angle->setValue(double(angleValue));
+		}
 	}
 
 void MeasurementTool::changeMeasurementModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
@@ -360,6 +413,37 @@ void MeasurementTool::changeCoordinateModeCallback(GLMotif::RadioBox::ValueChang
 	updateUnits();
 	}
 
+void MeasurementTool::posTextFieldLayoutChangedCallback(GLMotif::TextField::LayoutChangedCallbackData* cbData)
+	{
+	/* Find the index of the pos field: */
+	int i,j;
+	for(i=0;i<3;++i)
+		for(j=0;j<3;++j)
+			if(pos[i][j]==cbData->textField)
+				goto found;
+	found:
+	
+	/* Update the field's number format to use the extra space: */
+	int cw=cbData->charWidth;
+	if(cw<12)
+		cw=12;
+	cbData->textField->setPrecision(cw/2);
+	
+	/* Check if the text field has a current value: */
+	if(i<numPoints)
+		{
+		/* Update the text field's display: */
+		Point displayPoint=points[i];
+		if(coordinateMode==MeasurementToolFactory::USER)
+			{
+			displayPoint=userTransform->transform(displayPoint);
+			pos[i][j]->setValue(double(displayPoint[j])); // Don't apply linear unit scale to user units
+			}
+		else
+			pos[i][j]->setValue(double(displayPoint[j])*double(linearUnitScale));
+		}
+	}
+
 void MeasurementTool::coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData)
 	{
 	/* Update the measurement dialog: */
@@ -391,8 +475,13 @@ void MeasurementTool::coordTransformChangedCallback(CoordinateManager::Coordinat
 
 void MeasurementTool::printPosition(Misc::File& file,const Point& pos) const
 	{
-	Point printPos=coordinateMode==MeasurementToolFactory::USER?userTransform->transform(pos):pos;
-	fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",printPos[0],printPos[1],printPos[2]);
+	if(coordinateMode==MeasurementToolFactory::USER)
+		{
+		Point printPos=userTransform->transform(pos);
+		fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",printPos[0],printPos[1],printPos[2]); // Don't apply linear unit scale to user units
+		}
+	else
+		fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",pos[0]*linearUnitScale,pos[1]*linearUnitScale,pos[2]*linearUnitScale);
 	}
 
 namespace {
@@ -502,7 +591,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	GLMotif::RadioBox* measurementModes=new GLMotif::RadioBox("MeasurementModes",modeBox,false);
 	measurementModes->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	measurementModes->setPacking(GLMotif::RowColumn::PACK_GRID);
+	measurementModes->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	measurementModes->setAlignment(GLMotif::Alignment::LEFT);
 	measurementModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
 	
@@ -534,7 +623,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	coordinateModes=new GLMotif::RadioBox("CoordinateModes",modeBox,false);
 	coordinateModes->setOrientation(GLMotif::RowColumn::HORIZONTAL);
-	coordinateModes->setPacking(GLMotif::RowColumn::PACK_GRID);
+	coordinateModes->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	coordinateModes->setAlignment(GLMotif::Alignment::LEFT);
 	coordinateModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
 	
@@ -591,8 +680,13 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	
 	GLMotif::Label* angleUnit=0;
 	createDistBox("AngleBox",measurementBox,angle,angleUnit);
-	angleUnit->setLabel("deg");
+	angleUnit->setString("deg");
 	
+	/* Attach layout callbacks to all position text fields: */
+	for(int i=0;i<3;++i)
+		for(int j=0;j<3;++j)
+			pos[i][j]->getLayoutChangedCallbacks().add(this,&MeasurementTool::posTextFieldLayoutChangedCallback);
+
 	measurementBox->manageChild();
 	
 	measurementDialog->manageChild();
@@ -602,7 +696,7 @@ MeasurementTool::MeasurementTool(const ToolFactory* sFactory,const ToolInputAssi
 	updateUnits();
 	
 	/* Pop up the measurement dialog: */
-	popupPrimaryWidget(measurementDialogPopup,getNavigationTransformation().transform(getDisplayCenter()));
+	popupPrimaryWidget(measurementDialogPopup);
 	
 	/* Register a callback with the coordinate manager: */
 	getCoordinateManager()->getCoordinateTransformChangedCallbacks().add(this,&MeasurementTool::coordTransformChangedCallback);
@@ -617,12 +711,77 @@ MeasurementTool::~MeasurementTool(void)
 	delete measurementDialogPopup;
 	}
 
+void MeasurementTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Read the measurement mode: */
+	measurementMode=configFileSection.retrieveValue<MeasurementToolFactory::MeasurementMode>("./measurementMode",measurementMode);
+	switch(measurementMode)
+		{
+		case MeasurementToolFactory::POSITION:
+			numMeasurementPoints=1;
+			break;
+		
+		case MeasurementToolFactory::DISTANCE:
+			numMeasurementPoints=2;
+			break;
+		
+		case MeasurementToolFactory::ANGLE:
+			numMeasurementPoints=3;
+			break;
+		}
+	
+	/* Read the coordinate mode: */
+	coordinateMode=configFileSection.retrieveValue<MeasurementToolFactory::CoordinateMode>("./coordinateMode",coordinateMode);
+	if(coordinateMode==MeasurementToolFactory::USER&&userTransform==0)
+		coordinateMode=MeasurementToolFactory::NAVIGATIONAL;
+	
+	/* Reset the tool and update the displayed units: */
+	resetTool();
+	updateUnits();
+	
+	/* Read the measurement dialog's position, orientation, and size: */
+	GLMotif::readTopLevelPosition(measurementDialogPopup,configFileSection);
+	
+	/* Read and copy the saved measurement points: */
+	std::vector<Point> savedPoints=configFileSection.retrieveValue<std::vector<Point> >("./points",std::vector<Point>());
+	for(std::vector<Point>::iterator spIt=savedPoints.begin();spIt!=savedPoints.end()&&numPoints<numMeasurementPoints;++spIt)
+		{
+		/* Move to the next point: */
+		++numPoints;
+		
+		/* Store the point: */
+		points[numPoints-1]=*spIt;
+		
+		/* Update the display: */
+		updateCurrentPoint();
+		}
+	}
+
+void MeasurementTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Write the measurement mode and coordinate mode: */
+	configFileSection.storeValue<MeasurementToolFactory::MeasurementMode>("./measurementMode",measurementMode);
+	configFileSection.storeValue<MeasurementToolFactory::CoordinateMode>("./coordinateMode",coordinateMode);
+	
+	/* Write the measurement dialog's current position, orientation, and size: */
+	GLMotif::writeTopLevelPosition(measurementDialogPopup,configFileSection);
+	
+	if(numPoints>0)
+		{
+		/* Store the currently measured points: */
+		std::vector<Point> savedPoints;
+		for(int i=0;i<numPoints;++i)
+			savedPoints.push_back(points[i]);
+		configFileSection.storeValue<std::vector<Point> >("./points",savedPoints);
+		}
+	}
+
 const ToolFactory* MeasurementTool::getFactory(void) const
 	{
 	return factory;
 	}
 
-void MeasurementTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void MeasurementTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -657,6 +816,7 @@ void MeasurementTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cb
 				catch(Misc::File::OpenError)
 					{
 					/* Just don't open the file, then! */
+					showErrorMessage("Measurement Tool","Could not create measurement file; measurements will not be saved");
 					}
 				}
 			
@@ -689,7 +849,7 @@ void MeasurementTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cb
 						fprintf(factory->measurementFile->getFilePtr()," distance");
 						printPosition(*factory->measurementFile,points[0]);
 						printPosition(*factory->measurementFile,points[1]);
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g\n",Geometry::dist(points[0],points[1]));
+						fprintf(factory->measurementFile->getFilePtr()," %16.10g\n",Geometry::dist(points[0],points[1])*linearUnitScale);
 						break;
 					
 					case MeasurementToolFactory::ANGLE:
@@ -699,11 +859,11 @@ void MeasurementTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cb
 						printPosition(*factory->measurementFile,points[1]);
 						Vector d1=points[1]-points[0];
 						Scalar d1Len=Geometry::mag(d1);
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g",d1Len);
+						fprintf(factory->measurementFile->getFilePtr()," %16.10g",d1Len*linearUnitScale);
 						printPosition(*factory->measurementFile,points[2]);
 						Vector d2=points[2]-points[0];
 						Scalar d2Len=Geometry::mag(d2);
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g",d2Len);
+						fprintf(factory->measurementFile->getFilePtr()," %16.10g",d2Len*linearUnitScale);
 						Scalar angleValue=(d1*d2)/(d1Len*d2Len);
 						if(angleValue<=Scalar(-1))
 							angleValue=Scalar(180);
@@ -725,38 +885,12 @@ void MeasurementTool::frame(void)
 	if(dragging)
 		{
 		/* Calculate the device position in the appropriate coordinate system: */
-		points[numPoints-1]=getDevicePosition(0);
+		points[numPoints-1]=getButtonDevicePosition(0);
 		if(coordinateMode==MeasurementToolFactory::NAVIGATIONAL||coordinateMode==MeasurementToolFactory::USER)
 			points[numPoints-1]=getInverseNavigationTransformation().transform(points[numPoints-1]);
 		
 		/* Update the measurement dialog: */
-		Point displayPoint=points[numPoints-1];
-		if(coordinateMode==MeasurementToolFactory::USER)
-			displayPoint=userTransform->transform(displayPoint);
-		for(int j=0;j<3;++j)
-			pos[numPoints-1][j]->setValue(double(displayPoint[j]));
-		
-		if(numPoints>=2)
-			{
-			/* Calculate the distance between the last and the first measurement points: */
-			Scalar distValue=Geometry::dist(points[0],points[numPoints-1]);
-			dist[numPoints-2]->setValue(double(distValue));
-			}
-		
-		if(numPoints==3)
-			{
-			/* Calculate the angle between the three measurement points: */
-			Vector d1=points[1]-points[0];
-			Vector d2=points[2]-points[0];
-			Scalar angleValue=(d1*d2)/(d1.mag()*d2.mag());
-			if(angleValue<=Scalar(-1))
-				angleValue=Scalar(180);
-			else if(angleValue>=Scalar(1))
-				angleValue=Scalar(0);
-			else
-				angleValue=Math::deg(Math::acos(angleValue));
-			angle->setValue(double(angleValue));
-			}
+		updateCurrentPoint();
 		}
 	}
 
@@ -768,7 +902,6 @@ void MeasurementTool::display(GLContextData& contextData) const
 		glDisable(GL_LIGHTING);
 	GLfloat lineWidth;
 	glGetFloatv(GL_LINE_WIDTH,&lineWidth);
-	glLineWidth(1.0f);
 	
 	/* Calculate the marker size: */
 	Scalar markerSize=factory->markerSize;
@@ -789,6 +922,34 @@ void MeasurementTool::display(GLContextData& contextData) const
 		fgColor[i]=1.0f-bgColor[i];
 	fgColor[3]=bgColor[3];
 	
+	#if 1
+	glLineWidth(3.0f);
+	glColor(bgColor);
+	glBegin(GL_LINES);
+	
+	/* Mark all measurement points: */
+	for(int i=0;i<numPoints;++i)
+		{
+		glVertex(points[i][0]-markerSize,points[i][1],points[i][2]);
+		glVertex(points[i][0]+markerSize,points[i][1],points[i][2]);
+		glVertex(points[i][0],points[i][1]-markerSize,points[i][2]);
+		glVertex(points[i][0],points[i][1]+markerSize,points[i][2]);
+		glVertex(points[i][0],points[i][1],points[i][2]-markerSize);
+		glVertex(points[i][0],points[i][1],points[i][2]+markerSize);
+		}
+	
+	/* Draw all distance lines: */
+	for(int i=1;i<numPoints;++i)
+		{
+		glVertex(points[0]);
+		glVertex(points[i]);
+		}
+	
+	glEnd();
+	
+	#endif
+	
+	glLineWidth(1.0f);
 	glColor(fgColor);
 	glBegin(GL_LINES);
 	

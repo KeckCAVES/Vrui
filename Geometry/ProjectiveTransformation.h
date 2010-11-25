@@ -1,7 +1,7 @@
 /***********************************************************************
 ProjectiveTransformation - Class for n-dimensional projective
 transformations.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -470,8 +470,8 @@ inline ProjectiveTransformation<ScalarParam,dimensionParam> invert(const Project
 
 }
 
-#if defined(NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_PROJECTIVETRANSFORMATION_IMPLEMENTATION)
-#include <Geometry/ProjectiveTransformation.cpp>
+#if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_PROJECTIVETRANSFORMATION_IMPLEMENTATION)
+#include <Geometry/ProjectiveTransformation.icpp>
 #endif
 
 #endif

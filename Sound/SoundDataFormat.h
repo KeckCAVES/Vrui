@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundDataFormat - System-independent data structure to describe the
 format of sound data.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -23,7 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SOUND_SOUNDDATAFORMAT_INCLUDED
 #define SOUND_SOUNDDATAFORMAT_INCLUDED
 
-#ifdef SOUND_USE_ALSA
+#include <Sound/Config.h>
+
+#if SOUND_CONFIG_HAVE_ALSA
 #include <alsa/asoundlib.h>
 #endif
 
@@ -55,7 +57,7 @@ struct SoundDataFormat
 	
 	/* Methods: */
 	void setStandardSampleFormat(int newBitsPerSample,bool newSignedSamples,Endianness newSampleEndianness =DontCare); // Sets a standard (sanitized) sample format
-	#ifdef SOUND_USE_ALSA
+	#if SOUND_CONFIG_HAVE_ALSA
 	snd_pcm_format_t getPCMFormat(void) const; // Constructs an ALSA PCM format from a sound data format structure
 	#endif
 	};

@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,6 +19,8 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GLMotif/Widget.h>
+
 #include <string.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
@@ -29,13 +31,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Event.h>
 #include <GLMotif/Container.h>
 
-#include <GLMotif/Widget.h>
-
 namespace GLMotif {
 
 /***********************
 Methods of class Widget:
 ***********************/
+
+void Widget::unmanageChild(void)
+	{
+	/* Unmanage the child: */
+	isManaged=false;
+	}
 
 Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 	:parent(sParent),isManaged(false),name(new char[strlen(sName)+1]),
@@ -67,6 +73,15 @@ Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 
 Widget::~Widget(void)
 	{
+	/* Tell the widget manager that the widget is to be destroyed: */
+	WidgetManager* manager=getManager();
+	if(manager!=0)
+		manager->unmanageWidget(this);
+	
+	/* Tell the parent container that the widget is to be destroyed: */
+	if(isManaged)
+		parent->removeChild(this);
+	
 	delete[] name;
 	}
 
@@ -101,17 +116,23 @@ Widget* Widget::getRoot(void)
 
 const WidgetManager* Widget::getManager(void) const
 	{
-	return parent->getManager();
+	if(parent!=0)
+		return parent->getManager();
+	else
+		return 0;
+	}
+
+WidgetManager* Widget::getManager(void)
+	{
+	if(parent!=0)
+		return parent->getManager();
+	else
+		return 0;
 	}
 
 const StyleSheet* Widget::getStyleSheet(void) const
 	{
 	return getManager()->getStyleSheet();
-	}
-
-WidgetManager* Widget::getManager(void)
-	{
-	return parent->getManager();
 	}
 
 Vector Widget::calcExteriorSize(const Vector& interiorSize) const
@@ -149,6 +170,9 @@ void Widget::resize(const Box& newExterior)
 	
 	/* Calculate the z range: */
 	zRange=calcZRange();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 Vector Widget::calcHotSpot(void) const
@@ -180,6 +204,42 @@ void Widget::setBorderType(Widget::BorderType newBorderType)
 		parent->requestResize(this,exterior.size);
 	else
 		resize(exterior);
+	}
+
+void Widget::setBorderColor(const Color& newBorderColor)
+	{
+	/* Set the border color: */
+	borderColor=newBorderColor;
+	
+	/* Update the widget: */
+	update();
+	}
+
+void Widget::setBackgroundColor(const Color& newBackgroundColor)
+	{
+	/* Set the background color: */
+	backgroundColor=newBackgroundColor;
+	
+	/* Update the widget: */
+	update();
+	}
+
+void Widget::setForegroundColor(const Color& newForegroundColor)
+	{
+	/* Set the foreground color: */
+	foregroundColor=newForegroundColor;
+	
+	/* Update the widget: */
+	update();
+	}
+
+void Widget::update(void)
+	{
+	if(parent!=0&&isManaged)
+		{
+		/* Notify the parent widget of the update: */
+		parent->update();
+		}
 	}
 
 void Widget::draw(GLContextData&) const
@@ -287,6 +347,27 @@ void Widget::pointerButtonUp(Event&)
 	}
 
 void Widget::pointerMotion(Event&)
+	{
+	/* No default action */
+	}
+
+bool Widget::giveTextFocus(void)
+	{
+	/* Default behavior is to reject focus: */
+	return false;
+	}
+
+void Widget::takeTextFocus(void)
+	{
+	/* No default action */
+	}
+
+void Widget::textEvent(const TextEvent&)
+	{
+	/* No default action */
+	}
+
+void Widget::textControlEvent(const TextControlEvent&)
 	{
 	/* No default action */
 	}

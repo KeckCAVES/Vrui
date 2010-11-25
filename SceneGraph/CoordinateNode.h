@@ -1,6 +1,6 @@
 /***********************************************************************
 CoordinateNode - Class for nodes defining point coordinates.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_COORDINATENODE_INCLUDED
 #define SCENEGRAPH_COORDINATENODE_INCLUDED
 
+#include <Misc/Autopointer.h>
 #include <Geometry/Point.h>
 #include <SceneGraph/Geometry.h>
 #include <SceneGraph/FieldTypes.h>
@@ -44,6 +45,8 @@ class CoordinateNode:public Node
 	/* Methods from Node: */
 	static const char* getStaticClassName(void);
 	virtual const char* getClassName(void) const;
+	virtual EventOut* getEventOut(const char* fieldName) const;
+	virtual EventIn* getEventIn(const char* fieldName);
 	virtual void parseField(const char* fieldName,VRMLFile& vrmlFile);
 	virtual void update(void);
 	

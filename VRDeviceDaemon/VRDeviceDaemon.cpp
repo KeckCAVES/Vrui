@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2009 Oliver Kreylos
+Copyright (c) 2002-2010 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -33,8 +33,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Threads/MutexCond.h>
 
-#include "VRDeviceManager.h"
-#include "VRDeviceServer.h"
+#include <VRDeviceDaemon/VRDeviceManager.h>
+#include <VRDeviceDaemon/VRDeviceServer.h>
 
 bool shutdown;
 Threads::MutexCond shutdownCond;

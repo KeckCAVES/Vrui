@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrollBar - Class for horizontal or vertical scroll bars, to be used as
 a component by scrolling widgets like list boxes.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,6 +20,8 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GLMotif/ScrollBar.h>
+
 #include <math.h>
 #include <Misc/Utility.h>
 #include <GL/gl.h>
@@ -29,8 +31,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/WidgetManager.h>
-
-#include <GLMotif/ScrollBar.h>
 
 namespace GLMotif {
 
@@ -57,9 +57,9 @@ void ScrollBar::positionButtonsAndShaft(void)
 		arrowBox[i].size[mainDim]=width;
 		arrowBevelBox[i]=arrowBox[i].inset(Vector(bevelWidth,bevelWidth,0.0f));
 		arrowBevelBox[i].origin[2]+=bevelWidth;
-		arrows[i].setArrowSize((width-bevelWidth*2.0f)*0.167f);
-		arrows[i].setArrowBevelSize((width-bevelWidth*2.0f)*0.167f);
-		arrows[i].setArrowBox(arrowBevelBox[i]);
+		arrows[i].setGlyphSize((width-bevelWidth*2.0f)*0.167f);
+		arrows[i].setBevelSize((width-bevelWidth*2.0f)*0.167f);
+		arrows[i].setGlyphBox(arrowBevelBox[i]);
 		}
 	}
 
@@ -124,17 +124,26 @@ void ScrollBar::clickRepeatTimerEventCallback(Misc::TimerEventScheduler::Callbac
 			newPosition=positionMax-pageSize;
 		if(newPosition<positionMin)
 			newPosition=positionMin;
-		bool changed=newPosition!=position;
-		position=newPosition;
-		positionHandle();
-		if(changed)
+		if(newPosition!=position)
 			{
+			/* Update the scroll bar: */
+			position=newPosition;
+			positionHandle();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,clickChangeReason,position);
 			valueChangedCallbacks.call(&cbData);
 			
-			/* Schedule a timer event for click repeat: */
-			nextClickEventTime+=0.1;
-			getManager()->getTimerEventScheduler()->scheduleEvent(nextClickEventTime,this,&ScrollBar::clickRepeatTimerEventCallback);
+			Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
+			if(tes!=0)
+				{
+				/* Schedule a timer event for click repeat: */
+				nextClickEventTime+=0.1;
+				tes->scheduleEvent(nextClickEventTime,this,&ScrollBar::clickRepeatTimerEventCallback);
+				}
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	}
@@ -146,8 +155,11 @@ void ScrollBar::scheduleClickRepeat(int increment,ScrollBar::ValueChangedCallbac
 	clickPositionIncrement=increment;
 	clickChangeReason=reason;
 	Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
-	nextClickEventTime=tes->getCurrentTime()+interval;
-	tes->scheduleEvent(nextClickEventTime,this,&ScrollBar::clickRepeatTimerEventCallback);
+	if(tes!=0)
+		{
+		nextClickEventTime=tes->getCurrentTime()+interval;
+		tes->scheduleEvent(nextClickEventTime,this,&ScrollBar::clickRepeatTimerEventCallback);
+		}
 	}
 
 ScrollBar::ScrollBar(const char* sName,Container* sParent,Orientation sOrientation,bool sReverse,bool sManageChild)
@@ -173,20 +185,19 @@ ScrollBar::ScrollBar(const char* sName,Container* sParent,Orientation sOrientati
 	switch(orientation)
 		{
 		case HORIZONTAL:
-			arrows[0].setDirection(Arrow::LEFT);
-			arrows[1].setDirection(Arrow::RIGHT);
+			arrows[0].setGlyphType(GlyphGadget::SIMPLE_ARROW_LEFT);
+			arrows[1].setGlyphType(GlyphGadget::SIMPLE_ARROW_RIGHT);
 			break;
 		
 		case VERTICAL:
-			arrows[0].setDirection(Arrow::DOWN);
-			arrows[1].setDirection(Arrow::UP);
+			arrows[0].setGlyphType(GlyphGadget::SIMPLE_ARROW_DOWN);
+			arrows[1].setGlyphType(GlyphGadget::SIMPLE_ARROW_UP);
 			break;
 		}
 	for(int i=0;i<2;++i)
 		{
-		arrows[i].setStyle(Arrow::SIMPLE);
-		arrows[i].setDepth(Arrow::IN);
-		arrows[i].setArrowColor(backgroundColor);
+		arrows[i].setDepth(GlyphGadget::IN);
+		arrows[i].setGlyphColor(backgroundColor);
 		}
 	
 	/* Set the scroll bar component colors: */
@@ -200,8 +211,12 @@ ScrollBar::ScrollBar(const char* sName,Container* sParent,Orientation sOrientati
 
 ScrollBar::~ScrollBar(void)
 	{
-	/* Need to remove all click-repeat timer events from the event scheduler, just in case: */
-	getManager()->getTimerEventScheduler()->removeAllEvents(this,&ScrollBar::clickRepeatTimerEventCallback);
+	Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
+	if(tes!=0)
+		{
+		/* Need to remove all click-repeat timer events from the event scheduler, just in case: */
+		tes->removeAllEvents(this,&ScrollBar::clickRepeatTimerEventCallback);
+		}
 	}
 
 Vector ScrollBar::calcNaturalSize(void) const
@@ -241,7 +256,7 @@ void ScrollBar::setBackgroundColor(const Color& newBackgroundColor)
 	
 	/* Let the arrow glyphs track the background color: */
 	for(int i=0;i<2;++i)
-		arrows[i].setArrowColor(newBackgroundColor);
+		arrows[i].setGlyphColor(newBackgroundColor);
 	}
 
 void ScrollBar::draw(GLContextData& contextData) const
@@ -393,7 +408,7 @@ void ScrollBar::pointerButtonDown(Event& event)
 		armedArrowIndex=0;
 		arrowBevelBox[0]=arrowBox[0].inset(Vector(bevelWidth,bevelWidth,0.0f));
 		arrowBevelBox[0].origin[2]-=bevelWidth;
-		arrows[0].setArrowBox(arrowBevelBox[0]);
+		arrows[0].setGlyphBox(arrowBevelBox[0]);
 		
 		/* Update the scroll bar position: */
 		int increment=reverse?1:-1;
@@ -404,13 +419,19 @@ void ScrollBar::pointerButtonDown(Event& event)
 			newPosition=positionMin;
 		if(position!=newPosition)
 			{
+			/* Update the scroll bar: */
 			position=newPosition;
 			positionHandle();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::ITEM_UP:ValueChangedCallbackData::ITEM_DOWN,position);
 			valueChangedCallbacks.call(&cbData);
 			
 			/* Schedule a timer event for click repeat: */
 			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	else if(picked<handleBox.origin[mainDim]) // Page down area selected
@@ -424,13 +445,19 @@ void ScrollBar::pointerButtonDown(Event& event)
 			newPosition=positionMin;
 		if(position!=newPosition)
 			{
+			/* Update the scroll bar: */
 			position=newPosition;
 			positionHandle();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::PAGE_UP:ValueChangedCallbackData::PAGE_DOWN,position);
 			valueChangedCallbacks.call(&cbData);
 			
 			/* Schedule a timer event for click repeat: */
 			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	else if(picked<handleBox.origin[mainDim]+handleBox.size[mainDim]) // Scroll bar handle selected
@@ -450,13 +477,19 @@ void ScrollBar::pointerButtonDown(Event& event)
 			newPosition=positionMin;
 		if(position!=newPosition)
 			{
+			/* Update the scroll bar: */
 			position=newPosition;
 			positionHandle();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::PAGE_DOWN:ValueChangedCallbackData::PAGE_UP,position);
 			valueChangedCallbacks.call(&cbData);
 			
 			/* Schedule a timer event for click repeat: */
 			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	else // Increment button selected
@@ -465,7 +498,7 @@ void ScrollBar::pointerButtonDown(Event& event)
 		armedArrowIndex=1;
 		arrowBevelBox[1]=arrowBox[1].inset(Vector(bevelWidth,bevelWidth,0.0f));
 		arrowBevelBox[1].origin[2]-=bevelWidth;
-		arrows[1].setArrowBox(arrowBevelBox[1]);
+		arrows[1].setGlyphBox(arrowBevelBox[1]);
 		
 		/* Update the scroll bar position: */
 		int increment=reverse?-1:1;
@@ -476,13 +509,19 @@ void ScrollBar::pointerButtonDown(Event& event)
 			newPosition=positionMin;
 		if(position!=newPosition)
 			{
+			/* Update the scroll bar: */
 			position=newPosition;
 			positionHandle();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,reverse?ValueChangedCallbackData::ITEM_DOWN:ValueChangedCallbackData::ITEM_UP,position);
 			valueChangedCallbacks.call(&cbData);
 			
 			/* Schedule a timer event for click repeat: */
 			scheduleClickRepeat(increment,cbData.reason,0.5);
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	}
@@ -493,7 +532,8 @@ void ScrollBar::pointerButtonUp(Event& event)
 	
 	/* Cancel any pending click-repeat events: */
 	Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
-	tes->removeEvent(nextClickEventTime,this,&ScrollBar::clickRepeatTimerEventCallback);
+	if(tes!=0)
+		tes->removeEvent(nextClickEventTime,this,&ScrollBar::clickRepeatTimerEventCallback);
 	isClicking=false;
 	
 	/* Unarm the armed arrow button: */
@@ -501,8 +541,11 @@ void ScrollBar::pointerButtonUp(Event& event)
 		{
 		arrowBevelBox[armedArrowIndex]=arrowBox[armedArrowIndex].inset(Vector(bevelWidth,bevelWidth,0.0f));
 		arrowBevelBox[armedArrowIndex].origin[2]+=bevelWidth;
-		arrows[armedArrowIndex].setArrowBox(arrowBevelBox[armedArrowIndex]);
+		arrows[armedArrowIndex].setGlyphBox(arrowBevelBox[armedArrowIndex]);
 		armedArrowIndex=-1;
+		
+		/* Invalidate the visual representation: */
+		update();
 		}
 	}
 
@@ -527,10 +570,16 @@ void ScrollBar::pointerMotion(Event& event)
 			newPosition=positionMin;
 		if(newPosition!=position)
 			{
+			/* Update the scroll bar: */
 			position=newPosition;
 			positionHandle();
+			
+			/* Call the value changed callbacks: */
 			ValueChangedCallbackData cbData(this,ValueChangedCallbackData::DRAGGED,position);
 			valueChangedCallbacks.call(&cbData);
+			
+			/* Invalidate the visual representation: */
+			update();
 			}
 		}
 	}
@@ -543,6 +592,9 @@ void ScrollBar::setBevelWidth(GLfloat newBevelWidth)
 	/* Update the positions of the scroll bar components: */
 	positionButtonsAndShaft();
 	positionHandle();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ScrollBar::setPosition(int newPosition)
@@ -550,6 +602,9 @@ void ScrollBar::setPosition(int newPosition)
 	/* Update the position and reposition the scroll bar handle: */
 	position=newPosition;
 	positionHandle();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 void ScrollBar::setPositionRange(int newPositionMin,int newPositionMax,int newPageSize)
@@ -565,6 +620,9 @@ void ScrollBar::setPositionRange(int newPositionMin,int newPositionMax,int newPa
 	else if(position>positionMax-pageSize)
 		position=positionMax-pageSize;
 	positionHandle();
+	
+	/* Invalidate the visual representation: */
+	update();
 	}
 
 }

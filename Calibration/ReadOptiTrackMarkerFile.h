@@ -2,7 +2,7 @@
 ReadOptiTrackMarkerFile - Helper functions to read marker files in XML
 format as written by the NaturalPoint OptiTrack rigid body tracking
 toolkit.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -28,6 +28,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <Geometry/Point.h>
 
-void readOptiTrackMarkerFile(const char* fileName,const char* bodyName,double scale,std::vector<Geometry::Point<double,3> >& markers);
+void readOptiTrackMarkerFile(const char* fileName,const char* bodyName,double scale,bool flipZ,std::vector<Geometry::Point<double,3> >& markers);
 
 #endif

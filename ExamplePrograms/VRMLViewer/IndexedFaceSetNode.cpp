@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLNormalTemplates.h>
 #include <GL/GLVertexTemplates.h>
-#define NONSTANDARD_GLVERTEX_TEMPLATES
+#define GLVERTEX_NONSTANDARD_TEMPLATES
 #include <GL/GLVertex.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
