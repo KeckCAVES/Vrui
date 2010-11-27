@@ -40,7 +40,7 @@ include $(VRUIPACKAGEROOT)/BuildRoot/Packages
 # installation directory.
 ########################################################################
 
-INSTALLDIR = $(HOME)/Vrui-2.0-001
+INSTALLDIR = $(HOME)/Vrui-2.0-002
 
 ########################################################################
 # Some settings that might need adjustment. In general, do not bother
@@ -188,7 +188,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2000001
+VRUI_VERSION = 2000002
 MAJORLIBVERSION = 2
 MINORLIBVERSION = 0
 VRUI_NAME = Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1436,7 +1436,15 @@ $(PKGCONFIGFILE): config
 	@echo 'Description: Vrui (Virtual Reality User Interface) development toolkit' >> $(PKGCONFIGFILE)
 	@echo 'Requires: $(strip $(foreach PACKAGENAME,$(SYSTEMPACKAGES),$($(PACKAGENAME)_PKGNAME)))' >> $(PKGCONFIGFILE)
 	@echo 'Version: $(VRUI_VERSION)' >> $(PKGCONFIGFILE)
-	@echo 'Libs: -L$${libdir} $(strip $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))) $(ROGUE_LIBDIRS) $(ROGUE_LIBS) $(VRUIAPP_LFLAGS)' >> $(PKGCONFIGFILE)
+ifneq ($(SYSTEM_HAVE_RPATH),0)
+  ifneq ($(USE_RPATH),0)
+	@echo 'Libs: -L$${libdir} $(strip $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))) $(ROGUE_LIBDIRS) $(ROGUE_LIBS) -Wl,-rpath=$${libdir}' >> $(PKGCONFIGFILE)
+  else
+	@echo 'Libs: -L$${libdir} $(strip $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))) $(ROGUE_LIBDIRS) $(ROGUE_LIBS)' >> $(PKGCONFIGFILE)
+  endif
+else
+	@echo 'Libs: -L$${libdir} $(strip $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))) $(ROGUE_LIBDIRS) $(ROGUE_LIBS)' >> $(PKGCONFIGFILE)
+endif	
 	@echo 'Cflags: -I$${includedir} $(strip $(VRUIAPP_CFLAGS))' >> $(PKGCONFIGFILE)
 
 # Sequence to create symlinks for dynamic libraries:
@@ -1483,16 +1491,20 @@ endif
 	@install -d $(HEADERINSTALLDIR)/Sound
 	@install -m u=rw,go=r $(SOUND_HEADERS) $(HEADERINSTALLDIR)/Sound
 ifeq ($(SYSTEM),LINUX)
+  ifneq ($(strip $(SOUND_LINUX_HEADERS)),)
 	@install -d $(HEADERINSTALLDIR)/Sound/Linux
 	@install -m u=rw,go=r $(SOUND_LINUX_HEADERS) $(HEADERINSTALLDIR)/Sound/Linux
+  endif
 endif
 	@install -d $(HEADERINSTALLDIR)/AL
 	@install -m u=rw,go=r $(ALSUPPORT_HEADERS) $(HEADERINSTALLDIR)/AL
 	@install -d $(HEADERINSTALLDIR)/Video
 	@install -m u=rw,go=r $(VIDEO_HEADERS) $(HEADERINSTALLDIR)/Video
 ifeq ($(SYSTEM),LINUX)
+  ifneq ($(strip $(VIDEO_LINUX_HEADERS)),)
 	@install -d $(HEADERINSTALLDIR)/Video/Linux
 	@install -m u=rw,go=r $(VIDEO_LINUX_HEADERS) $(HEADERINSTALLDIR)/Video/Linux
+  endif
 endif
 	@install -d $(HEADERINSTALLDIR)/SceneGraph
 	@install -m u=rw,go=r $(SCENEGRAPH_HEADERS) $(HEADERINSTALLDIR)/SceneGraph
