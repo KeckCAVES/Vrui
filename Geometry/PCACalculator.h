@@ -83,7 +83,17 @@ class PCACalculator<2> // Class for two-dimensional PCA
 	size_t getNumPoints(void) const // Returns the number of accumulated points
 		{
 		return numPoints;
-		};
+		}
+	void merge(const PCACalculator& other) // Merges the accumulated covariance matrix of another PCA calculator
+		{
+		/* Add the other's accumulated covariance matrix: */
+		pxpxs+=other.pxpxs;
+		pxpys+=other.pxpys;
+		pypys+=other.pypys;
+		pxs+=other.pxs;
+		pys+=other.pys;
+		numPoints+=other.numPoints;
+		}
 	Point calcCentroid(void) const // Returns the centroid of all accumulated points
 		{
 		return Point(pxs/double(numPoints),pys/double(numPoints));
@@ -149,6 +159,20 @@ class PCACalculator<3> // Class for three-dimensional PCA
 		{
 		return numPoints;
 		};
+	void merge(const PCACalculator& other) // Merges the accumulated covariance matrix of another PCA calculator
+		{
+		/* Add the other's accumulated covariance matrix: */
+		pxpxs+=other.pxpxs;
+		pxpys+=other.pxpys;
+		pxpzs+=other.pxpzs;
+		pypys+=other.pypys;
+		pypzs+=other.pypzs;
+		pzpzs+=other.pzpzs;
+		pxs+=other.pxs;
+		pys+=other.pys;
+		pzs+=other.pzs;
+		numPoints+=other.numPoints;
+		}
 	Point calcCentroid(void) const // Returns the centroid of all accumulated points
 		{
 		return Point(pxs/double(numPoints),pys/double(numPoints),pzs/double(numPoints));

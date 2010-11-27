@@ -2320,3 +2320,8 @@ Vrui-2.0-001:
   Vrui tool classes.
 - Changed VR device daemon protocol to exchange a version number between
   client and server, to proof against the upcoming protocol change.
+
+Vrui-2.0-002:
+- Added merge method to Geometry::PCACalculator.
+- Fixed installation bug in makefile.
+- Fixed bug in creation of pkg-config metafile Vrui.pc.
