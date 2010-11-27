@@ -22,7 +22,7 @@
 # same setting in Vrui's makefile. By default the directories match; if
 # the installation directory was adjusted during Vrui's installation, it
 # must be adjusted here as well.
-VRUIDIR = $(HOME)/Vrui-2.0-001
+VRUIDIR = $(HOME)/Vrui-2.0-002
 
 # Base installation directory for the example programs. If this is set
 # to the default of $(PWD), the example programs do not have to be
