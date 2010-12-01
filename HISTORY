@@ -2325,3 +2325,7 @@ Vrui-2.0-002:
 - Added merge method to Geometry::PCACalculator.
 - Fixed installation bug in makefile.
 - Fixed bug in creation of pkg-config metafile Vrui.pc.
+
+Vrui-2.0-003:
+- Fixed compiler flag bug for GLExtensionManager in makefile.
+- Changed default Vrui installation directory back to ~/Vrui-2.0.
