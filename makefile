@@ -40,7 +40,7 @@ include $(VRUIPACKAGEROOT)/BuildRoot/Packages
 # installation directory.
 ########################################################################
 
-INSTALLDIR = $(HOME)/Vrui-2.0-002
+INSTALLDIR = $(HOME)/Vrui-2.0
 
 ########################################################################
 # Some settings that might need adjustment. In general, do not bother
@@ -188,7 +188,7 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2000002
+VRUI_VERSION = 2000003
 MAJORLIBVERSION = 2
 MINORLIBVERSION = 0
 VRUI_NAME = Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -734,7 +734,7 @@ GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
                     GL/GLModels.cpp
 
 ifneq ($(SYSTEM_HAVE_GLXGETPROCADDRESS), 0)
-  $(OBJDIR)/GL/GLExtensionManager.o: CFLAGS += -DHAVE_GLXGETPROCADDRESS
+  $(OBJDIR)/GL/GLExtensionManager.o: CFLAGS += -DGLSUPPORT_HAVE_GLXGETPROCADDRESS
 endif
 $(OBJDIR)/GL/GLFont.o: CFLAGS += -DSYSGLFONTDIR='"$(SHAREINSTALLDIR)/GLFonts"'
 
