@@ -3,7 +3,7 @@
 # Shell script to find include and library file directories for
 # libraries that might be installed in non-standard places, or not be
 # installed at all.
-# Copyright (c) 2008 Oliver Kreylos
+# Copyright (c) 2008-2011 Oliver Kreylos
 # 
 # This file is part of the WhyTools Build Environment.
 # 

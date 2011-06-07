@@ -1,7 +1,7 @@
 ########################################################################
 # BasicMakefile - Definitions and rules to build object files, shared
 # and static libraries, and executables.
-# Copyright (c) 1999-2010 Oliver Kreylos
+# Copyright (c) 1999-2011 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -192,7 +192,19 @@ else
 	@$(CCOMP) $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 
+# Set default compile+link command for single-source executables:
+%: %.cpp
+	@mkdir -p $(EXEDIR)/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $^ $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+else
+	@echo Compiling and linking $<...
+	@$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $^ $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+endif
+
+#
 # Commands to clean up after the compiler:
+#
 
 .PHONY: clean
 clean: extraclean
@@ -209,10 +221,11 @@ squeakyclean: extrasqueakyclean
 # Use an empty default rule to ignore missing prerequisites and just remake their targets:
 .DEFAULT: ;
 
+#
 # Get list of dependency files from the current directory and all its subdirectories:
+#
 
 DEPFILES = $(shell find $(DEPDIR) -follow -name "*.d")
 
 # Include all dependency files:
-
 include $(DEPFILES)

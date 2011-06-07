@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -30,6 +30,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/TextureCoordinateNode.h>
 #include <SceneGraph/ColorNode.h>
 #include <SceneGraph/NormalNode.h>
+
+/* Forward declarations: */
+namespace Comm {
+class MulticastPipeMultiplexer;
+}
 
 namespace SceneGraph {
 
@@ -71,13 +76,15 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	SFInt zDimension;
 	SFFloat zSpacing;
 	MFFloat height;
-	MFString heightUrl;
+	MFString heightUrl; // URL of external file(s) containing the height array in several file formats
+	MFString heightUrlFormat; // Format of external height file: "BIL", "ARC/INFO ASCII GRID"
 	SFBool heightIsY;
 	SFBool ccw;
 	SFBool solid;
 	
 	/* Derived state: */
 	protected:
+	Comm::MulticastPipeMultiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
 	bool valid; // Flag whether the elevation grid has a valid renderable representation
 	bool indexed; // Flag whether the elevation grid is represented as a set of indexed quad strips or a set of quads
 	unsigned int version; // Version number of elevation grid

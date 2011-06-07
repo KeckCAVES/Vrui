@@ -55,13 +55,16 @@ GLString::GLString(const char* sStringBegin,const char* sStringEnd,const GLFont&
 
 GLString::GLString(const GLString& source)
 	:length(source.length),
-	 string(new char[length+1]),
+	 string(source.string!=0?new char[length+1]:0),
 	 texelWidth(source.texelWidth),textureWidth(source.textureWidth),
 	 textureBox(source.textureBox)
 	{
-	/* Copy the source string: */
-	memcpy(string,source.string,length);
-	string[length]='\0';
+	if(source.string!=0)
+		{
+		/* Copy the source string: */
+		memcpy(string,source.string,length);
+		string[length]='\0';
+		}
 	}
 
 GLString& GLString::operator=(const GLString& source)
@@ -71,9 +74,12 @@ GLString& GLString::operator=(const GLString& source)
 		/* Copy the source string: */
 		delete[] string;
 		length=source.length;
-		string=new char[length+1];
-		memcpy(string,source.string,length);
-		string[length]='\0';
+		string=source.string!=0?new char[length+1]:0;
+		if(source.string!=0)
+			{
+			memcpy(string,source.string,length);
+			string[length]='\0';
+			}
 		
 		/* Copy the source's texture-related data: */
 		texelWidth=source.texelWidth;

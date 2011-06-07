@@ -1,7 +1,8 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
+ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -86,7 +87,7 @@ class VRWindow:public GLWindow
 	GLuint ivRightViewportTextureID; // Texture ID of the right viewport texture (left viewport uses window drawable)
 	GLuint ivRightDepthbufferObjectID; // Object ID of the right viewport depthbuffer (alas, can't reuse window's depthbuffer)
 	GLuint ivRightFramebufferObjectID; // Object ID of the right viewport framebuffer (left viewport uses window drawable)
-	GLubyte* ivRightStipplePatterns[2]; // The two stipple patterns for the right viewport (depends on window origin position)
+	GLubyte* ivRightStipplePatterns[4]; // Four stipple patterns for the right viewport (which one is used depends on window origin position)
 	
 	/* State for rendering to autostereoscopic displays with multiple viewing zones: */
 	int asNumViewZones; // Number of viewing zones for autostereoscopic rendering

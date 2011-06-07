@@ -33,9 +33,10 @@ Methods of class InputDevice:
 ****************************/
 
 InputDevice::InputDevice(void)
-	:deviceName(new char[1]),trackType(TRACK_NONE),
+	:deviceName(new char[1]),trackType(TRACK_NONE),deviceRayDirection(0,1,0),
 	 numButtons(0),numValuators(0),
 	 buttonCallbacks(0),valuatorCallbacks(0),
+	 transformation(TrackerState::identity),linearVelocity(Vector::zero),angularVelocity(Vector::zero),
 	 buttonStates(0),valuatorValues(0),
 	 callbacksEnabled(true),
 	 savedButtonStates(0),savedValuatorValues(0)
@@ -44,10 +45,11 @@ InputDevice::InputDevice(void)
 	}
 
 InputDevice::InputDevice(const char* sDeviceName,int sTrackType,int sNumButtons,int sNumValuators)
-	:deviceName(new char[strlen(sDeviceName)+1]),trackType(sTrackType),
+	:deviceName(new char[strlen(sDeviceName)+1]),trackType(sTrackType),deviceRayDirection(0,1,0),
 	 numButtons(sNumButtons),numValuators(sNumValuators),
 	 buttonCallbacks(numButtons>0?new Misc::CallbackList[numButtons]:0),
 	 valuatorCallbacks(numValuators>0?new Misc::CallbackList[numValuators]:0),
+	 transformation(TrackerState::identity),linearVelocity(Vector::zero),angularVelocity(Vector::zero),
 	 buttonStates(numButtons>0?new bool[numButtons]:0),
 	 valuatorValues(numValuators>0?new double[numValuators]:0),
 	 callbacksEnabled(true),
@@ -71,9 +73,10 @@ InputDevice::InputDevice(const char* sDeviceName,int sTrackType,int sNumButtons,
 	}
 
 InputDevice::InputDevice(const InputDevice& source)
-	:deviceName(new char[1]),trackType(TRACK_NONE),
+	:deviceName(new char[1]),trackType(TRACK_NONE),deviceRayDirection(0,1,0),
 	 numButtons(0),numValuators(0),
 	 buttonCallbacks(0),valuatorCallbacks(0),
+	 transformation(TrackerState::identity),linearVelocity(Vector::zero),angularVelocity(Vector::zero),
 	 buttonStates(0),valuatorValues(0),
 	 callbacksEnabled(true),
 	 savedButtonStates(0),savedValuatorValues(0)

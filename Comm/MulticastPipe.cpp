@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2011 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -22,12 +22,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Comm/MulticastPipe.h>
+
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Comm/MulticastPacket.h>
 #include <Comm/MulticastPipeMultiplexer.h>
-
-#include <Comm/MulticastPipe.h>
 
 namespace Comm {
 
@@ -35,9 +35,9 @@ namespace Comm {
 Methods of class MulticastPipe:
 ******************************/
 
-MulticastPipe::MulticastPipe(MulticastPipeMultiplexer* sMultiplexer,unsigned int sPipeId)
+MulticastPipe::MulticastPipe(MulticastPipeMultiplexer* sMultiplexer)
 	:multiplexer(sMultiplexer),master(multiplexer->isMaster()),
-	 pipeId(sPipeId),
+	 pipeId(multiplexer->openPipe()),
 	 packet(0),packetPos(0)
 	{
 	/* Create a a new packet if on the master: */
@@ -56,7 +56,7 @@ MulticastPipe::~MulticastPipe(void)
 		{
 		/* Send the current packet as-is: */
 		packet->packetSize=packetPos;
-		multiplexer->sendPacket(this,packet);
+		multiplexer->sendPacket(pipeId,packet);
 		packet=0;
 		}
 	
@@ -65,7 +65,7 @@ MulticastPipe::~MulticastPipe(void)
 		multiplexer->deletePacket(packet);
 	
 	/* Close the pipe: */
-	multiplexer->closePipe(this);
+	multiplexer->closePipe(pipeId);
 	}
 
 void MulticastPipe::barrier(void)
@@ -75,14 +75,14 @@ void MulticastPipe::barrier(void)
 		{
 		/* Send the current packet as-is: */
 		packet->packetSize=packetPos;
-		multiplexer->sendPacket(this,packet);
+		multiplexer->sendPacket(pipeId,packet);
 		packet=multiplexer->newPacket();
 		packet->packetSize=MulticastPacket::maxPacketSize;
 		packetPos=0;
 		}
 	
 	/* Pass call through to multicast pipe multiplexer: */
-	multiplexer->barrier(this);
+	multiplexer->barrier(pipeId);
 	}
 
 unsigned int MulticastPipe::gather(unsigned int value,GatherOperation::OpCode op)
@@ -92,14 +92,14 @@ unsigned int MulticastPipe::gather(unsigned int value,GatherOperation::OpCode op
 		{
 		/* Send the current packet as-is: */
 		packet->packetSize=packetPos;
-		multiplexer->sendPacket(this,packet);
+		multiplexer->sendPacket(pipeId,packet);
 		packet=multiplexer->newPacket();
 		packet->packetSize=MulticastPacket::maxPacketSize;
 		packetPos=0;
 		}
 	
 	/* Pass call through to multicast pipe multiplexer: */
-	return multiplexer->gather(this,value,op);
+	return multiplexer->gather(pipeId,value,op);
 	}
 
 void MulticastPipe::broadcastRaw(void* data,size_t size)
@@ -124,7 +124,7 @@ void MulticastPipe::finishMessage(void)
 		{
 		/* Send the current packet as-is and create a new one: */
 		packet->packetSize=packetPos;
-		multiplexer->sendPacket(this,packet);
+		multiplexer->sendPacket(pipeId,packet);
 		packet=multiplexer->newPacket();
 		packet->packetSize=MulticastPacket::maxPacketSize;
 		packetPos=0;
@@ -156,7 +156,7 @@ void MulticastPipe::writeRaw(const void* data,size_t size)
 		if(packetPos==packet->packetSize)
 			{
 			/* Send the current packet and create a new one: */
-			multiplexer->sendPacket(this,packet);
+			multiplexer->sendPacket(pipeId,packet);
 			packet=multiplexer->newPacket();
 			packet->packetSize=MulticastPacket::maxPacketSize;
 			packetPos=0;
@@ -178,7 +178,7 @@ void MulticastPipe::readRaw(void* data,size_t size)
 		if(packet==0)
 			{
 			/* Read the next packet: */
-			packet=multiplexer->receivePacket(this);
+			packet=multiplexer->receivePacket(pipeId);
 			packetPos=0;
 			}
 		

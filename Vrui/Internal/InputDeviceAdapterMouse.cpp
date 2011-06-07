@@ -38,10 +38,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 #include <GLMotif/WidgetManager.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/Internal/MouseCursorFaker.h>
+#include <Vrui/InputGraphManager.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
@@ -215,7 +216,7 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	 numMouseWheelTicks(0),
 	 nextEventOrdinal(0),
 	 window(0),
-	 mouseCursorFaker(0)
+	 fakeMouseCursor(false)
 	{
 	typedef std::vector<std::string> StringList;
 	
@@ -277,22 +278,18 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 		numMouseWheelTicks[i]=0;
 	
 	/* Check if this adapter is supposed to draw a fake mouse cursor: */
-	if(configFileSection.retrieveValue<bool>("./fakeMouseCursor",false))
+	fakeMouseCursor=configFileSection.retrieveValue<bool>("./fakeMouseCursor",fakeMouseCursor);
+	if(fakeMouseCursor)
 		{
-		/* Read the cursor file name and nominal size: */
-		std::string mouseCursorImageFileName=configFileSection.retrieveString("./mouseCursorImageFileName",DEFAULTMOUSECURSORIMAGEFILENAME);
-		unsigned int mouseCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./mouseCursorNominalSize",24);
-		
-		/* Create the mouse cursor faker: */
-		mouseCursorFaker=new MouseCursorFaker(newDevice,mouseCursorImageFileName.c_str(),mouseCursorNominalSize);
-		mouseCursorFaker->setCursorSize(configFileSection.retrieveValue<Size>("./mouseCursorSize",mouseCursorFaker->getCursorSize()));
-		mouseCursorFaker->setCursorHotspot(configFileSection.retrieveValue<Vector>("./mouseCursorHotspot",mouseCursorFaker->getCursorHotspot()));
+		/* Enable the device's glyph as a cursor: */
+		Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
+		deviceGlyph.enable();
+		deviceGlyph.setGlyphType(Glyph::CURSOR);
 		}
 	}
 
 InputDeviceAdapterMouse::~InputDeviceAdapterMouse(void)
 	{
-	delete mouseCursorFaker;
 	delete[] buttonKeyCodes;
 	delete[] modifierKeyCodes;
 	delete[] buttonStates;

@@ -1,6 +1,6 @@
 ========================================================================
-README for Vrui version 2.0, build 003
-Copyright (c) 1998-2010 Oliver Kreylos
+README for Vrui version 2.1, build 001
+Copyright (c) 1998-2011 Oliver Kreylos
 ========================================================================
 
 Overview
@@ -49,19 +49,19 @@ Quick Installation Guide for the Impatient
 
 2. Change into ~/src directory and unpack the Vrui tarball:
    > cd ~/src
-   > tar xfz <download path>/Vrui-2.0-<build>.tar.gz
+   > tar xfz <download path>/Vrui-2.1-<build>.tar.gz
    - or -
-   > tar xf <download path>/Vrui-2.0-<build>.tar
+   > tar xf <download path>/Vrui-2.1-<build>.tar
 
 3. Change into Vrui base directory:
-   > cd Vrui-2.0-<build>
+   > cd Vrui-2.1-<build>
 
 4. Build Vrui inside the Vrui base directory:
    > make
    or, for multi-processor machines
    > make -j<number of CPUs>
 
-5. Install Vrui into Vrui-2.0-<build> in home directory:
+5. Install Vrui into Vrui-2.1 in home directory:
    > make install
 
 6. If there are error messages during the build, read below.
@@ -70,7 +70,7 @@ Building and Running Vrui Example Applications
 ----------------------------------------------
 
 1. Change into example application directory:
-   > cd ~/src/Vrui-2.0-<build>/ExamplePrograms
+   > cd ~/src/Vrui-2.1-<build>/ExamplePrograms
 
 2. Build example applications:
    > make
@@ -81,13 +81,13 @@ Building and Running Vrui Example Applications
    > ./bin/ShowEarthModel
 
 5. Read about Vrui's default user interface in HTML documentation in
-   ~/src/Vrui-2.0-<build>/Documentation.
+   ~/src/Vrui-2.1-<build>/Documentation.
 
 Detailed Installation notes
 ===========================
 
 Installation is performed via the central makefile in the
-Vrui-2.0-<build> base directory. The only settings that probably need to
+Vrui-2.1-<build> base directory. The only settings that probably need to
 be changed are the installation path (where the Vrui include, library,
 executable, and configuration files will be copied), the path to the C++
 compiler, and whether to build-in support for optional libraries such as
@@ -96,9 +96,9 @@ libpng, libjpeg, or libtiff.
 NOTE: It is important *not* to install Vrui into the same directory it
 is built in. A typical installation would download the source tarball
 into a special "source" directory, say ~/src, and extract it from there,
-resulting in the sources being in ~/src/Vrui-2.0-<build>. Then Vrui can
-be installed in ~/Vrui-2.0-<build> (the default) without any problems.
-After installation, the source tarball and the ~/src/Vrui-2.0-<build>
+resulting in the sources being in ~/src/Vrui-2.1-<build>. Then Vrui can
+be installed in ~/Vrui-2.1 (the default) without any problems. After
+installation, the source tarball and the ~/src/Vrui-2.1-<build>
 directory can in principle be deleted. Here is a diagram of the
 directory structure described above:
 
@@ -106,7 +106,7 @@ directory structure described above:
 	|
 	+- src (unpack Vrui tarball from in here)
 	|	|
-	|	+- Vrui-2.0-<build> (package root directory, run "make" in here)
+	|	+- Vrui-2.1-<build> (package root directory, run "make" in here)
 	|		|
 	|		+- BuildRoot (additional make settings)
 	|		|
@@ -123,13 +123,13 @@ directory structure described above:
 	|		|
 	|		+- exe (executable files, created by "make")
 	|
-	+- Vrui-2.0-<build> (created by "make install")
+	+- Vrui-2.1 (created by "make install")
 		|
 		+- include (Vrui development header files)
 		|
 		+- lib / lib64 (library files and plug-ins)
 		|
-		+- bin (Vrui programs)
+		+- bin (Vrui driver and utility programs)
 		|
 		+- etc (Vrui configuration files)
 		|
@@ -152,16 +152,23 @@ the usual subdirectories under the root installation directory:
 If the root installation directory is set to /usr or /usr/local, Vrui
 will drop right into an existing Linux installation. However, to
 simplify removing a Vrui installation (there is no make uninstall yet),
-it is recommended to install Vrui in its private root directory, such
-as /usr/local/Vrui-2.0-<build>. If installed this way, it can be cleanly
+it is recommended to install Vrui in its private root directory, such as
+/usr/local/Vrui-2.1. If installed this way, it can be cleanly
 uninstalled by simply removing the root installation directory.
 
 During installation, Vrui creates a makefile fragment (Vrui.makeinclude)
-in $(INSTALLDIR)/etc. This fragment should be included by the makefiles
-of all Vrui-based projects to simplify compiling and linking. The
-makefiles provided with the Vrui example applications show how this
+in $(INSTALLDIR)/share. This fragment should be included by the
+makefiles of all Vrui-based projects to simplify compiling and linking.
+The makefiles provided with the Vrui example applications show how this
 should be done, and how it results in simple makefiles that build on any
 environment with a properly installed version of Vrui.
+
+Alternatively, Vrui creates a pkg-config metafile during build,
+Share/Vrui.pc. This metafile can be copied to a location recognized by
+pkg-config, such as /usr/lib(64)/pkgconfig, and can then be used to
+retrieve compiler and linker flags required to build Vrui applications,
+as in
+g++ -o Foo `pkg-config Vrui --cflags` Foo.cpp `pkg-config Vrui --libs`
 
 Path to the C++ Compiler
 ------------------------
@@ -266,7 +273,7 @@ thread-local storage (for an additional performance penalty).
 Building and Installing Vrui
 ============================
 
-The easiest way to install Vrui is to cd to the Vrui-2.0-<build> root
+The easiest way to install Vrui is to cd to the Vrui-2.1-<build> root
 directory, and type make, followed by make install. If the root
 installation directory (see above) is a system directory, make install
 has to be run as root. In that case, it is safer to first run make
@@ -309,7 +316,7 @@ the example applications (see below).
 Building Example Vrui Applications
 ==================================
 
-The ExamplePrograms directory in the Vrui-2.0-<build> base directory
+The ExamplePrograms directory in the Vrui-2.1-<build> base directory
 contains several small example programs, and two larger applications in
 their own directories (MeshEditor and VRMLViewer).
 
@@ -324,8 +331,8 @@ be layered on top of the Vrui API.
 
 All applications can be built by running make in their respective
 directories. If Vrui was not installed in its default location
-(~/Vrui-2.0-<build>), the VRUIDIR variable at the top of each makefile
-needs to be changed.
+(~/Vrui-2.1), the VRUIDIR variable at the top of each makefile needs to
+be changed.
 
 The example application makefiles show how to create debug/release
 versions without changing the makefile by respecting the DEBUG make

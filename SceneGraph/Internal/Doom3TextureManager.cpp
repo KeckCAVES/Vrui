@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/StringPrintf.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/MemMappedFile.h>
+#include <IO/File.h>
 #include <Math/Math.h>
 #include <Geometry/Vector.h>
 #include <GL/gl.h>
@@ -174,16 +174,14 @@ Doom3TextureManager::ImageID Doom3TextureManager::loadTexture(const char* textur
 		{
 		try
 			{
-			/* Load the texture image file: */
-			size_t imageSize;
-			unsigned char* imageData=fileManager.readFile(textureName,imageSize);
-			
-			/* Read the image file: */
-			Misc::MemMappedFile imageFile(imageData,imageSize,Misc::MemMappedFile::LittleEndian);
-			Images::TargaImageFileReader<Misc::MemMappedFile> targaReader(imageFile);
+			/* Read the texture image file: */
+			IO::File* imageFile=fileManager.getFile(textureName);
+			Images::TargaImageFileReader<IO::File> targaReader(*imageFile);
 			
 			/* Initialize the texture image: */
 			image.image=targaReader.readImage<Images::RGBAImage>();
+			
+			delete imageFile;
 			}
 		catch(Doom3FileManager::ReadError err)
 			{

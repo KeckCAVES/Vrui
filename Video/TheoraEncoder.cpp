@@ -65,6 +65,20 @@ int TheoraEncoder::control(int control,void* parameters,size_t parametersSize)
 	return th_encode_ctl(encoder,control,parameters,parametersSize);
 	}
 
+int TheoraEncoder::getMaxSpeedLevel(void)
+	{
+	int result;
+	if(th_encode_ctl(encoder,TH_ENCCTL_GET_SPLEVEL_MAX,&result,sizeof(int))<0)
+		Misc::throwStdErr("Video::TheoraEncoder::getMaxSpeedLevel: Internal error");
+	return result;
+	}
+
+void TheoraEncoder::setSpeedLevel(int newSpeedLevel)
+	{
+	if(th_encode_ctl(encoder,TH_ENCCTL_SET_SPLEVEL,&newSpeedLevel,sizeof(int))<0)
+		Misc::throwStdErr("Video::TheoraEncoder::setSpeedLevel: Internal error");
+	}
+
 bool TheoraEncoder::emitHeader(TheoraComment& comments,TheoraPacket& packet)
 	{
 	return th_encode_flushheader(encoder,&comments,&packet)>0;

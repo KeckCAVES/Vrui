@@ -191,9 +191,9 @@ RGBImage readPnmFile(const char* imageFileName)
 
 #if IMAGES_CONFIG_HAVE_PNG
 
-/********************************
-Function to read PNG image files:
-********************************/
+/*********************************
+Functions to read PNG image files:
+*********************************/
 
 RGBImage readPngFile(const char* imageFileName)
 	{
@@ -256,6 +256,84 @@ RGBImage readPngFile(const char* imageFileName)
 	
 	/* Create row pointers to flip the image during reading: */
 	RGBImage::Color** rowPointers=new RGBImage::Color*[result.getHeight()];
+	for(unsigned int y=0;y<result.getHeight();++y)
+		rowPointers[y]=result.modifyPixelRow(result.getHeight()-1-y);
+	
+	/* Read the PNG image: */
+	png_read_image(pngReadStruct,reinterpret_cast<png_byte**>(rowPointers));
+	
+	/* Finish reading image: */
+	png_read_end(pngReadStruct,0);
+	
+	/* Clean up: */
+	delete[] rowPointers;
+	png_destroy_read_struct(&pngReadStruct,&pngInfoStruct,0);
+	
+	/* Return the read image: */
+	return result;
+	}
+
+RGBAImage readTransparentPngFile(const char* imageFileName)
+	{
+	/* Open input file: */
+	Misc::File pngFile(imageFileName,"rb");
+	
+	/* Check for PNG file signature: */
+	unsigned char pngSignature[8];
+	pngFile.read(pngSignature,8);
+	if(!png_check_sig(pngSignature,8))
+		Misc::throwStdErr("Images::readTransparentPngFile: illegal PNG header in image file \"%s\"",imageFileName);
+	
+	/* Allocate the PNG library data structures: */
+	png_structp pngReadStruct=png_create_read_struct(PNG_LIBPNG_VER_STRING,0,0,0);
+	if(pngReadStruct==0)
+		Misc::throwStdErr("Images::readTransparentPngFile: Internal error in PNG library");
+	png_infop pngInfoStruct=png_create_info_struct(pngReadStruct);
+	if(pngInfoStruct==0)
+		{
+		png_destroy_read_struct(&pngReadStruct,0,0);
+		Misc::throwStdErr("Images::readTransparentPngFile: Internal error in PNG library");
+		}
+	
+	/* Set up longjump facility for PNG error handling (ouch): */
+	if(setjmp(png_jmpbuf(pngReadStruct)))
+		{
+		png_destroy_read_struct(&pngReadStruct,&pngInfoStruct,0);
+		Misc::throwStdErr("Images::readTransparentPngFile: Error while setting up PNG library error handling");
+		}
+	
+	/* Initialize PNG I/O: */
+	png_init_io(pngReadStruct,pngFile.getFilePtr());
+	
+	/* Read PNG image header: */
+	png_set_sig_bytes(pngReadStruct,8);
+	png_read_info(pngReadStruct,pngInfoStruct);
+	png_uint_32 imageSize[2];
+	int elementSize;
+	int colorType;
+	png_get_IHDR(pngReadStruct,pngInfoStruct,&imageSize[0],&imageSize[1],&elementSize,&colorType,0,0,0);
+	
+	/* Set up image processing: */
+	if(colorType==PNG_COLOR_TYPE_PALETTE)
+		png_set_expand(pngReadStruct);
+	else if(colorType==PNG_COLOR_TYPE_GRAY&&elementSize<8)
+		png_set_expand(pngReadStruct);
+	if(elementSize==16)
+		png_set_strip_16(pngReadStruct);
+	if(colorType==PNG_COLOR_TYPE_GRAY||colorType==PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(pngReadStruct);
+	if(colorType==PNG_COLOR_TYPE_GRAY||colorType==PNG_COLOR_TYPE_RGB)
+		png_set_filler(pngReadStruct,0xff,PNG_FILLER_AFTER);
+	double gamma;
+	if(png_get_gAMA(pngReadStruct,pngInfoStruct,&gamma))
+		png_set_gamma(pngReadStruct,2.2,gamma);
+	png_read_update_info(pngReadStruct,pngInfoStruct);
+	
+	/* Create the result image: */
+	RGBAImage result(imageSize[0],imageSize[1]);
+	
+	/* Create row pointers to flip the image during reading: */
+	RGBAImage::Color** rowPointers=new RGBAImage::Color*[result.getHeight()];
 	for(unsigned int y=0;y<result.getHeight();++y)
 		rowPointers[y]=result.modifyPixelRow(result.getHeight()-1-y);
 	
@@ -368,9 +446,9 @@ RGBImage readJpegFile(const char* imageFileName)
 
 #if IMAGES_CONFIG_HAVE_TIFF
 
-/*********************************
-Function to read TIFF image files:
-*********************************/
+/**********************************
+Functions to read TIFF image files:
+**********************************/
 
 void TiffErrorHandler(const char* module,const char* fmt,va_list ap)
 	{
@@ -417,6 +495,61 @@ RGBImage readTiffFile(const char* imageFileName)
 				(*dPtr)[0]=RGBImage::Scalar(TIFFGetR(*sPtr));
 				(*dPtr)[1]=RGBImage::Scalar(TIFFGetG(*sPtr));
 				(*dPtr)[2]=RGBImage::Scalar(TIFFGetB(*sPtr));
+				}
+		}
+	catch(...)
+		{
+		/* Clean up: */
+		delete[] rgbaBuffer;
+		TIFFClose(image);
+		
+		/* Re-throw the exception: */
+		throw;
+		}
+	
+	/* Clean up and return the result image: */
+	delete[] rgbaBuffer;
+	TIFFClose(image);
+	return result;
+	}
+
+RGBAImage readTransparentTiffFile(const char* imageFileName)
+	{
+	/* Open the TIFF image: */
+	TIFF* image=TIFFOpen(imageFileName,"r");
+	if(image==0)
+		Misc::throwStdErr("Images::readTransparentTiffFile: Unable to open image file %s",imageFileName);
+	
+	/* Set the TIFF error handler: */
+	TIFFSetErrorHandler(TiffErrorHandler);
+	
+	/* Get the image size: */
+	uint32 width,height;
+	TIFFGetField(image,TIFFTAG_IMAGEWIDTH,&width);
+	TIFFGetField(image,TIFFTAG_IMAGELENGTH,&height);
+	
+	/* Create the result image: */
+	RGBAImage result(width,height);
+	
+	/* Allocate a temporary RGBA buffer: */
+	uint32* rgbaBuffer=new uint32[height*width];
+	
+	try
+		{
+		/* Read the TIFF image into the temporary buffer: */
+		if(!TIFFReadRGBAImage(image,width,height,rgbaBuffer))
+			Misc::throwStdErr("Images::readTiffFile: Error while reading image file %s",imageFileName);
+		
+		/* Copy the RGBA image data into the result image: */
+		uint32* sPtr=rgbaBuffer;
+		RGBAImage::Color* dPtr=result.modifyPixels();
+		for(uint32 y=0;y<height;++y)
+			for(uint32 x=0;x<width;++x,++sPtr,++dPtr)
+				{
+				(*dPtr)[0]=RGBAImage::Scalar(TIFFGetR(*sPtr));
+				(*dPtr)[1]=RGBAImage::Scalar(TIFFGetG(*sPtr));
+				(*dPtr)[2]=RGBAImage::Scalar(TIFFGetB(*sPtr));
+				(*dPtr)[3]=RGBAImage::Scalar(TIFFGetA(*sPtr));
 				}
 		}
 	catch(...)
@@ -563,11 +696,81 @@ RGBImage readImageFile(const char* imageFileName)
 		}
 	}
 
+namespace {
+
+/*******************************************************
+Helper function to add an alpha channel to an RGB image:
+*******************************************************/
+
+RGBAImage addAlphaChannel(const RGBImage& source)
+	{
+	/* Create the result image: */
+	unsigned int width=source.getWidth();
+	unsigned int height=source.getHeight();
+	RGBAImage result(width,height);
+	
+	/* Copy all pixels and add an opaque alpha value: */
+	const RGBImage::Color* sPtr=source.getPixels();
+	RGBAImage::Color* dPtr=result.modifyPixels();
+	for(unsigned int y=0;y<height;++y)
+		for(unsigned int x=0;x<width;++x,++sPtr,++dPtr)
+			{
+			for(int i=0;i<3;++i)
+				(*dPtr)[i]=(*sPtr)[i];
+			(*dPtr)[3]=GLubyte(255);
+			}
+	
+	return result;
+	}
+
+}
+
+RGBAImage readTransparentImageFile(const char* imageFileName)
+	{
+	/* Try to determine image file format from file name extension: */
+	
+	/* Find position of last dot in image file name: */
+	const char* extStart=0;
+	const char* cPtr;
+	for(cPtr=imageFileName;*cPtr!='\0';++cPtr)
+		if(*cPtr=='.')
+			extStart=cPtr+1;
+	if(extStart==0)
+		Misc::throwStdErr("Images::readTransparentImageFile: no extension in image file name \"%s\"",imageFileName);
+	
+	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
+	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
+		{
+		/* Read an RGB PNM file and add an opaque alpha channel: */
+		return addAlphaChannel(readPnmFile(imageFileName));
+		}
+	#if IMAGES_CONFIG_HAVE_PNG
+	else if(strcasecmp(extStart,"png")==0)
+		return readTransparentPngFile(imageFileName);
+	#endif
+	#if IMAGES_CONFIG_HAVE_JPEG
+	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
+		{
+		/* Read an RGB JPEG file and add an opaque alpha channel: */
+		return addAlphaChannel(readJpegFile(imageFileName));
+		}
+	#endif
+	#if IMAGES_CONFIG_HAVE_TIFF
+	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
+		return readTransparentTiffFile(imageFileName);
+	#endif
+	else
+		{
+		Misc::throwStdErr("Images::readTransparentImageFile: unknown extension in image file name \"%s\"",imageFileName);
+		return RGBAImage(); // Dummy statement just to make the compiler happy
+		}
+	}
+
 /***********************************************
 Function to read cursor files in Xcursor format:
 ***********************************************/
 
-RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize)
+RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize,unsigned int* hotspot)
 	{
 	/* Open the input file: */
 	Misc::File cursorFile(cursorFileName,"rb",Misc::File::LittleEndian);
@@ -615,6 +818,11 @@ RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize)
 		ich.size[i]=cursorFile.read<unsigned int>();
 	for(int i=0;i<2;++i)
 		ich.hotspot[i]=cursorFile.read<unsigned int>();
+	if(hotspot!=0)
+		{
+		for(int i=0;i<2;++i)
+			hotspot[i]=ich.hotspot[i];
+		}
 	ich.delay=cursorFile.read<unsigned int>();
 	if(ich.headerSize!=9*sizeof(unsigned int)||ich.chunkType!=0xfffd0002U||ich.version!=1)
 		Misc::throwStdErr("Images::readCursorFile: Invalid image chunk header in %s",cursorFileName);

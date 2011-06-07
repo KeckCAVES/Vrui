@@ -24,6 +24,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_MULTICASTPACKET_INCLUDED
 #define COMM_MULTICASTPACKET_INCLUDED
 
+#include <string.h>
+
 namespace Comm {
 
 struct MulticastPacket
@@ -31,6 +33,57 @@ struct MulticastPacket
 	/* Embedded classes: */
 	public:
 	static const size_t maxPacketSize=1472-2*sizeof(unsigned int); // Maximum size of packet in bytes
+	
+	class Reader // Simple class to read data from packets
+		{
+		/* Elements: */
+		private:
+		const char* rPtr; // Current read pointer
+		
+		/* Constructors and destructors: */
+		public:
+		Reader(const MulticastPacket* packet) // Creates reader for given packet
+			:rPtr(packet->packet)
+			{
+			}
+		
+		/* Methods: */
+		template <class DataParam>
+		DataParam read(void) // Reads data item from packet
+			{
+			DataParam result;
+			memcpy(&result,rPtr,sizeof(DataParam));
+			rPtr+=sizeof(DataParam);
+			return result;
+			}
+		};
+	
+	class Writer // Simple class to write data into packets
+		{
+		/* Elements: */
+		private:
+		char* base; // Base pointer
+		char* wPtr; // Current write pointer
+		
+		/* Constructors and destructors: */
+		public:
+		Writer(MulticastPacket* packet) // Creates writer for given packet
+			:base(packet->packet),wPtr(base)
+			{
+			}
+		
+		/* Methods: */
+		template <class DataParam>
+		void write(const DataParam& value) // Writes data item into packet
+			{
+			memcpy(wPtr,&value,sizeof(DataParam));
+			wPtr+=sizeof(DataParam);
+			}
+		size_t getSize(void) const // Returns amount of data written to packet
+			{
+			return wPtr-base;
+			}
+		};
 	
 	/* Elements: */
 	MulticastPacket* succ; // Pointer to successor in packet queues

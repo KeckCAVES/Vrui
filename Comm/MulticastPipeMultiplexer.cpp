@@ -1,7 +1,7 @@
 /***********************************************************************
 MulticastPipeMultiplexer - Class to share several multicast pipes across
 a single UDP socket connection.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -23,6 +23,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define DEBUGGING 0
 
+#include <Comm/MulticastPipeMultiplexer.h>
+
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -33,15 +35,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <Misc/ThrowStdErr.h>
-#include <Comm/MulticastPacket.h>
-#include <Comm/MulticastPipe.h>
-
-#include <Comm/MulticastPipeMultiplexer.h>
-
 #if DEBUGGING
 #include <iostream>
 #endif
+#include <Misc/ThrowStdErr.h>
+#include <Comm/MulticastPacket.h>
 
 namespace Comm {
 
@@ -56,6 +54,12 @@ inline bool isMulticast(const struct in_addr& netAddress)
 	int address=netAddress.s_addr;
 	return address>=(0xe0<<24)&&address<(0xf0<<24);
 	}
+
+#if DEBUGGING
+
+Misc::HashTable<unsigned int,size_t> pipeNumResentBytes(17);
+
+#endif
 
 }
 
@@ -127,9 +131,6 @@ MulticastPipeMultiplexer::PipeState::PipeState(void)
 	 slaveStreamPosOffsets(0),numHeadSlaves(0),
 	 barrierId(0),slaveBarrierIds(0),minSlaveBarrierId(0),
 	 slaveGatherValues(0)
-	 #if DEBUGGING
-	 ,totalNumResentBytes(0)
-	 #endif
 	{
 	}
 
@@ -153,7 +154,7 @@ MulticastPipeMultiplexer::PipeState::~PipeState(void)
 Methods of class MulticastPipeMultiplexer:
 *****************************************/
 
-void MulticastPipeMultiplexer::processAcknowledgment(MulticastPipeMultiplexer::PipeState* pipeState,int slaveIndex,unsigned int streamPos)
+void MulticastPipeMultiplexer::processAcknowledgment(MulticastPipeMultiplexer::LockedPipe& pipeState,int slaveIndex,unsigned int streamPos)
 	{
 	/* Check if the reported stream position points into the packet queue: */
 	unsigned int streamPosOffset=streamPos-pipeState->headStreamPos;
@@ -177,7 +178,7 @@ void MulticastPipeMultiplexer::processAcknowledgment(MulticastPipeMultiplexer::P
 					if(minStreamPosOffset>pipeState->slaveStreamPosOffsets[i])
 						minStreamPosOffset=pipeState->slaveStreamPosOffsets[i];
 				
-				#if DEBUGGING
+				#if DEBUGGING2
 				std::cerr<<"Attempting to discard "<<minStreamPosOffset<<" bytes from beginning of packet list"<<std::endl;
 				#endif
 				
@@ -192,7 +193,7 @@ void MulticastPipeMultiplexer::processAcknowledgment(MulticastPipeMultiplexer::P
 					deletePacket(front);
 					}
 				
-				#if DEBUGGING
+				#if DEBUGGING2
 				std::cerr<<"Discarded "<<numDiscarded<<" bytes from beginning of packet list"<<std::endl;
 				#endif
 				
@@ -248,9 +249,7 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 	delete[] slaveConnecteds;
 	
 	/* Send connection message to slaves: */
-	MasterMessage msg;
-	msg.zeroPipeId=0;
-	msg.messageId=MasterMessage::CONNECTION;
+	MasterMessage msg(MasterMessage::CONNECTION);
 	{
 	Threads::Mutex::Lock socketLock(socketMutex);
 	for(int i=0;i<masterMessageBurstSize;++i)
@@ -277,9 +276,7 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 				case SlaveMessage::CONNECTION:
 					{
 					/* One slave must have missed the connection establishment packet; send another one: */
-					MasterMessage msg;
-					msg.zeroPipeId=0;
-					msg.messageId=MasterMessage::CONNECTION;
+					MasterMessage msg(MasterMessage::CONNECTION);
 					{
 					Threads::Mutex::Lock socketLock(socketMutex);
 					sendto(socketFd,&msg,sizeof(MasterMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
@@ -290,9 +287,7 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 				case SlaveMessage::PING:
 					{
 					/* Broadcast a ping reply to all slaves: */
-					MasterMessage msg;
-					msg.zeroPipeId=0;
-					msg.messageId=MasterMessage::PING;
+					MasterMessage msg(MasterMessage::PING);
 					{
 					Threads::Mutex::Lock socketLock(socketMutex);
 					sendto(socketFd,&msg,sizeof(MasterMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
@@ -303,29 +298,16 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 				case SlaveMessage::CREATEPIPE:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg.pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg.pipeId);
 					
 					/* If the pipe has already been created on the master, treat this like a barrier; otherwise, ignore: */
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Update the barrier ID array: */
 						if(pipeState->barrierId>=1)
 							{
 							/* One slave must have missed a pipe creation completion message; send another one: */
-							MasterMessage msg2;
-							msg2.zeroPipeId=0;
-							msg2.messageId=MasterMessage::CREATEPIPE;
+							MasterMessage msg2(MasterMessage::CREATEPIPE);
 							msg2.pipeId=msg.pipeId;
 							{
 							Threads::Mutex::Lock socketLock(socketMutex);
@@ -348,31 +330,18 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 								}
 							}
 						}
-						}
 					break;
 					}
 				
 				case SlaveMessage::ACKNOWLEDGMENT:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg.pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg.pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Process the acknowledgment packet: */
 						processAcknowledgment(pipeState,msg.nodeIndex-1,msg.streamPos);
-						}
 						}
 					break;
 					}
@@ -380,21 +349,10 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 				case SlaveMessage::PACKETLOSS:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg.pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg.pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Use the stream position reported by the client as positive acknowledgment: */
 						processAcknowledgment(pipeState,msg.nodeIndex-1,msg.streamPos);
 						
@@ -420,12 +378,11 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 								{
 								sendto(socketFd,&packet->pipeId,packet->packetSize+2*sizeof(unsigned int),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
 								#if DEBUGGING
-								pipeState->totalNumResentBytes+=packet->packetSize;
+								pipeNumResentBytes.getEntry(msg.pipeId).getDest()+=packet->packetSize;
 								#endif
 								}
 							}
 							}
-						}
 						}
 					break;
 					}
@@ -433,28 +390,15 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 				case SlaveMessage::BARRIER:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg.pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg.pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Update the barrier ID array: */
 						if(msg.barrierId<=pipeState->barrierId)
 							{
 							/* One slave must have missed a barrier completion message; send another one: */
-							MasterMessage msg2;
-							msg2.zeroPipeId=0;
-							msg2.messageId=MasterMessage::BARRIER;
+							MasterMessage msg2(MasterMessage::BARRIER);
 							msg2.pipeId=msg.pipeId;
 							msg2.barrierId=msg.barrierId;
 							{
@@ -478,35 +422,21 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 								}
 							}
 						}
-						}
 					break;
 					}
 				
 				case SlaveMessage::GATHER:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg.pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg.pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Update the barrier ID array: */
 						if(msg.barrierId<=pipeState->barrierId)
 							{
 							/* One slave must have missed a gather completion message; send another one: */
-							MasterMessage msg2;
-							msg2.zeroPipeId=0;
-							msg2.messageId=MasterMessage::GATHER;
+							MasterMessage msg2(MasterMessage::GATHER);
 							msg2.pipeId=msg.pipeId;
 							msg2.barrierId=msg.barrierId;
 							msg2.masterValue=pipeState->masterGatherValue;
@@ -531,7 +461,6 @@ void* MulticastPipeMultiplexer::packetHandlingThreadMaster(void)
 								pipeState->barrierCond.broadcast();
 								}
 							}
-						}
 						}
 					break;
 					}
@@ -638,25 +567,13 @@ void* MulticastPipeMultiplexer::packetHandlingThreadSlave(void)
 				case MasterMessage::CREATEPIPE:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg->pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Signal barrier completion: */
 						if(pipeState->barrierId==0)
 							pipeState->barrierCond.broadcast();
-						}
 						}
 					break;
 					}
@@ -664,25 +581,13 @@ void* MulticastPipeMultiplexer::packetHandlingThreadSlave(void)
 				case MasterMessage::BARRIER:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg->pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Signal barrier completion if the completion message is for the current barrier: */
 						if(msg->barrierId>pipeState->barrierId)
 							pipeState->barrierCond.broadcast();
-						}
 						}
 					break;
 					}
@@ -690,28 +595,16 @@ void* MulticastPipeMultiplexer::packetHandlingThreadSlave(void)
 				case MasterMessage::GATHER:
 					{
 					/* Get a handle on the state object of the pipe the packet is meant for: */
-					PipeState* pipeState;
-					{
-					Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-					PipeHasher::Iterator pstIt=pipeStateTable.findEntry(msg->pipeId);
-					if(pstIt.isFinished())
-						pipeState=0;
-					else
-						pipeState=pstIt->getDest();
-					}
+					LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
 					
-					if(pipeState!=0)
+					if(pipeState.isValid())
 						{
-						{
-						Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-						
 						/* Signal barrier completion if the completion message is for the current barrier: */
 						if(msg->barrierId>pipeState->barrierId)
 							{
 							pipeState->masterGatherValue=msg->masterValue;
 							pipeState->barrierCond.broadcast();
 							}
-						}
 						}
 					break;
 					}
@@ -720,21 +613,10 @@ void* MulticastPipeMultiplexer::packetHandlingThreadSlave(void)
 		else
 			{
 			/* Get a handle on the state object of the pipe the packet is meant for: */
-			PipeState* pipeState;
-			{
-			Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-			PipeHasher::Iterator pstIt=pipeStateTable.findEntry(slaveThreadPacket->pipeId);
-			if(pstIt.isFinished())
-				pipeState=0;
-			else
-				pipeState=pstIt->getDest();
-			}
+			LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,slaveThreadPacket->pipeId);
 			
-			if(pipeState!=0)
+			if(pipeState.isValid())
 				{
-				{
-				Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-				
 				/* Check if all previous data has been received by the pipe: */
 				if(pipeState->streamPos!=slaveThreadPacket->streamPos)
 					{
@@ -791,7 +673,6 @@ void* MulticastPipeMultiplexer::packetHandlingThreadSlave(void)
 					slaveThreadPacket=newPacket();
 					}
 				}
-				}
 			}
 		}
 	
@@ -811,7 +692,7 @@ MulticastPipeMultiplexer::MulticastPipeMultiplexer(unsigned int sNumSlaves,unsig
 	 pingTimeout(10.0),maxPingRequests(3),
 	 receiveWaitTimeout(0.25),
 	 barrierWaitTimeout(0.1),
-	 sendBufferSize(20),
+	 sendBufferSize(50),
 	 packetPoolHead(0)
 	{
 	/* Lookup master's IP address: */
@@ -875,6 +756,7 @@ MulticastPipeMultiplexer::MulticastPipeMultiplexer(unsigned int sNumSlaves,unsig
 			}
 		
 		/* Store the slaves' address: */
+		memset(otherAddress,0,sizeof(sockaddr_in));
 		otherAddress->sin_family=AF_INET;
 		otherAddress->sin_port=htons(slavePortNumber);
 		otherAddress->sin_addr.s_addr=htonl(slaveNetAddress.s_addr);
@@ -990,7 +872,7 @@ void MulticastPipeMultiplexer::waitForConnection(void)
 	}
 	}
 
-MulticastPipe* MulticastPipeMultiplexer::openPipe(void)
+unsigned int MulticastPipeMultiplexer::openPipe(void)
 	{
 	/* Add new pipe state to the pipe state table: */
 	unsigned int newPipeId;
@@ -1021,6 +903,14 @@ MulticastPipe* MulticastPipeMultiplexer::openPipe(void)
 	pipeStateTable.setEntry(PipeHasher::Entry(newPipeId,newPipeState));
 	}
 	
+	#if DEBUGGING
+	if(nodeIndex==0)
+		std::cerr<<"Opening pipe "<<newPipeId<<std::endl;
+	
+	/* Create a resent byte counter entry for this pipe: */
+	pipeNumResentBytes.setEntry(Misc::HashTable<unsigned int,size_t>::Entry(newPipeId,0));
+	#endif
+	
 	/* Synchronize until all nodes have created the new pipe: */
 	{
 	Threads::Mutex::Lock pipeStateLock(newPipeState->stateMutex);
@@ -1035,9 +925,7 @@ MulticastPipe* MulticastPipeMultiplexer::openPipe(void)
 			}
 		
 		/* Send pipe creation completion message to all slaves: */
-		MasterMessage msg;
-		msg.zeroPipeId=0;
-		msg.messageId=MasterMessage::CREATEPIPE;
+		MasterMessage msg(MasterMessage::CREATEPIPE);
 		msg.pipeId=newPipeId;
 		{
 		Threads::Mutex::Lock socketLock(socketMutex);
@@ -1073,27 +961,32 @@ MulticastPipe* MulticastPipeMultiplexer::openPipe(void)
 	newPipeState->barrierId=1;
 	}
 	
-	/* Return new pipe: */
-	return new MulticastPipe(this,newPipeId);
+	/* Return new pipe's ID: */
+	return newPipeId;
 	}
 
-void MulticastPipeMultiplexer::closePipe(MulticastPipe* pipe)
+void MulticastPipeMultiplexer::closePipe(unsigned int pipeId)
 	{
 	/* Execute a barrier to synchronize and flush the pipe before closing it: */
-	barrier(pipe);
+	barrier(pipeId);
 	
 	/* Remove the pipe's state from the state table: */
 	PipeState* pipeState;
 	{
 	Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-	PipeHasher::Iterator psIt=pipeStateTable.findEntry(pipe->pipeId);
+	PipeHasher::Iterator psIt=pipeStateTable.findEntry(pipeId);
+	if(psIt.isFinished())
+		Misc::throwStdErr("MulticastPipeMultiplexer: Attempt to close already-closed pipe");
 	pipeState=psIt->getDest();
 	pipeStateTable.removeEntry(psIt);
 	}
 	
 	#if DEBUGGING
 	if(nodeIndex==0)
-		std::cerr<<"Total number of resent bytes: "<<pipeState->totalNumResentBytes<<std::endl;
+		{
+		std::cerr<<"Closing pipe "<<pipeId;
+		std::cerr<<". Total number of resent bytes: "<<pipeNumResentBytes.getEntry(pipeId).getDest()<<std::endl;
+		}
 	#endif
 	
 	/* Add all packets in the list to the list of free packets: */
@@ -1113,19 +1006,15 @@ void MulticastPipeMultiplexer::closePipe(MulticastPipe* pipe)
 	delete pipeState;
 	}
 
-void MulticastPipeMultiplexer::sendPacket(MulticastPipe* pipe,MulticastPacket* packet)
+void MulticastPipeMultiplexer::sendPacket(unsigned int pipeId,MulticastPacket* packet)
 	{
 	/* Get a handle on the state object for the given pipe: */
-	PipeState* pipeState;
-	{
-	Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-	pipeState=pipeStateTable.getEntry(pipe->pipeId).getDest();
-	}
+	LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,pipeId);
+	if(!pipeState.isValid())
+		Misc::throwStdErr("MulticastPipeMultiplexer: Attempt to write to closed pipe");
 	
 	/* Block until there's room in the send queue, and append the packet: */
-	{
-	Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-	packet->pipeId=pipe->pipeId;
+	packet->pipeId=pipeId;
 	
 	/* Block if the pipe's send queue is full: */
 	#if DEBUGGING
@@ -1146,7 +1035,9 @@ void MulticastPipeMultiplexer::sendPacket(MulticastPipe* pipe,MulticastPacket* p
 	packet->streamPos=pipeState->streamPos;
 	pipeState->streamPos+=packet->packetSize;
 	pipeState->packetList.push_back(packet);
-	}
+	
+	/* It's safe to unlock the pipe state now: */
+	pipeState.unlock();
 	
 	/* Send the packet across the UDP connection: */
 	{
@@ -1155,19 +1046,12 @@ void MulticastPipeMultiplexer::sendPacket(MulticastPipe* pipe,MulticastPacket* p
 	}
 	}
 
-MulticastPacket* MulticastPipeMultiplexer::receivePacket(MulticastPipe* pipe)
+MulticastPacket* MulticastPipeMultiplexer::receivePacket(unsigned int pipeId)
 	{
 	/* Get a handle on the state object for the given pipe: */
-	PipeState* pipeState;
-	{
-	Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-	pipeState=pipeStateTable.getEntry(pipe->pipeId).getDest();
-	}
-	
-	/* Retrieve the first queue item from the pipe state's delivery queue: */
-	MulticastPacket* packet;
-	{
-	Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
+	LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,pipeId);
+	if(!pipeState.isValid())
+		Misc::throwStdErr("MulticastPipeMultiplexer: Attempt to read from closed pipe");
 	
 	/* Sleep while there are no packets in the delivery queue: */
 	Misc::Time waitTimeout=Misc::Time::now();
@@ -1181,7 +1065,7 @@ MulticastPacket* MulticastPipeMultiplexer::receivePacket(MulticastPipe* pipe)
 			SlaveMessage msg;
 			msg.nodeIndex=nodeIndex;
 			msg.messageId=SlaveMessage::PACKETLOSS;
-			msg.pipeId=pipe->pipeId;
+			msg.pipeId=pipeId;
 			msg.streamPos=pipeState->streamPos;
 			msg.packetPos=pipeState->streamPos;
 			{
@@ -1193,25 +1077,19 @@ MulticastPacket* MulticastPipeMultiplexer::receivePacket(MulticastPipe* pipe)
 		}
 	
 	/* Remove the first packet from the queue: */
-	packet=pipeState->packetList.pop_front();
-	}
+	MulticastPacket* packet=pipeState->packetList.pop_front();
 	
 	/* Return the received packet: */
 	return packet;
 	}
 
-void MulticastPipeMultiplexer::barrier(MulticastPipe* pipe)
+void MulticastPipeMultiplexer::barrier(unsigned int pipeId)
 	{
 	/* Get a handle on the state object for the given pipe: */
-	PipeState* pipeState;
-	{
-	Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-	pipeState=pipeStateTable.getEntry(pipe->pipeId).getDest();
-	}
-	
-	{
-	Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
-	
+	LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,pipeId);
+	if(!pipeState.isValid())
+		Misc::throwStdErr("MulticastPipeMultiplexer: Attempt to synchronize closed pipe");
+		
 	/* Bump up barrier ID: */
 	unsigned int nextBarrierId=pipeState->barrierId+1;
 	
@@ -1248,10 +1126,8 @@ void MulticastPipeMultiplexer::barrier(MulticastPipe* pipe)
 		pipeState->numHeadSlaves=numSlaves;
 		
 		/* Send barrier completion message to all slaves: */
-		MasterMessage msg;
-		msg.zeroPipeId=0;
-		msg.messageId=MasterMessage::BARRIER;
-		msg.pipeId=pipe->pipeId;
+		MasterMessage msg(MasterMessage::BARRIER);
+		msg.pipeId=pipeId;
 		msg.barrierId=nextBarrierId;
 		{
 		Threads::Mutex::Lock socketLock(socketMutex);
@@ -1268,7 +1144,7 @@ void MulticastPipeMultiplexer::barrier(MulticastPipe* pipe)
 			SlaveMessage msg;
 			msg.nodeIndex=nodeIndex;
 			msg.messageId=SlaveMessage::BARRIER;
-			msg.pipeId=pipe->pipeId;
+			msg.pipeId=pipeId;
 			msg.barrierId=nextBarrierId;
 			for(int i=0;i<1;++i)
 				{
@@ -1286,21 +1162,15 @@ void MulticastPipeMultiplexer::barrier(MulticastPipe* pipe)
 	/* Mark the barrier as completed: */
 	pipeState->barrierId=nextBarrierId;
 	}
-	}
 
-unsigned int MulticastPipeMultiplexer::gather(MulticastPipe* pipe,unsigned int value,GatherOperation::OpCode op)
+unsigned int MulticastPipeMultiplexer::gather(unsigned int pipeId,unsigned int value,GatherOperation::OpCode op)
 	{
 	unsigned int result;
 	
 	/* Get a handle on the state object for the given pipe: */
-	PipeState* pipeState;
-	{
-	Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-	pipeState=pipeStateTable.getEntry(pipe->pipeId).getDest();
-	}
-	
-	{
-	Threads::Mutex::Lock pipeStateLock(pipeState->stateMutex);
+	LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,pipeId);
+	if(!pipeState.isValid())
+		Misc::throwStdErr("MulticastPipeMultiplexer: Attempt to gather on closed pipe");
 	
 	/* Bump up barrier ID: */
 	unsigned int nextBarrierId=pipeState->barrierId+1;
@@ -1375,10 +1245,8 @@ unsigned int MulticastPipeMultiplexer::gather(MulticastPipe* pipe,unsigned int v
 		pipeState->numHeadSlaves=numSlaves;
 		
 		/* Send gather completion message to all slaves: */
-		MasterMessage msg;
-		msg.zeroPipeId=0;
-		msg.messageId=MasterMessage::GATHER;
-		msg.pipeId=pipe->pipeId;
+		MasterMessage msg(MasterMessage::GATHER);
+		msg.pipeId=pipeId;
 		msg.barrierId=nextBarrierId;
 		msg.masterValue=pipeState->masterGatherValue;
 		{
@@ -1396,7 +1264,7 @@ unsigned int MulticastPipeMultiplexer::gather(MulticastPipe* pipe,unsigned int v
 			SlaveMessage msg;
 			msg.nodeIndex=nodeIndex;
 			msg.messageId=SlaveMessage::GATHER;
-			msg.pipeId=pipe->pipeId;
+			msg.pipeId=pipeId;
 			msg.barrierId=nextBarrierId;
 			msg.slaveValue=value;
 			for(int i=0;i<1;++i)
@@ -1417,7 +1285,6 @@ unsigned int MulticastPipeMultiplexer::gather(MulticastPipe* pipe,unsigned int v
 	
 	/* Mark the gathering operation as completed: */
 	pipeState->barrierId=nextBarrierId;
-	}
 	
 	return result;
 	}

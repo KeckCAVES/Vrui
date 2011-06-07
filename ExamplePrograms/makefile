@@ -22,7 +22,7 @@
 # same setting in Vrui's makefile. By default the directories match; if
 # the installation directory was adjusted during Vrui's installation, it
 # must be adjusted here as well.
-VRUIDIR = $(HOME)/Vrui-2.0
+VRUIDIR = $(HOME)/Vrui-2.1
 
 # Base installation directory for the example programs. If this is set
 # to the default of $(PWD), the example programs do not have to be
@@ -96,6 +96,7 @@ ALL = $(BINDIR)/VruiDemo \
       $(BINDIR)/ClusterJello \
       $(BINDIR)/SharedJelloServer \
       $(BINDIR)/SharedJello \
+      $(BINDIR)/VruiSceneGraphDemo \
       $(BINDIR)/VruiSoundTest
 
 .PHONY: all
@@ -150,6 +151,8 @@ $(BINDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
                        $(OBJDIR)/JelloCrystal.o \
                        $(OBJDIR)/JelloRenderer.o \
                        $(OBJDIR)/SharedJello.o
+
+$(BINDIR)/VruiSceneGraphDemo: $(OBJDIR)/VruiSceneGraphDemo.o
 
 $(BINDIR)/VruiSoundTest: $(OBJDIR)/VruiSoundTest.o
 

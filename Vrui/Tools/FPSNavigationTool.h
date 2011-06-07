@@ -53,6 +53,7 @@ class FPSNavigationToolFactory:public ToolFactory
 	Scalar maxClimb; // Maximum amount of climb per frame
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
 	bool showHud; // Flag whether to draw a heads-up display
+	bool levelOnExit; // Flag whether to reset the elevation angle to zero upon deactivating the tool
 	
 	/* Constructors and destructors: */
 	public:

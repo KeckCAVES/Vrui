@@ -36,6 +36,7 @@ class CallbackList;
 class TimerEventScheduler;
 }
 namespace Comm {
+class MulticastPipeMultiplexer;
 class MulticastPipe;
 }
 class GLContextData;
@@ -131,6 +132,7 @@ Vrui control functions:
 void shutdown(void);
 
 /* Manage multipipe rendering: */
+Comm::MulticastPipeMultiplexer* getMulticastPipeMultiplexer(void); // Returns the multicast pipe multiplexer in a cluster-based Vrui environment; returns 0 if called in a non-cluster environment)
 bool isMaster(void); // Returns true if the multipipe node the caller is running on is the master
 int getNodeIndex(void); // Returns index of the multipipe node the caller is running on (0: master node)
 int getNumNodes(void); // Returns number of multipipe nodes, including master

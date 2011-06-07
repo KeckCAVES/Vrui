@@ -27,8 +27,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdio.h>
 #include <Misc/Utility.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/BufferCharacterSource.h>
-#include <Misc/File.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/ComponentArray.h>
@@ -154,10 +152,8 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 		}
 	
 	/* Open the mesh file and create a tokenizer for it: */
-	size_t fileDataSize;
-	unsigned char* fileData=fileManager.readFile(meshFileName,fileDataSize);
-	Misc::BufferCharacterSource file(fileData,fileDataSize);
-	Doom3ValueSource source(file,meshFileName);
+	IO::File* file=fileManager.getFile(meshFileName);
+	Doom3ValueSource source(*file,meshFileName);
 	
 	/* Parse the mesh file header: */
 	if(!source.isString("MD5Version"))
@@ -418,7 +414,7 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 			}
 		}
 	
-	delete[] fileData;
+	delete file;
 	}
 
 Doom3MD5Mesh::~Doom3MD5Mesh(void)

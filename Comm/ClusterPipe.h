@@ -175,10 +175,13 @@ class ClusterPipe
 		}
 	void writeRaw(const void* data,size_t dataSize) // Writes raw data without endianness conversion
 		{
-		if(dataSize<=writeSize)
-			directWrite(data,dataSize);
-		else
-			bufferedWrite(data,dataSize);
+		if(socket!=0)
+			{
+			if(dataSize<=writeSize)
+				directWrite(data,dataSize);
+			else
+				bufferedWrite(data,dataSize);
+			}
 		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes an element of the given data type to the pipe

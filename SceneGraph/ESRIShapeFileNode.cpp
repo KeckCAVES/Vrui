@@ -2,7 +2,7 @@
 ESRIShapeFileNode - Class to represent an ESRI shape file as a
 collection of line sets, point sets, or face sets (each shape file can
 only contain a single type of primitives).
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,10 +25,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <Misc/SelfDestructPointer.h>
-#include <Misc/File.h>
-#include <Misc/FileCharacterSource.h>
-#include <Misc/ValueSource.h>
-#include <Misc/XBaseTable.h>
+#include <Misc/ThrowStdErr.h>
+#include <IO/File.h>
+#include <IO/SeekableFile.h>
+#include <IO/ValueSource.h>
+#include <IO/XBaseTable.h>
+#include <Comm/OpenFile.h>
 #include <Geometry/Point.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Geoid.h>
@@ -174,7 +176,7 @@ enum ESRIShapeType
 Helper functions:
 ****************/
 
-void skipKeyword(Misc::ValueSource& prjFile)
+void skipKeyword(IO::ValueSource& prjFile)
 	{
 	/* Check for opening bracket: */
 	if(prjFile.peekc()=='['||prjFile.peekc()=='(')
@@ -208,7 +210,7 @@ void skipKeyword(Misc::ValueSource& prjFile)
 		}
 	}
 
-void skipOptionalFields(Misc::ValueSource& prjFile)
+void skipOptionalFields(IO::ValueSource& prjFile)
 	{
 	/* Read tokens until the next matching closing bracket or end of file: */
 	size_t bracketLevel=1;
@@ -235,7 +237,7 @@ void skipOptionalFields(Misc::ValueSource& prjFile)
 		throw 2; // Missing closing bracket
 	}
 
-Geometry::Geoid<double> parseSpheroid(Misc::ValueSource& prjFile)
+Geometry::Geoid<double> parseSpheroid(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -274,7 +276,7 @@ Geometry::Geoid<double> parseSpheroid(Misc::ValueSource& prjFile)
 	return Geometry::Geoid<double>(semimajorAxis,1.0/inverseFlatteningFactor);
 	}
 
-Geometry::Geoid<double> parseDatum(Misc::ValueSource& prjFile)
+Geometry::Geoid<double> parseDatum(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -305,7 +307,7 @@ Geometry::Geoid<double> parseDatum(Misc::ValueSource& prjFile)
 	return geoid;
 	}
 
-double parsePrimeMeridian(Misc::ValueSource& prjFile)
+double parsePrimeMeridian(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -333,7 +335,7 @@ double parsePrimeMeridian(Misc::ValueSource& prjFile)
 	return offset;
 	}
 
-double parseUnit(Misc::ValueSource& prjFile)
+double parseUnit(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -361,7 +363,7 @@ double parseUnit(Misc::ValueSource& prjFile)
 	return unitFactor;
 	}
 
-int parseAxis(Misc::ValueSource& prjFile)
+int parseAxis(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -404,7 +406,7 @@ int parseAxis(Misc::ValueSource& prjFile)
 	return axis;
 	}
 
-GeographicProjection parseGeogcs(Misc::ValueSource& prjFile)
+GeographicProjection parseGeogcs(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -506,7 +508,7 @@ GeographicProjection parseGeogcs(Misc::ValueSource& prjFile)
 	return result;
 	}
 
-MapProjection* parseAlbersProjection(const GeographicProjection& geogcs,Misc::ValueSource& prjFile)
+MapProjection* parseAlbersProjection(const GeographicProjection& geogcs,IO::ValueSource& prjFile)
 	{
 	/* Create the result projection: */
 	Misc::SelfDestructPointer<AlbersProjection> result(new AlbersProjection);
@@ -573,8 +575,8 @@ MapProjection* parseAlbersProjection(const GeographicProjection& geogcs,Misc::Va
 			}
 		else if(keyword=="AXIS")
 			{
-			/* Parse the axis: */
-			int axis=parseAxis(prjFile);
+			/* Skip the axis: */
+			parseAxis(prjFile);
 			}
 		else
 			{
@@ -592,7 +594,7 @@ MapProjection* parseAlbersProjection(const GeographicProjection& geogcs,Misc::Va
 	return result.releaseTarget();
 	}
 
-MapProjection* parseProjcs(Misc::ValueSource& prjFile)
+MapProjection* parseProjcs(IO::ValueSource& prjFile)
 	{
 	/* Check for and skip the opening bracket: */
 	if(prjFile.eof()||(prjFile.peekc()!='['&&prjFile.peekc()!='('))
@@ -648,7 +650,7 @@ MapProjection* parseProjcs(Misc::ValueSource& prjFile)
 	return result;
 	}
 
-MapProjection* parseProjectionFile(Misc::ValueSource& prjFile)
+MapProjection* parseProjectionFile(IO::ValueSource& prjFile)
 	{
 	MapProjection* result=0;
 	
@@ -682,23 +684,21 @@ MapProjection* parseProjectionFile(Misc::ValueSource& prjFile)
 	return result;
 	}
 
-void readPointArray(Misc::File& shapeFile,int numPoints,bool readZ,bool readM,const MapProjection* projection,CoordinateNode* coord)
+void readPointArray(IO::File& shapeFile,int numPoints,bool readZ,bool readM,const MapProjection* projection,CoordinateNode* coord)
 	{
 	/* Read all points into a temporary array: */
 	Geometry::Point<double,3>* ps=new Geometry::Point<double,3>[numPoints];
 	for(int i=0;i<numPoints;++i)
 		{
 		/* Read a single point: */
-		ps[i][0]=shapeFile.read<double>();
-		ps[i][1]=shapeFile.read<double>();
+		shapeFile.read<double>(ps[i].getComponents(),2);
 		ps[i][2]=0.0;
 		}
 	
 	if(readZ)
 		{
 		/* Ignore the points' z range: */
-		double zRange[2];
-		shapeFile.read(zRange,2);
+		shapeFile.skip<double>(2);
 		
 		/* Read the points' z coordinates: */
 		for(int i=0;i<numPoints;++i)
@@ -708,12 +708,10 @@ void readPointArray(Misc::File& shapeFile,int numPoints,bool readZ,bool readM,co
 	if(readM)
 		{
 		/* Ignore the points' measurement range: */
-		double mRange[2];
-		shapeFile.read(mRange,2);
+		shapeFile.skip<double>(2);
 		
 		/* Ignore the points' measurements: */
-		for(int i=0;i<numPoints;++i)
-			shapeFile.read<double>();
+		shapeFile.skip<double>(numPoints);
 		}
 	
 	/* Store all points in the point set: */
@@ -738,7 +736,8 @@ Methods of class ESRIShapeFileNode:
 **********************************/
 
 ESRIShapeFileNode::ESRIShapeFileNode(void)
-	:transformToCartesian(false),pointSize(1.0f),lineWidth(1.0f)
+	:transformToCartesian(false),pointSize(1.0f),lineWidth(1.0f),
+	 multiplexer(0)
 	{
 	}
 
@@ -757,6 +756,12 @@ void ESRIShapeFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	if(strcmp(fieldName,"url")==0)
 		{
 		vrmlFile.parseField(url);
+		
+		/* Fully qualify all URLs: */
+		for(size_t i=0;i<url.getNumValues();++i)
+			url.setValue(i,vrmlFile.getFullUrl(url.getValue(i)));
+		
+		multiplexer=vrmlFile.getMultiplexer();
 		}
 	else if(strcmp(fieldName,"appearance")==0)
 		{
@@ -802,8 +807,8 @@ void ESRIShapeFileNode::update(void)
 		try
 			{
 			/* Open the projection file: */
-			Misc::FileCharacterSource prjFileSource(prjFileName.c_str());
-			Misc::ValueSource prjFile(prjFileSource);
+			IO::AutoFile prjFileSource(Comm::openFile(multiplexer,prjFileName.c_str()));
+			IO::ValueSource prjFile(*prjFileSource);
 			prjFile.setPunctuation("[](),");
 			prjFile.setQuotes("\"");
 			prjFile.skipWs();
@@ -824,52 +829,50 @@ void ESRIShapeFileNode::update(void)
 	/* Open the shape file: */
 	std::string shapeFileName=url.getValue(0);
 	shapeFileName.append(".shp");
-	Misc::File shapeFile(shapeFileName.c_str(),"rb");
+	IO::AutoSeekableFile shapeFile(Comm::openSeekableFile(multiplexer,shapeFileName.c_str()));
 	
 	/****************************
 	Read the shape file's header:
 	****************************/
 	
 	/* The first set of fields are big-endian: */
-	shapeFile.setEndianness(Misc::File::BigEndian);
+	shapeFile->setEndianness(IO::File::BigEndian);
 	
 	/* Check the file's magic number: */
-	if(shapeFile.read<int>()!=9994)
+	if(shapeFile->read<int>()!=9994)
 		Misc::throwStdErr("ESRIShapeFile::update: Invalid magic number in file %s",shapeFileName.c_str());
 	
-	int dummy[5];
-	shapeFile.read(dummy,5);
+	/* Skip five dummy integers: */
+	shapeFile->skip<int>(5);
 	
 	/* Read the file size: */
-	Misc::File::Offset fileSize=Misc::File::Offset(shapeFile.read<int>())*Misc::File::Offset(sizeof(short)); // File size in bytes
+	IO::SeekableFile::Offset fileSize=IO::SeekableFile::Offset(shapeFile->read<int>())*IO::SeekableFile::Offset(sizeof(short)); // File size in bytes
 	
 	/* The rest of the fields are little-endian: */
-	shapeFile.setEndianness(Misc::File::LittleEndian);
+	shapeFile->setEndianness(IO::File::LittleEndian);
 	
 	/* Check the file's version number: */
-	if(shapeFile.read<int>()!=1000)
+	if(shapeFile->read<int>()!=1000)
 		Misc::throwStdErr("ESRIShapeFile::update: Unsupported version number in file %s",shapeFileName.c_str());
 	
-	/* Read the shape type: */
-	int fileShapeType=shapeFile.read<unsigned int>();
+	/* Skip the shape type: */
+	shapeFile->skip<unsigned int>(1);
 	
 	/* Read the bounding box: */
 	Geometry::Box<double,3> shapeBBox;
-	shapeBBox.min[0]=shapeFile.read<double>();
-	shapeBBox.min[1]=shapeFile.read<double>();
-	shapeBBox.max[0]=shapeFile.read<double>();
-	shapeBBox.max[1]=shapeFile.read<double>();
-	shapeBBox.min[2]=shapeFile.read<double>();
-	shapeBBox.max[2]=shapeFile.read<double>();
+	shapeFile->read<double>(shapeBBox.min.getComponents(),2);
+	shapeFile->read<double>(shapeBBox.max.getComponents(),2);
+	shapeBBox.min[2]=shapeFile->read<double>();
+	shapeBBox.max[2]=shapeFile->read<double>();
 	
 	/* Skip the file's measurement range: */
-	double mRange[2];
-	shapeFile.read(mRange,2);
+	shapeFile->skip<double>(2);
 	
 	/* Open the attribute file: */
 	std::string attributeFileName=url.getValue(0);
 	attributeFileName.append(".dbf");
-	Misc::XBaseTable attributeFile(attributeFileName.c_str());
+	IO::AutoSeekableFile attributeFileSource(Comm::openSeekableFile(multiplexer,attributeFileName.c_str()));
+	IO::XBaseTable attributeFile(attributeFileName.c_str(),*attributeFileSource);
 	
 	/* Check if we need to create labels: */
 	bool haveLabels=!labelField.getValue().empty();
@@ -916,15 +919,15 @@ void ESRIShapeFileNode::update(void)
 		}
 	
 	/* Read all records from the file: */
-	Misc::XBaseTable::Record attributeRecord=attributeFile.makeRecord();
+	IO::XBaseTable::Record attributeRecord=attributeFile.makeRecord();
 	size_t attributeRecordIndex=0;
-	Misc::File::Offset filePos=shapeFile.tell();
+	IO::SeekableFile::Offset filePos=shapeFile->getReadPos();
 	while(filePos<fileSize)
 		{
 		/* Read the next record header (which is big endian): */
-		shapeFile.setEndianness(Misc::File::BigEndian);
-		int recordNumber=shapeFile.read<int>();
-		Misc::File::Offset recordSize=Misc::File::Offset(shapeFile.read<int>())*Misc::File::Offset(sizeof(short))+Misc::File::Offset(2*sizeof(int)); // Rexord size including header in bytes
+		shapeFile->setEndianness(IO::File::BigEndian);
+		shapeFile->skip<int>(1); // Skip record number
+		IO::SeekableFile::Offset recordSize=IO::SeekableFile::Offset(shapeFile->read<int>())*IO::SeekableFile::Offset(sizeof(short))+IO::SeekableFile::Offset(2*sizeof(int)); // Rexord size including header in bytes
 		
 		if(haveLabels)
 			{
@@ -933,10 +936,10 @@ void ESRIShapeFileNode::update(void)
 			}
 		
 		/* Read the record itself (which is little endian): */
-		shapeFile.setEndianness(Misc::File::LittleEndian);
+		shapeFile->setEndianness(IO::File::LittleEndian);
 		
 		/* Read the shape type in the record and the shape definition: */
-		int recordShapeType=shapeFile.read<int>();
+		int recordShapeType=shapeFile->read<int>();
 		size_t recordFirstPointIndex=pointsCoord->point.getNumValues();
 		size_t recordFirstPolylineIndex=polylinesCoord->point.getNumValues();
 		bool isPolyline=false;
@@ -952,20 +955,20 @@ void ESRIShapeFileNode::update(void)
 			case POINTM:
 				{
 				/* Read a single point: */
-				double px=shapeFile.read<double>();
-				double py=shapeFile.read<double>();
+				double px=shapeFile->read<double>();
+				double py=shapeFile->read<double>();
 				double pz=0.0;
 				
 				if(recordShapeType==POINTZ)
 					{
 					/* Read the point's z component: */
-					pz=shapeFile.read<double>();
+					pz=shapeFile->read<double>();
 					}
 				
 				if(recordShapeType==POINTZ||recordShapeType==POINTM)
 					{
 					/* Ignore the point's measurement: */
-					shapeFile.read<double>();
+					shapeFile->skip<double>(1);
 					}
 				
 				/* Store the point in the point set: */
@@ -984,11 +987,10 @@ void ESRIShapeFileNode::update(void)
 			case MULTIPOINTM:
 				{
 				/* Ignore the multi point set's bounding box: */
-				double dummy[4];
-				shapeFile.read(dummy,4);
+				shapeFile->skip<double>(4);
 				
 				/* Read the number of points: */
-				recordNumPoints=size_t(shapeFile.read<int>());
+				recordNumPoints=size_t(shapeFile->read<int>());
 				
 				/* Determine if the points have measurements: */
 				bool readM=false;
@@ -997,11 +999,11 @@ void ESRIShapeFileNode::update(void)
 				if(recordShapeType==MULTIPOINTZ)
 					minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
 				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
-				readM=(recordShapeType==MULTIPOINTZ||recordShapeType==MULTIPOINTM)&&recordSize>=Misc::File::Offset(minSize);
+				readM=(recordShapeType==MULTIPOINTZ||recordShapeType==MULTIPOINTM)&&recordSize>=IO::SeekableFile::Offset(minSize);
 				
 				/* Read the points and add them to the point set: */
 				isPolyline=false;
-				readPointArray(shapeFile,recordNumPoints,recordShapeType==MULTIPOINTZ,readM,projection,pointsCoord);
+				readPointArray(*shapeFile,recordNumPoints,recordShapeType==MULTIPOINTZ,readM,projection,pointsCoord);
 				
 				break;
 				}
@@ -1011,16 +1013,15 @@ void ESRIShapeFileNode::update(void)
 			case POLYLINEM:
 				{
 				/* Ignore the polyline's bounding box: */
-				double dummy[4];
-				shapeFile.read(dummy,4);
+				shapeFile->skip<double>(4);
 				
 				/* Read the number of parts and points: */
-				int numParts=shapeFile.read<int>();
-				recordNumPoints=size_t(shapeFile.read<int>());
+				int numParts=shapeFile->read<int>();
+				recordNumPoints=size_t(shapeFile->read<int>());
 				
 				/* Read the start point indices for each part: */
 				int* partStartIndices=new int[numParts+1];
-				shapeFile.read(partStartIndices,numParts);
+				shapeFile->read(partStartIndices,numParts);
 				partStartIndices[numParts]=int(recordNumPoints);
 				
 				/* Add vertex indices for all parts to the polyline set: */
@@ -1044,11 +1045,11 @@ void ESRIShapeFileNode::update(void)
 				if(recordShapeType==POLYLINEZ)
 					minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
 				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
-				readM=(recordShapeType==POLYLINEZ||recordShapeType==POLYLINEM)&&recordSize>=Misc::File::Offset(minSize);
+				readM=(recordShapeType==POLYLINEZ||recordShapeType==POLYLINEM)&&recordSize>=IO::SeekableFile::Offset(minSize);
 				
 				/* Read the points and add them to the polyline set: */
 				isPolyline=true;
-				readPointArray(shapeFile,recordNumPoints,recordShapeType==POLYLINEZ,readM,projection,polylinesCoord);
+				readPointArray(*shapeFile,recordNumPoints,recordShapeType==POLYLINEZ,readM,projection,polylinesCoord);
 				
 				break;
 				}
@@ -1058,16 +1059,15 @@ void ESRIShapeFileNode::update(void)
 			case POLYGONM:
 				{
 				/* Ignore the polygon's bounding box: */
-				double dummy[4];
-				shapeFile.read(dummy,4);
+				shapeFile->skip<double>(4);
 				
 				/* Read the number of parts and points: */
-				int numParts=shapeFile.read<int>();
-				recordNumPoints=size_t(shapeFile.read<int>());
+				int numParts=shapeFile->read<int>();
+				recordNumPoints=size_t(shapeFile->read<int>());
 				
 				/* Read the start point indices for each part: */
 				int* partStartIndices=new int[numParts+1];
-				shapeFile.read(partStartIndices,numParts);
+				shapeFile->read(partStartIndices,numParts);
 				partStartIndices[numParts]=int(recordNumPoints);
 				
 				/* Add vertex indices for all parts to the polyline set: */
@@ -1091,11 +1091,11 @@ void ESRIShapeFileNode::update(void)
 				if(recordShapeType==POLYGONZ)
 					minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
 				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
-				readM=(recordShapeType==POLYGONZ||recordShapeType==POLYGONM)&&recordSize>=Misc::File::Offset(minSize);
+				readM=(recordShapeType==POLYGONZ||recordShapeType==POLYGONM)&&recordSize>=IO::SeekableFile::Offset(minSize);
 				
 				/* Read the points and add them to the polyline set: */
 				isPolyline=true;
-				readPointArray(shapeFile,recordNumPoints,recordShapeType==POLYGONZ,readM,projection,polylinesCoord);
+				readPointArray(*shapeFile,recordNumPoints,recordShapeType==POLYGONZ,readM,projection,polylinesCoord);
 				
 				break;
 				}
@@ -1103,21 +1103,20 @@ void ESRIShapeFileNode::update(void)
 			case MULTIPATCH:
 				{
 				/* Ignore the polygon's bounding box: */
-				double dummy[4];
-				shapeFile.read(dummy,4);
+				shapeFile->skip<double>(4);
 				
 				/* Read the number of parts and points: */
-				int numParts=shapeFile.read<int>();
-				recordNumPoints=size_t(shapeFile.read<int>());
+				int numParts=shapeFile->read<int>();
+				recordNumPoints=size_t(shapeFile->read<int>());
 				
 				/* Read the start point indices for each part: */
 				int* partStartIndices=new int[numParts+1];
-				shapeFile.read(partStartIndices,numParts);
+				shapeFile->read(partStartIndices,numParts);
 				partStartIndices[numParts]=int(recordNumPoints);
 				
 				/* Read the part types for each part: */
 				int* partTypes=new int[numParts];
-				shapeFile.read(partTypes,numParts);
+				shapeFile->read(partTypes,numParts);
 				
 				/* Add vertex indices for all parts to the polyline set: */
 				int polylinesIndexBase=polylinesCoord->point.getNumValues();
@@ -1181,11 +1180,11 @@ void ESRIShapeFileNode::update(void)
 				minSize+=recordNumPoints*(2*sizeof(double)); // Size of 2D point array
 				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of Z range and Z values
 				minSize+=2*sizeof(double)+recordNumPoints*sizeof(double); // Size of M range and M values
-				readM=recordSize>=Misc::File::Offset(minSize);
+				readM=recordSize>=IO::SeekableFile::Offset(minSize);
 				
 				/* Read the points and add them to the polyline set: */
 				isPolyline=true;
-				readPointArray(shapeFile,recordNumPoints,true,readM,projection,polylinesCoord);
+				readPointArray(*shapeFile,recordNumPoints,true,readM,projection,polylinesCoord);
 				
 				break;
 				}
@@ -1194,11 +1193,11 @@ void ESRIShapeFileNode::update(void)
 		if(haveLabels&&recordNumPoints>0)
 			{
 			/* Create a label for the record: */
-			Misc::XBaseTable::Maybe<std::string> label=attributeFile.getFieldString(attributeRecord,labelFieldIndex);
+			IO::XBaseTable::Maybe<std::string> label=attributeFile.getFieldString(attributeRecord,labelFieldIndex);
 			if(label.defined)
 				{
 				labels->string.appendValue(label.value);
-
+				
 				/* Calculate the record's centroid: */
 				Point::AffineCombiner cc;
 				if(isPolyline)
@@ -1217,7 +1216,7 @@ void ESRIShapeFileNode::update(void)
 		
 		/* Go to the next record: */
 		filePos+=recordSize;
-		if(filePos!=shapeFile.tell())
+		if(filePos!=shapeFile->getReadPos())
 			Misc::throwStdErr("ESRIShapeFile::update: Record with invalid size %u in file %s",(unsigned int)recordSize,shapeFileName.c_str());
 		++attributeRecordIndex;
 		}
