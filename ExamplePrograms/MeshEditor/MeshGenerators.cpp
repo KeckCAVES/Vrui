@@ -5,6 +5,8 @@
 * (c)2001 Oliver Kreylos     *
 *****************************/
 
+#include "MeshGenerators.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,12 +15,13 @@
 #include <vector>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/HashTable.h>
+#include <IO/OpenFile.h>
+#include <IO/ValueSource.h>
+#include <Misc/File.h>
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 
 #include "PlyFileStructures.h"
-
-#include "MeshGenerators.h"
 
 PolygonMesh* loadMeshfile(const char* meshfileName)
 	{
@@ -216,183 +219,137 @@ PolygonMesh* loadGtsMeshfile(const char* gtsMeshfileName)
 	return mesh;
 	}
 
-std::pair<PlyFileMode,Misc::File::Endianness> getPlyFileMode(const char* plyMeshfileName)
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+template <class PLYFileParam>
+PolygonMesh* readPlyFileElements(const PLYFileHeader& header,PLYFileParam& ply)
 	{
-	/* Open the mesh file in text mode: */
-	Misc::File meshfile(plyMeshfileName,"rt");
+	/* Create the result mesh: */
+	PolygonMesh* mesh=new PolygonMesh;
 	
-	/* Process the PLY file header: */
-	bool isPlyFile=false;
-	PlyFileMode plyFileMode=PLY_WRONGFORMAT;
-	Misc::File::Endianness plyFileEndianness=Misc::File::DontCare;
-	int parsedElement=0;
-	Element vertex("vertex");
-	int numVertices=0;
-	Element face("face");
-	int numFaces=0;
-	char line[256];
-	do
+	/* Process all elements in order: */
+	PolygonMesh::VertexIterator* vertices=0;
+	for(size_t elementIndex=0;elementIndex<header.getNumElements();++elementIndex)
 		{
-		/* Read next header line: */
-		meshfile.gets(line,sizeof(line));
+		/* Get the next element: */
+		const PLYElement& element=header.getElement(elementIndex);
 		
-		/* Strip carriage return/newline: */
-		char* lPtr;
-		for(lPtr=line;*lPtr!='\0'&&*lPtr!='\r'&&*lPtr!='\n';++lPtr)
-			;
-		*lPtr='\0';
-		
-		/* Parse header line: */
-		if(strcmp(line,"ply")==0)
-			isPlyFile=true;
-		else if(strcmp(line,"format ascii 1.0")==0)
-			plyFileMode=PLY_ASCII;
-		else if(strcmp(line,"format binary_little_endian 1.0")==0)
+		/* Check if it's the vertex or face element: */
+		if(element.isElement("vertex"))
 			{
-			plyFileMode=PLY_BINARY;
-			plyFileEndianness=Misc::File::LittleEndian;
+			/* Get the indices of all relevant vertex value components: */
+			unsigned int posIndex[3];
+			posIndex[0]=element.getPropertyIndex("x");
+			posIndex[1]=element.getPropertyIndex("y");
+			posIndex[2]=element.getPropertyIndex("z");
+			unsigned int colIndex[3];
+			colIndex[0]=element.getPropertyIndex("red");
+			colIndex[1]=element.getPropertyIndex("green");
+			colIndex[2]=element.getPropertyIndex("blue");
+			bool hasColor=colIndex[0]<element.getNumProperties()&&colIndex[1]<element.getNumProperties()&&colIndex[2]<element.getNumProperties();
+			
+			/* Read the vertex element: */
+			PolygonMesh::Color vertexColor(255,255,255);
+			vertices=new PolygonMesh::VertexIterator[element.getNumValues()];
+			PLYElement::Value vertexValue(element);
+			for(size_t i=0;i<element.getNumValues();++i)
+				{
+				/* Read vertex element from file: */
+				vertexValue.read(ply);
+				
+				/* Extract vertex coordinates from vertex element: */
+				PolygonMesh::Point point;
+				for(int j=0;j<3;++j)
+					point[j]=PolygonMesh::Scalar(vertexValue.getValue(posIndex[j]).getScalar()->getDouble());
+				if(hasColor)
+					{
+					PolygonMesh::Color color;
+					for(int j=0;j<3;++j)
+						color[j]=GLubyte(vertexValue.getValue(colIndex[j]).getScalar()->getDouble());
+					color[3]=GLubyte(255);
+					vertices[i]=mesh->addVertex(point,color);
+					}
+				else
+					vertices[i]=mesh->addVertex(point,vertexColor);
+				}
 			}
-		else if(strcmp(line,"format binary_big_endian 1.0")==0)
+		else if(element.isElement("face"))
 			{
-			plyFileMode=PLY_BINARY;
-			plyFileEndianness=Misc::File::BigEndian;
+			if(vertices==0)
+				{
+				delete mesh;
+				Misc::throwStdErr("Face element before vertex element");
+				}
+			
+			/* Start adding faces to the mesh: */
+			PolygonMesh::EdgeHasher* edgeHasher=mesh->startAddingFaces();
+			
+			/* Read all face vertex indices in the mesh file: */
+			PLYElement::Value faceValue(element);
+			unsigned int vertexIndicesIndex=element.getPropertyIndex("vertex_indices");
+			for(size_t i=0;i<element.getNumValues();++i)
+				{
+				/* Read face element from file: */
+				faceValue.read(ply);
+				
+				/* Extract vertex indices from face element: */
+				unsigned int numFaceVertices=faceValue.getValue(vertexIndicesIndex).getListSize()->getUnsignedInt();
+				std::vector<PolygonMesh::VertexIterator> faceVertices;
+				faceVertices.reserve(numFaceVertices);
+				for(unsigned int j=0;j<numFaceVertices;++j)
+					faceVertices.push_back(vertices[faceValue.getValue(vertexIndicesIndex).getListElement(j)->getInt()]);
+				mesh->addFace(faceVertices,edgeHasher);
+				}
+			
+			/* Finish adding faces to the mesh: */
+			mesh->finishAddingFaces(edgeHasher);
+			delete[] vertices;
 			}
-		else if(strncmp(line,"element vertex ",15)==0)
+		else
 			{
-			numVertices=atoi(line+15);
-			parsedElement=1;
-			}
-		else if(strncmp(line,"element face ",13)==0)
-			{
-			numFaces=atoi(line+13);
-			parsedElement=2;
-			}
-		else if(strncmp(line,"property ",9)==0)
-			{
-			if(parsedElement==1)
-				vertex.addProperty(line+9);
-			else if(parsedElement==2)
-				face.addProperty(line+9);
+			/* Skip the entire element: */
+			skipElement(element,ply);
 			}
 		}
-	while(strcmp(line,"end_header")!=0);
 	
-	/* Return the file's type: */
-	if(!isPlyFile||numVertices==0)
-		plyFileMode=PLY_WRONGFORMAT;
-	return std::pair<PlyFileMode,Misc::File::Endianness>(plyFileMode,plyFileEndianness);
+	return mesh;
 	}
+
+}
 
 PolygonMesh* loadPlyMeshfile(const char* plyMeshfileName)
 	{
-	/* Check the mesh file's type: */
-	std::pair<PlyFileMode,Misc::File::Endianness>	plyFileMode=getPlyFileMode(plyMeshfileName);
-	if(plyFileMode.first==PLY_WRONGFORMAT)
+	/* Open the PLY file: */
+	IO::AutoFile plyFile(IO::openFile(plyMeshfileName));
+	
+	/* Read the PLY file's header: */
+	PLYFileHeader header(*plyFile);
+	if(!header.isValid())
 		Misc::throwStdErr("Input file %s is not a valid PLY file",plyMeshfileName);
 	
-	/* Open the mesh file: */
-	Misc::File meshfile(plyMeshfileName,"rb",plyFileMode.second);
-	
-	/* Process the PLY file header: */
-	int parsedElement=0;
-	Element vertex("vertex");
-	int numVertices=0;
-	Element face("face");
-	int numFaces=0;
-	char line[160];
-	do
+	/* Read the PLY file in ASCII or binary mode: */
+	PolygonMesh* result=0;
+	if(header.getFileType()==PLYFileHeader::Ascii)
 		{
-		/* Read next header line: */
-		meshfile.gets(line,sizeof(line));
+		/* Attach a value source to the PLY file: */
+		IO::ValueSource ply(*plyFile);
 		
-		/* Strip carriage return/newline: */
-		char* lPtr;
-		for(lPtr=line;*lPtr!='\0'&&*lPtr!='\r'&&*lPtr!='\n';++lPtr)
-			;
-		*lPtr='\0';
-		
-		/* Parse header line: */
-		if(strncmp(line,"element vertex ",15)==0)
-			{
-			numVertices=atoi(line+15);
-			parsedElement=1;
-			}
-		else if(strncmp(line,"element face ",13)==0)
-			{
-			numFaces=atoi(line+13);
-			parsedElement=2;
-			}
-		else if(strncmp(line,"property ",9)==0)
-			{
-			if(parsedElement==1)
-				vertex.addProperty(line+9);
-			else if(parsedElement==2)
-				face.addProperty(line+9);
-			}
+		/* Read the PLY file in ASCII mode: */
+		result=readPlyFileElements(header,ply);
 		}
-	while(strcmp(line,"end_header")!=0);
-	
-	/* Get indices of vertex value components: */
-	unsigned int xIndex=vertex.getPropertyIndex("x");
-	unsigned int yIndex=vertex.getPropertyIndex("y");
-	unsigned int zIndex=vertex.getPropertyIndex("z");
-	unsigned int rIndex=vertex.getPropertyIndex("red");
-	unsigned int gIndex=vertex.getPropertyIndex("green");
-	unsigned int bIndex=vertex.getPropertyIndex("blue");
-	bool hasColor=rIndex<vertex.getNumProperties()&&gIndex<vertex.getNumProperties()&&bIndex<vertex.getNumProperties();
-	
-	PolygonMesh* mesh=new PolygonMesh;
-	PolygonMesh::Color vertexColor(255,255,255);
-	
-	/* Read all vertices in the mesh file: */
-	PolygonMesh::VertexIterator* vertices=new PolygonMesh::VertexIterator[numVertices];
-	Element::Value vertexValue(&vertex);
-	for(int i=0;i<numVertices;++i)
+	else
 		{
-		/* Read vertex element from file: */
-		vertexValue.read(meshfile,plyFileMode.first);
+		/* Set the PLY file's endianness: */
+		plyFile->setEndianness(header.getFileEndianness());
 		
-		/* Extract vertex coordinates from vertex element: */
-		PolygonMesh::Point point;
-		point[0]=PolygonMesh::Scalar(vertexValue.getValue(xIndex).getScalar()->getDouble());
-		point[1]=PolygonMesh::Scalar(vertexValue.getValue(yIndex).getScalar()->getDouble());
-		point[2]=PolygonMesh::Scalar(vertexValue.getValue(zIndex).getScalar()->getDouble());
-		if(hasColor)
-			{
-			PolygonMesh::Color color;
-			color[0]=GLubyte(vertexValue.getValue(rIndex).getScalar()->getDouble());
-			color[1]=GLubyte(vertexValue.getValue(gIndex).getScalar()->getDouble());
-			color[2]=GLubyte(vertexValue.getValue(bIndex).getScalar()->getDouble());
-			color[3]=GLubyte(255);
-			vertices[i]=mesh->addVertex(point,color);
-			}
-		else
-			vertices[i]=mesh->addVertex(point,vertexColor);
+		/* Read the PLY file in binary mode: */
+		result=readPlyFileElements(header,*plyFile);
 		}
-	
-	PolygonMesh::EdgeHasher* edgeHasher=mesh->startAddingFaces();
-	
-	/* Read all face vertex indices in the mesh file: */
-	Element::Value faceValue(&face);
-	unsigned int vertexIndicesIndex=face.getPropertyIndex("vertex_indices");
-	for(int i=0;i<numFaces;++i)
-		{
-		/* Read face element from file: */
-		faceValue.read(meshfile,plyFileMode.first);
-		
-		/* Extract vertex indices from face element: */
-		unsigned int numFaceVertices=faceValue.getValue(vertexIndicesIndex).getListSize()->getUnsignedInt();
-		std::vector<PolygonMesh::VertexIterator> faceVertices;
-		faceVertices.reserve(numFaceVertices);
-		for(unsigned int j=0;j<numFaceVertices;++j)
-			faceVertices.push_back(vertices[faceValue.getValue(vertexIndicesIndex).getListElement(j)->getInt()]);
-		mesh->addFace(faceVertices,edgeHasher);
-		}
-	
-	/* Finalize and return the resulting mesh: */
-	mesh->finishAddingFaces(edgeHasher);
-	delete[] vertices;
-	return mesh;
+	return result;
 	}
 
 PolygonMesh* loadTsurfMeshfile(const char* tsurfMeshfileName)

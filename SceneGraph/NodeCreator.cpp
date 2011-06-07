@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/MaterialNode.h>
 #include <SceneGraph/ImageTextureNode.h>
 #include <SceneGraph/AppearanceNode.h>
+#include <SceneGraph/AffinePointTransformNode.h>
 #include <SceneGraph/GeodeticToCartesianPointTransformNode.h>
 #include <SceneGraph/BoxNode.h>
 #include <SceneGraph/ConeNode.h>
@@ -43,6 +44,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/IndexedLineSetNode.h>
 #include <SceneGraph/CurveSetNode.h>
 #include <SceneGraph/ElevationGridNode.h>
+#include <SceneGraph/QuadSetNode.h>
 #include <SceneGraph/IndexedFaceSetNode.h>
 #include <SceneGraph/ShapeNode.h>
 #include <SceneGraph/FontStyleNode.h>
@@ -52,6 +54,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ArcInfoExportFileNode.h>
 #include <SceneGraph/ESRIShapeFileNode.h>
 #include <SceneGraph/Doom3DataContextNode.h>
+#include <SceneGraph/Doom3ModelNode.h>
 #include <SceneGraph/Doom3MD5MeshNode.h>
 
 namespace SceneGraph {
@@ -73,6 +76,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<MaterialNode>());
 	registerNodeType(new GenericNodeFactory<ImageTextureNode>());
 	registerNodeType(new GenericNodeFactory<AppearanceNode>());
+	registerNodeType(new GenericNodeFactory<AffinePointTransformNode>());
 	registerNodeType(new GenericNodeFactory<GeodeticToCartesianPointTransformNode>());
 	registerNodeType(new GenericNodeFactory<BoxNode>());
 	registerNodeType(new GenericNodeFactory<ConeNode>());
@@ -85,6 +89,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<IndexedLineSetNode>());
 	registerNodeType(new GenericNodeFactory<CurveSetNode>());
 	registerNodeType(new GenericNodeFactory<ElevationGridNode>());
+	registerNodeType(new GenericNodeFactory<QuadSetNode>());
 	registerNodeType(new GenericNodeFactory<IndexedFaceSetNode>());
 	registerNodeType(new GenericNodeFactory<ShapeNode>());
 	registerNodeType(new GenericNodeFactory<FontStyleNode>());
@@ -94,6 +99,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<ArcInfoExportFileNode>());
 	registerNodeType(new GenericNodeFactory<ESRIShapeFileNode>());
 	registerNodeType(new GenericNodeFactory<Doom3DataContextNode>());
+	registerNodeType(new GenericNodeFactory<Doom3ModelNode>());
 	registerNodeType(new GenericNodeFactory<Doom3MD5MeshNode>());
 	}
 

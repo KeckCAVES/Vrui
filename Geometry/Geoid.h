@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
+#include <Geometry/Matrix.h>
 #include <Geometry/Rotation.h>
 #include <Geometry/OrthonormalTransformation.h>
 
@@ -41,6 +42,7 @@ class Geoid
 	typedef ScalarParam Scalar; // Scalar type for input/output geometry objects
 	static const int dimension=3; // Geoids are always three-dimensional
 	typedef Geometry::Point<Scalar,dimension> Point; // Type for points
+	typedef Geometry::Matrix<Scalar,dimension,dimension> Derivative; // Type for transformation derivatives
 	typedef Geometry::Rotation<Scalar,dimension> Orientation; // Type for coordinate orientations
 	typedef Geometry::OrthonormalTransformation<Scalar,dimension> Frame; // Type for coordinate frames
 	
@@ -90,6 +92,7 @@ class Geoid
 		double chi=Math::sqrt(1.0-e2*sLat*sLat);
 		return Point(Scalar((radius/chi+elev)*cLat*cLon),Scalar((radius/chi+elev)*cLat*sLon),Scalar((radius*(1.0-e2)/chi+elev)*sLat));
 		}
+	Derivative geodeticToCartesianDerivative(const Point& geodeticBase) const; // Returns the derivative of the point transformation at the given base point in geodetic coordinates
 	Orientation geodeticToCartesianOrientation(const Point& geodeticBase) const // Returns a geoid-tangential coordinate orientation at the given base point in geodetic coordinates
 		{
 		Orientation o=Orientation::rotateZ(Scalar(0.5*Math::Constants<double>::pi+double(geodeticBase[0])));

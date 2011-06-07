@@ -28,9 +28,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 namespace Threads {
 
-/************************************
-Methods of class FileCharacterSource:
-************************************/
+/*******************************************
+Methods of class GzippedFileCharacterSource:
+*******************************************/
 
 void* GzippedFileCharacterSource::readAheadThreadMethod(void)
 	{

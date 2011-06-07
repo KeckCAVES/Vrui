@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2011 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -38,8 +38,6 @@ namespace Comm {
 
 class MulticastPipe
 	{
-	friend class MulticastPipeMultiplexer;
-	
 	/* Elements: */
 	private:
 	MulticastPipeMultiplexer* multiplexer; // Pointer to the multiplexer used to coordinate between multiple pipes
@@ -49,14 +47,19 @@ class MulticastPipe
 	size_t packetPos; // Data position in current packet
 	
 	/* Constructors and destructors: */
+	public:
+	MulticastPipe(MulticastPipeMultiplexer* sMultiplexer); // Creates new pipe for the given multiplexer
 	private:
-	MulticastPipe(MulticastPipeMultiplexer* sMultiplexer,unsigned int sPipeId); // Creates pipe for the given multiplexer
 	MulticastPipe(const MulticastPipe& source); // Prohibit copy constructor
 	MulticastPipe& operator=(const MulticastPipe& source); // Prohibit assignment operato
 	public:
 	~MulticastPipe(void); // Closes the pipe
 	
 	/* Methods: */
+	MulticastPipeMultiplexer* getMultiplexer(void) const // Returns pointer to the multiplexer managing this pipe
+		{
+		return multiplexer;
+		}
 	bool isMaster(void) const // Returns true if this instance of the pipe is on the master node
 		{
 		return master;

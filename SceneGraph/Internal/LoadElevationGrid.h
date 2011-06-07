@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadElevationGrid - Function to load an elevation grid's height values
 from an external file.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -26,13 +26,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/FieldTypes.h>
 
 /* Forward declarations: */
+namespace Comm {
+class MulticastPipeMultiplexer;
+}
 namespace SceneGraph {
 class ElevationGridNode;
 }
 
 namespace SceneGraph {
 
-void loadElevationGrid(ElevationGridNode& node);
+void loadElevationGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multiplexer);
 
 }
 

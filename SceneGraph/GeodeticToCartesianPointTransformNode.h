@@ -2,7 +2,7 @@
 GeodeticToCartesianPointTransformNode - Point transformation class to
 convert geodetic coordinates (longitude/latitude/altitude on a reference
 ellipsoid) to Cartesian coordinates.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -35,6 +35,7 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	/* Embedded classes: */
 	public:
 	typedef SF<ReferenceEllipsoidNodePointer> SFReferenceEllipsoidNode;
+	typedef ReferenceEllipsoidNode::Geoid::Scalar GScalar;
 	
 	/* Elements: */
 	
@@ -46,11 +47,13 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	SFString elevation;
 	SFBool degrees;
 	SFBool colatitude;
+	ReferenceEllipsoidNode::SFDouble elevationScale;
 	
 	/* Derived state: */
 	protected:
 	const ReferenceEllipsoidNode::Geoid* re;
 	int componentIndices[3]; // Indices of (longitude, latitude, elevation) components in input points
+	GScalar componentScales[3],componentOffsets[3]; // Scale and offset values to transform input points to long, lat in radians and elevation
 	bool flipNormals; // Flag whether to flip normal vectors after transformation
 	
 	/* Constructors and destructors: */

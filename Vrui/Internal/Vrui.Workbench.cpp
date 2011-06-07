@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,8 +32,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <string>
 #include <stdexcept>
-#include <Misc/File.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/FdSet.h>
+#include <Misc/File.h>
 #include <Misc/Timer.h>
 #include <Misc/StringMarshaller.h>
 #include <Misc/GetCurrentDirectory.h>
@@ -44,7 +45,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Threads/Barrier.h>
-#include <Comm/FdSet.h>
 #include <Comm/MulticastPipeMultiplexer.h>
 #include <Comm/MulticastPipe.h>
 #include <Geometry/Point.h>
@@ -359,7 +359,7 @@ void init(int& argc,char**& argv,char**&)
 			vruiMultiplexer->waitForConnection();
 			
 			/* Open a multicast pipe: */
-			vruiPipe=vruiMultiplexer->openPipe();
+			vruiPipe=new Comm::MulticastPipe(vruiMultiplexer);
 			
 			/* Read the entire configuration file and the root section name: */
 			vruiConfigFile=new Misc::ConfigurationFile(*vruiPipe);
@@ -547,7 +547,7 @@ void init(int& argc,char**& argv,char**&)
 				vruiMultiplexer->waitForConnection();
 				
 				/* Open a multicast pipe: */
-				vruiPipe=vruiMultiplexer->openPipe();
+				vruiPipe=new Comm::MulticastPipe(vruiMultiplexer);
 				
 				/* Send the entire Vrui configuration file and the root section name across the pipe: */
 				vruiConfigFile->writeToPipe(*vruiPipe);
@@ -876,7 +876,7 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 	bool done=false;
 	
 	/* Check if there are pending events on the event pipe or any windows' X event queues: */
-	Comm::FdSet readFds;
+	Misc::FdSet readFds;
 	bool mustBlock=allowBlocking;
 	if(vruiNumSignaledEvents>0&&vruiEventPipe[0]>=0)
 		{
@@ -919,12 +919,12 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 				}
 			
 			/* Block until the next scheduled timer event comes due: */
-			Comm::select(&readFds,0,0,&timeout);
+			Misc::select(&readFds,0,0,&timeout);
 			}
 		else
 			{
 			/* Block until kingdom come: */
-			Comm::select(&readFds,0,0);
+			Misc::select(&readFds,0,0);
 			}
 		}
 	
@@ -951,8 +951,20 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 	doneWithEvents:
 	
 	/* Read pending data from stdin and exit if escape key is pressed: */
-	if(checkStdin&&readFds.isSet(fileno(stdin)))
-		done=fgetc(stdin)==27||done;
+	if(checkStdin)
+		{
+		if(!mustBlock)
+			{
+			/* Check for pending key presses real quick: */
+			struct timeval timeout;
+			timeout.tv_sec=0;
+			timeout.tv_usec=0;
+			readFds.add(fileno(stdin));
+			Misc::select(&readFds,0,0,&timeout);
+			if(readFds.isSet(fileno(stdin)))
+				done=fgetc(stdin)==27||done;
+			}
+		}
 	
 	if(vruiEventPipe[0]>=0)
 		{

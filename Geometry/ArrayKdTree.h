@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define GEOMETRY_ARRAYKDTREE_INCLUDED
 
 #include <Geometry/Point.h>
+#include <Geometry/Box.h>
 #include <Geometry/ClosePointSet.h>
 
 namespace Geometry {
@@ -39,6 +40,7 @@ class ArrayKdTree
 	typedef typename StoredPoint::Point Point; // Type for positions
 	typedef typename Point::Scalar Scalar; // Scalar type used by points
 	static const int dimension=Point::dimension; // Dimension of points and kd-tree
+	typedef Geometry::Box<Scalar,dimension> Box; // Type for boxes in kd-tree's domain space
 	typedef Geometry::ClosePointSet<StoredPoint> ClosePointSet; // Type for nearest neighbours query results
 	
 	private:
@@ -81,6 +83,8 @@ class ArrayKdTree
 		if(right>mid)
 			traverseTree(mid+1,right,traversalFunction);
 		}
+	template <class TraversalFunctionParam>
+	void traverseTreeInBox(int left,int right,int splitDimension,const Box& box,TraversalFunctionParam& traversalFunction) const; // Traverses sub-kd-tree in prefix order and calls traversal function for each node inside the given box
 	template <class DirectedTraversalFunctionParam>
 	void traverseTreeDirected(int left,int right,int splitDimension,DirectedTraversalFunctionParam& traversalFunction) const; // Traverses sub-kd-tree in directed order and calls traversal function for each node
  	void findClosestPoint(int left,int right,int splitDimension,const Point& queryPosition,const StoredPoint*& closestPoint,Scalar& minDist2) const; // Recursively finds closest point in kd-tree
@@ -140,6 +144,11 @@ class ArrayKdTree
 	void traverseTree(TraversalFunctionParam& traversalFunction) const // Traverses tree in prefix order and calls traversal function for each node
 		{
 		traverseTree(0,numNodes-1,traversalFunction);
+		}
+	template <class TraversalFunctionParam>
+	void traverseTreeInBox(const Box& box,TraversalFunctionParam& traversalFunction) const // Traverses tree in prefix order and calls traversal function for each node inside the given box
+		{
+		traverseTreeInBox(0,numNodes-1,0,box,traversalFunction);
 		}
 	template <class DirectedTraversalFunctionParam>
 	void traverseTreeDirected(DirectedTraversalFunctionParam& traversalFunction) const // Traverses tree in directed order and calls traversal function for each node

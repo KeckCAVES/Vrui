@@ -724,6 +724,15 @@ void ConfigurationFileSection::removeTag(const std::string& tag)
 Methods of class ConfigurationFile:
 **********************************/
 
+void ConfigurationFile::load(const char* newFileName)
+	{
+	/* Call base class method: */
+	ConfigurationFileBase::load(newFileName);
+	
+	/* Reset the current section pointer to the root section: */
+	baseSection=rootSection;
+	}
+
 std::string ConfigurationFile::getCurrentPath(void) const
 	{
 	return baseSection->getPath();

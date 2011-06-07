@@ -27,8 +27,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <iomanip>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/FileCharacterSource.h>
-#include <Misc/TokenSource.h>
+#include <IO/TokenSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #define GEOMETRY_NONSTANDARD_TEMPLATES
@@ -47,11 +46,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OutputOperators.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
+#include <Vrui/Vrui.h>
+#include <Vrui/OpenFile.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/GenericToolFactory.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
 #include "ONTransformFitter.h"
@@ -257,8 +257,8 @@ Methods of class ScreenCalibrator:
 void ScreenCalibrator::readOptitrackSampleFile(const char* fileName,bool flipZ)
 	{
 	/* Open the CSV input file: */
-	Misc::FileCharacterSource file(fileName);
-	Misc::TokenSource tok(file);
+	IO::AutoFile file(Vrui::openFile(fileName));
+	IO::TokenSource tok(*file);
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -338,8 +338,8 @@ void ScreenCalibrator::readOptitrackSampleFile(const char* fileName,bool flipZ)
 ScreenCalibrator::PointList ScreenCalibrator::readTotalstationSurveyFile(const char* fileName,const char* tag) const
 	{
 	/* Open the CSV input file: */
-	Misc::FileCharacterSource file(fileName);
-	Misc::TokenSource tok(file);
+	IO::AutoFile file(Vrui::openFile(fileName));
+	IO::TokenSource tok(*file);
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();

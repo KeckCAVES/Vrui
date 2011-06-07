@@ -51,11 +51,11 @@ class VRDevicePipe:public Comm::TCPPipe
 	
 	/* Constructors and destructors: */
 	VRDevicePipe(std::string hostname,int portId) // Creates a pipe connected to a remote host
-		:Comm::TCPPipe(hostname,portId)
+		:Comm::TCPPipe(hostname,portId,Comm::TCPPipe::DontCare)
 		{
 		}
 	VRDevicePipe(const Comm::TCPSocket& sSocket) // Creates pipe wrapper for existing (receiving) socket
-		:Comm::TCPPipe(sSocket)
+		:Comm::TCPPipe(sSocket,Comm::TCPPipe::DontCare)
 		{
 		}
 	

@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColorMap - Class to map from scalar values to RGBA colors.
-Copyright (c) 1999-2005 Oliver Kreylos
+Copyright (c) 1999-2011 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

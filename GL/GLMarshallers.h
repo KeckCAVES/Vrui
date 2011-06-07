@@ -92,6 +92,7 @@ template <>
 class Marshaller<GLMaterial>
 	{
 	/* Embedded classes: */
+	public:
 	typedef GLMaterial Value;
 	typedef Value::Scalar Scalar;
 	typedef Value::Color Color;

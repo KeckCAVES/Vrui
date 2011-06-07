@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,6 +34,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/Endianness.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Math/Constants.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
@@ -46,6 +48,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/MouseCursorFaker.h>
 #include <Vrui/VRWindow.h>
 #include <Vrui/Internal/Vrui.h>
+#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+#include <Vrui/Internal/KinectPlayback.h>
+#endif
 
 namespace Vrui {
 
@@ -55,33 +60,37 @@ Methods of class InputDeviceAdapterPlayback:
 
 InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
 	:InputDeviceAdapter(sInputDeviceManager),
-	 inputDeviceDataFile(configFileSection.retrieveString("./inputDeviceDataFileName").c_str(),"rb",Misc::File::LittleEndian),
+	 inputDeviceDataFile(IO::openSeekableFile(configFileSection.retrieveString("./inputDeviceDataFileName").c_str())),
 	 mouseCursorFaker(0),
 	 synchronizePlayback(configFileSection.retrieveValue<bool>("./synchronizePlayback",false)),
 	 quitWhenDone(configFileSection.retrieveValue<bool>("./quitWhenDone",false)),
 	 soundPlayer(0),
+	 #ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+	 kinectPlayer(0),
+	 #endif
 	 saveMovie(configFileSection.retrieveValue<bool>("./saveMovie",false)),
 	 movieWindowIndex(0),movieWindow(0),
 	 firstFrame(true),timeStamp(0.0),
 	 done(false)
 	{
 	/* Read file header: */
+	inputDeviceDataFile->setEndianness(IO::File::LittleEndian);
 	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
 	char header[34];
-	inputDeviceDataFile.read<char>(header,34);
+	inputDeviceDataFile->read<char>(header,34);
 	bool haveFeatureNames=strncmp(header,fileHeader,34)==0;
 	if(!haveFeatureNames)
 		{
 		/* Old file format doesn't have the header text: */
-		inputDeviceDataFile.rewind();
+		inputDeviceDataFile->setReadPosAbs(0);
 		}
 	
 	/* Read random seed value: */
-	unsigned int randomSeed=inputDeviceDataFile.read<unsigned int>();
+	unsigned int randomSeed=inputDeviceDataFile->read<unsigned int>();
 	setRandomSeed(randomSeed);
 	
 	/* Read number of saved input devices: */
-	numInputDevices=inputDeviceDataFile.read<int>();
+	numInputDevices=inputDeviceDataFile->read<int>();
 	inputDevices=new InputDevice*[numInputDevices];
 	deviceFeatureBaseIndices=new int[numInputDevices];
 	
@@ -89,12 +98,21 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	for(int i=0;i<numInputDevices;++i)
 		{
 		/* Read device's name and layout from file: */
-		std::string name=Misc::readCppString(inputDeviceDataFile);
-		int trackType=inputDeviceDataFile.read<int>();
-		int numButtons=inputDeviceDataFile.read<int>();
-		int numValuators=inputDeviceDataFile.read<int>();
+		std::string name;
+		if(haveFeatureNames)
+			name=Misc::readCppString(*inputDeviceDataFile);
+		else
+			{
+			/* Read a fixed-size string: */
+			char nameBuffer[40];
+			inputDeviceDataFile->read(nameBuffer,sizeof(nameBuffer));
+			name=nameBuffer;
+			}
+		int trackType=inputDeviceDataFile->read<int>();
+		int numButtons=inputDeviceDataFile->read<int>();
+		int numValuators=inputDeviceDataFile->read<int>();
 		Vector deviceRayDirection;
-		inputDeviceDataFile.read<Scalar>(deviceRayDirection.getComponents(),3);
+		inputDeviceDataFile->read<Scalar>(deviceRayDirection.getComponents(),3);
 		
 		/* Create new input device: */
 		InputDevice* newDevice=inputDeviceManager->createInputDevice(name.c_str(),trackType,numButtons,numValuators,true);
@@ -117,7 +135,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 			{
 			/* Read feature names from file: */
 			for(int j=0;j<newDevice->getNumFeatures();++j)
-				deviceFeatureNames.push_back(Misc::readCppString(inputDeviceDataFile));
+				deviceFeatureNames.push_back(Misc::readCppString(*inputDeviceDataFile));
 			}
 		else
 			{
@@ -144,12 +162,12 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	/* Read time stamp of first data frame: */
 	try
 		{
-		nextTimeStamp=inputDeviceDataFile.read<double>();
+		nextTimeStamp=inputDeviceDataFile->read<double>();
 		
 		/* Request an update for the next frame: */
 		requestUpdate();
 		}
-	catch(Misc::File::ReadError)
+	catch(IO::File::ReadError)
 		{
 		done=true;
 		nextTimeStamp=Math::Constants<double>::max;
@@ -163,7 +181,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	
 	/* Check if the user wants to play back a commentary sound track: */
 	std::string soundFileName=configFileSection.retrieveString("./soundFileName","");
-	if(soundFileName!="")
+	if(!soundFileName.empty())
 		{
 		try
 			{
@@ -176,6 +194,17 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 			std::cerr<<"InputDeviceAdapterPlayback: Disabling sound playback due to exception "<<error.what()<<std::endl;
 			}
 		}
+	
+	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+	/* Check if the user wants to play back 3D video: */
+	std::string kinectPlayerSectionName=configFileSection.retrieveString("./kinectPlayer","");
+	if(!kinectPlayerSectionName.empty())
+		{
+		/* Go to the Kinect player's section: */
+		Misc::ConfigurationFileSection kinectPlayerSection=configFileSection.getSection(kinectPlayerSectionName.c_str());
+		kinectPlayer=new KinectPlayback(nextTimeStamp,kinectPlayerSection);
+		}
+	#endif
 	
 	/* Check if the user wants to save a movie: */
 	if(saveMovie)
@@ -227,7 +256,11 @@ InputDeviceAdapterPlayback::~InputDeviceAdapterPlayback(void)
 	{
 	delete mouseCursorFaker;
 	delete soundPlayer;
+	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+	delete kinectPlayer;
+	#endif
 	delete[] deviceFeatureBaseIndices;
+	delete inputDeviceDataFile;
 	}
 
 std::string InputDeviceAdapterPlayback::getFeatureName(const InputDeviceFeature& feature) const
@@ -315,23 +348,23 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		if(inputDevices[device]->getTrackType()!=InputDevice::TRACK_NONE)
 			{
 			TrackerState::Vector translation;
-			inputDeviceDataFile.read(translation.getComponents(),3);
+			inputDeviceDataFile->read(translation.getComponents(),3);
 			Scalar quat[4];
-			inputDeviceDataFile.read(quat,4);
+			inputDeviceDataFile->read(quat,4);
 			inputDevices[device]->setTransformation(TrackerState(translation,TrackerState::Rotation::fromQuaternion(quat)));
 			}
 		
 		/* Update button states: */
 		for(int i=0;i<inputDevices[device]->getNumButtons();++i)
 			{
-			int buttonState=inputDeviceDataFile.read<int>();
+			int buttonState=inputDeviceDataFile->read<int>();
 			inputDevices[device]->setButtonState(i,buttonState);
 			}
 		
 		/* Update valuator states: */
 		for(int i=0;i<inputDevices[device]->getNumValuators();++i)
 			{
-			double valuatorState=inputDeviceDataFile.read<double>();
+			double valuatorState=inputDeviceDataFile->read<double>();
 			inputDevices[device]->setValuator(i,valuatorState);
 			}
 		}
@@ -339,12 +372,12 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 	/* Read time stamp of next data frame: */
 	try
 		{
-		nextTimeStamp=inputDeviceDataFile.read<double>();
+		nextTimeStamp=inputDeviceDataFile->read<double>();
 		
 		/* Request an update for the next frame: */
 		requestUpdate();
 		}
-	catch(Misc::File::ReadError)
+	catch(IO::File::ReadError)
 		{
 		done=true;
 		nextTimeStamp=Math::Constants<double>::max;
@@ -355,6 +388,14 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 			shutdown();
 			}
 		}
+	
+	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+	if(kinectPlayer!=0)
+		{
+		/* Update the 3D video player and prepare it for the next frame: */
+		kinectPlayer->frame(timeStamp,nextTimeStamp);
+		}
+	#endif
 	
 	if(saveMovie)
 		{
@@ -417,6 +458,17 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		}
 	
 	firstFrame=false;
+	}
+
+void InputDeviceAdapterPlayback::glRenderAction(GLContextData& contextData) const
+	{
+	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+	if(kinectPlayer!=0)
+		{
+		/* Let the 3D video player render its current frames: */
+		kinectPlayer->glRenderAction(contextData);
+		}
+	#endif
 	}
 
 }

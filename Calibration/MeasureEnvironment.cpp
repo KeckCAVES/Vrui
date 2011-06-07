@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -29,8 +29,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <fstream>
 #include <iomanip>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/FileCharacterSource.h>
-#include <Misc/TokenSource.h>
+#include <IO/TokenSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Math/Matrix.h>
@@ -57,6 +56,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/OpenFile.h>
 
 #include "NaturalPointClient.h"
 #include "PTransformFitter.h"
@@ -486,8 +486,8 @@ void MeasureEnvironment::loadMeasurementFile(const char* fileName)
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
 	/* Open the input file: */
-	Misc::FileCharacterSource pointFile(fileName);
-	Misc::TokenSource tok(pointFile);
+	IO::AutoFile pointFile(Vrui::openFile(fileName));
+	IO::TokenSource tok(*pointFile);
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -549,8 +549,8 @@ void MeasureEnvironment::loadOptitrackSampleFile(const char* fileName,bool flipZ
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
 	/* Open the CSV input file: */
-	Misc::FileCharacterSource file(fileName);
-	Misc::TokenSource tok(file);
+	IO::AutoFile file(Vrui::openFile(fileName));
+	IO::TokenSource tok(*file);
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();

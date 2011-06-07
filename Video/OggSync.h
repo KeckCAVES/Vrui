@@ -1,6 +1,6 @@
 /***********************************************************************
 OggSync - Wrapper class for ogg_sync_state structure from Ogg API.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <ogg/ogg.h>
 
 /* Forward declarations: */
-namespace Misc {
+namespace IO {
 class File;
 }
 namespace Video {
@@ -50,7 +50,7 @@ class OggSync:public ogg_sync_state
 		}
 	
 	/* Methods: */
-	OggPage readPage(Misc::File& file,size_t bufferSize =4096); // Reads an entire page of data from the given file
+	OggPage readPage(IO::File& file,size_t bufferSize =4096); // Reads an entire page of data from the given file
 	};
 
 }

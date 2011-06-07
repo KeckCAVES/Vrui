@@ -66,10 +66,7 @@ class TheoraDecoder
 	
 	/* Constructors and destructors: */
 	public:
-	TheoraDecoder(void) // Creates an uninitialized decoder
-		:decoder(0)
-		{
-		}
+	TheoraDecoder(void); // Creates an uninitialized decoder
 	private:
 	TheoraDecoder(const TheoraDecoder& source); // Prohibit copy constructor
 	TheoraDecoder& operator=(const TheoraDecoder& source); // Prohibit assignment operator

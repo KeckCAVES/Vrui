@@ -1,7 +1,7 @@
 /***********************************************************************
 VRMLFile - Class to represent a VRML 2.0 file and state required to
 parse its contents.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -27,14 +27,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdexcept>
 #include <Misc/StringHashFunctions.h>
 #include <Misc/HashTable.h>
-#include <Misc/TokenSource.h>
+#include <IO/TokenSource.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/Node.h>
 #include <SceneGraph/GroupNode.h>
 
 /* Forward declarations: */
-namespace Misc {
-class CharacterSource;
+namespace IO {
+class File;
+}
+namespace Comm {
+class MulticastPipeMultiplexer;
 }
 namespace SceneGraph {
 class NodeCreator;
@@ -42,7 +45,7 @@ class NodeCreator;
 
 namespace SceneGraph {
 
-class VRMLFile:public Misc::TokenSource
+class VRMLFile:public IO::TokenSource
 	{
 	/* Embedded classes: */
 	private:
@@ -63,6 +66,7 @@ class VRMLFile:public Misc::TokenSource
 	std::string sourceUrl; // Full URL of the VRML file
 	std::string::const_iterator urlPrefix; // Prefix for relative URLs
 	NodeCreator& nodeCreator; // Reference to the node creator
+	Comm::MulticastPipeMultiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
 	NodeMap nodeMap; // Map of named nodes
 	size_t currentLine; // Number of currently processed line
 	
@@ -71,24 +75,24 @@ class VRMLFile:public Misc::TokenSource
 		{
 		while(true)
 			{
-			if(TokenSource::peekc()=='\n')
+			if(IO::TokenSource::peekc()=='\n')
 				{
 				/* Increase the line number: */
 				++currentLine;
 				
 				/* Skip the newline: */
-				TokenSource::readNextToken();
+				IO::TokenSource::readNextToken();
 				}
-			else if(TokenSource::peekc()=='#')
+			else if(IO::TokenSource::peekc()=='#')
 				{
 				/* Skip the rest of the line: */
-				TokenSource::skipLine();
+				IO::TokenSource::skipLine();
 				
 				/* Increase the line number: */
 				++currentLine;
 				
 				/* Skip whitespace at the beginning of the next line: */
-				TokenSource::skipWs();
+				IO::TokenSource::skipWs();
 				}
 			else
 				break;
@@ -97,23 +101,23 @@ class VRMLFile:public Misc::TokenSource
 	
 	/* Constructors and destructors: */
 	public:
-	VRMLFile(std::string sSourceUrl,Misc::CharacterSource& sSource,NodeCreator& sNodeCreator); // Creates a VRML parser for the given character source and node creator
+	VRMLFile(std::string sSourceUrl,IO::File& sSource,NodeCreator& sNodeCreator,Comm::MulticastPipeMultiplexer* sMultiplexer =0); // Creates a VRML parser for the given character source and node creator
 	
-	/* Overloaded methods from TokenSource: */
+	/* Overloaded methods from IO::TokenSource: */
 	bool eof(void)
 		{
 		skipExtendedWhitespace();
-		return TokenSource::eof();
+		return IO::TokenSource::eof();
 		}
 	int peekc(void)
 		{
 		skipExtendedWhitespace();
-		return TokenSource::peekc();
+		return IO::TokenSource::peekc();
 		}
 	const char* readNextToken(void) // Reads the next token while skiping line comments
 		{
 		skipExtendedWhitespace();
-		return TokenSource::readNextToken();
+		return IO::TokenSource::readNextToken();
 		}
 	
 	/* Main method: */
@@ -184,6 +188,10 @@ class VRMLFile:public Misc::TokenSource
 	NodeCreator& getNodeCreator(void) // Returns the VRML file's node creator
 		{
 		return nodeCreator;
+		}
+	Comm::MulticastPipeMultiplexer* getMultiplexer(void) const // Returns the optional multicast pipe multiplexer
+		{
+		return multiplexer;
 		}
 	NodePointer createNode(const char* nodeType); // Creates a new node of the given type
 	void defineNode(const char* nodeName,NodePointer node); // Stores the given node under the given name, for future instantiation

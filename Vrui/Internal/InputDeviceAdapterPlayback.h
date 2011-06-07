@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,7 +26,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <vector>
-#include <Misc/File.h>
 #include <Geometry/Vector.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Internal/InputDeviceAdapter.h>
@@ -37,12 +36,18 @@ template <class ValueParam>
 void swapEndianness(ValueParam& value);
 class ConfigurationFileSection;
 }
+namespace IO {
+class SeekableFile;
+}
 namespace Sound {
 class SoundPlayer;
 }
 namespace Vrui {
 class MouseCursorFaker;
 class VRWindow;
+#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+class KinectPlayback;
+#endif
 }
 
 namespace Vrui {
@@ -51,13 +56,16 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	{
 	/* Elements: */
 	private:
-	Misc::File inputDeviceDataFile; // File containing the input device data
+	IO::SeekableFile* inputDeviceDataFile; // File containing the input device data
 	int* deviceFeatureBaseIndices; // Array of base indices in feature name array for each input device
 	std::vector<std::string> deviceFeatureNames; // Array of input device feature names
 	MouseCursorFaker* mouseCursorFaker; // Pointer to object used to render a fake mouse cursor
 	bool synchronizePlayback; // Flag whether to force the Vrui mainloop to run at the speed of the recording; by default, mainloop runs as fast as it can
 	bool quitWhenDone; // Flag whether to quit the Vrui application when all saved data has been played back
 	Sound::SoundPlayer* soundPlayer; // Pointer to a sound player object used to play back synchronized commentary tracks
+	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+	KinectPlayback* kinectPlayer; // Pointer to a 3D video player object to play back a recorded user
+	#endif
 	bool saveMovie; // Flag whether to create a movie by writing screenshots at regular intervals
 	std::string movieFileNameTemplate; // Template for creating image file names; must contain exactly one %d placeholder
 	int movieWindowIndex; // Index of the master node window from which to save screenshots; awkward, but windows have no names
@@ -80,6 +88,7 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
 	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
+	virtual void glRenderAction(GLContextData& contextData) const;
 	
 	/* New methods: */
 	bool isDone(void) const // Returns true if file has been entirely read

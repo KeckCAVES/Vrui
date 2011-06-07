@@ -1,5 +1,5 @@
-Vrui Change History
-===================
+Vrui change log
+===============
 
 Vrui-1.0-030:
 - Beginning of history file
@@ -2329,3 +2329,205 @@ Vrui-2.0-002:
 Vrui-2.0-003:
 - Fixed compiler flag bug for GLExtensionManager in makefile.
 - Changed default Vrui installation directory back to ~/Vrui-2.0.
+
+Vrui-2.1-001:
+- Fixed bug in Misc::ConfigurationFile; current section was not reset on
+  load or reload call. Pointed out by Tony Bernardin.
+- Fixed package autodetection bug in Vrui build system; had SPEEX and
+  OGG flipped.
+- Added readTransparentImageFile method to Images/ReadImageFile.h to
+  create images with alpha channel.
+- Changed SceneGraph::ImageTextureNode to use textures with alpha
+  channel.
+- Added Misc::RefCountedArray.
+- Added Threads::RefCountedArray, a thread-safe version of
+  Misc::RefCountedArray.
+- Added new abstract class Misc::BufferedFile for high-performance
+  access to binary files,
+- Added Misc::BufferedStandardFile as concrete implementation of
+  Misc::BufferedFile.
+- Added getMaxSpeedLeve and setSpeedLevel methods to
+  Video::TheoraEncoder.
+- Fixed bug in handling of old recordings in
+  Vrui::InputDeviceAdapterPlayback.
+- Added class Misc::BufferedMemoryFile to write data to lists of in-
+  memory buffers.
+- Added readRaw and writeRaw methods to Comm::TCPSocket to get APIs
+  unified.
+- Added Comm::BufferedTCPSocket as concrete implementation of
+  Misc::BufferedFile.
+- Fixed some flaws and bugs in Misc::BufferedFile and derived classes.
+- Fixed typo in sound context names in Vrui.cfg, and added sound support
+  in the KeckCAVES CAVE by default.
+- Fixed bad write of compound glyph to pipe in
+  Vrui::MultipipeDispatcher.
+- Fixed race condition due to lax pipe locks in
+  Comm::MulticastPipeMultiplexer.
+- Added missing public: access modifier to Misc::Marshaller<GLMaterial>.
+- Added default initializations to Vrui::InputDevice and removed
+  redundant initializations from Vrui::addVirtualInputDevice.
+- Fixed missing socket check in Comm::ClusterPipe::writeRaw.
+- Removed implicit shutdown from Comm::BufferedTCPSocket destructor and
+  added explicit shutdown method.
+- Added ability to specify audio data sources by name to
+  Sound::SoundRecorder.
+- Added levelOnExit flag to Vrui::FPSNavigationTool.
+- Added Vrui::ForceJumpNavigationTool.
+- Added Comm::BufferedClusterSocket, a Misc::BufferedFile wrapper for
+  Comm::ClusterPipe. Currently unoptimized and using double buffering.
+- Added waitForData methods to Comm::BufferedTCPSocket.
+- Changed internal API of Comm::MulticastPipeMultiplexer to support new
+  Comm::BufferedMulticastPipe class.
+- Changed constructor of Comm::MulticastPipe to public, to allow clients
+  to directly create pipes from multiplexers.
+- Added Comm::BufferedMulticastPipe.
+- Added Vrui::getMulticastPipeMultiplexer function to Vrui kernel API.
+- Added Comm::ClusterBufferedTCPSocket to forward incoming data from a
+  TCP socket across a cluster using a multicast pipe.
+- Added method to traverse points inside a box to Geometry::ArrayKdTree.
+- Fixed typo in Marshaller for OrthogonalTransformation in
+  Geometry/GeometryMarshallers.icpp.
+- Added getChar and ungetChar methods to Misc::BufferedFile to replace
+  Misc::CharacterSource as backbone for ASCII-based file readers.
+- Rebased Misc::TokenSource and Misc::ValueSource to Misc::BufferedFile
+  abstraction.
+- Added Misc::BufferedGzippedFile.
+- Started adding Threads::BufferedGzippedFile.
+- Added Comm::ClusterBufferedStandardFile.
+- Started moving Vrui to use Misc::BufferedFile abstraction internally
+  instead of Misc::CharacterSource.
+- Added Misc/OpenFile.h and Comm/OpenFile.h to simplify opening files
+  of varying types using the Misc::BufferedFile abstraction.
+- Added getMultiplexer method to Comm::MulticastPipe.
+- Added multicast pipe multiplexer pointer to SceneGraph::VRMLFile.
+- Rebased Misc::CSVSource to use Misc::BufferedFile.
+- Added error message display to Vrui::ViewpointFileNavigationTool.
+- Added color configuration options and interaction ray rendering to
+  Vrui::QuikWriteTool.
+- Added optional parameter to receive hotpot position to
+  Images::readCursorFile.
+- Added glyph type for screen-aligned texture-based cursors to
+  Vrui::GlyphRenderer.
+- Changed Vrui::InputDeviceAdapterMouse to use cursor glyph instead of
+  Vrui::MouseCursorFaker.
+- Added base class Misc::SeekableFile to indicate files whose file
+  position can be changed.
+- Rebased Misc::BufferedStandardFile to Misc::SeekableFile.
+- Added skip() method to Misc::BufferedFile to quickly skip typed values
+  during reading.
+- Added getTarget method to Misc::SelfDestructPointer.
+- Replaced Misc::File API with Misc::BufferedFile API in many classes.
+- Fixed memory leak in glLinkShader functions in
+  GL/Extensions/GLARBShaderObjects.cpp.
+- Moved FdSet from Comm library to Misc library.
+- Added base class Comm::BufferedPipe to indicate files implementing
+  pipes and sockets, with automatic endianness negotiation and wait()
+  methods.
+- Added Comm::BufferedSerialPort to create Misc::BufferedFile
+  abstraction for serial ports.
+- Rebased SpaceballRaw VRDevice module to use Comm::BufferedSerialPort.
+- Rebased InterSense VRDevice module to use either
+  Comm::BufferedSerialPort or Comm::BufferedTCPSocket to support
+  connecting via both serial ports or Ethernet cables.
+- Upped window size in Comm::MulticastPipeMultiplexer to improve bulk
+  throughput on GigE networks.
+- Added glRenderAction method to Vrui::InputDeviceAdapter and
+  Vrui::InputDeviceManager to allow input device adapters to render
+  graphical state.
+- Started adding Vrui::AnnotationTool.
+- Fixed bug in GLMotif::RadioBox::setSelectedToggle(int).
+- Added #include <stddef.h> to Misc/PriorityHeap.h and
+  Plugins/FunctionPointerHack.h to adapt to changes in gcc 4.6.0.
+  Pointed out by James Mouradian.
+- Added Misc::ZipArchive to read and process ZIP archives using
+  Misc::BufferedFile abstractions.
+- Added Misc::BufferedMemoryBlock to represent in-memory files using a
+  Misc::SeekableFile interface.
+- Fixed normal vector transformation bug in
+  SceneGraph::GeodeticToCartesianPointTransformNode.
+- Added simple node for quad sets to scene graph library.
+- Fixed some bugs in SceneGraph/LoadElevationGrid.cpp.
+- Added build line for single-source executables to Vrui's make system.
+- Split new file abstraction classes from Misc library off into new IO
+  library and shortened/improved class names while at it.
+  - Renamed Misc::BufferedFile to IO::File.
+  - Renamed Misc::BufferedStandardFile to IO::StandardFile.
+  - Renamed Misc::BufferedGzippedFile to IO::GzippedFile.
+  - Renamed Misc::BufferedMemMappedFile to IO::MemMappedFile.
+  - Renamed Misc::BufferedMemoryBlock to IO::FixedMemoryFile.
+  - Renamed Misc::BufferedMemoryFile to IO::VariableMemoryFile.
+  - Moved Misc/OpenFile.h to IO.
+  - Moved Misc::ZipArchive, Misc::XBaseTable, Misc::TokenSource,
+    Misc::ValueSource, Misc::CSVSource to IO.
+  - Added openSeekableFile function to IO/OpenFile.h.
+  - Renamed Threads::BufferedGzippedFile to Threads::GzippedFile.
+  - Renamed Comm::BufferedPipe to Comm::Pipe.
+  - Adapted Comm::BufferedSerialPort.
+  - Adapted Comm::BufferedTCPSocket.
+  - Renamed Comm::SlaveBufferedFile to Comm::SlaveFile.
+  - Adapted Comm::SlaveSeekableFile.
+  - Renamed Comm::MasterBufferedStandardFile to Comm::MasterStandardFile.
+  - Adapted Comm::BufferedMulticastPipe.
+  - Renamed Comm::ClusterBufferedStandardFile to Comm::ClusterStandardFile.
+  - Adapted Comm/OpenFile.h.
+    - Added openSeekableFile functions to Comm/OpenFile.h.
+  - Adapted Comm/ClusterBufferedTCPSocket.h.
+  - Adapted Comm/BufferedClusterSocket.h.
+  - Adapted GLARBShaderObjects.
+    - Added function to compile shader by reading from supplied IO::File object.
+  - Adapted GLColorMap.
+  - Adapted GLFont.
+  - Adapted Sound::SoundRecorder.
+  - Adapted Sound::SoundPlayer.
+  - Adapted Video::OggSync.
+  - Adapted SceneGraph::VRMLFile.
+  - Adapted SceneGraph::InlineNode.
+  - Adapted SceneGraph::CurveSetNode.
+  - Adapted SceneGraph::LoadElevationGrid.
+  - Adapted SceneGraph::TSurfFileNode.
+  - Adapted SceneGraph::ArcInfoExportFileNode.
+  - Adapted SceneGraph::EsriShapeFileNode.
+  - Adapted SceneGraph::Doom3FileManager.
+  - Adapted SceneGraph::Doom3TextureManager.
+  - Adapted SceneGraph::Doom3ValueSource.
+  - Adapted SceneGraph::Doom3MaterialManager.
+  - Adapted SceneGraph/Internal/LoadModelFromASEFile.cpp.
+  - Adapted SceneGraph/Internal/LoadModelFromLWOFile.cpp.
+  - Adapted SceneGraph::Doom3MD5Mesh.
+  - Adapted SceneGraph::Doom3MD5Anim.
+  - Adapted Vrui::InputDeviceAdapterPlayback.
+    - Made Kinect 3D video playback optional via #define
+  - Adapted Vrui::KinectPlayback.
+  - Adapted Vrui::TheoraMovieSaver.
+  - Adapted Vrui::InputDeviceDataSaver.
+    - Made Kinect 3D video recording optional via #define
+  - Adapted Vrui/Internal/Vrui.General.cpp.
+  - Adapted Vrui::SketchingTool.
+  - Adapted Vrui utilities.
+  - Adapted Vrui demo programs.
+  - Adapted VRDeviceDaemon::Intersense.
+  - Adapted VRDeviceDaemon utilities.
+- Started improving cluster transparency provided by file abstractions
+  in Comm library.
+  - Implemented Comm::StandardFile and Comm/OpenFile.h.
+  - Added Vrui/OpenFile.h.
+- Removed some now-obsolete classes and files from libraries.
+- Added configurable interleaved stereo patterns to Vrui::VRWindow,
+  generalizing patch submitted by Matthias Deller.
+- Improved VRDeviceDaemon module for A.R.T. DTrack
+  - Now handles all device types, including gloves (no finger tracking
+    yet)
+  - Per-device report format (6d, 6df, ...) must now be defined in
+    device's configuration file section using the reportFormat tag.
+  - Now allows shared device IDs between report types.
+- Updated a lot of documentation; improved "Using Vrui Applications"
+  page. A lot.
+- Added useRemoteControl flag to A.R.T. DTrack tracker driver to disable
+  the use of server remote control, for those weirdos who don't want to
+	use it. :)
+- Added Mac OS X-specific #include to Misc/FdSet.h to work around old-
+  style declaration of pselect in BSD.
+- Made Vrui::AnnotationTool::markerSize public.
+- Added Misc::SizedTypes.h defining exact-size integer and floating-
+  point types to guarantee matching data sizes across binary files and
+  network connections.

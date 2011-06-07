@@ -64,6 +64,36 @@ Geoid<ScalarParam>::Geoid(
 
 template <class ScalarParam>
 inline
+typename Geoid<ScalarParam>::Derivative
+Geoid<ScalarParam>::geodeticToCartesianDerivative(
+	const typename Geoid<ScalarParam>::Point& geodeticBase) const
+	{
+	/* Convert the base point to a translation in Cartesian coordinates: */
+	double sLon=Math::sin(double(geodeticBase[0]));
+	double cLon=Math::cos(double(geodeticBase[0]));
+	double sLat=Math::sin(double(geodeticBase[1]));
+	double cLat=Math::cos(double(geodeticBase[1]));
+	double elev=double(geodeticBase[2]);
+	double chi2=1.0-e2*sLat*sLat;
+	double chi=Math::sqrt(chi2);
+	
+	/* Calculate the derivative matrix: */
+	Derivative result;
+	result(0,0)=Scalar(-(radius/chi+elev)*sLon*cLat);
+	result(0,1)=Scalar((radius*e2/(chi2*chi)*cLat*cLat-radius/chi-elev)*cLon*sLat);
+	result(0,2)=Scalar(cLon*cLat);
+	result(1,0)=Scalar((radius/chi+elev)*cLon*cLat);
+	result(1,1)=Scalar((radius*e2/(chi2*chi)*cLat*cLat-radius/chi-elev)*sLon*sLat);
+	result(1,2)=Scalar(sLon*cLat);
+	result(2,0)=Scalar(0);
+	result(2,1)=Scalar((radius*(1.0-e2)*e2/(chi2*chi)*sLat*sLat+radius*(1.0-e2)/chi+elev)*cLat);
+	result(2,2)=Scalar(sLat);
+	
+	return result;
+	}
+
+template <class ScalarParam>
+inline
 typename Geoid<ScalarParam>::Frame
 Geoid<ScalarParam>::geodeticToCartesianFrame(
 	const typename Geoid<ScalarParam>::Point& geodeticBase) const

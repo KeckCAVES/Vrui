@@ -113,6 +113,16 @@
 </TR>
 
 <TR>
+<TD>glyphCursorFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Specifies the name of an X cursor file containing the image to use for texture-based &quot;fake&quot; mouse cursors.</TD>
+</TR>
+
+<TR>
+<TD>glyphCursorNominalSize</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Specifies the nominal pixel size of the mouse cursor image to load from the cursor file.</TD>
+</TR>
+
+<TR>
 <TD>newInputDevicePosition</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Specifies a point in physical coordinates that is used as the initial position for newly created virtual input devices. It is typically identical to the display center, but for single-screen environments, it is typically offset a few inches to be placed in front of the screen to simplify interaction with new virtual input devices.</TD>
 </TR>
@@ -878,7 +888,7 @@
 
 <DT>SplitViewportStereo</DT><DD>Stereoscopic rendering using two separate viewports in the same window, such as side-by-side stereo. The two used viewports can be exactly specified using the <EM>leftViewportPos</EM> and <EM>rightViewportPos</EM> settings.</DD>
 
-<DT>InterleavedViewportStereo</DT><DD>Stereoscopic rendering using two interleaved viewports in the same window, for example by using even pixel columns for the left eye, and odd pixel columns for the right eye. This is the stereo mode often supported by commodity stereoscopic displays like 3D&nbsp;DLP televisions, or polarizing flat panel monitors. The interleaving pattern can not yet be specified; it currently defaults to the pattern used by 3D&nbsp;DLP televisions.</DD>
+<DT>InterleavedViewportStereo</DT><DD>Stereoscopic rendering using two interleaved viewports in the same window, for example by using even pixel columns for the left eye, and odd pixel columns for the right eye. This is the stereo mode often supported by commodity stereoscopic displays like 3D&nbsp;DLP televisions, or polarizing flat panel monitors. The interleaving pattern can be specified via the interleavePattern tag.</DD>
 
 <DT>QuadbufferStereo</DT><DD>Stereoscopic rendering using a quad-buffered visual (also known as &quot;active&quot; stereo). Typically only supported by professional-level graphics cards such as Nvidia Quadros.</DD>
 </DL>
@@ -893,6 +903,11 @@
 <TR>
 <TD>rightViewportPos</TD><TD><A HREF="VruiCFGTypes.html#windowposition">window position</A></TD>
 <TD>Position of the viewport used for right-eye views in SplitViewportStereo stereo mode in window coordinates.</TD>
+</TR>
+
+<TR>
+<TD>interleavePattern</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Interleave pattern for InterleavedViewportStereo stereo mode. The string must be four characters long and consist only of the characters L and&nbsp;R, either uppercase or lowercase. The string defines a 2x2 pixel tile in order top to bottom and left to right, where L or&nbsp;R indicate that the corresponding pixels belongs to the left or right eye, respectively.</TD>
 </TR>
 
 <TR>

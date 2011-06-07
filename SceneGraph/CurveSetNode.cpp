@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveSetNode - Class for sets of curves written by curve tracing
 application.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,8 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/CurveSetNode.h>
 
 #include <string.h>
-#include <Misc/ValueSource.h>
-#include <Threads/GzippedFileCharacterSource.h>
+#include <IO/ValueSource.h>
+#include <Comm/OpenFile.h>
 #include <Geometry/Box.h>
 #include <GL/gl.h>
 #include <GL/GLVertexTemplates.h>
@@ -92,6 +92,8 @@ void CurveSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		/* Fully qualify all URLs: */
 		for(size_t i=0;i<url.getNumValues();++i)
 			url.setValue(i,vrmlFile.getFullUrl(url.getValue(i)));
+		
+		multiplexer=vrmlFile.getMultiplexer();
 		}
 	else if(strcmp(fieldName,"lineWidth")==0)
 		{
@@ -110,8 +112,8 @@ void CurveSetNode::update(void)
 	for(size_t fileIndex=0;fileIndex<url.getNumValues();++fileIndex)
 		{
 		/* Open the curve file: */
-		Threads::GzippedFileCharacterSource curveFile(url.getValue(fileIndex).c_str());
-		Misc::ValueSource source(curveFile);
+		IO::AutoFile curveFile(Comm::openFile(multiplexer,url.getValue(fileIndex).c_str()));
+		IO::ValueSource source(*curveFile);
 		source.skipWs();
 		
 		/* Read the number of curves: */

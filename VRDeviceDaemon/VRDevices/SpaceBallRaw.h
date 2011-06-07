@@ -2,7 +2,7 @@
 SpaceBallRaw - VR device driver class exposing the "raw" interface of a
 6-DOF joystick as a collection of buttons and valuators. The conversion
 from the raw values into 6-DOF states is done at the application end.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -25,10 +25,15 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef SPACEBALLRAW_INCLUDED
 #define SPACEBALLRAW_INCLUDED
 
-#include <Comm/SerialPort.h>
+#include <Comm/BufferedSerialPort.h>
 #include <Math/BrokenLine.h>
 
 #include <VRDeviceDaemon/VRDevice.h>
+
+/* Forward declarations: */
+namespace Misc {
+class Time;
+}
 
 class SpaceBallRaw:public VRDevice
 	{
@@ -38,11 +43,11 @@ class SpaceBallRaw:public VRDevice
 	
 	/* Elements: */
 	private:
-	Comm::SerialPort devicePort; // Serial port the tracking device hardware is connected to
+	Comm::BufferedSerialPort devicePort; // Serial port the tracking device hardware is connected to
 	AxisConverter axisConverters[6]; // Converters for the device's axes
 	
 	/* Private methods: */
-	bool readLine(int lineBufferSize,char* lineBuffer,double timeout); // Reads a line of text from the space ball with timeout
+	bool readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline); // Reads a line of text from the space ball with timeout
 	int readPacket(int packetBufferSize,unsigned char* packetBuffer); // Reads a space ball status packet from the serial port; returns number of read characters
 	
 	/* Protected methods: */

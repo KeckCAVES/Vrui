@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 namespace Misc {
 class ConfigurationFileSection;
 }
+class GLContextData;
 namespace Vrui {
 class InputDevice;
 class InputDeviceFeature;
@@ -73,6 +74,7 @@ class InputDeviceAdapter
 	virtual std::string getFeatureName(const InputDeviceFeature& feature) const; // Returns the name of a button or valuator on the given input device, which is owned by this adapter
 	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const; // Returns the index of a feature of the given name on the given input device, or -1 if feature does not exist
 	virtual void updateInputDevices(void) =0; // Updates state of all Vrui input devices owned by this adapter
+	virtual void glRenderAction(GLContextData& contextData) const; // Hook to allow an input device adapter to render something
 	};
 
 }

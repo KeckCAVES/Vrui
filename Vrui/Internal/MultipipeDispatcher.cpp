@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StringMarshaller.h>
 #include <Comm/MulticastPipe.h>
+#include <GL/GLMarshallers.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/GlyphRenderer.h>
@@ -80,7 +81,10 @@ MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager
 			totalNumValuators+=device->getNumValuators();
 			
 			/* Send device glyph: */
-			pipe->write<Glyph>(inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(device));
+			Glyph& glyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(device);
+			pipe->write<char>(glyph.isEnabled()?1:0);
+			pipe->write<int>(glyph.getGlyphType());
+			Misc::Marshaller<GLMaterial>::write(glyph.getGlyphMaterial(),*pipe);
 			
 			/* Send all button names: */
 			for(int buttonIndex=0;buttonIndex<device->getNumButtons();++buttonIndex)
@@ -125,7 +129,12 @@ MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager
 			totalNumValuators+=numValuators;
 			
 			/* Read device glyph: */
-			Glyph deviceGlyph=pipe->read<Glyph>();
+			Glyph deviceGlyph;
+			bool glyphEnabled=pipe->read<char>()!=0;
+			Glyph::GlyphType glyphType=Glyph::GlyphType(pipe->read<int>());
+			GLMaterial glyphMaterial=Misc::Marshaller<GLMaterial>::read(*pipe);
+			if(glyphEnabled)
+				deviceGlyph.enable(glyphType,glyphMaterial);
 			
 			/* Create the input device: */
 			InputDevice* device=inputDevices[deviceIndex]=inputDeviceManager->createInputDevice(name,trackType,numButtons,numValuators,true);

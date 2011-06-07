@@ -57,7 +57,8 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	 probeSize(getInchFactor()*Scalar(12)),
 	 maxClimb(getInchFactor()*Scalar(24)),
 	 fixAzimuth(false),
-	 showHud(true)
+	 showHud(true),
+	 levelOnExit(false)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(5);
@@ -76,6 +77,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
 	showHud=cfs.retrieveValue<bool>("./showHud",showHud);
+	levelOnExit=cfs.retrieveValue<bool>("./levelOnExit",levelOnExit);
 	
 	/* Set tool class' factory pointer: */
 	FPSNavigationTool::factory=this;
@@ -288,6 +290,20 @@ void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCa
 				/* Act depending on this tool's current state: */
 				if(isActive())
 					{
+					if(factory->levelOnExit)
+						{
+						/* Calculate the main viewer's current head and foot positions: */
+						Point headPos=getMainViewer()->getHeadPosition();
+						footPos=projectToFloor(headPos);
+						headHeight=Geometry::dist(headPos,footPos);
+						
+						/* Reset the elevation angle: */
+						elevation=Scalar(0);
+						
+						/* Apply the final navigation state: */
+						applyNavState();
+						}
+					
 					/* Deactivate this tool: */
 					deactivate();
 					stopNavState();

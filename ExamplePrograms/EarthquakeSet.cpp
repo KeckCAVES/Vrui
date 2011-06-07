@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2011 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -30,8 +30,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
 #include <Misc/File.h>
-#include <Misc/ValueSource.h>
-#include <Threads/GzippedFileCharacterSource.h>
+#include <IO/ValueSource.h>
+#include <Comm/OpenFile.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/HVector.h>
@@ -193,7 +193,7 @@ EarthquakeSet::DataItem::~DataItem(void)
 Methods of class EarthquakeSet:
 ******************************/
 
-void EarthquakeSet::loadANSSFile(const char* earthquakeFileName,double scaleFactor)
+void EarthquakeSet::loadANSSFile(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor)
 	{
 	/* Open the input file: */
 	Misc::File earthquakeFile(earthquakeFileName,"rt");
@@ -210,7 +210,7 @@ void EarthquakeSet::loadANSSFile(const char* earthquakeFileName,double scaleFact
 		earthquakeFile.gets(line,sizeof(line));
 		
 		/* Skip empty lines: */
-		if(line[0]=='\0'||line[0]=='\n')
+		if(line[0]=='\0'||line[0]=='\r'||line[0]=='\n')
 			continue;
 		
 		/* Parse an event from the line: */
@@ -248,11 +248,11 @@ void EarthquakeSet::loadANSSFile(const char* earthquakeFileName,double scaleFact
 		}
 	}
 
-void EarthquakeSet::loadCSVFile(const char* earthquakeFileName,double scaleFactor)
+void EarthquakeSet::loadCSVFile(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor)
 	{
 	/* Open the input file: */
-	Threads::GzippedFileCharacterSource earthquakeFile(earthquakeFileName);
-	Misc::ValueSource source(earthquakeFile);
+	IO::AutoFile earthquakeFile(Comm::openFile(multiplexer,earthquakeFileName));
+	IO::ValueSource source(*earthquakeFile);
 	source.setPunctuation(",\n");
 	source.setQuotes("\"");
 	source.skipWs();
@@ -381,7 +381,7 @@ void EarthquakeSet::loadCSVFile(const char* earthquakeFileName,double scaleFacto
 					source.skipString();
 				}
 			}
-		catch(Misc::ValueSource::NumberError err)
+		catch(IO::ValueSource::NumberError err)
 			{
 			/* Ignore the error and the malformed event */
 			}
@@ -595,7 +595,7 @@ void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem) const
 	dataItem->pointTextureLocation=dataItem->pointRenderer->getUniformLocation("pointTexture");
 	}
 
-EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,double scaleFactor)
+EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor)
 	:treePointIndices(0),
 	 pointRadius(1.0f),highlightTime(1.0),currentTime(0.0)
 	{
@@ -603,12 +603,12 @@ EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,double scaleFactor)
 	if(Misc::hasCaseExtension(earthquakeFileName,".anss"))
 		{
 		/* Read an earthquake database snapshot in "readable" ANSS format: */
-		loadANSSFile(earthquakeFileName,scaleFactor);
+		loadANSSFile(earthquakeFileName,multiplexer,scaleFactor);
 		}
 	else
 		{
 		/* Read an earthquake event file in space- or comma-separated format: */
-		loadCSVFile(earthquakeFileName,scaleFactor);
+		loadCSVFile(earthquakeFileName,multiplexer,scaleFactor);
 		}
 	
 	/* Create a temporary kd-tree to sort the events for back-to-front traversal: */

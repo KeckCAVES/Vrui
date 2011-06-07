@@ -144,7 +144,7 @@ class TCPPipe:public TCPSocket
 		}
 	
 	/* Endianness-safe binary I/O interface: */
-	bool mustSwapOnRead(void) // Retusn true if the pipe must endianness-swap data on read
+	bool mustSwapOnRead(void) // Returns true if the pipe must endianness-swap data on read
 		{
 		return readMustSwapEndianness;
 		}

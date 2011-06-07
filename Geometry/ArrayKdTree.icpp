@@ -321,6 +321,37 @@ ArrayKdTree<StoredPointParam>::checkTree(
 	}
 
 template <class StoredPointParam>
+template <class TraversalFunctionParam>
+inline
+void
+ArrayKdTree<StoredPointParam>::traverseTreeInBox(
+	int left,
+	int right,
+	int splitDimension,
+	const typename ArrayKdTree<StoredPointParam>::Box& box,
+	TraversalFunctionParam& traversalFunction) const
+	{
+	/* Calculate the index of this node: */
+	int mid=(left+right)>>1;
+	
+	/* Traverse node if it is inside the given box: */
+	if(box.contains(nodes[mid]))
+		traversalFunction(nodes[mid]);
+	
+	int childSplitDimension=splitDimension+1;
+	if(childSplitDimension==dimension)
+		childSplitDimension=0;
+	
+	/* Traverse into left child: */
+	if(left<mid&&nodes[mid][splitDimension]>=box.min[splitDimension])
+		traverseTreeInBox(left,mid-1,childSplitDimension,box,traversalFunction);
+	
+	/* Traverse into right child: */
+	if(mid<right&&nodes[mid][splitDimension]<=box.max[splitDimension])
+		traverseTreeInBox(mid+1,right,childSplitDimension,box,traversalFunction);
+	}
+
+template <class StoredPointParam>
 template <class DirectedTraversalFunctionParam>
 inline
 void

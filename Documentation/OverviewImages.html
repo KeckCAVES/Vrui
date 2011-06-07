@@ -12,6 +12,9 @@ The Images library contains classes and functions to represent RGB images, and t
 <H2>Header Files</H2>
 
 <DL>
+<DT>Config.h</DT>
+<DD>Config.h defines configuration-dependent macros used by the Images library. It should be included by client code that wants to make decisions based on the availability of optional features.</DD>
+
 <DT>Image.h</DT>
 <DD>Image is a base class to represent images in variable formats. The Image class uses a handle mechanism to allow passing images as values to functions, and return images from functions without incurring copy overhead.</DD>
 

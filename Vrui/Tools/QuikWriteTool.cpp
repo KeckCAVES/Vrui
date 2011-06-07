@@ -1,7 +1,7 @@
 /***********************************************************************
 QuikWriteTool - Class for tools to enter text using the stroke-based
 QuikWrite user interface, developed by Ken Perlin.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,8 +31,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
+#include <GL/GLValueCoders.h>
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
+#include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/TextEvent.h>
 #include <GLMotif/TextControlEvent.h>
@@ -49,7 +51,8 @@ QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
 	:ToolFactory("QuikWriteTool",toolManager),
 	 squareSize(getUiFont()->getTextHeight()*Scalar(10)),
 	 initialSquareDist(getInchFactor()*Scalar(3)),
-	 backgroundColor(getBackgroundColor())
+	 backgroundColor(getBackgroundColor()),
+	 drawRay(true)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -63,11 +66,16 @@ QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
 	for(int i=0;i<3;++i)
 		foregroundColor[i]=Color::Scalar(1)-backgroundColor[i];
 	foregroundColor[3]=Color::Scalar(1);
+	rayColor=foregroundColor;
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	squareSize=cfs.retrieveValue<Scalar>("./squareSize",squareSize);
 	initialSquareDist=cfs.retrieveValue<Scalar>("./initialSquareDist",initialSquareDist);
+	backgroundColor=cfs.retrieveValue<Color>("./backgroundColor",backgroundColor);
+	foregroundColor=cfs.retrieveValue<Color>("./foregroundColor",foregroundColor);
+	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
+	rayColor=cfs.retrieveValue<Color>("./rayColor",rayColor);
 	
 	/* Set tool class' factory pointer: */
 	QuikWriteTool::factory=this;
@@ -196,9 +204,6 @@ Methods of class QuikWriteTool:
 
 int QuikWriteTool::getZone(bool inZone5) const
 	{
-	/* Get the device's selection ray: */
-	Ray ray=calcInteractionRay();
-	
 	/* Intersect the ray with the QuikWrite square: */
 	Plane::HitResult hr=squarePlane.intersectRay(ray);
 	if(hr.isValid())
@@ -455,7 +460,7 @@ void QuikWriteTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			active=true;
 			
 			/* Initialize the QuikWrite square transformation: */
-			Ray ray=calcInteractionRay();
+			ray=calcInteractionRay();
 			Point hotSpot;
 			if(isUseEyeRay()||interactionDevice->isRayDevice())
 				{
@@ -507,6 +512,9 @@ void QuikWriteTool::frame(void)
 	{
 	if(active)
 		{
+		/* Calculate the current interaction ray: */
+		ray=calcInteractionRay();
+		
 		/* Get the index of the zone currently pointed at: */
 		int zoneIndex=getZone(strokeState==REST);
 		
@@ -629,6 +637,22 @@ void QuikWriteTool::display(GLContextData& contextData) const
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
+		
+		if(factory->drawRay)
+			{
+			/* Get the interaction ray's intersection with the square plane: */
+			Plane::HitResult hr=squarePlane.intersectRay(ray);
+			if(hr.isValid())
+				{
+				/* Draw the interaction ray: */
+				glLineWidth(1.0f);
+				glBegin(GL_LINES);
+				glColor(factory->rayColor);
+				glVertex(ray.getOrigin());
+				glVertex(ray(hr.getParameter()));
+				glEnd();
+				}
+			}
 		
 		/* Go to square coordinates: */
 		glPushMatrix();

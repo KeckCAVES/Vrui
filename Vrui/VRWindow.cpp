@@ -1,7 +1,8 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
+ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,14 +33,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdio.h>
 #include <iostream>
 #include <X11/keysym.h>
-#if SAVE_SCREENSHOT_PROJECTION
-#include <Misc/File.h>
-#endif
 #include <Misc/ThrowStdErr.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#if SAVE_SCREENSHOT_PROJECTION
+#include <IO/File.h>
+#endif
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -66,6 +67,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Images/ReadImageFile.h>
 #include <Images/WriteImageFile.h>
 #include <Vrui/Vrui.h>
+#if SAVE_SCREENSHOT_PROJECTION
+#include <Vrui/OpenFile.h>
+#endif
 #include <Vrui/InputDevice.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Viewer.h>
@@ -534,10 +538,11 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		{
 		ivTextureSize[i]=0;
 		ivTexCoord[i]=0.0f;
-		ivRightStipplePatterns[i]=0;
 		asNumTiles[i]=0;
 		asTextureSize[i]=0;
 		}
+	for(int i=0;i<4;++i)
+		ivRightStipplePatterns[i]=0;
 	
 	/* Check if the window has a viewer: */
 	if(viewer==0)
@@ -684,10 +689,11 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		}
 	
 	/* Hide mouse cursor and ignore mouse events if the mouse is not used as an input device: */
-	if(mouseAdapter==0)
+	if(mouseAdapter==0||!mouseAdapter->needMouseCursor())
 		{
 		hideCursor();
-		disableMouseEvents();
+		if(mouseAdapter==0)
+			disableMouseEvents();
 		}
 	
 	/* Initialize the window's OpenGL context: */
@@ -708,7 +714,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 				;
 			ivTexCoord[i]=float(GLWindow::getWindowSize()[i])/float(ivTextureSize[i]);
 			}
-		ivEyeIndexOffset=GLWindow::getWindowOrigin()[0]+GLWindow::getWindowOrigin()[1];
+		ivEyeIndexOffset=(GLWindow::getWindowOrigin()[1]%2)*2+(GLWindow::getWindowOrigin()[0]%2);
 		glGenTextures(1,&ivRightViewportTextureID);
 		glBindTexture(GL_TEXTURE_2D,ivRightViewportTextureID);
 		glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,ivTextureSize[0],ivTextureSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,0);
@@ -742,14 +748,32 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
 			}
 		
+		/* Read the target display's interleave pattern: */
+		std::string pattern=configFileSection.retrieveValue<std::string>("./interleavePattern","LRRL");
+		bool patRight[2][2];
+		bool patternValid=pattern.size()==4;
+		for(int y=0;patternValid&&y<2;++y)
+			for(int x=0;patternValid&&x<2;++x)
+				{
+				char pat=toupper(pattern[y*2+x]);
+				patternValid=pat=='L'||pat=='R';
+				patRight[y][x]=pat=='R';
+				}
+		if(!patternValid)
+			Misc::throwStdErr("VRWindow::VRWindow: Invalid interleave pattern %s ",pattern.c_str());
+		
 		/* Initialize the interleave stipple patterns: */
-		for(int offset=0;offset<2;++offset)
-			{
-			ivRightStipplePatterns[offset]=new GLubyte[128];
-			for(int row=0;row<32;++row)
-				for(int col=0;col<4;++col)
-					ivRightStipplePatterns[offset][row*4+col]=(row+offset)&0x1?GLubyte(0x55):GLubyte(0xaa);
-			}
+		for(int yoff=0;yoff<2;++yoff)
+			for(int xoff=0;xoff<2;++xoff)
+				{
+				GLubyte* stipPat=ivRightStipplePatterns[yoff*2+xoff]=new GLubyte[128];
+				for(int i=0;i<128;++i)
+					stipPat[i]=GLubyte(0);
+				for(int y=0;y<32;++y)
+					for(int x=0;x<32;++x)
+						if(patRight[(y+yoff)%2][(x+xoff)%2])
+							stipPat[y*4+x/8]|=0x1U<<(x%8);
+				}
 		}
 	else if(windowType==AUTOSTEREOSCOPIC_STEREO)
 		{
@@ -903,8 +927,8 @@ VRWindow::~VRWindow(void)
 			glDeleteRenderbuffersEXT(1,&ivRightDepthbufferObjectID);
 			}
 		glDeleteTextures(1,&ivRightViewportTextureID);
-		for(int offset=0;offset<2;++offset)
-			delete[] ivRightStipplePatterns[offset];
+		for(int i=0;i<4;++i)
+			delete[] ivRightStipplePatterns[i];
 		}
 	else if(windowType==AUTOSTEREOSCOPIC_STEREO)
 		{
@@ -1279,7 +1303,7 @@ bool VRWindow::processEvent(const XEvent& event)
 						mustReallocate=true;
 					ivTextureSize[i]=newTextureSize;
 					}
-				ivEyeIndexOffset=GLWindow::getWindowOrigin()[0]+GLWindow::getWindowOrigin()[1];
+				ivEyeIndexOffset=(GLWindow::getWindowOrigin()[1]%2)*2+(GLWindow::getWindowOrigin()[0]%2);
 				
 				if(mustReallocate)
 					{
@@ -1565,7 +1589,7 @@ void VRWindow::draw(void)
 			glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 			
 			/* Set the polygon stippling pattern: */
-			glPolygonStipple(ivRightStipplePatterns[ivEyeIndexOffset%2]);
+			glPolygonStipple(ivRightStipplePatterns[ivEyeIndexOffset]);
 				
 			/* Render the quad: */
 			glBegin(GL_QUADS);
@@ -1737,9 +1761,10 @@ void VRWindow::draw(void)
 		
 		/* Write the matrices to a projection file: */
 		{
-		Misc::File projFile((screenshotImageFileName+".proj").c_str(),"wb",Misc::File::LittleEndian);
-		projFile.write(proj,16);
-		projFile.write(mv,16);
+		IO::AutoFile projFile(Vrui::openFile((screenshotImageFileName+".proj").c_str(),Misc::BufferedFile::WriteOnly));
+		projFile->setEndianness(IO::File::LittleEndian);
+		projFile->write(proj,16);
+		projFile->write(mv,16);
 		}
 		
 		#endif

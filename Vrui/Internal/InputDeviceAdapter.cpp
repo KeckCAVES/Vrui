@@ -167,4 +167,8 @@ int InputDeviceAdapter::getFeatureIndex(InputDevice* device,const char* featureN
 	return getDefaultFeatureIndex(device,featureName);
 	}
 
+void InputDeviceAdapter::glRenderAction(GLContextData& contextData) const
+	{
+	}
+
 }
