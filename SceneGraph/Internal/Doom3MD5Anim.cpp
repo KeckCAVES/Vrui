@@ -24,10 +24,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <Misc/Utility.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/BufferCharacterSource.h>
-#include <Misc/File.h>
 #include <SceneGraph/Internal/Doom3FileManager.h>
 #include <SceneGraph/Internal/Doom3ValueSource.h>
 #include <SceneGraph/Internal/Doom3MD5Mesh.h>
@@ -60,10 +59,8 @@ Doom3MD5Anim::Doom3MD5Anim(Doom3FileManager& fileManager,const char* animFileNam
 		}
 	
 	/* Open the animation file and create a tokenizer for it: */
-	size_t fileDataSize;
-	unsigned char* fileData=fileManager.readFile(animFileName,fileDataSize);
-	Misc::BufferCharacterSource file(fileData,fileDataSize);
-	Doom3ValueSource source(file,animFileName);
+	IO::File* file=fileManager.getFile(animFileName);
+	Doom3ValueSource source(*file,animFileName);
 	
 	/* Parse the animation file header: */
 	if(!source.isString("MD5Version"))
@@ -193,7 +190,7 @@ Doom3MD5Anim::Doom3MD5Anim(Doom3FileManager& fileManager,const char* animFileNam
 			Misc::throwStdErr("Doom3MD5Anim::Doom3MD5Anim: Malformed animation frame at %s",source.where().c_str());
 		}
 	
-	delete[] fileData;
+	delete file;
 	}
 
 Doom3MD5Anim::~Doom3MD5Anim(void)

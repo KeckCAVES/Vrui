@@ -1,7 +1,7 @@
 /***********************************************************************
 GLGeometryShader - Class to represent GLSL shaders that contain at least
 one geometry shader according to the GL_EXT_geometry_shader4 extension.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 Based on code provided by Tony Bernardin
 
 This file is part of the OpenGL Support Library (GLSupport).
@@ -26,8 +26,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/GLExtensionManager.h>
 #include <GL/Extensions/GLARBShaderObjects.h>
-#include <GL/Extensions/GLARBVertexShader.h>
-#include <GL/Extensions/GLARBFragmentShader.h>
 #include <GL/Extensions/GLEXTGeometryShader4.h>
 
 #include <GL/GLGeometryShader.h>
@@ -77,19 +75,18 @@ void GLGeometryShader::compileGeometryShader(const char* shaderSourceFileName)
 		geometryShaderObject=glCreateShaderObjectARB(GL_GEOMETRY_SHADER_EXT);
 		
 		/* Load and compile the shader source code: */
-		loadAndCompileShader(geometryShaderObject,shaderSourceFileName);
+		glCompileShaderFromFile(geometryShaderObject,shaderSourceFileName);
 		
 		/* Store the shader for linking: */
 		geometryShaderObjects.push_back(geometryShaderObject);
 		}
-	catch(std::runtime_error err)
+	catch(std::runtime_error)
 		{
 		/* Delete the geometry shader: */
 		if(geometryShaderObject!=0)
 			glDeleteObjectARB(geometryShaderObject);
 		
-		/* Embed the error message and throw again: */
-		Misc::throwStdErr("GLGeometryShader::compileGeometryShader: Error \"%s\" while compiling shader %s",err.what(),shaderSourceFileName);
+		throw;
 		}
 	}
 
@@ -105,19 +102,18 @@ void GLGeometryShader::compileGeometryShaderFromString(const char* shaderSource)
 		geometryShaderObject=glCreateShaderObjectARB(GL_GEOMETRY_SHADER_EXT);
 		
 		/* Compile the shader source code: */
-		compileShader(geometryShaderObject,shaderSource);
+		glCompileShaderFromString(geometryShaderObject,shaderSource);
 		
 		/* Store the shader for linking: */
 		geometryShaderObjects.push_back(geometryShaderObject);
 		}
-	catch(std::runtime_error err)
+	catch(std::runtime_error)
 		{
 		/* Delete the geometry shader: */
 		if(geometryShaderObject!=0)
 			glDeleteObjectARB(geometryShaderObject);
 		
-		/* Embed the error message and throw again: */
-		Misc::throwStdErr("GLGeometryShader::compileGeometryShaderFromString: Error \"%s\" while compiling shader",err.what());
+		throw;
 		}
 	}
 

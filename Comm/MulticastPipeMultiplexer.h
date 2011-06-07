@@ -1,7 +1,7 @@
 /***********************************************************************
 MulticastPipeMultiplexer - Class to share several multicast pipes across
 a single UDP socket connection.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -36,9 +36,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 struct sockaddr_in;
-namespace Comm {
-struct MulticastPipe;
-}
 
 namespace Comm {
 
@@ -91,6 +88,13 @@ class MulticastPipeMultiplexer
 		unsigned int pipeId; // ID of affected pipe for barrier or gather completion messages
 		unsigned int barrierId; // ID of completed barrier or gather operation
 		unsigned int masterValue; // Master's final value in a gather operation
+		
+		/* Constructors and destructors: */
+		public:
+		MasterMessage(MessageId sMessageId) // Constructs a simple message structure
+			:zeroPipeId(0),messageId(sMessageId),pipeId(0),barrierId(0),masterValue(0)
+			{
+			}
 		};
 	
 	struct PipeState // Structure storing the current state of a pipe
@@ -156,6 +160,62 @@ class MulticastPipeMultiplexer
 	
 	typedef Misc::HashTable<unsigned int,PipeState*> PipeHasher; // Hash table to map from pipe IDs to pipe state table entries
 	
+	class LockedPipe // Helper class to obtain locks on pipe state objects retrieved by pipe ID
+		{
+		/* Elements: */
+		private:
+		PipeState* pipeState; // Pointer to the locked pipe state object, or NULL
+		
+		/* Constructors and destructors: */
+		public:
+		LockedPipe(const PipeHasher& pipeStateTable,Threads::Mutex& pipeStateTableMutex,unsigned int pipeId) // Grabs and locks the pipe of the given ID, if it exists
+			:pipeState(0)
+			{
+			/* Lock the pipe state table: */
+			Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
+			
+			/* Get the pipe: */
+			PipeHasher::ConstIterator psIt=pipeStateTable.findEntry(pipeId);
+			if(!psIt.isFinished())
+				{
+				/* Get the pipe state pointer, and lock it: */
+				pipeState=psIt->getDest();
+				pipeState->stateMutex.lock();
+				}
+			}
+		~LockedPipe(void)
+			{
+			/* Unlock the pipe state if it is valid: */
+			if(pipeState!=0)
+				pipeState->stateMutex.unlock();
+			}
+		
+		/* Methods: */
+		bool isValid(void) const // Returns true if the pipe state is valid
+			{
+			return pipeState!=0;
+			}
+		PipeState& operator*(void) const
+			{
+			return *pipeState;
+			}
+		PipeState* operator->(void) const
+			{
+			return pipeState;
+			}
+		PipeState* unlock(void) // Explicitly unlocks the pipe state and returns it as a standard pointer
+			{
+			PipeState* result=pipeState;
+			if(pipeState!=0)
+				{
+				/* Unlock the pipe state and invalidate it: */
+				pipeState->stateMutex.unlock();
+				pipeState=0;
+				}
+			return result;
+			}
+		};
+	
 	/* Elements: */
 	private:
 	unsigned int numSlaves; // Number of slaves in the multicast group
@@ -182,7 +242,7 @@ class MulticastPipeMultiplexer
 	MulticastPacket* packetPoolHead; // Pool of recently deleted packets to minimize number of new/delete calls
 	
 	/* Private methods: */
-	void processAcknowledgment(PipeState* pipeState,int slaveIndex,unsigned int streamPos); // Processes an acknowlegment (positive or implied-positive) from a slave; must be called with locked pipe state
+	void processAcknowledgment(LockedPipe& pipeState,int slaveIndex,unsigned int streamPos); // Processes an acknowlegment (positive or implied-positive) from a slave
 	void* packetHandlingThreadMaster(void); // Packet handling thread method for the master
 	void* packetHandlingThreadSlave(void); // Packet handling thread method for the slaves
 	
@@ -232,12 +292,16 @@ class MulticastPipeMultiplexer
 	void setReceiveWaitTimeout(Misc::Time newReceiveWaitTimeout); // Sets the timeout when waiting for data packages
 	void setBarrierWaitTimeout(Misc::Time newBarrierWaitTimeout); // Sets the timeout when waiting for barrier messages
 	void waitForConnection(void); // Waits until all slaves have connected to the master
-	MulticastPipe* openPipe(void); // Creates a new multicast pipe
-	void closePipe(MulticastPipe* pipe); // Destroys the given multicast pipe
-	void sendPacket(MulticastPipe* pipe,MulticastPacket* packet); // Sends a packet from the master to the slaves
-	MulticastPacket* receivePacket(MulticastPipe* pipe); // Receives a packet from the master
-	void barrier(MulticastPipe* pipe); // Waits until all nodes (master + slaves) have reached the same point in the program
-	unsigned int gather(MulticastPipe* pipe,unsigned int value,GatherOperation::OpCode op); // Exchanges a single value between all nodes (master + slaves); implies a barrier
+	
+	/* Pipe management interface: */
+	unsigned int openPipe(void); // Creates a new multicast pipe and returns its pipe ID
+	void closePipe(unsigned int pipeId); // Destroys the multicast pipe of the given ID
+	
+	/* Pipe communication interface: */
+	void sendPacket(unsigned int pipeId,MulticastPacket* packet); // Sends a packet from the master to the slaves
+	MulticastPacket* receivePacket(unsigned int pipeId); // Receives a packet from the master
+	void barrier(unsigned int pipeId); // Waits until all nodes (master + slaves) have reached the same point in the program
+	unsigned int gather(unsigned int pipeId,unsigned int value,GatherOperation::OpCode op); // Exchanges a single value between all nodes (master + slaves); implies a barrier
 	};
 
 }

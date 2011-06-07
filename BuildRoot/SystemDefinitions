@@ -1,7 +1,7 @@
 ########################################################################
 # SystemDefinitions - System-dependent settings for the WhyTools build
 # environment.
-# Copyright (c) 1999-2010 Oliver Kreylos
+# Copyright (c) 1999-2011 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.

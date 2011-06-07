@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3FileManager - Class to read files from sets of pk3/pk4 files and
 patch directories.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -27,8 +27,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
+#include <IO/ZipArchive.h>
 #include <SceneGraph/Internal/Doom3NameTree.h>
-#include <SceneGraph/Internal/Doom3PakFile.h>
+
+/* Forward declarations: */
+namespace IO {
+class File;
+class SeekableFile;
+}
 
 namespace SceneGraph {
 
@@ -36,14 +42,16 @@ class Doom3FileManager
 	{
 	/* Embedded classes: */
 	private:
+	typedef IO::ZipArchive PakFile; // Doom 3 pak files are just ZIP archives in disguise
+	
 	struct PakFileHandle // Structure containing data necessary to read a file from a pak archive
 		{
 		/* Elements: */
-		Doom3PakFile* pakFile; // Pointer to the pak archive containing the file
-		Doom3PakFile::FileID fileID; // Handle to access the file inside the pak archive
+		PakFile* pakFile; // Pointer to the pak archive containing the file
+		PakFile::FileID fileID; // Handle to access the file inside the pak archive
 		
 		/* Constructors and destructors: */
-		PakFileHandle(Doom3PakFile* sPakFile,const Doom3PakFile::FileID& sFileID)
+		PakFileHandle(PakFile* sPakFile,const PakFile::FileID& sFileID)
 			:pakFile(sPakFile),fileID(sFileID)
 			{
 			};
@@ -143,7 +151,7 @@ class Doom3FileManager
 	
 	/* Elements: */
 	private:
-	std::vector<Doom3PakFile*> pakFiles; // The list of pk3/pk4 files
+	std::vector<PakFile*> pakFiles; // The list of pk3/pk4 files
 	PakFileTree pakFileTree; // The tree containing the pak archive's files
 	
 	/* Constructors and destructors: */
@@ -175,7 +183,8 @@ class Doom3FileManager
 		DirectorySearcher<ClientFunctorParam,NameFilterParam> ds(cf,nf);
 		pakFileTree.traverseTree(ds);
 		}
-	unsigned char* readFile(const char* fileName,size_t& fileSize); // Reads a file; throws ReadError if file not found
+	IO::File* getFile(const char* fileName); // Returns a file as a streaming reader; throws ReadError if file not found
+	IO::SeekableFile* getSeekableFile(const char* fileName); // Returns a file as a seekable reader; throws ReadError if file not found
 	};
 
 }

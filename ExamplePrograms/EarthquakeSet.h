@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2011 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -29,6 +29,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLObject.h>
 
 /* Forward declarations: */
+namespace Comm {
+class MulticastPipeMultiplexer;
+}
 class GLShader;
 
 class EarthquakeSet:public GLObject
@@ -80,14 +83,14 @@ class EarthquakeSet:public GLObject
 	double currentTime; // Current event time during animation
 	
 	/* Private methods: */
-	void loadANSSFile(const char* earthquakeFileName,double scaleFactor); // Loads an earthquake event file in ANSS readable database snapshot format
-	void loadCSVFile(const char* earthquakeFileName,double scaleFactor); // Loads an earthquake event file in space- or comma-separated format
+	void loadANSSFile(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor); // Loads an earthquake event file in ANSS readable database snapshot format
+	void loadCSVFile(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor); // Loads an earthquake event file in space- or comma-separated format
 	void drawBackToFront(int left,int right,int splitDimension,const Point& eyePos,GLuint*& bufferPtr) const; // Renders the given kd-tree subtree in back-to-front order
 	void createShader(DataItem* dataItem) const; // Creates the particle rendering shader based on current OpenGL settings
 	
 	/* Constructors and destructors: */
 	public:
-	EarthquakeSet(const char* earthquakeFileName,double scaleFactor); // Creates an earthquake set by reading a file; applies scale factor to Cartesian coordinates
+	EarthquakeSet(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor); // Creates an earthquake set by reading a file; applies scale factor to Cartesian coordinates
 	~EarthquakeSet(void);
 	
 	/* Methods from GLObject: */

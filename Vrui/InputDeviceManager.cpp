@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -382,6 +382,13 @@ void InputDeviceManager::updateInputDevices(void)
 	/* Call the update callbacks: */
 	InputDeviceUpdateCallbackData cbData(this);
 	inputDeviceUpdateCallbacks.call(&cbData);
+	}
+
+void InputDeviceManager::glRenderAction(GLContextData& contextData) const
+	{
+	/* Render all input device adapters: */
+	for(int i=0;i<numInputDeviceAdapters;++i)
+		inputDeviceAdapters[i]->glRenderAction(contextData);
 	}
 
 }

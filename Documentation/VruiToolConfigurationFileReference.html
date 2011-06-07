@@ -47,7 +47,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <LI><A HREF="#MouseDialogNavigationTool">MouseDialogNavigationTool</A> &quot;Mouse (via Dialog Box)&quot;</LI>
 
-<LI><A HREF="#SixAxisNavigationTool">SixDofNavigationTool</A> &quot;Six-Axis&quot;</LI>
+<LI><A HREF="#SixAxisNavigationTool">SixAxisNavigationTool</A> &quot;Six-Axis&quot;</LI>
 
 <LI><A HREF="#SixDofNavigationTool">SixDofNavigationTool</A> &quot;6-DOF&quot;</LI>
 
@@ -76,6 +76,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <LI><A HREF="#WalkNavigationTool">WalkNavigationTool</A> &quot;Walk&quot;</LI>
 
 <LI><A HREF="#ComeHitherNavigationTool">ComeHitherNavigationTool</A> &quot;Warp to Position&quot;</LI>
+
+<LI><A HREF="#ForceJumpNavigationTool">ForceJumpNavigationTool</A> &quot;Force Jump&quot;</LI>
 
 <LI><A HREF="#ViewpointFileNavigationTool">ViewpointFileNavigationTool</A> &quot;Curve File Animation&quot;</LI>
 </UL>
@@ -156,6 +158,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <LI><A HREF="#MeasurementTool">MeasurementTool</A></LI>
 
 <LI><A HREF="#SketchingTool">SketchingTool</A></LI>
+
+<LI><A HREF="#AnnotationTool">AnnotationTool</A></LI>
 
 <LI><A HREF="#ViewpointSaverTool">ViewpointSaverTool</A></LI>
 
@@ -400,6 +404,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>showHud</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
 <TD>Flag whether to draw the heads-up display indicating the current aziumth.</TD>
+</TR>
+
+<TR>
+<TD>levelOnExit</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether to reset the tool's elevation to zero upon deactivation.</TD>
 </TR>
 </TABLE>
 
@@ -1256,6 +1265,31 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 </TABLE>
 
+<A NAME="ForceJumpNavigationTool"><H3>ForceJumpNavigationTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Jump to the position of the input device, using a fancy forward flip.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>gravity</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>9.81m/s<SUP>2</SUP></TD>
+<TD>Gravity acceleration in physical coordinate units per second squared.</TD>
+</TR>
+
+<TR>
+<TD>jumpTime</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.0s</TD>
+<TD>Time to complete the jump to the input device's position in seconds.</TD>
+</TR>
+</TABLE>
+
 <A NAME="ViewpointFileNavigationTool"><H3>ViewpointFileNavigationTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -1704,6 +1738,7 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 
 <A NAME="MeasurementTool"><H3>MeasurementTool</H3></A>
 <A NAME="SketchingTool"><H3>SketchingTool</H3></A>
+<A NAME="AnnotationTool"><H3>AnnotationTool</H3></A>
 <A NAME="ViewpointSaverTool"><H3>ViewpointSaverTool</H3></A>
 <A NAME="CurveEditorTool"><H3>CurveEditorTool</H3></A>
 <A NAME="ScreenshotTool"><H3>ScreenshotTool</H3></A>

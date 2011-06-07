@@ -1,6 +1,6 @@
 /***********************************************************************
 GlyphRenderer - Class to quickly render several kinds of common glyphs.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -20,14 +20,24 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/GlyphRenderer.h>
+
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Geometry/Point.h>
+#include <Geometry/Ray.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <GL/GLValueCoders.h>
+#include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GL/GLModels.h>
-
-#include <Vrui/GlyphRenderer.h>
+#include <Images/RGBAImage.h>
+#include <Images/ReadImageFile.h>
+#include <Vrui/Vrui.h>
+#include <Vrui/Viewer.h>
+#include <Vrui/VRScreen.h>
+#include <Vrui/DisplayState.h>
 
 namespace Vrui {
 
@@ -159,6 +169,8 @@ void Glyph::configure(const Misc::ConfigurationFileSection& configFileSection,co
 			glyphType=CROSSBALL;
 		else if(glyphTypeName=="Box")
 			glyphType=BOX;
+		else if(glyphTypeName=="Cursor")
+			glyphType=CURSOR;
 		else
 			Misc::throwStdErr("GlyphRenderer::Glyph: Invalid glyph type %s",glyphTypeName.c_str());
 		enabled=true;
@@ -172,37 +184,104 @@ void Glyph::configure(const Misc::ConfigurationFileSection& configFileSection,co
 Methods of class GlyphRenderer::DataItem:
 ****************************************/
 
-GlyphRenderer::DataItem::DataItem(void)
-	:glyphDisplayLists(glGenLists(Glyph::GLYPHS_END))
+GlyphRenderer::DataItem::DataItem(GLContextData& sContextData)
+	:contextData(sContextData),
+	 glyphDisplayLists(glGenLists(Glyph::GLYPHS_END)),
+	 cursorTextureObjectId(0)
 	{
+	glGenTextures(1,&cursorTextureObjectId);
 	}
 
 GlyphRenderer::DataItem::~DataItem(void)
 	{
 	glDeleteLists(glyphDisplayLists,Glyph::GLYPHS_END);
+	glDeleteTextures(1,&cursorTextureObjectId);
 	}
 
 /******************************
 Methods of class GlyphRenderer:
 ******************************/
 
-GlyphRenderer::GlyphRenderer(GLfloat sGlyphSize)
-	:glyphSize(sGlyphSize)
+GlyphRenderer::GlyphRenderer(GLfloat sGlyphSize,std::string sCursorImageFileName,unsigned int sCursorNominalSize)
+	:glyphSize(sGlyphSize),
+	 cursorImageFileName(sCursorImageFileName),
+	 cursorNominalSize(sCursorNominalSize)
 	{
 	}
 
 void GlyphRenderer::initContext(GLContextData& contextData) const
 	{
 	/* Create a new context data item: */
-	DataItem* dataItem=new DataItem;
+	DataItem* dataItem=new DataItem(contextData);
 	contextData.addDataItem(this,dataItem);
 	
 	/* Render all glyph types: */
 	for(int glyphType=Glyph::CONE;glyphType<Glyph::GLYPHS_END;++glyphType)
 		{
-		glNewList(dataItem->glyphDisplayLists+glyphType,GL_COMPILE);
-		Glyph::render(glyphType,glyphSize);
-		glEndList();
+		if(glyphType==Glyph::CURSOR)
+			{
+			/* Load the cursor texture image: */
+			unsigned int hotspot[2];
+			Images::RGBAImage cursorImage=Images::readCursorFile(cursorImageFileName.c_str(),cursorNominalSize,hotspot);
+			
+			/* Calculate the cursor texture coordinate box: */
+			unsigned int cis[2];
+			float tcMin[2];
+			float tcMax[2];
+			for(int i=0;i<2;++i)
+				{
+				cis[i]=cursorImage.getSize(i);
+				unsigned int texSize;
+				for(texSize=1;texSize<cis[i];texSize<<=1)
+					;
+				tcMin[i]=0.5f/float(texSize);
+				tcMax[i]=(float(cis[i])-0.5f)/float(texSize);
+				}
+			
+			/* Calculate the scale factor: */
+			float scale=cis[0]>=cis[1]?glyphSize/float(cis[0]):glyphSize/float(cis[1]);
+			
+			/* Upload the cursor image as a 2D texture: */
+			glBindTexture(GL_TEXTURE_2D,dataItem->cursorTextureObjectId);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+			cursorImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,true);
+			glBindTexture(GL_TEXTURE_2D,0);
+			
+			/* Render a texture-based glyph: */
+			glNewList(dataItem->glyphDisplayLists+glyphType,GL_COMPILE);
+			glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_VIEWPORT_BIT);
+			glDepthRange(0.0,0.0);
+			glEnable(GL_TEXTURE_2D);
+			glBindTexture(GL_TEXTURE_2D,dataItem->cursorTextureObjectId);
+			glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
+			glEnable(GL_ALPHA_TEST);
+			glAlphaFunc(GL_GEQUAL,0.5f);
+			glBegin(GL_QUADS);
+			glTexCoord2f(tcMin[0],tcMin[1]);
+			glVertex2f(-float(hotspot[0])*scale,-float(cis[1]-1-hotspot[1])*scale);
+			glTexCoord2f(tcMax[0],tcMin[1]);
+			glVertex2f(float(cis[0]-1-hotspot[0])*scale,-float(cis[1]-1-hotspot[1])*scale);
+			glTexCoord2f(tcMax[0],tcMax[1]);
+			glVertex2f(float(cis[0]-1-hotspot[0])*scale,float(hotspot[1])*scale);
+			glTexCoord2f(tcMin[0],tcMax[1]);
+			glVertex2f(-float(hotspot[0])*scale,float(hotspot[1])*scale);
+			glEnd();
+			glBindTexture(GL_TEXTURE_2D,0);
+			glPopAttrib();
+			glEndList();
+			}
+		else
+			{
+			/* Render a 3D glyph: */
+			glNewList(dataItem->glyphDisplayLists+glyphType,GL_COMPILE);
+			Glyph::render(glyphType,glyphSize);
+			glEndList();
+			}
 		}
 	}
 
@@ -211,12 +290,40 @@ void GlyphRenderer::renderGlyph(const Glyph& glyph,const OGTransform& transforma
 	/* Check if the glyph is enabled: */
 	if(glyph.enabled)
 		{
-		/* Render glyph: */
-		glPushMatrix();
-		glMultMatrix(transformation);
-		glMaterial(GLMaterialEnums::FRONT,glyph.glyphMaterial);
-		glCallList(contextDataItem->glyphDisplayLists+glyph.glyphType);
-		glPopMatrix();
+		if(glyph.glyphType==Glyph::CURSOR)
+			{
+			/****************************
+			Render a texture-based glyph:
+			****************************/
+			
+			/* Project the given transformation's origin onto the current window's current screen: */
+			const DisplayState& ds=getDisplayState(contextDataItem->contextData);
+			Point to=transformation.getOrigin();
+			Ray ray(to,to-ds.viewer->getHeadPosition());
+			ONTransform st=ds.screen->getScreenTransformation();
+			Point sto=st.getOrigin();
+			Vector screenNormal=st.getDirection(2);
+			Scalar screenOffset=screenNormal*sto;
+			Scalar divisor=screenNormal*ray.getDirection();
+			if(divisor!=Scalar(0))
+				{
+				Scalar lambda=(screenOffset-screenNormal*ray.getOrigin())/divisor;
+				glPushMatrix();
+				glTranslate(ray(lambda)-sto);
+				glMultMatrix(st);
+				glCallList(contextDataItem->glyphDisplayLists+glyph.glyphType);
+				glPopMatrix();
+				}
+			}
+		else
+			{
+			/* Render a 3D glyph: */
+			glPushMatrix();
+			glMultMatrix(transformation);
+			glMaterial(GLMaterialEnums::FRONT,glyph.glyphMaterial);
+			glCallList(contextDataItem->glyphDisplayLists+glyph.glyphType);
+			glPopMatrix();
+			}
 		}
 	}
 

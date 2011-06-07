@@ -30,9 +30,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <sys/types.h>
 #include <string>
 #include <Misc/Endianness.h>
-#include <Misc/Time.h>
 #include <Misc/ThrowStdErr.h>
-#include <Comm/FdSet.h>
+#include <Misc/Time.h>
+#include <Misc/FdSet.h>
 
 namespace {
 
@@ -368,9 +368,9 @@ VRPNConnection::VRPNConnection(const char* serverName,int serverPort)
 		serverSocket.sendMessage(connectMessage,strlen(connectMessage)+1);
 		
 		/* Wait for a connection request on the listening TCP socket, but not for too long: */
-		Comm::FdSet requestFds(listenSocket.getFd());
+		Misc::FdSet requestFds(listenSocket.getFd());
 		Misc::Time timeout(1,0); // Wait for at most 1 second
-		int result=pselect(&requestFds,0,0,&timeout);
+		int result=Misc::pselect(&requestFds,0,0,&timeout);
 		if(result>0&&requestFds.isSet(listenSocket.getFd()))
 			{
 			/* Accept the connection from the VRPN server and set the TCP socket to TCP_NODELAY: */
@@ -609,11 +609,11 @@ void VRPNConnection::requestValuators(const char* senderName,int valuatorIndexBa
 void VRPNConnection::readNextMessages(void)
 	{
 	/* Wait for the next message on either the UDP or the TCP socket: */
-	Comm::FdSet readFds;
+	Misc::FdSet readFds;
 	readFds.add(tcpSocket.getFd());
 	if(udpSocketConnected)
 		readFds.add(udpSocket.getFd());
-	pselect(&readFds,0,0,0);
+	Misc::pselect(&readFds,0,0,0);
 	
 	/* Read the next message(s): */
 	if(udpSocketConnected&&readFds.isSet(udpSocket.getFd()))

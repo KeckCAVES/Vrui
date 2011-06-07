@@ -1,7 +1,7 @@
 /***********************************************************************
 VRMLFile - Class to represent a VRML 2.0 file and state required to
 parse its contents.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <Misc/StringPrintf.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/CharacterSource.h>
 #include <Geometry/ComponentArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -495,10 +494,11 @@ VRMLFile::ParseError::ParseError(const VRMLFile& vrmlFile,std::string error)
 Methods of class VRMLFile:
 *************************/
 
-VRMLFile::VRMLFile(std::string sSourceUrl,Misc::CharacterSource& sSource,NodeCreator& sNodeCreator)
-	:Misc::TokenSource(sSource),
+VRMLFile::VRMLFile(std::string sSourceUrl,IO::File& sSource,NodeCreator& sNodeCreator,Comm::MulticastPipeMultiplexer* sMultiplexer)
+	:IO::TokenSource(sSource),
 	 sourceUrl(sSourceUrl),
 	 nodeCreator(sNodeCreator),
+	 multiplexer(sMultiplexer),
 	 nodeMap(101),
 	 currentLine(1)
 	{
@@ -508,16 +508,16 @@ VRMLFile::VRMLFile(std::string sSourceUrl,Misc::CharacterSource& sSource,NodeCre
 	setQuotes("\"\'");
 	
 	/* Check the VRML file header: */
-	TokenSource::readNextToken();
+	IO::TokenSource::readNextToken();
 	if(!isToken("#"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
-	TokenSource::readNextToken();
+	IO::TokenSource::readNextToken();
 	if(!isToken("VRML"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
-	TokenSource::readNextToken();
+	IO::TokenSource::readNextToken();
 	if(!isToken("V2.0"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
-	TokenSource::readNextToken();
+	IO::TokenSource::readNextToken();
 	if(!isToken("utf8"))
 		Misc::throwStdErr("VRMLFile: %s is not a valid VRML 2.0 file",sourceUrl.c_str());
 	

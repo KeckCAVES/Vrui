@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Tools/ViewpointFileNavigationTool.h>
 
 #include <stdio.h>
+#include <stdexcept>
 #include <Misc/FileNameExtensions.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
@@ -296,10 +297,24 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 				splines.push_back(s);
 				}
 			}
+		else
+			{
+			/* Display an error message: */
+			std::string message="Curve file ";
+			message.append(fileName);
+			message.append(" has unrecognized extension ");
+			message.append(Misc::getExtension(fileName));
+			showErrorMessage("Curve File Animation",message.c_str());
+			}
 		}
-	catch(...)
+	catch(std::runtime_error err)
 		{
-		/* Just ignore the error */
+		/* Display an error message: */
+		std::string message="Could not read curve file ";
+		message.append(fileName);
+		message.append(" due to exception ");
+		message.append(err.what());
+		showErrorMessage("Curve File Animation",message.c_str());
 		}
 	
 	if(!splines.empty()&&factory->autostart)

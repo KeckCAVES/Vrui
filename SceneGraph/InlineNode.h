@@ -1,7 +1,7 @@
 /***********************************************************************
 InlineNode - Class for group nodes that read their children from an
 external VRML file.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

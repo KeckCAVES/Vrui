@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBShaderObjects - OpenGL extension class for the
 GL_ARB_shader_objects extension.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -22,7 +22,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/File.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
@@ -150,20 +151,39 @@ void glCompileShaderFromString(GLhandleARB shaderObject,const char* shaderSource
 void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName)
 	{
 	/* Open the source file: */
-	Misc::File shaderSourceFile(shaderSourceFileName,"rt");
+	IO::AutoFile shaderSourceFile(IO::openFile(shaderSourceFileName));
 	
-	/* Determine the length of the source file: */
-	shaderSourceFile.seekEnd(0);
-	GLint shaderSourceLength=GLint(shaderSourceFile.tell());
-	shaderSourceFile.seekSet(0);
-	
-	/* Read the shader source: */
-	GLcharARB* shaderSource=new GLcharARB[shaderSourceLength];
-	shaderSourceFile.read<GLcharARB>(shaderSource,shaderSourceLength);
+	/* Compile the shader from the source file: */
+	glCompileShaderFromFile(shaderObject,shaderSourceFileName,*shaderSourceFile);
+	}
+
+void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName,IO::File& shaderSourceFile)
+	{
+	/* Read the entire shader source: */
+	size_t shaderAllocSize=8192;
+	GLcharARB* shaderSource=new GLcharARB[shaderAllocSize];
+	size_t shaderSourceLength=0;
+	while(!shaderSourceFile.eof())
+		{
+		/* Make room in the shader source buffer: */
+		if(shaderSourceLength==shaderAllocSize)
+			{
+			shaderAllocSize=(shaderAllocSize*3)/2;
+			GLcharARB* newShaderSource=new GLcharARB[shaderAllocSize];
+			memcpy(newShaderSource,shaderSource,shaderSourceLength);
+			delete[] shaderSource;
+			shaderSource=newShaderSource;
+			}
+		
+		/* Read more data from the file: */
+		size_t numBytesRead=shaderSourceFile.readUpTo(shaderSource+shaderSourceLength,shaderAllocSize-shaderSourceLength);
+		shaderSourceLength+=numBytesRead;
+		}
 	
 	/* Upload the shader source into the shader object: */
 	const GLcharARB* ss=shaderSource;
-	glShaderSourceARB(shaderObject,1,&ss,&shaderSourceLength);
+	GLint ssl=GLint(shaderSourceLength);
+	glShaderSourceARB(shaderObject,1,&ss,&ssl);
 	delete[] shaderSource;
 	
 	/* Compile the shader source: */
@@ -206,6 +226,9 @@ GLhandleARB glLinkShader(const std::vector<GLhandleARB>& shaderObjects)
 		GLsizei linkLogSize;
 		glGetInfoLogARB(programObject,sizeof(linkLogBuffer),&linkLogSize,linkLogBuffer);
 		
+		/* Delete the program object: */
+		glDeleteObjectARB(programObject);
+		
 		/* Signal an error: */
 		Misc::throwStdErr("glLinkShader: Error \"%s\" while linking shader program",linkLogBuffer);
 		}
@@ -234,6 +257,9 @@ GLhandleARB glLinkShader(GLhandleARB vertexShaderObject,GLhandleARB fragmentShad
 		GLcharARB linkLogBuffer[2048];
 		GLsizei linkLogSize;
 		glGetInfoLogARB(programObject,sizeof(linkLogBuffer),&linkLogSize,linkLogBuffer);
+		
+		/* Delete the program object: */
+		glDeleteObjectARB(programObject);
 		
 		/* Signal an error: */
 		Misc::throwStdErr("glLinkShader: Error \"%s\" while linking shader program",linkLogBuffer);

@@ -428,7 +428,7 @@ Marshaller<Geometry::OrthogonalTransformation<ScalarParam,dimensionParam> >::wri
 	{
 	Marshaller<Vector>::write(value.getTranslation(),sink);
 	Marshaller<Rotation>::write(value.getRotation(),sink);
-	Marshaller<Scalar>::write(value.getScale(),sink);
+	Marshaller<Scalar>::write(value.getScaling(),sink);
 	}
 
 template <class ScalarParam,int dimensionParam>

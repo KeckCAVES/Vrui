@@ -422,7 +422,14 @@ class ConfigurationFile:public ConfigurationFileBase,public ConfigurationFileBas
 		{
 		}
 	
-	/* Methods: */
+	/* Overloaded methods from ConfigurationFileBase: */
+	void load(const char* newFileName); // Loads contents of given configuration file, and resets current section to new root section
+	void reload(void) // Reloads contents of original configuration file, and resets current section to root section
+		{
+		load(fileName.c_str());
+		}
+	
+	/* New methods: */
 	std::string getCurrentPath(void) const; // Returns absolute path to current section
 	void setCurrentSection(const char* relativePath); // Sets the current section to the given relative path
 	ConfigurationFileSection getCurrentSection(void) const; // Returns pointer to current section

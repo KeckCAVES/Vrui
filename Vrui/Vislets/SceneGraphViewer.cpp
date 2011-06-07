@@ -23,15 +23,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Vislets/SceneGraphViewer.h>
 
-#include <Misc/FileCharacterSource.h>
 #include <GL/gl.h>
 #include <GL/GLTransformationWrappers.h>
 #include <SceneGraph/NodeCreator.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
+#include <Vrui/Vrui.h>
+#include <Vrui/OpenFile.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/VisletManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -117,8 +117,8 @@ SceneGraphViewer::SceneGraphViewer(int numArguments,const char* const arguments[
 	/* Load all VRML files from the command line: */
 	for(int i=0;i<numArguments;++i)
 		{
-		Misc::FileCharacterSource inputFile(arguments[i]);
-		SceneGraph::VRMLFile vrmlFile(arguments[i],inputFile,nodeCreator);
+		IO::AutoFile inputFile(Vrui::openFile(arguments[i]));
+		SceneGraph::VRMLFile vrmlFile(arguments[i],*inputFile,nodeCreator,getMulticastPipeMultiplexer());
 		vrmlFile.parse(root);
 		}
 	}

@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadImageFile - Functions to read RGB images from a variety of file
 formats.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2010 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -30,7 +30,8 @@ namespace Images {
 
 bool canReadImageFileType(const char* imageFileName); // Returns true if the image reader supports the image's file type
 RGBImage readImageFile(const char* imageFileName); // Reads an RGB image from a file; auto-detects file format
-RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize); // Reads an RGBA image from a cursor file in Xcursor format
+RGBAImage readTransparentImageFile(const char* imageFileName); // Reads an RGB image file with alpha layer from a file; auto-detects file format
+RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize,unsigned int* hotspot =0); // Reads an RGBA image from a cursor file in Xcursor format
 
 }
 

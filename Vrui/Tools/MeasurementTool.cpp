@@ -875,6 +875,9 @@ void MeasurementTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData
 						break;
 						}
 					}
+				
+				/* Flush the file: */
+				fflush(factory->measurementFile->getFilePtr());
 				}
 			}
 		}

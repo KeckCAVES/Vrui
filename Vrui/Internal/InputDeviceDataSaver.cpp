@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceDataSaver - Class to save input device data to a file for
 later playback.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,6 +28,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/Rotation.h>
@@ -38,6 +40,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
+#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+#include <Vrui/Internal/KinectRecorder.h>
+#endif
 
 namespace Vrui {
 
@@ -57,21 +62,25 @@ std::string InputDeviceDataSaver::getInputDeviceDataFileName(const Misc::Configu
 	}
 
 InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection& configFileSection,InputDeviceManager& inputDeviceManager,unsigned int randomSeed)
-	:inputDeviceDataFile(getInputDeviceDataFileName(configFileSection).c_str(),"wb",Misc::File::LittleEndian),
+	:inputDeviceDataFile(IO::openFile(getInputDeviceDataFileName(configFileSection).c_str(),IO::File::WriteOnly)),
 	 numInputDevices(inputDeviceManager.getNumInputDevices()),
 	 inputDevices(new InputDevice*[numInputDevices]),
 	 soundRecorder(0),
+	 #ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+	 kinectRecorder(0),
+	 #endif
 	 firstFrame(true)
 	{
 	/* Write a file identification header: */
+	inputDeviceDataFile->setEndianness(IO::File::LittleEndian);
 	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
-	inputDeviceDataFile.write<char>(fileHeader,34);
+	inputDeviceDataFile->write<char>(fileHeader,34);
 	
 	/* Save the random number seed: */
-	inputDeviceDataFile.write<unsigned int>(randomSeed);
+	inputDeviceDataFile->write<unsigned int>(randomSeed);
 	
 	/* Save number of input devices: */
-	inputDeviceDataFile.write<int>(numInputDevices);
+	inputDeviceDataFile->write<int>(numInputDevices);
 	
 	/* Save layout and feature names of all input devices in the input device manager: */
 	for(int i=0;i<numInputDevices;++i)
@@ -80,23 +89,23 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 		inputDevices[i]=inputDeviceManager.getInputDevice(i);
 		
 		/* Save input device's name and layout: */
-		Misc::writeCString(inputDevices[i]->getDeviceName(),inputDeviceDataFile);
-		inputDeviceDataFile.write<int>(inputDevices[i]->getTrackType());
-		inputDeviceDataFile.write<int>(inputDevices[i]->getNumButtons());
-		inputDeviceDataFile.write<int>(inputDevices[i]->getNumValuators());
-		inputDeviceDataFile.write(inputDevices[i]->getDeviceRayDirection().getComponents(),3);
+		Misc::writeCString(inputDevices[i]->getDeviceName(),*inputDeviceDataFile);
+		inputDeviceDataFile->write<int>(inputDevices[i]->getTrackType());
+		inputDeviceDataFile->write<int>(inputDevices[i]->getNumButtons());
+		inputDeviceDataFile->write<int>(inputDevices[i]->getNumValuators());
+		inputDeviceDataFile->write(inputDevices[i]->getDeviceRayDirection().getComponents(),3);
 		
 		/* Save input device's feature names: */
 		for(int j=0;j<inputDevices[i]->getNumFeatures();++j)
 			{
 			std::string featureName=inputDeviceManager.getFeatureName(InputDeviceFeature(inputDevices[i],j));
-			Misc::writeCppString(featureName,inputDeviceDataFile);
+			Misc::writeCppString(featureName,*inputDeviceDataFile);
 			}
 		}
 	
 	/* Check if the user wants to record a commentary track: */
 	std::string soundFileName=configFileSection.retrieveString("./soundFileName","");
-	if(soundFileName!="")
+	if(!soundFileName.empty())
 		{
 		try
 			{
@@ -116,13 +125,27 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 			std::cerr<<"InputDeviceDataSaver: Disabling sound recording due to exception "<<error.what()<<std::endl;
 			}
 		}
+	
+	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+	/* Check if the user wants to record 3D video: */
+	std::string kinectRecorderSectionName=configFileSection.retrieveString("./kinectRecorder","");
+	if(!kinectRecorderSectionName.empty())
+		{
+		/* Go to the Kinect recorder's section: */
+		Misc::ConfigurationFileSection kinectRecorderSection=configFileSection.getSection(kinectRecorderSectionName.c_str());
+		kinectRecorder=new KinectRecorder(kinectRecorderSection);
+		}
+	#endif
 	}
-
 
 InputDeviceDataSaver::~InputDeviceDataSaver(void)
 	{
+	delete inputDeviceDataFile;
 	delete[] inputDevices;
 	delete soundRecorder;
+	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+	delete kinectRecorder;
+	#endif
 	}
 
 void InputDeviceDataSaver::saveCurrentState(double currentTimeStamp)
@@ -131,11 +154,15 @@ void InputDeviceDataSaver::saveCurrentState(double currentTimeStamp)
 		{
 		if(soundRecorder!=0)
 			soundRecorder->start();
+		#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+		if(kinectRecorder!=0)
+			kinectRecorder->start(currentTimeStamp);
+		#endif
 		firstFrame=false;
 		}
 	
 	/* Write current time stamp: */
-	inputDeviceDataFile.write(currentTimeStamp);
+	inputDeviceDataFile->write(currentTimeStamp);
 	
 	/* Write state of all input devices: */
 	for(int i=0;i<numInputDevices;++i)
@@ -144,22 +171,22 @@ void InputDeviceDataSaver::saveCurrentState(double currentTimeStamp)
 		if(inputDevices[i]->getTrackType()!=InputDevice::TRACK_NONE)
 			{
 			const TrackerState& t=inputDevices[i]->getTransformation();
-			inputDeviceDataFile.write(t.getTranslation().getComponents(),3);
-			inputDeviceDataFile.write(t.getRotation().getQuaternion(),4);
+			inputDeviceDataFile->write(t.getTranslation().getComponents(),3);
+			inputDeviceDataFile->write(t.getRotation().getQuaternion(),4);
 			}
 		
 		/* Write input device's button states: */
 		for(int j=0;j<inputDevices[i]->getNumButtons();++j)
 			{
 			int buttonState=inputDevices[i]->getButtonState(j);
-			inputDeviceDataFile.write(buttonState);
+			inputDeviceDataFile->write(buttonState);
 			}
 		
 		/* Write input device's valuator states: */
 		for(int j=0;j<inputDevices[i]->getNumValuators();++j)
 			{
 			double valuatorState=inputDevices[i]->getValuator(j);
-			inputDeviceDataFile.write(valuatorState);
+			inputDeviceDataFile->write(valuatorState);
 			}
 		}
 	}

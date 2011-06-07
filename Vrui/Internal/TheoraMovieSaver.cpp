@@ -1,7 +1,7 @@
 /***********************************************************************
 TheoraMovieSaver - Helper class to save movies as Theora video streams
 packed into an Ogg container.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Video/FrameBuffer.h>
 #include <Video/ImageExtractorRGB8.h>
 #include <Video/OggPage.h>
@@ -89,7 +91,7 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 		oggStream.packetIn(packet);
 		Video::OggPage page;
 		while(oggStream.flush(page))
-			page.write(movieFile);
+			page.write(*movieFile);
 		}
 	
 	/* Write all remaining stream header packets to the movie file: */
@@ -98,13 +100,13 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 		oggStream.packetIn(packet);
 		Video::OggPage page;
 		while(oggStream.pageOut(page))
-			page.write(movieFile);
+			page.write(*movieFile);
 		}
 	
 	/* Flush the Ogg stream: */
 	Video::OggPage page;
 	while(oggStream.flush(page))
-		page.write(movieFile);
+		page.write(*movieFile);
 	
 	/* Encode and save frames until shut down: */
 	unsigned int frameIndex=0;
@@ -142,7 +144,7 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 			/* Write any generated pages to the movie file: */
 			Video::OggPage page;
 			while(oggStream.pageOut(page))
-				page.write(movieFile);
+				page.write(*movieFile);
 			}
 		++frameIndex;
 		
@@ -158,11 +160,13 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 
 TheoraMovieSaver::TheoraMovieSaver(const Misc::ConfigurationFileSection& configFileSection)
 	:MovieSaver(configFileSection),
-	 movieFile(configFileSection.retrieveString("./movieFileName").c_str(),"wb",Misc::File::LittleEndian),
+	 movieFile(IO::openFile(configFileSection.retrieveString("./movieFileName").c_str(),IO::File::WriteOnly)),
 	 oggStream(1),
 	 theoraBitrate(0),theoraQuality(32),theoraGopSize(32),
 	 imageExtractor(0)
 	{
+	movieFile->setEndianness(IO::File::LittleEndian);
+	
 	/* Read the encoder parameters: */
 	theoraBitrate=configFileSection.retrieveValue<int>("./movieBitrate",theoraBitrate);
 	if(theoraBitrate<0)
@@ -191,7 +195,10 @@ TheoraMovieSaver::~TheoraMovieSaver(void)
 	/* Flush the Ogg stream: */
 	Video::OggPage page;
 	while(oggStream.flush(page))
-		page.write(movieFile);
+		page.write(*movieFile);
+	
+	/* Close the movie file: */
+	delete movieFile;
 	
 	/* Delete the image extractor: */
 	delete imageExtractor;
