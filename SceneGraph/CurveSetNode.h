@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveSetNode - Class for sets of curves written by curve tracing
 application.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -30,6 +30,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
 
+/* Forward declarations: */
+namespace Comm {
+class MulticastPipeMultiplexer;
+}
+
 namespace SceneGraph {
 
 class CurveSetNode:public GeometryNode,public GLObject
@@ -57,6 +62,7 @@ class CurveSetNode:public GeometryNode,public GLObject
 	
 	/* Derived state: */
 	protected:
+	Comm::MulticastPipeMultiplexer* multiplexer; // Multiplexer to read curve files in a cluster environment
 	std::vector<GLsizei> numVertices; // Array of numbers of vertices for each curve
 	std::vector<Point> vertices; // Array of vertices for all curves
 	unsigned int version; // Version number of curve set

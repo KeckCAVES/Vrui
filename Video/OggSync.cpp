@@ -1,6 +1,6 @@
 /***********************************************************************
 OggSync - Wrapper class for ogg_sync_state structure from Ogg API.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Video/OggSync.h>
 
 #include <Misc/ThrowStdErr.h>
-#include <Misc/File.h>
+#include <IO/File.h>
 #include <Video/OggPage.h>
 
 namespace Video {
@@ -31,7 +31,7 @@ namespace Video {
 Methods of class OggSync:
 ************************/
 
-OggPage OggSync::readPage(Misc::File& file,size_t bufferSize)
+OggPage OggSync::readPage(IO::File& file,size_t bufferSize)
 	{
 	OggPage result;
 	
@@ -44,7 +44,7 @@ OggPage OggSync::readPage(Misc::File& file,size_t bufferSize)
 			Misc::throwStdErr("Video::OggSync::readPage: Error in ogg_sync_buffer");
 		
 		/* Read into the buffer: */
-		size_t numBytes=file.read<char>(buffer,bufferSize);
+		size_t numBytes=file.readUpTo(buffer,bufferSize);
 		if(numBytes==0)
 			Misc::throwStdErr("Video::OggSync::readPage: End of file during page read");
 		

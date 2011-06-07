@@ -168,7 +168,9 @@ MovieSaver::MovieSaver(const Misc::ConfigurationFileSection& configFileSection)
 			
 			/* Create a sound recorder for the given sound file name: */
 			char numberedFileName[1024];
-			soundRecorder=new Sound::SoundRecorder(soundDataFormat,Misc::createNumberedFileName(soundFileName.c_str(),4,numberedFileName));
+			std::string audioSourceName("default");
+			audioSourceName=configFileSection.retrieveString("./movieSoundDeviceName",audioSourceName);
+			soundRecorder=new Sound::SoundRecorder(audioSourceName.c_str(),soundDataFormat,Misc::createNumberedFileName(soundFileName.c_str(),4,numberedFileName));
 			}
 		catch(std::runtime_error error)
 			{

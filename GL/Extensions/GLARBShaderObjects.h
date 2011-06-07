@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBShaderObjects - OpenGL extension class for the
 GL_ARB_shader_objects extension.
-Copyright (c) 2007-2008 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -28,6 +28,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>
 #include <GL/Extensions/GLExtension.h>
+
+/* Forward declarations: */
+namespace IO {
+class File;
+}
 
 /********************************
 Extension-specific parts of gl.h:
@@ -449,7 +454,8 @@ Helper functions;
 ****************/
 
 void glCompileShaderFromString(GLhandleARB shaderObject,const char* shaderSource); // Compiles a shader from a C-style string; throws exception on errors
-void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads and compiles shader from source file; throws exception on errors
+void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads and compiles shader from source file of given name; throws exception on errors
+void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName,IO::File& shaderSourceFile); // Loads and compiles shader from source file; throws exception on errors
 GLhandleARB glLinkShader(const std::vector<GLhandleARB>& shaderObjects); // Links the given list of vertex and/or fragment shaders into a new shader program and returns its handle; throws exception on errors
 GLhandleARB glLinkShader(GLhandleARB vertexShaderObject,GLhandleARB fragmentShaderObject); // Links one vertex shader and one fragment shader into a new shader program and returns its handle; throws exception on errors
 

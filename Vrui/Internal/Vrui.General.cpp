@@ -1,7 +1,7 @@
 /***********************************************************************
 Environment-independent part of Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,8 +27,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/Vrui.h>
 
-#include <AL/Config.h>
-
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -39,13 +37,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <time.h>
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/File.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/ValueCoder.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Misc/TimerEventScheduler.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Comm/MulticastPipeMultiplexer.h>
 #include <Comm/MulticastPipe.h>
 #include <Math/Constants.h>
@@ -69,6 +68,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Separator.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/CascadeButton.h>
+#include <AL/Config.h>
 #include <AL/ALContextData.h>
 #include <Vrui/TransparentObject.h>
 #include <Vrui/VirtualInputDevice.h>
@@ -172,6 +172,7 @@ Global state:
 ************/
 
 VruiState* vruiState=0;
+const char* vruiViewpointFileHeader="Vrui viewpoint file v1.0\n";
 
 #if RENDERFRAMETIMES
 const int numFrameTimes=800;
@@ -179,7 +180,7 @@ double frameTimes[numFrameTimes];
 int frameTimeIndex=-1;
 #endif
 #if SAVESHAREDVRUISTATE
-Misc::File* vruiSharedStateFile=0;
+IO::File* vruiSharedStateFile=0;
 #endif
 
 /**********************
@@ -323,27 +324,29 @@ bool VruiState::loadViewpointFile(const char* viewpointFileName)
 		try
 			{
 			/* Open the viewpoint file: */
-			Misc::File viewpointFile(viewpointFileName,"rb",Misc::File::LittleEndian);
+			IO::AutoFile viewpointFile(IO::openFile(viewpointFileName));
+			viewpointFile->setEndianness(IO::File::LittleEndian);
 			
 			/* Check the header: */
-			char line[80];
-			viewpointFile.gets(line,sizeof(line));
-			if(strcmp(line,"Vrui viewpoint file v1.0\n")==0)
+			char header[80];
+			viewpointFile->read(header,strlen(vruiViewpointFileHeader));
+			header[strlen(vruiViewpointFileHeader)]='\0';
+			if(strcmp(header,vruiViewpointFileHeader)==0)
 				{
 				/* Read the environment's center point in navigational coordinates: */
 				Point center;
-				viewpointFile.read<Scalar>(center.getComponents(),3);
+				viewpointFile->read<Scalar>(center.getComponents(),3);
 				
 				/* Read the environment's size in navigational coordinates: */
-				Scalar size=viewpointFile.read<Scalar>();
+				Scalar size=viewpointFile->read<Scalar>();
 				
 				/* Read the environment's forward direction in navigational coordinates: */
 				Vector forward;
-				viewpointFile.read<Scalar>(forward.getComponents(),3);
+				viewpointFile->read<Scalar>(forward.getComponents(),3);
 				
 				/* Read the environment's up direction in navigational coordinates: */
 				Vector up;
-				viewpointFile.read<Scalar>(up.getComponents(),3);
+				viewpointFile->read<Scalar>(up.getComponents(),3);
 				
 				/* Construct the navigation transformation: */
 				NavTransform nav=NavTransform::identity;
@@ -447,7 +450,8 @@ VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::Multicas
 	 updateContinuously(false)
 	{
 	#if SAVESHAREDVRUISTATE
-	vruiSharedStateFile=new Misc::File("/tmp/VruiSharedState.dat","wb",Misc::File::LittleEndian);
+	vruiSharedStateFile=IO::openFile("/tmp/VruiSharedState.dat",IO::File::WriteOnly);
+	vruiSharedStateFile->setEndianness(IO::File::LittleEndian);
 	#endif
 	}
 
@@ -577,7 +581,10 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	uiStyleSheet.sliderShaftColor=configFileSection.retrieveValue<Color>("./uiSliderShaftColor",uiStyleSheet.sliderShaftColor);
 	
 	/* Initialize the glyph renderer: */
-	glyphRenderer=new GlyphRenderer(configFileSection.retrieveValue<GLfloat>("./glyphSize",GLfloat(inchScale)));
+	GLfloat glyphRendererGlyphSize=configFileSection.retrieveValue<GLfloat>("./glyphSize",GLfloat(inchScale));
+	std::string glyphRendererCursorImageFileName=configFileSection.retrieveString("./glyphCursorFileName",DEFAULTGLYPHRENDERERCURSORFILENAME);
+	unsigned int glyphRendererCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./glyphCursorNominalSize",24);
+	glyphRenderer=new GlyphRenderer(glyphRendererGlyphSize,glyphRendererCursorImageFileName,glyphRendererCursorNominalSize);
 	
 	/* Initialize input graph manager: */
 	newInputDevicePosition=configFileSection.retrieveValue<Point>("./newInputDevicePosition",displayCenter);
@@ -1036,6 +1043,9 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	else
 		lightsourceManager->setLightsources(contextData);
 	
+	/* Render input device manager's state: */
+	inputDeviceManager->glRenderAction(contextData);
+	
 	/* Render input graph state: */
 	inputGraphManager->glRenderAction(contextData);
 	
@@ -1230,37 +1240,59 @@ void VruiState::saveViewCallback(Misc::CallbackData* cbData)
 	/* Push the current navigation transformation onto the stack of navigation transformations: */
 	storedNavigationTransformations.push_back(getNavigationTransformation());
 	
+	bool success=false;
 	if(master)
 		{
 		try
 			{
 			/* Create a uniquely named viewpoint file: */
 			char numberedFileName[40];
-			Misc::File viewpointFile(Misc::createNumberedFileName("SavedViewpoint.view",4,numberedFileName),"wb",Misc::File::LittleEndian);
+			IO::AutoFile viewpointFile(IO::openFile(Misc::createNumberedFileName("SavedViewpoint.view",4,numberedFileName),IO::File::WriteOnly));
+			viewpointFile->setEndianness(IO::File::LittleEndian);
 			
 			/* Write a header identifying this as an environment-independent viewpoint file: */
-			fprintf(viewpointFile.getFilePtr(),"Vrui viewpoint file v1.0\n");
+			viewpointFile->write<char>(vruiViewpointFileHeader,strlen(vruiViewpointFileHeader));
 			
 			/* Write the environment's center point in navigational coordinates: */
 			Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
-			viewpointFile.write<Scalar>(center.getComponents(),3);
+			viewpointFile->write<Scalar>(center.getComponents(),3);
 			
 			/* Write the environment's size in navigational coordinates: */
 			Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
-			viewpointFile.write<Scalar>(size);
+			viewpointFile->write<Scalar>(size);
 			
 			/* Write the environment's forward direction in navigational coordinates: */
 			Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
-			viewpointFile.write<Scalar>(forward.getComponents(),3);
+			viewpointFile->write<Scalar>(forward.getComponents(),3);
 			
 			/* Write the environment's up direction in navigational coordinates: */
 			Vector up=getInverseNavigationTransformation().transform(getUpDirection());
-			viewpointFile.write<Scalar>(up.getComponents(),3);
+			viewpointFile->write<Scalar>(up.getComponents(),3);
+			
+			success=true;
 			}
-		catch(Misc::File::OpenError err)
+		catch(std::runtime_error)
 			{
-			/* Ignore errors if viewpoint file could not be created */
+			/* Ignore error here; will be handled */
 			}
+		
+		if(pipe!=0)
+			{
+			/* Send result notification to slaves: */
+			pipe->write<int>(success?1:0);
+			pipe->finishMessage();
+			}
+		}
+	else
+		{
+		/* Receive result notification from master: */
+		success=pipe->read<int>()!=0;
+		}
+	
+	if(!success)
+		{
+		/* Show an error message: */
+		showErrorMessage("Save Viewpoint","Could not write viewpoint file");
 		}
 	}
 
@@ -1424,6 +1456,11 @@ void setSoundFunction(SoundFunctionType soundFunction,void* userData)
 	vruiState->soundFunctionData=userData;
 	}
 
+Comm::MulticastPipeMultiplexer* getMulticastPipeMultiplexer(void)
+	{
+	return vruiState->multiplexer;
+	}
+
 bool isMaster(void)
 	{
 	return vruiState->master;
@@ -1453,7 +1490,7 @@ Comm::MulticastPipe* getMainPipe(void)
 Comm::MulticastPipe* openPipe(void)
 	{
 	if(vruiState->multiplexer!=0)
-		return vruiState->multiplexer->openPipe();
+		return new Comm::MulticastPipe(vruiState->multiplexer);
 	else
 		return 0;
 	}
@@ -1502,7 +1539,6 @@ InputDevice* addVirtualInputDevice(const char* name,int numButtons,int numValuat
 	{
 	InputDevice* newDevice=vruiState->inputDeviceManager->createInputDevice(name,InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT,numButtons,numValuators);
 	newDevice->setTransformation(TrackerState::translateFromOriginTo(vruiState->newInputDevicePosition));
-	newDevice->setDeviceRayDirection(Vector(0.0,1.0,0.0));
 	vruiState->inputGraphManager->getInputDeviceGlyph(newDevice).enable(Glyph::BOX,vruiState->widgetMaterial);
 	return newDevice;
 	}

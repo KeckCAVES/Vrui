@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3FileManager - Class to read files from sets of pk3/pk4 files and
 patch directories.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -76,27 +76,26 @@ Doom3FileManager::Doom3FileManager(const char* baseDirectory,const char* pakFile
 Doom3FileManager::~Doom3FileManager(void)
 	{
 	/* Delete all pak files: */
-	for(std::vector<Doom3PakFile*>::iterator pfIt=pakFiles.begin();pfIt!=pakFiles.end();++pfIt)
+	for(std::vector<PakFile*>::iterator pfIt=pakFiles.begin();pfIt!=pakFiles.end();++pfIt)
 		delete (*pfIt);
 	}
 
 void Doom3FileManager::addPakFile(const char* pakFileName)
 	{
 	/* Open a new pak archive and add it to the list: */
-	Doom3PakFile* pak=new Doom3PakFile(pakFileName);
+	PakFile* pak=new PakFile(pakFileName);
 	pakFiles.push_back(pak);
 	
 	/* Read the pak archive's directory and add all files to the pak file tree: */
-	Doom3PakFile::DirectoryIterator* dIt=pak->readDirectory();
-	while(dIt->isValid())
+	PakFile::DirectoryIterator dIt=pak->readDirectory();
+	while(dIt.isValid())
 		{
 		/* Insert the file into the directory structure: */
-		pakFileTree.insertLeaf(dIt->getFileName(),PakFileHandle(pak,dIt->getFileID()));
+		pakFileTree.insertLeaf(dIt.getFileName(),PakFileHandle(pak,dIt));
 		
 		/* Go to the next entry: */
-		pak->getNextDirectoryEntry(dIt);
+		pak->getNextEntry(dIt);
 		}
-	delete dIt;
 	}
 
 void Doom3FileManager::addPakFiles(const char* baseDirectory,const char* pakFilePrefix)
@@ -116,7 +115,7 @@ void Doom3FileManager::addPakFiles(const char* baseDirectory,const char* pakFile
 	free(pakFileList);
 	}
 
-unsigned char* Doom3FileManager::readFile(const char* fileName,size_t& fileSize)
+IO::File* Doom3FileManager::getFile(const char* fileName)
 	{
 	/* Search the file in the pak file tree: */
 	PakFileTree::LeafID leafId=pakFileTree.findLeaf(fileName);
@@ -127,7 +126,21 @@ unsigned char* Doom3FileManager::readFile(const char* fileName,size_t& fileSize)
 	const PakFileHandle& pfh=pakFileTree.getLeafValue(leafId);
 	
 	/* Read and return the file: */
-	return pfh.pakFile->readFile(pfh.fileID,fileSize);
+	return pfh.pakFile->openFile(pfh.fileID);
+	}
+
+IO::SeekableFile* Doom3FileManager::getSeekableFile(const char* fileName)
+	{
+	/* Search the file in the pak file tree: */
+	PakFileTree::LeafID leafId=pakFileTree.findLeaf(fileName);
+	if(!leafId.isValid())
+		throw ReadError(fileName);
+	
+	/* Get the file's pak file handle: */
+	const PakFileHandle& pfh=pakFileTree.getLeafValue(leafId);
+	
+	/* Read and return the file: */
+	return pfh.pakFile->openSeekableFile(pfh.fileID);
 	}
 
 }

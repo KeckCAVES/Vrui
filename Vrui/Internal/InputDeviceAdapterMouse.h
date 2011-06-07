@@ -39,7 +39,6 @@ namespace Misc {
 class ConfigurationFileSection;
 }
 namespace Vrui {
-class MouseCursorFaker;
 class VRWindow;
 }
 
@@ -95,7 +94,7 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	std::vector<std::pair<int,GLMotif::TextControlEvent> > textControlEvents; // List of text control events accumulated during frame processing in keyboard mode
 	VRWindow* window; // VR window containing the last reported mouse position
 	Scalar mousePos[2]; // Current mouse position in screen coordinates
-	MouseCursorFaker* mouseCursorFaker; // Pointer to object to render a fake mouse cursor
+	bool fakeMouseCursor; // Flag whether the adapter draws its own mouse cursor
 	
 	/* Private methods: */
 	static int getKeyCode(std::string keyName); // Returns the key code for the given named key
@@ -115,6 +114,10 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	virtual void updateInputDevices(void);
 	
 	/* New methods: */
+	bool needMouseCursor(void) const // Returns true if the input device adapter requires a hardware mouse cursor
+		{
+		return !fakeMouseCursor;
+		}
 	VRWindow* getWindow(void) const // Returns the window containing the last reported mouse position
 		{
 		return window;

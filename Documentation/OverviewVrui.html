@@ -13,10 +13,13 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DL>
 <DT>Geometry.h</DT>
-<DD>Geometry.h contains typedefs defining the low-level <A HREF="OverViewGeometry.html">geometry library types</A> used by the Vrui toolkit.</DD>
+<DD>Geometry.h contains typedefs defining the low-level <A HREF="OverviewGeometry.html">geometry library types</A> used by the Vrui toolkit.</DD>
 
 <DT>Vrui.h</DT>
 <DD>Vrui.h contains namespace-global functions to query or set all relevant parts of the internal Vrui state, and therefore defines the Vrui kernel API.</DD>
+
+<DT>OpenFile.h</DT>
+<DD>OpenFile.h declares convenience functions to open files in a cluster-transparent fashion.</DD>
 
 <DT>ClusterSupport.h</DT>
 <DD>ClusterSupport.h contains namespace-global functions to simplify developing cluster-aware Vrui applications.</DD>
@@ -86,12 +89,6 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DT>DisplayState.h</DT>
 <DD>Helper class to allow applications to query per-display Vrui rendering state from within a display method.</DD>
-
-<DT>alc.h</DT>
-<DD>Wrapper around OpenAL's alc.h include file, to shield client code from missing OpenAL libraries or different include file locations.</DD>
-
-<DT>al.h</DT>
-<DD>Wrapper around OpenAL's main al.h include file, to shield client code from missing OpenAL libraries or different include file locations.</DD>
 
 <DT>Listener.h</DT>
 <DD>Listener is a class representing listeners in VR environments. Listeners essentially consist of potentially headtracked ear positions and head orientations that are used to create 3D sound using OpenAL.</DD>

@@ -1,6 +1,6 @@
 /***********************************************************************
 GLColorMap - Class to map from scalar values to RGBA colors.
-Copyright (c) 1999-2005 Oliver Kreylos
+Copyright (c) 1999-2011 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -23,7 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Endianness.h>
-#include <Misc/File.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 
 #include <GL/GLColorMap.h>
 
@@ -184,8 +185,9 @@ GLColorMap& GLColorMap::load(const char* fileName)
 	setNumEntries(256);
 	
 	/* Load the color entries from file: */
-	Misc::File file(fileName,"rb",Misc::File::BigEndian);
-	file.read(entries,numEntries);
+	IO::AutoFile file(IO::openFile(fileName));
+	file->setEndianness(IO::File::BigEndian);
+	file->read(entries,numEntries);
 	
 	return *this;
 	}
@@ -205,8 +207,9 @@ void GLColorMap::save(const char* fileName) const
 		Misc::throwStdErr("GLColorMap::save: Attempt to save color map with wrong number of entries");
 	
 	/* Write color entries to file: */
-	Misc::File file(fileName,"wb",Misc::File::BigEndian);
-	file.write(entries,numEntries);
+	IO::AutoFile file(IO::openFile(fileName,IO::File::WriteOnly));
+	file->setEndianness(IO::File::BigEndian);
+	file->write(entries,numEntries);
 	}
 
 GLColorMap& GLColorMap::setScalarRange(GLdouble newMin,GLdouble newMax)

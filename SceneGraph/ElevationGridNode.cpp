@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -342,7 +342,7 @@ ElevationGridNode::ElevationGridNode(void)
 	 zDimension(0),zSpacing(0),
 	 heightIsY(true),
 	 ccw(true),solid(true),
-	 version(0)
+	 multiplexer(0),valid(false),indexed(false),version(0)
 	{
 	}
 
@@ -413,6 +413,13 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		/* Fully qualify all URLs: */
 		for(size_t i=0;i<heightUrl.getNumValues();++i)
 			heightUrl.setValue(i,vrmlFile.getFullUrl(heightUrl.getValue(i)));
+		
+		/* Store the VRML file's multicast pipe multiplexer: */
+		multiplexer=vrmlFile.getMultiplexer();
+		}
+	else if(strcmp(fieldName,"heightUrlFormat")==0)
+		{
+		vrmlFile.parseField(heightUrlFormat);
 		}
 	else if(strcmp(fieldName,"heightIsY")==0)
 		{
@@ -438,7 +445,7 @@ void ElevationGridNode::update(void)
 		try
 			{
 			/* Load the elevation grid's height values: */
-			loadElevationGrid(*this);
+			loadElevationGrid(*this,multiplexer);
 			}
 		catch(std::runtime_error err)
 			{

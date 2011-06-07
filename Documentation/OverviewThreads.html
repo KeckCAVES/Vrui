@@ -33,6 +33,9 @@ The Threads library provides a C++ wrapper around the pthreads library. It suppo
 <DT>RefCounted.h</DT>
 <DD>RefCounted is a thread-safe version of the Misc::RefCounted base class for reference counted objects to implement simple automatic garbage collection. It uses a mutex to serialize access to a reference counted object's counter.</DD>
 
+<DT>RefCountedArray</DT>
+<DD>RefCountedArray is a thread-safe verion of the Misc::RefCountedArray class representing shared C-style fixed-size arrays using a copy-on-write mechanism. It uses a mutex to serialize access to an array's reference counter.</DD>
+
 <DT>TripleBuffer.h</DT>
 <DD>TripleBuffer is a class implementing the triple buffer communications pattern, where a consumer can read the most recent in a stream of values produced by a producer, without requiring synchronization between the two entities.</DD>
 
@@ -41,6 +44,9 @@ The Threads library provides a C++ wrapper around the pthreads library. It suppo
 
 <DT>DropoutBuffer.h</DT>
 <DD>DropoutBuffer is a generalization of TripleBuffer: Instead of only retaining one most recent value to read, it retains up to a preset number of most recent values. Unlike TripleBuffer, it requires some synchronization between producer and consumer.</DD>
+
+<DT>GzippedFile</DT>
+<DD>GzippedFile is a concrete derived class of IO::File for high-performance read access to gzip-compressed files using background readahead and decompression.</DD>
 
 <DT>GzippedFileCharacterSource</DT>
 <DD>FileCharacterSource is a reader class derived from Misc::CharacterSource for gzip-compressed standard files. It uses a background thread for readahead and decompression.</DD>

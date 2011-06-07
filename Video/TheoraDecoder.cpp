@@ -42,6 +42,11 @@ TheoraDecoder::Setup::~Setup(void)
 Methods of class TheoraDecoder:
 ******************************/
 
+TheoraDecoder::TheoraDecoder(void)
+	:decoder(0),frameReady(false)
+	{
+	}
+
 TheoraDecoder::~TheoraDecoder(void)
 	{
 	if(decoder!=0)
@@ -68,6 +73,7 @@ void TheoraDecoder::init(const TheoraInfo& info,const TheoraDecoder::Setup& setu
 	if(decoder==0)
 		Misc::throwStdErr("Video::TheoraDecoder::init: Invalid decoding parameters");
 	
+	/* Reset the decoder's frame state: */
 	frameReady=false;
 	}
 
@@ -77,6 +83,7 @@ void TheoraDecoder::release(void)
 	if(decoder!=0)
 		th_decode_free(decoder);
 	decoder=0;
+	frameReady=false;
 	}
 
 int TheoraDecoder::control(int control,void* parameters,size_t parametersSize)
@@ -97,7 +104,11 @@ ogg_int64_t TheoraDecoder::processPacket(const TheoraPacket& packet)
 
 void TheoraDecoder::decodeFrame(TheoraFrame& frame)
 	{
+	/* Copy the decoded frame into the frame buffer: */
 	th_decode_ycbcr_out(decoder,frame.planes);
+	
+	/* Reset the ready flag: */
+	frameReady=false;
 	}
 
 }

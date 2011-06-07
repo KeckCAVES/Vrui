@@ -672,10 +672,8 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 	currentEnv.sound=0.0f;
 	
 	/* Read the material file and create a value source: */
-	size_t fileDataSize;
-	unsigned char* fileData=fileManager.readFile(fileName,fileDataSize);
-	Misc::BufferCharacterSource file(fileData,fileDataSize);
-	Doom3ValueSource source(file,fileName);
+	IO::File* file=fileManager.getFile(fileName);
+	Doom3ValueSource source(*file,fileName);
 	
 	/* Parse all material definitions in the file: */
 	while(!source.eof())
@@ -1702,7 +1700,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 			}
 		}
 	
-	delete[] fileData;
+	delete file;
 	}
 
 Doom3MaterialManager::RenderContext Doom3MaterialManager::start(GLContextData& contextData,bool useDefaultPipeline) const

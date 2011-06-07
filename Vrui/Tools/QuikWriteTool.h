@@ -1,7 +1,7 @@
 /***********************************************************************
 QuikWriteTool - Class for tools to enter text using the stroke-based
 QuikWrite user interface, developed by Ken Perlin.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -46,6 +46,8 @@ class QuikWriteToolFactory:public ToolFactory
 	Scalar initialSquareDist; // Distance from 6DOF input device at which to display the QuikWrite square
 	Color backgroundColor; // Background color for QuikWrite square
 	Color foregroundColor; // Foreground color for QuikWrite square
+	bool drawRay; // Flag whether to render the interaction ray while the tool is active
+	Color rayColor; // Color for interaction ray
 	
 	/* Constructors and destructors: */
 	public:
@@ -95,6 +97,7 @@ class QuikWriteTool:public UserInterfaceTool,public GLObject
 	
 	/* Transient state: */
 	bool active; // Flag whether the tool is currently active
+	Ray ray; // The current interaction ray while the tool is active
 	ONTransform squareTransform; // Position and orientation of QuikWrite square in physical space while active
 	Plane squarePlane; // Plane containing the QuikWrite square in physical space
 	bool haveLeftRest; // Flag if the device ever left the QuikWrite square's rest zone

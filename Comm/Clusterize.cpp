@@ -94,17 +94,16 @@ MulticastPipeMultiplexer* clusterize(int& argc,char**& argv)
 			/* Wait until the entire cluster is connected: */
 			result->waitForConnection();
 			
-			/* Open a multicast pipe: */
-			MulticastPipe* argPipe=result->openPipe();
-			
-			/* Read the application's command line: */
-			slaveArgc=argPipe->read<int>();
+			{
+			/* Read the application's command line via a multicast pipe: */
+			MulticastPipe argPipe(result);
+			slaveArgc=argPipe.read<int>();
 			slaveArgv=new char*[slaveArgc+1];
 			for(int i=0;i<=slaveArgc;++i)
 				slaveArgv[i]=0;
 			for(int i=0;i<slaveArgc;++i)
-				slaveArgv[i]=Misc::readCString(*argPipe);
-			delete argPipe;
+				slaveArgv[i]=Misc::readCString(argPipe);
+			}
 			
 			/* Override the actual command line provided by the caller: */
 			argc=slaveArgc;
@@ -257,17 +256,14 @@ MulticastPipeMultiplexer* clusterize(int& argc,char**& argv)
 				/* Wait until the entire cluster is connected: */
 				result->waitForConnection();
 				
-				/* Open a multicast pipe: */
-				MulticastPipe* argPipe=result->openPipe();
-				
-				/* Write the application's command line: */
-				argPipe->write<int>(argc);
+				{
+				/* Write the application's command line to a multicast pipe: */
+				MulticastPipe argPipe(result);
+				argPipe.write<int>(argc);
 				for(int i=0;i<argc;++i)
-					Misc::writeCString(argv[i],*argPipe);
-				
-				/* Flush the pipe: */
-				argPipe->finishMessage();
-				delete argPipe;
+					Misc::writeCString(argv[i],argPipe);
+				argPipe.finishMessage();
+				}
 				}
 			catch(std::runtime_error error)
 				{

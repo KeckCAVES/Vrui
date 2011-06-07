@@ -1,7 +1,7 @@
 /***********************************************************************
 ArcInfoExportFileNode - Class to represent an ARC/INFO export file as a
 collection of line sets, point sets, and face sets.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,8 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ArcInfoExportFileNode.h>
 
 #include <string.h>
-#include <Misc/FileCharacterSource.h>
-#include <Misc/ValueSource.h>
+#include <IO/ValueSource.h>
+#include <Comm/OpenFile.h>
 #include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/ShapeNode.h>
@@ -40,7 +40,7 @@ namespace {
 Helper functions:
 ****************/
 
-bool readBlockHeader(Misc::ValueSource& exportFile,int values[7])
+bool readBlockHeader(IO::ValueSource& exportFile,int values[7])
 	{
 	int numValues=0;
 	try
@@ -51,7 +51,7 @@ bool readBlockHeader(Misc::ValueSource& exportFile,int values[7])
 			++numValues;
 			}
 		}
-	catch(Misc::ValueSource::NumberError err)
+	catch(IO::ValueSource::NumberError err)
 		{
 		/* Ignore the error: */
 		}
@@ -67,6 +67,7 @@ Methods of class ArcInfoExportFileNode:
 **************************************/
 
 ArcInfoExportFileNode::ArcInfoExportFileNode(void)
+	:multiplexer(0)
 	{
 	}
 
@@ -85,6 +86,12 @@ void ArcInfoExportFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	if(strcmp(fieldName,"url")==0)
 		{
 		vrmlFile.parseField(url);
+		
+		/* Fully qualify all URLs: */
+		for(size_t i=0;i<url.getNumValues();++i)
+			url.setValue(i,vrmlFile.getFullUrl(url.getValue(i)));
+		
+		multiplexer=vrmlFile.getMultiplexer();
 		}
 	else
 		GroupNode::parseField(fieldName,vrmlFile);
@@ -113,8 +120,8 @@ void ArcInfoExportFileNode::update(void)
 		return;
 	
 	/* Open the ARC/INFO export file: */
-	Misc::FileCharacterSource exportFileSource(url.getValue(0).c_str());
-	Misc::ValueSource exportFile(exportFileSource);
+	IO::AutoFile exportFileSource(Comm::openFile(multiplexer,url.getValue(0).c_str()));
+	IO::ValueSource exportFile(*exportFileSource);
 	
 	/* Check the file's format: */
 	if(exportFile.readString()!="EXP"||exportFile.readInteger()!=0)

@@ -49,7 +49,7 @@ class GLString
 	/* Constructors and destructors: */
 	public:
 	GLString(void) // Dummy constructor
-		:string(0)
+		:length(0),string(0)
 		{
 		}
 	GLString(const char* sString,const GLFont& font); // Creates string from C-style string and associates it with the given font

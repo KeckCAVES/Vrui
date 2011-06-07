@@ -2,7 +2,7 @@
 SoundPlayer - Simple class to play sound from a sound file on the local
 file system to a playback device. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -28,7 +28,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Threads/MutexCond.h>
 #if SOUND_CONFIG_HAVE_ALSA
-#include <Misc/File.h>
 #include <Threads/Thread.h>
 #endif
 #ifdef __APPLE__
@@ -42,6 +41,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Sound/Linux/ALSAPCMDevice.h>
 #endif
 #include <Sound/SoundDataFormat.h>
+
+/* Forward declarations: */
+#if SOUND_CONFIG_HAVE_ALSA
+namespace IO {
+class SeekableFile;
+}
+#endif
 
 namespace Sound {
 
@@ -60,7 +66,7 @@ class SoundPlayer
 	SInt64 numPlayedPackets; // Total number of packets read from the output file
 	#else
 	#if SOUND_CONFIG_HAVE_ALSA
-	Misc::File inputFile; // File from which to read the sound data
+	IO::SeekableFile* inputFile; // File from which to read the sound data
 	#endif
 	SoundDataFormat format; // Format of the sound data in the input file
 	#if SOUND_CONFIG_HAVE_ALSA

@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Sound/SoundRecorder.h>
 
+#include <Misc/FileNameExtensions.h>
+#include <IO/OpenFile.h>
 #include <Sound/Config.h>
 
 #ifdef __APPLE__
@@ -35,8 +37,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifdef __APPLE__
 #include <CoreFoundation/CFURL.h>
 #endif
-
-#include <Misc/FileNameExtensions.h>
 
 namespace Sound {
 
@@ -86,10 +86,7 @@ void SoundRecorder::handleInputBuffer(AudioQueueRef inAQ,AudioQueueBufferRef inB
 		AudioQueueEnqueueBuffer(queue,inBuffer,0,0);
 	}
 
-SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName)
-	:bufferSize(0),
-	 numRecordedPackets(0),
-	 active(false)
+void SoundRecorder::init(const char* audioSource,const SoundDataFormat& sFormat,const char* outputFileName)
 	{
 	/* Store and sanify the sound data format: */
 	format.mSampleRate=double(sFormat.framesPerSecond);
@@ -103,13 +100,10 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 	
 	/* Determine the output file format from the file name extension: */
 	AudioFileTypeID audioFileType=kAudioFileWAVEType; // Not really a default; just to make compiler happy
-	const char* extPtr=0;
-	for(const char* ofnPtr=outputFileName;*ofnPtr!='\0';++ofnPtr)
-		if(*ofnPtr=='.')
-			extPtr=ofnPtr;
-	if(extPtr!=0)
+	const char* ext=Misc::getExtension(outputFileName);
+	if(ext!=0)
 		{
-		if(strcasecmp(extPtr,".wav")==0)
+		if(strcasecmp(ext,".wav")==0)
 			{
 			/* Adjust the sound data format for WAV files: */
 			audioFileType=kAudioFileWAVEType;
@@ -117,7 +111,7 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 			if(format.mBitsPerChannel>8)
 				format.mFormatFlags|=kLinearPCMFormatFlagIsSignedInteger;
 			}
-		else if(strcasecmp(extPtr,".aiff")==0)
+		else if(strcasecmp(ext,".aiff")==0)
 			{
 			/* Adjust the sound data format for AIFF files: */
 			audioFileType=kAudioFileAIFFType;
@@ -192,6 +186,24 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 			Misc::throwStdErr("SoundRecorder::SoundRecorder: Error while enqueuing sample buffer %d",i);
 			}
 		}
+	}
+
+SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName)
+	:bufferSize(0),
+	 numRecordedPackets(0),
+	 active(false)
+	{
+	/* Initialize the sound recorder: */
+	init(0,sFormat,outputFileName);
+	}
+
+SoundRecorder::SoundRecorder(const char* audioSource,const SoundDataFormat& sFormat,const char* outputFileName)
+	:bufferSize(0),
+	 numRecordedPackets(0),
+	 active(false)
+	{
+	/* Initialize the sound recorder: */
+	init(audioSource,sFormat,outputFileName);
 	}
 
 SoundRecorder::~SoundRecorder(void)
@@ -269,7 +281,7 @@ OS-independent version of SoundRecorder:
 void SoundRecorder::writeWAVHeader(void)
 	{
 	/* Rewind the file: */
-	outputFile.rewind();
+	outputFile->setWritePosAbs(0);
 	
 	/* Calculate the total file size: */
 	size_t dataChunkSize=numRecordedFrames*size_t(format.samplesPerFrame)*size_t(format.bytesPerSample);
@@ -279,23 +291,23 @@ void SoundRecorder::writeWAVHeader(void)
 	size_t riffChunkSize=sizeof(int)+fmtHeaderSize+fmtChunkSize+dataHeaderSize+dataChunkSize;
 	
 	/* Write the RIFF chunk: */
-	outputFile.write<char>("RIFF",4);
-	outputFile.write<unsigned int>(riffChunkSize);
-	outputFile.write<char>("WAVE",4);
+	outputFile->write<char>("RIFF",4);
+	outputFile->write<unsigned int>(riffChunkSize);
+	outputFile->write<char>("WAVE",4);
 	
 	/* Write the fmt chunk: */
-	outputFile.write<char>("fmt ",4);
-	outputFile.write<unsigned int>(fmtChunkSize);
-	outputFile.write<unsigned short>(1); // PCM
-	outputFile.write<unsigned short>(format.samplesPerFrame);
-	outputFile.write<unsigned int>(format.framesPerSecond);
-	outputFile.write<unsigned int>(format.framesPerSecond*format.samplesPerFrame*format.bytesPerSample);
-	outputFile.write<unsigned short>(format.samplesPerFrame*format.bytesPerSample);
-	outputFile.write<unsigned short>(format.bitsPerSample);
+	outputFile->write<char>("fmt ",4);
+	outputFile->write<unsigned int>(fmtChunkSize);
+	outputFile->write<unsigned short>(1); // PCM
+	outputFile->write<unsigned short>(format.samplesPerFrame);
+	outputFile->write<unsigned int>(format.framesPerSecond);
+	outputFile->write<unsigned int>(format.framesPerSecond*format.samplesPerFrame*format.bytesPerSample);
+	outputFile->write<unsigned short>(format.samplesPerFrame*format.bytesPerSample);
+	outputFile->write<unsigned short>(format.bitsPerSample);
 	
 	/* Write the data chunk header: */
-	outputFile.write<char>("data",4);
-	outputFile.write<unsigned int>(dataChunkSize);
+	outputFile->write<char>("data",4);
+	outputFile->write<unsigned int>(dataChunkSize);
 	}
 
 void* SoundRecorder::recordingThreadMethod(void)
@@ -310,7 +322,7 @@ void* SoundRecorder::recordingThreadMethod(void)
 		size_t numFramesRead=pcmDevice.read(sampleBuffer,sampleBufferSize);
 		
 		/* Write the buffer to the file: */
-		outputFile.write(sampleBuffer,numFramesRead*bytesPerFrame);
+		outputFile->write(sampleBuffer,numFramesRead*bytesPerFrame);
 		numRecordedFrames+=numFramesRead;
 		}
 	
@@ -319,17 +331,7 @@ void* SoundRecorder::recordingThreadMethod(void)
 
 #endif
 
-SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName)
-	:format(sFormat),
-	#if SOUND_CONFIG_HAVE_ALSA
-	 outputFileFormat(RAW),
-	 bytesPerFrame(0),
-	 pcmDevice("default",true),
-	 outputFile(outputFileName,"wb",Misc::File::DontCare),
-	 sampleBufferSize(0),sampleBuffer(0),
-	 numRecordedFrames(0),
-	#endif
-	 active(false)
+void SoundRecorder::init(const char* audioSource,const SoundDataFormat& sFormat,const char* outputFileName)
 	{
 	#if SOUND_CONFIG_HAVE_ALSA
 	
@@ -353,7 +355,7 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 		/* Adjust the sound data format for WAV files: */
 		format.signedSamples=format.bitsPerSample>8;
 		format.sampleEndianness=SoundDataFormat::LittleEndian;
-		outputFile.setEndianness(Misc::File::LittleEndian);
+		outputFile->setEndianness(IO::File::LittleEndian);
 		}
 	else if(Misc::hasCaseExtension(outputFileName,""))
 		{
@@ -379,6 +381,38 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 	#endif
 	}
 
+SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName)
+	:format(sFormat),
+	#if SOUND_CONFIG_HAVE_ALSA
+	 outputFileFormat(RAW),
+	 bytesPerFrame(0),
+	 pcmDevice("default",true),
+	 outputFile(IO::openSeekableFile(outputFileName,IO::File::WriteOnly)),
+	 sampleBufferSize(0),sampleBuffer(0),
+	 numRecordedFrames(0),
+	#endif
+	 active(false)
+	{
+	/* Initialize the sound recorder: */
+	init("default",sFormat,outputFileName);
+	}
+
+SoundRecorder::SoundRecorder(const char* audioSource,const SoundDataFormat& sFormat,const char* outputFileName)
+	:format(sFormat),
+	#if SOUND_CONFIG_HAVE_ALSA
+	 outputFileFormat(RAW),
+	 bytesPerFrame(0),
+	 pcmDevice(audioSource,true),
+	 outputFile(IO::openSeekableFile(outputFileName,IO::File::WriteOnly)),
+	 sampleBufferSize(0),sampleBuffer(0),
+	 numRecordedFrames(0),
+	#endif
+	 active(false)
+	{
+	/* Initialize the sound recorder: */
+	init(audioSource,sFormat,outputFileName);
+	}
+
 SoundRecorder::~SoundRecorder(void)
 	{
 	#if SOUND_CONFIG_HAVE_ALSA
@@ -396,6 +430,9 @@ SoundRecorder::~SoundRecorder(void)
 		if(outputFileFormat==WAV)
 			writeWAVHeader();
 		}
+	
+	/* Close the output file: */
+	delete outputFile;
 	
 	/* Delete the sample buffer: */
 	delete[] sampleBuffer;

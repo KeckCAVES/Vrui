@@ -19,7 +19,7 @@
 ########################################################################
 
 # Set the Vrui installation directory:
-VRUIDIR = $(HOME)/Vrui-2.0
+VRUIDIR = $(HOME)/Vrui-2.1
 
 # Set up additional flags for the C++ compiler:
 CFLAGS = 
@@ -47,6 +47,7 @@ clean:
 
 # Build the mesh editor program:
 VRMeshEditor: PolygonMesh.cpp \
+              PlyFileStructures.cpp \
               MeshGenerators.cpp \
               CatmullClark.cpp \
               AutoTriangleMesh.cpp \

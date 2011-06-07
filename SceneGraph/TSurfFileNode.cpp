@@ -1,6 +1,6 @@
 /***********************************************************************
 TSurfFileNode - Class for triangle meshes read from GoCAD TSurf files.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -23,8 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/ValueSource.h>
-#include <Threads/GzippedFileCharacterSource.h>
+#include <IO/ValueSource.h>
+#include <Comm/OpenFile.h>
 #include <Geometry/Box.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -71,7 +71,7 @@ Methods of class TSurfFileNode:
 ******************************/
 
 TSurfFileNode::TSurfFileNode(void)
-	:version(0)
+	:multiplexer(0),version(0)
 	{
 	}
 
@@ -90,6 +90,12 @@ void TSurfFileNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 	if(strcmp(fieldName,"url")==0)
 		{
 		vrmlFile.parseField(url);
+		
+		/* Fully qualify all URLs: */
+		for(size_t i=0;i<url.getNumValues();++i)
+			url.setValue(i,vrmlFile.getFullUrl(url.getValue(i)));
+		
+		multiplexer=vrmlFile.getMultiplexer();
 		}
 	else
 		GeometryNode::parseField(fieldName,vrmlFile);
@@ -100,9 +106,13 @@ void TSurfFileNode::update(void)
 	vertices.clear();
 	indices.clear();
 	
+	/* Do nothing if there is no export file name: */
+	if(url.getNumValues()==0)
+		return;
+	
 	/* Read the TSurf file: */
-	Threads::GzippedFileCharacterSource tSurfFile(url.getValue(0).c_str());
-	Misc::ValueSource tSurf(tSurfFile);
+	IO::AutoFile tSurfFile(Comm::openFile(multiplexer,url.getValue(0).c_str()));
+	IO::ValueSource tSurf(*tSurfFile);
 	tSurf.setPunctuation("{}");
 	tSurf.skipWs();
 	

@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -27,7 +27,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Sound/Config.h>
 
 #if SOUND_CONFIG_HAVE_ALSA
-#include <Misc/File.h>
 #include <Threads/Thread.h>
 #endif
 #ifdef __APPLE__
@@ -39,6 +38,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Sound/SoundDataFormat.h>
 #if SOUND_CONFIG_HAVE_ALSA
 #include <Sound/Linux/ALSAPCMDevice.h>
+#endif
+
+/* Forward declarations: */
+#if SOUND_CONFIG_HAVE_ALSA
+namespace IO {
+class SeekableFile;
+}
 #endif
 
 namespace Sound {
@@ -69,7 +75,7 @@ class SoundRecorder
 	AudioFileFormat outputFileFormat; // Format of the output file
 	size_t bytesPerFrame; // Number of bytes per frame of sound data
 	ALSAPCMDevice pcmDevice; // The ALSA PCM device used for recording
-	Misc::File outputFile; // File to which to write the sound data
+	IO::SeekableFile* outputFile; // File to which to write the sound data
 	size_t sampleBufferSize; // Size of the sample buffer in frames
 	char* sampleBuffer; // A buffer to read sound data from the PCM device
 	size_t numRecordedFrames; // Total number of frames written to the output file
@@ -95,10 +101,12 @@ class SoundRecorder
 		}
 	void handleInputBuffer(AudioQueueRef inAQ,AudioQueueBufferRef inBuffer,const AudioTimeStamp* inStartTime,UInt32 inNumPackets,const AudioStreamPacketDescription* inPacketDesc);
 	#endif
+	void init(const char* audioSource,const SoundDataFormat& sFormat,const char* outputFileName); // Method doing the actual initialization work
 	
 	/* Constructors and destructors: */
 	public:
-	SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName); // Creates a sound recorder for the given data format and output file name
+	SoundRecorder(const SoundDataFormat& sFormat,const char* outputFileName); // Creates a sound recorder for the given data format and output file name using a default audio source
+	SoundRecorder(const char* audioSource,const SoundDataFormat& sFormat,const char* outputFileName); // Creates a sound recorder for the given data format and output file name using the given audio source
 	private:
 	SoundRecorder(const SoundRecorder& source); // Prohibit copy constructor
 	SoundRecorder& operator=(const SoundRecorder& source); // Prohibit assignment operator

@@ -34,7 +34,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Misc/FunctionCalls.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
-#include <Misc/FileCharacterSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Geoid.h>
@@ -77,6 +76,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #endif
 #include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/OpenFile.h>
 #include <Vrui/Application.h>
 
 #include "EarthFunctions.h"
@@ -823,7 +823,7 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 				case EARTHQUAKESETFILE:
 					{
 					/* Load an earthquake set: */
-					EarthquakeSet* earthquakeSet=new EarthquakeSet(argv[i],1.0e-3);
+					EarthquakeSet* earthquakeSet=new EarthquakeSet(argv[i],Vrui::getMulticastPipeMultiplexer(),1.0e-3);
 					earthquakeSets.push_back(earthquakeSet);
 					showEarthquakeSets.push_back(false);
 					break;
@@ -858,8 +858,8 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 					/* Load the VRML file: */
 					try
 						{
-						Misc::FileCharacterSource inputFile(argv[i]);
-						SceneGraph::VRMLFile vrmlFile(argv[i],inputFile,*sceneGraphNodeCreator);
+						IO::AutoFile inputFile(Vrui::openFile(argv[i]));
+						SceneGraph::VRMLFile vrmlFile(argv[i],*inputFile,*sceneGraphNodeCreator,Vrui::getMulticastPipeMultiplexer());
 						vrmlFile.parse(root);
 						root->update();
 						

@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2010 Oliver Kreylos
+# Copyright (c) 1998-2011 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -40,7 +40,7 @@ include $(VRUIPACKAGEROOT)/BuildRoot/Packages
 # installation directory.
 ########################################################################
 
-INSTALLDIR = $(HOME)/Vrui-2.0
+INSTALLDIR = $(HOME)/Vrui-2.1
 
 ########################################################################
 # Some settings that might need adjustment. In general, do not bother
@@ -188,9 +188,9 @@ endif
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2000003
+VRUI_VERSION = 2001001
 MAJORLIBVERSION = 2
-MINORLIBVERSION = 0
+MINORLIBVERSION = 1
 VRUI_NAME = Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Specify default optimization/debug level
@@ -269,6 +269,7 @@ EXECUTABLES =
 #
 
 LIBRARY_NAMES = libMisc \
+                libIO \
                 libPlugins \
                 libRealtime \
                 libThreads \
@@ -321,22 +322,12 @@ EXECUTABLES += $(EXEDIR)/VRDeviceDaemon
 # The VR device driver plug-ins:
 #
 
-VRDEVICES_SOURCES = VRDeviceDaemon/VRDevices/AscensionFlockOfBirds.cpp \
-                    VRDeviceDaemon/VRDevices/PolhemusFastrak.cpp \
-                    VRDeviceDaemon/VRDevices/InterSense.cpp \
-                    VRDeviceDaemon/VRDevices/FakespacePinchGlove.cpp \
-                    VRDeviceDaemon/VRDevices/ArtDTrack.cpp \
-                    VRDeviceDaemon/VRDevices/ViconTarsus.cpp \
-                    VRDeviceDaemon/VRDevices/ViconTarsusRaw.cpp \
-                    VRDeviceDaemon/VRDevices/PCTracker.cpp \
-                    VRDeviceDaemon/VRDevices/PCWand.cpp \
-                    VRDeviceDaemon/VRDevices/MouseButtons.cpp \
-                    VRDeviceDaemon/VRDevices/SpaceBallRaw.cpp \
-                    VRDeviceDaemon/VRDevices/SpaceBall.cpp \
-                    VRDeviceDaemon/VRDevices/HIDDevice.cpp \
-                    VRDeviceDaemon/VRDevices/VRPNClient.cpp \
-                    VRDeviceDaemon/VRDevices/RemoteDevice.cpp \
-                    VRDeviceDaemon/VRDevices/DummyDevice.cpp
+VRDEVICES_IGNORE_SOURCES = VRDeviceDaemon/VRDevices/Joystick.cpp \
+                           VRDeviceDaemon/VRDevices/VRPNConnection.cpp \
+                           VRDeviceDaemon/VRDevices/Wiimote.cpp \
+                           VRDeviceDaemon/VRDevices/WiimoteTracker.cpp
+
+VRDEVICES_SOURCES = $(filter-out $(VRDEVICES_IGNORE_SOURCES),$(wildcard VRDeviceDaemon/VRDevices/*.cpp))
 ifneq ($(VRDEVICES_USE_INPUT_ABSTRACTION),0)
   VRDEVICES_SOURCES += VRDeviceDaemon/VRDevices/Joystick.cpp
 endif
@@ -353,8 +344,7 @@ PLUGINS += $(VRDEVICES)
 # The VR tracker calibrator plug-ins:
 #
 
-VRCALIBRATORS_SOURCES = VRDeviceDaemon/VRCalibrators/TransformCalibrator.cpp \
-                        VRDeviceDaemon/VRCalibrators/GridCalibrator.cpp
+VRCALIBRATORS_SOURCES = $(wildcard VRDeviceDaemon/VRCalibrators/*.cpp)
 
 VRCALIBRATORSDIREXT = VRCalibrators
 VRCALIBRATORSDIR = $(LIBDESTDIR)/$(VRCALIBRATORSDIREXT)
@@ -477,6 +467,24 @@ $(call LIBRARYNAME,libMisc): $(call DEPENDENCIES,MYMISC)
 $(call LIBRARYNAME,libMisc): $(MISC_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libMisc
 libMisc: $(call LIBRARYNAME,libMisc)
+
+#
+# The I/O Support Library (IO)
+#
+
+IO_HEADERS = $(wildcard IO/*.h) \
+             $(wildcard IO/*.icpp)
+
+IO_SOURCES = $(wildcard IO/*.cpp)
+
+$(IO_SOURCES): config
+
+$(call LIBRARYNAME,libIO): PACKAGES += $(MYIO_DEPENDS)
+$(call LIBRARYNAME,libIO): EXTRACINCLUDEFLAGS += $(MYIO_INCLUDE)
+$(call LIBRARYNAME,libIO): $(call DEPENDENCIES,MYIO)
+$(call LIBRARYNAME,libIO): $(IO_SOURCES:%.cpp=$(OBJDIR)/%.o)
+.PHONY: libIO
+libIO: $(call LIBRARYNAME,libIO)
 
 #
 # The Plugin Handling Library (Plugins):
@@ -944,6 +952,7 @@ VIDEO_HEADERS = Video/Config.h \
                 Video/Colorspaces.h \
                 Video/ImageExtractorRGB8.h \
                 Video/ImageExtractorYUYV.h \
+                Video/BayerPattern.h \
                 Video/ImageExtractorBA81.h \
                 Video/YpCbCr420Texture.h \
                 Video/VideoPane.h
@@ -1090,14 +1099,18 @@ endif
 VRUI_HEADERS = $(wildcard Vrui/*.h) \
                $(wildcard Vrui/*.icpp)
 
+VRUI_IGNORE_SOURCES = Vrui/Internal/InputDeviceDock.cpp \
+                      Vrui/Internal/TheoraMovieSaver.cpp \
+                      Vrui/Internal/KinectRecorder.cpp \
+                      Vrui/Internal/KinectPlayback.cpp
+
 VRUI_SOURCES = $(wildcard Vrui/*.cpp) \
-               $(filter-out Vrui/Internal/TheoraMovieSaver.cpp,$(wildcard Vrui/Internal/*.cpp)) \
+               $(filter-out $(VRUI_IGNORE_SOURCES),$(wildcard Vrui/Internal/*.cpp)) \
                $(wildcard Vrui/Internal/$(OSSPECFILEINSERT)/*.cpp)
 ifneq ($(SYSTEM_HAVE_THEORA),0)
   VRUI_SOURCES += Vrui/Internal/TheoraMovieSaver.cpp
 endif
 
-$(OBJDIR)/Vrui/Internal/InputDeviceAdapterMouse.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 ifneq ($(HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS),0)
   $(OBJDIR)/Vrui/Internal/Linux/InputDeviceAdapterHID.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
 endif
@@ -1108,6 +1121,7 @@ $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DAUTOSTEREODIRECTORY='"$(SHAREINSTALLDIR)/
 ifneq ($(VRUI_VRWINDOW_USE_SWAPGROUPS),0)
   $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DVRWINDOW_USE_SWAPGROUPS
 endif
+$(OBJDIR)/Vrui/Internal/Vrui.General.o: CFLAGS += -DDEFAULTGLYPHRENDERERCURSORFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
 $(OBJDIR)/Vrui/Internal/Vrui.Workbench.o: CFLAGS += -DSYSVRUICONFIGFILE='"$(ETCINSTALLDIR)/Vrui.cfg"' -DVRUIDEFAULTROOTSECTIONNAME='"Desktop"'
 
 $(VRUI_SOURCES): config
@@ -1228,7 +1242,7 @@ $(OBJDIR)/VRDeviceDaemon/VRDeviceDaemon.o: CFLAGS += -DSYSVRDEVICEDAEMONCONFIGFI
 
 $(VRDEVICEDAEMON_SOURCES): config
 
-$(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC DL
+$(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYIO MYMISC DL
 $(EXEDIR)/VRDeviceDaemon: EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(EXEDIR)/VRDeviceDaemon: CFLAGS += -DVERBOSE -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
 $(EXEDIR)/VRDeviceDaemon: LINKFLAGS += $(PLUGINHOSTLINKFLAGS)
@@ -1270,6 +1284,7 @@ else
 endif
 
 $(VRDEVICES_SOURCES): config
+VRDeviceDaemon/VRDevices/VRPNConnection.cpp VRDeviceDaemon/VRDevices/Wiimote.cpp: config
 
 # Mark all VR device driver object files as intermediate:
 .SECONDARY: $(VRDEVICES_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1461,6 +1476,8 @@ install:
 	@echo Installing header files...
 	@install -d $(HEADERINSTALLDIR)/Misc
 	@install -m u=rw,go=r $(MISC_HEADERS) $(HEADERINSTALLDIR)/Misc
+	@install -d $(HEADERINSTALLDIR)/IO
+	@install -m u=rw,go=r $(IO_HEADERS) $(HEADERINSTALLDIR)/IO
 	@install -d $(HEADERINSTALLDIR)/Plugins
 	@install -m u=rw,go=r $(PLUGINS_HEADERS) $(HEADERINSTALLDIR)/Plugins
 	@install -d $(HEADERINSTALLDIR)/Realtime

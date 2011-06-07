@@ -24,10 +24,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/File.h>
-#include <Misc/ValueSource.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Comm/ClusterFileCharacterSource.h>
+#include <IO/ValueSource.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -40,6 +39,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Label.h>
 #include <GLMotif/TextField.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/OpenFile.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
 
@@ -394,8 +394,8 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 	try
 		{
 		/* Open the curve file: */
-		Comm::ClusterFileCharacterSource curvesFile(cbData->selectedFileName.c_str(),openPipe());
-		Misc::ValueSource curvesSource(curvesFile);
+		IO::AutoFile curvesFile(Vrui::openFile(cbData->selectedFileName.c_str()));
+		IO::ValueSource curvesSource(*curvesFile);
 		curvesSource.setPunctuation(',',true);
 		
 		/* Read the curve file header: */

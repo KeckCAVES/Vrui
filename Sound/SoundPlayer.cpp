@@ -2,7 +2,7 @@
 SoundPlayer - Simple class to play sound from a sound file on the local
 file system to a playback device. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -32,11 +32,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <iostream>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/FileNameExtensions.h>
+#include <IO/SeekableFile.h>
+#include <IO/OpenFile.h>
 #ifdef __APPLE__
 #include <CoreFoundation/CFURL.h>
 #endif
 
-#include <Misc/FileNameExtensions.h>
 
 namespace Sound {
 
@@ -288,39 +290,39 @@ Non-OS-specific version of SoundPlayer:
 bool SoundPlayer::readWAVHeader(void)
 	{
 	/* Rewind the file: */
-	inputFile.rewind();
+	inputFile->setReadPosAbs(0);
 	
 	/* Read the RIFF chunk: */
 	char riffTag[4];
-	inputFile.read<char>(riffTag,4);
+	inputFile->read<char>(riffTag,4);
 	if(strncmp(riffTag,"RIFF",4)!=0)
 		return false;
-	inputFile.read<unsigned int>(); // Skip RIFF chunk size
+	inputFile->skip<unsigned int>(1); // Skip RIFF chunk size
 	char waveTag[4];
-	inputFile.read<char>(waveTag,4);
+	inputFile->read<char>(waveTag,4);
 	if(strncmp(waveTag,"WAVE",4)!=0)
 		return false;
 	
 	/* Read the format chunk: */
 	char fmtTag[4];
-	inputFile.read<char>(fmtTag,4);
+	inputFile->read<char>(fmtTag,4);
 	if(strncmp(fmtTag,"fmt ",4)!=0)
 		return false;
-	size_t fmtChunkSize=inputFile.read<unsigned int>();
+	size_t fmtChunkSize=inputFile->read<unsigned int>();
 	if(fmtChunkSize<2*sizeof(int)+4*sizeof(short int))
 		return false;
-	if(inputFile.read<unsigned short>()!=1) // Can only do linear PCM samples for now
+	if(inputFile->read<unsigned short>()!=1) // Can only do linear PCM samples for now
 		return false;
-	format.samplesPerFrame=int(inputFile.read<unsigned short>());
-	format.framesPerSecond=int(inputFile.read<unsigned int>());
-	size_t bytesPerSecond=inputFile.read<unsigned int>();
-	size_t bytesPerFrame=inputFile.read<unsigned short>();
-	format.bitsPerSample=int(inputFile.read<unsigned short>());
+	format.samplesPerFrame=int(inputFile->read<unsigned short>());
+	format.framesPerSecond=int(inputFile->read<unsigned int>());
+	size_t bytesPerSecond=inputFile->read<unsigned int>();
+	size_t bytesPerFrame=inputFile->read<unsigned short>();
+	format.bitsPerSample=int(inputFile->read<unsigned short>());
 	
 	/* Skip any unused data in the format chunk: */
 	fmtChunkSize=(fmtChunkSize+1)&~0x1; // Pad to the next two-byte boundary
 	if(fmtChunkSize>2*sizeof(int)+4*sizeof(short int))
-		inputFile.seekCurrent(fmtChunkSize-(2*sizeof(int)+4*sizeof(short int)));
+		inputFile->skip<unsigned char>(fmtChunkSize-(2*sizeof(int)+4*sizeof(short int)));
 	
 	/* Check if the WAV file's sound data format is compatible and fill in missing data: */
 	if(format.bitsPerSample<8||format.bitsPerSample>32||(format.bitsPerSample&0x7)!=0)
@@ -342,20 +344,25 @@ bool SoundPlayer::readWAVHeader(void)
 	while(true)
 		{
 		/* Read the chunk's header: */
-		char tag[4];
-		if(inputFile.read<char>(tag,4)<4)
+		try
+			{
+			char tag[4];
+			inputFile->read<char>(tag,4);
+			unsigned int chunkSize=inputFile->read<unsigned int>();
+			
+			/* Stop if it's a data chunk: */
+			if(strncmp(tag,"data",4)==0)
+				break;
+			
+			/* Skip the chunk: */
+			chunkSize=(chunkSize+1)&~0x1; // Pad to two-byte boundary
+			inputFile->skip<unsigned char>(chunkSize);
+			}
+		catch(IO::File::ReadError)
+			{
+			/* Signal error to caller: */
 			return false;
-		unsigned int chunkSize;
-		if(inputFile.read<unsigned int>(&chunkSize,1)<1)
-			return false;
-		
-		/* Stop if it's a data chunk: */
-		if(strncmp(tag,"data",4)==0)
-			break;
-		
-		/* Skip the chunk: */
-		chunkSize=(chunkSize+1)&~0x1; // Pad to two-byte boundary
-		inputFile.seekCurrent(chunkSize);
+			}
 		}
 	
 	return true;
@@ -367,10 +374,10 @@ void* SoundPlayer::playingThreadMethod(void)
 	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Read buffers worth of sound data from the input file until interrupted or at end of file: */
-	while(!inputFile.eof())
+	while(!inputFile->eof())
 		{
 		/* Read sound data from the input file, up to the buffer size: */
-		size_t numBytesRead=inputFile.read(sampleBuffer,sampleBufferSize*bytesPerFrame);
+		size_t numBytesRead=inputFile->readUpTo(sampleBuffer,sampleBufferSize*bytesPerFrame);
 		if(numBytesRead>0)
 			{
 			/* Write the buffer to the PCM device: */
@@ -396,7 +403,7 @@ void* SoundPlayer::playingThreadMethod(void)
 
 SoundPlayer::SoundPlayer(const char* inputFileName)
 	#if SOUND_CONFIG_HAVE_ALSA
-	:inputFile(inputFileName,"rb",Misc::File::DontCare),
+	:inputFile(IO::openSeekableFile(inputFileName)),
 	 bytesPerFrame(0),
 	 pcmDevice("default",false),
 	 sampleBufferSize(0),sampleBuffer(0),
@@ -411,7 +418,7 @@ SoundPlayer::SoundPlayer(const char* inputFileName)
 	if(Misc::hasCaseExtension(inputFileName,".wav"))
 		{
 		/* Read the WAV file header: */
-		inputFile.setEndianness(Misc::File::LittleEndian);
+		inputFile->setEndianness(IO::File::LittleEndian);
 		if(!readWAVHeader())
 			Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s is invalid or incompatible WAV file",inputFileName);
 		}
@@ -451,6 +458,9 @@ SoundPlayer::~SoundPlayer(void)
 		finishedPlayingCond.broadcast(finishedPlayingLock);
 		}
 	}
+	
+	/* Close the input file: */
+	delete inputFile;
 	
 	/* Delete the sample buffer: */
 	delete[] sampleBuffer;

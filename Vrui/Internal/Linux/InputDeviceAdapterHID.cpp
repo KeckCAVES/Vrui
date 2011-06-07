@@ -37,10 +37,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <sys/ioctl.h>
 #include <linux/input.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/FdSet.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Comm/FdSet.h>
 #include <Math/MathValueCoders.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
@@ -333,10 +333,10 @@ void* InputDeviceAdapterHID::devicePollingThreadMethod(void)
 	while(true)
 		{
 		/* Poll the device files of all devices: */
-		Comm::FdSet deviceFds;
+		Misc::FdSet deviceFds;
 		for(std::vector<Device>::iterator dIt=devices.begin();dIt!=devices.end();++dIt)
 			deviceFds.add(dIt->deviceFd);
-		if(Comm::select(&deviceFds,0,0)>0)
+		if(Misc::select(&deviceFds,0,0)>0)
 			{
 			/* Read events from all device files: */
 			{

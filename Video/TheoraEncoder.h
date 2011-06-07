@@ -60,7 +60,9 @@ class TheoraEncoder
 		{
 		return encoder!=0;
 		}
-	int control(int control,void* parameters,size_t parametersSize); // Supplies parameters to an encoder control
+	int control(int control,void* parameters,size_t parametersSize); // Supplies parameters to or reads from an encoder control
+	int getMaxSpeedLevel(void); // Returns the encoder's maximum speed level for current encoder settings
+	void setSpeedLevel(int speedLevel); // Sets the encoder's speed level
 	bool emitHeader(TheoraComment& comments,TheoraPacket& packet); // Emits a header packet into the given packet buffer; returns false if no packet was written and headers are complete
 	void writeHeaders(TheoraComment& comments,OggStream& oggStream); // Writes all header packets to the given Ogg stream
 	template <class PipeParam>

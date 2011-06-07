@@ -28,9 +28,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Misc {
 
-/************************************
-Methods of class FileCharacterSource:
-************************************/
+/*******************************************
+Methods of class GzippedFileCharacterSource:
+*******************************************/
 
 void GzippedFileCharacterSource::fillBuffer(void)
 	{

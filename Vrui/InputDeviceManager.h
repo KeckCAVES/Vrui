@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,6 +35,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 namespace Misc {
 class ConfigurationFileSection;
 }
+class GLContextData;
 namespace Vrui {
 class InputDeviceFeature;
 class InputGraphManager;
@@ -159,6 +160,7 @@ class InputDeviceManager
 		{
 		return inputDeviceUpdateCallbacks;
 		}
+	void glRenderAction(GLContextData& contextData) const; // Renders the input device manager's state
 	};
 
 }

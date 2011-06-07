@@ -2,7 +2,7 @@
 PrintInputDeviceDataFile - Program to print the contents of a previously
 saved input device data file in the format used by Vrui's
 InputDeviceDataSaver and InputDeviceAdapterPlayback classes.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <iostream>
 #include <iomanip>
-#include <Misc/File.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Geometry/Vector.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/InputDevice.h>
@@ -47,10 +48,11 @@ struct DeviceFileHeader // Structure to store device name and layout in device d
 int main(int argc,char* argv[])
 	{
 	/* Open the input file: */
-	Misc::File inputDeviceDataFile(argv[1],"rb",Misc::File::LittleEndian);
+	IO::AutoFile inputDeviceDataFile(IO::openFile(argv[1]));
+	inputDeviceDataFile->setEndianness(IO::File::LittleEndian);
 	
 	/* Read file header: */
-	int numInputDevices=inputDeviceDataFile.read<int>();
+	int numInputDevices=inputDeviceDataFile->read<int>();
 	Vrui::InputDevice** inputDevices=new Vrui::InputDevice*[numInputDevices];
 	
 	/* Initialize devices: */
@@ -58,11 +60,11 @@ int main(int argc,char* argv[])
 		{
 		/* Read device's layout from file: */
 		DeviceFileHeader header;
-		inputDeviceDataFile.read(header.name,sizeof(header.name));
-		inputDeviceDataFile.read(header.trackType);
-		inputDeviceDataFile.read(header.numButtons);
-		inputDeviceDataFile.read(header.numValuators);
-		inputDeviceDataFile.read(header.deviceRayDirection.getComponents(),3);
+		inputDeviceDataFile->read(header.name,sizeof(header.name));
+		inputDeviceDataFile->read(header.trackType);
+		inputDeviceDataFile->read(header.numButtons);
+		inputDeviceDataFile->read(header.numValuators);
+		inputDeviceDataFile->read(header.deviceRayDirection.getComponents(),3);
 		
 		/* Create new input device: */
 		Vrui::InputDevice* newDevice=new Vrui::InputDevice;
@@ -80,9 +82,9 @@ int main(int argc,char* argv[])
 		double timeStamp;
 		try
 			{
-			timeStamp=inputDeviceDataFile.read<double>();
+			timeStamp=inputDeviceDataFile->read<double>();
 			}
-		catch(Misc::File::ReadError)
+		catch(IO::File::ReadError)
 			{
 			/* At end of file */
 			break;
@@ -97,23 +99,23 @@ int main(int argc,char* argv[])
 			if(inputDevices[device]->getTrackType()!=Vrui::InputDevice::TRACK_NONE)
 				{
 				Vrui::TrackerState::Vector translation;
-				inputDeviceDataFile.read(translation.getComponents(),3);
+				inputDeviceDataFile->read(translation.getComponents(),3);
 				Vrui::Scalar quat[4];
-				inputDeviceDataFile.read(quat,4);
+				inputDeviceDataFile->read(quat,4);
 				inputDevices[device]->setTransformation(Vrui::TrackerState(translation,Vrui::TrackerState::Rotation::fromQuaternion(quat)));
 				}
 			
 			/* Update button states: */
 			for(int i=0;i<inputDevices[device]->getNumButtons();++i)
 				{
-				int buttonState=inputDeviceDataFile.read<int>();
+				int buttonState=inputDeviceDataFile->read<int>();
 				inputDevices[device]->setButtonState(i,buttonState);
 				}
 			
 			/* Update valuator states: */
 			for(int i=0;i<inputDevices[device]->getNumValuators();++i)
 				{
-				double valuatorState=inputDeviceDataFile.read<double>();
+				double valuatorState=inputDeviceDataFile->read<double>();
 				inputDevices[device]->setValuator(i,valuatorState);
 				}
 			}
