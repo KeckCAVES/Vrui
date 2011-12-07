@@ -31,8 +31,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/GeometryNode.h>
 
 /* Forward declarations: */
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 }
 
 namespace SceneGraph {
@@ -62,7 +62,7 @@ class CurveSetNode:public GeometryNode,public GLObject
 	
 	/* Derived state: */
 	protected:
-	Comm::MulticastPipeMultiplexer* multiplexer; // Multiplexer to read curve files in a cluster environment
+	Cluster::Multiplexer* multiplexer; // Multiplexer to read curve files in a cluster environment
 	std::vector<GLsizei> numVertices; // Array of numbers of vertices for each curve
 	std::vector<Point> vertices; // Array of vertices for all curves
 	unsigned int version; // Version number of curve set

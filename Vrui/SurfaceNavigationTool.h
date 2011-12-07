@@ -1,7 +1,7 @@
 /***********************************************************************
 SurfaceNavigationTool - Base class for navigation tools that are limited
 to navigate along an application-defined surface.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SURFACENAVIGATIONTOOL_INCLUDED
 #define VRUI_SURFACENAVIGATIONTOOL_INCLUDED
 
+#include <Math/Constants.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Vrui/NavigationTool.h>
 
@@ -80,9 +81,40 @@ class SurfaceNavigationTool:public NavigationTool
 	
 	/* Protected methods: */
 	protected:
+	static Scalar limitAngle(Scalar angle,Scalar minAngle,Scalar maxAngle) // Limits an angle to the given range
+		{
+		if(angle<minAngle)
+			angle=minAngle;
+		else if(angle>maxAngle)
+			angle=maxAngle;
+		return angle;
+		}
+	static Scalar wrapAngle(Scalar angle) // Helper function to wrap an angle to the -pi...pi range
+		{
+		if(angle<-Math::Constants<Scalar>::pi)
+			angle+=Scalar(2)*Math::Constants<Scalar>::pi;
+		else if(angle>Math::Constants<Scalar>::pi)
+			angle-=Scalar(2)*Math::Constants<Scalar>::pi;
+		return angle;
+		}
 	static Point projectToFloor(const Point& p); // Projects the given point to the environment's floor plane along the up direction
 	NavTransform& calcPhysicalFrame(const Point& basePoint); // Calculates a default physical navigation frame at the given base point in physical coordinates
+	static Scalar calcAzimuth(const Rotation& orientation); // Helper function to calculate the azimuth angle of the given orientation with respect to a standard physical frame
+	static void calcEulerAngles(const Rotation& orientation,Scalar angles[3]); // Helper function to calculate the full set of Euler angles of the given orientation with respect to a standard physical frame
 	void align(const AlignmentData& alignmentData); // Aligns the given navigation frame with an application-defined surface
+	
+	/*********************************************************************
+	Method to align a navigation frame with an application-defined surface
+	and return the Euler angles of the original frame with respect to the
+	aligned frame. Order of angle application:
+	1. Azimuth is rotation around the aligned frame's Z axis,
+	   from -pi to +pi.
+	2. Elevation is rotation around the new X axis from step 1,
+	   from -pi/2 to +pi/2.
+	3. Roll is rotation around the new Y axis from step 2,
+	   from -pi to +pi.
+	*********************************************************************/
+	
 	void align(const AlignmentData& alignmentData,Scalar& azimuth,Scalar& elevation,Scalar& roll); // Ditto, and calculates Euler angles of the original surface frame with respect to the aligned surface frame
 	
 	/* Constructors and destructors: */

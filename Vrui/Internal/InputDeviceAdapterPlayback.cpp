@@ -74,7 +74,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	 done(false)
 	{
 	/* Read file header: */
-	inputDeviceDataFile->setEndianness(IO::File::LittleEndian);
+	inputDeviceDataFile->setEndianness(Misc::LittleEndian);
 	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
 	char header[34];
 	inputDeviceDataFile->read<char>(header,34);
@@ -260,7 +260,6 @@ InputDeviceAdapterPlayback::~InputDeviceAdapterPlayback(void)
 	delete kinectPlayer;
 	#endif
 	delete[] deviceFeatureBaseIndices;
-	delete inputDeviceDataFile;
 	}
 
 std::string InputDeviceAdapterPlayback::getFeatureName(const InputDeviceFeature& feature) const
@@ -351,7 +350,7 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 			inputDeviceDataFile->read(translation.getComponents(),3);
 			Scalar quat[4];
 			inputDeviceDataFile->read(quat,4);
-			inputDevices[device]->setTransformation(TrackerState(translation,TrackerState::Rotation::fromQuaternion(quat)));
+			inputDevices[device]->setTransformation(TrackerState(translation,TrackerState::Rotation(quat)));
 			}
 		
 		/* Update button states: */

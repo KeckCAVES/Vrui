@@ -12,68 +12,32 @@ The Comm library contains classes to simplify communications via serial ports, U
 <H2>Header Files</H2>
 
 <DL>
-<DT>SerialPort.h</DT>
-<DD>SerialPort is a class representing a serial communications port. It supports error handling and reliable binary I/O.</DD>
-
 <DT>UDPSocket.h</DT>
 <DD>UDPSocket is a class representing a UDP socket. It can create either a listening socket on the local computer, or connect to a listening socket on a remote computer. It supports unreliable sending/receiving of binary data.</DD>
 
 <DT>TCPSocket.h</DT>
 <DD>TCPSocket is a class representing a TCP socket. It can create either a listening socket on the local computer, or connect to a listening socket on a remote computer. It supports reliable exchange of binary data.</DD>
 
-<DT>TCPSocketCharacterSource.h</DT>
-<DD>TCPSocketCharacterSource is a class wrapping a Misc::CharacterSource interface around a TCP socket, to simplify reading text that is sent over a TCP connection. Does not currently detect disconnects from remote socket.</DD>
-
-<DT>TCPPipe.h</DT>
-<DD>TCPPipe is a wrapper around the Comm::TCPSocket class that provides endianness-safe transport of binary data across a TCP connection and type-safe methods to read/write binary data. It supports explicit specification of network byte order, or automatic byte order detection with "receiver makes right" correction.</DD>
-
 <DT>Pipe.h</DT>
 <DD>Pipe is a base class derived from IO::File for classes implementing communication pipe semantics. Provides means to negotiate endianness, wait for arriving data, and wait for pending data to be drained.</DD>
 
-<DT>BufferedSerialPort.h</DT>
-<DD>BufferedSerialPort is a concrete derived class of Comm::BufferedPipe to support high-performance access to serial ports.</DD>
+<DT>SerialPort.h</DT>
+<DD>SerialPort is a concrete derived class of Comm::Pipe to support high-performance access to serial ports.</DD>
 
-<DT>BufferedTCPSocket.h</DT>
-<DD>BufferedTCPSocket is a concrete derived class of Comm::BufferedPipe to support high-performance access to TCP sockets.</DD>
+<DT>ListeningTCPSocket.h</DT>
+<DD>ListeningTCPSocket is a support class representing TCP half-sockets that can accept incoming connections. Passed to objects derived from BufferedTCPSocket to create a server-side TCP connection.</DD>
 
-<DT>MulticastPacket.h</DT>
-<DD>MulticastPacket is a structure describing packets that can be sent across a MulticastPipe.</DD>
+<DT>NetPipe.h</DT>
+<DD>NetPipe is a base class derived from Comm::Pipe for classes implementing Internet socket connections. Provides means to query local and remote port numbers and Internet addresses.</DD>
 
-<DT>GatherOperation.h</DT>
-<DD>Defines opcodes for available accumulation operations used by MulticastPipeMultiplexer::gather() and MulticastPipe::gather().</DD>
+<DT>TCPPipe.h</DT>
+<DD>TCPPipe is a concrete derived class of Comm::Pipe to support high-performance access to TCP sockets.</DD>
 
-<DT>MulticastPipeMultiplexer.h</DT>
-<DD>MulticastPipeMultiplexer is a class mapping several multicast data streams represented as MulticastPipe objects to a single UDP multicast socket. It supports dynamic creation/destruction of multicast data streams, and adds reliable transmissions to the underlying UDP multicast protocol.</DD>
-
-<DT>MulticastPipe.h</DT>
-<DD>MulticastPipe is a class representing a data stream between a single sender and multiple receivers. Multiple data streams are multiplexed across a UDP multicast socket by a MulticastPipeMultiplexer object. MulticastPipe supports barrier synchronization, and reliable multicast sending of binary data organized as arbitrary-size messages. Messages are sent in MulticastPacket units.</DD>
-
-<DT>StandardFile.h</DT>
-<DD>StandardFile is a class derived from IO::SeekableFile to represent cluster-forwarded standard operating system files.</DD>
+<DT>HttpFile.h</DT>
+<DD>HttpFile is a concrete derived class of IO::File to support high-performance read access to remote files via the HTTP/1.1 protocol.</DD>
 
 <DT>OpenFile.h</DT>
-<DD>OpenFile.h declares convenience functions to open files in a cluster-transparent fashion.</DD>
-
-<DT>MulticastPipeSupport.h</DT>
-<DD></DD>
-
-<DT>BufferedMulticastPipe.h</DT>
-<DD>BufferedMulticastPipe is a concrete derived class of Misc::BufferedFile to support high-performance reading from a multicast pipe for slave nodes in a cluster.</DD>
-
-<DT>ClusterBufferedTCPSocket.h</DT>
-<DD>ClusterBufferedTCPSocket is a derived class of Comm::BufferedTCPSocket to forward incoming data to slave nodes in a cluster using a multicast pipe.</DD>
-
-<DT>ClusterPipe.h</DT>
-<DD>ClusterPipe is a pipe abstraction layered over a TCPSocket object and a MulticastPipe. It provides typed and endianness-safe sending/receiving of data between two clusters over the Internet. If an end of a connection is a cluster, only the head node establishes a TCP connection to the other side, and the ClusterPipe forwards incoming traffic to the rest of the cluster transparently. This abstraction vastly simplifies development of cluster-based applications with remote communication.</DD>
-
-<DT>ClusterFileCharacterSource</DT>
-<DD>ClusterFileCharacterSource is a reader class derived from Misc::CharacterSource for standard files that are shared across a cluster connected via a multicast pipe.</DD>
-
-<DT>BufferedClusterSocket.h</DT>
-<DD>BufferedClusterSocket is a concrete derived class of Misc::BufferedFile to support high-performance read/write transfers over a cluster-shared TCP socket.</DD>
-
-<DT>Clusterize</DT>
-<DD>Clusterize.h contains helper functions to distribute an application across a cluster, and establish communication between node instances via a multicast pipe multiplexer.</DD>
+<DD>OpenFile.h declares convenience functions to open local or remote files.</DD>
 </DL>
 
 </BODY>

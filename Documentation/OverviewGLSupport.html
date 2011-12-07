@@ -128,10 +128,13 @@ The GLSupport library contains classes and functions providing higher-level supp
 </DL></DD>
 
 <DT>GLShader.h<DT>
-<DD>Helper class to simplify using GLSL shaders that compile any number of vertex and fragment shaders into a single shader program. Assumes the source code for all shaders is loaded from plain text files.</DD>
+<DD>GLShader is a helper class to simplify using GLSL shaders that compile any number of vertex and fragment shaders into a single shader program. Assumes the source code for all shaders is loaded from plain text files.</DD>
 
 <DT>GLGeometryShader.h<DT>
-<DD>Child class of GLShader with additional support for geometry shaders following the GL_EXT_geometry_shader4 extension.</DD>
+<DD>GLGeometryShader is a child class of GLShader with additional support for geometry shaders following the GL_EXT_geometry_shader4 extension.</DD>
+
+<DT>GLLightTracker.h</DT>
+<DD>GLLightTracker is a helper class tracking the lighting state of an OpenGL context, to support just-in-time recompilation of shaders in reaction to changing lighting conditions.</DD>
 
 <DT>GLColorMap.h</DT>
 <DD>GLColorMap is a class mapping scalar values in a given range to RGBA colors using linear interpolation between a number of control points.</DD>

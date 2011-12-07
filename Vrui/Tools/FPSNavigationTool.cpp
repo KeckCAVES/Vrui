@@ -359,11 +359,7 @@ void FPSNavigationTool::frame(void)
 		if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1])
 			{
 			/* Update the azimuth angle: */
-			azimuth+=(mousePos[0]-lastMousePos[0])/factory->rotateFactor;
-			if(azimuth<-Math::Constants<Scalar>::pi)
-				azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
-			else if(azimuth>Math::Constants<Scalar>::pi)
-				azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+			azimuth=wrapAngle(azimuth+(mousePos[0]-lastMousePos[0])/factory->rotateFactor);
 			
 			/* Update the elevation angle: */
 			elevation+=(mousePos[1]-lastMousePos[1])/factory->rotateFactor;
@@ -417,11 +413,7 @@ void FPSNavigationTool::frame(void)
 				Rotation rot=Geometry::invert(initialOrientation)*newSurfaceFrame.getRotation();
 				rot.leftMultiply(Rotation::rotateFromTo(rot.getDirection(2),Vector(0,0,1)));
 				Vector x=rot.getDirection(0);
-				azimuth+=Math::atan2(x[1],x[0]);
-				if(azimuth<-Math::Constants<Scalar>::pi)
-					azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
-				else if(azimuth>Math::Constants<Scalar>::pi)
-					azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+				azimuth=wrapAngle(azimuth+Math::atan2(x[1],x[0]));
 				}
 			
 			/* Check if the initial surface frame is above the surface: */
@@ -441,6 +433,12 @@ void FPSNavigationTool::frame(void)
 			/* Apply the newly aligned surface frame: */
 			surfaceFrame=newSurfaceFrame;
 			applyNavState();
+			
+			if(moveVelocity[0]!=Scalar(0)||moveVelocity[1]!=Scalar(0)||z>Scalar(0))
+				{
+				/* Request another frame: */
+				scheduleUpdate(getApplicationTime()+1.0/125.0);
+				}
 			
 			if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1])
 				{

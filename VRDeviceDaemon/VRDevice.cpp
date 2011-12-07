@@ -177,12 +177,13 @@ void VRDevice::startDeviceThread(void)
 		}
 	}
 
-void VRDevice::stopDeviceThread(void)
+void VRDevice::stopDeviceThread(bool cancel)
 	{
 	if(active)
 		{
 		/* Destroy device communication thread: */
-		deviceThread.cancel();
+		if(cancel)
+			deviceThread.cancel();
 		deviceThread.join();
 		active=false;
 		}

@@ -48,8 +48,8 @@ struct DeviceFileHeader // Structure to store device name and layout in device d
 int main(int argc,char* argv[])
 	{
 	/* Open the input file: */
-	IO::AutoFile inputDeviceDataFile(IO::openFile(argv[1]));
-	inputDeviceDataFile->setEndianness(IO::File::LittleEndian);
+	IO::FilePtr inputDeviceDataFile(IO::openFile(argv[1]));
+	inputDeviceDataFile->setEndianness(Misc::LittleEndian);
 	
 	/* Read file header: */
 	int numInputDevices=inputDeviceDataFile->read<int>();
@@ -102,7 +102,7 @@ int main(int argc,char* argv[])
 				inputDeviceDataFile->read(translation.getComponents(),3);
 				Vrui::Scalar quat[4];
 				inputDeviceDataFile->read(quat,4);
-				inputDevices[device]->setTransformation(Vrui::TrackerState(translation,Vrui::TrackerState::Rotation::fromQuaternion(quat)));
+				inputDevices[device]->setTransformation(Vrui::TrackerState(translation,Vrui::TrackerState::Rotation(quat)));
 				}
 			
 			/* Update button states: */

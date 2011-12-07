@@ -78,7 +78,7 @@ class VRDevice
 	void setValuatorState(int deviceValuatorIndex,Vrui::VRDeviceState::ValuatorState newState); // Sets a valuator state (device index given)
 	void updateState(void); // Notifies the device manager that this device's state can be sent to clients
 	void startDeviceThread(void); // Starts the device communication thread
-	void stopDeviceThread(void); // Stops the device communication thread
+	void stopDeviceThread(bool cancel =true); // Stops the device communication thread; if flag is true, thread will be cancelled
 	virtual void deviceThreadMethod(void); // Thread to communicate to device hardware
 	
 	/* Constructors and destructors: */

@@ -37,6 +37,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <LI><A HREF="#FPSNavigationTool">FPSNavigationTool</A> &quot;FPS (Mouse Look&nbsp;+ Buttons)&quot;</LI>
 
+<LI><A HREF="#SixAxisSurfaceNavigationTool">SixAxisSurfaceNavigationTool</A> &quot;Six-Axis&quot;</LI>
+
 <LI><A HREF="#HelicopterNavigationTool">HelicopterNavigationTool</A> &quot;Helicopter Flight&quot;</LI>
 
 <LI><A HREF="#WalkSurfaceNavigationTool">WalkSurfaceNavigationTool</A> &quot;Walk&quot;</LI>
@@ -87,6 +89,10 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <UL>
 <LI><A HREF="#MouseTool">MouseTool</A> &quot;Mouse->Screen Projector&quot;</LI>
 
+<LI><A HREF="#ButtonToValuatorTool">ButtonToValuatorTool</A> &quot;Button -> Valuator&quot;</LI>
+
+<LI><A HREF="#ValuatorToButtonTool">ValuatorToButtonTool</A> &quot;Valuator -> Button&quot;</LI>
+
 <LI><A HREF="#TwoRayTransformTool">TwoRayTransformTool</A> &quot;Dual Ray Intersector&quot;</LI>
 
 <LI><A HREF="#SixAxisTransformTool">SixAxisTransformTool</A> &quot;Six-Axis Device&quot;</LI>
@@ -123,49 +129,53 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <UL>
 <LI><A HREF="#RayInputDeviceTool">RayInputDeviceTool</A> &quot;Ray-Based Driver&quot;</LI>
 
-<LI><A HREF="#ButtonInputDeviceTool">ButtonInputDeviceTool</A></LI>
+<LI><A HREF="#ButtonInputDeviceTool">ButtonInputDeviceTool</A> &quot;Button-Based Driver&quot;</LI>
 
-<LI><A HREF="#SixAxisInputDeviceTool">SixAxisInputDeviceTool</A></LI>
+<LI><A HREF="#SixAxisInputDeviceTool">SixAxisInputDeviceTool</A> &quot;Six-Axis Driver&quot;</LI>
 
-<LI><A HREF="#SixDofInputDeviceTool">SixDofInputDeviceTool</A></LI>
+<LI><A HREF="#SixDofInputDeviceTool">SixDofInputDeviceTool</A> &quot;6-DOF Driver&quot;</LI>
 
-<LI><A HREF="#PlaneSnapInputDeviceTool">PlaneSnapInputDeviceTool</A></LI>
+<LI><A HREF="#PlaneSnapInputDeviceTool">PlaneSnapInputDeviceTool</A> &quot;Plane Snapper&quot;</LI>
 </UL>
 </LI>
 
-<LI><A HREF="#WidgetTool">WidgetTool</A></LI>
+<LI><A HREF="#WidgetTool">WidgetTool</A> &quot;GUI Interaction&quot;</LI>
 
-<LI><A HREF="#DaisyWheelTool">DaisyWheelTool</A></LI>
+<LI><A HREF="#ScrollTool">ScrollTool</A> &quot;GUI Scrolling&quot;</LI>
 
-<LI><A HREF="#QuikWriteTool">QuikWriteTool</A></LI>
+<LI><A HREF="#DaisyWheelTool">DaisyWheelTool</A> &quot;Daisy Wheel&quot;</LI>
+
+<LI><A HREF="#QuikWriteTool">QuikWriteTool</A> &quot;QuikWrite&quot;</LI>
 </UL>
 </LI>
 
 <LI>Pointer
 <UL>
-<LI><A HREF="#LaserpointerTool">LaserpointerTool</A></LI>
+<LI><A HREF="#LaserpointerTool">LaserpointerTool</A> &quot;Laser Pointer&quot;</LI>
 
-<LI><A HREF="#FlashlightTool">FlashlightTool</A></LI>
+<LI><A HREF="#FlashlightTool">FlashlightTool</A> &quot;Flashlight&quot;</LI>
 
-<LI><A HREF="#ClipPlaneTool">ClipPlaneTool</A></LI>
+<LI><A HREF="#ClipPlaneTool">ClipPlaneTool</A> &quot;Clipping Plane&quot;</LI>
 
-<LI><A HREF="#JediTool">JediTool</A></LI>
+<LI><A HREF="#JediTool">JediTool</A> &quot;Jedi Tool&quot;</LI>
 </UL>
 </LI>
 
 <LI>Utility
 <UL>
-<LI><A HREF="#MeasurementTool">MeasurementTool</A></LI>
+<LI><A HREF="#MeasurementTool">MeasurementTool</A> &quot;Measurement Tool&quot;</LI>
 
-<LI><A HREF="#SketchingTool">SketchingTool</A></LI>
+<LI><A HREF="#SketchingTool">SketchingTool</A> &quot;Curve Editor&quot;</LI>
 
-<LI><A HREF="#AnnotationTool">AnnotationTool</A></LI>
+<LI><A HREF="#AnnotationTool">AnnotationTool</A> &quot;Annotation Tool&quot;</LI>
 
-<LI><A HREF="#ViewpointSaverTool">ViewpointSaverTool</A></LI>
+<LI><A HREF="#ViewpointSaverTool">ViewpointSaverTool</A> &quot;Viewpoint Recorder&quot;</LI>
 
-<LI><A HREF="#CurveEditorTool">CurveEditorTool</A></LI>
+<LI><A HREF="#CurveEditorTool">CurveEditorTool</A> &quot;Viewpoint Curve Editor&quot;</LI>
 
-<LI><A HREF="#ScreenshotTool">ScreenshotTool</A></LI>
+<LI><A HREF="#ScreenshotTool">ScreenshotTool</A> &quot;Virtual Still Camera&quot;</LI>
+
+<LI><A HREF="#ScreenshotTool">NopTool</A> &quot;Do Nothing&quot;</LI>
 </UL>
 </LI>
 </UL>
@@ -182,10 +192,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TD>Locate point at device position.</TD>
 </TR>
 </TABLE><P>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
 
 <A NAME="ScreenLocatorTool"><H3>ScreenLocatorTool</H3></A>
 
@@ -242,10 +248,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TD>Drag from device position.</TD>
 </TR>
 </TABLE><P>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
 
 <A NAME="WaldoDraggingTool"><H3>WaldoDraggingTool</H3></A>
 
@@ -310,6 +312,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>wheelScaleFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>0.5</TD>
 <TD>Scale factor to apply for each tick of the mouse wheel.</TD>
+</TR>
+
+<TR>
+<TD>throwThreshold</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*2.0</TD>
+<TD>Distance in physical coordinate units by which the mouse has to move while button 2 is released in panning mode to trigger throwing animation.</TD>
 </TR>
 
 <TR>
@@ -412,6 +419,91 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 </TABLE>
 
+<A NAME="SixAxisSurfaceNavigationTool"><H3>SixAxisSurfaceNavigationTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>6</TD>
+<TD>1: Translate along local X axis (right/left).<BR>
+    2: Translate along local Y axis (forward/backwards).<BR>
+    3: Translate along local Z axis (up/down).<BR>
+    4: Rotate around surface Z axis (yaw).<BR>
+    5: Rotate around surface X axis (pitch).<BR>
+    6: Rotate around surface Y axis (roll).</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>translateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of three <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>)</TD>
+<TD>Maximum translation speeds along X, Y, and Z axes, respectively, in physical coordinate units/s.</TD>
+</TR>
+
+<TR>
+<TD>rotateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of three <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(180.0&deg;/s, 180.0&deg;/s, 180.0&deg;/s)</TD>
+<TD>Maximum rotation speeds in yaw, pitch, and roll, respectively, in degree/s.</TD>
+</TR>
+
+<TR>
+<TD>canRoll</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether the navigation tool allows rolling away from level orientation.</TD>
+</TR>
+
+<TR>
+<TD>bankTurns</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the navigation tool links roll angle to the current yaw angular velocity.</TD>
+</TR>
+
+<TR>
+<TD>levelSpeed</TD><TD>positive <A HREF="VruiCFGTypes.html#number">number</A></TD><TD>5.0</TD>
+<TD>Relative speed at which the navigation tool attains a given roll angle.</TD>
+</TR>
+
+<TR>
+<TD>canFly</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether the navigation tool allows flying above the surface.</TD>
+</TR>
+
+<TR>
+<TD>probeSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.5m</TD>
+<TD>Radius in physical coordinate units of the probe sphere used to lock the viewer's feet to the surface.</TD>
+</TR>
+
+<TR>
+<TD>maxClimb</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.5m</TD>
+<TD>Maximum distance in physical coordinate units by which the probe sphere can climb when the viewer's feet are snapped to the surface.</TD>
+</TR>
+
+<TR>
+<TD>fixAzimuth</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the current azimuth angle stays constant when the surface's local coordinate frame rotates.</TD>
+</TR>
+
+<TR>
+<TD>drawHud</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to draw the six-axis navigation tool's heads-up display, indicating azimuth, elevation, and roll angles.</TD>
+</TR>
+
+<TR>
+<TD>hudColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(0.0, 1.0, 0.0)</TD>
+<TD>Color to draw the HUD.</TD>
+</TR>
+
+<TR>
+<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#frontplaneDist">frontplaneDist</A>*1.25</TD>
+<TD>Distance from the viewer's eye to the HUD plane in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudFontSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*1.5</TD>
+<TD>Font size for the HUD in physical coordinate units.</TD>
+</TR>
+</TABLE>
+
 <A NAME="HelicopterNavigationTool"><H3>HelicopterNavigationTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -487,6 +579,26 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TD>maxClimb</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.5m</TD>
 <TD>Maximum distance in physical coordinate units by which the probe sphere can climb when the viewer's feet are snapped to the surface.</TD>
 </TR>
+
+<TR>
+<TD>drawHud</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to draw the helicopter tool's heads-up display, indicating azimuth, elevation, and roll angles and relative flight path.</TD>
+</TR>
+
+<TR>
+<TD>hudColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(0.0, 1.0, 0.0)</TD>
+<TD>Color to draw the HUD.</TD>
+</TR>
+
+<TR>
+<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#frontplaneDist">frontplaneDist</A>*1.25</TD>
+<TD>Distance from the viewer's eye to the HUD plane in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudFontSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*1.5</TD>
+<TD>Font size for the HUD in physical coordinate units.</TD>
+</TR>
 </TABLE>
 
 <A NAME="WalkSurfaceNavigationTool"><H3>WalkSurfaceNavigationTool</H3></A>
@@ -497,6 +609,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>Required Buttons</TD><TD>1</TD>
 <TD>Toggle tool's activation state.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>1</TD>
+<TD>Fire a &quot;jetpack&quot; thruster along the ray direction of the device associated with the valuator.</TD>
 </TR>
 </TABLE><P>
 
@@ -651,7 +768,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>spinThreshold</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*2.0</TD>
+<TD>spinThreshold</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A></TD>
 <TD>Distance in physical coordinate units by which the mouse has to move while button 1 is released in rotation mode to trigger spinning animation.</TD>
 </TR>
 
@@ -772,11 +889,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>followDisplayCenter</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
-<TD>Flag whether the navigation center shall follow Vrui's display center (in which case the configured navigation center is ignored).</TD>
-</TR>
-
-<TR>
 <TD>invertNavigation</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Switches between camera-in-hand navigation mode (if false) and world-in-hand navigation mode (if true).</TD>
 </TR>
@@ -797,10 +909,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TD>Grab space at device position.</TD>
 </TR>
 </TABLE><P>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
 
 <A NAME="ScaleNavigationTool"><H3>ScaleNavigationTool</H3></A>
 
@@ -934,10 +1042,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TD>1 or 2: By itself: Grab space. Otherwise: Scale around other device's position.</TD>
 </TR>
 </TABLE><P>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
 
 <A NAME="MultiDeviceNavigationTool"><H3>MultiDeviceNavigationTool</H3></A>
 
@@ -1332,12 +1436,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1356,25 +1460,53 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 </TABLE>
 
+<A NAME="ButtonToValuatorTool"><H3>ButtonToValuatorTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Set the simulated valuator to value +1.0.</TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Set the simulated valuator to value -1.0.</TD>
+</TR>
+</TABLE><P>
+
+<A NAME="ValuatorToButtonTool"><H3>ValuatorToButtonTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>1</TD>
+<TD>Simulate two buttons; one pressed when valuator is positive, one pressed when valuator is negative.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Simulate two buttons; one pressed when valuator is positive, one pressed when valuator is negative.</TD>
+</TR>
+</TABLE><P>
+
 <A NAME="TwoRayTransformTool"><H3>TwoRayTransformTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
 
 <A NAME="SixAxisTransformTool"><H3>SixAxisTransformTool</H3></A>
 
@@ -1387,7 +1519,7 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
@@ -1402,7 +1534,7 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1452,19 +1584,15 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
-
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
 
 <A NAME="OffsetTool"><H3>OffsetTool</H3></A>
 
@@ -1472,12 +1600,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1497,12 +1625,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1532,12 +1660,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1562,12 +1690,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1597,12 +1725,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1629,6 +1757,21 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR>
 <TD>rayOffset</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*2.0</TD>
 <TD>Distance in physical coordinate units by which to move back the start position of interaction rays when not using eye rays.</TD>
+</TR>
+
+<TR>
+<TD>drawRay</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether all classes derived from UserInterfaceTool draw the interaction ray when active.</TD>
+</TR>
+
+<TR>
+<TD>rayWidth</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0</TD>
+<TD>Cosmetic line width to draw the interaction ray in pixels.</TD>
+</TR>
+
+<TR>
+<TD>rayColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(1.0, 0.0, 0.0)</TD>
+<TD>Color with which to draw the interaction ray.</TD>
 </TR>
 </TABLE>
 
@@ -1688,10 +1831,6 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 </TABLE><P>
 
-<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
-<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
-</TABLE>
-
 <A NAME="RayInputDeviceTool"><H3>RayInputDeviceTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -1703,12 +1842,12 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>Optional Buttons</TD><TD>>=0</TD>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
 <TD>Forwarded to grabbed virtual input device.</TD>
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>>=0</TD>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
 <TD>Forwarded to grabbed virtual input device.</TD>
 </TR>
 </TABLE><P>
@@ -1723,25 +1862,533 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TABLE>
 
 <A NAME="ButtonInputDeviceTool"><H3>ButtonInputDeviceTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>8</TD>
+<TD>1: Switch control to the next virtual input device.<BR>
+    2: Switch between translation and rotation modes.<BR>
+    3: Translate along -X or rotate around -Z.<BR>
+    4: Translate along +X or rotate around +Z.<BR>
+    5: Translate along -Y or rotate around -Y.<BR>
+    6: Translate along +Y or rotate around +Y.<BR>
+    7: Translate along -Z or rotate around -X.<BR>
+    8: Translate along +Z or rotate around +X.<BR>
+</TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Forwarded to currently controlled virtual input device.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Forwarded to currently controlled virtual input device.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>translateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>4.0"/s</TD><TD>Speed in physical coordinate units by which the controlled virtual input device moves if a translate button is pressed.</TD>
+</TR>
+
+<TR>
+<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>60.0&deg;/s</TD><TD>Angular speed by which the controlled virtual input device rotates if a rotate button is pressed.</TD>
+</TR>
+</TABLE>
+
 <A NAME="SixAxisInputDeviceTool"><H3>SixAxisInputDeviceTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Grab virtual input device based on ray selection.</TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Forwarded to grabbed virtual input device.</TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>6</TD>
+<TD>1: Translate along vector 0<BR>
+    2: Translate along vector 1<BR>
+    3: Translate along vector 2<BR>
+    4: Rotate around axis 0<BR>
+    5: Rotate around axis 1<BR>
+    6: Rotate around axis 2</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Forwarded to grabbed virtual input device.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>selectButtonToggle</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD><TD>Flag whether the grab button acts as a toggle.</TD>
+</TR>
+
+<TR>
+<TD>translateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/3.0</TD>
+<TD>Linear velocity factor in physical coordinate units per second by which the three translation vectors will be multiplied.</TD>
+</TR>
+
+<TR>
+<TD>translationVectors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#vector">vectors</A></TD><TD>((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))</TD>
+<TD>List of exactly three unitless translation vectors in physical space. Each vector will be multiplied by the translateFactor to calculate the final physical-space translation vectors.</TD>
+</TR>
+
+<TR>
+<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>180.0&deg;/s</TD>
+<TD>Angular velocity factor in degrees per second by which the three scaled rotation axes will be multiplied.</TD>
+</TR>
+
+<TR>
+<TD>scaledRotationAxes</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#vector">vectors</A></TD><TD>((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))</TD>
+<TD>List of exactly three unitless scaled rotation axes in physical space. Each axis will be multiplied by the rotateFactor to calculate the final physical-space scaled rotation axes.</TD>
+</TR>
+</TABLE>
+
 <A NAME="SixDofInputDeviceTool"><H3>SixDofInputDeviceTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Grab virtual input device.</TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Forwarded to grabbed virtual input device.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Forwarded to grabbed virtual input device.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>selectButtonToggle</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD><TD>Flag whether the grab button acts as a toggle.</TD>
+</TR>
+</TABLE>
+
 <A NAME="PlaneSnapInputDeviceTool"><H3>PlaneSnapInputDeviceTool</H3></A>
 
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Grab virtual input device or select plane points.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>markerSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A></TD>
+<TD>Size of the markers indicating the tool's currently selected plane points, in physical coordinate units. If set to zero, no markers will be drawn.</TD>
+</TR>
+</TABLE>
+
 <A NAME="WidgetTool"><H3>WidgetTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Interact with GUI widgets.</TD>
+</TR>
+</TABLE><P>
+
+<A NAME="ScrollTool"><H3>ScrollTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+<TR>
+<TD>Required Valuators</TD><TD>1</TD>
+<TD>Scroll in GUI widgets.</TD>
+</TR>
+</TABLE><P>
+
 <A NAME="DaisyWheelTool"><H3>DaisyWheelTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Select in daisy wheel.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="QuikWriteTool"><H3>QuikWriteTool</H3></A>
 
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Pop up and interact with QuikWrite panel.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>squareSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiFontTextHeight">uiFontTextHeight</A>*10.0</TD><TD>Overall side length of QuikWrite panel.</TD>
+</TR>
+
+<TR>
+<TD>initialSquareDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0"</TD><TD>Initial distance in physical coordinate units along device's selection ray when popping up the QuikWrite panel.</TD>
+</TR>
+
+<TR>
+<TD>backgroundColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD><A HREF="VruiConfigurationFileReference.html#backgroundColor">backgroundColor</A></TD><TD>Background color for the QuikWrite panel.</TD>
+</TR>
+
+<TR>
+<TD>foregroundColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>Complement of <A HREF="VruiConfigurationFileReference.html#backgroundColor">backgroundColor</A></TD><TD>Foreground and text color for the QuikWrite panel.</TD>
+</TR>
+</TABLE>
+
 <A NAME="LaserpointerTool"><H3>LaserpointerTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Activate laser pointer.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>rayLength</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>*5.0</TD><TD>Length of the laser pointer ray in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>rayLineWidth</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0</TD><TD>Cosmetic line width in pixels with which to draw the laser pointer ray.</TD>
+</TR>
+
+<TR>
+<TD>rayColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(1.0, 0.0, 0.0)</TD><TD>Color with which to draw the laser pointer ray.</TD>
+</TR>
+</TABLE>
+
 <A NAME="FlashlightTool"><H3>FlashlightTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="ClipPlaneTool"><H3>ClipPlaneTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="JediTool"><H3>JediTool</H3></A>
 
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="MeasurementTool"><H3>MeasurementTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="SketchingTool"><H3>SketchingTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="AnnotationTool"><H3>AnnotationTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="ViewpointSaverTool"><H3>ViewpointSaverTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="CurveEditorTool"><H3>CurveEditorTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
 <A NAME="ScreenshotTool"><H3>ScreenshotTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD></TD>
+<TD></TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
+<A NAME="NopTool"><H3>NopTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Ignored buttons.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Ignored valuators.</TD>
+</TR>
+</TABLE><P>
 
 </BODY>
 </HTML>

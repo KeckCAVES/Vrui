@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMouse - Class to convert mouse and keyboard into a
 Vrui input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -127,10 +127,10 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 		return mousePos;
 		}
 	void setMousePosition(VRWindow* newWindow,const Scalar newMousePos[2]); // Sets current mouse position in screen coordinates
-	void keyPressed(int keyCode,int modifierMask,const char* string); // Notifies adapter that a key has been pressed
-	void keyReleased(int keyCode); // Notifies adapter that a key has been released
+	bool keyPressed(int keyCode,int modifierMask,const char* string); // Notifies adapter that a key has been pressed; returns true if adapter's state changed
+	bool keyReleased(int keyCode); // Notifies adapter that a key has been released; returns true if adapter's state changed
 	void resetKeys(const XKeymapEvent& event); // Resets pressed keys and the modifier key mask when the mouse cursor re-enters a window
-	void setButtonState(int buttonIndex,bool newButtonState); // Sets current button state
+	bool setButtonState(int buttonIndex,bool newButtonState); // Sets current button state; returns true if adapter's state changed
 	void incMouseWheelTicks(void); // Increases the number of mouse wheel ticks
 	void decMouseWheelTicks(void); // Decreases the number of mouse wheel ticks
 	};

@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IO_SEEKABLEFILE_INCLUDED
 
 #include <sys/types.h>
+#include <Misc/Autopointer.h>
 #include <IO/File.h>
 
 namespace IO {
@@ -91,6 +92,8 @@ class SeekableFile:public File
 		setWritePosAbs(newOffset+writePos+getWritePtr());
 		}
 	};
+
+typedef Misc::Autopointer<SeekableFile> SeekableFilePtr; // Type for pointers to reference-counted seekable file objects
 
 }
 

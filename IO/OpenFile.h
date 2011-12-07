@@ -23,18 +23,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef IO_OPENFILE_INCLUDED
 #define IO_OPENFILE_INCLUDED
 
-#include <Misc/SelfDestructPointer.h>
 #include <IO/File.h>
 #include <IO/SeekableFile.h>
+#include <IO/Directory.h>
 
 namespace IO {
 
-/* Type definition for self-destructing file objects: */
-typedef Misc::SelfDestructPointer<File> AutoFile;
-typedef Misc::SelfDestructPointer<SeekableFile> AutoSeekableFile;
-
-File* openFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly); // Opens a file of the given name
-SeekableFile* openSeekableFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly); // Opens a seekable file of the given name
+FilePtr openFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly); // Opens a file of the given name
+SeekableFilePtr openSeekableFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly); // Opens a seekable file of the given name
+DirectoryPtr openDirectory(const char* directoryName); // Opens a directory of the given name
 
 }
 

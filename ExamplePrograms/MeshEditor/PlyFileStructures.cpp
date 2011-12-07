@@ -6,6 +6,7 @@ Copyright (c) 2004-2011 Oliver Kreylos
 
 #include "PlyFileStructures.h"
 
+#include <Misc/SizedTypes.h>
 #include <Misc/ThrowStdErr.h>
 #include <IO/ValueSource.h>
 
@@ -21,82 +22,82 @@ class PLYDataValueTypes
 	};
 
 template <>
-class PLYDataValueTypes<PLY_CHAR>
+class PLYDataValueTypes<PLY_SINT8>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_CHAR;
-	typedef char FileType;
+	static const int dataType=PLY_SINT8;
+	typedef Misc::SInt8 FileType;
 	typedef int MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_UCHAR>
+class PLYDataValueTypes<PLY_UINT8>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_UCHAR;
-	typedef unsigned char FileType;
+	static const int dataType=PLY_UINT8;
+	typedef Misc::UInt8 FileType;
 	typedef unsigned int MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_SHORT>
+class PLYDataValueTypes<PLY_SINT16>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_SHORT;
-	typedef short FileType;
+	static const int dataType=PLY_SINT16;
+	typedef Misc::SInt16 FileType;
 	typedef int MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_USHORT>
+class PLYDataValueTypes<PLY_UINT16>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_USHORT;
-	typedef unsigned short FileType;
+	static const int dataType=PLY_UINT16;
+	typedef Misc::UInt16 FileType;
 	typedef unsigned int MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_INT>
+class PLYDataValueTypes<PLY_SINT32>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_INT;
-	typedef int FileType;
+	static const int dataType=PLY_SINT32;
+	typedef Misc::SInt32 FileType;
 	typedef int MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_UINT>
+class PLYDataValueTypes<PLY_UINT32>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_UINT;
-	typedef unsigned int FileType;
+	static const int dataType=PLY_UINT32;
+	typedef Misc::UInt32 FileType;
 	typedef unsigned int MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_FLOAT>
+class PLYDataValueTypes<PLY_FLOAT32>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_FLOAT;
-	typedef float FileType;
+	static const int dataType=PLY_FLOAT32;
+	typedef Misc::Float32 FileType;
 	typedef double MemoryType;
 	};
 
 template <>
-class PLYDataValueTypes<PLY_DOUBLE>
+class PLYDataValueTypes<PLY_FLOAT64>
 	{
 	/* Embedded classes: */
 	public:
-	static const int dataType=PLY_DOUBLE;
-	typedef double FileType;
+	static const int dataType=PLY_FLOAT64;
+	typedef Misc::Float64 FileType;
 	typedef double MemoryType;
 	};
 
@@ -205,29 +206,29 @@ class PLYDataValueFactory
 		{
 		switch(dataType)
 			{
-			case PLY_CHAR:
-				return new PLYDataValueTemplate<PLY_CHAR>;
+			case PLY_SINT8:
+				return new PLYDataValueTemplate<PLY_SINT8>;
 			
-			case PLY_UCHAR:
-				return new PLYDataValueTemplate<PLY_UCHAR>;
+			case PLY_UINT8:
+				return new PLYDataValueTemplate<PLY_UINT8>;
 			
-			case PLY_SHORT:
-				return new PLYDataValueTemplate<PLY_SHORT>;
+			case PLY_SINT16:
+				return new PLYDataValueTemplate<PLY_SINT16>;
 			
-			case PLY_USHORT:
-				return new PLYDataValueTemplate<PLY_USHORT>;
+			case PLY_UINT16:
+				return new PLYDataValueTemplate<PLY_UINT16>;
 			
-			case PLY_INT:
-				return new PLYDataValueTemplate<PLY_INT>;
+			case PLY_SINT32:
+				return new PLYDataValueTemplate<PLY_SINT32>;
 			
-			case PLY_UINT:
-				return new PLYDataValueTemplate<PLY_UINT>;
+			case PLY_UINT32:
+				return new PLYDataValueTemplate<PLY_UINT32>;
 			
-			case PLY_FLOAT:
-				return new PLYDataValueTemplate<PLY_FLOAT>;
+			case PLY_FLOAT32:
+				return new PLYDataValueTemplate<PLY_FLOAT32>;
 			
-			case PLY_DOUBLE:
-				return new PLYDataValueTemplate<PLY_DOUBLE>;
+			case PLY_FLOAT64:
+				return new PLYDataValueTemplate<PLY_FLOAT64>;
 			}
 		}
 	};
@@ -309,11 +310,18 @@ Methods of class PLYProperty:
 
 PLYDataType PLYProperty::parseDataType(const std::string& tag)
 	{
-	static const char* dataTypeTags[]={"char","uchar","short","ushort","int","uint","float","double"};
-	static const PLYDataType dataTypes[]={PLY_CHAR,PLY_UCHAR,PLY_SHORT,PLY_USHORT,PLY_INT,PLY_UINT,PLY_FLOAT,PLY_DOUBLE};
+	static const char* dataTypeTags[2][8]=
+		{
+		{"char","uchar","short","ushort","int","uint","float","double"},
+		{"int8","uint8","int16","uint16","int32","uint32","float32","float64"}
+		};
+	static const PLYDataType dataTypes[]=
+		{
+		PLY_SINT8,PLY_UINT8,PLY_SINT16,PLY_UINT16,PLY_SINT32,PLY_UINT32,PLY_FLOAT32,PLY_FLOAT64
+		};
 	int i;
 	for(i=0;i<8;++i)
-		if(tag==dataTypeTags[i])
+		if(tag==dataTypeTags[0][i]||tag==dataTypeTags[1][i])
 			break;
 	if(i>=8)
 		Misc::throwStdErr("PLYProperty::parseDataType: Unknown data type %s",tag.c_str());
@@ -340,8 +348,7 @@ PLYProperty::PLYProperty(IO::ValueSource& plyFile)
 		}
 	
 	/* Read the property name: */
-	name=plyFile.readLine();
-	plyFile.skipWs();
+	name=plyFile.readString();
 	}
 
 /**********************************
@@ -367,10 +374,10 @@ Methods of class PLYFileHeader:
 ******************************/
 
 PLYFileHeader::PLYFileHeader(IO::File& plyFile)
-	:valid(false),fileType(Unknown),fileEndianness(IO::File::DontCare)
+	:valid(false),fileType(Unknown),fileEndianness(Misc::HostEndianness)
 	{
 	/* Attach a new value source to the PLY file: */
-	IO::ValueSource ply(plyFile);
+	IO::ValueSource ply(&plyFile);
 	ply.skipWs();
 	
 	/* Process the PLY file header: */
@@ -392,12 +399,12 @@ PLYFileHeader::PLYFileHeader(IO::File& plyFile)
 			else if(format=="binary_little_endian")
 				{
 				fileType=Binary;
-				fileEndianness=IO::File::LittleEndian;
+				fileEndianness=Misc::LittleEndian;
 				}
 			else if(format=="binary_big_endian")
 				{
 				fileType=Binary;
-				fileEndianness=IO::File::BigEndian;
+				fileEndianness=Misc::BigEndian;
 				}
 			else
 				{

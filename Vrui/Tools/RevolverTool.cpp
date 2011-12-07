@@ -176,16 +176,6 @@ void RevolverTool::initialize(void)
 	transformedDevice->setTransformation(sourceDevice->getTransformation());
 	}
 
-void RevolverTool::deinitialize(void)
-	{
-	/* Release the virtual input device: */
-	getInputGraphManager()->releaseInputDevice(transformedDevice,this);
-	
-	/* Destroy the virtual input device: */
-	getInputDeviceManager()->destroyInputDevice(transformedDevice);
-	transformedDevice=0;
-	}
-
 const ToolFactory* RevolverTool::getFactory(void) const
 	{
 	return factory;
@@ -230,7 +220,10 @@ void RevolverTool::frame(void)
 	
 	/* Request a rendering update while the animation is going: */
 	if(getApplicationTime()<showNumbersTime)
-		requestUpdate();
+		{
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		}
 	}
 
 void RevolverTool::display(GLContextData& contextData) const

@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevicePipe - Class defining the client-server protocol for remote VR
 devices and VR applications.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -50,16 +50,16 @@ class VRDevicePipe:public Comm::TCPPipe
 		};
 	
 	/* Constructors and destructors: */
-	VRDevicePipe(std::string hostname,int portId) // Creates a pipe connected to a remote host
-		:Comm::TCPPipe(hostname,portId,Comm::TCPPipe::DontCare)
+	VRDevicePipe(const char* hostName,int portId) // Creates a pipe connected to a remote host
+		:Comm::TCPPipe(hostName,portId)
 		{
 		}
-	VRDevicePipe(const Comm::TCPSocket& sSocket) // Creates pipe wrapper for existing (receiving) socket
-		:Comm::TCPPipe(sSocket,Comm::TCPPipe::DontCare)
+	VRDevicePipe(Comm::ListeningTCPSocket& listenSocket) // Creates a pipe for the next incoming TCP connection on the given listening socket
+		:Comm::TCPPipe(listenSocket)
 		{
 		}
 	
-	/* Methods: */
+	/* New methods: */
 	void writeMessage(MessageId messageId) // Writes a protocol message to the pipe
 		{
 		write<MessageIdType>(messageId);

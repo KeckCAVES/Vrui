@@ -50,19 +50,8 @@ namespace Vrui {
 Methods of class InputDeviceDataSaver:
 *************************************/
 
-std::string InputDeviceDataSaver::getInputDeviceDataFileName(const Misc::ConfigurationFileSection& configFileSection)
-	{
-	/* Retrieve the base file name: */
-	std::string inputDeviceDataFileName=configFileSection.retrieveString("./inputDeviceDataFileName");
-	
-	/* Make the file name unique: */
-	char numberedFileName[1024];
-	Misc::createNumberedFileName(inputDeviceDataFileName.c_str(),4,numberedFileName);
-	return numberedFileName;
-	}
-
 InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection& configFileSection,InputDeviceManager& inputDeviceManager,unsigned int randomSeed)
-	:inputDeviceDataFile(IO::openFile(getInputDeviceDataFileName(configFileSection).c_str(),IO::File::WriteOnly)),
+	:inputDeviceDataFile(IO::openFile(Misc::createNumberedFileName(configFileSection.retrieveString("./inputDeviceDataFileName"),4).c_str(),IO::File::WriteOnly)),
 	 numInputDevices(inputDeviceManager.getNumInputDevices()),
 	 inputDevices(new InputDevice*[numInputDevices]),
 	 soundRecorder(0),
@@ -72,7 +61,7 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 	 firstFrame(true)
 	{
 	/* Write a file identification header: */
-	inputDeviceDataFile->setEndianness(IO::File::LittleEndian);
+	inputDeviceDataFile->setEndianness(Misc::LittleEndian);
 	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
 	inputDeviceDataFile->write<char>(fileHeader,34);
 	
@@ -116,8 +105,7 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 			soundFormat.framesPerSecond=configFileSection.retrieveValue<int>("./sampleRate",soundFormat.framesPerSecond);
 			
 			/* Create a sound recorder for the given sound file name: */
-			char numberedFileName[1024];
-			soundRecorder=new Sound::SoundRecorder(soundFormat,Misc::createNumberedFileName(soundFileName.c_str(),4,numberedFileName));
+			soundRecorder=new Sound::SoundRecorder(soundFormat,Misc::createNumberedFileName(soundFileName,4).c_str());
 			}
 		catch(std::runtime_error error)
 			{
@@ -140,7 +128,6 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 
 InputDeviceDataSaver::~InputDeviceDataSaver(void)
 	{
-	delete inputDeviceDataFile;
 	delete[] inputDevices;
 	delete soundRecorder;
 	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT

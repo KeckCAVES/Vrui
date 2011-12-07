@@ -152,8 +152,7 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 		}
 	
 	/* Open the mesh file and create a tokenizer for it: */
-	IO::File* file=fileManager.getFile(meshFileName);
-	Doom3ValueSource source(*file,meshFileName);
+	Doom3ValueSource source(fileManager.getFile(meshFileName),meshFileName);
 	
 	/* Parse the mesh file header: */
 	if(!source.isString("MD5Version"))
@@ -223,7 +222,7 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 			Misc::throwStdErr("Doom3MD5Mesh::Doom3MD5Mesh: Malformed joint orientation at %s",source.where().c_str());
 		
 		/* Store the joint's transformation: */
-		j.transform=Transform(translation,Transform::Rotation::fromQuaternion(orientation));
+		j.transform=Transform(translation,Transform::Rotation(orientation));
 		}
 	if(source.readChar()!='}')
 		Misc::throwStdErr("Doom3MD5Mesh::Doom3MD5Mesh: Long joint list at %s",source.where().c_str());
@@ -413,8 +412,6 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 				}
 			}
 		}
-	
-	delete file;
 	}
 
 Doom3MD5Mesh::~Doom3MD5Mesh(void)

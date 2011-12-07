@@ -34,12 +34,6 @@ class FixedMemoryFile:public SeekableFile
 	private:
 	size_t memSize; // Size of file's memory block
 	Byte* memBlock; // Pointer to file's memory block
-	bool firstRead; // Flag indicating the first time the readData() method is called
-	
-	/* Protected methods from File: */
-	protected:
-	virtual size_t readData(Byte* buffer,size_t bufferSize);
-	virtual void writeData(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:

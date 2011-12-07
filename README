@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui version 2.1, build 001
+README for Vrui version 2.2, build 001
 Copyright (c) 1998-2011 Oliver Kreylos
 ========================================================================
 
@@ -44,33 +44,35 @@ Quick Installation Guide for the Impatient
 
 0. (Install required packages, if necessary or desired.)
 
-1. Create src directory in home directory:
+1. Download the Vrui tarball into <download path>.
+
+2. Create src directory in home directory:
    > mkdir ~/src
 
-2. Change into ~/src directory and unpack the Vrui tarball:
+3. Change into ~/src directory and unpack the Vrui tarball:
    > cd ~/src
-   > tar xfz <download path>/Vrui-2.1-<build>.tar.gz
+   > tar xfz <download path>/Vrui-<version>-<build>.tar.gz
    - or -
-   > tar xf <download path>/Vrui-2.1-<build>.tar
+   > tar xf <download path>/Vrui-<version>-<build>.tar
 
-3. Change into Vrui base directory:
-   > cd Vrui-2.1-<build>
+4. Change into Vrui base directory:
+   > cd Vrui-<version>-<build>
 
-4. Build Vrui inside the Vrui base directory:
+5. Build Vrui inside the Vrui base directory:
    > make
    or, for multi-processor machines
    > make -j<number of CPUs>
 
-5. Install Vrui into Vrui-2.1 in home directory:
+6. Install Vrui into Vrui-<version> in home directory:
    > make install
 
-6. If there are error messages during the build, read below.
+7. If there are error messages during the build, read below.
 
 Building and Running Vrui Example Applications
 ----------------------------------------------
 
 1. Change into example application directory:
-   > cd ~/src/Vrui-2.1-<build>/ExamplePrograms
+   > cd ~/src/Vrui-<version>-<build>/ExamplePrograms
 
 2. Build example applications:
    > make
@@ -81,59 +83,82 @@ Building and Running Vrui Example Applications
    > ./bin/ShowEarthModel
 
 5. Read about Vrui's default user interface in HTML documentation in
-   ~/src/Vrui-2.1-<build>/Documentation.
+   ~/Vrui-<version>/share/doc.
 
 Detailed Installation notes
 ===========================
 
 Installation is performed via the central makefile in the
-Vrui-2.1-<build> base directory. The only settings that probably need to
-be changed are the installation path (where the Vrui include, library,
-executable, and configuration files will be copied), the path to the C++
-compiler, and whether to build-in support for optional libraries such as
-libpng, libjpeg, or libtiff.
+Vrui-<version>-<build> base directory. The makefile attempts to auto-
+detect the configuration of the host computer, and manual changes are
+typically not required to build Vrui. In general, we recommend to build
+Vrui using an unchanged makefile, and only make changes if there are
+problems or errors during the build, or if advanced users have very
+specific needs.
 
-NOTE: It is important *not* to install Vrui into the same directory it
-is built in. A typical installation would download the source tarball
-into a special "source" directory, say ~/src, and extract it from there,
-resulting in the sources being in ~/src/Vrui-2.1-<build>. Then Vrui can
-be installed in ~/Vrui-2.1 (the default) without any problems. After
-installation, the source tarball and the ~/src/Vrui-2.1-<build>
-directory can in principle be deleted. Here is a diagram of the
-directory structure described above:
+The one makefile setting that might need to be adjusted is the Vrui
+installation path at the very beginning of the makefile. By default,
+Vrui installs itself into ~/Vrui-<version>. This can be changed either
+by editing the makefile, or, better, by passing the installation
+directory on make's command line:
+
+> make INSTALLDIR=<path>
+
+NOTE: It is important *not* to install Vrui into the same directory in
+which it is built. A typical installation would download the source
+tarball into a special "source" directory, say ~/src, and extract it
+from there, resulting in the sources being in
+~/src/Vrui-<version>-<build>. Then Vrui can be installed in
+~/Vrui-<version> (the default) without any problems. After installation,
+the source tarball and the ~/src/Vrui-<version>-<build> directory can in
+principle be deleted.
+
+Here is a diagram of the directory structure described above:
 
 ~ (home directory)
-	|
-	+- src (unpack Vrui tarball from in here)
-	|	|
-	|	+- Vrui-2.1-<build> (package root directory, run "make" in here)
-	|		|
-	|		+- BuildRoot (additional make settings)
-	|		|
-	|		+- ExamplePrograms (Vrui example program source
-	|		:  codes)
-	|		:
-	|		:
-	|		+- d (dependency files, created by "make")
-	|		|
-	|		+- o (object files, created by "make")
-	|		|
-	|		+- lib / lib64 (library files and plug-ins,
-	|		|  created by "make")
-	|		|
-	|		+- exe (executable files, created by "make")
-	|
-	+- Vrui-2.1 (created by "make install")
-		|
-		+- include (Vrui development header files)
-		|
-		+- lib / lib64 (library files and plug-ins)
-		|
-		+- bin (Vrui driver and utility programs)
-		|
-		+- etc (Vrui configuration files)
-		|
-		+- share (font definitions, texture images, etc.)
+  |
+  +- src (unpack Vrui tarball from in here)
+  | |
+  | +- Vrui-<version>-<build> (package root directory, run "make" in
+  |   | here)
+  |   |
+  |   +- COPYING, VERSION, HISTORY, README
+  |   |
+  |   +- makefile
+  |   |
+  |   +- BuildRoot (Vrui's build system)
+  |   |
+  |   +- <Vrui component directories>
+  |   |
+  |   +- ExamplePrograms (Vrui example program source
+  |   |  codes)
+  |   |
+  |   +- d (dependency files, created by "make")
+  |   |
+  |   +- o (object files, created by "make")
+  |   |
+  |   +- lib / lib64 (library files and plug-ins,
+  |   |  created by "make")
+  |   |
+  |   +- bin (executable files, created by "make")
+  |
+  +- Vrui-<version> (created by "make install")
+    |
+    +- include (Vrui development header files)
+    |
+    +- lib / lib64 (library files and plug-ins)
+    |
+    +- bin (Vrui driver and utility programs)
+    |
+    +- etc (Vrui configuration files)
+    |
+    +- share (font definitions, texture images, etc.)
+      |
+      +- GLFonts, Shaders, Textures
+      |
+      +- make (Vrui's build system)
+      |
+      +- doc (HTML documentation)
 
 Root Installation Directory
 ---------------------------
@@ -147,28 +172,22 @@ the usual subdirectories under the root installation directory:
 - lib or lib64: Contains shared libraries and Vrui plug-ins
 - bin: Contains executables
 - etc: Contains configuration files
-- share: Contains additional files (texture fonts etc.)
+- share: Contains resource files (texture fonts etc.)
 
-If the root installation directory is set to /usr or /usr/local, Vrui
-will drop right into an existing Linux installation. However, to
-simplify removing a Vrui installation (there is no make uninstall yet),
-it is recommended to install Vrui in its private root directory, such as
-/usr/local/Vrui-2.1. If installed this way, it can be cleanly
+If the root installation directory is set to /usr/local, Vrui will drop
+right into an existing Linux installation. However, to simplify removing
+a Vrui installation (there is no make uninstall yet), it is recommended
+to install Vrui in its private root directory, such as
+/usr/local/Vrui-<version>. If installed this way, it can be cleanly
 uninstalled by simply removing the root installation directory.
 
-During installation, Vrui creates a makefile fragment (Vrui.makeinclude)
-in $(INSTALLDIR)/share. This fragment should be included by the
-makefiles of all Vrui-based projects to simplify compiling and linking.
-The makefiles provided with the Vrui example applications show how this
-should be done, and how it results in simple makefiles that build on any
-environment with a properly installed version of Vrui.
+If the root installation directory is set to /usr, Vrui will almost (but
+not quite) follow the UNIX installation conventions. Concretely,
+configuration files will end up in /usr/etc and not in /etc. If the
+latter is desired, the additional SYSTEMINSTALL parameter needs to be
+added to make's command line, and INSTALLDIR must be set to /:
 
-Alternatively, Vrui creates a pkg-config metafile during build,
-Share/Vrui.pc. This metafile can be copied to a location recognized by
-pkg-config, such as /usr/lib(64)/pkgconfig, and can then be used to
-retrieve compiler and linker flags required to build Vrui applications,
-as in
-g++ -o Foo `pkg-config Vrui --cflags` Foo.cpp `pkg-config Vrui --libs`
+> make SYSTEMINSTALL=1 INSTALLDIR=/
 
 Path to the C++ Compiler
 ------------------------
@@ -273,8 +292,8 @@ thread-local storage (for an additional performance penalty).
 Building and Installing Vrui
 ============================
 
-The easiest way to install Vrui is to cd to the Vrui-2.1-<build> root
-directory, and type make, followed by make install. If the root
+The easiest way to install Vrui is to cd to the Vrui-<version>-<build>
+root directory, and type make, followed by make install. If the root
 installation directory (see above) is a system directory, make install
 has to be run as root. In that case, it is safer to first run make
 (which will build in the current directory) as a non-root user, and
@@ -316,9 +335,9 @@ the example applications (see below).
 Building Example Vrui Applications
 ==================================
 
-The ExamplePrograms directory in the Vrui-2.1-<build> base directory
-contains several small example programs, and two larger applications in
-their own directories (MeshEditor and VRMLViewer).
+The ExamplePrograms directory in the Vrui-<version>-<build> base
+directory contains several small example programs, and two larger
+applications in their own directories (MeshEditor and VRMLViewer).
 
 ExamplePrograms contains several very simple Vrui applications to show
 the basic development approach, and ShowEarthModel, one "realistic"
@@ -331,15 +350,39 @@ be layered on top of the Vrui API.
 
 All applications can be built by running make in their respective
 directories. If Vrui was not installed in its default location
-(~/Vrui-2.1), the VRUIDIR variable at the top of each makefile needs to
-be changed.
+(~/Vrui-<version>), the VRUI_MAKEDIR variable at the top of each
+makefile needs to be changed to the directory named "make" under Vrui's
+root installation directory.
 
 The example application makefiles show how to create debug/release
 versions without changing the makefile by respecting the DEBUG make
 command line argument ("make DEBUG=1") in the same way as the toolkit
 build itself. The application makefiles do not currently allow
-coexisting targets; changing between debug and release mode requires a
-"make clean".
+coexisting targets; changing between debug and release mode requires an
+intermediate "make clean".
+
+Building Vrui Applications
+==========================
+
+During installation, Vrui installs its own build system in
+$(INSTALLDIR)/share/make. Vrui-based projects can benefit from this
+build system by using a makefile following the template makefile
+included in the build system directory.
+
+For compatibility with previous versions of Vrui, Vrui also creates a
+makefile fragment (Vrui.makeinclude) in $(INSTALLDIR)/share. This
+fragment should be included by the makefiles of all Vrui-based projects
+to simplify compiling and linking. The makefiles provided with the Vrui
+example applications show how this should be done, and how it results in
+simple makefiles that build on any environment with a properly installed
+version of Vrui.
+
+Alternatively, Vrui creates a pkg-config metafile during build,
+Share/Vrui.pc. This metafile can be copied to a location recognized by
+pkg-config, such as /usr/lib(64)/pkgconfig, and can then be used to
+retrieve compiler and linker flags required to build Vrui applications,
+as in
+g++ -o Foo `pkg-config Vrui --cflags` Foo.cpp `pkg-config Vrui --libs`
 
 Running Vrui Applications
 =========================
@@ -366,5 +409,5 @@ following cascade:
    the configuration file, Vrui will fall back to the root section
    compiled into the library (defaults to "Desktop").
 
-The HTML pages in the Documentation directory contain additional
-information about configuring, running, and using Vrui applications.
+The HTML pages in $(INSTALLDIR)/share/doc contain additional information
+about configuring, running, and using Vrui applications.

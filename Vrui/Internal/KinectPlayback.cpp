@@ -47,7 +47,7 @@ Methods of class KinectPlayback::KinectStreamer:
 void* KinectPlayback::KinectStreamer::depthDecompressorThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Create a depth frame reader for the depth file: */
 	DepthFrameReader depthFrameReader(*depthFile);
@@ -72,7 +72,7 @@ void* KinectPlayback::KinectStreamer::depthDecompressorThreadMethod(void)
 			Threads::MutexCond::Lock frameUpdateLock(frameUpdateCond);
 			depthFrame=frames[1-mostRecentFrame];
 			depthFrameValid=frames[mostRecentFrame].timeStamp;
-			frameUpdateCond.signal(frameUpdateLock);
+			frameUpdateCond.signal();
 			}
 			
 			/* Wait until the requested time stamp changes: */
@@ -93,7 +93,7 @@ void* KinectPlayback::KinectStreamer::depthDecompressorThreadMethod(void)
 	Threads::MutexCond::Lock frameUpdateLock(frameUpdateCond);
 	depthFrame=frames[1-mostRecentFrame];
 	depthFrameValid=frames[mostRecentFrame].timeStamp;
-	frameUpdateCond.signal(frameUpdateLock);
+	frameUpdateCond.signal();
 	}
 	
 	return 0;
@@ -102,7 +102,7 @@ void* KinectPlayback::KinectStreamer::depthDecompressorThreadMethod(void)
 void* KinectPlayback::KinectStreamer::colorDecompressorThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Create a color frame reader for the color file: */
 	ColorFrameReader colorFrameReader(*colorFile);
@@ -127,7 +127,7 @@ void* KinectPlayback::KinectStreamer::colorDecompressorThreadMethod(void)
 			Threads::MutexCond::Lock frameUpdateLock(frameUpdateCond);
 			colorFrame=frames[1-mostRecentFrame];
 			colorFrameValid=frames[mostRecentFrame].timeStamp;
-			frameUpdateCond.signal(frameUpdateLock);
+			frameUpdateCond.signal();
 			}
 			
 			/* Wait until the requested time stamp changes: */
@@ -148,7 +148,7 @@ void* KinectPlayback::KinectStreamer::colorDecompressorThreadMethod(void)
 	Threads::MutexCond::Lock frameUpdateLock(frameUpdateCond);
 	colorFrame=frames[1-mostRecentFrame];
 	colorFrameValid=frames[mostRecentFrame].timeStamp;
-	frameUpdateCond.signal(frameUpdateLock);
+	frameUpdateCond.signal();
 	}
 	
 	return 0;
@@ -192,7 +192,7 @@ KinectPlayback::KinectStreamer::KinectStreamer(double firstTimeStamp,std::string
 	double colorMatrix[4*4];
 	colorFile->read<double>(colorMatrix,4*4);
 	
-	/* Start the depth decompression thread: */
+	/* Start the color decompression thread: */
 	colorDecompressorThread.start(this,&KinectPlayback::KinectStreamer::colorDecompressorThreadMethod);
 	
 	/* Create the facade projector: */
@@ -201,6 +201,7 @@ KinectPlayback::KinectStreamer::KinectStreamer(double firstTimeStamp,std::string
 
 KinectPlayback::KinectStreamer::~KinectStreamer(void)
 	{
+	/* Delete the facade projector: */
 	delete projector;
 	
 	/* Shut down the depth and color decompression threads: */
@@ -208,10 +209,6 @@ KinectPlayback::KinectStreamer::~KinectStreamer(void)
 	colorDecompressorThread.cancel();
 	depthDecompressorThread.join();
 	colorDecompressorThread.join();
-	
-	/* Close the depth and color files: */
-	delete depthFile;
-	delete colorFile;
 	}
 
 void KinectPlayback::KinectStreamer::updateFrames(double currentTimeStamp,double nextTimeStamp)
@@ -242,7 +239,7 @@ void KinectPlayback::KinectStreamer::updateFrames(double currentTimeStamp,double
 		/* Update the readahead time stamp and wake up any sleeping threads: */
 		Threads::MutexCond::Lock timeStampLock(timeStampCond);
 		readAheadTimeStamp=nextTimeStamp;
-		timeStampCond.broadcast(timeStampLock);
+		timeStampCond.broadcast();
 		}
 	}
 
@@ -251,10 +248,10 @@ void KinectPlayback::KinectStreamer::glRenderAction(GLContextData& contextData) 
 	/* Go to the camera's facade's coordinate system: */
 	glPushMatrix();
 	glMultMatrix(projectorTransform);
-
+	
 	/* Draw the camera's facade: */
 	projector->draw(contextData);
-
+	
 	/* Go back to the previous coordinate system: */
 	glPopMatrix();
 	}

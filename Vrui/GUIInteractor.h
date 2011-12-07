@@ -26,11 +26,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Ray.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <GL/gl.h>
+#include <GL/GLColor.h>
 #include <Vrui/Geometry.h>
 
 /* Forward declarations: */
 class GLContextData;
 namespace GLMotif {
+class TextControlEvent;
 class Widget;
 }
 namespace Vrui {
@@ -76,7 +79,8 @@ class GUIInteractor
 	bool buttonDown(bool force); // Reacts to a button press with the current interaction ray; forces activation if flag is true; returns true if interactor became active
 	void buttonUp(void); // Reacts to a button release with the current interaction ray
 	void move(void); // Reacts to a change in interaction ray
-	void glRenderAction(GLContextData& contextData) const; // Draws the interactor's current state
+	bool textControl(const GLMotif::TextControlEvent& textControlEvent); // Sends a text control event
+	void glRenderAction(GLfloat rayWidth,const GLColor<GLfloat,4>& rayColor,GLContextData& contextData) const; // Draws the interactor's current state
 	virtual Point calcHotSpot(void) const; // Returns current interaction position of GUI interactor
 	};
 

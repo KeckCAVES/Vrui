@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrollBar - Class for horizontal or vertical scroll bars, to be used as
 a component by scrolling widgets like list boxes.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -111,6 +111,8 @@ class ScrollBar:public DragWidget
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);
+	virtual bool giveTextFocus(void);
+	virtual void textControlEvent(const TextControlEvent& event);
 	
 	/* New methods: */
 	void setBevelWidth(GLfloat newBevelWidth); // Changes width of bevel around arrow buttons and scroll bar handle

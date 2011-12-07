@@ -101,7 +101,7 @@ class Doom3ValueSource:public IO::ValueSource
 	
 	/* Constructors and destructors: */
 	public:
-	Doom3ValueSource(IO::File& sSource,std::string sFileName)
+	Doom3ValueSource(IO::FilePtr sSource,std::string sFileName)
 		:Base(sSource),fileName(sFileName),lineNumber(1)
 		{
 		/* Set default punctuation and quote characters: */

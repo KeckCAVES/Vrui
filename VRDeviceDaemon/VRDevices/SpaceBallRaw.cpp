@@ -25,11 +25,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <VRDeviceDaemon/VRDevices/SpaceBallRaw.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <unistd.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Time.h>
 #include <Misc/StandardValueCoders.h>
@@ -59,10 +55,13 @@ bool SpaceBallRaw::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time
 			{
 			*lineBuffer=char(devicePort.getChar());
 			if(*lineBuffer=='\r'||*lineBuffer=='\n')
+				{
 				incomplete=false;
+				break;
+				}
 			++lineBuffer;
 			}
-		while(incomplete&&lineBufferSize>1&&devicePort.canReadImmediately());
+		while(lineBufferSize>1&&devicePort.canReadImmediately());
 		}
 	
 	/* Terminate the line buffer and return success flag: */
@@ -189,8 +188,9 @@ SpaceBallRaw::SpaceBallRaw(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 		}
 	
 	/* Set device port parameters: */
+	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate",9600);
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::BufferedSerialPort::NoParity,2,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,2,false);
 	devicePort.setRawMode(1,0);
 	
 	/* Wait for status message from device: */
@@ -227,6 +227,7 @@ void SpaceBallRaw::start(void)
 	fflush(stdout);
 	#endif
 	devicePort.write<char>("M\r",2);
+	devicePort.flush();
 	}
 
 void SpaceBallRaw::stop(void)
@@ -237,6 +238,7 @@ void SpaceBallRaw::stop(void)
 	fflush(stdout);
 	#endif
 	devicePort.write<char>("-\r",2);
+	devicePort.flush();
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

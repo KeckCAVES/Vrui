@@ -328,7 +328,7 @@ void DC1394VideoDevice::featureValueCallback(Misc::CallbackData* cbData,const un
 void* DC1394VideoDevice::streamingThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{

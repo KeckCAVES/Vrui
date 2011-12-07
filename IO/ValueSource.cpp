@@ -30,32 +30,10 @@ namespace IO {
 Methods of class ValueSource:
 ****************************/
 
-void ValueSource::initCharacterClasses(void)
-	{
-	cc[-1]=NONE; // EOF is nothing; nothing, I tell you!
-	cc[0]=WHITESPACE; // NUL is always whitespace
-	
-	/* Set up the basic character classes: */
-	for(int i=1;i<256;++i)
-		{
-		cc[i]=NONE;
-		if(isspace(i))
-			cc[i]|=WHITESPACE;
-		else
-			cc[i]|=STRING; // Everything that's not a space can be a string for now
-		if(isdigit(i))
-			cc[i]|=DIGIT;
-		cc[i]|=QUOTEDSTRING; // Pretty much everything is a quoted string
-		}
-	
-	/* Set string terminators: */
-	cc['\n']&=~QUOTEDSTRING; // Newlines terminate quoted strings
-	}
-
 char ValueSource::processEscape(void)
 	{
 	/* Skip the escape character: */
-	lastChar=source.getChar();
+	lastChar=source->getChar();
 	
 	/* Handle the escape sequence: */
 	char result;
@@ -101,8 +79,8 @@ char ValueSource::processEscape(void)
 			{
 			/* Parse an octal character code: */
 			result=lastChar-'0';
-			lastChar=source.getChar();
-			for(int i=1;i<3&&lastChar>='0'&&lastChar<='7';++i,lastChar=source.getChar())
+			lastChar=source->getChar();
+			for(int i=1;i<3&&lastChar>='0'&&lastChar<='7';++i,lastChar=source->getChar())
 				result=(result<<3)+(lastChar-'0');
 			mustSkip=false;
 			break;
@@ -112,7 +90,7 @@ char ValueSource::processEscape(void)
 			{
 			/* Parse a hexadecimal character code: */
 			result=0;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			while((lastChar>='0'&&lastChar<='9')||(lastChar>='A'&&lastChar<='F')||(lastChar>='a'&&lastChar<='f'))
 				{
 				if(lastChar>='0'&&lastChar<='9')
@@ -121,7 +99,7 @@ char ValueSource::processEscape(void)
 					result=(result<<4)+(lastChar-'A'+10);
 				else
 					result=(result<<4)+(lastChar-'a'+10);
-				lastChar=source.getChar();
+				lastChar=source->getChar();
 				}
 			mustSkip=false;
 			break;
@@ -138,28 +116,50 @@ char ValueSource::processEscape(void)
 			result=lastChar;
 		}
 	if(mustSkip)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
 
-ValueSource::ValueSource(File& sSource)
+ValueSource::ValueSource(FilePtr sSource)
 	:source(sSource),
 	 cc(characterClasses+1),
 	 escapeChar(-1)
 	{
 	/* Initialize the character classes: */
-	initCharacterClasses();
+	resetCharacterClasses();
 	
 	/* Read the first character from the character source: */
-	lastChar=source.getChar();
+	lastChar=source->getChar();
 	}
 
 ValueSource::~ValueSource(void)
 	{
 	/* Put the last read character back into the character source: */
 	if(lastChar>=0)
-		source.ungetChar(lastChar);
+		source->ungetChar(lastChar);
+	}
+
+void ValueSource::resetCharacterClasses(void)
+	{
+	cc[-1]=NONE; // EOF is nothing; nothing, I tell you!
+	cc[0]=WHITESPACE; // NUL is always whitespace
+	
+	/* Set up the basic character classes: */
+	for(int i=1;i<256;++i)
+		{
+		cc[i]=NONE;
+		if(isspace(i))
+			cc[i]|=WHITESPACE;
+		else
+			cc[i]|=STRING; // Everything that's not a space can be a string for now
+		if(isdigit(i))
+			cc[i]|=DIGIT;
+		cc[i]|=QUOTEDSTRING; // Pretty much everything is a quoted string
+		}
+	
+	/* Set string terminators: */
+	cc['\n']&=~QUOTEDSTRING; // Newlines terminate quoted strings
 	}
 
 void ValueSource::setWhitespace(int character,bool whitespace)
@@ -278,11 +278,11 @@ void ValueSource::skipLine(void)
 	{
 	/* Skip everything until the next newline: */
 	while(lastChar>=0&&lastChar!='\n')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	/* Skip the newline: */
 	if(lastChar=='\n')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	}
 
 std::string ValueSource::readLine(void)
@@ -293,12 +293,12 @@ std::string ValueSource::readLine(void)
 	while(lastChar>=0&&lastChar!='\n')
 		{
 		result.push_back(lastChar);
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	
 	/* Skip the newline: */
 	if(lastChar=='\n')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -311,7 +311,7 @@ unsigned int ValueSource::matchString(const char* string)
 		{
 		++result;
 		++string;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	
 	return result;
@@ -324,8 +324,13 @@ bool ValueSource::isLiteral(const char* literal)
 	if(cc[lastChar]&PUNCTUATION)
 		{
 		/* Match a single punctuation character: */
-		result=lastChar==literal[0]&&literal[1]=='\0';
-		lastChar=source.getChar();
+		if(lastChar==*literal)
+			{
+			/* Go to the next character: */
+			lastChar=source->getChar();
+			++literal;
+			}
+		result=*literal=='\0';
 		}
 	else
 		{
@@ -333,7 +338,7 @@ bool ValueSource::isLiteral(const char* literal)
 		while((cc[lastChar]&STRING)&&lastChar==*literal)
 			{
 			/* Go to the next character: */
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			++literal;
 			}
 		
@@ -342,13 +347,13 @@ bool ValueSource::isLiteral(const char* literal)
 		while(cc[lastChar]&STRING)
 			{
 			result=false;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		}
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -361,19 +366,21 @@ bool ValueSource::isLiteral(char literal)
 		{
 		/* Match a single punctuation character: */
 		result=lastChar==literal;
-		lastChar=source.getChar();
+		if(result)
+			lastChar=source->getChar();
 		}
 	else if(cc[lastChar]&STRING)
 		{
 		/* Check the string's first character against the literal: */
 		result=lastChar==literal;
-		lastChar=source.getChar();
+		if(result)
+			lastChar=source->getChar();
 		
 		/* Check if the string has been exhausted; if not, skip the rest of it: */
 		while(cc[lastChar]&STRING)
 			{
 			result=false;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		}
 	else
@@ -381,7 +388,7 @@ bool ValueSource::isLiteral(char literal)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -393,8 +400,13 @@ bool ValueSource::isCaseLiteral(const char* literal)
 	if(cc[lastChar]&PUNCTUATION)
 		{
 		/* Match a single punctuation character: */
-		result=tolower(lastChar)==tolower(literal[0])&&literal[1]=='\0';
-		lastChar=source.getChar();
+		if(tolower(lastChar)==tolower(*literal))
+			{
+			/* Go to the next character: */
+			lastChar=source->getChar();
+			++literal;
+			}
+		result=*literal=='\0';
 		}
 	else
 		{
@@ -402,7 +414,7 @@ bool ValueSource::isCaseLiteral(const char* literal)
 		while((cc[lastChar]&STRING)&&tolower(lastChar)==tolower(*literal))
 			{
 			/* Go to the next character: */
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			++literal;
 			}
 		
@@ -411,13 +423,13 @@ bool ValueSource::isCaseLiteral(const char* literal)
 		while(cc[lastChar]&STRING)
 			{
 			result=false;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		}
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -430,19 +442,20 @@ bool ValueSource::isCaseLiteral(char literal)
 		{
 		/* Match a single punctuation character: */
 		result=tolower(lastChar)==tolower(literal);
-		lastChar=source.getChar();
+		if(result)
+			lastChar=source->getChar();
 		}
 	else if(cc[lastChar]&STRING)
 		{
 		/* Check the string's first character against the literal: */
 		result=tolower(lastChar)==tolower(literal);
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		
 		/* Check if the string has been exhausted; if not, skip the rest of it: */
 		while(cc[lastChar]&STRING)
 			{
 			result=false;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		}
 	else
@@ -450,7 +463,7 @@ bool ValueSource::isCaseLiteral(char literal)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -460,28 +473,28 @@ void ValueSource::skipString(void)
 	if(cc[lastChar]&PUNCTUATION)
 		{
 		/* Read a punctuation character: */
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
 		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
 		int quote=lastChar;
 		cc[quote]&=~QUOTEDSTRING;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
 		while(cc[lastChar]&QUOTEDSTRING)
 			{
 			/* Skip the next character or escape sequence: */
 			if(lastChar!=escapeChar)
-				lastChar=source.getChar();
+				lastChar=source->getChar();
 			else
 				processEscape();
 			}
 		
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 		
 		/* Add the quote character to the set of quoted string characters again: */
 		cc[quote]|=QUOTEDSTRING;
@@ -493,7 +506,7 @@ void ValueSource::skipString(void)
 			{
 			/* Skip the next character or escape sequence: */
 			if(lastChar!=escapeChar)
-				lastChar=source.getChar();
+				lastChar=source->getChar();
 			else
 				processEscape();
 			}
@@ -501,7 +514,7 @@ void ValueSource::skipString(void)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	}
 
 std::string ValueSource::readString(void)
@@ -512,14 +525,14 @@ std::string ValueSource::readString(void)
 		{
 		/* Read a punctuation character: */
 		result.push_back(lastChar);
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
 		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
 		int quote=lastChar;
 		cc[quote]&=~QUOTEDSTRING;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
 		while(cc[lastChar]&QUOTEDSTRING)
@@ -528,7 +541,7 @@ std::string ValueSource::readString(void)
 			if(lastChar!=escapeChar)
 				{
 				result.push_back(lastChar);
-				lastChar=source.getChar();
+				lastChar=source->getChar();
 				}
 			else
 				result.push_back(processEscape());
@@ -536,7 +549,7 @@ std::string ValueSource::readString(void)
 		
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 		
 		/* Add the quote character to the set of quoted string characters again: */
 		cc[quote]|=QUOTEDSTRING;
@@ -550,7 +563,7 @@ std::string ValueSource::readString(void)
 			if(lastChar!=escapeChar)
 				{
 				result.push_back(lastChar);
-				lastChar=source.getChar();
+				lastChar=source->getChar();
 				}
 			else
 				result.push_back(processEscape());
@@ -559,7 +572,7 @@ std::string ValueSource::readString(void)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -569,7 +582,7 @@ int ValueSource::readInteger(void)
 	/* Read a plus or minus sign: */
 	bool negate=lastChar=='-';
 	if(lastChar=='-'||lastChar=='+')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	/* Signal an error if the next character is not a digit: */
 	if(!(cc[lastChar]&DIGIT))
@@ -580,7 +593,7 @@ int ValueSource::readInteger(void)
 	while(cc[lastChar]&DIGIT)
 		{
 		result=result*10+int(lastChar-'0');
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	
 	/* Negate the result if a minus sign was read: */
@@ -589,7 +602,7 @@ int ValueSource::readInteger(void)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -605,12 +618,12 @@ unsigned int ValueSource::readUnsignedInteger(void)
 	while(cc[lastChar]&DIGIT)
 		{
 		result=result*10+(unsigned int)(lastChar-'0');
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}
@@ -620,7 +633,7 @@ double ValueSource::readNumber(void)
 	/* Read a plus or minus sign: */
 	bool negate=lastChar=='-';
 	if(lastChar=='-'||lastChar=='+')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	/* Read an integral number part: */
 	bool haveDigit=false;
@@ -629,13 +642,13 @@ double ValueSource::readNumber(void)
 		{
 		haveDigit=true;
 		result=result*10.0+double(lastChar-'0');
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	
 	/* Check for a period: */
 	if(lastChar=='.')
 		{
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		
 		/* Read a fractional number part: */
 		double fraction=0.0;
@@ -645,7 +658,7 @@ double ValueSource::readNumber(void)
 			haveDigit=true;
 			fraction=fraction*10.0+double(lastChar-'0');
 			fractionBase*=10.0;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		
 		result+=fraction/fractionBase;
@@ -662,12 +675,12 @@ double ValueSource::readNumber(void)
 	/* Check for an exponent indicator: */
 	if(lastChar=='e'||lastChar=='E')
 		{
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		
 		/* Read a plus or minus sign: */
 		bool negateExponent=lastChar=='-';
 		if(lastChar=='-'||lastChar=='+')
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 		
 		/* Check if there are any digits in the exponent: */
 		if(!(cc[lastChar]&DIGIT))
@@ -678,7 +691,7 @@ double ValueSource::readNumber(void)
 		while(cc[lastChar]&DIGIT)
 			{
 			exponent=exponent*10.0+double(lastChar-'0');
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		
 		/* Multiply the mantissa with the exponent: */
@@ -687,7 +700,7 @@ double ValueSource::readNumber(void)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return result;
 	}

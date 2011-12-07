@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,6 +53,7 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	Vector screenScalingDirection; // Direction of scaling vector in screen's coordinates
 	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
 	Scalar wheelScaleFactor; // Scaling factor for one wheel click
+	Scalar throwThreshold; // Distance the device has to be moved on the last step of panning to activate throwing
 	Scalar probeSize; // Size of probe to use when aligning surface frames
 	Scalar maxClimb; // Maximum amount of climb per frame
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
@@ -83,7 +84,7 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	private:
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
-		IDLE,WIDGETING,ROTATING,PANNING,SCALING,SCALING_WHEEL
+		IDLE,WIDGETING,ROTATING,PANNING,THROWING,SCALING,SCALING_WHEEL
 		};
 	
 	/* Elements: */
@@ -92,9 +93,10 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	
 	/* Transient navigation state: */
 	Point currentPos; // Current projected position of mouse input device on screen
+	double lastMoveTime; // Application time at which the projected position last changed
 	Scalar currentValue; // Value of the associated valuator
 	NavigationMode navigationMode; // The tool's current navigation mode
-	Point lastPos; // Last mouse position during navigation
+	Vector throwVelocity; // Velocity when throwing
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of viewer position relative to local coordinate frame
 	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame

@@ -48,6 +48,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
+#include <Vrui/OpenFile.h>
 
 namespace {
 
@@ -542,7 +543,7 @@ void CurveEditorTool::autoPlayToggleValueChangedCallback(GLMotif::ToggleButton::
 void CurveEditorTool::loadCurveCallback(Misc::CallbackData*)
 	{
 	/* Create a file selection dialog to select a curve file: */
-	GLMotif::FileSelectionDialog* loadCurveDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curve...",0,".curve",openPipe());
+	GLMotif::FileSelectionDialog* loadCurveDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curve...",openDirectory("."),".curve");
 	loadCurveDialog->getOKCallbacks().add(this,&CurveEditorTool::loadCurveOKCallback);
 	loadCurveDialog->getCancelCallbacks().add(loadCurveDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
@@ -558,7 +559,7 @@ void CurveEditorTool::loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallba
 		std::vector<Vertex> vertices;
 		std::vector<Segment> segments;
 		
-		Misc::File curveFile(cbData->selectedFileName.c_str(),"rt");
+		Misc::File curveFile(cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str(),"rt");
 		
 		/* Read the first vertex: */
 		Vertex v;
@@ -653,7 +654,7 @@ void CurveEditorTool::loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallba
 		}
 	
 	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void CurveEditorTool::saveCurveCallback(Misc::CallbackData*)
@@ -1414,7 +1415,9 @@ void CurveEditorTool::frame(void)
 		{
 		/* Calculate the new curve parameter based on the time offset: */
 		setParameterValue(getApplicationTime()-playStartTime);
-		requestUpdate();
+		
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	
 	if(pickedVertex!=0&&snapVertexToView)

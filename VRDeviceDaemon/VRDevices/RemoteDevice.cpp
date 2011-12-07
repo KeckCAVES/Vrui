@@ -1,6 +1,6 @@
 /***********************************************************************
 RemoteDevice - Class to daisy-chain device servers on remote machines.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -57,7 +57,7 @@ void RemoteDevice::deviceThreadMethod(void)
 
 RemoteDevice::RemoteDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
-	 pipe(Comm::TCPSocket(configFile.retrieveString("./serverName"),configFile.retrieveValue<int>("./serverPort")))
+	 pipe(configFile.retrieveString("./serverName").c_str(),configFile.retrieveValue<int>("./serverPort"))
 	{
 	/* Initiate connection: */
 	#ifdef VERBOSE
@@ -67,7 +67,8 @@ RemoteDevice::RemoteDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceM
 	pipe.writeMessage(Vrui::VRDevicePipe::CONNECT_REQUEST);
 	
 	/* Wait for server's reply: */
-	pipe.waitForData(10,0); // Throw exception if reply does not arrive in time
+	if(!pipe.waitForData(Misc::Time(10,0))) // Throw exception if reply does not arrive in time
+		Misc::throwStdErr("RemoteDevice: Timeout while waiting for CONNECT_REPLY");
 	if(pipe.readMessage()!=Vrui::VRDevicePipe::CONNECT_REPLY)
 		Misc::throwStdErr("RemoteDevice: Mismatching message while waiting for CONNECT_REPLY");
 	

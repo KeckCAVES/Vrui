@@ -25,15 +25,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define INTERSENSE_INCLUDED
 
 #include <Misc/Timer.h>
+#include <Comm/Pipe.h>
 
 #include <VRDeviceDaemon/VRDevice.h>
 
 /* Forward declarations: */
 namespace Misc {
 class Time;
-}
-namespace Comm {
-class Pipe;
 }
 
 class InterSense:public VRDevice
@@ -53,7 +51,7 @@ class InterSense:public VRDevice
 	typedef Vrui::VRDeviceState::TrackerState::PositionOrientation PositionOrientation; // Type for tracker position/orientation
 	
 	/* Elements: */
-	Comm::Pipe* devicePort; // Port to which the tracker device hardware is connected (serial port or TCP socket)
+	Comm::PipePtr devicePort; // Port to which the tracker device hardware is connected (serial port or TCP socket)
 	Station* stations; // Array of tracked stations
 	int stationIdToIndex[32]; // Array mapping from station IDs to tracker indices
 	Misc::Timer* timers; // Array of free-running timers for each tracker for velocity estimation

@@ -1,6 +1,6 @@
 /***********************************************************************
 SpaceBall - Class for 6-DOF joysticks (Spaceball 4000FLX).
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -27,6 +27,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDevice.h>
 
+/* Forward declarations: */
+namespace Misc {
+class Time;
+}
+
 class SpaceBall:public VRDevice
 	{
 	/* Embedded classes: */
@@ -40,6 +45,7 @@ class SpaceBall:public VRDevice
 	PositionOrientation currentPositionOrientation; // Current position/orientation of space ball device
 	
 	/* Private methods: */
+	bool readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline); // Reads a line of text from the space ball with timeout
 	int readPacket(int packetBufferSize,unsigned char* packetBuffer); // Reads a space ball status packet from the serial port; returns number of read characters
 	
 	/* Protected methods: */

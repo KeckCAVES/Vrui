@@ -265,11 +265,11 @@ unsigned int getVertexIndex(unsigned int polygonIndex,unsigned int pntsVertexInd
 Doom3Model* loadModelFromLWOFile(Doom3FileManager& fileManager,Doom3MaterialManager& materialManager,const char* lwoFileName)
 	{
 	/* Read the entire LightWave Object file into a memory block: */
-	IO::SeekableFile* lwoFileReader=fileManager.getSeekableFile(lwoFileName);
+	IO::SeekableFilePtr lwoFileReader=fileManager.getSeekableFile(lwoFileName);
 	size_t lwoFileSize=size_t(lwoFileReader->getSize());
 	char* lwoFile=new char[lwoFileSize];
 	lwoFileReader->readRaw(lwoFile,lwoFileSize);
-	delete lwoFileReader;
+	lwoFileReader=0;
 	
 	/* Read the main chunk: */
 	char* mainChunkPtr=lwoFile;

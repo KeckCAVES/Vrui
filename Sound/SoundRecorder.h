@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Sound/Config.h>
 
 #if SOUND_CONFIG_HAVE_ALSA
+#include <IO/SeekableFile.h>
 #include <Threads/Thread.h>
 #endif
 #ifdef __APPLE__
@@ -38,13 +39,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Sound/SoundDataFormat.h>
 #if SOUND_CONFIG_HAVE_ALSA
 #include <Sound/Linux/ALSAPCMDevice.h>
-#endif
-
-/* Forward declarations: */
-#if SOUND_CONFIG_HAVE_ALSA
-namespace IO {
-class SeekableFile;
-}
 #endif
 
 namespace Sound {
@@ -75,7 +69,7 @@ class SoundRecorder
 	AudioFileFormat outputFileFormat; // Format of the output file
 	size_t bytesPerFrame; // Number of bytes per frame of sound data
 	ALSAPCMDevice pcmDevice; // The ALSA PCM device used for recording
-	IO::SeekableFile* outputFile; // File to which to write the sound data
+	IO::SeekableFilePtr outputFile; // File to which to write the sound data
 	size_t sampleBufferSize; // Size of the sample buffer in frames
 	char* sampleBuffer; // A buffer to read sound data from the PCM device
 	size_t numRecordedFrames; // Total number of frames written to the output file

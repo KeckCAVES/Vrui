@@ -27,8 +27,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/GroupNode.h>
 
 /* Forward declarations: */
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 }
 
 namespace SceneGraph {
@@ -43,7 +43,7 @@ class ArcInfoExportFileNode:public GroupNode
 	
 	/* Derived state: */
 	protected:
-	Comm::MulticastPipeMultiplexer* multiplexer; // Multiplexer to read ARC/INFO export files in a cluster environment
+	Cluster::Multiplexer* multiplexer; // Multiplexer to read ARC/INFO export files in a cluster environment
 	
 	/* Constructors and destructors: */
 	public:

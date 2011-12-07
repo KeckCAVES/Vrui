@@ -1,7 +1,7 @@
 /***********************************************************************
 PointingTool - Base class for tools used to point at positions or
 features in a virtual environment.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -58,8 +58,14 @@ Methods of class PointingTool:
 *****************************/
 
 PointingTool::PointingTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:Tool(factory,inputAssignment)
+	:Tool(factory,inputAssignment),
+	 scaleFactor(1)
 	{
+	}
+
+void PointingTool::setScaleFactor(Scalar newScaleFactor)
+	{
+	scaleFactor=newScaleFactor;
 	}
 
 }

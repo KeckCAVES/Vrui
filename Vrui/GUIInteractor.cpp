@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Point.h>
 #include <GL/gl.h>
+#include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/Event.h>
@@ -199,7 +200,25 @@ void GUIInteractor::move(void)
 		}
 	}
 
-void GUIInteractor::glRenderAction(GLContextData& contextData) const
+bool GUIInteractor::textControl(const GLMotif::TextControlEvent& textControlEvent)
+	{
+	/* Ensure that no other GUI interactor is currently active: */
+	if(activeInteractor==0)
+		{
+		/* Create a GLMotif event: */
+		GLMotif::Event event(ray,false);
+		
+		/* Mark this as the most recently active interactor: */
+		setMostRecentGUIInteractor(this);
+		
+		/* Send the events to the widget manager: */
+		return getWidgetManager()->textControl(event,textControlEvent);
+		}
+	else
+		return false;
+	}
+
+void GUIInteractor::glRenderAction(GLfloat rayWidth,const GLColor<GLfloat,4>& rayColor,GLContextData& contextData) const
 	{
 	/* Check if the interaction ray needs to be drawn: */
 	if(pointing||interacting)
@@ -207,11 +226,11 @@ void GUIInteractor::glRenderAction(GLContextData& contextData) const
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
-		glColor3f(1.0f,0.0f,0.0f);
-		glLineWidth(3.0f);
+		glLineWidth(rayWidth);
 		
 		/* Draw the current interaction ray: */
 		glBegin(GL_LINES);
+		glColor(rayColor);
 		glVertex(ray.getOrigin());
 		glVertex(ray(getDisplaySize()*Scalar(5)));
 		glEnd();

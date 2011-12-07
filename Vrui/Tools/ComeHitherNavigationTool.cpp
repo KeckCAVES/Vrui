@@ -224,6 +224,9 @@ void ComeHitherNavigationTool::frame(void)
 			NavTransform delta=NavTransform(linearVelocity*deltaTime,Rotation::rotateScaledAxis(angularVelocity*deltaTime),Scalar(1));
 			delta*=startNav;
 			setNavigationTransformation(delta);
+			
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
 			}
 		}
 	}

@@ -49,7 +49,7 @@ void ImageSequenceMovieSaver::frameWritingThreadMethod(void)
 		Threads::MutexCond::Lock captureLock(captureCond);
 		frames.lockNewValue();
 		capturedFrames.push_back(frames.getLockedValue());
-		captureCond.signal(captureLock);
+		captureCond.signal();
 		}
 		
 		/* Wait for the next frame: */
@@ -143,10 +143,7 @@ ImageSequenceMovieSaver::~ImageSequenceMovieSaver(void)
 	{
 	/* Signal the frame capturing and saving threads to shut down: */
 	done=true;
-	{
-	Threads::MutexCond::Lock captureLock(captureCond);
-	captureCond.signal(captureLock);
-	}
+	captureCond.signal();
 	
 	/* Wait until the frame saving thread has saved all frames and terminates: */
 	frameSavingThread.join();

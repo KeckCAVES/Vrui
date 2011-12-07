@@ -175,13 +175,11 @@ Doom3TextureManager::ImageID Doom3TextureManager::loadTexture(const char* textur
 		try
 			{
 			/* Read the texture image file: */
-			IO::File* imageFile=fileManager.getFile(textureName);
+			IO::FilePtr imageFile=fileManager.getFile(textureName);
 			Images::TargaImageFileReader<IO::File> targaReader(*imageFile);
 			
 			/* Initialize the texture image: */
 			image.image=targaReader.readImage<Images::RGBAImage>();
-			
-			delete imageFile;
 			}
 		catch(Doom3FileManager::ReadError err)
 			{

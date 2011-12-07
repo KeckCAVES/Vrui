@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceState - Class to represent the current state of a single or
 multiple VR devices.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_INTERNAL_VRDEVICESTATE_INCLUDED
 
 #include <Misc/ArrayMarshallers.h>
-#include <Comm/TCPPipe.h>
+#include <IO/File.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/GeometryMarshallers.h>
 
@@ -185,30 +185,30 @@ class VRDeviceState
 		{
 		return valuatorStates;
 		}
-	void writeLayout(Comm::TCPPipe& pipe) const // Writes device state's layout to given TCP pipe
+	void writeLayout(IO::File& sink) const // Writes device state's layout to given data sink
 		{
-		pipe.write<int>(numTrackers);
-		pipe.write<int>(numButtons);
-		pipe.write<int>(numValuators);
+		sink.write<int>(numTrackers);
+		sink.write<int>(numButtons);
+		sink.write<int>(numValuators);
 		}
-	void readLayout(Comm::TCPPipe& pipe) // Reads device state's layout from given TCP pipe
+	void readLayout(IO::File& source) // Reads device state's layout from given data source
 		{
-		int newNumTrackers=pipe.read<int>();
-		int newNumButtons=pipe.read<int>();
-		int newNumValuators=pipe.read<int>();
+		int newNumTrackers=source.read<int>();
+		int newNumButtons=source.read<int>();
+		int newNumValuators=source.read<int>();
 		setLayout(newNumTrackers,newNumButtons,newNumValuators);
 		}
-	void write(Comm::TCPPipe& pipe) const // Writes device state to given TCP pipe
+	void write(IO::File& sink) const // Writes device state to given data sink
 		{
-		Misc::FixedArrayMarshaller<TrackerState>::write(trackerStates,numTrackers,pipe);
-		Misc::FixedArrayMarshaller<ButtonState>::write(buttonStates,numButtons,pipe);
-		Misc::FixedArrayMarshaller<ValuatorState>::write(valuatorStates,numValuators,pipe);
+		Misc::FixedArrayMarshaller<TrackerState>::write(trackerStates,numTrackers,sink);
+		Misc::FixedArrayMarshaller<ButtonState>::write(buttonStates,numButtons,sink);
+		Misc::FixedArrayMarshaller<ValuatorState>::write(valuatorStates,numValuators,sink);
 		}
-	void read(Comm::TCPPipe& pipe) const // Reads device state from given TCP pipe
+	void read(IO::File& source) const // Reads device state from given data source
 		{
-		Misc::FixedArrayMarshaller<TrackerState>::read(trackerStates,numTrackers,pipe);
-		Misc::FixedArrayMarshaller<ButtonState>::read(buttonStates,numButtons,pipe);
-		Misc::FixedArrayMarshaller<ValuatorState>::read(valuatorStates,numValuators,pipe);
+		Misc::FixedArrayMarshaller<TrackerState>::read(trackerStates,numTrackers,source);
+		Misc::FixedArrayMarshaller<ButtonState>::read(buttonStates,numButtons,source);
+		Misc::FixedArrayMarshaller<ValuatorState>::read(valuatorStates,numValuators,source);
 		}
 	};
 

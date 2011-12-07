@@ -25,7 +25,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef SPACEBALLRAW_INCLUDED
 #define SPACEBALLRAW_INCLUDED
 
-#include <Comm/BufferedSerialPort.h>
+#include <Comm/SerialPort.h>
 #include <Math/BrokenLine.h>
 
 #include <VRDeviceDaemon/VRDevice.h>
@@ -43,7 +43,7 @@ class SpaceBallRaw:public VRDevice
 	
 	/* Elements: */
 	private:
-	Comm::BufferedSerialPort devicePort; // Serial port the tracking device hardware is connected to
+	Comm::SerialPort devicePort; // Serial port the tracking device hardware is connected to
 	AxisConverter axisConverters[6]; // Converters for the device's axes
 	
 	/* Private methods: */

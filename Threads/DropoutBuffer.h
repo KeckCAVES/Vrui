@@ -135,7 +135,7 @@ class DropoutBuffer
 			}
 		
 		/* Signal arrival of a new segment: */
-		queueMutex.broadcast(queueLock);
+		queueMutex.broadcast();
 		}
 	size_t getQueueSize(void) const // Returns the current size of the queue
 		{

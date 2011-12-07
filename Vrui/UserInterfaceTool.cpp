@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/OrthonormalTransformation.h>
+#include <GL/GLValueCoders.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
@@ -40,7 +41,8 @@ Methods of class UserInterfaceToolFactory:
 UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	:ToolFactory("UserInterfaceTool",toolManager),
 	 useEyeRay(false),
-	 rayOffset(getUiSize()*Scalar(2))
+	 rayOffset(getUiSize()*Scalar(2)),
+	 drawRay(true),rayColor(1.0f,0.0f,0.0f),rayWidth(3.0f)
 	{
 	#if 0
 	/* Insert class into class hierarchy: */
@@ -53,6 +55,9 @@ UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
 	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
+	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
+	rayColor=cfs.retrieveValue<GLColor<GLfloat,4> >("./rayColor",rayColor);
+	rayWidth=cfs.retrieveValue<GLfloat>("./rayWidth",rayWidth);
 	
 	/* Set tool class' factory pointer: */
 	UserInterfaceTool::factory=this;

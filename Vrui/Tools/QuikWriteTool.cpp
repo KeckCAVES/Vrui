@@ -51,8 +51,7 @@ QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
 	:ToolFactory("QuikWriteTool",toolManager),
 	 squareSize(getUiFont()->getTextHeight()*Scalar(10)),
 	 initialSquareDist(getInchFactor()*Scalar(3)),
-	 backgroundColor(getBackgroundColor()),
-	 drawRay(true)
+	 backgroundColor(getBackgroundColor())
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -66,7 +65,6 @@ QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
 	for(int i=0;i<3;++i)
 		foregroundColor[i]=Color::Scalar(1)-backgroundColor[i];
 	foregroundColor[3]=Color::Scalar(1);
-	rayColor=foregroundColor;
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
@@ -74,8 +72,6 @@ QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
 	initialSquareDist=cfs.retrieveValue<Scalar>("./initialSquareDist",initialSquareDist);
 	backgroundColor=cfs.retrieveValue<Color>("./backgroundColor",backgroundColor);
 	foregroundColor=cfs.retrieveValue<Color>("./foregroundColor",foregroundColor);
-	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
-	rayColor=cfs.retrieveValue<Color>("./rayColor",rayColor);
 	
 	/* Set tool class' factory pointer: */
 	QuikWriteTool::factory=this;
@@ -638,16 +634,16 @@ void QuikWriteTool::display(GLContextData& contextData) const
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
 		
-		if(factory->drawRay)
+		if(isDrawRay())
 			{
 			/* Get the interaction ray's intersection with the square plane: */
 			Plane::HitResult hr=squarePlane.intersectRay(ray);
 			if(hr.isValid())
 				{
 				/* Draw the interaction ray: */
-				glLineWidth(1.0f);
+				glLineWidth(getRayWidth());
 				glBegin(GL_LINES);
-				glColor(factory->rayColor);
+				glColor(getRayColor());
 				glVertex(ray.getOrigin());
 				glVertex(ray(hr.getParameter()));
 				glEnd();

@@ -204,6 +204,7 @@ class FactoryManager
 	void releaseClasses(void); // Releases all loaded classes
 	ClassIdType getClassId(const ManagedFactory* factory) const; // Returns class ID based on factory object
 	ManagedFactory* getFactory(ClassIdType classId) const; // Returns factory object based on class ID
+	ManagedFactory* getFactory(const char* className) const; // Returns factory object based on class name
 	ConstFactoryIterator begin(void) const // Returns iterator to the beginning of the managed class list
 		{
 		return ConstFactoryIterator(factories.begin());
