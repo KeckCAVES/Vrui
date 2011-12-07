@@ -2,7 +2,7 @@
 MouseDialogNavigationTool - Class providing a newbie-friendly interface
 to the standard MouseNavigationTool using a dialog box of navigation
 options.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -90,6 +90,7 @@ class MouseDialogNavigationTool:public NavigationTool,public GUIInteractor
 	
 	/* Transient navigation state: */
 	Point currentPos; // Current projected position of mouse input device on screen
+	double lastMoveTime; // Application time at which the projected position last changed
 	NavigationMode navigationMode; // The tool's current navigation mode
 	bool spinning; // Flag whether the tool is currently spinning
 	Point screenCenter; // Center of screen; center of rotation and scaling operations

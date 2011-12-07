@@ -32,8 +32,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/NormalNode.h>
 
 /* Forward declarations: */
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 }
 
 namespace SceneGraph {
@@ -84,7 +84,7 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	
 	/* Derived state: */
 	protected:
-	Comm::MulticastPipeMultiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
+	Cluster::Multiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
 	bool valid; // Flag whether the elevation grid has a valid renderable representation
 	bool indexed; // Flag whether the elevation grid is represented as a set of indexed quad strips or a set of quads
 	unsigned int version; // Version number of elevation grid

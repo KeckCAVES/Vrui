@@ -105,7 +105,7 @@ VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv,char**& appDefault
 	MyToolFactory* myToolFactory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
 	
 	/* Set the custom tool class' input layout: */
-	myToolFactory->setNumButtons(2); // Needs two buttons and can take optional buttons
+	myToolFactory->setNumButtons(2,true); // Needs two buttons and can take optional buttons
 	myToolFactory->setButtonFunction(0,"Does nothing");
 	myToolFactory->setButtonFunction(1,"Select Application Object");
 	myToolFactory->setButtonFunction(2,"Optional Button");
@@ -125,12 +125,20 @@ Main function:
 
 int main(int argc,char* argv[])
 	{
-	/* Create an application object: */
-	char** appDefaults=0; // This is an additional parameter no one ever uses
-	VruiCustomToolDemo app(argc,argv,appDefaults);
-	
-	/* Run the Vrui main loop: */
-	app.run();
+	try
+		{
+		/* Create an application object: */
+		char** appDefaults=0; // This is an additional parameter no one ever uses
+		VruiCustomToolDemo app(argc,argv,appDefaults);
+		
+		/* Run the Vrui main loop: */
+		app.run();
+		}
+	catch(std::runtime_error err)
+		{
+		std::cerr<<"Caught exception "<<err.what()<<std::endl;
+		return 1;
+		}
 	
 	/* Exit to OS: */
 	return 0;

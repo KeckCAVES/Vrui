@@ -1,7 +1,7 @@
 /***********************************************************************
 FileTests - Helper functions to query information about files and
 directories in an operating system-independent manner.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -38,7 +38,7 @@ enum PathType // Enumerated type for filesystem object types
 	};
 
 bool doesPathExist(const char* path); // Returns true if a filesystem object exists at the given path
-PathType getPathType(const char* path); // Returns the type of the filesystem object at the given path, of PATHTYPE_DOES_NOT_EXIST if the object does not exist
+PathType getPathType(const char* path); // Returns the type of the filesystem object at the given path, or PATHTYPE_DOES_NOT_EXIST if the object does not exist
 bool isPathFile(const char* path); // Returns true if the given path points to a regular file
 bool isFileReadable(const char* path); // Returns true of the given path points to a regular file that can be read by the current user
 bool isFileWriteable(const char* path); // Returns true of the given path points to a regular file that can be written by the current user

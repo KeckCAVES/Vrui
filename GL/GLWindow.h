@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2011 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <X11/X.h>
 #include <GL/glx.h>
+#include <Misc/CallbackList.h>
 
 class GLWindow
 	{
@@ -85,6 +86,7 @@ class GLWindow
 	WindowPos windowPos; // Current position and size of output window
 	bool fullscreen; // Flag if the window occupies the full screen (and has no decoration)
 	GLXContext context; // GLX context handle
+	Misc::CallbackList closeCallbacks; // List of callbacks to be called when the user attempts to close the window
 	
 	/* Private methods: */
 	void initWindow(const char* windowName,int* visualProperties); // Common part of all constructors
@@ -132,6 +134,10 @@ class GLWindow
 	WindowPos getRootWindowPos(void) const; // Returns the position and size of the root window containing this window
 	double getScreenWidthMM(void) const; // Returns the physical width of the window's screen in mm
 	double getScreenHeightMM(void) const; // Returns the physical height of the window's screen in mm
+	Misc::CallbackList& getCloseCallbacks(void) // Returns the list of close callbacks
+		{
+		return closeCallbacks;
+		}
 	void makeFullscreen(void); // Turns the window into a "fake" fullscreen window by making it slightly larger than the root window
 	void disableMouseEvents(void); // Tells the window to ignore mouse events (pointer motion, button click and release) from that point on
 	void hideCursor(void); // Hides the cursor while inside the window
@@ -150,7 +156,7 @@ class GLWindow
 		{
 		return event.xany.window==window;
 		}
-	bool processEvent(const XEvent& event); // Sends an X event to the window for processing. Returns true if the window wants to be closed
+	void processEvent(const XEvent& event); // Sends an X event to the window for processing
 	};
 
 #endif

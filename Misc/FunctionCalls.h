@@ -1,7 +1,7 @@
 /***********************************************************************
 FunctionCalls - Set of functor objects implementing function (or method)
 calls as first-class variables.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -193,7 +193,45 @@ class SingleArgumentMethodCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
-	virtual void operator()(Parameter parameter)
+	virtual void operator()(Parameter parameter) const
+		{
+		/* Call the method on the provided object with the provided argument: */
+		(callee->*method)(parameter,argument);
+		}
+	
+	/* New methods: */
+	void setArgument(const Argument& newArgument) // Changes the method call argument
+		{
+		argument=newArgument;
+		}
+	};
+
+/* Class to call C++ methods taking a single additional argument of arbitrary type on const objects: */
+template <class ParameterParam,class CalleeParam,class ArgumentParam>
+class SingleArgumentConstMethodCall:public FunctionCall<ParameterParam>
+	{
+	/* Embedded classes: */
+	public:
+	typedef typename FunctionCall<ParameterParam>::Parameter Parameter;
+	typedef CalleeParam Callee; // Type of called objects
+	typedef ArgumentParam Argument; // Argument type
+	typedef void (Callee::*Method)(Parameter,Argument) const; // Type for method pointers
+	
+	/* Elements: */
+	private:
+	const Callee* callee; // Object whose method to call
+	Method method; // The method pointer
+	Argument argument; // The argument to pass to the method
+	
+	/* Constructors and destructors: */
+	public:
+	SingleArgumentConstMethodCall(const Callee* sCallee,Method sMethod,const Argument& sArgument) // Creates a functor wrapper for the given method on the given object and the given argument
+		:callee(sCallee),method(sMethod),argument(sArgument)
+		{
+		}
+	
+	/* Methods from FunctionCall: */
+	virtual void operator()(Parameter parameter) const
 		{
 		/* Call the method on the provided object with the provided argument: */
 		(callee->*method)(parameter,argument);
@@ -212,52 +250,63 @@ Helper functions:
 
 template <class ParameterParam>
 inline
-VoidFunctionCall<ParameterParam>*
+FunctionCall<ParameterParam>*
 createFunctionCall(
-	typename VoidFunctionCall<ParameterParam>::Function function)
+	void (*function)(ParameterParam))
 	{
 	return new VoidFunctionCall<ParameterParam>(function);
 	}
 
 template <class ParameterParam,class ArgumentParam>
 inline
-SingleArgumentFunctionCall<ParameterParam,ArgumentParam>*
+FunctionCall<ParameterParam>*
 createFunctionCall(
-	typename SingleArgumentFunctionCall<ParameterParam,ArgumentParam>::Function function,
-	const typename SingleArgumentFunctionCall<ParameterParam,ArgumentParam>::Argument& argument)
+	void (*function)(ParameterParam,const ArgumentParam&),
+	ArgumentParam argument)
 	{
-	return new SingleArgumentFunctionCall<ParameterParam,ArgumentParam>(function,argument);
+	return new SingleArgumentFunctionCall<ParameterParam,const ArgumentParam&>(function,argument);
 	}
 
 template <class ParameterParam,class CalleeParam>
 inline
-VoidMethodCall<ParameterParam,CalleeParam>*
+FunctionCall<ParameterParam>*
 createFunctionCall(
-	typename VoidMethodCall<ParameterParam,CalleeParam>::Callee* callee,
-	typename VoidMethodCall<ParameterParam,CalleeParam>::Method method)
+	CalleeParam* callee,
+	void (CalleeParam::*method)(ParameterParam))
 	{
 	return new VoidMethodCall<ParameterParam,CalleeParam>(callee,method);
 	}
 
 template <class ParameterParam,class CalleeParam>
 inline
-VoidConstMethodCall<ParameterParam,CalleeParam>*
+FunctionCall<ParameterParam>*
 createFunctionCall(
-	const typename VoidConstMethodCall<ParameterParam,CalleeParam>::Callee* callee,
-	typename VoidConstMethodCall<ParameterParam,CalleeParam>::Method method)
+	const CalleeParam* callee,
+	void (CalleeParam::*method)(ParameterParam) const)
 	{
 	return new VoidConstMethodCall<ParameterParam,CalleeParam>(callee,method);
 	}
 
 template <class ParameterParam,class CalleeParam,class ArgumentParam>
 inline
-SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>*
+FunctionCall<ParameterParam>*
 createFunctionCall(
-	typename SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>::Callee* callee,
-	typename SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>::Method method,
-	const typename SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>::Argument& argument)
+	CalleeParam* callee,
+	void (CalleeParam::*method)(ParameterParam,const ArgumentParam&),
+	ArgumentParam argument)
 	{
-	return new SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>(callee,method,argument);
+	return new SingleArgumentMethodCall<ParameterParam,CalleeParam,const ArgumentParam&>(callee,method,argument);
+	}
+
+template <class ParameterParam,class CalleeParam,class ArgumentParam>
+inline
+FunctionCall<ParameterParam>*
+createFunctionCall(
+	const CalleeParam* callee,
+	void (CalleeParam::*method)(ParameterParam,const ArgumentParam&) const,
+	ArgumentParam argument)
+	{
+	return new SingleArgumentConstMethodCall<ParameterParam,CalleeParam,const ArgumentParam&>(callee,method,argument);
 	}
 
 }

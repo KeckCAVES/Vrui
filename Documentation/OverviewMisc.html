@@ -110,12 +110,6 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>Endianness.h</DT>
 <DD>Endianness contains a templatized class EndiannessSwapper that swaps the endianness of objects of arbitrary types using byte-wise exchanges and can be specialized to swap the endianness of aggregate data types. Endianness.h also contains a generic function swapEndianness(), templatized by value data type, that is used by client code. The implementation of swapEndianness() is based on EndiannessSwapper.</DD>
 
-<DT>ReadBuffer.h</DT>
-<DD>ReadBuffer is a class providing an endianness-safe pipe interface for reading from a fixed-size memory buffer.</DD>
-
-<DT>WriteBuffer.h</DT>
-<DD>WriteBuffer is a class providing an endianness-safe pipe interface for writing to a dynamically-growing memory buffer.</DD>
-
 <DT>GetCurrentDirectory.h</DT>
 <DD>GetCurrentDirectory contains a namespace-global function to retrieve the name of the calling process' current working directory as a string.</DD>
 
@@ -145,18 +139,6 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>StringMarshaller.h</DT>
 <DD>StringMarshaller contains namespace-global template functions to send/retrieve C or C++ strings via pipe objects that provide type-safe read/write routines, such as Misc::File.</DD>
-
-<DT>CharacterSource.h</DT>
-<DD>CharacterSource is the base class for high-performance ASCII file readers.</DD>
-
-<DT>BufferCharacterSource.h</DT>
-<DD>BufferCharacterSource is a reader class derived from CharacterSource for in-memory buffers.</DD>
-
-<DT>FileCharacterSource.h</DT>
-<DD>FileCharacterSource is a reader class derived from CharacterSource for standard files.</DD>
-
-<DT>GzippedFileCharacterSource.h</DT>
-<DD>FileCharacterSource is a reader class derived from CharacterSource for gzip-compressed standard files.</DD>
 
 <DT>ValueCoder.h</DT>
 <DD>ValueCoder is a class to encode/decode values of arbitrary types to/from strings, templatized by the type of encoded/decoded values.</DD>

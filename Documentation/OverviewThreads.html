@@ -12,8 +12,14 @@ The Threads library provides a C++ wrapper around the pthreads library. It suppo
 <H2>Header Files</H2>
 
 <DL>
+<DT>Config.h</DT>
+<DD>Config.h defines configuration-dependent macros used by the Threads library. It should be included by client code that wants to make decisions based on the availability of optional features.</DD>
+
 <DT>Thread.h</DT>
 <DD>Thread is a class representing a thread of execution. It can start threads from C functions or C++ methods, each with optional additional data passed to the thread function/method. Non-detached threads are automatically terminated (cancelled and joined) when their Thread object is destroyed.</DD>
+
+<DT>Spinlock.h</DT>
+<DD>Spinlock is a class representing a light-weight mutual-exclusion semaphor implemented via busy waiting. Spinlock has an embedded Lock class that allows expressing spinlock locking/unlocking as object construction/destruction. Spinlock should not be used if there is the potential for any user holding a lock for an extended period of time, i.e., it should only be used to protect very short critical sections.</DD>
 
 <DT>Mutex.h</DT>
 <DD>Mutex is a class representing a mutual-exclusion semaphor. Mutex has an embedded Lock class that allows expressing mutex locking/unlocking as object construction/destruction.</DD>

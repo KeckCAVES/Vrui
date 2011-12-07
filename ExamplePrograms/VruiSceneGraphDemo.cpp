@@ -52,8 +52,7 @@ VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv,char**& appDefault
 			{
 			try
 				{
-				IO::AutoFile inputFile(Vrui::openFile(argv[i]));
-				SceneGraph::VRMLFile vrmlFile(argv[i],*inputFile,nodeCreator,Vrui::getMulticastPipeMultiplexer());
+				SceneGraph::VRMLFile vrmlFile(argv[i],Vrui::openFile(argv[i]),nodeCreator,Vrui::getClusterMultiplexer());
 				vrmlFile.parse(root);
 				}
 			catch(std::runtime_error err)

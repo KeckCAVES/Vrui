@@ -73,6 +73,11 @@
 </TR>
 
 <TR>
+<TD>multipipeSendBufferSize</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Maximum number of packets that can be waiting in any multicast pipe's send buffer; analogous to the windowSize setting of TCP ports. Larger numbers might help increase multicast bandwidth, while smaller numbers generally decrease multicast latency.</TD>
+</TR>
+
+<TR>
 <TD>inchScale</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the physical coordinate unit used to describe the Vrui environment by specifying the length of an inch in physical units. For example, if the used physical units are meters, <EM>inchScale</EM> is set to 0.0254.</TD>
 </TR>
@@ -183,7 +188,7 @@
 </TR>
 
 <TR>
-<TD>frontplaneDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD><A NAME="frontplaneDist">frontplaneDist</A></TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the distance in physical units of the OpenGL front clipping plane from the eye points of Vrui viewers. This defines how closely a viewer can approach 3D objects before the objects are clipped away.</TD>
 </TR>
 
@@ -193,7 +198,7 @@
 </TR>
 
 <TR>
-<TD>backgroundColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD><A NAME="backgroundColor">backgroundColor</A></TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
 <TD>Defines the background color used for all windows in a Vrui display environment, unless overridden by Vrui applications.</TD>
 </TR>
 
@@ -268,7 +273,7 @@
 </TR>
 
 <TR>
-<TD>uiFontTextHeight</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD><A NAME="uiFontTextHeight">uiFontTextHeight</A></TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the height of text for 3D UI widgets in physical units.</TD>
 </TR>
 
@@ -779,6 +784,11 @@
 </TR>
 
 <TR>
+<TD>transform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
+<TD>Directly specifies the screen's transformation with respect to physical space (if <EM>deviceMounted</EM> is false) or to local device space (if <EM>deviceMounted</EM> is true). If this tag does not exist, Vrui uses the <EM>origin</EM>, <EM>horizontalAxis</EM>, and <EM>verticalAxis</EM> tags instead.</TD>
+</TR>
+
+<TR>
 <TD>origin</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
 <TD>Defines the origin (lower-left corner in pixel coordinates) of the screen in physical coordinates (if <EM>deviceMounted</EM> is false) or in local device coordinates (if <EM>deviceMounted</EM> is true).</TD>
 </TR>
@@ -816,6 +826,11 @@
 <TR>
 <TD>rotateAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Angle of additional screen rotation in degrees.</TD>
+</TR>
+
+<TR>
+<TD>preTransform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
+<TD>An arbitrary orthonormal transformation (translation + rotation) to move the screen's position and orientation in physical space (if <EM>deviceMounted</EM> is false) or in local device space (if <EM>deviceMounted</EM> is true).</TD>
 </TR>
 
 <TR>
@@ -933,6 +948,71 @@
 <TR>
 <TD>toolKillZonePos</TD><TD><A HREF="VruiCFGTypes.html#windowpoint">window point</A></TD>
 <TD>Setting to override the position of the tool kill zone when moving/resizing panning-viewport windows. By default, the position of the tool kill zone is given in physical coordinates and does not move with the window. If this tag is set, the tool kill zone will always stay at the given relative window coordinates. Relative window coordinates map (0, 0) to the lower-left window corner and (1, 1) to the top-right window corner.</TD>
+</TR>
+
+<TR>
+<TD>saveMovie</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable saving the contents of this window as a movie, either as a sequence of frames or directly as an Ogg/Theora video file.</TD>
+</TR>
+
+<TR>
+<TD>movieSaveTheora</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to save movies in Ogg/Theora format instead of a sequence of frame images.</TD>
+</TR>
+
+<TR>
+<TD>movieFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of Ogg/Theora video file to create.</TD>
+</TR>
+
+<TR>
+<TD>movieBitRate</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Bitrate for Ogg/Theora compressor. If set to a non-zero value, compressor will use constant bit rate encoding.</TD>
+</TR>
+
+<TR>
+<TD>movieQuality</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Variable bit rate encoding quality for Ogg/Theora compressor.</TD>
+</TR>
+
+<TR>
+<TD>movieGopSize</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Keyframe distance for Ogg/Theora compressor.</TD>
+</TR>
+
+<TR>
+<TD>movieFrameNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Printf-style name template for movie frame images when not saving to an Ogg/Theora video file. The format string must contain exactly one %u placeholder, and no other placeholders.</TD>
+</TR>
+
+<TR>
+<TD>movieFrameRate</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Desired movie frame rate in frames/second.</TD>
+</TR>
+
+<TR>
+<TD>movieSoundFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of sound file to record while saving a movie. If not specified, no sound will be recorded.</TD>
+</TR>
+
+<TR>
+<TD>movieSoundDeviceName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of sound device from which to record. If not specified, recorder will use system's default sound device.</TD>
+</TR>
+
+<TR>
+<TD>movieSampleResolution</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Sample resolution for sound recording in bits.</TD>
+</TR>
+
+<TR>
+<TD>movieNumChannels</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of channels for sound recording.</TD>
+</TR>
+
+<TR>
+<TD>movieSampleRate</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Sample rate for sound recording in Hertz.</TD>
 </TR>
 
 <TR>

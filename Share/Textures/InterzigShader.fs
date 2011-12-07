@@ -7,7 +7,7 @@ uniform vec2 quadSize;
 void main()
 	{
 	/* Get the view map pixel value: */
-	vec3 viewMap=texture2D(viewMapTexture,gl_TexCoord[1].st).rgb;
+	vec3 viewMap=texture2D(viewMapTexture,gl_TexCoord[1].st+vec2(0.00048828125*2.0,0.0)).rgb;
 	
 	/* Convert color to view zone row/column: */
 	vec3 index=viewMap*15.9375+0.5; // index=color*255/16+fuzz

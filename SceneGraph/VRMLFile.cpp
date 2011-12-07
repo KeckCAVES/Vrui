@@ -494,7 +494,7 @@ VRMLFile::ParseError::ParseError(const VRMLFile& vrmlFile,std::string error)
 Methods of class VRMLFile:
 *************************/
 
-VRMLFile::VRMLFile(std::string sSourceUrl,IO::File& sSource,NodeCreator& sNodeCreator,Comm::MulticastPipeMultiplexer* sMultiplexer)
+VRMLFile::VRMLFile(std::string sSourceUrl,IO::FilePtr sSource,NodeCreator& sNodeCreator,Cluster::Multiplexer* sMultiplexer)
 	:IO::TokenSource(sSource),
 	 sourceUrl(sSourceUrl),
 	 nodeCreator(sNodeCreator),

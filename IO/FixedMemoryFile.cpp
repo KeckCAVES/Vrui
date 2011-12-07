@@ -28,37 +28,19 @@ namespace IO {
 Methods of class FixedMemoryFile:
 ********************************/
 
-size_t FixedMemoryFile::readData(File::Byte* buffer,size_t bufferSize)
-	{
-	if(firstRead)
-		{
-		/* Pretend to read the entire file: */
-		readPos=bufferSize;
-		firstRead=false;
-		return bufferSize;
-		}
-	else
-		{
-		/* Signal end-of-file: */
-		return 0;
-		}
-	}
-
-void FixedMemoryFile::writeData(const File::Byte* buffer,size_t bufferSize)
-	{
-	/* Dummy method; never called */
-	}
-
 FixedMemoryFile::FixedMemoryFile(size_t sMemSize)
 	:SeekableFile(),
-	 memSize(sMemSize),memBlock(new Byte[memSize]),
-	 firstRead(true)
+	 memSize(sMemSize),memBlock(new Byte[memSize])
 	{
 	/* Re-allocate the buffered file's buffers: */
 	setReadBuffer(memSize,memBlock,false);
 	canReadThrough=false;
 	setWriteBuffer(memSize,memBlock,false);
 	canWriteThrough=false;
+	
+	/* Assume that the memory block will be filled by the caller before any data is read: */
+	appendReadBufferData(memSize);
+	readPos=memSize;
 	}
 
 FixedMemoryFile::~FixedMemoryFile(void)

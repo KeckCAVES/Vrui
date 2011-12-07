@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,8 +29,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
-#include <GL/GLObject.h>
 #include <GL/GLNumberRenderer.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
 namespace Vrui {
@@ -52,6 +52,10 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	Scalar viewAngleFactors[2]; // View offset angle factors for hat switch valuators in radians
 	Scalar probeSize; // Size of probe to use when aligning surface frames
 	Scalar maxClimb; // Maximum amount of climb per frame
+	bool drawHud; // Flag whether to draw the helicopter heads-up display
+	Color hudColor; // Color to draw the HUD
+	float hudRadius; // Distance of HUD plane from eye point in physical coordinate units
+	float hudFontSize; // HUD font size in physical coordinate units
 	
 	/* Constructors and destructors: */
 	public:
@@ -66,24 +70,12 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class HelicopterNavigationTool:public SurfaceNavigationTool,public GLObject
+class HelicopterNavigationTool:public SurfaceNavigationTool
 	{
 	friend class HelicopterNavigationToolFactory;
 	
-	/* Embedded classes: */
-	private:
-	struct DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		GLuint ladderDisplayListId; // ID of display list to render elevation ladder
-		
-		/* Constructors and destructors: */
-		DataItem(void);
-		virtual ~DataItem(void);
-		};
-	
 	/* Elements: */
+	private:
 	static HelicopterNavigationToolFactory* factory; // Pointer to the factory object for this class
 	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-like font
 	
@@ -106,9 +98,6 @@ class HelicopterNavigationTool:public SurfaceNavigationTool,public GLObject
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	
-	/* Methods from GLObject: */
-	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

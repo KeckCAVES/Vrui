@@ -29,7 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Comm/MulticastPipe.h>
+#include <Cluster/MulticastPipe.h>
 #include <Math/Math.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
@@ -263,7 +263,7 @@ void ScreenshotTool::initialize(void)
 			for(int i=0;i<4;++i)
 				getMainPipe()->write(screenBox[i].getComponents(),3);
 			getMainPipe()->write(eyePosition.getComponents(),3);
-			getMainPipe()->finishMessage();
+			getMainPipe()->flush();
 			}
 		}
 	else
@@ -349,7 +349,7 @@ void ScreenshotTool::frame(void)
 				for(int i=0;i<4;++i)
 					getMainPipe()->write(screenBox[i].getComponents(),3);
 				getMainPipe()->write(eyePosition.getComponents(),3);
-				getMainPipe()->finishMessage();
+				getMainPipe()->flush();
 				}
 			}
 		else

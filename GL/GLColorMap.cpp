@@ -185,8 +185,8 @@ GLColorMap& GLColorMap::load(const char* fileName)
 	setNumEntries(256);
 	
 	/* Load the color entries from file: */
-	IO::AutoFile file(IO::openFile(fileName));
-	file->setEndianness(IO::File::BigEndian);
+	IO::FilePtr file(IO::openFile(fileName));
+	file->setEndianness(Misc::BigEndian);
 	file->read(entries,numEntries);
 	
 	return *this;
@@ -207,8 +207,8 @@ void GLColorMap::save(const char* fileName) const
 		Misc::throwStdErr("GLColorMap::save: Attempt to save color map with wrong number of entries");
 	
 	/* Write color entries to file: */
-	IO::AutoFile file(IO::openFile(fileName,IO::File::WriteOnly));
-	file->setEndianness(IO::File::BigEndian);
+	IO::FilePtr file(IO::openFile(fileName,IO::File::WriteOnly));
+	file->setEndianness(Misc::BigEndian);
 	file->write(entries,numEntries);
 	}
 

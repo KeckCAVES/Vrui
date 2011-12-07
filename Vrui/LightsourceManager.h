@@ -1,7 +1,7 @@
 /***********************************************************************
 LightsourceManager - Class to manage light sources in virtual
 environments. Maps created Lightsource objects to OpenGL light sources.
-Copyright (c) 2005-2009 Oliver Kreylos
+Copyright (c) 2005-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_LIGHTSOURCEMANAGER_INCLUDED
 
 #include <GL/GLObject.h>
+#include <GL/GLLightTracker.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Lightsource.h>
 
@@ -62,7 +63,7 @@ class LightsourceManager:public GLObject
 		{
 		/* Elements: */
 		public:
-		int numLightsources; // Number of light sources supported by the OpenGL context
+		GLLightTracker lightTracker; // Object keeping track of OpenGL lighting state
 		int lastNumLightsources; // Number of light sources enabled in previous rendering pass
 		
 		/* Constructors and destructors: */
@@ -87,6 +88,7 @@ class LightsourceManager:public GLObject
 	void destroyLightsource(Lightsource* lightsource); // Destroys the given light source
 	void setLightsources(GLContextData& contextData) const; // Sets the light sources in the current OpenGL context
 	void setLightsources(DisplayState* displayState,GLContextData& contextData) const; // Sets the light sources in the current OpenGL context using the navigation transformations stored in the given display state object
+	const GLLightTracker& getLightTracker(GLContextData& contextData) const; // Returns a light source tracker for Vrui-managed light sources in the current OpenGL context
 	};
 
 }

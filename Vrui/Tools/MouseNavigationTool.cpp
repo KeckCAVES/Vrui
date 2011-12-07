@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -56,7 +56,7 @@ MouseNavigationToolFactory::MouseNavigationToolFactory(ToolManager& toolManager)
 	 scaleFactor(getInchFactor()*Scalar(3)),
 	 wheelDollyFactor(getInchFactor()*Scalar(-12)),
 	 wheelScaleFactor(Scalar(0.5)),
-	 spinThreshold(getUiSize()*Scalar(2)),
+	 spinThreshold(getUiSize()*Scalar(1)),
 	 showScreenCenter(true),
 	 interactWithWidgets(true)
 	{
@@ -277,7 +277,7 @@ MouseNavigationTool::MouseNavigationTool(const ToolFactory* factory,const ToolIn
 	:NavigationTool(factory,inputAssignment),
 	 GUIInteractor(false,Scalar(0),getButtonDevice(0)),
 	 mouseAdapter(0),
-	 currentValue(0),
+	 currentPos(Point::origin),currentValue(0),
 	 dolly(MouseNavigationTool::factory->invertDolly),navigationMode(IDLE)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
@@ -371,7 +371,7 @@ void MouseNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Button
 							/* Calculate spinning angular velocity: */
 							Vector offset=(lastRotationPos-screenCenter)+rotateOffset;
 							Vector axis=Geometry::cross(offset,delta);
-							Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*getFrameTime());
+							Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*(getApplicationTime()-lastMoveTime));
 							spinAngularVelocity=axis*(Scalar(0.5)*angularVelocity/axis.mag());
 							
 							/* Go to spinning mode: */
@@ -564,7 +564,12 @@ void MouseNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData
 void MouseNavigationTool::frame(void)
 	{
 	/* Update the current mouse position: */
-	currentPos=calcScreenPos();
+	Point newCurrentPos=calcScreenPos();
+	if(currentPos!=newCurrentPos)
+		{
+		currentPos=calcScreenPos();
+		lastMoveTime=getApplicationTime();
+		}
 	if(factory->interactWithWidgets)
 		{
 		/* Update the GUI interactor: */
@@ -607,6 +612,9 @@ void MouseNavigationTool::frame(void)
 			t*=rotation;
 			t*=postScale;
 			setNavigationTransformation(t);
+			
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			
 			break;
 			}
 		
@@ -683,7 +691,7 @@ void MouseNavigationTool::display(GLContextData& contextData) const
 	if(factory->interactWithWidgets)
 		{
 		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(contextData);
+		GUIInteractor::glRenderAction(3.0f,GLColor<GLfloat,4>(1.0f,0.0f,0.0f),contextData);
 		}
 	
 	if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)

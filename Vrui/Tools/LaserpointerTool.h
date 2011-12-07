@@ -1,7 +1,7 @@
 /***********************************************************************
 LaserpointerTool - Class for tools using rays to point out features in a
 3D display.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

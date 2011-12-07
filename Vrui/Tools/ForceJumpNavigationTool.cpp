@@ -210,6 +210,9 @@ void ForceJumpNavigationTool::frame(void)
 			nav*=NavTransform::translate(-t);
 			nav*=startNav;
 			setNavigationTransformation(nav);
+			
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
 			}
 		}
 	}

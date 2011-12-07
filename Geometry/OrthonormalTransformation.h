@@ -1,7 +1,7 @@
 /***********************************************************************
 OrthonormalTransformation - Class for transformations constructed from
 only translations and rotations.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -41,6 +41,10 @@ class RotationTransformation;
 /* Forward declarations for friend functions: */
 template <class ScalarParam,int dimensionParam>
 class OrthonormalTransformation;
+template <class ScalarParam,int dimensionParam>
+bool operator==(const OrthonormalTransformation<ScalarParam,dimensionParam>& t1,const OrthonormalTransformation<ScalarParam,dimensionParam>& t2);
+template <class ScalarParam,int dimensionParam>
+bool operator!=(const OrthonormalTransformation<ScalarParam,dimensionParam>& t1,const OrthonormalTransformation<ScalarParam,dimensionParam>& t2);
 template <class ScalarParam,int dimensionParam>
 OrthonormalTransformation<ScalarParam,dimensionParam> operator*(const OrthonormalTransformation<ScalarParam,dimensionParam>&,const OrthonormalTransformation<ScalarParam,dimensionParam>&);
 template <class ScalarParam,int dimensionParam>
@@ -116,6 +120,10 @@ class OrthonormalTransformation
 		{
 		return OrthonormalTransformation(Vector(matrix(0,3),matrix(1,3),matrix(2,3)),Rotation::fromMatrix(matrix));
 		}
+	
+	/* Comparison operators: */
+	friend bool operator==<>(const OrthonormalTransformation& t1,const OrthonormalTransformation& t2);
+	friend bool operator!=<>(const OrthonormalTransformation& t1,const OrthonormalTransformation& t2);
 	
 	/* Low-level manipulation functions: */
 	const Vector& getTranslation(void) const // Returns the translation part
@@ -215,6 +223,16 @@ class OrthonormalTransformation
 	};
 
 /* Friend functions of class OrthonormalTransformation: */
+template <class ScalarParam,int dimensionParam>
+inline bool operator==(const OrthonormalTransformation<ScalarParam,dimensionParam>& t1,const OrthonormalTransformation<ScalarParam,dimensionParam>& t2)
+	{
+	return t1.translation==t2.translation&&t1.rotation==t2.rotation;
+	}
+template <class ScalarParam,int dimensionParam>
+inline bool operator!=(const OrthonormalTransformation<ScalarParam,dimensionParam>& t1,const OrthonormalTransformation<ScalarParam,dimensionParam>& t2)
+	{
+	return t1.translation!=t2.translation||t1.rotation!=t2.rotation;
+	}
 template <class ScalarParam,int dimensionParam>
 inline OrthonormalTransformation<ScalarParam,dimensionParam> operator*(const OrthonormalTransformation<ScalarParam,dimensionParam>& t1,const OrthonormalTransformation<ScalarParam,dimensionParam>& t2)
 	{

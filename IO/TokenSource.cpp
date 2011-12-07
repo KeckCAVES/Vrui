@@ -23,7 +23,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <ctype.h>
 #include <string.h>
-#include <IO/File.h>
 
 namespace IO {
 
@@ -60,7 +59,7 @@ void TokenSource::resizeTokenBuffer(void)
 	tokenBuffer=newTokenBuffer;
 	}
 
-TokenSource::TokenSource(File& sSource)
+TokenSource::TokenSource(FilePtr sSource)
 	:source(sSource),
 	 cc(characterClasses+1),
 	 tokenBufferSize(40),tokenBuffer(new char[tokenBufferSize+1]),tokenSize(0)
@@ -69,14 +68,14 @@ TokenSource::TokenSource(File& sSource)
 	initCharacterClasses();
 	
 	/* Read the first character from the character source: */
-	lastChar=source.getChar();
+	lastChar=source->getChar();
 	}
 
 TokenSource::~TokenSource(void)
 	{
 	/* Put the last read character back into the character source: */
 	if(lastChar>=0)
-		source.ungetChar(lastChar);
+		source->ungetChar(lastChar);
 	
 	/* Delete the allocated token buffer: */
 	delete[] tokenBuffer;
@@ -188,18 +187,18 @@ void TokenSource::skipWs(void)
 	{
 	/* Skip all whitespace characters: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	}
 
 void TokenSource::skipLine(void)
 	{
 	/* Skip everything until the next newline: */
 	while(lastChar>=0&&lastChar!='\n')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	/* Skip the newline: */
 	if(lastChar=='\n')
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	}
 
 const char* TokenSource::readNextToken(void)
@@ -212,14 +211,14 @@ const char* TokenSource::readNextToken(void)
 		{
 		/* Read a single punctuation character: */
 		tokenBuffer[tokenSize++]=lastChar;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
 		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
 		int quote=lastChar;
 		cc[quote]&=~QUOTEDTOKEN;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
 		while(cc[lastChar]&QUOTEDTOKEN)
@@ -227,12 +226,12 @@ const char* TokenSource::readNextToken(void)
 			if(tokenSize>=tokenBufferSize)
 				resizeTokenBuffer();
 			tokenBuffer[tokenSize++]=lastChar;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 		
 		/* Add the quote character to the set of quoted token characters again: */
 		cc[quote]|=QUOTEDTOKEN;
@@ -245,7 +244,7 @@ const char* TokenSource::readNextToken(void)
 			if(tokenSize>=tokenBufferSize)
 				resizeTokenBuffer();
 			tokenBuffer[tokenSize++]=lastChar;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		}
 	
@@ -254,7 +253,7 @@ const char* TokenSource::readNextToken(void)
 	
 	/* Skip whitespace: */
 	while(cc[lastChar]&WHITESPACE)
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 	
 	return tokenBuffer;
 	}

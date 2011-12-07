@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <IO/ValueSource.h>
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <Geometry/Box.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -111,8 +111,7 @@ void TSurfFileNode::update(void)
 		return;
 	
 	/* Read the TSurf file: */
-	IO::AutoFile tSurfFile(Comm::openFile(multiplexer,url.getValue(0).c_str()));
-	IO::ValueSource tSurf(*tSurfFile);
+	IO::ValueSource tSurf(Cluster::openFile(multiplexer,url.getValue(0).c_str()));
 	tSurf.setPunctuation("{}");
 	tSurf.skipWs();
 	

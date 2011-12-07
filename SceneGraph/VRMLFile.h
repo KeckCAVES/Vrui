@@ -27,17 +27,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdexcept>
 #include <Misc/StringHashFunctions.h>
 #include <Misc/HashTable.h>
+#include <IO/File.h>
 #include <IO/TokenSource.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/Node.h>
 #include <SceneGraph/GroupNode.h>
 
 /* Forward declarations: */
-namespace IO {
-class File;
-}
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 }
 namespace SceneGraph {
 class NodeCreator;
@@ -66,7 +64,7 @@ class VRMLFile:public IO::TokenSource
 	std::string sourceUrl; // Full URL of the VRML file
 	std::string::const_iterator urlPrefix; // Prefix for relative URLs
 	NodeCreator& nodeCreator; // Reference to the node creator
-	Comm::MulticastPipeMultiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
+	Cluster::Multiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
 	NodeMap nodeMap; // Map of named nodes
 	size_t currentLine; // Number of currently processed line
 	
@@ -101,7 +99,7 @@ class VRMLFile:public IO::TokenSource
 	
 	/* Constructors and destructors: */
 	public:
-	VRMLFile(std::string sSourceUrl,IO::File& sSource,NodeCreator& sNodeCreator,Comm::MulticastPipeMultiplexer* sMultiplexer =0); // Creates a VRML parser for the given character source and node creator
+	VRMLFile(std::string sSourceUrl,IO::FilePtr sSource,NodeCreator& sNodeCreator,Cluster::Multiplexer* sMultiplexer =0); // Creates a VRML parser for the given character source and node creator
 	
 	/* Overloaded methods from IO::TokenSource: */
 	bool eof(void)
@@ -189,7 +187,7 @@ class VRMLFile:public IO::TokenSource
 		{
 		return nodeCreator;
 		}
-	Comm::MulticastPipeMultiplexer* getMultiplexer(void) const // Returns the optional multicast pipe multiplexer
+	Cluster::Multiplexer* getMultiplexer(void) const // Returns the optional multicast pipe multiplexer
 		{
 		return multiplexer;
 		}

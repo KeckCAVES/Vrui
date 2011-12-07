@@ -46,8 +46,6 @@ class QuikWriteToolFactory:public ToolFactory
 	Scalar initialSquareDist; // Distance from 6DOF input device at which to display the QuikWrite square
 	Color backgroundColor; // Background color for QuikWrite square
 	Color foregroundColor; // Foreground color for QuikWrite square
-	bool drawRay; // Flag whether to render the interaction ray while the tool is active
-	Color rayColor; // Color for interaction ray
 	
 	/* Constructors and destructors: */
 	public:

@@ -324,7 +324,7 @@ PolygonMesh* readPlyFileElements(const PLYFileHeader& header,PLYFileParam& ply)
 PolygonMesh* loadPlyMeshfile(const char* plyMeshfileName)
 	{
 	/* Open the PLY file: */
-	IO::AutoFile plyFile(IO::openFile(plyMeshfileName));
+	IO::FilePtr plyFile(IO::openFile(plyMeshfileName));
 	
 	/* Read the PLY file's header: */
 	PLYFileHeader header(*plyFile);
@@ -336,7 +336,7 @@ PolygonMesh* loadPlyMeshfile(const char* plyMeshfileName)
 	if(header.getFileType()==PLYFileHeader::Ascii)
 		{
 		/* Attach a value source to the PLY file: */
-		IO::ValueSource ply(*plyFile);
+		IO::ValueSource ply(plyFile);
 		
 		/* Read the PLY file in ASCII mode: */
 		result=readPlyFileElements(header,ply);

@@ -48,7 +48,7 @@ class CSVSource
 	
 	/* Elements: */
 	private:
-	File& source; // Reference to character source for CSV source
+	FilePtr source; // Data source for CSV source
 	int fieldSeparator; // Character used to separate fields in a record; comma by default
 	int recordSeparator; // Character used to separate records; newline by default
 	int quote; // Character used to quote field contents; double quote by default
@@ -62,7 +62,7 @@ class CSVSource
 	
 	/* Constructors and destructors: */
 	public:
-	CSVSource(File& sSource); // Creates a default CSV source for the given character source
+	CSVSource(FilePtr sSource); // Creates a default CSV source for the given character source
 	~CSVSource(void); // Destroys the CSV source
 	
 	/* Methods: */
@@ -92,7 +92,7 @@ class CSVSource
 		}
 	bool eof(void) const // Returns true when the entire character source was read
 		{
-		return source.eof();
+		return source->eof();
 		}
 	bool eor(void) const // Returns true when the last read field terminated a record; returns true before the first field is read
 		{
@@ -103,11 +103,11 @@ class CSVSource
 	bool skipField(void) // Skips the current field; returns true if the field was non-empty after unquoting; throws exception if the end of the field cannot be determined reliably
 		{
 		/* Read the first character: */
-		int nextChar=source.getChar();
+		int nextChar=source->getChar();
 		if(nextChar==quote)
 			{
 			/* Skip the opening quote: */
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			
 			/* Skip a quoted field: */
 			return skipRestOfField(true,nextChar);

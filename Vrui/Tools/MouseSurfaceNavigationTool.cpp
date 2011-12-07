@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
+#include <Math/Constants.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -52,6 +53,7 @@ MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager
 	 screenScalingDirection(0,-1,0),
 	 scaleFactor(getInchFactor()*Scalar(3)),
 	 wheelScaleFactor(Scalar(0.5)),
+	 throwThreshold(getUiSize()*Scalar(2)),
 	 probeSize(getUiSize()),
 	 maxClimb(getDisplaySize()),
 	 fixAzimuth(false),
@@ -74,6 +76,7 @@ MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager
 	screenScalingDirection=cfs.retrieveValue<Vector>("./screenScalingDirection",screenScalingDirection);
 	scaleFactor=cfs.retrieveValue<Scalar>("./scaleFactor",scaleFactor);
 	wheelScaleFactor=cfs.retrieveValue<Scalar>("./wheelScaleFactor",wheelScaleFactor);
+	throwThreshold=cfs.retrieveValue<Scalar>("./throwThreshold",throwThreshold);
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
@@ -230,11 +233,7 @@ void MouseSurfaceNavigationTool::realignSurfaceFrame(NavTransform& newSurfaceFra
 		Rotation rot=Geometry::invert(initialOrientation)*newSurfaceFrame.getRotation();
 		rot.leftMultiply(Rotation::rotateFromTo(rot.getDirection(2),Vector(0,0,1)));
 		Vector x=rot.getDirection(0);
-		azimuth+=Math::atan2(x[1],x[0]);
-		if(azimuth<-Math::Constants<Scalar>::pi)
-			azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
-		else if(azimuth>Math::Constants<Scalar>::pi)
-			azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+		azimuth=wrapAngle(azimuth+Math::atan2(x[1],x[0]));
 		}
 	
 	/* Store and apply the newly aligned surface frame: */
@@ -278,7 +277,7 @@ MouseSurfaceNavigationTool::MouseSurfaceNavigationTool(const ToolFactory* factor
 	:SurfaceNavigationTool(factory,inputAssignment),
 	 GUIInteractor(false,Scalar(0),getButtonDevice(0)),
 	 mouseAdapter(0),
-	 currentValue(0),
+	 currentPos(Point::origin),currentValue(0),
 	 navigationMode(IDLE)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
@@ -303,22 +302,27 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 				switch(navigationMode)
 					{
 					case IDLE:
+					case THROWING:
 						if(factory->interactWithWidgets)
 							{
 							/* Check if the GUI interactor accepts the event: */
 							GUIInteractor::updateRay();
 							if(GUIInteractor::buttonDown(false))
 								{
+								/* Deactivate this tool if it is throwing: */
+								if(navigationMode==THROWING)
+									deactivate();
+								
 								/* Go to widget interaction mode: */
 								navigationMode=WIDGETING;
 								}
 							else
 								{
 								/* Try activating this tool: */
-								if(activate())
+								if(navigationMode==THROWING||activate())
 									{
 									initNavState();
-									lastPos=calcScreenPos();
+									currentPos=calcScreenPos();
 									navigationMode=ROTATING;
 									}
 								}
@@ -326,17 +330,17 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 						else
 							{
 							/* Try activating this tool: */
-							if(activate())
+							if(navigationMode==THROWING||activate())
 								{
 								initNavState();
-								lastPos=calcScreenPos();
+								currentPos=calcScreenPos();
 								navigationMode=ROTATING;
 								}
 							}
 						break;
 					
 					case PANNING:
-						lastPos=calcScreenPos();
+						currentPos=calcScreenPos();
 						navigationMode=SCALING;
 						break;
 					
@@ -372,7 +376,7 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 						break;
 					
 					case SCALING:
-						lastPos=calcScreenPos();
+						currentPos=calcScreenPos();
 						navigationMode=PANNING;
 						break;
 					
@@ -390,17 +394,18 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 				switch(navigationMode)
 					{
 					case IDLE:
+					case THROWING:
 						/* Try activating this tool: */
-						if(activate())
+						if(navigationMode==THROWING||activate())
 							{
 							initNavState();
-							lastPos=calcScreenPos();
+							currentPos=calcScreenPos();
 							navigationMode=PANNING;
 							}
 						break;
 					
 					case ROTATING:
-						lastPos=calcScreenPos();
+						currentPos=calcScreenPos();
 						navigationMode=SCALING;
 						break;
 					
@@ -415,15 +420,31 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 				switch(navigationMode)
 					{
 					case PANNING:
-						/* Deactivate this tool: */
-						deactivate();
-						
-						/* Go to idle mode: */
-						navigationMode=IDLE;
+						{
+						/* Check if the input device is still moving: */
+						Point newCurrentPos=calcScreenPos();
+						Vector delta=newCurrentPos-currentPos;
+						if(Geometry::mag(delta)>factory->throwThreshold)
+							{
+							/* Calculate throwing velocity: */
+							throwVelocity=delta/(getApplicationTime()-lastMoveTime);
+							
+							/* Go to throwing mode: */
+							navigationMode=THROWING;
+							}
+						else
+							{
+							/* Deactivate this tool: */
+							deactivate();
+							
+							/* Go to idle mode: */
+							navigationMode=IDLE;
+							}
 						break;
+						}
 					
 					case SCALING:
-						lastPos=calcScreenPos();
+						currentPos=calcScreenPos();
 						navigationMode=ROTATING;
 						break;
 					
@@ -445,8 +466,9 @@ void MouseSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallb
 		switch(navigationMode)
 			{
 			case IDLE:
+			case THROWING:
 				/* Try activating this tool: */
-				if(activate())
+				if(navigationMode==THROWING||activate())
 					{
 					/* Go to wheel scaling mode: */
 					initNavState();
@@ -481,8 +503,8 @@ void MouseSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallb
 
 void MouseSurfaceNavigationTool::frame(void)
 	{
-	/* Update the current mouse position: */
-	currentPos=calcScreenPos();
+	/* Calculate the new mouse position: */
+	Point newCurrentPos=calcScreenPos();
 	if(factory->interactWithWidgets)
 		{
 		/* Update the GUI interactor: */
@@ -493,23 +515,13 @@ void MouseSurfaceNavigationTool::frame(void)
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
 		{
-		case IDLE:
-		case WIDGETING:
-			/* Do nothing */
-			break;
-		
 		case ROTATING:
 			{
 			/* Calculate the rotation vector: */
-			Vector delta=currentPos-lastPos;
-			lastPos=currentPos;
+			Vector delta=newCurrentPos-currentPos;
 			
 			/* Adjust the azimuth angle: */
-			azimuth+=delta[0]/factory->rotateFactor;
-			if(azimuth<-Math::Constants<Scalar>::pi)
-				azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
-			else if(azimuth>Math::Constants<Scalar>::pi)
-				azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+			azimuth=wrapAngle(azimuth+delta[0]/factory->rotateFactor);
 			
 			/* Adjust the elevation angle: */
 			elevation-=delta[2]/factory->rotateFactor;
@@ -528,8 +540,7 @@ void MouseSurfaceNavigationTool::frame(void)
 			NavTransform newSurfaceFrame=surfaceFrame;
 			
 			/* Calculate the translation vector: */
-			Vector delta=currentPos-lastPos;
-			lastPos=currentPos;
+			Vector delta=newCurrentPos-currentPos;
 			delta=Rotation::rotateX(Math::rad(Scalar(-90))).transform(delta);
 			delta=Rotation::rotateZ(-azimuth).transform(delta);
 			
@@ -538,6 +549,26 @@ void MouseSurfaceNavigationTool::frame(void)
 			
 			/* Re-align the surface frame with the surface: */
 			realignSurfaceFrame(newSurfaceFrame);
+			
+			break;
+			}
+		
+		case THROWING:
+			{
+			NavTransform newSurfaceFrame=surfaceFrame;
+			
+			/* Calculate the throw translation vector: */
+			Vector delta=throwVelocity*getFrameTime();
+			delta=Rotation::rotateX(Math::rad(Scalar(-90))).transform(delta);
+			delta=Rotation::rotateZ(-azimuth).transform(delta);
+			
+			/* Translate the surface frame: */
+			newSurfaceFrame*=NavTransform::translate(-delta);
+			
+			/* Re-align the surface frame with the surface: */
+			realignSurfaceFrame(newSurfaceFrame);
+			
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
 			
 			break;
 			}
@@ -552,8 +583,7 @@ void MouseSurfaceNavigationTool::frame(void)
 			Vector scalingDirection=screenT.transform(factory->screenScalingDirection);
 			
 			/* Scale the surface frame: */
-			Scalar scale=((currentPos-lastPos)*scalingDirection)/factory->scaleFactor;
-			lastPos=currentPos;
+			Scalar scale=((newCurrentPos-currentPos)*scalingDirection)/factory->scaleFactor;
 			newSurfaceFrame*=NavTrackerState::scale(Math::exp(-scale));
 			
 			/* Re-align the surface frame with the surface: */
@@ -574,6 +604,16 @@ void MouseSurfaceNavigationTool::frame(void)
 			
 			break;
 			}
+		
+		default:
+			;
+		}
+	
+	/* Update the current mouse position: */
+	if(currentPos!=newCurrentPos)
+		{
+		currentPos=calcScreenPos();
+		lastMoveTime=getApplicationTime();
 		}
 	}
 
@@ -582,7 +622,7 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 	if(factory->interactWithWidgets)
 		{
 		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(contextData);
+		GUIInteractor::glRenderAction(3.0f,GLColor<GLfloat,4>(1.0f,0.0f,0.0f),contextData);
 		}
 	
 	if(factory->showCompass||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING))

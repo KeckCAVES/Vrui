@@ -1,7 +1,7 @@
 /***********************************************************************
 TotalStation - Class to represent a Leica Total Station survey
 instrument to measure points for coordinate system calibration.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -61,6 +61,7 @@ class TotalStation
 	Scalar prismOffset; // The prism offset configured in the Total Station
 	
 	/* Private methods: */
+	void sendRequest(const char* format,...);
 	std::string readReply(void);
 	unsigned int conf(unsigned int confId);
 	std::string getString(unsigned int getId,bool requestMeasurement);
@@ -80,10 +81,10 @@ class TotalStation
 		{
 		return unitScale;
 		}
-	Scalar getPrismOffset(void); // Returns the Total Station's currently configured prism offset
+	Scalar getPrismOffset(void); // Returns the Total Station's currently configured prism offset in millimeters
 	unsigned int getEDMMode(void); // Returns the Total Station's currently configured EDM (laser range finder) mode
 	void setUnitScale(Scalar newUnitScale); // Sets the scaling factor from Total Station's internal distance unit to reported unit
-	void setPrismOffset(Scalar newPrismOffset); // Sets the Total Station's prism offset in milimeters
+	void setPrismOffset(Scalar newPrismOffset); // Sets the Total Station's prism offset in millimeters
 	void setEDMMode(unsigned int newEDMMode); // Sets the Total Station's EDM mode
 	Point getLastMeasurement(void); // Returns the last valid measurement in Cartesian coordinates; throws exception if there is no valid measurement
 	Point requestMeasurement(void); // Takes and returns a measurement in Cartesian coordinates

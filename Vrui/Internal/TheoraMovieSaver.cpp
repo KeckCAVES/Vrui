@@ -165,7 +165,7 @@ TheoraMovieSaver::TheoraMovieSaver(const Misc::ConfigurationFileSection& configF
 	 theoraBitrate(0),theoraQuality(32),theoraGopSize(32),
 	 imageExtractor(0)
 	{
-	movieFile->setEndianness(IO::File::LittleEndian);
+	movieFile->setEndianness(Misc::LittleEndian);
 	
 	/* Read the encoder parameters: */
 	theoraBitrate=configFileSection.retrieveValue<int>("./movieBitrate",theoraBitrate);
@@ -196,9 +196,6 @@ TheoraMovieSaver::~TheoraMovieSaver(void)
 	Video::OggPage page;
 	while(oggStream.flush(page))
 		page.write(*movieFile);
-	
-	/* Close the movie file: */
-	delete movieFile;
 	
 	/* Delete the image extractor: */
 	delete imageExtractor;

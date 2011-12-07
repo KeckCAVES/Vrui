@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -89,6 +89,7 @@ class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	
 	/* Transient navigation state: */
 	Point currentPos; // Current projected position of mouse input device on screen
+	double lastMoveTime; // Application time at which the projected position last changed
 	Scalar currentValue; // Value of the associated valuator
 	bool dolly; // Flag whether to dolly instead of scale
 	NavigationMode navigationMode; // The tool's current navigation mode

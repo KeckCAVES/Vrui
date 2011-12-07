@@ -1,7 +1,7 @@
 /***********************************************************************
 FileNameExtensions - Helper functions to extract or test extensions from
 file names.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -29,11 +29,29 @@ const char* getExtension(const char* fileName)
 	{
 	/* Find the final period in the final component of the given path name: */
 	const char* extPtr=0;
-	for(const char* fnPtr=fileName;*fnPtr!='\0';++fnPtr)
+	const char* fnPtr;
+	for(fnPtr=fileName;*fnPtr!='\0';++fnPtr)
 		if(*fnPtr=='.') // Remember period position
 			extPtr=fnPtr;
 		else if(*fnPtr=='/') // Reset period position when a new component is started
 			extPtr=0;
+	
+	/* If there was no extension, point to the end of the path name: */
+	if(extPtr==0)
+		extPtr=fnPtr;
+	
+	return extPtr;
+	}
+
+const char* getExtension(const char* fileNameBegin,const char* fileNameEnd)
+	{
+	/* Find the final period in the final component of the given path name: */
+	const char* extPtr=fileNameEnd;
+	for(const char* fnPtr=fileNameBegin;fnPtr!=fileNameEnd;++fnPtr)
+		if(*fnPtr=='.') // Remember period position
+			extPtr=fnPtr;
+		else if(*fnPtr=='/') // Reset period position when a new component is started
+			extPtr=fileNameEnd;
 	
 	return extPtr;
 	}
@@ -44,10 +62,7 @@ bool hasExtension(const char* fileName,const char* extension)
 	const char* extPtr=getExtension(fileName);
 	
 	/* Compare the extension against the given pattern: */
-	if(extPtr!=0)
-		return strcmp(extPtr,extension)==0;
-	else
-		return extension[0]=='\0';
+	return strcmp(extPtr,extension)==0;
 	}
 
 bool hasCaseExtension(const char* fileName,const char* extension)
@@ -56,10 +71,7 @@ bool hasCaseExtension(const char* fileName,const char* extension)
 	const char* extPtr=getExtension(fileName);
 	
 	/* Compare the extension against the given pattern: */
-	if(extPtr!=0)
-		return strcasecmp(extPtr,extension)==0;
-	else
-		return extension[0]=='\0';
+	return strcasecmp(extPtr,extension)==0;
 	}
 
 }

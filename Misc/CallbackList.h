@@ -195,7 +195,7 @@ class CallbackList // Class for lists of callbacks
 		typedef CallbackClassParam CallbackClass; // Class of called objects
 		typedef DerivedCallbackDataParam DerivedCallbackData; // Class of callback data (must be derived from CallbackData)
 		typedef ParameterParam Parameter; // Type of additional parameter
-		typedef void (CallbackClass::*CallbackMethod)(DerivedCallbackData*); // Type of called callback method
+		typedef void (CallbackClass::*CallbackMethod)(DerivedCallbackData*,const Parameter&); // Type of called callback method
 		
 		/* Elements: */
 		private:

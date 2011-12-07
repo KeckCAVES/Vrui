@@ -325,4 +325,20 @@ FactoryManager<ManagedFactoryParam>::getFactory(
 		return 0;
 	}
 
+template <class ManagedFactoryParam>
+inline
+typename FactoryManager<ManagedFactoryParam>::ManagedFactory*
+FactoryManager<ManagedFactoryParam>::getFactory(
+	const char* className)
+	const
+	{
+	typename FactoryList::const_iterator fIt;
+	for(fIt=factories.begin();fIt!=factories.end()&&strcmp(fIt->factory->getClassName(),className)!=0;++fIt)
+		;
+	if(fIt!=factories.end())
+		return fIt->factory;
+	else
+		return 0;
+	}
+
 }

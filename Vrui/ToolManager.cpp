@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -558,8 +558,32 @@ void ToolManager::toolMenuSelectionCallback(Misc::CallbackData* cbData)
 	/* Check if the tool manager is in tool creation mode (paranoia): */
 	if(toolCreationState!=0)
 		{
-		/* Store the pointer to the selected tool class' factory: */
-		toolCreationState->factory=loadClass(static_cast<GLMotif::Button::SelectCallbackData*>(cbData)->button->getName());
+		/* Get the pointer to the selected tool class' factory: */
+		ToolFactory* factory=loadClass(static_cast<GLMotif::Button::SelectCallbackData*>(cbData)->button->getName());
+		
+		/* Check if the selected tool class is compatible with the tool creation state's first assigned feature: */
+		const ToolInputLayout& layout=factory->getLayout();
+		if(toolCreationState->firstFeature.isButton()&&layout.getNumButtons()==0&&!layout.hasOptionalButtons())
+			{
+			/* Show an error message: */
+			std::string message="The selected tool class \"";
+			message.append(factory->getName());
+			message.append("\" has no assignable button slots");
+			showErrorMessage("Tool Creation",message.c_str());
+			}
+		else if(toolCreationState->firstFeature.isValuator()&&layout.getNumValuators()==0&&!layout.hasOptionalValuators())
+			{
+			/* Show an error message: */
+			std::string message="The selected tool class \"";
+			message.append(factory->getName());
+			message.append("\" has no assignable valuator slots");
+			showErrorMessage("Tool Creation",message.c_str());
+			}
+		else
+			{
+			/* Store the tool factory in the tool creation state so that tool creation can continue: */
+			toolCreationState->factory=factory;
+			}
 		}
 	}
 
@@ -585,7 +609,8 @@ ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::Con
 	 inputGraphManager(sInputDeviceManager->getInputGraphManager()),
 	 inputDeviceManager(sInputDeviceManager),
 	 configFileSection(new Misc::ConfigurationFileSection(sConfigFileSection)),
-	 toolCreationDevice(0),toolMenuPopup(0),toolMenu(0),toolCreationState(0),
+	 toolCreationDevice(0),toolCreationTool(0),
+	 toolMenuPopup(0),toolMenu(0),toolCreationState(0),
 	 toolKillZone(0)
 	{
 	typedef std::vector<std::string> StringList;
@@ -679,7 +704,11 @@ ToolManager::~ToolManager(void)
 void ToolManager::releaseClass(const char* className)
 	{
 	/* Get a pointer to the given class' factory object: */
-	ToolFactory* factory=loadClass(className);
+	ToolFactory* factory=getFactory(className);
+	
+	/* Bail out if the class does not exist: */
+	if(factory==0)
+		return;
 	
 	/* Create a list of all tools of the given class: */
 	std::vector<Tool*> destroyTools;
@@ -851,7 +880,7 @@ void ToolManager::startToolCreation(const InputDeviceFeature& feature)
 	toolCreationDevice->setTransformation(rootDevice->getTransformation());
 	toolCreationDevice->setDeviceRayDirection(rootDevice->getDeviceRayDirection());
 	
-	/* Press the tool creation tool's button: */
+	/* Press the tool creation tool's button, which will pop up the tool selection menu: */
 	toolCreationDevice->setButtonState(0,true);
 	}
 

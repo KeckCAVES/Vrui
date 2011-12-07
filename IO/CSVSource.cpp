@@ -143,7 +143,7 @@ bool CSVSource::skipRestOfField(bool quoted,int nextChar)
 			while(nextChar!=quote&&nextChar>=0)
 				{
 				skippedAny=true;
-				nextChar=source.getChar();
+				nextChar=source->getChar();
 				}
 			
 			/* Eof inside quote is a format error: */
@@ -151,11 +151,11 @@ bool CSVSource::skipRestOfField(bool quoted,int nextChar)
 				throw FormatError(fieldIndex,recordIndex);
 			
 			/* Check for quoted quotes: */
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			if(nextChar==quote)
 				{
 				skippedAny=true;
-				nextChar=source.getChar();
+				nextChar=source->getChar();
 				}
 			else
 				break;
@@ -171,7 +171,7 @@ bool CSVSource::skipRestOfField(bool quoted,int nextChar)
 		while(nextChar!=fieldSeparator&&nextChar!=recordSeparator&&nextChar>=0&&nextChar!=quote)
 			{
 			skippedAny=true;
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			}
 		}
 	
@@ -205,13 +205,13 @@ bool CSVSource::convertNumber(int& nextChar,unsigned int& value)
 	
 	/* Read the first digit: */
 	value=(unsigned int)(nextChar-'0');
-	nextChar=source.getChar();
+	nextChar=source->getChar();
 	
 	/* Read all following digits: */
 	while(nextChar>='0'&&nextChar<='9')
 		{
 		value=value*10+(unsigned int)(nextChar-'0');
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		}
 	
 	return true;
@@ -225,10 +225,10 @@ bool CSVSource::convertNumber(int& nextChar,int& value)
 	if(nextChar=='-')
 		{
 		negated=true;
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		}
 	else if(nextChar=='+')
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 	
 	/* Signal a conversion error if the next character is not a digit: */
 	if(nextChar<'0'||nextChar>'9')
@@ -236,13 +236,13 @@ bool CSVSource::convertNumber(int& nextChar,int& value)
 	
 	/* Read the first digit: */
 	unsigned int tempValue=(unsigned int)(nextChar-'0');
-	nextChar=source.getChar();
+	nextChar=source->getChar();
 	
 	/* Read all following digits: */
 	while(nextChar>='0'&&nextChar<='9')
 		{
 		tempValue=tempValue*10+(unsigned int)(nextChar-'0');
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		}
 	
 	/* Calculate the final value: */
@@ -262,10 +262,10 @@ bool CSVSource::convertNumber(int& nextChar,double& value)
 	if(nextChar=='-')
 		{
 		negated=true;
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		}
 	else if(nextChar=='+')
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 	
 	/* Keep track if any digits have been read: */
 	bool haveDigit=false;
@@ -276,13 +276,13 @@ bool CSVSource::convertNumber(int& nextChar,double& value)
 		{
 		haveDigit=true;
 		value=value*10.0+double(nextChar-'0');
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		}
 	
 	/* Check for a period: */
 	if(nextChar=='.')
 		{
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		
 		/* Read a fractional number part: */
 		double fraction=0.0;
@@ -292,7 +292,7 @@ bool CSVSource::convertNumber(int& nextChar,double& value)
 			haveDigit=true;
 			fraction=fraction*10.0+double(nextChar-'0');
 			fractionBase*=10.0;
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			}
 		
 		value+=fraction/fractionBase;
@@ -309,17 +309,17 @@ bool CSVSource::convertNumber(int& nextChar,double& value)
 	/* Check for an exponent indicator: */
 	if(nextChar=='e'||nextChar=='E')
 		{
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		
 		/* Read a plus or minus sign: */
 		bool exponentNegated=false;
 		if(nextChar=='-')
 			{
 			exponentNegated=true;
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			}
 		else if(nextChar=='+')
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 		
 		/* Signal a conversion error if the next character is not a digit: */
 		if(nextChar<'0'||nextChar>'9')
@@ -327,13 +327,13 @@ bool CSVSource::convertNumber(int& nextChar,double& value)
 		
 		/* Read the first exponent digit: */
 		double exponent=double(nextChar-'0');
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		
 		/* Read the rest of the exponent digits: */
 		while(nextChar>='0'&&nextChar<='9')
 			{
 			exponent=exponent*10.0+double(nextChar-'0');
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			}
 		
 		/* Multiply the mantissa with the exponent: */
@@ -356,7 +356,7 @@ bool CSVSource::convertNumber(int& nextChar,float& value)
 	return true;
 	}
 
-CSVSource::CSVSource(File& sSource)
+CSVSource::CSVSource(FilePtr sSource)
 	:source(sSource),
 	 fieldSeparator(','),recordSeparator('\n'),quote('\"'),
 	 recordIndex(0),fieldIndex(0)
@@ -386,19 +386,19 @@ template <class ValueParam>
 ValueParam CSVSource::readField(void)
 	{
 	/* Read the field's first character: */
-	int nextChar=source.getChar();
+	int nextChar=source->getChar();
 	
 	/* Check for quote: */
 	bool quoted=false;
 	if(nextChar==quote)
 		{
 		quoted=true;
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		}
 	
 	/* Skip whitespace: */
 	while(isspace(nextChar)&&nextChar!=fieldSeparator&&nextChar!=recordSeparator&&nextChar>=0)
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 	
 	/* Read the numeric value: */
 	ValueParam result(0);
@@ -406,7 +406,7 @@ ValueParam CSVSource::readField(void)
 	
 	/* Skip whitespace: */
 	while(isspace(nextChar)&&nextChar!=fieldSeparator&&nextChar!=recordSeparator&&nextChar>=0)
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 	
 	/* Read until the end of the field, and invalidate the result if any further characters are encountered: */
 	if(skipRestOfField(quoted,nextChar))
@@ -424,13 +424,13 @@ template <>
 std::string CSVSource::readField(void)
 	{
 	/* Read the field's first character: */
-	int nextChar=source.getChar();
+	int nextChar=source->getChar();
 	
 	std::string result;
 	if(nextChar==quote)
 		{
 		/* Skip the opening quote: */
-		nextChar=source.getChar();
+		nextChar=source->getChar();
 		
 		/********************
 		Read a quoted string:
@@ -443,7 +443,7 @@ std::string CSVSource::readField(void)
 			while(nextChar!=quote&&nextChar>=0)
 				{
 				result.push_back(nextChar);
-				nextChar=source.getChar();
+				nextChar=source->getChar();
 				}
 			
 			/* Eof inside quote is a format error: */
@@ -451,11 +451,11 @@ std::string CSVSource::readField(void)
 				throw FormatError(fieldIndex,recordIndex);
 			
 			/* Check for quoted quotes: */
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			if(nextChar==quote)
 				{
 				result.push_back(nextChar);
-				nextChar=source.getChar();
+				nextChar=source->getChar();
 				}
 			else
 				break;
@@ -471,7 +471,7 @@ std::string CSVSource::readField(void)
 		while(nextChar!=fieldSeparator&&nextChar!=recordSeparator&&nextChar>=0&&nextChar!=quote)
 			{
 			result.push_back(nextChar);
-			nextChar=source.getChar();
+			nextChar=source->getChar();
 			}
 		}
 	

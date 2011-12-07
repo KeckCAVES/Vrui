@@ -81,15 +81,15 @@ class VariableMemoryFile:public File
 	BufferHeader* current; // Pointer to the buffer currently being filled by the base class
 	
 	/* Protected methods from File: */
-	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:
-	VariableMemoryFile(size_t sWriteBufferSize =8192); // Creates a new temporary file with the given buffer size
+	VariableMemoryFile(size_t sWriteBufferSize =8192-sizeof(BufferHeader)); // Creates a new temporary file with the given buffer size
 	~VariableMemoryFile(void); // Destroys the buffered file
 	
 	/* Methods from File: */
+	virtual size_t getWriteBufferSize(void) const;
 	virtual void resizeWriteBuffer(size_t newWriteBufferSize);
 	
 	/* New methods: */
@@ -105,6 +105,7 @@ class VariableMemoryFile:public File
 		/* Write all data in the current write buffer to the sink: */
 		sink.writeRaw(current+1,getWritePtr());
 		}
+	void clear(void); // Deletes all data in the file
 	};
 
 }

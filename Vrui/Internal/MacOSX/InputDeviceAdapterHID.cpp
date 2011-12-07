@@ -143,7 +143,7 @@ void* InputDeviceAdapterHID::devicePollingThreadMethod(void)
 	{
 	/* Enable immediate cancellation: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Associate the HID manager with the current run loop: */
 	IOHIDManagerScheduleWithRunLoop(hidManager,CFRunLoopGetCurrent(),kCFRunLoopDefaultMode);

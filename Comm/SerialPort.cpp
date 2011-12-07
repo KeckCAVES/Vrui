@@ -1,6 +1,7 @@
 /***********************************************************************
-SerialPort - Class to simplify using serial ports.
-Copyright (c) 2001-2005 Oliver Kreylos
+SerialPort - Class for high-performance reading/writing from/to serial
+ports.
+Copyright (c) 2001-2011 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -20,18 +21,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <string.h>
+#include <Comm/SerialPort.h>
+
 #include <unistd.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
-#include <Misc/Time.h>
 #include <Misc/ThrowStdErr.h>
-
-#include <Comm/SerialPort.h>
+#include <Misc/FdSet.h>
 
 namespace Comm {
 
@@ -39,93 +38,146 @@ namespace Comm {
 Methods of class SerialPort:
 ***************************/
 
-void SerialPort::readBlocking(size_t numBytes,char* bytes)
+size_t SerialPort::readData(IO::File::Byte* buffer,size_t bufferSize)
 	{
-	while(numBytes>0)
+	/* Read more data from source: */
+	ssize_t readResult;
+	do
 		{
-		ssize_t bytesReceived=read(port,bytes,numBytes);
-		if(bytesReceived>=0)
-			{
-			numBytes-=bytesReceived;
-			bytes+=bytesReceived;
-			totalBytesReceived+=bytesReceived;
-			if(numBytes>0)
-				++numReadSpins;
-			}
-		else if(errno!=EAGAIN)
-			throw ReadError();
+		readResult=::read(fd,buffer,bufferSize);
 		}
+	while(readResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
+	
+	/* Handle the result from the read call: */
+	if(readResult<0)
+		{
+		/* Unknown error; probably a bad thing: */
+		Misc::throwStdErr("Comm::SerialPort: Fatal error while reading from source");
+		}
+	
+	return size_t(readResult);
 	}
 
-void SerialPort::writeBlocking(size_t numBytes,const char* bytes)
+void SerialPort::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
-	while(numBytes>0)
+	while(bufferSize>0)
 		{
-		ssize_t bytesSent=write(port,bytes,numBytes);
-		if(bytesSent>=0)
+		ssize_t writeResult=::write(fd,buffer,bufferSize);
+		if(writeResult>0)
 			{
-			numBytes-=bytesSent;
-			bytes+=bytesSent;
-			totalBytesSent+=bytesSent;
-			if(numBytes>0)
-				++numWriteSpins;
+			/* Prepare to write more data: */
+			buffer+=writeResult;
+			bufferSize-=writeResult;
 			}
-		else if(errno!=EAGAIN)
-			throw WriteError();
+		else if(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))
+			{
+			/* Do nothing */
+			}
+		else if(writeResult==0)
+			{
+			/* Sink has reached end-of-file: */
+			throw WriteError(bufferSize);
+			}
+		else
+			{
+			/* Unknown error; probably a bad thing: */
+			Misc::throwStdErr("Comm::SerialPort: Fatal error while writing to sink");
+			}
 		}
 	}
 
 SerialPort::SerialPort(const char* deviceName)
-	:port(open(deviceName,O_RDWR|O_NOCTTY|O_NDELAY)),
-	 totalBytesReceived(0),totalBytesSent(0),
-	 numReadSpins(0),numWriteSpins(0)
+	:Pipe(ReadWrite),
+	 fd(-1)
 	{
-	if(port<0)
-		throw OpenError(deviceName);
+	/* Open the device file: */
+	fd=open(deviceName,O_RDWR|O_NOCTTY|O_NDELAY);
+	if(fd<0)
+		throw OpenError(Misc::printStdErrMsg("Comm::SerialPort: Unable to open device %s",deviceName));
 	
 	/* Configure as "raw" port: */
 	struct termios term;
-	tcgetattr(port,&term);
+	tcgetattr(fd,&term);
 	cfmakeraw(&term);
 	term.c_iflag|=IGNBRK; // Don't generate signals
 	term.c_cflag|=CREAD|CLOCAL; // Enable receiver; no modem line control
 	term.c_cc[VMIN]=1; // Block read() until at least a single byte is read
 	term.c_cc[VTIME]=0; // No timeout on read()
-	if(tcsetattr(port,TCSANOW,&term)!=0)
-		throw OpenError(deviceName);
+	if(tcsetattr(fd,TCSANOW,&term)!=0)
+		throw OpenError(Misc::printStdErrMsg("Comm::SerialPort: Unable to configure device %s",deviceName));
 	
 	/* Flush both queues: */
-	tcflush(port,TCIFLUSH);
-	tcflush(port,TCOFLUSH);
+	tcflush(fd,TCIFLUSH);
+	tcflush(fd,TCOFLUSH);
 	}
 
 SerialPort::~SerialPort(void)
 	{
-	close(port);
+	if(fd>=0)
+		close(fd);
+	}
+
+int SerialPort::getFd(void) const
+	{
+	return fd;
+	}
+
+bool SerialPort::waitForData(void) const
+	{
+	/* Check if there is unread data in the buffer: */
+	if(getUnreadDataSize()>0)
+		return true;
+	
+	/* Wait for data on the socket and return whether data is available: */
+	Misc::FdSet readFds(fd);
+	return Misc::pselect(&readFds,0,0,0)>=0&&readFds.isSet(fd);
+	}
+
+bool SerialPort::waitForData(const Misc::Time& timeout) const
+	{
+	/* Check if there is unread data in the buffer: */
+	if(getUnreadDataSize()>0)
+		return true;
+	
+	/* Wait for data on the socket and return whether data is available: */
+	Misc::FdSet readFds(fd);
+	return Misc::pselect(&readFds,0,0,timeout)>=0&&readFds.isSet(fd);
+	}
+
+void SerialPort::shutdown(bool read,bool write)
+	{
+	/* Flush the write buffer: */
+	flush();
+	
+	if(write)
+		{
+		/* Drain the port's buffer: */
+		tcdrain(fd);
+		}
 	}
 
 void SerialPort::setPortSettings(int portSettingsMask)
 	{
 	/* Retrieve current flags: */
-	int fileFlags=fcntl(port,F_GETFL);
+	int fileFlags=fcntl(fd,F_GETFL);
 	
 	/* Change flags according to given parameter: */
-	if(portSettingsMask&NONBLOCKING)
+	if(portSettingsMask&NonBlocking)
 		fileFlags|=FNDELAY|FNONBLOCK;
 	else
 		fileFlags&=~(FNDELAY|FNONBLOCK);
 	
 	/* Set new flags: */
-	if(fcntl(port,F_SETFL,fileFlags)!=0)
-		Misc::throwStdErr("SerialPort::setPortSettings: Error while writing new port settings");
+	if(fcntl(fd,F_SETFL,fileFlags)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setPortSettings: Unable to configure device");
 	}
 
-void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::ParitySettings parity,int numStopbits,bool enableHandshake)
+void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity parity,int numStopbits,bool enableHandshake)
 	{
 	/* Initialize a termios structure: */
 	struct termios term;
-	if(tcgetattr(port,&term)!=0)
-		Misc::throwStdErr("SerialPort::setSerialSettings: Error while reading current port settings");
+	if(tcgetattr(fd,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setSerialSettings: Unable to read device configuration");
 	
 	/* Set rate of bits per second: */
 	#ifdef __SGI_IRIX__
@@ -175,11 +227,11 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 	term.c_cflag&=~(PARENB|PARODD);
 	switch(parity)
 		{
-		case PARITY_ODD:
+		case OddParity:
 			term.c_cflag|=PARENB|PARODD;
 			break;
 		
-		case PARITY_EVEN:
+		case EvenParity:
 			term.c_cflag|=PARENB;
 			break;
 		
@@ -207,17 +259,17 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 		#endif
 		}
 		
-	/* Set the port: */
-	if(tcsetattr(port,TCSADRAIN,&term)!=0)
-		Misc::throwStdErr("SerialPort::setSerialSettings: Error while writing new port settings");
+	/* Configure the port: */
+	if(tcsetattr(fd,TCSADRAIN,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setSerialSettings: Unable to configure device");
 	}
 
 void SerialPort::setRawMode(int minNumBytes,int timeOut)
 	{
 	/* Read the current port settings: */
 	struct termios term;
-	if(tcgetattr(port,&term)!=0)
-		Misc::throwStdErr("SerialPort::setRawMode: Error while reading current port settings");
+	if(tcgetattr(fd,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setRawMode: Unable to read device configuration");
 	
 	/* Disable canonical mode: */
 	term.c_lflag&=~ICANON;
@@ -227,31 +279,31 @@ void SerialPort::setRawMode(int minNumBytes,int timeOut)
 	term.c_cc[VTIME]=cc_t(timeOut);
 	
 	/* Set the port: */
-	if(tcsetattr(port,TCSANOW,&term)!=0)
-		Misc::throwStdErr("SerialPort::setRawMode: Error while writing new port settings");
+	if(tcsetattr(fd,TCSANOW,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setRawMode: Unable to configure device");
 	}
 
 void SerialPort::setCanonicalMode(void)
 	{
 	/* Read the current port settings: */
 	struct termios term;
-	if(tcgetattr(port,&term)!=0)
-		Misc::throwStdErr("SerialPort::setCanonicalMode: Error while reading current port settings");
+	if(tcgetattr(fd,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setCanonicalMode: Unable to read device configuration");
 	
 	/* Enable canonical mode: */
 	term.c_lflag|=ICANON;
 	
 	/* Set the port: */
-	if(tcsetattr(port,TCSANOW,&term)!=0)
-		Misc::throwStdErr("SerialPort::setCanonicalMode: Error while writing new port settings");
+	if(tcsetattr(fd,TCSANOW,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setCanonicalMode: Unable to configure device");
 	}
 
 void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 	{
 	/* Read the current port settings: */
 	struct termios term;
-	if(tcgetattr(port,&term)!=0)
-		Misc::throwStdErr("SerialPort::setLineControl: Error while reading current port settings");
+	if(tcgetattr(fd,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setLineControl: Unable to read device configuration");
 	
 	if(respectModemLines)
 		term.c_cflag&=~CLOCAL;
@@ -263,63 +315,8 @@ void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 		term.c_cflag&=~HUPCL;
 	
 	/* Set the port: */
-	if(tcsetattr(port,TCSANOW,&term)!=0)
-		Misc::throwStdErr("SerialPort::setLineControl: Error while writing new port settings");
-	}
-
-void SerialPort::resetStatistics(void)
-	{
-	totalBytesReceived=0;
-	totalBytesSent=0;
-	numReadSpins=0;
-	numWriteSpins=0;
-	}
-
-bool SerialPort::waitForByte(const Misc::Time& timeout)
-	{
-	/* Prepare parameters for select: */
-	fd_set readFdSet;
-	FD_ZERO(&readFdSet);
-	FD_SET(port,&readFdSet);
-	struct timeval tv=timeout;
-	
-	/* Wait for an event on the port and return: */
-	return select(port+1,&readFdSet,0,0,&tv)>0&&FD_ISSET(port,&readFdSet);
-	}
-
-std::pair<char,bool> SerialPort::readByteNonBlocking(void)
-	{
-	char readByte;
-	ssize_t bytesReceived=read(port,&readByte,1);
-	if(bytesReceived<0&&errno!=EAGAIN)
-		throw ReadError();
-	return std::pair<char,bool>(readByte,bytesReceived==1);
-	}
-
-size_t SerialPort::readBytesRaw(size_t maxNumBytes,char* bytes)
-	{
-	ssize_t bytesRead=read(port,bytes,maxNumBytes);
-	if(bytesRead>=0)
-		return bytesRead;
-	else if(errno==EAGAIN)
-		return 0;
-	else
-		throw ReadError();
-	}
-
-void SerialPort::writeString(const char* string)
-	{
-	writeBlocking(strlen(string),string);
-	}
-
-void SerialPort::flush(void)
-	{
-	tcflush(port,TCOFLUSH);
-	}
-
-void SerialPort::drain(void)
-	{
-	tcdrain(port);
+	if(tcsetattr(fd,TCSANOW,&term)!=0)
+		Misc::throwStdErr("Comm::SerialPort::setLineControl: Unable to configure device");
 	}
 
 }

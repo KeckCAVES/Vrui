@@ -4,7 +4,7 @@ Vrui applications. All these functions are NOPs if the passed pipe
 pointer is NULL. This allows application programmers to always use pipe
 communications in a cluster-aware application, even when it is not
 running on a cluster.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,7 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_CLUSTERSUPPORT_INCLUDED
 
 #include <Misc/ThrowStdErr.h>
-#include <Comm/MulticastPipe.h>
+#include <Cluster/MulticastPipe.h>
 
 namespace Vrui {
 
@@ -40,7 +40,7 @@ have reached the same barrier.
 inline
 void
 barrier(
-	Comm::MulticastPipe* clusterPipe)
+	Cluster::MulticastPipe* clusterPipe)
 	{
 	if(clusterPipe!=0)
 		clusterPipe->barrier();
@@ -55,7 +55,7 @@ template <class DataParam>
 inline
 void
 broadcast(
-	Comm::MulticastPipe* clusterPipe,
+	Cluster::MulticastPipe* clusterPipe,
 	DataParam& data)
 	{
 	if(clusterPipe!=0)
@@ -71,7 +71,7 @@ template <class DataParam>
 inline
 void
 broadcast(
-	Comm::MulticastPipe* clusterPipe,
+	Cluster::MulticastPipe* clusterPipe,
 	DataParam* data,
 	size_t numItems)
 	{
@@ -88,7 +88,7 @@ template <class DataParam>
 inline
 void
 write(
-	Comm::MulticastPipe* clusterPipe,
+	Cluster::MulticastPipe* clusterPipe,
 	const DataParam& data)
 	{
 	if(clusterPipe!=0)
@@ -104,7 +104,7 @@ template <class DataParam>
 inline
 void
 write(
-	Comm::MulticastPipe* clusterPipe,
+	Cluster::MulticastPipe* clusterPipe,
 	const DataParam* data,
 	size_t numItems)
 	{
@@ -122,7 +122,7 @@ template <class DataParam>
 inline
 void
 read(
-	Comm::MulticastPipe* clusterPipe,
+	Cluster::MulticastPipe* clusterPipe,
 	DataParam& data)
 	{
 	if(clusterPipe==0)
@@ -139,7 +139,7 @@ template <class DataParam>
 inline
 DataParam
 read(
-	Comm::MulticastPipe* clusterPipe)
+	Cluster::MulticastPipe* clusterPipe)
 	{
 	if(clusterPipe==0)
 		Misc::throwStdErr("Vrui::read: Called in non-cluster environment");
@@ -156,7 +156,7 @@ template <class DataParam>
 inline
 void
 read(
-	Comm::MulticastPipe* clusterPipe,
+	Cluster::MulticastPipe* clusterPipe,
 	DataParam* data,
 	size_t numItems)
 	{
@@ -166,17 +166,17 @@ read(
 	}
 
 /***********************************************************************
-finishMessage: Flushes the pipe's output buffer on the master node.
+flush: Flushes the pipe's output buffer on the master node.
 ***********************************************************************/
 
 inline
 void
-finishMessage(
-	Comm::MulticastPipe* clusterPipe)
+flush(
+	Cluster::MulticastPipe* clusterPipe)
 	{
 	if(clusterPipe!=0)
 		{
-		clusterPipe->finishMessage();
+		clusterPipe->flush();
 		}
 	}
 

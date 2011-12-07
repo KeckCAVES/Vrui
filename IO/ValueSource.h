@@ -55,22 +55,22 @@ class ValueSource
 		};
 	
 	/* Elements: */
-	File& source; // Reference to character source for value reader
+	FilePtr source; // Data source for value reader
 	unsigned char characterClasses[257]; // Array of character type bit flags for quicker classification, with extra space for EOF
 	unsigned char* cc; // Pointer into character classes array to account for EOF==-1
 	int escapeChar; // Escape character for quoted and non-quoted strings; -1 if escape sequences should be ignored
 	int lastChar; // Last character read from character source
 	
 	/* Private methods: */
-	void initCharacterClasses(void); // Initializes the character classes array
 	char processEscape(void); // Processes an escape sequence from the character source
 	
 	/* Constructors and destructors: */
 	public:
-	ValueSource(File& sSource); // Creates a value source for the given character source
+	ValueSource(FilePtr sSource); // Creates a value source for the given character source
 	~ValueSource(void);
 	
 	/* Methods: */
+	void resetCharacterClasses(void); // Resets the character classes to the default
 	void setWhitespace(int character,bool whitespace); // Sets the given character's whitespace flag
 	void setWhitespace(const char* whitespace); // Sets the whitespace character set to the contents of the given string
 	void setPunctuation(int character,bool punctuation); // Sets the given character's punctuation flag
@@ -87,7 +87,7 @@ class ValueSource
 		{
 		/* Skip all whitespace characters: */
 		while(cc[lastChar]&WHITESPACE)
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 		}
 	void skipLine(void); // Skips characters up to and including the next newline character
 	int peekc(void) const // Returns the next character that will be read, without reading it
@@ -97,19 +97,19 @@ class ValueSource
 	int getChar(void) // Returns the next character
 		{
 		int result=lastChar;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		return result;
 		}
 	void ungetChar(int character) // Puts the given character back into the character source
 		{
-		source.ungetChar(lastChar);
+		source->ungetChar(lastChar);
 		lastChar=character;
 		}
 	
 	int readChar(void) // Reads and returns a single character
 		{
 		int result=lastChar;
-		lastChar=source.getChar();
+		lastChar=source->getChar();
 		skipWs();
 		
 		return result;
@@ -125,7 +125,7 @@ class ValueSource
 		while(cc[lastChar]&STRING)
 			{
 			result=false;
-			lastChar=source.getChar();
+			lastChar=source->getChar();
 			}
 		skipWs();
 		

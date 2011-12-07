@@ -30,8 +30,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/FontStyleNode.h>
 
 /* Forward declarations: */
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 }
 
 namespace SceneGraph {
@@ -57,7 +57,7 @@ class ESRIShapeFileNode:public GroupNode
 	
 	/* Derived state: */
 	protected:
-	Comm::MulticastPipeMultiplexer* multiplexer; // Multiplexer to read shape files in a cluster environment
+	Cluster::Multiplexer* multiplexer; // Multiplexer to read shape files in a cluster environment
 	
 	/* Constructors and destructors: */
 	public:

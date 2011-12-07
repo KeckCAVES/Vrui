@@ -59,8 +59,7 @@ Doom3MD5Anim::Doom3MD5Anim(Doom3FileManager& fileManager,const char* animFileNam
 		}
 	
 	/* Open the animation file and create a tokenizer for it: */
-	IO::File* file=fileManager.getFile(animFileName);
-	Doom3ValueSource source(*file,animFileName);
+	Doom3ValueSource source(fileManager.getFile(animFileName),animFileName);
 	
 	/* Parse the animation file header: */
 	if(!source.isString("MD5Version"))
@@ -189,8 +188,6 @@ Doom3MD5Anim::Doom3MD5Anim(Doom3FileManager& fileManager,const char* animFileNam
 		if(source.readChar()!='}')
 			Misc::throwStdErr("Doom3MD5Anim::Doom3MD5Anim: Malformed animation frame at %s",source.where().c_str());
 		}
-	
-	delete file;
 	}
 
 Doom3MD5Anim::~Doom3MD5Anim(void)
@@ -235,7 +232,7 @@ void Doom3MD5Anim::animateMesh(Doom3MD5Mesh* mesh,int frameIndex) const
 			}
 		Scalar weightDet=Scalar(1)-Math::sqr(rotation[0])-Math::sqr(rotation[1])-Math::sqr(rotation[2]);
 		rotation[3]=weightDet>Scalar(0)?-Math::sqrt(weightDet):Scalar(0);
-		Transform jointT(translation,Transform::Rotation::fromQuaternion(rotation));
+		Transform jointT(translation,Transform::Rotation(rotation));
 		
 		/* Compose the transformation with the joint's parent's transformation, and update the mesh: */
 		if(j.parentIndex>=0)

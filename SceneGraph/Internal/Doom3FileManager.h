@@ -27,19 +27,23 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
+#include <IO/File.h>
+#include <IO/SeekableFile.h>
+#include <IO/Directory.h>
 #include <IO/ZipArchive.h>
 #include <SceneGraph/Internal/Doom3NameTree.h>
 
 /* Forward declarations: */
-namespace IO {
-class File;
-class SeekableFile;
+namespace SceneGraph {
+class Doom3FileManagerDirectory;
 }
 
 namespace SceneGraph {
 
 class Doom3FileManager
 	{
+	friend class Doom3FileManagerDirectory;
+	
 	/* Embedded classes: */
 	private:
 	typedef IO::ZipArchive PakFile; // Doom 3 pak files are just ZIP archives in disguise
@@ -47,7 +51,7 @@ class Doom3FileManager
 	struct PakFileHandle // Structure containing data necessary to read a file from a pak archive
 		{
 		/* Elements: */
-		PakFile* pakFile; // Pointer to the pak archive containing the file
+		PakFile* pakFile; // The pak archive containing the file
 		PakFile::FileID fileID; // Handle to access the file inside the pak archive
 		
 		/* Constructors and destructors: */
@@ -157,12 +161,12 @@ class Doom3FileManager
 	/* Constructors and destructors: */
 	public:
 	Doom3FileManager(void); // Creates an empty file manager
-	Doom3FileManager(const char* baseDirectory,const char* pakFilePrefix); // Creates a file manager by loading all pk3/pk4 files that match the given prefix in the given directory
+	Doom3FileManager(IO::DirectoryPtr baseDirectory,const char* pakFilePrefix); // Creates a file manager by loading all pk3/pk4 files that match the given prefix in the given directory
 	~Doom3FileManager(void); // Destroys the file manager
 	
 	/* Methods: */
-	void addPakFile(const char* pakFileName); // Adds a pk3/pk4 file to the file manager
-	void addPakFiles(const char* baseDirectory,const char* pakFilePrefix); // Adds all pk3/pk4 files that match the given prefix from the given base directory
+	void addPakFile(IO::FilePtr pakFile); // Adds a pk3/pk4 file to the file manager
+	void addPakFiles(IO::DirectoryPtr baseDirectory,const char* pakFilePrefix); // Adds all pk3/pk4 files that match the given prefix from the given base directory
 	template <class ClientFunctorParam>
 	void searchFileTree(ClientFunctorParam& cf) const // Searches the entire file tree and calls the client functor for each file
 		{
@@ -183,8 +187,9 @@ class Doom3FileManager
 		DirectorySearcher<ClientFunctorParam,NameFilterParam> ds(cf,nf);
 		pakFileTree.traverseTree(ds);
 		}
-	IO::File* getFile(const char* fileName); // Returns a file as a streaming reader; throws ReadError if file not found
-	IO::SeekableFile* getSeekableFile(const char* fileName); // Returns a file as a seekable reader; throws ReadError if file not found
+	IO::FilePtr getFile(const char* fileName); // Returns a file as a streaming reader; throws ReadError if file not found
+	IO::SeekableFilePtr getSeekableFile(const char* fileName); // Returns a file as a seekable reader; throws ReadError if file not found
+	IO::DirectoryPtr getDirectory(const char* directoryName); // Returns a directory object to traverse the file manager's directory tree
 	};
 
 }

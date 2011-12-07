@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,10 +30,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
+#include <GL/GLColorTemplates.h>
+#include <GL/GLValueCoders.h>
 #include <GL/GLContextData.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
 
@@ -50,7 +51,8 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 	 thrust(g*Scalar(1)),
 	 brake(g*Scalar(0.5)),
 	 probeSize(getMeterFactor()*Scalar(1.5)),
-	 maxClimb(getMeterFactor()*Scalar(1.5))
+	 maxClimb(getMeterFactor()*Scalar(1.5)),
+	 drawHud(true),hudColor(0.0f,1.0f,0.0f),hudRadius(float(getFrontplaneDist()*1.25f)),hudFontSize(float(getUiSize())*1.5f)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(3);
@@ -74,6 +76,10 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 		viewAngleFactors[i]=Math::rad(view[i]);
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
+	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
+	hudColor=cfs.retrieveValue<Color>("./hudColor",hudColor);
+	hudRadius=cfs.retrieveValue<float>("./hudRadius",hudRadius);
+	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
@@ -153,7 +159,7 @@ void HelicopterNavigationToolFactory::destroyTool(Tool* tool) const
 extern "C" void resolveHelicopterNavigationToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
 	{
 	/* Load base classes: */
-	manager.loadClass("NavigationTool");
+	manager.loadClass("SurfaceNavigationTool");
 	}
 
 extern "C" ToolFactory* createHelicopterNavigationToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
@@ -171,20 +177,6 @@ extern "C" ToolFactory* createHelicopterNavigationToolFactory(Plugins::FactoryMa
 extern "C" void destroyHelicopterNavigationToolFactory(ToolFactory* factory)
 	{
 	delete factory;
-	}
-
-/***************************************************
-Methods of class HelicopterNavigationTool::DataItem:
-***************************************************/
-
-HelicopterNavigationTool::DataItem::DataItem(void)
-	:ladderDisplayListId(glGenLists(1))
-	{
-	}
-
-HelicopterNavigationTool::DataItem::~DataItem(void)
-	{
-	glDeleteLists(ladderDisplayListId,1);
 	}
 
 /*************************************************
@@ -229,22 +221,25 @@ void HelicopterNavigationTool::initNavState(void)
 	
 	/* If the initial surface frame was above the surface, lift it back up: */
 	elevation=newSurfaceFrame.inverseTransform(surfaceFrame.getOrigin())[2];
-	if(elevation>Scalar(-1.0e-4))
-		newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),elevation));
-	else
-		elevation=Scalar(0);
+	if(elevation<factory->probeSize)
+		{  
+		/* Collide with the ground: */
+		elevation=factory->probeSize;
+		Vector y=orientation.getDirection(1);
+		Scalar azimuth=Math::atan2(y[0],y[1]);
+		orientation=Rotation::rotateZ(-azimuth);
+		}
+	newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),elevation));
 	
 	/* Apply the initial navigation state: */
 	surfaceFrame=newSurfaceFrame;
 	applyNavState();
 	}
 
-HelicopterNavigationTool::HelicopterNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:SurfaceNavigationTool(factory,inputAssignment),
-	 numberRenderer(float(getUiSize())*1.5f,true)
+HelicopterNavigationTool::HelicopterNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
+	:SurfaceNavigationTool(sFactory,inputAssignment),
+	 numberRenderer(factory->hudFontSize,true)
 	{
-	/* This object's GL state depends on the number renderer's GL state: */
-	dependsOn(&numberRenderer);
 	}
 
 const ToolFactory* HelicopterNavigationTool::getFactory(void) const
@@ -292,7 +287,6 @@ void HelicopterNavigationTool::frame(void)
 		
 		/* Re-align the surface frame with the surface: */
 		Point initialOrigin=newSurfaceFrame.getOrigin();
-		Rotation initialOrientation=newSurfaceFrame.getRotation();
 		AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
 		align(ad);
 		
@@ -301,17 +295,18 @@ void HelicopterNavigationTool::frame(void)
 		
 		/* Check if the initial surface frame was above the surface: */
 		elevation=newSurfaceFrame.inverseTransform(initialOrigin)[2];
-		if(elevation>Scalar(-1.0e-4))
-			{
-			/* Lift the aligned frame back up to the original altitude: */
-			newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),elevation));
-			}
-		else
+		if(elevation<factory->probeSize)
 			{
 			/* Collide with the ground: */
-			elevation=Scalar(0);
+			elevation=factory->probeSize;
+			Vector y=orientation.getDirection(1);
+			Scalar azimuth=Math::atan2(y[0],y[1]);
+			orientation=Rotation::rotateZ(-azimuth);
 			velocity=Vector::zero;
 			}
+		
+		/* Lift the aligned frame back up to the original altitude: */
+		newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),elevation));
 		
 		/* Update the current orientation based on the pitch, roll, and yaw controls: */
 		Vector rot;
@@ -342,38 +337,100 @@ void HelicopterNavigationTool::frame(void)
 		/* Apply the newly aligned surface frame: */
 		surfaceFrame=newSurfaceFrame;
 		applyNavState();
+		
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 
 void HelicopterNavigationTool::display(GLContextData& contextData) const
 	{
-	if(isActive())
+	if(isActive()&&factory->drawHud)
 		{
-		/* Get the data item: */
-		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
-		
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
 		glLineWidth(1.0f);
-		glColor3f(0.0f,1.0f,0.0f);
+		glColor(factory->hudColor);
 		
-		float y=float(getFrontplaneDist())*1.25f;
+		/* Get the HUD layout parameters: */
+		float y=factory->hudRadius;
+		float s=factory->hudFontSize;
 		
+		/* Go to the view-shifted physical frame: */
 		glPushMatrix();
 		glMultMatrix(physicalFrame);
 		glRotate(getValuatorState(4)*Math::deg(factory->viewAngleFactors[0]),Vector(0,0,1));
 		glRotate(getValuatorState(5)*Math::deg(factory->viewAngleFactors[1]),Vector(1,0,0));
 		
+		/* Go to the HUD frame: */
+		glTranslatef(0.0f,y,0.0f);
+		glRotatef(90.0f,1.0f,0.0f,0.0f);
+		
+		/* Draw the boresight crosshairs: */
 		glBegin(GL_LINES);
-		glVertex3f(-y*0.02f,y,   0.00f);
-		glVertex3f(-y*0.01f,y,   0.00f);
-		glVertex3f( y*0.01f,y,   0.00f);
-		glVertex3f( y*0.02f,y,   0.00f);
-		glVertex3f(   0.00f,y,-y*0.02f);
-		glVertex3f(   0.00f,y,-y*0.01f);
-		glVertex3f(   0.00f,y, y*0.01f);
-		glVertex3f(   0.00f,y, y*0.02f);
+		glVertex2f(-y*0.02f,   0.00f);
+		glVertex2f(-y*0.01f,   0.00f);
+		glVertex2f( y*0.01f,   0.00f);
+		glVertex2f( y*0.02f,   0.00f);
+		glVertex2f(   0.00f,-y*0.02f);
+		glVertex2f(   0.00f,-y*0.01f);
+		glVertex2f(   0.00f, y*0.01f);
+		glVertex2f(   0.00f, y*0.02f);
 		glEnd();
+		
+		/* Get the helicopter's orientation Euler angles: */
+		Scalar angles[3];
+		calcEulerAngles(orientation,angles);
+		float azimuth=Math::deg(angles[0]);
+		float elevation=Math::deg(angles[1]);
+		float roll=Math::deg(angles[2]);
+		
+		/* Draw the compass ribbon: */
+		glBegin(GL_LINES);
+		glVertex2f(-y*0.5f,y*0.5f);
+		glVertex2f(y*0.5f,y*0.5f);
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		glVertex2f(-s,y*0.5f+s*2.0f);
+		glVertex2f(0.0f,y*0.5f);
+		glVertex2f(s,y*0.5f+s*2.0f);
+		glEnd();
+		
+		/* Draw the azimuth tick marks: */
+		glBegin(GL_LINES);
+		for(int az=0;az<360;az+=10)
+			{
+			float dist=float(az)-azimuth;
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<=60.0f)
+				{
+				float x=dist*y*0.5f/60.0f;
+				glVertex2f(x,y*0.5f);
+				glVertex2f(x,y*0.5f-(az%30==0?s*1.5f:s));
+				}
+			}
+		glEnd();
+		
+		/* Draw the azimuth labels: */
+		GLNumberRenderer::Vector pos;
+		pos[1]=y*0.5f-s*2.0f;
+		pos[2]=0.0f;
+		for(int az=0;az<360;az+=30)
+			{
+			float dist=float(az)-azimuth;
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<=60.0f)
+				{
+				pos[0]=dist*y*0.5f/60.0f;
+				numberRenderer.drawNumber(pos,az,contextData,0,1);
+				}
+			}
 		
 		/* Draw the flight path marker: */
 		Vector vel=orientation.transform(velocity);
@@ -387,88 +444,94 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 				vel[2]*=Scalar(y*0.5f)/maxVel;
 				glColor3f(1.0f,0.0f,0.0f);
 				}
-			else
-				glColor3f(0.0f,1.0f,0.0f);
 			
 			glBegin(GL_LINE_LOOP);
-			glVertex3f(vel[0]-y*0.005f,vel[1],vel[2]+  0.000f);
-			glVertex3f(vel[0]+  0.000f,vel[1],vel[2]-y*0.005f);
-			glVertex3f(vel[0]+y*0.005f,vel[1],vel[2]+  0.000f);
-			glVertex3f(vel[0]+  0.000f,vel[1],vel[2]+y*0.005f);
+			glVertex2f(vel[0]-y*0.005f,vel[2]+  0.000f);
+			glVertex2f(vel[0]+  0.000f,vel[2]-y*0.005f);
+			glVertex2f(vel[0]+y*0.005f,vel[2]+  0.000f);
+			glVertex2f(vel[0]+  0.000f,vel[2]+y*0.005f);
 			glEnd();
 			}
 		
-		/* Draw the artificial horizon ribbon: */
-		glRotate(orientation);
-		Vector yAxis=orientation.inverseTransform(Vector(0,1,0));
-		Scalar yAngle=Math::deg(Math::atan2(yAxis[0],yAxis[1]));
-		glRotate(-yAngle,Vector(0,0,1));
-		glCallList(dataItem->ladderDisplayListId);
+		glColor(factory->hudColor);
+		
+		glRotatef(-roll,0.0f,0.0f,1.0f);
+		
+		/* Draw the artificial horizon ladder: */
+		glEnable(GL_LINE_STIPPLE);
+		glLineStipple(10,0xaaaaU);
+		glBegin(GL_LINES);
+		for(int el=-175;el<0;el+=5)
+			{
+			float dist=elevation+float(el);
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<90.0f)
+				{
+				float z=Math::tan(Math::rad(dist))*y;
+				if(Math::abs(z)<=y*0.5f)
+					{
+					float x=el%10==0?y*0.1f:y*0.05f;
+					glVertex2f(-x,z);
+					glVertex2f(x,z);
+					}
+				}
+			}
+		glEnd();
+		glDisable(GL_LINE_STIPPLE);
+		
+		glBegin(GL_LINES);
+		for(int el=0;el<=180;el+=5)
+			{
+			float dist=elevation+float(el);
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<90.0f)
+				{
+				float z=Math::tan(Math::rad(dist))*y;
+				if(Math::abs(z)<=y*0.5f)
+					{
+					float x=el%10==0?y*0.1f:y*0.05f;
+					glVertex2f(-x,z);
+					glVertex2f(x,z);
+					}
+				}
+			}
+		glEnd();
+		
+		/* Draw the artificial horizon labels: */
+		pos[0]=y*0.1f+s;
+		pos[2]=0.0f;
+		for(int el=-170;el<=180;el+=10)
+			{
+			float dist=elevation+float(el);
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<90.0f)
+				{
+				float z=Math::tan(Math::rad(dist))*y;
+				if(Math::abs(z)<=y*0.5f)
+					{
+					pos[1]=z;
+					int drawEl=el;
+					if(drawEl>90)
+						drawEl=180-el;
+					else if(drawEl<-90)
+						drawEl=-180-el;
+					numberRenderer.drawNumber(pos,drawEl,contextData,-1,0);
+					}
+				}
+			}
 		
 		glPopMatrix();
 		glPopAttrib();
 		}
-	}
-
-void HelicopterNavigationTool::initContext(GLContextData& contextData) const
-	{
-	/* Create and register a data item: */
-	DataItem* dataItem=new DataItem;
-	contextData.addDataItem(this,dataItem);
-	
-	/* Draw the entire artificial horizon ribbon: */
-	glNewList(dataItem->ladderDisplayListId,GL_COMPILE);
-	glColor3f(0.0f,1.0f,0.0f);
-	
-	float y=float(getFrontplaneDist())*1.25f;
-	float s=y*0.0025f;
-	
-	/* Draw the climb ladder: */
-	glBegin(GL_LINES);
-	glVertex3f(-y*0.1f,y,0.0f);
-	glVertex3f( y*0.1f,y,0.0f);
-	glEnd();
-
-	glEnable(GL_LINE_STIPPLE);
-	glLineStipple(10,0xaaaaU);
-	glBegin(GL_LINES);
-	for(int i=0;i<9;++i)
-		{
-		float angle=Math::rad(float(i+1)*10.0f);
-		float ac=Math::cos(angle)*y;
-		float as=Math::sin(angle)*y;
-		glVertex3f(-y*0.1f,ac, as);
-		glVertex3f( y*0.1f,ac, as);
-		glVertex3f(-y*0.1f,ac,-as);
-		glVertex3f( y*0.1f,ac,-as);
-		}
-	for(int i=0;i<9;++i)
-		{
-		float angle=Math::rad(float(i*2+1)*5.0f);
-		float ac=Math::cos(angle)*y;
-		float as=Math::sin(angle)*y;
-		glVertex3f(-y*0.075f,ac, as);
-		glVertex3f( y*0.075f,ac, as);
-		glVertex3f(-y*0.075f,ac,-as);
-		glVertex3f( y*0.075f,ac,-as);
-		}
-	glEnd();
-	glDisable(GL_LINE_STIPPLE);
-	
-	/* Draw the climb labels: */
-	for(int i=-9;i<=9;++i)
-		{
-		glPushMatrix();
-		float angle=float(i)*10.0f;
-		glRotatef(angle,1.0f,0.0f,0.0f);
-		
-		glTranslatef(y*0.105f,y,-s);
-		glRotatef(90.0f,1.0f,0.0f,0.0f);
-		numberRenderer.drawNumber(i*10,contextData);
-		glPopMatrix();
-		}
-	
-	glEndList();
 	}
 
 }

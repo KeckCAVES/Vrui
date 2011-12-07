@@ -195,6 +195,9 @@ int VRDeviceManager::addTracker(const char* name)
 	/* Push back a new tracker name: */
 	trackerNames.push_back(name!=0?name:"");
 	
+	/* Update the tracker report mask: */
+	fullTrackerReportMask=(0x1U<<(result+1))-1U;
+	
 	return result;
 	}
 

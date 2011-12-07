@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Threads/MutexCond.h>
 #if SOUND_CONFIG_HAVE_ALSA
+#include <IO/SeekableFile.h>
 #include <Threads/Thread.h>
 #endif
 #ifdef __APPLE__
@@ -41,13 +42,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Sound/Linux/ALSAPCMDevice.h>
 #endif
 #include <Sound/SoundDataFormat.h>
-
-/* Forward declarations: */
-#if SOUND_CONFIG_HAVE_ALSA
-namespace IO {
-class SeekableFile;
-}
-#endif
 
 namespace Sound {
 
@@ -66,7 +60,7 @@ class SoundPlayer
 	SInt64 numPlayedPackets; // Total number of packets read from the output file
 	#else
 	#if SOUND_CONFIG_HAVE_ALSA
-	IO::SeekableFile* inputFile; // File from which to read the sound data
+	IO::SeekableFilePtr inputFile; // File from which to read the sound data
 	#endif
 	SoundDataFormat format; // Format of the sound data in the input file
 	#if SOUND_CONFIG_HAVE_ALSA

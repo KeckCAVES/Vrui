@@ -1,6 +1,6 @@
 /***********************************************************************
 SpaceBall - Class for 6-DOF joysticks (Spaceball 4000FLX).
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -22,6 +22,10 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDevices/SpaceBall.h>
 
+#include <stdio.h>
+#include <string.h>
+#include <Misc/ThrowStdErr.h>
+#include <Misc/Time.h>
 #include <Misc/Timer.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -33,24 +37,54 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 Methods of class SpaceBall:
 **************************/
 
+bool SpaceBall::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline)
+	{
+	bool incomplete=true;
+	while(incomplete&&lineBufferSize>1)
+		{
+		/* Wait for data to become available: */
+		Misc::Time timeout=deadline;
+		timeout-=Misc::Time::now();
+		if(timeout.tv_sec<0||!devicePort.waitForData(timeout))
+			break;
+		
+		/* Read characters until newline or no more data in serial port's read buffer: */
+		do
+			{
+			*lineBuffer=char(devicePort.getChar());
+			if(*lineBuffer=='\r'||*lineBuffer=='\n')
+				{
+				incomplete=false;
+				break;
+				}
+			++lineBuffer;
+			}
+		while(lineBufferSize>1&&devicePort.canReadImmediately());
+		}
+	
+	/* Terminate the line buffer and return success flag: */
+	*lineBuffer='\0';
+	return !incomplete;
+	}
+
 int SpaceBall::readPacket(int packetBufferSize,unsigned char* packetBuffer)
 	{
 	/* Read characters until an end-of-line is encountered: */
 	bool escape=false;
-	int readBytes=0;
-	while(readBytes<packetBufferSize-1)
+	int packetSize=0;
+	while(packetSize<packetBufferSize-1)
 		{
 		/* Read next byte: */
-		unsigned char byte=(unsigned char)(devicePort.readByte());
-
+		unsigned char byte=(unsigned char)(devicePort.getChar());
+		
 		/* Deal with escaped characters: */
 		if(escape)
 			{
 			/* Process escaped character: */
 			if(byte!='^') // Escaped circumflex stays
 				byte&=0x1f;
-			packetBuffer[readBytes]=byte;
-			++readBytes;
+			packetBuffer[packetSize]=byte;
+			++packetSize;
 			escape=false;
 			}
 		else
@@ -62,15 +96,15 @@ int SpaceBall::readPacket(int packetBufferSize,unsigned char* packetBuffer)
 				break;
 			else
 				{
-				packetBuffer[readBytes]=byte;
-				++readBytes;
+				packetBuffer[packetSize]=byte;
+				++packetSize;
 				}
 			}
 		}
 	
 	/* Terminate packet with ASCII NUL and return: */
-	packetBuffer[readBytes]='\0'; 
-	return readBytes;
+	packetBuffer[packetSize]='\0'; 
+	return packetSize;
 	}
 
 void SpaceBall::deviceThreadMethod(void)
@@ -82,7 +116,7 @@ void SpaceBall::deviceThreadMethod(void)
 	/* Receive lines from the serial port until interrupted: */
 	while(true)
 		{
-		/* Read characters until an end-of-line is encountered: */
+		/* Read the next data packet: */
 		unsigned char packet[256];
 		readPacket(256,packet);
 		
@@ -176,19 +210,32 @@ SpaceBall::SpaceBall(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 	setNumButtons(12,configFile);
 	
 	/* Set device port parameters: */
+	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate",9600);
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,2,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,2,false);
 	devicePort.setRawMode(1,0);
 	
-	/* Wait for the fourth carriage return to arrive (end of startup message): */
+	/* Wait for status message from device: */
 	#ifdef VERBOSE
-	printf("SpaceBall: Reading initialization message\n");
+	printf("SpaceBallRaw: Reading initialization message\n");
 	fflush(stdout);
 	#endif
-	int numCrs=0;
-	while(numCrs<4)
-		if(devicePort.readByte()=='\r')
-			++numCrs;
+	char lineBuffer[256];
+	const int numResponses=4;
+	const char* responseTexts[numResponses]={"\021","@1 Spaceball alive and well","","@2 Firmware version"};
+	int responseLengths[numResponses]={2,27,1,19};
+	Misc::Time deadline=Misc::Time::now();
+	deadline.tv_sec+=10;
+	for(int i=0;i<numResponses;++i)
+		{
+		/* Try reading a line from the device port: */
+		if(!readLine(256,lineBuffer,deadline))
+			Misc::throwStdErr("SpaceBallRaw: Timeout while reading status message");
+		
+		/* Check if line is correct SpaceBall response: */
+		if(strncmp(lineBuffer,responseTexts[i],responseLengths[i])!=0)
+			Misc::throwStdErr("SpaceBallRaw: Incorrect response %s while reading status message %s",lineBuffer,responseTexts[i]);
+		}
 	}
 
 void SpaceBall::start(void)
@@ -201,7 +248,8 @@ void SpaceBall::start(void)
 	printf("SpaceBall: Enabling automatic update mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.writeString("M\r");
+	devicePort.writeRaw("M\r",2);
+	devicePort.flush();
 	}
 
 void SpaceBall::stop(void)
@@ -211,7 +259,8 @@ void SpaceBall::stop(void)
 	printf("SpaceBall: Disabling automatic update mode\n");
 	fflush(stdout);
 	#endif
-	devicePort.writeString("-\r");
+	devicePort.writeRaw("-\r",2);
+	devicePort.flush();
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

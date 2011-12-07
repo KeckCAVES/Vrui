@@ -28,7 +28,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <ctype.h>
 #include <string>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/BufferCharacterSource.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
@@ -672,8 +671,7 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 	currentEnv.sound=0.0f;
 	
 	/* Read the material file and create a value source: */
-	IO::File* file=fileManager.getFile(fileName);
-	Doom3ValueSource source(*file,fileName);
+	Doom3ValueSource source(fileManager.getFile(fileName),fileName);
 	
 	/* Parse all material definitions in the file: */
 	while(!source.eof())
@@ -1699,8 +1697,6 @@ void Doom3MaterialManager::parseMaterialFile(Doom3FileManager& fileManager,const
 				}
 			}
 		}
-	
-	delete file;
 	}
 
 Doom3MaterialManager::RenderContext Doom3MaterialManager::start(GLContextData& contextData,bool useDefaultPipeline) const

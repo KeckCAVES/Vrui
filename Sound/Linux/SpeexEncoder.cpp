@@ -33,7 +33,7 @@ Methods of class SpeexEncoder:
 void* SpeexEncoder::encodingThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{

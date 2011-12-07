@@ -266,6 +266,12 @@ void WalkNavigationTool::frame(void)
 		nav*=Vrui::NavTransform::translate(translation);
 		nav*=preScale;
 		setNavigationTransformation(nav);
+		
+		if(speed!=Scalar(0))
+			{
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		}
 	}
 

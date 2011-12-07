@@ -121,6 +121,9 @@ The header files in the templatized geometry library can be grouped according to
 <DT>SplinePatch.h</DT>
 <DD>SplinePatch is a class representing parametric non-uniform rectangular tensor-product B-spline surface patches in affine space. It is templatized by the scalar type and the dimension of the underlying space. The SplinePatch class supports transformation of surface patches with arbitrary transformations.</DD>
 
+<DT>BSpline</DT>
+<DD>BSpline is a fully generic class to implement non-rational and rational B-spline curves, surfaces, etc. It is parametrized by the control point type, allowing affine or projective points, and additional attributes to be interpolated along with the control point position. A second parameter defines the tensor dimension, i.e., curves for dimension=1, surfaces for dimension=2, etc.</DD>
+
 <DT>Geoid</DT>
 <DD>Geoid is a class representing reference ellipsoids used to define coordinate transformations in geodesy. It serves as a central place to define the somewhat complex math to convert between common coordinate systems.</DD>
 </DL>

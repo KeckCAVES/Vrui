@@ -34,6 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <X11/keysym.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/CallbackData.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ArrayValueCoders.h>
@@ -1181,7 +1182,7 @@ void VRWindow::makeCurrent(void)
 
 bool VRWindow::processEvent(const XEvent& event)
 	{
-	bool finished=false;
+	bool stopProcessing=false;
 	
 	switch(event.type)
 		{
@@ -1194,7 +1195,7 @@ bool VRWindow::processEvent(const XEvent& event)
 		case ConfigureNotify:
 			{
 			/* Call the base class' event handler: */
-			finished=GLWindow::processEvent(event);
+			GLWindow::processEvent(event);
 			
 			if(panningViewport)
 				{
@@ -1346,7 +1347,7 @@ bool VRWindow::processEvent(const XEvent& event)
 				/* Set the state of the appropriate button in the input device adapter: */
 				bool newState=event.type==ButtonPress;
 				if(event.xbutton.button<4)
-					mouseAdapter->setButtonState(event.xbutton.button-1,newState);
+					stopProcessing=mouseAdapter->setButtonState(event.xbutton.button-1,newState);
 				else if(event.xbutton.button==4)
 					{
 					if(newState)
@@ -1358,7 +1359,7 @@ bool VRWindow::processEvent(const XEvent& event)
 						mouseAdapter->decMouseWheelTicks();
 					}
 				else if(event.xbutton.button>5)
-					mouseAdapter->setButtonState(event.xbutton.button-3,newState);
+					stopProcessing=mouseAdapter->setButtonState(event.xbutton.button-3,newState);
 				}
 			break;
 		
@@ -1398,14 +1399,19 @@ bool VRWindow::processEvent(const XEvent& event)
 						}
 					
 					case XK_Escape:
-						finished=true;
+						{
+						/* Call the window close callbacks: */
+						Misc::CallbackData cbData;
+						getCloseCallbacks().call(&cbData);
+						stopProcessing=true;
 						break;
+						}
 					}
 				
 				if(mouseAdapter!=0)
 					{
 					/* Send key event to input device adapter: */
-					mouseAdapter->keyPressed(keySym,keyEvent.state,keyString);
+					stopProcessing=mouseAdapter->keyPressed(keySym,keyEvent.state,keyString);
 					}
 				}
 			else
@@ -1413,7 +1419,7 @@ bool VRWindow::processEvent(const XEvent& event)
 				if(mouseAdapter!=0)
 					{
 					/* Send key event to input device adapter: */
-					mouseAdapter->keyReleased(keySym);
+					stopProcessing=mouseAdapter->keyReleased(keySym);
 					}
 				}
 			break;
@@ -1440,10 +1446,10 @@ bool VRWindow::processEvent(const XEvent& event)
 		
 		default:
 			/* Call base class method: */
-			finished=GLWindow::processEvent(event);
+			GLWindow::processEvent(event);
 		}
 	
-	return finished;
+	return stopProcessing;
 	}
 
 void VRWindow::requestScreenshot(const char* sScreenshotImageFileName)

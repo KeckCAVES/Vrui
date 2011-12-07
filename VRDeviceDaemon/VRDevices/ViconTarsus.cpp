@@ -1,7 +1,7 @@
 /***********************************************************************
 ViconTarsus - Class for Vicon optical trackers using the real-time
 streaming protocol.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,7 +24,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <VRDeviceDaemon/VRDevices/ViconTarsus.h>
 
 #include <stdio.h>
-#include <Misc/Endianness.h>
+#include <Misc/StringMarshaller.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Misc/CompoundValueCoders.h>
@@ -134,13 +134,16 @@ void ViconTarsus::deviceThreadMethod(void)
 
 ViconTarsus::ViconTarsus(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
-	 pipe(configFile.retrieveString("./serverName"),configFile.retrieveValue<int>("./serverPort",800),Comm::TCPPipe::LittleEndian),
+	 pipe(configFile.retrieveString("./serverName").c_str(),configFile.retrieveValue<int>("./serverPort",800)),
 	 trackerChannelIndices(0),
 	 trackerSixDofs(0),
 	 trackerMap(0),
 	 channelPacketBuffer(0),
 	 trackerStates(0)
 	{
+	/* Set the pipe's endianness: */
+	pipe.setEndianness(Misc::LittleEndian);
+	
 	/* Read the list of tracked bodies: */
 	std::vector<std::string> trackedBodies=configFile.retrieveValue<std::vector<std::string> >("./trackedBodies");
 	
@@ -162,9 +165,9 @@ ViconTarsus::ViconTarsus(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceMan
 	
 	/* Wait for the server's reply: */
 	if(pipe.read<int>()!=1)
-		Misc::throwStdErr("ViconTarsus: Unable to connect to tracking server at %s",pipe.getPeerHostname().c_str());
+		Misc::throwStdErr("ViconTarsus: Unable to connect to tracking server at %s",pipe.getPeerHostName().c_str());
 	if(pipe.read<int>()!=1)
-		Misc::throwStdErr("ViconTarsus: Unable to connect to tracking server at %s",pipe.getPeerHostname().c_str());
+		Misc::throwStdErr("ViconTarsus: Unable to connect to tracking server at %s",pipe.getPeerHostName().c_str());
 	
 	/* Read the info packet's data: */
 	numChannels=pipe.read<int>();
@@ -173,8 +176,8 @@ ViconTarsus::ViconTarsus(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceMan
 	#endif
 	for(int channelIndex=0;channelIndex<numChannels;++channelIndex)
 		{
-		/* Read the channel descriptor (fortunately, Vicon's string protocol is compatible to TCPPipe's): */
-		std::string channelName=pipe.read<std::string>();
+		/* Read the channel descriptor (fortunately, Vicon's string protocol is compatible to the string marshaller's): */
+		std::string channelName=Misc::readCppString(pipe);
 		#ifdef VERBOSE
 		printf("ViconTarsus: Server channel %2d: %s\n",channelIndex,channelName.c_str());
 		#endif

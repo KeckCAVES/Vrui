@@ -117,8 +117,7 @@ SceneGraphViewer::SceneGraphViewer(int numArguments,const char* const arguments[
 	/* Load all VRML files from the command line: */
 	for(int i=0;i<numArguments;++i)
 		{
-		IO::AutoFile inputFile(Vrui::openFile(arguments[i]));
-		SceneGraph::VRMLFile vrmlFile(arguments[i],*inputFile,nodeCreator,getMulticastPipeMultiplexer());
+		SceneGraph::VRMLFile vrmlFile(arguments[i],Vrui::openFile(arguments[i]),nodeCreator,getClusterMultiplexer());
 		vrmlFile.parse(root);
 		}
 	}

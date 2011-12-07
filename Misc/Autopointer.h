@@ -49,12 +49,31 @@ class Autopointer
 		if(target!=0)
 			target->ref();
 		}
+	template <class SourceTargetParam>
+	Autopointer(SourceTargetParam* sTarget) // Ditto, with target type conversion
+		:target(dynamic_cast<Target*>(sTarget))
+		{
+		if(target!=0)
+			target->ref();
+		}
 	Autopointer& operator=(Target* sTarget) // Assignment operator from standard pointer
 		{
 		/* Unreference the old target and reference the new one: */
 		if(target!=0)
 			target->unref();
 		target=sTarget;
+		if(target!=0)
+			target->ref();
+		
+		return *this;
+		}
+	template <class SourceTargetParam>
+	Autopointer& operator=(SourceTargetParam* sTarget) // Ditto, with target type conversion
+		{
+		/* Unreference the old target and reference the new one: */
+		if(target!=0)
+			target->unref();
+		target=dynamic_cast<Target*>(sTarget);
 		if(target!=0)
 			target->ref();
 		
