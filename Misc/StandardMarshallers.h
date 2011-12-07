@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define MISC_STANDARDMARSHALLERS_INCLUDED
 
 #include <string>
+#include <Misc/SizedTypes.h>
 #include <Misc/Marshaller.h>
 
 namespace Misc {
@@ -267,25 +268,25 @@ class Marshaller<std::string>
 	public:
 	static size_t getSize(const std::string& value)
 		{
-		return sizeof(unsigned int)+value.length()*sizeof(std::string::value_type);
+		return sizeof(UInt32)+value.length()*sizeof(std::string::value_type);
 		}
 	template <class DataSinkParam>
 	static void write(const std::string& value,DataSinkParam& sink)
 		{
-		sink.template write<unsigned int>((unsigned int)value.length());
+		sink.template write<UInt32>(UInt32(value.length()));
 		sink.template write<std::string::value_type>(value.data(),value.length());
 		}
 	template <class DataSourceParam>
 	static std::string read(DataSourceParam& source)
 		{
 		std::string result;
-		unsigned int length=source.template read<unsigned int>();
+		size_t length=source.template read<UInt32>();
 		result.reserve(length);
 		while(length>0)
 			{
-			const unsigned int bufferSize=256;
+			const size_t bufferSize=256;
 			std::string::value_type buffer[bufferSize];
-			unsigned int readSize=length;
+			size_t readSize=length;
 			if(readSize>bufferSize)
 				readSize=bufferSize;
 			source.template read<std::string::value_type>(buffer,readSize);

@@ -158,7 +158,7 @@ class XBaseTable
 	
 	/* Elements: */
 	private:
-	SeekableFile& file; // The underlying file object
+	SeekableFilePtr file; // The underlying file object
 	unsigned char version; // Format version number of the file
 	std::vector<Field> fields; // List of fields in each record
 	Offset headerSize; // Total size of file header in bytes
@@ -167,7 +167,7 @@ class XBaseTable
 	
 	/* Constructors and destructors: */
 	public:
-	XBaseTable(const char* fileName,SeekableFile& sFile); // Opens the given file of the given name as an XBase table
+	XBaseTable(const char* fileName,SeekableFilePtr sFile); // Opens the given file of the given name as an XBase table
 	~XBaseTable(void); // Destroys the table
 	
 	/* Methods: */

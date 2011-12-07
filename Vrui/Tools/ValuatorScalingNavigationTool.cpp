@@ -174,6 +174,9 @@ void ValuatorScalingNavigationTool::frame(void)
 		
 		/* Update Vrui's navigation transformation: */
 		setNavigationTransformation(navigation);
+		
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 

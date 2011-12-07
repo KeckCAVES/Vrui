@@ -51,12 +51,6 @@ size_t VariableMemoryFile::BufferChain::getDataSize(void) const
 Methods of class VariableMemoryFile:
 ***********************************/
 
-size_t VariableMemoryFile::readData(File::Byte* buffer,size_t bufferSize)
-	{
-	/* Do nothing; reading not supported: */
-	return 0;
-	}
-
 void VariableMemoryFile::writeData(const File::Byte* buffer,size_t bufferSize)
 	{
 	/* Append the filled current buffer to the buffer list: */
@@ -108,6 +102,11 @@ VariableMemoryFile::~VariableMemoryFile(void)
 	delete[] reinterpret_cast<Byte*>(current);
 	}
 
+size_t VariableMemoryFile::getWriteBufferSize(void) const
+	{
+	return writeBufferSize;
+	}
+
 void VariableMemoryFile::resizeWriteBuffer(size_t newWriteBufferSize)
 	{
 	/* Can't actually do anything right now; just use the new size for the next allocated buffer: */
@@ -147,6 +146,21 @@ void VariableMemoryFile::storeBuffers(VariableMemoryFile::BufferChain& chain)
 	/* Clear the current buffer list: */
 	head=0;
 	tail=0;
+	}
+
+void VariableMemoryFile::clear(void)
+	{
+	/* Delete the buffer list: */
+	while(head!=0)
+		{
+		BufferHeader* succ=head->succ;
+		delete[] reinterpret_cast<Byte*>(head);
+		head=succ;
+		}
+	tail=0;
+	
+	/* Install the current buffer as the buffered file's write buffer: */
+	setWriteBuffer(writeBufferSize,reinterpret_cast<Byte*>(current+1),false); // current+1 points to actual data in buffer
 	}
 
 }

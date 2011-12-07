@@ -27,21 +27,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <stdexcept>
 #include <Misc/Endianness.h>
+#include <Misc/RefCounted.h>
+#include <Misc/Autopointer.h>
 
 namespace IO {
 
-class File
+class File:public Misc::RefCounted
 	{
 	/* Embedded classes: */
 	public:
 	enum AccessMode // Enumerated type for file access modes
 		{
-		None,ReadOnly,WriteOnly,ReadWrite
-		};
-	
-	enum Endianness // Enumerated type for file endianness
-		{
-		DontCare,LittleEndian,BigEndian
+		NoAccess,ReadOnly,WriteOnly,ReadWrite
 		};
 	
 	class Error:public std::runtime_error // Base exception class for file-related errors
@@ -118,15 +115,20 @@ class File
 	static AccessMode disableRead(AccessMode accessMode); // Disables reading in the given access mode
 	static AccessMode disableWrite(AccessMode accessMode); // Disables writing in the given access mode
 	static const char* getAccessModeName(AccessMode accessMode); // Returns a string describing the given access mode
-	void flushReadBuffer(void); // Clears the read buffer so that the next read access has to go to the data source
-	void setReadBuffer(size_t newReadBufferSize,Byte* newReadBuffer,bool deleteOldBuffer =true); // Allows derived class to set a new read buffer while deleting or releasing the previous buffer; discards unread data in read buffer
-	size_t getReadBufferSize(void) const // Returns size of the read buffer in bytes
+	void flushReadBuffer(void) // Clears the read buffer so that the next read access has to go to the data source
 		{
-		return readBufferSize;
+		/* Reset the read buffer pointers: */
+		readDataEnd=readBuffer;
+		readPtr=readBuffer;
 		}
+	void setReadBuffer(size_t newReadBufferSize,Byte* newReadBuffer,bool deleteOldBuffer =true); // Allows derived class to set a new read buffer while deleting or releasing the previous buffer; discards unread data in read buffer
 	size_t getReadBufferDataSize(void) const // Returns current amount of data in the read buffer
 		{
 		return readDataEnd-readBuffer;
+		}
+	void appendReadBufferData(size_t newDataSize) // Adds to the amount of readable data in the read buffer; does not check for buffer bounds
+		{
+		readDataEnd+=newDataSize;
 		}
 	ptrdiff_t getReadPtr(void) const // Returns the current position of the read pointer inside the read buffer
 		{
@@ -137,10 +139,6 @@ class File
 		readPtr=readBuffer+newReadPos;
 		}
 	void setWriteBuffer(size_t newWriteBufferSize,Byte* newWriteBuffer,bool deleteOldBuffer =true); // Allows derived class to set a new write buffer while deleting or releasing the previous buffer; discards unwritten data in write buffer
-	size_t getWriteBufferSize(void) const // Returns the size of the write buffer in bytes
-		{
-		return writeBufferSize;
-		}
 	ptrdiff_t getWritePtr(void) const // Returns the current position of the write pointer inside the write buffer
 		{
 		return writePtr-writeBuffer;
@@ -150,9 +148,9 @@ class File
 		writePtr=writeBuffer+newWritePos;
 		}
 	
-	/* Protected low-level methods to be implemented by concrete derived classes: */
-	virtual size_t readData(Byte* buffer,size_t bufferSize) =0; // Method to read data into the given buffer; must block until at least one byte is read; returns number of bytes read; zero return value signals end-of-source condition
-	virtual void writeData(const Byte* buffer,size_t bufferSize) =0; // Method to write all data contained in the write buffer to a sink; should throw appropriate exception in case of errors
+	/* Protected low-level methods to be implemented by concrete derived classes; default implementations return EOF or throw error: */
+	virtual size_t readData(Byte* buffer,size_t bufferSize); // Method to read data into the given buffer; must block until at least one byte is read; returns number of bytes read; zero return value signals end-of-source condition
+	virtual void writeData(const Byte* buffer,size_t bufferSize); // Method to write all data contained in the write buffer to a sink; should throw appropriate exception in case of errors
 	
 	/* Private methods: */
 	private:
@@ -179,6 +177,8 @@ class File
 	
 	/* Methods: */
 	virtual int getFd(void) const; // Returns the concrete file's OS file descriptor, if applicable
+	virtual size_t getReadBufferSize(void) const; // Returns the (nominal) size of the read buffer in bytes
+	virtual size_t getWriteBufferSize(void) const; // Returns the (nominal) size of the write buffer in bytes
 	virtual size_t resizeReadBuffer(size_t newReadBufferSize); // Resizes the read buffer; increases given size if unread data in buffer would not fit into new buffer; returns actual read buffer size
 	virtual void resizeWriteBuffer(size_t newWriteBufferSize); // Flushes and resizes the write buffer
 	bool canReadImmediately(void) const // Returns true if there is unread data in the read buffer
@@ -230,8 +230,47 @@ class File
 		else
 			return -1;
 		}
-	void ungetChar(int character); // Puts the given character back into the read buffer; throws exception if there is no room
-	size_t readUpTo(void* buffer,size_t bufferSize); // Reads up to the given amount of data into the provided buffer; returns amount of data read; returns zero when called at end-of-file
+	void ungetChar(int character) // Puts the given character back into the read buffer; throws exception if there is no room
+		{
+		/* Check if the unget buffer is full: */
+		if(readPtr==readBuffer)
+			throw UngetCharError();
+		
+		/* Put the character back into the read buffer: */
+		*(--readPtr)=Byte(character);
+		}
+	size_t readUpTo(void* buffer,size_t bufferSize) // Reads up to the given amount of data into the provided buffer; returns amount of data read; returns zero when called at end-of-file
+		{
+		/* Read more data if the buffer is empty: */
+		if(readPtr==readDataEnd)
+			fillReadBuffer();
+		
+		/* Copy whatever is in the buffer, up to the provided size: */
+		size_t copySize=readDataEnd-readPtr;
+		if(copySize>bufferSize)
+			copySize=bufferSize;
+		memcpy(buffer,readPtr,copySize);
+		
+		/* Advance the read position: */
+		readPtr+=copySize;
+		
+		return copySize;
+		}
+	size_t readInBuffer(void*& buffer,size_t bufferSize =~size_t(0)) // Ditto, but returns a pointer into the file's internal buffer, which will stay valid until the next read
+		{
+		/* Read more data if the buffer is empty: */
+		if(readPtr==readDataEnd)
+			fillReadBuffer();
+		
+		/* Return any unread buffer content, up to the provided size: */
+		size_t result=readDataEnd-readPtr;
+		if(result>bufferSize)
+			result=bufferSize;
+		buffer=readPtr;
+		readPtr+=result;
+		
+		return result;
+		}
 	void readRaw(void* buffer,size_t bufferSize) // Reads exactly the given amount of data into the provided buffer; blocks until read complete
 		{
 		/* Check if there is enough data in the read buffer: */
@@ -263,6 +302,25 @@ class File
 		*writePtr=Byte(character);
 		++writePtr;
 		}
+	size_t writeInBufferPrepare(void*& buffer) // Prepares to write data directly into the write buffer
+		{
+		/* Check if the write buffer is full: */
+		if(writePtr==writeBufferEnd)
+			{
+			/* Write the full write buffer and reset the write pointer: */
+			writeData(writeBuffer,writeBufferSize);
+			writePtr=writeBuffer;
+			}
+		
+		/* Return the buffer pointer and amount of space left in buffer: */
+		buffer=writePtr;
+		return writeBufferEnd-writePtr;
+		}
+	void writeInBufferFinish(size_t writeSize) // Finishes writing data directly into the write buffer by providing the exact amount of data written
+		{
+		/* Update the write pointer to the end of the written data: */
+		writePtr+=writeSize;
+		}
 	void writeRaw(const void* buffer,size_t bufferSize) // Writes exactly the given amount of data from the provided buffer; blocks until write complete
 		{
 		/* Check if there is enough room in the write buffer: */
@@ -280,8 +338,16 @@ class File
 			bufferedWrite(buffer,bufferSize);
 			}
 		}
-	void flush(void); // Flushes the write buffer to the data sink
-	void setEndianness(Endianness newEndianness); // Sets the endianness of the source and/or sink
+	void flush(void) // Flushes the write buffer to the data sink
+		{
+		/* Write the entire write buffer if there is any data in it: */
+		if(writePtr!=writeBuffer)
+			writeData(writeBuffer,writePtr-writeBuffer);
+		
+		/* Reset the write buffer: */
+		writePtr=writeBuffer;
+		}
+	void setEndianness(Misc::Endianness newEndianness); // Sets the endianness of the source and/or sink
 	
 	/* Endianness-safe binary read interface: */
 	bool mustSwapOnRead(void) // Returns true if the file must endianness-swap data on read
@@ -402,6 +468,8 @@ class File
 			}
 		}
 	};
+
+typedef Misc::Autopointer<File> FilePtr; // Type for pointers to reference-counted file objects
 
 }
 

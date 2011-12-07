@@ -194,10 +194,10 @@ void RayScreenMenuTool::frame(void)
 
 void RayScreenMenuTool::display(GLContextData& contextData) const
 	{
-	if(factory->interactWithWidgets||GUIInteractor::isActive())
+	if(isDrawRay()&&(factory->interactWithWidgets||GUIInteractor::isActive()))
 		{
 		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(contextData);
+		GUIInteractor::glRenderAction(getRayWidth(),getRayColor(),contextData);
 		}
 	}
 

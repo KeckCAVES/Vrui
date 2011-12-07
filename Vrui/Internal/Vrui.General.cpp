@@ -21,7 +21,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#define DELAY_NAVIGATIONTRANSFORMATION 1
+#define DELAY_NAVIGATIONTRANSFORMATION 0
 #define RENDERFRAMETIMES 0
 #define SAVESHAREDVRUISTATE 0
 
@@ -37,6 +37,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <time.h>
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/StringPrintf.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/ValueCoder.h>
 #include <Misc/StandardValueCoders.h>
@@ -45,8 +46,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/TimerEventScheduler.h>
 #include <IO/File.h>
 #include <IO/OpenFile.h>
-#include <Comm/MulticastPipeMultiplexer.h>
-#include <Comm/MulticastPipe.h>
+#include <Cluster/Multiplexer.h>
+#include <Cluster/MulticastPipe.h>
 #include <Math/Constants.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
@@ -92,6 +93,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/VisletManager.h>
 #include <Vrui/Internal/InputDeviceDataSaver.h>
 #include <Vrui/Internal/ScaleBar.h>
+#include <Vrui/OpenFile.h>
 
 namespace Misc {
 
@@ -314,68 +316,52 @@ void VruiState::updateNavigationTransformation(const NavTransform& newTransform)
 	inverseNavigationTransformation=newInverseTransform;
 	}
 
-bool VruiState::loadViewpointFile(const char* viewpointFileName)
+bool VruiState::loadViewpointFile(IO::Directory& directory,const char* viewpointFileName)
 	{
 	bool result=false;
 	
-	/* Only load viewpoint file on master; on slave nodes, navigation will be updated by main loop: */
-	if(master)
+	try
 		{
-		try
-			{
-			/* Open the viewpoint file: */
-			IO::AutoFile viewpointFile(IO::openFile(viewpointFileName));
-			viewpointFile->setEndianness(IO::File::LittleEndian);
-			
-			/* Check the header: */
-			char header[80];
-			viewpointFile->read(header,strlen(vruiViewpointFileHeader));
-			header[strlen(vruiViewpointFileHeader)]='\0';
-			if(strcmp(header,vruiViewpointFileHeader)==0)
-				{
-				/* Read the environment's center point in navigational coordinates: */
-				Point center;
-				viewpointFile->read<Scalar>(center.getComponents(),3);
-				
-				/* Read the environment's size in navigational coordinates: */
-				Scalar size=viewpointFile->read<Scalar>();
-				
-				/* Read the environment's forward direction in navigational coordinates: */
-				Vector forward;
-				viewpointFile->read<Scalar>(forward.getComponents(),3);
-				
-				/* Read the environment's up direction in navigational coordinates: */
-				Vector up;
-				viewpointFile->read<Scalar>(up.getComponents(),3);
-				
-				/* Construct the navigation transformation: */
-				NavTransform nav=NavTransform::identity;
-				nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-				nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-				nav*=NavTransform::scale(getDisplaySize()/size);
-				nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
-				nav*=NavTransform::translateToOriginFrom(center);
-				setNavigationTransformation(nav);
-				
-				result=true;
-				}
-			}
-		catch(std::runtime_error error)
-			{
-			/* Ignore the error and return a failure code: */
-			}
+		/* Open the viewpoint file: */
+		IO::FilePtr viewpointFile=directory.openFile(viewpointFileName);
+		viewpointFile->setEndianness(Misc::LittleEndian);
 		
-		if(pipe!=0)
+		/* Check the header: */
+		char header[80];
+		viewpointFile->read(header,strlen(vruiViewpointFileHeader));
+		header[strlen(vruiViewpointFileHeader)]='\0';
+		if(strcmp(header,vruiViewpointFileHeader)==0)
 			{
-			/* Send the result code to the slaves: */
-			pipe->write<int>(result?1:0);
-			pipe->finishMessage();
+			/* Read the environment's center point in navigational coordinates: */
+			Point center;
+			viewpointFile->read<Scalar>(center.getComponents(),3);
+			
+			/* Read the environment's size in navigational coordinates: */
+			Scalar size=viewpointFile->read<Scalar>();
+			
+			/* Read the environment's forward direction in navigational coordinates: */
+			Vector forward;
+			viewpointFile->read<Scalar>(forward.getComponents(),3);
+			
+			/* Read the environment's up direction in navigational coordinates: */
+			Vector up;
+			viewpointFile->read<Scalar>(up.getComponents(),3);
+			
+			/* Construct the navigation transformation: */
+			NavTransform nav=NavTransform::identity;
+			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+			nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+			nav*=NavTransform::scale(getDisplaySize()/size);
+			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
+			nav*=NavTransform::translateToOriginFrom(center);
+			setNavigationTransformation(nav);
+			
+			result=true;
 			}
 		}
-	else
+	catch(std::runtime_error error)
 		{
-		/* Read the result code from the master: */
-		result=pipe->read<int>()!=0;
+		/* Ignore the error and return a failure code: */
 		}
 	
 	return result;
@@ -397,7 +383,7 @@ void VruiState::toolDestructionCallback(ToolManager::ToolDestructionCallbackData
 		}
 	}
 
-VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::MulticastPipe* sPipe)
+VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* sPipe)
 	:multiplexer(sMultiplexer),
 	 master(multiplexer==0||multiplexer->isMaster()),
 	 pipe(sPipe),
@@ -431,6 +417,7 @@ VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::Multicas
 	 timerEventScheduler(0),
 	 widgetManager(0),
 	 popWidgetsOnScreen(false),
+	 dialogsMenu(0),
 	 systemMenuPopup(0),
 	 mainMenu(0),
 	 navigationTransformationEnabled(false),
@@ -443,7 +430,7 @@ VruiState::VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::Multicas
 	 frameFunction(0),frameFunctionData(0),
 	 displayFunction(0),displayFunctionData(0),
 	 soundFunction(0),soundFunctionData(0),
-	 minimumFrameTime(0.0),
+	 minimumFrameTime(0.0),nextFrameTime(0.0),
 	 numRecentFrameTimes(0),recentFrameTimes(0),nextFrameTimeIndex(0),sortedFrameTimes(0),
 	 activeNavigationTool(0),
 	 mostRecentGUIInteractor(0),mostRecentHotSpot(displayCenter),
@@ -465,11 +452,14 @@ VruiState::~VruiState(void)
 	delete[] recentFrameTimes;
 	delete[] sortedFrameTimes;
 	
-	/* Delete vislet management: */
-	delete visletManager;
+	/* Deregister the popup callback: */
+	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
 	
 	/* Delete tool management: */
 	delete toolManager;
+	
+	/* Delete vislet management: */
+	delete visletManager;
 	
 	/* Delete coordinate manager: */
 	delete scaleBar;
@@ -691,6 +681,10 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	widgetManager->getWidgetPopCallbacks().add(this,&VruiState::widgetPopCallback);
 	popWidgetsOnScreen=configFileSection.retrieveValue<bool>("./popWidgetsOnScreen",popWidgetsOnScreen);
 	
+	/* Initialize the directories used to load files: */
+	viewDirectory=openDirectory(".");
+	inputGraphDirectory=viewDirectory;
+	
 	/* Initialize 3D picking: */
 	pointPickDistance=Scalar(uiStyleSheet.size*2.0f);
 	pointPickDistance=configFileSection.retrieveValue<Scalar>("./pointPickDistance",pointPickDistance);
@@ -733,7 +727,7 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 		{
 		pipe->broadcast<unsigned int>(randomSeed);
 		pipe->broadcast<double>(lastFrame);
-		pipe->finishMessage();
+		pipe->flush();
 		}
 	srand(randomSeed);
 	lastFrameDelta=0.0;
@@ -803,7 +797,8 @@ void VruiState::prepareMainLoop(void)
 	if(!viewpointFileName.empty())
 		{
 		/* Override the navigation transformation: */
-		if(!loadViewpointFile(viewpointFileName.c_str())&&master)
+		IO::DirectoryPtr viewpointDir=openDirectory(".");
+		if(!loadViewpointFile(*viewpointDir,viewpointFileName.c_str())&&master)
 			{
 			/* Print a warning message and continue: */
 			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<std::endl;
@@ -816,6 +811,9 @@ void VruiState::update(void)
 	/* Take an application timer snapshot: */
 	double lastLastFrame=lastFrame;
 	lastFrame=appTime.peekTime(); // Result is only used on master node
+	
+	/* Reset the next scheduled frame time: */
+	nextFrameTime=0.0;
 	
 	int navBroadcastMask=navigationTransformationChangedMask;
 	if(master)
@@ -901,7 +899,7 @@ void VruiState::update(void)
 				
 				/* Update the navigation transformation: */
 				navigationTransformationEnabled=true;
-				updateNavigationTransformation(NavTransform(translation,Rotation::fromQuaternion(rotationQuaternion),scaling));
+				updateNavigationTransformation(NavTransform(translation,Rotation(rotationQuaternion),scaling));
 				}
 			}
 		if(navBroadcastMask&0x2)
@@ -926,7 +924,7 @@ void VruiState::update(void)
 				}
 			}
 		
-		pipe->finishMessage();
+		pipe->flush();
 		}
 	
 	/* Calculate the current frame time delta: */
@@ -973,7 +971,7 @@ void VruiState::update(void)
 			{
 			/* Load the input graph from the selected configuration file: */
 			getInputGraphManager()->clear();
-			getInputGraphManager()->loadInputGraph(inputGraphFileName.c_str(),"InputGraph");
+			getInputGraphManager()->loadInputGraph(inputGraphDirectory->getPath(inputGraphFileName.c_str()).c_str(),"InputGraph");
 			}
 		catch(std::runtime_error err)
 			{
@@ -1005,7 +1003,7 @@ void VruiState::update(void)
 	
 	/* Finish any pending messages on the main pipe, in case an application didn't clean up: */
 	if(multiplexer!=0)
-		pipe->finishMessage();
+		pipe->flush();
 	}
 
 void VruiState::display(DisplayState* displayState,GLContextData& contextData) const
@@ -1139,12 +1137,6 @@ void VruiState::finishMainLoop(void)
 	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
 	}
 
-void VruiState::fileSelectionDialogCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData)
-	{
-	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
-	}
-
 void VruiState::dialogsMenuCallback(GLMotif::SubMenu::EntrySelectCallbackData* cbData)
 	{
 	/* Get the index of the selected button: */
@@ -1217,22 +1209,69 @@ void VruiState::loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData*
 	if(activeNavigationTool==0)
 		{
 		/* Load the selected viewpoint file: */
-		loadViewpointFile(cbData->selectedFileName.c_str());
+		if(!loadViewpointFile(*cbData->selectedDirectory,cbData->selectedFileName))
+			{
+			/* Show an error message: */
+			showErrorMessage("Load View...",Misc::stringPrintf("Could not load viewpoint file \"%s\"",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str()).c_str());
+			}
 		}
 	
+	/* Remember the current directory for next time: */
+	viewDirectory=cbData->selectedDirectory;
+	
 	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void VruiState::loadViewCallback(Misc::CallbackData* cbData)
 	{
 	/* Create a file selection dialog to select a viewpoint file: */
-	GLMotif::FileSelectionDialog* loadViewDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",0,".view",openPipe());
+	GLMotif::FileSelectionDialog* loadViewDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",viewDirectory,".view");
 	loadViewDialog->getOKCallbacks().add(this,&VruiState::loadViewOKCallback);
-	loadViewDialog->getCancelCallbacks().add(this,&VruiState::fileSelectionDialogCancelCallback);
+	loadViewDialog->getCancelCallbacks().add(loadViewDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
 	/* Show the file selection dialog: */
 	popupPrimaryWidget(loadViewDialog);
+	}
+
+void VruiState::saveViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
+	try
+		{
+		/* Write the viewpoint file: */
+		IO::FilePtr viewpointFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
+		viewpointFile->setEndianness(Misc::LittleEndian);
+		
+		/* Write a header identifying this as an environment-independent viewpoint file: */
+		viewpointFile->write<char>(vruiViewpointFileHeader,strlen(vruiViewpointFileHeader));
+		
+		/* Write the environment's center point in navigational coordinates: */
+		Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
+		viewpointFile->write<Scalar>(center.getComponents(),3);
+		
+		/* Write the environment's size in navigational coordinates: */
+		Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
+		viewpointFile->write<Scalar>(size);
+		
+		/* Write the environment's forward direction in navigational coordinates: */
+		Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
+		viewpointFile->write<Scalar>(forward.getComponents(),3);
+		
+		/* Write the environment's up direction in navigational coordinates: */
+		Vector up=getInverseNavigationTransformation().transform(getUpDirection());
+		viewpointFile->write<Scalar>(up.getComponents(),3);
+		}
+	catch(std::runtime_error err)
+		{
+		/* Show an error message: */
+		showErrorMessage("Save View...",Misc::printStdErrMsg("Could not write viewpoint file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()));
+		}
+	
+	/* Remember the current directory for next time: */
+	viewDirectory=cbData->selectedDirectory;
+	
+	/* Destroy the file selection dialog: */
+	cbData->fileSelectionDialog->close();
 	}
 
 void VruiState::saveViewCallback(Misc::CallbackData* cbData)
@@ -1240,59 +1279,23 @@ void VruiState::saveViewCallback(Misc::CallbackData* cbData)
 	/* Push the current navigation transformation onto the stack of navigation transformations: */
 	storedNavigationTransformations.push_back(getNavigationTransformation());
 	
-	bool success=false;
-	if(master)
+	try
 		{
-		try
-			{
-			/* Create a uniquely named viewpoint file: */
-			char numberedFileName[40];
-			IO::AutoFile viewpointFile(IO::openFile(Misc::createNumberedFileName("SavedViewpoint.view",4,numberedFileName),IO::File::WriteOnly));
-			viewpointFile->setEndianness(IO::File::LittleEndian);
-			
-			/* Write a header identifying this as an environment-independent viewpoint file: */
-			viewpointFile->write<char>(vruiViewpointFileHeader,strlen(vruiViewpointFileHeader));
-			
-			/* Write the environment's center point in navigational coordinates: */
-			Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
-			viewpointFile->write<Scalar>(center.getComponents(),3);
-			
-			/* Write the environment's size in navigational coordinates: */
-			Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
-			viewpointFile->write<Scalar>(size);
-			
-			/* Write the environment's forward direction in navigational coordinates: */
-			Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
-			viewpointFile->write<Scalar>(forward.getComponents(),3);
-			
-			/* Write the environment's up direction in navigational coordinates: */
-			Vector up=getInverseNavigationTransformation().transform(getUpDirection());
-			viewpointFile->write<Scalar>(up.getComponents(),3);
-			
-			success=true;
-			}
-		catch(std::runtime_error)
-			{
-			/* Ignore error here; will be handled */
-			}
-		
-		if(pipe!=0)
-			{
-			/* Send result notification to slaves: */
-			pipe->write<int>(success?1:0);
-			pipe->finishMessage();
-			}
+		/* Create a uniquely-named viewpoint file in the most recently used viewpoint file directory: */
+		std::string viewpointFileName=viewDirectory->createNumberedFileName("SavedViewpoint.view",4);
+
+		/* Create a file selection dialog to select an alternative viewpoint file name: */
+		GLMotif::FileSelectionDialog* saveViewDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Save View...",viewDirectory,viewpointFileName.c_str(),".view");
+		saveViewDialog->getOKCallbacks().add(this,&VruiState::saveViewOKCallback);
+		saveViewDialog->getCancelCallbacks().add(saveViewDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+
+		/* Show the file selection dialog: */
+		popupPrimaryWidget(saveViewDialog);
 		}
-	else
-		{
-		/* Receive result notification from master: */
-		success=pipe->read<int>()!=0;
-		}
-	
-	if(!success)
+	catch(std::runtime_error err)
 		{
 		/* Show an error message: */
-		showErrorMessage("Save Viewpoint","Could not write viewpoint file");
+		showErrorMessage("Save View...",Misc::printStdErrMsg("Could not save view due to exception %s",err.what()));
 		}
 	}
 
@@ -1323,40 +1326,93 @@ void VruiState::destroyInputDeviceCallback(Misc::CallbackData* cbData)
 		}
 	}
 
-void VruiState::loadInputGraphCallback(Misc::CallbackData* cbData)
-	{
-	/* Create a file selection dialog to select a configuration file: */
-	GLMotif::FileSelectionDialog* loadInputGraphDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Input Graph...",0,".cfg",openPipe());
-	loadInputGraphDialog->getOKCallbacks().add(this,&VruiState::loadInputGraphOKCallback);
-	loadInputGraphDialog->getCancelCallbacks().add(this,&VruiState::fileSelectionDialogCancelCallback);
-	
-	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadInputGraphDialog);
-	}
-
 void VruiState::loadInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Remember to load the given input graph file at the next opportune time: */
 	loadInputGraph=true;
 	inputGraphFileName=cbData->selectedFileName;
 	
+	/* Remember the current directory for next time: */
+	inputGraphDirectory=cbData->fileSelectionDialog->getCurrentDirectory();
+	
 	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
+	}
+
+void VruiState::loadInputGraphCallback(Misc::CallbackData* cbData)
+	{
+	/* Create a file selection dialog to select a configuration file: */
+	GLMotif::FileSelectionDialog* loadInputGraphDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Input Graph...",inputGraphDirectory,".inputgraph");
+	loadInputGraphDialog->getOKCallbacks().add(this,&VruiState::loadInputGraphOKCallback);
+	loadInputGraphDialog->getCancelCallbacks().add(loadInputGraphDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	
+	/* Show the file selection dialog: */
+	popupPrimaryWidget(loadInputGraphDialog);
+	}
+
+void VruiState::saveInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
+	bool success=false;
+	
+	if(master)
+		{
+		try
+			{
+			/* Save the input graph: */
+			getInputGraphManager()->saveInputGraph(cbData->getSelectedPath().c_str(),"InputGraph");
+			
+			success=true;
+			}
+		catch(std::runtime_error err)
+			{
+			/* Ignore error here; will be handled later */
+			}
+		
+		if(pipe!=0)
+			{
+			/* Send result notification to slaves: */
+			pipe->write<int>(success?1:0);
+			pipe->flush();
+			}
+		}
+	else
+		{
+		/* Receive result notification from master: */
+		success=pipe->read<int>()!=0;
+		}
+	
+	if(!success)
+		{
+		/* Show an error message: */
+		showErrorMessage("Save Input Graph...","Could not write input graph file");
+		}
+	
+	/* Remember the current directory for next time: */
+	inputGraphDirectory=cbData->selectedDirectory;
+	
+	/* Destroy the file selection dialog: */
+	cbData->fileSelectionDialog->close();
 	}
 
 void VruiState::saveInputGraphCallback(Misc::CallbackData* cbData)
 	{
 	try
 		{
-		/* Save the input graph: */
-		getInputGraphManager()->saveInputGraph("InputGraph.cfg","InputGraph");
+		/* Create a uniquely-named input graph file in the most recently used input graph directory: */
+		std::string inputGraphFileName=inputGraphDirectory->createNumberedFileName("SavedInputGraph.inputgraph",4);
+		
+		/* Create a file selection dialog to select an alternative input graph file name: */
+		GLMotif::FileSelectionDialog* saveInputGraphDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Input Graph...",inputGraphDirectory,inputGraphFileName.c_str(),".inputgraph");
+		saveInputGraphDialog->getOKCallbacks().add(this,&VruiState::saveInputGraphOKCallback);
+		saveInputGraphDialog->getCancelCallbacks().add(saveInputGraphDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+
+		/* Show the file selection dialog: */
+		popupPrimaryWidget(saveInputGraphDialog);
 		}
 	catch(std::runtime_error err)
 		{
 		/* Show an error message: */
-		std::string message="Could not save input graph due to exception ";
-		message.append(err.what());
-		showErrorMessage("Save Input Graph",message.c_str());
+		showErrorMessage("Save Input Graph...",Misc::printStdErrMsg("Could not save input graph due to exception %s",err.what()));
 		}
 	}
 
@@ -1456,7 +1512,7 @@ void setSoundFunction(SoundFunctionType soundFunction,void* userData)
 	vruiState->soundFunctionData=userData;
 	}
 
-Comm::MulticastPipeMultiplexer* getMulticastPipeMultiplexer(void)
+Cluster::Multiplexer* getClusterMultiplexer(void)
 	{
 	return vruiState->multiplexer;
 	}
@@ -1482,15 +1538,15 @@ int getNumNodes(void)
 		return 1;
 	}
 
-Comm::MulticastPipe* getMainPipe(void)
+Cluster::MulticastPipe* getMainPipe(void)
 	{
 	return vruiState->pipe;
 	}
 
-Comm::MulticastPipe* openPipe(void)
+Cluster::MulticastPipe* openPipe(void)
 	{
 	if(vruiState->multiplexer!=0)
-		return new Comm::MulticastPipe(vruiState->multiplexer);
+		return new Cluster::MulticastPipe(vruiState->multiplexer);
 	else
 		return 0;
 	}
@@ -2057,15 +2113,17 @@ Scalar getRayPickCosine(void)
 
 void setNavigationTransformation(const NavTransform& newNavigationTransformation)
 	{
-	vruiState->navigationTransformationEnabled=true;
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
 		/* Schedule a change in navigation transformation for the next frame: */
 		vruiState->newNavigationTransformation=newNavigationTransformation;
 		vruiState->newNavigationTransformation.renormalize();
-		vruiState->navigationTransformationChangedMask|=0x1;
-		requestUpdate();
+		if(!vruiState->navigationTransformationEnabled||vruiState->newNavigationTransformation!=vruiState->navigationTransformation)
+			{
+			vruiState->navigationTransformationChangedMask|=0x1;
+			requestUpdate();	
+			}
 		}
 	else
 		{
@@ -2076,21 +2134,27 @@ void setNavigationTransformation(const NavTransform& newNavigationTransformation
 	/* Change the navigation transformation right away: */
 	vruiState->updateNavigationTransformation(newNavigationTransformation);
 	#endif
+	
+	vruiState->navigationTransformationEnabled=true;
 	}
 
 void setNavigationTransformation(const Point& center,Scalar radius)
 	{
+	/* Assemble the new navigation transformation: */
 	NavTransform t=NavTransform::translateFromOriginTo(vruiState->displayCenter);
 	t*=NavTransform::scale(vruiState->displaySize/radius);
 	t*=NavTransform::translateToOriginFrom(center);
-	vruiState->navigationTransformationEnabled=true;
+	
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
 		/* Schedule a change in navigation transformation for the next frame: */
 		vruiState->newNavigationTransformation=t;
-		vruiState->navigationTransformationChangedMask|=0x1;
-		requestUpdate();
+		if(!vruiState->navigationTransformationEnabled||vruiState->newNavigationTransformation!=vruiState->navigationTransformation)
+			{
+			vruiState->navigationTransformationChangedMask|=0x1;
+			requestUpdate();	
+			}
 		}
 	else
 		{
@@ -2101,22 +2165,28 @@ void setNavigationTransformation(const Point& center,Scalar radius)
 	/* Change the navigation transformation right away: */
 	vruiState->updateNavigationTransformation(t);
 	#endif
+	
+	vruiState->navigationTransformationEnabled=true;
 	}
 
 void setNavigationTransformation(const Point& center,Scalar radius,const Vector& up)
 	{
+	/* Assemble the new navigation transformation: */
 	NavTransform t=NavTransform::translateFromOriginTo(vruiState->displayCenter);
 	t*=NavTransform::scale(vruiState->displaySize/radius);
 	t*=NavTransform::rotate(NavTransform::Rotation::rotateFromTo(up,vruiState->upDirection));
 	t*=NavTransform::translateToOriginFrom(center);
-	vruiState->navigationTransformationEnabled=true;
+	
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
 		/* Schedule a change in navigation transformation for the next frame: */
 		vruiState->newNavigationTransformation=t;
-		vruiState->navigationTransformationChangedMask|=0x1;
-		requestUpdate();
+		if(!vruiState->navigationTransformationEnabled||vruiState->newNavigationTransformation!=vruiState->navigationTransformation)
+			{
+			vruiState->navigationTransformationChangedMask|=0x1;
+			requestUpdate();	
+			}
 		}
 	else
 		{
@@ -2127,10 +2197,16 @@ void setNavigationTransformation(const Point& center,Scalar radius,const Vector&
 	/* Change the navigation transformation right away: */
 	vruiState->updateNavigationTransformation(t);
 	#endif
+	
+	vruiState->navigationTransformationEnabled=true;
 	}
 
 void concatenateNavigationTransformation(const NavTransform& t)
 	{
+	/* Bail out if the incremental transformation is the identity transformation: */
+	if(t==NavTransform::identity)
+		return;
+	
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
@@ -2161,6 +2237,10 @@ void concatenateNavigationTransformation(const NavTransform& t)
 
 void concatenateNavigationTransformationLeft(const NavTransform& t)
 	{
+	/* Bail out if the incremental transformation is the identity transformation: */
+	if(t==NavTransform::identity)
+		return;
+	
 	#if DELAY_NAVIGATIONTRANSFORMATION
 	if(vruiState->delayNavigationTransformation)
 		{
@@ -2304,6 +2384,12 @@ double getCurrentFrameTime(void)
 void updateContinuously(void)
 	{
 	vruiState->updateContinuously=true;
+	}
+
+void scheduleUpdate(double nextFrameTime)
+	{
+	if(vruiState->nextFrameTime==0.0||vruiState->nextFrameTime>nextFrameTime)
+		vruiState->nextFrameTime=nextFrameTime;
 	}
 
 const DisplayState& getDisplayState(GLContextData& contextData)

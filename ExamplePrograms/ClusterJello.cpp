@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -30,7 +30,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <stdexcept>
 #include <Misc/Timer.h>
-#include <Comm/MulticastPipe.h>
+#include <Cluster/MulticastPipe.h>
 #include <Math/Math.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
@@ -274,7 +274,7 @@ void* ClusterJello::simulationThreadMethodMaster(void)
 				{
 				/* Broadcast the crystal state to all slave nodes: */
 				crystal->writeAtomStates(*clusterPipe);
-				clusterPipe->finishMessage();
+				clusterPipe->flush();
 				}
 			
 			/* Update the application's proxy crystal state: */
@@ -347,7 +347,7 @@ ClusterJello::ClusterJello(int& argc,char**& argv,char**& appDefaults)
 		Vrui::write(clusterPipe,currentSimulationParameters.atomMass);
 		Vrui::write(clusterPipe,currentSimulationParameters.attenuation);
 		Vrui::write(clusterPipe,currentSimulationParameters.gravity);
-		Vrui::finishMessage(clusterPipe);
+		Vrui::flush(clusterPipe);
 		
 		/* Start the simulation thread: */
 		simulationThread.start(this,&ClusterJello::simulationThreadMethodMaster);

@@ -481,13 +481,12 @@ void* MeasureEnvironment::pointCollectorThreadMethod(void)
 	return 0;
 	}
 
-void MeasureEnvironment::loadMeasurementFile(const char* fileName)
+void MeasureEnvironment::loadMeasurementFile(IO::Directory& directory,const char* fileName)
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
 	/* Open the input file: */
-	IO::AutoFile pointFile(Vrui::openFile(fileName));
-	IO::TokenSource tok(*pointFile);
+	IO::TokenSource tok(directory.openFile(fileName));
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -544,13 +543,12 @@ void MeasureEnvironment::saveMeasurementFile(const char* fileName)
 	measurementsDirty=false;
 	}
 
-void MeasureEnvironment::loadOptitrackSampleFile(const char* fileName,bool flipZ)
+void MeasureEnvironment::loadOptitrackSampleFile(IO::Directory& directory,const char* fileName,bool flipZ)
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
 	/* Open the CSV input file: */
-	IO::AutoFile file(Vrui::openFile(fileName));
-	IO::TokenSource tok(*file);
+	IO::TokenSource tok(directory.openFile(fileName));
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -619,7 +617,7 @@ void MeasureEnvironment::loadOptitrackSampleFile(const char* fileName,bool flipZ
 
 MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefaults)
 	:Vrui::Application(argc,argv,appDefaults),
-	 totalStation(0),initialPrismOffset(0.0),
+	 totalStation(0),basePrismOffset(34.4),initialPrismOffset(0),
 	 naturalPointClient(0),naturalPointFlipZ(false),
 	 pointTransform(OGTransform::identity),
 	 measuringMode(0),
@@ -675,6 +673,14 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 				++i;
 				if(i<argc)
 					totalStationUnitScale=TotalStation::Scalar(atof(argv[i]));
+				else
+					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
+				}
+			else if(strcasecmp(argv[i]+1,"prismOffset")==0)
+				{
+				++i;
+				if(i<argc)
+					basePrismOffset=TotalStation::Scalar(atof(argv[i]));
 				else
 					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
@@ -734,7 +740,7 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 		initialPrismOffset=totalStation->getPrismOffset();
 		
 		/* Set the prism offset to zero for floor or screen measurements: */
-		totalStation->setPrismOffset(TotalStation::Scalar(0));
+		totalStation->setPrismOffset(basePrismOffset);
 		
 		/* Start the point recording thread: */
 		totalStation->startRecording();
@@ -750,7 +756,7 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	/* Import a measurement file if one is given: */
 	if(measurementFileName!=0)
 		{
-		loadMeasurementFile(measurementFileName);
+		loadMeasurementFile(*Vrui::openDirectory("."),measurementFileName);
 		measurementsDirty=false;
 		}
 	
@@ -980,7 +986,7 @@ void MeasureEnvironment::changeMeasuringModeCallback(GLMotif::RadioBox::ValueCha
 		pointCollectorThread.join();
 		
 		/* Set the Total Station's prism offset to measure balls: */
-		totalStation->setPrismOffset(ballRadius);
+		totalStation->setPrismOffset(basePrismOffset+ballRadius);
 		
 		/* Restart the point collector thread: */
 		pointCollectorThread.start(this,&MeasureEnvironment::pointCollectorThreadMethod);
@@ -992,7 +998,7 @@ void MeasureEnvironment::changeMeasuringModeCallback(GLMotif::RadioBox::ValueCha
 		pointCollectorThread.join();
 		
 		/* Set the Total Station's prism offset to measure points on the floor or screen: */
-		totalStation->setPrismOffset(TotalStation::Scalar(0));
+		totalStation->setPrismOffset(basePrismOffset);
 		
 		/* Restart the point collector thread: */
 		pointCollectorThread.start(this,&MeasureEnvironment::pointCollectorThreadMethod);
@@ -1007,7 +1013,7 @@ void MeasureEnvironment::changeMeasuringModeCallback(GLMotif::RadioBox::ValueCha
 void MeasureEnvironment::loadMeasurementFileCallback(Misc::CallbackData* cbData)
 	{
 	/* Open a file selection dialog: */
-	GLMotif::FileSelectionDialog* loadMeasurementFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",0,".csv",Vrui::openPipe());
+	GLMotif::FileSelectionDialog* loadMeasurementFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadMeasurementFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadMeasurementFileOKCallback);
 	loadMeasurementFileDialog->getCancelCallbacks().add(loadMeasurementFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
@@ -1018,16 +1024,16 @@ void MeasureEnvironment::loadMeasurementFileCallback(Misc::CallbackData* cbData)
 void MeasureEnvironment::loadMeasurementFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected measurement file: */
-	loadMeasurementFile(cbData->selectedFileName.c_str());
+	loadMeasurementFile(*cbData->selectedDirectory,cbData->selectedFileName);
 	
 	/* Destroy the file selection dialog: */
-	Vrui::getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbData)
 	{
 	/* Open a file selection dialog: */
-	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",0,".csv",Vrui::openPipe());
+	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadOptitrackSampleFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadOptitrackSampleFileOKCallback);
 	loadOptitrackSampleFileDialog->getCancelCallbacks().add(loadOptitrackSampleFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
@@ -1038,10 +1044,10 @@ void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbD
 void MeasureEnvironment::loadOptitrackSampleFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected Optitrack sample file: */
-	loadOptitrackSampleFile(cbData->selectedFileName.c_str(),naturalPointFlipZ);
+	loadOptitrackSampleFile(*cbData->selectedDirectory,cbData->selectedFileName,naturalPointFlipZ);
 	
 	/* Destroy the file selection dialog: */
-	Vrui::getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void MeasureEnvironment::saveMeasurementFileCallback(Misc::CallbackData* cbData)

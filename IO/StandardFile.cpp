@@ -110,7 +110,7 @@ void StandardFile::openFile(const char* fileName,File::AccessMode accessMode,int
 	/* Adjust flags according to access mode: */
 	switch(accessMode)
 		{
-		case None:
+		case NoAccess:
 			flags&=~(O_RDONLY|O_WRONLY|O_RDWR|O_CREAT|O_TRUNC|O_APPEND);
 			break;
 		
@@ -163,6 +163,13 @@ StandardFile::StandardFile(const char* fileName,File::AccessMode accessMode,int 
 	{
 	/* Open the file: */
 	openFile(fileName,accessMode,flags,mode);
+	}
+
+StandardFile::StandardFile(int sFd,File::AccessMode accessMode)
+	:SeekableFile(accessMode),
+	 fd(sFd),
+	 filePos(0)
+	{
 	}
 
 StandardFile::~StandardFile(void)

@@ -188,7 +188,7 @@ class VRWindow:public GLWindow
 	void setCursorPos(const Scalar newCursorPos[2]); // Sets the cursor position in screen coordinates
 	void setCursorPosWithAdjust(Scalar newCursorPos[2]); // Sets the cursor position in screen coordinates and changes passed values such that they exactly match the next reported cursor position
 	void makeCurrent(void); // Overloaded version of the base class' makeCurrent method
-	bool processEvent(const XEvent& event); // Processes an X event
+	bool processEvent(const XEvent& event); // Processes an X event; returns true if the Vrui mainloop should stop processing events for this frame
 	bool isDirty(void) const // Returns true if the window needs to be redrawn
 		{
 		return dirty;

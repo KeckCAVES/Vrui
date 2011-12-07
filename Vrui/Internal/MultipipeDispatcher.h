@@ -32,7 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceAdapter.h>
 
 /* Forward declarations: */
-namespace Comm {
+namespace Cluster {
 class MulticastPipe;
 }
 namespace Vrui {
@@ -56,7 +56,7 @@ class MultipipeDispatcher:public InputDeviceAdapter
 	
 	/* Elements: */
 	private:
-	Comm::MulticastPipe* pipe; // Multicast pipe connecting the master node to all slave nodes
+	Cluster::MulticastPipe* pipe; // Multicast pipe connecting the master node to all slave nodes
 	int totalNumButtons; // Total number of buttons on all dispatched input devices
 	int totalNumValuators; // Total number of valuators on all dispatched input devices
 	
@@ -71,7 +71,7 @@ class MultipipeDispatcher:public InputDeviceAdapter
 	
 	/* Constructors and destructors: */
 	public:
-	MultipipeDispatcher(InputDeviceManager* sInputDeviceManager,Comm::MulticastPipe* sPipe);
+	MultipipeDispatcher(InputDeviceManager* sInputDeviceManager,Cluster::MulticastPipe* sPipe);
 	virtual ~MultipipeDispatcher(void);
 	
 	/* Methods from InputDeviceAdapter: */

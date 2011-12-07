@@ -35,8 +35,8 @@ LocatorToolAdapter::LocatorToolAdapter(LocatorTool* sTool)
 	:tool(sTool)
 	{
 	/* Register functions with the locator tool: */
-	tool->setStoreStateFunction(new Misc::VoidConstMethodCall<Misc::ConfigurationFileSection&,LocatorToolAdapter>(this,&LocatorToolAdapter::storeState));
-	tool->setGetNameFunction(new Misc::VoidConstMethodCall<std::string&,LocatorToolAdapter>(this,&LocatorToolAdapter::getName));
+	tool->setStoreStateFunction(Misc::createFunctionCall(this,&LocatorToolAdapter::storeState));
+	tool->setGetNameFunction(Misc::createFunctionCall(this,&LocatorToolAdapter::getName));
 	
 	/* Register callbacks with the locator tool: */
 	tool->getMotionCallbacks().add(this,&LocatorToolAdapter::motionCallback);

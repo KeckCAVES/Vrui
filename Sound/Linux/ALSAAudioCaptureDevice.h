@@ -1,7 +1,7 @@
 /***********************************************************************
 ALSAAudioCaptureDevice - Wrapper class around audio capture devices as
 represented by the ALSA sound library.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -46,12 +46,23 @@ class ALSAAudioCaptureDevice:public AudioCaptureDevice
 			:AudioCaptureDevice::DeviceId(sName)
 			{
 			}
+		
+		/* Methods from AudioCaptureDevice::DeviceId: */
+		virtual AudioCaptureDevice* openDevice(void) const;
 		};
 	
 	/* Elements: */
 	private:
 	snd_pcm_t* pcmDevice; // Handle to the ALSA PCM device
 	snd_pcm_hw_params_t* pcmHwParams; // Hardware parameter context for the PCM device; used to accumulate settings until streaming is started
+	size_t sampleSize; // Size of a single configured sound sample in bytes
+	size_t frameBufferSize; // Size of allocated frame buffers in samples
+	unsigned int numFrameBuffers; // Number of allocated frame buffers
+	char** frameBuffers; // Array of allocated frame buffers
+	
+	/* Device enumeration method: */
+	public:
+	static void addDevices(DeviceList& devices); // Appends device ID objects for all available ALSA audio capture devices to the given list
 	
 	/* Constructors and destructors: */
 	public:
@@ -60,17 +71,14 @@ class ALSAAudioCaptureDevice:public AudioCaptureDevice
 	
 	/* Methods from AudioCaptureDevice: */
 	virtual SoundDataFormat getAudioFormat(void) const;
-	virtual SoundDataFormat& setAudioFormat(SoundDataFormat& newFormat);
+	virtual SoundDataFormat setAudioFormat(const SoundDataFormat& newFormat);
 	virtual unsigned int allocateFrameBuffers(unsigned int requestedFrameBufferSize,unsigned int requestedNumFrameBuffers);
 	virtual void startStreaming(void);
 	virtual void startStreaming(StreamingCallback* newStreamingCallback);
-	virtual FrameBuffer* dequeueFrame(void);
-	virtual void enqueueFrame(FrameBuffer* frame);
+	virtual FrameBuffer dequeueFrame(void);
+	virtual void enqueueFrame(const FrameBuffer& frame);
 	virtual void stopStreaming(void);
 	virtual void releaseFrameBuffers(void);
-	
-	/* New methods: */
-	static void enumerateDevices(std::vector<DeviceIdPtr>& devices); // Appends device ID objects for all available ALSA audio capture devices to the given list
 	};
 
 }

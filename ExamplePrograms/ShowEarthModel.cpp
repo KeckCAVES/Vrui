@@ -64,18 +64,19 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/TextField.h>
 #include <Images/RGBImage.h>
+#include <Images/ReadPNGImage.h>
 #include <Images/ReadImageFile.h>
 #include <SceneGraph/NodeCreator.h>
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/CoordinateManager.h>
 #include <Vrui/Viewer.h>
 #if CLIP_SCREEN
 #include <Vrui/VRScreen.h>
 #endif
 #include <Vrui/SurfaceNavigationTool.h>
-#include <Vrui/Vrui.h>
 #include <Vrui/OpenFile.h>
 #include <Vrui/Application.h>
 
@@ -357,9 +358,6 @@ void ShowEarthModel::DataLocator::setTimeButtonSelectCallback(Misc::CallbackData
 		application->currentTime=selectedEvent->time;
 		application->updateCurrentTime();
 		application->currentTimeSlider->setValue(application->currentTime);
-		
-		/* Request to redraw the display: */
-		Vrui::requestUpdate();
 		}
 	}
 
@@ -823,7 +821,7 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 				case EARTHQUAKESETFILE:
 					{
 					/* Load an earthquake set: */
-					EarthquakeSet* earthquakeSet=new EarthquakeSet(argv[i],Vrui::getMulticastPipeMultiplexer(),1.0e-3);
+					EarthquakeSet* earthquakeSet=new EarthquakeSet(argv[i],Vrui::openFile(argv[i]),1.0e-3);
 					earthquakeSets.push_back(earthquakeSet);
 					showEarthquakeSets.push_back(false);
 					break;
@@ -858,8 +856,7 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 					/* Load the VRML file: */
 					try
 						{
-						IO::AutoFile inputFile(Vrui::openFile(argv[i]));
-						SceneGraph::VRMLFile vrmlFile(argv[i],*inputFile,*sceneGraphNodeCreator,Vrui::getMulticastPipeMultiplexer());
+						SceneGraph::VRMLFile vrmlFile(argv[i],Vrui::openFile(argv[i]),*sceneGraphNodeCreator,Vrui::getClusterMultiplexer());
 						vrmlFile.parse(root);
 						root->update();
 						
@@ -910,6 +907,39 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 		}
 	
 	delete sceneGraphNodeCreator;
+	
+	/* Create the default surface image file name: */
+	std::string topographyFileName=SHOWEARTHMODEL_IMAGEDIR;
+	#if IMAGES_CONFIG_HAVE_PNG
+	topographyFileName.append("/EarthTopography.png");
+	#else
+	topographyFileName.append("/EarthTopography.ppm");
+	#endif
+	
+	/* Load the Earth surface texture image from an image file: */
+	surfaceImage=Images::readImageFile(topographyFileName.c_str(),Vrui::openFile(topographyFileName.c_str()));
+	
+	#if 0
+	/* Reduce the Earth surface texture's saturation to make it 3D-friendly: */
+	for(unsigned int y=0;y<surfaceImage.getHeight();++y)
+		{
+		Images::RGBImage::Color* rowPtr=surfaceImage.modifyPixelRow(y);
+		for(unsigned int x=0;x<earthTexture.getWidth();++x)
+			{
+			float value=float(rowPtr[x][0])*0.299f+float(rowPtr[x][1])*0.587f+float(rowPtr[x][2])*0.114f;
+			for(int i=0;i<3;++i)
+				{
+				float newC=(float(rowPtr[x][i])-value)*0.25f+value;
+				if(newC<0.5f)
+					rowPtr[x][i]=0;
+				else if(newC>=254.5f)
+					rowPtr[x][i]=255;
+				else
+					rowPtr[x][i]=Images::RGBImage::Color::Scalar(newC+0.5f);
+				}
+			}
+		}
+	#endif
 	
 	/* Create the user interface: */
 	mainMenu=createMainMenu();
@@ -969,39 +999,6 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	DataItem* dataItem=new DataItem();
 	contextData.addDataItem(this,dataItem);
 	
-	/* Create the default topography file name: */
-	std::string topographyFileName=SHOWEARTHMODEL_IMAGEDIR;
-	#if IMAGES_CONFIG_HAVE_PNG
-	topographyFileName.append("/EarthTopography.png");
-	#else
-	topographyFileName.append("/EarthTopography.ppm");
-	#endif
-	
-	/* Load the Earth surface texture image from an image file: */
-	Images::RGBImage earthTexture=Images::readImageFile(topographyFileName.c_str());
-	
-	#if 0
-	/* Reduce the Earth surface texture's saturation to make it 3D-friendly: */
-	for(unsigned int y=0;y<earthTexture.getHeight();++y)
-		{
-		Images::RGBImage::Color* rowPtr=earthTexture.modifyPixelRow(y);
-		for(unsigned int x=0;x<earthTexture.getWidth();++x)
-			{
-			float value=float(rowPtr[x][0])*0.299f+float(rowPtr[x][1])*0.587f+float(rowPtr[x][2])*0.114f;
-			for(int i=0;i<3;++i)
-				{
-				float newC=(float(rowPtr[x][i])-value)*0.25f+value;
-				if(newC<0.5f)
-					rowPtr[x][i]=0;
-				else if(newC>=254.5f)
-					rowPtr[x][i]=255;
-				else
-					rowPtr[x][i]=Images::RGBImage::Color::Scalar(newC+0.5f);
-				}
-			}
-		}
-	#endif
-	
 	/* Select the Earth surface texture object: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->surfaceTextureObjectId);
 	
@@ -1012,7 +1009,7 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-	earthTexture.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
+	surfaceImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
 	
 	/* Protect the Earth surface texture object: */
 	glBindTexture(GL_TEXTURE_2D,0);
@@ -1059,7 +1056,7 @@ void ShowEarthModel::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbac
 	if(surfaceNavigationTool!=0)
 		{
 		/* Set the new tool's alignment function: */
-		surfaceNavigationTool->setAlignFunction(Misc::createFunctionCall<const Vrui::SurfaceNavigationTool::AlignmentData&,ShowEarthModel>(this,&ShowEarthModel::alignSurfaceFrame));
+		surfaceNavigationTool->setAlignFunction(Misc::createFunctionCall(this,&ShowEarthModel::alignSurfaceFrame));
 		}
 	}
 
@@ -1095,8 +1092,8 @@ void ShowEarthModel::frame(void)
 			rotationAngle-=360.0f;
 		userTransform->setRotationAngle(Vrui::Scalar(rotationAngle));
 		
-		/* Request to redraw the display: */
-		Vrui::requestUpdate();
+		/* Request another frame: */
+		Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0);
 		}
 	
 	/* Animate the earthquake sets: */
@@ -1112,8 +1109,8 @@ void ShowEarthModel::frame(void)
 		updateCurrentTime();
 		currentTimeSlider->setValue(currentTime);
 		
-		/* Request to redraw the display: */
-		Vrui::requestUpdate();
+		/* Request another frame: */
+		Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0);
 		}
 	
 	/* Align the navigation transformation with a sphere of fixed radius: */
@@ -1652,13 +1649,14 @@ void ShowEarthModel::centerDisplayCallback(Misc::CallbackData* cbData)
 	if(scaleToEnvironment)
 		{
 		/* Center the Earth model in the available display space: */
-		Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(3.0*6.4e3));
+		Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(3.0*6.4e3),Vrui::Vector(0,0,1));
 		}
 	else
 		{
 		/* Center the Earth model in the available display space, but do not scale it: */
 		Vrui::NavTransform nav=Vrui::NavTransform::identity;
 		nav*=Vrui::NavTransform::translateFromOriginTo(Vrui::getDisplayCenter());
+		nav*=Vrui::NavTransform::rotate(Vrui::Rotation::rotateFromTo(Vrui::Vector(0,0,1),Vrui::getUpDirection()));
 		nav*=Vrui::NavTransform::scale(Vrui::Scalar(8)*Vrui::getInchFactor()/Vrui::Scalar(6.4e3));
 		Vrui::setNavigationTransformation(nav);
 		}

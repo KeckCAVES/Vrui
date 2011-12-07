@@ -1,7 +1,7 @@
 /***********************************************************************
 FileTests - Helper functions to query information about files and
 directories in an operating system-independent manner.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 

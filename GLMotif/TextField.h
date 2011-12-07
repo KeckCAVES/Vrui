@@ -1,6 +1,6 @@
 /***********************************************************************
 TextField - Class for labels displaying values as text.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2011 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -57,10 +57,11 @@ class TextField:public Label
 		public:
 		TextField* textField; // Pointer to the text field widget causing the event
 		const char* value; // The new text field contents
+		bool confirmed; // Flag whether the value change was due to a "confirmation" event (e.g., Enter key press)
 		
 		/* Constructors and destructors: */
-		ValueChangedCallbackData(TextField* sTextField,const char* sValue)
-			:textField(sTextField),value(sValue)
+		ValueChangedCallbackData(TextField* sTextField,const char* sValue,bool sConfirmed)
+			:textField(sTextField),value(sValue),confirmed(sConfirmed)
 			{
 			}
 		};

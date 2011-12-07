@@ -1,6 +1,6 @@
 /***********************************************************************
 Plane - Class for n-dimensional planes.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2011 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -61,6 +61,15 @@ class Plane
 		}
 	Plane(const Vector& sNormal,const Point& p) // Constructs plane from normal vector and point
 		:normal(sNormal),offset(normal*p)
+		{
+		}
+	Plane(const Plane& source) // Copy constructor
+		:normal(source.normal),offset(source.offset)
+		{
+		}
+	template <class SourceScalarParam>
+	Plane(const Plane<SourceScalarParam,dimensionParam>& source) // Ditto, with scalar type conversion
+		:normal(source.getNormal()),offset(source.getOffset())
 		{
 		}
 	
@@ -148,6 +157,22 @@ class Plane
 		return HitResult(lambda,divisor<Scalar(0)?HitResult::ENTRY:HitResult::EXIT);
 		}
 	};
+
+/*********************************************
+Operations on objects of class Plane:
+*********************************************/
+
+template <class ScalarParam,int dimensionParam>
+inline bool operator==(const Plane<ScalarParam,dimensionParam>& p1,const Plane<ScalarParam,dimensionParam>& p2) // Equality operator
+	{
+	return p1.getOffset()==p2.getOffset()&&p1.getNormal()==p2.getNormal();
+	}
+
+template <class ScalarParam,int dimensionParam>
+inline bool operator!=(const Plane<ScalarParam,dimensionParam>& p1,const Plane<ScalarParam,dimensionParam>& p2) // Inequality operator
+	{
+	return p1.getOffset()!=p2.getOffset()||p1.getNormal()!=p2.getNormal();
+	}
 
 }
 

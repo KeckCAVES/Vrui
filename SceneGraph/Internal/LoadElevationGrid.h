@@ -26,8 +26,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/FieldTypes.h>
 
 /* Forward declarations: */
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 }
 namespace SceneGraph {
 class ElevationGridNode;
@@ -35,7 +35,7 @@ class ElevationGridNode;
 
 namespace SceneGraph {
 
-void loadElevationGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multiplexer);
+void loadElevationGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer);
 
 }
 

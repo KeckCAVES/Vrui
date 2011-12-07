@@ -1,6 +1,7 @@
 /***********************************************************************
-ReadBuffer - Class to read from a memory buffer using a pipe interface.
-Copyright (c) 2010 Oliver Kreylos
+ReadBuffer - Class to read from a memory buffer using an endianness-safe
+pipe-like interface.
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -33,11 +34,6 @@ class ReadBuffer
 	{
 	/* Embedded classes: */
 	public:
-	enum Endianness // Enumerated type to enforce buffer endianness
-		{
-		DontCare,LittleEndian,BigEndian
-		};
-	
 	class ReadError:public std::runtime_error // Exception class to report buffer reading errors
 		{
 		/* Constructors and destructors: */
@@ -45,19 +41,20 @@ class ReadBuffer
 		ReadError(size_t numBytes,size_t numBytesRead); // Error where numBytesRead were read instead of numBytes
 		};
 	
+	private:
+	typedef unsigned char Byte; // Type for raw bytes
+	
 	/* Elements: */
 	private:
 	size_t bufferSize; // Size of the buffer
-	unsigned char* buffer; // Pointer to the buffer
-	Endianness endianness; // Endianness of data in the buffer
+	Byte* buffer; // Pointer to the buffer
+	Byte* bufferEnd; // Pointer behind the end of the buffer
 	bool mustSwapEndianness; // Flag if current buffer endianness is different from machine endianness
-	unsigned char* readPtr; // Pointer to the current read position
-	size_t unread; // Amount of unread data in the buffer
+	Byte* readPtr; // Pointer to the current read position
 	
 	/* Constructors and destructors: */
 	public:
-	ReadBuffer(size_t sBufferSize,Endianness sEndianness =DontCare); // Creates a read buffer of the given size with the given endianness
-	ReadBuffer(size_t sBufferSize,bool sMustSwapEndianness); // Creates a read buffer of the given size with the given endianness swapping behavior
+	ReadBuffer(size_t sBufferSize); // Creates a read buffer of the given size
 	private:
 	ReadBuffer(const ReadBuffer& source); // Prohibit copy constructor
 	ReadBuffer& operator=(const ReadBuffer& source); // Prohibit assignment operator
@@ -65,16 +62,16 @@ class ReadBuffer
 	~ReadBuffer(void); // Destroys the read buffer
 	
 	/* Methods: */
-	Endianness getEndianness(void) // Returns current endianness setting of buffer
-		{
-		return endianness;
-		}
-	void setEndianness(Endianness newEndianness); // Sets current endianness setting of buffer
-	void setEndianness(bool newMustSwapEndianness); // Sets current endianness swapping behavior of buffer
+	void setEndianness(Endianness newEndianness); // Sets the endianness of the data in the buffer for all following read accesses
 	size_t getBufferSize(void) const // Returns the size of the buffer
 		{
 		return bufferSize;
 		}
+	void* getBuffer(void) // Returns the buffer
+		{
+		return buffer;
+		}
+	void setDataSize(size_t newDataSize); // Sets the amount of data in the buffer after it has been filled in by the caller and rewinds the buffer
 	template <class SourceParam>
 	void readFromSource(SourceParam& source) // Fills the entire buffer by reading from a binary data source
 		{
@@ -82,36 +79,33 @@ class ReadBuffer
 		source.readRaw(buffer,bufferSize);
 		
 		/* Rewind the buffer: */
-		rewind();
-		}
-	void rewind(void) // Resets the buffer to commence reading from the beginning
-		{
+		bufferEnd=buffer+bufferSize;
 		readPtr=buffer;
-		unread=bufferSize;
 		}
 	size_t getUnread(void) const // Returns the amount of unread data left in the buffer
 		{
-		return unread;
+		return bufferEnd-readPtr;
 		}
 	bool eof(void) const // Returns true if the entire buffer has been read
 		{
-		return unread==0;
+		return readPtr==bufferEnd;
 		}
 	
 	/* Endianness-safe binary I/O interface: */
-	bool mustSwapOnRead(void) // Returns true if the buffer must endianness-swap data on read
+	bool mustSwapOnRead(void) const // Returns true if data must be endianness-swapped on read
 		{
 		return mustSwapEndianness;
 		}
+	void setSwapOnRead(bool newSwapOnRead); // Enables or disables endianness swapping
 	void readRaw(void* data,size_t dataSize) // Reads a chunk of data from the buffer
 		{
 		/* Check if there is enough unread data in the buffer: */
-		if(dataSize<=unread)
+		size_t unread=bufferEnd-readPtr;
+		if(unread>=dataSize)
 			{
 			/* Read data from the buffer: */
 			memcpy(data,readPtr,dataSize);
 			readPtr+=dataSize;
-			unread-=dataSize;
 			}
 		else
 			throw ReadError(dataSize,unread);
@@ -139,6 +133,16 @@ class ReadBuffer
 		readRaw(data,numItems*sizeof(DataParam));
 		if(mustSwapEndianness)
 			swapEndianness(data,numItems);
+		}
+	template <class DataParam>
+	void skip(size_t numItems) // Skips array of values
+		{
+		size_t dataSize=numItems*sizeof(DataParam);
+		size_t unread=bufferEnd-readPtr;
+		if(unread>=dataSize)
+			readPtr+=dataSize;
+		else
+			throw ReadError(dataSize,unread);
 		}
 	};
 

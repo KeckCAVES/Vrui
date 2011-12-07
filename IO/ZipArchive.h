@@ -25,17 +25,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IO_ZIPARCHIVE_INCLUDED
 
 #include <stdexcept>
+#include <Misc/RefCounted.h>
+#include <IO/File.h>
 #include <IO/SeekableFile.h>
-#include <IO/OpenFile.h>
-
-/* Forward declarations: */
-namespace Misc {
-class File;
-}
+#include <IO/Directory.h>
 
 namespace IO {
 
-class ZipArchive
+class ZipArchive:public Misc::RefCounted
 	{
 	/* Embedded classes: */
 	public:
@@ -127,7 +124,7 @@ class ZipArchive
 	
 	/* Elements: */
 	private:
-	SeekableFile* archive; // File object to access the ZIP archive
+	SeekableFilePtr archive; // File object to access the ZIP archive
 	Offset directoryPos; // Position of ZIP archive's root directory
 	size_t directorySize; // Total size of root directory
 	
@@ -136,17 +133,20 @@ class ZipArchive
 	
 	/* Constructors and destructors: */
 	public:
-	ZipArchive(const char* archiveFileName); // Opens a ZIP archive of the given file name
-	ZipArchive(SeekableFile* sArchive); // Reads a ZIP archive from an already-opened file; inherits file object
+	ZipArchive(const char* archiveFileName); // Opens a ZIP archive of the given file name using a standard file abstraction
+	ZipArchive(SeekableFilePtr sArchive); // Reads a ZIP archive from an already-opened file
 	~ZipArchive(void); // Closes the ZIP archive
 	
 	/* Methods: */
 	DirectoryIterator readDirectory(void); // Returns a new directory iterator
 	DirectoryIterator& getNextEntry(DirectoryIterator& dIt); // Advances the directory iterator to the next entry
 	FileID findFile(const char* fileName); // Returns a file identifier for a file of the given name; throws exception if file does not exist
-	File* openFile(const FileID& fileId); // Returns a file for streaming reading
-	SeekableFile* openSeekableFile(const FileID& fileId); // Returns a file for seekable reading
+	FilePtr openFile(const FileID& fileId); // Returns a file for streaming reading
+	SeekableFilePtr openSeekableFile(const FileID& fileId); // Returns a file for seekable reading
+	DirectoryPtr openDirectory(const char* directoryName); // Returns a directory object representing the given directory name
 	};
+
+typedef Misc::Autopointer<ZipArchive> ZipArchivePtr; // Type for reference-counted pointers to zip archives
 
 }
 

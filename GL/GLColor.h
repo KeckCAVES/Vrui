@@ -39,7 +39,7 @@ class GLColorBase
 	
 	/* Elements: */
 	protected:
-	Scalar rgba[numComponents]; // RGBA components
+	Scalar rgba[numComponentsParam]; // RGBA components
 	
 	/* Helper methods: */
 	void copy(GLsizei sNumComponents,const Scalar* sRgba);

@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <vector>
+#include <IO/SeekableFile.h>
 #include <Geometry/Vector.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Internal/InputDeviceAdapter.h>
@@ -35,9 +36,6 @@ namespace Misc {
 template <class ValueParam>
 void swapEndianness(ValueParam& value);
 class ConfigurationFileSection;
-}
-namespace IO {
-class SeekableFile;
 }
 namespace Sound {
 class SoundPlayer;
@@ -56,7 +54,7 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	{
 	/* Elements: */
 	private:
-	IO::SeekableFile* inputDeviceDataFile; // File containing the input device data
+	IO::SeekableFilePtr inputDeviceDataFile; // File containing the input device data
 	int* deviceFeatureBaseIndices; // Array of base indices in feature name array for each input device
 	std::vector<std::string> deviceFeatureNames; // Array of input device feature names
 	MouseCursorFaker* mouseCursorFaker; // Pointer to object used to render a fake mouse cursor

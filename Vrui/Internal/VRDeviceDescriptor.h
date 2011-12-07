@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceDescriptor - Class describing the structure of an input device
 represented by a VR device daemon.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <Misc/StandardMarshallers.h>
 #include <Misc/ArrayMarshallers.h>
-#include <Comm/TCPPipe.h>
+#include <IO/File.h>
 #include <Geometry/Vector.h>
 #include <Geometry/GeometryMarshallers.h>
 
@@ -91,39 +91,39 @@ class VRDeviceDescriptor
 		}
 	
 	/* Methods: */
-	void write(Comm::TCPPipe& pipe) const // Writes the device descriptor to a TCP pipe
+	void write(IO::File& sink) const // Writes the device descriptor to a data sink
 		{
-		Misc::Marshaller<std::string>::write(name,pipe);
-		pipe.write<int>(trackType);
-		Misc::Marshaller<Vector>::write(rayDirection,pipe);
-		pipe.write<int>(trackerIndex);
-		pipe.write<int>(numButtons);
-		Misc::FixedArrayMarshaller<std::string>::write(buttonNames,numButtons,pipe);
-		Misc::FixedArrayMarshaller<int>::write(buttonIndices,numButtons,pipe);
-		pipe.write<int>(numValuators);
-		Misc::FixedArrayMarshaller<std::string>::write(valuatorNames,numValuators,pipe);
-		Misc::FixedArrayMarshaller<int>::write(valuatorIndices,numValuators,pipe);
+		Misc::Marshaller<std::string>::write(name,sink);
+		sink.write<int>(trackType);
+		Misc::Marshaller<Vector>::write(rayDirection,sink);
+		sink.write<int>(trackerIndex);
+		sink.write<int>(numButtons);
+		Misc::FixedArrayMarshaller<std::string>::write(buttonNames,numButtons,sink);
+		Misc::FixedArrayMarshaller<int>::write(buttonIndices,numButtons,sink);
+		sink.write<int>(numValuators);
+		Misc::FixedArrayMarshaller<std::string>::write(valuatorNames,numValuators,sink);
+		Misc::FixedArrayMarshaller<int>::write(valuatorIndices,numValuators,sink);
 		}
-	void read(Comm::TCPPipe& pipe) // Reads a device descriptor from a TCP pipe
+	void read(IO::File& source) // Reads a device descriptor from a data source
 		{
-		name=Misc::Marshaller<std::string>::read(pipe);
-		trackType=pipe.read<int>();
-		rayDirection=Misc::Marshaller<Vector>::read(pipe);
-		trackerIndex=pipe.read<int>();
-		numButtons=pipe.read<int>();
+		name=Misc::Marshaller<std::string>::read(source);
+		trackType=source.read<int>();
+		rayDirection=Misc::Marshaller<Vector>::read(source);
+		trackerIndex=source.read<int>();
+		numButtons=source.read<int>();
 		delete[] buttonNames;
 		buttonNames=new std::string[numButtons];
-		Misc::FixedArrayMarshaller<std::string>::read(buttonNames,numButtons,pipe);
+		Misc::FixedArrayMarshaller<std::string>::read(buttonNames,numButtons,source);
 		delete[] buttonIndices;
 		buttonIndices=new int[numButtons];
-		Misc::FixedArrayMarshaller<int>::read(buttonIndices,numButtons,pipe);
-		numValuators=pipe.read<int>();
+		Misc::FixedArrayMarshaller<int>::read(buttonIndices,numButtons,source);
+		numValuators=source.read<int>();
 		delete[] valuatorNames;
 		valuatorNames=new std::string[numValuators];
-		Misc::FixedArrayMarshaller<std::string>::read(valuatorNames,numValuators,pipe);
+		Misc::FixedArrayMarshaller<std::string>::read(valuatorNames,numValuators,source);
 		delete[] valuatorIndices;
 		valuatorIndices=new int[numValuators];
-		Misc::FixedArrayMarshaller<int>::read(valuatorIndices,numValuators,pipe);
+		Misc::FixedArrayMarshaller<int>::read(valuatorIndices,numValuators,source);
 		}
 	};
 

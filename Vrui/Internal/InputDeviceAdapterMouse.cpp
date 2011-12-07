@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMouse - Class to convert mouse and keyboard into a
 Vrui input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -157,7 +157,7 @@ int InputDeviceAdapterMouse::getKeyCode(std::string keyName)
 
 std::string InputDeviceAdapterMouse::getKeyName(int keyCode)
 	{
-	/* Check for built-in lecacy key names first: */
+	/* Check for built-in legacy key names first: */
 	const int keyMapSize=sizeof(keyMap)/sizeof(KeyMapItem);
 	for(int i=0;i<keyMapSize;++i)
 		if(keyCode==keyMap[i].keysym)
@@ -430,12 +430,17 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 		int numValuators=1<<numModifierKeys;
 		for(int i=0;i<numValuators;++i)
 			{
+			/* Convert the mouse wheel tick count into a valuator value (ugh): */
 			double mouseWheelValue=double(numMouseWheelTicks[i])/3.0;
 			if(mouseWheelValue<-1.0)
 				mouseWheelValue=-1.0;
 			else if(mouseWheelValue>1.0)
 				mouseWheelValue=1.0;
 			inputDevices[0]->setValuator(i,mouseWheelValue);
+			
+			/* If there were mouse ticks, request another Vrui frame in a short while because there will be no "no mouse ticks" message: */
+			if(numMouseWheelTicks[i]!=0)
+				scheduleUpdate(getApplicationTime()+0.1);
 			numMouseWheelTicks[i]=0;
 			}
 		
@@ -485,11 +490,13 @@ void InputDeviceAdapterMouse::setMousePosition(VRWindow* newWindow,const Scalar 
 	mousePos[0]=newMousePos[0];
 	mousePos[1]=newMousePos[1];
 	
-	requestUpdate();
+	// requestUpdate();
 	}
 
-void InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char* string)
+bool InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char* string)
 	{
+	bool stateChanged=false;
+	
 	if(keyCode==keyboardModeToggleKeyCode)
 		keyboardMode=!keyboardMode;
 	else if(keyboardMode)
@@ -508,6 +515,8 @@ void InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char
 			textEvents.push_back(std::pair<int,GLMotif::TextEvent>(nextEventOrdinal,GLMotif::TextEvent(string)));
 			++nextEventOrdinal;
 			}
+		
+		stateChanged=true;
 		}
 	else
 		{
@@ -517,6 +526,7 @@ void InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char
 			{
 			/* Set button state: */
 			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
+			stateChanged=!buttonStates[stateIndex];
 			buttonStates[stateIndex]=true;
 			}
 		
@@ -526,14 +536,19 @@ void InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char
 			{
 			/* Change current modifier mask: */
 			changeModifierKeyMask(modifierKeyMask|(0x1<<modifierIndex));
+			stateChanged=true;
 			}
 		}
 	
-	requestUpdate();
+	// requestUpdate();
+	
+	return stateChanged;
 	}
 
-void InputDeviceAdapterMouse::keyReleased(int keyCode)
+bool InputDeviceAdapterMouse::keyReleased(int keyCode)
 	{
+	bool stateChanged=false;
+	
 	if(!keyboardMode)
 		{
 		/* Check if the key is a button key: */
@@ -542,6 +557,7 @@ void InputDeviceAdapterMouse::keyReleased(int keyCode)
 			{
 			/* Set button state: */
 			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
+			stateChanged=buttonStates[stateIndex];
 			buttonStates[stateIndex]=false;
 			}
 		
@@ -551,10 +567,13 @@ void InputDeviceAdapterMouse::keyReleased(int keyCode)
 			{
 			/* Change current modifier mask: */
 			changeModifierKeyMask(modifierKeyMask&~(0x1<<modifierIndex));
+			stateChanged=true;
 			}
 		
-		requestUpdate();
+		// requestUpdate();
 		}
+	
+	return stateChanged;
 	}
 
 void InputDeviceAdapterMouse::resetKeys(const XKeymapEvent& event)
@@ -611,34 +630,39 @@ void InputDeviceAdapterMouse::resetKeys(const XKeymapEvent& event)
 				}
 			}
 	
-	requestUpdate();
+	// requestUpdate();
 	}
 
-void InputDeviceAdapterMouse::setButtonState(int buttonIndex,bool newButtonState)
+bool InputDeviceAdapterMouse::setButtonState(int buttonIndex,bool newButtonState)
 	{
+	bool stateChanged=false;
+	
 	/* Check if given button is represented: */
 	if(buttonIndex>=0&&buttonIndex<numButtons)
 		{
 		/* Set current button state: */
 		int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+buttonIndex;
+		stateChanged=buttonStates[stateIndex]!=newButtonState;
 		buttonStates[stateIndex]=newButtonState;
 		
-		requestUpdate();
+		// requestUpdate();
 		}
+	
+	return stateChanged;
 	}
 
 void InputDeviceAdapterMouse::incMouseWheelTicks(void)
 	{
 	++numMouseWheelTicks[modifierKeyMask];
 	
-	requestUpdate();
+	// requestUpdate();
 	}
 
 void InputDeviceAdapterMouse::decMouseWheelTicks(void)
 	{
 	--numMouseWheelTicks[modifierKeyMask];
 	
-	requestUpdate();
+	// requestUpdate();
 	}
 
 ONTransform getMouseScreenTransform(InputDeviceAdapterMouse* mouseAdapter,Scalar viewport[4])

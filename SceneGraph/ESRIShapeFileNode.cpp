@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <IO/SeekableFile.h>
 #include <IO/ValueSource.h>
 #include <IO/XBaseTable.h>
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <Geometry/Point.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Geoid.h>
@@ -807,8 +807,7 @@ void ESRIShapeFileNode::update(void)
 		try
 			{
 			/* Open the projection file: */
-			IO::AutoFile prjFileSource(Comm::openFile(multiplexer,prjFileName.c_str()));
-			IO::ValueSource prjFile(*prjFileSource);
+			IO::ValueSource prjFile(Cluster::openFile(multiplexer,prjFileName.c_str()));
 			prjFile.setPunctuation("[](),");
 			prjFile.setQuotes("\"");
 			prjFile.skipWs();
@@ -829,14 +828,14 @@ void ESRIShapeFileNode::update(void)
 	/* Open the shape file: */
 	std::string shapeFileName=url.getValue(0);
 	shapeFileName.append(".shp");
-	IO::AutoSeekableFile shapeFile(Comm::openSeekableFile(multiplexer,shapeFileName.c_str()));
+	IO::SeekableFilePtr shapeFile(Cluster::openSeekableFile(multiplexer,shapeFileName.c_str()));
 	
 	/****************************
 	Read the shape file's header:
 	****************************/
 	
 	/* The first set of fields are big-endian: */
-	shapeFile->setEndianness(IO::File::BigEndian);
+	shapeFile->setEndianness(Misc::BigEndian);
 	
 	/* Check the file's magic number: */
 	if(shapeFile->read<int>()!=9994)
@@ -849,7 +848,7 @@ void ESRIShapeFileNode::update(void)
 	IO::SeekableFile::Offset fileSize=IO::SeekableFile::Offset(shapeFile->read<int>())*IO::SeekableFile::Offset(sizeof(short)); // File size in bytes
 	
 	/* The rest of the fields are little-endian: */
-	shapeFile->setEndianness(IO::File::LittleEndian);
+	shapeFile->setEndianness(Misc::LittleEndian);
 	
 	/* Check the file's version number: */
 	if(shapeFile->read<int>()!=1000)
@@ -871,8 +870,8 @@ void ESRIShapeFileNode::update(void)
 	/* Open the attribute file: */
 	std::string attributeFileName=url.getValue(0);
 	attributeFileName.append(".dbf");
-	IO::AutoSeekableFile attributeFileSource(Comm::openSeekableFile(multiplexer,attributeFileName.c_str()));
-	IO::XBaseTable attributeFile(attributeFileName.c_str(),*attributeFileSource);
+	IO::SeekableFilePtr attributeFileSource(Cluster::openSeekableFile(multiplexer,attributeFileName.c_str()));
+	IO::XBaseTable attributeFile(attributeFileName.c_str(),attributeFileSource);
 	
 	/* Check if we need to create labels: */
 	bool haveLabels=!labelField.getValue().empty();
@@ -925,7 +924,7 @@ void ESRIShapeFileNode::update(void)
 	while(filePos<fileSize)
 		{
 		/* Read the next record header (which is big endian): */
-		shapeFile->setEndianness(IO::File::BigEndian);
+		shapeFile->setEndianness(Misc::BigEndian);
 		shapeFile->skip<int>(1); // Skip record number
 		IO::SeekableFile::Offset recordSize=IO::SeekableFile::Offset(shapeFile->read<int>())*IO::SeekableFile::Offset(sizeof(short))+IO::SeekableFile::Offset(2*sizeof(int)); // Rexord size including header in bytes
 		
@@ -936,7 +935,7 @@ void ESRIShapeFileNode::update(void)
 			}
 		
 		/* Read the record itself (which is little endian): */
-		shapeFile->setEndianness(IO::File::LittleEndian);
+		shapeFile->setEndianness(Misc::LittleEndian);
 		
 		/* Read the shape type in the record and the shape definition: */
 		int recordShapeType=shapeFile->read<int>();

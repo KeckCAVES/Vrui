@@ -28,7 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <IO/File.h>
 #include <IO/SeekableFile.h>
 #include <IO/ValueSource.h>
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <SceneGraph/ElevationGridNode.h>
 
 namespace SceneGraph {
@@ -54,12 +54,11 @@ std::string createHeaderFileName(const std::string& bilFileName)
 	return result;
 	}
 
-void loadBILGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multiplexer)
+void loadBILGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 	{
 	/* Open the header file: */
 	std::string bilFileName=node.heightUrl.getValue(0);
-	IO::AutoFile headerFile(Comm::openFile(multiplexer,createHeaderFileName(bilFileName).c_str()));
-	IO::ValueSource header(*headerFile);
+	IO::ValueSource header(Cluster::openFile(multiplexer,createHeaderFileName(bilFileName).c_str()));
 	header.skipWs();
 	
 	/* Parse the header file: */
@@ -69,7 +68,7 @@ void loadBILGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multipl
 	Offset bandGapBytes=0;
 	Offset bandRowBytes=0;
 	Offset totalRowBytes=0;
-	IO::File::Endianness endianness=IO::File::DontCare;
+	Misc::Endianness endianness=Misc::HostEndianness;
 	Scalar cellSize[2]={Scalar(1),Scalar(1)};
 	while(!header.eof())
 		{
@@ -108,9 +107,9 @@ void loadBILGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multipl
 			{
 			std::string byteOrder=header.readString();
 			if(byteOrder=="LSBFIRST"||byteOrder=="I")
-				endianness=IO::File::LittleEndian;
+				endianness=Misc::LittleEndian;
 			else if(byteOrder=="MSBFIRST"||byteOrder=="M")
-				endianness=IO::File::BigEndian;
+				endianness=Misc::BigEndian;
 			else
 				Misc::throwStdErr("SceneGraph::loadElevationGrid: File %s has unrecognized byte order %s",bilFileName.c_str(),byteOrder.c_str());
 			}
@@ -136,7 +135,7 @@ void loadBILGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multipl
 		Misc::throwStdErr("SceneGraph::loadElevationGrid: File %s has nonzero band gap",bilFileName.c_str());
 	
 	/* Read the image: */
-	IO::AutoSeekableFile imageFile(Comm::openSeekableFile(multiplexer,bilFileName.c_str()));
+	IO::SeekableFilePtr imageFile(Cluster::openSeekableFile(multiplexer,bilFileName.c_str()));
 	imageFile->setEndianness(endianness);
 	std::vector<Scalar> heights;
 	heights.reserve(size_t(size[0])*size_t(size[1]));
@@ -175,12 +174,11 @@ void loadBILGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multipl
 	std::swap(node.height.getValues(),heights);
 	}
 
-void loadAGRGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multiplexer)
+void loadAGRGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 	{
 	/* Open the grid file: */
 	std::string gridFileName=node.heightUrl.getValue(0);
-	IO::AutoFile gridFile(Comm::openFile(multiplexer,gridFileName.c_str()));
-	IO::ValueSource grid(*gridFile);
+	IO::ValueSource grid(Cluster::openFile(multiplexer,gridFileName.c_str()));
 	grid.skipWs();
 	
 	/* Read the grid header: */
@@ -235,7 +233,7 @@ void loadAGRGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multipl
 
 }
 
-void loadElevationGrid(ElevationGridNode& node,Comm::MulticastPipeMultiplexer* multiplexer)
+void loadElevationGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 	{
 	/* Determine the format of the height file: */
 	if(node.heightUrlFormat.getValue(0)=="BIL")

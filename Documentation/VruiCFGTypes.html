@@ -72,11 +72,17 @@ This document defines all value types used in Vrui configuration files.<P>
 <TD>
 A position and orientation in 3D affine space, encoded as a sequence of basic transformations separated by multiplication signs. The basic transformations are:
 <DL>
+<DT><B>identity</B></DT>
+<DD>Denotes an identity transformation.</DD>
+
 <DT><B>translate</B> &lt;<EM>translation</EM>&gt;</DT>
 <DD>Translates the coordinate system by the given translation <A HREF="#vector">vector</A>.</DD>
 
-<DT><B>rotate</B> &lt;<EM>axis</EM>&gt;, &lt;<EM>angle</EM>&gt;</DT>
-<DD>Rotates the coordinate system around the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
+<DT><B>rotate</B> &lt;<EM>axis</EM>&gt;<B>,</B> &lt;<EM>angle</EM>&gt;</DT>
+<DD>Rotates the coordinate system about its own origin around the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
+
+<DT><B>rotateAround</B> &lt;<EM>pivot</EM>&gt;<B>,</B> &lt;<EM>axis</EM>&gt;<B>,</B> &lt;<EM>angle</EM>&gt;</DT>
+<DD>Rotates the coordinate system about the given pivot <A HREF="#point">point</A> around the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
 </DL>
 </TD>
 </TR>
@@ -86,14 +92,23 @@ A position and orientation in 3D affine space, encoded as a sequence of basic tr
 <TD>
 A transformation consisting of any combination of translations, rotations, and uniform scalings, encoded as a sequence of basic transformations separated by multiplication signs. The basic transformations are:
 <DL>
+<DT><B>identity</B></DT>
+<DD>Denotes an identity transformation.</DD>
+
 <DT><B>translate</B> &lt;<EM>translation</EM>&gt;</DT>
 <DD>Translates the coordinate system by the given translation <A HREF="#vector">vector</A>.</DD>
 
-<DT><B>rotate</B> &lt;<EM>axis</EM>&gt;, &lt;<EM>angle</EM>&gt;</DT>
-<DD>Rotates the coordinate system around its own origin and the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
+<DT><B>rotate</B> &lt;<EM>axis</EM>&gt;<B>,</B> &lt;<EM>angle</EM>&gt;</DT>
+<DD>Rotates the coordinate system about its own origin around the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
+
+<DT><B>rotateAround</B> &lt;<EM>pivot</EM>&gt;<B>,</B> &lt;<EM>axis</EM>&gt;<B>,</B> &lt;<EM>angle</EM>&gt;</DT>
+<DD>Rotates the coordinate system about the given pivot <A HREF="#point">point</A> around the given non-normalized axis <A HREF="#vector">vector</A>, by the given angle <A HREF="#number">number</A> in degrees.</DD>
 
 <DT><B>scale</B> &lt;<EM>factor</EM>&gt;</DT>
-<DD>Scales the coordinate system around its own origin by the scaling factor <A HREF="#number">number</A>.</DD>
+<DD>Scales the coordinate system about its own origin by the scaling factor <A HREF="#number">number</A>.</DD>
+
+<DT><B>scaleAround</B> &lt;<EM>pivot</EM>&gt;<B>,</B> &lt;<EM>factor</EM>&gt;</DT>
+<DD>Scales the coordinate system about the given pivot <A HREF="#point">point</A> by the scaling factor <A HREF="#number">number</A>.</DD>
 </DL>
 </TD>
 </TR>

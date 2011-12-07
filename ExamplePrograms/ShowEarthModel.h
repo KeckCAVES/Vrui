@@ -26,6 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GL/GLObject.h>
+#include <Images/RGBImage.h>
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/GeodeticCoordinateTransform.h>
@@ -146,6 +147,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	float rotationAngle; // Current Earth rotation angle
 	float rotationSpeed; // Earth rotation speed in degree/second
 	RotatedGeodeticCoordinateTransform* userTransform; // Coordinate transformation from user space to navigation space
+	Images::RGBImage surfaceImage; // Texture image for the Earth surface
 	bool showSurface; // Flag if the Earth surface is rendered
 	bool surfaceTransparent; // Flag if the Earth surface is rendered transparently
 	GLMaterial surfaceMaterial; // OpenGL material properties for the Earth surface

@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -25,7 +25,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
-#include <Comm/TCPSocket.h>
+#include <Comm/ListeningTCPSocket.h>
 #include <Vrui/Internal/VRDevicePipe.h>
 
 /* Forward declarations: */
@@ -49,8 +49,8 @@ class VRDeviceServer
 		volatile bool streaming; // Flag if the client is streaming
 		
 		/* Constructors and destructors: */
-		ClientData(const Comm::TCPSocket& socket)
-			:pipe(socket),active(false),streaming(false)
+		ClientData(Comm::ListeningTCPSocket& listenSocket) // Accepts next incoming connection on given listening socket and establishes VR device connection
+			:pipe(listenSocket),active(false),streaming(false)
 			{
 			};
 		};
@@ -60,7 +60,7 @@ class VRDeviceServer
 	/* Elements: */
 	private:
 	VRDeviceManager* deviceManager; // Pointer to device manager running in server
-	Comm::TCPSocket listenSocket; // Main socket the server listens on for incoming connections
+	Comm::ListeningTCPSocket listenSocket; // Main socket the server listens on for incoming connections
 	Threads::Thread listenThread; // Connection initiating thread
 	Threads::Mutex clientListMutex; // Mutex serializing access to the client list
 	ClientList clientList; // List of currently connected clients

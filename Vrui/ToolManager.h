@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

@@ -54,7 +54,7 @@ class DraggingTool:public Tool
 	{
 	/* Embedded classes: */
 	typedef Misc::FunctionCall<Misc::ConfigurationFileSection&> StoreStateFunction; // Type for functions to store state to a configuration file
-	typedef Misc::FunctionCall<std::string&> GetNameFunction; // Type for functions to return a descriptive name for a locator tool associate
+	typedef Misc::FunctionCall<std::string&> GetNameFunction; // Type for functions to return a descriptive name for a dragging tool associate
 	
 	public:
 	class IdleMotionCallbackData:public Misc::CallbackData

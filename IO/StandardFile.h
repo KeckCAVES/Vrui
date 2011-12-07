@@ -46,6 +46,7 @@ class StandardFile:public SeekableFile
 	public:
 	StandardFile(const char* fileName,AccessMode accessMode =ReadOnly); // Opens a standard file with "DontCare" endianness setting and default flags and permissions
 	StandardFile(const char* fileName,AccessMode accessMode,int flags,int mode =0); // Opens a standard file with "DontCare" endianness setting
+	StandardFile(int sFd,AccessMode accessMode); // Creates standard file for already opened file descriptor; inherits (does not duplicate) the given file descriptor
 	virtual ~StandardFile(void);
 	
 	/* Methods from File: */

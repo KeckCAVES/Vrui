@@ -29,9 +29,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <algorithm>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
-#include <Misc/File.h>
 #include <IO/ValueSource.h>
-#include <Comm/OpenFile.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/HVector.h>
@@ -193,66 +191,70 @@ EarthquakeSet::DataItem::~DataItem(void)
 Methods of class EarthquakeSet:
 ******************************/
 
-void EarthquakeSet::loadANSSFile(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor)
+void EarthquakeSet::loadANSSFile(IO::FilePtr earthquakeFile,double scaleFactor)
 	{
-	/* Open the input file: */
-	Misc::File earthquakeFile(earthquakeFileName,"rt");
+	/* Wrap a value source around the input file: */
+	IO::ValueSource source(earthquakeFile);
+	source.setPunctuation("\n");
+	source.skipWs();
 	
 	/* Skip the two header lines: */
-	char line[256];
 	for(int i=0;i<2;++i)
-		earthquakeFile.gets(line,sizeof(line));
+		{
+		source.skipLine();
+		source.skipWs();
+		}
 	
 	/* Read the rest of the file: */
-	while(!earthquakeFile.eof())
+	while(!source.eof())
 		{
 		/* Read the next line: */
-		earthquakeFile.gets(line,sizeof(line));
+		std::string line=source.readLine();
+		source.skipWs();
 		
 		/* Skip empty lines: */
-		if(line[0]=='\0'||line[0]=='\r'||line[0]=='\n')
+		if(line.empty()||line[0]=='\r')
 			continue;
 		
 		/* Parse an event from the line: */
 		Event e;
 		
 		/* Read date and time: */
-		line[10]='\0';
-		line[22]='\0';
-		e.time=parseDateTime(line+0,line+11);
+		std::string date(line,0,10);
+		std::string time(line,11,11);
+		e.time=parseDateTime(date.c_str(),time.c_str());
 		
 		/* Read event position: */
 		float sphericalCoordinates[3];
 		
 		/* Read latitude: */
-		line[31]='\0';
-		sphericalCoordinates[0]=Math::rad(float(atof(line+23)));
+		std::string lat(line,23,8);
+		sphericalCoordinates[0]=Math::rad(float(atof(lat.c_str())));
 		
 		/* Read longitude: */
-		line[41]='\0';
-		sphericalCoordinates[1]=Math::rad(float(atof(line+32)));
+		std::string lon(line,32,9);
+		sphericalCoordinates[1]=Math::rad(float(atof(lon.c_str())));
 		
 		/* Read depth: */
-		line[48]='\0';
-		sphericalCoordinates[2]=float(atof(line+42));
+		std::string dep(line,42,6);
+		sphericalCoordinates[2]=float(atof(dep.c_str()));
 		
 		/* Convert the spherical position to Cartesian: */
 		calcDepthPos<float>(sphericalCoordinates[0],sphericalCoordinates[1],sphericalCoordinates[2]*1000.0f,scaleFactor,e.position.getComponents());
 		
 		/* Read magnitude: */
-		line[54]='\0';
-		e.magnitude=float(atof(line+49));
+		std::string mag(line,49,5);
+		e.magnitude=float(atof(mag.c_str()));
 		
 		/* Save the event: */
 		events.push_back(e);
 		}
 	}
 
-void EarthquakeSet::loadCSVFile(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor)
+void EarthquakeSet::loadCSVFile(const char* earthquakeFileName,IO::FilePtr earthquakeFile,double scaleFactor)
 	{
-	/* Open the input file: */
-	IO::AutoFile earthquakeFile(Comm::openFile(multiplexer,earthquakeFileName));
-	IO::ValueSource source(*earthquakeFile);
+	/* Wrap a value source around the input file: */
+	IO::ValueSource source(earthquakeFile);
 	source.setPunctuation(",\n");
 	source.setQuotes("\"");
 	source.skipWs();
@@ -595,7 +597,7 @@ void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem) const
 	dataItem->pointTextureLocation=dataItem->pointRenderer->getUniformLocation("pointTexture");
 	}
 
-EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,Comm::MulticastPipeMultiplexer* multiplexer,double scaleFactor)
+EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,IO::FilePtr earthquakeFile,double scaleFactor)
 	:treePointIndices(0),
 	 pointRadius(1.0f),highlightTime(1.0),currentTime(0.0)
 	{
@@ -603,12 +605,12 @@ EarthquakeSet::EarthquakeSet(const char* earthquakeFileName,Comm::MulticastPipeM
 	if(Misc::hasCaseExtension(earthquakeFileName,".anss"))
 		{
 		/* Read an earthquake database snapshot in "readable" ANSS format: */
-		loadANSSFile(earthquakeFileName,multiplexer,scaleFactor);
+		loadANSSFile(earthquakeFile,scaleFactor);
 		}
 	else
 		{
 		/* Read an earthquake event file in space- or comma-separated format: */
-		loadCSVFile(earthquakeFileName,multiplexer,scaleFactor);
+		loadCSVFile(earthquakeFileName,earthquakeFile,scaleFactor);
 		}
 	
 	/* Create a temporary kd-tree to sort the events for back-to-front traversal: */

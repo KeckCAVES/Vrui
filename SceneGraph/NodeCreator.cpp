@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/TransformNode.h>
 #include <SceneGraph/BillboardNode.h>
+#include <SceneGraph/LODNode.h>
 #include <SceneGraph/ReferenceEllipsoidNode.h>
 #include <SceneGraph/GeodeticToCartesianTransformNode.h>
 #include <SceneGraph/InlineNode.h>
@@ -70,6 +71,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<GroupNode>());
 	registerNodeType(new GenericNodeFactory<TransformNode>());
 	registerNodeType(new GenericNodeFactory<BillboardNode>());
+	registerNodeType(new GenericNodeFactory<LODNode>());
 	registerNodeType(new GenericNodeFactory<ReferenceEllipsoidNode>());
 	registerNodeType(new GenericNodeFactory<GeodeticToCartesianTransformNode>());
 	registerNodeType(new GenericNodeFactory<InlineNode>());

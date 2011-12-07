@@ -1,6 +1,6 @@
 /***********************************************************************
 TextField - Class for labels displaying values as text.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2011 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -189,15 +189,20 @@ void TextField::draw(GLContextData& contextData) const
 		glEnd();
 		
 		/* Draw the label itself: */
-		GLsizei start=GLsizei(anchorPos);
-		GLsizei end=GLsizei(cursorPos);
-		if(start>end)
+		if(anchorPos!=cursorPos)
 			{
-			GLsizei t=start;
-			start=end;
-			end=t;
+			GLsizei start=GLsizei(anchorPos);
+			GLsizei end=GLsizei(cursorPos);
+			if(start>end)
+				{
+				GLsizei t=start;
+				start=end;
+				end=t;
+				}
+			label.draw(start,end,getManager()->getStyleSheet()->selectionBgColor,getManager()->getStyleSheet()->selectionFgColor,contextData);
 			}
-		label.draw(start,end,getManager()->getStyleSheet()->selectionBgColor,getManager()->getStyleSheet()->selectionFgColor,contextData);
+		else
+			label.draw(contextData);
 		
 		/* Draw the cursor: */
 		GLfloat x0=cursorModelPos-marginWidth;
@@ -310,9 +315,11 @@ bool TextField::giveTextFocus(void)
 	{
 	if(editable)
 		{
+		#if 0
 		/* Adjust the selection range: */
 		anchorPos=0;
 		setCursorPos(label.getLength());
+		#endif
 		
 		focus=true;
 		
@@ -333,7 +340,7 @@ void TextField::takeTextFocus(void)
 	if(edited)
 		{
 		/* Call the value changed callbacks: */
-		ValueChangedCallbackData cbData(this,label.getString());
+		ValueChangedCallbackData cbData(this,label.getString(),false);
 		valueChangedCallbacks.call(&cbData);
 		
 		/* Clear the flag: */
@@ -457,16 +464,13 @@ void TextField::textControlEvent(const TextControlEvent& event)
 			break;
 		
 		case TextControlEvent::CONFIRM:
-			/* Call value changed callbacks if the text field has been edited: */
-			if(edited)
-				{
-				/* Call the value changed callbacks: */
-				ValueChangedCallbackData cbData(this,label.getString());
-				valueChangedCallbacks.call(&cbData);
-				
-				/* Clear the flag: */
-				edited=false;
-				}
+			{
+			/* Call value changed callbacks whether or not the text field has been edited: */
+			ValueChangedCallbackData cbData(this,label.getString(),true);
+			valueChangedCallbacks.call(&cbData);
+			
+			/* Clear the edit flag: */
+			edited=false;
 			
 			/* Give up the text entry focus: */
 			getManager()->releaseFocus(this);
@@ -475,6 +479,7 @@ void TextField::textControlEvent(const TextControlEvent& event)
 			/* Invalidate the visual representation: */
 			update();
 			break;
+			}
 		
 		case TextControlEvent::EVENTTYPE_END:
 			/* Just to make compiler happy... */
@@ -570,7 +575,7 @@ void TextField::setEditable(bool newEditable)
 void TextField::setSelection(int newAnchorPos,int newCursorPos)
 	{
 	/* Bail out if the text field is not editable or doesn't have the focus: */
-	if(!editable||!focus)
+	if(!editable) // ||!focus)
 		return;
 	
 	/* Set the selection range: */

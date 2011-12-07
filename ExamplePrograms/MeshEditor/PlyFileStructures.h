@@ -21,7 +21,7 @@ Enumerated type for basic PLY file data types:
 
 enum PLYDataType
 	{
-	PLY_CHAR,PLY_UCHAR,PLY_SHORT,PLY_USHORT,PLY_INT,PLY_UINT,PLY_FLOAT,PLY_DOUBLE
+	PLY_SINT8,PLY_UINT8,PLY_SINT16,PLY_UINT16,PLY_SINT32,PLY_UINT32,PLY_FLOAT32,PLY_FLOAT64
 	};
 
 /**********************************************
@@ -293,7 +293,7 @@ struct PLYFileHeader // Structure containing relevant information from a PLY fil
 	private:
 	bool valid; // Flag if the file is a valid PLY file (as much as determined by parsing the header)
 	FileType fileType; // ASCII or binary
-	IO::File::Endianness fileEndianness; // Endianness of binary PLY file
+	Misc::Endianness fileEndianness; // Endianness of binary PLY file
 	std::vector<PLYElement> elements; // List of elements in the file, in the order in which they appear in the file
 	
 	/* Constructors and destructors: */
@@ -309,7 +309,7 @@ struct PLYFileHeader // Structure containing relevant information from a PLY fil
 		{
 		return fileType;
 		}
-	IO::File::Endianness getFileEndianness(void) const // Returns the endianness for binary PLY files
+	Misc::Endianness getFileEndianness(void) const // Returns the endianness for binary PLY files
 		{
 		return fileEndianness;
 		}

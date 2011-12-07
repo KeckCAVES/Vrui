@@ -1,6 +1,6 @@
 /***********************************************************************
 ReadBuffer - Class to read from a memory buffer using a pipe interface.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -39,18 +39,10 @@ ReadBuffer::ReadError::ReadError(size_t numBytes,size_t numBytesRead)
 Methods of class ReadBuffer:
 ***************************/
 
-ReadBuffer::ReadBuffer(size_t sBufferSize,Endianness sEndianness)
-	:bufferSize(sBufferSize),buffer(new unsigned char[bufferSize]),
-	 readPtr(buffer),unread(bufferSize)
+ReadBuffer::ReadBuffer(size_t sBufferSize)
+	:bufferSize(sBufferSize),buffer(new Byte[bufferSize]),bufferEnd(buffer+bufferSize),
+	 mustSwapEndianness(false),readPtr(buffer)
 	{
-	setEndianness(sEndianness);
-	}
-
-ReadBuffer::ReadBuffer(size_t sBufferSize,bool sMustSwapEndianness)
-	:bufferSize(sBufferSize),buffer(new unsigned char[bufferSize]),
-	 readPtr(buffer),unread(bufferSize)
-	{
-	setEndianness(sMustSwapEndianness);
 	}
 
 ReadBuffer::~ReadBuffer(void)
@@ -60,42 +52,24 @@ ReadBuffer::~ReadBuffer(void)
 
 void ReadBuffer::setEndianness(Endianness newEndianness)
 	{
-	endianness=newEndianness;
-	
 	/* Determine the buffer's endianness swapping behavior: */
 	#if __BYTE_ORDER==__LITTLE_ENDIAN
-	mustSwapEndianness=endianness==BigEndian;
+	mustSwapEndianness=newEndianness==BigEndian;
 	#endif
 	#if __BYTE_ORDER==__BIG_ENDIAN
-	mustSwapEndianness=endianness==LittleEndian;
+	mustSwapEndianness=newEndianness==LittleEndian;
 	#endif
 	}
 
-void ReadBuffer::setEndianness(bool newMustSwapEndianness)
+void ReadBuffer::setDataSize(size_t newDataSize)
 	{
-	mustSwapEndianness=newMustSwapEndianness;
-	
-	/* Determine the buffer's endianness: */
-	if(mustSwapEndianness)
-		{
-		#if __BYTE_ORDER==__LITTLE_ENDIAN
-		endianness=BigEndian;
-		#elif __BYTE_ORDER==__BIG_ENDIAN
-		endianness=LittleEndian;
-		#else
-		endianness=DontCare;
-		#endif
-		}
-	else
-		{
-		#if __BYTE_ORDER==__LITTLE_ENDIAN
-		endianness=LittleEndian;
-		#elif __BYTE_ORDER==__BIG_ENDIAN
-		endianness=BigEndian;
-		#else
-		endianness=DontCare;
-		#endif
-		}
+	bufferEnd=buffer+newDataSize;
+	readPtr=buffer;
+	}
+
+void ReadBuffer::setSwapOnRead(bool newSwapOnRead)
+	{
+	mustSwapEndianness=newSwapOnRead;
 	}
 
 }

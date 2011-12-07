@@ -36,7 +36,6 @@ class GzippedFile:public File
 	/* Protected methods from File: */
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
-	virtual void writeData(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:

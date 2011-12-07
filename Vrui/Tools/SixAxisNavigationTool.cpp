@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisNavigationTool - Class to convert an input device with six
 valuators into a navigation tool.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -45,8 +45,8 @@ Methods of class SixAxisNavigationToolFactory:
 SixAxisNavigationToolFactory::SixAxisNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("SixAxisNavigationTool",toolManager),
 	 zoomFactor(Scalar(1)),
+	 followDisplayCenter(false),
 	 navigationCenter(getDisplayCenter()),
-	 followDisplayCenter(true),
 	 invertNavigation(false),
 	 showNavigationCenter(true)
 	{
@@ -97,8 +97,10 @@ SixAxisNavigationToolFactory::SixAxisNavigationToolFactory(ToolManager& toolMana
 	
 	/* Get other parameters: */
 	zoomFactor=cfs.retrieveValue<Scalar>("./zoomFactor",zoomFactor);
-	navigationCenter=cfs.retrieveValue<Point>("./navigationCenter",navigationCenter);
-	followDisplayCenter=cfs.retrieveValue<bool>("./followDisplayCenter",followDisplayCenter);
+	if(cfs.hasTag("./navigationCenter"))
+		navigationCenter=cfs.retrieveValue<Point>("./navigationCenter",navigationCenter);
+	else
+		followDisplayCenter=true;
 	invertNavigation=cfs.retrieveValue<bool>("./invertNavigation",invertNavigation);
 	showNavigationCenter=cfs.retrieveValue<bool>("./showNavigationCenter",showNavigationCenter);
 	
@@ -273,7 +275,8 @@ void SixAxisNavigationTool::frame(void)
 		/* Update the navigation transformation: */
 		setNavigationTransformation(navTransform);
 		
-		requestUpdate();
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 

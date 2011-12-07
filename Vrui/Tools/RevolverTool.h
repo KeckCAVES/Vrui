@@ -73,7 +73,6 @@ class RevolverTool:public TransformTool
 	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
 	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual void initialize(void);
-	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);

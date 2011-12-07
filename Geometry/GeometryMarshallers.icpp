@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/HVector.h>
 #include <Geometry/Box.h>
+#include <Geometry/Ray.h>
 #include <Geometry/Plane.h>
 #include <Geometry/Matrix.h>
 #include <Geometry/Rotation.h>
@@ -224,6 +225,43 @@ Marshaller<Geometry::Box<ScalarParam,dimensionParam> >::read(
 	return result;
 	}
 
+/***********************************************************************
+Methods of class Marshaller<Geometry::Ray<ScalarParam,dimensionParam> >:
+***********************************************************************/
+
+template <class ScalarParam,int dimensionParam>
+inline
+size_t
+Marshaller<Geometry::Ray<ScalarParam,dimensionParam> >::getSize(
+	const Geometry::Ray<ScalarParam,dimensionParam>& value)
+	{
+	return Marshaller<Point>::getSize(value.getOrigin())+Marshaller<Vector>::getSize(value.getDirection());
+	}
+
+template <class ScalarParam,int dimensionParam>
+template <class DataSinkParam>
+inline
+void
+Marshaller<Geometry::Ray<ScalarParam,dimensionParam> >::write(
+	const Geometry::Ray<ScalarParam,dimensionParam>& value,
+	DataSinkParam& sink)
+	{
+	Marshaller<Point>::write(value.getOrigin(),sink);
+	Marshaller<Vector>::write(value.getDirection(),sink);
+	}
+
+template <class ScalarParam,int dimensionParam>
+template <class DataSourceParam>
+inline
+Geometry::Ray<ScalarParam,dimensionParam>
+Marshaller<Geometry::Ray<ScalarParam,dimensionParam> >::read(
+	DataSourceParam& source)
+	{
+	Point origin=Marshaller<Point>::read(source);
+	Vector direction=Marshaller<Vector>::read(source);
+	return Value(origin,direction);
+	}
+
 /*************************************************************************
 Methods of class Marshaller<Geometry::Plane<ScalarParam,dimensionParam> >:
 *************************************************************************/
@@ -365,7 +403,7 @@ Marshaller<Geometry::Rotation<ScalarParam,3> >::read(
 	{
 	Scalar quaternion[4];
 	FixedArrayMarshaller<Scalar>::read(quaternion,4,source);
-	return Value::fromQuaternion(quaternion);
+	return Value(quaternion);
 	}
 
 /*********************************************************************************************

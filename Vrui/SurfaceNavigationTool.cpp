@@ -1,7 +1,7 @@
 /***********************************************************************
 SurfaceNavigationTool - Base class for navigation tools that are limited
 to navigate along an application-defined surface.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -76,6 +76,66 @@ NavTransform& SurfaceNavigationTool::calcPhysicalFrame(const Point& basePoint)
 	return physicalFrame;
 	}
 
+Scalar SurfaceNavigationTool::calcAzimuth(const Rotation& orientation)
+	{
+	Vector y=Geometry::invert(orientation).getDirection(1);
+	if(Math::abs(y[2])>=Scalar(1)-Math::Constants<Scalar>::epsilon)
+		{
+		/* Gimbal lock: */
+		Vector x=orientation.getDirection(0);
+		return -Math::atan2(x[1],x[0]);
+		}
+	else
+		return -Math::atan2(-y[0],y[1]);
+	}
+
+void SurfaceNavigationTool::calcEulerAngles(const Rotation& orientation,Scalar angles[3])
+	{
+	Rotation rot=Geometry::invert(orientation);
+	
+	/* Calculate the elevation and azimuth angles: */
+	Vector y=rot.getDirection(1);
+	if(y[2]>=Scalar(1)-Math::Constants<Scalar>::epsilon)
+		{
+		/* Positive gimbal lock: */
+		angles[1]=-Math::div2(Math::Constants<Scalar>::pi);
+		Vector x=rot.getDirection(0);
+		angles[0]=-Math::atan2(x[1],x[0]);
+		angles[2]=Scalar(0);
+		}
+	else if(y[2]<=Scalar(-1)+Math::Constants<Scalar>::epsilon)
+		{
+		/* Negative gimbal lock: */
+		angles[1]=Math::div2(Math::Constants<Scalar>::pi);
+		Vector x=rot.getDirection(0);
+		angles[0]=-Math::atan2(x[1],x[0]);
+		angles[2]=Scalar(0);
+		}
+	else
+		{
+		angles[1]=-Math::asin(y[2]);
+		angles[0]=-Math::atan2(-y[0],y[1]);
+		
+		/* Calculate the roll angle: */
+		Scalar x0Len=Math::sqrt(Math::sqr(y[0])+Math::sqr(y[1]));
+		Vector z=rot.getDirection(2);
+		Scalar x=(y[1]*z[0]-y[0]*z[1])/x0Len;
+		if(x>=Scalar(1))
+			angles[2]=-Math::Constants<Scalar>::pi;
+		else if(x<=Scalar(-1))
+			angles[2]=Math::Constants<Scalar>::pi;
+		else
+			angles[2]=-Math::asin(x);
+		if(z[2]<Scalar(0))
+			{
+			if(angles[2]>=Scalar(0))
+				angles[2]=Math::Constants<Scalar>::pi-angles[2];
+			else
+				angles[2]=-Math::Constants<Scalar>::pi-angles[2];
+			}
+		}
+	}
+
 void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& alignmentData)
 	{
 	/* Align the initial surface frame: */
@@ -115,44 +175,49 @@ void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& al
 		}
 	
 	/* Calculate rotation of initial frame relative to aligned frame: */
-	Rotation rot=Geometry::invert(initialSurfaceFrame.getRotation())*alignmentData.surfaceFrame.getRotation();
+	Rotation rot=Geometry::invert(alignmentData.surfaceFrame.getRotation())*initialSurfaceFrame.getRotation();
 	
-	/* Align initial Z axis with aligned Y-Z plane to calculate the roll angle: */
-	Vector z=rot.getDirection(2);
-	if(z[0]!=Scalar(0))
+	/* Calculate the elevation and azimuth angles: */
+	Vector y=rot.getDirection(1);
+	if(y[2]>=Scalar(1)-Math::Constants<Scalar>::epsilon)
 		{
-		/* Check if the roll angle is well-defined: */
-		if(z[1]!=Scalar(0)||z[2]!=Scalar(0))
-			{
-			/* Calculate the roll axis and angle: */
-			Vector rollAxis(Scalar(0),z[2],-z[1]);
-			roll=Math::asin(z[0]);
-			
-			/* Remove the roll component: */
-			rot.leftMultiply(Rotation::rotateAxis(rollAxis,-roll));
-			}
-		else
-			{
-			/* Calculate the roll angle around the y axis: */
-			roll=Math::rad(Scalar(z[0]>Scalar(0)?-90:90));
-			
-			/* Remove the roll component: */
-			rot.leftMultiply(Rotation::rotateY(roll));
-			}
-		
-		/* Get the roll-adjusted z axis: */
-		z=rot.getDirection(2);
+		/* Positive gimbal lock: */
+		elevation=-Math::div2(Math::Constants<Scalar>::pi);
+		Vector x=rot.getDirection(0);
+		azimuth=-Math::atan2(x[1],x[0]);
+		roll=Scalar(0);
 		}
-	
-	/* Calculate the elevation angle: */
-	elevation=Math::atan2(-z[1],z[2]);
-	
-	/* Remove the elevation component: */
-	rot.leftMultiply(Rotation::rotateX(-elevation));
-	
-	/* Calculate the azimuth angle: */
-	Vector x=rot.getDirection(0);
-	azimuth=Math::atan2(x[1],x[0]);
+	else if(y[2]<=Scalar(-1)+Math::Constants<Scalar>::epsilon)
+		{
+		/* Negative gimbal lock: */
+		elevation=Math::div2(Math::Constants<Scalar>::pi);
+		Vector x=rot.getDirection(0);
+		azimuth=-Math::atan2(x[1],x[0]);
+		roll=Scalar(0);
+		}
+	else
+		{
+		elevation=-Math::asin(y[2]);
+		azimuth=-Math::atan2(-y[0],y[1]);
+		
+		/* Calculate the roll angle: */
+		Scalar x0Len=Math::sqrt(Math::sqr(y[0])+Math::sqr(y[1]));
+		Vector z=rot.getDirection(2);
+		Scalar x=(y[1]*z[0]-y[0]*z[1])/x0Len;
+		if(x>=Scalar(1))
+			roll=-Math::Constants<Scalar>::pi;
+		else if(x<=Scalar(-1))
+			roll=Math::Constants<Scalar>::pi;
+		else
+			roll=-Math::asin(x);
+		if(z[2]<Scalar(0))
+			{
+			if(roll>=Scalar(0))
+				roll=Math::Constants<Scalar>::pi-roll;
+			else
+				roll=-Math::Constants<Scalar>::pi-roll;
+			}
+		}
 	}
 
 SurfaceNavigationTool::SurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)

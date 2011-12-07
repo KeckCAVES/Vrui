@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevicePipe - Class defining the client-server protocol for remote VR
 devices and VR applications.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

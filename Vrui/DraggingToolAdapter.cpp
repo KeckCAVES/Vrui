@@ -35,8 +35,8 @@ DraggingToolAdapter::DraggingToolAdapter(DraggingTool* sTool)
 	:tool(sTool)
 	{
 	/* Register functions with the dragging tool: */
-	tool->setStoreStateFunction(new Misc::VoidConstMethodCall<Misc::ConfigurationFileSection&,DraggingToolAdapter>(this,&DraggingToolAdapter::storeState));
-	tool->setGetNameFunction(new Misc::VoidConstMethodCall<std::string&,DraggingToolAdapter>(this,&DraggingToolAdapter::getName));
+	tool->setStoreStateFunction(Misc::createFunctionCall(this,&DraggingToolAdapter::storeState));
+	tool->setGetNameFunction(Misc::createFunctionCall(this,&DraggingToolAdapter::getName));
 	
 	/* Register callbacks with the dragging tool: */
 	tool->getIdleMotionCallbacks().add(this,&DraggingToolAdapter::idleMotionCallback);

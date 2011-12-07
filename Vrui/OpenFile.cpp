@@ -23,19 +23,24 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/OpenFile.h>
 
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <Vrui/Vrui.h>
 
 namespace Vrui {
 
-IO::File* openFile(const char* fileName,IO::File::AccessMode accessMode)
+IO::FilePtr openFile(const char* fileName,IO::File::AccessMode accessMode)
 	{
-	return Comm::openFile(getMulticastPipeMultiplexer(),fileName,accessMode);
+	return Cluster::openFile(getClusterMultiplexer(),fileName,accessMode);
 	}
 
-IO::SeekableFile* openSeekableFile(const char* fileName,IO::File::AccessMode accessMode)
+IO::SeekableFilePtr openSeekableFile(const char* fileName,IO::File::AccessMode accessMode)
 	{
-	return Comm::openSeekableFile(getMulticastPipeMultiplexer(),fileName,accessMode);
+	return Cluster::openSeekableFile(getClusterMultiplexer(),fileName,accessMode);
+	}
+
+IO::DirectoryPtr openDirectory(const char* directoryName)
+	{
+	return Cluster::openDirectory(getClusterMultiplexer(),directoryName);
 	}
 
 }

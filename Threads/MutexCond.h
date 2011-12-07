@@ -96,36 +96,21 @@ class MutexCond
 	/* Methods: */
 	void signal(void) // Signals the condition variable
 		{
-		pthread_mutex_lock(&mutex);
 		pthread_cond_signal(&cond);
-		pthread_mutex_unlock(&mutex);
 		}
 	void broadcast(void) // Broadcasts the condition variable
 		{
-		pthread_mutex_lock(&mutex);
 		pthread_cond_broadcast(&cond);
-		pthread_mutex_unlock(&mutex);
 		}
 	void wait(void) // Waits on condition variable
 		{
-		pthread_mutex_lock(&mutex);
+		Lock lock(*this);
 		pthread_cond_wait(&cond,&mutex);
-		pthread_mutex_unlock(&mutex);
 		}
 	bool timedWait(const Misc::Time& abstime) // Waits on condition variable; returns true if signal occurred; returns false if time expires
 		{
-		pthread_mutex_lock(&mutex);
-		bool result=pthread_cond_timedwait(&cond,&mutex,&abstime)==0;
-		pthread_mutex_unlock(&mutex);
-		return result;
-		}
-	void signal(const Lock&) // Signals the condition variable using already established lock
-		{
-		pthread_cond_signal(&cond);
-		}
-	void broadcast(const Lock&) // Broadcasts the condition variable using already established lock
-		{
-		pthread_cond_broadcast(&cond);
+		Lock lock(*this);
+		return pthread_cond_timedwait(&cond,&mutex,&abstime)==0;
 		}
 	void wait(const Lock& lock) // Waits on condition variable when lock is already established
 		{

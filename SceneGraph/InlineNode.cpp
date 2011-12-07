@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/InlineNode.h>
 
 #include <string.h>
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <SceneGraph/VRMLFile.h>
 
 namespace SceneGraph {
@@ -54,8 +54,7 @@ void InlineNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		
 		/* Load the external VRML file: */
 		std::string externalFileName=vrmlFile.getFullUrl(url.getValue(0));
-		IO::AutoFile externalFile(Comm::openFile(vrmlFile.getMultiplexer(),externalFileName.c_str()));
-		SceneGraph::VRMLFile externalVrmlFile(externalFileName,*externalFile,vrmlFile.getNodeCreator(),vrmlFile.getMultiplexer());
+		SceneGraph::VRMLFile externalVrmlFile(externalFileName,Cluster::openFile(vrmlFile.getMultiplexer(),externalFileName.c_str()),vrmlFile.getNodeCreator(),vrmlFile.getMultiplexer());
 		externalVrmlFile.parse(this);
 		}
 	else

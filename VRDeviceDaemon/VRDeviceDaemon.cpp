@@ -48,7 +48,7 @@ void signalHandler(int signalId)
 			{
 			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=false;
-			shutdownCond.broadcast(shutdownLock);
+			shutdownCond.broadcast();
 			}
 			break;
 		
@@ -58,7 +58,7 @@ void signalHandler(int signalId)
 			{
 			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=true;
-			shutdownCond.broadcast(shutdownLock);
+			shutdownCond.broadcast();
 			}
 			break;
 		}

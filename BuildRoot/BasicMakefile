@@ -43,12 +43,7 @@ endif
 
 # Set compiler flags for the system environment:
 CSYSFLAGS = $(EXTRACSYSFLAGS)
-
-#
-# Include list of supported packages
-#
-
-include $(VRUIPACKAGEROOT)/BuildRoot/Packages
+CPPSYSFLAGS = $(EXTRACPPSYSFLAGS)
 
 # Recursively expand the list of packages:
 # Well, this is not really recursion... it goes only nine levels, which should be enough ;)
@@ -87,19 +82,26 @@ ifneq ($(USE_RPATH),0)
   endif
 endif
 
+# Function to get the build dependencies of a package (depends on function LIBRARYNAME):
+DEPENDENCIES = $(patsubst -l%.$(LDEXT),$(call LIBRARYNAME,lib%),$(foreach PACKAGENAME,$(filter MY%,$($(1)_DEPENDS)),$($(PACKAGENAME)_LIBS)))
+
 # Generate the complete list of compiler flags:
 CCFLAGS = -g$(DEBUGLEVEL) -O$(OPTLEVEL) $(CFLAGS) $(CSYSFLAGS) $(CINCLUDEFLAGS) $(CPACKAGEFLAGS)
+CPPCFLAGS = -g$(DEBUGLEVEL) -O$(OPTLEVEL) $(CFLAGS) $(CPPSYSFLAGS) $(CINCLUDEFLAGS) $(CPACKAGEFLAGS)
 
 # Determine the object file directory:
+OBJDIR := $(OBJDIRBASE)/$(COMPILERTYPE).g$(DEBUGLEVEL).O$(OPTLEVEL)
 ifdef OBJDIREXT
-  OBJDIR = $(OBJDIRBASE)/$(COMPILERTYPE).g$(DEBUGLEVEL).O$(OPTLEVEL).$(OBJDIREXT)
-else
-  OBJDIR = $(OBJDIRBASE)/$(COMPILERTYPE).g$(DEBUGLEVEL).O$(OPTLEVEL)
+  OBJDIR := $(OBJDIR).$(OBJDIREXT)
 endif
 
-# sed command to process a generated dependency file:
+# sed commands to process a generated dependency file:
 define PROCESS_DEPFILE
 sed -e 's!\([^:]*:\)!$$(OBJDIR)/$*.o:!g' -e 's!/usr/[^ ]*!!g' -e '/^[ ]*\\$$/ d' < $(DEPFILETEMPLATE) > $(DEPDIR)/$*.d
+endef
+
+define PROCESS_PICDEPFILE
+sed -e 's!\([^:]*:\)!$$(OBJDIR)/pic/$*.o:!g' -e 's!/usr/[^ ]*!!g' -e '/^[ ]*\\$$/ d' < $(DEPFILETEMPLATE) > $(DEPDIR)/$*.d
 endef
 
 # Set default compile command from .c to .o:
@@ -120,10 +122,10 @@ $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(DEPDIR)/$(*D)
 	@mkdir -p $(OBJDIR)/$(*D)
 ifdef SHOWCOMMAND
-	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	$(CCOMP) -MD -c -o $@ $(CPPCFLAGS) $<
 else
 	@echo Compiling $<...
-	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	@$(CCOMP) -MD -c -o $@ $(CPPCFLAGS) $<
 endif
 	@$(PROCESS_DEPFILE)
 	@rm -f $(DEPFILETEMPLATE)
@@ -132,27 +134,58 @@ $(OBJDIR)/%.o: %.cc
 	@mkdir -p $(DEPDIR)/$(*D)
 	@mkdir -p $(OBJDIR)/$(*D)
 ifdef SHOWCOMMAND
-	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	$(CCOMP) -MD -c -o $@ $(CPPCFLAGS) $<
 else
 	@echo Compiling $<...
-	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	@$(CCOMP) -MD -c -o $@ $(CPPCFLAGS) $<
 endif
 	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+# Set default compile command from .c to position-independent code for plugins:
+$(OBJDIR)/pic/%.o: %.c
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/pic/$(*D)
+ifdef SHOWCOMMAND
+	$(PLAINCCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
+else
+	@echo Compiling $<...
+	@$(PLAINCCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
+endif
+	@$(PROCESS_PICDEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+# Set default compile commands from .cc/.cpp to position-independent code for plugins:
+$(OBJDIR)/pic/%.o: %.cpp
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/pic/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
+else
+	@echo Compiling $<...
+	@$(CCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
+endif
+	@$(PROCESS_PICDEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+$(OBJDIR)/pic/%.o: %.cc
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/pic/$(*D)
+ifdef SHOWCOMMAND
+	$(CCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
+else
+	@echo Compiling $<...
+	@$(CCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
+endif
+	@$(PROCESS_PICDEPFILE)
 	@rm -f $(DEPFILETEMPLATE)
 
 #
 # Definitions and commands/rules to link static or shared libraries
 #
 
-ifndef MAJORLIBVERSION
-  MAJORLIBVERSION = 1
-endif
-ifndef MINORLIBVERSION
-  MAJORLIBVERSION = 0
-endif
-ifndef LIBDESTDIR
-  LIBDESTDIR = ./$(LIBEXT)
-endif
+MAJORLIBVERSION ?= 1
+MINORLIBVERSION ?= 0
 
 # Default link command to create dynamic library:
 $(LIBDESTDIR)/$(call FULLDSONAME,%):
@@ -177,6 +210,22 @@ else
 	@echo Linking $@...
 	@ar crs $@ $^
 endif
+
+# Sequence to create symlinks for dynamic libraries:
+# First argument: library name
+define CREATE_SYMLINK
+@-rm -f $(LIBINSTALLDIR)/$(call DSONAME,$(1)) $(LIBINSTALLDIR)/$(call LINKDSONAME,$(1))
+@cd $(LIBINSTALLDIR) ; ln -s $(call FULLDSONAME,$(1)) $(call DSONAME,$(1))
+@cd $(LIBINSTALLDIR) ; ln -s $(call FULLDSONAME,$(1)) $(call LINKDSONAME,$(1))
+
+endef
+
+# Sequence to destroy symlinks for dynamic libraries:
+# First argument: library name
+define DESTROY_SYMLINK
+@-rm -f $(LIBINSTALLDIR)/$(call DSONAME,$(1)) $(LIBINSTALLDIR)/$(call LINKDSONAME,$(1))
+
+endef
 
 #
 # Definitions and commands/rules to link executable files
@@ -214,9 +263,9 @@ clean: extraclean
 
 .PHONY: squeakyclean
 squeakyclean: extrasqueakyclean
-	-rm -rf d
-	-rm -rf o
-	-rm -rf exe
+	-rm -rf $(DEPDIR)
+	-rm -rf $(OBJDIRBASE)
+	-rm -rf $(EXEDIRBASE)
 
 # Use an empty default rule to ignore missing prerequisites and just remake their targets:
 .DEFAULT: ;

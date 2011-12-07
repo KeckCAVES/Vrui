@@ -151,7 +151,7 @@ void glCompileShaderFromString(GLhandleARB shaderObject,const char* shaderSource
 void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName)
 	{
 	/* Open the source file: */
-	IO::AutoFile shaderSourceFile(IO::openFile(shaderSourceFileName));
+	IO::FilePtr shaderSourceFile(IO::openFile(shaderSourceFileName));
 	
 	/* Compile the shader from the source file: */
 	glCompileShaderFromFile(shaderObject,shaderSourceFileName,*shaderSourceFile);

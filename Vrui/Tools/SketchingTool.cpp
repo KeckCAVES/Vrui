@@ -39,9 +39,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Label.h>
 #include <GLMotif/TextField.h>
 #include <Vrui/Vrui.h>
-#include <Vrui/OpenFile.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
+#include <Vrui/OpenFile.h>
 
 namespace Vrui {
 
@@ -373,7 +373,7 @@ void SketchingTool::saveCurvesCallback(Misc::CallbackData* cbData)
 void SketchingTool::loadCurvesCallback(Misc::CallbackData* cbData)
 	{
 	/* Create a file selection dialog to select a curve file: */
-	GLMotif::FileSelectionDialog* loadCurvesDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curves...",0,".curves",openPipe());
+	GLMotif::FileSelectionDialog* loadCurvesDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curves...",openDirectory("."),".curves");
 	loadCurvesDialog->getOKCallbacks().add(this,&SketchingTool::loadCurvesOKCallback);
 	loadCurvesDialog->getCancelCallbacks().add(loadCurvesDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 	
@@ -394,13 +394,12 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 	try
 		{
 		/* Open the curve file: */
-		IO::AutoFile curvesFile(Vrui::openFile(cbData->selectedFileName.c_str()));
-		IO::ValueSource curvesSource(*curvesFile);
+		IO::ValueSource curvesSource(cbData->selectedDirectory->openFile(cbData->selectedFileName));
 		curvesSource.setPunctuation(',',true);
 		
 		/* Read the curve file header: */
 		if(!curvesSource.isString("Vrui Curve Editor Tool Curve File"))
-			Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
+			Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
 		
 		/* Read all curvesSource: */
 		unsigned int numCurves=curvesSource.readUnsignedInteger();
@@ -412,7 +411,7 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 			/* Read the curve's line width and color: */
 			c->lineWidth=GLfloat(curvesSource.readNumber());
 			if(curvesSource.readChar()!=',')
-				Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
+				Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
 			for(int i=0;i<3;++i)
 				c->color[i]=Curve::Color::Scalar(curvesSource.readUnsignedInteger());
 			c->color[3]=Curve::Color::Scalar(255);
@@ -424,7 +423,7 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 				Curve::ControlPoint cp;
 				cp.t=Scalar(curvesSource.readNumber());
 				if(curvesSource.readChar()!=',')
-					Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedFileName.c_str());
+					Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
 				for(int i=0;i<3;++i)
 					cp.pos[i]=Point::Scalar(curvesSource.readNumber());
 				c->controlPoints.push_back(cp);
@@ -440,7 +439,7 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 		}
 	
 	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void SketchingTool::deleteAllCurvesCallback(Misc::CallbackData* cbData)

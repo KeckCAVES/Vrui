@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -72,6 +72,7 @@ class WalkSurfaceNavigationToolFactory:public ToolFactory
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
 	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -106,7 +107,7 @@ class WalkSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of view relative to local coordinate frame
 	Scalar elevation; // Current elevation of view relative to local coordinate frame
-	Scalar fallVelocity; // Current falling velocity in frame coordinates
+	Vector flyVelocity; // Current flying (and falling) velocity while airborne
 	
 	/* Private methods: */
 	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state
@@ -119,6 +120,7 @@ class WalkSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	

@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <IO/ValueSource.h>
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/ShapeNode.h>
@@ -120,8 +120,7 @@ void ArcInfoExportFileNode::update(void)
 		return;
 	
 	/* Open the ARC/INFO export file: */
-	IO::AutoFile exportFileSource(Comm::openFile(multiplexer,url.getValue(0).c_str()));
-	IO::ValueSource exportFile(*exportFileSource);
+	IO::ValueSource exportFile(Cluster::openFile(multiplexer,url.getValue(0).c_str()));
 	
 	/* Check the file's format: */
 	if(exportFile.readString()!="EXP"||exportFile.readInteger()!=0)

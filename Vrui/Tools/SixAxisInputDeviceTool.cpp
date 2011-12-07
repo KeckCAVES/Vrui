@@ -250,7 +250,10 @@ void SixAxisInputDeviceTool::frame(void)
 		
 		/* Request another frame if the input device has moved: */
 		if(translation!=Vector::zero||rotation!=Vector::zero)
-			requestUpdate();
+			{
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		}
 	}
 

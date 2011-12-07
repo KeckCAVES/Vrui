@@ -1,7 +1,6 @@
 /***********************************************************************
-OpenFile - Convenience function to open files of several types using the
-IO::File abstraction and distribute among a cluster via a multicast
-pipe.
+OpenFile - Convenience functions to open files of several types using
+the File abstraction.
 Copyright (c) 2011 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
@@ -25,17 +24,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_OPENFILE_INCLUDED
 #define COMM_OPENFILE_INCLUDED
 
-#include <IO/OpenFile.h>
-
-/* Forward declarations: */
-namespace Comm {
-class MulticastPipeMultiplexer;
-}
+#include <IO/File.h>
+#include <IO/SeekableFile.h>
 
 namespace Comm {
 
-IO::File* openFile(MulticastPipeMultiplexer* multiplexer,const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a file of the given name and distributes it over a new multicast pipe
-IO::SeekableFile* openSeekableFile(MulticastPipeMultiplexer* multiplexer,const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a seekable file of the given name and distributes it over a new multicast pipe
+IO::FilePtr openFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a file of the given name
+IO::SeekableFilePtr openSeekableFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a seekable file of the given name
 
 }
 

@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef COMM_PIPE_INCLUDED
 #define COMM_PIPE_INCLUDED
 
+#include <Misc/Autopointer.h>
 #include <IO/File.h>
 
 /* Forward declarations: */
@@ -51,6 +52,8 @@ class Pipe:public IO::File
 	virtual bool waitForData(const Misc::Time& timeout) const =0; // Waits for incoming data on the pipe until timeout; returns true if data is ready
 	virtual void shutdown(bool read,bool write); // Shuts down reading and/or writing part of pipe
 	};
+
+typedef Misc::Autopointer<Pipe> PipePtr; // Type for pointers to reference-counted pipe objects
 
 }
 

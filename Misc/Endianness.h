@@ -37,6 +37,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Misc {
 
+enum Endianness // Enumerated type to select endianness types
+	{
+	HostEndianness, // Data has same endianness as host, i.e., never swap
+	LittleEndian, // Data has little endianness
+	BigEndian // Data has big endianness
+	};
+
 /****************************************************************
 Helper class to allow partial specialization of endianness
 swapper:

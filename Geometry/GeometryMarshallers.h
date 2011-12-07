@@ -39,6 +39,8 @@ class HVector;
 template <class ScalarParam,int dimensionParam>
 class Box;
 template <class ScalarParam,int dimensionParam>
+class Ray;
+template <class ScalarParam,int dimensionParam>
 class Plane;
 template <class ScalarParam,int numRowsParam,int numColumnsParam>
 class Matrix;
@@ -133,6 +135,25 @@ class Marshaller<Geometry::Box<ScalarParam,dimensionParam> >
 	static const int dimension=dimensionParam;
 	typedef Geometry::Box<ScalarParam,dimensionParam> Value;
 	typedef typename Value::Point Point;
+	
+	/* Methods: */
+	static size_t getSize(const Value& value);
+	template <class DataSinkParam>
+	static void write(const Value& value,DataSinkParam& sink);
+	template <class DataSourceParam>
+	static Value read(DataSourceParam& source);
+	};
+
+template <class ScalarParam,int dimensionParam>
+class Marshaller<Geometry::Ray<ScalarParam,dimensionParam> >
+	{
+	/* Embedded classes: */
+	public:
+	typedef ScalarParam Scalar;
+	static const int dimension=dimensionParam;
+	typedef Geometry::Ray<ScalarParam,dimensionParam> Value;
+	typedef typename Value::Point Point;
+	typedef typename Value::Vector Vector;
 	
 	/* Methods: */
 	static size_t getSize(const Value& value);

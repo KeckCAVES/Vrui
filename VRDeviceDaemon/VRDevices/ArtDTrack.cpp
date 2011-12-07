@@ -113,7 +113,10 @@ ArtDTrack::DeviceReportFormat parseDeviceReportFormat(const char* start,const ch
 			
 			case 5: // "3" read
 				if(*cPtr=='d'||*cPtr=='D')
+					{
+					result=ArtDTrack::DRF_3D;
 					state=7;
+					}
 				else
 					state=-1;
 				break;
@@ -135,8 +138,11 @@ ArtDTrack::DeviceReportFormat parseDeviceReportFormat(const char* start,const ch
 				break;
 			}
 		
-		/* Go to next character: */
-		++cPtr;
+		if(state>=0)
+			{
+			/* Go to next character: */
+			++cPtr;
+			}
 		}
 	
 	/* Set the decode end and return the parsed word: */

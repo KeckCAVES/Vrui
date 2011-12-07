@@ -28,8 +28,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
-IO::File* openFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a file of the given name
-IO::SeekableFile* openSeekableFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a seekable file of the given name
+IO::FilePtr openFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a file of the given name
+IO::SeekableFilePtr openSeekableFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly); // Opens a seekable file of the given name
+IO::DirectoryPtr openDirectory(const char* directoryName); // Opens a directory of the given name
 
 }
 

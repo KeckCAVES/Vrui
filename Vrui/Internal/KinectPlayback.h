@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <vector>
+#include <IO/File.h>
 #include <Threads/Thread.h>
 #include <Threads/MutexCond.h>
 #include <Geometry/OrthogonalTransformation.h>
@@ -34,9 +35,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFileSection;
-}
-namespace IO {
-class File;
 }
 class GLContextData;
 class KinectProjector;
@@ -56,9 +54,9 @@ class KinectPlayback
 		/* Elements: */
 		Threads::MutexCond timeStampCond; // Condition variable to signal a change in the next time stamp value
 		double readAheadTimeStamp; // Time stamp up to which to read ahead in the depth and color files
-		IO::File* depthFile; // Pointer to the file containing the depth stream
+		IO::FilePtr depthFile; // Pointer to the file containing the depth stream
 		Threads::Thread depthDecompressorThread; // Thread to decompress depth frames from the depth file
-		IO::File* colorFile; // Pointer to the file containing the color stream
+		IO::FilePtr colorFile; // Pointer to the file containing the color stream
 		Threads::Thread colorDecompressorThread; // Thread to decompress color frames from the color file
 		OGTransform projectorTransform; // Transformation from projector space to physical space
 		KinectProjector* projector; // Projector to render a combined depth/color frame
