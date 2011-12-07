@@ -23,7 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef THREADS_REFCOUNTEDARRAY_INCLUDED
 #define THREADS_REFCOUNTEDARRAY_INCLUDED
 
-#include <Threads/Mutex.h>
+#include <pthread.h>
+#include <Threads/Config.h>
 
 namespace Threads {
 
@@ -39,7 +40,13 @@ class RefCountedArray
 		{
 		/* Elements: */
 		public:
-		Threads::Mutex refCountMutex; // Mutex protecting the reference counter
+		#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
+		#if THREADS_CONFIG_HAVE_SPINLOCKS
+		pthread_spinlock_t refCountSpinlock; // Busy-wait mutual exclusion semaphore protecting the reference counter
+		#else
+		pthread_mutex_t refCountSpinlock; // Busy-wait mutual exclusion semaphore protecting the reference counter
+		#endif
+		#endif
 		unsigned int refCount; // Number of RefCountedArray objects currently sharing the array
 		size_t size; // Allocated size of the array
 		Element elements[0]; // Beginning of actual array storage
@@ -47,13 +54,38 @@ class RefCountedArray
 		/* Methods: */
 		void ref(void) // Increases the array's reference count
 			{
-			Threads::Mutex::Lock refCountLock(refCountMutex);
+			/* Increment the reference counter atomically: */
+			#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
+			__sync_add_and_fetch(&refCount,1);
+			#else
+			#if THREADS_CONFIG_HAVE_SPINLOCKS
+			pthread_spin_lock(&refCountSpinlock);
 			++refCount;
+			pthread_spin_unlock(&refCountSpinlock);
+			#else
+			pthread_mutex_lock(&refCountSpinlock);
+			++refCount;
+			pthread_mutex_unlock(&refCountSpinlock);
+			#endif
+			#endif
 			}
 		bool unref(void) // Decreases the array's reference count; returns true if array has become orphaned
 			{
-			Threads::Mutex::Lock refCountLock(refCountMutex);
-			return --refCount==0;
+			/* Decrement the reference counter atomically: */
+			#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
+			return __sync_sub_and_fetch(&refCount,1)==0;
+			#else
+			#if THREADS_CONFIG_HAVE_SPINLOCKS
+			pthread_spin_lock(&refCountSpinlock);
+			bool result=(--refCount)==0;
+			pthread_spin_unlock(&refCountSpinlock);
+			#else
+			pthread_mutex_lock(&refCountSpinlock);
+			bool result=(--refCount)==0;
+			pthread_mutex_unlock(&refCountSpinlock);
+			#endif
+			return result;
+			#endif
 			}
 		};
 	
@@ -61,8 +93,8 @@ class RefCountedArray
 	Header* header; // Pointer to header structure of shared array
 	
 	/* Private methods: */
-	Header* allocate(size_t newSize); // Allocates a new array and returns a pointer to its header
-	void free(Header* header);  // Destroys an orphaned array and its elements
+	Header* create(size_t newSize); // Allocates a new array and returns a pointer to its header
+	void destroy(Header* header);  // Destroys an orphaned array and its elements
 	
 	/* Constructors and destructors: */
 	public:
@@ -71,7 +103,7 @@ class RefCountedArray
 		{
 		}
 	RefCountedArray(size_t sSize) // Creates new array of the given size
-		:header(allocate(sSize))
+		:header(create(sSize))
 		{
 		}
 	RefCountedArray(const RefCountedArray& source) // Copy constructor; shares array
@@ -87,7 +119,7 @@ class RefCountedArray
 			{
 			/* Unreference and potentially destroy the current shared array: */
 			if(header!=0&&header->unref())
-				free(header);
+				destroy(header);
 			
 			/* Share the source's array: */
 			header=source.header;
@@ -103,7 +135,7 @@ class RefCountedArray
 		{
 		/* Unreference and potentially destroy the current shared array: */
 		if(header!=0&&header->unref())
-			free(header);
+			destroy(header);
 		}
 	
 	/* Methods: */

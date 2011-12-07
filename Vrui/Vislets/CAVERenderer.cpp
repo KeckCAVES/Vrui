@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2007 Oliver Kreylos
+Copyright (c) 2005-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -319,12 +319,16 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	wallTextureImage=Images::readImageFile(wallTextureFileName.c_str());
 	floorTextureImage=Images::readImageFile(floorTextureFileName.c_str());
 	
-	/* Create several light sources in the CAVE room: */
+	/* Create static ceiling light sources in the CAVE room: */
 	GLLight::Color lightColor(0.25f,0.25f,0.25f);
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f,-30.0f,96.0f,1.0f)));
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f,-30.0f,96.0f,1.0f)));
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f, 30.0f,96.0f,1.0f)));
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f, 30.0f,96.0f,1.0f)));
+	for(int i=0;i<4;++i)
+		{
+		GLLight::Position pos(30.0f,30.0f,96.0f,1.0f);
+		for(int j=0;j<2;++j)
+			if(i&(0x1<<j))
+				pos[j]=-pos[j];
+		lightsources[i]=getLightsourceManager()->createLightsource(true,GLLight(lightColor,pos));
+		}
 	
 	/* Save all viewers' head light states and then turn them off: */
 	for(int i=0;i<getNumViewers()&&i<numViewers;++i)
@@ -337,6 +341,10 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 CAVERenderer::~CAVERenderer(void)
 	{
 	delete[] viewerHeadlightStates;
+	
+	/* Destroy static ceiling light sources: */
+	for(int i=0;i<4;++i)
+		getLightsourceManager()->destroyLightsource(lightsources[i]);
 	}
 
 VisletFactory* CAVERenderer::getFactory(void) const
@@ -349,13 +357,19 @@ void CAVERenderer::disable(void)
 	/* Trigger the folding animation: */
 	angleAnimStep=-90.0;
 	lastFrame=getApplicationTime();
-	requestUpdate();
+		
+	/* Request another frame: */
+	scheduleUpdate(getApplicationTime()+1.0/125.0);
 	
 	/* Frame function will disable vislet when animation is done */
 	}
 
 void CAVERenderer::enable(void)
 	{
+	/* Enable the static ceiling light sources: */
+	for(int i=0;i<4;++i)
+		lightsources[i]->enable();
+	
 	/* Save all viewers' head light states and then turn them off: */
 	for(int i=0;i<getNumViewers()&&i<numViewers;++i)
 		{
@@ -369,7 +383,9 @@ void CAVERenderer::enable(void)
 	/* Trigger the unfolding animation: */
 	angleAnimStep=90.0;
 	lastFrame=getApplicationTime();
-	requestUpdate();
+	
+	/* Request another frame: */
+	scheduleUpdate(getApplicationTime()+1.0/125.0);
 	}
 
 void CAVERenderer::initContext(GLContextData& contextData) const
@@ -426,6 +442,10 @@ void CAVERenderer::frame(void)
 			angle=0.0;
 			angleAnimStep=0.0;
 			
+			/* Disable the static ceiling light sources: */
+			for(int i=0;i<4;++i)
+				lightsources[i]->disable();
+			
 			/* Set all viewers' head lights to the saved state: */
 			for(int i=0;i<getNumViewers()&&i<numViewers;++i)
 				getViewer(i)->setHeadlightState(viewerHeadlightStates[i]);
@@ -439,7 +459,10 @@ void CAVERenderer::frame(void)
 			angleAnimStep=0.0;
 			}
 		else
-			requestUpdate();
+			{
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		}
 	}
 

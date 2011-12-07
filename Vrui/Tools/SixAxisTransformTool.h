@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,6 +38,7 @@ class SixAxisTransformToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
+	bool followDisplayCenter; // If true, home position is the current display center
 	Point homePosition; // Position at which to create the device, and to which to return it when the home button is pressed
 	Vector translations[3]; // Translation vectors
 	Vector rotations[3]; // Scaled rotation axes

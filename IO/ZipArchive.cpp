@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <zlib.h>
+#include <string>
+#include <vector>
 #include <Misc/ThrowStdErr.h>
 #include <IO/StandardFile.h>
 #include <IO/FixedMemoryFile.h>
@@ -45,7 +47,7 @@ class ZipArchiveStreamingFile:public File // Class to read ZIP archive entries i
 	
 	/* Elements: */
 	private:
-	SeekableFile& archive; // Reference to the ZIP archive containing the file
+	SeekableFilePtr archive; // Reference to the ZIP archive containing the file
 	Offset nextReadPos; // Position of next data block to read from archive
 	size_t compressedSize; // Amount of data remaining to be read from archive
 	size_t compressedBufferSize; // Size of allocated buffer for compressed data read from the archive
@@ -60,7 +62,7 @@ class ZipArchiveStreamingFile:public File // Class to read ZIP archive entries i
 	
 	/* Constructors and destructors: */
 	public:
-	ZipArchiveStreamingFile(SeekableFile& sArchive,unsigned int sCompressionMethod,Offset sNextReadPos,size_t sCompressedSize);
+	ZipArchiveStreamingFile(SeekableFilePtr sArchive,unsigned int sCompressionMethod,Offset sNextReadPos,size_t sCompressedSize);
 	virtual ~ZipArchiveStreamingFile(void);
 	};
 
@@ -89,8 +91,8 @@ size_t ZipArchiveStreamingFile::readData(File::Byte* buffer,size_t bufferSize)
 				size_t compressedReadSize=compressedBufferSize;
 				if(compressedReadSize>compressedSize)
 					compressedReadSize=compressedSize;
-				archive.setReadPosAbs(nextReadPos);
-				compressedReadSize=archive.readUpTo(compressedBuffer,compressedReadSize);
+				archive->setReadPosAbs(nextReadPos);
+				compressedReadSize=archive->readUpTo(compressedBuffer,compressedReadSize);
 				nextReadPos+=compressedReadSize;
 				compressedSize-=compressedReadSize;
 				
@@ -122,8 +124,8 @@ size_t ZipArchiveStreamingFile::readData(File::Byte* buffer,size_t bufferSize)
 		size_t readSize=bufferSize;
 		if(readSize>compressedSize)
 			readSize=compressedSize;
-		archive.setReadPosAbs(nextReadPos);
-		readSize=archive.readUpTo(buffer,readSize);
+		archive->setReadPosAbs(nextReadPos);
+		readSize=archive->readUpTo(buffer,readSize);
 		nextReadPos+=readSize;
 		compressedSize-=readSize;
 		eof=compressedSize==0;
@@ -137,7 +139,7 @@ void ZipArchiveStreamingFile::writeData(const File::Byte* buffer,size_t bufferSi
 	/* Writing is not supported; ignore silently */
 	}
 
-ZipArchiveStreamingFile::ZipArchiveStreamingFile(SeekableFile& sArchive,unsigned int sCompressionMethod,SeekableFile::Offset sNextReadPos,size_t sCompressedSize)
+ZipArchiveStreamingFile::ZipArchiveStreamingFile(SeekableFilePtr sArchive,unsigned int sCompressionMethod,SeekableFile::Offset sNextReadPos,size_t sCompressedSize)
 	:File(ReadOnly),
 	 archive(sArchive),
 	 nextReadPos(sNextReadPos),compressedSize(sCompressedSize),
@@ -150,8 +152,8 @@ ZipArchiveStreamingFile::ZipArchiveStreamingFile(SeekableFile& sArchive,unsigned
 		size_t compressedReadSize=compressedBufferSize;
 		if(compressedReadSize>compressedSize)
 			compressedReadSize=compressedSize;
-		archive.setReadPosAbs(nextReadPos);
-		compressedReadSize=archive.readUpTo(compressedBuffer,compressedReadSize);
+		archive->setReadPosAbs(nextReadPos);
+		compressedReadSize=archive->readUpTo(compressedBuffer,compressedReadSize);
 		nextReadPos+=compressedReadSize;
 		compressedSize-=compressedReadSize;
 		
@@ -175,6 +177,203 @@ ZipArchiveStreamingFile::~ZipArchiveStreamingFile(void)
 	{
 	delete[] compressedBuffer;
 	delete stream;
+	}
+
+class ZipArchiveDirectory:public Directory // Class to represent directories inside a ZIP archive using an IO::Directory abstraction
+	{
+	/* Embedded classes: */
+	private:
+	struct DirectoryEntry // Structure for directory entries
+		{
+		/* Elements: */
+		public:
+		bool isFile; // Flag whether the entry is a file or a directory
+		ZipArchive::FileID id; // File ID of the directory entry
+		std::string name; // Name of the file or subdirectory inside this directory
+		
+		/* Constructors and destructors: */
+		DirectoryEntry(bool sIsFile,const ZipArchive::FileID& sId,const std::string& sName)
+			:isFile(sIsFile),
+			 id(sId),
+			 name(sName)
+			{
+			}
+		};
+	
+	/* Elements: */
+	ZipArchivePtr archive; // The ZIP archive from which this directory was extracted
+	std::string pathName; // Path name of this directory inside the ZIP archive
+	std::vector<DirectoryEntry> entries; // List of entries in this directory
+	std::vector<DirectoryEntry>::iterator currentEntry; // Iterator to the current directory entry
+	
+	/* Constructors and destructors: */
+	public:
+	ZipArchiveDirectory(ZipArchivePtr sArchive,const std::string& sPathName);
+	
+	/* Methods from Directory: */
+	virtual std::string getName(void) const;
+	virtual std::string getPath(void) const;
+	virtual std::string getPath(const char* relativePath) const;
+	virtual bool hasParent(void) const;
+	virtual DirectoryPtr getParent(void) const;
+	virtual void rewind(void);
+	virtual bool readNextEntry(void);
+	virtual const char* getEntryName(void) const;
+	virtual Misc::PathType getEntryType(void) const;
+	virtual FilePtr openFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly) const;
+	virtual DirectoryPtr openDirectory(const char* directoryName) const;
+	};
+
+/************************************
+Methods of class ZipArchiveDirectory:
+************************************/
+
+ZipArchiveDirectory::ZipArchiveDirectory(ZipArchivePtr sArchive,const std::string& sPathName)
+	:archive(sArchive)
+	{
+	/* Prepend an initial slash to the path name if there is none: */
+	if(sPathName.empty()||sPathName[0]!='/')
+		pathName.push_back('/');
+	pathName.append(sPathName);
+	
+	/* Normalize the path name: */
+	normalizePath(pathName,1);
+	
+	/* Collect all files/directories from the ZIP archive's central directory that match the directory name: */
+	const char* dn=pathName.c_str();
+	size_t dnLen=pathName.length();
+	for(ZipArchive::DirectoryIterator dIt=archive->readDirectory();dIt.isValid();archive->getNextEntry(dIt))
+		{
+		/* Match the iterator name's prefix against the directory name: */
+		if(strncmp(dn+1,dIt.getFileName(),dnLen-1)==0&&(dnLen==1||dIt.getFileName()[dnLen-1]=='/'))
+			{
+			/* Get the beginning of the entry name: */
+			const char* nameBegin=dIt.getFileName()+(dnLen>1?dnLen:0);
+			
+			if(*nameBegin!='\0')
+				{
+				/* Get the end of the entry name: */
+				const char* nameEnd;
+				for(nameEnd=nameBegin;*nameEnd!='\0'&&*nameEnd!='/';++nameEnd)
+					;
+
+				if(*nameEnd=='\0')
+					{
+					/* Iterator points to a regular file: */
+					entries.push_back(DirectoryEntry(true,dIt,std::string(nameBegin,nameEnd)));
+					}
+				else if(*nameEnd=='/'&&*(nameEnd+1)=='\0')
+					{
+					/* Iterator points to a subdirectory: */
+					entries.push_back(DirectoryEntry(false,dIt,std::string(nameBegin,nameEnd)));
+					}
+				}
+			}
+		}
+	
+	/* Initialize the current entry iterator: */
+	currentEntry=entries.end();
+	}
+
+std::string ZipArchiveDirectory::getName(void) const
+	{
+	return std::string(getLastComponent(pathName,1),pathName.end());
+	}
+
+std::string ZipArchiveDirectory::getPath(void) const
+	{
+	return pathName;
+	}
+
+std::string ZipArchiveDirectory::getPath(const char* relativePath) const
+	{
+	/* Assemble and normalize the absolute path name: */
+	std::string result=pathName;
+	if(result.length()>1)
+		result.push_back('/');
+	result.append(relativePath);
+	normalizePath(result,1);
+	
+	return result;
+	}
+
+bool ZipArchiveDirectory::hasParent(void) const
+	{
+	return pathName.length()>1;
+	}
+
+DirectoryPtr ZipArchiveDirectory::getParent(void) const
+	{
+	/* Check for the special case of the root directory: */
+	if(pathName.length()==1)
+		return 0;
+	else
+		{
+		/* Find the last component in the absolute path name: */
+		std::string::const_iterator lastCompIt=getLastComponent(pathName,1);
+		
+		/* Strip off the last slash unless it's the prefix: */
+		if(lastCompIt-pathName.begin()>1)
+			--lastCompIt;
+		
+		/* Open and return the directory corresponding to the path name prefix before the last slash: */
+		return new ZipArchiveDirectory(archive,std::string(pathName.begin(),lastCompIt));
+		}
+	}
+
+void ZipArchiveDirectory::rewind(void)
+	{
+	/* Reset the current entry iterator: */
+	currentEntry=entries.end();
+	}
+
+bool ZipArchiveDirectory::readNextEntry(void)
+	{
+	/* Increment the current entry iterator or wrap it around at the end of the directory: */
+	if(currentEntry!=entries.end())
+		++currentEntry;
+	else
+		currentEntry=entries.begin();
+	
+	return currentEntry!=entries.end();
+	}
+
+const char* ZipArchiveDirectory::getEntryName(void) const
+	{
+	return currentEntry->name.c_str();
+	}
+
+Misc::PathType ZipArchiveDirectory::getEntryType(void) const
+	{
+	if(currentEntry->isFile)
+		return Misc::PATHTYPE_FILE;
+	else
+		return Misc::PATHTYPE_DIRECTORY;
+	}
+
+FilePtr ZipArchiveDirectory::openFile(const char* fileName,File::AccessMode accessMode) const
+	{
+	/* Assemble the fully-qualified file name: */
+	std::string filePath=std::string(pathName.begin()+1,pathName.end());
+	if(!filePath.empty())
+		filePath.push_back('/');
+	filePath.append(fileName);
+	normalizePath(filePath,0);
+	
+	/* Open the file: */
+	return archive->openFile(archive->findFile(filePath.c_str()));
+	}
+
+DirectoryPtr ZipArchiveDirectory::openDirectory(const char* directoryName) const
+	{
+	/* Assemble the fully-qualified directory name: */
+	std::string directoryPath=pathName;
+	if(directoryPath.length()>1)
+		directoryPath.push_back('/');
+	directoryPath.append(directoryName);
+	
+	/* Open the directory: */
+	return new ZipArchiveDirectory(archive,directoryPath);
 	}
 
 }
@@ -239,7 +438,7 @@ Methods of class ZipArchive:
 int ZipArchive::initArchive(void)
 	{
 	/* Set the archive file's endianness: */
-	archive->setEndianness(File::LittleEndian);
+	archive->setEndianness(Misc::LittleEndian);
 	
 	/* Check the first local file header's signature, to check if it's a zip file in the first place: */
 	unsigned int signature=archive->read<unsigned int>();
@@ -339,40 +538,34 @@ ZipArchive::ZipArchive(const char* archiveFileName)
 	switch(initArchive())
 		{
 		case -1:
-			delete archive;
 			Misc::throwStdErr("IO::ZipArchive: %s is not a valid ZIP archive",archiveFileName);
 			break;
 		
 		case -2:
-			delete archive;
 			Misc::throwStdErr("IO::ZipArchive: Unable to locate central directory in ZIP archive %s",archiveFileName);
 			break;
 		
 		case -3:
-			delete archive;
 			Misc::throwStdErr("IO::ZipArchive: Invalid central directory in ZIP archive %s",archiveFileName);
 			break;
 		}
 	}
 
-ZipArchive::ZipArchive(SeekableFile* sArchive)
+ZipArchive::ZipArchive(SeekableFilePtr sArchive)
 	:archive(sArchive)
 	{
 	/* Initialize the archive and handle errors: */
 	switch(initArchive())
 		{
 		case -1:
-			delete archive;
 			Misc::throwStdErr("IO::ZipArchive: Source file is not a valid ZIP archive");
 			break;
 		
 		case -2:
-			delete archive;
 			Misc::throwStdErr("IO::ZipArchive: Unable to locate central directory in ZIP archive");
 			break;
 		
 		case -3:
-			delete archive;
 			Misc::throwStdErr("IO::ZipArchive: Invalid central directory in ZIP archive");
 			break;
 		}
@@ -380,7 +573,6 @@ ZipArchive::ZipArchive(SeekableFile* sArchive)
 
 ZipArchive::~ZipArchive(void)
 	{
-	delete archive;
 	}
 
 ZipArchive::DirectoryIterator ZipArchive::readDirectory(void)
@@ -465,7 +657,7 @@ ZipArchive::FileID ZipArchive::findFile(const char* fileName)
 	throw FileNotFoundError(fileName);
 	}
 
-File* ZipArchive::openFile(const ZipArchive::FileID& fileId)
+FilePtr ZipArchive::openFile(const ZipArchive::FileID& fileId)
 	{
 	/* Read the file's header: */
 	archive->setReadPosAbs(fileId.filePos);
@@ -487,10 +679,10 @@ File* ZipArchive::openFile(const ZipArchive::FileID& fileId)
 	archive->skip<char>(extraFieldLength);
 	
 	/* Create and return the result file: */
-	return new ZipArchiveStreamingFile(*archive,compressionMethod,archive->getReadPos(),compressedSize);
+	return new ZipArchiveStreamingFile(archive,compressionMethod,archive->getReadPos(),compressedSize);
 	}
 
-SeekableFile* ZipArchive::openSeekableFile(const ZipArchive::FileID& fileId)
+SeekableFilePtr ZipArchive::openSeekableFile(const ZipArchive::FileID& fileId)
 	{
 	/* Read the file's header: */
 	archive->setReadPosAbs(fileId.filePos);
@@ -554,6 +746,12 @@ SeekableFile* ZipArchive::openSeekableFile(const ZipArchive::FileID& fileId)
 		}
 	
 	return result;
+	}
+
+DirectoryPtr ZipArchive::openDirectory(const char* directoryName)
+	{
+	/* Return a new directory object: */
+	return new ZipArchiveDirectory(this,directoryName);
 	}
 
 }

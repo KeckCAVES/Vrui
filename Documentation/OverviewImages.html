@@ -27,6 +27,18 @@ The Images library contains classes and functions to represent RGB images, and t
 <DT>GetImageFileSize.h</DT>
 <DD>GetImageFileSize.h contains a function to extract the pixel size from image files with reading the minimum required amount of information from the image file. The function detects the format of the given image file by its extension, and supports PPM, PNG, and JPEG image formats (the latter two rely on the libpng and libjpeg libraries, respectively).</DD>
 
+<DT>ReadPNMImage.h</DT>
+<DD>ReadPNMImage.h contains functions to read RGB images from image files in Portable AnyMap format over an IO::File abstraction.</DD>
+
+<DT>ReadPNGImage.h</DT>
+<DD>ReadPNGImage.h contains functions to read RGB or RGBA images from image files in PNG format over an IO::File abstraction. It relies on the libpng library.</DD>
+
+<DT>ReadJPEGImage.h</DT>
+<DD>ReadJPEGImage.h contains functions to read RGB images from image files in JPEG format over an IO::File abstraction. It relies on the libjpeg library.</DD>
+
+<DT>ReadTIFFImage.h</DT>
+<DD>ReadTIFFImage.h contains functions to read RGB or RGBA images from image files in TIFF format over an IO::SeekableFile abstraction. It relies on the libtiff library.</DD>
+
 <DT>ReadImageFile.h</DT>
 <DD>ReadImageFile.h contains a function to read RGB images from image files. The function detects the format of the given image file by its extension, and supports PPM, PNG, and JPEG image formats (the latter two rely on the libpng and libjpeg libraries, respectively). It also contains a function to read RGBA images from cursor files in Xcursor format.</DD>
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -40,7 +40,8 @@ Methods of class SixAxisTransformToolFactory:
 ********************************************/
 
 SixAxisTransformToolFactory::SixAxisTransformToolFactory(ToolManager& toolManager)
-	:ToolFactory("SixAxisTransformTool",toolManager)
+	:ToolFactory("SixAxisTransformTool",toolManager),
+	 followDisplayCenter(false),homePosition(getDisplayCenter())
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1,true);
@@ -53,7 +54,16 @@ SixAxisTransformToolFactory::SixAxisTransformToolFactory(ToolManager& toolManage
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	homePosition=cfs.retrieveValue<Point>("./homePosition",getDisplayCenter());
+	if(cfs.hasTag("./homePosition"))
+		{
+		/* Read the home position: */
+		homePosition=cfs.retrieveValue<Point>("./homePosition");
+		}
+	else
+		{
+		/* If no home position configured, use the current display center: */
+		followDisplayCenter=true;
+		}
 	
 	typedef std::vector<Vector> VectorList;
 	
@@ -206,7 +216,7 @@ void SixAxisTransformTool::initialize(void)
 	getInputGraphManager()->getInputDeviceGlyph(transformedDevice)=factory->deviceGlyph;
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(TrackerState::translateFromOriginTo(factory->homePosition));
+	transformedDevice->setTransformation(TrackerState::translateFromOriginTo(factory->followDisplayCenter?getDisplayCenter():factory->homePosition));
 	transformedDevice->setDeviceRayDirection(getForwardDirection());
 	}
 
@@ -222,7 +232,7 @@ void SixAxisTransformTool::buttonCallback(int buttonSlotIndex,InputDevice::Butto
 		if(cbData->newButtonState) // Button has just been pressed
 			{
 			/* Reset the transformed device to the home position: */
-			transformedDevice->setTransformation(TrackerState::translateFromOriginTo(factory->homePosition));
+			transformedDevice->setTransformation(TrackerState::translateFromOriginTo(factory->followDisplayCenter?getDisplayCenter():factory->homePosition));
 			}
 		}
 	else
@@ -260,7 +270,10 @@ void SixAxisTransformTool::frame(void)
 	
 	/* Request another frame if the input device has moved: */
 	if(translation!=Vector::zero||rotation!=Vector::zero)
-		requestUpdate();
+		{
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		}
 	}
 
 }

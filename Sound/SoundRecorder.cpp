@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Sound/SoundRecorder.h>
 
+#include <unistd.h>
 #include <Misc/FileNameExtensions.h>
 #include <IO/OpenFile.h>
 #include <Sound/Config.h>
@@ -101,31 +102,22 @@ void SoundRecorder::init(const char* audioSource,const SoundDataFormat& sFormat,
 	/* Determine the output file format from the file name extension: */
 	AudioFileTypeID audioFileType=kAudioFileWAVEType; // Not really a default; just to make compiler happy
 	const char* ext=Misc::getExtension(outputFileName);
-	if(ext!=0)
-		{
-		if(strcasecmp(ext,".wav")==0)
-			{
-			/* Adjust the sound data format for WAV files: */
-			audioFileType=kAudioFileWAVEType;
-			format.mFormatFlags=kLinearPCMFormatFlagIsPacked;
-			if(format.mBitsPerChannel>8)
-				format.mFormatFlags|=kLinearPCMFormatFlagIsSignedInteger;
-			}
-		else if(strcasecmp(ext,".aiff")==0)
-			{
-			/* Adjust the sound data format for AIFF files: */
-			audioFileType=kAudioFileAIFFType;
-			format.mFormatFlags=kLinearPCMFormatFlagIsBigEndian|kLinearPCMFormatFlagIsSignedInteger|kLinearPCMFormatFlagIsPacked;
-			}
-		else
-			Misc::throwStdErr("SoundRecorder::SoundRecorder: Output file name %s has unrecognized extension",outputFileName);
-		}
-	else
+	if(*ext=='\0'||strcasecmp(ext,".aiff")==0)
 		{
 		/* Adjust the sound data format for AIFF files: */
 		audioFileType=kAudioFileAIFFType;
 		format.mFormatFlags=kLinearPCMFormatFlagIsBigEndian|kLinearPCMFormatFlagIsSignedInteger|kLinearPCMFormatFlagIsPacked;
 		}
+	else if(strcasecmp(ext,".wav")==0)
+		{
+		/* Adjust the sound data format for WAV files: */
+		audioFileType=kAudioFileWAVEType;
+		format.mFormatFlags=kLinearPCMFormatFlagIsPacked;
+		if(format.mBitsPerChannel>8)
+			format.mFormatFlags|=kLinearPCMFormatFlagIsSignedInteger;
+		}
+	else
+		Misc::throwStdErr("SoundRecorder::SoundRecorder: Output file name %s has unrecognized extension",outputFileName);
 	
 	/* Create the recording audio queue: */
 	if(AudioQueueNewInput(&format,handleInputBufferWrapper,this,0,kCFRunLoopCommonModes,0,&queue)!=noErr)
@@ -313,7 +305,7 @@ void SoundRecorder::writeWAVHeader(void)
 void* SoundRecorder::recordingThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Read buffers worth of sound data from the PCM device until interrupted: */
 	while(true)
@@ -355,7 +347,7 @@ void SoundRecorder::init(const char* audioSource,const SoundDataFormat& sFormat,
 		/* Adjust the sound data format for WAV files: */
 		format.signedSamples=format.bitsPerSample>8;
 		format.sampleEndianness=SoundDataFormat::LittleEndian;
-		outputFile->setEndianness(IO::File::LittleEndian);
+		outputFile->setEndianness(Misc::LittleEndian);
 		}
 	else if(Misc::hasCaseExtension(outputFileName,""))
 		{
@@ -420,19 +412,17 @@ SoundRecorder::~SoundRecorder(void)
 	/* Stop the recording thread if still active: */
 	if(active)
 		{
+		/* Stop the PCM device: */
+		pcmDevice.drain();
+		usleep(10000);
+		
 		recordingThread.cancel();
 		recordingThread.join();
-		
-		/* Stop the PCM device: */
-		pcmDevice.drop();
 		
 		/* Write the final audio file header if necessary: */
 		if(outputFileFormat==WAV)
 			writeWAVHeader();
 		}
-	
-	/* Close the output file: */
-	delete outputFile;
 	
 	/* Delete the sample buffer: */
 	delete[] sampleBuffer;
@@ -479,12 +469,13 @@ void SoundRecorder::stop(void)
 	
 	#if SOUND_CONFIG_HAVE_ALSA
 	
+	/* Stop the PCM device: */
+	pcmDevice.drain();
+	usleep(10000);
+	
 	/* Kill the background recording thread: */
 	recordingThread.cancel();
 	recordingThread.join();
-	
-	/* Stop the PCM device: */
-	pcmDevice.drop();
 	
 	/* Write the final audio file header if necessary: */
 	if(outputFileFormat==WAV)

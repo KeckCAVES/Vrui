@@ -58,7 +58,7 @@ do
 	then
 		FOUNDLIBDIR=$BASEDIR/$LIBEXT
 	fi
-	if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER -a -e $BASEDIR/$LIBEXT/$SEARCH_DSO ]
+	if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER ] # -a -e $BASEDIR/$LIBEXT/$SEARCH_DSO ] Let's leave this off for the moment
 	then
 		FOUNDBASEDIR=$BASEDIR
 	fi

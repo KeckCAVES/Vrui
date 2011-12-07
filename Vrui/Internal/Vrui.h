@@ -1,7 +1,7 @@
 /***********************************************************************
 Internal kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/Timer.h>
 #include <Misc/CallbackList.h>
 #include <Threads/Mutex.h>
+#include <IO/Directory.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
@@ -52,8 +53,8 @@ class ConfigurationFileSection;
 class CallbackData;
 class TimerEventScheduler;
 }
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 class MulticastPipe;
 }
 namespace GLMotif {
@@ -110,9 +111,9 @@ struct VruiState
 	/* Elements: */
 	
 	/* Multipipe management: */
-	Comm::MulticastPipeMultiplexer* multiplexer;
+	Cluster::Multiplexer* multiplexer;
 	bool master;
-	Comm::MulticastPipe* pipe;
+	Cluster::MulticastPipe* pipe;
 	
 	/* Random number management: */
 	unsigned int randomSeed; // Seed value for random number generator
@@ -133,6 +134,7 @@ struct VruiState
 	Point newInputDevicePosition;
 	VirtualInputDevice* virtualInputDevice;
 	InputGraphManager* inputGraphManager;
+	IO::DirectoryPtr inputGraphDirectory; // Directory from which to load the next input graph
 	bool loadInputGraph; // Flag whether to replace the current input graph with one loaded from the given file at the next opportune moment
 	std::string inputGraphFileName; // Name of input graph file to load if loadInputGraph is true
 	
@@ -188,6 +190,7 @@ struct VruiState
 	std::vector<GLMotif::PopupWindow*> poppedDialogs;
 	GLMotif::PopupMenu* systemMenuPopup;
 	MutexMenu* mainMenu;
+	IO::DirectoryPtr viewDirectory; // Directory from which the most recent view file was loaded
 	
 	/* 3D picking management: */
 	Scalar pointPickDistance;
@@ -224,6 +227,7 @@ struct VruiState
 	double minimumFrameTime; // Lower limit on frame times; Vrui's main loop will block to pad frame times to this minimum
 	double lastFrame; // Application time at which the last frame was started
 	double lastFrameDelta; // Duration of last frame
+	double nextFrameTime; // Scheduled time to start next frame, or 0.0 if no frame scheduled
 	int numRecentFrameTimes; // Number of recent frame times to average from
 	double* recentFrameTimes; // Array of recent times to complete a frame
 	int nextFrameTimeIndex; // Index at which the next frame time is stored in the array
@@ -249,11 +253,11 @@ struct VruiState
 	GLMotif::Popup* buildDevicesMenu(void); // Builds the input devices submenu
 	void buildSystemMenu(GLMotif::Container* parent); // Builds the Vrui system menu inside the given container widget
 	void updateNavigationTransformation(const NavTransform& newTransform); // Updates the working version of the navigation transformation
-	bool loadViewpointFile(const char* viewpointFileName); // Overrides the navigation transformation with viewpoint data stored in the given viewpoint file
+	bool loadViewpointFile(IO::Directory& directory,const char* viewpointFileName); // Overrides the navigation transformation with viewpoint data stored in the given viewpoint file
 	void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData); // Callback method called when a tool is destroyed
 	
 	/* Constructors and destructors: */
-	VruiState(Comm::MulticastPipeMultiplexer* sMultiplexer,Comm::MulticastPipe* sPipe); // Initializes basic Vrui state
+	VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* sPipe); // Initializes basic Vrui state
 	~VruiState(void);
 	
 	/* Methods: */
@@ -273,17 +277,18 @@ struct VruiState
 	void finishMainLoop(void); // Performs first steps of shutdown after mainloop finishes
 	
 	/* System menu callback methods: */
-	void fileSelectionDialogCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData);
 	void dialogsMenuCallback(GLMotif::SubMenu::EntrySelectCallbackData* cbData);
 	void widgetPopCallback(GLMotif::WidgetManager::WidgetPopCallbackData* cbData);
 	void loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void loadViewCallback(Misc::CallbackData* cbData);
+	void saveViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveViewCallback(Misc::CallbackData* cbData);
 	void restoreViewCallback(Misc::CallbackData* cbData);
 	void createInputDeviceCallback(Misc::CallbackData* cbData,const int& numButtons);
 	void destroyInputDeviceCallback(Misc::CallbackData* cbData);
-	void loadInputGraphCallback(Misc::CallbackData* cbData);
 	void loadInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void loadInputGraphCallback(Misc::CallbackData* cbData);
+	void saveInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveInputGraphCallback(Misc::CallbackData* cbData);
 	void showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void quitCallback(Misc::CallbackData* cbData);

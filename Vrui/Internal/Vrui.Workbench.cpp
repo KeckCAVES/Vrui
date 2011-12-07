@@ -20,10 +20,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <AL/Config.h>
-
-#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
@@ -45,8 +44,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Threads/Barrier.h>
-#include <Comm/MulticastPipeMultiplexer.h>
-#include <Comm/MulticastPipe.h>
+#include <Cluster/Multiplexer.h>
+#include <Cluster/MulticastPipe.h>
+#include <Math/Constants.h>
 #include <Geometry/Point.h>
 #include <Geometry/Plane.h>
 #include <Geometry/OrthogonalTransformation.h>
@@ -59,9 +59,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <X11/keysym.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/Popup.h>
+#include <AL/Config.h>
 #include <AL/ALContextData.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
+#include <Vrui/CoordinateManager.h>
 #include <Vrui/VRWindow.h>
 #include <Vrui/SoundContext.h>
 #include <Vrui/ToolManager.h>
@@ -90,8 +92,8 @@ Threads::Thread* vruiRenderingThreads=0;
 Threads::Barrier vruiRenderingBarrier;
 int vruiNumSoundContexts=0;
 SoundContext** vruiSoundContexts=0;
-Comm::MulticastPipeMultiplexer* vruiMultiplexer=0;
-Comm::MulticastPipe* vruiPipe=0;
+Cluster::Multiplexer* vruiMultiplexer=0;
+Cluster::MulticastPipe* vruiPipe=0;
 int vruiNumSlaves=0;
 pid_t* vruiSlavePids=0;
 int vruiSlaveArgc=0;
@@ -266,7 +268,7 @@ struct VruiRenderingThreadArg
 void* vruiRenderingThreadFunction(VruiRenderingThreadArg threadArg)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Get this thread's parameters: */
 	int windowIndex=threadArg.windowIndex;
@@ -280,6 +282,7 @@ void* vruiRenderingThreadFunction(VruiRenderingThreadArg threadArg)
 		else
 			snprintf(windowName,sizeof(windowName),"%s",vruiApplicationName);
 		vruiWindows[windowIndex]=new VRWindow(windowName,threadArg.windowConfigFileSection,vruiState,threadArg.mouseAdapter);
+		vruiWindows[windowIndex]->getCloseCallbacks().add(vruiState,&VruiState::quitCallback);
 		}
 	catch(std::runtime_error error)
 		{
@@ -353,13 +356,13 @@ void init(int& argc,char**& argv,char**&)
 		try
 			{
 			/* Create the multicast multiplexer: */
-			vruiMultiplexer=new Comm::MulticastPipeMultiplexer(numSlaves,nodeIndex,master,masterPort,multicastGroup,multicastPort);
+			vruiMultiplexer=new Cluster::Multiplexer(numSlaves,nodeIndex,master,masterPort,multicastGroup,multicastPort);
 			
 			/* Wait until the entire cluster is connected: */
 			vruiMultiplexer->waitForConnection();
 			
 			/* Open a multicast pipe: */
-			vruiPipe=new Comm::MulticastPipe(vruiMultiplexer);
+			vruiPipe=new Cluster::MulticastPipe(vruiMultiplexer);
 			
 			/* Read the entire configuration file and the root section name: */
 			vruiConfigFile=new Misc::ConfigurationFile(*vruiPipe);
@@ -497,9 +500,11 @@ void init(int& argc,char**& argv,char**&)
 				vruiNumSlaves=slaves.size();
 				std::string multicastGroup=vruiConfigFile->retrieveString("./multipipeMulticastGroup");
 				int multicastPort=vruiConfigFile->retrieveValue<int>("./multipipeMulticastPort");
+				unsigned int multicastSendBufferSize=vruiConfigFile->retrieveValue<unsigned int>("./multipipeSendBufferSize",16);
 				
 				/* Create the multicast multiplexer: */
-				vruiMultiplexer=new Comm::MulticastPipeMultiplexer(vruiNumSlaves,0,master.c_str(),masterPort,multicastGroup.c_str(),multicastPort);
+				vruiMultiplexer=new Cluster::Multiplexer(vruiNumSlaves,0,master.c_str(),masterPort,multicastGroup.c_str(),multicastPort);
+				vruiMultiplexer->setSendBufferSize(multicastSendBufferSize);
 				
 				/* Start the multipipe slaves on all slave nodes: */
 				std::string multipipeRemoteCommand=vruiConfigFile->retrieveString("./multipipeRemoteCommand","ssh");
@@ -547,7 +552,7 @@ void init(int& argc,char**& argv,char**&)
 				vruiMultiplexer->waitForConnection();
 				
 				/* Open a multicast pipe: */
-				vruiPipe=new Comm::MulticastPipe(vruiMultiplexer);
+				vruiPipe=new Cluster::MulticastPipe(vruiMultiplexer);
 				
 				/* Send the entire Vrui configuration file and the root section name across the pipe: */
 				vruiConfigFile->writeToPipe(*vruiPipe);
@@ -559,7 +564,7 @@ void init(int& argc,char**& argv,char**&)
 					Misc::writeCString(argv[i],*vruiPipe);
 				
 				/* Flush the pipe: */
-				vruiPipe->finishMessage();
+				vruiPipe->flush();
 				}
 			catch(std::runtime_error error)
 				{
@@ -632,8 +637,8 @@ void init(int& argc,char**& argv,char**&)
 					}
 				else
 					{
-					/* Ignore the addToolClass parameter: */
-					std::cerr<<"Vrui::init: No tool class name given after -addToolClass option"<<std::endl;
+					/* Ignore the addTool parameter: */
+					std::cerr<<"Vrui::init: No tool binding section name given after -addTool option"<<std::endl;
 					--argc;
 					}
 				}
@@ -699,6 +704,28 @@ void init(int& argc,char**& argv,char**&)
 					{
 					/* Ignore the loadView parameter: */
 					std::cerr<<"Vrui::init: No viewpoint file name given after -loadView option"<<std::endl;
+					--argc;
+					}
+				}
+			else if(strcasecmp(argv[i]+1,"setLinearUnit")==0)
+				{
+				/* Next two parameters are unit name and scale factor: */
+				if(i+2<argc)
+					{
+					/* Set the linear unit: */
+					getCoordinateManager()->setUnit(Geometry::LinearUnit(argv[i+1],atof(argv[i+2])));
+					
+					/* Remove parameters from argument list: */
+					argc-=3;
+					for(int j=i;j<argc;++j)
+						argv[j]=argv[j+3];
+					--i;
+					break;
+					}
+				else
+					{
+					/* Ignore the setLinearUnit parameter: */
+					std::cerr<<"Vrui::init: No unit name and scale factor given after -setLinearUnit option"<<std::endl;
 					--argc;
 					}
 				}
@@ -794,6 +821,7 @@ void startDisplay(void)
 				else
 					snprintf(windowName,sizeof(windowName),"%s",vruiApplicationName);
 				vruiWindows[i]=new VRWindow(windowName,vruiConfigFile->getSection(windowNames[i].c_str()),vruiState,mouseAdapter);
+				vruiWindows[i]->getCloseCallbacks().add(vruiState,&VruiState::quitCallback);
 				
 				/* Initialize all GLObjects for this window's context data: */
 				vruiWindows[i]->makeCurrent();
@@ -873,16 +901,23 @@ void startSound(void)
 
 bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 	{
-	bool done=false;
+	bool handledEvents=false;
 	
 	/* Check if there are pending events on the event pipe or any windows' X event queues: */
 	Misc::FdSet readFds;
 	bool mustBlock=allowBlocking;
+	#ifdef DEBUG
+	{
+	Threads::Mutex::Lock vruiEventPipeLock(vruiEventPipeMutex);
+	#endif
 	if(vruiNumSignaledEvents>0&&vruiEventPipe[0]>=0)
 		{
 		readFds.add(vruiEventPipe[0]);
 		mustBlock=false;
 		}
+	#ifdef DEBUG
+	}
+	#endif
 	for(int i=0;i<vruiNumWindows;++i)
 		if(XPending(vruiWindows[i]->getDisplay()))
 			{
@@ -902,10 +937,15 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 			readFds.add(ConnectionNumber(vruiWindows[i]->getDisplay()));
 		
 		/* Block until any events arrive: */
-		if(vruiState->timerEventScheduler->hasPendingEvents())
+		if(vruiState->nextFrameTime!=0.0||vruiState->timerEventScheduler->hasPendingEvents())
 			{
 			/* Calculate the time interval until the next scheduled event: */
-			double dtimeout=vruiState->timerEventScheduler->getNextEventTime()-vruiState->appTime.peekTime();
+			double nextFrameTime=Math::Constants<double>::max;
+			if(vruiState->timerEventScheduler->hasPendingEvents())
+				nextFrameTime=vruiState->timerEventScheduler->getNextEventTime();
+			if(vruiState->nextFrameTime!=0.0&&nextFrameTime>vruiState->nextFrameTime)
+				nextFrameTime=vruiState->nextFrameTime;
+			double dtimeout=nextFrameTime-vruiState->appTime.peekTime();
 			struct timeval timeout;
 			if(dtimeout>0.0)
 				{
@@ -919,7 +959,8 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 				}
 			
 			/* Block until the next scheduled timer event comes due: */
-			Misc::select(&readFds,0,0,&timeout);
+			if(Misc::select(&readFds,0,0,&timeout)==0)
+				handledEvents=true; // Must stop waiting if a timer event is due
 			}
 		else
 			{
@@ -933,17 +974,37 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 		if(readFds.isSet(ConnectionNumber(vruiWindows[i]->getDisplay())))
 			{
 			/* Process all pending events for this display connection: */
+			bool isKeyRepeat=false; // Flag if the next event is a key repeat event
 			do
 				{
 				/* Get the next event: */
 				XEvent event;
 				XNextEvent(vruiWindows[i]->getDisplay(),&event);
+				
+				/* Check for key repeat events (a KeyRelease immediately followed by a KeyPress with the same time stamp): */
+				if(event.type==KeyRelease&&XPending(vruiWindows[i]->getDisplay()))
+					{
+					/* Check if the next event is a KeyPress with the same time stamp: */
+					XEvent nextEvent;
+					XPeekEvent(vruiWindows[i]->getDisplay(),&nextEvent);
+					if(nextEvent.type==KeyPress&&nextEvent.xkey.time==event.xkey.time&&nextEvent.xkey.keycode==event.xkey.keycode)
+						{
+						/* Mark the next event as a key repeat: */
+						isKeyRepeat=true;
+						continue;
+						}
+					}
+				
+				/* Pass it to all windows interested in it: */
+				bool finishProcessing=false;
 				for(int j=0;j<vruiNumWindows;++j)
 					if(vruiWindows[j]->isEventForWindow(event))
-						done=vruiWindows[j]->processEvent(event)||done;
+						finishProcessing=vruiWindows[j]->processEvent(event)||finishProcessing;
+				handledEvents=!isKeyRepeat||finishProcessing;
+				isKeyRepeat=false;
 				
-				/* Bail out immediately on button or keyboard events: */
-				if(event.type==KeyPress||event.type==ButtonPress)
+				/* Stop processing events if something significant happened: */
+				if(finishProcessing)
 					goto doneWithEvents;
 				}
 			while(XPending(vruiWindows[i]->getDisplay()));
@@ -961,8 +1022,13 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 			timeout.tv_usec=0;
 			readFds.add(fileno(stdin));
 			Misc::select(&readFds,0,0,&timeout);
-			if(readFds.isSet(fileno(stdin)))
-				done=fgetc(stdin)==27||done;
+			if(readFds.isSet(fileno(stdin))&&fgetc(stdin)==27)
+				{
+				/* Call the quit callback: */
+				Misc::CallbackData cbData;
+				vruiState->quitCallback(&cbData);
+				handledEvents=true;
+				}
 			}
 		}
 	
@@ -973,16 +1039,14 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 		
 		/* Read accumulated bytes from the event pipe (it's nonblocking): */
 		char readBuffer[16]; // More than enough; there should only be one byte in the pipe
-		if(read(vruiEventPipe[0],readBuffer,sizeof(readBuffer))<0)
-			{
-			/* There's nothing to do! Stupid gcc! */
-			}
+		if(read(vruiEventPipe[0],readBuffer,sizeof(readBuffer))>0)
+			handledEvents=true;
 		
 		/* Reset the number of accumulated events: */
 		vruiNumSignaledEvents=0;
 		}
 	
-	return done;
+	return handledEvents;
 	}
 
 void vruiInnerLoopMultiWindow(void)
@@ -991,7 +1055,17 @@ void vruiInnerLoopMultiWindow(void)
 	while(keepRunning)
 		{
 		/* Handle all events, blocking if there are none unless in continuous mode: */
-		keepRunning=!vruiHandleAllEvents(!vruiState->updateContinuously,vruiNumWindows==0&&vruiState->master);
+		if(vruiState->updateContinuously)
+			{
+			/* Check for and handle events without blocking: */
+			vruiHandleAllEvents(false,vruiNumWindows==0&&vruiState->master);
+			}
+		else
+			{
+			/* Wait for and process events until something actually happens: */
+			while(!vruiHandleAllEvents(true,vruiNumWindows==0&&vruiState->master))
+				;
+			}
 		
 		/* Check for asynchronous shutdown: */
 		keepRunning=keepRunning&&!vruiAsynchronousShutdown;
@@ -1002,7 +1076,7 @@ void vruiInnerLoopMultiWindow(void)
 		if(!keepRunning)
 			{
 			if(vruiState->multiplexer!=0&&vruiState->master)
-				vruiState->pipe->finishMessage();
+				vruiState->pipe->flush();
 			
 			/* Bail out of the inner loop: */
 			break;
@@ -1080,7 +1154,17 @@ void vruiInnerLoopSingleWindow(void)
 	while(true)
 		{
 		/* Handle all events, blocking if there are none unless in continuous mode: */
-		keepRunning=!vruiHandleAllEvents(!vruiState->updateContinuously,false);
+		if(vruiState->updateContinuously)
+			{
+			/* Check for and handle events without blocking: */
+			vruiHandleAllEvents(false,false);
+			}
+		else
+			{
+			/* Wait for and process events until something actually happens: */
+			while(!vruiHandleAllEvents(true,false))
+				;
+			}
 		
 		/* Check for asynchronous shutdown: */
 		keepRunning=keepRunning&&!vruiAsynchronousShutdown;
@@ -1091,7 +1175,7 @@ void vruiInnerLoopSingleWindow(void)
 		if(!keepRunning)
 			{
 			if(vruiState->multiplexer!=0&&vruiState->master)
-				vruiState->pipe->finishMessage();
+				vruiState->pipe->flush();
 			
 			/* Bail out of the inner loop: */
 			break;

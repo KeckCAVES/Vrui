@@ -20,9 +20,14 @@ with the I/O Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#define DEBUGGING 0
+
 #include <IO/File.h>
 
 #include <string.h>
+#if DEBUGGING
+#include <iostream>
+#endif
 #include <Misc/ThrowStdErr.h>
 
 namespace IO {
@@ -78,7 +83,7 @@ File::AccessMode File::disableRead(File::AccessMode accessMode)
 			return WriteOnly;
 		
 		default:
-			return None;
+			return NoAccess;
 		}
 	}
 
@@ -91,7 +96,7 @@ File::AccessMode File::disableWrite(File::AccessMode accessMode)
 			return ReadOnly;
 		
 		default:
-			return None;
+			return NoAccess;
 		}
 	}
 
@@ -100,7 +105,7 @@ const char* File::getAccessModeName(File::AccessMode accessMode)
 	const char* result=0;
 	switch(accessMode)
 		{
-		case None:
+		case NoAccess:
 			result="nothing";
 			break;
 		
@@ -118,13 +123,6 @@ const char* File::getAccessModeName(File::AccessMode accessMode)
 		}
 	
 	return result;
-	}
-
-void File::flushReadBuffer(void)
-	{
-	/* Reset the read buffer pointers: */
-	readDataEnd=readBuffer;
-	readPtr=readBuffer;
 	}
 
 void File::setReadBuffer(size_t newReadBufferSize,File::Byte* newReadBuffer,bool deleteOldBuffer)
@@ -153,8 +151,24 @@ void File::setWriteBuffer(size_t newWriteBufferSize,File::Byte* newWriteBuffer,b
 	writePtr=writeBuffer;
 	}
 
+size_t File::readData(File::Byte* buffer,size_t bufferSize)
+	{
+	/* Return end-of-file indicator: */
+	return 0;
+	}
+
+void File::writeData(const File::Byte* buffer,size_t bufferSize)
+	{
+	/* Throw write error: */
+	throw WriteError(bufferSize);
+	}
+
 void File::bufferedRead(void* buffer,size_t bufferSize)
 	{
+	#if DEBUGGING
+	std::cout<<"Reading from "<<this<<std::endl;
+	#endif
+	
 	/* Copy the first bit of data from the read buffer: */
 	Byte* bufPtr=static_cast<Byte*>(buffer);
 	size_t copySize=readDataEnd-readPtr;
@@ -241,6 +255,10 @@ void File::bufferedSkip(size_t skipSize)
 
 void File::bufferedWrite(const void* buffer,size_t bufferSize)
 	{
+	#if DEBUGGING
+	std::cout<<"Writing to "<<this<<std::endl;
+	#endif
+	
 	const Byte* bufPtr=static_cast<const Byte*>(buffer);
 	
 	/* Copy the first chunk of data into the write buffer: */
@@ -295,6 +313,9 @@ File::File(void)
 	 writeBufferSize(0),writeBuffer(0),writeBufferEnd(0),writePtr(0),
 	 canWriteThrough(true),writeMustSwapEndianness(false)
 	{
+	#if DEBUGGING
+	std::cout<<"Created File object at "<<this<<std::endl;
+	#endif
 	}
 
 File::File(File::AccessMode sAccessMode)
@@ -303,7 +324,7 @@ File::File(File::AccessMode sAccessMode)
 	 writeBufferSize(0),writeBuffer(0),writeBufferEnd(0),writePtr(0),
 	 canWriteThrough(true),writeMustSwapEndianness(false)
 	{
-	if(sAccessMode!=WriteOnly)
+	if(sAccessMode==ReadOnly||sAccessMode==ReadWrite)
 		{
 		/* Create a default read buffer: */
 		readBufferSize=8192;
@@ -312,7 +333,7 @@ File::File(File::AccessMode sAccessMode)
 		readPtr=readBuffer;
 		}
 	
-	if(sAccessMode!=ReadOnly)
+	if(sAccessMode==WriteOnly||sAccessMode==ReadWrite)
 		{
 		/* Create a default write buffer: */
 		writeBufferSize=8192;
@@ -320,6 +341,9 @@ File::File(File::AccessMode sAccessMode)
 		writeBufferEnd=writeBuffer+writeBufferSize;
 		writePtr=writeBuffer;
 		}
+	#if DEBUGGING
+	std::cout<<"Created File object at "<<this<<std::endl;
+	#endif
 	}
 
 File::~File(void)
@@ -327,6 +351,9 @@ File::~File(void)
 	/* Delete the read and write buffers: */
 	delete[] readBuffer;
 	delete[] writeBuffer;
+	#if DEBUGGING
+	std::cout<<"Destroyed File object at "<<this<<std::endl;
+	#endif
 	}
 
 int File::getFd(void) const
@@ -336,6 +363,16 @@ int File::getFd(void) const
 	
 	/* Just to make compiler happy: */
 	return -1;
+	}
+
+size_t File::getReadBufferSize(void) const
+	{
+	return readBufferSize;
+	}
+
+size_t File::getWriteBufferSize(void) const
+	{
+	return writeBufferSize;
 	}
 
 size_t File::resizeReadBuffer(size_t newReadBufferSize)
@@ -376,51 +413,13 @@ void File::resizeWriteBuffer(size_t newWriteBufferSize)
 	writePtr=writeBuffer;
 	}
 
-void File::ungetChar(int character)
-	{
-	/* Check if the unget buffer is full: */
-	if(readPtr==readBuffer)
-		throw UngetCharError();
-	
-	/* Put the character back into the read buffer: */
-	*(--readPtr)=Byte(character);
-	}
-
-size_t File::readUpTo(void* buffer,size_t bufferSize)
-	{
-	/* Read more data if the buffer is empty: */
-	if(readPtr==readDataEnd)
-		fillReadBuffer();
-	
-	/* Copy whatever is in the buffer, up to the provided size: */
-	size_t copySize=readDataEnd-readPtr;
-	if(copySize>bufferSize)
-		copySize=bufferSize;
-	memcpy(buffer,readPtr,copySize);
-	
-	/* Advance the read position: */
-	readPtr+=copySize;
-	
-	return copySize;
-	}
-
-void File::flush(void)
-	{
-	/* Write the entire write buffer if there is any data in it: */
-	if(writePtr!=writeBuffer)
-		writeData(writeBuffer,writePtr-writeBuffer);
-	
-	/* Reset the write buffer: */
-	writePtr=writeBuffer;
-	}
-
-void File::setEndianness(File::Endianness newEndianness)
+void File::setEndianness(Misc::Endianness newEndianness)
 	{
 	#if __BYTE_ORDER==__LITTLE_ENDIAN
-	readMustSwapEndianness=writeMustSwapEndianness=(newEndianness==BigEndian);
+	readMustSwapEndianness=writeMustSwapEndianness=(newEndianness==Misc::BigEndian);
 	#endif
 	#if __BYTE_ORDER==__BIG_ENDIAN
-	readMustSwapEndianness=writeMustSwapEndianness=(newEndianness==LittleEndian);
+	readMustSwapEndianness=writeMustSwapEndianness=(newEndianness==Misc::LittleEndian);
 	#endif
 	}
 

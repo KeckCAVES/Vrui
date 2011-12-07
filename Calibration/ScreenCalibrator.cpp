@@ -257,8 +257,7 @@ Methods of class ScreenCalibrator:
 void ScreenCalibrator::readOptitrackSampleFile(const char* fileName,bool flipZ)
 	{
 	/* Open the CSV input file: */
-	IO::AutoFile file(Vrui::openFile(fileName));
-	IO::TokenSource tok(*file);
+	IO::TokenSource tok(Vrui::openFile(fileName));
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -338,8 +337,7 @@ void ScreenCalibrator::readOptitrackSampleFile(const char* fileName,bool flipZ)
 ScreenCalibrator::PointList ScreenCalibrator::readTotalstationSurveyFile(const char* fileName,const char* tag) const
 	{
 	/* Open the CSV input file: */
-	IO::AutoFile file(Vrui::openFile(fileName));
-	IO::TokenSource tok(*file);
+	IO::TokenSource tok(Vrui::openFile(fileName));
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();

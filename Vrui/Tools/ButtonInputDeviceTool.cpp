@@ -266,7 +266,9 @@ void ButtonInputDeviceTool::frame(void)
 			ts.leftMultiply(TrackerState::translateFromOriginTo(p));
 			}
 		getGrabbedDevice()->setTransformation(ts);
-		requestUpdate();
+		
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 

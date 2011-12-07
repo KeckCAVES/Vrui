@@ -29,6 +29,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/Node.h>
 
 /* Forward declarations: */
+namespace Cluster {
+class Multiplexer;
+}
 namespace SceneGraph {
 class Doom3FileManager;
 class Doom3TextureManager;
@@ -46,6 +49,7 @@ class Doom3DataContextNode:public Node
 	
 	/* Derived state: */
 	protected:
+	Cluster::Multiplexer* multiplexer; // Multiplexer to read resource files in a cluster environment
 	Doom3FileManager* fileManager; // Manager to load pak and other resource files
 	Doom3TextureManager* textureManager; // Manager to load and share textures
 	Doom3MaterialManager* materialManager; // Manager to load and share material properties

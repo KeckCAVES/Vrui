@@ -23,11 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IO_TOKENSOURCE_INCLUDED
 
 #include <stddef.h>
-
-/* Forward declarations: */
-namespace IO {
-class File;
-}
+#include <IO/File.h>
 
 namespace IO {
 
@@ -46,7 +42,7 @@ class TokenSource
 		};
 	
 	/* Elements: */
-	File& source; // Reference to character source for token reader
+	FilePtr source; // Data source for token reader
 	unsigned char characterClasses[257]; // Array of character type bit flags for quicker classification, with extra space for EOF
 	unsigned char* cc; // Pointer into character classes array to account for EOF==-1
 	int lastChar; // Last character read from character source
@@ -60,7 +56,7 @@ class TokenSource
 	
 	/* Constructors and destructors: */
 	public:
-	TokenSource(File& sSource); // Creates a token source for the given character source
+	TokenSource(FilePtr sSource); // Creates a token source for the given character source
 	~TokenSource(void);
 	
 	/* Methods: */

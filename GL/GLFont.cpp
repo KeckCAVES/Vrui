@@ -400,8 +400,8 @@ GLFont::GLFont(const char* fontName)
 		{
 		/* Try given directory first: */
 		snprintf(fontFileName,sizeof(fontFileName),"%s.fnt",fontName);
-		IO::AutoFile fontFile(IO::openFile(fontFileName));
-		fontFile->setEndianness(IO::File::LittleEndian);
+		IO::FilePtr fontFile(IO::openFile(fontFileName));
+		fontFile->setEndianness(Misc::LittleEndian);
 		loadFont(*fontFile);
 		return;
 		}
@@ -417,8 +417,8 @@ GLFont::GLFont(const char* fontName)
 			{
 			/* Try the GLFONTDIR directory next: */
 			snprintf(fontFileName,sizeof(fontFileName),"%s/%s.fnt",getenv("GLFONTDIR"),fontName);
-			IO::AutoFile fontFile(IO::openFile(fontFileName));
-			fontFile->setEndianness(IO::File::LittleEndian);
+			IO::FilePtr fontFile(IO::openFile(fontFileName));
+			fontFile->setEndianness(Misc::LittleEndian);
 			loadFont(*fontFile);
 			return;
 			}
@@ -432,8 +432,8 @@ GLFont::GLFont(const char* fontName)
 		{
 		/* Try system-wide GL font directory last: */
 		snprintf(fontFileName,sizeof(fontFileName),"%s/%s.fnt",SYSGLFONTDIR,fontName);
-		IO::AutoFile fontFile(IO::openFile(fontFileName));
-		fontFile->setEndianness(IO::File::LittleEndian);
+		IO::FilePtr fontFile(IO::openFile(fontFileName));
+		fontFile->setEndianness(Misc::LittleEndian);
 		loadFont(*fontFile);
 		return;
 		}

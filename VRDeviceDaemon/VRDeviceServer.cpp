@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -38,7 +38,7 @@ void* VRDeviceServer::listenThreadMethod(void)
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{
@@ -47,24 +47,15 @@ void* VRDeviceServer::listenThreadMethod(void)
 		printf("VRDeviceServer: Waiting for client connection\n");
 		fflush(stdout);
 		#endif
-		Comm::TCPSocket clientSocket=listenSocket.accept();
+		ClientData* newClient=new ClientData(listenSocket);
 		
 		/* Connect the new client: */
 		#ifdef VERBOSE
-		try
-			{
-			printf("VRDeviceServer: Connecting new client from %s, port %d\n",clientSocket.getPeerHostname().c_str(),clientSocket.getPeerPortId());
-			fflush(stdout);
-			}
-		catch(std::runtime_error error)
-			{
-			printf("VRDeviceServer: Connecting new client from %s, port %d\n",clientSocket.getPeerAddress().c_str(),clientSocket.getPeerPortId());
-			fflush(stdout);
-			}
+		printf("VRDeviceServer: Connecting new client from %s, port %d\n",newClient->pipe.getPeerHostName().c_str(),newClient->pipe.getPeerPortId());
+		fflush(stdout);
 		#endif
 		{
 		Threads::Mutex::Lock clientListLock(clientListMutex);
-		ClientData* newClient=new ClientData(clientSocket);
 		clientList.push_back(newClient);
 		newClient->communicationThread.start(this,&VRDeviceServer::clientCommunicationThreadMethod,newClient);
 		}
@@ -77,7 +68,7 @@ void* VRDeviceServer::clientCommunicationThreadMethod(VRDeviceServer::ClientData
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	Vrui::VRDevicePipe& pipe=clientData->pipe;
 	
@@ -305,7 +296,7 @@ void* VRDeviceServer::streamingThreadMethod(void)
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{

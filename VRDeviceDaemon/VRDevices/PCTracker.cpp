@@ -1,7 +1,7 @@
 /***********************************************************************
 PCTracker - Class for communicating with tracking devices on a dedicated
 DOS PC.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -56,17 +56,17 @@ void PCTracker::deviceThreadMethod(void)
 			/* Wait for the start of the next message: */
 			do
 				{
-				buffer[0]=devicePort.readByte();
+				buffer[0]=devicePort.getChar();
 				}
 			while(buffer[0]!='S');
 			
 			/* Read the rest of the message: */
-			devicePort.readBytes(14,buffer+1);
+			devicePort.readRaw(buffer+1,14);
 			}
 		else
 			{
 			/* Read the next message: */
-			devicePort.readBytes(15,buffer);
+			devicePort.readRaw(buffer,15);
 			}
 		
 		/* Check for sync: */
@@ -149,8 +149,9 @@ PCTracker::PCTracker(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 	setNumTrackers(configFile.retrieveValue<int>("./numTrackers"),configFile);
 	
 	/* Set device port parameters: */
+	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate");
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
 	devicePort.setRawMode(1,0);
 	
 	/* Initialize device states: */

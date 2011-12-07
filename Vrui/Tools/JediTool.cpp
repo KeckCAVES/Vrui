@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -161,19 +161,19 @@ void JediTool::frame(void)
 	if(active)
 		{
 		/* Update the light saber billboard: */
-		basePoint=getButtonDevicePosition(0);
+		origin=getButtonDevicePosition(0);
 		axis=getButtonDeviceRayDirection(0);
 		
 		/* Scale the lightsaber during activation: */
+		length=factory->lightsaberLength;
 		double activeTime=getApplicationTime()-activationTime;
 		if(activeTime<1.5)
 			{
-			axis*=activeTime/1.5;
-			requestUpdate();
+			length*=activeTime/1.5;
+			
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
 			}
-		
-		basePoint-=axis*factory->baseOffset;
-		axis*=factory->lightsaberLength;
 		}
 	}
 
@@ -201,13 +201,17 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		/* Get the data item: */
 		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 		
-		/* Get the eye position for the current rendering path from Vrui's display state: */
+		/* Get the eye position for the current rendering pass from Vrui's display state: */
 		const Point& eyePosition=Vrui::getDisplayState(contextData).eyePosition;
 		
-		/* Calculate the billboard orientation: */
-		Vector x=Geometry::cross(axis,eyePosition-getButtonDevicePosition(0));
+		/* Calculate the billboard size and orientation: */
+		Vector y=axis;
+		Vector x=Geometry::cross(axis,eyePosition-origin);
 		x.normalize();
-		x*=Math::div2(factory->lightsaberWidth);
+		y*=length*scaleFactor;
+		x*=Math::div2(factory->lightsaberWidth*scaleFactor);
+		Point basePoint=origin;
+		basePoint-=axis*(factory->baseOffset*scaleFactor);
 		
 		/* Draw the light saber: */
 		glPushAttrib(GL_COLOR_BUFFER_BIT|GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);
@@ -223,9 +227,9 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		glTexCoord2f(1.0f,0.0f);
 		glVertex(basePoint+x);
 		glTexCoord2f(1.0f,1.0f);
-		glVertex(basePoint+x+axis);
+		glVertex(basePoint+x+y);
 		glTexCoord2f(0.0f,1.0f);
-		glVertex(basePoint-x+axis);
+		glVertex(basePoint-x+y);
 		glEnd();
 		glBindTexture(GL_TEXTURE_2D,0);
 		glPopAttrib();

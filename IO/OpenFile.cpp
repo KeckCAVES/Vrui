@@ -25,52 +25,49 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
 #include <IO/StandardFile.h>
-#include <IO/GzippedFile.h>
+#include <IO/GzipFilter.h>
+#include <IO/SeekableFilter.h>
+#include <IO/StandardDirectory.h>
 
 namespace IO {
 
-File* openFile(const char* fileName,File::AccessMode accessMode)
+FilePtr openFile(const char* fileName,File::AccessMode accessMode)
 	{
-	File* result=0;
+	FilePtr result;
+	
+	/* Open the base file: */
+	result=new StandardFile(fileName,accessMode);
 	
 	/* Check if the file name has the .gz extension: */
 	if(Misc::hasCaseExtension(fileName,".gz"))
 		{
-		/* Check if the caller wants to write to the file: */
-		if(accessMode!=File::ReadOnly)
-			Misc::throwStdErr("IO::openFile: Cannot write to gzipped files");
-		
-		/* Open a gzip-compressed file: */
-		result=new GzippedFile(fileName);
-		}
-	else
-		{
-		/* Open a standard file: */
-		result=new StandardFile(fileName,accessMode);
+		/* Wrap a gzip filter around the base file: */
+		result=new GzipFilter(result);
 		}
 	
 	/* Return the open file: */
 	return result;
 	}
 
-SeekableFile* openSeekableFile(const char* fileName,File::AccessMode accessMode)
+SeekableFilePtr openSeekableFile(const char* fileName,File::AccessMode accessMode)
 	{
-	SeekableFile* result=0;
+	/* Open a potentially non-seekable file first: */
+	FilePtr file=openFile(fileName,accessMode);
 	
-	/* Check if the file name has the .gz extension: */
-	if(Misc::hasCaseExtension(fileName,".gz"))
+	/* Check if the file is already seekable: */
+	SeekableFilePtr result=file;
+	if(result==0)
 		{
-		/* Seeking in gzipped files not supported: */
-		Misc::throwStdErr("IO::openSeekableFile: Cannot seek in gzipped files");
-		}
-	else
-		{
-		/* Open a standard file: */
-		result=new StandardFile(fileName,accessMode);
+		/* Wrap a seekable filter around the base file: */
+		result=new SeekableFilter(file);
 		}
 	
-	/* Return the open file: */
 	return result;
+	}
+
+DirectoryPtr openDirectory(const char* directoryName)
+	{
+	return new StandardDirectory(directoryName);
 	}
 
 }

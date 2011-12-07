@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -92,8 +92,9 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 	/* Transient state: */
 	bool active; // Flag if the light saber is active
 	double activationTime; // Time at which the light saber was activated
-	Point basePoint; // Base point of the light saber billboard
-	Vector axis; // Current light saber axis vector
+	Point origin; // Origin point of the light saber blade
+	Vector axis; // Current light saber blade axis vector
+	Scalar length; // Current light saber blade length
 	
 	/* Constructors and destructors: */
 	public:

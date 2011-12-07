@@ -31,8 +31,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Comm/BufferedSerialPort.h>
-#include <Comm/BufferedTCPSocket.h>
+#include <Comm/SerialPort.h>
+#include <Comm/TCPPipe.h>
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -161,7 +161,7 @@ inline void writeCommand(Comm::Pipe& pipe,const char* command)
 int readStationId(Comm::Pipe& pipe)
 	{
 	/* Check for the synchronization sequence: */
-	if(pipe.getChar()!='\r'||pipe.getChar()!='\n'||pipe.getChar()!='O')
+	if(pipe.getChar()!='\r'||pipe.getChar()!='\n'||pipe.getChar()!='0')
 		return -1;
 	
 	/* Extract the station ID: */
@@ -209,7 +209,7 @@ char* InterSense::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time&
 		switch(state)
 			{
 			case 0: // Still waiting for CR
-				if(input==13) // CR read?
+				if(input=='\r') // CR read?
 					{
 					/* Go to next state: */
 					state=1;
@@ -224,7 +224,7 @@ char* InterSense::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time&
 				break;
 			
 			case 1: // Waiting for LF
-				if(input==10) // LF read?
+				if(input=='\n') // LF read?
 					{
 					/* Go to final state: */
 					state=2;
@@ -439,9 +439,9 @@ bool InterSense::processRecord(void)
 	oldPositionOrientations[stationIndex]=ts.positionOrientation;
 	
 	/* Update button states: */
-	int buttonMask=devicePort->read<unsigned char>();
+	unsigned int buttonMask=devicePort->read<unsigned char>();
 	for(int i=0;i<stations[stationIndex].numButtons;++i)
-		setButtonState(stations[stationIndex].firstButtonIndex+i,buttonMask&(1<<i));
+		setButtonState(stations[stationIndex].firstButtonIndex+i,buttonMask&(0x1U<<i));
 	
 	/* Update valuator states: */
 	if(stations[stationIndex].joystick)
@@ -494,11 +494,11 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	if(!serialPortName.empty())
 		{
 		/* Connect to the device via the serial port: */
-		Comm::BufferedSerialPort* serialPort=new Comm::BufferedSerialPort(serialPortName.c_str());
+		Comm::SerialPort* serialPort=new Comm::SerialPort(serialPortName.c_str());
 		
 		/* Set serial port parameters: */
 		int serialPortBaudRate=configFile.retrieveValue<int>("./serialPortBaudRate",115200);
-		serialPort->setSerialSettings(serialPortBaudRate,8,Comm::BufferedSerialPort::NoParity,1,false);
+		serialPort->setSerialSettings(serialPortBaudRate,8,Comm::SerialPort::NoParity,1,false);
 		serialPort->setRawMode(1,0);
 		
 		devicePort=serialPort;
@@ -510,12 +510,12 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		int ethernetPort=configFile.retrieveValue<int>("./ethernetPort");
 		
 		/* Connect to the device via a TCP socket: */
-		Comm::BufferedTCPSocket* tcpSocket=new Comm::BufferedTCPSocket(ethernetHostName.c_str(),ethernetPort);
+		Comm::TCPPipe* tcpSocket=new Comm::TCPPipe(ethernetHostName.c_str(),ethernetPort);
 		
 		devicePort=tcpSocket;
 		}
 	
-	devicePort->setEndianness(IO::File::LittleEndian);
+	devicePort->setEndianness(Misc::LittleEndian);
 	
 	if(configFile.retrieveValue<bool>("./resetDevice",false))
 		{

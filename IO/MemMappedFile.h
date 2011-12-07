@@ -34,12 +34,6 @@ class MemMappedFile:public SeekableFile
 	private:
 	void* memBase; // Base address of file's memory space
 	size_t memSize; // Size of file's memory space
-	bool firstRead; // Flag indicating the first time the readData() method is called
-	
-	/* Protected methods from File: */
-	protected:
-	virtual size_t readData(Byte* buffer,size_t bufferSize);
-	virtual void writeData(const Byte* buffer,size_t bufferSize);
 	
 	/* Private methods: */
 	void openFile(const char* fileName,AccessMode accessMode,int flags,int mode); // Opens and memory-maps a file and handles errors

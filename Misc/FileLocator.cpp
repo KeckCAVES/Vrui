@@ -1,6 +1,6 @@
 /***********************************************************************
 FileLocator - Class to find files from an ordered list of search paths.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 Based on code written by Braden Pellett.
 
 This file is part of the Miscellaneous Support Library (Misc).
@@ -139,6 +139,27 @@ std::string cleanPath(const char* pathBegin,const char* pathEnd)
 }
 
 namespace Misc {
+
+/*****************************************
+Methods of class FileLocator:FileNotFound:
+*****************************************/
+
+FileLocator::FileNotFound::FileNotFound(const char* sFileName)
+	:std::runtime_error(printStdErrMsg("FileLocator::locateFile: File \"%s\" not found",sFileName))
+	{
+	/* Copy the file name into the exception: */
+	size_t fileNameLen=strlen(sFileName);
+	if(fileNameLen<=sizeof(fileName)-1)
+		memcpy(fileName,sFileName,fileNameLen+1);
+	else
+		{
+		/* Abbreviate the file name: */
+		memcpy(fileName,sFileName,sizeof(fileName)-4);
+		for(size_t i=0;i<3;++i)
+			fileName[sizeof(fileName)-4+i]='.';
+		fileName[sizeof(fileName)-1]='\0';
+		}
+	}
 
 /****************************
 Methods of class FileLocator:

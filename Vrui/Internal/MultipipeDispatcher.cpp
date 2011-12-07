@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StringMarshaller.h>
-#include <Comm/MulticastPipe.h>
+#include <Cluster/MulticastPipe.h>
 #include <GL/GLMarshallers.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
@@ -39,7 +39,7 @@ namespace Vrui {
 Methods of class MultipipeDispatcher:
 ************************************/
 
-MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager,Comm::MulticastPipe* sPipe)
+MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager,Cluster::MulticastPipe* sPipe)
 	:InputDeviceAdapter(sInputDeviceManager),
 	 pipe(sPipe),
 	 totalNumButtons(0),
@@ -95,7 +95,7 @@ MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager
 				Misc::writeCppString(inputDeviceManager->getFeatureName(InputDeviceFeature(device,InputDevice::VALUATOR,valuatorIndex)),*pipe);
 			}
 		
-		pipe->finishMessage();
+		pipe->flush();
 		}
 	else
 		{

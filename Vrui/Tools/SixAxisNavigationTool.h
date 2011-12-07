@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisNavigationTool - Class to convert an input device with six
 valuators into a navigation tool.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -42,8 +42,8 @@ class SixAxisNavigationToolFactory:public ToolFactory
 	Vector translations[3]; // Translation vectors in physical space
 	Vector rotations[3]; // Scaled rotation axes in physical space
 	Scalar zoomFactor; // Conversion factor from device valuator values to scaling factors
-	Point navigationCenter; // Center point for rotation and zoom navigation
 	bool followDisplayCenter; // Flag whether the navigation center point shall follow Vrui's display center
+	Point navigationCenter; // Center point for rotation and zoom navigation
 	bool invertNavigation; // Flag whether to invert axis behavior in navigation mode (model-in-hand vs camera-in-hand)
 	bool showNavigationCenter; // Flag whether to draw the center point of navigation during navigation
 	

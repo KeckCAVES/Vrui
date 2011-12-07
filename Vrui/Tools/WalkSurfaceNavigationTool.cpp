@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -63,6 +63,7 @@ WalkSurfaceNavigationToolFactory::WalkSurfaceNavigationToolFactory(ToolManager& 
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
+	layout.setNumValuators(0,true);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
@@ -83,7 +84,7 @@ WalkSurfaceNavigationToolFactory::WalkSurfaceNavigationToolFactory(ToolManager& 
 	rotateSpeed=Math::rad(cfs.retrieveValue<Scalar>("./rotateSpeed",Math::deg(rotateSpeed)));
 	innerAngle=Math::rad(cfs.retrieveValue<Scalar>("./innerAngle",Math::deg(innerAngle)));
 	outerAngle=Math::rad(cfs.retrieveValue<Scalar>("./outerAngle",Math::deg(outerAngle)));
-	fallAcceleration=Math::rad(cfs.retrieveValue<Scalar>("./fallAcceleration",Math::deg(fallAcceleration)));
+	fallAcceleration=cfs.retrieveValue<Scalar>("./fallAcceleration",fallAcceleration);
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
@@ -109,6 +110,11 @@ const char* WalkSurfaceNavigationToolFactory::getName(void) const
 const char* WalkSurfaceNavigationToolFactory::getButtonFunction(int) const
 	{
 	return "Start / Stop";
+	}
+
+const char* WalkSurfaceNavigationToolFactory::getValuatorFunction(int) const
+	{
+	return "Fire Jetpack";
 	}
 
 Tool* WalkSurfaceNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -175,7 +181,7 @@ void WalkSurfaceNavigationTool::applyNavState(void) const
 	{
 	/* Compose and apply the navigation transformation: */
 	NavTransform nav=physicalFrame;
-	nav*=NavTransform::rotate(Rotation::rotateX(elevation));
+	nav*=NavTransform::rotateAround(Point(0,0,headHeight),Rotation::rotateX(elevation));
 	nav*=NavTransform::rotate(Rotation::rotateZ(azimuth));
 	nav*=Geometry::invert(surfaceFrame);
 	setNavigationTransformation(nav);
@@ -183,10 +189,13 @@ void WalkSurfaceNavigationTool::applyNavState(void) const
 
 void WalkSurfaceNavigationTool::initNavState(void)
 	{
-	/* Create the initial physical navigation frame: */
-	footPos=projectToFloor(getMainViewer()->getHeadPosition());
-	headHeight=Geometry::dist(getMainViewer()->getHeadPosition(),footPos);
-	calcPhysicalFrame(footPos);
+	/* Calculate the main viewer's current head and foot positions: */
+	Point headPos=getMainViewer()->getHeadPosition();
+	footPos=projectToFloor(headPos);
+	headHeight=Geometry::dist(headPos,footPos);
+	
+	/* Set up a physical navigation frame around the main viewer's current head position: */
+	calcPhysicalFrame(headPos);
 	
 	/* Calculate the initial environment-aligned surface frame in navigation coordinates: */
 	surfaceFrame=getInverseNavigationTransformation()*physicalFrame;
@@ -200,17 +209,24 @@ void WalkSurfaceNavigationTool::initNavState(void)
 	/* Limit the elevation angle to the horizontal: */
 	elevation=Scalar(0);
 	
-	/* If the initial surface frame was above the surface, lift it back up: */
+	/* Reset the flying velocity: */
+	flyVelocity=Vector::zero;
+	
+	/* If the initial surface frame was above the surface, lift it back up and start falling: */
 	Scalar z=newSurfaceFrame.inverseTransform(surfaceFrame.getOrigin())[2];
 	if(z>Scalar(0))
+		{
 		newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
+		flyVelocity[2]=-factory->fallAcceleration*getCurrentFrameTime();
+		}
+	
+	/* Move the physical frame to the foot position, and adjust the surface frame accordingly: */
+	newSurfaceFrame*=Geometry::invert(physicalFrame)*NavTransform::translate(footPos-headPos)*physicalFrame;
+	physicalFrame.leftMultiply(NavTransform::translate(footPos-headPos));
 	
 	/* Apply the initial navigation state: */
 	surfaceFrame=newSurfaceFrame;
 	applyNavState();
-	
-	/* Reset the falling velocity: */
-	fallVelocity=Scalar(0);
 	}
 
 WalkSurfaceNavigationTool::WalkSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
@@ -253,6 +269,10 @@ void WalkSurfaceNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackDa
 		}
 	}
 
+void WalkSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
+	{
+	}
+
 void WalkSurfaceNavigationTool::frame(void)
 	{
 	/* Act depending on this tool's current state: */
@@ -283,16 +303,14 @@ void WalkSurfaceNavigationTool::frame(void)
 				rotateSpeed=-rotateSpeed;
 			
 			/* Update the azimuth angle: */
-			azimuth+=rotateSpeed*getFrameTime();
-			if(azimuth<-Math::Constants<Scalar>::pi)
-				azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
-			else if(azimuth>=Math::Constants<Scalar>::pi)
-				azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+			azimuth=wrapAngle(azimuth+rotateSpeed*getFrameTime());
 			}
 		
-		/* Create a physical navigation frame around the new foot position: */
+		/* Calculate the new head and foot positions: */
 		Point newFootPos=projectToFloor(getMainViewer()->getHeadPosition());
 		headHeight=Geometry::dist(getMainViewer()->getHeadPosition(),newFootPos);
+		
+		/* Create a physical navigation frame around the new foot position: */
 		calcPhysicalFrame(newFootPos);
 		
 		/* Calculate the movement from walking: */
@@ -309,11 +327,11 @@ void WalkSurfaceNavigationTool::frame(void)
 			speed=factory->moveSpeed*(moveDirLen-factory->innerRadius)/(factory->outerRadius-factory->innerRadius);
 		moveDir*=speed/moveDirLen;
 		
-		/* Add the current falling velocity: */
-		moveDir[2]+=fallVelocity;
+		/* Add the current flying velocity: */
+		moveDir+=flyVelocity;
 		
 		/* Calculate the complete movement vector: */
-		move+=moveDir*getFrameTime();
+		move+=moveDir*getCurrentFrameTime();
 		
 		/* Transform the movement vector from physical space to the physical navigation frame: */
 		move=physicalFrame.inverseTransform(move);
@@ -337,30 +355,34 @@ void WalkSurfaceNavigationTool::frame(void)
 			Rotation rot=Geometry::invert(initialOrientation)*newSurfaceFrame.getRotation();
 			rot.leftMultiply(Rotation::rotateFromTo(rot.getDirection(2),Vector(0,0,1)));
 			Vector x=rot.getDirection(0);
-			azimuth+=Math::atan2(x[1],x[0]);
-			if(azimuth<-Math::Constants<Scalar>::pi)
-				azimuth+=Scalar(2)*Math::Constants<Scalar>::pi;
-			else if(azimuth>Math::Constants<Scalar>::pi)
-				azimuth-=Scalar(2)*Math::Constants<Scalar>::pi;
+			azimuth=wrapAngle(azimuth+Math::atan2(x[1],x[0]));
 			}
 		
 		/* Check if the initial surface frame is above the surface: */
 		Scalar z=newSurfaceFrame.inverseTransform(initialOrigin)[2];
 		if(z>Scalar(0))
 			{
-			/* Lift the aligned frame back up to the original altitude and fall: */
+			/* Lift the aligned frame back up to the original altitude and continue flying: */
 			newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
-			fallVelocity-=factory->fallAcceleration*getFrameTime();
+			if(getValuatorState(0)>0.0)
+				flyVelocity+=getValuatorDeviceRayDirection(0)*(Scalar(getValuatorState(0))*factory->fallAcceleration*Scalar(1.5)*getCurrentFrameTime());
+			flyVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
 			}
 		else
 			{
-			/* Stop falling: */
-			fallVelocity=Scalar(0);
+			/* Stop flying: */
+			flyVelocity=Vector::zero;
 			}
 		
 		/* Apply the newly aligned surface frame: */
 		surfaceFrame=newSurfaceFrame;
 		applyNavState();
+		
+		if(speed!=Scalar(0)||flyVelocity!=Vector::zero||z>Scalar(0))
+			{
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		}
 	}
 

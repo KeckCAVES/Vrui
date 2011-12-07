@@ -1,7 +1,6 @@
 /***********************************************************************
-OpenFile - Convenience function to open files of several types using the
-BufferedFile abstraction and distribute among a cluster via a multicast
-pipe.
+OpenFile - Convenience functions to open files of several types using
+the File abstraction.
 Copyright (c) 2011 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
@@ -24,83 +23,60 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Comm/OpenFile.h>
 
+#include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
 #include <IO/StandardFile.h>
-#include <IO/GzippedFile.h>
-#include <Comm/MulticastPipeMultiplexer.h>
-#include <Comm/StandardFile.h>
+#include <IO/GzipFilter.h>
+#include <IO/SeekableFilter.h>
+#include <Comm/HttpFile.h>
 
 namespace Comm {
 
-IO::File* openFile(MulticastPipeMultiplexer* multiplexer,const char* fileName,IO::File::AccessMode accessMode)
+IO::FilePtr openFile(const char* fileName,IO::File::AccessMode accessMode)
 	{
-	if(multiplexer!=0)
+	IO::FilePtr result;
+	
+	/* Open the base file: */
+	if(strncmp(fileName,"http://",7)==0)
 		{
-		IO::File* result=0;
+		if(accessMode==IO::File::WriteOnly||accessMode==IO::File::ReadWrite)
+			Misc::throwStdErr("Comm::openFile: Write access to HTTP files not supported");
 		
-		/* Check if the file name has the .gz extension: */
-		if(Misc::hasCaseExtension(fileName,".gz"))
-			{
-			/* Check if the caller wants to write to the file: */
-			if(accessMode!=IO::File::ReadOnly)
-				Misc::throwStdErr("Comm::openFile: Cannot write to gzipped files");
-			
-			/* Open a gzip-compressed file: */
-			result=new IO::GzippedFile(fileName);
-			}
-		else
-			{
-			if(multiplexer->isMaster())
-				{
-				/* Open a master-side standard file: */
-				result=new StandardFileMaster(*multiplexer,fileName,accessMode);
-				}
-			else
-				{
-				/* Open a slave-side standard file: */
-				result=new StandardFileSlave(*multiplexer,fileName,accessMode);
-				}
-			}
-		
-		/* Return the open file: */
-		return result;
+		/* Open a remote file via the HTTP/1.1 protocol: */
+		result=new HttpFile(fileName);
 		}
 	else
-		return IO::openFile(fileName,accessMode);
+		{
+		/* Open a standard file: */
+		result=new IO::StandardFile(fileName,accessMode);
+		}
+	
+	/* Check if the file name has the .gz extension: */
+	if(Misc::hasCaseExtension(fileName,".gz"))
+		{
+		/* Wrap a gzip filter around the base file: */
+		result=new IO::GzipFilter(result);
+		}
+	
+	/* Return the open file: */
+	return result;
 	}
 
-IO::SeekableFile* openSeekableFile(MulticastPipeMultiplexer* multiplexer,const char* fileName,IO::File::AccessMode accessMode)
+IO::SeekableFilePtr openSeekableFile(const char* fileName,IO::File::AccessMode accessMode)
 	{
-	if(multiplexer!=0)
+	/* Open a potentially non-seekable file first: */
+	IO::FilePtr file=openFile(fileName,accessMode);
+	
+	/* Check if the file is already seekable: */
+	IO::SeekableFilePtr result=file;
+	if(result==0)
 		{
-		IO::SeekableFile* result=0;
-		
-		/* Check if the file name has the .gz extension: */
-		if(Misc::hasCaseExtension(fileName,".gz"))
-			{
-			/* Seeking in gzipped files not supported: */
-			Misc::throwStdErr("Comm::openSeekableFile: Cannot seek in gzipped files");
-			}
-		else
-			{
-			if(multiplexer->isMaster())
-				{
-				/* Open a master-side standard file: */
-				result=new StandardFileMaster(*multiplexer,fileName,accessMode);
-				}
-			else
-				{
-				/* Open a slave-side standard file: */
-				result=new StandardFileSlave(*multiplexer,fileName,accessMode);
-				}
-			}
-		
-		/* Return the open file: */
-		return result;
+		/* Wrap a seekable filter around the base file: */
+		result=new IO::SeekableFilter(file);
 		}
-	else
-		return IO::openSeekableFile(fileName,accessMode);
+	
+	return result;
 	}
 
 }

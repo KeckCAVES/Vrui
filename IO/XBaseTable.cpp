@@ -32,20 +32,20 @@ namespace IO {
 Methods of class XBaseTable:
 ***************************/
 
-XBaseTable::XBaseTable(const char* fileName,SeekableFile& sFile)
+XBaseTable::XBaseTable(const char* fileName,SeekableFilePtr sFile)
 	:file(sFile)
 	{
 	/* Read the table header: */
-	file.setEndianness(File::LittleEndian);
-	version=file.read<unsigned char>();
-	file.skip<char>(3); // Date of last update
-	numRecords=file.read<unsigned int>();
-	headerSize=file.read<unsigned short>();
-	recordSize=file.read<unsigned short>();
-	file.skip<char>(2+1); // Reserved; incomplete transaction flag
-	if(file.read<char>()!=0x0)
+	file->setEndianness(Misc::LittleEndian);
+	version=file->read<unsigned char>();
+	file->skip<char>(3); // Date of last update
+	numRecords=file->read<unsigned int>();
+	headerSize=file->read<unsigned short>();
+	recordSize=file->read<unsigned short>();
+	file->skip<char>(2+1); // Reserved; incomplete transaction flag
+	if(file->read<char>()!=0x0)
 		Misc::throwStdErr("IO::XBaseTable::XBaseTable: Table file %s is encrypted",fileName);
-	file.skip<char>(4+8+1+1+2); // Free record thread; reserved; MDX flag; language driver; reserved
+	file->skip<char>(4+8+1+1+2); // Free record thread; reserved; MDX flag; language driver; reserved
 	
 	/* Read all field descriptors: */
 	ptrdiff_t fieldRecordOffset=1; // Deleted flag comes first
@@ -54,20 +54,20 @@ XBaseTable::XBaseTable(const char* fileName,SeekableFile& sFile)
 		Field field;
 		
 		/* Read the field name's first character to check for the end-of-fields marker: */
-		file.read(field.name,1);
+		file->read(field.name,1);
 		if(field.name[0]==0x0d)
 			break;
 		
 		/* Read the rest of the field's name: */
-		file.read(field.name+1,10);
+		file->read(field.name+1,10);
 		
 		/* Read the rest of the field descriptor: */
-		field.dataType=file.read<char>();
-		file.skip<char>(4); // Field data address
+		field.dataType=file->read<char>();
+		file->skip<char>(4); // Field data address
 		field.recordOffset=fieldRecordOffset;
-		field.size=file.read<unsigned char>();
-		field.numDecimals=file.read<unsigned char>();
-		file.skip<char>(2+1+2+1+7+1); // Reserved; work area ID; reserved; SET FIELDS flag; reserved; index field flag
+		field.size=file->read<unsigned char>();
+		field.numDecimals=file->read<unsigned char>();
+		file->skip<char>(2+1+2+1+7+1); // Reserved; work area ID; reserved; SET FIELDS flag; reserved; index field flag
 		
 		/* Check the field for consistency: */
 		if(field.dataType=='N'&&field.numDecimals>field.size)
@@ -89,7 +89,7 @@ XBaseTable::XBaseTable(const char* fileName,SeekableFile& sFile)
 		Misc::throwStdErr("IO::XBaseTable::XBaseTable: Table file %s does not define fields",fileName);
 	if(recordSize!=size_t(fieldRecordOffset))
 		Misc::throwStdErr("IO::XBaseTable::XBaseTable: Table file %s reports record size %u, but has record size %u",fileName,(unsigned int)recordSize,(unsigned int)fieldRecordOffset);
-	Offset currentPos=file.getReadPos();
+	Offset currentPos=file->getReadPos();
 	if(currentPos>headerSize)
 		Misc::throwStdErr("IO::XBaseTable::XBaseTable: Table file %s has %u bytes of header data after field definitions",fileName,(unsigned int)(currentPos-headerSize));
 	if(currentPos<headerSize)
@@ -127,8 +127,8 @@ XBaseTable::Record XBaseTable::readRecord(size_t recordIndex)
 	unsigned int* storage=new unsigned int[(recordSize+sizeof(unsigned int)-1)/sizeof(unsigned int)+1];
 	
 	/* Read the record from the file: */
-	file.setReadPosAbs(headerSize+Offset(recordIndex)*Offset(recordSize));
-	file.read(reinterpret_cast<char*>(storage+1),recordSize);
+	file->setReadPosAbs(headerSize+Offset(recordIndex)*Offset(recordSize));
+	file->read(reinterpret_cast<char*>(storage+1),recordSize);
 	
 	/* Return the record: */
 	return Record(storage);
@@ -146,8 +146,8 @@ XBaseTable::Record XBaseTable::makeRecord(void) const
 void XBaseTable::readRecord(size_t recordIndex,XBaseTable::Record& record)
 	{
 	/* Read the record from the file: */
-	file.setReadPosAbs(headerSize+Offset(recordIndex)*Offset(recordSize));
-	file.read(reinterpret_cast<char*>(record.storage+1),recordSize);
+	file->setReadPosAbs(headerSize+Offset(recordIndex)*Offset(recordSize));
+	file->read(reinterpret_cast<char*>(record.storage+1),recordSize);
 	}
 
 XBaseTable::Maybe<bool> XBaseTable::getFieldBoolean(const XBaseTable::Record& record,size_t fieldIndex) const

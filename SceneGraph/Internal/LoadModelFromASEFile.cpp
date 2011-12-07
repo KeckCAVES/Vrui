@@ -55,7 +55,7 @@ class Tokenizer:public IO::TokenSource
 	
 	/* Constructors and destructors: */
 	public:
-	Tokenizer(IO::File& sSource) // Creates a tokenizer for the given data source
+	Tokenizer(IO::FilePtr sSource) // Creates a tokenizer for the given data source
 		:Base(sSource),
 		 lastChar(Base::peekc()),
 		 unread(false)
@@ -149,8 +149,7 @@ enum Group
 Doom3Model* loadModelFromASEFile(Doom3FileManager& fileManager,Doom3MaterialManager& materialManager,const char* aseFileName)
 	{
 	/* Open the ASE file and create a tokenizer for it: */
-	IO::File* aseFile=fileManager.getFile(aseFileName);
-	Tokenizer aseTok(*aseFile);
+	Tokenizer aseTok(fileManager.getFile(aseFileName));
 	aseTok.setPunctuation("{}");
 	aseTok.setQuotes("\"");
 	aseTok.skipWs();
@@ -768,9 +767,6 @@ Doom3Model* loadModelFromASEFile(Doom3FileManager& fileManager,Doom3MaterialMana
 		}
 	if(!groupStack.empty())
 		Misc::throwStdErr("loadModelFromASEFile: Missing closing brace at end of file in file %s",aseFileName);
-	
-	/* Clean up: */
-	delete aseFile;
 	
 	/* Finalize and return the model: */
 	model->finalizeVertices(false,true);

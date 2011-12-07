@@ -36,33 +36,12 @@ namespace IO {
 Methods of class MemMappedFile:
 ******************************/
 
-size_t MemMappedFile::readData(File::Byte* buffer,size_t bufferSize)
-	{
-	if(firstRead)
-		{
-		/* Pretend to read the entire file: */
-		readPos=bufferSize;
-		firstRead=false;
-		return bufferSize;
-		}
-	else
-		{
-		/* Signal end-of-file: */
-		return 0;
-		}
-	}
-
-void MemMappedFile::writeData(const File::Byte* buffer,size_t bufferSize)
-	{
-	/* Dummy method; never called */
-	}
-
 void MemMappedFile::openFile(const char* fileName,File::AccessMode accessMode,int flags,int mode)
 	{
 	/* Adjust flags according to access mode: */
 	switch(accessMode)
 		{
-		case None:
+		case NoAccess:
 			flags&=~(O_RDONLY|O_WRONLY|O_RDWR|O_CREAT|O_TRUNC|O_APPEND);
 			break;
 		
@@ -135,12 +114,15 @@ void MemMappedFile::openFile(const char* fileName,File::AccessMode accessMode,in
 	canReadThrough=false;
 	setWriteBuffer(memSize,static_cast<Byte*>(memBase),false);
 	canWriteThrough=false;
+	
+	/* Pretend putting the file data into the read buffer: */
+	appendReadBufferData(memSize);
+	readPos=memSize;
 	}
 
 MemMappedFile::MemMappedFile(const char* fileName,File::AccessMode accessMode)
 	:SeekableFile(),
-	 memBase(0),memSize(0),
-	 firstRead(true)
+	 memBase(0),memSize(0)
 	{
 	/* Create flags and mode to open the file: */
 	int flags=O_CREAT;
@@ -154,8 +136,7 @@ MemMappedFile::MemMappedFile(const char* fileName,File::AccessMode accessMode)
 
 MemMappedFile::MemMappedFile(const char* fileName,File::AccessMode accessMode,int flags,int mode)
 	:SeekableFile(),
-	 memBase(0),memSize(0),
-	 firstRead(true)
+	 memBase(0),memSize(0)
 	{
 	/* Open the file: */
 	openFile(fileName,accessMode,flags,mode);

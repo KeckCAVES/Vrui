@@ -1,7 +1,7 @@
 ########################################################################
 # Makefile template for inter-platform development with automatic
 # source dependency maintenance.
-# Copyright (c) 1999-2006 Oliver Kreylos
+# Copyright (c) 1999-2011 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -21,8 +21,15 @@
 # 02111-1307 USA
 ########################################################################
 
-# Include definitions for the system environment
-include $(VRUIPACKAGEROOT)/BuildRoot/SystemDefinitions
+# Set directory containing Vrui's build system:
+VRUI_MAKEDIR = $(HOME)/Vrui-2.2/share/make
+
+# Include definitions for the system environment and system-provided
+# packages
+include $(VRUI_MAKEDIR)/SystemDefinitions
+include $(VRUI_MAKEDIR)/Packages.System
+include $(VRUI_MAKEDIR)/Packages.Vrui
+include $(VRUI_MAKEDIR)/Configuration.Vrui
 
 # Specify default optimization/debug level
 ifdef DEBUG
@@ -38,8 +45,8 @@ endif
 ########################################################################
 
 ########################################################################
-# List packages used by this project
-# (Supported packages can be found in $(BUILDROOT)/Packages)
+# List common packages used by all components of this project
+# (Supported packages can be found in $(VRUI_MAKEDIR)/Packages.*)
 ########################################################################
 
 PACKAGES = 
@@ -64,7 +71,7 @@ extraclean:
 extrasqueakyclean:
 
 # Include basic makefile
-include $(VRUIPACKAGEROOT)/BuildRoot/BasicMakefile
+include $(VRUI_MAKEDIR)/BasicMakefile
 
 ########################################################################
 # Specify rules for all non-C/C++ sources

@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <IO/ValueSource.h>
-#include <Comm/OpenFile.h>
+#include <Cluster/OpenFile.h>
 #include <Geometry/Box.h>
 #include <GL/gl.h>
 #include <GL/GLVertexTemplates.h>
@@ -112,8 +112,7 @@ void CurveSetNode::update(void)
 	for(size_t fileIndex=0;fileIndex<url.getNumValues();++fileIndex)
 		{
 		/* Open the curve file: */
-		IO::AutoFile curveFile(Comm::openFile(multiplexer,url.getValue(fileIndex).c_str()));
-		IO::ValueSource source(*curveFile);
+		IO::ValueSource source(Cluster::openFile(multiplexer,url.getValue(fileIndex).c_str()));
 		source.skipWs();
 		
 		/* Read the number of curves: */

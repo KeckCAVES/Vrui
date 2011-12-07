@@ -480,6 +480,20 @@ ValueCoder<Geometry::OrthonormalTransformation<ScalarParam,dimensionParam> >::de
 				typename ONT::Rotation r=ValueCoder<typename ONT::Rotation>::decode(cPtr,end,&cPtr);
 				result*=ONT::rotate(r);
 				}
+			else if(token=="rotateAround")
+				{
+				/* Parse a center point: */
+				cPtr=skipWhitespace(cPtr,end);
+				typename ONT::Point p=ValueCoder<typename ONT::Point>::decode(cPtr,end,&cPtr);
+				
+				/* Check for comma separator: */
+				cPtr=checkSeparator(',',cPtr,end);
+				
+				/* Parse a rotation transformation: */
+				cPtr=skipWhitespace(cPtr,end);
+				typename ONT::Rotation r=ValueCoder<typename ONT::Rotation>::decode(cPtr,end,&cPtr);
+				result*=ONT::rotateAround(p,r);
+				}
 			else if(token!="identity")
 				{
 				throw DecodingError(std::string("unknown token ")+token);
@@ -575,12 +589,40 @@ ValueCoder<Geometry::OrthogonalTransformation<ScalarParam,dimensionParam> >::dec
 				typename OGT::Rotation r=ValueCoder<typename OGT::Rotation>::decode(cPtr,end,&cPtr);
 				result*=OGT::rotate(r);
 				}
+			else if(token=="rotateAround")
+				{
+				/* Parse a center point: */
+				cPtr=skipWhitespace(cPtr,end);
+				typename OGT::Point p=ValueCoder<typename OGT::Point>::decode(cPtr,end,&cPtr);
+				
+				/* Check for comma separator: */
+				cPtr=checkSeparator(',',cPtr,end);
+				
+				/* Parse a rotation transformation: */
+				cPtr=skipWhitespace(cPtr,end);
+				typename OGT::Rotation r=ValueCoder<typename OGT::Rotation>::decode(cPtr,end,&cPtr);
+				result*=OGT::rotateAround(p,r);
+				}
 			else if(token=="scale")
 				{
 				/* Parse a scaling transformation: */
 				cPtr=skipWhitespace(cPtr,end);
 				typename OGT::Scalar s=ValueCoder<typename OGT::Scalar>::decode(cPtr,end,&cPtr);
 				result*=OGT::scale(s);
+				}
+			else if(token=="scaleAround")
+				{
+				/* Parse a center point: */
+				cPtr=skipWhitespace(cPtr,end);
+				typename OGT::Point p=ValueCoder<typename OGT::Point>::decode(cPtr,end,&cPtr);
+				
+				/* Check for comma separator: */
+				cPtr=checkSeparator(',',cPtr,end);
+				
+				/* Parse a scaling transformation: */
+				cPtr=skipWhitespace(cPtr,end);
+				typename OGT::Scalar s=ValueCoder<typename OGT::Scalar>::decode(cPtr,end,&cPtr);
+				result*=OGT::scaleAround(p,s);
 				}
 			else if(token!="identity")
 				{

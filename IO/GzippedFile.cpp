@@ -43,12 +43,6 @@ size_t GzippedFile::readData(File::Byte* buffer,size_t bufferSize)
 	return size_t(readSize);
 	}
 
-void GzippedFile::writeData(const File::Byte* buffer,size_t bufferSize)
-	{
-	/* Can't write to gzipped files; throw an error: */
-	throw WriteError(bufferSize);
-	}
-
 GzippedFile::GzippedFile(const char* inputFileName)
 	:File(ReadOnly),
 	 inputFile(0)

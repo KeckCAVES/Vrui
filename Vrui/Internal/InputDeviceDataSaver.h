@@ -25,13 +25,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_INTERNAL_INPUTDEVICEDATASAVER_INCLUDED
 
 #include <string>
+#include <IO/File.h>
 
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFileSection;
-}
-namespace IO {
-class File;
 }
 namespace Sound {
 class SoundRecorder;
@@ -50,7 +48,7 @@ class InputDeviceDataSaver
 	{
 	/* Elements: */
 	private:
-	IO::File* inputDeviceDataFile; // File input device data is saved to
+	IO::FilePtr inputDeviceDataFile; // File input device data is saved to
 	int numInputDevices; // Number of saved (physical) input devices
 	InputDevice** inputDevices; // Array of pointers to saved input devices
 	Sound::SoundRecorder* soundRecorder; // Pointer to sound recorder object to record commentary tracks
@@ -58,9 +56,6 @@ class InputDeviceDataSaver
 	KinectRecorder* kinectRecorder; // Pointer to 3D video recorder object
 	#endif
 	bool firstFrame; // Flag to identify the first frame of input device data
-	
-	/* Private methods: */
-	static std::string getInputDeviceDataFileName(const Misc::ConfigurationFileSection& configFileSection);
 	
 	/* Constructors and destructors: */
 	public:

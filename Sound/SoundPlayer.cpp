@@ -29,7 +29,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <math.h>
 #endif
 #include <string.h>
-#include <iostream>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
@@ -81,7 +80,7 @@ void SoundPlayer::handleOutputBuffer(AudioQueueRef inAQ,AudioQueueBufferRef inBu
 		/* Wake up anyone who is waiting for playback to finish: */
 		Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 		active=false;
-		finishedPlayingCond.broadcast(finishedPlayingLock);
+		finishedPlayingCond.broadcast();
 		}
 		}
 	}
@@ -196,7 +195,7 @@ SoundPlayer::~SoundPlayer(void)
 		
 		/* Wake up anybody who is waiting for playback to finish: */
 		active=false;
-		finishedPlayingCond.broadcast(finishedPlayingLock);
+		finishedPlayingCond.broadcast();
 		}
 	}
 	
@@ -275,7 +274,7 @@ void SoundPlayer::stop(void)
 	/* Wake up anyone who is waiting for playback to finish: */
 	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 	active=false;
-	finishedPlayingCond.broadcast(finishedPlayingLock);
+	finishedPlayingCond.broadcast();
 	}
 	}
 
@@ -371,7 +370,7 @@ bool SoundPlayer::readWAVHeader(void)
 void* SoundPlayer::playingThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Read buffers worth of sound data from the input file until interrupted or at end of file: */
 	while(!inputFile->eof())
@@ -386,13 +385,13 @@ void* SoundPlayer::playingThreadMethod(void)
 		}
 	
 	/* Wait for the PCM device to finish playing samples: */
-	pcmDevice.drain();
+	// pcmDevice.drain(); // Disables because this does actually discard samples, unlike advertised
 	
 	{
 	/* Wake up anyone who is waiting for playback to finish: */
 	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 	active=false;
-	finishedPlayingCond.broadcast(finishedPlayingLock);
+	finishedPlayingCond.broadcast();
 	}
 	
 	/* Initiate the get-the-hell-out-of-here maneuver: */
@@ -418,7 +417,7 @@ SoundPlayer::SoundPlayer(const char* inputFileName)
 	if(Misc::hasCaseExtension(inputFileName,".wav"))
 		{
 		/* Read the WAV file header: */
-		inputFile->setEndianness(IO::File::LittleEndian);
+		inputFile->setEndianness(Misc::LittleEndian);
 		if(!readWAVHeader())
 			Misc::throwStdErr("SoundPlayer::SoundPlayer: Input file %s is invalid or incompatible WAV file",inputFileName);
 		}
@@ -455,12 +454,9 @@ SoundPlayer::~SoundPlayer(void)
 		
 		/* Wake up anybody who is waiting for playback to finish: */
 		active=false;
-		finishedPlayingCond.broadcast(finishedPlayingLock);
+		finishedPlayingCond.broadcast();
 		}
 	}
-	
-	/* Close the input file: */
-	delete inputFile;
 	
 	/* Delete the sample buffer: */
 	delete[] sampleBuffer;
@@ -511,7 +507,7 @@ void SoundPlayer::stop(void)
 	/* Wake up anyone who is waiting for playback to finish: */
 	Threads::MutexCond::Lock finishedPlayingLock(finishedPlayingCond);
 	active=false;
-	finishedPlayingCond.broadcast(finishedPlayingLock);
+	finishedPlayingCond.broadcast();
 	}
 	
 	#else

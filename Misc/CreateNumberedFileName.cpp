@@ -5,7 +5,7 @@ Zero-padded numbers with the given number of digits are inserted
 immediately before the base file name's extension, and the number is
 guaranteed to be higher than any other matchingly numbered file in the
 same directory.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -75,6 +75,10 @@ char* createNumberedFileName(const char* baseFileName,int numDigits,char* fileNa
 		
 		/* Search in the given directory: */
 		directory=opendir(fileNameBuffer);
+		
+		/* Prepare to append the file name: */
+		*bufferPtr='/';
+		++bufferPtr;
 		}
 	if(directory==0)
 		Misc::throwStdErr("Misc::createNumberedFileName: error searching directory for %s",baseFileName);
@@ -158,6 +162,9 @@ std::string createNumberedFileName(const std::string& baseFileName,int numDigits
 		
 		/* Search in the given directory: */
 		directory=opendir(result.c_str());
+		
+		/* Prepare to append the file name: */
+		result.push_back('/');
 		}
 	if(directory==0)
 		Misc::throwStdErr("Misc::createNumberedFileName: error searching directory for %s",baseFileName.c_str());
@@ -192,7 +199,7 @@ std::string createNumberedFileName(const std::string& baseFileName,int numDigits
 	++maxNumber;
 	
 	/* Assemble the result string: */
-	result+=fileName;
+	result.append(fileName);
 	char numberBuffer[11];
 	char* nbPtr=numberBuffer+numDigits;
 	*nbPtr='\0';
@@ -203,7 +210,7 @@ std::string createNumberedFileName(const std::string& baseFileName,int numDigits
 		maxNumber/=10;
 		}
 	result.append(numberBuffer);
-	result+=fileNameExt;
+	result.append(fileNameExt);
 	
 	/* Clean up and return: */
 	closedir(directory);

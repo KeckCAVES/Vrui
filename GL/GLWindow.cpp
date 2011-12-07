@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2011 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -20,13 +20,14 @@ with the OpenGL/GLX Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/GLWindow.h>
+
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <X11/cursorfont.h>
 #include <Misc/ThrowStdErr.h>
-
-#include <GL/GLWindow.h>
+#include <Misc/CallbackData.h>
 
 /**************************
 Methods of class GLWindow:
@@ -346,9 +347,8 @@ void GLWindow::redraw(void)
 	XFlush(display);
 	}
 
-bool GLWindow::processEvent(const XEvent& event)
+void GLWindow::processEvent(const XEvent& event)
 	{
-	bool closeRequested=false;
 	switch(event.type)
 		{
 		case ConfigureNotify:
@@ -365,9 +365,11 @@ bool GLWindow::processEvent(const XEvent& event)
 		
 		case ClientMessage:
 			if(event.xclient.message_type==wmProtocolsAtom&&event.xclient.format==32&&(Atom)(event.xclient.data.l[0])==wmDeleteWindowAtom)
-				closeRequested=true;
+				{
+				/* Call the close callbacks: */
+				Misc::CallbackData cbData;
+				closeCallbacks.call(&cbData);
+				}
 			break;
 		}
-	
-	return closeRequested;
 	}

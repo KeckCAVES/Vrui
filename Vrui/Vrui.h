@@ -35,8 +35,8 @@ namespace Misc {
 class CallbackList;
 class TimerEventScheduler;
 }
-namespace Comm {
-class MulticastPipeMultiplexer;
+namespace Cluster {
+class Multiplexer;
 class MulticastPipe;
 }
 class GLContextData;
@@ -132,12 +132,12 @@ Vrui control functions:
 void shutdown(void);
 
 /* Manage multipipe rendering: */
-Comm::MulticastPipeMultiplexer* getMulticastPipeMultiplexer(void); // Returns the multicast pipe multiplexer in a cluster-based Vrui environment; returns 0 if called in a non-cluster environment)
+Cluster::Multiplexer* getClusterMultiplexer(void); // Returns the intra-cluster communication multiplexer in a cluster-based Vrui environment; returns 0 if called in a non-cluster environment)
 bool isMaster(void); // Returns true if the multipipe node the caller is running on is the master
 int getNodeIndex(void); // Returns index of the multipipe node the caller is running on (0: master node)
 int getNumNodes(void); // Returns number of multipipe nodes, including master
-Comm::MulticastPipe* getMainPipe(void); // Returns Vrui's main frame pipe; safe to use inside frame function, user must call finishMessage() when done (returns 0 if called in a non-cluster environment)
-Comm::MulticastPipe* openPipe(void); // Opens a pipe for 1-to-n communication from master to all slaves (returns 0 if called in a non-cluster environment)
+Cluster::MulticastPipe* getMainPipe(void); // Returns Vrui's main frame pipe; safe to use inside frame function, user must call finishMessage() when done (returns 0 if called in a non-cluster environment)
+Cluster::MulticastPipe* openPipe(void); // Opens a pipe for 1-to-n communication from master to all slaves (returns 0 if called in a non-cluster environment)
 
 /* Manage glyph rendering: */
 GlyphRenderer* getGlyphRenderer(void); // Returns pointer to the glyph renderer
@@ -263,7 +263,8 @@ double getCurrentFrameTime(void); // Returns the current average time between fr
 
 /* Rendering management: */
 void updateContinuously(void); // Tells Vrui to continuously update its state (must be called before mainLoop)
-void requestUpdate(void); // Tells Vrui to update its internal state and redraw the VR windows
+void requestUpdate(void); // Tells Vrui to update its internal state and redraw the VR windows; can be called from any thread
+void scheduleUpdate(double nextFrameTime); // Asks Vrui to update its internal state and redraw the VR windows at the given application time; must be called from main thread
 const DisplayState& getDisplayState(GLContextData& contextData); // Returns the Vrui display state valid for the current display method call
 
 }

@@ -71,10 +71,16 @@ KinectRecorder::KinectStreamer::KinectStreamer(libusb_device* sDevice,std::strin
 		std::string backgroundFileName=calibrationFilesPath;
 		backgroundFileName.push_back('/');
 		backgroundFileName.append(backgroundFileNamePrefix);
-		backgroundFileName.push_back('-');
-		backgroundFileName.append(serialNumber);
-		backgroundFileName.append(".background");
 		camera.loadBackground(backgroundFileName.c_str());
+		removeBackground=true;
+		}
+	
+	/* Check for background capture: */
+	unsigned int numBackgroundFrames=cameraSection.retrieveValue<unsigned int>("./numBackgroundFrames",0);
+	if(numBackgroundFrames>0)
+		{
+		/* Capture background: */
+		camera.captureBackground(numBackgroundFrames,false);
 		removeBackground=true;
 		}
 	
@@ -87,20 +93,11 @@ KinectRecorder::KinectStreamer::KinectStreamer(libusb_device* sDevice,std::strin
 		removeBackground=true;
 		}
 	
-	/* Check for background capture: */
-	unsigned int numBackgroundFrames=cameraSection.retrieveValue<unsigned int>("./numBackgroundFrames",0);
-	if(numBackgroundFrames>0)
-		{
-		/* Capture background: */
-		camera.captureBackground(numBackgroundFrames);
-		removeBackground=true;
-		}
-	
 	/* Enable background removal if requested: */
 	camera.setRemoveBackground(removeBackground);
 	
 	/* Set the background removal fuzz value: */
-	camera.setBackgroundRemovalFuzz(cameraSection.retrieveValue<int>("./backgroundRemovalFuzz",5));
+	camera.setBackgroundRemovalFuzz(cameraSection.retrieveValue<int>("./backgroundRemovalFuzz",camera.getBackgroundRemovalFuzz()));
 	
 	/* Check for high resolution color images: */
 	bool highres=cameraSection.retrieveValue<bool>("./highResolution",false);
@@ -160,7 +157,7 @@ KinectRecorder::KinectStreamer::~KinectStreamer(void)
 void KinectRecorder::KinectStreamer::startStreaming(void)
 	{
 	/* Start streaming: */
-	camera.startStreaming(new Misc::VoidMethodCall<const FrameBuffer&,KinectRecorder::KinectStreamer>(this,&KinectRecorder::KinectStreamer::colorStreamingCallback),new Misc::VoidMethodCall<const FrameBuffer&,KinectRecorder::KinectStreamer>(this,&KinectRecorder::KinectStreamer::depthStreamingCallback));
+	camera.startStreaming(Misc::createFunctionCall(this,&KinectRecorder::KinectStreamer::colorStreamingCallback),Misc::createFunctionCall(this,&KinectRecorder::KinectStreamer::depthStreamingCallback));
 	}
 
 /*******************************

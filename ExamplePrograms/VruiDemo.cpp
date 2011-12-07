@@ -265,7 +265,7 @@ void VruiDemo::frame(void)
 		}
 	
 	/* Request another rendering cycle to show the animation: */
-	Vrui::requestUpdate();
+	Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0); // Aim for 125 FPS
 	}
 
 void VruiDemo::resetNavigationCallback(Misc::CallbackData* cbData)

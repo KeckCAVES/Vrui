@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/Event.h>
+#include <GLMotif/TextControlEvent.h>
 #include <GLMotif/Container.h>
 
 #include <GLMotif/ListBox.h>
@@ -402,6 +403,9 @@ void ListBox::pointerButtonDown(Event& event)
 			break;
 			}
 		}
+	
+	/* Request text focus: */
+	getManager()->requestFocus(this);
 	}
 
 void ListBox::pointerButtonUp(Event& event)
@@ -419,6 +423,46 @@ void ListBox::pointerButtonUp(Event& event)
 
 void ListBox::pointerMotion(Event& event)
 	{
+	}
+
+bool ListBox::giveTextFocus(void)
+	{
+	return true;
+	}
+
+void ListBox::textControlEvent(const TextControlEvent& event)
+	{
+	switch(event.event)
+		{
+		case TextControlEvent::CURSOR_TEXT_START:
+		case TextControlEvent::CURSOR_START:
+			setPosition(0);
+			break;
+		
+		case TextControlEvent::CURSOR_PAGE_UP:
+			setPosition(position-pageSize);
+			break;
+		
+		case TextControlEvent::CURSOR_UP:
+			setPosition(position-1);
+			break;
+		
+		case TextControlEvent::CURSOR_DOWN:
+			setPosition(position+1);
+			break;
+		
+		case TextControlEvent::CURSOR_PAGE_DOWN:
+			setPosition(position+pageSize);
+			break;
+		
+		case TextControlEvent::CURSOR_END:
+		case TextControlEvent::CURSOR_TEXT_END:
+			setPosition(items.size());
+			break;
+		
+		default:
+			;
+		}
 	}
 
 void ListBox::initContext(GLContextData& contextData) const

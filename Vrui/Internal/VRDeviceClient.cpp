@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceClient - Class encapsulating the VR device protocol's client
 side.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,9 +23,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/VRDeviceClient.h>
 
+#include <Misc/Time.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Comm/TCPSocket.h>
 
 namespace Vrui {
 
@@ -74,7 +74,7 @@ void VRDeviceClient::initClient(void)
 	pipe.flush();
 	
 	/* Wait for server's reply: */
-	if(!pipe.waitForData(30,0,false))
+	if(!pipe.waitForData(Misc::Time(30,0)))
 		throw ProtocolError("VRDeviceClient: Timeout while waiting for CONNECT_REPLY");
 	if(pipe.readMessage()!=VRDevicePipe::CONNECT_REPLY)
 		throw ProtocolError("VRDeviceClient: Mismatching message while waiting for CONNECT_REPLY");
@@ -87,7 +87,7 @@ void VRDeviceClient::initClient(void)
 	}
 
 VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort)
-	:pipe(Comm::TCPSocket(deviceServerName,deviceServerPort)),
+	:pipe(deviceServerName,deviceServerPort),
 	 active(false),streaming(false),
 	 packetNotificationCB(0),packetNotificationCBData(0)
 	{
@@ -95,7 +95,7 @@ VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort
 	}
 
 VRDeviceClient::VRDeviceClient(const Misc::ConfigurationFileSection& configFileSection)
-	:pipe(Comm::TCPSocket(configFileSection.retrieveString("./serverName"),configFileSection.retrieveValue<int>("./serverPort"))),
+	:pipe(configFileSection.retrieveString("./serverName").c_str(),configFileSection.retrieveValue<int>("./serverPort")),
 	 active(false),streaming(false),
 	 packetNotificationCB(0),packetNotificationCBData(0)
 	{
@@ -153,7 +153,8 @@ void VRDeviceClient::getPacket(void)
 			pipe.flush();
 			
 			/* Wait for packet reply message: */
-			pipe.waitForData(10,0); // Throw exception if reply does not arrive in time
+			if(!pipe.waitForData(Misc::Time(10,0))) // Throw exception if reply does not arrive in time
+				throw ProtocolError("VRDeviceClient: Timout while waiting for PACKET_REPLY");
 			if(pipe.readMessage()!=VRDevicePipe::PACKET_REPLY)
 				throw ProtocolError("VRDeviceClient: Mismatching message while waiting for PACKET_REPLY");
 			

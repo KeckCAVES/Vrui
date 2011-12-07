@@ -31,14 +31,14 @@
 #
 
 # Where to find existing libraries, headers, and binaries?
-INCLUDEEXT = include
-LIBEXT = lib
-BINEXT = bin
+INCLUDEEXT := include
+LIBEXT := lib
+BINEXT := bin
 
 # Where to put newly created files?
-DEPDIR = d
-OBJDIRBASE = o
-EXEDIR = exe
+DEPDIR := d
+OBJDIRBASE := o
+EXEDIRBASE := bin
 
 # How to name shared libraries and plugins?
 DSOFILEEXT = so
@@ -59,6 +59,7 @@ SYSTEM_HAVE_TRANSITIVE_PLUGINS = 1
 
 # System-dependent compiler settings:
 EXTRACSYSFLAGS = 
+EXTRACPPSYSFLAGS = 
 
 # System-dependent linker settings for applications:
 VRUIAPP_LFLAGS =
@@ -67,6 +68,8 @@ VRUIAPP_LFLAGS =
 SYSTEM_SEPARATE_LIBDL = 1
 SYSTEM_HAVE_RT = 1
 SYSTEM_HAVE_TLS = 1
+SYSTEM_HAVE_ATOMICS = 0
+SYSTEM_HAVE_SPINLOCKS = 0
 SYSTEM_SEPARATE_LIBPTHREAD = 1
 SYSTEM_GL_WITH_X11 = 0
 SYSTEM_HAVE_GLXGETPROCADDRESS = 1
@@ -93,11 +96,12 @@ ifeq ($(HOST_OS),Linux)
   SYSTEM = LINUX
   OSSPECFILEINSERT = Linux
   ifeq ($(HOST_ARCH),x86_64)
-    LIBEXT = lib64
-    # Set different object and executable file paths for mixed architectures
-    OBJDIRBASE = o/64
-    EXEDIR = exe/64
+    LIBEXT := lib64
+    # Set different object and executable file paths for mixed architectures (disabled for now):
+    # OBJDIR := $(OBJDIR)/64
+    # EXEDIR := $(EXEDIR)/64
   endif
+  SYSTEM_HAVE_SPINLOCKS = 1
 endif
 
 ifeq ($(HOST_OS),Darwin)
@@ -168,7 +172,9 @@ ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "3.0.0"),1)
   DEPFILETEMPLATE = '$(patsubst %.o,%.d,$@)'
   ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "4.1.0"),1)
     # gcc version 4.1.0 and up requires friend injection flag
-    EXTRACSYSFLAGS += -ffriend-injection
+    EXTRACPPSYSFLAGS += -ffriend-injection
+		# To make up for that, it also provides built-in atomics:
+		SYSTEM_HAVE_ATOMICS = 1
   endif
 else
   COMPILERTYPE = g++
@@ -177,9 +183,22 @@ else
   DEPFILETEMPLATE = '$(*F).d'
 endif
 
+# Set the include directory extension for package-provided libraries
+MYINCLUDEEXT = include
+
 # Package-provided libraries can be built for different compiler
 # versions, and come in static and dynamic shared versions, and also in
 # optimized and debug flavors.
+
+# Specify default optimization/debug level
+ifdef DEBUG
+  DEFAULTDEBUGLEVEL = 3
+  DEFAULTOPTLEVEL = 0
+else
+  DEFAULTDEBUGLEVEL = 0
+  DEFAULTOPTLEVEL = 3
+endif
+
 # Use an extension to tell the linker which version to use
 LDEXT := $(COMPILERTYPE)
 ifdef STATIC_LINK
@@ -189,6 +208,13 @@ ifdef DEBUG
   MYLIBEXT = $(LIBEXT)/debug
 else
   MYLIBEXT = $(LIBEXT)
+endif
+LIBDESTDIR := $(MYLIBEXT)
+
+# Determine the executable file directory:
+EXEDIR := $(EXEDIRBASE)
+ifdef DEBUG
+  EXEDIR := $(EXEDIR)/debug
 endif
 
 # Create initial values for parameters that can be overriden by project makefiles

@@ -21,9 +21,6 @@ The IO library contains abstraction classes for file I/O. It is used extensively
 <DT>StandardFile.h</DT>
 <DD>StandardFile is a concrete class to support high-performance access to standard files.</DD>
 
-<DT>GzippedFile.h</DT>
-<DD>GzippedFile is a concrete class for read access to gzip-compressed files.</DD>
-
 <DT>MemMappedFile.h</DT>
 <DD>MemMappedFile is a concrete class for read/write access to memory-mapped files, mostly to simplify resource management.</DD>
 
@@ -33,8 +30,29 @@ The IO library contains abstraction classes for file I/O. It is used extensively
 <DT>VariableMemoryFile.h</DT>
 <DD>VariableMemoryFile is a concrete class to support high-performance writing to temporary files represented as linked lists of in-memory buffers.</DD>
 
+<DT>GzippedFile.h</DT>
+<DD>GzippedFile is a concrete class for read access to gzip-compressed files.</DD>
+
+<DT>GzipFilter.h</DT>
+<DD>GzipFilter is a class to layer on-the-fly gzip compression or decompression over an underlying IO::File object.</DD>
+
+<DT>SeekableFilter.h</DT>
+<DD>SeekableFilter is a class to convert a streaming IO::File object into a seekable IO::SeekableFile object via in-memory caching.</DD>
+
+<DT>ReadAheadFilter.h</DT>
+<DD>ReadAheadFilter is an adapter for IO::File objects to provide read throughput via background read-ahead. It's especially useful for high-latency base files such as IO::GzipFilter.</DD>
+
+<DT>Directory.h</DT>
+<DD>Directory is an abstract base class to access directory-like objects in a generic fashion.</DD>
+
+<DT>StandardDirectory.h</DT>
+<DD>StandardDirectory is a concrete class derived from IO::Directory to read standard filesystem directories.</DD>
+
 <DT>OpenFile.h</DT>
 <DD>OpenFile.h contains namespace-global functions to open files using appropriate concrete implementations of the IO::File abstraction.</DD>
+
+<DT>IFFChunk.h</DT>
+<DD>IFFChunk is a class to read container files in IFF (Interchange File Format) format using an IO::File abstraction.</DD>
 
 <DT>ZipArchive.h</DT>
 <DD>ZipArchive is a class representing ZIP archive files, using a IO::SeekableFile abstraction to represent the ZIP archive, and granting read access to files stored in a ZIP archive using IO::File abstractions.</DD>

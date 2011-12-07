@@ -194,8 +194,11 @@ void WidgetTool::frame(void)
 
 void WidgetTool::display(GLContextData& contextData) const
 	{
-	/* Draw the GUI interactor's state: */
-	GUIInteractor::glRenderAction(contextData);
+	if(isDrawRay())
+		{
+		/* Draw the GUI interactor's state: */
+		GUIInteractor::glRenderAction(getRayWidth(),getRayColor(),contextData);
+		}
 	}
 
 std::vector<InputDevice*> WidgetTool::getForwardedDevices(void)

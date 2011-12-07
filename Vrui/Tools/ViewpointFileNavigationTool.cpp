@@ -40,6 +40,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/WidgetManager.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/OpenFile.h>
 
 namespace Vrui {
 
@@ -302,8 +303,9 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 			/* Display an error message: */
 			std::string message="Curve file ";
 			message.append(fileName);
-			message.append(" has unrecognized extension ");
+			message.append(" has unrecognized extension \"");
 			message.append(Misc::getExtension(fileName));
+			message.push_back('"');
 			showErrorMessage("Curve File Animation",message.c_str());
 			}
 		}
@@ -346,10 +348,10 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 void ViewpointFileNavigationTool::loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected viewpoint file: */
-	readViewpointFile(cbData->selectedFileName.c_str());
+	readViewpointFile(cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
 	
 	/* Destroy the file selection dialog: */
-	getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
@@ -399,7 +401,7 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 	/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
 	if(factory->viewpointFileName.empty())
 		{
-		GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",0,".views,.curve",openPipe());
+		GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
 		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
 		loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
 		popupPrimaryWidget(loadViewpointFileDialog);
@@ -542,7 +544,10 @@ void ViewpointFileNavigationTool::frame(void)
 			deactivate();
 			}
 		else
-			requestUpdate();
+			{
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		lastParameter=time;
 		}
 	}
