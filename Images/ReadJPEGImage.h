@@ -24,6 +24,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IMAGES_READJPEGIMAGE_INCLUDED
 
 #include <Images/Config.h>
+
+#if IMAGES_CONFIG_HAVE_JPEG
+
 #include <Images/RGBImage.h>
 
 /* Forward declarations: */
@@ -33,10 +36,10 @@ class File;
 
 namespace Images {
 
-#if IMAGES_CONFIG_HAVE_JPEG
 RGBImage readJPEGImage(const char* imageName,IO::File& source); // Reads an RGB image in JPEG format from the given data source
-#endif
 
 }
+
+#endif
 
 #endif

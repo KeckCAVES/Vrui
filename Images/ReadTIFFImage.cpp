@@ -24,19 +24,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Images/Config.h>
 
+#if IMAGES_CONFIG_HAVE_TIFF
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <iostream>
-#if IMAGES_CONFIG_HAVE_TIFF
 #include <tiffio.h>
-#endif
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
 #include <IO/SeekableFile.h>
 #include <IO/SeekableFilter.h>
-
-#if IMAGES_CONFIG_HAVE_TIFF
 
 namespace Images {
 
