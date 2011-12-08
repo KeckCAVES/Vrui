@@ -25,13 +25,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Images/Config.h>
 
 #if IMAGES_CONFIG_HAVE_PNG
+
 #include <png.h>
-#endif
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
-
-#if IMAGES_CONFIG_HAVE_PNG
 
 namespace Images {
 
@@ -227,6 +225,6 @@ RGBAImage readTransparentPNGImage(const char* imageName,IO::File& source)
 	return result;
 	}
 
-#endif
-
 }
+
+#endif

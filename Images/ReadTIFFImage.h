@@ -24,6 +24,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IMAGES_READTIFFIMAGE_INCLUDED
 
 #include <Images/Config.h>
+
+#if IMAGES_CONFIG_HAVE_TIFF
+
 #include <Images/RGBImage.h>
 #include <Images/RGBAImage.h>
 
@@ -34,11 +37,11 @@ class File;
 
 namespace Images {
 
-#if IMAGES_CONFIG_HAVE_TIFF
 RGBImage readTIFFImage(const char* imageName,IO::File& source); // Reads an RGB image in TIFF format from the given data source
 RGBAImage readTransparentTIFFImage(const char* imageName,IO::File& source); // Reads an RGBA image in TIFF format from the given data source
-#endif
 
 }
+
+#endif
 
 #endif
