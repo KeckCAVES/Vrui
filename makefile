@@ -1608,7 +1608,7 @@ endif
 	@install $(LIBRARIES) $(LIBINSTALLDIR)
 	@echo Configuring run-time linker...
 	$(foreach LIBNAME,$(LIBRARY_NAMES),$(call CREATE_SYMLINK,$(LIBNAME)))
-# Install all binaries in BININSTALLDIR:
+# Install all binaries in EXECUTABLEINSTALLDIR:
 	@echo Installing executables...
 	@install -d $(EXECUTABLEINSTALLDIR)
 	@install $(EXECUTABLES) $(EXECUTABLEINSTALLDIR)

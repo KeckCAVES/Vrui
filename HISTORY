@@ -2909,3 +2909,9 @@ Vrui-2.2-001:
   Probably a bug in pulseaudio, that pile of manure. For now,
   SoundPlayer signals end-of-play when it's done writing, which can be
   many seconds before the PCM is done playing.
+
+Vrui-2.2-002:
+- Fixed minor bug in conditional compilation code in
+  Images/ReadPNGImage.cpp when PNG library is not installed.
+- Improved conditional compilation brackets in other
+  Images/Read...Image.cpp sources.
