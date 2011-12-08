@@ -25,14 +25,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Images/Config.h>
 
 #if IMAGES_CONFIG_HAVE_JPEG
+
 #include <stdio.h>
 #include <jpeglib.h>
-#endif
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
-
-#if IMAGES_CONFIG_HAVE_JPEG
 
 namespace Images {
 
