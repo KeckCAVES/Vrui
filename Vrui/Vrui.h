@@ -32,6 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 namespace Misc {
+class Time;
 class CallbackList;
 class TimerEventScheduler;
 }
@@ -257,6 +258,7 @@ void deactivateNavigationTool(const Tool* tool); // Deactivates a navigation too
 VisletManager* getVisletManager(void); // Returns pointer to the vislet manager
 
 /* Time management: */
+Misc::Time getTimeOfDay(void); // Returns the system's wall clock time; requires a multicast data exchange in cluster environments
 double getApplicationTime(void); // Returns the time since the application was started in seconds; is identical throughout a Vrui frame and across a cluster
 double getFrameTime(void); // Returns the duration of the last frame in seconds
 double getCurrentFrameTime(void); // Returns the current average time between frames (1/framerate) in seconds

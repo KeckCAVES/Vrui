@@ -21,6 +21,17 @@
 ########################################################################
 
 ########################################################################
+# The root directory where Vrui will be installed when running
+# "make install". This must be a different directory than the one that
+# contains this makefile, i.e., Vrui cannot be built in-tree. If the
+# installation directory is changed from the default, the makefiles of
+# Vrui applications typically need to be changed to use the same
+# installation directory.
+########################################################################
+
+INSTALLDIR := $(HOME)/Vrui-2.2
+
+########################################################################
 # Please do not change the following lines
 ########################################################################
 
@@ -33,18 +44,6 @@ VRUI_MAKEDIR := $(VRUI_PACKAGEROOT)/BuildRoot
 # packages
 include $(VRUI_MAKEDIR)/SystemDefinitions
 include $(VRUI_MAKEDIR)/Packages.System
-include $(VRUI_MAKEDIR)/Packages.Vrui
-
-########################################################################
-# The root directory where Vrui will be installed when running
-# "make install". This must be a different directory than the one that
-# contains this makefile, i.e., Vrui cannot be built in-tree. If the
-# installation directory is changed from the default, the makefiles of
-# Vrui applications typically need to be changed to use the same
-# installation directory.
-########################################################################
-
-INSTALLDIR := $(HOME)/Vrui-2.2
 
 ########################################################################
 # Some settings that might need adjustment. In general, do not bother
@@ -72,6 +71,21 @@ INSTALLDIR := $(HOME)/Vrui-2.2
 # SYSTEM_HAVE_DC1394 = 0
 # SYSTEM_HAVE_THEORA = 0
 # SYSTEM_HAVE_BLUETOOTH = 0
+
+########################################################################
+# Please do not change the following line
+########################################################################
+
+# Include definitions for Vrui-provided software packages
+include $(VRUI_MAKEDIR)/Packages.Vrui
+
+########################################################################
+# More settings that might need adjustment. In general, do not bother
+# with these unless something goes wrong during the build process, or
+# you have very specific requirements. Proceed with caution!
+# The settings below are conservative; see the README file for what they
+# mean, and how they depend on capabilities of the host system.
+########################################################################
 
 # Set this to 1 if Vrui executables and shared libraries shall contain
 # links to any shared libraries they link to. This will relieve a user
@@ -123,7 +137,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2002002
+VRUI_VERSION = 2002003
 MAJORLIBVERSION = 2
 MINORLIBVERSION = 2
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1608,7 +1622,7 @@ endif
 	@install $(LIBRARIES) $(LIBINSTALLDIR)
 	@echo Configuring run-time linker...
 	$(foreach LIBNAME,$(LIBRARY_NAMES),$(call CREATE_SYMLINK,$(LIBNAME)))
-# Install all binaries in EXECUTABLEINSTALLDIR:
+# Install all binaries in BININSTALLDIR:
 	@echo Installing executables...
 	@install -d $(EXECUTABLEINSTALLDIR)
 	@install $(EXECUTABLES) $(EXECUTABLEINSTALLDIR)
