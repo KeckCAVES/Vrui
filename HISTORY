@@ -2915,3 +2915,12 @@ Vrui-2.2-002:
   Images/ReadPNGImage.cpp when PNG library is not installed.
 - Improved conditional compilation brackets in other
   Images/Read...Image.cpp sources.
+
+Vrui-2.2-003:
+- Added Vrui::getTimeOfDay to return the system's current wall clock
+  time in a cluster-transparent fashion.
+- Removed libv4l2.so library file from V4L2 package dependency, because
+  it is not actually needed to use V4L2, and sometimes missing on older
+  systems.
+- Changed include order of makefile fragments in Vrui build system to
+  work correctly when optional packages are manually disabled.

@@ -43,6 +43,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Misc/Time.h>
 #include <Misc/TimerEventScheduler.h>
 #include <IO/File.h>
 #include <IO/OpenFile.h>
@@ -2364,6 +2365,33 @@ void deactivateNavigationTool(const Tool* tool)
 VisletManager* getVisletManager(void)
 	{
 	return vruiState->visletManager;
+	}
+
+Misc::Time getTimeOfDay(void)
+	{
+	Misc::Time result;
+	
+	if(vruiState->master)
+		{
+		/* Query the system's wall clock time: */
+		result=Misc::Time::now();
+		
+		if(vruiState->multiplexer!=0)
+			{
+			/* Send the time value to the slaves: */
+			vruiState->pipe->write(result.tv_sec);
+			vruiState->pipe->write(result.tv_nsec);
+			vruiState->pipe->flush();
+			}
+		}
+	else
+		{
+		/* Receive the time value from the master: */
+		vruiState->pipe->read(result.tv_sec);
+		vruiState->pipe->read(result.tv_nsec);
+		}
+	
+	return result;
 	}
 
 double getApplicationTime(void)
