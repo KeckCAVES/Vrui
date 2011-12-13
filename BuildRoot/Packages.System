@@ -119,7 +119,7 @@ V4L2_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh linux/videodev2.h libv4l2.
 V4L2_DEPENDS = 
 V4L2_INCLUDE = -I$(V4L2_BASEDIR)/$(INCLUDEEXT)
 V4L2_LIBDIR  = -L$(V4L2_BASEDIR)/$(LIBEXT)
-V4L2_LIBS    = -lv4l2
+V4L2_LIBS    = 
 
 # The DC1394 IEEE 1394 (Firewire) DCAM video library
 DC1394_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh dc1394/dc1394.h libdc1394.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
