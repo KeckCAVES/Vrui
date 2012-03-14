@@ -2632,9 +2632,9 @@ Vrui-2.2-001:
   Comm::MulticastPipeMultiplexer.
 - Added a new Vrui application template source to example programs.
 - Fixes to widget handling in GLMotif::WidgetManager:
-  - Changes event processing lock to use RAII for exception safety.
+  - Changed event processing lock to use RAII for exception safety.
   - Inserted missing code to pop down secondary widgets before popping
-    popping down a primary widget.
+    down a primary widget.
 - Fixed Vrui shutdown sequence to allow clean shutdown when exceptions
   are thrown from inside UI and tool callbacks.
 - Added directed textControl() method to GLMotif::WidgetManager.
@@ -2924,3 +2924,90 @@ Vrui-2.2-003:
   systems.
 - Changed include order of makefile fragments in Vrui build system to
   work correctly when optional packages are manually disabled.
+
+Vrui-2.3-001:
+- Improved Vrui::WalkSurfaceNavigationTool:
+  - Fixed crash when no jetpack valuator is assigned.
+  - Improved jetpack handling
+  - Added configuration options for jetpack acceleration and HUD font
+    size.
+- Changed void* to gzFile in IO/GzippedFile.h to account for changed
+  zlib headers.
+- Allowed per-instance override of Vrui::ViewpointFileNavigationTool's
+  configuration settings.
+- Fixed pixel pipeline handling in Vrui::VRWindow's InterleavedViewport
+  mode.
+- Fixed pixel pipeline handling in Video::YpCbCr420Texture.
+- Added reset() method to GLShader.
+- Added cross-machine thread identification mechanism to
+  Threads::Thread.
+  - Threads library again has a dynamic library file.
+  - Threads library now requires initialization and deinitialization,
+    transparently handled using gcc function attributes.
+- Concomitant changes to Threads library:
+  - Added optional debugging features selected by THREADS_CONFIG_DEBUG
+    in Threads/Config.h.
+  - Added configuration flag whether pthread implementation supports
+    thread cancellation (Mac OS X doesn't).
+- Overhaul of Cluster::Multiplexer:
+  - Fixed bad bug: A slave missing a pipe-closing barrier completion
+    message used to be left hanging; now master simply sends another
+    completion message.
+  - Removed internal structure definitions from Cluster/Multiplexer.h.
+  - Improved protocol message data structures.
+  - Fixed concurrent openPipe() calls by associating calls with global
+    thread IDs provided by Threads::Thread.
+  - Fixed another bad bug: In a broadcast cluster, master would receive
+    its own multicast packets and sometimes interpret them wrongly.
+  - Fixed packet handling bugs in Cluster::MulticastPipe that could lead
+    to crashes or memory leaks.
+- Added configuration option for intra-cluster MTU size to
+  Cluster/Config.h. This allows to exploit jumbo packets by increasing
+  from the default of 1500 bytes, albeit only at build-time.
+- Fixed const bug in GLMotif::WidgetManager::getWidgetAttribute.
+  Reported by Braden Pellett.
+- Fixed missing system-package include directories in Vrui pkg-config
+  file. Reported by Braden Pellett.
+- Clarified normal vector transformation return value semantics in
+  SceneGraph::PointTransformNode.
+- Added handling of invalid elevation values to
+  SceneGraph::ElevationGridNode and improved performance somewhat.
+- Fixed copyright notices in GL/GLLightTracker.h and
+  GL/GLLightTracker.cpp.
+- Added OpenGL extension class for GL_EXT_rescale_normal.
+- Added tracking of normal vector rescaling and/or normalization state
+  to GLLightTracker.
+- Added set... functions to GLLightTracker to avoid having to query
+  state from OpenGL in many cases.
+- Added GLLightTracker object directly to GLContextData.
+  - Started using GLLightTracker in GLLabel's rendering methods.
+  - Changed context data and display state initialization sequence in
+    Vrui::VRWindow.
+  - Removed GLLightTracker object from Vrui::LightsourceManager.
+    - Vrui::LightsourceManager no longer has OpenGL state.
+  - Added light tracker initialization to Vrui's display function.
+- Added GLClipPlaneTracker, a class to track the state of OpenGL's
+  clipping planes to support dynamic shader compilation.
+- Added GLClipPlaneTracker object directly to GLContextData.
+- Changed Vrui::ClipPlaneManager to use GLClipPlaneTracker.
+  - Vrui::ClipPlaneManager no longer has OpenGL state.
+  - Removed now-redundant disableClipPlanes method.
+- Changed GLMotif::DragWidget from an intermediate base class into a
+  mix-in class to increase flexibility.
+  - Changed GLMotif::Slider and GLMotif::ScrollBar accordingly.
+- Fixed minor layout bug in GLMotif::TextFieldSlider.
+- Added GLMotif::HSVColorSelector, a class to select an RGB color using
+  an interface around the HSV color model.
+- Added GLAutomaticShader, a base class for GLSL shaders that
+  automatically track the fixed-functionality state of the current
+  OpenGL context.
+- Added GLLineLightingShader, a shader for Phong illumination of curves.
+- Changed default Vrui.cfg such that selection rays are not drawn in
+  desktop mode.
+- Fixed ray drawing behavior in Vrui::RayInputDeviceTool.
+- Implemented Vrui::VRWindow::setCursorPos and
+  Vrui::VRWindow::setCursorPosWithAdjust for split-viewport windows.
+- Added Threads::Atomic, a class for atomic operations on integral value
+  types.
+- Finally fixed bug in program shutdown detection for headless Vrui
+  environments.

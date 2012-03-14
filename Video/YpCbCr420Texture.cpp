@@ -297,6 +297,7 @@ void YpCbCr420Texture::install(GLContextData& contextData,GLfloat texCoord[2]) c
 				}
 			}
 		glActiveTextureARB(GL_TEXTURE0_ARB);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
 		
 		/* Mark the image plane textures as valid: */
 		dataItem->frameNumber=frameNumber;
@@ -441,11 +442,21 @@ void YpCbCr420Texture::uninstall(GLContextData& contextData) const
 		{
 		/* Disable the shader: */
 		GLShader::disablePrograms();
+		
+		/* Unbind the component textures: */
+		for(int i=2;i>=0;--i)
+			{
+			glActiveTextureARB(GL_TEXTURE0_ARB+i);
+			glBindTexture(GL_TEXTURE_2D,0);
+			}
 		}
 	else
 		{
 		/* Disable texturing: */
 		glDisable(GL_TEXTURE_2D);
+		
+		/* Unbind the luminance texture: */
+		glBindTexture(GL_TEXTURE_2D,0);
 		}
 	
 	glPopAttrib();

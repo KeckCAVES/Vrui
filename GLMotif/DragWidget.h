@@ -1,7 +1,7 @@
 /***********************************************************************
-DragWidget - Base class for GLMotif UI components reacting to dragging
+DragWidget - Mix-in class for GLMotif UI components reacting to dragging
 events.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -25,11 +25,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
-#include <GLMotif/Widget.h>
+
+/* Forward declarations: */
+namespace GLMotif {
+class Event;
+class Widget;
+}
 
 namespace GLMotif {
 
-class DragWidget:public Widget
+class DragWidget
 	{
 	/* Embedded classes: */
 	public:
@@ -68,20 +73,26 @@ class DragWidget:public Widget
 	/* Elements: */
 	protected:
 	Misc::CallbackList draggingCallbacks; // List of callbacks to be called when the widget starts/stops being dragged
-	bool isDragging; // Flag if the widget is currently being dragged
+	bool dragging; // Flag if the widget is currently being dragged
 	
 	/* Protected methods: */
 	void startDragging(Event& event); // Starts dragging the widget
 	void stopDragging(Event& event); // Stops dragging the widget
+	bool overrideRecipient(Widget* widget,Event& event); // Puts the given widget as target into the event
 	
 	/* Constructors and destructors: */
 	public:
-	DragWidget(const char* sName,Container* sParent,bool sManageChild =true);
-	
-	/* Methods inherited from Widget: */
-	virtual bool findRecipient(Event& event);
+	DragWidget(void)
+		:dragging(false)
+		{
+		}
+	virtual ~DragWidget(void);
 	
 	/* New methods: */
+	bool isDragging(void) const // Returns true if the widget is currently being dragged
+		{
+		return dragging;
+		}
 	Misc::CallbackList& getDraggingCallbacks(void) // Returns list of dragging callbacks
 		{
 		return draggingCallbacks;

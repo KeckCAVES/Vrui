@@ -3,7 +3,7 @@ DisplayState - Class to store Vrui rendering state in a GLContextData
 object so it can be queried by applications from inside their display
 methods. Workaround until a "proper" method to pass display state into
 applications is found.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

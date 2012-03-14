@@ -36,7 +36,7 @@ class Blind:public Widget
 	public:
 	Blind(const char* sName,Container* sParent,bool manageChild =true);
 	
-	/* Methods inherited from VRWidget: */
+	/* Methods inherited from Widget: */
 	virtual Vector calcNaturalSize(void) const;
 	virtual void draw(GLContextData& contextData) const;
 	

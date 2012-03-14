@@ -1,7 +1,7 @@
 /***********************************************************************
 Environment-independent part of Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2011 Oliver Kreylos
+Copyright (c) 2000-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,6 +54,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLLightModelTemplates.h>
+#include <GL/GLLightTracker.h>
+#include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
 #include <GL/GLValueCoders.h>
@@ -1017,11 +1019,16 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glFrontFace(GL_CCW);
-	glEnable(GL_LIGHTING);
 	glEnable(GL_NORMALIZE);
-	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
 	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
-	glDisable(GL_COLOR_MATERIAL);
+	
+	/* Initialize lighting state through the display state's light tracker: */
+	GLLightTracker* lt=contextData.getLightTracker();
+	lt->setLightingEnabled(true);
+	lt->setSpecularColorSeparate(false);
+	lt->setLightingTwoSided(false);
+	lt->setColorMaterials(false);
+	lt->setColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
 	
 	/* Clear the display and Z-buffer: */
 	glClearColor(backgroundColor);
@@ -1037,10 +1044,7 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	glMultMatrix(displayState->modelviewPhysical);
 	
 	/* Set light sources: */
-	if(navigationTransformationEnabled)
-		lightsourceManager->setLightsources(displayState,contextData);
-	else
-		lightsourceManager->setLightsources(contextData);
+	lightsourceManager->setLightsources(navigationTransformationEnabled,displayState,contextData);
 	
 	/* Render input device manager's state: */
 	inputDeviceManager->glRenderAction(contextData);
@@ -1059,10 +1063,7 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	glDisable(GL_COLOR_MATERIAL);
 	
 	/* Set clipping planes: */
-	if(navigationTransformationEnabled)
-		clipPlaneManager->setClipPlanes(displayState,contextData);
-	else
-		clipPlaneManager->setClipPlanes(contextData);
+	clipPlaneManager->setClipPlanes(navigationTransformationEnabled,displayState,contextData);
 	
 	/* Display all loaded vislets: */
 	if(visletManager!=0)
@@ -1102,8 +1103,11 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 		glDepthMask(GL_TRUE);
 		}
 	
-	/* Disable all clipping planes: */
-	clipPlaneManager->disableClipPlanes(contextData);
+	/* Temporarily disable all clipping planes, bypassing the OpenGL context's clipping plane tracker: */
+	GLClipPlaneTracker* cpt=contextData.getClipPlaneTracker();
+	for(int i=0;i<cpt->getMaxNumClipPlanes();++i)
+		if(cpt->getClipPlaneState(i).isEnabled())
+			glDisable(GL_CLIP_PLANE0+i);
 	}
 
 void VruiState::sound(ALContextData& contextData) const

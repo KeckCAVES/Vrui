@@ -1,7 +1,7 @@
 /***********************************************************************
 Packet - Structure for packets sent and received by a cluster
 multiplexer.
-Copyright (c) 2005-2011 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define CLUSTER_PACKET_INCLUDED
 
 #include <string.h>
+#include <Cluster/Config.h>
 
 namespace Cluster {
 
@@ -31,7 +32,8 @@ struct Packet
 	{
 	/* Embedded classes: */
 	public:
-	static const size_t maxPacketSize=1472-2*sizeof(unsigned int); // Maximum size of packet in bytes
+	static const size_t maxRawPacketSize=CLUSTER_CONFIG_MTU_SIZE-CLUSTER_CONFIG_IP_HEADER_SIZE-CLUSTER_CONFIG_UDP_HEADER_SIZE; // Configured MTU size minus IP header size minus UDP header size
+	static const size_t maxPacketSize=CLUSTER_CONFIG_MTU_SIZE-CLUSTER_CONFIG_IP_HEADER_SIZE-CLUSTER_CONFIG_UDP_HEADER_SIZE-2*sizeof(unsigned int); // Maximum size of multicast packet data payload in bytes
 	
 	class Reader // Simple class to read data from packets
 		{
