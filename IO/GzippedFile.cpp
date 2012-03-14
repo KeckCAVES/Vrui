@@ -1,7 +1,7 @@
 /***********************************************************************
 GzippedFile - Class for high-performance reading from gzip-compressed
 standard operating system files.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -22,7 +22,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <IO/GzippedFile.h>
 
-#include <zlib.h>
 #include <Misc/ThrowStdErr.h>
 
 namespace IO {

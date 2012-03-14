@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2011 Oliver Kreylos
+# Copyright (c) 1998-2012 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-2.2
+INSTALLDIR := $(HOME)/Vrui-2.3
 
 ########################################################################
 # Please do not change the following lines
@@ -137,9 +137,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2002003
+VRUI_VERSION = 2003001
 MAJORLIBVERSION = 2
-MINORLIBVERSION = 2
+MINORLIBVERSION = 3
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -221,7 +221,8 @@ EXECUTABLES =
 # The basic libraries:
 #
 
-LIBRARY_NAMES    = libMisc
+LIBRARY_NAMES    = libMisc \
+                   libThreads
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
   LIBRARY_NAMES += libUSB
 endif
@@ -449,10 +450,16 @@ ifneq ($(SYSTEM_HAVE_SPINLOCKS),0)
 else
 	@echo Threads library simulates spinlocks using POSIX mutexes
 endif
+ifneq ($(SYSTEM_CAN_CANCEL_THREADS),0)
+	@echo Local pthread implements pthread_cancel
+else
+	@echo Local pthread does not implement pthread_cancel
+endif
 	@cp Threads/Config.h Threads/Config.h.temp
 	@$(call CONFIG_SETVAR,Threads/Config.h.temp,THREADS_CONFIG_HAVE_BUILTIN_TLS,$(SYSTEM_HAVE_TLS))
 	@$(call CONFIG_SETVAR,Threads/Config.h.temp,THREADS_CONFIG_HAVE_BUILTIN_ATOMICS,$(SYSTEM_HAVE_ATOMICS))
 	@$(call CONFIG_SETVAR,Threads/Config.h.temp,THREADS_CONFIG_HAVE_SPINLOCKS,$(SYSTEM_HAVE_SPINLOCKS))
+	@$(call CONFIG_SETVAR,Threads/Config.h.temp,THREADS_CONFIG_CAN_CANCEL,$(SYSTEM_CAN_CANCEL_THREADS))
 	@if ! diff Threads/Config.h.temp Threads/Config.h > /dev/null ; then cp Threads/Config.h.temp Threads/Config.h ; fi
 	@rm Threads/Config.h.temp
 Threads/Config.h: Configure-Threads
@@ -460,17 +467,16 @@ Threads/Config.h: Configure-Threads
 THREADS_HEADERS = $(wildcard Threads/*.h) \
                   $(wildcard Threads/*.icpp)
 
-# THREADS_SOURCES = $(wildcard Threads/*.cpp)
+THREADS_SOURCES = $(wildcard Threads/*.cpp)
 
-# $(THREADS_SOURCES): config
+$(THREADS_SOURCES): config
 
-# Threads library currently does not contain object code:
-# $(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
-# $(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
-# $(call LIBRARYNAME,libThreads): $(call DEPENDENCIES,MYTHREADS)
-# $(call LIBRARYNAME,libThreads): $(THREADS_SOURCES:%.cpp=$(OBJDIR)/%.o)
-# .PHONY: libThreads
-# libThreads: $(call LIBRARYNAME,libThreads)
+$(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
+$(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
+$(call LIBRARYNAME,libThreads): $(call DEPENDENCIES,MYTHREADS)
+$(call LIBRARYNAME,libThreads): $(THREADS_SOURCES:%.cpp=$(OBJDIR)/%.o)
+.PHONY: libThreads
+libThreads: $(call LIBRARYNAME,libThreads)
 
 #
 # The USB Support Library (USB)
@@ -739,6 +745,8 @@ GLSUPPORT_HEADERS = GL/Config.h \
                     GL/GLPrintError.h \
                     GL/GLMarshallers.h GL/GLMarshallers.icpp \
                     GL/GLValueCoders.h \
+                    GL/GLLightTracker.h \
+                    GL/GLClipPlaneTracker.h \
                     GL/TLSHelper.h \
                     GL/GLObject.h \
                     GL/GLContextData.h \
@@ -746,7 +754,8 @@ GLSUPPORT_HEADERS = GL/Config.h \
                     GL/GLExtensionManager.h \
                     GL/GLShader.h \
                     GL/GLGeometryShader.h \
-                    GL/GLLightTracker.h \
+                    GL/GLAutomaticShader.h \
+                    GL/GLLineLightingShader.h \
                     GL/GLColorMap.h \
                     GL/GLNumberRenderer.h \
                     GL/GLFont.h \
@@ -761,6 +770,8 @@ GLSUPPORTEXTENSION_HEADERS = $(wildcard GL/Extensions/*.h) \
 GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
                     GL/GLMarshallers.cpp \
                     GL/GLValueCoders.cpp \
+                    GL/GLLightTracker.cpp \
+                    GL/GLClipPlaneTracker.cpp \
                     GL/GLObject.cpp \
                     GL/Internal/GLThingManager.cpp \
                     GL/GLContextData.cpp \
@@ -769,7 +780,8 @@ GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
 		    $(wildcard GL/Extensions/*.cpp) \
                     GL/GLShader.cpp \
                     GL/GLGeometryShader.cpp \
-                    GL/GLLightTracker.cpp \
+                    GL/GLAutomaticShader.cpp \
+                    GL/GLLineLightingShader.cpp \
                     GL/GLColorMap.cpp \
                     GL/GLNumberRenderer.cpp \
                     GL/GLFont.cpp \
@@ -1290,7 +1302,6 @@ $(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYIO MYTHREADS MYMISC DL
 $(EXEDIR)/VRDeviceDaemon: EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(EXEDIR)/VRDeviceDaemon: CFLAGS += -DVERBOSE -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
 $(EXEDIR)/VRDeviceDaemon: LINKFLAGS += $(PLUGINHOSTLINKFLAGS)
-$(EXEDIR)/VRDeviceDaemon: $(call LIBRARYNAME,libGeometry) $(call LIBRARYNAME,libComm) $(call LIBRARYNAME,libMisc)
 $(EXEDIR)/VRDeviceDaemon: $(VRDEVICEDAEMON_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: VRDeviceDaemon
 VRDeviceDaemon: $(EXEDIR)/VRDeviceDaemon
@@ -1529,6 +1540,7 @@ $(MAKECONFIGFILE): config
 	@echo 'VRVISLETSDIREXT = $(VRVISLETSDIREXT)' >> $(MAKECONFIGFILE)
 
 ROGUE_SYSTEMPACKAGES = $(filter %_,$(foreach PACKAGENAME,$(SYSTEMPACKAGES),$(PACKAGENAME)_$($(PACKAGENAME)_PKGNAME)))
+ROGUE_INCLUDEDIRS = $(sort $(foreach PACKAGENAME,$(ROGUE_SYSTEMPACKAGES),$($(PACKAGENAME)INCLUDE)))
 ROGUE_LIBDIRS = $(sort $(foreach PACKAGENAME,$(ROGUE_SYSTEMPACKAGES),$($(PACKAGENAME)LIBDIR)))
 ROGUE_LIBS = $(foreach PACKAGENAME,$(ROGUE_SYSTEMPACKAGES),$($(PACKAGENAME)LIBS))
 
@@ -1554,7 +1566,7 @@ ifneq ($(SYSTEM_HAVE_RPATH),0)
 else
 	@echo 'Libs: -L$${libdir} $(strip $(patsubst lib%,-l%.$(LDEXT),$(LIBRARY_NAMES))) $(ROGUE_LIBDIRS) $(ROGUE_LIBS)' >> $(PKGCONFIGFILE)
 endif	
-	@echo 'Cflags: -I$${includedir} $(strip $(VRUIAPP_CFLAGS))' >> $(PKGCONFIGFILE)
+	@echo 'Cflags: -I$${includedir} $(ROGUE_INCLUDEDIRS) $(strip $(VRUIAPP_CFLAGS))' >> $(PKGCONFIGFILE)
 
 install:
 # Install all header files in HEADERINSTALLDIR:

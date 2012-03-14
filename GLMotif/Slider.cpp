@@ -1,6 +1,6 @@
 /***********************************************************************
 Slider - Class for horizontal or vertical sliders.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -19,6 +19,9 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+
+#include <GLMotif/Slider.h>
+
 #include <math.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -28,8 +31,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/Container.h>
-
-#include <GLMotif/Slider.h>
 
 namespace GLMotif {
 
@@ -119,7 +120,7 @@ void Slider::clickRepeatTimerEventCallback(Misc::TimerEventScheduler::CallbackDa
 	}
 
 Slider::Slider(const char* sName,Container* sParent,Slider::Orientation sOrientation,GLfloat sSliderWidth,GLfloat sShaftLength,bool sManageChild)
-	:DragWidget(sName,sParent,false),
+	:Widget(sName,sParent,false),
 	 orientation(sOrientation),
 	 valueMin(0.0),valueMax(1000.0),valueIncrement(1.0),value(500.0),
 	 isClicking(false)
@@ -151,7 +152,7 @@ Slider::Slider(const char* sName,Container* sParent,Slider::Orientation sOrienta
 	}
 
 Slider::Slider(const char* sName,Container* sParent,Slider::Orientation sOrientation,GLfloat sShaftLength,bool sManageChild)
-	:DragWidget(sName,sParent,false),
+	:Widget(sName,sParent,false),
 	 orientation(sOrientation),
 	 sliderHeight(0.0f),shaftDepth(0.0f),
 	 valueMin(0.0),valueMax(1000.0),valueIncrement(1.0),value(500.0),
@@ -213,7 +214,7 @@ Vector Slider::calcNaturalSize(void) const
 ZRange Slider::calcZRange(void) const
 	{
 	/* Return parent class' z range: */
-	ZRange myZRange=DragWidget::calcZRange();
+	ZRange myZRange=Widget::calcZRange();
 	
 	/* Adjust for shaft depth and slider height: */
 	myZRange+=ZRange(getInterior().origin[2]-shaftDepth,getInterior().origin[2]+sliderHeight);
@@ -224,7 +225,7 @@ ZRange Slider::calcZRange(void) const
 void Slider::resize(const Box& newExterior)
 	{
 	/* Resize the parent class widget: */
-	DragWidget::resize(newExterior);
+	Widget::resize(newExterior);
 	
 	/* Adjust the shaft and slider handle positions: */
 	positionShaft();
@@ -234,7 +235,7 @@ void Slider::resize(const Box& newExterior)
 void Slider::draw(GLContextData& contextData) const
 	{
 	/* Draw parent class decorations: */
-	DragWidget::draw(contextData);
+	Widget::draw(contextData);
 	
 	/* Draw the shaft margin: */
 	glColor(backgroundColor);
@@ -425,6 +426,14 @@ void Slider::draw(GLContextData& contextData) const
 		}
 	}
 
+bool Slider::findRecipient(Event& event)
+	{
+	if(isDragging())
+		return overrideRecipient(this,event);
+	else
+		return Widget::findRecipient(event);
+	}
+
 void Slider::pointerButtonDown(Event& event)
 	{
 	/* Where inside the widget did the event hit? */
@@ -511,7 +520,7 @@ void Slider::pointerButtonUp(Event& event)
 
 void Slider::pointerMotion(Event& event)
 	{
-	if(isDragging)
+	if(isDragging())
 		{
 		/* Update the slider value and position: */
 		int dimension=orientation==HORIZONTAL?0:1;

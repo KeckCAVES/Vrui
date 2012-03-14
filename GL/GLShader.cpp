@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -55,23 +55,8 @@ GLShader::GLShader(void)
 
 GLShader::~GLShader(void)
 	{
-	if(programObject!=0)
-		{
-		/* Detach all shaders from the shader program: */
-		for(HandleList::iterator vsoIt=vertexShaderObjects.begin();vsoIt!=vertexShaderObjects.end();++vsoIt)
-			glDetachObjectARB(programObject,*vsoIt);
-		for(HandleList::iterator fsoIt=fragmentShaderObjects.begin();fsoIt!=fragmentShaderObjects.end();++fsoIt)
-			glDetachObjectARB(programObject,*fsoIt);
-		
-		/* Delete the shader program: */
-		glDeleteObjectARB(programObject);
-		}
-	
-	/* Delete all shaders: */
-	for(HandleList::iterator vsoIt=vertexShaderObjects.begin();vsoIt!=vertexShaderObjects.end();++vsoIt)
-		glDeleteObjectARB(*vsoIt);
-	for(HandleList::iterator fsoIt=fragmentShaderObjects.begin();fsoIt!=fragmentShaderObjects.end();++fsoIt)
-		glDeleteObjectARB(*fsoIt);
+	/* Reset the shader: */
+	reset();
 	}
 
 bool GLShader::isSupported(void)
@@ -221,6 +206,31 @@ void GLShader::linkShader(void)
 		/* Signal an error: */
 		Misc::throwStdErr("GLShader::linkShader: Error \"%s\" while linking shader program",linkLogBuffer);
 		}
+	}
+
+void GLShader::reset(void)
+	{
+	/* Check if the program has already been linked: */
+	if(programObject!=0)
+		{
+		/* Detach all shaders from the shader program: */
+		for(HandleList::iterator vsoIt=vertexShaderObjects.begin();vsoIt!=vertexShaderObjects.end();++vsoIt)
+			glDetachObjectARB(programObject,*vsoIt);
+		for(HandleList::iterator fsoIt=fragmentShaderObjects.begin();fsoIt!=fragmentShaderObjects.end();++fsoIt)
+			glDetachObjectARB(programObject,*fsoIt);
+		
+		/* Delete the shader program: */
+		glDeleteObjectARB(programObject);
+		programObject=0;
+		}
+	
+	/* Delete all shaders: */
+	for(HandleList::iterator vsoIt=vertexShaderObjects.begin();vsoIt!=vertexShaderObjects.end();++vsoIt)
+		glDeleteObjectARB(*vsoIt);
+	vertexShaderObjects.clear();
+	for(HandleList::iterator fsoIt=fragmentShaderObjects.begin();fsoIt!=fragmentShaderObjects.end();++fsoIt)
+		glDeleteObjectARB(*fsoIt);
+	fragmentShaderObjects.clear();
 	}
 
 int GLShader::getUniformLocation(const char* uniformName) const

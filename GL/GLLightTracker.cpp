@@ -2,32 +2,37 @@
 GLLightTracker - Class to keep track of changes to OpenGL's light source
 state to support just-in-time compilation of GLSL shaders depending on
 the OpenGL context's current lighting state.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
-This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
+This file is part of the OpenGL Support Library (GLSupport).
 
-The OpenGL C++ Wrapper Library is free software; you can redistribute it
+The OpenGL Support Library is free software; you can redistribute it
 and/or modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
-The OpenGL C++ Wrapper Library is distributed in the hope that it will
-be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+The OpenGL Support Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
 You should have received a copy of the GNU General Public License along
-with the OpenGL C++ Wrapper Library; if not, write to the Free Software
+with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
 #include <GL/GLLightTracker.h>
 
+#include <GL/gl.h>
+#include <GL/GLLightTemplates.h>
+#include <GL/GLLight.h>
+#include <GL/Extensions/GLEXTRescaleNormal.h>
+
 /***************************************
 Static elements of class GLLightTracker:
 ***************************************/
 
-const char* GLLightTracker::accumulateLightTemplate=
+const char GLLightTracker::accumulateLightTemplate[]=
 	"\
 	void accumulateLight<lightIndex>(in vec4 vertexEc,in vec3 normalEc,in vec4 ambient,in vec4 diffuse,in vec4 specular,in float shininess,inout vec4 ambientDiffuseAccum,inout vec4 specularAccum)\n\
 		{\n\
@@ -57,7 +62,7 @@ const char* GLLightTracker::accumulateLightTemplate=
 		}\n\
 	\n";
 
-const char* GLLightTracker::accumulateAttenuatedLightTemplate=
+const char GLLightTracker::accumulateAttenuatedLightTemplate[]=
 	"\
 	void accumulateLight<lightIndex>(in vec4 vertexEc,in vec3 normalEc,in vec4 ambient,in vec4 diffuse,in vec4 specular,in float shininess,inout vec4 ambientDiffuseAccum,inout vec4 specularAccum)\n\
 		{\n\
@@ -92,7 +97,7 @@ const char* GLLightTracker::accumulateAttenuatedLightTemplate=
 		}\n\
 	\n";
 
-const char* GLLightTracker::accumulateSpotLightTemplate=
+const char GLLightTracker::accumulateSpotLightTemplate[]=
 	"\
 	void accumulateLight<lightIndex>(in vec4 vertexEc,in vec3 normalEc,in vec4 ambient,in vec4 diffuse,in vec4 specular,in float shininess,inout vec4 ambientDiffuseAccum,inout vec4 specularAccum)\n\
 		{\n\
@@ -132,7 +137,7 @@ const char* GLLightTracker::accumulateSpotLightTemplate=
 		}\n\
 	\n";
 
-const char* GLLightTracker::accumulateAttenuatedSpotLightTemplate=
+const char GLLightTracker::accumulateAttenuatedSpotLightTemplate[]=
 	"\
 	void accumulateLight<lightIndex>(in vec4 vertexEc,in vec3 normalEc,in vec4 ambient,in vec4 diffuse,in vec4 specular,in float shininess,inout vec4 ambientDiffuseAccum,inout vec4 specularAccum)\n\
 		{\n\
@@ -186,7 +191,8 @@ GLLightTracker::GLLightTracker(void)
 	 specularColorSeparate(false),
 	 lightingTwoSided(false),
 	 colorMaterials(false),
-	 colorMaterialFace(GL_FRONT_AND_BACK),colorMaterialProperty(GL_AMBIENT_AND_DIFFUSE)
+	 colorMaterialFace(GL_FRONT_AND_BACK),colorMaterialProperty(GL_AMBIENT_AND_DIFFUSE),
+	 haveRescaleNormal(GLEXTRescaleNormal::isSupported()),normalScalingMode(NormalScalingOff)
 	{
 	/* Determine the maximum number of light sources supported by the local OpenGL: */
 	glGetIntegerv(GL_MAX_LIGHTS,&maxNumLights);
@@ -199,6 +205,10 @@ GLLightTracker::GLLightTracker(void)
 		lightStates[i].attenuated=false;
 		lightStates[i].spotLight=false;
 		}
+	
+	/* Initialize the GL_EXT_rescale_normal extension: */
+	if(haveRescaleNormal)
+		GLEXTRescaleNormal::initExtension();
 	
 	/* Query the current lighting state: */
 	update();
@@ -213,8 +223,252 @@ GLLightTracker::~GLLightTracker(void)
 	delete[] lightStates;
 	}
 
+bool GLLightTracker::setLightingEnabled(bool newLightingEnabled)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=lightingEnabled!=newLightingEnabled;
+	lightingEnabled=newLightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	if(lightingEnabled)
+		glEnable(GL_LIGHTING);
+	else
+		glDisable(GL_LIGHTING);
+	
+	return changed;
+	}
+
+bool GLLightTracker::enableLight(int lightIndex,const GLLight& light)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=false;
+	
+	/* Check enabled state: */
+	changed=changed||!lightStates[lightIndex].enabled;
+	lightStates[lightIndex].enabled=true;
+	
+	/* Check attenuation state: */
+	bool lightAttenuated=light.position[3]!=GLLight::Scalar(0)&&(light.constantAttenuation!=GLLight::Scalar(1)||light.linearAttenuation!=GLLight::Scalar(0)||light.quadraticAttenuation!=GLLight::Scalar(0));
+	changed=changed||lightStates[lightIndex].attenuated!=lightAttenuated;
+	lightStates[lightIndex].attenuated=lightAttenuated;
+	
+	/* Check spotlight state: */
+	bool lightSpotLight=light.position[3]!=GLLight::Scalar(0)&&light.spotCutoff<=GLLight::Scalar(90);
+	changed=changed||lightStates[lightIndex].spotLight!=lightSpotLight;
+	lightStates[lightIndex].spotLight=lightSpotLight;
+	
+	/* Reset changed flag if lighting is disabled globally: */
+	changed=changed&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the light source change through to OpenGL: */
+	glEnableLight(lightIndex);
+	glLight(lightIndex,light);
+	
+	return changed;
+	}
+
+bool GLLightTracker::disableLight(int lightIndex)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=false;
+	
+	/* Check enabled state: */
+	changed=changed||lightStates[lightIndex].enabled;
+	lightStates[lightIndex].enabled=false;
+	
+	/* Reset changed flag if lighting is disabled globally: */
+	changed=changed&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the light source change through to OpenGL: */
+	glDisableLight(lightIndex);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setSpecularColorSeparate(bool newSpecularColorSeparate)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=specularColorSeparate!=newSpecularColorSeparate;
+	specularColorSeparate=newSpecularColorSeparate;
+	
+	/* Reset changed flag if lighting is disabled globally: */
+	changed=changed&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,specularColorSeparate?GL_SEPARATE_SPECULAR_COLOR:GL_SINGLE_COLOR);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setLightingTwoSided(bool newLightingTwoSided)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=lightingTwoSided!=newLightingTwoSided;
+	lightingTwoSided=newLightingTwoSided;
+	
+	/* Reset changed flag if lighting is disabled globally: */
+	changed=changed&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,lightingTwoSided?GL_TRUE:GL_FALSE);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setColorMaterials(bool newColorMaterials)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=colorMaterials!=newColorMaterials;
+	colorMaterials=newColorMaterials;
+	
+	/* Reset changed flag if lighting is disabled globally: */
+	changed=changed&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	if(colorMaterials)
+		glEnable(GL_COLOR_MATERIAL);
+	else
+		glDisable(GL_COLOR_MATERIAL);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setColorMaterialFace(GLenum newColorMaterialFace)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=colorMaterialFace!=newColorMaterialFace;
+	colorMaterialFace=newColorMaterialFace;
+	
+	/* Reset changed flag if color materials or lighting are disabled globally: */
+	changed=changed&&colorMaterials&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	glColorMaterial(colorMaterialFace,colorMaterialProperty);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setColorMaterialProperty(GLenum newColorMaterialProperty)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=colorMaterialProperty!=newColorMaterialProperty;
+	colorMaterialProperty=newColorMaterialProperty;
+	
+	/* Reset changed flag if color materials or lighting are disabled globally: */
+	changed=changed&&colorMaterials&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	glColorMaterial(colorMaterialFace,colorMaterialProperty);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setColorMaterial(GLenum newColorMaterialFace,GLenum newColorMaterialProperty)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=false;
+	
+	/* Check color material face: */
+	changed=changed||colorMaterialFace!=newColorMaterialFace;
+	colorMaterialFace=newColorMaterialFace;
+	
+	/* Check color material property: */
+	changed=changed||colorMaterialProperty!=newColorMaterialProperty;
+	colorMaterialProperty=newColorMaterialProperty;
+	
+	/* Reset changed flag if color materials or lighting are disabled globally: */
+	changed=changed&&colorMaterials&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	glColorMaterial(colorMaterialFace,colorMaterialProperty);
+	
+	return changed;
+	}
+
+bool GLLightTracker::setNormalScalingMode(GLLightTracker::NormalScalingMode newNormalScalingMode)
+	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
+	bool changed=normalScalingMode!=newNormalScalingMode;
+	normalScalingMode=newNormalScalingMode;
+	
+	/* Reset changed flag if lighting is disabled globally: */
+	changed=changed&&lightingEnabled;
+	
+	/* Update the lighting state version number if anything changed: */
+	if(changed)
+		++version;
+	
+	/* Pass the state change through to OpenGL: */
+	switch(normalScalingMode)
+		{
+		case NormalScalingOff:
+			glDisable(GL_NORMALIZE);
+			if(haveRescaleNormal)
+				glDisable(GL_RESCALE_NORMAL_EXT);
+			break;
+		
+		case NormalScalingRescale:
+			if(haveRescaleNormal)
+				{
+				glDisable(GL_NORMALIZE);
+				glEnable(GL_RESCALE_NORMAL_EXT);
+				}
+			else
+				{
+				/* Fall back to normalize mode: */
+				glEnable(GL_NORMALIZE);
+				}
+			break;
+		
+		case NormalScalingNormalize:
+			glEnable(GL_NORMALIZE);
+			if(haveRescaleNormal)
+				glDisable(GL_RESCALE_NORMAL_EXT);
+			break;
+		}
+	
+	return changed;
+	}
+
 bool GLLightTracker::update(void)
 	{
+	/* Let the tracked lighting state reflect the new setting and remember whether lighting state changed: */
 	bool changed=false;
 	
 	/* Check the lighting master switch: */
@@ -299,6 +553,17 @@ bool GLLightTracker::update(void)
 			changed=changed||colorMaterialProperty!=GLenum(newColorMaterialProperty);
 			colorMaterialProperty=GLenum(newColorMaterialProperty);
 			}
+		
+		/* Check the normal rescaling mode: */
+		NormalScalingMode newNormalScalingMode;
+		if(glIsEnabled(GL_NORMALIZE))
+			newNormalScalingMode=NormalScalingNormalize;
+		else if(haveRescaleNormal&&glIsEnabled(GL_RESCALE_NORMAL_EXT))
+			newNormalScalingMode=NormalScalingRescale;
+		else
+			newNormalScalingMode=NormalScalingOff;
+		changed=changed||normalScalingMode!=newNormalScalingMode;
+		normalScalingMode=newNormalScalingMode;
 		}
 	
 	/* Update the version number if there was a change: */

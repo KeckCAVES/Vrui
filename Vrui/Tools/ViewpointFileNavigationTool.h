@@ -87,6 +87,14 @@ class ViewpointFileNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ViewpointFileNavigationToolFactory* factory; // Pointer to the factory object for this class
+	
+	/* Private versions of per-class configuration settings: */
+	std::string viewpointFileName;
+	bool showKeyframes;
+	std::string pauseFileName;
+	bool autostart;
+	
+	bool firstFrame; // Indicator of first time frame function is called to finish initialization
 	std::vector<Scalar> times; // List of viewpoint times read from the viewpoint file
 	std::vector<ControlPoint> viewpoints; // List of viewpoints read from the viewpoint file
 	std::vector<SplineSegment> splines; // List of interpolating splines
@@ -108,6 +116,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	ViewpointFileNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

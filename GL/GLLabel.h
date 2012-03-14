@@ -1,6 +1,6 @@
 /***********************************************************************
 GLLabel - Class to render 3D text strings using texture-based fonts.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

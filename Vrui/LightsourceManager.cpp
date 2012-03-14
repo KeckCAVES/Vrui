@@ -1,7 +1,7 @@
 /***********************************************************************
 LightsourceManager - Class to manage light sources in virtual
 environments. Maps created Lightsource objects to OpenGL light sources.
-Copyright (c) 2005-2011 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,24 +26,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLLightTemplates.h>
 #include <GL/GLLight.h>
+#include <GL/GLLightTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Vrui/DisplayState.h>
 
 namespace Vrui {
-
-/*********************************************
-Methods of class LightsourceManager::DataItem:
-*********************************************/
-
-LightsourceManager::DataItem::DataItem(void)
-	:lastNumLightsources(0)
-	{
-	}
-
-LightsourceManager::DataItem::~DataItem(void)
-	{
-	}
 
 /***********************************
 Methods of class LightsourceManager:
@@ -63,13 +51,6 @@ LightsourceManager::~LightsourceManager(void)
 		delete firstLightsource;
 		firstLightsource=succ;
 		}
-	}
-
-void LightsourceManager::initContext(GLContextData& contextData) const
-	{
-	/* Create a new context data item: */
-	DataItem* dataItem=new DataItem;
-	contextData.addDataItem(this,dataItem);
 	}
 
 Lightsource* LightsourceManager::createLightsource(bool physical)
@@ -125,51 +106,23 @@ void LightsourceManager::destroyLightsource(Lightsource* lightsource)
 		}
 	}
 
-void LightsourceManager::setLightsources(GLContextData& contextData) const
+void LightsourceManager::setLightsources(bool navigationEnabled,DisplayState* displayState,GLContextData& contextData) const
 	{
-	/* Retrieve the data item: */
-	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
-	
-	/* Process all light sources: */
-	int lightIndex=0;
-	for(const LightsourceListItem* lsPtr=firstLightsource;lsPtr!=0&&lightIndex<dataItem->lightTracker.getMaxNumLights();lsPtr=lsPtr->succ)
-		{
-		if(lsPtr->isEnabled())
-			{
-			glEnableLight(lightIndex);
-			glLight(lightIndex,lsPtr->getLight());
-			
-			/* Increment the light index: */
-			++lightIndex;
-			}
-		}
-	
-	/* Disable all unused light sources still enabled from the last pass: */
-	for(GLsizei i=lightIndex;i<dataItem->lastNumLightsources;++i)
-		glDisableLight(i);
-	dataItem->lastNumLightsources=lightIndex;
-	
-	/* Update the light source tracker (could be optimized by not going through OpenGL): */
-	dataItem->lightTracker.update();
-	}
-
-void LightsourceManager::setLightsources(DisplayState* displayState,GLContextData& contextData) const
-	{
-	/* Retrieve the data item: */
-	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	/* Get the lighting state tracker: */
+	GLLightTracker* lt=contextData.getLightTracker();
 	
 	/* Process all physical light sources first: */
 	GLsizei lightIndex=0;
 	bool haveNavigationalLightsources=false;
-	for(const LightsourceListItem* lsPtr=firstLightsource;lsPtr!=0&&lightIndex<dataItem->lightTracker.getMaxNumLights();lsPtr=lsPtr->succ)
+	for(const LightsourceListItem* lsPtr=firstLightsource;lsPtr!=0&&lightIndex<lt->getMaxNumLights();lsPtr=lsPtr->succ)
 		{
 		if(lsPtr->isEnabled())
 			{
-			/* Only set light source now if it is physical: */
-			if(lsPtr->physical)
+			/* Only set light source now if it is physical, or if there is no navigation transformation: */
+			if(lsPtr->physical||!navigationEnabled)
 				{
-				glEnableLight(lightIndex);
-				glLight(lightIndex,lsPtr->getLight());
+				/* Set the light source in the light tracker and OpenGL: */
+				lt->enableLight(lightIndex,lsPtr->getLight());
 				
 				/* Increment the light index: */
 				++lightIndex;
@@ -187,19 +140,15 @@ void LightsourceManager::setLightsources(DisplayState* displayState,GLContextDat
 		glMultMatrix(displayState->modelviewNavigational);
 		
 		/* Process all navigational light sources: */
-		for(const LightsourceListItem* lsPtr=firstLightsource;lsPtr!=0&&lightIndex<dataItem->lightTracker.getMaxNumLights();lsPtr=lsPtr->succ)
+		for(const LightsourceListItem* lsPtr=firstLightsource;lsPtr!=0&&lightIndex<lt->getMaxNumLights();lsPtr=lsPtr->succ)
 			{
-			if(lsPtr->isEnabled())
+			if(lsPtr->isEnabled()&&!lsPtr->physical)
 				{
-				/* Only set light source now if it is navigational: */
-				if(!lsPtr->physical)
-					{
-					glEnableLight(lightIndex);
-					glLight(lightIndex,lsPtr->getLight());
-					
-					/* Increment the light index: */
-					++lightIndex;
-					}
+				/* Set the light source in the light tracker and OpenGL: */
+				lt->enableLight(lightIndex,lsPtr->getLight());
+				
+				/* Increment the light index: */
+				++lightIndex;
 				}
 			}
 		
@@ -207,22 +156,12 @@ void LightsourceManager::setLightsources(DisplayState* displayState,GLContextDat
 		glPopMatrix();
 		}
 	
-	/* Disable all unused light sources still enabled from the last pass: */
-	for(GLsizei i=lightIndex;i<dataItem->lastNumLightsources;++i)
-		glDisableLight(i);
-	dataItem->lastNumLightsources=lightIndex;
-	
-	/* Update the light source tracker (could be optimized by not going through OpenGL): */
-	dataItem->lightTracker.update();
-	}
-
-const GLLightTracker& LightsourceManager::getLightTracker(GLContextData& contextData) const
-	{
-	/* Retrieve the data item: */
-	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
-	
-	/* Return the light tracker: */
-	return dataItem->lightTracker;
+	/* Disable all unused light sources that might still be enabled from the last pass: */
+	while(lightIndex<lt->getMaxNumLights())
+		{
+		lt->disableLight(lightIndex);
+		++lightIndex;
+		}
 	}
 
 }

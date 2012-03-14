@@ -291,7 +291,7 @@ class WidgetManager
 	template <class AttributeParam>
 	const AttributeParam& getWidgetAttribute(const Widget* widget) const // Returns a widget attribute of arbitrary type
 		{
-		WidgetAttributeMap::Iterator waIt=widgetAttributeMap.findEntry(widget);
+		WidgetAttributeMap::ConstIterator waIt=widgetAttributeMap.findEntry(widget);
 		if(waIt.isFinished())
 			Misc::throwStdErr("GLMotif::WidgetManager::getWidgetAttribute: No attribute for widget %p",widget);
 		const WidgetAttribute<AttributeParam>* wa=dynamic_cast<const WidgetAttribute<AttributeParam>*>(waIt->getDest());

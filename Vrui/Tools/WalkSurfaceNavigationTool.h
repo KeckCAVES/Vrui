@@ -57,12 +57,14 @@ class WalkSurfaceNavigationToolFactory:public ToolFactory
 	Scalar innerAngle; // Angle of no rotation around central view direction
 	Scalar outerAngle; // Angle where maximum rotation speed is reached
 	Scalar fallAcceleration; // Acceleration when falling in physical space units per second^2, defaults to g
+	Scalar jetpackAcceleration; // Maximum acceleration of virtual jetpack in physical space units per second^2, defaults to 1.5*fallAcceleration
 	Scalar probeSize; // Size of probe to use when aligning surface frames
 	Scalar maxClimb; // Maximum amount of climb per frame
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
 	bool drawMovementCircles; // Flag whether to draw the movement circles
 	Color movementCircleColor; // Color for drawing movement circles
 	bool drawHud; // Flag whether to draw a heads-up display
+	float hudFontSize; // Font size for heads-up display
 	
 	/* Constructors and destructors: */
 	public:
@@ -107,6 +109,7 @@ class WalkSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of view relative to local coordinate frame
 	Scalar elevation; // Current elevation of view relative to local coordinate frame
+	Scalar jetpack; // Current acceleration of virtual jetpack in units per second^2
 	Vector flyVelocity; // Current flying (and falling) velocity while airborne
 	
 	/* Private methods: */

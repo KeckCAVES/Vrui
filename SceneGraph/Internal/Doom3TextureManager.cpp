@@ -215,17 +215,17 @@ Doom3TextureManager::ImageID Doom3TextureManager::computeHeightmap(const Doom3Te
 			{
 			Geometry::Vector<float,3> g;
 			if(x==0)
-				g[0]=float(sourceRow[x+1][0])-float(sourceRow[x][0]);
+				g[0]=float(sourceRow[x][0])-float(sourceRow[x+1][0]);
 			else if(x==resultImage.getWidth()-1)
-				g[0]=float(sourceRow[x][0])-float(sourceRow[x-1][0]);
+				g[0]=float(sourceRow[x-1][0])-float(sourceRow[x][0]);
 			else
-				g[0]=float(sourceRow[x+1][0])-float(sourceRow[x-1][0]);
+				g[0]=(float(sourceRow[x-1][0])-float(sourceRow[x+1][0]))*0.5f;
 			if(y==0)
-				g[1]=float((sourceRow+resultImage.getWidth())[x][0])-float(sourceRow[x][0]);
+				g[1]=float(sourceRow[x][0])-float((sourceRow+resultImage.getWidth())[x][0]);
 			else if(y==resultImage.getHeight()-1)
-				g[1]=float(sourceRow[x][0])-float((sourceRow-resultImage.getWidth())[x][0]);
+				g[1]=float((sourceRow-resultImage.getWidth())[x][0])-float(sourceRow[x][0]);
 			else
-				g[1]=float((sourceRow+resultImage.getWidth())[x][0])-float((sourceRow-resultImage.getWidth())[x][0]);
+				g[1]=(float((sourceRow-resultImage.getWidth())[x][0])-float((sourceRow+resultImage.getWidth())[x][0]))*0.5f;
 			g[2]=128.0f/bumpiness;
 			destRow[x]=encodeNormal(g);
 			}
