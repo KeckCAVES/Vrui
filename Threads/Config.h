@@ -1,6 +1,6 @@
 /***********************************************************************
 Config - Configuration header file for Portable Threading Library.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -25,5 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define THREADS_CONFIG_HAVE_BUILTIN_TLS 1
 #define THREADS_CONFIG_HAVE_BUILTIN_ATOMICS 1
 #define THREADS_CONFIG_HAVE_SPINLOCKS 1
+#define THREADS_CONFIG_CAN_CANCEL 1
+
+#define THREADS_CONFIG_DEBUG 0
 
 #endif

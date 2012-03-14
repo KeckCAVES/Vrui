@@ -319,7 +319,7 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		showErrorMessage("Curve File Animation",message.c_str());
 		}
 	
-	if(!splines.empty()&&factory->autostart)
+	if(!splines.empty()&&autostart)
 		{
 		if(activate())
 			{
@@ -377,40 +377,24 @@ void ViewpointFileNavigationTool::interpolate(const ViewpointFileNavigationTool:
 
 ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(sFactory,inputAssignment),
+	 viewpointFileName(factory->viewpointFileName),
+	 showKeyframes(factory->showKeyframes),
+	 pauseFileName(factory->pauseFileName),
+	 autostart(factory->autostart),
+	 firstFrame(true),
 	 nextViewpointIndex(0U),
 	 startTime(0),
 	 paused(false)
 	{
-	/* Load scheduled pauses if the file exists: */
-	try
-		{
-		Misc::File pauseFile(factory->pauseFileName.c_str(),"rt");
-		while(true)
-			{
-			double pauseTime;
-			if(fscanf(pauseFile.getFilePtr(),"%lf",&pauseTime)!=1)
-				break;
-			pauses.push_back(Scalar(pauseTime));
-			}
-		}
-	catch(std::runtime_error)
-		{
-		/* Ignore the error */
-		}
-	
-	/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
-	if(factory->viewpointFileName.empty())
-		{
-		GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
-		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
-		loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
-		popupPrimaryWidget(loadViewpointFileDialog);
-		}
-	else
-		{
-		/* Load the configured viewpoint file: */
-		readViewpointFile(factory->viewpointFileName.c_str());
-		}
+	}
+
+void ViewpointFileNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Override per-class configuration settings: */
+	viewpointFileName=configFileSection.retrieveString("./viewpointFileName",viewpointFileName);
+	showKeyframes=configFileSection.retrieveValue<bool>("./showKeyframes",showKeyframes);
+	pauseFileName=configFileSection.retrieveString("./pauseFileName",pauseFileName);
+	autostart=configFileSection.retrieveValue<bool>("./autostart",autostart);
 	}
 
 const ToolFactory* ViewpointFileNavigationTool::getFactory(void) const
@@ -477,6 +461,40 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 
 void ViewpointFileNavigationTool::frame(void)
 	{
+	if(firstFrame)
+		{
+		/* Load scheduled pauses if the file exists: */
+		try
+			{
+			Misc::File pauseFile(pauseFileName.c_str(),"rt");
+			while(true)
+				{
+				double pauseTime;
+				if(fscanf(pauseFile.getFilePtr(),"%lf",&pauseTime)!=1)
+					break;
+				pauses.push_back(Scalar(pauseTime));
+				}
+			}
+		catch(std::runtime_error)
+			{
+			/* Ignore the error */
+			}
+		
+		/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
+		if(viewpointFileName.empty())
+			{
+			GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
+			loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
+			loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+			popupPrimaryWidget(loadViewpointFileDialog);
+			}
+		else
+			{
+			/* Load the configured viewpoint file: */
+			readViewpointFile(viewpointFileName.c_str());
+			}
+		}
+	
 	/* Animate the navigation transformation if the tool is active: */
 	if(!paused&&isActive())
 		{
@@ -554,7 +572,7 @@ void ViewpointFileNavigationTool::frame(void)
 
 void ViewpointFileNavigationTool::display(GLContextData& contextData) const
 	{
-	if(!viewpoints.empty()&&factory->showKeyframes)
+	if(!viewpoints.empty()&&showKeyframes)
 		{
 		/* Display the next keyframe viewpoint in navigational coordinates: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);

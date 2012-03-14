@@ -1,7 +1,7 @@
 /***********************************************************************
-DragWidget - Base class for GLMotif UI components reacting to dragging
+DragWidget - Mix-in class for GLMotif UI components reacting to dragging
 events.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,10 +20,9 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <GLMotif/Event.h>
-#include <GLMotif/Container.h>
-
 #include <GLMotif/DragWidget.h>
+
+#include <GLMotif/Event.h>
 
 namespace GLMotif {
 
@@ -33,10 +32,10 @@ Methods of class DragWidget:
 
 void DragWidget::startDragging(Event&)
 	{
-	if(!isDragging)
+	if(!dragging)
 		{
 		/* Start dragging: */
-		isDragging=true;
+		dragging=true;
 		DraggingCallbackData cbData(this,DraggingCallbackData::DRAGGING_STARTED);
 		draggingCallbacks.call(&cbData);
 		}
@@ -44,32 +43,23 @@ void DragWidget::startDragging(Event&)
 
 void DragWidget::stopDragging(Event&)
 	{
-	if(isDragging)
+	if(dragging)
 		{
 		/* Stop dragging: */
-		isDragging=false;
+		dragging=false;
 		DraggingCallbackData cbData(this,DraggingCallbackData::DRAGGING_STOPPED);
 		draggingCallbacks.call(&cbData);
 		}
 	}
 
-DragWidget::DragWidget(const char* sName,Container* sParent,bool sManageChild)
-	:Widget(sName,sParent,false),isDragging(false)
+bool DragWidget::overrideRecipient(Widget* widget,Event& event)
 	{
-	/* Manage me: */
-	if(sManageChild)
-		manageChild();
+	/* This event belongs to the given widget! */
+	return event.setTargetWidget(widget,event.calcWidgetPoint(widget));
 	}
 
-bool DragWidget::findRecipient(Event& event)
+DragWidget::~DragWidget(void)
 	{
-	if(isDragging)
-		{
-		/* This event belongs to me! */
-		return event.setTargetWidget(this,event.calcWidgetPoint(this));
-		}
-	else
-		return Widget::findRecipient(event);
 	}
 
 }

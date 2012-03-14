@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveSetNode - Class for sets of curves written by curve tracing
 application.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
+#include <GL/GLLineLightingShader.h>
 #include <SceneGraph/Geometry.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
@@ -48,15 +49,17 @@ class CurveSetNode:public GeometryNode,public GLObject
 		public:
 		GLuint vertexBufferObjectId; // ID of vertex buffer object containing the vertices, if supported
 		unsigned int version; // Version of curve set stored in vertex buffer object
+		GLLineLightingShader lineLightingShader; // Shader to illuminate curves using Phong's model
 		
 		/* Constructors and destructors: */
-		DataItem(void);
+		DataItem(GLContextData& contextData);
 		virtual ~DataItem(void);
 		};
 	
 	/* Fields: */
 	public:
 	MFString url;
+	SFColor color;
 	SFFloat lineWidth;
 	SFFloat pointSize;
 	

@@ -1,6 +1,6 @@
 /***********************************************************************
 NodeCreator - Class to create node objects based on a node type name.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ColorNode.h>
 #include <SceneGraph/NormalNode.h>
 #include <SceneGraph/CoordinateNode.h>
+#include <SceneGraph/ColorMapNode.h>
 #include <SceneGraph/PointSetNode.h>
 #include <SceneGraph/IndexedLineSetNode.h>
 #include <SceneGraph/CurveSetNode.h>
@@ -87,6 +88,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<ColorNode>());
 	registerNodeType(new GenericNodeFactory<NormalNode>());
 	registerNodeType(new GenericNodeFactory<CoordinateNode>());
+	registerNodeType(new GenericNodeFactory<ColorMapNode>());
 	registerNodeType(new GenericNodeFactory<PointSetNode>());
 	registerNodeType(new GenericNodeFactory<IndexedLineSetNode>());
 	registerNodeType(new GenericNodeFactory<CurveSetNode>());

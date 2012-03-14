@@ -1,7 +1,7 @@
 /***********************************************************************
 Cond - Wrapper class for pthreads condition variables, mostly providing
 "resource allocation as creation" paradigm.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -25,7 +25,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <pthread.h>
 #include <Misc/Time.h>
+#include <Threads/Config.h>
 #include <Threads/Mutex.h>
+
+#if THREADS_CONFIG_DEBUG
+#include <iostream>
+#endif
 
 namespace Threads {
 
@@ -39,7 +44,12 @@ class Cond
 	public:
 	Cond(pthread_condattr_t* condAttributes =0) // Creates condition variable with given attributes (or default condition variable)
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_init(&cond,condAttributes)!=0)
+			std::cerr<<"Error in Threads::Cond::Cond"<<std::endl;
+		#else
 		pthread_cond_init(&cond,condAttributes);
+		#endif
 		}
 	private:
 	Cond(const Cond& source); // Prohibit copy constructor
@@ -47,25 +57,50 @@ class Cond
 	public:
 	~Cond(void)
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_destroy(&cond)!=0)
+			std::cerr<<"Error in Threads::Cond::~Cond"<<std::endl;
+		#else
 		pthread_cond_destroy(&cond);
+		#endif
 		}
 	
 	/* Methods: */
 	void signal(void) // Signals the condition variable
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_signal(&cond)!=0)
+			std::cerr<<"Error in Threads::Cond::signal"<<std::endl;
+		#else
 		pthread_cond_signal(&cond);
+		#endif
 		}
 	void broadcast(void) // Broadcasts the condition variable
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_broadcast(&cond)!=0)
+			std::cerr<<"Error in Threads::Cond::broadcast"<<std::endl;
+		#else
 		pthread_cond_broadcast(&cond);
+		#endif
 		}
 	void wait(Mutex& mutex) // Waits on condition variable; calling thread must hold lock on given mutex
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_wait(&cond,&mutex.mutex)!=0)
+			std::cerr<<"Error in Threads::Cond::wait"<<std::endl;
+		#else
 		pthread_cond_wait(&cond,&mutex.mutex);
+		#endif
 		}
 	bool timedWait(Mutex& mutex,const Misc::Time& abstime) // Waits on condition variable; returns true if signal occurred; returns false if time expires
 		{
-		return pthread_cond_timedwait(&cond,&mutex.mutex,&abstime)==0;
+		int result=pthread_cond_timedwait(&cond,&mutex.mutex,&abstime);
+		#if THREADS_CONFIG_DEBUG
+		if(result!=0&&result!=ETIMEDOUT)
+			std::cerr<<"Error in Threads::Cond::timedWait"<<std::endl;
+		#endif
+		return result==0;
 		}
 	};
 

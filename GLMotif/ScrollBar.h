@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrollBar - Class for horizontal or vertical scroll bars, to be used as
 a component by scrolling widgets like list boxes.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -28,11 +28,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/TimerEventScheduler.h>
 #include <GL/gl.h>
 #include <GLMotif/GlyphGadget.h>
+#include <GLMotif/Widget.h>
 #include <GLMotif/DragWidget.h>
 
 namespace GLMotif {
 
-class ScrollBar:public DragWidget
+class ScrollBar:public Widget,public DragWidget
 	{
 	/* Embedded classes: */
 	public:
@@ -108,6 +109,7 @@ class ScrollBar:public DragWidget
 	virtual void resize(const Box& newExterior);
 	virtual void setBackgroundColor(const Color& newBackgroundColor);
 	virtual void draw(GLContextData& contextData) const;
+	virtual bool findRecipient(Event& event);
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);

@@ -54,12 +54,14 @@ WalkSurfaceNavigationToolFactory::WalkSurfaceNavigationToolFactory(ToolManager& 
 	 rotateSpeed(Math::rad(Scalar(120))),
 	 innerAngle(Math::rad(Scalar(30))),outerAngle(Math::rad(Scalar(120))),
 	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
+	 jetpackAcceleration(fallAcceleration*Scalar(1.5)),
 	 probeSize(getInchFactor()*Scalar(12)),
 	 maxClimb(getInchFactor()*Scalar(24)),
 	 fixAzimuth(false),
 	 drawMovementCircles(true),
 	 movementCircleColor(0.0f,1.0f,0.0f),
-	 drawHud(true)
+	 drawHud(true),
+	 hudFontSize(getUiSize()*2.0f)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -85,12 +87,14 @@ WalkSurfaceNavigationToolFactory::WalkSurfaceNavigationToolFactory(ToolManager& 
 	innerAngle=Math::rad(cfs.retrieveValue<Scalar>("./innerAngle",Math::deg(innerAngle)));
 	outerAngle=Math::rad(cfs.retrieveValue<Scalar>("./outerAngle",Math::deg(outerAngle)));
 	fallAcceleration=cfs.retrieveValue<Scalar>("./fallAcceleration",fallAcceleration);
+	jetpackAcceleration=cfs.retrieveValue<Scalar>("./jetpackAcceleration",fallAcceleration*Scalar(1.5));
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
 	drawMovementCircles=cfs.retrieveValue<bool>("./drawMovementCircles",drawMovementCircles);
 	movementCircleColor=cfs.retrieveValue<Color>("./movementCircleColor",movementCircleColor);
 	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
+	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
 	
 	/* Set tool class' factory pointer: */
 	WalkSurfaceNavigationTool::factory=this;
@@ -231,8 +235,9 @@ void WalkSurfaceNavigationTool::initNavState(void)
 
 WalkSurfaceNavigationTool::WalkSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(factory,inputAssignment),
-	 numberRenderer(float(getUiSize())*1.5f,true),
-	 centerPoint(static_cast<const WalkSurfaceNavigationToolFactory*>(factory)->centerPoint)
+	 numberRenderer(static_cast<const WalkSurfaceNavigationToolFactory*>(factory)->hudFontSize,true),
+	 centerPoint(static_cast<const WalkSurfaceNavigationToolFactory*>(factory)->centerPoint),
+	 jetpack(0)
 	{
 	/* This object's GL state depends on the number renderer's GL state: */
 	dependsOn(&numberRenderer);
@@ -271,6 +276,8 @@ void WalkSurfaceNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackDa
 
 void WalkSurfaceNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
 	{
+	/* Update the jetpack acceleration value: */
+	jetpack=Scalar(cbData->newValuatorValue)*factory->jetpackAcceleration;
 	}
 
 void WalkSurfaceNavigationTool::frame(void)
@@ -364,8 +371,13 @@ void WalkSurfaceNavigationTool::frame(void)
 			{
 			/* Lift the aligned frame back up to the original altitude and continue flying: */
 			newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
-			if(getValuatorState(0)>0.0)
-				flyVelocity+=getValuatorDeviceRayDirection(0)*(Scalar(getValuatorState(0))*factory->fallAcceleration*Scalar(1.5)*getCurrentFrameTime());
+			if(jetpack!=Scalar(0))
+				flyVelocity+=getValuatorDeviceRayDirection(0)*(jetpack*getCurrentFrameTime());
+			flyVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
+			}
+		else if(jetpack!=Scalar(0))
+			{
+			flyVelocity+=getValuatorDeviceRayDirection(0)*(jetpack*getCurrentFrameTime());
 			flyVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
 			}
 		else
@@ -378,7 +390,7 @@ void WalkSurfaceNavigationTool::frame(void)
 		surfaceFrame=newSurfaceFrame;
 		applyNavState();
 		
-		if(speed!=Scalar(0)||flyVelocity!=Vector::zero||z>Scalar(0))
+		if(speed!=Scalar(0)||z>Scalar(0)||jetpack!=Scalar(0))
 			{
 			/* Request another frame: */
 			scheduleUpdate(getApplicationTime()+1.0/125.0);
@@ -502,7 +514,7 @@ void WalkSurfaceNavigationTool::initContext(GLContextData& contextData) const
 		
 		/* Calculate the HUD layout: */
 		Scalar hudRadius=getDisplaySize()*Scalar(2);
-		Scalar hudTickSize=Scalar(getUiSize())*Scalar(2);
+		Scalar hudTickSize=factory->hudFontSize;
 		
 		/* Draw the azimuth tick marks: */
 		glColor(fgColor);

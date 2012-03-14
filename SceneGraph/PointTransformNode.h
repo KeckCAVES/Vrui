@@ -2,7 +2,7 @@
 PointTransformNode - Base class for nodes that define non-linear
 transformations that can be applied to the point coordinates and normal
 vectors of Geometry nodes.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -37,7 +37,7 @@ class PointTransformNode:public Node
 	public:
 	virtual Point transformPoint(const Point& point) const =0; // Transforms a point
 	virtual Box calcBoundingBox(const std::vector<Point>& points) const =0; // Calculates transformed bounding box of a point list
-	virtual Vector transformNormal(const Point& basePoint,const Vector& normal) const =0; // Transforms a normal vector based at the given point
+	virtual Vector transformNormal(const Point& basePoint,const Vector& normal) const =0; // Transforms a normal vector based at the given point; returned vector is normalized
 	};
 
 typedef Misc::Autopointer<PointTransformNode> PointTransformNodePointer;

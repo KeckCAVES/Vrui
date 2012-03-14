@@ -24,7 +24,8 @@
 
 <TR>
 <TD>multipipeMasterPort</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
-<TD>Number of the UDP port used for cluster communication on the master node. This port needs to be accessible from the slave nodes, i.e., it must be accepted by any installed firewalls.</TD>
+<TD>Number of the UDP port used for cluster communication on the master node. This port needs to be accessible from the slave nodes, i.e., it must be accepted by any installed firewalls.<BR>
+<B>Note:</B> The master port number can be identical to the multicast port number (see below), but ideally it should be different.</TD>
 </TR>
 
 <TR>
@@ -39,7 +40,8 @@
 
 <TR>
 <TD>multipipeMulticastPort</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
-<TD>Number of the UDP port used for cluster communication on the slave nodes. This port needs to be accessible from the master node, i.e., it must be accepted by any installed firewalls.</TD>
+<TD>Number of the UDP port used for cluster communication on the slave nodes. This port needs to be accessible from the master node, i.e., it must be accepted by any installed firewalls.<BR>
+<B>Note:</B> The multicast port number can be identical to the master port number (see above), but ideally it should be different.</TD>
 </TR>
 
 <TR>
