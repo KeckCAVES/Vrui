@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2011 Oliver Kreylos
+# Copyright (c) 2003-2012 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # matches the default Vrui installation; if Vrui's installation
 # directory was changed during Vrui's installation, the directory below
 # must be adapted.
-VRUI_MAKEDIR := $(HOME)/Vrui-2.2/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.3/share/make
 
 # Base installation directory for the example programs. If this is set
 # to the default of $(PWD), the example programs do not have to be
@@ -70,6 +70,7 @@ ALL = $(EXEDIR)/VruiDemo \
       $(EXEDIR)/VruiCalibrator \
       $(EXEDIR)/VruiSceneGraphDemo \
       $(EXEDIR)/VruiSoundTest \
+      $(EXEDIR)/ImageViewer \
       $(EXEDIR)/ShowEarthModel \
       $(EXEDIR)/Jello \
       $(EXEDIR)/ClusterJello \
@@ -116,6 +117,8 @@ $(EXEDIR)/VruiSceneGraphDemo: $(OBJDIR)/VruiSceneGraphDemo.o
 
 $(EXEDIR)/VruiSoundTest: $(OBJDIR)/VruiSoundTest.o
 
+$(EXEDIR)/ImageViewer: $(OBJDIR)/ImageViewer.o
+
 #
 # ShowEarthModel, a viewer for earthquake catalogs and other assorted
 # Earth science data.
@@ -133,7 +136,7 @@ $(OBJDIR)/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_IMAGEDIR='"$(RESOURCEINST
 $(EXEDIR)/ShowEarthModel: $(SHOWEARTHMODEL_SOURCES:%.cpp=$(OBJDIR)/%.o)
 
 #
-# There's always room for Jello!
+# There's always room for Jell-O!
 #
 
 # Simple version (single threaded, non-cluster aware, not shared):

@@ -38,7 +38,7 @@ class ColorNode:public Node
 	
 	/* Constructors and destructors: */
 	public:
-	ColorNode(void); // Creates normal node with empty color set
+	ColorNode(void); // Creates color node with empty color set
 	
 	/* Methods from Node: */
 	static const char* getStaticClassName(void);

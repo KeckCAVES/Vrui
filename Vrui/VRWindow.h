@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -65,6 +65,7 @@ class VRWindow:public GLWindow
 	private:
 	VruiState* vruiState; // Pointer to the Vrui state object this window belongs to
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter (if one exists; 0 otherwise)
+	int windowMousePos[2]; // Last reported mouse position in window coordinates
 	GLExtensionManager* extensionManager; // An OpenGL extension manager for this window
 	GLContextData* contextData; // An OpenGL context data structure for this window
 	DisplayState* displayState; // The display state object associated with this window's OpenGL context; updated before each rendering pass

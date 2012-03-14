@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -495,7 +495,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	 vruiState(sVruiState),
 	 mouseAdapter(sMouseAdapter),
 	 extensionManager(0),
-	 contextData(new GLContextData(101)),displayState(vruiState->registerContext(*contextData)),
+	 contextData(0),displayState(0),
 	 viewer(findViewer(configFileSection.retrieveString("./viewerName").c_str())),
 	 windowType(configFileSection.retrieveValue<WindowType>("./windowType")),
 	 multisamplingLevel(configFileSection.retrieveValue<int>("./multisamplingLevel",1)),
@@ -518,6 +518,9 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	 saveScreenshot(false),
 	 movieSaver(0)
 	{
+	/* Initialize the window mouse position: */
+	windowMousePos[0]=windowMousePos[1]=0;
+	
 	/* Get the screen(s) this window projects onto: */
 	screens[0]=findScreen(configFileSection.retrieveString("./leftScreenName","").c_str());
 	screens[1]=findScreen(configFileSection.retrieveString("./rightScreenName","").c_str());
@@ -548,11 +551,6 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	/* Check if the window has a viewer: */
 	if(viewer==0)
 		Misc::throwStdErr("VRWindow::VRWindow: No viewer provided");
-	
-	/* Initialize the window's display state object: */
-	displayState->window=this;
-	displayState->viewer=viewer;
-	displayState->eyeIndex=0;
 	
 	/* Check if the window's screen size should be defined based on the X display's real size: */
 	if(configFileSection.retrieveValue<bool>("./autoScreenSize",false))
@@ -701,6 +699,11 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	makeCurrent();
 	extensionManager=new GLExtensionManager;
 	GLExtensionManager::makeCurrent(extensionManager);
+	contextData=new GLContextData(101);
+	displayState=vruiState->registerContext(*contextData);
+	displayState->window=this;
+	displayState->viewer=viewer;
+	displayState->eyeIndex=0;
 	glViewport(0,0,getWindowWidth(),getWindowHeight());
 	glClearColor(getBackgroundColor());
 	if(multisamplingLevel>1)
@@ -1129,19 +1132,37 @@ void VRWindow::setCursorPos(const Scalar newCursorPos[2])
 	if(windowType!=SPLITVIEWPORT_STEREO)
 		{
 		/* Calculate mouse position based on entire window: */
-		int cursorX,cursorY;
 		if(panningViewport)
 			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()-Scalar(getWindowOrigin()[0])));
-			cursorY=int(Math::floor(Scalar(displaySize[1]-getWindowOrigin()[1])-newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()));
+			windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()))-getWindowOrigin()[0];
+			windowMousePos[1]=displaySize[1]-int(Math::floor(newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()))-getWindowOrigin()[1];
 			}
 		else
 			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
-			cursorY=int(Math::floor(Scalar(getWindowHeight())-newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
+			windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
+			windowMousePos[1]=getWindowHeight()-int(Math::floor(newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
 			}
-		GLWindow::setCursorPos(cursorX,cursorY);
 		}
+	else
+		{
+		/* Find out which viewport contains the current mouse position: */
+		for(int i=0;i<2;++i)
+			{
+			int vx=windowMousePos[0]-splitViewportPos[i].origin[0];
+			int vy=(getWindowHeight()-1-windowMousePos[1])-splitViewportPos[i].origin[1];
+			if(vx>=0&&vx<splitViewportPos[i].size[0]&&vy>=0&&vy<splitViewportPos[i].size[1])
+				{
+				/* Calculate mouse position based on found viewport: */
+				windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(splitViewportPos[i].size[0])/screens[i]->getWidth()))+splitViewportPos[i].origin[0];
+				windowMousePos[1]=splitViewportPos[i].size[1]-int(Math::floor(newCursorPos[1]*Scalar(splitViewportPos[i].size[1])/screens[i]->getHeight()))+splitViewportPos[i].origin[1];
+				
+				break;
+				}
+			}
+		}
+	
+	/* Set the cursor position in the window: */
+	GLWindow::setCursorPos(windowMousePos[0],windowMousePos[1]);
 	}
 
 void VRWindow::setCursorPosWithAdjust(Scalar newCursorPos[2])
@@ -1150,22 +1171,40 @@ void VRWindow::setCursorPosWithAdjust(Scalar newCursorPos[2])
 	if(windowType!=SPLITVIEWPORT_STEREO)
 		{
 		/* Calculate mouse position based on entire window: */
-		int cursorX,cursorY;
 		if(panningViewport)
 			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()-Scalar(getWindowOrigin()[0])));
-			cursorY=int(Math::floor(Scalar(displaySize[1]-getWindowOrigin()[1])-newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()));
+			windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()))-getWindowOrigin()[0];
+			windowMousePos[1]=displaySize[1]-int(Math::floor(newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()))-getWindowOrigin()[1];
 			}
 		else
 			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
-			cursorY=int(Math::floor(Scalar(getWindowHeight())-newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
+			windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
+			windowMousePos[1]=getWindowHeight()-int(Math::floor(newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
 			}
-		GLWindow::setCursorPos(cursorX,cursorY);
-		
-		/* Adjust the given cursor position: */
-		calcMousePos(cursorX,cursorY,newCursorPos);
 		}
+	else
+		{
+		/* Find out which viewport contains the current mouse position: */
+		for(int i=0;i<2;++i)
+			{
+			int vx=windowMousePos[0]-splitViewportPos[i].origin[0];
+			int vy=(getWindowHeight()-1-windowMousePos[1])-splitViewportPos[i].origin[1];
+			if(vx>=0&&vx<splitViewportPos[i].size[0]&&vy>=0&&vy<splitViewportPos[i].size[1])
+				{
+				/* Calculate mouse position based on found viewport: */
+				windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(splitViewportPos[i].size[0])/screens[i]->getWidth()))+splitViewportPos[i].origin[0];
+				windowMousePos[1]=splitViewportPos[i].size[1]-int(Math::floor(newCursorPos[1]*Scalar(splitViewportPos[i].size[1])/screens[i]->getHeight()))+splitViewportPos[i].origin[1];
+				
+				break;
+				}
+			}
+		}
+	
+	/* Set the cursor position in the window: */
+	GLWindow::setCursorPos(windowMousePos[0],windowMousePos[1]);
+	
+	/* Adjust the given cursor position: */
+	calcMousePos(windowMousePos[0],windowMousePos[1],newCursorPos);
 	}
 
 void VRWindow::makeCurrent(void)
@@ -1328,6 +1367,10 @@ bool VRWindow::processEvent(const XEvent& event)
 		case MotionNotify:
 			if(mouseAdapter!=0)
 				{
+				/* Remember window-coordinate mouse position: */
+				windowMousePos[0]=event.xmotion.x;
+				windowMousePos[1]=event.xmotion.y;
+				
 				/* Set mouse position in input device adapter: */
 				Scalar mousePos[2];
 				if(calcMousePos(event.xmotion.x,event.xmotion.y,mousePos))
@@ -1339,6 +1382,10 @@ bool VRWindow::processEvent(const XEvent& event)
 		case ButtonRelease:
 			if(mouseAdapter!=0)
 				{
+				/* Remember window-coordinate mouse position: */
+				windowMousePos[0]=event.xbutton.x;
+				windowMousePos[1]=event.xbutton.y;
+				
 				/* Set mouse position in input device adapter: */
 				Scalar mousePos[2];
 				if(calcMousePos(event.xbutton.x,event.xbutton.y,mousePos))
@@ -1595,6 +1642,10 @@ void VRWindow::draw(void)
 			glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 			
 			/* Set the polygon stippling pattern: */
+			glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+			glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
+			glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+			glPixelStorei(GL_UNPACK_ALIGNMENT,1);
 			glPolygonStipple(ivRightStipplePatterns[ivEyeIndexOffset]);
 				
 			/* Render the quad: */

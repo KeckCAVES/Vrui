@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadElevationGrid - Function to load an elevation grid's height values
 from an external file.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -124,7 +124,11 @@ void loadBILGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 		else if(token=="YDIM")
 			cellSize[1]=Scalar(header.readNumber());
 		else if(token=="NODATA_VALUE")
-			header.readNumber();
+			{
+			/* Set the node's invalid removal flag and invalid height value: */
+			node.removeInvalids.setValue(true);
+			node.invalidHeight.setValue(header.readNumber());
+			}
 		}
 	
 	/* Check the image layout: */
@@ -212,23 +216,25 @@ void loadAGRGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 		heights.push_back(Scalar(0));
 	for(unsigned int y=gridSize[1];y>0;--y)
 		for(unsigned int x=0;x<gridSize[0];++x)
-			{
-			double num=grid.readNumber();
-			if(num==nodata)
-				num=Scalar(0);
-			heights[(y-1)*gridSize[0]+x]=num;
-			}
+			heights[(y-1)*gridSize[0]+x]=grid.readNumber();
 	
 	/* Install the height field: */
 	Point origin=node.origin.getValue();
 	origin[0]=Scalar(gridOrigin[0]+cellSize*Scalar(0.5));
-	origin[2]=Scalar(gridOrigin[1]+cellSize*Scalar(0.5));
+	if(node.heightIsY.getValue())
+		origin[2]=Scalar(gridOrigin[1]+cellSize*Scalar(0.5));
+	else
+		origin[1]=Scalar(gridOrigin[1]+cellSize*Scalar(0.5));
 	node.origin.setValue(origin);
 	node.xDimension.setValue(gridSize[0]);
 	node.xSpacing.setValue(cellSize);
 	node.zDimension.setValue(gridSize[1]);
 	node.zSpacing.setValue(cellSize);
 	std::swap(node.height.getValues(),heights);
+	
+	/* Set the node's invalid removal flag and invalid height value: */
+	node.removeInvalids.setValue(true);
+	node.invalidHeight.setValue(nodata);
 	}
 
 }

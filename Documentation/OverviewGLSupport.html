@@ -27,6 +27,12 @@ The GLSupport library contains classes and functions providing higher-level supp
 <DT>TLSHelper.h</DT>
 <DD>TLSHelper contains macro definitions to provide optimized thread-local storage for the internals of the OpenGL support library. It uses the Threads::Local class as a fallback mechanism if the compiler does not support the __thread keyword. This header file is not meant to be used directly by applications.</DD>
 
+<DT>GLLightTracker.h</DT>
+<DD>GLLightTracker is a helper class tracking the lighting state of an OpenGL context, to support just-in-time recompilation of shaders in reaction to changing lighting conditions.</DD>
+
+<DT>GLClipPlaneTracker.h</DT>
+<DD>GLClipPlaneTracker is a helper class tracking the clipping plane state of an OpenGL context, to support just-in-time recompilation of shaders in reaction to changing clipping plane conditions.</DD>
+
 <DT>GLObject.h</DT>
 <DD>GLObject is a base class for objects that contain per-context OpenGL data in a multi-pipe rendering environment where OpenGL state must be kept separate from other application state. GLObject handles initialization and deinitialization of OpenGL state once for each OpenGL context an object is rendered in. All OpenGL data related to an object is stored in a per-context GLObject::DataItem object. See <A HREF="GLContextData.html">GLContextData</A> for a thorough explanation of the concepts behind the multi-pipe abstraction.</DD>
 
@@ -105,8 +111,11 @@ The GLSupport library contains classes and functions providing higher-level supp
 <DT>GLEXTPalettedTexture</DT>
 <DD>The GL_EXT_paletted_texture extension.</DD>
 
+<DT>GLEXTRescaleNormal</DT>
+<DD>The GL_EXT_rescale_normal extension.</DD>
+
 <DT>GLEXTTexture3D</DT>
-<DD>The GL_EXT_texture_3d extension.</DD>
+<DD>The GL_EXT_texture3D extension.</DD>
 
 <DT>GLEXTTextureCompressionS3TC</DT>
 <DD>The GL_EXT_texture_compression_s3tc extension.</DD>
@@ -133,8 +142,11 @@ The GLSupport library contains classes and functions providing higher-level supp
 <DT>GLGeometryShader.h<DT>
 <DD>GLGeometryShader is a child class of GLShader with additional support for geometry shaders following the GL_EXT_geometry_shader4 extension.</DD>
 
-<DT>GLLightTracker.h</DT>
-<DD>GLLightTracker is a helper class tracking the lighting state of an OpenGL context, to support just-in-time recompilation of shaders in reaction to changing lighting conditions.</DD>
+<DT>GLAutomaticShader.h</DT>
+<DD>GLAutomaticShader is a base class for shaders that adapt themselves to the changing state of their associated OpenGL context.</DD>
+
+<DT>GLLineLightingShader.h</DT>
+<DD>GLLineLightingShader is an automatic shader class for Phong illumination of curves.</DD>
 
 <DT>GLColorMap.h</DT>
 <DD>GLColorMap is a class mapping scalar values in a given range to RGBA colors using linear interpolation between a number of control points.</DD>

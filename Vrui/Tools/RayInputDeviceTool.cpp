@@ -186,7 +186,7 @@ void RayInputDeviceTool::frame(void)
 
 void RayInputDeviceTool::display(GLContextData&) const
 	{
-	if(isActive())
+	if(isActive()&&isDrawRay())
 		{
 		/* Draw the interaction ray: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);

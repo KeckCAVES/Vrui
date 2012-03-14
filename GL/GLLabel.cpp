@@ -1,6 +1,6 @@
 /***********************************************************************
 GLLabel - Class to render 3D text strings using texture-based fonts.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLVertexTemplates.h>
 #include <GL/GLTexEnvTemplates.h>
 #include <GL/GLVector.h>
+#include <GL/GLLightTracker.h>
 #include <GL/GLFont.h>
 #include <GL/GLContextData.h>
 
@@ -64,19 +65,17 @@ void GLLabel::DeferredRenderer::draw(void)
 		return;
 	
 	/* Save and set up OpenGL state: */
-	GLbitfield attribPushMask=GL_TEXTURE_BIT;
-	bool lightingOn=glIsEnabled(GL_LIGHTING);
-	if(lightingOn)
-		attribPushMask|=GL_LIGHTING_BIT;
-	glPushAttrib(attribPushMask);
-	glEnable(GL_TEXTURE_2D);
-	if(lightingOn)
+	GLLightTracker* lt=contextData.getLightTracker();
+	if(lt->isLightingEnabled()&&!lt->isSpecularColorSeparate())
 		{
+		/* Temporarily turn on separate specular color handling: */
 		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
-		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::MODULATE);
 		}
-	else
-		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::REPLACE);
+	
+	/* Set appropriate texture mode for current lighting state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_TEXTURE_BIT);
+	glEnable(GL_TEXTURE_2D);
+	glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,lt->isLightingEnabled()?GLTexEnvEnums::MODULATE:GLTexEnvEnums::REPLACE);
 	
 	/* Draw each gathered label: */
 	for(std::vector<const GLLabel*>::iterator lIt=gatheredLabels.begin();lIt!=gatheredLabels.end();++lIt)
@@ -117,6 +116,8 @@ void GLLabel::DeferredRenderer::draw(void)
 	/* Reset OpenGL state: */
 	glBindTexture(GL_TEXTURE_2D,0);
 	glPopAttrib();
+	if(lt->isLightingEnabled()&&!lt->isSpecularColorSeparate())
+		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SINGLE_COLOR);
 	
 	/* Clear the list of labels: */
 	gatheredLabels.clear();
@@ -399,19 +400,17 @@ void GLLabel::draw(GLContextData& contextData) const
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
 	/* Save and set up OpenGL state: */
-	GLbitfield attribPushMask=GL_TEXTURE_BIT;
-	bool lightingOn=glIsEnabled(GL_LIGHTING);
-	if(lightingOn)
-		attribPushMask|=GL_LIGHTING_BIT;
-	glPushAttrib(attribPushMask);
-	glEnable(GL_TEXTURE_2D);
-	if(lightingOn)
+	GLLightTracker* lt=contextData.getLightTracker();
+	if(lt->isLightingEnabled()&&!lt->isSpecularColorSeparate())
 		{
+		/* Temporarily turn on separate specular color handling: */
 		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
-		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::MODULATE);
 		}
-	else
-		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::REPLACE);
+	
+	/* Set appropriate texture mode for current lighting state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_TEXTURE_BIT);
+	glEnable(GL_TEXTURE_2D);
+	glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,lt->isLightingEnabled()?GLTexEnvEnums::MODULATE:GLTexEnvEnums::REPLACE);
 	
 	/* Bind the label texture: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
@@ -443,6 +442,8 @@ void GLLabel::draw(GLContextData& contextData) const
 	/* Reset OpenGL state: */
 	glBindTexture(GL_TEXTURE_2D,0);
 	glPopAttrib();
+	if(lt->isLightingEnabled()&&!lt->isSpecularColorSeparate())
+		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SINGLE_COLOR);
 	}
 
 void GLLabel::draw(GLsizei selectionStart,GLsizei selectionEnd,const GLLabel::Color& selectionBackgroundColor,const GLLabel::Color& selectionForegroundColor,GLContextData& contextData) const
@@ -451,19 +452,17 @@ void GLLabel::draw(GLsizei selectionStart,GLsizei selectionEnd,const GLLabel::Co
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
 	/* Save and set up OpenGL state: */
-	GLbitfield attribPushMask=GL_TEXTURE_BIT;
-	bool lightingOn=glIsEnabled(GL_LIGHTING);
-	if(lightingOn)
-		attribPushMask|=GL_LIGHTING_BIT;
-	glPushAttrib(attribPushMask);
-	glEnable(GL_TEXTURE_2D);
-	if(lightingOn)
+	GLLightTracker* lt=contextData.getLightTracker();
+	if(lt->isLightingEnabled()&&!lt->isSpecularColorSeparate())
 		{
+		/* Temporarily turn on separate specular color handling: */
 		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
-		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::MODULATE);
 		}
-	else
-		glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,GLTexEnvEnums::REPLACE);
+	
+	/* Set appropriate texture mode for current lighting state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_TEXTURE_BIT);
+	glEnable(GL_TEXTURE_2D);
+	glTexEnvMode(GLTexEnvEnums::TEXTURE_ENV,lt->isLightingEnabled()?GLTexEnvEnums::MODULATE:GLTexEnvEnums::REPLACE);
 	
 	/* Bind the label texture: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
@@ -495,4 +494,6 @@ void GLLabel::draw(GLsizei selectionStart,GLsizei selectionEnd,const GLLabel::Co
 	/* Reset OpenGL state: */
 	glBindTexture(GL_TEXTURE_2D,0);
 	glPopAttrib();
+	if(lt->isLightingEnabled()&&!lt->isSpecularColorSeparate())
+		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SINGLE_COLOR);
 	}

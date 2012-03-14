@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrollBar - Class for horizontal or vertical scroll bars, to be used as
 a component by scrolling widgets like list boxes.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -164,7 +164,7 @@ void ScrollBar::scheduleClickRepeat(int increment,ScrollBar::ValueChangedCallbac
 	}
 
 ScrollBar::ScrollBar(const char* sName,Container* sParent,Orientation sOrientation,bool sReverse,bool sManageChild)
-	:DragWidget(sName,sParent,false),
+	:Widget(sName,sParent,false),
 	 orientation(sOrientation),reverse(sReverse),
 	 positionMin(0),positionMax(1000),pageSize(100),
 	 position(500),
@@ -232,7 +232,7 @@ Vector ScrollBar::calcNaturalSize(void) const
 ZRange ScrollBar::calcZRange(void) const
 	{
 	/* Return parent class' z range: */
-	ZRange myZRange=DragWidget::calcZRange();
+	ZRange myZRange=Widget::calcZRange();
 	
 	/* Adjust for shaft depth and button bevels: */
 	myZRange+=ZRange(getInterior().origin[2]-Misc::max(shaftDepth,bevelWidth),getInterior().origin[2]+bevelWidth);
@@ -243,7 +243,7 @@ ZRange ScrollBar::calcZRange(void) const
 void ScrollBar::resize(const Box& newExterior)
 	{
 	/* Resize the parent class widget: */
-	DragWidget::resize(newExterior);
+	Widget::resize(newExterior);
 	
 	/* Adjust the shaft and scroll bar handle positions: */
 	positionButtonsAndShaft();
@@ -253,7 +253,7 @@ void ScrollBar::resize(const Box& newExterior)
 void ScrollBar::setBackgroundColor(const Color& newBackgroundColor)
 	{
 	/* Call the base class method: */
-	DragWidget::setBackgroundColor(newBackgroundColor);
+	Widget::setBackgroundColor(newBackgroundColor);
 	
 	/* Let the arrow glyphs track the background color: */
 	for(int i=0;i<2;++i)
@@ -263,7 +263,7 @@ void ScrollBar::setBackgroundColor(const Color& newBackgroundColor)
 void ScrollBar::draw(GLContextData& contextData) const
 	{
 	/* Draw parent class decorations: */
-	DragWidget::draw(contextData);
+	Widget::draw(contextData);
 	
 	/* Draw filler triangles to merge scroll bar with widget border: */
 	glColor(backgroundColor);
@@ -398,6 +398,14 @@ void ScrollBar::draw(GLContextData& contextData) const
 		}
 	}
 
+bool ScrollBar::findRecipient(Event& event)
+	{
+	if(isDragging())
+		return overrideRecipient(this,event);
+	else
+		return Widget::findRecipient(event);
+	}
+
 void ScrollBar::pointerButtonDown(Event& event)
 	{
 	/* Request focus: */
@@ -508,7 +516,7 @@ void ScrollBar::pointerButtonUp(Event& event)
 
 void ScrollBar::pointerMotion(Event& event)
 	{
-	if(isDragging)
+	if(isDragging())
 		{
 		int mainDim=orientation==HORIZONTAL?0:1;
 		

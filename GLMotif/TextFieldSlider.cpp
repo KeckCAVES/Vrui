@@ -254,8 +254,8 @@ void TextFieldSlider::requestResize(Widget* child,const Vector& newExteriorSize)
 		size[0]+=spacing;
 		Vector sSize=child==slider?newExteriorSize:slider->getExterior().size;
 		size[0]+=sSize[0];
-		if(size[0]<sSize[1])
-			size[0]=sSize[1];
+		if(size[1]<sSize[1])
+			size[1]=sSize[1];
 		
 		/* Resize the widget: */
 		parent->requestResize(this,calcExteriorSize(size));

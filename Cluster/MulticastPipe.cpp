@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005-2011 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -37,7 +37,11 @@ size_t MulticastPipe::readData(IO::File::Byte* buffer,size_t bufferSize)
 	{
 	/* Delete the current (completely read) packet: */
 	if(packet!=0)
-		multiplexer->deletePacket(packet);
+		{
+		Packet* oldPacket=packet;
+		packet=0;
+		multiplexer->deletePacket(oldPacket);
+		}
 	
 	/* Get the next packet from the multiplexer: */
 	packet=multiplexer->receivePacket(pipeId);
@@ -51,8 +55,12 @@ size_t MulticastPipe::readData(IO::File::Byte* buffer,size_t bufferSize)
 void MulticastPipe::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
 	/* Pass the current packet to the multiplexer: */
-	packet->packetSize=bufferSize;
-	multiplexer->sendPacket(pipeId,packet);
+	{
+	Packet* sendPacket=packet;
+	packet=0;
+	sendPacket->packetSize=bufferSize;
+	multiplexer->sendPacket(pipeId,sendPacket);
+	}
 	
 	/* Install a fresh cluster packet as the write buffer: */
 	packet=multiplexer->newPacket();
@@ -95,9 +103,12 @@ MulticastPipe::~MulticastPipe(void)
 		if(unwrittenSize!=0)
 			{
 			/* Pass the final packet to the multiplexer: */
-			packet->packetSize=unwrittenSize;
-			multiplexer->sendPacket(pipeId,packet);
+			{
+			Packet* sendPacket=packet;
 			packet=0;
+			sendPacket->packetSize=unwrittenSize;
+			multiplexer->sendPacket(pipeId,sendPacket);
+			}
 			}
 		
 		/* Uninstall the buffered file's write buffer: */

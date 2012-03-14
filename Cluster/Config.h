@@ -1,6 +1,6 @@
 /***********************************************************************
 Config - Configuration header file for Cluster Abstraction Library.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -22,7 +22,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef CLUSTER_CONFIG_INCLUDED
 #define CLUSTER_CONFIG_INCLUDED
 
-#define CLUSTER_CONFIG_DEBUG_MULTIPLEXER 1
+#define CLUSTER_CONFIG_MTU_SIZE 1500
+#define CLUSTER_CONFIG_IP_HEADER_SIZE 20
+#define CLUSTER_CONFIG_UDP_HEADER_SIZE 8
+
+#define CLUSTER_CONFIG_DEBUG_MULTIPLEXER 0
 #define CLUSTER_CONFIG_DEBUG_MULTIPLEXER_VERBOSE 0
 
 #endif

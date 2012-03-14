@@ -1,7 +1,7 @@
 /***********************************************************************
 Multiplexer - Class to share several intra-cluster multicast pipes
 across a single UDP socket connection.
-Copyright (c) 2005-2011 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -44,70 +44,6 @@ class Multiplexer
 	{
 	/* Embedded classes: */
 	private:
-	struct SlaveMessage // Structure for messages sent from the slaves to the master
-		{
-		/* Embedded classes: */
-		public:
-		enum MessageId // Enumerated type for slave message IDs
-			{
-			CONNECTION, // Signal that slave joined multicast group
-			PING, // Ping request from slave to master
-			CREATEPIPE, // Signal that slave created new pipe of given ID
-			ACKNOWLEDGMENT, // Signal that slave has received some stream packets
-			PACKETLOSS, // Signal that slave lost a stream packet
-			BARRIER, // Barrier message sent from slaves to master
-			GATHER // Message conveying a slave's gather value in a gather operation
-			};
-		
-		/* Elements: */
-		unsigned int nodeIndex; // Index of slave node that sent this message
-		int messageId; // ID of message
-		unsigned int pipeId; // ID of pipe related to message
-		unsigned int streamPos; // Current stream position of slave when packet loss is detected
-		unsigned int packetPos; // Stream position of packet after packet loss
-		unsigned int barrierId; // ID of current barrier in barrier message or gather operation in gather message
-		unsigned int slaveValue; // Slave's gather value in a gather operation
-		
-		/* Constructors and destructors: */
-		SlaveMessage(void) // Default constructor
-			{
-			}
-		SlaveMessage(unsigned int sNodeIndex,int sMessageId,unsigned int sPipeId =0) // Creates an initialized message
-			:nodeIndex(sNodeIndex),messageId(sMessageId),pipeId(sPipeId),
-			 streamPos(0),packetPos(0),barrierId(0),slaveValue(0)
-			{
-			}
-		};
-	
-	struct MasterMessage // Structure for messages sent from the master to the slaves (embedded in normal multicast packets with pipeId==0)
-		{
-		/* Embedded classes: */
-		public:
-		enum MessageId // Enumerated type for master message IDs
-			{
-			CONNECTION, // Signal that multicast group is complete
-			PING, // Ping reply from master to slave
-			CREATEPIPE, // Signal that pipe creation is complete
-			BARRIER, // Signal that barrier is complete
-			GATHER // Signal that a gather operation is complete; payload is final gather value
-			};
-		
-		/* Elements: */
-		public:
-		unsigned int zeroPipeId; // Zero pipe ID to distinguish master messages from regular multicast packets
-		int messageId; // ID of message
-		unsigned int pipeId; // ID of affected pipe for barrier or gather completion messages
-		unsigned int barrierId; // ID of completed barrier or gather operation
-		unsigned int masterValue; // Master's final value in a gather operation
-		
-		/* Constructors and destructors: */
-		public:
-		MasterMessage(MessageId sMessageId) // Constructs a simple message structure
-			:zeroPipeId(0),messageId(sMessageId),pipeId(0),barrierId(0),masterValue(0)
-			{
-			}
-		};
-	
 	struct PipeState // Structure storing the current state of a pipe
 		{
 		/* Embedded classes: */
@@ -148,6 +84,7 @@ class Multiplexer
 		/* Elements: */
 		public:
 		Threads::Mutex stateMutex; // Mutex serializing access to the pipe state
+		unsigned int pipeId; // ID number of this pipe
 		Threads::Cond receiveCond; // Condition variable receivers wait on when the delivery queue is empty
 		Threads::Cond barrierCond; // Condition variable all nodes wait on while processing a barrier
 		unsigned int streamPos; // Total amount of bytes that has been sent/received on this pipe so far
@@ -167,10 +104,11 @@ class Multiplexer
 		#endif
 		
 		/* Constructors and destructors: */
-		PipeState(void); // Creates empty pipe state
+		PipeState(unsigned int nodeIndex,unsigned int numSlaves); // Creates empty pipe state
 		~PipeState(void); // Destroys a pipe state and all buffers in its delivery queue
 		};
 	
+	typedef Misc::HashTable<Threads::Thread::ID,PipeState*,Threads::Thread::ID> NewPipeHasher; // Hash table to map from thread IDs to pipe state table entries during pipe creation
 	typedef Misc::HashTable<unsigned int,PipeState*> PipeHasher; // Hash table to map from pipe IDs to pipe state table entries
 	
 	class LockedPipe // Helper class to obtain locks on pipe state objects retrieved by pipe ID
@@ -181,6 +119,12 @@ class Multiplexer
 		
 		/* Constructors and destructors: */
 		public:
+		LockedPipe(PipeState* sPipeState) // Locks the given pipe state
+			:pipeState(sPipeState)
+			{
+			/* Lock the pipe state: */
+			pipeState->stateMutex.lock();
+			}
 		LockedPipe(const PipeHasher& pipeStateTable,Threads::Mutex& pipeStateTableMutex,unsigned int pipeId) // Grabs and locks the pipe of the given ID, if it exists
 			:pipeState(0)
 			{
@@ -235,14 +179,17 @@ class Multiplexer
 	private:
 	unsigned int numSlaves; // Number of slaves in the multicast group
 	unsigned int nodeIndex; // Index of this node; master node == 0
+	struct sockaddr_in* masterAddress; // Pointer to socket address of master
 	struct sockaddr_in* otherAddress; // Pointer to socket address of other end of multicast connection
 	SocketMutex socketMutex; // Mutex serializing (write) access to the UDP socket
 	int socketFd; // File descriptor for the UDP socket
 	bool connected; // Flag to indicate whether connection between master and all slaves has been established
 	Threads::MutexCond connectionCond; // Condition variable to wait on for connection establishment
 	Threads::Mutex pipeStateTableMutex; // Mutex serializing access to the the pipe state table
-	unsigned int nextPipeId; // ID of the next pipe to be created
+	NewPipeHasher newPipes; // Hash table to map from thread IDs to pipe states not completely opened yet
+	unsigned int lastPipeId; // ID of the most-recently created pipe
 	PipeHasher pipeStateTable; // Hash table to map from pipe IDs to pipe state table entries
+	void* messageBuffer; // A buffer to receive message packets on the master node
 	Threads::Thread packetHandlingThread; // Packet handling thread
 	Packet* slaveThreadPacket; // Pointer to the one packet always held by the packet handling thread on slave nodes
 	int masterMessageBurstSize; // Number of server messages sent in a single burst
@@ -277,6 +224,7 @@ class Multiplexer
 			{
 			Packet* result=packetPoolHead;
 			packetPoolHead=packetPoolHead->succ;
+			result->succ=0;
 			return result;
 			}
 		}
