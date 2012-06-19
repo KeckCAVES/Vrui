@@ -352,6 +352,8 @@ void ViewpointFileNavigationTool::loadViewpointFileOKCallback(GLMotif::FileSelec
 	
 	/* Destroy the file selection dialog: */
 	cbData->fileSelectionDialog->close();
+	if(loadViewpointFileDialog==cbData->fileSelectionDialog)
+		loadViewpointFileDialog=0;
 	}
 
 void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
@@ -381,10 +383,10 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 	 showKeyframes(factory->showKeyframes),
 	 pauseFileName(factory->pauseFileName),
 	 autostart(factory->autostart),
-	 firstFrame(true),
 	 nextViewpointIndex(0U),
 	 startTime(0),
-	 paused(false)
+	 paused(false),
+	 loadViewpointFileDialog(0)
 	{
 	}
 
@@ -395,6 +397,47 @@ void ViewpointFileNavigationTool::configure(Misc::ConfigurationFileSection& conf
 	showKeyframes=configFileSection.retrieveValue<bool>("./showKeyframes",showKeyframes);
 	pauseFileName=configFileSection.retrieveString("./pauseFileName",pauseFileName);
 	autostart=configFileSection.retrieveValue<bool>("./autostart",autostart);
+	}
+
+void ViewpointFileNavigationTool::initialize(void)
+	{
+	/* Load scheduled pauses if the file exists: */
+	try
+		{
+		Misc::File pauseFile(pauseFileName.c_str(),"rt");
+		while(true)
+			{
+			double pauseTime;
+			if(fscanf(pauseFile.getFilePtr(),"%lf",&pauseTime)!=1)
+				break;
+			pauses.push_back(Scalar(pauseTime));
+			}
+		}
+	catch(std::runtime_error)
+		{
+		/* Ignore the error */
+		}
+	
+	/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
+	if(viewpointFileName.empty())
+		{
+		loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
+		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
+		loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+		popupPrimaryWidget(loadViewpointFileDialog);
+		}
+	else
+		{
+		/* Load the configured viewpoint file: */
+		readViewpointFile(viewpointFileName.c_str());
+		}
+	}
+
+void ViewpointFileNavigationTool::deinitialize(void)
+	{
+	/* Close the viewpoint file selection dialog if it's still there: */
+	if(loadViewpointFileDialog!=0)
+		loadViewpointFileDialog->close();
 	}
 
 const ToolFactory* ViewpointFileNavigationTool::getFactory(void) const
@@ -461,40 +504,6 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 
 void ViewpointFileNavigationTool::frame(void)
 	{
-	if(firstFrame)
-		{
-		/* Load scheduled pauses if the file exists: */
-		try
-			{
-			Misc::File pauseFile(pauseFileName.c_str(),"rt");
-			while(true)
-				{
-				double pauseTime;
-				if(fscanf(pauseFile.getFilePtr(),"%lf",&pauseTime)!=1)
-					break;
-				pauses.push_back(Scalar(pauseTime));
-				}
-			}
-		catch(std::runtime_error)
-			{
-			/* Ignore the error */
-			}
-		
-		/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
-		if(viewpointFileName.empty())
-			{
-			GLMotif::FileSelectionDialog* loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
-			loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
-			loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
-			popupPrimaryWidget(loadViewpointFileDialog);
-			}
-		else
-			{
-			/* Load the configured viewpoint file: */
-			readViewpointFile(viewpointFileName.c_str());
-			}
-		}
-	
 	/* Animate the navigation transformation if the tool is active: */
 	if(!paused&&isActive())
 		{

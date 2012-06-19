@@ -94,7 +94,6 @@ class ViewpointFileNavigationTool:public NavigationTool
 	std::string pauseFileName;
 	bool autostart;
 	
-	bool firstFrame; // Indicator of first time frame function is called to finish initialization
 	std::vector<Scalar> times; // List of viewpoint times read from the viewpoint file
 	std::vector<ControlPoint> viewpoints; // List of viewpoints read from the viewpoint file
 	std::vector<SplineSegment> splines; // List of interpolating splines
@@ -104,6 +103,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	bool paused; // Flag if the viewpoint animation is currently paused
 	Scalar pauseTime; // Time at which the animation was paused
 	Scalar lastParameter; // Curve parameter in last frame
+	GLMotif::FileSelectionDialog* loadViewpointFileDialog; // Pointer to file selection dialog opened to select viewpoint file
 	
 	/* Private methods: */
 	void readViewpointFile(const char* fileName); // Reads the viewpoint file of the given name
@@ -117,6 +117,8 @@ class ViewpointFileNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void initialize(void);
+	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
