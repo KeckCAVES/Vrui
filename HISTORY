@@ -3011,3 +3011,11 @@ Vrui-2.3-001:
   types.
 - Finally fixed bug in program shutdown detection for headless Vrui
   environments.
+
+Vrui-2.3-002:
+- Fixed initialization bug in Vrui::ViewpointFileNavigationTool when
+  opening file selection dialog.
+
+Vrui-2.3-003:
+- Fixed missing #include <unistd.h> in Video/Linux/V4L2VideoDevice.cpp
+  and Vrui/Internal/Linux/InputDeviceAdapterHID.cpp for g++ 4.7.0.
