@@ -128,13 +128,13 @@ class GLColor<ScalarParam,3>:public GLColorBase<ScalarParam,3>
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,3>& source)
 		{
-		copy(3,source.getRgba());
+		BaseClass::copy(3,source.getRgba());
 		return *this;
 		}
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,4>& source)
 		{
-		copy(3,source.getRgba());
+		BaseClass::copy(3,source.getRgba());
 		return *this;
 		}
 	};
@@ -186,14 +186,14 @@ class GLColor<ScalarParam,4>:public GLColorBase<ScalarParam,4>
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,3>& source)
 		{
-		copy(3,source.getRgba());
+		BaseClass::copy(3,source.getRgba());
 		rgba[3]=GLScalarLimits<typename BaseClass::Scalar>::max;
 		return *this;
 		}
 	template <class SourceScalarParam>
 	GLColor& operator=(const GLColor<SourceScalarParam,4>& source)
 		{
-		copy(4,source.getRgba());
+		BaseClass::copy(4,source.getRgba());
 		return *this;
 		}
 	};
