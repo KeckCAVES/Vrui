@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -40,9 +40,9 @@ class StandardDirectory:public IO::Directory // Common base class for master- an
 	
 	/* Constructors and destructors: */
 	public:
-	StandardDirectory(Multiplexer* sMultiplexer,std::string sPathName); // Opens the directory of the given path name
+	StandardDirectory(Multiplexer* sMultiplexer,const char* sPathName); // Opens the directory of the given path name
 	protected:
-	StandardDirectory(Multiplexer* sMultiplexer,std::string sPathName,int); // Ditto, but assumes that path is absolute and normalized
+	StandardDirectory(Multiplexer* sMultiplexer,const char* sPathName,int); // Ditto, but assumes that path is absolute and normalized
 	public:
 	
 	/* Methods from IO::Directory: */
@@ -67,9 +67,9 @@ class StandardDirectoryMaster:public StandardDirectory
 	
 	/* Constructors and destructors: */
 	public:
-	StandardDirectoryMaster(Multiplexer* sMultiplexer,std::string sPathName); // Opens the directory of the given path name
+	StandardDirectoryMaster(Multiplexer* sMultiplexer,const char* sPathName); // Opens the directory of the given path name
 	private:
-	StandardDirectoryMaster(Multiplexer* sMultiplexer,std::string sPathName,int); // Ditto, but assumes that path is absolute and normalized
+	StandardDirectoryMaster(Multiplexer* sMultiplexer,const char* sPathName,int); // Ditto, but assumes that path is absolute and normalized
 	public:
 	virtual ~StandardDirectoryMaster(void);
 	
@@ -89,9 +89,9 @@ class StandardDirectorySlave:public StandardDirectory
 	
 	/* Constructors and destructors: */
 	public:
-	StandardDirectorySlave(Multiplexer* sMultiplexer,std::string sPathName); // Opens the directory of the given path name
+	StandardDirectorySlave(Multiplexer* sMultiplexer,const char* sPathName); // Opens the directory of the given path name
 	private:
-	StandardDirectorySlave(Multiplexer* sMultiplexer,std::string sPathName,int); // Ditto, but assumes that path is absolute and normalized
+	StandardDirectorySlave(Multiplexer* sMultiplexer,const char* sPathName,int); // Ditto, but assumes that path is absolute and normalized
 	public:
 	virtual ~StandardDirectorySlave(void);
 	

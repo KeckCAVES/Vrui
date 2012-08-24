@@ -2,7 +2,7 @@
 Geoid - Class to represent geoids, actually reference ellipsoids, to
 support coordinate system transformations between several spherical or
 ellipsoidal coordinate systems commonly used in geodesy.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -56,6 +56,8 @@ class Geoid
 	
 	/* Constructors and destructors: */
 	public:
+	static double getDefaultRadius(void); // Returns radius of default geoid (WGS84)
+	static double getDefaultFlatteningFactor(void); // Returns flattening factor of default geoid (WGS84)
 	Geoid(void); // Creates a default geoid (WGS84)
 	Geoid(double sRadius,double sFlatteningFactor); // Creates a geoid with the given parameters
 	

@@ -36,8 +36,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <unistd.h>
 #include <time.h>
 #include <iostream>
+#include <Misc/SelfDestructPointer.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StringPrintf.h>
+#include <Misc/FileNameExtensions.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/ValueCoder.h>
 #include <Misc/StandardValueCoders.h>
@@ -86,6 +88,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ClipPlaneManager.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
+#include <Vrui/WindowProperties.h>
 #include <Vrui/Listener.h>
 #include <Vrui/MutexMenu.h>
 #include <Vrui/CoordinateManager.h>
@@ -793,15 +796,29 @@ void VruiState::prepareMainLoop(void)
 	delayNavigationTransformation=true;
 	#endif
 	
-	/* Create default tool assignment: */
-	toolManager->loadDefaultTools();
+	if(loadInputGraph)
+		{
+		/* Load the requested input graph: */
+		inputGraphManager->loadInputGraph(inputGraphFileName.c_str(),"InputGraph");
+		loadInputGraph=false;
+		}
+	else
+		{
+		/* Create default tool assignment: */
+		toolManager->loadDefaultTools();
+		}
 	
 	/* Check if the user gave a viewpoint file on the command line: */
 	if(!viewpointFileName.empty())
 		{
+		/* Split the given name into directory and file name: */
+		const char* vfn=viewpointFileName.c_str();
+		const char* fileName=Misc::getFileName(vfn);
+		std::string dirName(vfn,fileName);
+		
 		/* Override the navigation transformation: */
-		IO::DirectoryPtr viewpointDir=openDirectory(".");
-		if(!loadViewpointFile(*viewpointDir,viewpointFileName.c_str())&&master)
+		IO::DirectoryPtr viewpointDir=openDirectory(dirName.c_str());
+		if(!loadViewpointFile(*viewpointDir,fileName)&&master)
 			{
 			/* Print a warning message and continue: */
 			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<std::endl;
@@ -1011,17 +1028,6 @@ void VruiState::update(void)
 
 void VruiState::display(DisplayState* displayState,GLContextData& contextData) const
 	{
-	/* Initialize standard OpenGL settings: */
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-	glDepthMask(GL_TRUE);
-	glDisable(GL_BLEND);
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
-	glFrontFace(GL_CCW);
-	glEnable(GL_NORMALIZE);
-	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
-	
 	/* Initialize lighting state through the display state's light tracker: */
 	GLLightTracker* lt=contextData.getLightTracker();
 	lt->setLightingEnabled(true);
@@ -1029,11 +1035,7 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	lt->setLightingTwoSided(false);
 	lt->setColorMaterials(false);
 	lt->setColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
-	
-	/* Clear the display and Z-buffer: */
-	glClearColor(backgroundColor);
-	glClearDepth(1.0); // Clear depth is "infinity"
-	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); // Clear color- and Z-buffer
+	lt->setNormalScalingMode(GLLightTracker::NormalScalingNormalize);
 	
 	/* Enable ambient light source: */
 	glLightModelAmbient(ambientLightColor);
@@ -1217,7 +1219,7 @@ void VruiState::loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData*
 		if(!loadViewpointFile(*cbData->selectedDirectory,cbData->selectedFileName))
 			{
 			/* Show an error message: */
-			showErrorMessage("Load View...",Misc::stringPrintf("Could not load viewpoint file \"%s\"",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str()).c_str());
+			showErrorMessage("Load View...",Misc::stringPrintf("Could not load viewpoint file \"%s\"",cbData->getSelectedPath().c_str()).c_str());
 			}
 		}
 	
@@ -1230,13 +1232,20 @@ void VruiState::loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData*
 
 void VruiState::loadViewCallback(Misc::CallbackData* cbData)
 	{
-	/* Create a file selection dialog to select a viewpoint file: */
-	GLMotif::FileSelectionDialog* loadViewDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",viewDirectory,".view");
-	loadViewDialog->getOKCallbacks().add(this,&VruiState::loadViewOKCallback);
-	loadViewDialog->getCancelCallbacks().add(loadViewDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
-	
-	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadViewDialog);
+	try
+		{
+		/* Create a file selection dialog to select a viewpoint file: */
+		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadViewDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",viewDirectory,".view"));
+		loadViewDialog->getOKCallbacks().add(this,&VruiState::loadViewOKCallback);
+		loadViewDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		
+		/* Show the file selection dialog: */
+		popupPrimaryWidget(loadViewDialog.releaseTarget());
+		}
+	catch(std::runtime_error err)
+		{
+		showErrorMessage("Load View...",Misc::stringPrintf("Could not load viewpoint due to exception %s",err.what()).c_str());
+		}
 	}
 
 void VruiState::saveViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
@@ -1290,12 +1299,12 @@ void VruiState::saveViewCallback(Misc::CallbackData* cbData)
 		std::string viewpointFileName=viewDirectory->createNumberedFileName("SavedViewpoint.view",4);
 
 		/* Create a file selection dialog to select an alternative viewpoint file name: */
-		GLMotif::FileSelectionDialog* saveViewDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Save View...",viewDirectory,viewpointFileName.c_str(),".view");
+		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveViewDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save View...",viewDirectory,viewpointFileName.c_str(),".view"));
 		saveViewDialog->getOKCallbacks().add(this,&VruiState::saveViewOKCallback);
-		saveViewDialog->getCancelCallbacks().add(saveViewDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
-
+		saveViewDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		
 		/* Show the file selection dialog: */
-		popupPrimaryWidget(saveViewDialog);
+		popupPrimaryWidget(saveViewDialog.releaseTarget());
 		}
 	catch(std::runtime_error err)
 		{
@@ -1346,13 +1355,21 @@ void VruiState::loadInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 
 void VruiState::loadInputGraphCallback(Misc::CallbackData* cbData)
 	{
-	/* Create a file selection dialog to select a configuration file: */
-	GLMotif::FileSelectionDialog* loadInputGraphDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Input Graph...",inputGraphDirectory,".inputgraph");
-	loadInputGraphDialog->getOKCallbacks().add(this,&VruiState::loadInputGraphOKCallback);
-	loadInputGraphDialog->getCancelCallbacks().add(loadInputGraphDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
-	
-	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadInputGraphDialog);
+	try
+		{
+		/* Create a file selection dialog to select a configuration file: */
+		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadInputGraphDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Input Graph...",inputGraphDirectory,".inputgraph"));
+		loadInputGraphDialog->getOKCallbacks().add(this,&VruiState::loadInputGraphOKCallback);
+		loadInputGraphDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		
+		/* Show the file selection dialog: */
+		popupPrimaryWidget(loadInputGraphDialog.releaseTarget());
+		}
+	catch(std::runtime_error err)
+		{
+		/* Show an error message: */
+		showErrorMessage("Load Input Graph...",Misc::printStdErrMsg("Could not load input graph due to exception %s",err.what()));
+		}
 	}
 
 void VruiState::saveInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
@@ -1389,7 +1406,7 @@ void VruiState::saveInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 	if(!success)
 		{
 		/* Show an error message: */
-		showErrorMessage("Save Input Graph...","Could not write input graph file");
+		showErrorMessage("Save Input Graph...",Misc::printStdErrMsg("Could not write input graph to file %s",cbData->getSelectedPath().c_str()));
 		}
 	
 	/* Remember the current directory for next time: */
@@ -1407,12 +1424,12 @@ void VruiState::saveInputGraphCallback(Misc::CallbackData* cbData)
 		std::string inputGraphFileName=inputGraphDirectory->createNumberedFileName("SavedInputGraph.inputgraph",4);
 		
 		/* Create a file selection dialog to select an alternative input graph file name: */
-		GLMotif::FileSelectionDialog* saveInputGraphDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Input Graph...",inputGraphDirectory,inputGraphFileName.c_str(),".inputgraph");
+		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveInputGraphDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Input Graph...",inputGraphDirectory,inputGraphFileName.c_str(),".inputgraph"));
 		saveInputGraphDialog->getOKCallbacks().add(this,&VruiState::saveInputGraphOKCallback);
-		saveInputGraphDialog->getCancelCallbacks().add(saveInputGraphDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
-
+		saveInputGraphDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		
 		/* Show the file selection dialog: */
-		popupPrimaryWidget(saveInputGraphDialog);
+		popupPrimaryWidget(saveInputGraphDialog.releaseTarget());
 		}
 	catch(std::runtime_error err)
 		{
@@ -1718,6 +1735,12 @@ std::pair<VRScreen*,Scalar> findScreen(const Ray& ray)
 		}
 	
 	return std::pair<VRScreen*,Scalar>(closestScreen,closestLambda);
+	}
+
+void requestWindowProperties(const WindowProperties& properties)
+	{
+	/* Merge the given properties with the accumulated properties: */
+	vruiState->windowProperties.merge(properties);
 	}
 
 Listener* getMainListener(void)

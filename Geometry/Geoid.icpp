@@ -2,7 +2,7 @@
 Geoid - Class to represent geoids, actually reference ellipsoids, to
 support coordinate system transformations between several spherical or
 ellipsoidal coordinate systems commonly used in geodesy.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -36,6 +36,24 @@ namespace Geometry {
 /**********************
 Methods of class Geoid:
 **********************/
+
+template <class ScalarParam>
+inline
+double
+Geoid<ScalarParam>::getDefaultRadius(
+	void)
+	{
+	return 6378137.0;
+	}
+
+template <class ScalarParam>
+inline
+double
+Geoid<ScalarParam>::getDefaultFlatteningFactor(
+	void)
+	{
+	return 1.0/298.257223563;
+	}
 
 template <class ScalarParam>
 inline

@@ -56,7 +56,7 @@ WalkSurfaceNavigationToolFactory::WalkSurfaceNavigationToolFactory(ToolManager& 
 	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
 	 jetpackAcceleration(fallAcceleration*Scalar(1.5)),
 	 probeSize(getInchFactor()*Scalar(12)),
-	 maxClimb(getInchFactor()*Scalar(24)),
+	 maxClimb(getInchFactor()*Scalar(12)),
 	 fixAzimuth(false),
 	 drawMovementCircles(true),
 	 movementCircleColor(0.0f,1.0f,0.0f),

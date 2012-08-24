@@ -82,11 +82,14 @@ size_t StandardFileMaster::readData(IO::File::Byte* buffer,size_t bufferSize)
 	/* Check for errors: */
 	if(errorType==0)
 		{
-		/* Forward the just-read data to the slaves: */
-		Packet* packet=multiplexer->newPacket();
-		packet->packetSize=readSize;
-		memcpy(packet->packet,buffer,readSize);
-		multiplexer->sendPacket(pipeId,packet);
+		if(isReadCoupled())
+			{
+			/* Forward the just-read data to the slaves: */
+			Packet* packet=multiplexer->newPacket();
+			packet->packetSize=readSize;
+			memcpy(packet->packet,buffer,readSize);
+			multiplexer->sendPacket(pipeId,packet);
+			}
 		
 		/* Advance the read pointer: */
 		readPos+=readSize;
@@ -96,17 +99,20 @@ size_t StandardFileMaster::readData(IO::File::Byte* buffer,size_t bufferSize)
 		}
 	else
 		{
-		/* Send an error indicator (empty packet followed by status packet) to the slaves: */
-		Packet* packet=multiplexer->newPacket();
-		packet->packetSize=0;
-		multiplexer->sendPacket(pipeId,packet);
-		packet=multiplexer->newPacket();
-		{
-		Packet::Writer writer(packet);
-		writer.write<int>(errorType);
-		writer.write<int>(errorCode);
-		}
-		multiplexer->sendPacket(pipeId,packet);
+		if(isReadCoupled())
+			{
+			/* Send an error indicator (empty packet followed by status packet) to the slaves: */
+			Packet* packet=multiplexer->newPacket();
+			packet->packetSize=0;
+			multiplexer->sendPacket(pipeId,packet);
+			packet=multiplexer->newPacket();
+			{
+			Packet::Writer writer(packet);
+			writer.write<int>(errorType);
+			writer.write<int>(errorCode);
+			}
+			multiplexer->sendPacket(pipeId,packet);
+			}
 		
 		/* Throw an exception: */
 		if(errorType==1)
@@ -169,15 +175,18 @@ void StandardFileMaster::writeData(const IO::File::Byte* buffer,size_t bufferSiz
 			}
 		}
 	
-	/* Send a status packet to the slaves: */
-	Packet* packet=multiplexer->newPacket();
-	{
-	Packet::Writer writer(packet);
-	writer.write<int>(errorType);
-	writer.write<int>(errorCode);
-	writer.write<int>(int(numBytesWritten));
-	}
-	multiplexer->sendPacket(pipeId,packet);
+	if(isWriteCoupled())
+		{
+		/* Send a status packet to the slaves: */
+		Packet* packet=multiplexer->newPacket();
+		{
+		Packet::Writer writer(packet);
+		writer.write<int>(errorType);
+		writer.write<int>(errorCode);
+		writer.write<int>(int(numBytesWritten));
+		}
+		multiplexer->sendPacket(pipeId,packet);
+		}
 	
 	/* Handle errors: */
 	if(errorType==1)
@@ -292,14 +301,17 @@ IO::SeekableFile::Offset StandardFileMaster::getSize(void) const
 	int statResult=fstat(fd,&statBuffer);
 	Offset fileSize=statBuffer.st_size;
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	writer.write<int>(statResult);
-	writer.write<Offset>(fileSize);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		writer.write<int>(statResult);
+		writer.write<Offset>(fileSize);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	/* Check for errors: */
 	if(statResult<0)
@@ -315,66 +327,77 @@ Methods of class StandardFileSlave:
 
 size_t StandardFileSlave::readData(IO::File::Byte* buffer,size_t bufferSize)
 	{
-	/* Receive a data packet from the master: */
-	Packet* newPacket=multiplexer->receivePacket(pipeId);
-	
-	/* Check for error conditions: */
-	if(newPacket->packetSize!=0)
+	if(isReadCoupled())
 		{
-		/* Install the new packet as the file's read buffer: */
-		if(packet!=0)
-			multiplexer->deletePacket(packet);
-		packet=newPacket;
-		setReadBuffer(Packet::maxPacketSize,reinterpret_cast<Byte*>(packet->packet),false);
+		/* Receive a data packet from the master: */
+		Packet* newPacket=multiplexer->receivePacket(pipeId);
 		
-		/* Advance the read pointer: */
-		readPos+=packet->packetSize;
-		
-		return packet->packetSize;
+		/* Check for error conditions: */
+		if(newPacket->packetSize!=0)
+			{
+			/* Install the new packet as the file's read buffer: */
+			if(packet!=0)
+				multiplexer->deletePacket(packet);
+			packet=newPacket;
+			setReadBuffer(Packet::maxPacketSize,reinterpret_cast<Byte*>(packet->packet),false);
+			
+			/* Advance the read pointer: */
+			readPos+=packet->packetSize;
+			
+			return packet->packetSize;
+			}
+		else
+			{
+			/* Read the status packet: */
+			multiplexer->deletePacket(newPacket);
+			newPacket=multiplexer->receivePacket(pipeId);
+			Packet::Reader reader(newPacket);
+			int errorType=reader.read<int>();
+			int errorCode=reader.read<int>();
+			multiplexer->deletePacket(newPacket);
+			
+			/* Handle the error: */
+			if(errorType==1)
+				throw SeekError(readPos);
+			else if(errorType==3)
+				throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while reading from file",errorCode));
+			
+			/* Only reached in case of end-of-file packet: */
+			return 0;
+			}
 		}
 	else
 		{
-		/* Read the status packet: */
-		multiplexer->deletePacket(newPacket);
-		newPacket=multiplexer->receivePacket(pipeId);
-		Packet::Reader reader(newPacket);
-		int errorType=reader.read<int>();
-		int errorCode=reader.read<int>();
-		multiplexer->deletePacket(newPacket);
-		
-		/* Handle the error: */
-		if(errorType==1)
-			throw SeekError(readPos);
-		else if(errorType==3)
-			throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while reading from file",errorCode));
-		
-		/* Only reached in case of end-of-file packet: */
+		/* Indicate end-of-file; slave shouldn't have been reading in decoupled state: */
 		return 0;
 		}
 	}
 
 void StandardFileSlave::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
-	/* Receive a status packet from the master: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int errorType=reader.read<int>();
-	int errorCode=reader.read<int>();
-	int numBytesWritten=reader.read<int>();
-	multiplexer->deletePacket(statusPacket);
-	
-	/* Handle errors: */
-	if(errorType==1)
-		throw SeekError(writePos);
-	else
+	if(isWriteCoupled())
 		{
-		/* Advance the write pointer in case partial data was written: */
-		writePos+=numBytesWritten;
+		/* Receive a status packet from the master: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int errorType=reader.read<int>();
+		int errorCode=reader.read<int>();
+		int numBytesWritten=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
 		
-		if(errorType==2)
-			throw WriteError(errorCode);
-		else if(errorType==3)
-			throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while writing to file",errorCode));
+		/* Handle errors: */
+		if(errorType==1)
+			throw SeekError(writePos);
+		else
+			{
+			/* Advance the write pointer in case partial data was written: */
+			writePos+=numBytesWritten;
+			
+			if(errorType==2)
+				throw WriteError(errorCode);
+			else if(errorType==3)
+				throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while writing to file",errorCode));
+			}
 		}
 	}
 
@@ -430,19 +453,27 @@ size_t StandardFileSlave::resizeReadBuffer(size_t newReadBufferSize)
 
 IO::SeekableFile::Offset StandardFileSlave::getSize(void) const
 	{
-	/* Receive a status message from the master: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int statResult=reader.read<int>();
-	Offset fileSize=reader.read<Offset>();
-	multiplexer->deletePacket(statusPacket);
-	
-	/* Check for errors: */
-	if(statResult<0)
-		throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Error while determining file size"));
-	
-	/* Return the file size: */
-	return fileSize;
+	if(isReadCoupled())
+		{
+		/* Receive a status message from the master: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int statResult=reader.read<int>();
+		Offset fileSize=reader.read<Offset>();
+		multiplexer->deletePacket(statusPacket);
+		
+		/* Check for errors: */
+		if(statResult<0)
+			throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Error while determining file size"));
+		
+		/* Return the file size: */
+		return fileSize;
+		}
+	else
+		{
+		/* Return empty size; slave shouldn't have been querying the file size in decoupled state: */
+		return 0;
+		}
 	}
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardValueCoders - Specialized ValueCoder classes for standard data
 types.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -21,11 +21,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Misc/StandardValueCoders.h>
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <Misc/StandardValueCoders.h>
+#include <Misc/PrintInteger.h>
 
 namespace Misc {
 
@@ -428,9 +429,8 @@ Methods of class ValueCoder<short int>:
 
 std::string ValueCoder<short int>::encode(const short int& value)
 	{
-	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%d",int(value));
-	return std::string(buffer);
+	char buffer[7];
+	return std::string(print(value,buffer+6));
 	}
 
 short int ValueCoder<short int>::decode(const char* start,const char* end,const char** decodeEnd)
@@ -452,9 +452,8 @@ Methods of class ValueCoder<unsigned short int>:
 
 std::string ValueCoder<unsigned short int>::encode(const unsigned short int& value)
 	{
-	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%u",(unsigned int)value);
-	return std::string(buffer);
+	char buffer[6];
+	return std::string(print(value,buffer+5));
 	}
 
 unsigned short int ValueCoder<unsigned short int>::decode(const char* start,const char* end,const char** decodeEnd)
@@ -476,9 +475,8 @@ Methods of class ValueCoder<int>:
 
 std::string ValueCoder<int>::encode(const int& value)
 	{
-	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%d",value);
-	return std::string(buffer);
+	char buffer[12];
+	return std::string(print(value,buffer+11));
 	}
 
 int ValueCoder<int>::decode(const char* start,const char* end,const char** decodeEnd)
@@ -500,9 +498,8 @@ Methods of class ValueCoder<unsigned int>:
 
 std::string ValueCoder<unsigned int>::encode(const unsigned int& value)
 	{
-	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%u",value);
-	return std::string(buffer);
+	char buffer[11];
+	return std::string(print(value,buffer+10));
 	}
 
 unsigned int ValueCoder<unsigned int>::decode(const char* start,const char* end,const char** decodeEnd)
@@ -525,7 +522,7 @@ Methods of class ValueCoder<float>:
 std::string ValueCoder<float>::encode(const float& value)
 	{
 	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%.7g",value);
+	snprintf(buffer,sizeof(buffer),"%.9g",value);
 	return std::string(buffer);
 	}
 
@@ -549,7 +546,7 @@ Methods of class ValueCoder<double>:
 std::string ValueCoder<double>::encode(const double& value)
 	{
 	char buffer[40];
-	snprintf(buffer,sizeof(buffer),"%.14g",value);
+	snprintf(buffer,sizeof(buffer),"%.18g",value);
 	return std::string(buffer);
 	}
 

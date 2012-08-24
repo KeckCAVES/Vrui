@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2011 Oliver Kreylos
+Copyright (c) 2000-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -80,6 +80,7 @@ namespace {
 Workbench-specific global variables:
 ***********************************/
 
+bool vruiVerbose=false;
 int vruiEventPipe[2]={-1,-1};
 Threads::Mutex vruiEventPipeMutex;
 volatile unsigned int vruiNumSignaledEvents=0;
@@ -98,6 +99,7 @@ int vruiNumSlaves=0;
 pid_t* vruiSlavePids=0;
 int vruiSlaveArgc=0;
 char** vruiSlaveArgv=0;
+char** vruiSlaveArgvShadow=0;
 volatile bool vruiAsynchronousShutdown=false;
 
 /*****************************************
@@ -173,6 +175,7 @@ void vruiErrorShutdown(bool signalError)
 			for(int i=0;i<vruiNumSlaves;++i)
 				waitpid(vruiSlavePids[i],0,0);
 			delete[] vruiSlavePids;
+			vruiSlavePids=0;
 			}
 		if(!master&&vruiSlaveArgv!=0)
 			{
@@ -180,6 +183,9 @@ void vruiErrorShutdown(bool signalError)
 			for(int i=0;i<vruiSlaveArgc;++i)
 				delete[] vruiSlaveArgv[i];
 			delete[] vruiSlaveArgv;
+			vruiSlaveArgv=0;
+			delete[] vruiSlaveArgvShadow;
+			vruiSlaveArgvShadow=0;
 			}
 		}
 	
@@ -199,6 +205,8 @@ void vruiOpenConfigurationFile(const char* userConfigurationFileName)
 	try
 		{
 		/* Open the system-wide configuration file: */
+		if(vruiVerbose)
+			std::cout<<"Vrui: Reading system-wide configuration file "<<SYSVRUICONFIGFILE<<std::endl;
 		vruiConfigFile=new Misc::ConfigurationFile(SYSVRUICONFIGFILE);
 		}
 	catch(std::runtime_error error)
@@ -211,15 +219,23 @@ void vruiOpenConfigurationFile(const char* userConfigurationFileName)
 	try
 		{
 		/* Merge in the user configuration file: */
+		if(vruiVerbose)
+			std::cout<<"Vrui: Merging user configuration file "<<userConfigurationFileName<<"..."<<std::flush;
 		vruiConfigFile->merge(userConfigurationFileName);
+		if(vruiVerbose)
+			std::cout<<" Ok"<<std::endl;
 		}
 	catch(Misc::File::OpenError err)
 		{
 		/* Ignore the error and continue */
+		if(vruiVerbose)
+			std::cout<<" does not exist"<<std::endl;
 		}
 	catch(std::runtime_error error)
 		{
 		/* Bail out on errors in user configuration file: */
+		if(vruiVerbose)
+			std::cout<<" error"<<std::endl;
 		std::cerr<<"Caught exception "<<error.what()<<" while reading user configuration file"<<std::endl;
 		vruiErrorShutdown(true);
 		}
@@ -242,7 +258,11 @@ void vruiGoToRootSection(const char*& rootSectionName)
 					}
 			}
 		if(!rootSectionFound)
+			{
+			if(vruiVerbose)
+				std::cout<<"Vrui: Requested root section /Vrui/"<<rootSectionName<<" does not exist"<<std::endl;
 			rootSectionName=VRUIDEFAULTROOTSECTIONNAME;
+			}
 		}
 	catch(...)
 		{
@@ -252,6 +272,8 @@ void vruiGoToRootSection(const char*& rootSectionName)
 		}
 	
 	/* Go to the given root section: */
+	if(vruiVerbose)
+		std::cout<<"Vrui: Going to root section /Vrui/"<<rootSectionName<<std::endl;
 	vruiConfigFile->setCurrentSection("/Vrui");
 	vruiConfigFile->setCurrentSection(rootSectionName);
 	}
@@ -376,14 +398,17 @@ void init(int& argc,char**& argv,char**&)
 			/* Read the application's command line: */
 			vruiSlaveArgc=vruiPipe->read<int>();
 			vruiSlaveArgv=new char*[vruiSlaveArgc+1];
+			vruiSlaveArgvShadow=new char*[vruiSlaveArgc+1];
 			for(int i=0;i<=vruiSlaveArgc;++i)
 				vruiSlaveArgv[i]=0;
 			for(int i=0;i<vruiSlaveArgc;++i)
 				vruiSlaveArgv[i]=Misc::readCString(*vruiPipe);
+			for(int i=0;i<=vruiSlaveArgc;++i)
+				vruiSlaveArgvShadow[i]=vruiSlaveArgv[i];
 			
 			/* Override the actual command line provided by the caller: */
 			argc=vruiSlaveArgc;
-			argv=vruiSlaveArgv;
+			argv=vruiSlaveArgvShadow;
 			}
 		catch(std::runtime_error error)
 			{
@@ -396,6 +421,61 @@ void init(int& argc,char**& argv,char**&)
 		/***********************
 		This is the master node:
 		***********************/
+		
+		/* Check the command line for -vruiVerbose and -vruiHelp flags: */
+		for(int i=1;i<argc;++i)
+			{
+			if(strcasecmp(argv[i],"-vruiVerbose")==0)
+				{
+				std::cout<<"Vrui: Entering verbose mode"<<std::endl;
+				vruiVerbose=true;
+				
+				/* Remove parameter from argument list: */
+				argc-=1;
+				for(int j=i;j<argc;++j)
+					argv[j]=argv[j+1];
+				--i;
+				}
+			else if(strcasecmp(argv[i]+1,"vruiHelp")==0)
+				{
+				/* Print information about Vrui command line options: */
+				std::cout<<"Vrui-wide command line options:"<<std::endl;
+				std::cout<<"  -vruiHelp"<<std::endl;
+				std::cout<<"     Prints this help message"<<std::endl;
+				std::cout<<"  -vruiVerbose"<<std::endl;
+				std::cout<<"     Logs details about Vrui's startup and shutdown procedures to stdout"<<std::endl;
+				std::cout<<"  -mergeConfig <configuration file name>"<<std::endl;
+				std::cout<<"     Merges the configuration file of the given name into Vrui's"<<std::endl;
+				std::cout<<"     configuration space"<<std::endl;
+				std::cout<<"  -dumpConfig <configuration file name>"<<std::endl;
+				std::cout<<"     Writes the current state of Vrui's configuration space, including"<<std::endl;
+				std::cout<<"     all previously merged configuration files, to the configuration"<<std::endl;
+				std::cout<<"     file of the given name"<<std::endl;
+				std::cout<<"  -rootSection <root section name>"<<std::endl;
+				std::cout<<"     Overrides the default root section name"<<std::endl;
+				std::cout<<"  -loadInputGraph <input graph file name>"<<std::endl;
+				std::cout<<"     Loads the input graph contained in the given file after initialization"<<std::endl;
+				std::cout<<"  -addToolClass <tool class name>"<<std::endl;
+				std::cout<<"     Adds the tool class of the given name to the tool manager and the"<<std::endl;
+				std::cout<<"     tool selection menu"<<std::endl;
+				std::cout<<"  -addTool <tool configuration file section name>"<<std::endl;
+				std::cout<<"     Adds the tool defined in the given tool configuration section"<<std::endl;
+				std::cout<<"  -vislet <vislet class name> [vislet option 1] ... [vislet option n] ;"<<std::endl;
+				std::cout<<"     Loads a vislet of the given class name, with the given vislet"<<std::endl;
+				std::cout<<"     arguments. Argument list must be terminated with a semicolon"<<std::endl;
+				std::cout<<"  -setLinearUnit <unit name> <unit scale factor>"<<std::endl;
+				std::cout<<"     Sets the coordinate unit of the Vrui application's navigation space"<<std::endl;
+				std::cout<<"     to the given unit name and scale factor"<<std::endl;
+				std::cout<<"  -loadView <viewpoint file name>"<<std::endl;
+				std::cout<<"     Loads the initial viewing position from the given viewpoint file"<<std::endl;
+				
+				/* Remove parameter from argument list: */
+				argc-=1;
+				for(int j=i;j<argc;++j)
+					argv[j]=argv[j+1];
+				--i;
+				}
+			}
 		
 		/* Open the Vrui event pipe: */
 		if(pipe(vruiEventPipe)!=0)
@@ -422,9 +502,9 @@ void init(int& argc,char**& argv,char**&)
 		
 		/* Get the root section name: */
 		const char* rootSectionName=getenv("VRUI_ROOTSECTION");
-		if(rootSectionName==0)
+		if(rootSectionName==0||rootSectionName[0]=='\0')
 			rootSectionName=getenv("HOSTNAME");
-		if(rootSectionName==0)
+		if(rootSectionName==0||rootSectionName[0]=='\0')
 			rootSectionName=getenv("HOST");
 		
 		/* Apply configuration-related arguments from the command line: */
@@ -439,11 +519,17 @@ void init(int& argc,char**& argv,char**&)
 						try
 							{
 							/* Merge in the user configuration file: */
+							if(vruiVerbose)
+								std::cout<<"Vrui: Merging configuration file "<<argv[i+1]<<"..."<<std::flush;
 							vruiConfigFile->merge(argv[i+1]);
+							if(vruiVerbose)
+								std::cout<<" Ok"<<std::endl;
 							}
 						catch(std::runtime_error err)
 							{
 							/* Print a warning and carry on: */
+							if(vruiVerbose)
+								std::cout<<" error"<<std::endl;
 							std::cerr<<"Vrui::init: Ignoring -mergeConfig argument due to "<<err.what()<<std::endl;
 							}
 						
@@ -457,6 +543,31 @@ void init(int& argc,char**& argv,char**&)
 						{
 						/* Ignore the mergeConfig parameter: */
 						std::cerr<<"Vrui::init: No configuration file name given after -mergeConfig option"<<std::endl;
+						--argc;
+						}
+					}
+				else if(strcasecmp(argv[i]+1,"dumpConfig")==0)
+					{
+					/* Next parameter is name of configuration file to create: */
+					if(i+1<argc)
+						{
+						/* Save the current configuration to the given configuration file: */
+						if(vruiVerbose)
+							std::cout<<"Vrui: Dumping current configuration space to configuration file "<<argv[i+1]<<"..."<<std::flush;
+						vruiConfigFile->saveAs(argv[i+1]);
+						if(vruiVerbose)
+							std::cout<<" Ok"<<std::endl;
+						
+						/* Remove parameters from argument list: */
+						argc-=2;
+						for(int j=i;j<argc;++j)
+							argv[j]=argv[j+2];
+						--i;
+						}
+					else
+						{
+						/* Ignore the dumpConfig parameter: */
+						std::cerr<<"Vrui::init: No configuration file name given after -dumpConfig option"<<std::endl;
 						--argc;
 						}
 					}
@@ -493,6 +604,9 @@ void init(int& argc,char**& argv,char**&)
 			
 			try
 				{
+				if(vruiVerbose)
+					std::cout<<"Vrui: Entering cluster mode"<<std::endl;
+				
 				/* Read multipipe settings from configuration file: */
 				std::string master=vruiConfigFile->retrieveString("./multipipeMaster");
 				int masterPort=vruiConfigFile->retrieveValue<int>("./multipipeMasterPort",0);
@@ -513,8 +627,12 @@ void init(int& argc,char**& argv,char**&)
 				std::string cwd=Misc::getCurrentDirectory();
 				size_t rcLen=cwd.length()+strlen(argv[0])+master.length()+multicastGroup.length()+512;
 				char* rc=new char[rcLen];
+				if(vruiVerbose)
+					std::cout<<"Vrui: Spawning slave processes..."<<std::flush;
 				for(int i=0;i<vruiNumSlaves;++i)
 					{
+					if(vruiVerbose)
+						std::cout<<' '<<slaves[i]<<std::flush;
 					pid_t childPid=fork();
 					if(childPid==0)
 						{
@@ -544,12 +662,21 @@ void init(int& argc,char**& argv,char**&)
 						vruiSlavePids[i]=childPid;
 						}
 					}
+				if(vruiVerbose)
+					std::cout<<" Ok"<<std::endl;
 				
 				/* Clean up: */
 				delete[] rc;
 				
 				/* Wait until the entire cluster is connected: */
+				if(vruiVerbose)
+					std::cout<<"Vrui: Waiting for cluster to connect..."<<std::flush;
 				vruiMultiplexer->waitForConnection();
+				if(vruiVerbose)
+					std::cout<<" Ok"<<std::endl;
+				
+				if(vruiVerbose)
+					std::cout<<"Vrui: Distributing configuration and command line..."<<std::flush;
 				
 				/* Open a multicast pipe: */
 				vruiPipe=new Cluster::MulticastPipe(vruiMultiplexer);
@@ -565,9 +692,14 @@ void init(int& argc,char**& argv,char**&)
 				
 				/* Flush the pipe: */
 				vruiPipe->flush();
+				
+				if(vruiVerbose)
+					std::cout<<" Ok"<<std::endl;
 				}
 			catch(std::runtime_error error)
 				{
+				if(vruiVerbose)
+					std::cout<<" error"<<std::endl;
 				std::cerr<<"Master node: Caught exception "<<error.what()<<" while initializing cluster communication"<<std::endl;
 				vruiErrorShutdown(true);
 				}
@@ -577,11 +709,17 @@ void init(int& argc,char**& argv,char**&)
 	/* Initialize Vrui state object: */
 	try
 		{
+		if(vruiVerbose)
+			std::cout<<"Vrui: Initializing Vrui environment..."<<std::flush;
 		vruiState=new VruiState(vruiMultiplexer,vruiPipe);
 		vruiState->initialize(vruiConfigFile->getCurrentSection());
+		if(vruiVerbose)
+			std::cout<<" Ok"<<std::endl;
 		}
 	catch(std::runtime_error error)
 		{
+		if(vruiVerbose)
+			std::cout<<" error"<<std::endl;
 		std::cerr<<"Caught exception "<<error.what()<<" while initializing Vrui state object"<<std::endl;
 		vruiErrorShutdown(true);
 		}
@@ -590,20 +728,55 @@ void init(int& argc,char**& argv,char**&)
 	for(int i=1;i<argc;++i)
 		if(argv[i][0]=='-')
 			{
-			if(strcasecmp(argv[i]+1,"addToolClass")==0)
+			if(strcasecmp(argv[i]+1,"loadInputGraph")==0)
 				{
-				/* Next parameter is name of tool class to load: */
+				/* Next parameter is name of input graph file to load: */
 				if(i+1<argc)
 					{
-					/* Load the tool class: */
-					vruiState->toolManager->loadClass(argv[i+1]);
+					/* Save input graph file name: */
+					vruiState->loadInputGraph=true;
+					vruiState->inputGraphFileName=argv[i+1];
 					
 					/* Remove parameters from argument list: */
 					argc-=2;
 					for(int j=i;j<argc;++j)
 						argv[j]=argv[j+2];
 					--i;
-					break;
+					}
+				else
+					{
+					/* Ignore the loadInputGraph parameter: */
+					std::cerr<<"Vrui::init: No input graph file name given after -loadInputGraph option"<<std::endl;
+					--argc;
+					}
+				}
+			else if(strcasecmp(argv[i]+1,"addToolClass")==0)
+				{
+				/* Next parameter is name of tool class to load: */
+				if(i+1<argc)
+					{
+					try
+						{
+						/* Load the tool class: */
+						if(vruiVerbose)
+							std::cout<<"Vrui: Adding requested tool class "<<argv[i+1]<<"..."<<std::flush;
+						vruiState->toolManager->loadClass(argv[i+1]);
+						if(vruiVerbose)
+							std::cout<<" Ok"<<std::endl;
+						}
+					catch(std::runtime_error err)
+						{
+						/* Print a warning and carry on: */
+						if(vruiVerbose)
+							std::cout<<" error"<<std::endl;
+						std::cerr<<"Vrui::init: Ignoring tool class "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
+						}
+					
+					/* Remove parameters from argument list: */
+					argc-=2;
+					for(int j=i;j<argc;++j)
+						argv[j]=argv[j+2];
+					--i;
 					}
 				else
 					{
@@ -620,11 +793,17 @@ void init(int& argc,char**& argv,char**&)
 					try
 						{
 						/* Load the tool: */
+						if(vruiVerbose)
+							std::cout<<"Vrui: Adding requested tool from configuration section "<<argv[i+1]<<"..."<<std::flush;
 						vruiState->toolManager->loadToolBinding(argv[i+1]);
+						if(vruiVerbose)
+							std::cout<<" Ok"<<std::endl;
 						}
 					catch(std::runtime_error err)
 						{
 						/* Print a warning and carry on: */
+						if(vruiVerbose)
+							std::cout<<" error"<<std::endl;
 						std::cerr<<"Vrui::init: Ignoring tool binding "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
 						}
 					
@@ -633,7 +812,6 @@ void init(int& argc,char**& argv,char**&)
 					for(int j=i;j<argc;++j)
 						argv[j]=argv[j+2];
 					--i;
-					break;
 					}
 				else
 					{
@@ -659,12 +837,18 @@ void init(int& argc,char**& argv,char**&)
 						try
 							{
 							/* Initialize the vislet: */
+							if(vruiVerbose)
+								std::cout<<"Vrui: Loading vislet of class "<<className<<"..."<<std::flush;
 							VisletFactory* factory=vruiState->visletManager->loadClass(className);
 							vruiState->visletManager->createVislet(factory,argEnd-(i+2),argv+(i+2));
+							if(vruiVerbose)
+								std::cout<<" Ok"<<std::endl;
 							}
 						catch(std::runtime_error err)
 							{
 							/* Print a warning and carry on: */
+							if(vruiVerbose)
+								std::cout<<" error"<<std::endl;
 							std::cerr<<"Vrui::init: Ignoring vislet of type "<<className<<" due to exception "<<err.what()<<std::endl;
 							}
 						}
@@ -698,7 +882,6 @@ void init(int& argc,char**& argv,char**&)
 					for(int j=i;j<argc;++j)
 						argv[j]=argv[j+2];
 					--i;
-					break;
 					}
 				else
 					{
@@ -720,7 +903,6 @@ void init(int& argc,char**& argv,char**&)
 					for(int j=i;j<argc;++j)
 						argv[j]=argv[j+3];
 					--i;
-					break;
 					}
 				else
 					{
@@ -730,6 +912,14 @@ void init(int& argc,char**& argv,char**&)
 					}
 				}
 			}
+	
+	if(vruiVerbose&&vruiState->master)
+		{
+		std::cout<<"Vrui: Command line passed to application:";
+		for(int i=1;i<argc;++i)
+			std::cout<<" \""<<argv[i]<<'"';
+		std::cout<<std::endl;
+		}
 	
 	/* Extract the application name: */
 	const char* appNameStart=argv[0];
@@ -746,7 +936,15 @@ void startDisplay(void)
 	{
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
+		{
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<"Vrui: Waiting for cluster before graphics initialization..."<<std::flush;
 		vruiState->pipe->barrier();
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<" Ok"<<std::endl;
+		}
+	else if(vruiVerbose)
+		std::cout<<"Vrui: Starting graphics subsystem"<<std::endl;
 	
 	/* Find the mouse adapter listed in the input device manager (if there is one): */
 	InputDeviceAdapterMouse* mouseAdapter=0;
@@ -845,7 +1043,15 @@ void startSound(void)
 	{
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
+		{
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<"Vrui: Waiting for cluster before sound initialization..."<<std::flush;
 		vruiState->pipe->barrier();
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<" Ok"<<std::endl;
+		}
+	else if(vruiVerbose)
+		std::cout<<"Vrui: Starting sound subsystem"<<std::endl;
 	
 	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	/* Retrieve the name of the sound context: */
@@ -1022,7 +1228,12 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 			timeout.tv_usec=0;
 			readFds.add(fileno(stdin));
 			Misc::select(&readFds,0,0,&timeout);
-			if(readFds.isSet(fileno(stdin))&&fgetc(stdin)==27)
+			}
+		if(readFds.isSet(fileno(stdin)))
+			{
+			/* Read the next character from stdin and check if it's ESC: */
+			char in='\0';
+			if(read(fileno(stdin),&in,sizeof(char))>0&&in==27)
 				{
 				/* Call the quit callback: */
 				Misc::CallbackData cbData;
@@ -1146,6 +1357,11 @@ void vruiInnerLoopMultiWindow(void)
 			fflush(stdout);
 			}
 		}
+	if(vruiNumWindows==0&&vruiState->master)
+		{
+		printf("\n");
+		fflush(stdout);
+		}
 	}
 
 void vruiInnerLoopSingleWindow(void)
@@ -1224,7 +1440,15 @@ void mainLoop(void)
 	
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
+		{
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<"Vrui: Waiting for cluster before entering main loop..."<<std::flush;
 		vruiState->pipe->barrier();
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<" Ok"<<std::endl;
+		}
+	else if(vruiVerbose)
+		std::cout<<"Vrui: Entering main loop"<<std::endl;
 	
 	/* Prepare Vrui state for main loop: */
 	vruiState->prepareMainLoop();
@@ -1257,10 +1481,14 @@ void mainLoop(void)
 		vruiInnerLoopSingleWindow();
 	
 	/* Perform first clean-up steps: */
+	if(vruiVerbose&&vruiState->master)
+		std::cout<<"Vrui: Exiting main loop"<<std::endl;
 	vruiState->finishMainLoop();
 	
 	/* Shut down the rendering system: */
 	GLContextData::shutdownThingManager();
+	if(vruiVerbose&&vruiState->master)
+		std::cout<<"Vrui: Shutting down graphics subsystem"<<std::endl;
 	if(vruiRenderingThreads!=0)
 		{
 		/* Cancel all rendering threads: */
@@ -1284,6 +1512,9 @@ void mainLoop(void)
 	#if ALSUPPORT_CONFIG_HAVE_OPENAL
 	if(vruiSoundContexts!=0)
 		{
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<"Vrui: Shutting down sound subsystem"<<std::endl;
+		
 		/* Destroy all sound contexts: */
 		for(int i=0;i<vruiNumSoundContexts;++i)
 			delete vruiSoundContexts[i];
@@ -1300,23 +1531,36 @@ void mainLoop(void)
 void deinit(void)
 	{
 	/* Clean up: */
+	if(vruiVerbose&&vruiState->master)
+		std::cout<<"Vrui: Shutting down Vrui environment"<<std::endl;
 	delete[] vruiApplicationName;
 	delete vruiState;
 	
 	if(vruiMultiplexer!=0)
 		{
 		bool master=vruiMultiplexer->isMaster();
+		if(vruiVerbose&&master)
+			std::cout<<"Vrui: Exiting cluster mode"<<std::endl;
 		
 		/* Destroy the multiplexer: */
+		if(vruiVerbose&&master)
+			std::cout<<"Vrui: Shutting down intra-cluster communication..."<<std::flush;
 		delete vruiPipe;
 		delete vruiMultiplexer;
+		if(vruiVerbose&&master)
+			std::cout<<" Ok"<<std::endl;
 		
 		if(master&&vruiSlavePids!=0)
 			{
 			/* Wait for all slaves to terminate: */
+			if(vruiVerbose)
+				std::cout<<"Vrui: Waiting for slave processes to terminate..."<<std::flush;
 			for(int i=0;i<vruiNumSlaves;++i)
 				waitpid(vruiSlavePids[i],0,0);
 			delete[] vruiSlavePids;
+			vruiSlavePids=0;
+			if(vruiVerbose)
+				std::cout<<" Ok"<<std::endl;
 			}
 		if(!master&&vruiSlaveArgv!=0)
 			{
@@ -1324,6 +1568,9 @@ void deinit(void)
 			for(int i=0;i<vruiSlaveArgc;++i)
 				delete[] vruiSlaveArgv[i];
 			delete[] vruiSlaveArgv;
+			vruiSlaveArgv=0;
+			delete[] vruiSlaveArgvShadow;
+			vruiSlaveArgvShadow=0;
 			}
 		}
 	

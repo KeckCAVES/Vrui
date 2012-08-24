@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureFloat - OpenGL extension class for the GL_ARB_texture_float
 extension.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
 #ifndef GLEXTENSIONS_GLARBTEXTUREFLOAT_INCLUDED
-#define GLEXTENSIONS_GLARBTEXTURELOAT_INCLUDED
+#define GLEXTENSIONS_GLARBTEXTUREFLOAT_INCLUDED
 
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>

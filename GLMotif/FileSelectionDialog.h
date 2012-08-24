@@ -1,6 +1,6 @@
 /***********************************************************************
 FileSelectionDialog - A popup window to select a file name.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -44,15 +44,16 @@ class FileSelectionDialog:public PopupWindow
 	{
 	/* Embedded classes: */
 	public:
-	class CallbackData:public Misc::CallbackData // Base class for file selection dialog callbacks
+	class CallbackData:public PopupWindow::CallbackData // Base class for file selection dialog callbacks
 		{
 		/* Elements: */
 		public:
-		FileSelectionDialog* fileSelectionDialog; // Pointer to the file selection dialog that caused the event
+		FileSelectionDialog* fileSelectionDialog; // Pointer to the file selection dialog that caused the event; redundant, but so what
 		
 		/* Constructors and destructors: */
 		CallbackData(FileSelectionDialog* sFileSelectionDialog)
-			:fileSelectionDialog(sFileSelectionDialog)
+			:PopupWindow::CallbackData(sFileSelectionDialog),
+			 fileSelectionDialog(sFileSelectionDialog)
 			{
 			}
 		};
@@ -134,12 +135,10 @@ class FileSelectionDialog:public PopupWindow
 		{
 		return cancelCallbacks;
 		}
-	void defaultCloseCallback(CallbackData* cbData); // Default callback function that simply deletes the dialog
 	IO::DirectoryPtr getCurrentDirectory(void) // Returns the directory whose contents are currently displayed in the file selection dialog
 		{
 		return currentDirectory;
 		}
-	void close(void); // Convenience method to close this file selection dialog from inside an OK or Cancel callback
 	};
 
 }

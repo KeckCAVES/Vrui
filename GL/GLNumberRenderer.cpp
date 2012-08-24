@@ -1,6 +1,6 @@
 /***********************************************************************
 GLNumberRenderer - Class to render numbers using a HUD-like font.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLNumberRenderer.h>
 
 #include <stdio.h>
+#include <Misc/PrintInteger.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 
@@ -295,20 +296,16 @@ void GLNumberRenderer::initContext(GLContextData& contextData) const
 
 GLfloat GLNumberRenderer::calcNumberWidth(unsigned int number) const
 	{
-	/* Convert the number to a string: */
-	char buffer[64];
-	snprintf(buffer,sizeof(buffer),"%u",number);
-	
-	return calcStringWidth(buffer);
+	/* Convert the number to a string and calculate its width: */
+	char buffer[11];
+	return calcStringWidth(Misc::print(number,buffer+10));
 	}
 
 GLfloat GLNumberRenderer::calcNumberWidth(int number) const
 	{
-	/* Convert the number to a string: */
-	char buffer[64];
-	snprintf(buffer,sizeof(buffer),"%d",number);
-	
-	return calcStringWidth(buffer);
+	/* Convert the number to a string and calculate its width: */
+	char buffer[12];
+	return calcStringWidth(Misc::print(number,buffer+11));
 	}
 
 GLfloat GLNumberRenderer::calcNumberWidth(double number,int precision) const
@@ -322,22 +319,16 @@ GLfloat GLNumberRenderer::calcNumberWidth(double number,int precision) const
 
 void GLNumberRenderer::drawNumber(unsigned int number,GLContextData& contextData) const
 	{
-	/* Convert the number to a string: */
-	char buffer[64];
-	snprintf(buffer,sizeof(buffer),"%u",number);
-	
-	/* Draw the string: */
-	drawString(buffer,contextData);
+	/* Convert the number to a string and draw the string: */
+	char buffer[11];
+	drawString(Misc::print(number,buffer+10),contextData);
 	}
 
 void GLNumberRenderer::drawNumber(int number,GLContextData& contextData) const
 	{
-	/* Convert the number to a string: */
-	char buffer[64];
-	snprintf(buffer,sizeof(buffer),"%d",number);
-	
-	/* Draw the string: */
-	drawString(buffer,contextData);
+	/* Convert the number to a string and draw the string: */
+	char buffer[12];
+	drawString(Misc::print(number,buffer+11),contextData);
 	}
 
 void GLNumberRenderer::drawNumber(double number,int precision,GLContextData& contextData) const
@@ -352,22 +343,16 @@ void GLNumberRenderer::drawNumber(double number,int precision,GLContextData& con
 
 void GLNumberRenderer::drawNumber(const GLNumberRenderer::Vector& pos,unsigned int number,GLContextData& contextData,int horizAlign,int vertAlign) const
 	{
-	/* Convert the number to a string: */
-	char buffer[64];
-	snprintf(buffer,sizeof(buffer),"%u",number);
-	
-	/* Draw the string: */
-	drawString(buffer,pos,horizAlign,vertAlign,contextData);
+	/* Convert the number to a string and draw the string: */
+	char buffer[11];
+	drawString(Misc::print(number,buffer+10),pos,horizAlign,vertAlign,contextData);
 	}
 
 void GLNumberRenderer::drawNumber(const GLNumberRenderer::Vector& pos,int number,GLContextData& contextData,int horizAlign,int vertAlign) const
 	{
-	/* Convert the number to a string: */
-	char buffer[64];
-	snprintf(buffer,sizeof(buffer),"%d",number);
-	
-	/* Draw the string: */
-	drawString(buffer,pos,horizAlign,vertAlign,contextData);
+	/* Convert the number to a string and draw the string: */
+	char buffer[12];
+	drawString(Misc::print(number,buffer+11),pos,horizAlign,vertAlign,contextData);
 	}
 
 void GLNumberRenderer::drawNumber(const GLNumberRenderer::Vector& pos,double number,int precision,GLContextData& contextData,int horizAlign,int vertAlign) const

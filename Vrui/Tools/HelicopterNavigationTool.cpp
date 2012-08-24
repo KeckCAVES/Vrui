@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -46,13 +46,17 @@ Methods of class HelicopterNavigationToolFactory:
 
 HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("HelicopterNavigationTool",toolManager),
+	 activationToggle(true),
 	 g(getMeterFactor()*Scalar(9.81)),
 	 collectiveMin(Scalar(0)),collectiveMax(g*Scalar(1.5)),
 	 thrust(g*Scalar(1)),
 	 brake(g*Scalar(0.5)),
 	 probeSize(getMeterFactor()*Scalar(1.5)),
 	 maxClimb(getMeterFactor()*Scalar(1.5)),
-	 drawHud(true),hudColor(0.0f,1.0f,0.0f),hudRadius(float(getFrontplaneDist()*1.25f)),hudFontSize(float(getUiSize())*1.5f)
+	 drawHud(true),hudColor(0.0f,1.0f,0.0f),
+	 hudDist(Geometry::dist(getDisplayCenter(),getMainViewer()->getHeadPosition())),
+	 hudRadius(getDisplaySize()),
+	 hudFontSize(float(getUiSize())*1.5f)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(3);
@@ -60,6 +64,7 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
 	Vector rot=cfs.retrieveValue<Vector>("./rotateFactors",Vector(-60,-60,45));
 	for(int i=0;i<3;++i)
 		rotateFactors[i]=Math::rad(rot[i]);
@@ -78,6 +83,7 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
 	hudColor=cfs.retrieveValue<Color>("./hudColor",hudColor);
+	hudDist=cfs.retrieveValue<float>("./hudDist",hudDist);
 	hudRadius=cfs.retrieveValue<float>("./hudRadius",hudRadius);
 	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
 	
@@ -252,22 +258,31 @@ void HelicopterNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::B
 	/* Process based on which button was pressed: */
 	if(buttonSlotIndex==0)
 		{
-		if(cbData->newButtonState)
+		bool newActive;
+		if(factory->activationToggle)
 			{
-			/* Act depending on this tool's current state: */
-			if(isActive())
+			newActive=isActive();
+			if(cbData->newButtonState)
+				newActive=!newActive;
+			}
+		else
+			newActive=cbData->newButtonState;
+		
+		if(isActive())
+			{
+			if(!newActive)
 				{
 				/* Deactivate this tool: */
 				deactivate();
 				}
-			else
+			}
+		else
+			{
+			/* Try activating this tool: */
+			if(newActive&&activate())
 				{
-				/* Try activating this tool: */
-				if(activate())
-					{
-					/* Initialize the navigation: */
-					initNavState();
-					}
+				/* Initialize the navigation: */
+				initNavState();
 				}
 			}
 		}
@@ -353,7 +368,8 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 		glColor(factory->hudColor);
 		
 		/* Get the HUD layout parameters: */
-		float y=factory->hudRadius;
+		float y=factory->hudDist;
+		float r=factory->hudRadius;
 		float s=factory->hudFontSize;
 		
 		/* Go to the view-shifted physical frame: */
@@ -368,14 +384,14 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 		
 		/* Draw the boresight crosshairs: */
 		glBegin(GL_LINES);
-		glVertex2f(-y*0.02f,   0.00f);
-		glVertex2f(-y*0.01f,   0.00f);
-		glVertex2f( y*0.01f,   0.00f);
-		glVertex2f( y*0.02f,   0.00f);
-		glVertex2f(   0.00f,-y*0.02f);
-		glVertex2f(   0.00f,-y*0.01f);
-		glVertex2f(   0.00f, y*0.01f);
-		glVertex2f(   0.00f, y*0.02f);
+		glVertex2f(-r*0.05f,   0.00f);
+		glVertex2f(-r*0.02f,   0.00f);
+		glVertex2f( r*0.02f,   0.00f);
+		glVertex2f( r*0.05f,   0.00f);
+		glVertex2f(   0.00f,-r*0.05f);
+		glVertex2f(   0.00f,-r*0.02f);
+		glVertex2f(   0.00f, r*0.02f);
+		glVertex2f(   0.00f, r*0.05f);
 		glEnd();
 		
 		/* Get the helicopter's orientation Euler angles: */
@@ -387,13 +403,13 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 		
 		/* Draw the compass ribbon: */
 		glBegin(GL_LINES);
-		glVertex2f(-y*0.5f,y*0.5f);
-		glVertex2f(y*0.5f,y*0.5f);
+		glVertex2f(-r,r);
+		glVertex2f(r,r);
 		glEnd();
 		glBegin(GL_LINE_STRIP);
-		glVertex2f(-s,y*0.5f+s*2.0f);
-		glVertex2f(0.0f,y*0.5f);
-		glVertex2f(s,y*0.5f+s*2.0f);
+		glVertex2f(-s*0.5f,r+s);
+		glVertex2f(0.0f,r);
+		glVertex2f(s*0.5f,r+s);
 		glEnd();
 		
 		/* Draw the azimuth tick marks: */
@@ -407,16 +423,16 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 				dist-=360.0f;
 			if(Math::abs(dist)<=60.0f)
 				{
-				float x=dist*y*0.5f/60.0f;
-				glVertex2f(x,y*0.5f);
-				glVertex2f(x,y*0.5f-(az%30==0?s*1.5f:s));
+				float x=dist*r/60.0f;
+				glVertex2f(x,r);
+				glVertex2f(x,r-(az%30==0?s*1.5f:s));
 				}
 			}
 		glEnd();
 		
 		/* Draw the azimuth labels: */
 		GLNumberRenderer::Vector pos;
-		pos[1]=y*0.5f-s*2.0f;
+		pos[1]=r-s*2.0f;
 		pos[2]=0.0f;
 		for(int az=0;az<360;az+=30)
 			{
@@ -427,7 +443,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 				dist-=360.0f;
 			if(Math::abs(dist)<=60.0f)
 				{
-				pos[0]=dist*y*0.5f/60.0f;
+				pos[0]=dist*r/60.0f;
 				numberRenderer.drawNumber(pos,az,contextData,0,1);
 				}
 			}
@@ -438,18 +454,18 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 			{
 			vel*=y/vel[1];
 			Scalar maxVel=Misc::max(Math::abs(vel[0]),Math::abs(vel[2]));
-			if(maxVel>=Scalar(y*0.5f))
+			if(maxVel>=Scalar(r))
 				{
-				vel[0]*=Scalar(y*0.5f)/maxVel;
-				vel[2]*=Scalar(y*0.5f)/maxVel;
+				vel[0]*=Scalar(r)/maxVel;
+				vel[2]*=Scalar(r)/maxVel;
 				glColor3f(1.0f,0.0f,0.0f);
 				}
 			
 			glBegin(GL_LINE_LOOP);
-			glVertex2f(vel[0]-y*0.005f,vel[2]+  0.000f);
-			glVertex2f(vel[0]+  0.000f,vel[2]-y*0.005f);
-			glVertex2f(vel[0]+y*0.005f,vel[2]+  0.000f);
-			glVertex2f(vel[0]+  0.000f,vel[2]+y*0.005f);
+			glVertex2f(vel[0]-r*0.02f,vel[2]+  0.00f);
+			glVertex2f(vel[0]+  0.00f,vel[2]-r*0.02f);
+			glVertex2f(vel[0]+r*0.02f,vel[2]+  0.00f);
+			glVertex2f(vel[0]+  0.00f,vel[2]+r*0.02f);
 			glEnd();
 			}
 		
@@ -471,9 +487,9 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<90.0f)
 				{
 				float z=Math::tan(Math::rad(dist))*y;
-				if(Math::abs(z)<=y*0.5f)
+				if(Math::abs(z)<=r)
 					{
-					float x=el%10==0?y*0.1f:y*0.05f;
+					float x=el%10==0?r*0.2f:r*0.1f;
 					glVertex2f(-x,z);
 					glVertex2f(x,z);
 					}
@@ -493,9 +509,9 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<90.0f)
 				{
 				float z=Math::tan(Math::rad(dist))*y;
-				if(Math::abs(z)<=y*0.5f)
+				if(Math::abs(z)<=r)
 					{
-					float x=el%10==0?y*0.1f:y*0.05f;
+					float x=el%10==0?r*0.2f:r*0.1f;
 					glVertex2f(-x,z);
 					glVertex2f(x,z);
 					}
@@ -504,7 +520,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 		glEnd();
 		
 		/* Draw the artificial horizon labels: */
-		pos[0]=y*0.1f+s;
+		pos[0]=r*0.2f+s;
 		pos[2]=0.0f;
 		for(int el=-170;el<=180;el+=10)
 			{
@@ -516,7 +532,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<90.0f)
 				{
 				float z=Math::tan(Math::rad(dist))*y;
-				if(Math::abs(z)<=y*0.5f)
+				if(Math::abs(z)<=r)
 					{
 					pos[1]=z;
 					int drawEl=el;

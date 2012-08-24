@@ -30,7 +30,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Images/Config.h>
 
-#include <stdio.h>
 #include <iostream>
 #include <X11/keysym.h>
 #include <Misc/ThrowStdErr.h>
@@ -75,6 +74,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
+#include <Vrui/WindowProperties.h>
 #include <Vrui/ViewSpecification.h>
 #include <Vrui/Tool.h>
 #include <Vrui/ToolManager.h>
@@ -251,27 +251,56 @@ std::string VRWindow::getDisplayName(const Misc::ConfigurationFileSection& confi
 	return configFileSection.retrieveString("./display",defaultDisplay);
 	}
 
-int* VRWindow::getVisualProperties(const Misc::ConfigurationFileSection& configFileSection)
+int* VRWindow::getVisualProperties(const WindowProperties& properties,const Misc::ConfigurationFileSection& configFileSection)
 	{
-	static int visualPropertyList[256];
-	
 	/* Create a list of desired visual properties: */
+	static int visualPropertyList[256];
 	int numProperties=0;
 	
 	/* Add standard properties first: */
 	visualPropertyList[numProperties++]=GLX_RGBA;
-	
-	/* Don't forget to ask for reasonable channel sizes: */
-	visualPropertyList[numProperties++]=GLX_RED_SIZE;
-	visualPropertyList[numProperties++]=8;
-	visualPropertyList[numProperties++]=GLX_GREEN_SIZE;
-	visualPropertyList[numProperties++]=8;
-	visualPropertyList[numProperties++]=GLX_BLUE_SIZE;
-	visualPropertyList[numProperties++]=8;
-	
-	visualPropertyList[numProperties++]=GLX_DEPTH_SIZE;
-	visualPropertyList[numProperties++]=16;
 	visualPropertyList[numProperties++]=GLX_DOUBLEBUFFER;
+	
+	/* Ask for the requested main buffer channel sizes: */
+	visualPropertyList[numProperties++]=GLX_RED_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[0];
+	visualPropertyList[numProperties++]=GLX_GREEN_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[1];
+	visualPropertyList[numProperties++]=GLX_BLUE_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[2];
+	visualPropertyList[numProperties++]=GLX_ALPHA_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[3];
+	
+	/* Ask for the requested depth buffer size: */
+	visualPropertyList[numProperties++]=GLX_DEPTH_SIZE;
+	visualPropertyList[numProperties++]=properties.depthBufferSize;
+	
+	if(properties.numAuxBuffers>0)
+		{
+		/* Ask for auxiliary buffers: */
+		visualPropertyList[numProperties++]=GLX_AUX_BUFFERS;
+		visualPropertyList[numProperties++]=properties.numAuxBuffers;
+		}
+	
+	if(properties.stencilBufferSize>0)
+		{
+		/* Ask for a stencil buffer: */
+		visualPropertyList[numProperties++]=GLX_STENCIL_SIZE;
+		visualPropertyList[numProperties++]=properties.stencilBufferSize;
+		}
+	
+	if(properties.accumBufferSize[0]>0||properties.accumBufferSize[1]>0||properties.accumBufferSize[2]>0||properties.accumBufferSize[3]>0)
+		{
+		/* Ask for an accumulation buffer of the requested channel sizes: */
+		visualPropertyList[numProperties++]=GLX_ACCUM_RED_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[0];
+		visualPropertyList[numProperties++]=GLX_ACCUM_GREEN_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[1];
+		visualPropertyList[numProperties++]=GLX_ACCUM_BLUE_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[2];
+		visualPropertyList[numProperties++]=GLX_ACCUM_ALPHA_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[3];
+		}
 	
 	/* Check for multisample requests: */
 	int multisamplingLevel=configFileSection.retrieveValue<int>("./multisamplingLevel",1);
@@ -296,13 +325,41 @@ int* VRWindow::getVisualProperties(const Misc::ConfigurationFileSection& configF
 
 void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye)
 	{
-	/* Update the window's display state object: */
-	displayState->resized=resizeViewport;
-	displayState->eyePosition=eye;
-	displayState->screen=screens[screenIndex];
+	/*********************************************************************
+	First step: Re-initialize OpenGL state and clear all buffers.
+	*********************************************************************/
+	
+	/* Initialize standard OpenGL settings: */
+	glDisable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_ALWAYS,0.0f);
+	glDisable(GL_BLEND);
+	glBlendFunc(GL_ONE,GL_ZERO);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_TRUE);
+	if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+		{
+		glDisable(GL_STENCIL_TEST);
+		glStencilFunc(GL_ALWAYS,0,~0x0U);
+		glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);
+		glStencilMask(~0x0U);
+		}
+	glFrontFace(GL_CCW);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
+	
+	/* Clear all relevant buffers: */
+	glClearColor(getBackgroundColor());
+	glClearDepth(1.0); // Clear depth is "infinity"
+	if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+		glClearStencil(0x0);
+	if(clearBufferMask&GL_ACCUM_BUFFER_BIT)
+		glClearAccum(0.0f,0.0f,0.0f,0.0f);
+	glClear(clearBufferMask);
 	
 	/*********************************************************************
-	First step: Set up the projection and modelview matrices to project
+	Second step: Set up the projection and modelview matrices to project
 	from the given eye onto the given screen.
 	*********************************************************************/
 	
@@ -337,14 +394,26 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	OGTransform modelview=OGTransform::translateToOriginFrom(screenEyePos);
 	modelview*=OGTransform(invScreenT);
 	
+	/*********************************************************************
+	Third step: Render Vrui state.
+	*********************************************************************/
+	
+	/* Update the window's display state object: */
+	displayState->resized=resizeViewport;
+	displayState->eyePosition=eye;
+	displayState->screen=screens[screenIndex];
+	
 	/* Store the physical and navigational modelview matrices: */
 	displayState->modelviewPhysical=modelview;
 	modelview*=getNavigationTransformation();
 	modelview.renormalize();
 	displayState->modelviewNavigational=modelview;
 	
-	/* Render Vrui state: */
 	vruiState->display(displayState,*contextData);
+	
+	/*********************************************************************
+	Fourth step: Render screen protectors and fps counter.
+	*********************************************************************/
 	
 	if(protectScreens&&vruiState->numProtectors>0)
 		{
@@ -406,7 +475,7 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 			}
 		}
 	
-	if(showFps)
+	if(showFps&&burnMode)
 		{
 		/* Set OpenGL matrices to pixel-based: */
 		glMatrixMode(GL_PROJECTION);
@@ -436,10 +505,25 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 		glEnable(GL_LIGHTING);
 		#else
 		/* Print the current frame time: */
+		unsigned int fps=(unsigned int)(10.0/vruiState->currentFrameTime+0.5);
 		char buffer[20];
-		snprintf(buffer,sizeof(buffer),"%6.1f fps",1.0/vruiState->currentFrameTime);
+		char* bufPtr=buffer+15;
+		*(--bufPtr)=char(fps%10+'0');
+		fps/=10;
+		*(--bufPtr)='.';
+		do
+			{
+			*(--bufPtr)=char(fps%10+'0');
+			fps/=10;
+			}
+		while(bufPtr>buffer&&fps!=0);
+		buffer[15]=' ';
+		buffer[16]='f';
+		buffer[17]='p';
+		buffer[18]='s';
+		buffer[19]='\0';
 		glDisable(GL_LIGHTING);
-		showFpsFont->drawString(GLFont::Vector(showFpsFont->getCharacterWidth()*9.5f+2.0f,2.0f,0.0f),buffer);
+		showFpsFont->drawString(GLFont::Vector(showFpsFont->getCharacterWidth()*9.5f+2.0f,2.0f,0.0f),bufPtr);
 		glEnable(GL_LIGHTING);
 		#endif
 		
@@ -491,9 +575,11 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	:GLWindow(getDisplayName(configFileSection).c_str(),
 	          windowName,
 	          configFileSection.retrieveValue<GLWindow::WindowPos>("./windowPos",GLWindow::WindowPos(800,600)),
-	          getVisualProperties(configFileSection)),
+	          configFileSection.retrieveValue<bool>("./decorate",true),
+	          getVisualProperties(sVruiState->windowProperties,configFileSection)),
 	 vruiState(sVruiState),
 	 mouseAdapter(sMouseAdapter),
+	 clearBufferMask(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT),
 	 extensionManager(0),
 	 contextData(0),displayState(0),
 	 viewer(findViewer(configFileSection.retrieveString("./viewerName").c_str())),
@@ -510,7 +596,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	 asDepthBufferObjectID(0),asFrameBufferObjectID(0),
 	 asInterzigShader(0),asQuadSizeUniformIndex(-1),
 	 showFpsFont(0),
-	 showFps(configFileSection.retrieveValue<bool>("./showFps",false)),
+	 showFps(configFileSection.retrieveValue<bool>("./showFps",false)),burnMode(false),
 	 protectScreens(configFileSection.retrieveValue<bool>("./protectScreens",true)),
 	 trackToolKillZone(false),
 	 dirty(true),
@@ -520,6 +606,12 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	{
 	/* Initialize the window mouse position: */
 	windowMousePos[0]=windowMousePos[1]=0;
+	
+	/* Update the clear buffer bit mask: */
+	if(vruiState->windowProperties.stencilBufferSize>0)
+		clearBufferMask|=GL_STENCIL_BUFFER_BIT;
+	if(vruiState->windowProperties.accumBufferSize[0]>0||vruiState->windowProperties.accumBufferSize[1]>0||vruiState->windowProperties.accumBufferSize[2]>0||vruiState->windowProperties.accumBufferSize[3]>0)
+		clearBufferMask|=GL_ACCUM_BUFFER_BIT;
 	
 	/* Get the screen(s) this window projects onto: */
 	screens[0]=findScreen(configFileSection.retrieveString("./leftScreenName","").c_str());
@@ -706,6 +798,11 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	displayState->eyeIndex=0;
 	glViewport(0,0,getWindowWidth(),getWindowHeight());
 	glClearColor(getBackgroundColor());
+	glClearDepth(1.0);
+	if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+		glClearStencil(0x0);
+	if(clearBufferMask&GL_ACCUM_BUFFER_BIT)
+		glClearAccum(0.0f,0.0f,0.0f,0.0f);
 	if(multisamplingLevel>1)
 		glEnable(GL_MULTISAMPLE_ARB);
 	
@@ -1135,12 +1232,12 @@ void VRWindow::setCursorPos(const Scalar newCursorPos[2])
 		if(panningViewport)
 			{
 			windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()))-getWindowOrigin()[0];
-			windowMousePos[1]=displaySize[1]-int(Math::floor(newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()))-getWindowOrigin()[1];
+			windowMousePos[1]=displaySize[1]-1-int(Math::floor(newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()))-getWindowOrigin()[1];
 			}
 		else
 			{
 			windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
-			windowMousePos[1]=getWindowHeight()-int(Math::floor(newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
+			windowMousePos[1]=getWindowHeight()-1-int(Math::floor(newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
 			}
 		}
 	else
@@ -1154,7 +1251,7 @@ void VRWindow::setCursorPos(const Scalar newCursorPos[2])
 				{
 				/* Calculate mouse position based on found viewport: */
 				windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(splitViewportPos[i].size[0])/screens[i]->getWidth()))+splitViewportPos[i].origin[0];
-				windowMousePos[1]=splitViewportPos[i].size[1]-int(Math::floor(newCursorPos[1]*Scalar(splitViewportPos[i].size[1])/screens[i]->getHeight()))+splitViewportPos[i].origin[1];
+				windowMousePos[1]=getWindowHeight()-1-int(Math::floor(newCursorPos[1]*Scalar(splitViewportPos[i].size[1])/screens[i]->getHeight()))-splitViewportPos[i].origin[1];
 				
 				break;
 				}
@@ -1193,7 +1290,7 @@ void VRWindow::setCursorPosWithAdjust(Scalar newCursorPos[2])
 				{
 				/* Calculate mouse position based on found viewport: */
 				windowMousePos[0]=int(Math::floor(newCursorPos[0]*Scalar(splitViewportPos[i].size[0])/screens[i]->getWidth()))+splitViewportPos[i].origin[0];
-				windowMousePos[1]=splitViewportPos[i].size[1]-int(Math::floor(newCursorPos[1]*Scalar(splitViewportPos[i].size[1])/screens[i]->getHeight()))+splitViewportPos[i].origin[1];
+				windowMousePos[1]=getWindowHeight()-1-int(Math::floor(newCursorPos[1]*Scalar(splitViewportPos[i].size[1])/screens[i]->getHeight()))-splitViewportPos[i].origin[1];
 				
 				break;
 				}
@@ -1414,17 +1511,17 @@ bool VRWindow::processEvent(const XEvent& event)
 		case KeyRelease:
 			{
 			/* Convert event key index to keysym: */
-			#if 0
-			XKeyEvent keyEvent=event.xkey;
-			KeySym keySym=XLookupKeysym(&keyEvent,0);
-			#else
 			char keyString[20];
 			KeySym keySym;
 			XComposeStatus compose;
 			XKeyEvent keyEvent=event.xkey;
+			
+			/* Use string lookup method to get proper key value for text events: */
 			int keyStringLen=XLookupString(&keyEvent,keyString,sizeof(keyString),&keySym,&compose);
 			keyString[keyStringLen]='\0';
-			#endif
+			
+			/* Use keysym lookup a second time to get raw key code ignoring modifier keys: */
+			keySym=XLookupKeysym(&keyEvent,0);
 			
 			if(event.type==KeyPress)
 				{
@@ -1432,27 +1529,51 @@ bool VRWindow::processEvent(const XEvent& event)
 				switch(keySym)
 					{
 					case XK_Print:
-						{  
-						saveScreenshot=true;
-						char numberedFileName[256];
-						#if IMAGES_CONFIG_HAVE_PNG
-						/* Save the screenshot as a PNG file: */
-						screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.png",4,numberedFileName);
-						#else
-						/* Save the screenshot as a PPM file: */
-						screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.ppm",4,numberedFileName);
-						#endif
+						if((keyEvent.state&0xedU)==0x40U)
+							{
+							saveScreenshot=true;
+							char numberedFileName[256];
+							#if IMAGES_CONFIG_HAVE_PNG
+							/* Save the screenshot as a PNG file: */
+							screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.png",4,numberedFileName);
+							#else
+							/* Save the screenshot as a PPM file: */
+							screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.ppm",4,numberedFileName);
+							#endif
+							
+							/* Write a confirmation message: */
+							std::cout<<"Saving window contents as "<<screenshotImageFileName<<std::endl;
+							}
 						break;
-						}
+					
+					case XK_Scroll_Lock:
+						if((keyEvent.state&0xedU)==0x40U)
+							{
+							/* Enter or leave burn mode: */
+							if(burnMode)
+								{
+								double burnModeTime=getApplicationTime()-burnModeStartTime;
+								std::cout<<"Leaving burn mode: "<<burnModeNumFrames<<" frames in "<<burnModeTime*1000.0<<" ms, averaging "<<double(burnModeNumFrames)/burnModeTime<<" fps"<<std::endl;
+								burnMode=false;
+								}
+							else
+								{
+								std::cout<<"Entering burn mode"<<std::endl;
+								burnMode=true;
+								burnModeNumFrames=~0U;
+								}
+							}
+						break;
 					
 					case XK_Escape:
-						{
-						/* Call the window close callbacks: */
-						Misc::CallbackData cbData;
-						getCloseCallbacks().call(&cbData);
-						stopProcessing=true;
+						if((keyEvent.state&0xedU)==0x00U)
+							{
+							/* Call the window close callbacks: */
+							Misc::CallbackData cbData;
+							getCloseCallbacks().call(&cbData);
+							stopProcessing=true;
+							}
 						break;
-						}
 					}
 				
 				if(mouseAdapter!=0)
@@ -1518,8 +1639,12 @@ void VRWindow::draw(void)
 		glViewport(0,0,getWindowWidth(),getWindowHeight());
 		
 		/* Clear the entire window (important if the usual rendering mode masks part of the frame buffer): */
+		glDisable(GL_SCISSOR_TEST);
 		glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+		glDepthMask(GL_TRUE);
+		if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+			glStencilMask(~0x0U);
+		glClear(clearBufferMask);
 		}
 	
 	/* Update things in the window's GL context data: */
@@ -1856,6 +1981,15 @@ void VRWindow::draw(void)
 	/* Window is now up-to-date: */
 	resizeViewport=false;
 	dirty=false;
+	
+	if(burnMode)
+		{
+		if(++burnModeNumFrames==0)
+			burnModeStartTime=getApplicationTime();
+		
+		/* Request another Vrui frame immediately: */
+		requestUpdate();
+		}
 	}
 
 }

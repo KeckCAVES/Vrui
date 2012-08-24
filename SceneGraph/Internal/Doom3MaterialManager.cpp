@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MaterialManager - Class to manage access to shared Doom3 material
 definitions.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -1858,6 +1858,23 @@ bool Doom3MaterialManager::setMaterial(Doom3MaterialManager::RenderContext& rend
 		}
 	else
 		return false;
+	}
+
+void Doom3MaterialManager::disableMaterial(Doom3MaterialManager::RenderContext& renderContext) const
+	{
+	/* Disable the currently-used shader program: */
+	if(renderContext.currentProgramIndex!=-1)
+		{
+		renderContext.currentProgramIndex=-1;
+		glUseProgramObjectARB(0);
+		}
+	
+	/* Return to default OpenGL state: */
+	glEnable(GL_CULL_FACE);
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
+	glDisable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
 	}
 
 void Doom3MaterialManager::finish(Doom3MaterialManager::RenderContext& renderContext) const

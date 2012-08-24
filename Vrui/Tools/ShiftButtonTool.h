@@ -1,7 +1,7 @@
 /***********************************************************************
 ShiftButtonTool - Class to switch between planes of buttons and/or
 valuators by pressing a "shift" button.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,7 @@ class ShiftButtonToolFactory:public ToolFactory
 	/* Elements: */
 	private:
 	bool toggle; // Flag whether the shift button acts as a toggle
+	bool forwardShiftButton; // Flag whether the shift button itself is forwarded to both button/valuator planes
 	bool resetFeatures; // Flag whether to reset buttons and valuators when shifting away from their plane
 	
 	/* Constructors and destructors: */
@@ -59,6 +60,7 @@ class ShiftButtonTool:public TransformTool
 	private:
 	static ShiftButtonToolFactory* factory; // Pointer to the factory object for this class
 	bool toggle; // Flag whether the shift button acts as a toggle
+	bool forwardShiftButton; // Flag whether the shift button itself is forwarded to both button/valuator planes
 	bool resetFeatures; // Flag whether to reset buttons and valuators when shifting away from their plane
 	bool shifted; // Flag whether the shift button is currently pressed
 	

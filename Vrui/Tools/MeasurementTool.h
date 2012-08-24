@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -103,10 +103,11 @@ class MeasurementTool:public UtilityTool
 	
 	/* Transient state: */
 	int numPoints; // The number of selected measurement points
-	Point points[3]; // The up to three measurement points
+	Point points[3]; // The up to three measurement points in the currently-selected coordinate system
 	bool dragging; // Flag if the tool is currently dragging one of its measurement points
 	
 	/* Private methods: */
+	Vector calcDist(int i0,int i1) const; // Calculates the distance vector from point i0 to point i1 in navigational space
 	void resetTool(void); // Resets the tool's measurement state
 	void updateUnits(void); // Updates the units displayed in the measurement dialogs
 	void updateCurrentPoint(void); // Updates the point / distance / angle display after a change to the currently measured point

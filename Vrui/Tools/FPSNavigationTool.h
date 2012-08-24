@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/GLNumberRenderer.h>
+#include <Vrui/DeviceForwarder.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
@@ -67,13 +68,14 @@ class FPSNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class FPSNavigationTool:public SurfaceNavigationTool
+class FPSNavigationTool:public SurfaceNavigationTool,public DeviceForwarder
 	{
 	friend class FPSNavigationToolFactory;
 	
 	/* Elements: */
 	private:
 	static FPSNavigationToolFactory* factory; // Pointer to the factory object for this class
+	InputDevice* buttonDevice; // Pointer to the input device representing the forwarded movement buttons
 	InputDeviceAdapterMouse* mouseAdapter; // Mouse adapter controlling the tool's input device (0 if none)
 	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-style font
 	
@@ -99,10 +101,17 @@ class FPSNavigationTool:public SurfaceNavigationTool
 	
 	/* Methods from Tool: */
 	virtual void initialize(void);
+	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	
+	/* Methods from DeviceForwarder: */
+	virtual std::vector<InputDevice*> getForwardedDevices(void);
+	virtual InputDeviceFeatureSet getSourceFeatures(const InputDeviceFeature& forwardedFeature);
+	virtual InputDevice* getSourceDevice(const InputDevice* forwardedDevice);
+	virtual InputDeviceFeatureSet getForwardedFeatures(const InputDeviceFeature& sourceFeature);
 	};
 
 }

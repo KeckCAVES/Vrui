@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -89,13 +89,13 @@ class GLWindow
 	Misc::CallbackList closeCallbacks; // List of callbacks to be called when the user attempts to close the window
 	
 	/* Private methods: */
-	void initWindow(const char* windowName,int* visualProperties); // Common part of all constructors
+	void initWindow(const char* windowName,bool decorate,int* visualProperties); // Common part of all constructors
 	
 	/* Constructors and destructors: */
 	public:
-	GLWindow(Display* sDisplay,int sScreen,const char* sWindowName,const WindowPos& sWindowPos,int* visualProperties =0); // Creates a window on an already open X display connection
-	GLWindow(const char* sDisplayName,const char* sWindowName,const WindowPos& sWindowPos,int* visualProperties =0); // Opens a private connection to an X server and creates a window
-	GLWindow(const char* sWindowName,const WindowPos& sWindowPos,int* visualProperties =0); // Same as above, but gets the display name from the environment
+	GLWindow(Display* sDisplay,int sScreen,const char* sWindowName,const WindowPos& sWindowPos,bool decorate,int* visualProperties =0); // Creates a window on an already open X display connection
+	GLWindow(const char* sDisplayName,const char* sWindowName,const WindowPos& sWindowPos,bool decorate,int* visualProperties =0); // Opens a private connection to an X server and creates a window
+	GLWindow(const char* sWindowName,const WindowPos& sWindowPos,bool decorate,int* visualProperties =0); // Same as above, but gets the display name from the environment
 	~GLWindow(void); // Destroys the window and all associated resources
 	
 	/* Methods: */

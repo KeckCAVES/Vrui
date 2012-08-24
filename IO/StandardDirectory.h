@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -39,9 +39,9 @@ class StandardDirectory:public Directory
 	
 	/* Constructors and destructors: */
 	public:
-	StandardDirectory(std::string sPathName); // Opens the directory of the given relative or absolute path name
+	StandardDirectory(const char* sPathName); // Opens the directory of the given relative or absolute path name
 	private:
-	StandardDirectory(std::string sPathName,int); // Ditto; but assumes that given path name is absolute and normalized
+	StandardDirectory(const char* sPathName,int); // Ditto; but assumes that given path name is absolute and normalized
 	public:
 	virtual ~StandardDirectory(void);
 	
