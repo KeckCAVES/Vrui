@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisInputDeviceTool - Class for tools using six valuators for
 translational and rotational axes to control virtual input devices.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,8 +24,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SIXAXISINPUTDEVICETOOL_INCLUDED
 #define VRUI_SIXAXISINPUTDEVICETOOL_INCLUDED
 
+#include <Misc/FixedArray.h>
 #include <Geometry/Vector.h>
 #include <Vrui/InputDeviceTool.h>
+
+/* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
 
 namespace Vrui {
 
@@ -35,11 +41,30 @@ class SixAxisInputDeviceToolFactory:public ToolFactory
 	{
 	friend class SixAxisInputDeviceTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure holding tool (class) configuration
+		{
+		/* Elements: */
+		public:
+		bool selectButtonToggle; // Flag whether the input device selection button has toggle behavior
+		Scalar translateFactor; // Scaling factor for all translation vectors
+		Misc::FixedArray<Vector,3> translations; // Translation vectors in physical space
+		Scalar rotateFactor; // Scaling factor for all scaled rotation axes
+		Misc::FixedArray<Vector,3> rotations; // Scaled rotation axes in physical space
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		Configuration(const Configuration& source); // Copy constructor
+		
+		/* Methods: */
+		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		};
+	
 	/* Elements: */
 	private:
-	bool selectButtonToggle; // Flag whether the input device selection button has toggle behavior
-	Vector translations[3]; // Translation vectors
-	Vector rotations[3]; // Scaled rotation axes
+	Configuration config; // The class configuration
 	
 	/* Constructors and destructors: */
 	public:
@@ -62,11 +87,19 @@ class SixAxisInputDeviceTool:public InputDeviceTool
 	private:
 	static SixAxisInputDeviceToolFactory* factory; // Pointer to the factory object for this class
 	
+	/* Configuration state: */
+	SixAxisInputDeviceToolFactory::Configuration config; // The tool configuration
+	Vector translations[3]; // Scaled translation vectors
+	Vector rotations[3]; // Scaled scaled rotation axes
+	
 	/* Constructors and destructors: */
 	public:
 	SixAxisInputDeviceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

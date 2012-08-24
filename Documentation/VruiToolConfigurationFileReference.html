@@ -107,6 +107,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <LI><A HREF="#ShiftButtonTool">ShiftButtonTool</A> &quot;Shift Button&quot;</LI>
 
+<LI><A HREF="#MultiShiftButtonTool">MultiShiftButtonTool</A> &quot;Radio Buttons&quot;</LI>
+
 <LI><A HREF="#RevolverTool">RevolverTool</A> &quot;Revolver Multi-Button&quot;</LI>
 </UL>
 </LI>
@@ -366,12 +368,13 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Required Buttons</TD><TD>5</TD>
+<TD>Required Buttons</TD><TD>6</TD>
 <TD>1: Toggle tool activation state.<BR>
     2: Strafe left.<BR>
     3: Strafe right.<BR>
     4: Walk backwards.<BR>
-    5: Walk forward.</TD>
+    5: Walk forward.<BR>
+    6: Jump</TD>
 </TR>
 </TABLE><P>
 
@@ -391,6 +394,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>fallAcceleration</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>9.81m/s<SUP>2</SUP></TD>
 <TD>Acceleration when falling towards the surface in physical coordinate units per second squared.</TD>
+</TR>
+
+<TR>
+<TD>jumpVelocity</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>4.0m/s</SUP></TD>
+<TD>Instantaneous vertical velocity applied when the user requests to jump.</TD>
 </TR>
 
 <TR>
@@ -470,7 +478,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <TR>
 <TD>bankFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>60.0</TD>
-<TD>Maximum banking angle during banking turns.</TD>
+<TD>Maximum banking angle during banking turns in degrees.</TD>
 </TR>
 
 <TR>
@@ -1751,6 +1759,46 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR>
 <TD>forwardShiftButton</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether the shift button itself is forwarded to both button planes, reflecting the status of the currently active plane.</TD>
+</TR>
+
+<TR>
+<TD>resetFeatures</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether buttons and valuators reset to their default values when the tool shifts away from their plane.</TD>
+</TR>
+</TABLE>
+
+<A NAME="MultiShiftButtonTool"><H3>MultiShiftButtonTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>First radio button.</TD>
+</TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Additional radio buttons or forwarded to virtual input device, depending on number of configured button/valuator planes.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Forwarded to virtual input device.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>numPlanes</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD><TD>2</TD>
+<TD>Number of button/valuator planes and radio buttons.</TD>
+</TR>
+
+<TR>
+<TD>forwardRadioButtons</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the radio buttons themselves are forwarded to their respective button planes, reflecting the status of the currently active plane.</TD>
 </TR>
 
 <TR>

@@ -1,7 +1,7 @@
 /***********************************************************************
 Wiimote - Class to communicate with a Nintendo Wii controller via
 bluetooth.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -102,7 +102,7 @@ class Wiimote
 	Misc::CallbackList eventCallbacks; // List of callbacks upon Wiimote event reception
 	
 	/* Current Wiimote state: */
-	int batteryLevel; // Current battery level (0-200)
+	int batteryLevel; // Current battery level in percent
 	Extension extensionDevice; // Type of currently connected extension device
 	int buttonState; // Bit field of Wiimote core buttons followed by extension buttons
 	float joystick[2]; // Analog joystick values for nunchuck extension device

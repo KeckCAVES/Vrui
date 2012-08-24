@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -110,7 +110,7 @@ class WalkSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	Scalar azimuth; // Current azimuth of view relative to local coordinate frame
 	Scalar elevation; // Current elevation of view relative to local coordinate frame
 	Scalar jetpack; // Current acceleration of virtual jetpack in units per second^2
-	Vector flyVelocity; // Current flying (and falling) velocity while airborne
+	Scalar fallVelocity; // Current falling velocity while airborne in units per second^2
 	
 	/* Private methods: */
 	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state

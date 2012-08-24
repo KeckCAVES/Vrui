@@ -24,13 +24,19 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SIXAXISSURFACENAVIGATIONTOOL_INCLUDED
 #define VRUI_SIXAXISSURFACENAVIGATIONTOOL_INCLUDED
 
+#include <Misc/FixedArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
-#include <GL/GLNumberRenderer.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/SurfaceNavigationTool.h>
+
+/* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
+class GLNumberRenderer;
 
 namespace Vrui {
 
@@ -40,24 +46,41 @@ class SixAxisSurfaceNavigationToolFactory:public ToolFactory
 	{
 	friend class SixAxisSurfaceNavigationTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure holding tool (class) configuration
+		{
+		/* Elements: */
+		public:
+		bool activationToggle; // Flag whether the activation button acts as a toggle
+		Misc::FixedArray<Scalar,3> translateFactors; // Array of translation speeds along the (x, y, z) axes in physical units/s
+		Misc::FixedArray<Scalar,3> rotateFactors; // Array of rotation speeds around the (pitch, roll, yaw) axes in radians/s
+		bool canRoll; // Flag whether to the tool is allowed to roll around the local Y axis
+		bool bankTurns; // Flag whether the roll angle is locked to the yaw angular velocity
+		Scalar bankFactor; // Amount of rotation during banking turns
+		Scalar levelSpeed; // Relative speed at which the navigation tool levels to a zero roll angle
+		bool canFly; // Flag whether the tool is allowed to "fly" above the surface
+		Scalar probeSize; // Size of probe to use when aligning surface frames
+		Scalar maxClimb; // Maximum amount of climb per frame
+		bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
+		bool drawHud; // Flag whether to draw the navigation heads-up display
+		Color hudColor; // Color to draw the HUD
+		float hudDist; // Distance of HUD plane from eye point in physical coordinate units
+		float hudRadius; // Radius of HUD on HUD plane
+		float hudFontSize; // HUD font size in physical coordinate units
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		Configuration(const Configuration& source); // Copy constructor
+		
+		/* Methods: */
+		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		};
+	
 	/* Elements: */
 	private:
-	bool activationToggle; // Flag whether the activation button acts as a toggle
-	Scalar translateFactors[3]; // Array of translation speeds along the (x, y, z) axes in physical units/s
-	Scalar rotateFactors[3]; // Array of rotation speeds around the (pitch, roll, yaw) axes in radians/s
-	bool canRoll; // Flag whether to the tool is allowed to roll around the local Y axis
-	bool bankTurns; // Flag whether the roll angle is locked to the yaw angular velocity
-	Scalar bankFactor; // Amount of rotation during banking turns
-	Scalar levelSpeed; // Relative speed at which the navigation tool levels to a zero roll angle
-	bool canFly; // Flag whether the tool is allowed to "fly" above the surface
-	Scalar probeSize; // Size of probe to use when aligning surface frames
-	Scalar maxClimb; // Maximum amount of climb per frame
-	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
-	bool drawHud; // Flag whether to draw the navigation heads-up display
-	Color hudColor; // Color to draw the HUD
-	float hudDist; // Distance of HUD plane from eye point in physical coordinate units
-	float hudRadius; // Radius of HUD on HUD plane
-	float hudFontSize; // HUD font size in physical coordinate units
+	Configuration config; // The class configuration
 	
 	/* Constructors and destructors: */
 	public:
@@ -79,7 +102,10 @@ class SixAxisSurfaceNavigationTool:public SurfaceNavigationTool
 	/* Elements: */
 	private:
 	static SixAxisSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
-	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-like font
+	GLNumberRenderer* numberRenderer; // Helper object to render numbers using a HUD-like font
+	
+	/* Configuration state: */
+	SixAxisSurfaceNavigationToolFactory::Configuration config; // The tool configuration
 	
 	/* Transient navigation state: */
 	Point headPos; // Current head position in physical coordinates
@@ -93,8 +119,12 @@ class SixAxisSurfaceNavigationTool:public SurfaceNavigationTool
 	/* Constructors and destructors: */
 	public:
 	SixAxisSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	virtual ~SixAxisSurfaceNavigationTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

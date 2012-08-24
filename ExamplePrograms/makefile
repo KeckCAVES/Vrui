@@ -60,6 +60,9 @@ PACKAGES = MYVRUI
 
 ########################################################################
 # Specify all final targets
+#
+# Note: To build individual targets, run "make bin/<target name>"
+# instead of just "make <target name>."
 ########################################################################
 
 ALL = $(EXEDIR)/VruiDemo \

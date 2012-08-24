@@ -1,7 +1,7 @@
 /***********************************************************************
 Wiimote - Class to communicate with a Nintendo Wii controller via
 bluetooth.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -324,7 +324,7 @@ void* Wiimote::receiverThreadMethod(void)
 					/* Store the battery level: */
 					batteryLevel=int(packet[7]);
 					#if DEBUGGING
-					std::cout<<"Battery level "<<(batteryLevel+1)/2<<"%"<<std::endl;
+					std::cout<<"Battery level "<<batteryLevel<<"%"<<std::endl;
 					#endif
 					
 					/* Check if the Wiimote has a connected extension device: */
@@ -887,7 +887,7 @@ int Wiimote::getBatteryLevel(void)
 		waitForEvent();
 	
 	/* Return the battery level in percent: */
-	return (batteryLevel+1)/2;
+	return batteryLevel;
 	}
 
 int Wiimote::getNumButtons(void) const
