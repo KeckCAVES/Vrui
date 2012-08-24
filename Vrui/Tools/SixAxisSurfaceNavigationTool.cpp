@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Tools/SixAxisSurfaceNavigationTool.h>
 
 #include <Misc/StandardValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
@@ -31,6 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLValueCoders.h>
 #include <GL/GLContextData.h>
+#include <GL/GLNumberRenderer.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Viewer.h>
@@ -38,15 +40,16 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
-/****************************************************
-Methods of class SixAxisSurfaceNavigationToolFactory:
-****************************************************/
+/*******************************************************************
+Methods of class SixAxisSurfaceNavigationToolFactory::Configuration:
+*******************************************************************/
 
-SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolManager& toolManager)
-	:ToolFactory("SixAxisSurfaceNavigationTool",toolManager),
-	 activationToggle(true),
+SixAxisSurfaceNavigationToolFactory::Configuration::Configuration(void)
+	:activationToggle(true),
+	 translateFactors(getDisplaySize()),
+	 rotateFactors(Scalar(180)),
 	 canRoll(true),
-	 bankTurns(false),levelSpeed(5),
+	 bankTurns(false),bankFactor(Scalar(60)),levelSpeed(Scalar(5)),
 	 canFly(true),
 	 probeSize(getDisplaySize()),
 	 maxClimb(getDisplaySize()),
@@ -56,25 +59,34 @@ SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolMan
 	 hudRadius(getDisplaySize()),
 	 hudFontSize(float(getUiSize())*1.5f)
 	{
-	/* Initialize tool layout: */
-	layout.setNumButtons(1);
-	layout.setNumValuators(6);
-	
-	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	}
+
+SixAxisSurfaceNavigationToolFactory::Configuration::Configuration(const SixAxisSurfaceNavigationToolFactory::Configuration& source)
+	:activationToggle(source.activationToggle),
+	 translateFactors(source.translateFactors),
+	 rotateFactors(source.rotateFactors),
+	 canRoll(source.canRoll),
+	 bankTurns(source.bankTurns),bankFactor(source.bankFactor),levelSpeed(source.levelSpeed),
+	 canFly(source.canFly),
+	 probeSize(source.probeSize),
+	 maxClimb(source.maxClimb),
+	 fixAzimuth(source.fixAzimuth),
+	 drawHud(source.drawHud),hudColor(source.hudColor),
+	 hudDist(source.hudDist),
+	 hudRadius(source.hudRadius),
+	 hudFontSize(source.hudFontSize)
+	{
+	}
+
+void SixAxisSurfaceNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+	{
+	/* Get parameters: */
 	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
-	Vector trans;
-	for(int i=0;i<3;++i)
-		trans[i]=getDisplaySize();
-	trans=cfs.retrieveValue<Vector>("./translateFactors",trans);
-	for(int i=0;i<3;++i)
-		translateFactors[i]=trans[i];
-	Vector rot=cfs.retrieveValue<Vector>("./rotateFactors",Vector(180,180,180));
-	for(int i=0;i<3;++i)
-		rotateFactors[i]=Math::rad(rot[i]);
+	translateFactors=cfs.retrieveValue<Misc::FixedArray<Scalar,3> >("./translateFactors",translateFactors);
+	rotateFactors=cfs.retrieveValue<Misc::FixedArray<Scalar,3> >("./rotateFactors",rotateFactors);
 	canRoll=cfs.retrieveValue<bool>("./canRoll",canRoll);
 	bankTurns=cfs.retrieveValue<bool>("./bankTurns",bankTurns);
-	bankFactor=Math::rad(cfs.retrieveValue<Scalar>("./bankFactor",Scalar(60)));
+	bankFactor=cfs.retrieveValue<Scalar>("./bankFactor",bankFactor);
 	levelSpeed=cfs.retrieveValue<Scalar>("./levelSpeed",levelSpeed);
 	if(levelSpeed<Scalar(0))
 		levelSpeed=Scalar(0);
@@ -87,6 +99,43 @@ SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolMan
 	hudDist=cfs.retrieveValue<float>("./hudDist",hudDist);
 	hudRadius=cfs.retrieveValue<float>("./hudRadius",hudRadius);
 	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
+	}
+
+void SixAxisSurfaceNavigationToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
+	{
+	/* Save parameters: */
+	cfs.storeValue<bool>("./activationToggle",activationToggle);
+	cfs.storeValue<Misc::FixedArray<Scalar,3> >("./translateFactors",translateFactors);
+	cfs.storeValue<Misc::FixedArray<Scalar,3> >("./rotateFactors",rotateFactors);
+	cfs.storeValue<bool>("./canRoll",canRoll);
+	cfs.storeValue<bool>("./bankTurns",bankTurns);
+	cfs.storeValue<Scalar>("./bankFactor",bankFactor);
+	cfs.storeValue<Scalar>("./levelSpeed",levelSpeed);
+	cfs.storeValue<bool>("./canFly",canFly);
+	cfs.storeValue<Scalar>("./probeSize",probeSize);
+	cfs.storeValue<Scalar>("./maxClimb",maxClimb);
+	cfs.storeValue<bool>("./fixAzimuth",fixAzimuth);
+	cfs.storeValue<bool>("./drawHud",drawHud);
+	cfs.storeValue<Color>("./hudColor",hudColor);
+	cfs.storeValue<float>("./hudDist",hudDist);
+	cfs.storeValue<float>("./hudRadius",hudRadius);
+	cfs.storeValue<float>("./hudFontSize",hudFontSize);
+	}
+
+/****************************************************
+Methods of class SixAxisSurfaceNavigationToolFactory:
+****************************************************/
+
+SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolManager& toolManager)
+	:ToolFactory("SixAxisSurfaceNavigationTool",toolManager)
+	{
+	/* Initialize tool layout: */
+	layout.setNumButtons(1);
+	layout.setNumValuators(6);
+	
+	/* Load class settings: */
+	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	config.load(cfs);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
@@ -187,7 +236,7 @@ void SixAxisSurfaceNavigationTool::applyNavState(void)
 	{
 	/* Compose and apply the navigation transformation: */
 	NavTransform nav=physicalFrame;
-	if(factory->canRoll||factory->bankTurns)
+	if(config.canRoll||config.bankTurns)
 		nav*=NavTransform::rotate(Rotation::rotateY(angles[2])); // Roll
 	nav*=NavTransform::rotate(Rotation::rotateX(angles[1])); // Pitch
 	nav*=NavTransform::rotate(Rotation::rotateZ(angles[0])); // Yaw
@@ -206,13 +255,13 @@ void SixAxisSurfaceNavigationTool::initNavState(void)
 	NavTransform newSurfaceFrame=surfaceFrame;
 	
 	/* Align the initial frame with the application's surface: */
-	AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
+	AlignmentData ad(surfaceFrame,newSurfaceFrame,config.probeSize,config.maxClimb);
 	align(ad,angles[0],angles[1],angles[2]);
 	
 	/* If flying is allowed and the initial surface frame was above the surface, lift it back up: */
 	Scalar z=newSurfaceFrame.inverseTransform(surfaceFrame.getOrigin())[2];
-	if(!factory->canFly||z<factory->probeSize)
-		z=factory->probeSize;
+	if(!config.canFly||z<config.probeSize)
+		z=config.probeSize;
 	newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
 	
 	/* Apply the initial navigation state: */
@@ -222,8 +271,32 @@ void SixAxisSurfaceNavigationTool::initNavState(void)
 
 SixAxisSurfaceNavigationTool::SixAxisSurfaceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(sFactory,inputAssignment),
-	 numberRenderer(factory->hudFontSize,true)
+	 numberRenderer(0),
+	 config(factory->config)
 	{
+	}
+
+SixAxisSurfaceNavigationTool::~SixAxisSurfaceNavigationTool(void)
+	{
+	delete numberRenderer;
+	}
+
+void SixAxisSurfaceNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Update the configuration: */
+	config.load(configFileSection);
+	}
+
+void SixAxisSurfaceNavigationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Save the current configuration: */
+	config.save(configFileSection);
+	}
+
+void SixAxisSurfaceNavigationTool::initialize(void)
+	{
+	/* Create the number renderer: */
+	numberRenderer=new GLNumberRenderer(config.hudFontSize,true);
 	}
 
 const ToolFactory* SixAxisSurfaceNavigationTool::getFactory(void) const
@@ -234,7 +307,7 @@ const ToolFactory* SixAxisSurfaceNavigationTool::getFactory(void) const
 void SixAxisSurfaceNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	bool newActive;
-	if(factory->activationToggle)
+	if(config.activationToggle)
 		{
 		newActive=isActive();
 		if(cbData->newButtonState)
@@ -272,15 +345,12 @@ void SixAxisSurfaceNavigationTool::frame(void)
 		
 		/* Update rotation angles based on current rotation valuator states: */
 		for(int i=0;i<3;++i)
-			angles[i]=wrapAngle(angles[i]+getValuatorState(i+3)*factory->rotateFactors[i]*dt);
-		if(angles[1]<Math::rad(Scalar(-90)))
-			angles[1]=Math::rad(Scalar(-90));
-		else if(angles[1]>Math::rad(Scalar(90)))
-			angles[1]=Math::rad(Scalar(90));
-		if(!factory->canRoll||factory->bankTurns)
+			angles[i]=wrapAngle(angles[i]+getValuatorState(i+3)*Math::rad(config.rotateFactors[i])*dt);
+		angles[1]=Math::clamp(angles[1],Math::rad(Scalar(-90)),Math::rad(Scalar(90)));
+		if(!config.canRoll||config.bankTurns)
 			{
-			Scalar targetRoll=factory->bankTurns?getValuatorState(3)*factory->bankFactor:Scalar(0);
-			Scalar t=Math::exp(-factory->levelSpeed*dt);
+			Scalar targetRoll=config.bankTurns?getValuatorState(3)*Math::rad(config.bankFactor):Scalar(0);
+			Scalar t=Math::exp(-config.levelSpeed*dt);
 			angles[2]=angles[2]*t+targetRoll*(Scalar(1)-t);
 			if(Math::abs(angles[2]-targetRoll)<Scalar(1.0e-3))
 				angles[2]=targetRoll;
@@ -298,7 +368,7 @@ void SixAxisSurfaceNavigationTool::frame(void)
 		
 		/* Add movement velocity based on the current translation valuator states: */
 		for(int i=0;i<3;++i)
-			move[i]+=getValuatorState(i)*factory->translateFactors[i]*dt;
+			move[i]+=getValuatorState(i)*config.translateFactors[i]*dt;
 		
 		/* Transform the movement vector from physical space to the physical navigation frame: */
 		move=physicalFrame.inverseTransform(move);
@@ -314,10 +384,10 @@ void SixAxisSurfaceNavigationTool::frame(void)
 		/* Re-align the surface frame with the surface: */
 		Point initialOrigin=newSurfaceFrame.getOrigin();
 		Rotation initialOrientation=newSurfaceFrame.getRotation();
-		AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
+		AlignmentData ad(surfaceFrame,newSurfaceFrame,config.probeSize,config.maxClimb);
 		align(ad);
 		
-		if(!factory->fixAzimuth)
+		if(!config.fixAzimuth)
 			{
 			/* Have the azimuth angle track changes in the surface frame's rotation: */
 			Rotation rot=Geometry::invert(initialOrientation)*newSurfaceFrame.getRotation();
@@ -328,8 +398,8 @@ void SixAxisSurfaceNavigationTool::frame(void)
 		
 		/* If flying is allowed and the initial surface frame was above the surface, lift it back up: */
 		Scalar z=newSurfaceFrame.inverseTransform(initialOrigin)[2];
-		if(!factory->canFly||z<factory->probeSize)
-			z=factory->probeSize;
+		if(!config.canFly||z<config.probeSize)
+			z=config.probeSize;
 		newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
 		
 		/* Apply the newly aligned surface frame: */
@@ -343,17 +413,17 @@ void SixAxisSurfaceNavigationTool::frame(void)
 
 void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 	{
-	if(isActive()&&factory->drawHud)
+	if(isActive()&&config.drawHud)
 		{
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
 		glLineWidth(1.0f);
-		glColor(factory->hudColor);
+		glColor(config.hudColor);
 		
 		/* Get the HUD layout parameters: */
-		float y=factory->hudDist;
-		float r=factory->hudRadius;
-		float s=factory->hudFontSize;
+		float y=config.hudDist;
+		float r=config.hudRadius;
+		float s=config.hudFontSize;
 		
 		/* Go to the physical frame: */
 		glPushMatrix();
@@ -423,7 +493,7 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<=60.0f)
 				{
 				pos[0]=dist*r/60.0f;
-				numberRenderer.drawNumber(pos,az,contextData,0,1);
+				numberRenderer->drawNumber(pos,az,contextData,0,1);
 				}
 			}
 		
@@ -496,7 +566,7 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 						drawEl=180-el;
 					else if(drawEl<-90)
 						drawEl=-180-el;
-					numberRenderer.drawNumber(pos,drawEl,contextData,-1,0);
+					numberRenderer->drawNumber(pos,drawEl,contextData,-1,0);
 					}
 				}
 			}

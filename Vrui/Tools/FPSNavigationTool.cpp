@@ -55,6 +55,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	 rotateFactor(getInchFactor()*Scalar(12)),
 	 moveSpeed(getInchFactor()*Scalar(120)),
 	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
+	 jumpVelocity(getMeterFactor()*Scalar(4)),
 	 probeSize(getInchFactor()*Scalar(12)),
 	 maxClimb(getInchFactor()*Scalar(12)),
 	 fixAzimuth(false),
@@ -62,7 +63,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	 levelOnExit(false)
 	{
 	/* Initialize tool layout: */
-	layout.setNumButtons(5);
+	layout.setNumButtons(6);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
@@ -74,6 +75,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
 	moveSpeed=cfs.retrieveValue<Scalar>("./moveSpeed",moveSpeed);
 	fallAcceleration=cfs.retrieveValue<Scalar>("./fallAcceleration",fallAcceleration);
+	jumpVelocity=cfs.retrieveValue<Scalar>("./jumpVelocity",jumpVelocity);
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
@@ -113,6 +115,9 @@ const char* FPSNavigationToolFactory::getButtonFunction(int buttonSlotIndex) con
 		
 		case 4:
 			return "Walk Forward";
+		
+		case 5:
+			return "Jump";
 		}
 	
 	/* Never reached; just to make compiler happy: */
@@ -233,6 +238,7 @@ void FPSNavigationTool::initNavState(void)
 	
 	/* Reset the movement velocity: */
 	moveVelocity=Vector::zero;
+	jump=false;
 	
 	/* If the initial surface frame was above the surface, lift it back up and start falling: */
 	Scalar z=newSurfaceFrame.inverseTransform(surfaceFrame.getOrigin())[2];
@@ -276,7 +282,7 @@ void FPSNavigationTool::initialize(void)
 	InputDevice* device=getButtonDevice(1);
 	
 	/* Create a virtual input device to shadow the movement buttons: */
-	buttonDevice=addVirtualInputDevice("FPSNavigationToolButtonDevice",4,0);
+	buttonDevice=addVirtualInputDevice("FPSNavigationToolButtonDevice",5,0);
 	
 	/* Copy the source device's tracking type: */
 	buttonDevice->setTrackType(device->getTrackType());
@@ -371,6 +377,15 @@ void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCa
 				else // Button has just been released
 					moveVelocity[1]-=factory->moveSpeed;
 				break;
+			
+			case 5:
+				if(cbData->newButtonState) // Button has just been pressed
+					{
+					/* Request to jump on the next frame: */
+					jump=true;
+					Vrui::requestUpdate();
+					}
+				break;
 			}
 		}
 	else
@@ -421,7 +436,7 @@ void FPSNavigationTool::frame(void)
 		headHeight=Geometry::dist(getMainViewer()->getHeadPosition(),newFootPos);
 		
 		/* Check for movement: */
-		if(moveVelocity!=Vector::zero||newFootPos!=footPos)
+		if(moveVelocity!=Vector::zero||newFootPos!=footPos||jump)
 			update=true;
 		
 		if(update)
@@ -473,6 +488,10 @@ void FPSNavigationTool::frame(void)
 				{
 				/* Stop falling: */
 				moveVelocity[2]=Scalar(0);
+				
+				/* Check if the user wants to jump: */
+				if(jump)
+					moveVelocity[2]=factory->jumpVelocity;
 				}
 			
 			/* Apply the newly aligned surface frame: */
@@ -496,6 +515,9 @@ void FPSNavigationTool::frame(void)
 					lastMousePos=mousePos;
 				}
 			}
+		
+		/* Reset the jump request flag: */
+		jump=false;
 		}
 	
 	/* Update the virtual input device: */

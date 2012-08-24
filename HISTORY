@@ -3191,3 +3191,28 @@ Vrui-2.4-001:
   hudRadius, and hudFontSize.
 - Added forwardShiftButton setting to Vrui::ShiftButtonTool.
 - Added methods to temporarily pause all clipping to GLClipPlaneTracker.
+
+Vrui-2.4-002:
+- Adapted Realtime/AlarmTimer.cpp to API shift in signal.h. Pointed out
+  by Braden Pellett.
+- Fixed wrong base directory setting in template makefile installed in
+  <install dir>/share/make.
+- Added jumping to FPSNavigationTool; requires sixth button binding.
+  Changed packaged Vrui.cfg accordingly.
+- Fixed battery level indicator in Wiimote VR device driver module.
+- Fixed handling of forced shutdowns in VRDeviceDaemon when clients are
+  still listening.
+- Fixed layout bug in GLMotif::FileSelectionDialog.
+- Fixed file selection dialog handling bug in
+  Vrui::ViewpointFileNavigationTool.
+- Fixed bad bug in Cluster::ClusterPipe's handling of uncoupled pipes.
+- Added Vrui::MultiShiftButtonTool, a tool class to manage multiple
+  virtual button/valuator planes via a set of "radio buttons."
+- Started moving Vrui tool classes towards per-tool configuration
+  options.
+- Added new string-based setGlyphType method to
+  Vrui::GlyphRenderer::Glyph.
+- Added Misc::FixedArray.
+- Added value coder class for Misc::FixedArray to
+  Misc/ArrayValueCoders.h.
+- Added drag torque to Vrui::HelicopterNavigationTool.

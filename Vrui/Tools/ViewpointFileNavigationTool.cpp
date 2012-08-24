@@ -421,6 +421,14 @@ void ViewpointFileNavigationTool::loadViewpointFileOKCallback(GLMotif::FileSelec
 		loadViewpointFileDialog=0;
 	}
 
+void ViewpointFileNavigationTool::loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData)
+	{
+	/* Destroy the file selection dialog: */
+	cbData->fileSelectionDialog->close();
+	if(loadViewpointFileDialog==cbData->fileSelectionDialog)
+		loadViewpointFileDialog=0;
+	}
+
 void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
 	{
 	for(int j=0;j<3;++j)
@@ -553,7 +561,7 @@ void ViewpointFileNavigationTool::initialize(void)
 		{
 		loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
 		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
-		loadViewpointFileDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		loadViewpointFileDialog->getCancelCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileCancelCallback);
 		popupPrimaryWidget(loadViewpointFileDialog);
 		}
 	else

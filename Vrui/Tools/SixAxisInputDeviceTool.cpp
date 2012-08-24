@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisInputDeviceTool - Class for tools using six valuators for
 translational and rotational axes to control virtual input devices.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,9 +23,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/SixAxisInputDeviceTool.h>
 
-#include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
-#include <Misc/CompoundValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <Vrui/Vrui.h>
@@ -33,13 +32,61 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
+/*************************************************************
+Methods of class SixAxisInputDeviceToolFactory::Configuration:
+*************************************************************/
+
+SixAxisInputDeviceToolFactory::Configuration::Configuration(void)
+	:selectButtonToggle(true),
+	 translateFactor(getDisplaySize()/Scalar(3)),
+	 translations(Vector::zero),
+	 rotateFactor(Scalar(180)),
+	 rotations(Vector::zero)
+	{
+	/* Initialize translation vectors and scaled rotation axes: */
+	for(int i=0;i<3;++i)
+		translations[i][i]=Scalar(1);
+	for(int i=0;i<3;++i)
+		rotations[i][i]=Scalar(1);
+	}
+
+SixAxisInputDeviceToolFactory::Configuration::Configuration(const SixAxisInputDeviceToolFactory::Configuration& source)
+	:selectButtonToggle(true),
+	 translateFactor(source.translateFactor),
+	 translations(source.translations),
+	 rotateFactor(source.rotateFactor),
+	 rotations(source.rotations)
+	{
+	}
+
+void SixAxisInputDeviceToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+	{
+	/* Get parameters: */
+	selectButtonToggle=cfs.retrieveValue<bool>("./selectButtonToggle",selectButtonToggle);
+	translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",translateFactor);
+	translations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
+	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
+	rotations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
+	}
+
+void SixAxisInputDeviceToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
+	{
+	typedef std::vector<Vector> VectorList;
+	
+	/* Save parameters: */
+	cfs.storeValue<bool>("./selectButtonToggle",selectButtonToggle);
+	cfs.storeValue<Scalar>("./translateFactor",translateFactor);
+	cfs.storeValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
+	cfs.storeValue<Scalar>("./rotateFactor",rotateFactor);
+	cfs.storeValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
+	}
+
 /**********************************************
 Methods of class SixAxisInputDeviceToolFactory:
 **********************************************/
 
 SixAxisInputDeviceToolFactory::SixAxisInputDeviceToolFactory(ToolManager& toolManager)
-	:ToolFactory("SixAxisInputDeviceTool",toolManager),
-	 selectButtonToggle(true)
+	:ToolFactory("SixAxisInputDeviceTool",toolManager)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1,true);
@@ -52,41 +99,7 @@ SixAxisInputDeviceToolFactory::SixAxisInputDeviceToolFactory(ToolManager& toolMa
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	selectButtonToggle=cfs.retrieveValue<bool>("./selectButtonToggle",selectButtonToggle);
-	
-	typedef std::vector<Vector> VectorList;
-	
-	/* Initialize translation vectors: */
-	Scalar translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",getDisplaySize()/Scalar(3));
-	VectorList translationVectors;
-	for(int i=0;i<3;++i)
-		{
-		Vector t=Vector::zero;
-		t[i]=Scalar(1);
-		translationVectors.push_back(t);
-		}
-	translationVectors=cfs.retrieveValue<VectorList>("./translationVectors",translationVectors);
-	if(translationVectors.size()!=3)
-		Misc::throwStdErr("SixAxisInputDeviceToolFactory: wrong number of translation vectors; got %u, needed 3",(unsigned int)translationVectors.size());
-	
-	for(int i=0;i<3;++i)
-		translations[i]=translationVectors[i]*translateFactor;
-	
-	/* Initialize rotation axes: */
-	Scalar rotateFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotateFactor",Scalar(180)));
-	VectorList scaledRotationAxes;
-	for(int i=0;i<3;++i)
-		{
-		Vector r=Vector::zero;
-		r[i]=Scalar(1);
-		scaledRotationAxes.push_back(r);
-		}
-	scaledRotationAxes=cfs.retrieveValue<VectorList>("./scaledRotationAxes",scaledRotationAxes);
-	if(scaledRotationAxes.size()!=3)
-		Misc::throwStdErr("SixAxisInputDeviceToolFactory: wrong number of rotation axes; got %u, needed 3",(unsigned int)scaledRotationAxes.size());
-	
-	for(int i=0;i<3;++i)
-		rotations[i]=scaledRotationAxes[i]*rotateFactor;
+	config.load(cfs);
 	
 	/* Set tool class' factory pointer: */
 	SixAxisInputDeviceTool::factory=this;
@@ -186,10 +199,32 @@ Methods of class SixAxisInputDeviceTool:
 ***************************************/
 
 SixAxisInputDeviceTool::SixAxisInputDeviceTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
-	:InputDeviceTool(sFactory,inputAssignment)
+	:InputDeviceTool(sFactory,inputAssignment),
+	 config(factory->config)
 	{
 	/* Set the interaction device: */
 	interactionDevice=getButtonDevice(0);
+	}
+
+void SixAxisInputDeviceTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Update the configuration: */
+	config.load(configFileSection);
+	}
+
+void SixAxisInputDeviceTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Save the current configuration: */
+	config.save(configFileSection);
+	}
+
+void SixAxisInputDeviceTool::initialize(void)
+	{
+	/* Calculate derived configuration values: */
+	for(int i=0;i<3;++i)
+		translations[i]=config.translations[i]*config.translateFactor;
+	for(int i=0;i<3;++i)
+		rotations[i]=config.rotations[i]*Math::rad(config.rotateFactor);
 	}
 
 const ToolFactory* SixAxisInputDeviceTool::getFactory(void) const
@@ -203,14 +238,22 @@ void SixAxisInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::But
 		{
 		if(cbData->newButtonState) // Button has just been pressed
 			{
-			/* Deactivate the tool: */
-			deactivate();
+			if(config.selectButtonToggle)
+				{
+				/* Deactivate the tool: */
+				deactivate();
+				}
 			
 			/* Calculate an interaction ray: */
 			Ray interactionRay=calcInteractionRay();
 			
 			/* Try activating the tool: */
 			activate(interactionRay);
+			}
+		else if (!config.selectButtonToggle)
+			{
+			/* Deactivate the tool: */
+			deactivate();
 			}
 		}
 	else
@@ -227,13 +270,13 @@ void SixAxisInputDeviceTool::frame(void)
 		/* Assemble translation from translation vectors and current valuator values: */
 		Vector translation=Vector::zero;
 		for(int i=0;i<3;++i)
-			translation+=factory->translations[i]*Scalar(getValuatorState(i));
+			translation+=translations[i]*Scalar(getValuatorState(i));
 		translation*=getCurrentFrameTime();
 		
 		/* Assemble rotation from scaled rotation axes and current valuator values: */
 		Vector rotation=Vector::zero;
 		for(int i=0;i<3;++i)
-			rotation+=factory->rotations[i]*Scalar(getValuatorState(3+i));
+			rotation+=rotations[i]*Scalar(getValuatorState(3+i));
 		rotation*=getCurrentFrameTime();
 		
 		/* Calculate an incremental transformation for the virtual input device: */
@@ -242,7 +285,7 @@ void SixAxisInputDeviceTool::frame(void)
 		deltaT*=ONTransform::translateFromOriginTo(pos);
 		deltaT*=ONTransform::rotate(ONTransform::Rotation::rotateScaledAxis(rotation));
 		deltaT*=ONTransform::translateToOriginFrom(pos);
-	
+		
 		/* Update the virtual input device's transformation: */
 		deltaT*=getGrabbedDevice()->getTransformation();
 		deltaT.renormalize();
