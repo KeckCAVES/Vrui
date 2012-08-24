@@ -1,7 +1,7 @@
 /***********************************************************************
 ArrayValueCoders - Generic value coder classes for standard C-style
-arrays, with fixed or dynamic array sizes.
-Copyright (c) 2004-2010 Oliver Kreylos
+arrays with fixed or dynamic array sizes or array wrapper classes.
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -26,6 +26,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/ValueCoder.h>
 
+/* Forward declarations: */
+namespace Misc {
+template <class ElementParam,int sizeParam>
+class FixedArray;
+}
+
 namespace Misc {
 
 template <class ElementParam>
@@ -46,22 +52,14 @@ class DynamicArrayValueCoder // Value coder class for arrays with dynamic sizes
 	static size_t decode(ElementParam* elements,size_t maxNumElements,const char* start,const char* end,const char** decodeEnd =0);
 	};
 
-#if 0
-
-/**************************
-Generic ValueCoder classes:
-**************************/
-
-template <class ElementParam>
-class ValueCoderArray
+template <class ElementParam,int sizeParam>
+class ValueCoder<FixedArray<ElementParam, sizeParam> >
 	{
 	/* Methods: */
 	public:
-	static std::string encode(int numElements,const ElementParam* elements);
-	static int decode(int maxNumElements,ElementParam* elements,const char* start,const char* end,const char** decodeEnd =0);
+	static std::string encode(const FixedArray<ElementParam,sizeParam>& value);
+	static FixedArray<ElementParam,sizeParam> decode(const char* start,const char* end,const char** decodeEnd =0);
 	};
-
-#endif
 
 }
 

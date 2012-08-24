@@ -247,12 +247,6 @@ void* VRDeviceServer::clientCommunicationThreadMethod(VRDeviceServer::ClientData
 		fprintf(stderr,"VRDeviceServer: Terminating client connection due to exception\n  %s\n",err.what());
 		fflush(stderr);
 		}
-	catch(...)
-		{
-		/* Just ignore the exception: */
-		fprintf(stderr,"VRDeviceServer: Terminating client connection due to spurious exception\n");
-		fflush(stderr);
-		}
 	
 	/* Cleanly deactivate client: */
 	{
@@ -341,6 +335,9 @@ void* VRDeviceServer::streamingThreadMethod(void)
 					fprintf(stderr,"VRDeviceServer: Terminating client connection due to spurious exception\n");
 					fflush(stderr);
 					deadClients.push_back(clIt);
+					
+					/* Re-throw exception to let the thread cancel: */
+					throw;
 					}
 				}
 			}

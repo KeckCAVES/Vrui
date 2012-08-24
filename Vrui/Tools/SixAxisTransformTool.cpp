@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,25 +23,85 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/SixAxisTransformTool.h>
 
-#include <vector>
-#include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
-#include <Misc/CompoundValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/GeometryValueCoders.h>
+#include <GL/GLValueCoders.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
+
+/***********************************************************
+Methods of class SixAxisTransformToolFactory::Configuration:
+***********************************************************/
+
+SixAxisTransformToolFactory::Configuration::Configuration(void)
+	:translateFactor(getDisplaySize()/Scalar(3)),
+	 translations(Vector::zero),
+	 rotateFactor(Scalar(180)),
+	 rotations(Vector::zero),
+	 followDisplayCenter(false),
+	 homePosition(getDisplayCenter()),
+	 deviceGlyphType("Cone"),
+	 deviceGlyphMaterial(GLMaterial::Color(0.5f,0.5f,0.5f),GLMaterial::Color(1.0f,1.0f,1.0f),25.0f)
+	{
+	/* Initialize translation vectors and scaled rotation axes: */
+	for(int i=0;i<3;++i)
+		translations[i][i]=Scalar(1);
+	for(int i=0;i<3;++i)
+		rotations[i][i]=Scalar(1);
+	}
+
+SixAxisTransformToolFactory::Configuration::Configuration(const SixAxisTransformToolFactory::Configuration& source)
+	:translateFactor(source.translateFactor),
+	 translations(source.translations),
+	 rotateFactor(source.rotateFactor),
+	 rotations(source.rotations),
+	 followDisplayCenter(source.followDisplayCenter),
+	 homePosition(source.homePosition),
+	 deviceGlyphType(source.deviceGlyphType),
+	 deviceGlyphMaterial(source.deviceGlyphMaterial)
+	{
+	}
+
+void SixAxisTransformToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+	{
+	/* Get parameters: */
+	translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",translateFactor);
+	translations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
+	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
+	rotations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
+	if(cfs.hasTag("./homePosition"))
+		homePosition=cfs.retrieveValue<Point>("./homePosition",homePosition);
+	else
+		followDisplayCenter=true;
+	deviceGlyphType=cfs.retrieveValue<std::string>("./deviceGlyphType",deviceGlyphType);
+	deviceGlyphMaterial=cfs.retrieveValue<GLMaterial>("./deviceGlyphMaterial",deviceGlyphMaterial);
+	}
+
+void SixAxisTransformToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
+	{
+	/* Save parameters: */
+	cfs.storeValue<Scalar>("./translateFactor",translateFactor);
+	cfs.storeValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
+	cfs.storeValue<Scalar>("./rotateFactor",rotateFactor);
+	cfs.storeValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
+	if(!followDisplayCenter)
+		cfs.storeValue<Point>("./homePosition",homePosition);
+	cfs.storeValue<std::string>("./deviceGlyphType",deviceGlyphType);
+	cfs.storeValue<GLMaterial>("./deviceGlyphMaterial",deviceGlyphMaterial);
+	}
 
 /********************************************
 Methods of class SixAxisTransformToolFactory:
 ********************************************/
 
 SixAxisTransformToolFactory::SixAxisTransformToolFactory(ToolManager& toolManager)
-	:ToolFactory("SixAxisTransformTool",toolManager),
-	 followDisplayCenter(false),homePosition(getDisplayCenter())
+	:ToolFactory("SixAxisTransformTool",toolManager)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1,true);
@@ -54,58 +114,7 @@ SixAxisTransformToolFactory::SixAxisTransformToolFactory(ToolManager& toolManage
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	if(cfs.hasTag("./homePosition"))
-		{
-		/* Read the home position: */
-		homePosition=cfs.retrieveValue<Point>("./homePosition");
-		}
-	else
-		{
-		/* If no home position configured, use the current display center: */
-		followDisplayCenter=true;
-		}
-	
-	typedef std::vector<Vector> VectorList;
-	
-	/* Initialize translation vectors: */
-	Scalar translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",getDisplaySize()/Scalar(3));
-	VectorList translationVectors;
-	for(int i=0;i<3;++i)
-		{
-		Vector t=Vector::zero;
-		t[i]=Scalar(1);
-		translationVectors.push_back(t);
-		}
-	translationVectors=cfs.retrieveValue<VectorList>("./translationVectors",translationVectors);
-	if(translationVectors.size()!=3)
-		Misc::throwStdErr("SixAxisTransformToolFactory: wrong number of translation vectors; got %u, needed 3",(unsigned int)translationVectors.size());
-	
-	for(int i=0;i<3;++i)
-		translations[i]=translationVectors[i]*translateFactor;
-	
-	/* Initialize rotation axes: */
-	Scalar rotateFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotateFactor",Scalar(180)));
-	VectorList scaledRotationAxes;
-	for(int i=0;i<3;++i)
-		{
-		Vector r=Vector::zero;
-		r[i]=Scalar(1);
-		scaledRotationAxes.push_back(r);
-		}
-	scaledRotationAxes=cfs.retrieveValue<VectorList>("./scaledRotationAxes",scaledRotationAxes);
-	if(scaledRotationAxes.size()!=3)
-		Misc::throwStdErr("SixAxisTransformToolFactory: wrong number of rotation axes; got %u, needed 3",(unsigned int)scaledRotationAxes.size());
-	
-	for(int i=0;i<3;++i)
-		rotations[i]=scaledRotationAxes[i]*rotateFactor;
-	
-	/* Configure the device glyph: */
-	deviceGlyph.configure(cfs,"./deviceGlyphType","./deviceGlyphMaterial");
-	if(!deviceGlyph.isEnabled())
-		{
-		deviceGlyph.setGlyphType(Glyph::CONE);
-		deviceGlyph.enable();
-		}
+	config.load(cfs);
 	
 	/* Set tool class' factory pointer: */
 	SixAxisTransformTool::factory=this;
@@ -207,16 +216,35 @@ SixAxisTransformTool::SixAxisTransformTool(const ToolFactory* sFactory,const Too
 	numPrivateButtons=1;
 	}
 
+void SixAxisTransformTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Update the configuration: */
+	config.load(configFileSection);
+	}
+
+void SixAxisTransformTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Save the current configuration: */
+	config.save(configFileSection);
+	}
+
 void SixAxisTransformTool::initialize(void)
 	{
 	/* Let the base class do its thing: */
 	TransformTool::initialize();
 	
+	/* Calculate derived configuration values: */
+	for(int i=0;i<3;++i)
+		translations[i]=config.translations[i]*config.translateFactor;
+	for(int i=0;i<3;++i)
+		rotations[i]=config.rotations[i]*Math::rad(config.rotateFactor);
+	
 	/* Set the virtual input device's glyph: */
-	getInputGraphManager()->getInputDeviceGlyph(transformedDevice)=factory->deviceGlyph;
+	getInputGraphManager()->getInputDeviceGlyph(transformedDevice).setGlyphType(config.deviceGlyphType.c_str());
+	getInputGraphManager()->getInputDeviceGlyph(transformedDevice).setGlyphMaterial(config.deviceGlyphMaterial);
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(TrackerState::translateFromOriginTo(factory->followDisplayCenter?getDisplayCenter():factory->homePosition));
+	transformedDevice->setTransformation(TrackerState::translateFromOriginTo(config.followDisplayCenter?getDisplayCenter():config.homePosition));
 	transformedDevice->setDeviceRayDirection(getForwardDirection());
 	}
 
@@ -232,7 +260,7 @@ void SixAxisTransformTool::buttonCallback(int buttonSlotIndex,InputDevice::Butto
 		if(cbData->newButtonState) // Button has just been pressed
 			{
 			/* Reset the transformed device to the home position: */
-			transformedDevice->setTransformation(TrackerState::translateFromOriginTo(factory->followDisplayCenter?getDisplayCenter():factory->homePosition));
+			transformedDevice->setTransformation(TrackerState::translateFromOriginTo(config.followDisplayCenter?getDisplayCenter():config.homePosition));
 			}
 		}
 	else
@@ -247,13 +275,13 @@ void SixAxisTransformTool::frame(void)
 	/* Assemble translation from translation vectors and current valuator values: */
 	Vector translation=Vector::zero;
 	for(int i=0;i<3;++i)
-		translation+=factory->translations[i]*Scalar(getValuatorState(i));
+		translation+=translations[i]*Scalar(getValuatorState(i));
 	translation*=getCurrentFrameTime();
 	
 	/* Assemble rotation from scaled rotation axes and current valuator values: */
 	Vector rotation=Vector::zero;
 	for(int i=0;i<3;++i)
-		rotation+=factory->rotations[i]*Scalar(getValuatorState(3+i));
+		rotation+=config.rotations[i]*Scalar(getValuatorState(3+i));
 	rotation*=getCurrentFrameTime();
 	
 	/* Calculate an incremental transformation for the virtual input device: */

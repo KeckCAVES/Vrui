@@ -112,15 +112,15 @@ extern "C" void destroyShiftButtonToolFactory(ToolFactory* factory)
 	delete factory;
 	}
 
-/***************************************
+/****************************************
 Static elements of class ShiftButtonTool:
-***************************************/
+****************************************/
 
 ShiftButtonToolFactory* ShiftButtonTool::factory=0;
 
-/*******************************
+/********************************
 Methods of class ShiftButtonTool:
-*******************************/
+********************************/
 
 ShiftButtonTool::ShiftButtonTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(sFactory,inputAssignment),

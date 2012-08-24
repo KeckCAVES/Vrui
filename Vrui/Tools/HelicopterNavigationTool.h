@@ -25,13 +25,19 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_HELICOPTERNAVIGATIONTOOL_INCLUDED
 #define VRUI_HELICOPTERNAVIGATIONTOOL_INCLUDED
 
+#include <Misc/FixedArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
-#include <GL/GLNumberRenderer.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/SurfaceNavigationTool.h>
+
+/* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
+class GLNumberRenderer;
 
 namespace Vrui {
 
@@ -41,23 +47,40 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	{
 	friend class HelicopterNavigationTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure holding tool (class) configuration
+		{
+		/* Elements: */
+		public:
+		bool activationToggle; // Flag whether the activation button acts as a toggle
+		Misc::FixedArray<Scalar,3> rotateFactors; // Array of rotation speeds around the (pitch, roll, yaw) axes in radians/s
+		Scalar g; // Acceleration of gravity in physical coordinate units/s^2
+		Scalar collectiveMin,collectiveMax; // Min and max amounts of collective acceleration in physical coordinate units/s^2
+		Scalar thrust; // Thrust acceleration in physical coordinate units/s^2
+		Scalar brake; // Reverse thrust acceleration in physical coordinate units/s^2
+		Misc::FixedArray<Scalar,3> dragCoefficients; // Drag coefficients in local x, y, z directions
+		Misc::FixedArray<Scalar,2> viewAngleFactors; // View offset angle factors for hat switch valuators in radians
+		Scalar probeSize; // Size of probe to use when aligning surface frames
+		Scalar maxClimb; // Maximum amount of climb per frame
+		bool drawHud; // Flag whether to draw the navigation heads-up display
+		Color hudColor; // Color to draw the HUD
+		float hudDist; // Distance of HUD plane from eye point in physical coordinate units
+		float hudRadius; // Radius of HUD on HUD plane
+		float hudFontSize; // HUD font size in physical coordinate units
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		Configuration(const Configuration& source); // Copy constructor
+		
+		/* Methods: */
+		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		};
+	
 	/* Elements: */
 	private:
-	bool activationToggle; // Flag whether the activation button acts as a toggle
-	Scalar rotateFactors[3]; // Array of rotation speeds around the (pitch, roll, yaw) axes in radians/s
-	Scalar g; // Acceleration of gravity in physical coordinate units/s^2
-	Scalar collectiveMin,collectiveMax; // Min and max amounts of collective acceleration in physical coordinate units/s^2
-	Scalar thrust; // Thrust acceleration in physical coordinate units/s^2
-	Scalar brake; // Reverse thrust acceleration in physical coordinate units/s^2
-	Scalar dragCoefficients[3]; // Drag coefficients in local x, y, z directions
-	Scalar viewAngleFactors[2]; // View offset angle factors for hat switch valuators in radians
-	Scalar probeSize; // Size of probe to use when aligning surface frames
-	Scalar maxClimb; // Maximum amount of climb per frame
-	bool drawHud; // Flag whether to draw the helicopter heads-up display
-	Color hudColor; // Color to draw the HUD
-	float hudDist; // Distance of HUD plane from eye point in physical coordinate units
-	float hudRadius; // Radius of HUD on HUD plane
-	float hudFontSize; // HUD font size in physical coordinate units
+	Configuration config; // The class configuration
 	
 	/* Constructors and destructors: */
 	public:
@@ -79,7 +102,10 @@ class HelicopterNavigationTool:public SurfaceNavigationTool
 	/* Elements: */
 	private:
 	static HelicopterNavigationToolFactory* factory; // Pointer to the factory object for this class
-	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-like font
+	GLNumberRenderer* numberRenderer; // Helper object to render numbers using a HUD-like font
+	
+	/* Configuration state: */
+	HelicopterNavigationToolFactory::Configuration config; // The tool configuration
 	
 	/* Transient navigation state: */
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
@@ -94,8 +120,12 @@ class HelicopterNavigationTool:public SurfaceNavigationTool
 	/* Constructors and destructors: */
 	public:
 	HelicopterNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	virtual ~HelicopterNavigationTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

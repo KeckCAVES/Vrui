@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisNavigationTool - Class to convert an input device with six
 valuators into a navigation tool.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,9 +23,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/SixAxisNavigationTool.h>
 
-#include <vector>
 #include <Misc/StandardValueCoders.h>
-#include <Misc/CompoundValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
@@ -38,17 +37,77 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
-/*********************************************
-Methods of class SixAxisNavigationToolFactory:
-*********************************************/
+/************************************************************
+Methods of class SixAxisNavigationToolFactory::Configuration:
+************************************************************/
 
-SixAxisNavigationToolFactory::SixAxisNavigationToolFactory(ToolManager& toolManager)
-	:ToolFactory("SixAxisNavigationTool",toolManager),
+SixAxisNavigationToolFactory::Configuration::Configuration(void)
+	:translateFactor(getDisplaySize()/Scalar(3)),
+	 translations(Vector::zero),
+	 rotateFactor(Scalar(180)),
+	 rotations(Vector::zero),
 	 zoomFactor(Scalar(1)),
 	 followDisplayCenter(false),
 	 navigationCenter(getDisplayCenter()),
 	 invertNavigation(false),
 	 showNavigationCenter(true)
+	{
+	/* Initialize translation vectors and scaled rotation axes: */
+	for(int i=0;i<3;++i)
+		translations[i][i]=Scalar(1);
+	for(int i=0;i<3;++i)
+		rotations[i][i]=Scalar(1);
+	}
+
+SixAxisNavigationToolFactory::Configuration::Configuration(const SixAxisNavigationToolFactory::Configuration& source)
+	:translateFactor(source.translateFactor),
+	 translations(source.translations),
+	 rotateFactor(source.rotateFactor),
+	 rotations(source.rotations),
+	 zoomFactor(source.zoomFactor),
+	 followDisplayCenter(source.followDisplayCenter),
+	 navigationCenter(source.navigationCenter),
+	 invertNavigation(source.invertNavigation),
+	 showNavigationCenter(source.showNavigationCenter)
+	{
+	}
+
+void SixAxisNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+	{
+	/* Get parameters: */
+	translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",translateFactor);
+	translations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
+	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
+	rotations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
+	zoomFactor=cfs.retrieveValue<Scalar>("./zoomFactor",zoomFactor);
+	if(cfs.hasTag("./navigationCenter"))
+		navigationCenter=cfs.retrieveValue<Point>("./navigationCenter",navigationCenter);
+	else
+		followDisplayCenter=true;
+	invertNavigation=cfs.retrieveValue<bool>("./invertNavigation",invertNavigation);
+	showNavigationCenter=cfs.retrieveValue<bool>("./showNavigationCenter",showNavigationCenter);
+	}
+
+void SixAxisNavigationToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
+	{
+	/* Save parameters: */
+	cfs.storeValue<Scalar>("./translateFactor",translateFactor);
+	cfs.storeValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
+	cfs.storeValue<Scalar>("./rotateFactor",rotateFactor);
+	cfs.storeValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
+	cfs.storeValue<Scalar>("./zoomFactor",zoomFactor);
+	if(!followDisplayCenter)
+		cfs.storeValue<Point>("./navigationCenter",navigationCenter);
+	cfs.storeValue<bool>("./invertNavigation",invertNavigation);
+	cfs.storeValue<bool>("./showNavigationCenter",showNavigationCenter);
+	}
+
+/*********************************************
+Methods of class SixAxisNavigationToolFactory:
+*********************************************/
+
+SixAxisNavigationToolFactory::SixAxisNavigationToolFactory(ToolManager& toolManager)
+	:ToolFactory("SixAxisNavigationTool",toolManager)
 	{
 	/* Initialize tool layout: */
 	layout.setNumValuators(7);
@@ -59,50 +118,8 @@ SixAxisNavigationToolFactory::SixAxisNavigationToolFactory(ToolManager& toolMana
 	addParentClass(navigationToolFactory);
 	
 	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	
-	typedef std::vector<Vector> VectorList;
-	
-	/* Initialize translation vectors: */
-	Scalar translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",getDisplaySize()/Scalar(3));
-	VectorList translationVectors;
-	for(int i=0;i<3;++i)
-		{
-		Vector t=Vector::zero;
-		t[i]=Scalar(1);
-		translationVectors.push_back(t);
-		}
-	translationVectors=cfs.retrieveValue<VectorList>("./translationVectors",translationVectors);
-	if(translationVectors.size()!=3)
-		Misc::throwStdErr("SixAxisNavigationToolFactory: wrong number of translation vectors; got %u, needed 3",(unsigned int)translationVectors.size());
-	
-	for(int i=0;i<3;++i)
-		translations[i]=translationVectors[i]*translateFactor;
-	
-	/* Initialize rotation axes: */
-	Scalar rotateFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotateFactor",Scalar(180)));
-	VectorList scaledRotationAxes;
-	for(int i=0;i<3;++i)
-		{
-		Vector r=Vector::zero;
-		r[i]=Scalar(1);
-		scaledRotationAxes.push_back(r);
-		}
-	scaledRotationAxes=cfs.retrieveValue<VectorList>("./scaledRotationAxes",scaledRotationAxes);
-	if(scaledRotationAxes.size()!=3)
-		Misc::throwStdErr("SixAxisNavigationToolFactory: wrong number of rotation axes; got %u, needed 3",(unsigned int)scaledRotationAxes.size());
-	
-	for(int i=0;i<3;++i)
-		rotations[i]=scaledRotationAxes[i]*rotateFactor;
-	
-	/* Get other parameters: */
-	zoomFactor=cfs.retrieveValue<Scalar>("./zoomFactor",zoomFactor);
-	if(cfs.hasTag("./navigationCenter"))
-		navigationCenter=cfs.retrieveValue<Point>("./navigationCenter",navigationCenter);
-	else
-		followDisplayCenter=true;
-	invertNavigation=cfs.retrieveValue<bool>("./invertNavigation",invertNavigation);
-	showNavigationCenter=cfs.retrieveValue<bool>("./showNavigationCenter",showNavigationCenter);
+	Misc::ConfigurationFileSection cfs(toolManager.getToolClassSection(getClassName()));
+	config.load(cfs);
 	
 	/* Set tool class' factory pointer: */
 	SixAxisNavigationTool::factory=this;
@@ -194,12 +211,30 @@ Methods of class SixAxisNavigationTool:
 
 SixAxisNavigationTool::SixAxisNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(sFactory,inputAssignment),
+	 config(factory->config),
 	 numActiveAxes(0)
 	{
 	}
 
-SixAxisNavigationTool::~SixAxisNavigationTool(void)
+void SixAxisNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
 	{
+	/* Update the configuration: */
+	config.load(configFileSection);
+	}
+
+void SixAxisNavigationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Save the current configuration: */
+	config.save(configFileSection);
+	}
+
+void SixAxisNavigationTool::initialize(void)
+	{
+	/* Calculate derived configuration values: */
+	for(int i=0;i<3;++i)
+		translations[i]=config.translations[i]*config.translateFactor;
+	for(int i=0;i<3;++i)
+		rotations[i]=config.rotations[i]*Math::rad(config.rotateFactor);
 	}
 
 const ToolFactory* SixAxisNavigationTool::getFactory(void) const
@@ -241,20 +276,20 @@ void SixAxisNavigationTool::frame(void)
 		/* Assemble translation from translation vectors and current valuator values: */
 		Vector translation=Vector::zero;
 		for(int i=0;i<3;++i)
-			translation+=factory->translations[i]*Scalar(getValuatorState(i));
+			translation+=translations[i]*Scalar(getValuatorState(i));
 		translation*=getCurrentFrameTime();
 		
 		/* Assemble rotation from scaled rotation axes and current valuator values: */
 		Vector rotation=Vector::zero;
 		for(int i=0;i<3;++i)
-			rotation+=factory->rotations[i]*Scalar(getValuatorState(3+i));
+			rotation+=rotations[i]*Scalar(getValuatorState(3+i));
 		rotation*=getCurrentFrameTime();
 		
 		/* Calculate incremental zoom factor: */
-		Scalar zoom=factory->zoomFactor*Scalar(getValuatorState(6))*getCurrentFrameTime();
+		Scalar zoom=config.zoomFactor*Scalar(getValuatorState(6))*getCurrentFrameTime();
 		
 		/* Apply proper navigation mode: */
-		if(factory->invertNavigation)
+		if(config.invertNavigation)
 			{
 			translation=-translation;
 			rotation=-rotation;
@@ -262,11 +297,11 @@ void SixAxisNavigationTool::frame(void)
 			}
 		
 		/* Calculate an incremental transformation based on the translation and rotation: */
-		NavTrackerState deltaT=NavTrackerState::translateFromOriginTo(factory->followDisplayCenter?getDisplayCenter():factory->navigationCenter);
+		NavTrackerState deltaT=NavTrackerState::translateFromOriginTo(config.followDisplayCenter?getDisplayCenter():config.navigationCenter);
 		deltaT*=NavTrackerState::translate(translation);
 		deltaT*=NavTrackerState::rotate(NavTrackerState::Rotation::rotateScaledAxis(rotation));
 		deltaT*=NavTrackerState::scale(Math::exp(-zoom));
-		deltaT*=NavTrackerState::translateToOriginFrom(factory->followDisplayCenter?getDisplayCenter():factory->navigationCenter);
+		deltaT*=NavTrackerState::translateToOriginFrom(config.followDisplayCenter?getDisplayCenter():config.navigationCenter);
 		
 		/* Update the accumulated transformation: */
 		navTransform.leftMultiply(deltaT);
@@ -282,7 +317,7 @@ void SixAxisNavigationTool::frame(void)
 
 void SixAxisNavigationTool::display(GLContextData& contextData) const
 	{
-	if(factory->showNavigationCenter&&isActive())
+	if(config.showNavigationCenter&&isActive())
 		{
 		/* Set up OpenGL state: */
 		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
@@ -298,7 +333,7 @@ void SixAxisNavigationTool::display(GLContextData& contextData) const
 		
 		/* Go to crosshair space: */
 		glPushMatrix();
-		ONTransform trans=calcHUDTransform(factory->followDisplayCenter?getDisplayCenter():factory->navigationCenter);
+		ONTransform trans=calcHUDTransform(config.followDisplayCenter?getDisplayCenter():config.navigationCenter);
 		glMultMatrix(trans);
 		
 		glLineWidth(3.0f);
