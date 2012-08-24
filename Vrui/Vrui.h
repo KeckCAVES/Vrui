@@ -1,7 +1,7 @@
 /***********************************************************************
 Vrui - Public kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -62,6 +62,7 @@ class LightsourceManager;
 class ClipPlaneManager;
 class Viewer;
 class VRScreen;
+struct WindowProperties;
 class VRWindow;
 class ViewSpecification;
 class Listener;
@@ -173,6 +174,7 @@ VRScreen* findScreen(const char* name); // Returns pointer to screen of given na
 std::pair<VRScreen*,Scalar> findScreen(const Ray& ray); // Returns pointer to closest screen intersected by ray, and intersection ray parameter (returns 0 if no screen is intersected)
 
 /* Query information about rendering windows: */
+void requestWindowProperties(const WindowProperties& properties); // Requests the given set of properties from all subsequently opened display windows (must be called before main loop)
 int getNumWindows(void); // Returns the number of active rendering windows
 VRWindow* getWindow(int index); // Returns pointer to window of given index
 ViewSpecification calcViewSpec(int windowIndex,int eyeIndex); // Returns viewing specification in navigation coordinates for given eye in given window

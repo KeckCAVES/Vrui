@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBGeometryShader4 - OpenGL extension class for the
 GL_ARB_geometry_shader4 extension.
-Copyright (c) 2007-2009 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2012 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,11 +20,12 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/Extensions/GLARBGeometryShader4.h>
+
+#include <stdarg.h>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
-
-#include <GL/Extensions/GLARBGeometryShader4.h>
 
 /*********************************************
 Static elements of class GLARBGeometryShader4:
@@ -92,11 +93,33 @@ GLhandleARB glCompileARBGeometryShader4FromString(const char* shaderSource)
 		/* Load and compile the shader source: */
 		glCompileShaderFromString(geometryShaderObject,shaderSource);
 		}
-	catch(std::runtime_error err)
+	catch(...)
 		{
 		/* Clean up and re-throw the exception: */
 		glDeleteObjectARB(geometryShaderObject);
-		
+		throw;
+		}
+	
+	return geometryShaderObject;
+	}
+
+GLhandleARB glCompileARBGeometryShader4FromStrings(size_t numShaderSources,...)
+	{
+	/* Create a new geometry shader: */
+	GLhandleARB geometryShaderObject=glCreateShaderObjectARB(GL_GEOMETRY_SHADER_ARB);
+	
+	va_list ap;
+	try
+		{
+		va_start(ap,numShaderSources);
+		glCompileShaderFromStrings(geometryShaderObject,numShaderSources,ap);
+		va_end(ap);
+		}
+	catch(...)
+		{
+		/* Clean up and re-throw the exception: */
+		va_end(ap);
+		glDeleteObjectARB(geometryShaderObject);
 		throw;
 		}
 	
@@ -113,11 +136,30 @@ GLhandleARB glCompileARBGeometryShader4FromFile(const char* shaderSourceFileName
 		/* Load and compile the shader source: */
 		glCompileShaderFromFile(geometryShaderObject,shaderSourceFileName);
 		}
-	catch(std::runtime_error err)
+	catch(...)
 		{
 		/* Clean up and re-throw the exception: */
 		glDeleteObjectARB(geometryShaderObject);
-		
+		throw;
+		}
+	
+	return geometryShaderObject;
+	}
+
+GLhandleARB glCompileARBGeometryShader4FromFile(const char* shaderSourceFileName,IO::File& shaderSourceFile)
+	{
+	/* Create a new vertex shader: */
+	GLhandleARB geometryShaderObject=glCreateShaderObjectARB(GL_GEOMETRY_SHADER_ARB);
+	
+	try
+		{
+		/* Load and compile the shader source: */
+		glCompileShaderFromFile(geometryShaderObject,shaderSourceFileName,shaderSourceFile);
+		}
+	catch(...)
+		{
+		/* Clean up and re-throw the exception: */
+		glDeleteObjectARB(geometryShaderObject);
 		throw;
 		}
 	

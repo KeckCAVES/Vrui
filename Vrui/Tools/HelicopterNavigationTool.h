@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,6 +43,7 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
+	bool activationToggle; // Flag whether the activation button acts as a toggle
 	Scalar rotateFactors[3]; // Array of rotation speeds around the (pitch, roll, yaw) axes in radians/s
 	Scalar g; // Acceleration of gravity in physical coordinate units/s^2
 	Scalar collectiveMin,collectiveMax; // Min and max amounts of collective acceleration in physical coordinate units/s^2
@@ -54,7 +55,8 @@ class HelicopterNavigationToolFactory:public ToolFactory
 	Scalar maxClimb; // Maximum amount of climb per frame
 	bool drawHud; // Flag whether to draw the helicopter heads-up display
 	Color hudColor; // Color to draw the HUD
-	float hudRadius; // Distance of HUD plane from eye point in physical coordinate units
+	float hudDist; // Distance of HUD plane from eye point in physical coordinate units
+	float hudRadius; // Radius of HUD on HUD plane
 	float hudFontSize; // HUD font size in physical coordinate units
 	
 	/* Constructors and destructors: */

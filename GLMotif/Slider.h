@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLMOTIF_SLIDER_INCLUDED
 #define GLMOTIF_SLIDER_INCLUDED
 
+#include <vector>
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
 #include <Misc/TimerEventScheduler.h>
@@ -75,17 +76,22 @@ class Slider:public Widget,public DragWidget
 	Box shaftBox; // Position and size of shaft
 	Color shaftColor; // Color of shaft
 	GLfloat valueMin,valueMax,valueIncrement; // Value range and increment
+	std::vector<GLfloat> notchValues; // Values of "notches" along the slider to simplify selection of special values
+	std::vector<GLfloat> notchPositions; // Positions of notches
 	GLfloat value; // Currently selected value
 	Misc::CallbackList valueChangedCallbacks; // List of callbacks to be called when the slider value changes due to a user interaction
 	
-	bool isClicking; // Flag if the slider is currently waiting for click repeat timer events
-	GLfloat clickValueIncrement; // Value increment for each timer event
+	int isClicking; // Flag if the slider is currently waiting for click repeat timer events, and whether it's decrementing (<0) or incrementing (>0)
 	double nextClickEventTime; // Time at which the next click-repeat event was scheduled
 	GLfloat dragOffset; // Offset between pointer position and slider origin during dragging
+	GLfloat lastDragPos; // Position of dragged slider handle at last frame
 	
 	/* Protected methods: */
 	void positionShaft(void); // Positions the shaft inside the widget
+	void positionNotches(void); // Calculates the positions of all slider notches
 	void positionSlider(void); // Positions the slider handle inside the widget
+	void decrement(void); // Decrements the slider value by the current granularity
+	void increment(void); // Increments the slider value by the current granularity
 	void clickRepeatTimerEventCallback(Misc::TimerEventScheduler::CallbackData* cbData); // Callback for click-repeat timer events
 	
 	/* Constructors and destructors: */
@@ -118,6 +124,8 @@ class Slider:public Widget,public DragWidget
 		{
 		return value;
 		}
+	void addNotch(GLfloat newNotchValue); // Adds a notch to the slider
+	void removeNotch(GLfloat notchValue); // Removes a notch from the slider
 	void setValue(GLfloat newValue); // Changes the current slider value
 	void setValueRange(GLfloat newValueMin,GLfloat newValueMax,GLfloat newValueIncrement); // Changes the slider value range
 	Misc::CallbackList& getValueChangedCallbacks(void) // Returns list of value changed callbacks

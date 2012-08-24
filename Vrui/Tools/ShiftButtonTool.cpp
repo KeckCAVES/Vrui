@@ -1,7 +1,7 @@
 /***********************************************************************
 ShiftButtonTool - Class to switch between planes of buttons and/or
 valuators by pressing a "shift" button.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -39,7 +39,7 @@ Methods of class ShiftButtonToolFactory:
 
 ShiftButtonToolFactory::ShiftButtonToolFactory(ToolManager& toolManager)
 	:ToolFactory("ShiftButtonTool",toolManager),
-	 toggle(false),resetFeatures(false)
+	 toggle(false),forwardShiftButton(false),resetFeatures(false)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1,true);
@@ -53,6 +53,7 @@ ShiftButtonToolFactory::ShiftButtonToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	toggle=cfs.retrieveValue<bool>("./toggle",toggle);
+	forwardShiftButton=cfs.retrieveValue<bool>("./forwardShiftButton",forwardShiftButton);
 	resetFeatures=cfs.retrieveValue<bool>("./resetFeatures",resetFeatures);
 	
 	/* Set tool class' factory pointer: */
@@ -123,7 +124,7 @@ Methods of class ShiftButtonTool:
 
 ShiftButtonTool::ShiftButtonTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(sFactory,inputAssignment),
-	 toggle(factory->toggle),resetFeatures(factory->resetFeatures),
+	 toggle(factory->toggle),forwardShiftButton(factory->forwardShiftButton),resetFeatures(factory->resetFeatures),
 	 shifted(false)
 	{
 	/* Set the transformation source device: */
@@ -143,6 +144,7 @@ void ShiftButtonTool::configure(Misc::ConfigurationFileSection& configFileSectio
 	{
 	/* Read settings: */
 	toggle=configFileSection.retrieveValue<bool>("./toggle",toggle);
+	forwardShiftButton=configFileSection.retrieveValue<bool>("./forwardShiftButton",forwardShiftButton);
 	resetFeatures=configFileSection.retrieveValue<bool>("./resetFeatures",resetFeatures);
 	}
 
@@ -150,13 +152,17 @@ void ShiftButtonTool::storeState(Misc::ConfigurationFileSection& configFileSecti
 	{
 	/* Write settings: */
 	configFileSection.storeValue<bool>("./toggle",toggle);
+	configFileSection.storeValue<bool>("./forwardShiftButton",forwardShiftButton);
 	configFileSection.storeValue<bool>("./resetFeatures",resetFeatures);
 	}
 
 void ShiftButtonTool::initialize(void)
 	{
 	/* Create a virtual input device to shadow the source input device: */
-	transformedDevice=addVirtualInputDevice("ShiftButtonToolTransformedDevice",2*(input.getNumButtonSlots()-1),2*input.getNumValuatorSlots());
+	int numForwardedButtons=input.getNumButtonSlots()-1;
+	if(forwardShiftButton)
+		++numForwardedButtons;
+	transformedDevice=addVirtualInputDevice("ShiftButtonToolTransformedDevice",2*numForwardedButtons,2*input.getNumValuatorSlots());
 	
 	/* Copy the source device's tracking type: */
 	transformedDevice->setTrackType(sourceDevice->getTrackType());
@@ -188,6 +194,11 @@ const ToolFactory* ShiftButtonTool::getFactory(void) const
 
 void ShiftButtonTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
+	int numForwardedButtons=input.getNumButtonSlots()-1;
+	if(forwardShiftButton)
+		++numForwardedButtons;
+	int firstForwardedButton=forwardShiftButton?0:1;
+	
 	if(buttonSlotIndex==0)
 		{
 		/* Set the shift state: */
@@ -203,10 +214,17 @@ void ShiftButtonTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCall
 		
 		if(shifted!=oldShifted)
 			{
+			if(forwardShiftButton)
+				{
+				/* Set the states of the forwarded shift buttons: */
+				transformedDevice->setButtonState(0,!shifted);
+				transformedDevice->setButtonState(numForwardedButtons,shifted);
+				}
+			
 			/* Set the newly mapped plane's state to the input device's button and valuator states: */
-			int buttonBase=shifted?input.getNumButtonSlots()-1:0;
+			int buttonBase=shifted?numForwardedButtons:0;
 			for(int i=1;i<input.getNumButtonSlots();++i)
-				transformedDevice->setButtonState(buttonBase+i-1,getButtonState(i));
+				transformedDevice->setButtonState(buttonBase-firstForwardedButton+i,getButtonState(i));
 			int valuatorBase=shifted?input.getNumValuatorSlots():0;
 			for(int i=0;i<input.getNumValuatorSlots();++i)
 				transformedDevice->setValuator(valuatorBase+i,getValuatorState(i));
@@ -214,9 +232,9 @@ void ShiftButtonTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCall
 			if(resetFeatures)
 				{
 				/* Reset the previously mapped plane: */
-				int buttonBase=oldShifted?input.getNumButtonSlots()-1:0;
+				int buttonBase=oldShifted?numForwardedButtons:0;
 				for(int i=1;i<input.getNumButtonSlots();++i)
-					transformedDevice->setButtonState(buttonBase+i-1,false);
+					transformedDevice->setButtonState(buttonBase-firstForwardedButton+i,false);
 				int valuatorBase=oldShifted?input.getNumValuatorSlots():0;
 				for(int i=0;i<input.getNumValuatorSlots();++i)
 					transformedDevice->setValuator(valuatorBase+i,0.0);
@@ -226,8 +244,8 @@ void ShiftButtonTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCall
 	else
 		{
 		/* Pass the button event through to the virtual input device: */
-		int buttonBase=shifted?input.getNumButtonSlots()-1:0;
-		transformedDevice->setButtonState(buttonSlotIndex-1+buttonBase,cbData->newButtonState);
+		int buttonBase=shifted?numForwardedButtons:0;
+		transformedDevice->setButtonState(buttonBase-firstForwardedButton+buttonSlotIndex,cbData->newButtonState);
 		}
 	}
 
@@ -250,12 +268,16 @@ InputDeviceFeatureSet ShiftButtonTool::getSourceFeatures(const InputDeviceFeatur
 	if(forwardedFeature.isButton())
 		{
 		/* Find the source button slot index: */
+		int numForwardedButtons=input.getNumButtonSlots()-1;
+		if(forwardShiftButton)
+			++numForwardedButtons;
+		int firstForwardedButton=forwardShiftButton?0:1;
 		int buttonSlotIndex=forwardedFeature.getIndex();
-		if(buttonSlotIndex>=input.getNumButtonSlots()-1)
-			buttonSlotIndex-=input.getNumButtonSlots()-1;
+		if(buttonSlotIndex>=numForwardedButtons)
+			buttonSlotIndex-=numForwardedButtons;
 		
 		/* Add the button slot's feature to the result set: */
-		result.push_back(input.getButtonSlotFeature(buttonSlotIndex+1));
+		result.push_back(input.getButtonSlotFeature(buttonSlotIndex+firstForwardedButton));
 		}
 	
 	if(forwardedFeature.isValuator())
@@ -291,11 +313,15 @@ InputDeviceFeatureSet ShiftButtonTool::getForwardedFeatures(const InputDeviceFea
 		int buttonSlotIndex=input.getButtonSlotIndex(slotIndex);
 		
 		/* Check if the button is part of the forwarded subset: */
-		if(buttonSlotIndex>=1)
+		int numForwardedButtons=input.getNumButtonSlots()-1;
+		if(forwardShiftButton)
+			++numForwardedButtons;
+		int firstForwardedButton=forwardShiftButton?0:1;
+		if(buttonSlotIndex>=firstForwardedButton)
 			{
 			/* Add the forwarded feature for the current shift plane to the result set: */
-			int buttonBase=shifted?input.getNumButtonSlots()-1:0;
-			result.push_back(InputDeviceFeature(transformedDevice,InputDevice::BUTTON,buttonSlotIndex-1+buttonBase));
+			int buttonBase=shifted?numForwardedButtons:0;
+			result.push_back(InputDeviceFeature(transformedDevice,InputDevice::BUTTON,buttonBase-firstForwardedButton+buttonSlotIndex));
 			}
 		}
 	

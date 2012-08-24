@@ -1015,7 +1015,7 @@ void MeasureEnvironment::loadMeasurementFileCallback(Misc::CallbackData* cbData)
 	/* Open a file selection dialog: */
 	GLMotif::FileSelectionDialog* loadMeasurementFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadMeasurementFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadMeasurementFileOKCallback);
-	loadMeasurementFileDialog->getCancelCallbacks().add(loadMeasurementFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	loadMeasurementFileDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
 	
 	/* Show the file selection dialog: */
 	Vrui::popupPrimaryWidget(loadMeasurementFileDialog);
@@ -1035,7 +1035,7 @@ void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbD
 	/* Open a file selection dialog: */
 	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadOptitrackSampleFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadOptitrackSampleFileOKCallback);
-	loadOptitrackSampleFileDialog->getCancelCallbacks().add(loadOptitrackSampleFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	loadOptitrackSampleFileDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
 	
 	/* Show the file selection dialog: */
 	Vrui::popupPrimaryWidget(loadOptitrackSampleFileDialog);

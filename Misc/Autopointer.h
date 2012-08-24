@@ -1,7 +1,7 @@
 /***********************************************************************
 Autopointer - Class for pointers to reference-counted objects. Uses the
 destination class' ref() and unref() methods.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -58,24 +58,24 @@ class Autopointer
 		}
 	Autopointer& operator=(Target* sTarget) // Assignment operator from standard pointer
 		{
-		/* Unreference the old target and reference the new one: */
+		/* Reference the new target and unreference the old one: */
+		if(sTarget!=0)
+			sTarget->ref();
 		if(target!=0)
 			target->unref();
 		target=sTarget;
-		if(target!=0)
-			target->ref();
 		
 		return *this;
 		}
 	template <class SourceTargetParam>
 	Autopointer& operator=(SourceTargetParam* sTarget) // Ditto, with target type conversion
 		{
-		/* Unreference the old target and reference the new one: */
+		/* Reference the new target and unreference the old one: */
+		if(sTarget!=0)
+			sTarget->ref();
 		if(target!=0)
 			target->unref();
-		target=dynamic_cast<Target*>(sTarget);
-		if(target!=0)
-			target->ref();
+		target=sTarget;
 		
 		return *this;
 		}
@@ -94,32 +94,25 @@ class Autopointer
 		}
 	Autopointer& operator=(const Autopointer& source) // Assignment operator; removes reference from previous target object and references new target object
 		{
-		/* Check for aliasing: */
-		if(target!=source.target)
-			{
-			/* Unreference the old target and reference the new one: */
-			if(target!=0)
-				target->unref();
-			target=source.target;
-			if(target!=0)
-				target->ref();
-			}
+		/* Reference the new target and unreference the old one: */
+		if(source.target!=0)
+			source.target->ref();
+		if(target!=0)
+			target->unref();
+		target=source.target;
 		
 		return *this;
 		}
 	template <class SourceTargetParam>
 	Autopointer& operator=(const Autopointer<SourceTargetParam>& source) // Ditto, with target type conversion
 		{
-		/* Check for aliasing: */
-		if(target!=source.getPointer())
-			{
-			/* Unreference the old target and reference the new one: */
-			if(target!=0)
-				target->unref();
-			target=dynamic_cast<Target*>(source.getPointer());
-			if(target!=0)
-				target->ref();
-			}
+		/* Reference the new target and unreference the old one: */
+		Target* sTarget=dynamic_cast<Target*>(source.getPointer());
+		if(sTarget!=0)
+			sTarget->ref();
+		if(target!=0)
+			target->unref();
+		target=sTarget;
 		
 		return *this;
 		}

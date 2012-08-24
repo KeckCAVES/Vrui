@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/GLLightTracker.h>
 
+#include <Misc/PrintInteger.h>
 #include <GL/gl.h>
 #include <GL/GLLightTemplates.h>
 #include <GL/GLLight.h>
@@ -578,18 +579,8 @@ std::string GLLightTracker::createAccumulateLightFunction(int lightIndex) const
 	std::string result;
 	
 	/* Create the light index string: */
-	std::string index;
-	char buffer[10];
-	char* bufPtr=buffer;
-	int li=lightIndex;
-	do
-		{
-		*(bufPtr++)=char(li%10+'0');
-		li/=10;
-		}
-	while(li!=0);
-	while(bufPtr>buffer)
-		index.push_back(*(--bufPtr));
+	char liBuffer[12];
+	char* liString=Misc::print(lightIndex,liBuffer+11);
 	
 	/* Find the appropriate function template string: */
 	const char* functionTemplate;
@@ -625,7 +616,7 @@ std::string GLLightTracker::createAccumulateLightFunction(int lightIndex) const
 				++matchLen;
 				if(matchLen==12)
 					{
-					result.append(index);
+					result.append(liString);
 					matchLen=0;
 					}
 				}

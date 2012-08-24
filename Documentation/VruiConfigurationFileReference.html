@@ -883,7 +883,12 @@
 
 <TR>
 <TD>windowPos</TD><TD><A HREF="VruiCFGTypes.html#windowposition">window position</A></TD>
-<TD>Initial position of the window on the display in pixel coordinates.</TD>
+<TD>Initial position of the window's interior on the display in pixel coordinates. The position component places the top-left corner of the window's interior, with (0, 0) corresponding to the top-left corner of the screen. This is only a request to the window manager, which might disallow certain placements.</TD>
+</TR>
+
+<TR>
+<TD>decorate</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to put window manager decorations (title bar, frame, buttons) around the window. This is only a request to the window manager, but is generally granted.</TD>
 </TR>
 
 <TR>

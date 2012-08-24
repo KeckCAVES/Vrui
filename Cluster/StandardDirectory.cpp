@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -33,12 +33,12 @@ namespace Cluster {
 Methods of class StandardDirectory:
 **********************************/
 
-StandardDirectory::StandardDirectory(Multiplexer* sMultiplexer,std::string sPathName)
+StandardDirectory::StandardDirectory(Multiplexer* sMultiplexer,const char* sPathName)
 	:pipe(sMultiplexer),
 	 entryType(Misc::PATHTYPE_DOES_NOT_EXIST)
 	{
 	/* Prepend the current directory path to the path name if the given path name is relative: */
-	if(sPathName.empty()||sPathName[0]!='/')
+	if(sPathName[0]!='/')
 		{
 		pathName=Misc::getCurrentDirectory();
 		pathName.push_back('/');
@@ -51,7 +51,7 @@ StandardDirectory::StandardDirectory(Multiplexer* sMultiplexer,std::string sPath
 	normalizePath(pathName,1);
 	}
 
-StandardDirectory::StandardDirectory(Multiplexer* sMultiplexer,std::string sPathName,int)
+StandardDirectory::StandardDirectory(Multiplexer* sMultiplexer,const char* sPathName,int)
 	:pipe(sMultiplexer),
 	 pathName(sPathName),
 	 entryType(Misc::PATHTYPE_DOES_NOT_EXIST)
@@ -106,9 +106,9 @@ IO::DirectoryPtr StandardDirectory::getParent(void) const
 		
 		/* Open and return the directory corresponding to the path name prefix before the last slash: */
 		if(pipe.getMultiplexer()->isMaster())
-			return new StandardDirectoryMaster(pipe.getMultiplexer(),std::string(pathName.begin(),lastCompIt),0);
+			return new StandardDirectoryMaster(pipe.getMultiplexer(),std::string(pathName.begin(),lastCompIt).c_str(),0);
 		else
-			return new StandardDirectorySlave(pipe.getMultiplexer(),std::string(pathName.begin(),lastCompIt),0);
+			return new StandardDirectorySlave(pipe.getMultiplexer(),std::string(pathName.begin(),lastCompIt).c_str(),0);
 		}
 	}
 
@@ -139,16 +139,16 @@ IO::DirectoryPtr StandardDirectory::openDirectory(const char* directoryName) con
 	
 	/* Return the new directory: */
 	if(pipe.getMultiplexer()->isMaster())
-		return new StandardDirectoryMaster(pipe.getMultiplexer(),directoryPath);
+		return new StandardDirectoryMaster(pipe.getMultiplexer(),directoryPath.c_str());
 	else
-		return new StandardDirectorySlave(pipe.getMultiplexer(),directoryPath);
+		return new StandardDirectorySlave(pipe.getMultiplexer(),directoryPath.c_str());
 	}
 
 /****************************************
 Methods of class StandardDirectoryMaster:
 ****************************************/
 
-StandardDirectoryMaster::StandardDirectoryMaster(Multiplexer* sMultiplexer,std::string sPathName)
+StandardDirectoryMaster::StandardDirectoryMaster(Multiplexer* sMultiplexer,const char* sPathName)
 	:StandardDirectory(sMultiplexer,sPathName),
 	 directory(opendir(pathName.c_str())),
 	 entry(0)
@@ -160,7 +160,7 @@ StandardDirectoryMaster::StandardDirectoryMaster(Multiplexer* sMultiplexer,std::
 		throw OpenError(pathName.c_str());
 	}
 
-StandardDirectoryMaster::StandardDirectoryMaster(Multiplexer* sMultiplexer,std::string sPathName,int)
+StandardDirectoryMaster::StandardDirectoryMaster(Multiplexer* sMultiplexer,const char* sPathName,int)
 	:StandardDirectory(sMultiplexer,sPathName,0),
 	 directory(opendir(pathName.c_str())),
 	 entry(0)
@@ -268,7 +268,7 @@ const char* StandardDirectoryMaster::getEntryName(void) const
 Methods of class StandardDirectorySlave:
 ***************************************/
 
-StandardDirectorySlave::StandardDirectorySlave(Multiplexer* sMultiplexer,std::string sPathName)
+StandardDirectorySlave::StandardDirectorySlave(Multiplexer* sMultiplexer,const char* sPathName)
 	:StandardDirectory(sMultiplexer,sPathName)
 	{
 	/* Check for failure: */
@@ -276,7 +276,7 @@ StandardDirectorySlave::StandardDirectorySlave(Multiplexer* sMultiplexer,std::st
 		throw OpenError(pathName.c_str());
 	}
 
-StandardDirectorySlave::StandardDirectorySlave(Multiplexer* sMultiplexer,std::string sPathName,int)
+StandardDirectorySlave::StandardDirectorySlave(Multiplexer* sMultiplexer,const char* sPathName,int)
 	:StandardDirectory(sMultiplexer,sPathName,0)
 	{
 	/* Check for failure: */

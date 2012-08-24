@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,6 +38,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/WidgetManager.h>
+#include <GLMotif/StyleSheet.h>
+#include <GLMotif/PopupWindow.h>
+#include <GLMotif/RowColumn.h>
+#include <GLMotif/Label.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/OpenFile.h>
@@ -51,6 +55,7 @@ Methods of class ViewpointFileNavigationToolFactory:
 ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ViewpointFileNavigationTool",toolManager),
 	 viewpointFileName(""),
+	 showGui(false),
 	 showKeyframes(true),
 	 pauseFileName("ViewpointFileNavigation.pauses"),
 	 autostart(false)
@@ -66,6 +71,7 @@ ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManag
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	viewpointFileName=cfs.retrieveString("./viewpointFileName",viewpointFileName);
+	showGui=cfs.retrieveValue<bool>("./showGui",showGui);
 	showKeyframes=cfs.retrieveValue<bool>("./showKeyframes",showKeyframes);
 	pauseFileName=cfs.retrieveString("./pauseFileName",pauseFileName);
 	autostart=cfs.retrieveValue<bool>("./autostart",autostart);
@@ -132,6 +138,61 @@ ViewpointFileNavigationToolFactory* ViewpointFileNavigationTool::factory=0;
 /********************************************
 Methods of class ViewpointFileNavigationTool:
 ********************************************/
+
+void ViewpointFileNavigationTool::positionSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+	{
+	/* Set the current curve parameter: */
+	parameter=Scalar(cbData->value);
+	
+	/* Navigate to the new parameter: */
+	navigate(parameter);
+	}
+
+void ViewpointFileNavigationTool::speedSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
+	{
+	/* Set the speed: */
+	speed=Scalar(cbData->value);
+	}
+
+void ViewpointFileNavigationTool::createGui(void)
+	{
+	const GLMotif::StyleSheet& ss=*getWidgetManager()->getStyleSheet();
+	
+	/* Create the playback control dialog window: */
+	controlDialogPopup=new GLMotif::PopupWindow("ControlDialogPopup",getWidgetManager(),"Playback Control");
+	controlDialogPopup->setResizableFlags(true,false);
+	
+	GLMotif::RowColumn* controlDialog=new GLMotif::RowColumn("ControlDialog",controlDialogPopup,false);
+	controlDialog->setOrientation(GLMotif::RowColumn::VERTICAL);
+	controlDialog->setPacking(GLMotif::RowColumn::PACK_TIGHT);
+	controlDialog->setNumMinorWidgets(2);
+	
+	new GLMotif::Label("PositionLabel",controlDialog,"Position");
+	
+	positionSlider=new GLMotif::TextFieldSlider("PositionSlider",controlDialog,8,ss.fontHeight*10.0f);
+	positionSlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	positionSlider->getTextField()->setFieldWidth(7);
+	positionSlider->getTextField()->setPrecision(1);
+	positionSlider->setValueRange(splines.front().t[0],splines.back().t[1],1.0);
+	positionSlider->setValue(parameter);
+	positionSlider->getValueChangedCallbacks().add(this,&ViewpointFileNavigationTool::positionSliderCallback);
+	
+	new GLMotif::Label("SpeedLabel",controlDialog,"Speed");
+	
+	GLMotif::TextFieldSlider* speedSlider=new GLMotif::TextFieldSlider("SpeedSlider",controlDialog,8,ss.fontHeight*10.0f);
+	speedSlider->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
+	speedSlider->getTextField()->setFieldWidth(7);
+	speedSlider->getTextField()->setPrecision(2);
+	speedSlider->setValueRange(-2.0,2.0,0.01);
+	speedSlider->getSlider()->addNotch(-1.0f);
+	speedSlider->getSlider()->addNotch(1.0f);
+	speedSlider->setValue(speed);
+	speedSlider->getValueChangedCallbacks().add(this,&ViewpointFileNavigationTool::speedSliderCallback);
+	
+	controlDialog->manageChild();
+	
+	popupPrimaryWidget(controlDialogPopup);
+	}
 
 void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 	{
@@ -319,15 +380,19 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		showErrorMessage("Curve File Animation",message.c_str());
 		}
 	
-	if(!splines.empty()&&autostart)
+	if(!splines.empty())
 		{
-		if(activate())
-			{
-			/* Save the animation's start time: */
-			startTime=Scalar(getApplicationTime())+splines[0].t[0];
-			paused=false;
-			lastParameter=splines[0].t[0]-Scalar(1);
-			}
+		/* Start animating from the beginning: */
+		paused=false;
+		parameter=splines.front().t[0];
+		
+		/* Create playback control dialog if requested: */
+		if(showGui)
+			createGui();
+		
+		/* Start animating if requested: */
+		if(autostart)
+			activate();
 		}
 	else if(!viewpoints.empty()&&activate())
 		{
@@ -377,23 +442,88 @@ void ViewpointFileNavigationTool::interpolate(const ViewpointFileNavigationTool:
 	result.up=p0.up*(Scalar(1)-t)+p1.up*t;
 	}
 
+bool ViewpointFileNavigationTool::navigate(Scalar parameter)
+	{
+	/* Find the spline segment containing the given parameter: */
+	int l=0;
+	int r=splines.size();
+	while(r-l>1)
+		{
+		int m=(l+r)>>1;
+		if(parameter>=splines[m].t[0])
+			l=m;
+		else
+			r=m;
+		}
+	const SplineSegment& s=splines[l];
+	if(parameter>=s.t[0]&&parameter<=s.t[1])
+		{
+		/* Evaluate the spline segment at the current time: */
+		Scalar t=(parameter-s.t[0])/(s.t[1]-s.t[0]);
+		ControlPoint cp[6];
+		for(int i=0;i<3;++i)
+			interpolate(s.p[i],s.p[i+1],t,cp[i]);
+		for(int i=0;i<2;++i)
+			interpolate(cp[i],cp[i+1],t,cp[3+i]);
+		interpolate(cp[3],cp[4],t,cp[5]);
+
+		/* Compute the appropriate navigation transformation from the next viewpoint: */
+		NavTransform nav=NavTransform::identity;
+		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+		nav*=NavTransform::scale(getDisplaySize()/Math::exp(cp[5].size)); // Scales are interpolated logarithmically
+		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(cp[5].forward,cp[5].up),cp[5].forward)));
+		nav*=NavTransform::translateToOriginFrom(cp[5].center);
+		
+		if(isActive())
+			{
+			/* Set the viewpoint: */
+			setNavigationTransformation(nav);
+			}
+		else if(activate())
+			{
+			/* Set the viewpoint: */
+			setNavigationTransformation(nav);
+			
+			/* Deactivate again: */
+			deactivate();
+			}
+		
+		nextViewpointIndex=l+1;
+		return true;
+		}
+	else
+		{
+		/* Stop animating; spline is over: */
+		nextViewpointIndex=0;
+		return false;
+		}
+	}
+
 ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(sFactory,inputAssignment),
 	 viewpointFileName(factory->viewpointFileName),
+	 showGui(factory->showGui),
 	 showKeyframes(factory->showKeyframes),
 	 pauseFileName(factory->pauseFileName),
 	 autostart(factory->autostart),
+	 controlDialogPopup(0),positionSlider(0),
 	 nextViewpointIndex(0U),
-	 startTime(0),
-	 paused(false),
+	 speed(1),paused(false),parameter(0),
 	 loadViewpointFileDialog(0)
 	{
+	}
+
+ViewpointFileNavigationTool::~ViewpointFileNavigationTool(void)
+	{
+	delete controlDialogPopup;
 	}
 
 void ViewpointFileNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Override per-class configuration settings: */
 	viewpointFileName=configFileSection.retrieveString("./viewpointFileName",viewpointFileName);
+	showGui=configFileSection.retrieveValue<bool>("./showGui",showGui);
 	showKeyframes=configFileSection.retrieveValue<bool>("./showKeyframes",showKeyframes);
 	pauseFileName=configFileSection.retrieveString("./pauseFileName",pauseFileName);
 	autostart=configFileSection.retrieveValue<bool>("./autostart",autostart);
@@ -423,7 +553,7 @@ void ViewpointFileNavigationTool::initialize(void)
 		{
 		loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
 		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
-		loadViewpointFileDialog->getCancelCallbacks().add(loadViewpointFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+		loadViewpointFileDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
 		popupPrimaryWidget(loadViewpointFileDialog);
 		}
 	else
@@ -481,21 +611,21 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 				{
 				/* Unpause the animation: */
 				paused=false;
-				startTime=getApplicationTime()-pauseTime;
+				parameter-=Scalar(getFrameTime())*speed;
 				}
 			else if(isActive())
 				{
 				/* Pause the animation: */
 				paused=true;
-				pauseTime=Scalar(getApplicationTime())-startTime;
 				deactivate();
 				}
 			else if(activate())
 				{
-				/* Save the animation's start time: */
-				startTime=Scalar(getApplicationTime())+splines[0].t[0];
+				/* Animate from the beginning: */
 				paused=false;
-				lastParameter=splines[0].t[0]-Scalar(1);
+				parameter=splines.front().t[0]-Scalar(getFrameTime())*speed;
+				if(positionSlider!=0)
+					positionSlider->setValue(parameter);
 				}
 			}
 		#endif
@@ -505,69 +635,30 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 void ViewpointFileNavigationTool::frame(void)
 	{
 	/* Animate the navigation transformation if the tool is active: */
-	if(!paused&&isActive())
+	if(isActive())
 		{
-		/* Get the current animation time: */
-		Scalar time=Scalar(getApplicationTime())-startTime;
+		/* Get the next curve parameter: */
+		Scalar newParameter=parameter+Scalar(getFrameTime())*speed;
 		
 		/* Check if a pause was scheduled between the last frame and this one: */
 		bool passedPause=false;
 		for(std::vector<Scalar>::const_iterator pIt=pauses.begin();pIt!=pauses.end();++pIt)
-			if(lastParameter<*pIt&&*pIt<=time)
+			if(parameter<*pIt&&*pIt<=newParameter)
 				{
 				passedPause=true;
-				time=*pIt;
+				newParameter=*pIt;
 				break;
 				}
 		
-		/* Find the spline segment containing the animation time: */
-		int l=0;
-		int r=splines.size();
-		while(r-l>1)
+		/* Navigate to the new curve parameter: */
+		if(!navigate(newParameter))
 			{
-			int m=(l+r)>>1;
-			if(time>=splines[m].t[0])
-				l=m;
-			else
-				r=m;
-			}
-		const SplineSegment& s=splines[l];
-		if(time<s.t[1])
-			{
-			/* Evaluate the spline segment at the current time: */
-			Scalar t=(time-s.t[0])/(s.t[1]-s.t[0]);
-			ControlPoint cp[6];
-			for(int i=0;i<3;++i)
-				interpolate(s.p[i],s.p[i+1],t,cp[i]);
-			for(int i=0;i<2;++i)
-				interpolate(cp[i],cp[i+1],t,cp[3+i]);
-			interpolate(cp[3],cp[4],t,cp[5]);
-			
-			/* Compute the appropriate navigation transformation from the next viewpoint: */
-			NavTransform nav=NavTransform::identity;
-			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-			nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-			nav*=NavTransform::scale(getDisplaySize()/Math::exp(cp[5].size)); // Scales are interpolated logarithmically
-			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(cp[5].forward,cp[5].up),cp[5].forward)));
-			nav*=NavTransform::translateToOriginFrom(cp[5].center);
-			
-			/* Set the viewpoint: */
-			setNavigationTransformation(nav);
-			
-			nextViewpointIndex=l+1;
-			}
-		else
-			{
-			/* Stop animating; spline is over: */
+			/* Stop animating, curve is over: */
 			deactivate();
-			
-			nextViewpointIndex=0;
 			}
-		
-		if(passedPause)
+		else if(passedPause)
 			{
 			paused=true;
-			pauseTime=time;
 			deactivate();
 			}
 		else
@@ -575,7 +666,11 @@ void ViewpointFileNavigationTool::frame(void)
 			/* Request another frame: */
 			scheduleUpdate(getApplicationTime()+1.0/125.0);
 			}
-		lastParameter=time;
+		
+		/* Update the curve parameter and the GUI: */
+		parameter=newParameter;
+		if(positionSlider!=0)
+			positionSlider->setValue(parameter);
 		}
 	}
 

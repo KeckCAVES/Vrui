@@ -105,27 +105,33 @@ size_t TCPPipeMaster::readData(IO::File::Byte* buffer,size_t bufferSize)
 		{
 		size_t readSize=size_t(readResult);
 		
-		/* Forward the just-read data to the slaves: */
-		Packet* packet=multiplexer->newPacket();
-		packet->packetSize=readSize;
-		memcpy(packet->packet,buffer,readSize);
-		multiplexer->sendPacket(pipeId,packet);
+		if(isReadCoupled())
+			{
+			/* Forward the just-read data to the slaves: */
+			Packet* packet=multiplexer->newPacket();
+			packet->packetSize=readSize;
+			memcpy(packet->packet,buffer,readSize);
+			multiplexer->sendPacket(pipeId,packet);
+			}
 		
 		return readSize;
 		}
 	else
 		{
-		/* Send an error indicator (empty packet followed by status packet) to the slaves: */
 		int errorCode=errno;
-		Packet* packet=multiplexer->newPacket();
-		packet->packetSize=0;
-		multiplexer->sendPacket(pipeId,packet);
-		packet=multiplexer->newPacket();
-		{
-		Packet::Writer writer(packet);
-		writer.write<int>(errorCode);
-		}
-		multiplexer->sendPacket(pipeId,packet);
+		if(isReadCoupled())
+			{
+			/* Send an error indicator (empty packet followed by status packet) to the slaves: */
+			Packet* packet=multiplexer->newPacket();
+			packet->packetSize=0;
+			multiplexer->sendPacket(pipeId,packet);
+			packet=multiplexer->newPacket();
+			{
+			Packet::Writer writer(packet);
+			writer.write<int>(errorCode);
+			}
+			multiplexer->sendPacket(pipeId,packet);
+			}
 		
 		/* Throw an exception: */
 		handleReadError(errorCode);
@@ -176,14 +182,17 @@ void TCPPipeMaster::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 			}
 		}
 	
-	/* Send a status packet to the slaves: */
-	Packet* packet=multiplexer->newPacket();
-	{
-	Packet::Writer writer(packet);
-	writer.write<int>(errorType);
-	writer.write<int>(errorCode);
-	}
-	multiplexer->sendPacket(pipeId,packet);
+	if(isWriteCoupled())
+		{
+		/* Send a status packet to the slaves: */
+		Packet* packet=multiplexer->newPacket();
+		{
+		Packet::Writer writer(packet);
+		writer.write<int>(errorType);
+		writer.write<int>(errorCode);
+		}
+		multiplexer->sendPacket(pipeId,packet);
+		}
 	
 	if(errorType!=0)
 		{
@@ -303,13 +312,16 @@ bool TCPPipeMaster::waitForData(void) const
 	Misc::FdSet readFds(fd);
 	bool result=Misc::pselect(&readFds,0,0,0)>=0&&readFds.isSet(fd);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	writer.write<int>(result?1:0);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		writer.write<int>(result?1:0);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -324,13 +336,16 @@ bool TCPPipeMaster::waitForData(const Misc::Time& timeout) const
 	Misc::FdSet readFds(fd);
 	bool result=Misc::pselect(&readFds,0,0,timeout)>=0&&readFds.isSet(fd);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	writer.write<int>(result?1:0);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		writer.write<int>(result?1:0);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -360,13 +375,16 @@ int TCPPipeMaster::getPortId(void) const
 	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
 	int result=ntohs(socketAddress.sin_port);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	writer.write<int>(result);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		writer.write<int>(result);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -384,13 +402,16 @@ std::string TCPPipeMaster::getAddress(void) const
 	inet_ntop(AF_INET,&socketAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN);
 	std::string result(resultBuffer);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	Misc::writeCppString(result,writer);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		Misc::writeCppString(result,writer);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -418,13 +439,16 @@ std::string TCPPipeMaster::getHostName(void) const
 	else
 		result=std::string(hostEntry->h_name);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	Misc::writeCppString(result,writer);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		Misc::writeCppString(result,writer);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -440,13 +464,16 @@ int TCPPipeMaster::getPeerPortId(void) const
 	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
 	int result=ntohs(peerAddress.sin_port);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	writer.write<int>(result);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		writer.write<int>(result);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -464,13 +491,16 @@ std::string TCPPipeMaster::getPeerAddress(void) const
 	inet_ntop(AF_INET,&peerAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN);
 	std::string result(resultBuffer);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	Misc::writeCppString(result,writer);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		Misc::writeCppString(result,writer);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -498,13 +528,16 @@ std::string TCPPipeMaster::getPeerHostName(void) const
 	else
 		result=std::string(hostEntry->h_name);
 	
-	/* Send a status message to the slaves: */
-	Packet* statusPacket=multiplexer->newPacket();
-	{
-	Packet::Writer writer(statusPacket);
-	Misc::writeCppString(result,writer);
-	}
-	multiplexer->sendPacket(pipeId,statusPacket);
+	if(isReadCoupled())
+		{
+		/* Send a status message to the slaves: */
+		Packet* statusPacket=multiplexer->newPacket();
+		{
+		Packet::Writer writer(statusPacket);
+		Misc::writeCppString(result,writer);
+		}
+		multiplexer->sendPacket(pipeId,statusPacket);
+		}
 	
 	return result;
 	}
@@ -515,50 +548,61 @@ Methods of class TCPPipeSlave:
 
 size_t TCPPipeSlave::readData(IO::File::Byte* buffer,size_t bufferSize)
 	{
-	/* Receive a data packet from the master: */
-	Packet* newPacket=multiplexer->receivePacket(pipeId);
-	
-	/* Check for error conditions: */
-	if(newPacket->packetSize!=0)
+	if(isReadCoupled())
 		{
-		/* Install the new packet as the pipe's read buffer: */
-		if(packet!=0)
-			multiplexer->deletePacket(packet);
-		packet=newPacket;
-		setReadBuffer(Packet::maxPacketSize,reinterpret_cast<Byte*>(packet->packet),false);
+		/* Receive a data packet from the master: */
+		Packet* newPacket=multiplexer->receivePacket(pipeId);
 		
-		return packet->packetSize;
+		/* Check for error conditions: */
+		if(newPacket->packetSize!=0)
+			{
+			/* Install the new packet as the pipe's read buffer: */
+			if(packet!=0)
+				multiplexer->deletePacket(packet);
+			packet=newPacket;
+			setReadBuffer(Packet::maxPacketSize,reinterpret_cast<Byte*>(packet->packet),false);
+			
+			return packet->packetSize;
+			}
+		else
+			{
+			/* Read the status packet: */
+			multiplexer->deletePacket(newPacket);
+			newPacket=multiplexer->receivePacket(pipeId);
+			Packet::Reader reader(newPacket);
+			int errorCode=reader.read<int>();
+			multiplexer->deletePacket(newPacket);
+			
+			/* Throw an exception: */
+			handleReadError(errorCode);
+			}
+		
+		/* Never reached; just to make compiler happy: */
+		return 0;
 		}
 	else
 		{
-		/* Read the status packet: */
-		multiplexer->deletePacket(newPacket);
-		newPacket=multiplexer->receivePacket(pipeId);
-		Packet::Reader reader(newPacket);
-		int errorCode=reader.read<int>();
-		multiplexer->deletePacket(newPacket);
-		
-		/* Throw an exception: */
-		handleReadError(errorCode);
+		/* Return end-of-file; slave shouldn't have been reading in decoupled state: */
+		return 0;
 		}
-	
-	/* Never reached; just to make compiler happy: */
-	return 0;
 	}
 
 void TCPPipeSlave::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
-	/* Receive a status packet from the master: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int errorType=reader.read<int>();
-	int errorCode=reader.read<int>();
-	multiplexer->deletePacket(statusPacket);
-	
-	if(errorType!=0)
+	if(isWriteCoupled())
 		{
-		/* Throw an exception: */
-		handleWriteError(errorType,errorCode);
+		/* Receive a status packet from the master: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int errorType=reader.read<int>();
+		int errorCode=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
+		
+		if(errorType!=0)
+			{
+			/* Throw an exception: */
+			handleWriteError(errorType,errorCode);
+			}
 		}
 	}
 
@@ -614,32 +658,48 @@ size_t TCPPipeSlave::resizeReadBuffer(size_t newReadBufferSize)
 
 bool TCPPipeSlave::waitForData(void) const
 	{
-	/* Check if there is unread data in the buffer: */
-	if(getUnreadDataSize()>0)
-		return true;
-	
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int result=reader.read<int>();
-	multiplexer->deletePacket(statusPacket);
-	
-	return result!=0;
+	if(isReadCoupled())
+		{
+		/* Check if there is unread data in the buffer: */
+		if(getUnreadDataSize()>0)
+			return true;
+		
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int result=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
+		
+		return result!=0;
+		}
+	else
+		{
+		/* Return no new data; slave shouldn't be reading in decoupled state: */
+		return false;
+		}
 	}
 
 bool TCPPipeSlave::waitForData(const Misc::Time& timeout) const
 	{
-	/* Check if there is unread data in the buffer: */
-	if(getUnreadDataSize()>0)
-		return true;
-	
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int result=reader.read<int>();
-	multiplexer->deletePacket(statusPacket);
-	
-	return result!=0;
+	if(isReadCoupled())
+		{
+		/* Check if there is unread data in the buffer: */
+		if(getUnreadDataSize()>0)
+			return true;
+		
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int result=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
+		
+		return result!=0;
+		}
+	else
+		{
+		/* Return no new data; slave shouldn't be reading in decoupled state: */
+		return false;
+		}
 	}
 
 void TCPPipeSlave::shutdown(bool read,bool write)
@@ -649,68 +709,116 @@ void TCPPipeSlave::shutdown(bool read,bool write)
 
 int TCPPipeSlave::getPortId(void) const
 	{
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int result=reader.read<int>();
-	multiplexer->deletePacket(statusPacket);
-	
-	return result;
+	if(isReadCoupled())
+		{
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int result=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
+		
+		return result;
+		}
+	else
+		{
+		/* Return bogus port ID; slave shouldn't be reading in decoupled state: */
+		return -1;
+		}
 	}
 
 std::string TCPPipeSlave::getAddress(void) const
 	{
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	std::string result=Misc::readCppString(reader);
-	multiplexer->deletePacket(statusPacket);
-	
-	return result;
+	if(isReadCoupled())
+		{
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		std::string result=Misc::readCppString(reader);
+		multiplexer->deletePacket(statusPacket);
+		
+		return result;
+		}
+	else
+		{
+		/* Return bogus address; slave shouldn't be reading in decoupled state: */
+		return std::string();
+		}
 	}
 
 std::string TCPPipeSlave::getHostName(void) const
 	{
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	std::string result=Misc::readCppString(reader);
-	multiplexer->deletePacket(statusPacket);
-	
-	return result;
+	if(isReadCoupled())
+		{
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		std::string result=Misc::readCppString(reader);
+		multiplexer->deletePacket(statusPacket);
+		
+		return result;
+		}
+	else
+		{
+		/* Return bogus host name; slave shouldn't be reading in decoupled state: */
+		return std::string();
+		}
 	}
 
 int TCPPipeSlave::getPeerPortId(void) const
 	{
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	int result=reader.read<int>();
-	multiplexer->deletePacket(statusPacket);
-	
-	return result;
+	if(isReadCoupled())
+		{
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int result=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
+		
+		return result;
+		}
+	else
+		{
+		/* Return bogus port ID; slave shouldn't be reading in decoupled state: */
+		return -1;
+		}
 	}
 
 std::string TCPPipeSlave::getPeerAddress(void) const
 	{
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	std::string result=Misc::readCppString(reader);
-	multiplexer->deletePacket(statusPacket);
-	
-	return result;
+	if(isReadCoupled())
+		{
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		std::string result=Misc::readCppString(reader);
+		multiplexer->deletePacket(statusPacket);
+		
+		return result;
+		}
+	else
+		{
+		/* Return bogus address; slave shouldn't be reading in decoupled state: */
+		return std::string();
+		}
 	}
 
 std::string TCPPipeSlave::getPeerHostName(void) const
 	{
-	/* Read the status packet from the master node: */
-	Packet* statusPacket=multiplexer->receivePacket(pipeId);
-	Packet::Reader reader(statusPacket);
-	std::string result=Misc::readCppString(reader);
-	multiplexer->deletePacket(statusPacket);
-	
-	return result;
+	if(isReadCoupled())
+		{
+		/* Read the status packet from the master node: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		std::string result=Misc::readCppString(reader);
+		multiplexer->deletePacket(statusPacket);
+		
+		return result;
+		}
+	else
+		{
+		/* Return bogus host name; slave shouldn't be reading in decoupled state: */
+		return std::string();
+		}
 	}
 
 }

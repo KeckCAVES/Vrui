@@ -1,7 +1,7 @@
 /***********************************************************************
 ClusterPipe - Base class providing a 1-to-n intra-cluster communication
 pattern using a cluster multiplexer.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -36,7 +36,8 @@ void ClusterPipe::flushPipe(void)
 
 ClusterPipe::ClusterPipe(Multiplexer* sMultiplexer)
 	:multiplexer(sMultiplexer),
-	 pipeId(multiplexer->openPipe())
+	 pipeId(multiplexer->openPipe()),
+	 readCoupled(true),writeCoupled(true)
 	{
 	}
 
@@ -44,6 +45,20 @@ ClusterPipe::~ClusterPipe(void)
 	{
 	/* Close the pipe: */
 	multiplexer->closePipe(pipeId);
+	}
+
+void ClusterPipe::couple(bool newReadCoupled,bool newWriteCoupled)
+	{
+	if(readCoupled!=newReadCoupled||writeCoupled!=newWriteCoupled)
+		{
+		/* Send any unsent data and execute a barrier to synchronize: */
+		flushPipe();
+		multiplexer->barrier(pipeId);
+		}
+	
+	/* Set the coupling flags: */
+	readCoupled=newReadCoupled;
+	writeCoupled=newWriteCoupled;
 	}
 
 void ClusterPipe::barrier(void)

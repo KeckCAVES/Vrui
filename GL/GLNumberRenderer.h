@@ -1,6 +1,6 @@
 /***********************************************************************
 GLNumberRenderer - Class to render numbers using a HUD-like font.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

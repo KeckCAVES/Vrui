@@ -2,7 +2,7 @@
 VruiCustomToolDemo - VR application showing how to create application-
 specific tools and register them with the Vrui tool manager, and how
 custom tools can interact with the VR application.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -52,7 +52,7 @@ class VruiCustomToolDemo:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiCustomToolDemo(int& argc,char**& argv,char**& appDefaults);
+	VruiCustomToolDemo(int& argc,char**& argv);
 	
 	/* Methods: */
 	void selectApplicationObject(void); // Dummy method to show how custom tools can interact with the application
@@ -98,8 +98,8 @@ void VruiCustomToolDemo::MyTool::buttonCallback(int buttonSlotIndex,Vrui::InputD
 Methods of class VruiCustomToolDemo:
 ***********************************/
 
-VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults)
+VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv)
+	:Vrui::Application(argc,argv)
 	{
 	/* Create a factory object for the custom tool class: */
 	MyToolFactory* myToolFactory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
@@ -128,8 +128,7 @@ int main(int argc,char* argv[])
 	try
 		{
 		/* Create an application object: */
-		char** appDefaults=0; // This is an additional parameter no one ever uses
-		VruiCustomToolDemo app(argc,argv,appDefaults);
+		VruiCustomToolDemo app(argc,argv);
 		
 		/* Run the Vrui main loop: */
 		app.run();

@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -31,12 +31,12 @@ namespace IO {
 Methods of class StandardDirectory:
 **********************************/
 
-StandardDirectory::StandardDirectory(std::string sPathName)
+StandardDirectory::StandardDirectory(const char* sPathName)
 	:directory(0),
 	 entry(0)
 	{
 	/* Prepend the current directory path to the path name if the given path name is relative: */
-	if(sPathName.empty()||sPathName[0]!='/')
+	if(sPathName[0]!='/')
 		{
 		pathName=Misc::getCurrentDirectory();
 		pathName.push_back('/');
@@ -54,7 +54,7 @@ StandardDirectory::StandardDirectory(std::string sPathName)
 		throw OpenError(pathName.c_str());
 	}
 
-StandardDirectory::StandardDirectory(std::string sPathName,int)
+StandardDirectory::StandardDirectory(const char* sPathName,int)
 	:pathName(sPathName),
 	 directory(opendir(pathName.c_str())),
 	 entry(0)
@@ -113,7 +113,7 @@ DirectoryPtr StandardDirectory::getParent(void) const
 			--lastCompIt;
 		
 		/* Open and return the directory corresponding to the path name prefix before the last slash: */
-		return new StandardDirectory(std::string(pathName.begin(),lastCompIt),0);
+		return new StandardDirectory(std::string(pathName.begin(),lastCompIt).c_str(),0);
 		}
 	}
 
@@ -203,7 +203,7 @@ DirectoryPtr StandardDirectory::openDirectory(const char* directoryName) const
 	directoryPath.append(directoryName);
 	
 	/* Open and return the new directory: */
-	return new StandardDirectory(directoryPath);
+	return new StandardDirectory(directoryPath.c_str());
 	}
 
 }

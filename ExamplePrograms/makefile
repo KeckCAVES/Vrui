@@ -22,7 +22,7 @@
 # matches the default Vrui installation; if Vrui's installation
 # directory was changed during Vrui's installation, the directory below
 # must be adapted.
-VRUI_MAKEDIR := $(HOME)/Vrui-2.3/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.4/share/make
 
 # Base installation directory for the example programs. If this is set
 # to the default of $(PWD), the example programs do not have to be
@@ -64,6 +64,7 @@ PACKAGES = MYVRUI
 
 ALL = $(EXEDIR)/VruiDemo \
       $(EXEDIR)/VruiDemoSmall \
+      $(EXEDIR)/VruiGLTest \
       $(EXEDIR)/VruiAppTemplate \
       $(EXEDIR)/VruiLocatorDemo \
       $(EXEDIR)/VruiCustomToolDemo \
@@ -104,6 +105,8 @@ include $(VRUI_MAKEDIR)/BasicMakefile
 $(EXEDIR)/VruiDemo: $(OBJDIR)/VruiDemo.o
 
 $(EXEDIR)/VruiDemoSmall: $(OBJDIR)/VruiDemoSmall.o
+
+$(EXEDIR)/VruiGLTest: $(OBJDIR)/VruiGLTest.o
 
 $(EXEDIR)/VruiAppTemplate: $(OBJDIR)/VruiAppTemplate.o
 

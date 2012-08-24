@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,6 +54,11 @@ UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
+	if(useEyeRay)
+		{
+		/* The default is not to draw the interaction ray when eye rays are used: */
+		drawRay=false;
+		}
 	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
 	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
 	rayColor=cfs.retrieveValue<GLColor<GLfloat,4> >("./rayColor",rayColor);

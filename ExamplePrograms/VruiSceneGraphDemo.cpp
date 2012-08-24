@@ -43,7 +43,7 @@ class VruiSceneGraphDemo:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiSceneGraphDemo(int& argc,char**& argv,char**& appDefaults);
+	VruiSceneGraphDemo(int& argc,char**& argv);
 	
 	/* Methods: */
 	virtual void display(GLContextData& contextData) const;
@@ -53,8 +53,8 @@ class VruiSceneGraphDemo:public Vrui::Application
 Methods of class VruiSceneGraphDemo:
 ***********************************/
 
-VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults)
+VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
+	:Vrui::Application(argc,argv)
 	{
 	if(argc>1)
 		{
@@ -132,8 +132,7 @@ void VruiSceneGraphDemo::display(GLContextData& contextData) const
 int main(int argc,char* argv[])
 	{
 	/* Create an application object: */
-	char** appDefaults=0;
-	VruiSceneGraphDemo app(argc,argv,appDefaults);
+	VruiSceneGraphDemo app(argc,argv);
 	
 	/* Run the Vrui main loop: */
 	app.run();

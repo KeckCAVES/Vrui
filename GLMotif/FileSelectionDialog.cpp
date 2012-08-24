@@ -1,6 +1,6 @@
 /***********************************************************************
 FileSelectionDialog - A popup window to select a file name.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -568,22 +568,6 @@ void FileSelectionDialog::addFileNameFilters(const char* newFileNameFilters)
 void FileSelectionDialog::setCanSelectDirectory(bool newCanSelectDirectory)
 	{
 	canSelectDirectory=newCanSelectDirectory;
-	}
-
-void FileSelectionDialog::defaultCloseCallback(FileSelectionDialog::CallbackData* cbData)
-	{
-	/* Bail out if the callback is not for this dialog: */
-	if(this!=cbData->fileSelectionDialog)
-		return;
-	
-	/* Delete the file selection dialog: */
-	getManager()->deleteWidget(this);
-	}
-
-void FileSelectionDialog::close(void)
-	{
-	/* Delete the file selection dialog: */
-	getManager()->deleteWidget(this);
 	}
 
 }

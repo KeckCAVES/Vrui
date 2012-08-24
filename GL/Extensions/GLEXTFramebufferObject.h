@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferObject - OpenGL extension class for the
 GL_EXT_framebuffer_object extension.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLEXTENSIONS_GLEXTFRAMEBUFFEROBJECT_INCLUDED
 #define GLEXTENSIONS_GLEXTFRAMEBUFFEROBJECT_INCLUDED
 
+#include <ostream>
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>
 #include <GL/Extensions/GLExtension.h>
@@ -66,7 +67,6 @@ typedef void (APIENTRY * PFNGLGENERATEMIPMAPEXTPROC) (GLenum target);
 #define GL_FRAMEBUFFER_COMPLETE_EXT       0x8CD5
 #define GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT 0x8CD6
 #define GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT 0x8CD7
-#define GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT 0x8CD8
 #define GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT 0x8CD9
 #define GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT 0x8CDA
 #define GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT 0x8CDB
@@ -222,5 +222,7 @@ class GLEXTFramebufferObject:public GLExtension
 /*******************************
 Extension-specific entry points:
 *******************************/
+
+void glPrintFramebufferStatusEXT(std::ostream& stream,const char* tag); // Convenience function to check framebuffer status and print detailed message to given stream if incomplete
 
 #endif

@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-2.3
+INSTALLDIR := $(HOME)/Vrui-2.4
 
 ########################################################################
 # Please do not change the following lines
@@ -137,9 +137,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2003003
+VRUI_VERSION = 2004001
 MAJORLIBVERSION = 2
-MINORLIBVERSION = 3
+MINORLIBVERSION = 4
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -279,6 +279,7 @@ EXECUTABLES += $(EXEDIR)/VRDeviceDaemon
 # The VR device driver plug-ins:
 #
 
+# Don't build the following device modules unless explicitly asked later:
 VRDEVICES_IGNORE_SOURCES = VRDeviceDaemon/VRDevices/Joystick.cpp \
                            VRDeviceDaemon/VRDevices/VRPNConnection.cpp \
                            VRDeviceDaemon/VRDevices/Wiimote.cpp \
@@ -443,7 +444,7 @@ endif
 ifneq ($(SYSTEM_HAVE_ATOMICS),0)
 	@echo Threads library uses built-in atomics
 else
-	@echo Threads library simulates atomics using POSIX mutexes
+	@echo Threads library simulates atomics using POSIX spinlocks or mutexes
 endif
 ifneq ($(SYSTEM_HAVE_SPINLOCKS),0)
 	@echo Threads library uses POSIX spinlocks
@@ -1150,6 +1151,7 @@ endif
 VRUI_HEADERS = $(wildcard Vrui/*.h) \
                $(wildcard Vrui/*.icpp)
 
+# Ignore the following sources, which are either unfinished, obsolete, or specifically requested later:
 VRUI_IGNORE_SOURCES = Vrui/Internal/InputDeviceDock.cpp \
                       Vrui/Internal/TheoraMovieSaver.cpp \
                       Vrui/Internal/KinectRecorder.cpp \
@@ -1658,7 +1660,9 @@ endif
 # Install all configuration files in ETCINSTALLDIR:
 	@echo Installing configuration files...
 	@install -d $(ETCINSTALLDIR)
-	@install -m u=rw,go=r Share/*.cfg $(ETCINSTALLDIR)
+	@if [ ! -e $(ETCINSTALLDIR)/Vrui.cfg ]; then install -m u=rw,go=r Share/Vrui.cfg $(ETCINSTALLDIR); else echo "Retaining existing $(ETCINSTALLDIR)/Vrui.cfg"; fi
+	@if [ ! -e $(ETCINSTALLDIR)/VRDevices.cfg ]; then install -m u=rw,go=r Share/VRDevices.cfg $(ETCINSTALLDIR); else echo "Retaining existing $(ETCINSTALLDIR)/VRDevices.cfg"; fi
+	@install -m u=rw,go=r $(filter-out Share/Vrui.cfg Share/VRDevices.cfg,$(wildcard Share/*.cfg)) $(ETCINSTALLDIR)
 ifeq ($(SYSTEM),DARWIN)
 	@install -m u=rw,go=r Share/MacOSX/Vrui.xinitrc $(ETCINSTALLDIR)
 endif

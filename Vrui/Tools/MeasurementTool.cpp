@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -257,6 +257,14 @@ MeasurementToolFactory* MeasurementTool::factory=0;
 Methods of class MeasurementTool:
 ********************************/
 
+Vector MeasurementTool::calcDist(int i0,int i1) const
+	{
+	if(coordinateMode==MeasurementToolFactory::USER)
+		return userTransform->inverseTransform(points[i1])-userTransform->inverseTransform(points[i0]);
+	else
+		return points[i1]-points[i0];
+	}
+
 void MeasurementTool::resetTool(void)
 	{
 	/* Reset the measurement state: */
@@ -327,9 +335,8 @@ void MeasurementTool::updateCurrentPoint(void)
 	/* Update the current position display: */
 	if(coordinateMode==MeasurementToolFactory::USER)
 		{
-		Point displayPoint=userTransform->transform(points[numPoints-1]);
 		for(int j=0;j<3;++j)
-			pos[numPoints-1][j]->setValue(double(displayPoint[j])); // Don't apply linear unit scale to user coordinates
+			pos[numPoints-1][j]->setValue(double(points[numPoints-1][j])); // Don't apply linear unit scale to user coordinates
 		}
 	else
 		{
@@ -341,7 +348,7 @@ void MeasurementTool::updateCurrentPoint(void)
 	if(numPoints>=2)
 		{
 		/* Calculate the distance between the last and the first measurement points: */
-		Scalar distValue=Geometry::dist(points[0],points[numPoints-1]);
+		Scalar distValue=calcDist(0,numPoints-1).mag();
 		dist[numPoints-2]->setValue(double(distValue)*linearUnitScale);
 		}
 
@@ -349,8 +356,8 @@ void MeasurementTool::updateCurrentPoint(void)
 	if(numPoints==3)
 		{
 		/* Calculate the angle between the three measurement points: */
-		Vector d1=points[1]-points[0];
-		Vector d2=points[2]-points[0];
+		Vector d1=calcDist(0,1);
+		Vector d2=calcDist(0,2);
 		Scalar angleValue=(d1*d2)/(d1.mag()*d2.mag());
 		if(angleValue<=Scalar(-1))
 			angleValue=Scalar(180);
@@ -433,14 +440,10 @@ void MeasurementTool::posTextFieldLayoutChangedCallback(GLMotif::TextField::Layo
 	if(i<numPoints)
 		{
 		/* Update the text field's display: */
-		Point displayPoint=points[i];
 		if(coordinateMode==MeasurementToolFactory::USER)
-			{
-			displayPoint=userTransform->transform(displayPoint);
-			pos[i][j]->setValue(double(displayPoint[j])); // Don't apply linear unit scale to user units
-			}
+			pos[i][j]->setValue(double(points[i][j])); // Don't apply linear unit scale to user units
 		else
-			pos[i][j]->setValue(double(displayPoint[j])*double(linearUnitScale));
+			pos[i][j]->setValue(double(points[i][j])*double(linearUnitScale));
 		}
 	}
 
@@ -476,12 +479,9 @@ void MeasurementTool::coordTransformChangedCallback(CoordinateManager::Coordinat
 void MeasurementTool::printPosition(Misc::File& file,const Point& pos) const
 	{
 	if(coordinateMode==MeasurementToolFactory::USER)
-		{
-		Point printPos=userTransform->transform(pos);
-		fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",printPos[0],printPos[1],printPos[2]); // Don't apply linear unit scale to user units
-		}
+		fprintf(file.getFilePtr()," (%16.12g, %16.12g, %16.12g)\n",pos[0],pos[1],pos[2]); // Don't apply linear unit scale to user units
 	else
-		fprintf(file.getFilePtr()," (%12.6g, %12.6g, %12.6g)\n",pos[0]*linearUnitScale,pos[1]*linearUnitScale,pos[2]*linearUnitScale);
+		fprintf(file.getFilePtr()," (%16.12g, %16.12g, %16.12g)\n",pos[0]*linearUnitScale,pos[1]*linearUnitScale,pos[2]*linearUnitScale);
 	}
 
 namespace {
@@ -849,7 +849,7 @@ void MeasurementTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData
 						fprintf(factory->measurementFile->getFilePtr()," distance");
 						printPosition(*factory->measurementFile,points[0]);
 						printPosition(*factory->measurementFile,points[1]);
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g\n",Geometry::dist(points[0],points[1])*linearUnitScale);
+						fprintf(factory->measurementFile->getFilePtr()," %16.12g\n",calcDist(0,1).mag()*linearUnitScale);
 						break;
 					
 					case MeasurementToolFactory::ANGLE:
@@ -857,13 +857,13 @@ void MeasurementTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData
 						fprintf(factory->measurementFile->getFilePtr()," angle   ");
 						printPosition(*factory->measurementFile,points[0]);
 						printPosition(*factory->measurementFile,points[1]);
-						Vector d1=points[1]-points[0];
+						Vector d1=calcDist(0,1);
 						Scalar d1Len=Geometry::mag(d1);
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g",d1Len*linearUnitScale);
+						fprintf(factory->measurementFile->getFilePtr()," %16.12g",d1Len*linearUnitScale);
 						printPosition(*factory->measurementFile,points[2]);
-						Vector d2=points[2]-points[0];
+						Vector d2=calcDist(0,2);
 						Scalar d2Len=Geometry::mag(d2);
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g",d2Len*linearUnitScale);
+						fprintf(factory->measurementFile->getFilePtr()," %16.12g",d2Len*linearUnitScale);
 						Scalar angleValue=(d1*d2)/(d1Len*d2Len);
 						if(angleValue<=Scalar(-1))
 							angleValue=Scalar(180);
@@ -871,7 +871,7 @@ void MeasurementTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData
 							angleValue=Scalar(0);
 						else
 							angleValue=Math::deg(Math::acos(angleValue));
-						fprintf(factory->measurementFile->getFilePtr()," %16.10g\n",angleValue);
+						fprintf(factory->measurementFile->getFilePtr()," %16.12g\n",angleValue);
 						break;
 						}
 					}
@@ -889,8 +889,17 @@ void MeasurementTool::frame(void)
 		{
 		/* Calculate the device position in the appropriate coordinate system: */
 		points[numPoints-1]=getButtonDevicePosition(0);
-		if(coordinateMode==MeasurementToolFactory::NAVIGATIONAL||coordinateMode==MeasurementToolFactory::USER)
+		if(coordinateMode!=MeasurementToolFactory::PHYSICAL)
+			{
+			/* Transform the physical point to navigational coordinates: */
 			points[numPoints-1]=getInverseNavigationTransformation().transform(points[numPoints-1]);
+			
+			if(coordinateMode==MeasurementToolFactory::USER)
+				{
+				/* Transform the navigational point to user coordinates: */
+				points[numPoints-1]=userTransform->transform(points[numPoints-1]);
+				}
+			}
 		
 		/* Update the measurement dialog: */
 		updateCurrentPoint();
@@ -908,15 +917,6 @@ void MeasurementTool::display(GLContextData& contextData) const
 	
 	/* Calculate the marker size: */
 	Scalar markerSize=factory->markerSize;
-	if(coordinateMode==MeasurementToolFactory::NAVIGATIONAL||coordinateMode==MeasurementToolFactory::USER)
-		{
-		markerSize/=getNavigationTransformation().getScaling();
-		
-		/* Go to navigational coordinates: */
-		glPushMatrix();
-		glLoadIdentity();
-		glMultMatrix(getDisplayState(contextData).modelviewNavigational);
-		}
 	
 	/* Determine the marker color: */
 	Color bgColor=getBackgroundColor();
@@ -925,7 +925,27 @@ void MeasurementTool::display(GLContextData& contextData) const
 		fgColor[i]=1.0f-bgColor[i];
 	fgColor[3]=bgColor[3];
 	
+	/* Transform all marker positions to physical coordinates: */
+	Point physPoints[3];
+	for(int i=0;i<3;++i)
+		physPoints[i]=points[i];
+	if(coordinateMode!=MeasurementToolFactory::PHYSICAL)
+		{
+		if(coordinateMode==MeasurementToolFactory::USER)
+			{
+			/* Transform points from user space to navigational space: */
+			for(int i=0;i<3;++i)
+				physPoints[i]=userTransform->inverseTransform(physPoints[i]);
+			}
+		
+		/* Transform points from navigational space to physical space: */
+		for(int i=0;i<3;++i)
+			physPoints[i]=getNavigationTransformation().transform((physPoints[i]));
+		}
+	
 	#if 1
+	
+	/* Draw a halo around the measurement markers and lines: */
 	glLineWidth(3.0f);
 	glColor(bgColor);
 	glBegin(GL_LINES);
@@ -933,25 +953,26 @@ void MeasurementTool::display(GLContextData& contextData) const
 	/* Mark all measurement points: */
 	for(int i=0;i<numPoints;++i)
 		{
-		glVertex(points[i][0]-markerSize,points[i][1],points[i][2]);
-		glVertex(points[i][0]+markerSize,points[i][1],points[i][2]);
-		glVertex(points[i][0],points[i][1]-markerSize,points[i][2]);
-		glVertex(points[i][0],points[i][1]+markerSize,points[i][2]);
-		glVertex(points[i][0],points[i][1],points[i][2]-markerSize);
-		glVertex(points[i][0],points[i][1],points[i][2]+markerSize);
+		glVertex(physPoints[i][0]-markerSize,physPoints[i][1],physPoints[i][2]);
+		glVertex(physPoints[i][0]+markerSize,physPoints[i][1],physPoints[i][2]);
+		glVertex(physPoints[i][0],physPoints[i][1]-markerSize,physPoints[i][2]);
+		glVertex(physPoints[i][0],physPoints[i][1]+markerSize,physPoints[i][2]);
+		glVertex(physPoints[i][0],physPoints[i][1],physPoints[i][2]-markerSize);
+		glVertex(physPoints[i][0],physPoints[i][1],physPoints[i][2]+markerSize);
 		}
 	
 	/* Draw all distance lines: */
 	for(int i=1;i<numPoints;++i)
 		{
-		glVertex(points[0]);
-		glVertex(points[i]);
+		glVertex(physPoints[0]);
+		glVertex(physPoints[i]);
 		}
 	
 	glEnd();
 	
 	#endif
 	
+	/* Draw the markers and measurement lines themselves: */
 	glLineWidth(1.0f);
 	glColor(fgColor);
 	glBegin(GL_LINES);
@@ -959,26 +980,24 @@ void MeasurementTool::display(GLContextData& contextData) const
 	/* Mark all measurement points: */
 	for(int i=0;i<numPoints;++i)
 		{
-		glVertex(points[i][0]-markerSize,points[i][1],points[i][2]);
-		glVertex(points[i][0]+markerSize,points[i][1],points[i][2]);
-		glVertex(points[i][0],points[i][1]-markerSize,points[i][2]);
-		glVertex(points[i][0],points[i][1]+markerSize,points[i][2]);
-		glVertex(points[i][0],points[i][1],points[i][2]-markerSize);
-		glVertex(points[i][0],points[i][1],points[i][2]+markerSize);
+		glVertex(physPoints[i][0]-markerSize,physPoints[i][1],physPoints[i][2]);
+		glVertex(physPoints[i][0]+markerSize,physPoints[i][1],physPoints[i][2]);
+		glVertex(physPoints[i][0],physPoints[i][1]-markerSize,physPoints[i][2]);
+		glVertex(physPoints[i][0],physPoints[i][1]+markerSize,physPoints[i][2]);
+		glVertex(physPoints[i][0],physPoints[i][1],physPoints[i][2]-markerSize);
+		glVertex(physPoints[i][0],physPoints[i][1],physPoints[i][2]+markerSize);
 		}
 	
 	/* Draw all distance lines: */
 	for(int i=1;i<numPoints;++i)
 		{
-		glVertex(points[0]);
-		glVertex(points[i]);
+		glVertex(physPoints[0]);
+		glVertex(physPoints[i]);
 		}
 	
 	glEnd();
 	
 	/* Restore OpenGL state: */
-	if(coordinateMode==MeasurementToolFactory::NAVIGATIONAL||coordinateMode==MeasurementToolFactory::USER)
-		glPopMatrix();
 	glLineWidth(lineWidth);
 	if(lightingEnabled)
 		glEnable(GL_LIGHTING);

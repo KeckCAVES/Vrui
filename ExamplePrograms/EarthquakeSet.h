@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2011 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -30,6 +30,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLObject.h>
 
 /* Forward declarations: */
+class GLClipPlaneTracker;
 class GLShader;
 
 class EarthquakeSet:public GLObject
@@ -55,6 +56,7 @@ class EarthquakeSet:public GLObject
 		public:
 		GLuint vertexBufferObjectId; // ID of vertex buffer object that contains the earthquake set (0 if extension not supported)
 		GLShader* pointRenderer; // Pointer to GLSL shader to render properly scaled, texture-mapped points (0 if extension not supported)
+		unsigned int clipPlaneVersion; // Version number of clipping plane state compiled into the current shader object
 		bool fog; // Flag whether fog blending is enabled in the current shader object
 		GLint scaledPointRadiusLocation; // Location of point radius uniform variable in shader program
 		GLint highlightTimeLocation; // Location of highlight time uniform variable in shader program
@@ -84,7 +86,7 @@ class EarthquakeSet:public GLObject
 	void loadANSSFile(IO::FilePtr earthquakeFile,double scaleFactor); // Loads an earthquake event file in ANSS readable database snapshot format
 	void loadCSVFile(const char* earthquakeFileName,IO::FilePtr earthquakeFile,double scaleFactor); // Loads an earthquake event file in space- or comma-separated format
 	void drawBackToFront(int left,int right,int splitDimension,const Point& eyePos,GLuint*& bufferPtr) const; // Renders the given kd-tree subtree in back-to-front order
-	void createShader(DataItem* dataItem) const; // Creates the particle rendering shader based on current OpenGL settings
+	void createShader(DataItem* dataItem,const GLClipPlaneTracker& cpt) const; // Creates the particle rendering shader based on current OpenGL settings
 	
 	/* Constructors and destructors: */
 	public:

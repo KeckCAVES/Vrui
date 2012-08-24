@@ -48,17 +48,17 @@ The Threads library provides a C++ wrapper around the pthreads library. It suppo
 <DT>TripleBuffer.h</DT>
 <DD>TripleBuffer is a class implementing the triple buffer communications pattern, where a consumer can read the most recent in a stream of values produced by a producer, without requiring synchronization between the two entities.</DD>
 
+<DT>Queue.h</DT>
+<DD>Queue is a simple unlimited-size queue to communicate data between one or more producers and one or more consumers.</DD>
+
+<DT>LimitedQueue.h</DT>
+<DD>LimitedQueue is a simple limited-size queue to communicate data between one or more producers and one or more consumers.</DD>
+
 <DT>RingBuffer.h</DT>
 <DD>RingBuffer is a class implementing the pipe communications pattern, where a consumer can read a stream of values produced by a producer.</DD>
 
 <DT>DropoutBuffer.h</DT>
 <DD>DropoutBuffer is a generalization of TripleBuffer: Instead of only retaining one most recent value to read, it retains up to a preset number of most recent values. Unlike TripleBuffer, it requires some synchronization between producer and consumer.</DD>
-
-<DT>GzippedFile</DT>
-<DD>GzippedFile is a concrete derived class of IO::File for high-performance read access to gzip-compressed files using background readahead and decompression.</DD>
-
-<DT>GzippedFileCharacterSource</DT>
-<DD>FileCharacterSource is a reader class derived from Misc::CharacterSource for gzip-compressed standard files. It uses a background thread for readahead and decompression.</DD>
 </DL>
 
 </BODY>

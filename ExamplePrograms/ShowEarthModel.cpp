@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -144,6 +144,19 @@ Vrui::Point ShowEarthModel::RotatedGeodeticCoordinateTransform::transform(const 
 	
 	/* Then convert the point to geodetic coordinates: */
 	return Vrui::GeodeticCoordinateTransform::transform(p);
+	}
+
+Vrui::Point ShowEarthModel::RotatedGeodeticCoordinateTransform::inverseTransform(const Vrui::Point& userPoint) const
+	{
+	/* First convert the point to Cartesian coordinates: */
+	Vrui::Point p=Vrui::GeodeticCoordinateTransform::inverseTransform(userPoint);
+	
+	/* Then do the rotation: */
+	Vrui::Point result;
+	result[0]=raCos*p[0]-raSin*p[1];
+	result[1]=raCos*p[1]+raSin*p[0];
+	result[2]=p[2];
+	return result;
 	}
 
 void ShowEarthModel::RotatedGeodeticCoordinateTransform::setRotationAngle(Vrui::Scalar newRotationAngle)
@@ -1461,7 +1474,7 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-void ShowEarthModel::alignSurfaceFrame(const Vrui::SurfaceNavigationTool::AlignmentData& alignmentData)
+void ShowEarthModel::alignSurfaceFrame(Vrui::SurfaceNavigationTool::AlignmentData& alignmentData)
 	{
 	/* Create a geoid: */
 	typedef Geometry::Geoid<Vrui::Scalar> Geoid;

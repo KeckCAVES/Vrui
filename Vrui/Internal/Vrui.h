@@ -1,7 +1,7 @@
 /***********************************************************************
 Internal kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2011 Oliver Kreylos
+Copyright (c) 2000-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,6 +44,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
+#include <Vrui/WindowProperties.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/ToolManager.h>
 
@@ -164,6 +165,7 @@ struct VruiState
 	ScreenProtector* protectors;
 	
 	/* Window management: */
+	WindowProperties windowProperties;
 	DisplayStateMapper displayStateMapper;
 	
 	/* Listener management: */

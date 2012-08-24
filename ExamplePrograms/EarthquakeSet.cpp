@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2011 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -25,6 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <string>
 #include <iostream>
 #include <algorithm>
 #include <Misc/ThrowStdErr.h>
@@ -37,6 +38,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Geometry/ArrayKdTree.h>
 #include <GL/gl.h>
 #include <GL/GLVertexArrayTemplates.h>
+#include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
 #include <GL/Extensions/GLARBMultitexture.h>
@@ -128,7 +130,8 @@ Methods of class EarthquakeSet::DataItem:
 ****************************************/
 
 EarthquakeSet::DataItem::DataItem(void)
-	:vertexBufferObjectId(0),pointRenderer(0),
+	:vertexBufferObjectId(0),
+	 pointRenderer(0),clipPlaneVersion(0),fog(false),
 	 scaledPointRadiusLocation(-1),highlightTimeLocation(-1),
 	 currentTimeLocation(-1),pointTextureLocation(-1),
 	 pointTextureObjectId(0),
@@ -468,119 +471,104 @@ void EarthquakeSet::drawBackToFront(int left,int right,int splitDimension,const 
 		}
 	}
 
-void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem) const
+void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem,const GLClipPlaneTracker& cpt) const
 	{
-	/* Create the point rendering shader: */
-	static const char* vertexProgram="\
-		uniform float scaledPointRadius; \
-		uniform float highlightTime; \
-		uniform float currentTime; \
-		uniform vec4 frontSphereCenter; \
-		uniform float frontSphereRadius2; \
-		uniform bool frontSphereTest; \
-		 \
-		void main() \
-			{ \
-			/* Check if the point is inside the front sphere: */ \
-			bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2; \
-			if(frontSphereTest) \
-				valid=!valid; \
-			if(valid) \
-				{ \
-				/* Transform the vertex to eye coordinates: */ \
-				vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
-				 \
-				/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
-				float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
-				if(gl_MultiTexCoord0.x>5.0) \
-					pointSize*=gl_MultiTexCoord0.x-4.0; \
-				 \
-				/* Adapt point size based on current time and time scale: */ \
-				float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
-				if(highlightFactor>0.0&&highlightFactor<=highlightTime) \
-					pointSize*=2.0*highlightFactor/highlightTime+1.0; \
-				 \
-				/* Set point size: */ \
-				gl_PointSize=pointSize; \
-				 \
-				/* Use standard color: */ \
-				gl_FrontColor=gl_Color; \
-				} \
-			else \
-				{ \
-				/* Set point size to zero and color to invisible: */ \
-				gl_PointSize=0.0; \
-				gl_FrontColor=vec4(0.0,0.0,0.0,0.0); \
-				} \
-			 \
-			/* Use standard vertex position for fragment generation: */ \
-			gl_Position=ftransform(); \
-			}";
-	static const char* vertexProgramFog="\
-		uniform float scaledPointRadius; \
-		uniform float highlightTime; \
-		uniform float currentTime; \
-		uniform vec4 frontSphereCenter; \
-		uniform float frontSphereRadius2; \
-		uniform bool frontSphereTest; \
-		 \
-		void main() \
-			{ \
-			/* Check if the point is inside the front sphere: */ \
-			bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2; \
-			if(frontSphereTest) \
-				valid=!valid; \
-			if(valid) \
-				{ \
-				/* Transform the vertex to eye coordinates: */ \
-				vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex; \
-				 \
-				/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */ \
-				float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z; \
-				if(gl_MultiTexCoord0.x>5.0) \
-					pointSize*=gl_MultiTexCoord0.x-4.0; \
-				 \
-				/* Adapt point size based on current time and time scale: */ \
-				float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime); \
-				if(highlightFactor>0.0&&highlightFactor<=highlightTime) \
-					pointSize*=2.0*highlightFactor/highlightTime+1.0; \
-				 \
-				/* Set point size: */ \
-				gl_PointSize=pointSize; \
-				 \
-				/* Calculate vertex-eye distance for fog computation: */ \
-				float eyeDist=-vertexEye.z/vertexEye.w; \
-				 \
-				/* Calculate fog attenuation: */ \
-				float fogFactor=clamp((eyeDist-gl_Fog.start)/(gl_Fog.end-gl_Fog.start),0.0,1.0); \
-				 \
-				/* Use standard color attenuated by fog: */ \
-				gl_FrontColor=mix(gl_Color,gl_Fog.color,fogFactor); \
-				} \
-			else \
-				{ \
-				/* Set point size to zero and color to invisible: */ \
-				gl_PointSize=0.0; \
-				gl_FrontColor=vec4(0.0,0.0,0.0,0.0); \
-				} \
-			 \
-			/* Use standard vertex position for fragment generation: */ \
-			gl_Position=ftransform(); \
-			}";
-	static const char* fragmentProgram="\
-		uniform sampler2D pointTexture; \
-		 \
-		void main() \
-			{ \
-			gl_FragColor=texture2D(pointTexture,gl_TexCoord[0].xy)*gl_Color; \
-			}";
+	/* Start creating the point rendering vertex shader: */
+	std::string vertexProgram="\
+		uniform float scaledPointRadius;\n\
+		uniform float highlightTime;\n\
+		uniform float currentTime;\n\
+		uniform vec4 frontSphereCenter;\n\
+		uniform float frontSphereRadius2;\n\
+		uniform bool frontSphereTest;\n\
+		\n\
+		void main()\n\
+			{\n\
+			/* Check if the point is inside the front sphere: */\n\
+			bool valid=dot(gl_Vertex-frontSphereCenter,gl_Vertex-frontSphereCenter)>=frontSphereRadius2;\n\
+			if(frontSphereTest)\n\
+				valid=!valid;\n\
+			if(valid)\n\
+				{\n\
+				/* Transform the vertex to eye coordinates: */\n\
+				vec4 vertexEye=gl_ModelViewMatrix*gl_Vertex;\n\
+				\n\
+				/* Calculate point size based on vertex' eye distance along z direction and event magnitude: */\n\
+				float pointSize=scaledPointRadius*2.0*vertexEye.w/vertexEye.z;\n\
+				if(gl_MultiTexCoord0.x>5.0)\n\
+					pointSize*=gl_MultiTexCoord0.x-4.0;\n\
+				\n\
+				/* Adapt point size based on current time and time scale: */\n\
+				float highlightFactor=gl_MultiTexCoord0.y-(currentTime-highlightTime);\n\
+				if(highlightFactor>0.0&&highlightFactor<=highlightTime)\n\
+					pointSize*=2.0*highlightFactor/highlightTime+1.0;\n\
+				\n\
+				/* Set point size: */\n\
+				gl_PointSize=pointSize;\n\
+				\n";
 	
-	/* Compile the vertex and fragment programs: */
+	/* Check if fog is enabled: */
 	dataItem->fog=glIsEnabled(GL_FOG);
 	if(dataItem->fog)
-		dataItem->pointRenderer->compileVertexShaderFromString(vertexProgramFog);
+		{
+		/* Add fog attenuation to the vertex shader: */
+		vertexProgram+="\
+				/* Calculate vertex-eye distance for fog computation: */\n\
+				float eyeDist=-vertexEye.z/vertexEye.w;\n\
+				\n\
+				/* Calculate fog attenuation: */\n\
+				float fogFactor=clamp((eyeDist-gl_Fog.start)/(gl_Fog.end-gl_Fog.start),0.0,1.0);\n\
+				\n\
+				/* Use standard color attenuated by fog: */\n\
+				gl_FrontColor=mix(gl_Color,gl_Fog.color,fogFactor);\n\
+				\n";
+		}
 	else
-		dataItem->pointRenderer->compileVertexShaderFromString(vertexProgram);
+		{
+		/* Use unattenuated point colors: */
+		vertexProgram+="\
+				/* Use standard color: */\n\
+				gl_FrontColor=gl_Color;\n\
+				\n";
+		}
+	
+	/* Check if any clipping planes are enabled: */
+	if(cpt.getNumEnabledClipPlanes()!=0)
+		{
+		/* Insert code to calculate the point's distance with respect to all enabled clipping planes: */
+		vertexProgram+=cpt.createCalcClipDistances("vertexEye");
+		}
+	dataItem->clipPlaneVersion=cpt.getVersion();
+	
+	/* Continue creating the point rendering vertex shader: */
+	vertexProgram+="\
+				}\n\
+			else\n\
+				{\n\
+				/* Set point size to zero and color to invisible: */\n\
+				gl_PointSize=0.0;\n\
+				gl_FrontColor=vec4(0.0,0.0,0.0,0.0);\n\
+				}\n\
+			\n\
+			/* Use standard vertex position for fragment generation: */\n\
+			gl_Position=ftransform();\n\
+			}\n";
+	
+	/* Create the point rendering fragment shader: */
+	static const char* fragmentProgram="\
+		uniform sampler2D pointTexture;\n\
+		\n\
+		void main()\n\
+			{\n\
+			/* Modulate the sprite texture map by the point color: */\n\
+			gl_FragColor=texture2D(pointTexture,gl_TexCoord[0].xy)*gl_Color;\n\
+			}\n";
+	
+	/* Reset the shader: */
+	dataItem->pointRenderer->reset();
+	
+	/* Compile the vertex and fragment programs: */
+	dataItem->pointRenderer->compileVertexShaderFromString(vertexProgram.c_str());
 	dataItem->pointRenderer->compileFragmentShaderFromString(fragmentProgram);
 	
 	/* Link the shader: */
@@ -708,7 +696,7 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 	if(dataItem->pointRenderer!=0)
 		{
 		/* Create the point rendering shader: */
-		createShader(dataItem);
+		createShader(dataItem,*contextData.getClipPlaneTracker());
 		
 		/* Create the point rendering texture: */
 		GLfloat texImage[32][32][4];
@@ -796,10 +784,10 @@ void EarthquakeSet::glRenderAction(GLContextData& contextData) const
 		glTexEnvi(GL_POINT_SPRITE_ARB,GL_COORD_REPLACE_ARB,GL_TRUE);
 		
 		/* Check if the point renderer program conforms to current OpenGL state: */
-		if(glIsEnabled(GL_FOG)!=dataItem->fog)
+		if(contextData.getClipPlaneTracker()->getVersion()!=dataItem->clipPlaneVersion||glIsEnabled(GL_FOG)!=dataItem->fog)
 			{
 			/* Rebuild the point rendering shader: */
-			createShader(dataItem);
+			createShader(dataItem,*contextData.getClipPlaneTracker());
 			}
 		
 		/* Enable the point renderer program: */
@@ -874,6 +862,13 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 		glActiveTextureARB(GL_TEXTURE0_ARB);
 		glBindTexture(GL_TEXTURE_2D,dataItem->pointTextureObjectId);
 		glTexEnvi(GL_POINT_SPRITE_ARB,GL_COORD_REPLACE_ARB,GL_TRUE);
+		
+		/* Check if the point renderer program conforms to current OpenGL state: */
+		if(contextData.getClipPlaneTracker()->getVersion()!=dataItem->clipPlaneVersion||glIsEnabled(GL_FOG)!=dataItem->fog)
+			{
+			/* Rebuild the point rendering shader: */
+			createShader(dataItem,*contextData.getClipPlaneTracker());
+			}
 		
 		/* Enable the point renderer program: */
 		dataItem->pointRenderer->useProgram();

@@ -135,6 +135,13 @@ class ArrayKdTree
 	void setPoints(int newNumNodes,const StoredPoint newNodes[],int numThreads); // Ditto, but uses multiple threads
 	void donatePoints(int newNumNodes,StoredPoint* newNodes); // Creates balanced kd-tree from point array; adopts point array as own
 	void donatePoints(int newNumNodes,StoredPoint* newNodes,int numThreads); // Ditto, but uses multiple threads
+	StoredPoint* detachPoints(void) // Returns a pointer to the tree's point array and detaches it from the tree
+		{
+		StoredPoint* result=nodes;
+		numNodes=0;
+		nodes=0;
+		return result;
+		}
 	const StoredPoint& getNode(int nodeIndex) const // Returns one of the octree's nodes
 		{
 		return nodes[nodeIndex];

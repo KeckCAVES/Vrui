@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdio.h>
 #include <unistd.h>
 #include <X11/cursorfont.h>
+#include <Misc/SizedTypes.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/CallbackData.h>
 
@@ -33,7 +34,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 Methods of class GLWindow:
 **************************/
 
-void GLWindow::initWindow(const char* sWindowName,int* visualProperties)
+void GLWindow::initWindow(const char* sWindowName,bool decorate,int* visualProperties)
 	{
 	/* Get a handle to the root window: */
 	root=RootWindow(display,screen);
@@ -102,16 +103,47 @@ void GLWindow::initWindow(const char* sWindowName,int* visualProperties)
 		windowPos.origin[1]=0;
 		windowPos.size[0]=DisplayWidth(display,screen);
 		windowPos.size[1]=DisplayHeight(display,screen);
-		swa.override_redirect=True;
+		decorate=false;
 		}
-	else
-		swa.override_redirect=False;
+	swa.override_redirect=False;
 	swa.event_mask=PointerMotionMask|EnterWindowMask|LeaveWindowMask|ButtonPressMask|ButtonReleaseMask|KeyPressMask|KeyReleaseMask|ExposureMask|StructureNotifyMask;
 	unsigned long attributeMask=CWBorderPixel|CWColormap|CWOverrideRedirect|CWEventMask;
 	window=XCreateWindow(display,root,
 	                     windowPos.origin[0],windowPos.origin[1],windowPos.size[0],windowPos.size[1],
 	                     0,visInfo->depth,InputOutput,visInfo->visual,attributeMask,&swa);
 	XSetStandardProperties(display,window,sWindowName,sWindowName,None,0,0,0);
+	
+	if(!decorate)
+		{
+		/*******************************************************************
+		Ask the window manager not to decorate this window:
+		*******************************************************************/
+		
+		/* Create and fill in window manager hint structure inherited from Motif: */
+		struct MotifHints // Structure to pass hints to window managers
+			{
+			/* Elements: */
+			public:
+			Misc::UInt32 flags;
+			Misc::UInt32 functions;
+			Misc::UInt32 decorations;
+			Misc::SInt32 inputMode;
+			Misc::UInt32 status;
+			} hints;
+		hints.flags=2U; // Only change decorations bit
+		hints.functions=0U;
+		hints.decorations=0U;
+		hints.inputMode=0;
+		hints.status=0U;
+		
+		/* Get the X atom to set hint properties: */
+		Atom hintProperty=XInternAtom(display,"_MOTIF_WM_HINTS",True);
+		if(hintProperty!=None)
+			{
+			/* Set the window manager hint property: */
+			XChangeProperty(display,window,hintProperty,hintProperty,32,PropModeReplace,reinterpret_cast<unsigned char*>(&hints),5);
+			}
+		}
 	
 	/* Delete the visual information structure: */
 	XFree(visInfo);
@@ -123,6 +155,35 @@ void GLWindow::initWindow(const char* sWindowName,int* visualProperties)
 	
 	/* Display the window on the screen: */
 	XMapWindow(display,window);
+	
+	/*********************************************************************
+	Since modern window managers ignore window positions when opening
+	windows, we now need to move the window to its requested position.
+	Fix suggested by William Sherman.
+	*********************************************************************/
+	
+	if(decorate)
+		{
+		/* Query the window tree to get the window's parent (the one containing the decorations): */
+		Window win_root,win_parent;
+		Window* win_children;
+		unsigned int win_numChildren;
+		XQueryTree(display,window,&win_root,&win_parent,&win_children,&win_numChildren);
+
+		/* Query the window's and the parent's geometry to calculate the window's offset inside its parent: */
+		int win_parentX,win_parentY,win_x,win_y;
+		unsigned int win_width,win_height,win_borderWidth,win_depth;
+		XGetGeometry(display,win_parent,&win_root,&win_parentX,&win_parentY,&win_width,&win_height,&win_borderWidth,&win_depth);
+		XGetGeometry(display,window,&win_root,&win_x,&win_y,&win_width,&win_height,&win_borderWidth,&win_depth);
+
+		/* Move the window's interior's top-left corner to the requested position: */
+		XMoveWindow(display,window,windowPos.origin[0]-(win_x-win_parentX),windowPos.origin[1]-(win_y-win_parentY));
+		}
+	else
+		{
+		/* Move the window's top-left corner to the requested position: */
+		XMoveWindow(display,window,windowPos.origin[0],windowPos.origin[1]);
+		}
 	
 	if(fullscreen)
 		{
@@ -170,15 +231,15 @@ void GLWindow::initWindow(const char* sWindowName,int* visualProperties)
 	#endif
 	}
 
-GLWindow::GLWindow(Display* sDisplay,int sScreen,const char* sWindowName,const GLWindow::WindowPos& sWindowPos,int* visualProperties)
+GLWindow::GLWindow(Display* sDisplay,int sScreen,const char* sWindowName,const GLWindow::WindowPos& sWindowPos,bool decorate,int* visualProperties)
 	:privateConnection(false),display(sDisplay),screen(sScreen),
 	 windowPos(sWindowPos),fullscreen(windowPos.size[0]==0||windowPos.size[1]==0)
 	{
 	/* Call common part of window initialization routine: */
-	initWindow(sWindowName,visualProperties);
+	initWindow(sWindowName,decorate,visualProperties);
 	}
 
-GLWindow::GLWindow(const char* sDisplayName,const char* sWindowName,const GLWindow::WindowPos& sWindowPos,int* visualProperties)
+GLWindow::GLWindow(const char* sDisplayName,const char* sWindowName,const GLWindow::WindowPos& sWindowPos,bool decorate,int* visualProperties)
 	:privateConnection(true),
 	 windowPos(sWindowPos),fullscreen(windowPos.size[0]==0||windowPos.size[1]==0)
 	{
@@ -189,10 +250,10 @@ GLWindow::GLWindow(const char* sDisplayName,const char* sWindowName,const GLWind
 	screen=DefaultScreen(display);
 	
 	/* Call common part of window initialization routine: */
-	initWindow(sWindowName,visualProperties);
+	initWindow(sWindowName,decorate,visualProperties);
 	}
 
-GLWindow::GLWindow(const char* sWindowName,const GLWindow::WindowPos& sWindowPos,int* visualProperties)
+GLWindow::GLWindow(const char* sWindowName,const GLWindow::WindowPos& sWindowPos,bool decorate,int* visualProperties)
 	:privateConnection(true),
 	 windowPos(sWindowPos),fullscreen(windowPos.size[0]==0||windowPos.size[1]==0)
 	{
@@ -203,7 +264,7 @@ GLWindow::GLWindow(const char* sWindowName,const GLWindow::WindowPos& sWindowPos
 	screen=DefaultScreen(display);
 	
 	/* Call common part of window initialization routine: */
-	initWindow(sWindowName,visualProperties);
+	initWindow(sWindowName,decorate,visualProperties);
 	}
 
 GLWindow::~GLWindow(void)

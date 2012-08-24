@@ -70,5 +70,8 @@ The IO library contains abstraction classes for file I/O. It is used extensively
 <DD>CSVSource is a class implementing a comma-separated value file structure over objects derived from IO::File.</DD>
 </DL>
 
+<DT>FileMonitor.h</DT>
+<DD>FileMonitor is a class to asynchronously monitor changes to selected files or directories in an OS-independent fashion. Currently only implemented for Linux with kernel >= 2.6.13 and glibc >= 2.5, using the inotify service.</DD>
+
 </BODY>
 </HTML>
