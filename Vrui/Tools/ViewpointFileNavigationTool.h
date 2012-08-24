@@ -118,6 +118,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	void createGui(void); // Creates the playback control GUI
 	void readViewpointFile(const char* fileName); // Reads the viewpoint file of the given name
 	void loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData);
 	void writeControlPoint(const ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex); // Writes a control point to the spline calculation matrix
 	void interpolate(const ControlPoint& p0,const ControlPoint& p1,Scalar t,ControlPoint& result); // Interpolates between two control points
 	bool navigate(Scalar parameter); // Navigates to the given curve parameter

@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -213,15 +213,15 @@ void WalkSurfaceNavigationTool::initNavState(void)
 	/* Limit the elevation angle to the horizontal: */
 	elevation=Scalar(0);
 	
-	/* Reset the flying velocity: */
-	flyVelocity=Vector::zero;
+	/* Reset the falling velocity: */
+	fallVelocity=Scalar(0);
 	
 	/* If the initial surface frame was above the surface, lift it back up and start falling: */
 	Scalar z=newSurfaceFrame.inverseTransform(surfaceFrame.getOrigin())[2];
 	if(z>Scalar(0))
 		{
 		newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
-		flyVelocity[2]=-factory->fallAcceleration*getCurrentFrameTime();
+		fallVelocity=-factory->fallAcceleration*getCurrentFrameTime();
 		}
 	
 	/* Move the physical frame to the foot position, and adjust the surface frame accordingly: */
@@ -334,8 +334,10 @@ void WalkSurfaceNavigationTool::frame(void)
 			speed=factory->moveSpeed*(moveDirLen-factory->innerRadius)/(factory->outerRadius-factory->innerRadius);
 		moveDir*=speed/moveDirLen;
 		
-		/* Add the current flying velocity: */
-		moveDir+=flyVelocity;
+		/* Add the current flying and falling velocities: */
+		if(jetpack!=Scalar(0))
+			moveDir+=getValuatorDeviceRayDirection(0)*jetpack;
+		moveDir[2]+=fallVelocity;
 		
 		/* Calculate the complete movement vector: */
 		move+=moveDir*getCurrentFrameTime();
@@ -371,19 +373,12 @@ void WalkSurfaceNavigationTool::frame(void)
 			{
 			/* Lift the aligned frame back up to the original altitude and continue flying: */
 			newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
-			if(jetpack!=Scalar(0))
-				flyVelocity+=getValuatorDeviceRayDirection(0)*(jetpack*getCurrentFrameTime());
-			flyVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
-			}
-		else if(jetpack!=Scalar(0))
-			{
-			flyVelocity+=getValuatorDeviceRayDirection(0)*(jetpack*getCurrentFrameTime());
-			flyVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
+			fallVelocity-=factory->fallAcceleration*getCurrentFrameTime();
 			}
 		else
 			{
-			/* Stop flying: */
-			flyVelocity=Vector::zero;
+			/* Stop falling: */
+			fallVelocity=Scalar(0);
 			}
 		
 		/* Apply the newly aligned surface frame: */

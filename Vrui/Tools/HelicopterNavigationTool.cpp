@@ -24,8 +24,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/HelicopterNavigationTool.h>
 
-#include <Misc/Utility.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/GeometryValueCoders.h>
@@ -33,6 +33,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLValueCoders.h>
 #include <GL/GLContextData.h>
+#include <GL/GLNumberRenderer.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Vrui/Viewer.h>
@@ -40,13 +41,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
-/************************************************
-Methods of class HelicopterNavigationToolFactory:
-************************************************/
+/***************************************************************
+Methods of class HelicopterNavigationToolFactory::Configuration:
+***************************************************************/
 
-HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& toolManager)
-	:ToolFactory("HelicopterNavigationTool",toolManager),
-	 activationToggle(true),
+HelicopterNavigationToolFactory::Configuration::Configuration(void)
+	:activationToggle(true),
 	 g(getMeterFactor()*Scalar(9.81)),
 	 collectiveMin(Scalar(0)),collectiveMax(g*Scalar(1.5)),
 	 thrust(g*Scalar(1)),
@@ -58,27 +58,53 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 	 hudRadius(getDisplaySize()),
 	 hudFontSize(float(getUiSize())*1.5f)
 	{
-	/* Initialize tool layout: */
-	layout.setNumButtons(3);
-	layout.setNumValuators(6);
+	/* Initialize rotation scaling factors: */
+	rotateFactors[0]=Scalar(-60);
+	rotateFactors[1]=Scalar(-60);
+	rotateFactors[2]=Scalar(45);
 	
-	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	/* Initialize drag coefficients: */
+	dragCoefficients[0]=Scalar(0.3);
+	dragCoefficients[1]=Scalar(0.1);
+	dragCoefficients[2]=Scalar(0.3);
+	
+	/* Initialize view angles: */
+	viewAngleFactors[0]=Scalar(35);
+	viewAngleFactors[1]=Scalar(-25);
+	}
+
+HelicopterNavigationToolFactory::Configuration::Configuration(const HelicopterNavigationToolFactory::Configuration& source)
+	:activationToggle(source.activationToggle),
+	 rotateFactors(source.rotateFactors),
+	 g(source.g),
+	 collectiveMin(source.collectiveMin),collectiveMax(source.collectiveMax),
+	 thrust(source.thrust),
+	 brake(source.brake),
+	 dragCoefficients(source.dragCoefficients),
+	 viewAngleFactors(source.viewAngleFactors),
+	 probeSize(source.probeSize),
+	 maxClimb(source.maxClimb),
+	 drawHud(source.drawHud),hudColor(source.hudColor),
+	 hudDist(source.hudDist),
+	 hudRadius(source.hudRadius),
+	 hudFontSize(source.hudFontSize)
+	{
+	}
+
+void HelicopterNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+	{
+	/* Get parameters: */
 	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
-	Vector rot=cfs.retrieveValue<Vector>("./rotateFactors",Vector(-60,-60,45));
-	for(int i=0;i<3;++i)
-		rotateFactors[i]=Math::rad(rot[i]);
+	rotateFactors=cfs.retrieveValue<Misc::FixedArray<Scalar,3> >("./rotateFactors",rotateFactors);
 	g=cfs.retrieveValue<Scalar>("./g",g);
 	collectiveMin=cfs.retrieveValue<Scalar>("./collectiveMin",collectiveMin);
 	collectiveMax=cfs.retrieveValue<Scalar>("./collectiveMax",collectiveMax);
 	thrust=cfs.retrieveValue<Scalar>("./thrust",thrust);
 	brake=cfs.retrieveValue<Scalar>("./brake",brake);
-	Vector drag=cfs.retrieveValue<Vector>("./dragCoefficients",Vector(0.3,0.1,0.3));
+	dragCoefficients=cfs.retrieveValue<Misc::FixedArray<Scalar,3> >("./dragCoefficients",dragCoefficients);
 	for(int i=0;i<3;++i)
-		dragCoefficients[i]=-Math::abs(drag[i]);
-	Geometry::Vector<Scalar,2> view=cfs.retrieveValue<Geometry::Vector<Scalar,2> >("./viewAngleFactors",Geometry::Vector<Scalar,2>(35,-25));
-	for(int i=0;i<2;++i)
-		viewAngleFactors[i]=Math::rad(view[i]);
+		dragCoefficients[i]=-Math::abs(dragCoefficients[i]);
+	viewAngleFactors=cfs.retrieveValue<Misc::FixedArray<Scalar,2> >("./viewAngleFactors",viewAngleFactors);
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
 	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
@@ -86,6 +112,43 @@ HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& to
 	hudDist=cfs.retrieveValue<float>("./hudDist",hudDist);
 	hudRadius=cfs.retrieveValue<float>("./hudRadius",hudRadius);
 	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
+	}
+
+void HelicopterNavigationToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
+	{
+	/* Save parameters: */
+	cfs.storeValue<bool>("./activationToggle",activationToggle);
+	cfs.storeValue<Misc::FixedArray<Scalar,3> >("./rotateFactors",rotateFactors);
+	cfs.storeValue<Scalar>("./g",g);
+	cfs.storeValue<Scalar>("./collectiveMin",collectiveMin);
+	cfs.storeValue<Scalar>("./collectiveMax",collectiveMax);
+	cfs.storeValue<Scalar>("./thrust",thrust);
+	cfs.storeValue<Scalar>("./brake",brake);
+	cfs.storeValue<Misc::FixedArray<Scalar,3> >("./dragCoefficients",dragCoefficients);
+	cfs.storeValue<Misc::FixedArray<Scalar,2> >("./viewAngleFactors",viewAngleFactors);
+	cfs.storeValue<Scalar>("./probeSize",probeSize);
+	cfs.storeValue<Scalar>("./maxClimb",maxClimb);
+	cfs.storeValue<bool>("./drawHud",drawHud);
+	cfs.storeValue<Color>("./hudColor",hudColor);
+	cfs.storeValue<float>("./hudDist",hudDist);
+	cfs.storeValue<float>("./hudRadius",hudRadius);
+	cfs.storeValue<float>("./hudFontSize",hudFontSize);
+	}
+
+/************************************************
+Methods of class HelicopterNavigationToolFactory:
+************************************************/
+
+HelicopterNavigationToolFactory::HelicopterNavigationToolFactory(ToolManager& toolManager)
+	:ToolFactory("HelicopterNavigationTool",toolManager)
+	{
+	/* Initialize tool layout: */
+	layout.setNumButtons(3);
+	layout.setNumValuators(6);
+	
+	/* Load class settings: */
+	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	config.load(cfs);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("SurfaceNavigationTool");
@@ -199,8 +262,8 @@ void HelicopterNavigationTool::applyNavState(void)
 	{
 	/* Compose and apply the navigation transformation: */
 	NavTransform nav=physicalFrame;
-	nav*=NavTransform::rotate(Rotation::rotateZ(getValuatorState(4)*factory->viewAngleFactors[0]));
-	nav*=NavTransform::rotate(Rotation::rotateX(getValuatorState(5)*factory->viewAngleFactors[1]));
+	nav*=NavTransform::rotate(Rotation::rotateZ(getValuatorState(4)*Math::rad(config.viewAngleFactors[0])));
+	nav*=NavTransform::rotate(Rotation::rotateX(getValuatorState(5)*Math::rad(config.viewAngleFactors[1])));
 	nav*=NavTransform::rotate(orientation);
 	nav*=Geometry::invert(surfaceFrame);
 	setNavigationTransformation(nav);
@@ -216,7 +279,7 @@ void HelicopterNavigationTool::initNavState(void)
 	NavTransform newSurfaceFrame=surfaceFrame;
 	
 	/* Align the initial frame with the application's surface: */
-	AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
+	AlignmentData ad(surfaceFrame,newSurfaceFrame,config.probeSize,config.maxClimb);
 	align(ad);
 	
 	/* Calculate the orientation of the current navigation transformation in the aligned surface frame: */
@@ -227,10 +290,10 @@ void HelicopterNavigationTool::initNavState(void)
 	
 	/* If the initial surface frame was above the surface, lift it back up: */
 	elevation=newSurfaceFrame.inverseTransform(surfaceFrame.getOrigin())[2];
-	if(elevation<factory->probeSize)
+	if(elevation<config.probeSize)
 		{  
 		/* Collide with the ground: */
-		elevation=factory->probeSize;
+		elevation=config.probeSize;
 		Vector y=orientation.getDirection(1);
 		Scalar azimuth=Math::atan2(y[0],y[1]);
 		orientation=Rotation::rotateZ(-azimuth);
@@ -244,8 +307,31 @@ void HelicopterNavigationTool::initNavState(void)
 
 HelicopterNavigationTool::HelicopterNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(sFactory,inputAssignment),
-	 numberRenderer(factory->hudFontSize,true)
+	 numberRenderer(0),
+	 config(factory->config)
 	{
+	}
+
+HelicopterNavigationTool::~HelicopterNavigationTool(void)
+	{
+	delete numberRenderer;
+	}
+
+void HelicopterNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Update the configuration: */
+	config.load(configFileSection);
+	}
+
+void HelicopterNavigationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Save the current configuration: */
+	config.save(configFileSection);
+	}
+
+void HelicopterNavigationTool::initialize(void)
+	{
+	numberRenderer=new GLNumberRenderer(config.hudFontSize,true);
 	}
 
 const ToolFactory* HelicopterNavigationTool::getFactory(void) const
@@ -259,7 +345,7 @@ void HelicopterNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::B
 	if(buttonSlotIndex==0)
 		{
 		bool newActive;
-		if(factory->activationToggle)
+		if(config.activationToggle)
 			{
 			newActive=isActive();
 			if(cbData->newButtonState)
@@ -302,7 +388,7 @@ void HelicopterNavigationTool::frame(void)
 		
 		/* Re-align the surface frame with the surface: */
 		Point initialOrigin=newSurfaceFrame.getOrigin();
-		AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
+		AlignmentData ad(surfaceFrame,newSurfaceFrame,config.probeSize,config.maxClimb);
 		align(ad);
 		
 		/* Update the orientation to reflect rotations in the surface frame: */
@@ -310,10 +396,10 @@ void HelicopterNavigationTool::frame(void)
 		
 		/* Check if the initial surface frame was above the surface: */
 		elevation=newSurfaceFrame.inverseTransform(initialOrigin)[2];
-		if(elevation<factory->probeSize)
+		if(elevation<config.probeSize)
 			{
 			/* Collide with the ground: */
-			elevation=factory->probeSize;
+			elevation=config.probeSize;
 			Vector y=orientation.getDirection(1);
 			Scalar azimuth=Math::atan2(y[0],y[1]);
 			orientation=Rotation::rotateZ(-azimuth);
@@ -326,25 +412,30 @@ void HelicopterNavigationTool::frame(void)
 		/* Update the current orientation based on the pitch, roll, and yaw controls: */
 		Vector rot;
 		for(int i=0;i<3;++i)
-			rot[i]=getValuatorState(i)*factory->rotateFactors[i];
+			rot[i]=getValuatorState(i)*Math::rad(config.rotateFactors[i]);
 		orientation.leftMultiply(Rotation::rotateScaledAxis(rot*dt));
 		orientation.renormalize();
 		
 		/* Calculate the current acceleration based on gravity, collective, thrust, and brake: */
-		Vector accel=Vector(0,0,-factory->g);
-		Scalar collective=Scalar(0.5)*(Scalar(1)-getValuatorState(3))*(factory->collectiveMax-factory->collectiveMin)+factory->collectiveMin;
+		Vector accel=Vector(0,0,-config.g);
+		Scalar collective=Scalar(0.5)*(Scalar(1)-getValuatorState(3))*(config.collectiveMax-config.collectiveMin)+config.collectiveMin;
 		accel+=orientation.inverseTransform(Vector(0,0,collective));
 		if(getButtonState(1))
-			accel+=orientation.inverseTransform(Vector(0,factory->thrust,0));
+			accel+=orientation.inverseTransform(Vector(0,config.thrust,0));
 		if(getButtonState(2))
-			accel+=orientation.inverseTransform(Vector(0,-factory->brake,0));
+			accel+=orientation.inverseTransform(Vector(0,-config.brake,0));
 		
 		/* Calculate drag: */
 		Vector localVelocity=orientation.transform(velocity);
 		Vector drag;
 		for(int i=0;i<3;++i)
-			drag[i]=localVelocity[i]*factory->dragCoefficients[i];
+			drag[i]=localVelocity[i]*config.dragCoefficients[i];
 		accel+=orientation.inverseTransform(drag);
+		
+		/* Rotate the helicopter body slightly if there is off-axis drag: */
+		Vector torque=Geometry::cross(Vector(0.0,-0.0002,0.0002),localVelocity);
+		orientation.leftMultiply(Rotation::rotateScaledAxis(torque*dt));
+		orientation.renormalize();
 		
 		/* Update the current velocity: */
 		velocity+=accel*dt;
@@ -360,23 +451,23 @@ void HelicopterNavigationTool::frame(void)
 
 void HelicopterNavigationTool::display(GLContextData& contextData) const
 	{
-	if(isActive()&&factory->drawHud)
+	if(isActive()&&config.drawHud)
 		{
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
 		glLineWidth(1.0f);
-		glColor(factory->hudColor);
+		glColor(config.hudColor);
 		
 		/* Get the HUD layout parameters: */
-		float y=factory->hudDist;
-		float r=factory->hudRadius;
-		float s=factory->hudFontSize;
+		float y=config.hudDist;
+		float r=config.hudRadius;
+		float s=config.hudFontSize;
 		
 		/* Go to the view-shifted physical frame: */
 		glPushMatrix();
 		glMultMatrix(physicalFrame);
-		glRotate(getValuatorState(4)*Math::deg(factory->viewAngleFactors[0]),Vector(0,0,1));
-		glRotate(getValuatorState(5)*Math::deg(factory->viewAngleFactors[1]),Vector(1,0,0));
+		glRotate(getValuatorState(4)*config.viewAngleFactors[0],Vector(0,0,1));
+		glRotate(getValuatorState(5)*config.viewAngleFactors[1],Vector(1,0,0));
 		
 		/* Go to the HUD frame: */
 		glTranslatef(0.0f,y,0.0f);
@@ -444,7 +535,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<=60.0f)
 				{
 				pos[0]=dist*r/60.0f;
-				numberRenderer.drawNumber(pos,az,contextData,0,1);
+				numberRenderer->drawNumber(pos,az,contextData,0,1);
 				}
 			}
 		
@@ -453,7 +544,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 		if(vel[1]>Scalar(0))
 			{
 			vel*=y/vel[1];
-			Scalar maxVel=Misc::max(Math::abs(vel[0]),Math::abs(vel[2]));
+			Scalar maxVel=Math::max(Math::abs(vel[0]),Math::abs(vel[2]));
 			if(maxVel>=Scalar(r))
 				{
 				vel[0]*=Scalar(r)/maxVel;
@@ -469,7 +560,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 			glEnd();
 			}
 		
-		glColor(factory->hudColor);
+		glColor(config.hudColor);
 		
 		glRotatef(-roll,0.0f,0.0f,1.0f);
 		
@@ -540,7 +631,7 @@ void HelicopterNavigationTool::display(GLContextData& contextData) const
 						drawEl=180-el;
 					else if(drawEl<-90)
 						drawEl=-180-el;
-					numberRenderer.drawNumber(pos,drawEl,contextData,-1,0);
+					numberRenderer->drawNumber(pos,drawEl,contextData,-1,0);
 					}
 				}
 			}

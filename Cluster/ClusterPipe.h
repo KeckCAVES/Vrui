@@ -39,7 +39,7 @@ class ClusterPipe
 	Flags to couple or decouple the read and write sides of a forwarded
 	file. In coupled state, master and slaves have to call the exact same
 	sequence of operations at all times; exceptions encountered on the
-	master are forward to the slaves. In decoupled state, no read data
+	master are forwarded to the slaves. In decoupled state, no read data
 	and no exceptions are forwarded to the slaves. The only function a
 	slave can call in decoupled state is the respective couple... method.
 	*********************************************************************/
@@ -79,7 +79,7 @@ class ClusterPipe
 		}
 	bool isWriteCoupled(void) const // Returns true if writing on the master and slaves is tightly coupled
 		{
-		return readCoupled;
+		return writeCoupled;
 		}
 	virtual void couple(bool newReadCoupled,bool newWriteCoupled); // Couples or decouples the reading and writing side of the pipe
 	virtual void barrier(void); // Blocks the calling thread until all nodes in a cluster pipe have reached the same point in the program

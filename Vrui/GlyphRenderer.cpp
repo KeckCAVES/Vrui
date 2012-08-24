@@ -1,6 +1,6 @@
 /***********************************************************************
 GlyphRenderer - Class to quickly render several kinds of common glyphs.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,6 +22,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/GlyphRenderer.h>
 
+#include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -148,6 +149,34 @@ void Glyph::setGlyphType(Glyph::GlyphType newGlyphType)
 	glyphType=newGlyphType;
 	}
 
+void Glyph::setGlyphType(const char* newGlyphType)
+	{
+	if(strcasecmp(newGlyphType,"None")!=0)
+		{
+		/* Parse the glyph type name: */
+		if(strcasecmp(newGlyphType,"Cone")==0)
+			glyphType=CONE;
+		else if(strcasecmp(newGlyphType,"Cube")==0)
+			glyphType=CUBE;
+		else if(strcasecmp(newGlyphType,"Sphere")==0)
+			glyphType=SPHERE;
+		else if(strcasecmp(newGlyphType,"Crossball")==0)
+			glyphType=CROSSBALL;
+		else if(strcasecmp(newGlyphType,"Box")==0)
+			glyphType=BOX;
+		else if(strcasecmp(newGlyphType,"Cursor")==0)
+			glyphType=CURSOR;
+		else
+			Misc::throwStdErr("GlyphRenderer::Glyph: Invalid glyph type %s",newGlyphType);
+		enabled=true;
+		}
+	else
+		{
+		/* Disable the glyph: */
+		enabled=false;
+		}
+	}
+
 void Glyph::setGlyphMaterial(const GLMaterial& newGlyphMaterial)
 	{
 	glyphMaterial=newGlyphMaterial;
@@ -155,29 +184,11 @@ void Glyph::setGlyphMaterial(const GLMaterial& newGlyphMaterial)
 
 void Glyph::configure(const Misc::ConfigurationFileSection& configFileSection,const char* glyphTypeTagName,const char* glyphMaterialTagName)
 	{
-	/* Retrieve glyph type as string: */
-	std::string glyphTypeName=configFileSection.retrieveString(glyphTypeTagName,"None");
-	if(glyphTypeName!="None")
-		{
-		if(glyphTypeName=="Cone")
-			glyphType=CONE;
-		else if(glyphTypeName=="Cube")
-			glyphType=CUBE;
-		else if(glyphTypeName=="Sphere")
-			glyphType=SPHERE;
-		else if(glyphTypeName=="Crossball")
-			glyphType=CROSSBALL;
-		else if(glyphTypeName=="Box")
-			glyphType=BOX;
-		else if(glyphTypeName=="Cursor")
-			glyphType=CURSOR;
-		else
-			Misc::throwStdErr("GlyphRenderer::Glyph: Invalid glyph type %s",glyphTypeName.c_str());
-		enabled=true;
-		glyphMaterial=configFileSection.retrieveValue<GLMaterial>(glyphMaterialTagName,glyphMaterial);
-		}
-	else
-		enabled=false;
+	/* Retrieve glyph type as string and set it: */
+	setGlyphType(configFileSection.retrieveString(glyphTypeTagName,"None").c_str());
+	
+	/* Retrieve the glyph material: */
+	glyphMaterial=configFileSection.retrieveValue<GLMaterial>(glyphMaterialTagName,glyphMaterial);
 	}
 
 /****************************************

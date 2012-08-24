@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,9 +24,16 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_SIXAXISTRANSFORMTOOL_INCLUDED
 #define VRUI_SIXAXISTRANSFORMTOOL_INCLUDED
 
+#include <string>
+#include <Misc/FixedArray.h>
 #include <Geometry/Vector.h>
-#include <Vrui/GlyphRenderer.h>
+#include <GL/GLMaterial.h>
 #include <Vrui/TransformTool.h>
+
+/* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
 
 namespace Vrui {
 
@@ -36,13 +43,33 @@ class SixAxisTransformToolFactory:public ToolFactory
 	{
 	friend class SixAxisTransformTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure holding tool (class) configuration
+		{
+		/* Elements: */
+		public:
+		Scalar translateFactor; // Scaling factor for all translation vectors
+		Misc::FixedArray<Vector,3> translations; // Translation vectors in physical space
+		Scalar rotateFactor; // Scaling factor for all scaled rotation axes
+		Misc::FixedArray<Vector,3> rotations; // Scaled rotation axes in physical space
+		bool followDisplayCenter; // If true, home position is the current display center
+		Point homePosition; // Position at which to create the device, and to which to return it when the home button is pressed
+		std::string deviceGlyphType; // Name of glyph type to use to visualize the virtual input device
+		GLMaterial deviceGlyphMaterial; // Material properties for the device glyph
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		Configuration(const Configuration& source); // Copy constructor
+		
+		/* Methods: */
+		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		};
+	
 	/* Elements: */
 	private:
-	bool followDisplayCenter; // If true, home position is the current display center
-	Point homePosition; // Position at which to create the device, and to which to return it when the home button is pressed
-	Vector translations[3]; // Translation vectors
-	Vector rotations[3]; // Scaled rotation axes
-	Glyph deviceGlyph; // Glyph used to visualize the device's position and orientation
+	Configuration config; // The class configuration
 	
 	/* Constructors and destructors: */
 	public:
@@ -65,11 +92,18 @@ class SixAxisTransformTool:public TransformTool
 	private:
 	static SixAxisTransformToolFactory* factory; // Pointer to the factory object for this class
 	
+	/* Configuration state: */
+	SixAxisTransformToolFactory::Configuration config; // The tool configuration
+	Vector translations[3]; // Scaled translation vectors
+	Vector rotations[3]; // Scaled scaled rotation axes
+	
 	/* Constructors and destructors: */
 	public:
 	SixAxisTransformTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);

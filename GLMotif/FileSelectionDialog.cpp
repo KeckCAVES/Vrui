@@ -496,7 +496,8 @@ void FileSelectionDialog::createDialog(const char* sFileNameFilters)
 	
 	buttonBox->manageChild();
 	
-	fileSelectionDialog->setRowWeight(2,1.0f);
+	/* Let the file list widget eat any size increases: */
+	fileSelectionDialog->setRowWeight(fileSelectionDialog->getChildRow(fileList),1.0f);
 	
 	/* Select the last path button (to read the initial directory): */
 	setSelectedPathButton(numParents-1);

@@ -50,6 +50,7 @@ class FPSNavigationToolFactory:public ToolFactory
 	Scalar rotateFactor; // Distance the mouse has to be moved to rotate by one radians
 	Scalar moveSpeed; // Moving speed when pressing move buttons
 	Scalar fallAcceleration; // Acceleration when falling in physical space units per second^2, defaults to g
+	Scalar jumpVelocity; // Instantaneous vertical velocity when jumping
 	Scalar probeSize; // Size of probe to use when aligning surface frames
 	Scalar maxClimb; // Maximum amount of climb per frame
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
@@ -88,6 +89,7 @@ class FPSNavigationTool:public SurfaceNavigationTool,public DeviceForwarder
 	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame
 	Vector moveVelocity; // Current movement velocity in frame coordinates
 	Point lastMousePos; // Last mouse position in screen coordinates
+	bool jump; // Flag whether the user requested a jump
 	
 	/* Private methods: */
 	Point calcMousePosition(void) const; // Calculates the current mouse position in screen coordinates

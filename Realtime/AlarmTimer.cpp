@@ -1,7 +1,7 @@
 /***********************************************************************
 AlarmTimer - Class to implement one-off alarm timers using the real-time
 signal mechanism.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the Realtime Processing Library (Realtime).
@@ -28,9 +28,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string.h>
 #include <sys/time.h>
-#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
-#include <signal.h>
-#endif
 #include <Misc/Time.h>
 
 namespace Realtime {
@@ -48,7 +45,7 @@ Methods of class AlarmTimer:
 ***************************/
 
 #if REALTIME_CONFIG_HAVE_POSIX_TIMERS
-void AlarmTimer::signalHandler(int,siginfo* sigInfo,void*)
+void AlarmTimer::signalHandler(int,siginfo_t* sigInfo,void*)
 	{
 	/* Get pointer to the alarm timer object: */
 	AlarmTimer* at=static_cast<AlarmTimer*>(sigInfo->si_value.sival_ptr);

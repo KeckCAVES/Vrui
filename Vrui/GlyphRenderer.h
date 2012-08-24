@@ -1,6 +1,6 @@
 /***********************************************************************
 GlyphRenderer - Class to quickly render several kinds of common glyphs.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -82,6 +82,7 @@ class Glyph // Class for reusable visualizations of positions and orientations
 	void enable(GlyphType newGlyphType,const GLMaterial& newGlyphMaterial); // Enables a glyph
 	void disable(void); // Disables a glyph
 	void setGlyphType(GlyphType newGlyphType); // Changes the glyph's type
+	void setGlyphType(const char* newGlyphType); // Changes the glyph's type based on the given literal string
 	void setGlyphMaterial(const GLMaterial& newGlyphMaterial); // Changes the glyph's material
 	void configure(const Misc::ConfigurationFileSection& configFileSection,const char* glyphTypeTagName,const char* glyphMaterialTagName); // Configures glyph by reading the two given tags from the given configuration file section
 	};
