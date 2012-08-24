@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

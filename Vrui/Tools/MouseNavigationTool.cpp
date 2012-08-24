@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -688,11 +688,13 @@ void MouseNavigationTool::frame(void)
 
 void MouseNavigationTool::display(GLContextData& contextData) const
 	{
+	#if 0 // Don't draw the interaction ray -- it's a mouse tool, it should be invisible
 	if(factory->interactWithWidgets)
 		{
 		/* Draw the GUI interactor's state: */
 		GUIInteractor::glRenderAction(3.0f,GLColor<GLfloat,4>(1.0f,0.0f,0.0f),contextData);
 		}
+	#endif
 	
 	if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
 		{

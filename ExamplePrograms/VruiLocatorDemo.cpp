@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiLocatorDemo - VR application showing how to use locator tools in
 Vrui.
-Copyright (c) 2006 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -66,7 +66,7 @@ class VruiLocatorDemo:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiLocatorDemo(int& argc,char**& argv,char**& appDefaults); // Initializes the Vrui toolkit and the application
+	VruiLocatorDemo(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
 	virtual ~VruiLocatorDemo(void); // Shuts down the Vrui toolkit
 	
 	/* Methods: */
@@ -137,8 +137,8 @@ GLMotif::PopupMenu* VruiLocatorDemo::createMainMenu(void)
 	return mainMenuPopup;
 	}
 
-VruiLocatorDemo::VruiLocatorDemo(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+VruiLocatorDemo::VruiLocatorDemo(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 mainMenu(0)
 	{
 	/* Create the user interface: */
@@ -233,8 +233,7 @@ void VruiLocatorDemo::resetNavigationCallback(Misc::CallbackData* cbData)
 int main(int argc,char* argv[])
 	{
 	/* Create an application object: */
-	char** appDefaults=0; // This is an additional parameter no one ever uses
-	VruiLocatorDemo app(argc,argv,appDefaults);
+	VruiLocatorDemo app(argc,argv);
 	
 	/* Run the Vrui main loop: */
 	app.run();

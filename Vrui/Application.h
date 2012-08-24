@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -88,15 +88,18 @@ class Application
 	/* Constructors and destructors: */
 	public:
 	Application(int& argc,char**& argv,char**& appDefaults); // Initializes Vrui environment
+	Application(int& argc,char**& argv); // Ditto, using a NULL appDefaults pointer
 	virtual ~Application(void);
 	
 	/* Methods: */
 	void run(void); // Runs Vrui main loop
-	virtual void toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData);
-	virtual void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData);
-	virtual void frame(void); // Method called exactly once per frame
-	virtual void display(GLContextData& contextData) const; // Rendering method called at least once per frame
-	virtual void sound(ALContextData& contextData) const; // Sound rendering method called at least once per frame
+	
+	/* Methods to be overridden by derived classes to insert functionality into Vrui's main loop: */
+	virtual void toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData); // Called when the tool manager creates a new tool
+	virtual void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData); // Called when the tool manager destroys a tool
+	virtual void frame(void); // Synchronization method called exactly once per frame
+	virtual void display(GLContextData& contextData) const; // Rendering method called at least once per window per frame, potentially concurrently from background thread(s)
+	virtual void sound(ALContextData& contextData) const; // Sound rendering method called at least once per sound context per frame, potentially concurrently from background thread(s)
 	};
 
 }

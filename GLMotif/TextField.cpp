@@ -1,6 +1,6 @@
 /***********************************************************************
 TextField - Class for labels displaying values as text.
-Copyright (c) 2006-2011 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string.h>
 #include <stdio.h>
+#include <Misc/PrintInteger.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
@@ -599,23 +600,31 @@ void TextField::setValue(const ValueParam& value)
 template <>
 void TextField::setValue<int>(const int& value)
 	{
-	char valueString[80];
+	char valueString[81];
 	if(fieldWidth>=0)
-		snprintf(valueString,sizeof(valueString),"%*d",fieldWidth,value);
+		{
+		char* vsPtr=Misc::print(value,valueString+80);
+		for(int width=(valueString+80)-vsPtr;width<fieldWidth&&width<80;++width)
+			*(--vsPtr)=' ';
+		setString(vsPtr);
+		}
 	else
-		snprintf(valueString,sizeof(valueString),"%d",value);
-	setString(valueString);
+		setString(Misc::print(value,valueString+11));
 	}
 
 template <>
 void TextField::setValue<unsigned int>(const unsigned int& value)
 	{
-	char valueString[80];
+	char valueString[81];
 	if(fieldWidth>=0)
-		snprintf(valueString,sizeof(valueString),"%*u",fieldWidth,value);
+		{
+		char* vsPtr=Misc::print(value,valueString+80);
+		for(int width=(valueString+80)-vsPtr;width<fieldWidth&&width<80;++width)
+			*(--vsPtr)=' ';
+		setString(vsPtr);
+		}
 	else
-		snprintf(valueString,sizeof(valueString),"%u",value);
-	setString(valueString);
+		setString(Misc::print(value,valueString+10));
 	}
 
 template <>

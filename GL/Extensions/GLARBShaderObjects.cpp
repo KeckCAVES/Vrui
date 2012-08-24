@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBShaderObjects - OpenGL extension class for the
 GL_ARB_shader_objects extension.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,6 +20,8 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/Extensions/GLARBShaderObjects.h>
+
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
@@ -27,8 +29,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
-
-#include <GL/Extensions/GLARBShaderObjects.h>
 
 /*******************************************
 Static elements of class GLARBShaderObjects:
@@ -148,6 +148,53 @@ void glCompileShaderFromString(GLhandleARB shaderObject,const char* shaderSource
 		}
 	}
 
+void glCompileShaderFromStrings(GLhandleARB shaderObject,size_t numShaderSources,va_list ap)
+	{
+	/* Get pointers to all shader source strings: */
+	const GLcharARB** strings=new const GLcharARB*[numShaderSources];
+	for(size_t i=0;i<numShaderSources;++i)
+		strings[i]=va_arg(ap,const char*);
+	
+	/* Upload all shader source strings into the shader object: */
+	glShaderSourceARB(shaderObject,numShaderSources,strings,0);
+	delete[] strings;
+	
+	/* Compile the shader source: */
+	glCompileShaderARB(shaderObject);
+	
+	/* Check if the shader compiled successfully: */
+	GLint compileStatus;
+	glGetObjectParameterivARB(shaderObject,GL_OBJECT_COMPILE_STATUS_ARB,&compileStatus);
+	if(!compileStatus)
+		{
+		/* Get some more detailed information: */
+		GLcharARB compileLogBuffer[2048];
+		GLsizei compileLogSize;
+		glGetInfoLogARB(shaderObject,sizeof(compileLogBuffer),&compileLogSize,compileLogBuffer);
+		
+		/* Signal an error: */
+		Misc::throwStdErr("glCompileShaderFromStrings: Error \"%s\" while compiling shader",compileLogBuffer);
+		}
+	}
+
+void glCompileShaderFromStrings(GLhandleARB shaderObject,size_t numShaderSources,...)
+	{
+	/* Create an argument list and call the actual function: */
+	va_list ap;
+	try
+		{
+		va_start(ap,numShaderSources);
+		glCompileShaderFromStrings(shaderObject,numShaderSources,ap);
+		va_end(ap);
+		}
+	catch(...)
+		{
+		/* Clean up and re-throw the exception: */
+		va_end(ap);
+		throw;
+		}
+	}
+
 void glCompileShaderFromFile(GLhandleARB shaderObject,const char* shaderSourceFileName)
 	{
 	/* Open the source file: */
@@ -234,6 +281,60 @@ GLhandleARB glLinkShader(const std::vector<GLhandleARB>& shaderObjects)
 		}
 	
 	return programObject;
+	}
+
+GLhandleARB glLinkShader(size_t numShaderObjects,va_list ap)
+	{
+	/* Create the program object: */
+	GLhandleARB programObject=glCreateProgramObjectARB();
+	
+	/* Attach all shader objects to the shader program: */
+	for(size_t i=0;i<numShaderObjects;++i)
+		glAttachObjectARB(programObject,va_arg(ap,GLhandleARB));
+	
+	/* Link the program: */
+	glLinkProgramARB(programObject);
+	
+	/* Check if the program linked successfully: */
+	GLint linkStatus;
+	glGetObjectParameterivARB(programObject,GL_OBJECT_LINK_STATUS_ARB,&linkStatus);
+	if(!linkStatus)
+		{
+		/* Get some more detailed information: */
+		GLcharARB linkLogBuffer[2048];
+		GLsizei linkLogSize;
+		glGetInfoLogARB(programObject,sizeof(linkLogBuffer),&linkLogSize,linkLogBuffer);
+		
+		/* Delete the program object: */
+		glDeleteObjectARB(programObject);
+		
+		/* Signal an error: */
+		Misc::throwStdErr("glLinkShader: Error \"%s\" while linking shader program",linkLogBuffer);
+		}
+	
+	return programObject;
+	}
+
+GLhandleARB glLinkShader(size_t numShaderObjects,...)
+	{
+	GLhandleARB result=0;
+	
+	/* Create an argument list and call the actual function: */
+	va_list ap;
+	try
+		{
+		va_start(ap,numShaderObjects);
+		result=glLinkShader(numShaderObjects,ap);
+		va_end(ap);
+		}
+	catch(...)
+		{
+		/* Clean up and re-throw the exception: */
+		va_end(ap);
+		throw;
+		}
+	
+	return result;
 	}
 
 GLhandleARB glLinkShader(GLhandleARB vertexShaderObject,GLhandleARB fragmentShaderObject)

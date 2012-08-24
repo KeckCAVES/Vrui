@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLCLIPPLANETRACKER_INCLUDED
 #define GLCLIPPLANETRACKER_INCLUDED
 
+#include <string>
 #include <GL/gl.h>
 #include <GL/GLVector.h>
 
@@ -89,6 +90,11 @@ class GLClipPlaneTracker
 	bool disableClipPlane(int clipPlaneIndex); // Disables the given clipping plane in the current OpenGL context
 	
 	bool update(void); // Updates the tracker by querying the current OpenGL context's state; returns true if state has changed since last check
+	std::string createCalcClipDistances(const char* vertexEc) const; // Returns a vertex shader fragment to calculate the clip distances of the eye-coordinate vertex with respect to all enabled clip planes
+	
+	/* Methods to temporarily disable/enable all clipping planes: */
+	void pause(void) const; // Temporarily disables clipping
+	void resume(void) const; // Re-enables clipping after a call to pause()
 	};
 
 #endif

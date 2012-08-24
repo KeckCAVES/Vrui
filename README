@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui version 2.3, build 003
+README for Vrui version 2.4, build 001
 Copyright (c) 1998-2012 Oliver Kreylos
 ========================================================================
 
@@ -44,29 +44,25 @@ Quick Installation Guide for the Impatient
 
 0. (Install required packages, if necessary or desired.)
 
-1. Download the Vrui tarball into <download path>.
-
-2. Create src directory in home directory:
+1. Create src directory in home directory and change into it:
    > mkdir ~/src
-
-3. Change into ~/src directory and unpack the Vrui tarball:
    > cd ~/src
-   > tar xfz <download path>/Vrui-<version>-<build>.tar.gz
-   - or -
-   > tar xf <download path>/Vrui-<version>-<build>.tar
 
-4. Change into Vrui base directory:
+2. Download and unpack the Vrui tarball:
+   > curl <download path>/Vrui-<version>-<build>.tar.gz | tar xfz -
+
+3. Change into Vrui base directory:
    > cd Vrui-<version>-<build>
 
-5. Build Vrui inside the Vrui base directory:
+4. Build Vrui inside the Vrui base directory:
    > make
    or, for multi-processor machines
    > make -j<number of CPUs>
 
-6. Install Vrui into Vrui-<version> in home directory:
+5. Install Vrui into Vrui-<version> in home directory:
    > make install
 
-7. If there are error messages during the build, read below.
+6. If there are error messages during the build, read below.
 
 Building and Running Vrui Example Applications
 ----------------------------------------------

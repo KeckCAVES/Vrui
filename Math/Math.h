@@ -1,6 +1,6 @@
 /***********************************************************************
 Math - Genericized versions of standard C math functions.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -172,6 +172,31 @@ inline ScalarParam sqr(ScalarParam value)
 	return value*value;
 	}
 
+template <class ScalarParam>
+inline ScalarParam min(ScalarParam v1,ScalarParam v2)
+	{
+	return v1<=v2?v1:v2;
+	}
+
+template <class ScalarParam>
+inline ScalarParam max(ScalarParam v1,ScalarParam v2)
+	{
+	return v1>=v2?v1:v2;
+	}
+
+template <class ScalarParam>
+inline ScalarParam clamp(ScalarParam value,ScalarParam min,ScalarParam max)
+	{
+	/* Limit the value to the valid range: */
+	if(value<min)
+		value=min;
+	if(value>max)
+		value=max;
+	
+	/* Return the potentially modified value: */
+	return value;
+	}
+
 /*************************************************
 Type-safe wrappers around standard math functions:
 *************************************************/
@@ -195,6 +220,11 @@ inline double abs(double value)
 	return fabs(value);
 	}
 
+inline int floor(int value)
+	{
+	return value;
+	}
+
 inline float floor(float value)
 	{
 	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
@@ -207,6 +237,11 @@ inline float floor(float value)
 inline double floor(double value)
 	{
 	return ::floor(value);
+	}
+
+inline int ceil(int value)
+	{
+	return value;
 	}
 
 inline float ceil(float value)

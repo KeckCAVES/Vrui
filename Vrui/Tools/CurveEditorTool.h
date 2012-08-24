@@ -157,6 +157,7 @@ class CurveEditorTool:public UtilityTool
 	unsigned int numVertices; // Current number of vertices in curve
 	Vertex* firstVertex; // Pointer to first vertex in curve
 	Vertex* lastVertex; // Pointer to last vertex in curve
+	Scalar parameterInterval; // Upper bound of curve's total parameter interval
 	bool forceC2Continuity; // Flag whether the curve is constrained to be C^2-continuous
 	C2BoundaryCondition c2BoundaryCondition; // Boundary condition for C^2-continuous curves
 	Vertex* pickedVertex; // Pointer to currently picked vertex
@@ -177,6 +178,9 @@ class CurveEditorTool:public UtilityTool
 	/* Private methods: */
 	static void writeControlPoint(const ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex);
 	void calculateC2Spline(void); // Adjusts the curve to form a C^2-continuous spline
+	void updateCurve(void); // Called to update derived curve state after the curve has been modified
+	void moveToControlPoint(const ControlPoint& cp); // Sets the navigation transformation to move to the given vertex
+	void pickSegment(Scalar parameterValue); // Picks the curve segment containing the given parameter value
 	void setParameterValue(Scalar newParameterValue); // Sets a new curve parameter value and updates the user interface
 	void forceC2ContinuityToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void c2BoundaryConditionBoxValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);

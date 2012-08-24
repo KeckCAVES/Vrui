@@ -23,30 +23,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLLineLightingShader.h>
 
 #include <string>
+#include <Misc/PrintInteger.h>
+#include <GL/gl.h>
 #include <GL/GLLightTracker.h>
 #include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
-
-namespace {
-
-/* Helper functions: */
-
-const char* writeUInt(unsigned int value)
-	{
-	static char buffer[16];
-	char* bPtr=buffer+sizeof(buffer);
-	*(--bPtr)='\0';
-	do
-		{
-		*(--bPtr)=char(value%10)+'0';
-		value/=10;
-		}
-	while(value!=0);
-	
-	return bPtr;
-	}
-
-}
 
 /*********************************************
 Static elements of class GLLineLightingShader:
@@ -76,10 +57,10 @@ const char GLLineLightingShader::accumulateLightTemplate[]="\
 		\n\
 		/* Calculate the specular lighting term via numerical integration: */\n\
 		float s=0.0;\n\
-		for(int i=-90;i<90;i+=10)\n\
+		for(int i=-90;i<90;i+=20)\n\
 			{\n\
 			/* Calculate the surface normal: */\n\
-			float normalAngle=radians(float(i)+5.0);\n\
+			float normalAngle=radians(float(i)+10.0);\n\
 			vec3 normal=vec3(0.0,sin(normalAngle),cos(normalAngle));\n\
 			\n\
 			/* Evaluate the specular reflection term: */\n\
@@ -91,7 +72,7 @@ const char GLLineLightingShader::accumulateLightTemplate[]="\
 					s+=pow(hn,shininess)*normal.z;\n\
 				}\n\
 			}\n\
-		s*=sqrt(2.0*(1.0-cos(radians(10.0))))*0.5;\n\
+		s*=sqrt(2.0*(1.0-cos(radians(20.0))))*0.5;\n\
 		\n\
 		/* Add the specular lighting term: */\n\
 		specularAccum+=(gl_LightSource[<lightIndex>].specular*specular)*s;\n\
@@ -148,11 +129,12 @@ void GLLineLightingShader::buildShader(void)
 	for(int lightIndex=0;lightIndex<lt->getMaxNumLights();++lightIndex)
 		if(lt->getLightState(lightIndex).isEnabled())
 			{
-			const char* lightIndexString=writeUInt(lightIndex);
+			char liBuffer[12];
+			const char* liString=Misc::print(lightIndex,liBuffer+11);
 			
 			/* Append a function call to the main function: */
 			mainFunction+="accumulateLight";
-			mainFunction.append(lightIndexString);
+			mainFunction.append(liString);
 			mainFunction+="(vertexEc,tangentSpace,eyeDir,gl_FrontMaterial.ambient,gl_FrontMaterial.diffuse,gl_FrontMaterial.specular,gl_FrontMaterial.shininess,ambientDiffuseAccumulator,specularAccumulator);";
 			mainFunction+="\n\n";
 			
@@ -179,7 +161,7 @@ void GLLineLightingShader::buildShader(void)
 						++matchLen;
 						if(matchLen==12)
 							{
-							lightAccumulationFunctions.append(lightIndexString);
+							lightAccumulationFunctions.append(liString);
 							matchLen=0;
 							}
 						}
@@ -201,19 +183,11 @@ void GLLineLightingShader::buildShader(void)
 			\n";
 	
 	/* Insert code to calculate the vertex' position relative to all user-specified clipping planes: */
-	for(int clipPlaneIndex=0;clipPlaneIndex<cpt->getMaxNumClipPlanes();++clipPlaneIndex)
-		if(cpt->getClipPlaneState(clipPlaneIndex).isEnabled())
-			{
-			const char* clipPlaneIndexString=writeUInt(clipPlaneIndex);
-			mainFunction+="gl_ClipDistance[";
-			mainFunction.append(clipPlaneIndexString);
-			mainFunction+="]=dot(gl_ClipPlane[";
-			mainFunction.append(clipPlaneIndexString);
-			mainFunction+="],vertexEc);\n";
-			}
+	mainFunction+=cpt->createCalcClipDistances("vertexEc");
 	
 	/* Finish the vertex shader's main function: */
 	mainFunction+="\
+			\n\
 			/* Use standard vertex position: */\n\
 			gl_Position=ftransform();\n\
 			}\n";

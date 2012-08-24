@@ -1,7 +1,7 @@
 /***********************************************************************
-FileNameExtensions - Helper functions to extract or test extensions from
-file names.
-Copyright (c) 2009-2011 Oliver Kreylos
+FileNameExtensions - Helper functions to extract or test path names or
+extensions from file names.
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -24,6 +24,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string.h>
 
 namespace Misc {
+
+const char* getFileName(const char* pathName)
+	{
+	const char* result=pathName;
+	for(const char* pnPtr=pathName;*pnPtr!='\0';++pnPtr)
+		if(*pnPtr=='/')
+			result=pnPtr+1;
+	
+	return result;
+	}
 
 const char* getExtension(const char* fileName)
 	{

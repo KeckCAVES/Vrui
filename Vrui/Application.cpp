@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -50,6 +50,21 @@ void Application::soundWrapper(ALContextData& contextData,void* userData)
 Application::Application(int& argc,char**& argv,char**& appDefaults)
 	{
 	/* Initialize Vrui: */
+	init(argc,argv,appDefaults);
+	
+	/* Install callbacks with the tool manager: */
+	ToolManager* toolManager=getToolManager();
+	toolManager->getToolCreationCallbacks().add(this,&Application::toolCreationCallback);
+	toolManager->getToolDestructionCallbacks().add(this,&Application::toolDestructionCallback);
+	
+	/* Enable navigation per default: */
+	setNavigationTransformation(NavTransform::identity);
+	}
+
+Application::Application(int& argc,char**& argv)
+	{
+	/* Initialize Vrui: */
+	char** appDefaults=0;
 	init(argc,argv,appDefaults);
 	
 	/* Install callbacks with the tool manager: */

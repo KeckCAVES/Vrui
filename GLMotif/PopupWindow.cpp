@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupWindow - Class for main windows with a draggable title bar and an
 optional close button.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -774,6 +774,24 @@ void PopupWindow::setChildBorderWidth(GLfloat newChildBorderWidth)
 const char* PopupWindow::getTitleString(void) const
 	{
 	return titleBar->getString();
+	}
+
+void PopupWindow::defaultCloseCallback(Misc::CallbackData* cbData)
+	{
+	/* Get the proper callback data structure: */
+	CallbackData* myCbData=dynamic_cast<CallbackData*>(cbData);
+	
+	if(myCbData!=0)
+		{
+		/* Delete the popup window at the next opportunity: */
+		myCbData->popupWindow->getManager()->deleteWidget(myCbData->popupWindow);
+		}
+	}
+
+void PopupWindow::close(void)
+	{
+	/* Delete the popup window at the next opportunity: */
+	getManager()->deleteWidget(this);
 	}
 
 }

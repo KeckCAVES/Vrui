@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisSurfaceNavigationTool - Class to convert an input device with six
 valuators into a surface-aligned navigation tool.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,19 +44,25 @@ Methods of class SixAxisSurfaceNavigationToolFactory:
 
 SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("SixAxisSurfaceNavigationTool",toolManager),
+	 activationToggle(true),
 	 canRoll(true),
 	 bankTurns(false),levelSpeed(5),
 	 canFly(true),
 	 probeSize(getDisplaySize()),
 	 maxClimb(getDisplaySize()),
 	 fixAzimuth(false),
-	 drawHud(true),hudColor(0.0f,1.0f,0.0f),hudRadius(float(getFrontplaneDist()*1.25f)),hudFontSize(float(getUiSize())*1.5f)
+	 drawHud(true),hudColor(0.0f,1.0f,0.0f),
+	 hudDist(Geometry::dist(getDisplayCenter(),getMainViewer()->getHeadPosition())),
+	 hudRadius(getDisplaySize()),
+	 hudFontSize(float(getUiSize())*1.5f)
 	{
 	/* Initialize tool layout: */
+	layout.setNumButtons(1);
 	layout.setNumValuators(6);
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
 	Vector trans;
 	for(int i=0;i<3;++i)
 		trans[i]=getDisplaySize();
@@ -68,6 +74,7 @@ SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolMan
 		rotateFactors[i]=Math::rad(rot[i]);
 	canRoll=cfs.retrieveValue<bool>("./canRoll",canRoll);
 	bankTurns=cfs.retrieveValue<bool>("./bankTurns",bankTurns);
+	bankFactor=Math::rad(cfs.retrieveValue<Scalar>("./bankFactor",Scalar(60)));
 	levelSpeed=cfs.retrieveValue<Scalar>("./levelSpeed",levelSpeed);
 	if(levelSpeed<Scalar(0))
 		levelSpeed=Scalar(0);
@@ -77,6 +84,7 @@ SixAxisSurfaceNavigationToolFactory::SixAxisSurfaceNavigationToolFactory(ToolMan
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
 	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
 	hudColor=cfs.retrieveValue<Color>("./hudColor",hudColor);
+	hudDist=cfs.retrieveValue<float>("./hudDist",hudDist);
 	hudRadius=cfs.retrieveValue<float>("./hudRadius",hudRadius);
 	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
 	
@@ -98,6 +106,11 @@ SixAxisSurfaceNavigationToolFactory::~SixAxisSurfaceNavigationToolFactory(void)
 const char* SixAxisSurfaceNavigationToolFactory::getName(void) const
 	{
 	return "Six-Axis";
+	}
+
+const char* SixAxisSurfaceNavigationToolFactory::getButtonFunction(int buttonSlotIndex) const
+	{
+	return "Start / Stop";
 	}
 
 const char* SixAxisSurfaceNavigationToolFactory::getValuatorFunction(int valuatorSlotIndex) const
@@ -209,8 +222,7 @@ void SixAxisSurfaceNavigationTool::initNavState(void)
 
 SixAxisSurfaceNavigationTool::SixAxisSurfaceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(sFactory,inputAssignment),
-	 numberRenderer(factory->hudFontSize,true),
-	 numActiveAxes(0)
+	 numberRenderer(factory->hudFontSize,true)
 	{
 	}
 
@@ -219,29 +231,33 @@ const ToolFactory* SixAxisSurfaceNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void SixAxisSurfaceNavigationTool::valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData)
+void SixAxisSurfaceNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Check if the valuator became active or inactive: */
-	if(cbData->oldValuatorValue==0.0&&cbData->newValuatorValue!=0.0)
+	bool newActive;
+	if(factory->activationToggle)
 		{
-		/* Activate the axis: */
-		++numActiveAxes;
-		
-		/* Try activating navigation if it is not already active: */
-		if(!isActive()&&activate())
+		newActive=isActive();
+		if(cbData->newButtonState)
+			newActive=!newActive;
+		}
+	else
+		newActive=cbData->newButtonState;
+	
+	if(isActive())
+		{
+		if(!newActive)
 			{
-			/* Initialize transient navigation state: */
-			initNavState();
+			/* Deactivate this tool: */
+			deactivate();
 			}
 		}
-	if(cbData->oldValuatorValue!=0.0&&cbData->newValuatorValue==0.0)
+	else
 		{
-		/* Deactivate the axis: */
-		--numActiveAxes;
-		if(!factory->bankTurns&&numActiveAxes==0)
+		/* Try activating this tool: */
+		if(newActive&&activate())
 			{
-			/* Deactivate navigation: */
-			deactivate();
+			/* Initialize the navigation: */
+			initNavState();
 			}
 		}
 	}
@@ -263,7 +279,7 @@ void SixAxisSurfaceNavigationTool::frame(void)
 			angles[1]=Math::rad(Scalar(90));
 		if(!factory->canRoll||factory->bankTurns)
 			{
-			Scalar targetRoll=factory->bankTurns?getValuatorState(3)*factory->rotateFactors[2]:Scalar(0);
+			Scalar targetRoll=factory->bankTurns?getValuatorState(3)*factory->bankFactor:Scalar(0);
 			Scalar t=Math::exp(-factory->levelSpeed*dt);
 			angles[2]=angles[2]*t+targetRoll*(Scalar(1)-t);
 			if(Math::abs(angles[2]-targetRoll)<Scalar(1.0e-3))
@@ -320,14 +336,8 @@ void SixAxisSurfaceNavigationTool::frame(void)
 		surfaceFrame=newSurfaceFrame;
 		applyNavState();
 		
-		/* Deactivate the tool if it is done: */
-		if(numActiveAxes==0&&Math::abs(angles[2])<Math::Constants<Scalar>::epsilon)
-			deactivate();
-		else
-			{
-			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
-			}
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 
@@ -341,7 +351,8 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 		glColor(factory->hudColor);
 		
 		/* Get the HUD layout parameters: */
-		float y=factory->hudRadius;
+		float y=factory->hudDist;
+		float r=factory->hudRadius;
 		float s=factory->hudFontSize;
 		
 		/* Go to the physical frame: */
@@ -354,14 +365,14 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 		
 		/* Draw the boresight crosshairs: */
 		glBegin(GL_LINES);
-		glVertex2f(-y*0.02f,   0.00f);
-		glVertex2f(-y*0.01f,   0.00f);
-		glVertex2f( y*0.01f,   0.00f);
-		glVertex2f( y*0.02f,   0.00f);
-		glVertex2f(   0.00f,-y*0.02f);
-		glVertex2f(   0.00f,-y*0.01f);
-		glVertex2f(   0.00f, y*0.01f);
-		glVertex2f(   0.00f, y*0.02f);
+		glVertex2f(-r*0.05f,   0.00f);
+		glVertex2f(-r*0.02f,   0.00f);
+		glVertex2f( r*0.02f,   0.00f);
+		glVertex2f( r*0.05f,   0.00f);
+		glVertex2f(   0.00f,-r*0.05f);
+		glVertex2f(   0.00f,-r*0.02f);
+		glVertex2f(   0.00f, r*0.02f);
+		glVertex2f(   0.00f, r*0.05f);
 		glEnd();
 		
 		/* Get the tool's orientation Euler angles in degrees: */
@@ -371,13 +382,13 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 		
 		/* Draw the compass ribbon: */
 		glBegin(GL_LINES);
-		glVertex2f(-y*0.5f,y*0.5f);
-		glVertex2f(y*0.5f,y*0.5f);
+		glVertex2f(-r,r);
+		glVertex2f(r,r);
 		glEnd();
 		glBegin(GL_LINE_STRIP);
-		glVertex2f(-s,y*0.5f+s*2.0f);
-		glVertex2f(0.0f,y*0.5f);
-		glVertex2f(s,y*0.5f+s*2.0f);
+		glVertex2f(-s*0.5f,r+s);
+		glVertex2f(0.0f,r);
+		glVertex2f(s*0.5f,r+s);
 		glEnd();
 		
 		/* Draw the azimuth tick marks: */
@@ -391,16 +402,16 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 				dist-=360.0f;
 			if(Math::abs(dist)<=60.0f)
 				{
-				float x=dist*y*0.5f/60.0f;
-				glVertex2f(x,y*0.5f);
-				glVertex2f(x,y*0.5f-(az%30==0?s*1.5f:s));
+				float x=dist*r/60.0f;
+				glVertex2f(x,r);
+				glVertex2f(x,r-(az%30==0?s*1.5f:s));
 				}
 			}
 		glEnd();
 		
 		/* Draw the azimuth labels: */
 		GLNumberRenderer::Vector pos;
-		pos[1]=y*0.5f-s*2.0f;
+		pos[1]=r-s*2.0f;
 		pos[2]=0.0f;
 		for(int az=0;az<360;az+=30)
 			{
@@ -411,7 +422,7 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 				dist-=360.0f;
 			if(Math::abs(dist)<=60.0f)
 				{
-				pos[0]=dist*y*0.5f/60.0f;
+				pos[0]=dist*r/60.0f;
 				numberRenderer.drawNumber(pos,az,contextData,0,1);
 				}
 			}
@@ -432,9 +443,9 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<90.0f)
 				{
 				float z=Math::tan(Math::rad(dist))*y;
-				if(Math::abs(z)<=y*0.5f)
+				if(Math::abs(z)<=r)
 					{
-					float x=el%10==0?y*0.1f:y*0.05f;
+					float x=el%10==0?r*0.2f:r*0.1f;
 					glVertex2f(-x,z);
 					glVertex2f(x,z);
 					}
@@ -454,9 +465,9 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<90.0f)
 				{
 				float z=Math::tan(Math::rad(dist))*y;
-				if(Math::abs(z)<=y*0.5f)
+				if(Math::abs(z)<=r)
 					{
-					float x=el%10==0?y*0.1f:y*0.05f;
+					float x=el%10==0?r*0.2f:r*0.1f;
 					glVertex2f(-x,z);
 					glVertex2f(x,z);
 					}
@@ -465,7 +476,7 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 		glEnd();
 		
 		/* Draw the artificial horizon labels: */
-		pos[0]=y*0.1f+s;
+		pos[0]=r*0.2f+s;
 		pos[2]=0.0f;
 		for(int el=-170;el<=180;el+=10)
 			{
@@ -477,7 +488,7 @@ void SixAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 			if(Math::abs(dist)<90.0f)
 				{
 				float z=Math::tan(Math::rad(dist))*y;
-				if(Math::abs(z)<=y*0.5f)
+				if(Math::abs(z)<=r)
 					{
 					pos[1]=z;
 					int drawEl=el;

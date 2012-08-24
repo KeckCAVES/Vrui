@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisSurfaceNavigationTool - Class to convert an input device with six
 valuators into a surface-aligned navigation tool.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -42,10 +42,12 @@ class SixAxisSurfaceNavigationToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
+	bool activationToggle; // Flag whether the activation button acts as a toggle
 	Scalar translateFactors[3]; // Array of translation speeds along the (x, y, z) axes in physical units/s
 	Scalar rotateFactors[3]; // Array of rotation speeds around the (pitch, roll, yaw) axes in radians/s
 	bool canRoll; // Flag whether to the tool is allowed to roll around the local Y axis
 	bool bankTurns; // Flag whether the roll angle is locked to the yaw angular velocity
+	Scalar bankFactor; // Amount of rotation during banking turns
 	Scalar levelSpeed; // Relative speed at which the navigation tool levels to a zero roll angle
 	bool canFly; // Flag whether the tool is allowed to "fly" above the surface
 	Scalar probeSize; // Size of probe to use when aligning surface frames
@@ -53,7 +55,8 @@ class SixAxisSurfaceNavigationToolFactory:public ToolFactory
 	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
 	bool drawHud; // Flag whether to draw the navigation heads-up display
 	Color hudColor; // Color to draw the HUD
-	float hudRadius; // Distance of HUD plane from eye point in physical coordinate units
+	float hudDist; // Distance of HUD plane from eye point in physical coordinate units
+	float hudRadius; // Radius of HUD on HUD plane
 	float hudFontSize; // HUD font size in physical coordinate units
 	
 	/* Constructors and destructors: */
@@ -63,6 +66,7 @@ class SixAxisSurfaceNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
@@ -78,7 +82,6 @@ class SixAxisSurfaceNavigationTool:public SurfaceNavigationTool
 	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-like font
 	
 	/* Transient navigation state: */
-	int numActiveAxes; // Counts how many of the tool's axes are currently pushed
 	Point headPos; // Current head position in physical coordinates
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar angles[3]; // Current orientation relative to current surface frame as Euler angles
@@ -93,7 +96,7 @@ class SixAxisSurfaceNavigationTool:public SurfaceNavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	};

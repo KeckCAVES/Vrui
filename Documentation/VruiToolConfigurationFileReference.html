@@ -425,6 +425,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>1: Tool activation state.</TD>
+</TR>
+
+<TR>
 <TD>Required Valuators</TD><TD>6</TD>
 <TD>1: Translate along local X axis (right/left).<BR>
     2: Translate along local Y axis (forward/backwards).<BR>
@@ -437,6 +442,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>activationToggle</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether the activation button acts as a toggle.</TD>
+</TR>
 
 <TR>
 <TD>translateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of three <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>)</TD>
@@ -456,6 +466,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>bankTurns</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether the navigation tool links roll angle to the current yaw angular velocity.</TD>
+</TR>
+
+<TR>
+<TD>bankFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>60.0</TD>
+<TD>Maximum banking angle during banking turns.</TD>
 </TR>
 
 <TR>
@@ -494,8 +509,13 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#frontplaneDist">frontplaneDist</A>*1.25</TD>
+<TD>hudDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>Distance from main viewer's head position to <A HREF="VruiConfigurationFileReference.html#displayCenter">displayCenter</A></TD>
 <TD>Distance from the viewer's eye to the HUD plane in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A></TD>
+<TD>Radius of the HUD physical coordinate units.</TD>
 </TR>
 
 <TR>
@@ -511,7 +531,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <TR>
 <TD>Required Buttons</TD><TD>3</TD>
-<TD>1: Toggle tool activation state.<BR>
+<TD>1: Tool activation state.<BR>
     2: Forward thrust.<BR>
     3: Reverse thrust.</TD>
 </TR>
@@ -529,6 +549,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>activationToggle</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether the activation button acts as a toggle.</TD>
+</TR>
 
 <TR>
 <TD>rotateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of three <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(-60.0&deg;/s, -60.0&deg;/s, 45.0&deg;/s)</TD>
@@ -591,8 +616,13 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#frontplaneDist">frontplaneDist</A>*1.25</TD>
+<TD>hudDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>Distance from main viewer's head position to <A HREF="VruiConfigurationFileReference.html#displayCenter">displayCenter</A></TD>
 <TD>Distance from the viewer's eye to the HUD plane in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A></TD>
+<TD>Radius of the HUD physical coordinate units.</TD>
 </TR>
 
 <TR>
@@ -1719,6 +1749,11 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
+<TD>forwardShiftButton</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the shift button itself is forwarded to both button planes, reflecting the status of the currently active plane.</TD>
+</TR>
+
+<TR>
 <TD>resetFeatures</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether buttons and valuators reset to their default values when the tool shifts away from their plane.</TD>
 </TR>
@@ -1770,7 +1805,7 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>drawRay</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>drawRay</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true if useEyeRay is false; true otherwise</TD>
 <TD>Flag whether all classes derived from UserInterfaceTool draw the interaction ray when active.</TD>
 </TR>
 

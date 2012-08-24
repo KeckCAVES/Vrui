@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,6 +38,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
+#include <Vrui/InputGraphManager.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/VRWindow.h>
@@ -55,7 +56,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	 moveSpeed(getInchFactor()*Scalar(120)),
 	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
 	 probeSize(getInchFactor()*Scalar(12)),
-	 maxClimb(getInchFactor()*Scalar(24)),
+	 maxClimb(getInchFactor()*Scalar(12)),
 	 fixAzimuth(false),
 	 showHud(true),
 	 levelOnExit(false)
@@ -263,6 +264,7 @@ void FPSNavigationTool::stopNavState(void)
 
 FPSNavigationTool::FPSNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(factory,inputAssignment),
+	 buttonDevice(0),
 	 mouseAdapter(0),
 	 numberRenderer(float(getUiSize())*1.5f,true)
 	{
@@ -270,8 +272,37 @@ FPSNavigationTool::FPSNavigationTool(const ToolFactory* factory,const ToolInputA
 
 void FPSNavigationTool::initialize(void)
 	{
+	/* Get the source input device: */
+	InputDevice* device=getButtonDevice(1);
+	
+	/* Create a virtual input device to shadow the movement buttons: */
+	buttonDevice=addVirtualInputDevice("FPSNavigationToolButtonDevice",4,0);
+	
+	/* Copy the source device's tracking type: */
+	buttonDevice->setTrackType(device->getTrackType());
+	
+	/* Disable the virtual device's glyph: */
+	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
+	
+	/* Permanently grab the virtual input device: */
+	getInputGraphManager()->grabInputDevice(buttonDevice,this);
+	
+	/* Initialize the virtual input device's position: */
+	buttonDevice->setTransformation(device->getTransformation());
+	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+	
 	/* Get a pointer to the input device's controlling adapter: */
 	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getButtonDevice(0)));
+	}
+
+void FPSNavigationTool::deinitialize(void)
+	{
+	/* Release the virtual input device: */
+	getInputGraphManager()->releaseInputDevice(buttonDevice,this);
+	
+	/* Destroy the virtual input device: */
+	getInputDeviceManager()->destroyInputDevice(buttonDevice);
+	buttonDevice=0;
 	}
 
 const ToolFactory* FPSNavigationTool::getFactory(void) const
@@ -281,14 +312,13 @@ const ToolFactory* FPSNavigationTool::getFactory(void) const
 
 void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Process based on which button was pressed: */
-	switch(buttonSlotIndex)
+	if(isActive())
 		{
-		case 0:
-			if(cbData->newButtonState) // Button has just been pressed
-				{
-				/* Act depending on this tool's current state: */
-				if(isActive())
+		/* Process based on which button was pressed: */
+		switch(buttonSlotIndex)
+			{
+			case 0:
+				if(cbData->newButtonState) // Button has just been pressed
 					{
 					if(factory->levelOnExit)
 						{
@@ -307,43 +337,58 @@ void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCa
 					/* Deactivate this tool: */
 					deactivate();
 					stopNavState();
+					
+					/* Set the forwarded buttons to the states of the real buttons: */
+					for(int i=0;i<4;++i)
+						buttonDevice->setButtonState(i,getButtonState(1+i));
 					}
-				else
-					{
-					/* Try activating this tool: */
-					if(activate())
-						initNavState();
-					}
+				break;
+			
+			case 1:
+				if(cbData->newButtonState) // Button has just been pressed
+					moveVelocity[0]-=factory->moveSpeed;
+				else // Button has just been released
+					moveVelocity[0]+=factory->moveSpeed;
+				break;
+			
+			case 2:
+				if(cbData->newButtonState) // Button has just been pressed
+					moveVelocity[0]+=factory->moveSpeed;
+				else // Button has just been released
+					moveVelocity[0]-=factory->moveSpeed;
+				break;
+			
+			case 3:
+				if(cbData->newButtonState) // Button has just been pressed
+					moveVelocity[1]-=factory->moveSpeed;
+				else // Button has just been released
+					moveVelocity[1]+=factory->moveSpeed;
+				break;
+			
+			case 4:
+				if(cbData->newButtonState) // Button has just been pressed
+					moveVelocity[1]+=factory->moveSpeed;
+				else // Button has just been released
+					moveVelocity[1]-=factory->moveSpeed;
+				break;
+			}
+		}
+	else
+		{
+		if(buttonSlotIndex==0)
+			{
+			if(cbData->newButtonState) // Button has just been pressed
+				{
+				/* Try activating this tool: */
+				if(activate())
+					initNavState();
 				}
-			break;
-		
-		case 1:
-			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[0]-=factory->moveSpeed;
-			else // Button has just been released
-				moveVelocity[0]+=factory->moveSpeed;
-			break;
-		
-		case 2:
-			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[0]+=factory->moveSpeed;
-			else // Button has just been released
-				moveVelocity[0]-=factory->moveSpeed;
-			break;
-		
-		case 3:
-			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[1]-=factory->moveSpeed;
-			else // Button has just been released
-				moveVelocity[1]+=factory->moveSpeed;
-			break;
-		
-		case 4:
-			if(cbData->newButtonState) // Button has just been pressed
-				moveVelocity[1]+=factory->moveSpeed;
-			else // Button has just been released
-				moveVelocity[1]-=factory->moveSpeed;
-			break;
+			}
+		else
+			{
+			/* Forward the movement buttons to the virtual input device: */
+			buttonDevice->setButtonState(buttonSlotIndex-1,cbData->newButtonState);
+			}
 		}
 	}
 
@@ -452,6 +497,11 @@ void FPSNavigationTool::frame(void)
 				}
 			}
 		}
+	
+	/* Update the virtual input device: */
+	InputDevice* device=getButtonDevice(1);
+	buttonDevice->setTransformation(device->getTransformation());
+	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void FPSNavigationTool::display(GLContextData& contextData) const
@@ -568,6 +618,51 @@ void FPSNavigationTool::display(GLContextData& contextData) const
 		/* Restore OpenGL state: */
 		glPopAttrib();
 		}
+	}
+
+std::vector<InputDevice*> FPSNavigationTool::getForwardedDevices(void)
+	{
+	std::vector<InputDevice*> result;
+	result.push_back(buttonDevice);
+	return result;
+	}
+
+InputDeviceFeatureSet FPSNavigationTool::getSourceFeatures(const InputDeviceFeature& forwardedFeature)
+	{
+	/* Paranoia: Check if the forwarded feature is on the transformed device: */
+	if(forwardedFeature.getDevice()!=buttonDevice)
+		Misc::throwStdErr("FPSNavigationTool::getSourceFeatures: Forwarded feature is not on transformed device");
+	
+	/* Return the source feature: */
+	InputDeviceFeatureSet result;
+	result.push_back(input.getButtonSlotFeature(1+forwardedFeature.getIndex()));
+	return result;
+	}
+
+InputDevice* FPSNavigationTool::getSourceDevice(const InputDevice* forwardedDevice)
+	{
+	/* Paranoia: Check if the forwarded device is the same as the transformed device: */
+	if(forwardedDevice!=buttonDevice)
+		Misc::throwStdErr("FPSNavigationTool::getSourceDevice: Given forwarded device is not transformed device");
+	
+	/* Return the source device: */
+	return getButtonDevice(1);
+	}
+
+InputDeviceFeatureSet FPSNavigationTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)
+	{
+	/* Get the source feature's assignment slot index: */
+	int slotIndex=input.findFeature(sourceFeature);
+	
+	/* Paranoia: Check if the source feature belongs to this tool: */
+	if(slotIndex<0)
+		Misc::throwStdErr("FPSNavigationTool::getForwardedFeatures: Source feature is not part of tool's input assignment");
+	
+	/* Return the forwarded feature: */
+	InputDeviceFeatureSet result;
+	if(slotIndex>=1)
+		result.push_back(InputDeviceFeature(buttonDevice,InputDevice::BUTTON,slotIndex-1));
+	return result;
 	}
 
 }
