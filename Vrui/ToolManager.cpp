@@ -171,6 +171,7 @@ struct ToolManagerToolCreationState
 	/* Elements: */
 	public:
 	InputDeviceFeature firstFeature; // First assigned input device feature
+	std::string firstFeatureName; // Name of first feature to guide users to confirm or cancel
 	InputDevice* toolSelectionDevice; // Input device used to select from the tool selection menu
 	ToolFactory* factory; // Pointer to the factory object for the selected new tool class
 	ToolInputAssignment* tia; // Pointer to the input assignment for the new tool
@@ -188,7 +189,7 @@ struct ToolManagerToolCreationState
 	void updateProgressDialog(void);
 	
 	/* Constructors and destructors: */
-	ToolManagerToolCreationState(const InputDeviceFeature& sFirstFeature); // Creates a tool creation state in the initial state
+	ToolManagerToolCreationState(const InputDeviceManager& inputDeviceManager,const InputDeviceFeature& sFirstFeature); // Creates a tool creation state in the initial state
 	~ToolManagerToolCreationState(void); // Destroys the tool creation state
 	
 	/* Methods: */
@@ -229,14 +230,14 @@ void ToolManagerToolCreationState::createProgressDialog(void)
 			{
 			/* Ask for a required button: */
 			new GLMotif::Label("Line1",buttonBox,"Please press the button");
-			new GLMotif::Label("Line1",buttonBox,"to assign to tool function");
+			new GLMotif::Label("Line2",buttonBox,"to assign to tool function");
 			new GLMotif::Label("Line3",buttonBox,factory->getButtonFunction(buttonSlotIndex));
 			}
 		else
 			{
 			/* Ask for an optional button: */
 			new GLMotif::Label("Line1",buttonBox,"Please press any additional buttons");
-			new GLMotif::Label("Line1",buttonBox,"to assign to optional tool function");
+			new GLMotif::Label("Line2",buttonBox,"to assign to optional tool function");
 			new GLMotif::Label("Line3",buttonBox,factory->getButtonFunction(factory->getLayout().getNumButtons()));
 			}
 		
@@ -258,14 +259,14 @@ void ToolManagerToolCreationState::createProgressDialog(void)
 			{
 			/* Ask for a required valuator: */
 			new GLMotif::Label("Line1",valuatorBox,"Please move the valuator");
-			new GLMotif::Label("Line1",valuatorBox,"to assign to tool function");
+			new GLMotif::Label("Line2",valuatorBox,"to assign to tool function");
 			new GLMotif::Label("Line3",valuatorBox,factory->getValuatorFunction(valuatorSlotIndex));
 			}
 		else
 			{
 			/* Ask for an optional valuator: */
 			new GLMotif::Label("Line1",valuatorBox,"Please move any additional valuators");
-			new GLMotif::Label("Line1",valuatorBox,"to assign to optional tool function");
+			new GLMotif::Label("Line2",valuatorBox,"to assign to optional tool function");
 			new GLMotif::Label("Line3",valuatorBox,factory->getValuatorFunction(factory->getLayout().getNumValuators()));
 			}
 		
@@ -275,7 +276,7 @@ void ToolManagerToolCreationState::createProgressDialog(void)
 	/* Create the cancellation / confirmation line: */
 	char cancelLineBuffer[256];
 	bool isButton=firstFeature.isButton();
-	snprintf(cancelLineBuffer,sizeof(cancelLineBuffer),"%s first %s again to %s",isButton?"Press":"Move",isButton?"button":"valuator",(requireButtons||requireValuators)?"cancel":"confirm");
+	snprintf(cancelLineBuffer,sizeof(cancelLineBuffer),"%s %s again to %s",isButton?"Press":"Move",firstFeatureName.c_str(),(requireButtons||requireValuators)?"cancel":"confirm");
 	cancelLine=new GLMotif::Label("CancelLine",progressBox,cancelLineBuffer);
 	
 	progressBox->manageChild();
@@ -347,15 +348,15 @@ void ToolManagerToolCreationState::updateProgressDialog(void)
 	/* Check if all required slots have been assigned: */
 	if(!(requireButtons||requireValuators))
 		{
-		if(firstFeature.isButton())
-			cancelLine->setString("Press first button again to confirm");
-		if(firstFeature.isValuator())
-			cancelLine->setString("Move first valuator again to confirm");
+		char cancelLineBuffer[256];
+		snprintf(cancelLineBuffer,sizeof(cancelLineBuffer),"%s %s again to confirm",firstFeature.isButton()?"Press":"Move",firstFeatureName.c_str());
+		cancelLine->setString(cancelLineBuffer);
 		}
 	}
 
-ToolManagerToolCreationState::ToolManagerToolCreationState(const InputDeviceFeature& sFirstFeature)
+ToolManagerToolCreationState::ToolManagerToolCreationState(const InputDeviceManager& inputDeviceManager,const InputDeviceFeature& sFirstFeature)
 	:firstFeature(sFirstFeature),
+	 firstFeatureName(inputDeviceManager.getFeatureName(firstFeature)),
 	 toolSelectionDevice(0),
 	 factory(0),tia(0),
 	 buttonSlotIndex(0),valuatorSlotIndex(0),
@@ -866,7 +867,7 @@ void ToolManager::loadDefaultTools(void)
 void ToolManager::startToolCreation(const InputDeviceFeature& feature)
 	{
 	/* Create the tool creation state: */
-	toolCreationState=new ToolManagerToolCreationState(feature);
+	toolCreationState=new ToolManagerToolCreationState(*inputDeviceManager,feature);
 	
 	/* Find the root device of the given device: */
 	InputDevice* rootDevice=inputGraphManager->getRootDevice(feature.getDevice());

@@ -2,7 +2,7 @@
 CallbackList - Class for lists of callback functions associated with
 certain events. Uses new-style templatized callback mechanism and offers
 backwards compatibility for traditional C-style callbacks.
-Copyright (c) 2000-2005 Oliver Kreylos
+Copyright (c) 2000-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -22,7 +22,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <typeinfo>
 #include <Misc/CallbackList.h>
 
 namespace Misc {
@@ -44,21 +43,40 @@ CallbackList::CallbackListItem::~CallbackListItem(void)
 Methods of class CallbackList::FunctionCallback:
 ***********************************************/
 
-CallbackList::FunctionCallback::FunctionCallback(CallbackList::FunctionCallback::CallbackFunction sCallbackFunction,void* sUserData)
-	:callbackFunction(sCallbackFunction),
-	 userData(sUserData)
+CallbackList::FunctionCallback::FunctionCallback(CallbackList::FunctionCallback::CallbackFunction sCallbackFunction)
+	:callbackFunction(sCallbackFunction)
 	{
 	}
 
 bool CallbackList::FunctionCallback::operator==(const CallbackList::CallbackListItem& other) const
 	{
-	if(typeid(other)!=typeid(FunctionCallback))
-		return false;
-	const FunctionCallback* other2=static_cast<const FunctionCallback*>(&other);
-	return callbackFunction==other2->callbackFunction&&userData==other2->userData;
+	const FunctionCallback* other2=dynamic_cast<const FunctionCallback*>(&other);
+	return other2!=0&&callbackFunction==other2->callbackFunction;
 	}
 
 void CallbackList::FunctionCallback::call(CallbackData* callbackData) const
+	{
+	/* Call the callback function: */
+	callbackFunction(callbackData);
+	}
+
+/******************************************************
+Methods of class CallbackList::FunctionVoidArgCallback:
+******************************************************/
+
+CallbackList::FunctionVoidArgCallback::FunctionVoidArgCallback(CallbackList::FunctionVoidArgCallback::CallbackFunction sCallbackFunction,void* sUserData)
+	:callbackFunction(sCallbackFunction),
+	 userData(sUserData)
+	{
+	}
+
+bool CallbackList::FunctionVoidArgCallback::operator==(const CallbackList::CallbackListItem& other) const
+	{
+	const FunctionVoidArgCallback* other2=dynamic_cast<const FunctionVoidArgCallback*>(&other);
+	return other2!=0&&callbackFunction==other2->callbackFunction&&userData==other2->userData;
+	}
+
+void CallbackList::FunctionVoidArgCallback::call(CallbackData* callbackData) const
 	{
 	/* Call the callback function: */
 	callbackFunction(callbackData,userData);

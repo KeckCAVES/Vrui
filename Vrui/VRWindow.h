@@ -43,6 +43,7 @@ class GLFont;
 namespace Vrui {
 class Viewer;
 class VRScreen;
+struct WindowProperties;
 class ViewSpecification;
 class DisplayState;
 class InputDeviceAdapterMouse;
@@ -66,6 +67,7 @@ class VRWindow:public GLWindow
 	VruiState* vruiState; // Pointer to the Vrui state object this window belongs to
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter (if one exists; 0 otherwise)
 	int windowMousePos[2]; // Last reported mouse position in window coordinates
+	GLbitfield clearBufferMask; // Bit mask of OpenGL buffers that need to be cleared before rendering to this window
 	GLExtensionManager* extensionManager; // An OpenGL extension manager for this window
 	GLContextData* contextData; // An OpenGL context data structure for this window
 	DisplayState* displayState; // The display state object associated with this window's OpenGL context; updated before each rendering pass
@@ -104,6 +106,9 @@ class VRWindow:public GLWindow
 	
 	GLFont* showFpsFont; // Font to render the current update frequency
 	bool showFps; // Flag if the window is to display the current update frequency
+	bool burnMode; // Flag if the window is currently in burn mode, i.e., if it runs Vrui frames as quickly as possible and displays smoothed FPS
+	unsigned int burnModeNumFrames; // Number of frames rendered in burn mode
+	double burnModeStartTime; // Application time at which the window entered burn mode
 	bool protectScreens; // Flag if the window's screen(s) need to be protected from nearby input devices
 	bool trackToolKillZone; // Flag if the tool manager's tool kill zone should follow the window when moved/resized
 	Scalar toolKillZonePos[2]; // Position of tool kill zone in relative window coordinates (0.0-1.0 in both directions)
@@ -115,7 +120,7 @@ class VRWindow:public GLWindow
 	
 	/* Private methods: */
 	static std::string getDisplayName(const Misc::ConfigurationFileSection& configFileSection);
-	static int* getVisualProperties(const Misc::ConfigurationFileSection& configFileSection);
+	static int* getVisualProperties(const WindowProperties& properties,const Misc::ConfigurationFileSection& configFileSection);
 	void render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye);
 	bool calcMousePos(int x,int y,Scalar mousePos[2]) const; // Returns mouse position in screen coordinates based on window coordinates
 	

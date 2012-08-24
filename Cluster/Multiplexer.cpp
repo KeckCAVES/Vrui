@@ -617,17 +617,17 @@ void* Multiplexer::packetHandlingThreadMaster(void)
 							std::cerr<<"Packet loss of "<<msg->packetPos-msg->streamPos<<" bytes from "<<msg->streamPos<<" detected by node "<<msg->nodeIndex<<", stream pos is "<<pipeState->streamPos<<", buffer starts at "<<pipeState->headStreamPos<<std::endl;
 							#endif
 							
-							/* Do nothing if there is no more data to send (i.e., master is busy): */
-							if(msg->streamPos<pipeState->streamPos)
+							/* Resend requested packets if there are any; otherwise, do nothing because master is busy: */
+							if(msg->streamPos!=pipeState->streamPos)
 								{
-								/* Find the first recently sent packet after the slave's current stream position: */
+								/* Find the recently-sent packet starting at the slave's current stream position: */
 								Packet* packet;
-								for(packet=pipeState->packetList.front();packet!=0&&packet->streamPos<msg->streamPos;packet=packet->succ)
+								for(packet=pipeState->packetList.front();packet!=0&&packet->streamPos!=msg->streamPos;packet=packet->succ)
 									;
 								
 								/* Signal a fatal error if the required packet has already been discarded: */
-								if(packet->streamPos!=msg->streamPos)
-									Misc::throwStdErr("Cluster::Multiplexer: Node %u: Fatal packet loss detected by %u bytes",msgNodeIndex,packet->streamPos-msg->streamPos);
+								if(packet==0)
+									Misc::throwStdErr("Cluster::Multiplexer: Node %u: Fatal packet loss detected at stream position %u",msgNodeIndex,msg->streamPos);
 								
 								{
 								/* Resend all recent packets in order: */
@@ -983,24 +983,8 @@ void* Multiplexer::packetHandlingThreadSlave(void)
 				
 				if(pipeState.isValid())
 					{
-					/* Check if all previous data has been received by the pipe: */
-					if(pipeState->streamPos!=slaveThreadPacket->streamPos)
-						{
-						if(pipeState->streamPos<slaveThreadPacket->streamPos&&!pipeState->packetLossMode)
-							{
-							/* At least one packet must have been lost; send negative acknowledgment to the master: */
-							StreamMessage msg(sendNodeIndex,Message::PACKETLOSS,slaveThreadPacket->pipeId,pipeState->streamPos,slaveThreadPacket->streamPos);
-							{
-							// SocketMutex::Lock socketLock(socketMutex);
-							for(int i=0;i<slaveMessageBurstSize;++i)
-								sendto(socketFd,&msg,sizeof(StreamMessage),0,(const sockaddr*)otherAddress,sizeof(struct sockaddr_in));
-							}
-							
-							/* Enable packet loss mode to prohibit sending further loss messages until the missing packet arrives: */
-							pipeState->packetLossMode=true;
-							}
-						}
-					else
+					/* Check if the received packet is the next expected one: */
+					if(pipeState->streamPos==slaveThreadPacket->streamPos)
 						{
 						/* Disable packet loss mode: */
 						pipeState->packetLossMode=false;
@@ -1027,6 +1011,23 @@ void* Multiplexer::packetHandlingThreadSlave(void)
 						
 						/* Get a new packet: */
 						slaveThreadPacket=newPacket();
+						}
+					else
+						{
+						/* Check if there is data missing between the packet's stream position and the pipe's stream position; watch for stream position wrap-around: */
+						if(!pipeState->packetLossMode&&slaveThreadPacket->streamPos-pipeState->streamPos<=0x80000000U)
+							{
+							/* At least one packet must have been lost; send negative acknowledgment to the master: */
+							StreamMessage msg(sendNodeIndex,Message::PACKETLOSS,slaveThreadPacket->pipeId,pipeState->streamPos,slaveThreadPacket->streamPos);
+							{
+							// SocketMutex::Lock socketLock(socketMutex);
+							for(int i=0;i<slaveMessageBurstSize;++i)
+								sendto(socketFd,&msg,sizeof(StreamMessage),0,(const sockaddr*)otherAddress,sizeof(struct sockaddr_in));
+							}
+
+							/* Enable packet loss mode to prohibit sending further loss messages until the missing packet arrives: */
+							pipeState->packetLossMode=true;
+							}
 						}
 					}
 				#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
@@ -1519,9 +1520,18 @@ void Multiplexer::barrier(unsigned int pipeId)
 		/* Mark the barrier as completed: */
 		pipeState->barrierId=pipeState->minSlaveBarrierId;
 		
-		/*******************************************************************
-		Flush the list of sent packets:
-		*******************************************************************/
+		/* Send barrier completion message to all slaves: */
+		BarrierMessage msg(0,Message::BARRIER,pipeId,nextBarrierId);
+		{
+		// SocketMutex::Lock socketLock(socketMutex);
+		sendto(socketFd,&msg,sizeof(BarrierMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+		}
+		
+		/* Reset the pipe's flow control state: */
+		pipeState->headStreamPos=pipeState->streamPos;
+		for(unsigned int i=0;i<numSlaves;++i)
+			pipeState->slaveStreamPosOffsets[i]=0;
+		pipeState->numHeadSlaves=numSlaves;
 		
 		/* Add all packets in the list to the list of free packets: */
 		if(pipeState->packetList.numPackets>0)
@@ -1535,19 +1545,6 @@ void Multiplexer::barrier(unsigned int pipeId)
 			pipeState->packetList.head=0;
 			pipeState->packetList.tail=0;
 			}
-		
-		/* Reset the pipe's flow control state: */
-		pipeState->headStreamPos=pipeState->streamPos;
-		for(unsigned int i=0;i<numSlaves;++i)
-			pipeState->slaveStreamPosOffsets[i]=0;
-		pipeState->numHeadSlaves=numSlaves;
-		
-		/* Send barrier completion message to all slaves: */
-		BarrierMessage msg(0,Message::BARRIER,pipeId,nextBarrierId);
-		{
-		// SocketMutex::Lock socketLock(socketMutex);
-		sendto(socketFd,&msg,sizeof(BarrierMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-		}
 		}
 	else
 		{
@@ -1628,9 +1625,18 @@ unsigned int Multiplexer::gather(unsigned int pipeId,unsigned int value,GatherOp
 				break;
 			}
 		
-		/*******************************************************************
-		Flush the list of sent packets:
-		*******************************************************************/
+		/* Send gather completion message to all slaves: */
+		GatherMessage msg(0,Message::GATHER,pipeId,nextBarrierId,pipeState->masterGatherValue);
+		{
+		// SocketMutex::Lock socketLock(socketMutex);
+		sendto(socketFd,&msg,sizeof(GatherMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+		}
+		
+		/* Reset the pipe's flow control state: */
+		pipeState->headStreamPos=pipeState->streamPos;
+		for(unsigned int i=0;i<numSlaves;++i)
+			pipeState->slaveStreamPosOffsets[i]=0;
+		pipeState->numHeadSlaves=numSlaves;
 		
 		/* Add all packets in the list to the list of free packets: */
 		if(pipeState->packetList.numPackets>0)
@@ -1644,19 +1650,6 @@ unsigned int Multiplexer::gather(unsigned int pipeId,unsigned int value,GatherOp
 			pipeState->packetList.head=0;
 			pipeState->packetList.tail=0;
 			}
-		
-		/* Reset the pipe's flow control state: */
-		pipeState->headStreamPos=pipeState->streamPos;
-		for(unsigned int i=0;i<numSlaves;++i)
-			pipeState->slaveStreamPosOffsets[i]=0;
-		pipeState->numHeadSlaves=numSlaves;
-		
-		/* Send gather completion message to all slaves: */
-		GatherMessage msg(0,Message::GATHER,pipeId,nextBarrierId,pipeState->masterGatherValue);
-		{
-		// SocketMutex::Lock socketLock(socketMutex);
-		sendto(socketFd,&msg,sizeof(GatherMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-		}
 		}
 	else
 		{

@@ -19,73 +19,52 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 ***********************************************************************/
 
 #include <GL/gl.h>
+#include <GL/GLMaterialTemplates.h>
+#include <GL/GLModels.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
-class VruiDemo:public Vrui::Application
+class VruiDemoSmall:public Vrui::Application
 	{
 	/* Constructors and destructors: */
 	public:
-	VruiDemo(int& argc,char**& argv,char**& appDefaults);
+	VruiDemoSmall(int& argc,char**& argv);
 	
-	/* Methods: */
+	/* Methods from Vrui::Application: */
 	virtual void display(GLContextData& contextData) const;
 	};
 
-/*************************
-Methods of class VruiDemo:
-*************************/
+/******************************
+Methods of class VruiDemoSmall:
+******************************/
 
-VruiDemo::VruiDemo(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults)
+VruiDemoSmall::VruiDemoSmall(int& argc,char**& argv)
+	:Vrui::Application(argc,argv)
 	{
-	/* Set the navigation transformation: */
-	Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(9));
+	/* Set the navigation transformation to show the entire scene: */
+	Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(12));
 	}
 
-void VruiDemo::display(GLContextData& contextData) const
+void VruiDemoSmall::display(GLContextData& contextData) const
 	{
-	/* Draw a wireframe cube: */
-	glPushAttrib(GL_LIGHTING_BIT|GL_LINE_BIT);
-	glDisable(GL_LIGHTING);
-	glLineWidth(3.0f);
-	glColor3f(1.0f,1.0f,1.0f);
-	glBegin(GL_LINES);
-	glVertex3f(-5.0f,-5.0f,-5.0f);
-	glVertex3f( 5.0f,-5.0f,-5.0f);
-	glVertex3f(-5.0f, 5.0f,-5.0f);
-	glVertex3f( 5.0f, 5.0f,-5.0f);
-	glVertex3f(-5.0f, 5.0f, 5.0f);
-	glVertex3f( 5.0f, 5.0f, 5.0f);
-	glVertex3f(-5.0f,-5.0f, 5.0f);
-	glVertex3f( 5.0f,-5.0f, 5.0f);
+	/* Draw a red cube and a blue sphere: */
+	glPushMatrix();
 	
-	glVertex3f(-5.0f,-5.0f,-5.0f);
-	glVertex3f(-5.0f, 5.0f,-5.0f);
-	glVertex3f( 5.0f,-5.0f,-5.0f);
-	glVertex3f( 5.0f, 5.0f,-5.0f);
-	glVertex3f( 5.0f,-5.0f, 5.0f);
-	glVertex3f( 5.0f, 5.0f, 5.0f);
-	glVertex3f(-5.0f,-5.0f, 5.0f);
-	glVertex3f(-5.0f, 5.0f, 5.0f);
+	glTranslated(-5.0,0.0,0.0);
+	glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(1.0f,0.5f,0.5f));
+	glDrawCube(7.5f);
 	
-	glVertex3f(-5.0f,-5.0f,-5.0f);
-	glVertex3f(-5.0f,-5.0f, 5.0f);
-	glVertex3f( 5.0f,-5.0f,-5.0f);
-	glVertex3f( 5.0f,-5.0f, 5.0f);
-	glVertex3f( 5.0f, 5.0f,-5.0f);
-	glVertex3f( 5.0f, 5.0f, 5.0f);
-	glVertex3f(-5.0f, 5.0f,-5.0f);
-	glVertex3f(-5.0f, 5.0f, 5.0f);
-	glEnd();
-	glPopAttrib();
+	glTranslated(10.0,0.0,0.0);
+	glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(0.5f,0.5f,1.0f));
+	glDrawSphereIcosahedron(4.5f,6);
+	
+	glPopMatrix();
 	}
 
 int main(int argc,char* argv[])
 	{
 	/* Create an application object: */
-	char** appDefaults=0;
-	VruiDemo app(argc,argv,appDefaults);
+	VruiDemoSmall app(argc,argv);
 	
 	/* Run the Vrui main loop: */
 	app.run();

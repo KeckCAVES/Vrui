@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiCalibrator - Simple program to check the calibration of a VR
 environment.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -47,7 +47,7 @@ class VruiDemo:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiDemo(int& argc,char**& argv,char**& appDefaults); // Initializes the Vrui toolkit and the application
+	VruiDemo(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
 	virtual ~VruiDemo(void); // Shuts down the Vrui toolkit
 	
 	/* Methods: */
@@ -80,8 +80,8 @@ GLMotif::PopupMenu* VruiDemo::createMainMenu(void)
 	return mainMenuPopup;
 	}
 
-VruiDemo::VruiDemo(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+VruiDemo::VruiDemo(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 mainMenu(0)
 	{
 	/* Calculate the model color: */
@@ -212,8 +212,7 @@ void VruiDemo::resetNavigationCallback(Misc::CallbackData* cbData)
 int main(int argc,char* argv[])
 	{
 	/* Create an application object: */
-	char** appDefaults=0; // This is an additional parameter no one ever uses
-	VruiDemo app(argc,argv,appDefaults);
+	VruiDemo app(argc,argv);
 	
 	/* Run the Vrui main loop: */
 	app.run();

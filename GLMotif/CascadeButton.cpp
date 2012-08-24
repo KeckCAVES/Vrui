@@ -1,7 +1,7 @@
 /***********************************************************************
 CascadeButton - Class for buttons that pop up secondary top-level
 GLMotif UI components.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -32,6 +32,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Container.h>
 #include <GLMotif/Popup.h>
 
+#define GLMOTIF_CASCADEBUTTON_CENTER_POPUPS 1
+
 namespace GLMotif {
 
 /******************************
@@ -47,11 +49,20 @@ void CascadeButton::setArmed(bool newArmed)
 	if(isArmed&&!isPopped&&popup!=0)
 		{
 		/* Calculate the popup's transformation: */
-		Vector offset=getExterior().getCorner(3);
-		Vector popupHotSpot=popup->getChild()->getExterior().getCorner(2);
-		offset[0]-=popupHotSpot[0];
-		offset[1]-=popupHotSpot[1];
-		offset[2]-=popupHotSpot[2];
+		Vector offset=getExterior().getCorner(1);
+		#if GLMOTIF_CASCADEBUTTON_CENTER_POPUPS
+		offset[1]+=getExterior().size[1]*0.5f;
+		#else
+		offset[1]+=getExterior().size[1];
+		#endif
+		Vector popupHotSpot=popup->getChild()->getExterior().getCorner(0);
+		#if GLMOTIF_CASCADEBUTTON_CENTER_POPUPS
+		popupHotSpot[1]+=popup->getChild()->getExterior().size[1]*0.5f;
+		#else
+		popupHotSpot[1]+=popup->getChild()->getExterior().size[1];
+		#endif
+		for(int i=0;i<3;++i)
+			offset[i]-=popupHotSpot[i];
 		offset[2]+=getZRange().second-popup->getChild()->getZRange().first;
 		getManager()->popupSecondaryWidget(this,popup,offset);
 		isPopped=true;

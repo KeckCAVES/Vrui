@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardValueCoders - Specialized ValueCoder classes for standard data
 types.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 

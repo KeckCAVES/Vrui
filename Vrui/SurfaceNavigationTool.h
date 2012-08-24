@@ -1,7 +1,7 @@
 /***********************************************************************
 SurfaceNavigationTool - Base class for navigation tools that are limited
 to navigate along an application-defined surface.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,41 +54,42 @@ class SurfaceNavigationTool:public NavigationTool
 	{
 	/* Embedded classes: */
 	public:
+	class AlignmentState // Base class for state that alignment objects can attach to an alignment data structure between calls
+		{
+		/* Constructors and destructors: */
+		public:
+		virtual ~AlignmentState(void); // Destroys the alignment state object
+		};
+	
 	struct AlignmentData // Structure to hold data required to align a surface frame
 		{
 		/* Elements: */
 		public:
 		const NavTransform& prevSurfaceFrame; // The aligned surface frame from a previous call
+		AlignmentState* alignmentState; // Alignment object's state; stays valid while the navigation tool stays active
 		NavTransform& surfaceFrame; // The surface frame to be aligned
 		Scalar probeSize; // Size of a "probe" around the current surface frame's origin; probe shape is defined by application
 		Scalar maxClimb; // Height above the surface frame base point at which the alignment function will start searching
 		
 		/* Constructors and destructors: */
 		AlignmentData(const NavTransform& sPrevSurfaceFrame,NavTransform& sSurfaceFrame,Scalar sProbeSize,Scalar sMaxClimb) // Probe size and maximum climb are given in physical coordinate units
-			:prevSurfaceFrame(sPrevSurfaceFrame),surfaceFrame(sSurfaceFrame),
+			:prevSurfaceFrame(sPrevSurfaceFrame),alignmentState(0),surfaceFrame(sSurfaceFrame),
 			 probeSize(sProbeSize*surfaceFrame.getScaling()),maxClimb(sMaxClimb*surfaceFrame.getScaling())
 			{
 			}
 		};
 	
-	typedef Misc::FunctionCall<const AlignmentData&> AlignFunction; // Type for alignment function objects
+	typedef Misc::FunctionCall<AlignmentData&> AlignFunction; // Type for alignment function objects
 	
 	/* Elements: */
 	private:
 	AlignFunction* alignFunction; // Function call that aligns the passed local navigation frame to the application-defined surface
+	AlignmentState* alignmentState; // Alignment object's most recent state
 	protected:
 	NavTransform physicalFrame; // Local navigation coordinate frame (x: right, y: forward, z: up) in physical coordinates
 	
 	/* Protected methods: */
 	protected:
-	static Scalar limitAngle(Scalar angle,Scalar minAngle,Scalar maxAngle) // Limits an angle to the given range
-		{
-		if(angle<minAngle)
-			angle=minAngle;
-		else if(angle>maxAngle)
-			angle=maxAngle;
-		return angle;
-		}
 	static Scalar wrapAngle(Scalar angle) // Helper function to wrap an angle to the -pi...pi range
 		{
 		if(angle<-Math::Constants<Scalar>::pi)
@@ -101,7 +102,7 @@ class SurfaceNavigationTool:public NavigationTool
 	NavTransform& calcPhysicalFrame(const Point& basePoint); // Calculates a default physical navigation frame at the given base point in physical coordinates
 	static Scalar calcAzimuth(const Rotation& orientation); // Helper function to calculate the azimuth angle of the given orientation with respect to a standard physical frame
 	static void calcEulerAngles(const Rotation& orientation,Scalar angles[3]); // Helper function to calculate the full set of Euler angles of the given orientation with respect to a standard physical frame
-	void align(const AlignmentData& alignmentData); // Aligns the given navigation frame with an application-defined surface
+	void align(AlignmentData& alignmentData); // Aligns the given navigation frame with an application-defined surface
 	
 	/*********************************************************************
 	Method to align a navigation frame with an application-defined surface
@@ -115,12 +116,15 @@ class SurfaceNavigationTool:public NavigationTool
 	   from -pi to +pi.
 	*********************************************************************/
 	
-	void align(const AlignmentData& alignmentData,Scalar& azimuth,Scalar& elevation,Scalar& roll); // Ditto, and calculates Euler angles of the original surface frame with respect to the aligned surface frame
+	void align(AlignmentData& alignmentData,Scalar& azimuth,Scalar& elevation,Scalar& roll); // Ditto, and calculates Euler angles of the original surface frame with respect to the aligned surface frame
 	
 	/* Constructors and destructors: */
 	public:
 	SurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
 	virtual ~SurfaceNavigationTool(void);
+	
+	/* Override methods from NavigationTool: */
+	void deactivate(void);
 	
 	/* New methods: */
 	void setAlignFunction(AlignFunction* newAlignFunction); // Sets a new align function; inherits function call object

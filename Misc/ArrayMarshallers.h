@@ -85,6 +85,12 @@ class DynamicArrayMarshaller // Marshaller class for arrays with explicit sizes
 		return numElements;
 		}
 	template <class DataSourceParam>
+	static void readMore(ValueParam* elements,size_t numElements,DataSourceParam& source) // Reads additional elements from the source after an initial read filled its buffer
+		{
+		for(size_t i=0;i<numElements;++i)
+			elements[i]=Marshaller<ValueParam>::read(source);
+		}
+	template <class DataSourceParam>
 	static void discard(size_t numElements,DataSourceParam& source) // Discards a number of elements from the source
 		{
 		for(size_t i=0;i<numElements;++i)

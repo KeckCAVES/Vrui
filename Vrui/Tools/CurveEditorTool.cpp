@@ -337,6 +337,45 @@ void CurveEditorTool::calculateC2Spline(void)
 		}
 	}
 
+void CurveEditorTool::updateCurve(void)
+	{
+	/* Calculate the total curve parameter interval: */
+	parameterInterval=Scalar(0);
+	for(Segment* s=firstVertex->segments[1];s!=0;s=s->vertices[1]->segments[1])
+		parameterInterval+=s->parameterInterval;
+	}
+
+void CurveEditorTool::moveToControlPoint(const CurveEditorTool::ControlPoint& cp)
+	{
+	/* Set the navigation transformation to the picked vertex: */
+	NavTransform nav=NavTransform::identity;
+	nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+	nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+	nav*=NavTransform::scale(getDisplaySize()/Math::exp(cp.size));
+	nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(cp.forward,cp.up),cp.forward)));
+	nav*=NavTransform::translateToOriginFrom(cp.center);
+	setNavigationTransformation(nav);
+	}
+
+void CurveEditorTool::pickSegment(Scalar parameterValue)
+	{
+	if(numVertices>1)
+		{
+		/* Pick the curve segment that contains the new parameter value: */
+		Scalar startParameter(0);
+		Segment* s;
+		for(s=firstVertex->segments[1];s!=0&&parameterValue>startParameter+s->parameterInterval;s=s->vertices[1]->segments[1])
+			startParameter+=s->parameterInterval;
+		pickedSegment=s;
+		if(pickedSegment!=0)
+			{
+			pickedVertex=0;
+			pickedHandleSegment=0;
+			pickedSegmentParameter=(parameterValue-startParameter)/pickedSegment->parameterInterval;
+			}
+		}
+	}
+
 void CurveEditorTool::setParameterValue(Scalar newParameterValue)
 	{
 	/* Update the slider: */
@@ -345,21 +384,8 @@ void CurveEditorTool::setParameterValue(Scalar newParameterValue)
 	/* Update the text field: */
 	parameterValueText->setValue(newParameterValue);
 	
-	if(numVertices>1)
-		{
-		/* Pick the curve segment that contains the new parameter value: */
-		Scalar startParameter(0);
-		Segment* s;
-		for(s=firstVertex->segments[1];s!=0&&newParameterValue>startParameter+s->parameterInterval;s=s->vertices[1]->segments[1])
-			startParameter+=s->parameterInterval;
-		pickedSegment=s;
-		if(pickedSegment!=0)
-			{
-			pickedVertex=0;
-			pickedHandleSegment=0;
-			pickedSegmentParameter=(newParameterValue-startParameter)/pickedSegment->parameterInterval;
-			}
-		}
+	/* Pick the selected curve segment: */
+	pickSegment(newParameterValue);
 	
 	/* Update the user interface: */
 	updateDialog();
@@ -418,13 +444,7 @@ void CurveEditorTool::previousControlPointCallback(Misc::CallbackData* cbData)
 	if(scrub||snapVertexToView)
 		{
 		/* Set the navigation transformation to the picked vertex: */
-		NavTransform nav=NavTransform::identity;
-		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-		nav*=NavTransform::scale(getDisplaySize()/Math::exp(pickedVertex->size));
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(pickedVertex->forward,pickedVertex->up),pickedVertex->forward)));
-		nav*=NavTransform::translateToOriginFrom(pickedVertex->center);
-		setNavigationTransformation(nav);
+		moveToControlPoint(*pickedVertex);
 		
 		snapVertexToView=true;
 		}
@@ -437,24 +457,11 @@ void CurveEditorTool::parameterValueSliderValueChangedCallback(GLMotif::Slider::
 	/* Update the text field: */
 	parameterValueText->setValue(cbData->value);
 	
+	/* Pick the curve segment: */
+	pickSegment(cbData->value);
+	
 	if(numVertices>1)
-		{
-		/* Pick the curve segment that contains the new parameter value: */
-		Scalar newParameterValue=Scalar(cbData->value);
-		Scalar startParameter(0);
-		Segment* s;
-		for(s=firstVertex->segments[1];s!=0&&newParameterValue>startParameter+s->parameterInterval;s=s->vertices[1]->segments[1])
-			startParameter+=s->parameterInterval;
-		pickedSegment=s;
-		if(pickedSegment!=0)
-			{
-			pickedVertex=0;
-			pickedHandleSegment=0;
-			pickedSegmentParameter=(newParameterValue-startParameter)/pickedSegment->parameterInterval;
-			}
-		
 		updateDialog();
-		}
 	}
 
 void CurveEditorTool::nextControlPointCallback(Misc::CallbackData* cbData)
@@ -482,13 +489,7 @@ void CurveEditorTool::nextControlPointCallback(Misc::CallbackData* cbData)
 	if(scrub||snapVertexToView)
 		{
 		/* Set the navigation transformation to the picked vertex: */
-		NavTransform nav=NavTransform::identity;
-		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-		nav*=NavTransform::scale(getDisplaySize()/Math::exp(pickedVertex->size));
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(pickedVertex->forward,pickedVertex->up),pickedVertex->forward)));
-		nav*=NavTransform::translateToOriginFrom(pickedVertex->center);
-		setNavigationTransformation(nav);
+		moveToControlPoint(*pickedVertex);
 		
 		snapVertexToView=true;
 		}
@@ -505,18 +506,7 @@ void CurveEditorTool::scrubToggleValueChangedCallback(GLMotif::ToggleButton::Val
 		if(scrub)
 			{
 			/* Pick the curve segment that contains the current parameter value: */
-			Scalar newParameterValue=Scalar(parameterValueSlider->getValue());
-			Scalar startParameter(0);
-			Segment* s;
-			for(s=firstVertex->segments[1];s!=0&&newParameterValue>startParameter+s->parameterInterval;s=s->vertices[1]->segments[1])
-				startParameter+=s->parameterInterval;
-			pickedSegment=s;
-			if(pickedSegment!=0)
-				{
-				pickedVertex=0;
-				pickedHandleSegment=0;
-				pickedSegmentParameter=(newParameterValue-startParameter)/pickedSegment->parameterInterval;
-				}
+			pickSegment(Scalar(parameterValueSlider->getValue()));
 			
 			updateDialog();
 			}
@@ -545,7 +535,7 @@ void CurveEditorTool::loadCurveCallback(Misc::CallbackData*)
 	/* Create a file selection dialog to select a curve file: */
 	GLMotif::FileSelectionDialog* loadCurveDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curve...",openDirectory("."),".curve");
 	loadCurveDialog->getOKCallbacks().add(this,&CurveEditorTool::loadCurveOKCallback);
-	loadCurveDialog->getCancelCallbacks().add(loadCurveDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	loadCurveDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
 	
 	/* Show the file selection dialog: */
 	popupPrimaryWidget(loadCurveDialog);
@@ -610,6 +600,7 @@ void CurveEditorTool::loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallba
 				firstVertex=nextVertex;
 				}
 			lastVertex=0;
+			parameterInterval=Scalar(0);
 			numVertices=0;
 			forceC2Continuity=false;
 			pickedVertex=0;
@@ -640,9 +631,13 @@ void CurveEditorTool::loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallba
 				newVertex->segments[1]=0;
 				s->vertices[1]=newVertex;
 				
+				parameterInterval+=s->parameterInterval;
 				lastVertex=newVertex;
 				}
 			numVertices=vertices.size();
+			
+			/* Update derived curve state: */
+			updateCurve();
 			
 			/* Update the curve editor dialog: */
 			updateDialog();
@@ -790,6 +785,9 @@ void CurveEditorTool::appendVertexCallback(Misc::CallbackData* cbData)
 			}
 		}
 	
+	/* Update derived curve state: */
+	updateCurve();
+	
 	/* Pick the new vertex: */
 	pickedVertex=newVertex;
 	pickedHandleSegment=0;
@@ -807,13 +805,7 @@ void CurveEditorTool::snapVertexToViewToggleValueChangedCallback(GLMotif::Toggle
 		if(snapVertexToView)
 			{
 			/* Set the navigation transformation to the picked vertex: */
-			NavTransform nav=NavTransform::identity;
-			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-			nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-			nav*=NavTransform::scale(getDisplaySize()/Math::exp(pickedVertex->size));
-			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(pickedVertex->forward,pickedVertex->up),pickedVertex->forward)));
-			nav*=NavTransform::translateToOriginFrom(pickedVertex->center);
-			setNavigationTransformation(nav);
+			moveToControlPoint(*pickedVertex);
 			}
 		}
 	else
@@ -865,6 +857,9 @@ void CurveEditorTool::deleteVertexCallback(Misc::CallbackData* cbData)
 			/* Force the curve to C^2 continuity if requested: */
 			calculateC2Spline();
 			}
+		
+		/* Update derived curve state: */
+		updateCurve();
 		
 		updateDialog();
 		}
@@ -957,6 +952,9 @@ void CurveEditorTool::splitSegmentCallback(Misc::CallbackData* cbData)
 		pickedVertex=newVertex;
 		pickedSegment=0;
 		
+		/* Update derived curve state: */
+		updateCurve();
+		
 		updateDialog();
 		}
 	}
@@ -977,6 +975,9 @@ void CurveEditorTool::segmentParameterIntervalSliderValueChangedCallback(GLMotif
 			calculateC2Spline();
 			}
 		
+		/* Update derived curve state: */
+		updateCurve();
+		
 		updateDialog();
 		}
 	}
@@ -988,9 +989,6 @@ void CurveEditorTool::updateDialog(void)
 	/* Adjust the parameter value slider: */
 	if(numVertices>1)
 		{
-		Scalar parameterInterval(0);
-		for(const Segment* s=firstVertex->segments[1];s!=0;s=s->vertices[1]->segments[1])
-			parameterInterval+=s->parameterInterval;
 		parameterValueSlider->setValueRange(0.0f,float(parameterInterval),0.0f);
 		}
 	else
@@ -1062,14 +1060,7 @@ void CurveEditorTool::updateDialog(void)
 			for(int i=0;i<2;++i)
 				cp[3+i]=ControlPoint::affineCombination(cp[i],cp[i+1],pickedSegmentParameter);
 			cp[5]=ControlPoint::affineCombination(cp[3],cp[4],pickedSegmentParameter);
-			
-			NavTransform nav=NavTransform::identity;
-			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-			nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-			nav*=NavTransform::scale(getDisplaySize()/Math::exp(cp[5].size));
-			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(cp[5].forward,cp[5].up),cp[5].forward)));
-			nav*=NavTransform::translateToOriginFrom(cp[5].center);
-			setNavigationTransformation(nav);
+			moveToControlPoint(cp[5]);
 			}
 		}
 	else
@@ -1126,6 +1117,7 @@ CurveEditorTool::CurveEditorTool(const ToolFactory* sFactory,const ToolInputAssi
 	 segmentParameterIntervalSlider(0),
 	 numVertices(0),
 	 firstVertex(0),lastVertex(0),
+	 parameterInterval(0),
 	 forceC2Continuity(true),
 	 c2BoundaryCondition(ZERO_ACCELERATION),
 	 pickedVertex(0),
@@ -1414,10 +1406,22 @@ void CurveEditorTool::frame(void)
 	if(play)
 		{
 		/* Calculate the new curve parameter based on the time offset: */
-		setParameterValue(getApplicationTime()-playStartTime);
-		
-		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		Scalar newParameterValue=Scalar(getApplicationTime()-playStartTime);
+		if(newParameterValue>=parameterInterval)
+			{
+			/* Move to the last control point and stop playing: */
+			setParameterValue(parameterInterval);
+			play=false;
+			autoPlayToggle->setToggle(false);
+			}
+		else
+			{
+			/* Move to the current parameter value: */
+			setParameterValue(newParameterValue);
+			
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		}
 	
 	if(pickedVertex!=0&&snapVertexToView)
@@ -1435,10 +1439,13 @@ void CurveEditorTool::frame(void)
 			/* Force the curve to C^2 continuity if requested: */
 			calculateC2Spline();
 			}
+		
+		/* Update derived curve state: */
+		updateCurve();
 		}
 	else if(editingMode!=IDLE)
 		{
-		Point p=getInverseNavigationTransformation().transform(getDevicePosition(0));
+		Point p=getInverseNavigationTransformation().transform(getButtonDevicePosition(0));
 		
 		switch(editingMode)
 			{
@@ -1461,6 +1468,10 @@ void CurveEditorTool::frame(void)
 					if(pickedVertex->segments[1]!=0)
 						pickedVertex->segments[1]->mid[0].center+=delta;
 					}
+				
+				/* Update derived curve state: */
+				updateCurve();
+				
 				break;
 				}
 			

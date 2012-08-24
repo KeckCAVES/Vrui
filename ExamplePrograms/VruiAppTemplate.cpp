@@ -2,7 +2,7 @@
 VruiAppTemplate - Template to write a very simple Vrui application
 displaying an OpenGL scene in immediate mode, with a basic menu system
 to control the application and set rendering parameters.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2012 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -20,6 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 ***********************************************************************/
 
 #include <iostream>
+#include <stdexcept>
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GLMotif/Button.h>
@@ -48,7 +49,7 @@ class VruiAppTemplate:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiAppTemplate(int& argc,char**& argv,char**& appDefaults); // Initializes the Vrui toolkit and the application
+	VruiAppTemplate(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
 	virtual ~VruiAppTemplate(void); // Shuts down the Vrui toolkit
 	
 	/* Methods: */
@@ -158,9 +159,9 @@ void VruiAppTemplate::renderingModesMenuCallback(GLMotif::RadioBox::ValueChanged
 	renderingMode=cbData->radioBox->getToggleIndex(cbData->newSelectedToggle);
 	}
 
-VruiAppTemplate::VruiAppTemplate(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
-	 renderingMode(2), // Start rendering polygons
+VruiAppTemplate::VruiAppTemplate(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
+	 renderingMode(2), // Render polygons initially
 	 material(GLMaterial::Color(0.0f,0.5f,1.0f),GLMaterial::Color(1.0f,1.0f,1.0f),25.0f), // Use a bluish specular material
 	 mainMenu(0)
 	{
@@ -184,7 +185,9 @@ void VruiAppTemplate::frame(void)
 	/*********************************************************************
 	This function is called exactly once per frame, no matter how many
 	eyes or windows exist. It is the appropriate place to change
-	application state (run simulations, animate models, etc.).
+	application or Vrui state (run simulations, animate models,
+	synchronize with background threads, change the navigation
+	transformation, etc.).
 	*********************************************************************/
 	
 	/*********************************************************************
@@ -196,8 +199,8 @@ void VruiAppTemplate::display(GLContextData& contextData) const
 	{
 	/*********************************************************************
 	This method is called once for every eye in every window on every
-	frame. It must not change application state, as it is called an
-	unspecified number of times, and might be called from parallel
+	frame. It must not change application or Vrui state, as it is called
+	an unspecified number of times, and might be called from parallel
 	background threads. It also must not clear the screen or initialize
 	the OpenGL transformation matrices. When this method is called, Vrui
 	will already have rendered its own state (menus etc.) and have set up
@@ -260,15 +263,17 @@ int main(int argc,char* argv[])
 	try
 		{
 		/* Create an application object: */
-		char** appDefaults=0; // This is an additional parameter no one ever uses
-		VruiAppTemplate app(argc,argv,appDefaults);
+		VruiAppTemplate app(argc,argv);
 		
 		/* Run the Vrui main loop: */
 		app.run();
 		}
 	catch(std::runtime_error err)
 		{
+		/* Catch any exceptions thrown by Vrui or the application: */
 		std::cerr<<"Caught exception "<<err.what()<<std::endl;
+		
+		/* Return error code to the OS: */
 		return 1;
 		}
 	

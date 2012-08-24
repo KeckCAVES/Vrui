@@ -1,7 +1,7 @@
 /***********************************************************************
 SurfaceNavigationTool - Base class for navigation tools that are limited
 to navigate along an application-defined surface.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -49,6 +49,14 @@ SurfaceNavigationToolFactory::SurfaceNavigationToolFactory(ToolManager& toolMana
 const char* SurfaceNavigationToolFactory::getName(void) const
 	{
 	return "Surface-Aligned Navigation";
+	}
+
+/******************************************************
+Methods of class SurfaceNavigationTool::AlignmentState:
+******************************************************/
+
+SurfaceNavigationTool::AlignmentState::~AlignmentState(void)
+	{
 	}
 
 /**************************************
@@ -136,13 +144,21 @@ void SurfaceNavigationTool::calcEulerAngles(const Rotation& orientation,Scalar a
 		}
 	}
 
-void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& alignmentData)
+void SurfaceNavigationTool::align(SurfaceNavigationTool::AlignmentData& alignmentData)
 	{
 	/* Align the initial surface frame: */
 	if(alignFunction!=0)
 		{
+		/* Put the alignment state into the alignment data structure: */
+		alignmentData.alignmentState=alignmentState;
+		
 		/* Call the alignment function: */
 		(*alignFunction)(alignmentData);
+		
+		/* Store the returned alignment state: */
+		if(alignmentState!=alignmentData.alignmentState)
+			delete alignmentState;
+		alignmentState=alignmentData.alignmentState;
 		}
 	else
 		{
@@ -154,7 +170,7 @@ void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& al
 		}
 	}
 
-void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& alignmentData,Scalar& azimuth,Scalar& elevation,Scalar& roll)
+void SurfaceNavigationTool::align(SurfaceNavigationTool::AlignmentData& alignmentData,Scalar& azimuth,Scalar& elevation,Scalar& roll)
 	{
 	/* Copy the initial surface frame: */
 	NavTransform initialSurfaceFrame=alignmentData.surfaceFrame;
@@ -162,8 +178,16 @@ void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& al
 	/* Align the initial surface frame: */
 	if(alignFunction!=0)
 		{
+		/* Put the alignment state into the alignment data structure: */
+		alignmentData.alignmentState=alignmentState;
+		
 		/* Call the alignment function: */
 		(*alignFunction)(alignmentData);
+		
+		/* Store the returned alignment state: */
+		if(alignmentState!=alignmentData.alignmentState)
+			delete alignmentState;
+		alignmentState=alignmentData.alignmentState;
 		}
 	else
 		{
@@ -222,23 +246,40 @@ void SurfaceNavigationTool::align(const SurfaceNavigationTool::AlignmentData& al
 
 SurfaceNavigationTool::SurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
-	 alignFunction(0)
+	 alignFunction(0),alignmentState(0)
 	{
 	}
 
 SurfaceNavigationTool::~SurfaceNavigationTool(void)
 	{
+	/* Delete the alignment object's state: */
+	delete alignmentState;
+	
 	/* Delete the alignment function call object: */
 	delete alignFunction;
 	}
 
+void SurfaceNavigationTool::deactivate(void)
+	{
+	/* Delete the alignment state object: */
+	delete alignmentState;
+	alignmentState=0;
+	
+	/* Call the base class method: */
+	NavigationTool::deactivate();
+	}
+
 void SurfaceNavigationTool::setAlignFunction(SurfaceNavigationTool::AlignFunction* newAlignFunction)
 	{
+	/* Delete the current alignment object's state: */
+	delete alignmentState;
+	
 	/* Delete the current alignment function call object: */
 	delete alignFunction;
 	
 	/* Install the new alignment function call object: */
 	alignFunction=newAlignFunction;
+	alignmentState=0;
 	}
 
 }

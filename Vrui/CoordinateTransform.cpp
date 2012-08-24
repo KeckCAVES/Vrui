@@ -5,7 +5,7 @@ Vrui's navigation space. Used by measurement tools to display
 measurements in the coordinates and units expected by users of
 particular applications.
 Base class implements identity transformation.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -84,6 +84,11 @@ const char* CoordinateTransform::getUnitAbbreviation(int componentIndex) const
 Point CoordinateTransform::transform(const Point& navigationPoint) const
 	{
 	return navigationPoint;
+	}
+
+Point CoordinateTransform::inverseTransform(const Point& userPoint) const
+	{
+	return userPoint;
 	}
 
 }

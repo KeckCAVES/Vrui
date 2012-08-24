@@ -23,6 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/GLClipPlaneTracker.h>
 
+#include <Misc/PrintInteger.h>
+#include <GL/gl.h>
+
 /***********************************
 Methods of class GLClipPlaneTracker:
 ***********************************/
@@ -171,4 +174,39 @@ bool GLClipPlaneTracker::update(void)
 		++version;
 	
 	return changed;
+	}
+
+std::string GLClipPlaneTracker::createCalcClipDistances(const char* vertexEc) const
+	{
+	/* Create code to calculate the vertex' position relative to all user-specified clipping planes: */
+	std::string result;
+	for(int clipPlaneIndex=0;clipPlaneIndex<maxNumClipPlanes;++clipPlaneIndex)
+		if(clipPlaneStates[clipPlaneIndex].enabled)
+			{
+			char cpiBuffer[12];
+			const char* cpiString=Misc::print(clipPlaneIndex,cpiBuffer+11);
+			result+="\tgl_ClipDistance[";
+			result.append(cpiString);
+			result+="]=dot(gl_ClipPlane[";
+			result.append(cpiString);
+			result+="],";
+			result.append(vertexEc);
+			result+=");\n";
+			}
+	
+	return result;
+	}
+
+void GLClipPlaneTracker::pause(void) const
+	{
+	for(int i=0;i<maxNumClipPlanes;++i)
+		if(clipPlaneStates[i].enabled)
+			glDisable(GL_CLIP_PLANE0+i);
+	}
+
+void GLClipPlaneTracker::resume(void) const
+	{
+	for(int i=0;i<maxNumClipPlanes;++i)
+		if(clipPlaneStates[i].enabled)
+			glEnable(GL_CLIP_PLANE0+i);
 	}

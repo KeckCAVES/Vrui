@@ -26,7 +26,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/PrintInteger.h>
 #include <Misc/FileTests.h>
+#include <Misc/StringHashFunctions.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -810,8 +812,9 @@ void InputGraphManager::clear(void)
 
 void InputGraphManager::loadInputGraph(Misc::ConfigurationFileSection& baseSection)
 	{
-	std::vector<InputDevice*> virtualDevices;
-	std::vector<InputDevice*> forwardedDevices;
+	/* Create a hash table to map section names to the forwarded or virtual input devices created by them: */
+	typedef Misc::HashTable<std::string,InputDevice*> CreatedDeviceMap;
+	CreatedDeviceMap createdDeviceMap(17);
 	
 	/* Process all subsections of the base section: */
 	for(Misc::ConfigurationFileSection sIt=baseSection.beginSubsections();sIt!=baseSection.endSubsections();++sIt)
@@ -823,107 +826,122 @@ void InputGraphManager::loadInputGraph(Misc::ConfigurationFileSection& baseSecti
 			Read a tool section:
 			*******************/
 			
-			/* Read the tool's class name: */
-			std::string toolClass=sIt.retrieveValue<std::string>("./toolClass");
-			
-			/* Get the tool class' factory object: */
-			ToolFactory* factory=getToolManager()->loadClass(toolClass.c_str());
-			
-			/* Get the tool's input layout and create an empty assignment: */
-			ToolInputAssignment tia(factory->getLayout());
-			int buttonSlotIndex=0;
-			int valuatorSlotIndex=0;
-			
-			/* Read and process the tool's bindings: */
-			std::vector<std::vector<std::string> > bindings=sIt.retrieveValue<std::vector<std::vector<std::string> > >("./bindings");
-			for(std::vector<std::vector<std::string> >::iterator bsIt=bindings.begin();bsIt!=bindings.end();++bsIt)
-				if(!bsIt->empty()) // Empty binding is nonsense, but not illegal
-					{
-					/* Get the current binding's input device name: */
-					std::vector<std::string>::iterator bIt=bsIt->begin();
-					
-					/* Get the device pointer by checking for a special name template: */
-					InputDevice* device=0;
-					if(strncmp(bIt->c_str(),"VirtualDevice",13)==0)
+			try
+				{
+				/* Read the tool's class name: */
+				std::string toolClass=sIt.retrieveValue<std::string>("./toolClass");
+				
+				/* Get the tool class' factory object: */
+				ToolFactory* factory=getToolManager()->loadClass(toolClass.c_str());
+				
+				/* Get the tool's input layout and create an empty assignment: */
+				ToolInputAssignment tia(factory->getLayout());
+				int buttonSlotIndex=0;
+				int valuatorSlotIndex=0;
+				
+				/* Read and process the tool's bindings: */
+				std::vector<std::vector<std::string> > bindings=sIt.retrieveValue<std::vector<std::vector<std::string> > >("./bindings");
+				for(std::vector<std::vector<std::string> >::iterator bsIt=bindings.begin();bsIt!=bindings.end();++bsIt)
+					if(!bsIt->empty()) // Empty binding is nonsense, but not illegal
 						{
-						int index=atoi(bIt->c_str()+13);
-						if(index<0||index>=int(virtualDevices.size()))
-							Misc::throwStdErr("InputGraphManager::loadInputGraph: Invalid virtual device index %d in tool section %s",index,sIt.getName().c_str());
-						device=virtualDevices[index];
-						}
-					else if(strncmp(bIt->c_str(),"ForwardedDevice",15)==0)
-						{
-						int index=atoi(bIt->c_str()+15);
-						if(index<0||index>=int(forwardedDevices.size()))
-							Misc::throwStdErr("InputGraphManager::loadInputGraph: Invalid forwarded device index %d in tool section %s",index,sIt.getName().c_str());
-						device=forwardedDevices[index];
-						}
-					else
-						{
-						/* Find the device among the physical devices: */
-						device=getInputDeviceManager()->findInputDevice(bIt->c_str());
-						if(device==0)
-							Misc::throwStdErr("InputGraphManager::loadInputGraph: Unknown device %s in tool section %s",bIt->c_str(),sIt.getName().c_str());
-						}
-					
-					/* Process the current binding's features: */
-					for(++bIt;bIt!=bsIt->end();++bIt)
-						{
-						/* Get the feature's index on the input device: */
-						int featureIndex=getInputDeviceManager()->getFeatureIndex(device,bIt->c_str());
-						if(featureIndex==-1)
-							Misc::throwStdErr("InputGraphManager::loadInputGraph: Unknown feature %s on device %s in tool section %s",bIt->c_str(),bsIt->front().c_str(),sIt.getName().c_str());
+						/* Get the current binding's input device name: */
+						std::vector<std::string>::iterator bIt=bsIt->begin();
 						
-						/* Find an unassigned forwarded feature for the current feature: */
-						InputDeviceFeature openFeature=findFirstUnassignedFeature(InputDeviceFeature(device,featureIndex));
-						
-						/* Check if the forwarded feature is valid: */
-						if(openFeature.isValid())
+						/* Get the device pointer by first checking the map of created devices and then all existing devices: */
+						InputDevice* device=0;
+						CreatedDeviceMap::Iterator cdmIt=createdDeviceMap.findEntry(*bIt);
+						if(!cdmIt.isFinished())
 							{
-							/* Check if the forwarded feature is a button or a valuator: */
-							if(openFeature.isButton())
-								{
-								/* Assign the button: */
-								if(buttonSlotIndex<factory->getLayout().getNumButtons())
-									tia.setButtonSlot(buttonSlotIndex,openFeature.getDevice(),openFeature.getIndex());
-								else if(factory->getLayout().hasOptionalButtons())
-									tia.addButtonSlot(openFeature.getDevice(),openFeature.getIndex());
-								++buttonSlotIndex;
-								}
-							if(openFeature.isValuator())
-								{
-								/* Assign the valuator: */
-								if(valuatorSlotIndex<factory->getLayout().getNumValuators())
-									tia.setValuatorSlot(valuatorSlotIndex,openFeature.getDevice(),openFeature.getIndex());
-								else if(factory->getLayout().hasOptionalValuators())
-									tia.addValuatorSlot(openFeature.getDevice(),openFeature.getIndex());
-								++valuatorSlotIndex;
-								}
+							/* Get the previously created device: */
+							device=cdmIt->getDest();
 							}
 						else
 							{
-							std::string featureName=getInputDeviceManager()->getFeatureName(InputDeviceFeature(device,featureIndex));
-							Misc::throwStdErr("InputGraphManager::loadInputGraph: Feature %s on device %s is already assigned in tool section %s",featureName.c_str(),bsIt->front().c_str(),sIt.getName().c_str());
+							/* Find the device among the already-existing devices: */
+							device=getInputDeviceManager()->findInputDevice(bIt->c_str());
+							if(device==0)
+								Misc::throwStdErr("Unknown device %s",bIt->c_str());
+							}
+						
+						/* Process the current binding's features: */
+						for(++bIt;bIt!=bsIt->end();++bIt)
+							{
+							/* Get the feature's index on the input device: */
+							int featureIndex=getInputDeviceManager()->getFeatureIndex(device,bIt->c_str());
+							if(featureIndex==-1)
+								Misc::throwStdErr("Unknown feature %s on device %s",bIt->c_str(),bsIt->front().c_str());
+							
+							/* Find an unassigned forwarded feature for the current feature: */
+							InputDeviceFeature openFeature=findFirstUnassignedFeature(InputDeviceFeature(device,featureIndex));
+							
+							/* Check if the forwarded feature is valid: */
+							if(openFeature.isValid())
+								{
+								/* Check if the forwarded feature is a button or a valuator: */
+								if(openFeature.isButton())
+									{
+									/* Assign the button: */
+									if(buttonSlotIndex<factory->getLayout().getNumButtons())
+										tia.setButtonSlot(buttonSlotIndex,openFeature.getDevice(),openFeature.getIndex());
+									else if(factory->getLayout().hasOptionalButtons())
+										tia.addButtonSlot(openFeature.getDevice(),openFeature.getIndex());
+									++buttonSlotIndex;
+									}
+								if(openFeature.isValuator())
+									{
+									/* Assign the valuator: */
+									if(valuatorSlotIndex<factory->getLayout().getNumValuators())
+										tia.setValuatorSlot(valuatorSlotIndex,openFeature.getDevice(),openFeature.getIndex());
+									else if(factory->getLayout().hasOptionalValuators())
+										tia.addValuatorSlot(openFeature.getDevice(),openFeature.getIndex());
+									++valuatorSlotIndex;
+									}
+								}
+							else
+								{
+								std::string featureName=getInputDeviceManager()->getFeatureName(InputDeviceFeature(device,featureIndex));
+								Misc::throwStdErr("Feature %s on device %s is already assigned",featureName.c_str(),bsIt->front().c_str());
+								}
+							}
+						}
+				
+				/* Check if the binding is complete: */
+				if(buttonSlotIndex<factory->getLayout().getNumButtons())
+					Misc::throwStdErr("Not enough button bindings; got %d, need %d",buttonSlotIndex,factory->getLayout().getNumButtons());
+				if(valuatorSlotIndex<factory->getLayout().getNumValuators())
+					Misc::throwStdErr("Not enough valuator bindings; got %d, need %d",valuatorSlotIndex,factory->getLayout().getNumValuators());
+				
+				/* Create a tool of the given class and input assignment: */
+				Tool* newTool=getToolManager()->createTool(factory,tia,&sIt);
+				
+				/* Check if the tool has forwarded devices: */
+				DeviceForwarder* df=dynamic_cast<DeviceForwarder*>(newTool);
+				if(df!=0)
+					{
+					/* Add each forwarded device to the created device map: */
+					std::vector<InputDevice*> forwardedDevices=df->getForwardedDevices();
+					if(forwardedDevices.size()==1)
+						{
+						/* Add the only forwarded device: */
+						createdDeviceMap[sIt.getName()]=forwardedDevices[0];
+						}
+					else
+						{
+						/* Add each of the forwarded devices, appending its index: */
+						for(unsigned int index=0;index<forwardedDevices.size();++index)
+							{
+							char indexString[11];
+							std::string forwardedDeviceName=sIt.getName();
+							forwardedDeviceName.append(Misc::print(index,indexString+10));
+							createdDeviceMap[forwardedDeviceName]=forwardedDevices[index];
 							}
 						}
 					}
-			
-			/* Check if the binding is complete: */
-			if(buttonSlotIndex<factory->getLayout().getNumButtons())
-				Misc::throwStdErr("InputGraphManager::loadInputGraph: Not enough button bindings in tool section %s; got %d, need %d",sIt.getName().c_str(),buttonSlotIndex,factory->getLayout().getNumButtons());
-			if(valuatorSlotIndex<factory->getLayout().getNumValuators())
-				Misc::throwStdErr("InputGraphManager::loadInputGraph: Not enough valuator bindings in tool section %s; got %d, need %d",sIt.getName().c_str(),valuatorSlotIndex,factory->getLayout().getNumValuators());
-			
-			/* Create a tool of the given class and input assignment: */
-			Tool* newTool=getToolManager()->createTool(factory,tia,&sIt);
-			
-			/* Check if the tool has forwarded devices: */
-			DeviceForwarder* df=dynamic_cast<DeviceForwarder*>(newTool);
-			if(df!=0)
+				}
+			catch(std::runtime_error err)
 				{
-				/* Remember each forwarded device: */
-				std::vector<InputDevice*> newForwardedDevices=df->getForwardedDevices();
-				forwardedDevices.insert(forwardedDevices.end(),newForwardedDevices.begin(),newForwardedDevices.end());
+				/* Print error message and carry on: */
+				std::cout<<"InputGraphManager::loadInputGraph: Ignoring tool binding section "<<sIt.getName()<<" due to exception "<<err.what()<<std::endl;
 				}
 			}
 		else
@@ -936,7 +954,6 @@ void InputGraphManager::loadInputGraph(Misc::ConfigurationFileSection& baseSecti
 			int numButtons=sIt.retrieveValue<int>("./numButtons",0);
 			int numValuators=sIt.retrieveValue<int>("./numValuators",0);
 			InputDevice* newDevice=addVirtualInputDevice("VirtualInputDevice",numButtons,numValuators);
-			virtualDevices.push_back(newDevice);
 			
 			/* Get the graph input device representing the new device: */
 			GraphInputDevice* gidPtr=deviceMap.getEntry(newDevice).getDest();
@@ -963,6 +980,9 @@ void InputGraphManager::loadInputGraph(Misc::ConfigurationFileSection& baseSecti
 				TrackerState physPos=TrackerState::translateFromOriginTo(getDisplayCenter());
 				newDevice->setTransformation(sIt.retrieveValue<TrackerState>("./transform",physPos));
 				}
+			
+			/* Add the name of the created device to the device map: */
+			createdDeviceMap[sIt.getName()]=newDevice;
 			}
 		}
 	}
@@ -996,7 +1016,6 @@ void InputGraphManager::saveInputGraph(const char* configurationFileName,const c
 	typedef Misc::HashTable<InputDevice*,std::string> DeviceNameMap;
 	DeviceNameMap deviceNameMap(17);
 	int virtualDeviceIndex=0;
-	int forwardedDeviceIndex=0;
 	int toolIndex=0;
 	
 	/* Save all virtual input devices and all tools from all input graph levels: */
@@ -1007,11 +1026,11 @@ void InputGraphManager::saveInputGraph(const char* configurationFileName,const c
 			if(gidPtr->grabber!=&inputDeviceManager&&!deviceNameMap.isEntry(gidPtr->device))
 				{
 				/* Create a new section for the virtual input device: */
-				char deviceSectionName[12];
-				snprintf(deviceSectionName,sizeof(deviceSectionName),"Device%d",virtualDeviceIndex);
+				std::string deviceSectionName="Device";
+				char deviceIndexString[11];
+				deviceSectionName.append(Misc::print(virtualDeviceIndex,deviceIndexString+10));
 				++virtualDeviceIndex;
-				Misc::ConfigurationFileSection deviceSection=baseSection.getSection(deviceSectionName);
-				deviceSection.storeString("sectionType","Device");
+				Misc::ConfigurationFileSection deviceSection=baseSection.getSection(deviceSectionName.c_str());
 				
 				/* Write the virtual input device's layout: */
 				deviceSection.storeValue<int>("./numButtons",gidPtr->device->getNumButtons());
@@ -1034,19 +1053,18 @@ void InputGraphManager::saveInputGraph(const char* configurationFileName,const c
 					}
 				
 				/* Add the virtual input device to the device name mapper: */
-				char deviceName[20];
-				snprintf(deviceName,sizeof(deviceName),"VirtualDevice%u",(unsigned int)deviceNameMap.getNumEntries());
-				deviceNameMap.setEntry(DeviceNameMap::Entry(gidPtr->device,deviceName));
+				deviceNameMap[gidPtr->device]=deviceSectionName;
 				}
 		
 		/* Save all tools in this level: */
 		for(GraphTool* gtPtr=toolLevels[level];gtPtr!=0;gtPtr=gtPtr->levelSucc)
 			{
 			/* Create a new section for the tool: */
-			char toolSectionName[10];
-			snprintf(toolSectionName,sizeof(toolSectionName),"Tool%d",toolIndex);
+			std::string toolSectionName="Tool";
+			char toolIndexString[11];
+			toolSectionName.append(Misc::print(toolIndex,toolIndexString+10));
 			++toolIndex;
-			Misc::ConfigurationFileSection toolSection=baseSection.getSection(toolSectionName);
+			Misc::ConfigurationFileSection toolSection=baseSection.getSection(toolSectionName.c_str());
 			
 			/* Write the tool's class name: */
 			toolSection.storeValue<std::string>("./toolClass",gtPtr->tool->getFactory()->getClassName());
@@ -1100,13 +1118,21 @@ void InputGraphManager::saveInputGraph(const char* configurationFileName,const c
 				{
 				/* Create a mapped name for each forwarded device: */
 				std::vector<InputDevice*> forwardedDevices=df->getForwardedDevices();
-				for(std::vector<InputDevice*>::iterator fdIt=forwardedDevices.begin();fdIt!=forwardedDevices.end();++fdIt)
+				if(forwardedDevices.size()==1)
 					{
-					/* Add the forwarded input device to the device name mapper: */
-					char deviceName[30];
-					snprintf(deviceName,sizeof(deviceName),"ForwardedDevice%d",forwardedDeviceIndex);
-					++forwardedDeviceIndex;
-					deviceNameMap.setEntry(DeviceNameMap::Entry(*fdIt,deviceName));
+					/* Add an entry for the single forwarded device: */
+					deviceNameMap[forwardedDevices[0]]=toolSectionName;
+					}
+				else
+					{
+					/* Add an entry for each forwarded device, appending their indices: */
+					for(unsigned int index=0;index<forwardedDevices.size();++index)
+						{
+						std::string forwardedDeviceName=toolSectionName;
+						char indexString[11];
+						forwardedDeviceName.append(Misc::print(index,indexString+10));
+						deviceNameMap[forwardedDevices[0]]=forwardedDeviceName;
+						}
 					}
 				}
 			}

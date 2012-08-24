@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexShader - OpenGL extension class for the GL_ARB_vertex_shader
 extension.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -23,11 +23,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLEXTENSIONS_GLARBVERTEXSHADER_INCLUDED
 #define GLEXTENSIONS_GLARBVERTEXSHADER_INCLUDED
 
+#include <stddef.h>
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>
 #include <GL/Extensions/GLExtension.h>
 #include <GL/Extensions/GLARBVertexProgram.h>
 #include <GL/Extensions/GLARBShaderObjects.h>
+
+/* Forward declarations: */
+namespace IO {
+class File;
+}
 
 /********************************
 Extension-specific parts of gl.h:
@@ -99,6 +105,8 @@ Helper functions:
 ****************/
 
 GLhandleARB glCompileVertexShaderFromString(const char* shaderSource); // Compiles a new vertex shader object from a C-style string; throws exception on errors
+GLhandleARB glCompileVertexShaderFromStrings(size_t numShaderSources,...); // Compiles a new vertex shader object from a list of C-style strings; throws exception on errors
 GLhandleARB glCompileVertexShaderFromFile(const char* shaderSourceFileName); // Compiles a new vertex shader object from a source file; throws exception on errors
+GLhandleARB glCompileVertexShaderFromFile(const char* shaderSourceFileName,IO::File& shaderSourceFile); // Ditto, with already-opened IO::File object
 
 #endif

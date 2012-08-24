@@ -1,7 +1,7 @@
 /***********************************************************************
 ScaleBar - Class to draw a scale bar in Vrui applications. Scale bar is
 implemented as a special top-level GLMotif widget for simplicity.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -420,12 +420,13 @@ void ScaleBar::pointerButtonDown(GLMotif::Event& event)
 	Scalar newScale=currentScale;
 	
 	/* Check if the event happened in the left or right corner: */
-	if(event.getWidgetPoint().getPoint()[0]<getInterior().origin[0]+getInterior().size[0]*(1.0f/3.0f))
+	float relEventPos=(event.getWidgetPoint().getPoint()[0]-getInterior().origin[0])/getInterior().size[0];
+	if(relEventPos<=0.333f)
 		{
 		/* Calculate the next smaller quasi-binary scale factor: */
 		newScale=Scalar(getSmallerQuasiBinary(currentScale));
 		}
-	else if(event.getWidgetPoint().getPoint()[0]>=getInterior().origin[0]+getInterior().size[0]*(2.0f/3.0f))
+	else if(relEventPos>=0.667f)
 		{
 		/* Calculate the next bigger quasi-binary scale factor: */
 		newScale=Scalar(getBiggerQuasiBinary(currentScale));
@@ -462,8 +463,11 @@ void ScaleBar::pointerButtonDown(GLMotif::Event& event)
 		/* Update the scale bar: */
 		calcSize(newNav);
 		
-		/* Resize the widget: */
-		resize(GLMotif::Box(GLMotif::Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+		/* Resize the widget so that the clicked point stays in the same place: */
+		GLMotif::Vector newSize=calcNaturalSize();
+		GLfloat newInteriorWidth=newSize[0]-2.0f*getBorderWidth();
+		GLfloat newOrigin=event.getWidgetPoint().getPoint()[0]-newInteriorWidth*relEventPos-getBorderWidth();
+		resize(GLMotif::Box(GLMotif::Vector(newOrigin,0.0f,0.0f),newSize));
 		}
 	}
 
