@@ -50,15 +50,6 @@ SixAxisInputDeviceToolFactory::Configuration::Configuration(void)
 		rotations[i][i]=Scalar(1);
 	}
 
-SixAxisInputDeviceToolFactory::Configuration::Configuration(const SixAxisInputDeviceToolFactory::Configuration& source)
-	:selectButtonToggle(true),
-	 translateFactor(source.translateFactor),
-	 translations(source.translations),
-	 rotateFactor(source.rotateFactor),
-	 rotations(source.rotations)
-	{
-	}
-
 void SixAxisInputDeviceToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */

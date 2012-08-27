@@ -7,7 +7,68 @@
 
 <H1>Vrui Configuration File Settings Reference</H1>
 
-<H2>Root Section</H2>
+Vrui's main configuration file, Vrui.cfg, is a hierarchical collection of sections containing tag/value pairs not unlike the Windows registry. The main difference is that Vrui configuration files are plain text, and that they contain strongly typed values from a rich set of types (see <A HREF="VruiCFGTypes.html">Vrui Configuration File Settings Value Type Reference</A>). The outermost section in Vrui.cfg is always called &quot;Vrui,&quot; and inside that section are any number of <EM>root sections</EM> defining the configurations of separate complete Vrui environments. These root sections are typically named by the host name of the computer running the respective environment, such that the Vrui run-time can automatically configure itself to the environment in which it is run at any given time.<P>
+
+The rest of this document lists and explains all tag/value pairs that exist within the following section types:
+<UL>
+<LI><A HREF="#rootsection">Root Section</A>
+	<UL>
+	<LI><A HREF="#inputdeviceadaptersections">Input Device Adapter Sections</A>
+		<UL>
+		<LI><A HREF="#inputdeviceadaptermousesettings">Mouse Input Device Adapter Settings</A></LI>
+
+		<LI><A HREF="#inputdeviceadapterdevicedaemonsettings">DeviceDaemon Input Device Adapter Settings</A>
+			<UL>
+			<LI><A HREF="#devicedaemoninputdevicesections">DeviceDaemon Input Device Sections</A></LI>
+			</UL>
+		</LI>
+
+		<LI><A HREF="#inputdeviceadaptervisboxsettings">VisBox Input Device Adapter Settings</A></LI>
+
+		<LI><A HREF="#inputdeviceadapterhidsettings">HID Input Device Adapter Settings</A>
+			<UL>
+			<LI><A HREF="#hidinputdevicesections">HID Input Device Sections</A></LI>
+			</UL>
+		</LI>
+
+		<LI><A HREF="#inputdeviceadapterplaybacksettings">Playback Input Device Adapter Settings</A></LI>
+		</UL>
+	</LI>
+
+	<LI><A HREF="#inputdevicedatasaversection">Input Device Data Saver Section</A></LI>
+
+	<LI><A HREF="#viewersections">Viewer Sections</A></LI>
+
+	<LI><A HREF="#screensections">Screen Sections</A></LI>
+
+	<LI><A HREF="#windowsections">Window Sections</A></LI>
+
+	<LI><A HREF="#listenersections">Listener Sections</A></LI>
+
+	<LI><A HREF="#soundcontextsection">Sound Context Section</A></LI>
+
+	<LI><A HREF="#toolmanagersection">Tool Manager Section</A>
+		<UL>
+		<LI><A HREF="#killzoneboxsettings">Box Tool Kill Zone Settings</A></LI>
+
+		<LI><A HREF="#killzonefrustumsettings">Frustum Tool Kill Zone Settings</A></LI>
+
+		<LI><A HREF="#toolclassconfigurationsections">Tool Class Configuration Sections</A></LI>
+
+		<LI><A HREF="#defaulttoolassignmentsection">Default Tool Assignment Section</A>
+			<UL>
+			<LI><A HREF="#toolbindingsections">Tool Binding Sections</A></LI>
+			</UL>
+		</LI>
+		</UL>
+	</LI>
+
+	<LI><A HREF="#visletmanagersection">Vislet Manager Section</A></LI>
+	</UL>
+</LI>
+</UL>
+
+<H2><A NAME="rootsection">Root Section</A></H2>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
@@ -1254,7 +1315,15 @@ settings</A>.</DD>
 </TR>
 </TABLE>
 
-<H3><A NAME="toolassignmentsections">Tool Assignment Sections</A></H3>
+<H3><A NAME="toolclassconfigurationsections">Tool Class Configuration Sections</A></H3>
+
+Any subsections under the <A HREF="#toolmanagersection">Tool Manager Section</A> whose names are equal to the class names of tool classes contain configuration settings for their respective tool classes. The configuration tag/value pairs understood by each tool class are listed in the <A HREF="VruiToolConfigurationFileReference.html">Vrui Tool Configuration File Settings Reference</A>.
+
+<H3><A NAME="defaulttoolassignmentsection">Default Tool Assignment Section</A></H3>
+
+This section lists all tools that are to be bound to input device features on application start-up. It does not contain any tag/value pairs, only any number of <A HREF="#toolbindingsections">tool binding sections</A>.
+
+<H4><A NAME="toolbindingsections">Tool Binding Sections</A></H4>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
@@ -1265,15 +1334,12 @@ settings</A>.</DD>
 </TR>
 
 <TR>
-<TD>buttons</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#featureassignment">feature assignments</A></TD>
-<TD>A list of button features to assign to the tool's button slots.</TD>
+<TD>bindings</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#featureassignment">feature assignments</A></TD>
+<TD>A list of button or valuator features to assign to the tool's button or valuator slots, respectively, in list order. The number of button and valuator slots required by each tool class, and the semantics of each slot, are listed in the <A HREF="VruiToolConfigurationFileReference.html">Vrui Tool Configuration File Settings Reference</A>.</TD>
 </TR>
+</TABLE><P>
 
-<TR>
-<TD>valuators</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#featureassignment">feature assignments</A></TD>
-<TD>A list of valuator features to assign to the tool's valuator slots.</TD>
-</TR>
-</TABLE>
+In addition to the above tag/value pairs, tool binding sections can contain any subset of the configuration tag/value pairs understood by the tool class used in the binding. Tool class setting tag/value pairs provided in a tool binding section override the values of the same configuration tags given in that tool class' configuration section.
 
 <H2><A NAME="visletmanagersection">Vislet Manager Section</A></H2>
 

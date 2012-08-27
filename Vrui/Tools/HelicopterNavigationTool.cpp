@@ -73,24 +73,6 @@ HelicopterNavigationToolFactory::Configuration::Configuration(void)
 	viewAngleFactors[1]=Scalar(-25);
 	}
 
-HelicopterNavigationToolFactory::Configuration::Configuration(const HelicopterNavigationToolFactory::Configuration& source)
-	:activationToggle(source.activationToggle),
-	 rotateFactors(source.rotateFactors),
-	 g(source.g),
-	 collectiveMin(source.collectiveMin),collectiveMax(source.collectiveMax),
-	 thrust(source.thrust),
-	 brake(source.brake),
-	 dragCoefficients(source.dragCoefficients),
-	 viewAngleFactors(source.viewAngleFactors),
-	 probeSize(source.probeSize),
-	 maxClimb(source.maxClimb),
-	 drawHud(source.drawHud),hudColor(source.hudColor),
-	 hudDist(source.hudDist),
-	 hudRadius(source.hudRadius),
-	 hudFontSize(source.hudFontSize)
-	{
-	}
-
 void HelicopterNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */
