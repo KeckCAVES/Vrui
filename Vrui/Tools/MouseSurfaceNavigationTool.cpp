@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
+#include <GL/GLContextData.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/Event.h>
@@ -154,6 +155,20 @@ extern "C" void destroyMouseSurfaceNavigationToolFactory(ToolFactory* factory)
 	delete factory;
 	}
 
+/*****************************************************
+Methods of class MouseSurfaceNavigationTool::DataItem:
+*****************************************************/
+
+MouseSurfaceNavigationTool::DataItem::DataItem(void)
+	:compassDisplayList(glGenLists(1))
+	{
+	}
+
+MouseSurfaceNavigationTool::DataItem::~DataItem(void)
+	{
+	glDeleteLists(compassDisplayList,1);
+	}
+
 /***************************************************
 Static elements of class MouseSurfaceNavigationTool:
 ***************************************************/
@@ -215,6 +230,12 @@ void MouseSurfaceNavigationTool::initNavState(void)
 	if(elevation<Scalar(0))
 		elevation=Scalar(0);
 	
+	if(factory->showCompass)
+		{
+		/* Start showing the virtual compass: */
+		showCompass=true;
+		}
+	
 	/* Apply the newly aligned surface frame: */
 	surfaceFrame=newSurfaceFrame;
 	applyNavState();
@@ -241,36 +262,11 @@ void MouseSurfaceNavigationTool::realignSurfaceFrame(NavTransform& newSurfaceFra
 	applyNavState();
 	}
 
-void MouseSurfaceNavigationTool::drawCompass(void) const
+void MouseSurfaceNavigationTool::navigationTransformationChangedCallback(Misc::CallbackData* cbData)
 	{
-	/* Draw the compass ring: */
-	glBegin(GL_LINE_LOOP);
-	for(int i=0;i<30;++i)
-		{
-		Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
-		glVertex(Math::sin(angle)*(factory->compassSize+factory->compassThickness),Math::cos(angle)*(factory->compassSize+factory->compassThickness));
-		}
-	for(int i=0;i<30;++i)
-		{
-		Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
-		glVertex(Math::sin(angle)*(factory->compassSize-factory->compassThickness),Math::cos(angle)*(factory->compassSize-factory->compassThickness));
-		}
-	glEnd();
-	
-	/* Draw the compass arrow: */
-	glBegin(GL_LINE_LOOP);
-	glVertex(factory->compassThickness,factory->compassSize*Scalar(-1.25));
-	glVertex(factory->compassThickness,factory->compassSize*Scalar(1.25));
-	glVertex(factory->compassThickness*Scalar(2.5),factory->compassSize*Scalar(1.25));
-	glVertex(Scalar(0),factory->compassSize*Scalar(1.75));
-	glVertex(-factory->compassThickness*Scalar(2.5),factory->compassSize*Scalar(1.25));
-	glVertex(-factory->compassThickness,factory->compassSize*Scalar(1.25));
-	glVertex(-factory->compassThickness,factory->compassSize*Scalar(-1.25));
-	glEnd();
-	glBegin(GL_LINES);
-	glVertex(-factory->compassSize*Scalar(1.25),Scalar(0));
-	glVertex(factory->compassSize*Scalar(1.25),Scalar(0));
-	glEnd();
+	/* Stop showing the virtual compass if this tool is no longer active: */
+	if(!SurfaceNavigationTool::isActive())
+		showCompass=false;
 	}
 
 MouseSurfaceNavigationTool::MouseSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
@@ -278,11 +274,21 @@ MouseSurfaceNavigationTool::MouseSurfaceNavigationTool(const ToolFactory* factor
 	 GUIInteractor(false,Scalar(0),getButtonDevice(0)),
 	 mouseAdapter(0),
 	 currentPos(Point::origin),currentValue(0),
-	 navigationMode(IDLE)
+	 navigationMode(IDLE),
+	 showCompass(false)
 	{
 	/* Find the mouse input device adapter controlling the input device: */
 	InputDevice* rootDevice=getInputGraphManager()->getRootDevice(getButtonDevice(0));
 	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(rootDevice));
+	
+	/* Register a callback when the navigation transformation changes: */
+	getNavigationTransformationChangedCallbacks().add(this,&MouseSurfaceNavigationTool::navigationTransformationChangedCallback);
+	}
+
+MouseSurfaceNavigationTool::~MouseSurfaceNavigationTool(void)
+	{
+	/* Remove then navigation transformation change callback: */
+	getNavigationTransformationChangedCallbacks().remove(this,&MouseSurfaceNavigationTool::navigationTransformationChangedCallback);
 	}
 
 const ToolFactory* MouseSurfaceNavigationTool::getFactory(void) const
@@ -627,7 +633,7 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 		}
 	#endif
 	
-	if(factory->showCompass||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING))
+	if(showCompass||(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING))
 		{
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
@@ -645,26 +651,6 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 		for(int i=0;i<3;++i)
 			fgColor[i]=1.0f-bgColor[i];
 		fgColor[3]=bgColor[3];
-		
-		if(factory->showCompass)
-			{
-			/* Position the compass rose: */
-			glPushMatrix();
-			glTranslate(viewport[1]-factory->compassSize*Scalar(3),viewport[3]-factory->compassSize*Scalar(3),Scalar(0));
-			glRotate(Math::deg(azimuth),0,0,1);
-			
-			/* Draw the compass rose's background: */
-			glLineWidth(3.0f);
-			glColor(bgColor);
-			drawCompass();
-			
-			/* Draw the compass rose's foreground: */
-			glLineWidth(1.0f);
-			glColor(fgColor);
-			drawCompass();
-			
-			glPopMatrix();
-			}
 		
 		if(factory->showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
 			{
@@ -698,12 +684,73 @@ void MouseSurfaceNavigationTool::display(GLContextData& contextData) const
 			glEnd();
 			}
 		
+		if(showCompass)
+			{
+			/* Get the data item: */
+			DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+			
+			/* Position the compass rose: */
+			glTranslate(viewport[1]-factory->compassSize*Scalar(3),viewport[3]-factory->compassSize*Scalar(3),Scalar(0));
+			glRotate(Math::deg(azimuth),0,0,1);
+			
+			/* Draw the compass rose's background: */
+			glLineWidth(3.0f);
+			glColor(bgColor);
+			glCallList(dataItem->compassDisplayList);
+			
+			/* Draw the compass rose's foreground: */
+			glLineWidth(1.0f);
+			glColor(fgColor);
+			glCallList(dataItem->compassDisplayList);
+			}
+		
 		/* Go back to physical coordinates: */
 		glPopMatrix();
 		
 		/* Restore OpenGL state: */
 		glPopAttrib();
 		}
+	}
+
+void MouseSurfaceNavigationTool::initContext(GLContextData& contextData) const
+	{
+	/* Create a data item: */
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
+	
+	/* Create the compass rose display list: */
+	glNewList(dataItem->compassDisplayList,GL_COMPILE);
+	
+	/* Draw the compass ring: */
+	glBegin(GL_LINE_LOOP);
+	for(int i=0;i<30;++i)
+		{
+		Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+		glVertex(Math::sin(angle)*(factory->compassSize+factory->compassThickness),Math::cos(angle)*(factory->compassSize+factory->compassThickness));
+		}
+	for(int i=0;i<30;++i)
+		{
+		Scalar angle=Scalar(2)*Math::Constants<Scalar>::pi*(Scalar(i)+Scalar(0.5))/Scalar(30);
+		glVertex(Math::sin(angle)*(factory->compassSize-factory->compassThickness),Math::cos(angle)*(factory->compassSize-factory->compassThickness));
+		}
+	glEnd();
+	
+	/* Draw the compass arrow: */
+	glBegin(GL_LINE_LOOP);
+	glVertex(factory->compassThickness,factory->compassSize*Scalar(-1.25));
+	glVertex(factory->compassThickness,factory->compassSize*Scalar(1.25));
+	glVertex(factory->compassThickness*Scalar(2.5),factory->compassSize*Scalar(1.25));
+	glVertex(Scalar(0),factory->compassSize*Scalar(1.75));
+	glVertex(-factory->compassThickness*Scalar(2.5),factory->compassSize*Scalar(1.25));
+	glVertex(-factory->compassThickness,factory->compassSize*Scalar(1.25));
+	glVertex(-factory->compassThickness,factory->compassSize*Scalar(-1.25));
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex(-factory->compassSize*Scalar(1.25),Scalar(0));
+	glVertex(factory->compassSize*Scalar(1.25),Scalar(0));
+	glEnd();
+	
+	glEndList();
 	}
 
 }

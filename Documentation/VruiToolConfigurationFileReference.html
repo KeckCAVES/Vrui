@@ -37,6 +37,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <LI><A HREF="#FPSNavigationTool">FPSNavigationTool</A> &quot;FPS (Mouse Look&nbsp;+ Buttons)&quot;</LI>
 
+<LI><A HREF="#FiveAxisSurfaceNavigationTool">FiveAxisSurfaceNavigationTool</A> &quot;Five-Axis&quot;</LI>
+
 <LI><A HREF="#SixAxisSurfaceNavigationTool">SixAxisSurfaceNavigationTool</A> &quot;Six-Axis&quot;</LI>
 
 <LI><A HREF="#HelicopterNavigationTool">HelicopterNavigationTool</A> &quot;Helicopter Flight&quot;</LI>
@@ -424,6 +426,75 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>levelOnExit</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether to reset the tool's elevation to zero upon deactivation.</TD>
+</TR>
+</TABLE>
+
+<A NAME="FiveAxisSurfaceNavigationTool"><H3>FiveAxisSurfaceNavigationTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>5</TD>
+<TD>1: Translate along local X axis (right/left).<BR>
+    2: Translate along local Y axis (forward/backwards).<BR>
+    3: Rotate around surface Z axis (yaw).<BR>
+    4: Rotate around surface X axis (pitch).<BR>
+    5: Scale.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>translateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of two <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>)</TD>
+<TD>Maximum translation speeds along X and Y axes, respectively, in physical coordinate units/s.</TD>
+</TR>
+
+<TR>
+<TD>rotateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of two <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(180.0&deg;/s, 180.0&deg;/s)</TD>
+<TD>Maximum rotation speeds in yaw and pitch, respectively, in degree/s.</TD>
+</TR>
+
+<TR>
+<TD>zoomFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.0</TD>
+<TD>Unitless zoom factor in 1/s. This is the natural logarithm of the zoom factor achieved when the zoom axis is held at its maximal value for one second.</TD>
+</TR>
+
+<TR>
+<TD>probeSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A></TD>
+<TD>Radius in physical coordinate units of the probe sphere used to lock the display center to the surface.</TD>
+</TR>
+
+<TR>
+<TD>maxClimb</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A></TD>
+<TD>Maximum distance in physical coordinate units by which the probe sphere can climb when the display center is snapped to the surface.</TD>
+</TR>
+
+<TR>
+<TD>fixAzimuth</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the current azimuth angle stays constant when the surface's local coordinate frame rotates.</TD>
+</TR>
+
+<TR>
+<TD>showCompass</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to draw the compass rose showing the 0&deg; azimuth direction (&quot;north&quot;).</TD>
+</TR>
+
+<TR>
+<TD>compassSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*5.0</TD>
+<TD>Radius of the displayed compass rose in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>compassThickness</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*0.5</TD>
+<TD>Thickness of the displayed compass rose's azimuth band in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>showScreenCenter</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to show crosshairs indicating the screen plane and the screen center while the tool is active.</TD>
 </TR>
 </TABLE>
 

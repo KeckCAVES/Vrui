@@ -61,23 +61,6 @@ SixAxisSurfaceNavigationToolFactory::Configuration::Configuration(void)
 	{
 	}
 
-SixAxisSurfaceNavigationToolFactory::Configuration::Configuration(const SixAxisSurfaceNavigationToolFactory::Configuration& source)
-	:activationToggle(source.activationToggle),
-	 translateFactors(source.translateFactors),
-	 rotateFactors(source.rotateFactors),
-	 canRoll(source.canRoll),
-	 bankTurns(source.bankTurns),bankFactor(source.bankFactor),levelSpeed(source.levelSpeed),
-	 canFly(source.canFly),
-	 probeSize(source.probeSize),
-	 maxClimb(source.maxClimb),
-	 fixAzimuth(source.fixAzimuth),
-	 drawHud(source.drawHud),hudColor(source.hudColor),
-	 hudDist(source.hudDist),
-	 hudRadius(source.hudRadius),
-	 hudFontSize(source.hudFontSize)
-	{
-	}
-
 void SixAxisSurfaceNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */

@@ -55,7 +55,6 @@ class SixAxisInputDeviceToolFactory:public ToolFactory
 		
 		/* Constructors and destructors: */
 		Configuration(void); // Creates default configuration
-		Configuration(const Configuration& source); // Copy constructor
 		
 		/* Methods: */
 		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section

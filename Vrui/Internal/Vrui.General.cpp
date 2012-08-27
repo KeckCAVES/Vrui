@@ -461,6 +461,9 @@ VruiState::~VruiState(void)
 	/* Deregister the popup callback: */
 	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
 	
+	/* Destroy the input graph: */
+	inputGraphManager->clear();
+	
 	/* Delete tool management: */
 	delete toolManager;
 	
