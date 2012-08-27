@@ -3216,3 +3216,14 @@ Vrui-2.4-002:
 - Added value coder class for Misc::FixedArray to
   Misc/ArrayValueCoders.h.
 - Added drag torque to Vrui::HelicopterNavigationTool.
+
+Vrui-2.4-003:
+- Removed superfluous copy constructors from tool configuration classes.
+- Added five-axis surface-aligned navigation tool for spaceball or
+  similar devices; acts like surface-aligned mouse navigation tool.
+- Fixed lock type mismatch in fallback path of Threads::Atomic.
+- Improved virtual compass handling in Vrui::MouseSurfaceNavigationTool
+  and Vrui::FiveAxisSurfaceNavigationTool. Compass stays visible until
+  the navigation transformation is changed from outside the tool. Also,
+  moved compass rendering to display list.
+- Fixed bug in tool deconstruction during Vrui shutdown.
