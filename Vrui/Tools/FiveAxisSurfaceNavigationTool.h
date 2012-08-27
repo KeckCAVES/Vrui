@@ -1,7 +1,8 @@
 /***********************************************************************
-MouseSurfaceNavigationTool - Class for navigation tools that use the
-mouse to move along an application-defined surface.
-Copyright (c) 2009-2012 Oliver Kreylos
+FiveAxisSurfaceNavigationTool - Class for navigation tools that use a
+six-axis spaceball or similar input device to move along an application-
+defined surface.
+Copyright (c) 2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,74 +22,77 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#ifndef VRUI_MOUSESURFACENAVIGATIONTOOL_INCLUDED
-#define VRUI_MOUSESURFACENAVIGATIONTOOL_INCLUDED
+#ifndef VRUI_FIVEAXISSURFACENAVIGATIONTOOL_INCLUDED
+#define VRUI_FIVEAXISSURFACENAVIGATIONTOOL_INCLUDED
 
+#include <Misc/FixedArray.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/GUIInteractor.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
-class GLContextData;
-namespace GLMotif {
-class Widget;
-}
-namespace Vrui {
-class InputDeviceAdapterMouse;
+namespace Misc {
+class ConfigurationFileSection;
 }
 
 namespace Vrui {
 
-class MouseSurfaceNavigationTool;
+class FiveAxisSurfaceNavigationTool;
 
-class MouseSurfaceNavigationToolFactory:public ToolFactory
+class FiveAxisSurfaceNavigationToolFactory:public ToolFactory
 	{
-	friend class MouseSurfaceNavigationTool;
+	friend class FiveAxisSurfaceNavigationTool;
+	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure holding tool (class) configuration
+		{
+		/* Elements: */
+		public:
+		Misc::FixedArray<Scalar,2> translateFactors; // Array of translation speeds along the (x, y) axes in physical units/s
+		Misc::FixedArray<Scalar,2> rotateFactors; // Array of rotation speeds around the (yaw, pitch) axes in radians/s
+		Scalar zoomFactor; // Factor for the zoom axis
+		Scalar probeSize; // Size of probe to use when aligning surface frames
+		Scalar maxClimb; // Maximum amount of climb per frame
+		bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
+		bool showCompass; // Flag whether to draw a virtual compass
+		Scalar compassSize; // Size of compass rose
+		Scalar compassThickness; // Thickness of compass rose's ring
+		bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		
+		/* Methods: */
+		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		};
 	
 	/* Elements: */
 	private:
-	Scalar rotateFactor; // Distance the device has to be moved to rotate by one radians
-	Vector screenScalingDirection; // Direction of scaling vector in screen's coordinates
-	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
-	Scalar wheelScaleFactor; // Scaling factor for one wheel click
-	Scalar throwThreshold; // Distance the device has to be moved on the last step of panning to activate throwing
-	Scalar probeSize; // Size of probe to use when aligning surface frames
-	Scalar maxClimb; // Maximum amount of climb per frame
-	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
-	bool showCompass; // Flag whether to draw a virtual compass
-	Scalar compassSize; // Size of compass rose
-	Scalar compassThickness; // Thickness of compass rose's ring
-	bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
-	bool interactWithWidgets; // Flag if the mouse navigation tool doubles as a widget tool (this is an evil hack)
+	Configuration config; // The class configuration
 	
 	/* Constructors and destructors: */
 	public:
-	MouseSurfaceNavigationToolFactory(ToolManager& toolManager);
-	virtual ~MouseSurfaceNavigationToolFactory(void);
+	FiveAxisSurfaceNavigationToolFactory(ToolManager& toolManager);
+	virtual ~FiveAxisSurfaceNavigationToolFactory(void);
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
-	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteractor,public GLObject
+class FiveAxisSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	{
-	friend class MouseSurfaceNavigationToolFactory;
+	friend class FiveAxisSurfaceNavigationToolFactory;
 	
 	/* Embedded classes: */
 	private:
-	enum NavigationMode // Enumerated type for states the tool can be in
-		{
-		IDLE,WIDGETING,ROTATING,PANNING,THROWING,SCALING,SCALING_WHEEL
-		};
-	
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
@@ -101,22 +105,19 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 		};
 	
 	/* Elements: */
-	static MouseSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
-	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
+	static FiveAxisSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
+	
+	/* Configuration state: */
+	FiveAxisSurfaceNavigationToolFactory::Configuration config; // The tool configuration
 	
 	/* Transient navigation state: */
-	Point currentPos; // Current projected position of mouse input device on screen
-	double lastMoveTime; // Application time at which the projected position last changed
-	Scalar currentValue; // Value of the associated valuator
-	NavigationMode navigationMode; // The tool's current navigation mode
-	Vector throwVelocity; // Velocity when throwing
+	int numActiveAxes; // Number of non-zero valuators, to determine when to activate and deactivate the tool
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of viewer position relative to local coordinate frame
 	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame
 	bool showCompass; // Flag if the virtual compass is currently shown
 	
 	/* Private methods: */
-	Point calcScreenPos(void) const; // Calculates the screen position of the input device
 	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state
 	void initNavState(void); // Initializes the tool's navigation state when it is activated
 	void realignSurfaceFrame(NavTransform& newSurfaceFrame); // Re-aligns the tool's surface frame after a relevant change
@@ -124,12 +125,13 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	
 	/* Constructors and destructors: */
 	public:
-	MouseSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
-	virtual ~MouseSurfaceNavigationTool(void);
+	FiveAxisSurfaceNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	virtual ~FiveAxisSurfaceNavigationTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;

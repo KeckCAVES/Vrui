@@ -41,7 +41,7 @@ class Atomic
 	/* Elements: */
 	private:
 	#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-	Threads::Spinlock mutex; // Busy-wait (if available) mutual exclusion semaphore protecting the atomic value
+	Spinlock mutex; // Busy-wait (if available) mutual exclusion semaphore protecting the atomic value
 	#endif
 	Value value; // The object's current value
 	
@@ -64,7 +64,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_add_and_fetch(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		return value+=other;
 		#endif
 		}
@@ -73,7 +73,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_sub_and_fetch(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		return value-=other;
 		#endif
 		}
@@ -82,7 +82,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_or_and_fetch(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		return value|=other;
 		#endif
 		}
@@ -91,7 +91,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_and_and_fetch(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		return value&=other;
 		#endif
 		}
@@ -100,7 +100,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_xor_and_fetch(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		return value^=other;
 		#endif
 		}
@@ -109,7 +109,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_nand_and_fetch(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		value=~value&other;
 		return value;
 		#endif
@@ -121,7 +121,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_fetch_and_add(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		value+=other;
 		return result;
@@ -132,7 +132,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_fetch_and_sub(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		value-=other;
 		return result;
@@ -143,7 +143,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_fetch_and_or(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		value|=other;
 		return result;
@@ -154,7 +154,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_fetch_and_and(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		value&=other;
 		return result;
@@ -165,7 +165,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_fetch_and_xor(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		value^=other;
 		return result;
@@ -176,7 +176,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_fetch_and_nand(&value,other);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		value=~value&other;
 		return result;
@@ -189,7 +189,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_bool_compare_and_swap(&value,testValue,newValue);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		if(value==testValue)
 			{
 			value=newValue;
@@ -204,7 +204,7 @@ class Atomic
 		#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
 		return __sync_val_compare_and_swap(&value,testValue,newValue);
 		#else
-		Mutex::Lock lock(mutex);
+		Spinlock::Lock lock(mutex);
 		Value result=value;
 		if(value==testValue)
 			value=newValue;

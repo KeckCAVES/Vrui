@@ -59,19 +59,6 @@ SixAxisNavigationToolFactory::Configuration::Configuration(void)
 		rotations[i][i]=Scalar(1);
 	}
 
-SixAxisNavigationToolFactory::Configuration::Configuration(const SixAxisNavigationToolFactory::Configuration& source)
-	:translateFactor(source.translateFactor),
-	 translations(source.translations),
-	 rotateFactor(source.rotateFactor),
-	 rotations(source.rotations),
-	 zoomFactor(source.zoomFactor),
-	 followDisplayCenter(source.followDisplayCenter),
-	 navigationCenter(source.navigationCenter),
-	 invertNavigation(source.invertNavigation),
-	 showNavigationCenter(source.showNavigationCenter)
-	{
-	}
-
 void SixAxisNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */

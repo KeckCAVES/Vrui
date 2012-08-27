@@ -56,18 +56,6 @@ SixAxisTransformToolFactory::Configuration::Configuration(void)
 		rotations[i][i]=Scalar(1);
 	}
 
-SixAxisTransformToolFactory::Configuration::Configuration(const SixAxisTransformToolFactory::Configuration& source)
-	:translateFactor(source.translateFactor),
-	 translations(source.translations),
-	 rotateFactor(source.rotateFactor),
-	 rotations(source.rotations),
-	 followDisplayCenter(source.followDisplayCenter),
-	 homePosition(source.homePosition),
-	 deviceGlyphType(source.deviceGlyphType),
-	 deviceGlyphMaterial(source.deviceGlyphMaterial)
-	{
-	}
-
 void SixAxisTransformToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */

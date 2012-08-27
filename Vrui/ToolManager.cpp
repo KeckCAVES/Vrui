@@ -684,6 +684,10 @@ ToolManager::~ToolManager(void)
 	/* Delete all tools: */
 	for(ToolList::iterator tIt=tools.begin();tIt!=tools.end();++tIt)
 		{
+		#if DEBUGGING
+		std::cout<<"Deleting tool "<<*tIt<<" of class "<<(*tIt)->getFactory()->getName()<<std::endl;
+		#endif
+		
 		/* De-initialize the tool: */
 		(*tIt)->deinitialize();
 		
@@ -849,6 +853,9 @@ void ToolManager::loadDefaultTools(void)
 	ToolInputAssignment tia(toolSelectionMenuFactory->getLayout());
 	tia.setButtonSlot(0,toolCreationDevice,0);
 	Tool* tool=toolSelectionMenuFactory->createTool(tia);
+	#if DEBUGGING
+	std::cout<<"Creating tool selection tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
+	#endif
 	toolCreationTool=dynamic_cast<MenuTool*>(tool);
 	if(toolCreationTool==0)
 		{
@@ -963,7 +970,9 @@ Tool* ToolManager::createTool(ToolFactory* factory,const ToolInputAssignment& ti
 	{
 	/* Create tool of given class: */
 	Tool* newTool=factory->createTool(tia);
-	
+	#if DEBUGGING
+	std::cout<<"Created tool "<<newTool<<" of class "<<newTool->getFactory()->getName()<<std::endl;
+	#endif
 	int state=0;
 	try
 		{
@@ -1041,7 +1050,7 @@ void ToolManager::destroyTool(Tool* tool,bool destroyImmediately)
 	if(destroyImmediately)
 		{
 		#if DEBUGGING
-		std::cout<<"Deleting tool "<<tool<<std::endl;
+		std::cout<<"Deleting tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
 		#endif
 		
 		/* De-initialize the tool: */
@@ -1102,7 +1111,7 @@ void ToolManager::update(void)
 				if(tmqIt->tool!=0)
 					{
 					#if DEBUGGING
-					std::cout<<"Destroying tool "<<tool<<" of class "<<tmqIt->tool->getFactory()->getName()<<std::endl;
+					std::cout<<"Destroying tool "<<tmqIt->tool<<" of class "<<tmqIt->tool->getFactory()->getName()<<std::endl;
 					#endif
 					
 					/* Destroy the tool: */
