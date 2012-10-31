@@ -1,7 +1,7 @@
 ########################################################################
 # BasicMakefile - Definitions and rules to build object files, shared
 # and static libraries, and executables.
-# Copyright (c) 1999-2011 Oliver Kreylos
+# Copyright (c) 1999-2012 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -274,7 +274,7 @@ squeakyclean: extrasqueakyclean
 # Get list of dependency files from the current directory and all its subdirectories:
 #
 
-DEPFILES = $(shell find $(DEPDIR) -follow -name "*.d")
+DEPFILES = $(shell find $(DEPDIR) -follow -name "*.d" 2> /dev/null)
 
 # Include all dependency files:
 include $(DEPFILES)

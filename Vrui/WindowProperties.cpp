@@ -36,7 +36,7 @@ WindowProperties::WindowProperties(void)
 		colorBufferSize[i]=8;
 	colorBufferSize[3]=0;
 	for(int i=0;i<4;++i)
-		accumBufferSize[i]=8;
+		accumBufferSize[i]=0;
 	}
 
 void WindowProperties::setColorBufferSize(int rgbSize,int alphaSize)
