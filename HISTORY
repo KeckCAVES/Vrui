@@ -3227,3 +3227,9 @@ Vrui-2.4-003:
   the navigation transformation is changed from outside the tool. Also,
   moved compass rendering to display list.
 - Fixed bug in tool deconstruction during Vrui shutdown.
+
+Vrui-2.4-004:
+- Removed default request for accumulation buffer from
+  Vrui::WindowProperties to work with new Mac OS X, and certain virtual
+  machines.
+- Removed "find" warning on first-time builds from build system.
