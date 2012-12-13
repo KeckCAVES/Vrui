@@ -1,6 +1,5 @@
 ########################################################################
 # Makefile for the Virtual Reality VRML viewer.
-# source dependency maintenance.
 # Copyright (c) 2000-2012 Oliver Kreylos
 #
 # This file is part of the Virtual Reality VRML viewer (VRMLViewer).
@@ -25,7 +24,10 @@
 # matches the default Vrui installation; if Vrui's installation
 # directory was changed during Vrui's installation, the directory below
 # must be adapted.
-VRUI_MAKEDIR := $(HOME)/Vrui-2.4/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.5/share/make
+ifdef DEBUG
+  VRUI_MAKEDIR := $(VRUI_MAKEDIR)/debug
+endif
 
 # Include definitions for the system environment and system-provided
 # packages

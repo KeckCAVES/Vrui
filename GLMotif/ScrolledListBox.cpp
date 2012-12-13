@@ -151,9 +151,6 @@ void ScrolledListBox::resize(const Box& newExterior)
 	/* Resize the parent class widget: */
 	Container::resize(newExterior);
 	
-	if(!isManaged)
-		return;
-	
 	/* Get the new interior size: */
 	Box lbBox=getInterior();
 	

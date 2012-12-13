@@ -135,6 +135,7 @@ class FileSelectionDialog:public PopupWindow
 		{
 		return cancelCallbacks;
 		}
+	void deleteOnCancel(void); // Convenience method to simply delete the file selection dialog when the cancel button is selected
 	IO::DirectoryPtr getCurrentDirectory(void) // Returns the directory whose contents are currently displayed in the file selection dialog
 		{
 		return currentDirectory;

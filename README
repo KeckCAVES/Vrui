@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui version 2.4, build 004
+README for Vrui version 2.5, build 001
 Copyright (c) 1998-2012 Oliver Kreylos
 ========================================================================
 
@@ -315,18 +315,13 @@ by defining the DEBUG variable in the makefile. The easiest way to
 achieve this is to pass DEBUG=1 on the make command line, i.e., to type
 "make DEBUG=1" followed by "make DEBUG=1 install". Vrui is set up such
 that debug and non-debug versions can coexist in the same installation
-directory. To build applications with either version, the appropriate
-Vrui makefile fragment has to be included in the makefile.
-- For non-debug Vrui:
-  include $(VRUIDIR)/etc/Vrui.makeinclude
-- For debug Vrui:
-  include $(VRUIDIR)/etc/Vrui.debug.makeinclude
+directory.
 
 To make full use of the debugger, the Vrui application itself needs to
 be compiled/linked with debugging information as usual. The easiest way
-to achieve this is to add the appropriate flags to VRUI_CFLAGS, as in
-VRUI_CFLAGS += -g2 -O0, or to use makefiles similar to the ones used by
-the example applications (see below).
+to achieve this is to use Vrui's included build system, in which case
+passing "DEBUG=1" to an application makefile will set everything up
+correctly.
 
 Building Example Vrui Applications
 ==================================
@@ -353,9 +348,7 @@ root installation directory.
 The example application makefiles show how to create debug/release
 versions without changing the makefile by respecting the DEBUG make
 command line argument ("make DEBUG=1") in the same way as the toolkit
-build itself. The application makefiles do not currently allow
-coexisting targets; changing between debug and release mode requires an
-intermediate "make clean".
+build itself.
 
 Building Vrui Applications
 ==========================
@@ -363,15 +356,16 @@ Building Vrui Applications
 During installation, Vrui installs its own build system in
 $(INSTALLDIR)/share/make. Vrui-based projects can benefit from this
 build system by using a makefile following the template makefile
-included in the build system directory.
+included in the build system directory. The makefiles provided with the
+Vrui example applications show how this should be done, and how it
+results in simple makefiles that build on any environment with a
+properly installed version of Vrui.
 
 For compatibility with previous versions of Vrui, Vrui also creates a
-makefile fragment (Vrui.makeinclude) in $(INSTALLDIR)/share. This
-fragment should be included by the makefiles of all Vrui-based projects
-to simplify compiling and linking. The makefiles provided with the Vrui
-example applications show how this should be done, and how it results in
-simple makefiles that build on any environment with a properly installed
-version of Vrui.
+makefile fragment (Vrui.makeinclude or Vrui.makeinclude.debug) in
+$(INSTALLDIR)/share/make. The appropriate fragment should be included
+by the makefiles of all legacy Vrui-based projects to simplify compiling
+and linking.
 
 Alternatively, Vrui creates a pkg-config metafile during build,
 Share/Vrui.pc. This metafile can be copied to a location recognized by

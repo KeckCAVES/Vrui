@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <ctype.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <bluetooth/bluetooth.h>
@@ -39,45 +40,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-
-/****************
-Helper functions:
-****************/
-
-namespace Misc {
-
-template <>
-class ValueCoder<Wiimote::AxisSettings>
-	{
-	/* Methods: */
-	public:
-	static std::string encode(const Wiimote::AxisSettings& v)
-		{
-		std::vector<float> values;
-		values.push_back(v.minValue);
-		values.push_back(v.maxValue);
-		values.push_back(v.center);
-		values.push_back(v.flat);
-		return ValueCoder<std::vector<float> >::encode(values);
-		};
-	static Wiimote::AxisSettings decode(const char* start,const char* end,const char** decodeEnd =0)
-		{
-		/* Decode string as vector of integers: */
-		std::vector<float> values=ValueCoder<std::vector<float> >::decode(start,end,decodeEnd);
-		if(values.size()!=4)
-			throw DecodingError(std::string("Wrong number of elements in ")+std::string(start,end));
-		
-		/* Convert vector to result structure: */
-		Wiimote::AxisSettings result;
-		result.minValue=values[0];
-		result.maxValue=values[1];
-		result.center=values[2];
-		result.flat=values[3];
-		return result;
-		};
-	};
-
-}
+#include <Math/MathValueCoders.h>
 
 /************************
 Methods of class Wiimote:
@@ -91,18 +54,42 @@ void Wiimote::writePacket(unsigned char packet[],size_t packetSize)
 	else
 		packet[2]&=~0x01;
 	
-	/* Lock the write socket: */
-	Threads::Mutex::Lock writeSocketLock(writeSocketMutex);
+	/* Lock the data socket: */
+	Threads::Mutex::Lock dataSocketLock(dataSocketMutex);
 	
 	/* Write the packet: */
-	if(write(writeSocket,packet,packetSize)!=ssize_t(packetSize))
-		Misc::throwStdErr("Wiimote::writePacket: Error while writing packet");
+	if(write(dataSocket,packet,packetSize)!=ssize_t(packetSize))
+		{
+		int error=errno;
+		Misc::throwStdErr("Wiimote::writePacket: Error \"%s\" while writing packet",strerror(error));
+		}
+	}
+
+void Wiimote::waitForPacket(unsigned char packetType,unsigned char* packet,size_t packetSize)
+	{
+	#ifdef DEBUGGING
+	std::cout<<"Waiting for packet type "<<(unsigned int)packetType<<" of size "<<packetSize<<"..."<<std::flush;
+	#endif
+	ssize_t readSize;
+	do
+		{
+		readSize=read(dataSocket,packet,packetSize);
+		if(readSize<0)
+			{
+			int error=errno;
+			Misc::throwStdErr("Wiimote::waitForPacket: Error \"%s\" while reading packet",strerror(error));
+			}
+		}
+	while(size_t(readSize)!=packetSize||packet[1]!=packetType);
+	#ifdef DEBUGGING
+	std::cout<<" done"<<std::endl;
+	#endif
 	}
 
 void Wiimote::writeUploadPacket(void)
 	{
 	/* Prepare the data upload packet: */
-	unsigned char writeData[]={0x52,0x16,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	unsigned char writeData[]={0xa2,0x16,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 	
 	/* Set the upload address space: */
 	if(uploadToRegister)
@@ -134,7 +121,7 @@ void Wiimote::writeUploadPacket(void)
 void Wiimote::setReportingMode(bool insideReader)
 	{
 	/* Assemble the data request packet: */
-	unsigned char requestData[]={0x52,0x12,0x00,0x00};
+	unsigned char requestData[]={0xa2,0x12,0x00,0x00};
 	
 	if(readContinuously)
 		requestData[2]|=0x04;
@@ -168,16 +155,14 @@ void Wiimote::setReportingMode(bool insideReader)
 		if(insideReader)
 			{
 			/* Write to the camera's register area: */
-			unsigned char IRMode[]={0x52,0x16,0x04,0xb0,0x00,0x33,0x01,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+			unsigned char IRMode[]={0xa2,0x16,0x04,0xb0,0x00,0x33,0x01,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 			if(extensionDevice==NONE&&readAccelerometers&&readIRTracking)
 				IRMode[7]=0x03;
 			writePacket(IRMode,sizeof(IRMode));
-
+			
 			/* Wait for acknowledgment: */
 			unsigned char packet[21];
-			ssize_t packetSize;
-			while((packetSize=read(readSocket,packet,sizeof(packet)))==0||int(packet[1])!=0x22)
-				;
+			waitForPacket(0x22,packet,6);
 			}
 		else
 			{
@@ -223,19 +208,7 @@ void Wiimote::updateExtension(unsigned char* extensionData)
 		
 		/* Update the nunchuck joystick state: */
 		for(int i=0;i<2;++i)
-			{
-			float val=float(extensionData[i]);
-			if(val<joystickAxes[i].minValue)
-				joystick[i]=-1.0f;
-			else if(val<joystickAxes[i].center-joystickAxes[i].flat)
-				joystick[i]=(val-(joystickAxes[i].center-joystickAxes[i].flat))/((joystickAxes[i].center-joystickAxes[i].flat)-joystickAxes[i].minValue);
-			else if(val<joystickAxes[i].center+joystickAxes[i].flat)
-				joystick[i]=0.0f;
-			else if(val<joystickAxes[i].maxValue)
-				joystick[i]=(val-(joystickAxes[i].center+joystickAxes[i].flat))/(joystickAxes[i].maxValue-(joystickAxes[i].center+joystickAxes[i].flat));
-			else
-				joystick[i]=1.0f;
-			}
+			joystick[i]=joystickAxes[i].map(float(extensionData[i]));
 		
 		if(readAccelerometers)
 			{
@@ -262,20 +235,20 @@ void Wiimote::updateIRTrackingBasic(unsigned char* irTrackingData)
 		int y1=int(irTrackingData[4+i*5])|((int(irTrackingData[2+i*5])&0x0c)<<6);
 		if(x0!=0x3ff&&y0!=0x3ff)
 			{
-			trackValids[0+i*2]=true;
-			trackXs[0+i*2]=float(x0);
-			trackYs[0+i*2]=float(y0);
+			targets[0+i*2].valid=true;
+			targets[0+i*2].pos[0]=float(x0);
+			targets[0+i*2].pos[1]=float(y0);
 			}
 		else
-			trackValids[0+i*2]=false;
+			targets[0+i*2].valid=false;
 		if(x1!=0x3ff&&y1!=0x3ff)
 			{
-			trackValids[1+i*2]=true;
-			trackXs[1+i*2]=float(x1);
-			trackYs[1+i*2]=float(y1);
+			targets[1+i*2].valid=true;
+			targets[1+i*2].pos[0]=float(x1);
+			targets[1+i*2].pos[1]=float(y1);
 			}
 		else
-			trackValids[1+i*2]=false;
+			targets[1+i*2].valid=false;
 		}
 	}
 
@@ -289,12 +262,12 @@ void Wiimote::updateIRTrackingExtended(unsigned char* irTrackingData)
 		
 		if(x!=0x3ff&&y!=0x3ff)
 			{
-			trackValids[i]=true;
-			trackXs[i]=float(x);
-			trackYs[i]=float(y);
+			targets[i].valid=true;
+			targets[i].pos[0]=float(x);
+			targets[i].pos[1]=float(y);
 			}
 		else
-			trackValids[i]=false;
+			targets[i].valid=false;
 		}
 	}
 
@@ -302,15 +275,17 @@ void* Wiimote::receiverThreadMethod(void)
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Process data packets from the device until interrupted: */
 	while(true)
 		{
 		/* Read the next data packet: */
 		unsigned char packet[21]; // 21 is maximum packet size used by Wiimote HID protocol
-		ssize_t packetSize=read(readSocket,packet,sizeof(packet));
-		if(packetSize>0&&packet[0]==0xa1)
+		ssize_t packetSize=read(dataSocket,packet,sizeof(packet));
+		
+		/* Check packet for basic validity: */
+		if(packetSize>=2&&packet[0]==0xa1)
 			{
 			#if DEBUGGING
 			std::cout<<"Received packet type "<<int(packet[1])<<std::endl;
@@ -331,19 +306,17 @@ void* Wiimote::receiverThreadMethod(void)
 					if(packet[4]&0x02)
 						{
 						/* Enable the extension (and the silly data encryption): */
-						unsigned char enableExtension[]={0x52,0x16,0x04,0xa4,0x00,0x40,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+						unsigned char enableExtension[]={0xa2,0x16,0x04,0xa4,0x00,0x40,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 						writePacket(enableExtension,sizeof(enableExtension));
 						
-						/* Wait for acknowledgment: */
-						while((packetSize=read(readSocket,packet,sizeof(packet)))==0||int(packet[1])!=0x22)
-							;
+						waitForPacket(0x22,packet,6);
 						
 						/* Query the type of extension device: */
-						unsigned char queryExtensionType[]={0x52,0x17,0x04,0xa4,0x00,0xfe,0x00,0x02};
+						unsigned char queryExtensionType[]={0xa2,0x17,0x04,0xa4,0x00,0xfe,0x00,0x02};
 						writePacket(queryExtensionType,sizeof(queryExtensionType));
 						
 						/* Wait for the result data: */
-						while((packetSize=read(readSocket,packet,sizeof(packet)))==0||int(packet[1])!=0x21)
+						while((packetSize=read(dataSocket,packet,sizeof(packet)))==0||int(packet[1])!=0x21)
 							;
 						
 						/* Extract the extension device type: */
@@ -368,14 +341,15 @@ void* Wiimote::receiverThreadMethod(void)
 						
 						if(extensionDevice==NUNCHUK)
 							{
+							/* Check if the nunchuk's calibration data needs to be downloaded: */
 							if(needExtensionCalibration)
 								{
 								/* Read the nunchuk's calibration data: */
-								unsigned char calibration[]={0x52,0x17,0x04,0xa4,0x00,0x20,0x00,0x10};
+								unsigned char calibration[]={0xa2,0x17,0x04,0xa4,0x00,0x20,0x00,0x10};
 								writePacket(calibration,sizeof(calibration));
 								
 								/* Wait for the result data: */
-								while((packetSize=read(readSocket,packet,sizeof(packet)))==0||int(packet[1])!=0x21)
+								while((packetSize=read(dataSocket,packet,sizeof(packet)))==0||int(packet[1])!=0x21)
 									;
 								
 								/* Decrypt the result data: */
@@ -385,10 +359,10 @@ void* Wiimote::receiverThreadMethod(void)
 								/* Store the joystick axis values: */
 								for(int i=0;i<2;++i)
 									{
-									joystickAxes[i].minValue=float(packet[16+i*3]);
-									joystickAxes[i].maxValue=float(packet[15+i*3]);
-									joystickAxes[i].center=float(packet[17+i*3]);
-									joystickAxes[i].flat=(joystickAxes[i].maxValue-joystickAxes[i].minValue)*0.05f;
+									float min=float(packet[16+i*3]);
+									float max=float(packet[15+i*3]);
+									float center=float(packet[17+i*3]);
+									joystickAxes[i]=Math::BrokenLine<float>(min,center-(center-min)*0.05f,center+(max-center)*0.05f,max);
 									}
 								
 								/* Store the accelerometer zeros and gains: */
@@ -588,7 +562,7 @@ unsigned char* Wiimote::downloadData(bool fromRegister,int address,size_t size)
 	downloadError=0;
 	
 	/* Send the download command to the Wiimote: */
-	unsigned char readData[]={0x52,0x17,0x00,0x00,0x00,0x00,0x00,0x00};
+	unsigned char readData[]={0xa2,0x17,0x00,0x00,0x00,0x00,0x00,0x00};
 	if(fromRegister)
 		readData[2]|=0x04;
 	for(int i=2;i>=0;--i)
@@ -648,10 +622,10 @@ bool Wiimote::uploadData(bool toRegister,int address,const unsigned char* data,s
 	}
 
 Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
-	:writeSocket(-1),readSocket(-1),
+	:controlSocket(-1),dataSocket(-1),
 	 needExtensionCalibration(true),
 	 readContinuously(false),readAccelerometers(false),readIRTracking(false),
-	 ledMask(0x1),
+	 ledMask(0x0),
 	 rumble(false),
 	 extensionDevice(NONE),
 	 downloadActive(false),downloadDataBuffer(0),
@@ -696,7 +670,7 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 			
 			/* Retrieve the remote device's name to ensure it's a Wiimote: */
 			char remoteDeviceName[256];
-			if(hci_read_remote_name(btSocket,&deviceAddress,sizeof(remoteDeviceName),remoteDeviceName,0)<0||strcmp("Nintendo RVL-CNT-01",remoteDeviceName)!=0)
+			if(hci_read_remote_name(btSocket,&deviceAddress,sizeof(remoteDeviceName),remoteDeviceName,0)<0||(strcmp("Nintendo RVL-CNT-01",remoteDeviceName)!=0&&strcmp("Nintendo RVL-CNT-01-TR",remoteDeviceName)!=0))
 				Misc::throwStdErr("Wiimote::Wiimote: Device at address %s is not a Wiimote",deviceName);
 			}
 		else
@@ -752,30 +726,25 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 		close(btSocket);
 	
 	/* Connect to the device using the L2CAP protocol: */
-	writeSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
-	sockaddr_l2 writeSocketAddress;
-	memset(&writeSocketAddress,0,sizeof(sockaddr_l2));
-	writeSocketAddress.l2_family=AF_BLUETOOTH;
-	writeSocketAddress.l2_psm=htobs(0x11);
-	writeSocketAddress.l2_bdaddr=deviceAddress;
-	if(connect(writeSocket,reinterpret_cast<struct sockaddr*>(&writeSocketAddress),sizeof(writeSocketAddress))<0)
-		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to device \"%s\" for writing",deviceName);
-	readSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
-	sockaddr_l2 readSocketAddress;
-	memset(&readSocketAddress,0,sizeof(sockaddr_l2));
-	readSocketAddress.l2_family=AF_BLUETOOTH;
-	readSocketAddress.l2_psm=htobs(0x13);
-	readSocketAddress.l2_bdaddr=deviceAddress;
-	if(connect(readSocket,reinterpret_cast<struct sockaddr*>(&readSocketAddress),sizeof(readSocketAddress))<0)
+	controlSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
+	sockaddr_l2 controlSocketAddress;
+	memset(&controlSocketAddress,0,sizeof(sockaddr_l2));
+	controlSocketAddress.l2_family=AF_BLUETOOTH;
+	controlSocketAddress.l2_psm=htobs(0x11);
+	controlSocketAddress.l2_bdaddr=deviceAddress;
+	if(connect(controlSocket,reinterpret_cast<struct sockaddr*>(&controlSocketAddress),sizeof(controlSocketAddress))<0)
+		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to control pipe on device \"%s\"",deviceName);
+	dataSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
+	sockaddr_l2 dataSocketAddress;
+	memset(&dataSocketAddress,0,sizeof(sockaddr_l2));
+	dataSocketAddress.l2_family=AF_BLUETOOTH;
+	dataSocketAddress.l2_psm=htobs(0x13);
+	dataSocketAddress.l2_bdaddr=deviceAddress;
+	if(connect(dataSocket,reinterpret_cast<struct sockaddr*>(&dataSocketAddress),sizeof(dataSocketAddress))<0)
 		{
-		close(writeSocket);
-		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to device \"%s\" for reading",deviceName);
+		close(controlSocket);
+		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to data pipe on device \"%s\"",deviceName);
 		}
-	
-	/* Turn off the blinking LEDs: */
-	unsigned char setLEDs[]={0x52,0x11,0x00};
-	setLEDs[2]=(unsigned char)((ledMask<<4)&0xff);
-	writePacket(setLEDs,sizeof(setLEDs));
 	
 	/* Initialize Wiimote state: */
 	batteryLevel=-1;
@@ -786,21 +755,26 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 		accelerometers[i]=0.0f;
 	for(int i=0;i<4;++i)
 		{
-		trackValids[i]=false;
-		trackXs[i]=0.0f;
-		trackYs[i]=0.0f;
+		targets[i].valid=false;
+		targets[i].pos[0]=0.0f;
+		targets[i].pos[1]=0.0f;
 		}
 	
 	/* Start the data receiving thread: */
 	receiverThread.start(this,&Wiimote::receiverThreadMethod);
 	
 	/* Request a status packet: */
-	unsigned char requestStatus[]={0x52,0x15,0x00};
+	unsigned char requestStatus[]={0xa2,0x15,0x00};
 	writePacket(requestStatus,sizeof(requestStatus));
 	
 	/* Wait until the receiver thread processed the status packet: */
 	while(batteryLevel<0)
 		waitForEvent();
+	
+	/* Turn off the blinking LEDs: */
+	unsigned char setLEDs[]={0xa2,0x11,0x00};
+	setLEDs[2]=(unsigned char)((ledMask<<4)&0xff);
+	writePacket(setLEDs,sizeof(setLEDs));
 	
 	/* Go to connected device's section: */
 	char connectedDeviceAddress[19];
@@ -824,7 +798,7 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 			accelerometerGains[i]=cfags[i];
 		
 		/* Read the joystick axis settings: */
-		std::vector<AxisSettings> jass=configFile.retrieveValue<std::vector<AxisSettings> >("./joystickAxes");
+		std::vector<AxisMap> jass=configFile.retrieveValue<std::vector<AxisMap> >("./joystickAxes");
 		if(jass.size()!=2)
 			throw 42;
 		for(int i=0;i<2;++i)
@@ -869,8 +843,8 @@ Wiimote::~Wiimote(void)
 	delete[] downloadDataBuffer;
 	
 	/* Close communications with the Wiimote: */
-	close(writeSocket);
-	close(readSocket);
+	close(controlSocket);
+	close(dataSocket);
 	}
 
 int Wiimote::getBatteryLevel(void)
@@ -879,7 +853,7 @@ int Wiimote::getBatteryLevel(void)
 	batteryLevel=-1;
 	
 	/* Send a status request: */
-	unsigned char requestStatus[]={0x52,0x15,0x00};
+	unsigned char requestStatus[]={0xa2,0x15,0x00};
 	writePacket(requestStatus,sizeof(requestStatus));
 	
 	/* Wait until the receiver thread processed the status packet: */
@@ -897,6 +871,7 @@ int Wiimote::getNumButtons(void) const
 		{
 		case NONE:
 		case PARTIALLY_CONNECTED:
+		case MOTIONPLUS:
 			result=11;
 			break;
 		
@@ -933,7 +908,7 @@ Wiimote::Vector Wiimote::getAcceleration(int deviceIndex) const
 void Wiimote::setLEDState(int newLedMask)
 	{
 	ledMask=newLedMask;
-	unsigned char setLEDs[]={0x52,0x11,0x00};
+	unsigned char setLEDs[]={0xa2,0x11,0x00};
 	setLEDs[2]=(unsigned char)((ledMask<<4)&0xff);
 	writePacket(setLEDs,sizeof(setLEDs));
 	}
@@ -971,9 +946,9 @@ void Wiimote::requestIRTracking(bool enable)
 	if(enable&&!readIRTracking)
 		{
 		/* Send the initialization sequence for the IR camera: */
-		unsigned char enableIR1[]={0x52,0x13,0x04};
+		unsigned char enableIR1[]={0xa2,0x13,0x04};
 		writePacket(enableIR1,sizeof(enableIR1));
-		unsigned char enableIR2[]={0x52,0x1a,0x04};
+		unsigned char enableIR2[]={0xa2,0x1a,0x04};
 		writePacket(enableIR2,sizeof(enableIR2));
 		unsigned char enableIR3[]={0x01};
 		uploadData(true,0xb00030,enableIR3,sizeof(enableIR3));
@@ -987,9 +962,9 @@ void Wiimote::requestIRTracking(bool enable)
 	else if(!enable&&readIRTracking)
 		{
 		/* Stop the IR camera: */
-		unsigned char disableIR1[]={0x52,0x13,0x00};
+		unsigned char disableIR1[]={0xa2,0x13,0x00};
 		writePacket(disableIR1,sizeof(disableIR1));
-		unsigned char disableIR2[]={0x52,0x1a,0x00};
+		unsigned char disableIR2[]={0xa2,0x1a,0x00};
 		writePacket(disableIR2,sizeof(disableIR2));
 		}
 	

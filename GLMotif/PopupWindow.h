@@ -176,11 +176,14 @@ class PopupWindow:public Container
 		{
 		return child;
 		}
-	static void defaultCloseCallback(Misc::CallbackData* cbData); // Default callback function that simply deletes the popup window; cbData must be derived from PopupWindow::CallbackData
+	static void popDownFunction(Misc::CallbackData* cbData); // Default callback function that simply pops down, but does not delete, the popup window; cbData must be derived form PopupWindow::CallbackData
+	static void deleteFunction(Misc::CallbackData* cbData); // Default callback function that simply deletes the popup window; cbData must be derived from PopupWindow::CallbackData
 	Misc::CallbackList& getCloseCallbacks(void) // Returns list of callbacks called when the close button is pressed
 		{
 		return closeCallbacks;
 		}
+	void popDownOnClose(void); // Convenience method to pop down the popup window when the close button is selected
+	void deleteOnClose(void); // Convenience method to delete the popup window when the close button is selected
 	virtual void close(void); // Convenience method to safely close and destroy the popup window from within a callback
 	};
 

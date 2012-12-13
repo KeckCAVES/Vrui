@@ -136,9 +136,6 @@ void HSVColorSelector::resize(const Box& newExterior)
 	/* Resize the parent class widget: */
 	Container::resize(newExterior);
 	
-	if(!isManaged)
-		return;
-	
 	/* Position the slider: */
 	Box sliderBox=getInterior();
 	Vector sliderSize=slider->calcNaturalSize();

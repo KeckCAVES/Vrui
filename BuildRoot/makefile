@@ -22,7 +22,10 @@
 ########################################################################
 
 # Set directory containing Vrui's build system:
-VRUI_MAKEDIR = $(HOME)/Vrui-2.4/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.4/share/make
+ifdef DEBUG
+  VRUI_MAKEDIR = $(VRUI_MAKEDIR)/debug
+endif
 
 # Include definitions for the system environment and system-provided
 # packages
@@ -30,15 +33,6 @@ include $(VRUI_MAKEDIR)/SystemDefinitions
 include $(VRUI_MAKEDIR)/Packages.System
 include $(VRUI_MAKEDIR)/Packages.Vrui
 include $(VRUI_MAKEDIR)/Configuration.Vrui
-
-# Specify default optimization/debug level
-ifdef DEBUG
-  DEFAULTDEBUGLEVEL = 2
-  DEFAULTOPTLEVEL = 0
-else
-  DEFAULTDEBUGLEVEL = 0
-  DEFAULTOPTLEVEL = 3
-endif
 
 ########################################################################
 # Specifiy additional compiler and linker flags

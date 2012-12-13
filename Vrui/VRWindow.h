@@ -72,7 +72,7 @@ class VRWindow:public GLWindow
 	GLContextData* contextData; // An OpenGL context data structure for this window
 	DisplayState* displayState; // The display state object associated with this window's OpenGL context; updated before each rendering pass
 	VRScreen* screens[2]; // Pointer to the two VR screens this window projects onto (left and right, usually identical)
-	Viewer* viewer; // Pointer to viewer viewing this window
+	Viewer* viewers[2]; // Pointers to the two viewers viewing this window (left and right, usually identical)
 	WindowType windowType; // Type of this window
 	int multisamplingLevel; // Level of multisampling (FSAA) for this window (1 == multisampling disabled)
 	GLWindow::WindowPos splitViewportPos[2]; // Positions and sizes of viewports for split-viewport stereo windows
@@ -167,11 +167,11 @@ class VRWindow:public GLWindow
 		}
 	const Viewer* getViewer(void) const // Returns the viewer this window renders from
 		{
-		return viewer;
+		return viewers[0]; // Just return the left viewer for now
 		}
 	Viewer* getViewer(void) // Ditto
 		{
-		return viewer;
+		return viewers[0]; // Just return the left viewer for now
 		}
 	int getNumEyes(void) const; // Returns the number of eyes this window renders from
 	Point getEyePosition(int eyeIndex) const; // Returns the position of the given eye in physical coordinates

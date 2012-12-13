@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-2.4
+INSTALLDIR := $(HOME)/Vrui-2.5
 
 ########################################################################
 # Please do not change the following lines
@@ -137,9 +137,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2004004
+VRUI_VERSION = 2005001
 MAJORLIBVERSION = 2
-MINORLIBVERSION = 4
+MINORLIBVERSION = 5
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -187,6 +187,11 @@ else
   PKGCONFIGINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)/pkgconfig
   DOCINSTALLDIR = $(INSTALLDIR)/share/doc
   INSTALLROOT = $(INSTALLDIR)
+endif
+ifdef DEBUG
+  MAKEINSTALLDIR = $(SHAREINSTALLDIR)/make/debug
+else
+  MAKEINSTALLDIR = $(SHAREINSTALLDIR)/make
 endif
 
 ########################################################################
@@ -1201,15 +1206,15 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
       $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
     endif
   endif
-  $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+  # $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 $(VRTOOLSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Tools/%.o
 	@mkdir -p $(VRTOOLSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
 # Vrui tool settings:
@@ -1238,15 +1243,15 @@ ifneq ($(SYSTEM_HAVE_TRANSITIVE_PLUGINS),0)
       $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
     endif
   endif
-  $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+  # $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 $(VRVISLETSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/Vrui/Vislets/%.o
 	@mkdir -p $(VRVISLETSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^ $(PLUGINDEPENDENCIES)
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
 # Dependencies between Vrui vislets:
@@ -1317,31 +1322,32 @@ ifneq ($(VRDEVICES_INPUT_H_HAS_STRUCTS),0)
 endif
 
 ifeq ($(SYSTEM),DARWIN)
-  $(VRDEVICESDIR)/libHIDDevice.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -framework System -framework IOKit -framework CoreFoundation
+  $(VRDEVICESDIR)/libHIDDevice.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += -framework System -framework IOKit -framework CoreFoundation
 endif
 
 $(VRDEVICESDIR)/libVRPNClient.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/VRPNConnection.o \
                                                 $(OBJDIR)/VRDeviceDaemon/VRDevices/VRPNClient.o
 
-$(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): PLUGINLINKFLAGS += $(BLUETOOTH_LIBDIR) $(BLUETOOTH_LIBS)
+$(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(BLUETOOTH_LIBDIR) $(BLUETOOTH_LIBS)
 $(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/Wiimote.o \
                                                     $(OBJDIR)/VRDeviceDaemon/VRDevices/WiimoteTracker.o
 
-$(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PLUGINLINKFLAGS += $(LIBUSB1_LIBDIR) $(LIBUSB1_LIBS)
+$(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LIBUSB1_LIBDIR) $(LIBUSB1_LIBS)
 $(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/RazerHydra.o \
-                                                       $(OBJDIR)/VRDeviceDaemon/VRDevices/RazerHydraDevice.o
+                                                      $(OBJDIR)/VRDeviceDaemon/VRDevices/RazerHydraDevice.o
 
 # Implicit rule for creating plugins:
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DVERBOSE -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
+$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/%.o
 	@mkdir -p $(VRDEVICESDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
 $(VRDEVICES_SOURCES): config
@@ -1358,13 +1364,14 @@ VRDeviceDaemon/VRDevices/VRPNConnection.cpp VRDeviceDaemon/VRDevices/Wiimote.cpp
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
+$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRCalibrators/%.o
 	@mkdir -p $(VRCALIBRATORSDIR)
 ifdef SHOWCOMMAND
-	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 else
 	@echo Linking $@...
-	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $^
+	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
 $(VRCALIBRATORS_SOURCES): config
@@ -1536,6 +1543,7 @@ $(MAKECONFIGFILE): config
 	@echo 'PLUGININSTALLDIR = $(PLUGININSTALLDIR)' >> $(MAKECONFIGFILE)
 	@echo 'ETCINSTALLDIR = $(ETCINSTALLDIR)' >> $(MAKECONFIGFILE)
 	@echo 'SHAREINSTALLDIR = $(SHAREINSTALLDIR)' >> $(MAKECONFIGFILE)
+	@echo 'MAKEINSTALLDIR = $(MAKEINSTALLDIR)' >> $(MAKECONFIGFILE)
 	@echo 'PKGCONFIGINSTALLDIR = $(PKGCONFIGINSTALLDIR)' >> $(MAKECONFIGFILE)
 	@echo 'DOCINSTALLDIR = $(DOCINSTALLDIR)' >> $(MAKECONFIGFILE)
 	@echo 'VRTOOLSDIREXT = $(VRTOOLSDIREXT)' >> $(MAKECONFIGFILE)
@@ -1678,11 +1686,11 @@ endif
 # Install makefile fragment in SHAREINSTALLDIR:
 	@echo Installing application makefile fragment...
 	@install -m u=rw,go=r $(MAKEFILEFRAGMENT) $(SHAREINSTALLDIR)
-# Install full build system in SHAREINSTALLDIR/make:
+# Install full build system in MAKEINSTALLDIR:
 	@echo Installing build system...
-	@install -d $(SHAREINSTALLDIR)/make
-	@install -m u=rw,go=r BuildRoot/* $(SHAREINSTALLDIR)/make
-	@chmod a+x $(SHAREINSTALLDIR)/make/FindLibrary.sh
+	@install -d $(MAKEINSTALLDIR)
+	@install -m u=rw,go=r BuildRoot/* $(MAKEINSTALLDIR)
+	@chmod a+x $(MAKEINSTALLDIR)/FindLibrary.sh
 # Install pkg-config metafile in PKGCONFIGINSTALLDIR:
 	@echo Installing pkg-config metafile...
 	@install -d $(PKGCONFIGINSTALLDIR)

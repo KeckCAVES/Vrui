@@ -828,12 +828,17 @@ void Slider::pointerButtonDown(Event& event)
 			{
 			/* Decrement or increment the slider value to the next tick or the minimum/maximum: */
 			if(picked<sliderBox.origin[dimension])
+				{
 				decrement();
+				isClicking=-1;
+				}
 			else
+				{
 				increment();
+				isClicking=1;
+				}
 			
 			/* Schedule a timer event for click repeat: */
-			isClicking=-1;
 			Misc::TimerEventScheduler* tes=getManager()->getTimerEventScheduler();
 			if(tes!=0)
 				{

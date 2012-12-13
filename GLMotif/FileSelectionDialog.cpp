@@ -571,4 +571,9 @@ void FileSelectionDialog::setCanSelectDirectory(bool newCanSelectDirectory)
 	canSelectDirectory=newCanSelectDirectory;
 	}
 
+void FileSelectionDialog::deleteOnCancel(void)
+	{
+	cancelCallbacks.add(deleteFunction);
+	}
+
 }

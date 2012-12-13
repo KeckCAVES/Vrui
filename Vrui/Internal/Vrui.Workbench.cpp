@@ -46,6 +46,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Barrier.h>
 #include <Cluster/Multiplexer.h>
 #include <Cluster/MulticastPipe.h>
+#include <Cluster/ThreadSynchronizer.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
 #include <Geometry/Plane.h>
@@ -247,16 +248,15 @@ void vruiGoToRootSection(const char*& rootSectionName)
 		{
 		/* Fall back to simulator mode if the root section does not exist: */
 		bool rootSectionFound=false;
-		if(rootSectionName!=0)
-			{
-			Misc::ConfigurationFile::SectionIterator rootIt=vruiConfigFile->getRootSection().getSection("/Vrui");
-			for(Misc::ConfigurationFile::SectionIterator sIt=rootIt.beginSubsections();sIt!=rootIt.endSubsections();++sIt)
-				if(sIt.getName()==rootSectionName)
-					{
-					rootSectionFound=true;
-					break;
-					}
-			}
+		if(rootSectionName==0)
+			rootSectionName=VRUIDEFAULTROOTSECTIONNAME;
+		Misc::ConfigurationFile::SectionIterator rootIt=vruiConfigFile->getRootSection().getSection("/Vrui");
+		for(Misc::ConfigurationFile::SectionIterator sIt=rootIt.beginSubsections();sIt!=rootIt.endSubsections();++sIt)
+			if(sIt.getName()==rootSectionName)
+				{
+				rootSectionFound=true;
+				break;
+				}
 		if(!rootSectionFound)
 			{
 			if(vruiVerbose)
@@ -706,6 +706,9 @@ void init(int& argc,char**& argv,char**&)
 			}
 		}
 	
+	/* Synchronize threads between here and end of function body: */
+	Cluster::ThreadSynchronizer threadSynchronizer(vruiPipe);
+	
 	/* Initialize Vrui state object: */
 	try
 		{
@@ -934,6 +937,9 @@ void init(int& argc,char**& argv,char**&)
 
 void startDisplay(void)
 	{
+	/* Synchronize threads between here and end of function body: */
+	Cluster::ThreadSynchronizer threadSynchronizer(vruiState->pipe);
+	
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
 		{
@@ -1018,12 +1024,19 @@ void startDisplay(void)
 					snprintf(windowName,sizeof(windowName),"%s%d",vruiApplicationName,i);
 				else
 					snprintf(windowName,sizeof(windowName),"%s",vruiApplicationName);
+				if(vruiVerbose)
+					std::cout<<"Vrui: Opening window "<<windowNames[i]<<"..."<<std::flush;
 				vruiWindows[i]=new VRWindow(windowName,vruiConfigFile->getSection(windowNames[i].c_str()),vruiState,mouseAdapter);
 				vruiWindows[i]->getCloseCallbacks().add(vruiState,&VruiState::quitCallback);
 				
 				/* Initialize all GLObjects for this window's context data: */
+				if(vruiVerbose)
+					std::cout<<" initializing OpenGL context"<<std::flush;
 				vruiWindows[i]->makeCurrent();
 				vruiWindows[i]->getContextData().updateThings();
+				
+				if(vruiVerbose)
+					std::cout<<"Ok"<<std::endl;
 				}
 			}
 		}
@@ -1041,6 +1054,9 @@ void startDisplay(void)
 
 void startSound(void)
 	{
+	/* Synchronize threads between here and end of function body: */
+	Cluster::ThreadSynchronizer threadSynchronizer(vruiState->pipe);
+	
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
 		{
