@@ -20,6 +20,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <string.h>
+#include <Misc/PrintInteger.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Vrui.h>
@@ -47,7 +49,34 @@ void Application::soundWrapper(ALContextData& contextData,void* userData)
 	static_cast<Application*>(userData)->sound(contextData);
 	}
 
+char* Application::createEventToolClassName(void)
+	{
+	char numberBuffer[5];
+	char* number=Misc::print(nextEventToolClassIndex,numberBuffer+4);
+	++nextEventToolClassIndex;
+	static const char etcnPrefix[]="VruiApplicationEventToolClass";
+	size_t etcnpLen=strlen(etcnPrefix);
+	char* result=new char[etcnpLen+((numberBuffer+4)-number)+1];
+	strcpy(result,etcnPrefix);
+	strcpy(result+etcnpLen,number);
+	return result;
+	}
+
+void Application::addEventTool(const char* toolName,ToolFactory* parentClass,Application::EventID eventId)
+	{
+	typedef EventToolFactory<Application> ETF;
+	
+	/* Create a new event tool factory class: */
+	char* toolClassName=createEventToolClassName();
+	ETF* toolFactory=new ETF(toolClassName,toolName,parentClass,this,&Application::eventCallback,eventId);
+	delete[] toolClassName;
+	
+	/* Register the tool factory class with the tool manager: */
+	getToolManager()->addClass(toolFactory,ToolManager::defaultToolFactoryDestructor);
+	}
+
 Application::Application(int& argc,char**& argv,char**& appDefaults)
+	:nextEventToolClassIndex(0)
 	{
 	/* Initialize Vrui: */
 	init(argc,argv,appDefaults);
@@ -62,6 +91,7 @@ Application::Application(int& argc,char**& argv,char**& appDefaults)
 	}
 
 Application::Application(int& argc,char**& argv)
+	:nextEventToolClassIndex(0)
 	{
 	/* Initialize Vrui: */
 	char** appDefaults=0;
@@ -122,6 +152,10 @@ void Application::display(GLContextData&) const
 	}
 
 void Application::sound(ALContextData&) const
+	{
+	}
+
+void Application::eventCallback(Application::EventID eventId,InputDevice::ButtonCallbackData* cbData)
 	{
 	}
 

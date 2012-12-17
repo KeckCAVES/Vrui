@@ -1,6 +1,6 @@
 /***********************************************************************
 GLModels - Helper functions to render simple models using OpenGL.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

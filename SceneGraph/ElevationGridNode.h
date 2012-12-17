@@ -83,6 +83,7 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	MFFloat height;
 	MFString heightUrl; // URL of external file(s) containing the height array in several file formats
 	MFString heightUrlFormat; // Format of external height file: "BIL", "ARC/INFO ASCII GRID"
+	SFFloat heightScale; // Scale factor applied to all height values
 	SFBool heightIsY;
 	SFBool removeInvalids; // Flag to remove "invalid" elevation samples from the height array by leaving holes in the triangulation
 	SFFloat invalidHeight; // Value to indicate "invalid" elevations

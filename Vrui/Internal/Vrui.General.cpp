@@ -827,6 +827,9 @@ void VruiState::prepareMainLoop(void)
 			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<std::endl;
 			}
 		}
+	
+	/* Enable all vislets: */
+	visletManager->enable();
 	}
 
 void VruiState::update(void)
@@ -1143,6 +1146,9 @@ void VruiState::sound(ALContextData& contextData) const
 
 void VruiState::finishMainLoop(void)
 	{
+	/* Disable all vislets: */
+	visletManager->disable();
+	
 	/* Deregister the popup callback: */
 	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
 	}
@@ -1240,7 +1246,7 @@ void VruiState::loadViewCallback(Misc::CallbackData* cbData)
 		/* Create a file selection dialog to select a viewpoint file: */
 		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadViewDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",viewDirectory,".view"));
 		loadViewDialog->getOKCallbacks().add(this,&VruiState::loadViewOKCallback);
-		loadViewDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		loadViewDialog->deleteOnCancel();
 		
 		/* Show the file selection dialog: */
 		popupPrimaryWidget(loadViewDialog.releaseTarget());
@@ -1304,7 +1310,7 @@ void VruiState::saveViewCallback(Misc::CallbackData* cbData)
 		/* Create a file selection dialog to select an alternative viewpoint file name: */
 		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveViewDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save View...",viewDirectory,viewpointFileName.c_str(),".view"));
 		saveViewDialog->getOKCallbacks().add(this,&VruiState::saveViewOKCallback);
-		saveViewDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		saveViewDialog->deleteOnCancel();
 		
 		/* Show the file selection dialog: */
 		popupPrimaryWidget(saveViewDialog.releaseTarget());
@@ -1363,7 +1369,7 @@ void VruiState::loadInputGraphCallback(Misc::CallbackData* cbData)
 		/* Create a file selection dialog to select a configuration file: */
 		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadInputGraphDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Input Graph...",inputGraphDirectory,".inputgraph"));
 		loadInputGraphDialog->getOKCallbacks().add(this,&VruiState::loadInputGraphOKCallback);
-		loadInputGraphDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		loadInputGraphDialog->deleteOnCancel();
 		
 		/* Show the file selection dialog: */
 		popupPrimaryWidget(loadInputGraphDialog.releaseTarget());
@@ -1429,7 +1435,7 @@ void VruiState::saveInputGraphCallback(Misc::CallbackData* cbData)
 		/* Create a file selection dialog to select an alternative input graph file name: */
 		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveInputGraphDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Input Graph...",inputGraphDirectory,inputGraphFileName.c_str(),".inputgraph"));
 		saveInputGraphDialog->getOKCallbacks().add(this,&VruiState::saveInputGraphOKCallback);
-		saveInputGraphDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+		saveInputGraphDialog->deleteOnCancel();
 		
 		/* Show the file selection dialog: */
 		popupPrimaryWidget(saveInputGraphDialog.releaseTarget());

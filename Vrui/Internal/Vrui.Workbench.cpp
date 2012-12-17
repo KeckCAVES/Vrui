@@ -46,6 +46,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Barrier.h>
 #include <Cluster/Multiplexer.h>
 #include <Cluster/MulticastPipe.h>
+#include <Cluster/ThreadSynchronizer.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
 #include <Geometry/Plane.h>
@@ -88,6 +89,8 @@ Misc::ConfigurationFile* vruiConfigFile=0;
 char* vruiApplicationName=0;
 int vruiNumWindows=0;
 VRWindow** vruiWindows=0;
+int vruiTotalNumWindows=0;
+VRWindow** vruiTotalWindows=0;
 bool vruiWindowsMultithreaded=false;
 Threads::Thread* vruiRenderingThreads=0;
 Threads::Barrier vruiRenderingBarrier;
@@ -147,6 +150,9 @@ void vruiErrorShutdown(bool signalError)
 		for(int i=0;i<vruiNumWindows;++i)
 			delete vruiWindows[i];
 		delete[] vruiWindows;
+		vruiWindows=0;
+		delete[] vruiTotalWindows;
+		vruiTotalWindows=0;
 		}
 	ALContextData::shutdownThingManager();
 	#if ALSUPPORT_CONFIG_HAVE_OPENAL
@@ -247,16 +253,15 @@ void vruiGoToRootSection(const char*& rootSectionName)
 		{
 		/* Fall back to simulator mode if the root section does not exist: */
 		bool rootSectionFound=false;
-		if(rootSectionName!=0)
-			{
-			Misc::ConfigurationFile::SectionIterator rootIt=vruiConfigFile->getRootSection().getSection("/Vrui");
-			for(Misc::ConfigurationFile::SectionIterator sIt=rootIt.beginSubsections();sIt!=rootIt.endSubsections();++sIt)
-				if(sIt.getName()==rootSectionName)
-					{
-					rootSectionFound=true;
-					break;
-					}
-			}
+		if(rootSectionName==0)
+			rootSectionName=VRUIDEFAULTROOTSECTIONNAME;
+		Misc::ConfigurationFile::SectionIterator rootIt=vruiConfigFile->getRootSection().getSection("/Vrui");
+		for(Misc::ConfigurationFile::SectionIterator sIt=rootIt.beginSubsections();sIt!=rootIt.endSubsections();++sIt)
+			if(sIt.getName()==rootSectionName)
+				{
+				rootSectionFound=true;
+				break;
+				}
 		if(!rootSectionFound)
 			{
 			if(vruiVerbose)
@@ -706,6 +711,9 @@ void init(int& argc,char**& argv,char**&)
 			}
 		}
 	
+	/* Synchronize threads between here and end of function body: */
+	Cluster::ThreadSynchronizer threadSynchronizer(vruiPipe);
+	
 	/* Initialize Vrui state object: */
 	try
 		{
@@ -934,6 +942,9 @@ void init(int& argc,char**& argv,char**&)
 
 void startDisplay(void)
 	{
+	/* Synchronize threads between here and end of function body: */
+	Cluster::ThreadSynchronizer threadSynchronizer(vruiState->pipe);
+	
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
 		{
@@ -1018,12 +1029,19 @@ void startDisplay(void)
 					snprintf(windowName,sizeof(windowName),"%s%d",vruiApplicationName,i);
 				else
 					snprintf(windowName,sizeof(windowName),"%s",vruiApplicationName);
+				if(vruiVerbose)
+					std::cout<<"Vrui: Opening window "<<windowNames[i]<<"..."<<std::flush;
 				vruiWindows[i]=new VRWindow(windowName,vruiConfigFile->getSection(windowNames[i].c_str()),vruiState,mouseAdapter);
 				vruiWindows[i]->getCloseCallbacks().add(vruiState,&VruiState::quitCallback);
 				
 				/* Initialize all GLObjects for this window's context data: */
+				if(vruiVerbose)
+					std::cout<<" initializing OpenGL context"<<std::flush;
 				vruiWindows[i]->makeCurrent();
 				vruiWindows[i]->getContextData().updateThings();
+				
+				if(vruiVerbose)
+					std::cout<<"Ok"<<std::endl;
 				}
 			}
 		}
@@ -1037,10 +1055,44 @@ void startDisplay(void)
 		std::cerr<<"Caught spurious exception while initializing rendering windows"<<std::endl;
 		vruiErrorShutdown(true);
 		}
+	
+	/* Create the total list of all windows on the cluster: */
+	vruiTotalNumWindows=0;
+	int localWindowsStart=0;
+	if(vruiMultiplexer!=0)
+		{
+		/* Count the number of windows on all cluster nodes: */
+		for(unsigned int nodeIndex=0;nodeIndex<vruiMultiplexer->getNumNodes();++nodeIndex)
+			{
+			if(nodeIndex==vruiMultiplexer->getNodeIndex())
+				localWindowsStart=vruiTotalNumWindows;
+			char windowNamesTag[40];
+			snprintf(windowNamesTag,sizeof(windowNamesTag),"./node%uWindowNames",nodeIndex);
+			typedef std::vector<std::string> StringList;
+			StringList windowNames=vruiConfigFile->retrieveValue<StringList>(windowNamesTag);
+			vruiTotalNumWindows+=int(windowNames.size());
+			}
+		}
+	else
+		{
+		/* On a single-machine environment, total windows are local windows: */
+		vruiTotalNumWindows=vruiNumWindows;
+		localWindowsStart=0;
+		}
+	vruiTotalWindows=new VRWindow*[vruiTotalNumWindows];
+	for(int i=0;i<localWindowsStart;++i)
+		vruiTotalWindows[i]=0;
+	for(int i=0;i<vruiNumWindows;++i)
+		vruiTotalWindows[localWindowsStart+i]=vruiWindows[i];
+	for(int i=localWindowsStart+vruiNumWindows;i<vruiTotalNumWindows;++i)
+		vruiTotalWindows[i]=0;
 	}
 
 void startSound(void)
 	{
+	/* Synchronize threads between here and end of function body: */
+	Cluster::ThreadSynchronizer threadSynchronizer(vruiState->pipe);
+	
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
 		{
@@ -1505,6 +1557,9 @@ void mainLoop(void)
 		for(int i=0;i<vruiNumWindows;++i)
 			delete vruiWindows[i];
 		delete[] vruiWindows;
+		vruiWindows=0;
+		delete[] vruiTotalWindows;
+		vruiTotalWindows=0;
 		}
 	
 	/* Shut down the sound system: */
@@ -1597,12 +1652,12 @@ void shutdown(void)
 
 int getNumWindows(void)
 	{
-	return vruiNumWindows;
+	return vruiTotalNumWindows;
 	}
 
 VRWindow* getWindow(int index)
 	{
-	return vruiWindows[index];
+	return vruiTotalWindows[index];
 	}
 
 int getNumSoundContexts(void)
@@ -1617,8 +1672,12 @@ SoundContext* getSoundContext(int index)
 
 ViewSpecification calcViewSpec(int windowIndex,int eyeIndex)
 	{
+	/* Return bogus view specification if the window is non-local: */
+	if(vruiTotalWindows[windowIndex]==0)
+		return ViewSpecification();
+	
 	/* Get the view specification in physical coordinates: */
-	ViewSpecification viewSpec=vruiWindows[windowIndex]->calcViewSpec(eyeIndex);
+	ViewSpecification viewSpec=vruiTotalWindows[windowIndex]->calcViewSpec(eyeIndex);
 	
 	if(vruiState->navigationTransformationEnabled)
 		{

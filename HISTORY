@@ -3233,3 +3233,80 @@ Vrui-2.4-004:
   Vrui::WindowProperties to work with new Mac OS X, and certain virtual
   machines.
 - Removed "find" warning on first-time builds from build system.
+
+Vrui-2.5-001:
+- Added marshaller for Misc::FixedArray wrapper class to
+  Misc/ArrayMarshallers.h.
+- Added support for two different viewers to Vrui::VRWindow, as a hack
+  to allow another way of setting up split views specifically for
+  filming.
+- Added readFromPipe method to Misc::ConfigurationFile.
+- Improved debugging mode in Cluster::Multiplexer.
+- Added Cluster::ThreadSynchronizer, a helper class to ensure that
+  thread IDs stay consistent across a cluster even when different code
+  paths are used on master and slaves.
+- Added cluster thread synchronization to
+  Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed bug when automatically incrementing a GLMotif::Slider.
+- Slightly improved debugging output in Cluster::Multiplexer's verbose
+  mode.
+- Fixed some minor issues in calibration utilities.
+- API change: removed defaultCloseCallback in GLMotif::PopupWindow.
+  - Added popDownFunction and deleteFunction instead.
+  - Added convenience methods popDownOnClose and deleteOnClose.
+- Added deleteOnCancel to GLMotif::FileSelectionDialog.
+- Build system change: debug version of Vrui build system now installed
+  in /debug/ subdirectory of $(VRUI_MAKEDIR). Application makefiles need
+  to be adapted accordingly, following the template makefile in
+  $(VRUI_MAKEDIR).
+- Added MAKEINSTALLDIR variable to $(VRUI_MAKEDIR)/Configuration.Vrui.
+- Fixed bug in Vrui verbose mode.
+- Improved window initialization logging in Vrui verbose mode.
+- Improved error handling in Comm::UDPSocket.
+- Improved error handling in Calibration/NaturalPointClient.cpp.
+- Improved error handling in MeasureEnvironment calibration utility.
+- MeasureEnvironment calibration utility now saves points received from
+  an OptiTrack engine when user requests saving measurement file.
+- Improvements to SceneGraph::ElevationGridNode:
+  - Added ability to load elevation grids from greyscale image files.
+  - Added heightScale field.
+  - Fixed minor bug in file type checking.
+- Added explanation of vertex coordinates to icosahedron generator in
+  GL/GLModels.cpp.
+- Removed manage checks in resize() methods of several GLMotif widgets,
+  which caused initialization problems.
+- Added -physical option to SceneGraphViewer vislet to place scene
+  graphs into physical space.
+- Enabled texture transformations in SceneGraph::AppearanceNode.
+- Added simplified method to bind callback methods to input device
+  button presses to Vrui::Application; removes almost all overhead from
+  creating simple button-based user interfaces.
+  - Added VruiEventToolDemo to ExamplePrograms to illustrate the new
+    event tool mechanism.
+- Adapted Wiimote VR device driver module to new bluetooth protocol used
+  in Wii Remote Plus devices.
+- Improvements to build system to reduce redundancies during linking and
+  fix plug-in library issues on newest Ubuntu release (pointed out by
+  Hannes Hofmann and Chris Want).
+
+Vrui-2.6-001:
+- Disabled clipping planes for CAVERenderer vislet.
+- Added methods to set and query individual viewers and screens to
+  Vrui::VRWindow.
+- Added getItemWidget() and getItem() convenience methods to
+  GLMotif::DropdownBox::ValueChangedCallbackData.
+- API change: Changed vislet initialization procedure:
+  - All vislets start in disabled state.
+	- Added enable() and disable() methods to Vrui::VisletManager.
+  - Each vislet's enable() methods is called once immediately before
+    Vrui's main loop starts.
+  - Each active vislet's disable() method is called immediately after
+    Vrui's main loop ends.
+- Added isReal() and isGrabbed() methods to Vrui::InputGraphManager.
+- API change: changed semantics of Vrui::getNumWindows() and
+  Vrui::getWindow() functions:
+  - Vrui::getNumWindows() returns total number of windows in the entire
+    environment, including non-local windows on other cluster nodes.
+  - Vrui::getWindow() returns NULL for non-local windows.
+  - Vrui::calcViewSpec returns garbage for non-local windows.
+- Added uniform scaling glScale(factor) to GL/GLMatrixTemplates.h.

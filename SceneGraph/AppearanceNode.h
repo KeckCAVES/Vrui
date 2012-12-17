@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/AttributeNode.h>
 #include <SceneGraph/MaterialNode.h>
 #include <SceneGraph/TextureNode.h>
+#include <SceneGraph/TransformNode.h>
 
 namespace SceneGraph {
 
@@ -37,6 +38,7 @@ class AppearanceNode:public AttributeNode
 	public:
 	typedef SF<MaterialNodePointer> SFMaterialNode;
 	typedef SF<TextureNodePointer> SFTextureNode;
+	typedef SF<TransformNodePointer> SFTransformNode;
 	
 	/* Elements: */
 	
@@ -44,7 +46,7 @@ class AppearanceNode:public AttributeNode
 	public:
 	SFMaterialNode material;
 	SFTextureNode texture;
-	SFNode textureTransform;
+	SFTransformNode textureTransform;
 	
 	/* Constructors and destructors: */
 	public:
