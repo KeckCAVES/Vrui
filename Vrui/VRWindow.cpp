@@ -28,8 +28,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/VRWindow.h>
 
-#include <Images/Config.h>
-
 #include <iostream>
 #include <X11/keysym.h>
 #include <Misc/ThrowStdErr.h>
@@ -62,10 +60,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
 #include <GL/GLTransformationWrappers.h>
-#include <GLMotif/WidgetManager.h>
+#include <Images/Config.h>
 #include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
 #include <Images/WriteImageFile.h>
+#include <GLMotif/WidgetManager.h>
 #include <Vrui/Vrui.h>
 #if SAVE_SCREENSHOT_PROJECTION
 #include <Vrui/OpenFile.h>
@@ -1055,6 +1054,11 @@ VRWindow::~VRWindow(void)
 	delete extensionManager;
 	}
 
+void VRWindow::setVRScreen(int screenIndex,VRScreen* newScreen)
+	{
+	screens[screenIndex]=newScreen;
+	}
+
 void VRWindow::setVRScreen(VRScreen* newScreen)
 	{
 	/* Set both screens to the given screen: */
@@ -1066,6 +1070,11 @@ void VRWindow::setScreenViewport(const Scalar newViewport[4])
 	/* Update both viewports: */
 	for(int i=0;i<4;++i)
 		viewports[0][i]=viewports[1][i]=newViewport[i];
+	}
+
+void VRWindow::setViewer(int viewerIndex,Viewer* newViewer)
+	{
+	viewers[viewerIndex]=newViewer;
 	}
 
 void VRWindow::setViewer(Viewer* newViewer)

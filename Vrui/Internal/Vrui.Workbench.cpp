@@ -89,6 +89,8 @@ Misc::ConfigurationFile* vruiConfigFile=0;
 char* vruiApplicationName=0;
 int vruiNumWindows=0;
 VRWindow** vruiWindows=0;
+int vruiTotalNumWindows=0;
+VRWindow** vruiTotalWindows=0;
 bool vruiWindowsMultithreaded=false;
 Threads::Thread* vruiRenderingThreads=0;
 Threads::Barrier vruiRenderingBarrier;
@@ -148,6 +150,9 @@ void vruiErrorShutdown(bool signalError)
 		for(int i=0;i<vruiNumWindows;++i)
 			delete vruiWindows[i];
 		delete[] vruiWindows;
+		vruiWindows=0;
+		delete[] vruiTotalWindows;
+		vruiTotalWindows=0;
 		}
 	ALContextData::shutdownThingManager();
 	#if ALSUPPORT_CONFIG_HAVE_OPENAL
@@ -1050,6 +1055,37 @@ void startDisplay(void)
 		std::cerr<<"Caught spurious exception while initializing rendering windows"<<std::endl;
 		vruiErrorShutdown(true);
 		}
+	
+	/* Create the total list of all windows on the cluster: */
+	vruiTotalNumWindows=0;
+	int localWindowsStart=0;
+	if(vruiMultiplexer!=0)
+		{
+		/* Count the number of windows on all cluster nodes: */
+		for(unsigned int nodeIndex=0;nodeIndex<vruiMultiplexer->getNumNodes();++nodeIndex)
+			{
+			if(nodeIndex==vruiMultiplexer->getNodeIndex())
+				localWindowsStart=vruiTotalNumWindows;
+			char windowNamesTag[40];
+			snprintf(windowNamesTag,sizeof(windowNamesTag),"./node%uWindowNames",nodeIndex);
+			typedef std::vector<std::string> StringList;
+			StringList windowNames=vruiConfigFile->retrieveValue<StringList>(windowNamesTag);
+			vruiTotalNumWindows+=int(windowNames.size());
+			}
+		}
+	else
+		{
+		/* On a single-machine environment, total windows are local windows: */
+		vruiTotalNumWindows=vruiNumWindows;
+		localWindowsStart=0;
+		}
+	vruiTotalWindows=new VRWindow*[vruiTotalNumWindows];
+	for(int i=0;i<localWindowsStart;++i)
+		vruiTotalWindows[i]=0;
+	for(int i=0;i<vruiNumWindows;++i)
+		vruiTotalWindows[localWindowsStart+i]=vruiWindows[i];
+	for(int i=localWindowsStart+vruiNumWindows;i<vruiTotalNumWindows;++i)
+		vruiTotalWindows[i]=0;
 	}
 
 void startSound(void)
@@ -1521,6 +1557,9 @@ void mainLoop(void)
 		for(int i=0;i<vruiNumWindows;++i)
 			delete vruiWindows[i];
 		delete[] vruiWindows;
+		vruiWindows=0;
+		delete[] vruiTotalWindows;
+		vruiTotalWindows=0;
 		}
 	
 	/* Shut down the sound system: */
@@ -1613,12 +1652,12 @@ void shutdown(void)
 
 int getNumWindows(void)
 	{
-	return vruiNumWindows;
+	return vruiTotalNumWindows;
 	}
 
 VRWindow* getWindow(int index)
 	{
-	return vruiWindows[index];
+	return vruiTotalWindows[index];
 	}
 
 int getNumSoundContexts(void)
@@ -1633,8 +1672,12 @@ SoundContext* getSoundContext(int index)
 
 ViewSpecification calcViewSpec(int windowIndex,int eyeIndex)
 	{
+	/* Return bogus view specification if the window is non-local: */
+	if(vruiTotalWindows[windowIndex]==0)
+		return ViewSpecification();
+	
 	/* Get the view specification in physical coordinates: */
-	ViewSpecification viewSpec=vruiWindows[windowIndex]->calcViewSpec(eyeIndex);
+	ViewSpecification viewSpec=vruiTotalWindows[windowIndex]->calcViewSpec(eyeIndex);
 	
 	if(vruiState->navigationTransformationEnabled)
 		{

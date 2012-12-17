@@ -22,7 +22,7 @@
 ########################################################################
 
 # Set directory containing Vrui's build system:
-VRUI_MAKEDIR := $(HOME)/Vrui-2.4/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.6/share/make
 ifdef DEBUG
   VRUI_MAKEDIR = $(VRUI_MAKEDIR)/debug
 endif
@@ -47,6 +47,7 @@ PACKAGES =
 
 ########################################################################
 # Specify all final targets
+# Use $(EXEDIR)/ before executable names
 ########################################################################
 
 ALL = 

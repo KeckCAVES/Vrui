@@ -1,7 +1,7 @@
 /***********************************************************************
 GLMatrixTemplates - Overloaded versions of OpenGL API calls related to
 matrix manipulation.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2012 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -76,6 +76,16 @@ template <class ScalarParam>
 inline void glRotate(ScalarParam angle,const GLVector<ScalarParam,3>& axis)
 	{
 	glRotate(angle,axis.getXyzw());
+	}
+
+inline void glScale(GLfloat scaleXYZ)
+	{
+	glScalef(scaleXYZ,scaleXYZ,scaleXYZ);
+	}
+
+inline void glScale(GLdouble scaleXYZ)
+	{
+	glScaled(scaleXYZ,scaleXYZ,scaleXYZ);
 	}
 
 inline void glScale(GLfloat scaleX,GLfloat scaleY,GLfloat scaleZ)

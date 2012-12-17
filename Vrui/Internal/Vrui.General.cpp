@@ -827,6 +827,9 @@ void VruiState::prepareMainLoop(void)
 			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<std::endl;
 			}
 		}
+	
+	/* Enable all vislets: */
+	visletManager->enable();
 	}
 
 void VruiState::update(void)
@@ -1143,6 +1146,9 @@ void VruiState::sound(ALContextData& contextData) const
 
 void VruiState::finishMainLoop(void)
 	{
+	/* Disable all vislets: */
+	visletManager->disable();
+	
 	/* Deregister the popup callback: */
 	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
 	}

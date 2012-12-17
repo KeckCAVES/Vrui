@@ -175,9 +175,9 @@ std::pair<VRScreen*,Scalar> findScreen(const Ray& ray); // Returns pointer to cl
 
 /* Query information about rendering windows: */
 void requestWindowProperties(const WindowProperties& properties); // Requests the given set of properties from all subsequently opened display windows (must be called before main loop)
-int getNumWindows(void); // Returns the number of active rendering windows
-VRWindow* getWindow(int index); // Returns pointer to window of given index
-ViewSpecification calcViewSpec(int windowIndex,int eyeIndex); // Returns viewing specification in navigation coordinates for given eye in given window
+int getNumWindows(void); // Returns the total number of active rendering windows in the environment
+VRWindow* getWindow(int index); // Returns pointer to window of given index; windows on other cluster nodes have NULL pointers
+ViewSpecification calcViewSpec(int windowIndex,int eyeIndex); // Returns viewing specification in navigation coordinates for given eye in given window; returns garbage if given window is on another cluster node
 
 /* Query information about listeners: */
 Listener* getMainListener(void); // Returns pointer to the "main" listener (the one to use when clueless)

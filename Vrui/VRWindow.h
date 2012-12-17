@@ -130,9 +130,11 @@ class VRWindow:public GLWindow
 	~VRWindow(void);
 	
 	/* Methods: */
-	void setVRScreen(VRScreen* newScreen); // Overrides the window's screen; caller must know what he's doing
-	void setViewer(Viewer* newViewer); // Overrides the window's viewer; caller must know what he's doing
+	void setVRScreen(int screenIndex,VRScreen* newScreen); // Overrides the window's screen; caller must know what he's doing
+	void setVRScreen(VRScreen* newScreen); // Ditto; sets both windows
 	void setScreenViewport(const Scalar newViewport[4]); // Overrides the window's viewport on its screen in screen coordinates
+	void setViewer(int viewerIndex,Viewer* newViewer); // Overrides the window's viewer; caller must know what he's doing
+	void setViewer(Viewer* newViewer); // Ditto; sets both viewers
 	const int* getViewportSize(void) const // Returns window's viewport size in pixels
 		{
 		if(windowType==SPLITVIEWPORT_STEREO)
@@ -147,13 +149,13 @@ class VRWindow:public GLWindow
 		else
 			return GLWindow::getWindowSize()[dimension];
 		}
-	const VRScreen* getVRScreen(void) const // Returns the VR screen this window renders to
+	const VRScreen* getVRScreen(int screenIndex =0) const // Returns the VR screen this window renders to
 		{
-		return screens[0]; // Just return the left screen for now
+		return screens[screenIndex];
 		}
-	VRScreen* getVRScreen(void) // Ditto
+	VRScreen* getVRScreen(int screenIndex =0) // Ditto
 		{
-		return screens[0]; // Just return the left screen for now
+		return screens[screenIndex];
 		}
 	const Scalar* getScreenViewport(void) const // Returns the window's viewport on its screen in screen coordinates
 		{
@@ -165,13 +167,13 @@ class VRWindow:public GLWindow
 			resultViewport[i]=viewports[0][i];
 		return resultViewport;
 		}
-	const Viewer* getViewer(void) const // Returns the viewer this window renders from
+	const Viewer* getViewer(int viewerIndex =0) const // Returns the viewer this window renders from
 		{
-		return viewers[0]; // Just return the left viewer for now
+		return viewers[viewerIndex];
 		}
-	Viewer* getViewer(void) // Ditto
+	Viewer* getViewer(int viewerIndex =0) // Ditto
 		{
-		return viewers[0]; // Just return the left viewer for now
+		return viewers[viewerIndex];
 		}
 	int getNumEyes(void) const; // Returns the number of eyes this window renders from
 	Point getEyePosition(int eyeIndex) const; // Returns the position of the given eye in physical coordinates

@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-2.5
+INSTALLDIR := $(HOME)/Vrui-2.6
 
 ########################################################################
 # Please do not change the following lines
@@ -137,9 +137,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2005001
+VRUI_VERSION = 2006001
 MAJORLIBVERSION = 2
-MINORLIBVERSION = 5
+MINORLIBVERSION = 6
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options

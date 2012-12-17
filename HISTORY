@@ -3286,4 +3286,27 @@ Vrui-2.5-001:
 - Adapted Wiimote VR device driver module to new bluetooth protocol used
   in Wii Remote Plus devices.
 - Improvements to build system to reduce redundancies during linking and
-  fix plug-in library issues on newest Ubuntu release.
+  fix plug-in library issues on newest Ubuntu release (pointed out by
+  Hannes Hofmann and Chris Want).
+
+Vrui-2.6-001:
+- Disabled clipping planes for CAVERenderer vislet.
+- Added methods to set and query individual viewers and screens to
+  Vrui::VRWindow.
+- Added getItemWidget() and getItem() convenience methods to
+  GLMotif::DropdownBox::ValueChangedCallbackData.
+- API change: Changed vislet initialization procedure:
+  - All vislets start in disabled state.
+	- Added enable() and disable() methods to Vrui::VisletManager.
+  - Each vislet's enable() methods is called once immediately before
+    Vrui's main loop starts.
+  - Each active vislet's disable() method is called immediately after
+    Vrui's main loop ends.
+- Added isReal() and isGrabbed() methods to Vrui::InputGraphManager.
+- API change: changed semantics of Vrui::getNumWindows() and
+  Vrui::getWindow() functions:
+  - Vrui::getNumWindows() returns total number of windows in the entire
+    environment, including non-local windows on other cluster nodes.
+  - Vrui::getWindow() returns NULL for non-local windows.
+  - Vrui::calcViewSpec returns garbage for non-local windows.
+- Added uniform scaling glScale(factor) to GL/GLMatrixTemplates.h.
