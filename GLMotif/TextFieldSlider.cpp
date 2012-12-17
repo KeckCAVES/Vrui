@@ -141,9 +141,6 @@ void TextFieldSlider::resize(const Box& newExterior)
 	/* Resize the parent class widget: */
 	Container::resize(newExterior);
 	
-	if(!isManaged)
-		return;
-	
 	/* Position the text field: */
 	Box textFieldBox=getInterior();
 	textFieldBox.size=textField->calcNaturalSize();

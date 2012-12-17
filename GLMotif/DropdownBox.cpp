@@ -1,7 +1,7 @@
 /***********************************************************************
 DropdownBox - Class for labels that show one string out of a list of
 strings and allow changing the selection by choosing from a pop-up list.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2012 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

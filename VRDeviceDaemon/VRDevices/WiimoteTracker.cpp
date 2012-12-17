@@ -1,7 +1,7 @@
 /***********************************************************************
 WiimoteTracker - Class to use a Nintendo Wii controller and a special
 infrared LED beacon as a 6-DOF tracking device.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2012 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -94,11 +94,11 @@ void WiimoteTracker::wiimoteEventCallback(Misc::CallbackData* cbData)
 	int numValidTargets=0;
 	for(int i=0;i<4;++i)
 		{
-		pixelValids[i]=wiimote->getIRTargetValid(i);
+		pixelValids[i]=wiimote->getIRTarget(i).valid;
 		if(pixelValids[i])
 			{
-			pixels[i][0]=Scalar(wiimote->getIRTargetX(i));
-			pixels[i][1]=Scalar(wiimote->getIRTargetY(i));
+			for(int j=0;j<2;++j)
+				pixels[i][j]=Scalar(wiimote->getIRTarget(i).pos[j]);
 			++numValidTargets;
 			}
 		}
@@ -224,7 +224,7 @@ void WiimoteTracker::wiimoteEventCallback(Misc::CallbackData* cbData)
 
 WiimoteTracker::WiimoteTracker(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
-	 wiimote(0),
+	 wiimote(0),ledMask(configFile.retrieveValue<int>("./ledMask",0x1)),
 	 enableTracker(configFile.retrieveValue<bool>("./enableTracker",false)),
 	 wiiCamera(configFile.retrieveValue<Pixel>("./cameraCenter",Pixel(512,384)),
 	           configFile.retrieveValue<Scalar>("./cameraFocalLength",Scalar(1280))),
@@ -298,6 +298,9 @@ void WiimoteTracker::start(void)
 	fflush(stdout);
 	#endif
 	
+	/* Turn on the Wiimote's LEDs: */
+	wiimote->setLEDState(ledMask);
+	
 	/* Set Wiimote reporting mode: */
 	firstEvent=true;
 	if(enableTracker)
@@ -321,6 +324,9 @@ void WiimoteTracker::stop(void)
 		wiimote->requestAccelerometers(false);
 		wiimote->requestIRTracking(false);
 		}
+	
+	/* Turn off the Wiimote's LEDs: */
+	wiimote->setLEDState(0x0);
 	
 	#ifdef VERBOSE
 	/* Print the Wiimote's battery level: */

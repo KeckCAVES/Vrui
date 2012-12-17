@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -150,6 +150,8 @@ class InputGraphManager
 	bool isNavigational(InputDevice* device) const; // Returns whether the given device will follow navigation coordinates while ungrabbed
 	void setNavigational(InputDevice* device,bool newNavigational); // Sets whether the given device will follow navigation coordinates while ungrabbed
 	Glyph& getInputDeviceGlyph(InputDevice* device); // Returns the glyph associated with the given input device
+	bool isReal(InputDevice* device) const; // Returns true if the given input device is a real device
+	bool isGrabbed(InputDevice* device) const; // Returns true if the given input device is currently grabbed by a tool
 	InputDevice* getFirstInputDevice(void); // Returns pointer to the first ungrabbed input device
 	InputDevice* getNextInputDevice(InputDevice* device); // Returns pointer to the next input device in the same level after the given one
 	InputDevice* findInputDevice(const Point& position,bool ungrabbedOnly =true); // Finds an ungrabbed input device based on a position in physical coordinates

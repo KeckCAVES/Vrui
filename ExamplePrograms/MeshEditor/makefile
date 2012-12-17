@@ -1,5 +1,6 @@
 ########################################################################
-# Makefile for MeshEditor Vrui example program.
+# Makefile for MeshEditor Vrui example program, using Vrui's legacy
+# build system.
 # Copyright (c) 2003-2012 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
@@ -19,7 +20,7 @@
 ########################################################################
 
 # Set the Vrui installation directory:
-VRUIDIR := $(HOME)/Vrui-2.4
+VRUIDIR := $(HOME)/Vrui-2.6
 
 # Set up additional flags for the C++ compiler:
 CFLAGS = 

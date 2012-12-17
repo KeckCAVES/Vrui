@@ -535,7 +535,7 @@ void CurveEditorTool::loadCurveCallback(Misc::CallbackData*)
 	/* Create a file selection dialog to select a curve file: */
 	GLMotif::FileSelectionDialog* loadCurveDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curve...",openDirectory("."),".curve");
 	loadCurveDialog->getOKCallbacks().add(this,&CurveEditorTool::loadCurveOKCallback);
-	loadCurveDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+	loadCurveDialog->deleteOnCancel();
 	
 	/* Show the file selection dialog: */
 	popupPrimaryWidget(loadCurveDialog);

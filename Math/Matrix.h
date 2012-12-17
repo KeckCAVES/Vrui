@@ -174,6 +174,7 @@ class Matrix
 	double determinant(void) const; // Returns the matrix' determinant
 	unsigned int rank(void) const; // Returns the matrix' row rank
 	Matrix kernel(void) const; // Returns a matrix whose column vectors span this matrix' null space
+	std::pair<Matrix,Matrix> solveLinearSystem(const Matrix& coefficients) const; // Returns a pair of matrices defining all solutions to the linear system defined by the matrix and the coefficient column vector. The first matrix contains solution column vectors; the column vectors of the second matrix span the solution space if the system is under-determined
 	std::pair<Matrix,Matrix> qrDecomposition(void) const; // Returns (q, r), the QR decomposition of the matrix
 	std::pair<Matrix,Matrix> jacobiIteration(void) const; // Performs Jacobi iteration on a symmetric matrix; returns orthogonal matrix Q of eigenvectors and column vector E of eigenvalues
 	};

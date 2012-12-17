@@ -1,7 +1,7 @@
 /***********************************************************************
 Client to read tracking data from a NaturalPoint OptiTrack tracking
 system.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 

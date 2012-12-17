@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -98,7 +98,10 @@ MeasureEnvironment::PointSnapperTool::PointSnapperTool(const Vrui::ToolFactory* 
 	:Vrui::TransformTool(factory,inputAssignment)
 	{
 	/* Set the source device: */
-	sourceDevice=getButtonDevice(0);
+	if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else
+		sourceDevice=getValuatorDevice(0);
 	}
 
 void MeasureEnvironment::PointSnapperTool::initialize(void)
@@ -108,6 +111,11 @@ void MeasureEnvironment::PointSnapperTool::initialize(void)
 	
 	/* Disable the transformed device's glyph: */
 	Vrui::getInputGraphManager()->getInputDeviceGlyph(transformedDevice).disable();
+	}
+
+const Vrui::ToolFactory* MeasureEnvironment::PointSnapperTool::getFactory(void) const
+	{
+	return factory;
 	}
 
 void MeasureEnvironment::PointSnapperTool::frame(void)
@@ -424,7 +432,7 @@ GLMotif::PopupMenu* MeasureEnvironment::createMainMenu(void)
 void* MeasureEnvironment::pointCollectorThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{
@@ -458,13 +466,14 @@ void* MeasureEnvironment::pointCollectorThreadMethod(void)
 						if(naturalPointFlipZ)
 							tp[2]=-tp[2];
 						trackerPoints.push_back(pointTransform.transform(tp));
-						std::cout<<"Read tracking marker "<<tp[0]<<", "<<tp[1]<<", "<<tp[2]<<std::endl;
 						ballPoints.push_back(p);
 						}
 					else
 						{
-						/* Indicate an error somehow: */
-						/* ... */
+						/* Ignore the measurement and show an error message: */
+						char message[256];
+						snprintf(message,sizeof(message),"OptiTrack delivered %u points; ignoring measurement",(unsigned int)(frame.otherMarkers.size()));
+						Vrui::showErrorMessage("NaturalPoint Client",message);
 						}
 					}
 				else
@@ -540,6 +549,21 @@ void MeasureEnvironment::saveMeasurementFile(const char* fileName)
 		pointFile<<std::setw(12)<<*spIt<<",\"SCREEN\""<<std::endl;
 	for(PointList::const_iterator bpIt=ballPoints.begin();bpIt!=ballPoints.end();++bpIt)
 		pointFile<<std::setw(12)<<*bpIt<<",\"BALLS\""<<std::endl;
+	
+	if(naturalPointClient!=0)
+		{
+		/* Save all Optitrack sample points: */
+		std::ofstream pointFile("TrackingPoints.csv");
+		pointFile.setf(std::ios::fixed);
+		pointFile<<std::setprecision(6);
+		size_t i=0;
+		for(PointList::const_iterator tpIt=trackerPoints.begin();tpIt!=trackerPoints.end();++tpIt)
+			{
+			pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;
+			++i;
+			}
+		}
+	
 	measurementsDirty=false;
 	}
 
@@ -628,8 +652,10 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	{
 	/* Register the point snapper tool class with the Vrui tool manager: */
 	PointSnapperToolFactory* pointSnapperToolFactory=new PointSnapperToolFactory("PointSnapperTool","Snap To Points",Vrui::getToolManager()->loadClass("TransformTool"),*Vrui::getToolManager());
-	pointSnapperToolFactory->setNumButtons(1);
+	pointSnapperToolFactory->setNumButtons(0,true);
+	pointSnapperToolFactory->setNumValuators(0,true);
 	pointSnapperToolFactory->setButtonFunction(0,"Transformed Button");
+	pointSnapperToolFactory->setValuatorFunction(0,"Transformed Valuator");
 	Vrui::getToolManager()->addClass(pointSnapperToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Register the point query tool class with the Vrui tool manager: */
@@ -790,20 +816,6 @@ MeasureEnvironment::~MeasureEnvironment(void)
 		{
 		/* Save all measured points: */
 		saveMeasurementFile("MeasuredPoints.csv");
-		
-		if(naturalPointClient!=0)
-			{
-			/* Save all Optitrack sample points: */
-			std::ofstream pointFile("TrackingPoints.csv");
-			pointFile.setf(std::ios::fixed);
-			pointFile<<std::setprecision(6);
-			size_t i=0;
-			for(PointList::const_iterator tpIt=trackerPoints.begin();tpIt!=trackerPoints.end();++tpIt)
-				{
-				pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;
-				++i;
-				}
-			}
 		}
 	
 	delete naturalPointClient;
@@ -1015,7 +1027,7 @@ void MeasureEnvironment::loadMeasurementFileCallback(Misc::CallbackData* cbData)
 	/* Open a file selection dialog: */
 	GLMotif::FileSelectionDialog* loadMeasurementFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadMeasurementFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadMeasurementFileOKCallback);
-	loadMeasurementFileDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+	loadMeasurementFileDialog->deleteOnCancel();
 	
 	/* Show the file selection dialog: */
 	Vrui::popupPrimaryWidget(loadMeasurementFileDialog);
@@ -1035,7 +1047,7 @@ void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbD
 	/* Open a file selection dialog: */
 	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadOptitrackSampleFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadOptitrackSampleFileOKCallback);
-	loadOptitrackSampleFileDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+	loadOptitrackSampleFileDialog->deleteOnCancel();
 	
 	/* Show the file selection dialog: */
 	Vrui::popupPrimaryWidget(loadOptitrackSampleFileDialog);

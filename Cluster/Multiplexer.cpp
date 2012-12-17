@@ -407,356 +407,359 @@ void* Multiplexer::packetHandlingThreadMaster(void)
 		{
 		/* Wait for a message from any slave: */
 		ssize_t numBytesReceived=recv(socketFd,messageBuffer,Packet::maxRawPacketSize,0);
-		if(numBytesReceived>0&&size_t(numBytesReceived)>=sizeof(Message)&&static_cast<Message*>(messageBuffer)->nodeIndex&0x80000000U)
+		if(numBytesReceived>0&&size_t(numBytesReceived)>=sizeof(Message))
 			{
-			/* Remove the slave message indicator bit from the message's node index: */
-			unsigned int msgNodeIndex=static_cast<Message*>(messageBuffer)->nodeIndex&0x7fffffffU;
-			
-			switch(static_cast<Message*>(messageBuffer)->messageId)
+			/* Check that the message is not the echo of a server message: */
+			if(static_cast<Message*>(messageBuffer)->nodeIndex&0x80000000U)
 				{
-				case Message::CONNECTION:
-					{
-					/* One slave must have missed the connection establishment packet; send another one: */
-					Message msg(0,Message::CONNECTION);
-					{
-					// SocketMutex::Lock socketLock(socketMutex);
-					sendto(socketFd,&msg,sizeof(Message),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-					}
-					break;
-					}
+				/* Remove the slave message indicator bit from the message's node index: */
+				unsigned int msgNodeIndex=static_cast<Message*>(messageBuffer)->nodeIndex&0x7fffffffU;
 				
-				case Message::PING:
+				switch(static_cast<Message*>(messageBuffer)->messageId)
 					{
-					/* Broadcast a ping reply to all slaves: */
-					Message msg(0,Message::PING);
-					{
-					// SocketMutex::Lock socketLock(socketMutex);
-					sendto(socketFd,&msg,sizeof(Message),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-					}
-					break;
-					}
-				
-				case Message::CREATEPIPE1:
-					{
-					CreatePipe1Message* msg=static_cast<CreatePipe1Message*>(messageBuffer);
-					if(size_t(numBytesReceived)>=sizeof(CreatePipe1Message)&&size_t(numBytesReceived)==sizeof(CreatePipe1Message)+msg->idNumParts*sizeof(unsigned int))
+					case Message::CONNECTION:
 						{
-						/* Extract the originating thread's ID from the message: */
-						Threads::Thread::ID senderId(msg->idNumParts,reinterpret_cast<unsigned int*>(msg+1));
-						
-						/* Find the new pipe state corresponding to the thread ID: */
-						PipeState* newPipeState;
+						/* One slave must have missed the connection establishment packet; send another one: */
+						Message msg(0,Message::CONNECTION);
 						{
-						Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-						NewPipeHasher::Iterator npIt=newPipes.findEntry(senderId);
-						if(npIt.isFinished())
-							{
-							/* If the new pipe state hasn't been created already, do it here: */
-							newPipeState=new PipeState(nodeIndex,numSlaves);
-							
-							/* Add the new pipe state to the new pipe map: */
-							newPipes[senderId]=newPipeState;
-							}
-						else
-							newPipeState=npIt->getDest();
+						// SocketMutex::Lock socketLock(socketMutex);
+						sendto(socketFd,&msg,sizeof(Message),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
 						}
-						
-						/* Lock the new pipe: */
-						LockedPipe pipeState(newPipeState);
-						
-						/* Check the pipe's barrier state for first-stage completion: */
-						bool sendReply=false;
-						if(pipeState->barrierId<1)
+						break;
+						}
+					
+					case Message::PING:
+						{
+						/* Broadcast a ping reply to all slaves: */
+						Message msg(0,Message::PING);
+						{
+						// SocketMutex::Lock socketLock(socketMutex);
+						sendto(socketFd,&msg,sizeof(Message),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+						}
+						break;
+						}
+					
+					case Message::CREATEPIPE1:
+						{
+						CreatePipe1Message* msg=static_cast<CreatePipe1Message*>(messageBuffer);
+						if(size_t(numBytesReceived)>=sizeof(CreatePipe1Message)&&size_t(numBytesReceived)==sizeof(CreatePipe1Message)+msg->idNumParts*sizeof(unsigned int))
 							{
-							/* Remember the slave's barrier completion: */
-							pipeState->slaveBarrierIds[msgNodeIndex-1]=1;
+							/* Extract the originating thread's ID from the message: */
+							Threads::Thread::ID senderId(msg->idNumParts,reinterpret_cast<unsigned int*>(msg+1));
 							
-							/* Check if the current barrier is complete: */
-							pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
-							for(unsigned int i=1;i<numSlaves;++i)
-								if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
-									pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
-							if(pipeState->minSlaveBarrierId>=1)
+							/* Find the new pipe state corresponding to the thread ID: */
+							PipeState* newPipeState;
+							{
+							Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
+							NewPipeHasher::Iterator npIt=newPipes.findEntry(senderId);
+							if(npIt.isFinished())
 								{
-								/* Complete the first barrier: */
-								pipeState->barrierId=1;
+								/* If the new pipe state hasn't been created already, do it here: */
+								newPipeState=new PipeState(nodeIndex,numSlaves);
 								
-								/* Assign a pipe ID to the new pipe and store it in the pipe state table: */
-								Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
-								do
-									{
-									++lastPipeId;
-									if(lastPipeId==0x80000000U) // Ensure that pipeId never has the MSB set
-										lastPipeId=1;
-									}
-								while(pipeStateTable.isEntry(lastPipeId));
-								pipeState->pipeId=lastPipeId;
-								pipeStateTable[lastPipeId]=newPipeState;
-								
-								/* Wake up the thread blocked on the new pipe: */
-								pipeState->barrierCond.signal();
-								
-								/* Send a stage-one pipe creation completion message: */
-								sendReply=true;
+								/* Add the new pipe state to the new pipe map: */
+								newPipes[senderId]=newPipeState;
 								}
+							else
+								newPipeState=npIt->getDest();
 							}
-						else
-							{
-							/* One slave must have missed a stage-one pipe creation completion message; send another one: */
-							sendReply=true;
-							}
-						
-						if(sendReply)
-							{
-							CreatePipe1Message* msg2=static_cast<CreatePipe1Message*>(messageBuffer);
-							msg2->nodeIndex=0;
-							msg2->messageId=Message::CREATEPIPE1;
-							msg2->pipeId=pipeState->pipeId;
-							msg2->idNumParts=senderId.getNumParts();
-							for(unsigned int i=0;i<msg2->idNumParts;++i)
-								reinterpret_cast<unsigned int*>(msg2+1)[i]=senderId.getPart(i);
-							{
-							// SocketMutex::Lock socketLock(socketMutex);
-							sendto(socketFd,messageBuffer,sizeof(CreatePipe1Message)+msg2->idNumParts*sizeof(unsigned int),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-							}
-							}
-						}
-					#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-					else
-						std::cerr<<"Node "<<nodeIndex<<": received CREATEPIPE1 message of wrong size "<<numBytesReceived<<std::endl;
-					#endif
-					break;
-					}
-				
-				case Message::CREATEPIPE2:
-					{
-					if(numBytesReceived==sizeof(PipeMessage))
-						{
-						PipeMessage* msg=static_cast<PipeMessage*>(messageBuffer);
-						
-						/* Get a handle on the state object of the pipe the packet is meant for: */
-						LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
-						
-						if(pipeState.isValid())
-							{
-							/* Check the pipe's barrier state for second-stage completion: */
-							if(pipeState->barrierId<2)
+							
+							/* Lock the new pipe: */
+							LockedPipe pipeState(newPipeState);
+							
+							/* Check the pipe's barrier state for first-stage completion: */
+							bool sendReply=false;
+							if(pipeState->barrierId<1)
 								{
 								/* Remember the slave's barrier completion: */
-								pipeState->slaveBarrierIds[msgNodeIndex-1]=2;
+								pipeState->slaveBarrierIds[msgNodeIndex-1]=1;
 								
 								/* Check if the current barrier is complete: */
 								pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
 								for(unsigned int i=1;i<numSlaves;++i)
 									if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
 										pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
-								if(pipeState->minSlaveBarrierId>=2)
+								if(pipeState->minSlaveBarrierId>=1)
 									{
-									/* Complete the second barrier: */
-									pipeState->barrierId=2;
+									/* Complete the first barrier: */
+									pipeState->barrierId=1;
+									
+									/* Assign a pipe ID to the new pipe and store it in the pipe state table: */
+									Threads::Mutex::Lock pipeStateTableLock(pipeStateTableMutex);
+									do
+										{
+										++lastPipeId;
+										if(lastPipeId==0x80000000U) // Ensure that pipeId never has the MSB set
+											lastPipeId=1;
+										}
+									while(pipeStateTable.isEntry(lastPipeId));
+									pipeState->pipeId=lastPipeId;
+									pipeStateTable[lastPipeId]=newPipeState;
 									
 									/* Wake up the thread blocked on the new pipe: */
 									pipeState->barrierCond.signal();
+									
+									/* Send a stage-one pipe creation completion message: */
+									sendReply=true;
 									}
 								}
-							}
-						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-						else
-							std::cerr<<"Node "<<nodeIndex<<": received CREATEPIPE2 message for non-existent pipe "<<msg->pipeId<<std::endl;
-						#endif
-						}
-					#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-					else
-						std::cerr<<"Node "<<nodeIndex<<": received CREATEPIPE2 message of wrong size "<<numBytesReceived<<std::endl;
-					#endif
-					break;
-					}
-				
-				case Message::ACKNOWLEDGMENT:
-					{
-					if(numBytesReceived==sizeof(StreamMessage))
-						{
-						StreamMessage* msg=static_cast<StreamMessage*>(messageBuffer);
-						
-						/* Get a handle on the state object of the pipe the packet is meant for: */
-						LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
-						
-						if(pipeState.isValid())
-							{
-							/* Process the acknowledgment packet: */
-							processAcknowledgment(pipeState,msgNodeIndex-1,msg->streamPos);
-							}
-						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-						else
-							std::cerr<<"Node "<<nodeIndex<<": received ACKNOWLEDGMENT message for non-existent pipe "<<msg->pipeId<<std::endl;
-						#endif
-						}
-					#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-					else
-						std::cerr<<"Node "<<nodeIndex<<": received ACKNOWLEDGMENT message of wrong size "<<numBytesReceived<<std::endl;
-					#endif
-					break;
-					}
-				
-				case Message::PACKETLOSS:
-					{
-					if(numBytesReceived==sizeof(StreamMessage))
-						{
-						StreamMessage* msg=static_cast<StreamMessage*>(messageBuffer);
-						
-						/* Get a handle on the state object of the pipe the packet is meant for: */
-						LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
-						
-						if(pipeState.isValid())
-							{
-							/* Use the stream position reported by the client as positive acknowledgment: */
-							processAcknowledgment(pipeState,msgNodeIndex-1,msg->streamPos);
-							
-							#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER_VERBOSE
-							std::cerr<<"Node "<<msgNodeIndex<<": Packet loss, "<<pipeState->streamPos-msg->streamPos<<" bytes, "<<(pipeState->streamPos-msg->streamPos+1463)/1464<<" packets"<<std::endl;
-							std::cerr<<"Packet loss of "<<msg->packetPos-msg->streamPos<<" bytes from "<<msg->streamPos<<" detected by node "<<msg->nodeIndex<<", stream pos is "<<pipeState->streamPos<<", buffer starts at "<<pipeState->headStreamPos<<std::endl;
-							#endif
-							
-							/* Resend requested packets if there are any; otherwise, do nothing because master is busy: */
-							if(msg->streamPos!=pipeState->streamPos)
+							else
 								{
-								/* Find the recently-sent packet starting at the slave's current stream position: */
-								Packet* packet;
-								for(packet=pipeState->packetList.front();packet!=0&&packet->streamPos!=msg->streamPos;packet=packet->succ)
-									;
-								
-								/* Signal a fatal error if the required packet has already been discarded: */
-								if(packet==0)
-									Misc::throwStdErr("Cluster::Multiplexer: Node %u: Fatal packet loss detected at stream position %u",msgNodeIndex,msg->streamPos);
-								
+								/* One slave must have missed a stage-one pipe creation completion message; send another one: */
+								sendReply=true;
+								}
+							
+							if(sendReply)
 								{
-								/* Resend all recent packets in order: */
+								CreatePipe1Message* msg2=static_cast<CreatePipe1Message*>(messageBuffer);
+								msg2->nodeIndex=0;
+								msg2->messageId=Message::CREATEPIPE1;
+								msg2->pipeId=pipeState->pipeId;
+								msg2->idNumParts=senderId.getNumParts();
+								for(unsigned int i=0;i<msg2->idNumParts;++i)
+									reinterpret_cast<unsigned int*>(msg2+1)[i]=senderId.getPart(i);
+								{
 								// SocketMutex::Lock socketLock(socketMutex);
-								for(;packet!=0;packet=packet->succ)
-									{
-									sendto(socketFd,&packet->pipeId,packet->packetSize+2*sizeof(unsigned int),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-									#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-									++pipeState->numResentPackets;
-									pipeState->numResentBytes+=packet->packetSize;
-									#endif
-									}
+								sendto(socketFd,messageBuffer,sizeof(CreatePipe1Message)+msg2->idNumParts*sizeof(unsigned int),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
 								}
 								}
 							}
 						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
 						else
-							std::cerr<<"Node "<<nodeIndex<<": received PACKETLOSS message for non-existent pipe "<<msg->pipeId<<std::endl;
+							std::cerr<<"Node "<<nodeIndex<<": received CREATEPIPE1 message of wrong size "<<numBytesReceived<<std::endl;
 						#endif
+						break;
 						}
-					#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-					else
-						std::cerr<<"Node "<<nodeIndex<<": received PACKETLOSS message of wrong size "<<numBytesReceived<<std::endl;
-					#endif
-					break;
-					}
-				
-				case Message::BARRIER:
-					{
-					if(numBytesReceived==sizeof(BarrierMessage))
+					
+					case Message::CREATEPIPE2:
 						{
-						BarrierMessage* msg=static_cast<BarrierMessage*>(messageBuffer);
-						
-						/* Get a handle on the state object of the pipe the packet is meant for: */
-						LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
-						
-						if(pipeState.isValid())
+						if(numBytesReceived==sizeof(PipeMessage))
 							{
-							/* Update the barrier ID array: */
-							if(pipeState->barrierId>=msg->barrierId)
+							PipeMessage* msg=static_cast<PipeMessage*>(messageBuffer);
+							
+							/* Get a handle on the state object of the pipe the packet is meant for: */
+							LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
+							
+							if(pipeState.isValid())
 								{
-								/* One slave must have missed a barrier completion message; send another one: */
+								/* Check the pipe's barrier state for second-stage completion: */
+								if(pipeState->barrierId<2)
+									{
+									/* Remember the slave's barrier completion: */
+									pipeState->slaveBarrierIds[msgNodeIndex-1]=2;
+									
+									/* Check if the current barrier is complete: */
+									pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
+									for(unsigned int i=1;i<numSlaves;++i)
+										if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
+											pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
+									if(pipeState->minSlaveBarrierId>=2)
+										{
+										/* Complete the second barrier: */
+										pipeState->barrierId=2;
+
+										/* Wake up the thread blocked on the new pipe: */
+										pipeState->barrierCond.signal();
+										}
+									}
+								}
+							#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+							else
+								std::cerr<<"Node "<<nodeIndex<<": received CREATEPIPE2 message for non-existent pipe "<<msg->pipeId<<std::endl;
+							#endif
+							}
+						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+						else
+							std::cerr<<"Node "<<nodeIndex<<": received CREATEPIPE2 message of wrong size "<<numBytesReceived<<std::endl;
+						#endif
+						break;
+						}
+					
+					case Message::ACKNOWLEDGMENT:
+						{
+						if(numBytesReceived==sizeof(StreamMessage))
+							{
+							StreamMessage* msg=static_cast<StreamMessage*>(messageBuffer);
+							
+							/* Get a handle on the state object of the pipe the packet is meant for: */
+							LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
+							
+							if(pipeState.isValid())
+								{
+								/* Process the acknowledgment packet: */
+								processAcknowledgment(pipeState,msgNodeIndex-1,msg->streamPos);
+								}
+							#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+							else
+								std::cerr<<"Node "<<nodeIndex<<": received ACKNOWLEDGMENT message for non-existent pipe "<<msg->pipeId<<std::endl;
+							#endif
+							}
+						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+						else
+							std::cerr<<"Node "<<nodeIndex<<": received ACKNOWLEDGMENT message of wrong size "<<numBytesReceived<<std::endl;
+						#endif
+						break;
+						}
+					
+					case Message::PACKETLOSS:
+						{
+						if(numBytesReceived==sizeof(StreamMessage))
+							{
+							StreamMessage* msg=static_cast<StreamMessage*>(messageBuffer);
+							
+							/* Get a handle on the state object of the pipe the packet is meant for: */
+							LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
+							
+							if(pipeState.isValid())
+								{
+								/* Use the stream position reported by the client as positive acknowledgment: */
+								processAcknowledgment(pipeState,msgNodeIndex-1,msg->streamPos);
+								
+								/* Resend requested packets if there are any; otherwise, do nothing because master is busy: */
+								if(msg->streamPos!=pipeState->streamPos)
+									{
+									#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER_VERBOSE
+									std::cerr<<"Packet loss of "<<msg->packetPos-msg->streamPos<<" bytes from "<<msg->streamPos<<" detected by node "<<msgNodeIndex<<", stream pos is "<<pipeState->streamPos<<", buffer starts at "<<pipeState->headStreamPos<<std::endl;
+									#endif
+									
+									/* Find the recently-sent packet starting at the slave's current stream position: */
+									Packet* packet;
+									for(packet=pipeState->packetList.front();packet!=0&&packet->streamPos!=msg->streamPos;packet=packet->succ)
+										;
+									
+									/* Signal a fatal error if the required packet has already been discarded: */
+									if(packet==0)
+										Misc::throwStdErr("Cluster::Multiplexer: Node %u: Fatal packet loss detected at stream position %u",msgNodeIndex,msg->streamPos);
+									
+									{
+									/* Resend all recent packets in order: */
+									// SocketMutex::Lock socketLock(socketMutex);
+									for(;packet!=0;packet=packet->succ)
+										{
+										sendto(socketFd,&packet->pipeId,packet->packetSize+2*sizeof(unsigned int),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+										#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+										++pipeState->numResentPackets;
+										pipeState->numResentBytes+=packet->packetSize;
+										#endif
+										}
+									}
+									}
+								}
+							#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+							else
+								std::cerr<<"Node "<<nodeIndex<<": received PACKETLOSS message for non-existent pipe "<<msg->pipeId<<std::endl;
+							#endif
+							}
+						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+						else
+							std::cerr<<"Node "<<nodeIndex<<": received PACKETLOSS message of wrong size "<<numBytesReceived<<std::endl;
+						#endif
+						break;
+						}
+					
+					case Message::BARRIER:
+						{
+						if(numBytesReceived==sizeof(BarrierMessage))
+							{
+							BarrierMessage* msg=static_cast<BarrierMessage*>(messageBuffer);
+							
+							/* Get a handle on the state object of the pipe the packet is meant for: */
+							LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
+							
+							if(pipeState.isValid())
+								{
+								/* Update the barrier ID array: */
+								if(pipeState->barrierId>=msg->barrierId)
+									{
+									/* One slave must have missed a barrier completion message; send another one: */
+									BarrierMessage msg2(0,Message::BARRIER,msg->pipeId,msg->barrierId);
+									{
+									// SocketMutex::Lock socketLock(socketMutex);
+									sendto(socketFd,&msg2,sizeof(BarrierMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+									}
+									}
+								else
+									{
+									pipeState->slaveBarrierIds[msgNodeIndex-1]=msg->barrierId;
+									
+									/* Check if the current barrier is complete: */
+									pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
+									for(unsigned int i=1;i<numSlaves;++i)
+										if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
+											pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
+									if(pipeState->minSlaveBarrierId>pipeState->barrierId)
+										{
+										/* Wake up thread waiting on barrier: */
+										pipeState->barrierCond.signal();
+										}
+									}
+								}
+							else
+								{
+								/* One slave must have missed the completion message for a pipe-closing barrier; send another one: */
 								BarrierMessage msg2(0,Message::BARRIER,msg->pipeId,msg->barrierId);
 								{
 								// SocketMutex::Lock socketLock(socketMutex);
 								sendto(socketFd,&msg2,sizeof(BarrierMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
 								}
 								}
-							else
-								{
-								pipeState->slaveBarrierIds[msgNodeIndex-1]=msg->barrierId;
-								
-								/* Check if the current barrier is complete: */
-								pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
-								for(unsigned int i=1;i<numSlaves;++i)
-									if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
-										pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
-								if(pipeState->minSlaveBarrierId>pipeState->barrierId)
-									{
-									/* Wake up thread waiting on barrier: */
-									pipeState->barrierCond.signal();
-									}
-								}
-							}
-						else
-							{
-							/* One slave must have missed the completion message for a pipe-closing barrier; send another one: */
-							BarrierMessage msg2(0,Message::BARRIER,msg->pipeId,msg->barrierId);
-							{
-							// SocketMutex::Lock socketLock(socketMutex);
-							sendto(socketFd,&msg2,sizeof(BarrierMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-							}
-							}
-						}
-					#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-					else
-						std::cerr<<"Node "<<nodeIndex<<": received BARRIER message of wrong size "<<numBytesReceived<<std::endl;
-					#endif
-					break;
-					}
-				
-				case Message::GATHER:
-					{
-					if(numBytesReceived==sizeof(GatherMessage))
-						{
-						GatherMessage* msg=static_cast<GatherMessage*>(messageBuffer);
-						
-						/* Get a handle on the state object of the pipe the packet is meant for: */
-						LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
-						
-						if(pipeState.isValid())
-							{
-							/* Update the barrier ID array: */
-							if(pipeState->barrierId>=msg->barrierId)
-								{
-								/* One slave must have missed a gather completion message; send another one: */
-								GatherMessage msg2(0,Message::GATHER,msg->pipeId,msg->barrierId,pipeState->masterGatherValue);
-								{
-								// SocketMutex::Lock socketLock(socketMutex);
-								sendto(socketFd,&msg2,sizeof(GatherMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
-								}
-								}
-							else
-								{
-								pipeState->slaveBarrierIds[msgNodeIndex-1]=msg->barrierId;
-								pipeState->slaveGatherValues[msgNodeIndex-1]=msg->value;
-								
-								/* Check if the current gather operation is complete: */
-								pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
-								for(unsigned int i=1;i<numSlaves;++i)
-									if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
-										pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
-								if(pipeState->minSlaveBarrierId>pipeState->barrierId)
-									{
-									/* Wake up thread waiting on barrier: */
-									pipeState->barrierCond.signal();
-									}
-								}
 							}
 						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
 						else
-							std::cerr<<"Node "<<nodeIndex<<": received GATHER message for non-existent pipe "<<msg->pipeId<<std::endl;
+							std::cerr<<"Node "<<nodeIndex<<": received BARRIER message of wrong size "<<numBytesReceived<<std::endl;
 						#endif
+						break;
 						}
-					#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
-					else
-						std::cerr<<"Node "<<nodeIndex<<": received GATHER message of wrong size "<<numBytesReceived<<std::endl;
-					#endif
-					break;
+					
+					case Message::GATHER:
+						{
+						if(numBytesReceived==sizeof(GatherMessage))
+							{
+							GatherMessage* msg=static_cast<GatherMessage*>(messageBuffer);
+							
+							/* Get a handle on the state object of the pipe the packet is meant for: */
+							LockedPipe pipeState(pipeStateTable,pipeStateTableMutex,msg->pipeId);
+							
+							if(pipeState.isValid())
+								{
+								/* Update the barrier ID array: */
+								if(pipeState->barrierId>=msg->barrierId)
+									{
+									/* One slave must have missed a gather completion message; send another one: */
+									GatherMessage msg2(0,Message::GATHER,msg->pipeId,msg->barrierId,pipeState->masterGatherValue);
+									{
+									// SocketMutex::Lock socketLock(socketMutex);
+									sendto(socketFd,&msg2,sizeof(GatherMessage),0,(const sockaddr*)otherAddress,sizeof(sockaddr_in));
+									}
+									}
+								else
+									{
+									pipeState->slaveBarrierIds[msgNodeIndex-1]=msg->barrierId;
+									pipeState->slaveGatherValues[msgNodeIndex-1]=msg->value;
+									
+									/* Check if the current gather operation is complete: */
+									pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[0];
+									for(unsigned int i=1;i<numSlaves;++i)
+										if(pipeState->minSlaveBarrierId>pipeState->slaveBarrierIds[i])
+											pipeState->minSlaveBarrierId=pipeState->slaveBarrierIds[i];
+									if(pipeState->minSlaveBarrierId>pipeState->barrierId)
+										{
+										/* Wake up thread waiting on barrier: */
+										pipeState->barrierCond.signal();
+										}
+									}
+								}
+							#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+							else
+								std::cerr<<"Node "<<nodeIndex<<": received GATHER message for non-existent pipe "<<msg->pipeId<<std::endl;
+							#endif
+							}
+						#if CLUSTER_CONFIG_DEBUG_MULTIPLEXER
+						else
+							std::cerr<<"Node "<<nodeIndex<<": received GATHER message of wrong size "<<numBytesReceived<<std::endl;
+						#endif
+						break;
+						}
 					}
 				}
 			}

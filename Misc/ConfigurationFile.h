@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -358,6 +358,8 @@ class ConfigurationFileBase
 		if(rootSection->isEdited())
 			saveAs(fileName.c_str());
 		}
+	template <class PipeParam>
+	void readFromPipe(PipeParam& pipe); // Reads a configuration file from a pipe
 	template <class PipeParam>
 	void writeToPipe(PipeParam& pipe) const; // Writes the in-memory representation of the configuration file to a pipe
 	

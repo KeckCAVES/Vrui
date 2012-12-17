@@ -1,7 +1,7 @@
 ########################################################################
 # SystemDefinitions - System-dependent settings for the WhyTools build
 # environment.
-# Copyright (c) 1999-2011 Oliver Kreylos
+# Copyright (c) 1999-2012 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -97,7 +97,11 @@ ifeq ($(HOST_OS),Linux)
   SYSTEM = LINUX
   OSSPECFILEINSERT = Linux
   ifeq ($(HOST_ARCH),x86_64)
-    LIBEXT := lib64
+    ifneq ($(wildcard /usr/lib/x86_64-linux-gnu),)
+      LIBEXT := lib/x86_64-linux-gnu
+    else
+      LIBEXT := lib64
+    endif
     # Set different object and executable file paths for mixed architectures (disabled for now):
     # OBJDIR := $(OBJDIR)/64
     # EXEDIR := $(EXEDIR)/64

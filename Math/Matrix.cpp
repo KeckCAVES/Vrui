@@ -783,6 +783,88 @@ Matrix Matrix::kernel(void) const
 	return result;
 	}
 
+std::pair<Matrix,Matrix> Matrix::solveLinearSystem(const Matrix& coefficients) const
+	{
+	/* Create a temporary matrix: */
+	double* ext=new double[numRows*(numColumns+coefficients.numColumns)];
+	double* extPtr=ext;
+	const double* mPtr=m;
+	const double* cPtr=coefficients.m;
+	for(unsigned int i=0;i<numRows;++i)
+		{
+		for(unsigned int j=0;j<numColumns;++j,++extPtr,++mPtr)
+			*extPtr=*mPtr;
+		for(unsigned int j=0;j<coefficients.numColumns;++j,++extPtr,++cPtr)
+			*extPtr=*cPtr;
+		}
+	
+	/* Create a column permutation array: */
+	unsigned int* columnIndices=new unsigned int[numColumns];
+	for(unsigned int j=0;j<numColumns;++j)
+		columnIndices[j]=j;
+	
+	/* Perform Gaussian elimination with full pivoting: */
+	int swapSign;
+	unsigned int rank=gaussFullPivoting(numRows,numColumns+coefficients.numColumns,ext,numColumns,columnIndices,swapSign);
+	
+	/* Create the result matrices: */
+	Matrix solution(numColumns,coefficients.numColumns);
+	Matrix space(numColumns,numColumns-rank);
+	
+	double* vector=new double[numColumns];
+	
+	for(unsigned int columnIndex=0;columnIndex<coefficients.numColumns;++columnIndex)
+		{
+		/* Calculate the swizzled solution vector using backsubstitution: */
+		for(unsigned int i1=numColumns;i1>rank;--i1) // i1 is actual i+1
+			{
+			vector[i1-1]=0.0;
+			
+			/* Check if the solution exists: */
+			if(i1<=numRows&&ext[(i1-1)*(numColumns+coefficients.numColumns)+numColumns+columnIndex]!=0.0)
+				throw RankDeficientError();
+			}
+		for(unsigned int i1=rank;i1>0;--i1) // i1 is actual i+1
+			{
+			vector[i1-1]=ext[(i1-1)*(numColumns+coefficients.numColumns)+numColumns+columnIndex];
+			for(unsigned int j=i1;j<numColumns;++j)
+				vector[i1-1]-=ext[(i1-1)*(numColumns+coefficients.numColumns)+j]*vector[j];
+			vector[i1-1]/=ext[(i1-1)*(numColumns+coefficients.numColumns)+(i1-1)];
+			}
+		
+		/* Unswizzle the solution vector: */
+		for(unsigned int j=0;j<numColumns;++j)
+			solution.m[columnIndices[j]*coefficients.numColumns+columnIndex]=vector[j];
+		}
+	
+	for(unsigned int zero=rank;zero<numColumns;++zero)
+		{
+		/* Calculate the swizzled solution space vector using backsubstitution: */
+		for(unsigned int i=numColumns-1;i>zero;--i)
+			vector[i]=0.0;
+		vector[zero]=1.0;
+		for(unsigned int i1=zero;i1>rank;--i1) // i1 is actual i+1
+			vector[i1-1]=0.0;
+		for(unsigned int i1=rank;i1>0;--i1) // i1 is actual i+1
+			{
+			vector[i1-1]=0.0;
+			for(unsigned int j=i1;j<numColumns;++j)
+				vector[i1-1]-=ext[(i1-1)*(numColumns+coefficients.numColumns)+j]*vector[j];
+			vector[i1-1]/=ext[(i1-1)*(numColumns+coefficients.numColumns)+(i1-1)];
+			}
+		
+		/* Unswizzle the result: */
+		for(unsigned int j=0;j<numColumns;++j)
+			space.m[columnIndices[j]*(numColumns-rank)+(zero-rank)]=vector[j];
+		}
+	
+	/* Clean up and return the result: */
+	delete[] ext;
+	delete[] columnIndices;
+	delete[] vector;
+	return std::make_pair(solution,space);
+	}
+
 std::pair<Matrix,Matrix> Matrix::qrDecomposition(void) const
 	{
 	/* Create the result matrices: */

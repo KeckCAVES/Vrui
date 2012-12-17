@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -77,10 +77,7 @@ class MeasureEnvironment:public Vrui::Application
 		
 		/* Methods from Vrui::Tool: */
 		virtual void initialize(void);
-		virtual const Vrui::ToolFactory* getFactory(void) const
-			{
-			return factory;
-			}
+		virtual const Vrui::ToolFactory* getFactory(void) const;
 		virtual void frame(void);
 		};
 	

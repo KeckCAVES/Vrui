@@ -28,8 +28,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/VRWindow.h>
 
-#include <Images/Config.h>
-
 #include <iostream>
 #include <X11/keysym.h>
 #include <Misc/ThrowStdErr.h>
@@ -62,10 +60,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
 #include <GL/GLTransformationWrappers.h>
-#include <GLMotif/WidgetManager.h>
+#include <Images/Config.h>
 #include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
 #include <Images/WriteImageFile.h>
+#include <GLMotif/WidgetManager.h>
 #include <Vrui/Vrui.h>
 #if SAVE_SCREENSHOT_PROJECTION
 #include <Vrui/OpenFile.h>
@@ -400,6 +399,7 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	
 	/* Update the window's display state object: */
 	displayState->resized=resizeViewport;
+	displayState->viewer=viewers[screenIndex];
 	displayState->eyePosition=eye;
 	displayState->screen=screens[screenIndex];
 	
@@ -582,7 +582,6 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	 clearBufferMask(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT),
 	 extensionManager(0),
 	 contextData(0),displayState(0),
-	 viewer(findViewer(configFileSection.retrieveString("./viewerName").c_str())),
 	 windowType(configFileSection.retrieveValue<WindowType>("./windowType")),
 	 multisamplingLevel(configFileSection.retrieveValue<int>("./multisamplingLevel",1)),
 	 panningViewport(configFileSection.retrieveValue<bool>("./panningViewport",false)),
@@ -624,6 +623,17 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	if(screens[0]==0||screens[1]==0)
 		Misc::throwStdErr("VRWindow::VRWindow: No screen(s) provided");
 	
+	/* Get the viewer(s) observing this window: */
+	viewers[0]=findViewer(configFileSection.retrieveString("./leftViewerName","").c_str());
+	viewers[1]=findViewer(configFileSection.retrieveString("./rightViewerName","").c_str());
+	if(viewers[0]==0||viewers[1]==0)
+		{
+		/* Get the common viewer: */
+		viewers[0]=viewers[1]=findViewer(configFileSection.retrieveString("./viewerName").c_str());
+		}
+	if(viewers[0]==0||viewers[1]==0)
+		Misc::throwStdErr("VRWindow::VRWindow: No viewer(s) provided");
+	
 	/* Get the size of the entire display in pixels: */
 	WindowPos rootWindowPos=getRootWindowPos();
 	for(int i=0;i<2;++i)
@@ -639,10 +649,6 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		}
 	for(int i=0;i<4;++i)
 		ivRightStipplePatterns[i]=0;
-	
-	/* Check if the window has a viewer: */
-	if(viewer==0)
-		Misc::throwStdErr("VRWindow::VRWindow: No viewer provided");
 	
 	/* Check if the window's screen size should be defined based on the X display's real size: */
 	if(configFileSection.retrieveValue<bool>("./autoScreenSize",false))
@@ -794,7 +800,6 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	contextData=new GLContextData(101);
 	displayState=vruiState->registerContext(*contextData);
 	displayState->window=this;
-	displayState->viewer=viewer;
 	displayState->eyeIndex=0;
 	glViewport(0,0,getWindowWidth(),getWindowHeight());
 	glClearColor(getBackgroundColor());
@@ -1049,6 +1054,11 @@ VRWindow::~VRWindow(void)
 	delete extensionManager;
 	}
 
+void VRWindow::setVRScreen(int screenIndex,VRScreen* newScreen)
+	{
+	screens[screenIndex]=newScreen;
+	}
+
 void VRWindow::setVRScreen(VRScreen* newScreen)
 	{
 	/* Set both screens to the given screen: */
@@ -1062,10 +1072,15 @@ void VRWindow::setScreenViewport(const Scalar newViewport[4])
 		viewports[0][i]=viewports[1][i]=newViewport[i];
 	}
 
+void VRWindow::setViewer(int viewerIndex,Viewer* newViewer)
+	{
+	viewers[viewerIndex]=newViewer;
+	}
+
 void VRWindow::setViewer(Viewer* newViewer)
 	{
-	/* Set the viewer to the given viewer: */
-	viewer=newViewer;
+	/* Set both viewers to the given viewer: */
+	viewers[0]=viewers[1]=newViewer;
 	}
 
 int VRWindow::getNumEyes(void) const
@@ -1090,17 +1105,17 @@ Point VRWindow::getEyePosition(int eyeIndex) const
 	switch(windowType)
 		{
 		case MONO:
-			return viewer->getEyePosition(Viewer::MONO);
+			return viewers[0]->getEyePosition(Viewer::MONO);
 		
 		case LEFT:
-			return viewer->getEyePosition(Viewer::LEFT);
+			return viewers[0]->getEyePosition(Viewer::LEFT);
 		
 		case RIGHT:
-			return viewer->getEyePosition(Viewer::RIGHT);
+			return viewers[1]->getEyePosition(Viewer::RIGHT);
 		
 		case AUTOSTEREOSCOPIC_STEREO:
 			{
-			Point asEye=viewer->getEyePosition(Viewer::MONO);
+			Point asEye=viewers[0]->getEyePosition(Viewer::MONO);
 			Vector asViewZoneOffsetVector=screens[0]->getScreenTransformation().inverseTransform(Vector(asViewZoneOffset,0,0));
 			asEye+=asViewZoneOffsetVector*(Scalar(eyeIndex)-Math::div2(Scalar(asNumViewZones-1)));
 			return asEye;
@@ -1108,9 +1123,9 @@ Point VRWindow::getEyePosition(int eyeIndex) const
 		
 		default:
 			if(eyeIndex==0)
-				return viewer->getEyePosition(Viewer::LEFT);
+				return viewers[0]->getEyePosition(Viewer::LEFT);
 			else
-				return viewer->getEyePosition(Viewer::RIGHT);
+				return viewers[1]->getEyePosition(Viewer::RIGHT);
 		}
 	}
 
@@ -1120,7 +1135,7 @@ Ray VRWindow::reprojectWindowPos(const Scalar windowPos[2]) const
 	ONTransform screenT=screens[0]->getScreenTransformation();
 	
 	/* Transform the eye position to screen coordinates: */
-	Point eyePos=viewer->getEyePosition(Viewer::MONO);
+	Point eyePos=viewers[0]->getEyePosition(Viewer::MONO);
 	Point screenEyePos=screenT.inverseTransform(eyePos);
 	
 	/* Check if the screen is projected off-axis: */
@@ -1656,31 +1671,31 @@ void VRWindow::draw(void)
 		case MONO:
 			/* Render both-eyes view: */
 			glDrawBuffer(GL_BACK);
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::MONO));
+			render(getWindowPos(),0,viewers[0]->getEyePosition(Viewer::MONO));
 			break;
 		
 		case LEFT:
 			/* Render left-eye view: */
 			glDrawBuffer(GL_BACK);
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+			render(getWindowPos(),0,viewers[0]->getEyePosition(Viewer::LEFT));
 			break;
 		
 		case RIGHT:
 			/* Render right-eye view: */
 			glDrawBuffer(GL_BACK);
-			render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+			render(getWindowPos(),1,viewers[1]->getEyePosition(Viewer::RIGHT));
 			break;
 		
 		case QUADBUFFER_STEREO:
 			/* Render left-eye view: */
 			glDrawBuffer(GL_BACK_LEFT);
 			displayState->eyeIndex=0;
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+			render(getWindowPos(),0,viewers[0]->getEyePosition(Viewer::LEFT));
 			
 			/* Render right-eye view: */
 			glDrawBuffer(GL_BACK_RIGHT);
 			displayState->eyeIndex=1;
-			render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+			render(getWindowPos(),1,viewers[1]->getEyePosition(Viewer::RIGHT));
 			break;
 		
 		case ANAGLYPHIC_STEREO:
@@ -1689,12 +1704,12 @@ void VRWindow::draw(void)
 			/* Render left-eye view: */
 			glColorMask(GL_TRUE,GL_FALSE,GL_FALSE,GL_FALSE);
 			displayState->eyeIndex=0;
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+			render(getWindowPos(),0,viewers[0]->getEyePosition(Viewer::LEFT));
 			
 			/* Render right-eye view: */
 			glColorMask(GL_FALSE,GL_TRUE,GL_TRUE,GL_FALSE);
 			displayState->eyeIndex=1;
-			render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+			render(getWindowPos(),1,viewers[1]->getEyePosition(Viewer::RIGHT));
 			break;
 		
 		case SPLITVIEWPORT_STEREO:
@@ -1710,7 +1725,7 @@ void VRWindow::draw(void)
 				glScissor(splitViewportPos[eye].origin[0],splitViewportPos[eye].origin[1],
 				          splitViewportPos[eye].size[0],splitViewportPos[eye].size[1]);
 				displayState->eyeIndex=eye;
-				render(splitViewportPos[eye],eye,viewer->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
+				render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
 				}
 			glDisable(GL_SCISSOR_TEST);
 			break;
@@ -1723,12 +1738,12 @@ void VRWindow::draw(void)
 				{
 				/* Render the left-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=0;
-				render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+				render(getWindowPos(),0,viewers[0]->getEyePosition(Viewer::LEFT));
 				
 				/* Render the right-eye view into the right viewport framebuffer: */
 				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,ivRightFramebufferObjectID);
 				displayState->eyeIndex=1;
-				render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+				render(getWindowPos(),1,viewers[1]->getEyePosition(Viewer::RIGHT));
 				
 				/* Re-bind the default framebuffer to get access to the right viewport image as a texture: */
 				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
@@ -1737,7 +1752,7 @@ void VRWindow::draw(void)
 				{
 				/* Render the right-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=1;
-				render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+				render(getWindowPos(),1,viewers[1]->getEyePosition(Viewer::RIGHT));
 				
 				/* Copy the rendered view into the viewport texture: */
 				glBindTexture(GL_TEXTURE_2D,ivRightViewportTextureID);
@@ -1746,7 +1761,7 @@ void VRWindow::draw(void)
 				
 				/* Render the left-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=0;
-				render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+				render(getWindowPos(),0,viewers[0]->getEyePosition(Viewer::LEFT));
 				}
 			
 			/* Set up matrices to render a full-screen quad: */
@@ -1819,7 +1834,7 @@ void VRWindow::draw(void)
 				}
 			
 			/* Calculate the central eye position and the view zone offset vector: */
-			Point asEye=viewer->getEyePosition(Viewer::MONO);
+			Point asEye=viewers[0]->getEyePosition(Viewer::MONO);
 			Vector asViewZoneOffsetVector=screens[0]->getScreenTransformation().inverseTransform(Vector(asViewZoneOffset,0,0));
 			
 			/* Render the view zones: */

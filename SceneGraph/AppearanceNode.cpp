@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/AppearanceNode.h>
 
 #include <string.h>
+#include <GL/gl.h>
+#include <GL/GLTransformationWrappers.h>
 #include <SceneGraph/EventTypes.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/GLRenderState.h>
@@ -104,7 +106,17 @@ void AppearanceNode::setGLState(GLRenderState& renderState) const
 		}
 	
 	if(texture.getValue()!=0)
+		{
 		texture.getValue()->setGLState(renderState);
+		if(textureTransform.getValue()!=0)
+			{
+			/* Set the texture transformation: */
+			glMatrixMode(GL_TEXTURE);
+			glPushMatrix();
+			glMultMatrix(textureTransform.getValue()->getTransform());
+			glMatrixMode(GL_MODELVIEW);
+			}
+		}
 	else
 		renderState.disableTextures();
 	}
@@ -115,7 +127,16 @@ void AppearanceNode::resetGLState(GLRenderState& renderState) const
 		material.getValue()->resetGLState(renderState);
 	
 	if(texture.getValue()!=0)
+		{
+		if(textureTransform.getValue()!=0)
+			{
+			/* Reset the texture transformation: */
+			glMatrixMode(GL_TEXTURE);
+			glPopMatrix();
+			glMatrixMode(GL_MODELVIEW);
+			}
 		texture.getValue()->resetGLState(renderState);
+		}
 	}
 
 }

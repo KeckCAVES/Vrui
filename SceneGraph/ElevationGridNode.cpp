@@ -98,7 +98,7 @@ Point* ElevationGridNode::calcVertices(void) const
 			p[0]=origin.getValue()[0];
 			for(int x=0;x<xDim;++x,++vPtr,++hPtr,p[0]+=xSp)
 				{
-				p[1]=origin.getValue()[1]+*hPtr;
+				p[1]=origin.getValue()[1]+*hPtr*heightScale.getValue();
 				*vPtr=p;
 				}
 			}
@@ -112,7 +112,7 @@ Point* ElevationGridNode::calcVertices(void) const
 			p[0]=origin.getValue()[0];
 			for(int x=0;x<xDim;++x,++vPtr,++hPtr,p[0]+=xSp)
 				{
-				p[2]=origin.getValue()[2]+*hPtr;
+				p[2]=origin.getValue()[2]+*hPtr*heightScale.getValue();
 				*vPtr=p;
 				}
 			}
@@ -129,9 +129,9 @@ Vector* ElevationGridNode::calcQuadNormals(void) const
 	Vector* normals=new Vector[(zDim-1)*(xDim-1)];
 	
 	/* Calculate the normal scaling factors: */
-	Scalar nx=zSpacing.getValue();
+	Scalar nx=zSpacing.getValue()*heightScale.getValue();
 	Scalar ny=xSpacing.getValue()*zSpacing.getValue();
-	Scalar nz=xSpacing.getValue();
+	Scalar nz=xSpacing.getValue()*heightScale.getValue();
 	if(!ccw.getValue())
 		{
 		/* Flip normal vectors if quads are oriented clockwise: */
@@ -224,9 +224,9 @@ Vector* ElevationGridNode::calcHoleyQuadNormals(const int* quadCases) const
 	Vector* normals=new Vector[(zDim-1)*(xDim-1)];
 	
 	/* Calculate the normal scaling factors: */
-	Scalar nx=zSpacing.getValue();
+	Scalar nx=zSpacing.getValue()*heightScale.getValue();
 	Scalar ny=xSpacing.getValue()*zSpacing.getValue();
-	Scalar nz=xSpacing.getValue();
+	Scalar nz=xSpacing.getValue()*heightScale.getValue();
 	if(!ccw.getValue())
 		{
 		/* Flip normal vectors if quads are oriented clockwise: */
@@ -379,14 +379,14 @@ void ElevationGridNode::uploadIndexedQuadStripSet(void) const
 			if(color.getValue()!=0)
 				vPtr->color=Vertex::Color(color.getValue()->color.getValue(vInd));
 			else if(colorMap.getValue()!=0)
-				vPtr->color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd)));
+				vPtr->color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd)*heightScale.getValue()));
 			else
 				vPtr->color=Vertex::Color(255,255,255);
 			
 			/* Calculate the vertex' position and normal: */
 			Point p;
 			p[0]=origin.getValue()[0]+Scalar(x)*Scalar(xSp);
-			p[hComp]=hOffset+height.getValue(vInd);
+			p[hComp]=hOffset+height.getValue(vInd)*heightScale.getValue();
 			p[zComp]=zOffset+Scalar(z)*Scalar(zSp);
 			Vector n;
 			if(normal.getValue()!=0)
@@ -442,7 +442,7 @@ void ElevationGridNode::uploadIndexedQuadStripSet(void) const
 	glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,(zDim-1)*xDim*2*sizeof(GLuint),0,GL_STATIC_DRAW_ARB);
 	
 	/* Store all vertex indices: */
-	GLuint* iPtr=static_cast<GLuint*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY));
+	GLuint* iPtr=static_cast<GLuint*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
 	if(ccw.getValue())
 		{
 		for(int z=0;z<zDim-1;++z)
@@ -665,14 +665,14 @@ void ElevationGridNode::uploadQuadSet(void) const
 				{
 				if(colorPerVertex.getValue())
 					{
-					v[0].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd)));
-					v[1].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+1)));
-					v[2].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim+1)));
-					v[3].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim)));
+					v[0].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd)*heightScale.getValue()));
+					v[1].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+1)*heightScale.getValue()));
+					v[2].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim+1)*heightScale.getValue()));
+					v[3].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim)*heightScale.getValue()));
 					}
 				else
 					{
-					Scalar h=height.getValue(vInd)+height.getValue(vInd+1)+height.getValue(vInd+xDim)+height.getValue(vInd+xDim+1);
+					Scalar h=(height.getValue(vInd)+height.getValue(vInd+1)+height.getValue(vInd+xDim)+height.getValue(vInd+xDim+1))*heightScale.getValue();
 					Vertex::Color c=Vertex::Color(colorMap.getValue()->mapColor(hOffset+h*Scalar(0.25)));
 					for(int i=0;i<4;++i)
 						v[i].color=c;
@@ -991,10 +991,10 @@ void ElevationGridNode::uploadHoleyQuadTriangleSet(GLuint& numQuads,GLuint& numT
 				{
 				if(colorPerVertex.getValue())
 					{
-					v[0].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd)));
-					v[1].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+1)));
-					v[2].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim+1)));
-					v[3].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim)));
+					v[0].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd)*heightScale.getValue()));
+					v[1].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+1)*heightScale.getValue()));
+					v[2].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim+1)*heightScale.getValue()));
+					v[3].color=Vertex::Color(colorMap.getValue()->mapColor(hOffset+height.getValue(vInd+xDim)*heightScale.getValue()));
 					}
 				else
 					{
@@ -1020,7 +1020,7 @@ void ElevationGridNode::uploadHoleyQuadTriangleSet(GLuint& numQuads,GLuint& numT
 						h+=height.getValue(vInd+xDim+1);
 						w+=Scalar(1);
 						}
-					Vertex::Color c=Vertex::Color(colorMap.getValue()->mapColor(hOffset+h/w));
+					Vertex::Color c=Vertex::Color(colorMap.getValue()->mapColor(hOffset+h*heightScale.getValue()/w));
 					for(int i=0;i<4;++i)
 						v[i].color=c;
 					}
@@ -1204,6 +1204,8 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		}
 	else if(strcmp(fieldName,"heightUrlFormat")==0)
 		vrmlFile.parseField(heightUrlFormat);
+	else if(strcmp(fieldName,"heightScale")==0)
+		vrmlFile.parseField(heightScale);
 	else if(strcmp(fieldName,"heightIsY")==0)
 		vrmlFile.parseField(heightIsY);
 	else if(strcmp(fieldName,"removeInvalids")==0)
@@ -1283,7 +1285,7 @@ Box ElevationGridNode::calcBoundingBox(void) const
 						for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
 							if(*hIt!=invalidHeight.getValue())
 								{
-								p[1]=origin.getValue()[1]+*hIt;
+								p[1]=origin.getValue()[1]+*hIt*heightScale.getValue();
 								result.addPoint(pointTransform.getValue()->transformPoint(p));
 								}
 						}
@@ -1298,7 +1300,7 @@ Box ElevationGridNode::calcBoundingBox(void) const
 						p[0]=origin.getValue()[0];
 						for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
 							{
-							p[1]=origin.getValue()[1]+*hIt;
+							p[1]=origin.getValue()[1]+*hIt*heightScale.getValue();
 							result.addPoint(pointTransform.getValue()->transformPoint(p));
 							}
 						}
@@ -1317,7 +1319,7 @@ Box ElevationGridNode::calcBoundingBox(void) const
 						for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
 							if(*hIt!=invalidHeight.getValue())
 								{
-								p[2]=origin.getValue()[2]+*hIt;
+								p[2]=origin.getValue()[2]+*hIt*heightScale.getValue();
 								result.addPoint(pointTransform.getValue()->transformPoint(p));
 								}
 						}
@@ -1332,7 +1334,7 @@ Box ElevationGridNode::calcBoundingBox(void) const
 						p[0]=origin.getValue()[0];
 						for(int x=0;x<xDimension.getValue();++x,p[0]+=xSpacing.getValue(),++hIt)
 							{
-							p[2]=origin.getValue()[2]+*hIt;
+							p[2]=origin.getValue()[2]+*hIt*heightScale.getValue();
 							result.addPoint(pointTransform.getValue()->transformPoint(p));
 							}
 						}
@@ -1350,10 +1352,11 @@ Box ElevationGridNode::calcBoundingBox(void) const
 				for(MFFloat::ValueList::const_iterator hIt=height.getValues().begin();hIt!=height.getValues().end();++hIt)
 					if(*hIt!=invalidHeight.getValue())
 						{
-						if(yMin>*hIt)
-							yMin=*hIt;
-						if(yMax<*hIt)
-							yMax=*hIt;
+						Scalar h=*hIt*heightScale.getValue();
+						if(yMin>h)
+							yMin=h;
+						if(yMax<h)
+							yMax=h;
 						empty=false;
 						}
 				if(empty)
@@ -1367,13 +1370,14 @@ Box ElevationGridNode::calcBoundingBox(void) const
 				{
 				MFFloat::ValueList::const_iterator hIt=height.getValues().begin();
 				Scalar yMin,yMax;
-				yMin=yMax=*hIt;
+				yMin=yMax=*hIt*heightScale.getValue();
 				for(++hIt;hIt!=height.getValues().end();++hIt)
 					{
-					if(yMin>*hIt)
-						yMin=*hIt;
-					if(yMax<*hIt)
-						yMax=*hIt;
+					Scalar h=*hIt*heightScale.getValue();
+					if(yMin>h)
+						yMin=h;
+					if(yMax<h)
+						yMax=h;
 					}
 				if(heightIsY.getValue())
 					result=Box(origin.getValue()+Vector(0,yMin,0),origin.getValue()+Vector(Scalar(xDimension.getValue()-1)*xSpacing.getValue(),yMax,Scalar(zDimension.getValue()-1)*zSpacing.getValue()));
