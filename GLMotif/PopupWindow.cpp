@@ -776,7 +776,19 @@ const char* PopupWindow::getTitleString(void) const
 	return titleBar->getString();
 	}
 
-void PopupWindow::defaultCloseCallback(Misc::CallbackData* cbData)
+void PopupWindow::popDownFunction(Misc::CallbackData* cbData)
+	{
+	/* Get the proper callback data structure: */
+	CallbackData* myCbData=dynamic_cast<CallbackData*>(cbData);
+	
+	if(myCbData!=0)
+		{
+		/* Pop down the popup window: */
+		myCbData->popupWindow->getManager()->popdownWidget(myCbData->popupWindow);
+		}
+	}
+
+void PopupWindow::deleteFunction(Misc::CallbackData* cbData)
 	{
 	/* Get the proper callback data structure: */
 	CallbackData* myCbData=dynamic_cast<CallbackData*>(cbData);
@@ -786,6 +798,18 @@ void PopupWindow::defaultCloseCallback(Misc::CallbackData* cbData)
 		/* Delete the popup window at the next opportunity: */
 		myCbData->popupWindow->getManager()->deleteWidget(myCbData->popupWindow);
 		}
+	}
+
+void PopupWindow::popDownOnClose(void)
+	{
+	/* Install the pop-down callback: */
+	closeCallbacks.add(popDownFunction);
+	}
+
+void PopupWindow::deleteOnClose(void)
+	{
+	/* Install the close callback: */
+	closeCallbacks.add(deleteFunction);
 	}
 
 void PopupWindow::close(void)

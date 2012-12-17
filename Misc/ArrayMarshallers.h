@@ -1,7 +1,7 @@
 /***********************************************************************
 ArrayMarshallers - Generic marshaller classes for standard C-style
-arrays, with implicit or explicit array sizes.
-Copyright (c) 2010 Oliver Kreylos
+arrays, with implicit or explicit array sizes or array wrapper classes.
+Copyright (c) 2010-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define MISC_ARRAYMARSHALLERS_INCLUDED
 
 #include <stddef.h>
+#include <Misc/FixedArray.h>
 #include <Misc/Marshaller.h>
 
 namespace Misc {
@@ -104,6 +105,34 @@ class DynamicArrayMarshaller // Marshaller class for arrays with explicit sizes
 		for(size_t i=0;i<numElements;++i)
 			elements[i]=Marshaller<ValueParam>::read(source);
 		return numElements;
+		}
+	};
+
+template <class ElementParam,int sizeParam>
+class Marshaller<FixedArray<ElementParam,sizeParam> >
+	{
+	/* Methods: */
+	public:
+	static size_t getSize(const FixedArray<ElementParam,sizeParam>& value)
+		{
+		size_t result=0;
+		for(int i=0;i<sizeParam;++i)
+			result+=Marshaller<ElementParam>::getSize(value[i]);
+		return result;
+		}
+	template <class DataSinkParam>
+	static void write(const FixedArray<ElementParam,sizeParam>& value,DataSinkParam& sink)
+		{
+		for(int i=0;i<sizeParam;++i)
+			Marshaller<ElementParam>::write(value[i],sink);
+		}
+	template <class DataSourceParam>
+	static FixedArray<ElementParam,sizeParam> read(DataSourceParam& source)
+		{
+		FixedArray<ElementParam,sizeParam> result;
+		for(int i=0;i<sizeParam;++i)
+			result[i]=Marshaller<ElementParam>::read(source);
+		return result;
 		}
 	};
 

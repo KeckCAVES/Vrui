@@ -30,6 +30,9 @@ The Cluster library contains classes supporting cluster programming by providing
 <DT>MulticastPipe.h</DT>
 <DD>MulticastPipe is a class derived from IO::File and Cluster::ClusterPipe representing a data stream between a single sender and multiple receivers in a multiplexed cluster environment.</DD>
 
+<DT>ThreadSynchronizer</DT>
+<DD>ThreadSynchronizer is a helper class ensuring that thread IDs stay consistent across a cluster even when different code paths are executed on each node. Uses RAII to synchronize thread IDs upon object destruction.</DD>
+
 <DT>Clusterize</DT>
 <DD>Clusterize.h contains helper functions to distribute an application across a cluster, and establish communication between node instances via a multiplexer.</DD>
 

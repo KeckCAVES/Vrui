@@ -1,6 +1,6 @@
 /***********************************************************************
 GLModels - Helper functions to render simple models using OpenGL.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -284,8 +284,8 @@ inline void combine(const GLfloat p00[3],const GLfloat p10[3],const GLfloat p01[
 void glDrawSphereIcosahedron(GLfloat radius,GLsizei numStrips)
 	{
 	/* Construct static icosahedron model: */
-	const GLfloat b0=0.525731112119133606f;
-	const GLfloat b1=0.850650808352039932f;
+	const GLfloat b0=0.525731112119133606f; // b0=sqrt((5.0-sqrt(5.0))/10);
+	const GLfloat b1=0.850650808352039932f; // b1=sqrt((5.0+sqrt(5.0))/10);
 	static const GLfloat vUnit[12][3]={{-b0,0.0f, b1},{ b0,0.0f, b1},{-b0,0.0f,-b1},{ b0,0.0f,-b1},
 	                                   {0.0f, b1, b0},{0.0f, b1,-b0},{0.0f,-b1, b0},{0.0f,-b1,-b0},
 	                                   { b1, b0,0.0f},{-b1, b0,0.0f},{ b1,-b0,0.0f},{-b1,-b0,0.0f}};

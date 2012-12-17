@@ -29,6 +29,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <IO/SeekableFile.h>
 #include <IO/ValueSource.h>
 #include <Cluster/OpenFile.h>
+#include <Images/RGBImage.h>
+#include <Images/ReadImageFile.h>
 #include <SceneGraph/ElevationGridNode.h>
 
 namespace SceneGraph {
@@ -237,17 +239,43 @@ void loadAGRGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 	node.invalidHeight.setValue(nodata);
 	}
 
+void loadImageGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
+	{
+	/* Open and read the image file: */
+	IO::FilePtr imageFile(Cluster::openFile(multiplexer,node.heightUrl.getValue(0).c_str()));
+	Images::RGBImage image=Images::readImageFile(node.heightUrl.getValue(0).c_str(),imageFile);
+	
+	/* Read the grid: */
+	std::vector<Scalar> heights;
+	heights.reserve(size_t(image.getHeight())*size_t(image.getWidth()));
+	const Images::RGBImage::Color* imgPtr=image.getPixels();
+	for(unsigned int y=0;y<image.getHeight();++y)
+		for(unsigned int x=0;x<image.getWidth();++x,++imgPtr)
+			{
+			/* Convert the image pixel to greyscale: */
+			unsigned int grey=((unsigned int)(*imgPtr)[0]*306U+(unsigned int)(*imgPtr)[1]*601U+(unsigned int)(*imgPtr)[2]*117U)>>10;
+			
+			/* Store the height value: */
+			heights.push_back(Scalar(grey));
+			}
+	
+	/* Install the height field: */
+	node.xDimension.setValue(image.getWidth());
+	node.zDimension.setValue(image.getHeight());
+	std::swap(node.height.getValues(),heights);
+	}
+
 }
 
 void loadElevationGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 	{
 	/* Determine the format of the height file: */
-	if(node.heightUrlFormat.getValue(0)=="BIL")
+	if(node.heightUrlFormat.getNumValues()>=1&&node.heightUrlFormat.getValue(0)=="BIL")
 		{
 		/* Load an elevation grid in BIL format: */
 		loadBILGrid(node,multiplexer);
 		}
-	else if(node.heightUrlFormat.getValue(0)=="ARC/INFO ASCII GRID")
+	else if(node.heightUrlFormat.getNumValues()>=1&&node.heightUrlFormat.getValue(0)=="ARC/INFO ASCII GRID")
 		{
 		/* Load an elevation grid in ARC/INFO ASCII GRID format: */
 		loadAGRGrid(node,multiplexer);
@@ -265,6 +293,11 @@ void loadElevationGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer
 			{
 			/* Load an elevation grid in BIL format: */
 			loadBILGrid(node,multiplexer);
+			}
+		else if(Images::canReadImageFileType(node.heightUrl.getValue(0).c_str()))
+			{
+			/* Load the elevation grid as an image file with height defined by luminance: */
+			loadImageGrid(node,multiplexer);
 			}
 		else
 			Misc::throwStdErr("SceneGraph::loadElevationGrid: File %s has unknown format",node.heightUrl.getValue(0).c_str());

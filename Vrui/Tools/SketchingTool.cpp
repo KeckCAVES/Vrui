@@ -375,7 +375,7 @@ void SketchingTool::loadCurvesCallback(Misc::CallbackData* cbData)
 	/* Create a file selection dialog to select a curve file: */
 	GLMotif::FileSelectionDialog* loadCurvesDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curves...",openDirectory("."),".curves");
 	loadCurvesDialog->getOKCallbacks().add(this,&SketchingTool::loadCurvesOKCallback);
-	loadCurvesDialog->getCancelCallbacks().add(&GLMotif::PopupWindow::defaultCloseCallback);
+	loadCurvesDialog->deleteOnCancel();
 	
 	/* Show the file selection dialog: */
 	popupPrimaryWidget(loadCurvesDialog);

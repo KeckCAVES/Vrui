@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -1174,6 +1174,24 @@ Glyph& InputGraphManager::getInputDeviceGlyph(InputDevice* device)
 	
 	/* Return the device's glyph: */
 	return gid->deviceGlyph;
+	}
+
+bool InputGraphManager::isReal(InputDevice* device) const
+	{
+	/* Get pointer to the graph input device: */
+	const GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	/* Return true if the device is in graph level 0: */
+	return gid->level==0;
+	}
+
+bool InputGraphManager::isGrabbed(InputDevice* device) const
+	{
+	/* Get pointer to the graph input device: */
+	const GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	/* Return true if the device is grabbed: */
+	return gid->grabber!=0;
 	}
 
 InputDevice* InputGraphManager::getFirstInputDevice(void)

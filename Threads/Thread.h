@@ -416,6 +416,14 @@ class Thread
 		{
 		return id;
 		}
+	unsigned int getNextChildIndex(void) const // Returns the index that will be assigned to the next child thread
+		{
+		return nextChildIndex;
+		}
+	void advanceNextChildIndex(unsigned int numIndices) // Advances the index to be assigned to the next child thread by the given number; effectively creates "ghost" threads
+		{
+		nextChildIndex+=numIndices;
+		}
 	void start(void* (*threadFunction)(void),pthread_attr_t* threadAttributes =0) // Creates thread from function with no arguments
 		{
 		/* Throw an exception if the thread is already running: */
@@ -527,9 +535,9 @@ class Thread
 		{
 		pthread_exit(returnValue);
 		}
-	static const Thread* getThreadObject(void) // Returns the calling thread's thread object
+	static Thread* getThreadObject(void) // Returns the calling thread's thread object
 		{
-		return static_cast<const Thread*>(pthread_getspecific(threadObjectKey));
+		return static_cast<Thread*>(pthread_getspecific(threadObjectKey));
 		}
 	};
 

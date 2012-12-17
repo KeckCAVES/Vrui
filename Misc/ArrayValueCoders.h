@@ -53,7 +53,7 @@ class DynamicArrayValueCoder // Value coder class for arrays with dynamic sizes
 	};
 
 template <class ElementParam,int sizeParam>
-class ValueCoder<FixedArray<ElementParam, sizeParam> >
+class ValueCoder<FixedArray<ElementParam,sizeParam> >
 	{
 	/* Methods: */
 	public:

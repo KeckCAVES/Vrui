@@ -19,6 +19,7 @@
 <LI><A HREF="#Q9">How do I get started developing in Vrui?</A></LI>
 <LI><A HREF="#Q10">How do I receive input from the keyboard?</A></LI>
 <LI><A HREF="#Q11">How do I query the display resolution in points per inch etc.?</A></LI>
+<LI><A HREF="#Q12">Why does Vrui go all wonky when I use two monitors in a single-desktop setup?</A></LI>
 </OL>
 
 <H2><A NAME="Q1">1. What is this Vrui thing, anyway?</A></H2>
@@ -103,7 +104,7 @@ To use a concrete example, assume an application that wants to do something when
 
 While this approach sounds more complicated, it has important benefits. For one, it works in non-desktop environments. Even if there is no keyboard, there will still be some input device that has some ways to signal that a user wants to initiate an event (which could be an actual button, or a gesture, or a voice command, etc.), and Vrui's dynamic tool binding mechanism allows the user to bind a tool of class&nbsp;X to any such event source, without the application developer having to code any support for that. Even if constrained to the desktop, this allows users to map application behaviors to any keys they desire&nbsp;&ndash; in other words, the keyboard remapping functionality common in PC games comes for free in Vrui.<P>
 
-Additionally, in actual code, setting up a tool is no more complicated than writing a callback. For simple cases like the one above, where a key press invokes some behavior, Vrui offers a convenience shortcut that creates a tool class, passes it to Vrui's tool manager, handles dynamic binding, and invokes an arbitrary application callback when an event happens, in a single line of code. Only in more complex cases, such as when behaviors require their own internal states, will a developer have to implement an actual tool class, which would be essentially the same in other toolkits as well.
+Additionally, in actual code, setting up a tool is no more complicated than writing a callback. For simple cases like the one above, where a key press invokes some behavior, Vrui offers a convenience shortcut that creates a tool class, passes it to Vrui's tool manager, handles dynamic binding, and invokes an arbitrary application callback when an event happens, in a single line of code (see <TT>VruiEventToolDemo.cpp</TT> in the <TT>ExamplePrograms</TT> subdirectory for several concrete examples). Only in more complex cases, such as when behaviors require their own internal states, will a developer have to implement an actual tool class, which would be essentially the same amount of work as in other toolkits.
 
 <H2><A NAME="Q11">11. How do I query the display resolution in points per inch etc.?</A></H2>
 
@@ -112,6 +113,14 @@ You don't. Due to Vrui's portability, an application might not have a display, m
 Another common example is an application needing to know how big to make a display, like a text label, or how big to make the influence zone around an interaction event, based on display resolution. In Vrui, these parameters are configured by the system integrator/administrator appropriately for a concrete environment, and can be queried directly via the Vrui kernel API.<P>
 
 In other words, Vrui applications should always render in 3D application space in any unit of measurement they want, advertise that unit to Vrui's coordinate manager, and let Vrui take care of the rest. Any questions about appropriate display sizes, interaction fuzz values, optimal font sizes, etc. should be answered by querying the Vrui kernel API whenever needed.
+
+<H2><A NAME="Q12">Why does Vrui go all wonky when I use two monitors in a single-desktop setup?</A></H2>
+
+In its default desktop configuration, Vrui tries to determine the actual size of the environment's display by querying the X Windows system. Normally, this ensures that Vrui's rendering has the correct aspect ratio, e.g., spheres show up as spheres instead of ellipsoids, and that it has the correct size, e.g., the scale bar has the correct length, and that fonts show up at the correct sizes. However, X sometimes lies about the sizes of its attached displays, especially when multiple displays are joined in a single-desktop setup (such as Nvidia's TwinView). This is especially bad when the joined displays have different resolutions, say a laptop display with 100dpi next to a 3D TV with 30dpi.<P>
+
+In the first scenario, where all displays have comparable resolutions, but X lies, you will have to disable automatic screen size detection (by setting autoScreenSize to false in your window section), and enter the correct screen size in your screen section. In single-desktop setups, the screen size is the combined size of all screens, not that of a single screen.<P>
+
+This will not work if the screen's resolutions are different. If that's the case, getting Vrui to run properly will take some effort&nbsp;-- after all, it has to deal with a single (virtual) display that suddenly changes resolution in the middle. The only way to deal with it is having multiple separate windows, one on each physical display, and use a separate screen section with its own screen size for each window. This will result in correct display, but it means that it will not be possible to move the windows between screens. In other words, when there are multiple display resolutions involved, it's best not to use a single-desktop setup, but instead use multiple X screens.
 
 </BODY>
 </HTML>
