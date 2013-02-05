@@ -24,9 +24,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Vislets/Filming.h>
 
+#include <vector>
+#include <Misc/SelfDestructPointer.h>
 #include <Misc/PrintInteger.h>
+#include <Misc/StringPrintf.h>
+#include <Misc/StringMarshaller.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Cluster/MulticastPipe.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
@@ -34,12 +40,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLMatrixTemplates.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GL/GLValueCoders.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/Margin.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Blind.h>
 #include <GLMotif/Label.h>
+#include <GLMotif/Button.h>
+#include <Vrui/OpenFile.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/Lightsource.h>
 #include <Vrui/Viewer.h>
@@ -57,7 +66,8 @@ Methods of class FilmingFactory:
 
 FilmingFactory::FilmingFactory(VisletManager& visletManager)
 	:VisletFactory("Filming",visletManager),
-	 initialViewerPosition(getDisplayCenter()-getForwardDirection()*getDisplaySize())
+	 initialViewerPosition(getDisplayCenter()-getForwardDirection()*getDisplaySize()),
+	 moveViewerSpeed(getInchFactor()*Scalar(2))
 	{
 	#if 0
 	/* Insert class into class hierarchy: */
@@ -69,14 +79,11 @@ FilmingFactory::FilmingFactory(VisletManager& visletManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=visletManager.getVisletClassSection(getClassName());
 	initialViewerPosition=cfs.retrieveValue<Point>("./initialViewerPosition",initialViewerPosition);
+	moveViewerSpeed=cfs.retrieveValue<Scalar>("./moveViewerSpeed",moveViewerSpeed);
 	
 	/* Initialize the filming tool classes: */
-	Filming::MoveViewerToolFactory* moveViewerToolFactory=new Filming::MoveViewerToolFactory("FilmingMoveViewerTool","Move Filming Viewer",0,*getToolManager());
-	moveViewerToolFactory->setNumValuators(3);
-	moveViewerToolFactory->setValuatorFunction(0,"Move X");
-	moveViewerToolFactory->setValuatorFunction(1,"Move Y");
-	moveViewerToolFactory->setValuatorFunction(2,"Move Z");
-	getToolManager()->addClass(moveViewerToolFactory,ToolManager::defaultToolFactoryDestructor);
+	Filming::MoveViewerTool::initClass();
+	Filming::MoveGridTool::initClass();
 	
 	/* Set tool class' factory pointer: */
 	Filming::factory=this;
@@ -133,6 +140,16 @@ Filming::MoveViewerToolFactory* Filming::MoveViewerTool::factory=0;
 Methods of class Filming::MoveViewerTool:
 ****************************************/
 
+void Filming::MoveViewerTool::initClass(void)
+	{
+	MoveViewerToolFactory* moveViewerToolFactory=new MoveViewerToolFactory("FilmingMoveViewerTool","Move Filming Viewer",0,*getToolManager());
+	moveViewerToolFactory->setNumValuators(3);
+	moveViewerToolFactory->setValuatorFunction(0,"Move X");
+	moveViewerToolFactory->setValuatorFunction(1,"Move Y");
+	moveViewerToolFactory->setValuatorFunction(2,"Move Z");
+	getToolManager()->addClass(moveViewerToolFactory,ToolManager::defaultToolFactoryDestructor);
+	}
+
 Filming::MoveViewerTool::MoveViewerTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:Vrui::Tool(sFactory,inputAssignment)
 	{
@@ -145,23 +162,126 @@ const Vrui::ToolFactory* Filming::MoveViewerTool::getFactory(void) const
 
 void Filming::MoveViewerTool::frame(void)
 	{
-	if(vislet!=0)
+	if(vislet==0)
+		return;
+	
+	if(vislet->viewerDevice!=0)
+		{
+		/* Adjust the vislet's head-tracked eye position: */
+		bool changed=false;
+		for(int axis=0;axis<3;++axis)
+			if(getValuatorState(axis)!=0.0)
+				{
+				vislet->eyePosition[axis]+=getValuatorState(axis)*vislet->factory->moveViewerSpeed*getFrameTime();
+				vislet->posSliders[axis]->setValue(vislet->eyePosition[axis]);
+				changed=true;
+				}
+		
+		if(changed)
+			{
+			/* Update the filming viewer: */
+			vislet->viewer->setEyes(vislet->viewer->getViewDirection(),vislet->eyePosition,Vector::zero);
+			}
+		}
+	else
 		{
 		/* Adjust the vislet's fixed viewer position: */
 		bool changed=false;
 		for(int axis=0;axis<3;++axis)
 			if(getValuatorState(axis)!=0.0)
 				{
-				vislet->viewerPosition[axis]+=getValuatorState(axis)*getInchFactor()*getFrameTime();
+				vislet->viewerPosition[axis]+=getValuatorState(axis)*vislet->factory->moveViewerSpeed*getFrameTime();
 				vislet->posSliders[axis]->setValue(vislet->viewerPosition[axis]);
 				changed=true;
 				}
 		
-		if(changed&&vislet->viewerDevice==0)
+		if(changed)
 			{
 			/* Update the filming viewer: */
 			vislet->viewer->detachFromDevice(TrackerState::translateFromOriginTo(vislet->viewerPosition));
 			}
+		}
+	}
+
+/**********************************************
+Static elements of class Filming::MoveGridTool:
+**********************************************/
+
+Filming::MoveGridToolFactory* Filming::MoveGridTool::factory=0;
+
+/**************************************
+Methods of class Filming::MoveGridTool:
+**************************************/
+
+void Filming::MoveGridTool::initClass(void)
+	{
+	MoveGridToolFactory* moveGridToolFactory=new MoveGridToolFactory("FilmingMoveGridTool","Move Calibration Grid",0,*getToolManager());
+	moveGridToolFactory->setNumButtons(1);
+	moveGridToolFactory->setButtonFunction(0,"Grab Grid");
+	getToolManager()->addClass(moveGridToolFactory,ToolManager::defaultToolFactoryDestructor);
+	}
+
+Filming::MoveGridTool::MoveGridTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
+	:Vrui::Tool(sFactory,inputAssignment)
+	{
+	}
+
+const Vrui::ToolFactory* Filming::MoveGridTool::getFactory(void) const
+	{
+	return factory;
+	}
+
+void Filming::MoveGridTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+	{
+	if(vislet==0)
+		return;
+	
+	if(cbData->newButtonState)
+		{
+		/* Check if the grid was picked: */
+		Point pickPosLocal=vislet->gridTransform.inverseTransform(cbData->inputDevice->getPosition());
+		if(Math::abs(pickPosLocal[2])<getPointPickDistance()*getNavigationTransformation().getScaling()*Scalar(5)&&vislet->gridDragger==0)
+			{
+			/* Start dragging the grid: */
+			vislet->gridDragger=this;
+			
+			/* Calculate the dragging transformation: */
+			dragTransform=getButtonDeviceTransformation(0);
+			dragTransform.doInvert();
+			dragTransform*=vislet->gridTransform;
+			}
+		}
+	else if(vislet->gridDragger==this)
+		{
+		/* Stop dragging: */
+		vislet->gridDragger=0;
+		}
+	}
+
+void Filming::MoveGridTool::frame(void)
+	{
+	if(vislet==0)
+		return;
+	
+	if(vislet->gridDragger==this)
+		{
+		/* Update the grid transformation: */
+		ONTransform gt=getButtonDeviceTransformation(0)*dragTransform;
+		
+		/* Snap the grid transformation to the primary axes: */
+		gt.leftMultiply(ONTransform::translateToOriginFrom(getButtonDevicePosition(0)));
+		Vector gridX=gt.getDirection(0);
+		int xAxis=Geometry::findParallelAxis(gridX);
+		Vector newGridX=Vector::zero;
+		newGridX[xAxis]=gridX[xAxis]<Scalar(0)?Scalar(-1):Scalar(1);
+		gt.leftMultiply(ONTransform::rotate(Rotation::rotateFromTo(gridX,newGridX)));
+		Vector gridY=gt.getDirection(1);
+		int yAxis=Geometry::findParallelAxis(gridY);
+		Vector newGridY=Vector::zero;
+		newGridY[yAxis]=gridY[yAxis]<Scalar(0)?Scalar(-1):Scalar(1);
+		gt.leftMultiply(ONTransform::rotate(Rotation::rotateFromTo(gridY,newGridY)));
+		gt.leftMultiply(ONTransform::translateFromOriginTo(getButtonDevicePosition(0)));
+		vislet->gridTransform=gt;
 		}
 	}
 
@@ -175,41 +295,66 @@ FilmingFactory* Filming::factory=0;
 Methods of class Filming:
 ************************/
 
+void Filming::changeViewerMode(void)
+	{
+	if(viewerDevice!=0)
+		{
+		/* Enable head tracking: */
+		viewer->attachToDevice(viewerDevice);
+		viewer->setEyes(viewer->getViewDirection(),eyePosition,Vector::zero);
+		
+		/* Set the sliders to change the head-relative eye position: */
+		for(int i=0;i<3;++i)
+			{
+			posSliders[i]->setValueRange(-12.0,12.0,0.05);
+			posSliders[i]->setValue(eyePosition[i]);
+			}
+		}
+	else
+		{
+		/* Disable head tracking: */
+		viewer->detachFromDevice(TrackerState::translateFromOriginTo(viewerPosition));
+		viewer->setEyes(viewer->getViewDirection(),Point::origin,Vector::zero);
+		
+		/* Set the sliders to change the physical-coordinate fixed viewing position: */
+		for(int i=0;i<3;++i)
+			{
+			posSliders[i]->setValueRange(getDisplayCenter()[i]-getDisplaySize()*Scalar(4),getDisplayCenter()[i]+getDisplaySize()*Scalar(4),0.1);
+			posSliders[i]->setValue(viewerPosition[i]);
+			}
+		}
+	}
+
 void Filming::viewerDeviceMenuCallback(GLMotif::DropdownBox::ValueChangedCallbackData* cbData)
 	{
+	/* Set the new viewer tracking device: */
 	if(cbData->newSelectedItem==0)
 		{
 		/* Disable head tracking: */
 		viewerDevice=0;
-		viewer->detachFromDevice(TrackerState::translateFromOriginTo(viewerPosition));
 		}
 	else
 		{
 		/* Find the new viewer device: */
 		viewerDevice=findInputDevice(cbData->getItem());
-		if(viewerDevice!=0)
-			{
-			/* Enable head tracking: */
-			viewer->attachToDevice(viewerDevice);
-			}
-		else
-			{
-			/* Disable head tracking: */
-			viewerDevice=0;
-			viewer->detachFromDevice(TrackerState::translateFromOriginTo(viewerPosition));
-			cbData->dropdownBox->setSelectedItem(0);
-			}
 		}
+	
+	/* Update the GUI: */
+	changeViewerMode();
 	}
 
 void Filming::posSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData,const int& sliderIndex)
 	{
-	/* Update the filming viewer's position: */
-	viewerPosition[sliderIndex]=cbData->value;
-	
-	if(viewerDevice==0)
+	if(viewerDevice!=0)
 		{
-		/* Update the filming viewer: */
+		/* Update the filming viewer's eye position: */
+		eyePosition[sliderIndex]=cbData->value;
+		viewer->setEyes(viewer->getViewDirection(),eyePosition,Vector::zero);
+		}
+	else
+		{
+		/* Update the filming viewer's fixed position: */
+		viewerPosition[sliderIndex]=cbData->value;
 		viewer->detachFromDevice(TrackerState::translateFromOriginTo(viewerPosition));
 		}
 	}
@@ -264,9 +409,226 @@ void Filming::drawGridToggleCallback(GLMotif::ToggleButton::ValueChangedCallback
 	drawGrid=cbData->set;
 	}
 
+void Filming::resetGridCallback(Misc::CallbackData* cbData)
+	{
+	if(gridDragger==0)
+		{
+		/* Initialize the grid transformation: */
+		gridTransform=ONTransform::translateFromOriginTo(getDisplayCenter());
+		gridTransform*=ONTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getUpDirection(),getForwardDirection()),getUpDirection()));
+		}
+	}
+
 void Filming::drawDevicesToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
 	{
 	drawDevices=cbData->set;
+	}
+
+void Filming::loadSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
+	Misc::ConfigurationFile settingsFile;
+	if(isMaster())
+		{
+		/* Open the selected settings file: */
+		try
+			{
+			settingsFile.load(cbData->getSelectedPath().c_str());
+			
+			if(getMainPipe()!=0)
+				{
+				/* Send the settings file to the slave nodes: */
+				Misc::writeCString(0,*getMainPipe());
+				settingsFile.writeToPipe(*getMainPipe());
+				}
+			}
+		catch(std::runtime_error err)
+			{
+			if(getMainPipe()!=0)
+				Misc::writeCString(err.what(),*getMainPipe());
+			showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not read settings file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()).c_str());
+			return;
+			}
+		}
+	else
+		{
+		/* Receive the selected settings file from the master node: */
+		char* error=Misc::readCString(*getMainPipe());
+		if(error==0)
+			settingsFile.readFromPipe(*getMainPipe());
+		else
+			{
+			showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not read settings file %s due to exception %s",cbData->getSelectedPath().c_str(),error).c_str());
+			delete[] error;
+			return;
+			}
+		}
+	
+	/* Load all filming settings: */
+	try
+		{
+		/* Get the viewer device: */
+		std::string viewerDeviceName=settingsFile.retrieveValue<std::string>("./viewerDevice");
+		viewerDevice=0;
+		int viewerDeviceIndex=0;
+		for(int i=1;viewerDeviceIndex==0&&i<viewerDeviceMenu->getNumItems();++i)
+			if(viewerDeviceName==viewerDeviceMenu->getItem(i))
+				{
+				viewerDevice=findInputDevice(viewerDeviceMenu->getItem(i));
+				if(viewerDevice!=0)
+					viewerDeviceIndex=i;
+				}
+		viewerDeviceMenu->setSelectedItem(viewerDeviceIndex);
+		
+		/* Read the fixed-position viewer position and head-tracked eye position: */
+		viewerPosition=settingsFile.retrieveValue<Point>("./viewerPosition");
+		eyePosition=settingsFile.retrieveValue<Point>("./eyePosition");
+		
+		/* Update the viewer GUI: */
+		changeViewerMode();
+		
+		/* Read the window flags: */
+		std::vector<bool> windowFilmingsVector=settingsFile.retrieveValue<std::vector<bool> >("./windowFilmingFlags");
+		for(int i=0;i<getNumWindows()&&size_t(i)<windowFilmingsVector.size();++i)
+			{
+			windowFilmings[i]=windowFilmingsVector[i];
+			static_cast<GLMotif::ToggleButton*>(windowButtonBox->getChild(i))->setToggle(windowFilmings[i]);
+			}
+		
+		/* Read the headlight states: */
+		std::vector<bool> headlightStatesVector=settingsFile.retrieveValue<std::vector<bool> >("./headlightStates");
+		for(int i=0;i<getNumViewers()+1&&size_t(i)<headlightStatesVector.size();++i)
+			{
+			headlightStates[i]=headlightStatesVector[i];
+			static_cast<GLMotif::ToggleButton*>(headlightButtonBox->getChild(i))->setToggle(headlightStates[i]);
+			}
+		
+		/* Read the background color: */
+		backgroundColor=settingsFile.retrieveValue<Color>("./backgroundColor");
+		backgroundColorSelector->setCurrentColor(backgroundColor);
+		
+		/* Read the grid state: */
+		drawGrid=settingsFile.retrieveValue<bool>("./drawGrid");
+		drawGridToggle->setToggle(drawGrid);
+		gridTransform=settingsFile.retrieveValue<ONTransform>("./gridTransform");
+		
+		/* Read the device drawing flag: */
+		drawDevices=settingsFile.retrieveValue<bool>("./drawDevices");
+		drawDevicesToggle->setToggle(drawDevices);
+		
+		if(active)
+			{
+			/* Update the current environment state: */
+			for(int windowIndex=0;windowIndex<getNumWindows();++windowIndex)
+				if(getWindow(windowIndex)!=0)
+					{
+					if(windowFilmings[windowIndex])
+						{
+						/* Set the window's viewer to the filming viewer: */
+						getWindow(windowIndex)->setViewer(viewer);
+						}
+					else
+						{
+						/* Reset the window's viewers to the original values: */
+						for(int i=0;i<2;++i)
+							getWindow(windowIndex)->setViewer(i,windowViewers[windowIndex*2+i]);
+						}
+					}
+			viewer->setHeadlightState(headlightStates[0]);
+			for(int i=0;i<getNumViewers();++i)
+				getViewer(i)->setHeadlightState(headlightStates[i+1]);
+			setBackgroundColor(backgroundColor);
+			}
+		}
+	catch(std::runtime_error err)
+		{
+		showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not read settings file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()).c_str());
+		}
+	}
+
+void Filming::loadSettingsCallback(Misc::CallbackData* cbData)
+	{
+	try
+		{
+		/* Create a file selection dialog to select a settings file: */
+		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadSettingsDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Filming Settings...",settingsDirectory,".cfg"));
+		loadSettingsDialog->getOKCallbacks().add(this,&Filming::loadSettingsOKCallback);
+		loadSettingsDialog->deleteOnCancel();
+		
+		/* Show the file selection dialog: */
+		popupPrimaryWidget(loadSettingsDialog.releaseTarget());
+		}
+	catch(std::runtime_error err)
+		{
+		showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not load settings due to exception %s",err.what()).c_str());
+		}
+	}
+
+void Filming::saveSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
+	if(isMaster())
+		{
+		try
+			{
+			/* Store the current filming settings: */
+			Misc::ConfigurationFile settingsFile;
+			settingsFile.storeValue<std::string>("./viewerDevice",viewerDevice!=0?viewerDevice->getDeviceName():"Fixed Position");
+			settingsFile.storeValue<Point>("./viewerPosition",viewerPosition);
+			settingsFile.storeValue<Point>("./eyePosition",eyePosition);
+			std::vector<bool> windowFilmingsVector;
+			for(int i=0;i<getNumWindows();++i)
+				windowFilmingsVector.push_back(windowFilmings[i]);
+			settingsFile.storeValue<std::vector<bool> >("./windowFilmingFlags",windowFilmingsVector);
+			std::vector<bool> headlightStatesVector;
+			for(int i=0;i<getNumViewers()+1;++i)
+				headlightStatesVector.push_back(headlightStates[i]);
+			settingsFile.storeValue<std::vector<bool> >("./headlightStates",headlightStatesVector);
+			settingsFile.storeValue<Color>("./backgroundColor",backgroundColor);
+			settingsFile.storeValue<bool>("./drawGrid",drawGrid);
+			settingsFile.storeValue<ONTransform>("./gridTransform",gridTransform);
+			settingsFile.storeValue<bool>("./drawDevices",drawDevices);
+			
+			/* Write the settings file: */
+			settingsFile.saveAs(cbData->getSelectedPath().c_str());
+			
+			/* Send a status message to the slave nodes: */
+			if(getMainPipe()!=0)
+				Misc::writeCString(0,*getMainPipe());
+			}
+		catch(std::runtime_error err)
+			{
+			if(getMainPipe()!=0)
+				Misc::writeCString(err.what(),*getMainPipe());
+			showErrorMessage("Save Filming Settings...",Misc::stringPrintf("Could not write settings file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()).c_str());
+			}
+		}
+	else
+		{
+		/* Receive a status message from the master node: */
+		char* error=Misc::readCString(*getMainPipe());
+		if(error!=0)
+			{
+			showErrorMessage("Save Filming Settings...",Misc::stringPrintf("Could not write settings file %s due to exception %s",cbData->getSelectedPath().c_str(),error).c_str());
+			delete[] error;
+			}
+		}
+	}
+
+void Filming::saveSettingsCallback(Misc::CallbackData* cbData)
+	{
+	try
+		{
+		/* Create a file selection dialog to select a settings file: */
+		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveSettingsDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Filming Settings...",settingsDirectory,"FilmingSettings.cfg",".cfg"));
+		saveSettingsDialog->getOKCallbacks().add(this,&Filming::saveSettingsOKCallback);
+		saveSettingsDialog->deleteOnCancel();
+		
+		/* Show the file selection dialog: */
+		popupPrimaryWidget(saveSettingsDialog.releaseTarget());
+		}
+	catch(std::runtime_error err)
+		{
+		showErrorMessage("Save Filming Settings...",Misc::stringPrintf("Could not save settings due to exception %s",err.what()).c_str());
+		}
 	}
 
 void Filming::buildFilmingControls(void)
@@ -285,7 +647,7 @@ void Filming::buildFilmingControls(void)
 	
 	/* Create a drop-down menu to select a tracking device for the filming viewer: */
 	new GLMotif::Label("ViewerDeviceLabel",filmingControls,"Viewer Device");
-	GLMotif::DropdownBox* viewerDeviceMenu=new GLMotif::DropdownBox("ViewerDeviceMenu",filmingControls);
+	viewerDeviceMenu=new GLMotif::DropdownBox("ViewerDeviceMenu",filmingControls);
 	viewerDeviceMenu->addItem("Fixed Position");
 	for(int deviceIndex=0;deviceIndex<getNumInputDevices();++deviceIndex)
 		if(getInputGraphManager()->isReal(getInputDevice(deviceIndex)))
@@ -307,16 +669,17 @@ void Filming::buildFilmingControls(void)
 		posSliders[i]->getTextField()->setFloatFormat(GLMotif::TextField::FIXED);
 		posSliders[i]->setSliderMapping(GLMotif::TextFieldSlider::LINEAR);
 		posSliders[i]->setValueType(GLMotif::TextFieldSlider::FLOAT);
-		posSliders[i]->setValueRange(getDisplayCenter()[i]-getDisplaySize()*Scalar(4),getDisplayCenter()[i]+getDisplaySize()*Scalar(4),0.1);
-		posSliders[i]->setValue(viewerPosition[i]);
 		posSliders[i]->getValueChangedCallbacks().add(this,&Filming::posSliderCallback,i);
 		}
 	
 	viewerPositionBox->manageChild();
 	
+	/* Update the viewer tracking GUI: */
+	changeViewerMode();
+	
 	/* Create toggle buttons to select filming windows: */
 	new GLMotif::Label("WindowButtonLabel",filmingControls,"Filming Windows");
-	GLMotif::RowColumn* windowButtonBox=new GLMotif::RowColumn("WindowButtonBox",filmingControls,false);
+	windowButtonBox=new GLMotif::RowColumn("WindowButtonBox",filmingControls,false);
 	windowButtonBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
 	windowButtonBox->setPacking(GLMotif::RowColumn::PACK_GRID);
 	windowButtonBox->setAlignment(GLMotif::Alignment::LEFT);
@@ -338,7 +701,7 @@ void Filming::buildFilmingControls(void)
 	
 	/* Create toggle buttons to toggle viewer headlights: */
 	new GLMotif::Label("HeadlightButtonLabel",filmingControls,"Headlights");
-	GLMotif::RowColumn* headlightButtonBox=new GLMotif::RowColumn("HeadlightButtonBox",filmingControls,false);
+	headlightButtonBox=new GLMotif::RowColumn("HeadlightButtonBox",filmingControls,false);
 	headlightButtonBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
 	headlightButtonBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	headlightButtonBox->setAlignment(GLMotif::Alignment::LEFT);
@@ -363,7 +726,7 @@ void Filming::buildFilmingControls(void)
 	GLMotif::Margin* backgroundColorMargin=new GLMotif::Margin("BackgroundColorMargin",filmingControls,false);
 	backgroundColorMargin->setAlignment(GLMotif::Alignment::LEFT);
 	
-	GLMotif::HSVColorSelector* backgroundColorSelector=new GLMotif::HSVColorSelector("BackgroundColorSelector",backgroundColorMargin);
+	backgroundColorSelector=new GLMotif::HSVColorSelector("BackgroundColorSelector",backgroundColorMargin);
 	backgroundColorSelector->setPreferredSize(ss.fontHeight*4.0f);
 	backgroundColorSelector->setCurrentColor(backgroundColor);
 	backgroundColorSelector->getValueChangedCallbacks().add(this,&Filming::backgroundColorSelectorCallback);
@@ -378,15 +741,34 @@ void Filming::buildFilmingControls(void)
 	toggleBox->setAlignment(GLMotif::Alignment::LEFT);
 	toggleBox->setNumMinorWidgets(1);
 	
-	GLMotif::ToggleButton* drawGridToggle=new GLMotif::ToggleButton("DrawGridToggle",toggleBox,"Draw Grid");
+	drawGridToggle=new GLMotif::ToggleButton("DrawGridToggle",toggleBox,"Draw Grid");
 	drawGridToggle->setToggle(drawGrid);
 	drawGridToggle->getValueChangedCallbacks().add(this,&Filming::drawGridToggleCallback);
 	
-	GLMotif::ToggleButton* drawDevicesToggle=new GLMotif::ToggleButton("DrawDevicesToggle",toggleBox,"Draw Devices");
+	GLMotif::Button* resetGridButton=new GLMotif::Button("ResetGridButton",toggleBox,"Reset Grid");
+	resetGridButton->getSelectCallbacks().add(this,&Filming::resetGridCallback);
+	
+	drawDevicesToggle=new GLMotif::ToggleButton("DrawDevicesToggle",toggleBox,"Draw Devices");
 	drawDevicesToggle->setToggle(drawDevices);
 	drawDevicesToggle->getValueChangedCallbacks().add(this,&Filming::drawDevicesToggleCallback);
 	
 	toggleBox->manageChild();
+	
+	/* Create buttons to load or save the vislet's current state: */
+	new GLMotif::Blind("IOBoxBlind",filmingControls);
+	GLMotif::RowColumn* ioBox=new GLMotif::RowColumn("IOBox",filmingControls,false);
+	ioBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	ioBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
+	ioBox->setAlignment(GLMotif::Alignment::LEFT);
+	ioBox->setNumMinorWidgets(1);
+	
+	GLMotif::Button* loadSettingsButton=new GLMotif::Button("loadSettingsButton",ioBox,"Load Settings");
+	loadSettingsButton->getSelectCallbacks().add(this,&Filming::loadSettingsCallback);
+	
+	GLMotif::Button* saveSettingsButton=new GLMotif::Button("saveSettingsButton",ioBox,"Save Settings");
+	saveSettingsButton->getSelectCallbacks().add(this,&Filming::saveSettingsCallback);
+	
+	ioBox->manageChild();
 	
 	filmingControls->manageChild();
 	}
@@ -403,21 +785,20 @@ void Filming::toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData
 	}
 
 Filming::Filming(int numArguments,const char* const arguments[])
-	:viewer(0),viewerDevice(0),viewerPosition(factory->initialViewerPosition),
+	:viewer(0),viewerDevice(0),viewerPosition(factory->initialViewerPosition),eyePosition(Point::origin),
 	 windowViewers(0),windowFilmings(0),
 	 originalHeadlightStates(0),headlightStates(0),
-	 drawGrid(false),drawDevices(false),
-	 dialogWindow(0)
+	 drawGrid(false),gridDragger(0),
+	 drawDevices(false),
+	 dialogWindow(0),
+	 settingsDirectory(openDirectory("."))
 	{
 	/* Create the private filming viewer: */
 	viewer=new Viewer;
-	viewer->setEyes(Vector(0,1,0),Point::origin,Vector::zero);
 	viewer->setHeadlightState(false);
-	viewer->detachFromDevice(TrackerState::translateFromOriginTo(viewerPosition));
 	
 	/* Initialize the grid transformation: */
-	gridTransform=ONTransform::translateFromOriginTo(getDisplayCenter());
-	gridTransform*=ONTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getUpDirection(),getForwardDirection()),getUpDirection()));
+	resetGridCallback(0);
 	
 	/* Install callbacks with the tool manager: */
 	getToolManager()->getToolCreationCallbacks().add(this,&Filming::toolCreationCallback);
