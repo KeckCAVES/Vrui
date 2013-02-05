@@ -3310,3 +3310,10 @@ Vrui-2.6-001:
   - Vrui::getWindow() returns NULL for non-local windows.
   - Vrui::calcViewSpec returns garbage for non-local windows.
 - Added uniform scaling glScale(factor) to GL/GLMatrixTemplates.h.
+
+Vrui-2.6-002:
+- Added new filming support vislet to interactively change rendering
+  modes and camera positions.
+- Fixed linking problem in Razer Hydra VR device driver module.
+- Added template setup for Razer Hydra to VRDevices.cfg.
+- Added patch configuration files for typical 3D TV and Razer Hydra.
