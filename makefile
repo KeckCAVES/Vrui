@@ -1332,6 +1332,7 @@ $(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(BLUE
 $(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/Wiimote.o \
                                                     $(OBJDIR)/VRDeviceDaemon/VRDevices/WiimoteTracker.o
 
+$(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PACKAGES += MYUSB
 $(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(MYUSB_LIBDIR) $(MYUSB_LIBS)
 ifneq ($(SYSTEM_HAVE_RPATH),0)
   ifneq ($(USE_RPATH),0)
