@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2012 Oliver Kreylos
+# Copyright (c) 1998-2013 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -137,7 +137,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2006001
+VRUI_VERSION = 2006002
 MAJORLIBVERSION = 2
 MINORLIBVERSION = 6
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1332,7 +1332,13 @@ $(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(BLUE
 $(VRDEVICESDIR)/libWiimoteTracker.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/Wiimote.o \
                                                     $(OBJDIR)/VRDeviceDaemon/VRDevices/WiimoteTracker.o
 
-$(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(LIBUSB1_LIBDIR) $(LIBUSB1_LIBS)
+$(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PACKAGES += MYUSB
+$(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += $(MYUSB_LIBDIR) $(MYUSB_LIBS)
+ifneq ($(SYSTEM_HAVE_RPATH),0)
+  ifneq ($(USE_RPATH),0)
+    $(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): PLUGINLINKFLAGS += -Wl,-rpath=$(MYUSB_BASEDIR)/$(LIBEXT)
+  endif
+endif
 $(VRDEVICESDIR)/libRazerHydraDevice.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/RazerHydra.o \
                                                       $(OBJDIR)/VRDeviceDaemon/VRDevices/RazerHydraDevice.o
 

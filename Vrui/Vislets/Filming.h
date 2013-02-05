@@ -25,12 +25,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VISLETS_FILMING_INCLUDED
 #define VRUI_VISLETS_FILMING_INCLUDED
 
+#include <IO/Directory.h>
 #include <Geometry/Point.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/DropdownBox.h>
 #include <GLMotif/TextFieldSlider.h>
 #include <GLMotif/HSVColorSelector.h>
+#include <GLMotif/FileSelectionDialog.h>
+
 #include <Vrui/Vrui.h>
 #include <Vrui/Tool.h>
 #include <Vrui/GenericToolFactory.h>
@@ -40,6 +43,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 namespace GLMotif {
 class PopupWindow;
+class RowColumn;
+class Button;
 }
 namespace Vrui {
 class InputDevice;
@@ -60,6 +65,7 @@ class FilmingFactory:public Vrui::VisletFactory
 	/* Elements: */
 	private:
 	Point initialViewerPosition; // Initial position for a non-tracked filming viewer
+	Scalar moveViewerSpeed; // Movement speed of viewer move tools in physical coordinate units per second
 	
 	/* Constructors and destructors: */
 	public:
@@ -110,6 +116,7 @@ class Filming:public Vrui::Vislet
 		
 		/* Constructors and destructors: */
 		public:
+		static void initClass(void);
 		MoveViewerTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
 		
 		/* Methods: */
@@ -117,7 +124,31 @@ class Filming:public Vrui::Vislet
 		virtual void frame(void);
 		};
 	
+	class MoveGridTool; // Forward declaration
+	typedef GenericToolFactory<MoveGridTool> MoveGridToolFactory; // Factory class for grid moving tools
+	
+	class MoveGridTool:public Vrui::Tool,public Tool // Tool class to move the calibration grid using a 6-DOF input device
+		{
+		friend class GenericToolFactory<MoveGridTool>;
+		
+		/* Elements: */
+		private:
+		static MoveGridToolFactory* factory; // Pointer to the tool's factory
+		ONTransform dragTransform; // Dragging transformation for a grid dragging operation
+		
+		/* Constructors and destructors: */
+		public:
+		static void initClass(void);
+		MoveGridTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
+		
+		/* Methods: */
+		virtual const Vrui::ToolFactory* getFactory(void) const;
+		virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+		virtual void frame(void);
+		};
+	
 	friend class MoveViewerTool;
+	friend class MoveGridTool;
 	
 	/* Elements: */
 	private:
@@ -125,6 +156,7 @@ class Filming:public Vrui::Vislet
 	Viewer* viewer; // The private filming viewer
 	InputDevice* viewerDevice; // Tracking device to which the filming viewer is attached, or NULL
 	Point viewerPosition; // Current position of the filming viewer if not head tracked
+	Point eyePosition; // Position of viewer's eye if head tracked
 	Viewer** windowViewers; // Array of viewers that were originally assigned to each window
 	bool* windowFilmings; // Array of flags indicating which windows have the filming viewer attached
 	bool* originalHeadlightStates; // Array of original headlight enable states of all viewers
@@ -133,18 +165,32 @@ class Filming:public Vrui::Vislet
 	Color backgroundColor; // Background color used while the vislet is active
 	bool drawGrid; // Flag whether to draw the calibration grid
 	ONTransform gridTransform; // Position and orientation of the calibration grid
+	MoveGridTool* gridDragger; // Pointer to the grid dragging tool that is currently dragging the grid
 	bool drawDevices; // Flag whether to draw coordinate frames for all physical devices
 	GLMotif::PopupWindow* dialogWindow; // Filming controls dialog window
+	GLMotif::DropdownBox* viewerDeviceMenu; // Drop-down menu to select tracking devices for the filming viewer
 	GLMotif::TextFieldSlider* posSliders[3]; // Array of sliders controlling the viewer's fixed position
+	GLMotif::RowColumn* windowButtonBox; // Box containing toggles to select filming windows
+	GLMotif::RowColumn* headlightButtonBox; // Box containing toggles to enable viewers' headlights
+	GLMotif::HSVColorSelector* backgroundColorSelector; // Color selector to change the background color
+	GLMotif::ToggleButton* drawGridToggle;
+	GLMotif::ToggleButton* drawDevicesToggle;
+	IO::DirectoryPtr settingsDirectory; // Directory from/to which the last settings were read/written
 	
 	/* Private methods: */
+	void changeViewerMode(void); // Updates the GUI after a viewer mode change
 	void viewerDeviceMenuCallback(GLMotif::DropdownBox::ValueChangedCallbackData* cbData);
 	void posSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData,const int& sliderIndex);
 	void windowToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const int& windowIndex);
 	void headlightToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const int& viewerIndex);
 	void backgroundColorSelectorCallback(GLMotif::HSVColorSelector::ValueChangedCallbackData* cbData);
 	void drawGridToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
+	void resetGridCallback(Misc::CallbackData* cbData);
 	void drawDevicesToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
+	void loadSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void loadSettingsCallback(Misc::CallbackData* cbData);
+	void saveSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveSettingsCallback(Misc::CallbackData* cbData);
 	void buildFilmingControls(void); // Creates the filming controls dialog window
 	void toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData); // Callback called when a new tool is created
 	
