@@ -2,7 +2,7 @@
 Filming - Vislet class to assist shooting of video inside an immersive
 environment by providing run-time control over viewers and environment
 settings.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <vector>
 #include <Misc/SelfDestructPointer.h>
+#include <Misc/SelfDestructArray.h>
 #include <Misc/PrintInteger.h>
 #include <Misc/StringPrintf.h>
 #include <Misc/StringMarshaller.h>
@@ -424,14 +425,14 @@ void Filming::drawDevicesToggleCallback(GLMotif::ToggleButton::ValueChangedCallb
 	drawDevices=cbData->set;
 	}
 
-void Filming::loadSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void Filming::loadSettingsCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	Misc::ConfigurationFile settingsFile;
 	if(isMaster())
 		{
-		/* Open the selected settings file: */
 		try
 			{
+			/* Open the selected settings file: */
 			settingsFile.load(cbData->getSelectedPath().c_str());
 			
 			if(getMainPipe()!=0)
@@ -443,127 +444,103 @@ void Filming::loadSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackDat
 			}
 		catch(std::runtime_error err)
 			{
+			/* Send an error message to the slave nodes: */
 			if(getMainPipe()!=0)
 				Misc::writeCString(err.what(),*getMainPipe());
-			showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not read settings file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()).c_str());
-			return;
+			
+			/* Re-throw the exception: */
+			throw;
 			}
 		}
 	else
 		{
 		/* Receive the selected settings file from the master node: */
-		char* error=Misc::readCString(*getMainPipe());
-		if(error==0)
+		Misc::SelfDestructArray<char> error(Misc::readCString(*getMainPipe()));
+		if(error.getArray()==0)
 			settingsFile.readFromPipe(*getMainPipe());
 		else
 			{
-			showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not read settings file %s due to exception %s",cbData->getSelectedPath().c_str(),error).c_str());
-			delete[] error;
-			return;
+			/* Throw an exception: */
+			throw std::runtime_error(error.getArray());
 			}
 		}
 	
 	/* Load all filming settings: */
-	try
+	/* Get the viewer device: */
+	std::string viewerDeviceName=settingsFile.retrieveValue<std::string>("./viewerDevice");
+	viewerDevice=0;
+	int viewerDeviceIndex=0;
+	for(int i=1;viewerDeviceIndex==0&&i<viewerDeviceMenu->getNumItems();++i)
+		if(viewerDeviceName==viewerDeviceMenu->getItem(i))
+			{
+			viewerDevice=findInputDevice(viewerDeviceMenu->getItem(i));
+			if(viewerDevice!=0)
+				viewerDeviceIndex=i;
+			}
+	viewerDeviceMenu->setSelectedItem(viewerDeviceIndex);
+	
+	/* Read the fixed-position viewer position and head-tracked eye position: */
+	viewerPosition=settingsFile.retrieveValue<Point>("./viewerPosition");
+	eyePosition=settingsFile.retrieveValue<Point>("./eyePosition");
+	
+	/* Update the viewer GUI: */
+	changeViewerMode();
+	
+	/* Read the window flags: */
+	std::vector<bool> windowFilmingsVector=settingsFile.retrieveValue<std::vector<bool> >("./windowFilmingFlags");
+	for(int i=0;i<getNumWindows()&&size_t(i)<windowFilmingsVector.size();++i)
 		{
-		/* Get the viewer device: */
-		std::string viewerDeviceName=settingsFile.retrieveValue<std::string>("./viewerDevice");
-		viewerDevice=0;
-		int viewerDeviceIndex=0;
-		for(int i=1;viewerDeviceIndex==0&&i<viewerDeviceMenu->getNumItems();++i)
-			if(viewerDeviceName==viewerDeviceMenu->getItem(i))
+		windowFilmings[i]=windowFilmingsVector[i];
+		static_cast<GLMotif::ToggleButton*>(windowButtonBox->getChild(i))->setToggle(windowFilmings[i]);
+		}
+	
+	/* Read the headlight states: */
+	std::vector<bool> headlightStatesVector=settingsFile.retrieveValue<std::vector<bool> >("./headlightStates");
+	for(int i=0;i<getNumViewers()+1&&size_t(i)<headlightStatesVector.size();++i)
+		{
+		headlightStates[i]=headlightStatesVector[i];
+		static_cast<GLMotif::ToggleButton*>(headlightButtonBox->getChild(i))->setToggle(headlightStates[i]);
+		}
+	
+	/* Read the background color: */
+	backgroundColor=settingsFile.retrieveValue<Color>("./backgroundColor");
+	backgroundColorSelector->setCurrentColor(backgroundColor);
+	
+	/* Read the grid state: */
+	drawGrid=settingsFile.retrieveValue<bool>("./drawGrid");
+	drawGridToggle->setToggle(drawGrid);
+	gridTransform=settingsFile.retrieveValue<ONTransform>("./gridTransform");
+	
+	/* Read the device drawing flag: */
+	drawDevices=settingsFile.retrieveValue<bool>("./drawDevices");
+	drawDevicesToggle->setToggle(drawDevices);
+	
+	if(active)
+		{
+		/* Update the current environment state: */
+		for(int windowIndex=0;windowIndex<getNumWindows();++windowIndex)
+			if(getWindow(windowIndex)!=0)
 				{
-				viewerDevice=findInputDevice(viewerDeviceMenu->getItem(i));
-				if(viewerDevice!=0)
-					viewerDeviceIndex=i;
-				}
-		viewerDeviceMenu->setSelectedItem(viewerDeviceIndex);
-		
-		/* Read the fixed-position viewer position and head-tracked eye position: */
-		viewerPosition=settingsFile.retrieveValue<Point>("./viewerPosition");
-		eyePosition=settingsFile.retrieveValue<Point>("./eyePosition");
-		
-		/* Update the viewer GUI: */
-		changeViewerMode();
-		
-		/* Read the window flags: */
-		std::vector<bool> windowFilmingsVector=settingsFile.retrieveValue<std::vector<bool> >("./windowFilmingFlags");
-		for(int i=0;i<getNumWindows()&&size_t(i)<windowFilmingsVector.size();++i)
-			{
-			windowFilmings[i]=windowFilmingsVector[i];
-			static_cast<GLMotif::ToggleButton*>(windowButtonBox->getChild(i))->setToggle(windowFilmings[i]);
-			}
-		
-		/* Read the headlight states: */
-		std::vector<bool> headlightStatesVector=settingsFile.retrieveValue<std::vector<bool> >("./headlightStates");
-		for(int i=0;i<getNumViewers()+1&&size_t(i)<headlightStatesVector.size();++i)
-			{
-			headlightStates[i]=headlightStatesVector[i];
-			static_cast<GLMotif::ToggleButton*>(headlightButtonBox->getChild(i))->setToggle(headlightStates[i]);
-			}
-		
-		/* Read the background color: */
-		backgroundColor=settingsFile.retrieveValue<Color>("./backgroundColor");
-		backgroundColorSelector->setCurrentColor(backgroundColor);
-		
-		/* Read the grid state: */
-		drawGrid=settingsFile.retrieveValue<bool>("./drawGrid");
-		drawGridToggle->setToggle(drawGrid);
-		gridTransform=settingsFile.retrieveValue<ONTransform>("./gridTransform");
-		
-		/* Read the device drawing flag: */
-		drawDevices=settingsFile.retrieveValue<bool>("./drawDevices");
-		drawDevicesToggle->setToggle(drawDevices);
-		
-		if(active)
-			{
-			/* Update the current environment state: */
-			for(int windowIndex=0;windowIndex<getNumWindows();++windowIndex)
-				if(getWindow(windowIndex)!=0)
+				if(windowFilmings[windowIndex])
 					{
-					if(windowFilmings[windowIndex])
-						{
-						/* Set the window's viewer to the filming viewer: */
-						getWindow(windowIndex)->setViewer(viewer);
-						}
-					else
-						{
-						/* Reset the window's viewers to the original values: */
-						for(int i=0;i<2;++i)
-							getWindow(windowIndex)->setViewer(i,windowViewers[windowIndex*2+i]);
-						}
+					/* Set the window's viewer to the filming viewer: */
+					getWindow(windowIndex)->setViewer(viewer);
 					}
-			viewer->setHeadlightState(headlightStates[0]);
-			for(int i=0;i<getNumViewers();++i)
-				getViewer(i)->setHeadlightState(headlightStates[i+1]);
-			setBackgroundColor(backgroundColor);
-			}
-		}
-	catch(std::runtime_error err)
-		{
-		showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not read settings file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()).c_str());
-		}
-	}
-
-void Filming::loadSettingsCallback(Misc::CallbackData* cbData)
-	{
-	try
-		{
-		/* Create a file selection dialog to select a settings file: */
-		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadSettingsDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Filming Settings...",settingsDirectory,".cfg"));
-		loadSettingsDialog->getOKCallbacks().add(this,&Filming::loadSettingsOKCallback);
-		loadSettingsDialog->deleteOnCancel();
-		
-		/* Show the file selection dialog: */
-		popupPrimaryWidget(loadSettingsDialog.releaseTarget());
-		}
-	catch(std::runtime_error err)
-		{
-		showErrorMessage("Load Filming Settings...",Misc::stringPrintf("Could not load settings due to exception %s",err.what()).c_str());
+				else
+					{
+					/* Reset the window's viewers to the original values: */
+					for(int i=0;i<2;++i)
+						getWindow(windowIndex)->setViewer(i,windowViewers[windowIndex*2+i]);
+					}
+				}
+		viewer->setHeadlightState(headlightStates[0]);
+		for(int i=0;i<getNumViewers();++i)
+			getViewer(i)->setHeadlightState(headlightStates[i+1]);
+		setBackgroundColor(backgroundColor);
 		}
 	}
 
-void Filming::saveSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void Filming::saveSettingsCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	if(isMaster())
 		{
@@ -590,44 +567,33 @@ void Filming::saveSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackDat
 			/* Write the settings file: */
 			settingsFile.saveAs(cbData->getSelectedPath().c_str());
 			
-			/* Send a status message to the slave nodes: */
 			if(getMainPipe()!=0)
+				{
+				/* Send a status message to the slave nodes: */
 				Misc::writeCString(0,*getMainPipe());
+				}
 			}
 		catch(std::runtime_error err)
 			{
 			if(getMainPipe()!=0)
+				{
+				/* Send an error message to the slaves: */
 				Misc::writeCString(err.what(),*getMainPipe());
-			showErrorMessage("Save Filming Settings...",Misc::stringPrintf("Could not write settings file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()).c_str());
+				}
+			
+			/* Re-throw the exception: */
+			throw;
 			}
 		}
 	else
 		{
 		/* Receive a status message from the master node: */
-		char* error=Misc::readCString(*getMainPipe());
-		if(error!=0)
+		Misc::SelfDestructArray<char> error(Misc::readCString(*getMainPipe()));
+		if(error.getArray()!=0)
 			{
-			showErrorMessage("Save Filming Settings...",Misc::stringPrintf("Could not write settings file %s due to exception %s",cbData->getSelectedPath().c_str(),error).c_str());
-			delete[] error;
+			/* Throw an exception: */
+			throw std::runtime_error(error.getArray());
 			}
-		}
-	}
-
-void Filming::saveSettingsCallback(Misc::CallbackData* cbData)
-	{
-	try
-		{
-		/* Create a file selection dialog to select a settings file: */
-		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveSettingsDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Filming Settings...",settingsDirectory,"FilmingSettings.cfg",".cfg"));
-		saveSettingsDialog->getOKCallbacks().add(this,&Filming::saveSettingsOKCallback);
-		saveSettingsDialog->deleteOnCancel();
-		
-		/* Show the file selection dialog: */
-		popupPrimaryWidget(saveSettingsDialog.releaseTarget());
-		}
-	catch(std::runtime_error err)
-		{
-		showErrorMessage("Save Filming Settings...",Misc::stringPrintf("Could not save settings due to exception %s",err.what()).c_str());
 		}
 	}
 
@@ -762,11 +728,11 @@ void Filming::buildFilmingControls(void)
 	ioBox->setAlignment(GLMotif::Alignment::LEFT);
 	ioBox->setNumMinorWidgets(1);
 	
-	GLMotif::Button* loadSettingsButton=new GLMotif::Button("loadSettingsButton",ioBox,"Load Settings");
-	loadSettingsButton->getSelectCallbacks().add(this,&Filming::loadSettingsCallback);
+	GLMotif::Button* loadSettingsButton=new GLMotif::Button("loadSettingsButton",ioBox,"Load Settings...");
+	settingsSelectionHelper.addLoadCallback(loadSettingsButton,this,&Filming::loadSettingsCallback);
 	
-	GLMotif::Button* saveSettingsButton=new GLMotif::Button("saveSettingsButton",ioBox,"Save Settings");
-	saveSettingsButton->getSelectCallbacks().add(this,&Filming::saveSettingsCallback);
+	GLMotif::Button* saveSettingsButton=new GLMotif::Button("saveSettingsButton",ioBox,"Save Settings...");
+	settingsSelectionHelper.addSaveCallback(saveSettingsButton,this,&Filming::saveSettingsCallback);
 	
 	ioBox->manageChild();
 	
@@ -791,7 +757,7 @@ Filming::Filming(int numArguments,const char* const arguments[])
 	 drawGrid(false),gridDragger(0),
 	 drawDevices(false),
 	 dialogWindow(0),
-	 settingsDirectory(openDirectory("."))
+	 settingsSelectionHelper("SavedFilmingSettings.cfg",".cfg",openDirectory("."))
 	{
 	/* Create the private filming viewer: */
 	viewer=new Viewer;

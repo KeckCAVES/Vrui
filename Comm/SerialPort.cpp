@@ -1,7 +1,7 @@
 /***********************************************************************
 SerialPort - Class for high-performance reading/writing from/to serial
 ports.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -26,11 +26,20 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FdSet.h>
+
+/* Check if ioctl calls are undefined (on BSD-likes), then redefine: */
+#ifndef TIOCMGET
+#define TIOCMGET TIOCMODG
+#endif
+#ifndef TIOCMSET
+#define TIOCMSET TIOCMODS
+#endif
 
 namespace Comm {
 
@@ -317,6 +326,68 @@ void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 	/* Set the port: */
 	if(tcsetattr(fd,TCSANOW,&term)!=0)
 		Misc::throwStdErr("Comm::SerialPort::setLineControl: Unable to configure device");
+	}
+
+bool SerialPort::getRTS(void)
+	{
+	/* Read the current state of the control bits: */
+	int controlBits;
+	if(ioctl(fd,TIOCMGET,&controlBits)<0)
+		Misc::throwStdErr("Comm::SerialPort::getRTS: Unable to query control bits");
+	
+	/* Return the RTS bit's state: */
+	return (controlBits&TIOCM_RTS)!=0;
+	}
+
+bool SerialPort::setRTS(bool newRTS)
+	{
+	/* Read the current state of the control bits: */
+	int controlBits;
+	if(ioctl(fd,TIOCMGET,&controlBits)<0)
+		Misc::throwStdErr("Comm::SerialPort::setRTS: Unable to query control bits");
+	bool result=(controlBits&TIOCM_RTS)!=0;
+	
+	/* Set the RTS bit: */
+	if(newRTS)
+		controlBits|=TIOCM_RTS;
+	else
+		controlBits&=~TIOCM_RTS;
+	if(ioctl(fd,TIOCMSET,&controlBits)<0)
+		Misc::throwStdErr("Comm::SerialPort::setRTS: Unable to set control bits");
+	
+	/* Return the RTS bit's previous state: */
+	return result;
+	}
+
+bool SerialPort::getCTS(void)
+	{
+	/* Read the current state of the control bits: */
+	int controlBits;
+	if(ioctl(fd,TIOCMGET,&controlBits)<0)
+		Misc::throwStdErr("Comm::SerialPort::getCTS: Unable to query control bits");
+	
+	/* Return the CTS bit's state: */
+	return (controlBits&TIOCM_CTS)!=0;
+	}
+
+bool SerialPort::setCTS(bool newCTS)
+	{
+	/* Read the current state of the control bits: */
+	int controlBits;
+	if(ioctl(fd,TIOCMGET,&controlBits)<0)
+		Misc::throwStdErr("Comm::SerialPort::setCTS: Unable to query control bits");
+	bool result=(controlBits&TIOCM_CTS)!=0;
+	
+	/* Set the CTS bit: */
+	if(newCTS)
+		controlBits|=TIOCM_CTS;
+	else
+		controlBits&=~TIOCM_CTS;
+	if(ioctl(fd,TIOCMSET,&controlBits)<0)
+		Misc::throwStdErr("Comm::SerialPort::setCTS: Unable to set control bits");
+	
+	/* Return the CTS bit's previous state: */
+	return result;
 	}
 
 }

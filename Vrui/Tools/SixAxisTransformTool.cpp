@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,7 +44,7 @@ SixAxisTransformToolFactory::Configuration::Configuration(void)
 	 translations(Vector::zero),
 	 rotateFactor(Scalar(180)),
 	 rotations(Vector::zero),
-	 followDisplayCenter(false),
+	 followDisplayCenter(true),
 	 homePosition(getDisplayCenter()),
 	 deviceGlyphType("Cone"),
 	 deviceGlyphMaterial(GLMaterial::Color(0.5f,0.5f,0.5f),GLMaterial::Color(1.0f,1.0f,1.0f),25.0f)
@@ -64,9 +64,10 @@ void SixAxisTransformToolFactory::Configuration::load(Misc::ConfigurationFileSec
 	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
 	rotations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
 	if(cfs.hasTag("./homePosition"))
+		{
+		followDisplayCenter=false;
 		homePosition=cfs.retrieveValue<Point>("./homePosition",homePosition);
-	else
-		followDisplayCenter=true;
+		}
 	deviceGlyphType=cfs.retrieveValue<std::string>("./deviceGlyphType",deviceGlyphType);
 	deviceGlyphMaterial=cfs.retrieveValue<GLMaterial>("./deviceGlyphMaterial",deviceGlyphMaterial);
 	}

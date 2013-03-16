@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,6 +35,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceAdapter.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
+#include <Vrui/Internal/InputDeviceAdapterTrackd.h>
 #include <Vrui/Internal/InputDeviceAdapterVisBox.h>
 #ifdef __linux__
 #include <Vrui/Internal/Linux/InputDeviceAdapterHID.h>
@@ -139,6 +140,11 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 				{
 				/* Create device daemon input device adapter: */
 				inputDeviceAdapters[i]=new InputDeviceAdapterDeviceDaemon(this,inputDeviceAdapterSection);
+				}
+			else if(inputDeviceAdapterType=="Trackd")
+				{
+				/* Create trackd input device adapter: */
+				inputDeviceAdapters[i]=new InputDeviceAdapterTrackd(this,inputDeviceAdapterSection);
 				}
 			else if(inputDeviceAdapterType=="VisBox")
 				{

@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -30,10 +30,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/GeodeticCoordinateTransform.h>
-#include <Vrui/LocatorTool.h>
-#include <Vrui/LocatorToolAdapter.h>
-#include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/Application.h>
 
 #include "EarthquakeSet.h"
@@ -95,49 +93,9 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 		virtual ~DataItem(void);
 		};
 	
-	class BaseLocator:public Vrui::LocatorToolAdapter // Base class for locators
-		{
-		/* Elements: */
-		protected:
-		ShowEarthModel* application;
-		
-		/* Constructors and destructors: */
-		public:
-		BaseLocator(Vrui::LocatorTool* sTool,ShowEarthModel* sApplication);
-		
-		/* Methods: */
-		virtual void glRenderAction(GLContextData& contextData) const;
-		};
-	
-	class DataLocator:public BaseLocator
-		{
-		/* Elements: */
-		protected:
-		GLMotif::PopupWindow* dataDialog;
-		GLMotif::TextField* timeTextField;
-		GLMotif::TextField* magnitudeTextField;
-		const EarthquakeSet::Event* selectedEvent;
-		
-		/* Constructors and destructors: */
-		public:
-		DataLocator(Vrui::LocatorTool* sTool,ShowEarthModel* sApplication);
-		virtual ~DataLocator(void);
-		
-		/* Methods: */
-		virtual void getName(std::string& name) const;
-		virtual void buttonPressCallback(Vrui::LocatorTool::ButtonPressCallbackData* cbData);
-		virtual void glRenderAction(GLContextData& contextData) const;
-		void setTimeButtonSelectCallback(Misc::CallbackData* cbData);
-		};
-	
-	typedef std::vector<BaseLocator*> BaseLocatorList;
-	
-	friend class BaseLocator;
-	friend class DataLocator;
-	
 	/* Elements: */
 	std::vector<EarthquakeSet*> earthquakeSets; // Vector of earthquake sets to render
-	std::pair<double,double> earthquakeTimeRange; // Range to earthquake event times
+	EarthquakeSet::TimeRange earthquakeTimeRange; // Range to earthquake event times
 	std::vector<PointSet*> pointSets; // Vector of additional point sets to render
 	std::vector<SeismicPath*> seismicPaths; // Vector of seismic paths to render
 	std::vector<GLPolylineTube*> sensorPaths; // Vector of sensor paths to render
@@ -173,7 +131,6 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	bool lockToSphere; // Flag whether the navigation transformation is locked to a fixed-radius sphere
 	Vrui::Scalar sphereRadius; // Radius of the fixed sphere to which to lock the navigation transformation
 	Vrui::NavTransform sphereTransform; // Transformation pre-applied to navigation transformation to lock it to a sphere
-	BaseLocatorList baseLocators; // List of active locators
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
 	GLMotif::ToggleButton* showRenderDialogToggle;
 	GLMotif::ToggleButton* showAnimationDialogToggle;
@@ -201,7 +158,6 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	/* Methods: */
 	virtual void initContext(GLContextData& contextData) const;
 	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
-	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	void alignSurfaceFrame(Vrui::SurfaceNavigationTool::AlignmentData& alignmentData);
@@ -210,6 +166,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	void animationDialogCloseCallback(Misc::CallbackData* cbData);
 	void sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void centerDisplayCallback(Misc::CallbackData* cbData);
+	void setEventTime(double newEventTime);
 	};
 
 #endif

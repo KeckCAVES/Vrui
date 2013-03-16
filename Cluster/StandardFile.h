@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Pair of classes for high-performance cluster-transparent
 reading/writing from/to standard operating system files.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 

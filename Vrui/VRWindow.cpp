@@ -409,6 +409,32 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	modelview.renormalize();
 	displayState->modelviewNavigational=modelview;
 	
+	/*********************************************************************
+	Fudge the navigational modelview transformation such that the point
+	that should end up being transformed to the display center actually
+	does get transformed to the display center, given OpenGL's limited
+	precision.
+	*********************************************************************/
+	
+	/* Get the display center point both in eye and navigational coordinates: */
+	Point dcEye=displayState->modelviewPhysical.transform(getDisplayCenter());
+	Point dcNav=getNavigationTransformation().inverseTransform(getDisplayCenter());
+	
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glMultMatrix(displayState->modelviewNavigational);
+	typedef Geometry::ProjectiveTransformation<double,3> PTransform;
+	PTransform oglMv=glGetModelviewMatrix<double>();
+	// PTransform oglMv=PTransform::translate(displayState->modelviewNavigational.getTranslation());
+	// oglMv*=PTransform::rotate(displayState->modelviewNavigational.getRotation());
+	// oglMv*=PTransform::scale(displayState->modelviewNavigational.getScaling());
+	
+	/* Transform the navigational-space display center with the truncated modelview matrix: */
+	Point oglDcEye=oglMv.transform(dcNav);
+	
+	/* Multiply the error correction translation vector onto the modelview matrix: */
+	displayState->modelviewNavigational.leftMultiply(OGTransform::translate(dcEye-oglDcEye));
+	
 	vruiState->display(displayState,*contextData);
 	
 	/*********************************************************************

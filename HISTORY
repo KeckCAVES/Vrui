@@ -3317,3 +3317,131 @@ Vrui-2.6-002:
 - Fixed linking problem in Razer Hydra VR device driver module.
 - Added template setup for Razer Hydra to VRDevices.cfg.
 - Added patch configuration files for typical 3D TV and Razer Hydra.
+
+Vrui-2.7-001:
+- Fixed missing initialization of heightScale in ElevationGrid scene
+  graph node.
+- Added missing #include <sys/types.h> to Images/ImageReader.h.
+- Fixed typo in compilation guard in Video/TheoraDecoder.h.
+- Added Video::ImageExtractorYV12, an image extractor class for Y'CbCr
+  4:2:0 video frames.
+- Added pixel format request option to Video::VideoDevice::configure.
+- Fixed compilation problem with Razer Hydra driver on systems with
+  libusb1 in a non-standard location.
+- Added some error recovery to Video::V4L2VideoDevice's capture thread.
+- Added new video viewer example program using the Video library.
+- Added Video::ImageExtractorY10B to unpack 10-bit greyscale video from
+  the Kinect's IR camera.
+- Added support for Y10B and GRBG pixel formats to
+  Video::V4L2VideoDevice.
+- API change: changed how Vrui's scene graph module handles
+  transformation nodes to support working around OpenGL's precision
+  limits. The SceneGraph::GLRenderState constructor now takes an initial
+  transformation from eye space to model space.
+- Added scene graph support functions in Vrui/SceneGraphSupport to
+  simplify creating SceneGraph::GLRenderState objects, and rendering
+  simple scene graphs.
+- Changed all uses of the scene graph inside Vrui to new API and
+  convenience functions.
+- Added moveToOrigin flag and originPoint position to
+  SceneGraph::GeodeticToCartesianPointTransformNode to work around
+  precision problems.
+- Changed internal representation of transformations in
+  SceneGraph::GLRenderState to double precision.
+- Changed transformation stack manipulation code in
+  SceneGraph::TransformNode to work with temporary double-precision
+  transformations.
+- Added manual control of RTS/CTS lines to Comm::SerialPort.
+- Added (experimental) device driver for Ascension Wanda 6-DOF tracked
+  wands compatible with Flock of Birds tracking system.
+- API change: Changed access of elements of Geometry::Geoid to
+  protected.
+- Added new Geometry::AlbersEqualAreaProjection class to transform from
+  Albers equal area conic coordinates to geodetic and Earth-centered
+  Earth-fixed Cartesian coordinates and back.
+- Added hyperbolic trigonometric functions and their inverses to
+  Math/Math.h.
+- Added new Geometry::UTMProjection class to transform from Universal
+  Transverse Mercator coordinates to geodetic and Earth-centered Earth-
+  fixed Cartesian coordinates and back.
+- Adapted SceneGraph::ESRIShapeFileNode to use new projection classes.
+- Added Geometry::LambertConformalProjection class to transform from
+  Lambert conformal conic coordinates to geodetic and Earth-centered
+  Earth-fixed Cartesian coordinates and back.
+- Added Math::copysign as a generic function for all signed types to
+  Math/Math.h.
+- Added "inverseFlattening" virtual field to
+  SceneGraph::ReferenceEllipsoidNode.
+- API change: Changed data types of points and vectors used by
+  SceneGraph::PointTransformNode and derived classes to double.
+- Added inverseTransformPoint and transformBox virtual methods to
+  SceneGraph::PointTransformNode.
+- Added parsers for double-precision points and vectors to
+  SceneGraph::VRMLFile.
+- Added SceneGraph::UTMPointTransformNode to transform from UTM
+  coordinates to geodetic coordinates.
+- Added translateOnly flag to
+  SceneGraph::GeodeticToCartesianTransformNode to simplify undoing a
+  offset point transformation.
+- Added SceneGraph::ImageProjectionNode to support on-the-fly
+  reprojection of georeferenced images onto elevation grids.
+- Added imageProjection field holding an ImageProjection node to
+  SceneGraph::ElevationGridNode.
+- Added "pure" color snapping to GLMotif::HSVColorSelector.
+- Added GLMotif::MaterialEditor, a composite widget to edit OpenGL
+  material properties.
+- Inconsequential changes in GLMotif::RowColumn::draw and
+  GLMotif::RowColumn::findRecipient methods.
+- New GLMotif::Pager class to create multi-page flip-book style
+  container widgets.
+- Added Geometry::GeoCoordinateSystem, an abstract base class to
+  represent geodetic coordinate systems, and a namespace-global function
+  to parse projection files in WKT (well-known text) format.
+- Geometry library now depends on IO library.
+- Corrected handling of absolute file and directory names in
+  IO::StandardDirectory and Cluster::StandardDirectory.
+- Added new Geometry::TransverseMercatorProjection class to transform
+  from generic transverse Mercator coordinates to geodetic and Earth-
+  centered Earth- fixed Cartesian coordinates and back.
+- Changed TIFF reader in Images::getImageFileSize to suppress warnings
+  messages from the TIFF library.
+- Fixed problem in IO/StandardFile and Cluster/StandardFile with
+  returning stale data in a read immediately following a write and
+  flush.
+- Added simple "alarm" facility to Threads::Queue, where a caller can
+  wait until at least a given number of consumers is blocked on an empty
+  queue.
+- Removed redundant conditional in Geometry::ClosePointSet::insertPoint.
+- Added non-recursive versions of Geometry::ArrayKdTree's
+  traverseTreeDirected and findClosestPoints methods, for fugly code and
+  a significant speed-up.
+- Improved configuration parser in Vrui::SixAxisTransformTool; setting
+  homePosition now works as expected.
+- Fixed visibility of Plugins::FactoryManager::DestroyFactoryFunction.
+- Added findChild and findDescendant methods to GLMotif::Container.
+- Added state saving to Vrui::AnnotationTool.
+- API change: added addAbstractClass to Vrui::ToolManager. Abstract tool
+  classes, i.e., those that have child tool classes, must be registered
+  using the new method instead of addClass.
+- Added experimental hack to Vrui::VRWindow::render to increase the
+  precision of OpenGL's matrix stack by calculating the accumulated
+  rounding error in the modelview matrix and applying a correction
+  translation.
+- Added Vrui input device adapter to receive tracking, button, and
+  valuator data from an external trackd daemon, including an option to
+  convert tracking coordinate systems on-the-fly.
+- Added DrawEnvironment, a simple program to visualize the layout of a
+  Vrui environment, to example programs.
+- Fixed #include bug in Geometry/UniformScalingTransformation.cpp.
+- Added Vrui::FileSelectionHelper, a helper class to simplify working
+  with GLMotif file selection dialogs.
+- Simplified file selection code inside Vrui by using
+  Vrui::FileSelectionHelper.
+- Changed Vrui view menu: Added dedicated push/pop buttons; "save view"
+  no longer pushes.
+- API change: changed loadInputGraph and saveInputGraph methods in
+  Vrui::InputGraphManager to accept an IO::Directory& and a directory-
+  relative file name.
+- Included the virtual clay modeling application as another Vrui example
+  program.
+- Added ImageSequenceViewer as Vrui example program.

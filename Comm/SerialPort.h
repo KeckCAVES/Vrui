@@ -1,7 +1,7 @@
 /***********************************************************************
 SerialPort - Class for high-performance reading/writing from/to serial
 ports.
-Copyright (c) 2001-2011 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -70,6 +70,10 @@ class SerialPort:public Comm::Pipe
 	void setRawMode(int minNumBytes,int timeout); // Switches port to "raw" mode and sets burst parameters
 	void setCanonicalMode(void); // Switches port to canonical mode
 	void setLineControl(bool respectModemLines,bool hangupOnClose); // Sets line control parameters
+	bool getRTS(void); // Returns the current state of the "ready to send" serial port line
+	bool setRTS(bool newRTS); // Manually sets or clears the "ready to send" serial port line; returns previous state
+	bool getCTS(void); // Returns the current state of the "clear to send" serial port line
+	bool setCTS(bool newCTS); // Manually sets or clears the "clear to send" serial port line; returns previous state
 	};
 
 }

@@ -126,6 +126,42 @@ inline bool isFinite(double value)
 Optimized arithmetic convenience functions:
 ******************************************/
 
+/* The copysign function returns a value that has the absolute value of abs, but the sign of sign: */
+
+inline signed char copysign(signed char abs,signed char sign)
+	{
+	return ((abs^sign)&0x80)?-abs:abs;
+	}
+
+inline short copysign(short abs,short sign)
+	{
+	return ((abs^sign)&0x8000)?-abs:abs;
+	}
+
+inline int copysign(int abs,int sign)
+	{
+	return ((abs^sign)&0x80000000)?-abs:abs;
+	}
+
+inline long copysign(long abs,long sign)
+	{
+	return ((abs^sign)&0x8000000000000000L)?-abs:abs;
+	}
+
+inline float copysign(float abs,float sign)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return copysignf(abs,sign);
+	#else
+	return float(::copysign(double(abs),double(sign)));
+	#endif
+	}
+
+inline double copysign(double abs,double sign)
+	{
+	return ::copysign(abs,sign);
+	}
+
 template <class ScalarParam>
 inline ScalarParam mul2(ScalarParam value)
 	{
@@ -426,6 +462,94 @@ inline float atan2(float counter,float denominator)
 inline double atan2(double counter,double denominator)
 	{
 	return ::atan2(counter,denominator);
+	}
+
+/************************************************************
+Type-safe wrappers around hyperbolic trigonometric functions:
+************************************************************/
+
+inline float sinh(float value)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return sinhf(value);
+	#else
+	return float(::sinh(double(value)));
+	#endif
+	}
+
+inline double sinh(double value)
+	{
+	return ::sinh(value);
+	}
+
+inline float cosh(float value)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return coshf(value);
+	#else
+	return float(::cosh(double(value)));
+	#endif
+	}
+
+inline double cosh(double value)
+	{
+	return ::cosh(value);
+	}
+
+inline float tanh(float value)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return tanhf(value);
+	#else
+	return float(::tanh(double(value)));
+	#endif
+	}
+
+inline double tanh(double value)
+	{
+	return ::tanh(value);
+	}
+
+inline float asinh(float value)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return asinhf(value);
+	#else
+	return float(::asinh(double(value)));
+	#endif
+	}
+
+inline double asinh(double value)
+	{
+	return ::asinh(value);
+	}
+
+inline float acosh(float value)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return acoshf(value);
+	#else
+	return float(::acosh(double(value)));
+	#endif
+	}
+
+inline double acosh(double value)
+	{
+	return ::acosh(value);
+	}
+
+inline float atanh(float value)
+	{
+	#ifdef MATH_CONFIG_HAVE_FLOAT_CALLS
+	return atanhf(value);
+	#else
+	return float(::atanh(double(value)));
+	#endif
+	}
+
+inline double atanh(double value)
+	{
+	return ::atanh(value);
 	}
 
 /**************************************************

@@ -1,7 +1,7 @@
 /***********************************************************************
 Environment-independent part of Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2012 Oliver Kreylos
+Copyright (c) 2000-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -231,14 +231,19 @@ GLMotif::Popup* VruiState::buildViewMenu(void)
 	
 	GLMotif::SubMenu* viewMenu=new GLMotif::SubMenu("View",viewMenuPopup,false);
 	
-	GLMotif::Button* loadViewButton=new GLMotif::Button("LoadViewButton",viewMenu,"Load View");
-	loadViewButton->getSelectCallbacks().add(this,&VruiState::loadViewCallback);
+	GLMotif::Button* pushViewButton=new GLMotif::Button("PushViewButton",viewMenu,"Push View");
+	pushViewButton->getSelectCallbacks().add(this,&VruiState::pushViewCallback);
 	
-	GLMotif::Button* saveViewButton=new GLMotif::Button("SaveViewButton",viewMenu,"Save View");
-	saveViewButton->getSelectCallbacks().add(this,&VruiState::saveViewCallback);
+	GLMotif::Button* popViewButton=new GLMotif::Button("PushViewButton",viewMenu,"Pop View");
+	popViewButton->getSelectCallbacks().add(this,&VruiState::popViewCallback);
 	
-	GLMotif::Button* restoreViewButton=new GLMotif::Button("RestoreViewButton",viewMenu,"Restore View");
-	restoreViewButton->getSelectCallbacks().add(this,&VruiState::restoreViewCallback);
+	new GLMotif::Separator("Separator1",viewMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
+	
+	GLMotif::Button* loadViewButton=new GLMotif::Button("LoadViewButton",viewMenu,"Load View...");
+	viewSelectionHelper.addLoadCallback(loadViewButton,this,&VruiState::loadViewCallback);
+	
+	GLMotif::Button* saveViewButton=new GLMotif::Button("LoadViewButton",viewMenu,"Save View...");
+	viewSelectionHelper.addSaveCallback(saveViewButton,this,&VruiState::saveViewCallback);
 	
 	viewMenu->manageChild();
 	
@@ -265,11 +270,11 @@ GLMotif::Popup* VruiState::buildDevicesMenu(void)
 	
 	new GLMotif::Separator("Separator2",devicesMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
 	
-	GLMotif::Button* loadInputGraphButton=new GLMotif::Button("LoadInputGraphButton",devicesMenu,"Load Input Graph");
-	loadInputGraphButton->getSelectCallbacks().add(this,&VruiState::loadInputGraphCallback);
+	GLMotif::Button* loadInputGraphButton=new GLMotif::Button("LoadInputGraphButton",devicesMenu,"Load Input Graph...");
+	inputGraphSelectionHelper.addLoadCallback(loadInputGraphButton,this,&VruiState::loadInputGraphCallback);
 	
-	GLMotif::Button* saveInputGraphButton=new GLMotif::Button("SaveInputGraphButton",devicesMenu,"Save Input Graph");
-	saveInputGraphButton->getSelectCallbacks().add(this,&VruiState::saveInputGraphCallback);
+	GLMotif::Button* saveInputGraphButton=new GLMotif::Button("SaveInputGraphButton",devicesMenu,"Save Input Graph...");
+	inputGraphSelectionHelper.addSaveCallback(saveInputGraphButton,this,&VruiState::saveInputGraphCallback);
 	
 	devicesMenu->manageChild();
 	
@@ -322,55 +327,42 @@ void VruiState::updateNavigationTransformation(const NavTransform& newTransform)
 	inverseNavigationTransformation=newInverseTransform;
 	}
 
-bool VruiState::loadViewpointFile(IO::Directory& directory,const char* viewpointFileName)
+void VruiState::loadViewpointFile(IO::Directory& directory,const char* viewpointFileName)
 	{
-	bool result=false;
+	/* Open the viewpoint file: */
+	IO::FilePtr viewpointFile=directory.openFile(viewpointFileName);
+	viewpointFile->setEndianness(Misc::LittleEndian);
 	
-	try
+	/* Check the header: */
+	char header[80];
+	viewpointFile->read(header,strlen(vruiViewpointFileHeader));
+	header[strlen(vruiViewpointFileHeader)]='\0';
+	if(strcmp(header,vruiViewpointFileHeader)==0)
 		{
-		/* Open the viewpoint file: */
-		IO::FilePtr viewpointFile=directory.openFile(viewpointFileName);
-		viewpointFile->setEndianness(Misc::LittleEndian);
+		/* Read the environment's center point in navigational coordinates: */
+		Point center;
+		viewpointFile->read<Scalar>(center.getComponents(),3);
 		
-		/* Check the header: */
-		char header[80];
-		viewpointFile->read(header,strlen(vruiViewpointFileHeader));
-		header[strlen(vruiViewpointFileHeader)]='\0';
-		if(strcmp(header,vruiViewpointFileHeader)==0)
-			{
-			/* Read the environment's center point in navigational coordinates: */
-			Point center;
-			viewpointFile->read<Scalar>(center.getComponents(),3);
-			
-			/* Read the environment's size in navigational coordinates: */
-			Scalar size=viewpointFile->read<Scalar>();
-			
-			/* Read the environment's forward direction in navigational coordinates: */
-			Vector forward;
-			viewpointFile->read<Scalar>(forward.getComponents(),3);
-			
-			/* Read the environment's up direction in navigational coordinates: */
-			Vector up;
-			viewpointFile->read<Scalar>(up.getComponents(),3);
-			
-			/* Construct the navigation transformation: */
-			NavTransform nav=NavTransform::identity;
-			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-			nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
-			nav*=NavTransform::scale(getDisplaySize()/size);
-			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
-			nav*=NavTransform::translateToOriginFrom(center);
-			setNavigationTransformation(nav);
-			
-			result=true;
-			}
+		/* Read the environment's size in navigational coordinates: */
+		Scalar size=viewpointFile->read<Scalar>();
+		
+		/* Read the environment's forward direction in navigational coordinates: */
+		Vector forward;
+		viewpointFile->read<Scalar>(forward.getComponents(),3);
+		
+		/* Read the environment's up direction in navigational coordinates: */
+		Vector up;
+		viewpointFile->read<Scalar>(up.getComponents(),3);
+		
+		/* Construct the navigation transformation: */
+		NavTransform nav=NavTransform::identity;
+		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+		nav*=NavTransform::scale(getDisplaySize()/size);
+		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
+		nav*=NavTransform::translateToOriginFrom(center);
+		setNavigationTransformation(nav);
 		}
-	catch(std::runtime_error error)
-		{
-		/* Ignore the error and return a failure code: */
-		}
-	
-	return result;
 	}
 
 void VruiState::toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData)
@@ -404,6 +396,7 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 newInputDevicePosition(0.0,0.0,0.0),
 	 virtualInputDevice(0),
 	 inputGraphManager(0),
+	 inputGraphSelectionHelper("SavedInputGraph.inputgraph",".inputgraph",0),
 	 loadInputGraph(false),
 	 inputDeviceManager(0),
 	 inputDeviceDataSaver(0),
@@ -426,6 +419,7 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 dialogsMenu(0),
 	 systemMenuPopup(0),
 	 mainMenu(0),
+	 viewSelectionHelper("SavedViewpoint.view",".view",0),
 	 navigationTransformationEnabled(false),
 	 delayNavigationTransformation(false),
 	 navigationTransformationChangedMask(0x0),
@@ -477,6 +471,8 @@ VruiState::~VruiState(void)
 	/* Delete widget management: */
 	delete systemMenuPopup;
 	delete mainMenu;
+	viewSelectionHelper.closeDialogs();
+	inputGraphSelectionHelper.closeDialogs();
 	delete uiStyleSheet.font;
 	delete widgetManager;
 	delete timerEventScheduler;
@@ -691,8 +687,8 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	popWidgetsOnScreen=configFileSection.retrieveValue<bool>("./popWidgetsOnScreen",popWidgetsOnScreen);
 	
 	/* Initialize the directories used to load files: */
-	viewDirectory=openDirectory(".");
-	inputGraphDirectory=viewDirectory;
+	viewSelectionHelper.setCurrentDirectory(openDirectory("."));
+	inputGraphSelectionHelper.setCurrentDirectory(openDirectory("."));
 	
 	/* Initialize 3D picking: */
 	pointPickDistance=Scalar(uiStyleSheet.size*2.0f);
@@ -802,7 +798,7 @@ void VruiState::prepareMainLoop(void)
 	if(loadInputGraph)
 		{
 		/* Load the requested input graph: */
-		inputGraphManager->loadInputGraph(inputGraphFileName.c_str(),"InputGraph");
+		inputGraphManager->loadInputGraph(*inputGraphSelectionHelper.getCurrentDirectory(),inputGraphFileName.c_str(),"InputGraph");
 		loadInputGraph=false;
 		}
 	else
@@ -820,11 +816,15 @@ void VruiState::prepareMainLoop(void)
 		std::string dirName(vfn,fileName);
 		
 		/* Override the navigation transformation: */
-		IO::DirectoryPtr viewpointDir=openDirectory(dirName.c_str());
-		if(!loadViewpointFile(*viewpointDir,fileName)&&master)
+		try
+			{
+			viewSelectionHelper.setCurrentDirectory(openDirectory(dirName.c_str()));
+			loadViewpointFile(*viewSelectionHelper.getCurrentDirectory(),fileName);
+			}
+		catch(std::runtime_error err)
 			{
 			/* Print a warning message and continue: */
-			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<std::endl;
+			std::cerr<<"Unable to load viewpoint file "<<viewpointFileName<<" due to exception "<<err.what()<<std::endl;
 			}
 		}
 	
@@ -997,7 +997,7 @@ void VruiState::update(void)
 			{
 			/* Load the input graph from the selected configuration file: */
 			getInputGraphManager()->clear();
-			getInputGraphManager()->loadInputGraph(inputGraphDirectory->getPath(inputGraphFileName.c_str()).c_str(),"InputGraph");
+			getInputGraphManager()->loadInputGraph(*inputGraphSelectionHelper.getCurrentDirectory(),inputGraphFileName.c_str(),"InputGraph");
 			}
 		catch(std::runtime_error err)
 			{
@@ -1219,110 +1219,49 @@ void VruiState::widgetPopCallback(GLMotif::WidgetManager::WidgetPopCallbackData*
 		}
 	}
 
-void VruiState::loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void VruiState::loadViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected file only if there are no active navigation tools: */
 	if(activeNavigationTool==0)
 		{
 		/* Load the selected viewpoint file: */
-		if(!loadViewpointFile(*cbData->selectedDirectory,cbData->selectedFileName))
-			{
-			/* Show an error message: */
-			showErrorMessage("Load View...",Misc::stringPrintf("Could not load viewpoint file \"%s\"",cbData->getSelectedPath().c_str()).c_str());
-			}
+		loadViewpointFile(*cbData->selectedDirectory,cbData->selectedFileName);
 		}
-	
-	/* Remember the current directory for next time: */
-	viewDirectory=cbData->selectedDirectory;
-	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
 	}
 
-void VruiState::loadViewCallback(Misc::CallbackData* cbData)
+void VruiState::saveViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
-	try
-		{
-		/* Create a file selection dialog to select a viewpoint file: */
-		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadViewDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load View...",viewDirectory,".view"));
-		loadViewDialog->getOKCallbacks().add(this,&VruiState::loadViewOKCallback);
-		loadViewDialog->deleteOnCancel();
-		
-		/* Show the file selection dialog: */
-		popupPrimaryWidget(loadViewDialog.releaseTarget());
-		}
-	catch(std::runtime_error err)
-		{
-		showErrorMessage("Load View...",Misc::stringPrintf("Could not load viewpoint due to exception %s",err.what()).c_str());
-		}
+	/* Write the viewpoint file: */
+	IO::FilePtr viewpointFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
+	viewpointFile->setEndianness(Misc::LittleEndian);
+	
+	/* Write a header identifying this as an environment-independent viewpoint file: */
+	viewpointFile->write<char>(vruiViewpointFileHeader,strlen(vruiViewpointFileHeader));
+	
+	/* Write the environment's center point in navigational coordinates: */
+	Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
+	viewpointFile->write<Scalar>(center.getComponents(),3);
+	
+	/* Write the environment's size in navigational coordinates: */
+	Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
+	viewpointFile->write<Scalar>(size);
+	
+	/* Write the environment's forward direction in navigational coordinates: */
+	Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
+	viewpointFile->write<Scalar>(forward.getComponents(),3);
+	
+	/* Write the environment's up direction in navigational coordinates: */
+	Vector up=getInverseNavigationTransformation().transform(getUpDirection());
+	viewpointFile->write<Scalar>(up.getComponents(),3);
 	}
 
-void VruiState::saveViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
-	{
-	try
-		{
-		/* Write the viewpoint file: */
-		IO::FilePtr viewpointFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
-		viewpointFile->setEndianness(Misc::LittleEndian);
-		
-		/* Write a header identifying this as an environment-independent viewpoint file: */
-		viewpointFile->write<char>(vruiViewpointFileHeader,strlen(vruiViewpointFileHeader));
-		
-		/* Write the environment's center point in navigational coordinates: */
-		Point center=getInverseNavigationTransformation().transform(getDisplayCenter());
-		viewpointFile->write<Scalar>(center.getComponents(),3);
-		
-		/* Write the environment's size in navigational coordinates: */
-		Scalar size=getDisplaySize()*getInverseNavigationTransformation().getScaling();
-		viewpointFile->write<Scalar>(size);
-		
-		/* Write the environment's forward direction in navigational coordinates: */
-		Vector forward=getInverseNavigationTransformation().transform(getForwardDirection());
-		viewpointFile->write<Scalar>(forward.getComponents(),3);
-		
-		/* Write the environment's up direction in navigational coordinates: */
-		Vector up=getInverseNavigationTransformation().transform(getUpDirection());
-		viewpointFile->write<Scalar>(up.getComponents(),3);
-		}
-	catch(std::runtime_error err)
-		{
-		/* Show an error message: */
-		showErrorMessage("Save View...",Misc::printStdErrMsg("Could not write viewpoint file %s due to exception %s",cbData->getSelectedPath().c_str(),err.what()));
-		}
-	
-	/* Remember the current directory for next time: */
-	viewDirectory=cbData->selectedDirectory;
-	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
-	}
-
-void VruiState::saveViewCallback(Misc::CallbackData* cbData)
+void VruiState::pushViewCallback(Misc::CallbackData* cbData)
 	{
 	/* Push the current navigation transformation onto the stack of navigation transformations: */
 	storedNavigationTransformations.push_back(getNavigationTransformation());
-	
-	try
-		{
-		/* Create a uniquely-named viewpoint file in the most recently used viewpoint file directory: */
-		std::string viewpointFileName=viewDirectory->createNumberedFileName("SavedViewpoint.view",4);
-
-		/* Create a file selection dialog to select an alternative viewpoint file name: */
-		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveViewDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save View...",viewDirectory,viewpointFileName.c_str(),".view"));
-		saveViewDialog->getOKCallbacks().add(this,&VruiState::saveViewOKCallback);
-		saveViewDialog->deleteOnCancel();
-		
-		/* Show the file selection dialog: */
-		popupPrimaryWidget(saveViewDialog.releaseTarget());
-		}
-	catch(std::runtime_error err)
-		{
-		/* Show an error message: */
-		showErrorMessage("Save View...",Misc::printStdErrMsg("Could not save view due to exception %s",err.what()));
-		}
 	}
 
-void VruiState::restoreViewCallback(Misc::CallbackData* cbData)
+void VruiState::popViewCallback(Misc::CallbackData* cbData)
 	{
 	/* Only restore if no navigation tools are active and the stack is not empty: */
 	if(activeNavigationTool==0&&!storedNavigationTransformations.empty())
@@ -1349,102 +1288,17 @@ void VruiState::destroyInputDeviceCallback(Misc::CallbackData* cbData)
 		}
 	}
 
-void VruiState::loadInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void VruiState::loadInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Remember to load the given input graph file at the next opportune time: */
 	loadInputGraph=true;
 	inputGraphFileName=cbData->selectedFileName;
-	
-	/* Remember the current directory for next time: */
-	inputGraphDirectory=cbData->fileSelectionDialog->getCurrentDirectory();
-	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
 	}
 
-void VruiState::loadInputGraphCallback(Misc::CallbackData* cbData)
+void VruiState::saveInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
-	try
-		{
-		/* Create a file selection dialog to select a configuration file: */
-		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> loadInputGraphDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Input Graph...",inputGraphDirectory,".inputgraph"));
-		loadInputGraphDialog->getOKCallbacks().add(this,&VruiState::loadInputGraphOKCallback);
-		loadInputGraphDialog->deleteOnCancel();
-		
-		/* Show the file selection dialog: */
-		popupPrimaryWidget(loadInputGraphDialog.releaseTarget());
-		}
-	catch(std::runtime_error err)
-		{
-		/* Show an error message: */
-		showErrorMessage("Load Input Graph...",Misc::printStdErrMsg("Could not load input graph due to exception %s",err.what()));
-		}
-	}
-
-void VruiState::saveInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
-	{
-	bool success=false;
-	
-	if(master)
-		{
-		try
-			{
-			/* Save the input graph: */
-			getInputGraphManager()->saveInputGraph(cbData->getSelectedPath().c_str(),"InputGraph");
-			
-			success=true;
-			}
-		catch(std::runtime_error err)
-			{
-			/* Ignore error here; will be handled later */
-			}
-		
-		if(pipe!=0)
-			{
-			/* Send result notification to slaves: */
-			pipe->write<int>(success?1:0);
-			pipe->flush();
-			}
-		}
-	else
-		{
-		/* Receive result notification from master: */
-		success=pipe->read<int>()!=0;
-		}
-	
-	if(!success)
-		{
-		/* Show an error message: */
-		showErrorMessage("Save Input Graph...",Misc::printStdErrMsg("Could not write input graph to file %s",cbData->getSelectedPath().c_str()));
-		}
-	
-	/* Remember the current directory for next time: */
-	inputGraphDirectory=cbData->selectedDirectory;
-	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
-	}
-
-void VruiState::saveInputGraphCallback(Misc::CallbackData* cbData)
-	{
-	try
-		{
-		/* Create a uniquely-named input graph file in the most recently used input graph directory: */
-		std::string inputGraphFileName=inputGraphDirectory->createNumberedFileName("SavedInputGraph.inputgraph",4);
-		
-		/* Create a file selection dialog to select an alternative input graph file name: */
-		Misc::SelfDestructPointer<GLMotif::FileSelectionDialog> saveInputGraphDialog(new GLMotif::FileSelectionDialog(getWidgetManager(),"Save Input Graph...",inputGraphDirectory,inputGraphFileName.c_str(),".inputgraph"));
-		saveInputGraphDialog->getOKCallbacks().add(this,&VruiState::saveInputGraphOKCallback);
-		saveInputGraphDialog->deleteOnCancel();
-		
-		/* Show the file selection dialog: */
-		popupPrimaryWidget(saveInputGraphDialog.releaseTarget());
-		}
-	catch(std::runtime_error err)
-		{
-		/* Show an error message: */
-		showErrorMessage("Save Input Graph...",Misc::printStdErrMsg("Could not save input graph due to exception %s",err.what()));
-		}
+	/* Save the input graph: */
+	getInputGraphManager()->saveInputGraph(*cbData->selectedDirectory,cbData->selectedFileName,"InputGraph");
 	}
 
 void VruiState::showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)

@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -55,6 +55,7 @@ Methods of class ViewpointFileNavigationToolFactory:
 ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ViewpointFileNavigationTool",toolManager),
 	 viewpointFileName(""),
+	 viewpointSelectionHelper("",".views,.curve",openDirectory(".")),
 	 showGui(false),
 	 showKeyframes(true),
 	 pauseFileName("ViewpointFileNavigation.pauses"),
@@ -410,23 +411,10 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		}
 	}
 
-void ViewpointFileNavigationTool::loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void ViewpointFileNavigationTool::loadViewpointFileCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected viewpoint file: */
 	readViewpointFile(cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
-	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
-	if(loadViewpointFileDialog==cbData->fileSelectionDialog)
-		loadViewpointFileDialog=0;
-	}
-
-void ViewpointFileNavigationTool::loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData)
-	{
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
-	if(loadViewpointFileDialog==cbData->fileSelectionDialog)
-		loadViewpointFileDialog=0;
 	}
 
 void ViewpointFileNavigationTool::writeControlPoint(const ViewpointFileNavigationTool::ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex)
@@ -559,10 +547,8 @@ void ViewpointFileNavigationTool::initialize(void)
 	/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
 	if(viewpointFileName.empty())
 		{
-		loadViewpointFileDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Viewpoint File",openDirectory("."),".views,.curve");
-		loadViewpointFileDialog->getOKCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileOKCallback);
-		loadViewpointFileDialog->getCancelCallbacks().add(this,&ViewpointFileNavigationTool::loadViewpointFileCancelCallback);
-		popupPrimaryWidget(loadViewpointFileDialog);
+		/* Load a viewpoint file: */
+		factory->viewpointSelectionHelper.loadFile("Load Viewpoint File...",this,&ViewpointFileNavigationTool::loadViewpointFileCallback);
 		}
 	else
 		{
@@ -573,9 +559,6 @@ void ViewpointFileNavigationTool::initialize(void)
 
 void ViewpointFileNavigationTool::deinitialize(void)
 	{
-	/* Close the viewpoint file selection dialog if it's still there: */
-	if(loadViewpointFileDialog!=0)
-		loadViewpointFileDialog->close();
 	}
 
 const ToolFactory* ViewpointFileNavigationTool::getFactory(void) const

@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeTool - Vrui tool class to snap a virtual input device to
 events in an earthquake data set.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -34,24 +34,24 @@ class EarthquakeToolFactory:public Vrui::ToolFactory // Class for factories that
 	
 	/* Elements: */
 	private:
-	const EarthquakeSet* quakes; // The earthquake data set used by all earthquake tools
+	const std::vector<EarthquakeSet*>& earthquakeSets; // Reference to the list of earthquake sets queried by all tools created by this factory
 	
 	/* Constructors and destructors: */
 	public:
-	EarthquakeToolFactory(Vrui::ToolManager& toolManager,const EarthquakeSet* sQuakes);
+	EarthquakeToolFactory(Vrui::ToolManager& toolManager,const std::vector<EarthquakeSet*>& sEarthquakeSets);
 	static void factoryDestructor(Vrui::ToolFactory* factory)
 		{
 		delete factory;
 		}
 	virtual ~EarthquakeToolFactory(void);
 	
-	/* Methods from ToolFactory: */
+	/* Methods from Vrui::ToolFactory: */
 	virtual const char* getName(void) const;
 	virtual Vrui::Tool* createTool(const Vrui::ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Vrui::Tool* tool) const;
 	};
 
-class EarthquakeTool:public Vrui::TransformTool // The LiDAR tool class
+class EarthquakeTool:public Vrui::TransformTool // The earthquake tool class
 	{
 	friend class EarthquakeToolFactory;
 	
@@ -59,11 +59,13 @@ class EarthquakeTool:public Vrui::TransformTool // The LiDAR tool class
 	private:
 	static EarthquakeToolFactory* factory; // Pointer to the factory object for this class
 	
+	Vrui::Scalar lastRayParameter; // Last successful event intersection ray parameter for ray-based devices
+	
 	/* Constructors and destructors: */
 	public:
 	EarthquakeTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
 	
-	/* Methods from Tool: */
+	/* Methods from Vrui::Tool: */
 	virtual void initialize(void);
 	virtual const Vrui::ToolFactory* getFactory(void) const;
 	virtual void frame(void);

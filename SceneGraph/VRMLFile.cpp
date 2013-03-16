@@ -1,7 +1,7 @@
 /***********************************************************************
 VRMLFile - Class to represent a VRML 2.0 file and state required to
 parse its contents.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -112,6 +112,9 @@ void parseRoute(VRMLFile& vrmlFile)
 		{
 		throw VRMLFile::ParseError(vrmlFile,"mismatching field types in route definition");
 		}
+	
+	/* For now, just delete the route again: */
+	delete route;
 	}
 
 /********************************************************************
@@ -259,27 +262,27 @@ class ValueParser<Size>
 		}
 	};
 
-template <>
-class ValueParser<Point>
+template <class ScalarParam>
+class ValueParser<Geometry::Point<ScalarParam,3> >
 	{
 	/* Methods: */
 	public:
-	static Point parseValue(VRMLFile& vrmlFile)
+	static Geometry::Point<ScalarParam,3> parseValue(VRMLFile& vrmlFile)
 		{
-		Point result;
+		Geometry::Point<ScalarParam,3> result;
 		parseComponentArray(result,vrmlFile);
 		return result;
 		}
 	};
 
-template <>
-class ValueParser<Vector>
+template <class ScalarParam>
+class ValueParser<Geometry::Vector<ScalarParam,3> >
 	{
 	/* Methods: */
 	public:
-	static Vector parseValue(VRMLFile& vrmlFile)
+	static Geometry::Vector<ScalarParam,3> parseValue(VRMLFile& vrmlFile)
 		{
-		Vector result;
+		Geometry::Vector<ScalarParam,3> result;
 		parseComponentArray(result,vrmlFile);
 		return result;
 		}
@@ -626,5 +629,9 @@ template void VRMLFile::parseField(MFNode&);
 
 template void VRMLFile::parseField(SF<double>&);
 template void VRMLFile::parseField(MF<double>&);
+template void VRMLFile::parseField(SF<Geometry::Point<double,3> >&);
+template void VRMLFile::parseField(MF<Geometry::Point<double,3> >&);
+template void VRMLFile::parseField(SF<Geometry::Vector<double,3> >&);
+template void VRMLFile::parseField(MF<Geometry::Vector<double,3> >&);
 
 }

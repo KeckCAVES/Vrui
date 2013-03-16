@@ -1,6 +1,6 @@
 /***********************************************************************
 AnnotationTool - Tool to interactively annotate 3D models.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,6 +35,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Button.h>
+#include <GLMotif/WidgetStateHelper.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/ToolManager.h>
 
@@ -882,9 +883,16 @@ void AnnotationTool::creationButtonsCallback(GLMotif::RadioBox::ValueChangedCall
 		}
 	}
 
+void AnnotationTool::coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData)
+	{
+	/* Update the user transformation: */
+	userTransform=cbData->newTransform;
+	}
+
 AnnotationTool::AnnotationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:UtilityTool(sFactory,inputAssignment),
 	 annotationDialogPopup(0),creationButtons(0),
+	 userTransform(getCoordinateManager()->getCoordinateTransform()),
 	 newObject(0),newCreationState(0),
 	 pickedObject(0),pickResult(0),
 	 dragDevice(0),dragState(0)
@@ -916,12 +924,18 @@ AnnotationTool::AnnotationTool(const ToolFactory* sFactory,const ToolInputAssign
 	
 	annotationDialog->manageChild();
 	
-	/* Pop up the measurement dialog: */
+	/* Pop up the annotation dialog: */
 	popupPrimaryWidget(annotationDialogPopup);
+	
+	/* Register a callback with the coordinate manager: */
+	getCoordinateManager()->getCoordinateTransformChangedCallbacks().add(this,&AnnotationTool::coordTransformChangedCallback);
 	}
 
 AnnotationTool::~AnnotationTool(void)
 	{
+	/* Unregister the callback from the coordinate manager: */
+	getCoordinateManager()->getCoordinateTransformChangedCallbacks().remove(this,&AnnotationTool::coordTransformChangedCallback);
+	
 	/* Delete the annotation dialog: */
 	delete annotationDialogPopup;
 	
@@ -936,6 +950,50 @@ AnnotationTool::~AnnotationTool(void)
 	/* Delete dragging state: */
 	delete pickResult;
 	delete dragState;
+	}
+
+void AnnotationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Read the currently selected toggle: */
+	int creationState=configFileSection.retrieveValue<int>("./creationState",-1);
+	if(creationState>=0&&creationState<3)
+		{
+		/* Select the toggle and start creating a new annotation object: */
+		creationButtons->setSelectedToggle(creationState);
+		
+		switch(creationState)
+			{
+			case 0:
+				/* Create a new position object: */
+				newObject=new Position(*factory->labelFont);
+				newCreationState=new Position::CreationState;
+				break;
+			
+			case 1:
+				/* Create a new distance object: */
+				newObject=new Distance(*factory->labelFont);
+				newCreationState=new Distance::CreationState;
+				break;
+			
+			case 2:
+				/* Create a new angle object: */
+				newObject=new Angle(*factory->labelFont);
+				newCreationState=new Angle::CreationState;
+				break;
+			}
+		}
+	
+	/* Read the annotation dialog's position, orientation, and size: */
+	GLMotif::readTopLevelPosition(annotationDialogPopup,configFileSection);
+	}
+
+void AnnotationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Write the index of the currently selected toggle or -1 if no toggle is selected: */
+	configFileSection.storeValue<int>("./creationState",creationButtons->getToggleIndex(creationButtons->getSelectedToggle()));
+	
+	/* Write the annotation dialog's current position, orientation, and size: */
+	GLMotif::writeTopLevelPosition(annotationDialogPopup,configFileSection);
 	}
 
 const ToolFactory* AnnotationTool::getFactory(void) const

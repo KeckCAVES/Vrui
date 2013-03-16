@@ -1,7 +1,7 @@
 /***********************************************************************
 ClosePointSet - Class to store results of nearest-neighbour-queries in
 spatial data structures.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -127,28 +127,30 @@ class ClosePointSet
 		}
 	void insertPoint(const StoredPoint& newPoint,Scalar newSqrDist) // Inserts new point (with given squared distance from query point) into set
 		{
-		if(newSqrDist>=maxDist2)
-			return;
-		
-		if(numPoints<maxNumPoints)
+		if(newSqrDist<dist2)
 			{
-			int insertIndex;
-			for(insertIndex=numPoints;insertIndex>0&&points[insertIndex-1].dist2>newSqrDist;--insertIndex)
-				points[insertIndex]=points[insertIndex-1];
-			points[insertIndex].point=&newPoint;
-			points[insertIndex].dist2=newSqrDist;
-			++numPoints;
-			if(numPoints==maxNumPoints)
+			if(numPoints<maxNumPoints)
+				{
+				/* Insert the new point into the list: */
+				int insertIndex;
+				for(insertIndex=numPoints;insertIndex>0&&points[insertIndex-1].dist2>newSqrDist;--insertIndex)
+					points[insertIndex]=points[insertIndex-1];
+				points[insertIndex].point=&newPoint;
+				points[insertIndex].dist2=newSqrDist;
+				++numPoints;
+				if(numPoints==maxNumPoints)
+					dist2=points[numPoints-1].dist2;
+				}
+			else
+				{
+				/* Remove the last point from the list and insert the new point: */
+				int insertIndex;
+				for(insertIndex=numPoints-1;insertIndex>0&&points[insertIndex-1].dist2>newSqrDist;--insertIndex)
+					points[insertIndex]=points[insertIndex-1];
+				points[insertIndex].point=&newPoint;
+				points[insertIndex].dist2=newSqrDist;
 				dist2=points[numPoints-1].dist2;
-			}
-		else if(newSqrDist<dist2)
-			{
-			int insertIndex;
-			for(insertIndex=numPoints-1;insertIndex>0&&points[insertIndex-1].dist2>newSqrDist;--insertIndex)
-				points[insertIndex]=points[insertIndex-1];
-			points[insertIndex].point=&newPoint;
-			points[insertIndex].dist2=newSqrDist;
-			dist2=points[numPoints-1].dist2;
+				}
 			}
 		}
 	void clear(void) // Clears the point set

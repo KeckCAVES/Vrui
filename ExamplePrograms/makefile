@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2012 Oliver Kreylos
+# Copyright (c) 2003-2013 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # matches the default Vrui installation; if Vrui's installation
 # directory was changed during Vrui's installation, the directory below
 # must be adapted.
-VRUI_MAKEDIR := $(HOME)/Vrui-2.6/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.7/share/make
 ifdef DEBUG
   VRUI_MAKEDIR := $(VRUI_MAKEDIR)/debug
 endif
@@ -76,14 +76,18 @@ ALL = $(EXEDIR)/VruiDemo \
       $(EXEDIR)/VruiEventToolDemo \
       $(EXEDIR)/VruiCustomToolDemo \
       $(EXEDIR)/VruiCalibrator \
+      $(EXEDIR)/DrawEnvironment \
       $(EXEDIR)/VruiSceneGraphDemo \
       $(EXEDIR)/VruiSoundTest \
       $(EXEDIR)/ImageViewer \
+      $(EXEDIR)/ImageSequenceViewer \
+      $(EXEDIR)/VideoViewer \
       $(EXEDIR)/ShowEarthModel \
       $(EXEDIR)/Jello \
       $(EXEDIR)/ClusterJello \
       $(EXEDIR)/SharedJelloServer \
-      $(EXEDIR)/SharedJello
+      $(EXEDIR)/SharedJello \
+      $(EXEDIR)/VirtualClay
 
 .PHONY: all
 all: $(ALL)
@@ -125,11 +129,17 @@ $(EXEDIR)/VruiCustomToolDemo: $(OBJDIR)/VruiCustomToolDemo.o
 
 $(EXEDIR)/VruiCalibrator: $(OBJDIR)/VruiCalibrator.o
 
+$(EXEDIR)/DrawEnvironment: $(OBJDIR)/DrawEnvironment.o
+
 $(EXEDIR)/VruiSceneGraphDemo: $(OBJDIR)/VruiSceneGraphDemo.o
 
 $(EXEDIR)/VruiSoundTest: $(OBJDIR)/VruiSoundTest.o
 
 $(EXEDIR)/ImageViewer: $(OBJDIR)/ImageViewer.o
+
+$(EXEDIR)/ImageSequenceViewer: $(OBJDIR)/ImageSequenceViewer.o
+
+$(EXEDIR)/VideoViewer: $(OBJDIR)/VideoViewer.o
 
 #
 # ShowEarthModel, a viewer for earthquake catalogs and other assorted
@@ -141,6 +151,7 @@ SHOWEARTHMODEL_SOURCES = EarthFunctions.cpp \
                          SeismicPath.cpp \
                          EarthquakeSet.cpp \
                          EarthquakeTool.cpp \
+                         EarthquakeQueryTool.cpp \
                          ShowEarthModel.cpp
 
 $(OBJDIR)/ShowEarthModel.o: CFLAGS += -DSHOWEARTHMODEL_IMAGEDIR='"$(RESOURCEINSTALLDIR)"'
@@ -163,7 +174,7 @@ $(EXEDIR)/ClusterJello: $(OBJDIR)/JelloAtom.o \
                         $(OBJDIR)/JelloRenderer.o \
                         $(OBJDIR)/ClusterJello.o
 
-# Client/server distributed version:
+# Client/server distributed and collaborative version:
 # Override default package list -- the server does not need to link against Vrui
 $(EXEDIR)/SharedJelloServer: PACKAGES = MYGLGEOMETRYWRAPPERS MYGEOMETRY MYMATH MYCOMM MYIO MYTHREADS MYMISC GL
 $(EXEDIR)/SharedJelloServer: $(OBJDIR)/JelloAtom.o \
@@ -174,6 +185,14 @@ $(EXEDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
                        $(OBJDIR)/JelloCrystal.o \
                        $(OBJDIR)/JelloRenderer.o \
                        $(OBJDIR)/SharedJello.o
+
+#
+# Very simple virtual clay modeling application using a density volume
+# and interactive isosurface extraction:
+#
+
+$(EXEDIR)/VirtualClay: $(OBJDIR)/EditableGrid.o \
+                       $(OBJDIR)/GridEditor.o
 
 # Rule to install the example programs in a destination directory
 install: $(ALL)

@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Pair of classes for high-performance cluster-transparent
 reading/writing from/to standard operating system files.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -140,6 +140,9 @@ void StandardFileMaster::writeData(const IO::File::Byte* buffer,size_t bufferSiz
 		if(lseek64(fd,writePos,SEEK_SET)<0)
 			errorType=1; // Seek error
 		}
+	
+	/* Invalidate the read buffer to prevent reading stale data: */
+	flushReadBuffer();
 	
 	/* Write all data in the given buffer: */
 	while(errorType==0&&bufferSize>0)
@@ -375,6 +378,9 @@ size_t StandardFileSlave::readData(IO::File::Byte* buffer,size_t bufferSize)
 
 void StandardFileSlave::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
+	/* Invalidate the read buffer to prevent reading stale data: */
+	flushReadBuffer();
+	
 	if(isWriteCoupled())
 		{
 		/* Receive a status packet from the master: */

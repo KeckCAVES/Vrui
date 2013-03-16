@@ -1,7 +1,7 @@
 /***********************************************************************
 QuadSetNode - Class for sets of quadrilaterals as renderable
 geometry.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
