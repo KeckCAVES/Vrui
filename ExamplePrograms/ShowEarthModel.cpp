@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -20,8 +20,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 ***********************************************************************/
 
 #define CLIP_SCREEN 0
-
-#include <Images/Config.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -42,6 +40,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLColorTemplates.h>
 #include <GL/GLMatrixTemplates.h>
 #include <GL/GLMaterial.h>
+#include <GL/GLColorMap.h>
 #include <GL/GLContextData.h>
 #include <GL/GLModels.h>
 #include <GL/GLGeometryWrappers.h>
@@ -50,6 +49,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/Extensions/GLARBVertexBufferObject.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GL/GLFrustum.h>
+#include <Images/Config.h>
+#include <Images/RGBImage.h>
+#include <Images/ReadPNGImage.h>
+#include <Images/ReadImageFile.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/Blind.h>
@@ -63,9 +66,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/TextField.h>
-#include <Images/RGBImage.h>
-#include <Images/ReadPNGImage.h>
-#include <Images/ReadImageFile.h>
 #include <SceneGraph/NodeCreator.h>
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/VRMLFile.h>
@@ -79,10 +79,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/OpenFile.h>
 #include <Vrui/Application.h>
+#include <Vrui/SceneGraphSupport.h>
 
 #include "EarthFunctions.h"
 #include "EarthquakeSet.h"
 #include "EarthquakeTool.h"
+#include "EarthquakeQueryTool.h"
 #include "PointSet.h"
 #include "SeismicPath.h"
 
@@ -212,166 +214,6 @@ ShowEarthModel::DataItem::~DataItem(void)
 	
 	/* Delete the Earth model components display lists: */
 	glDeleteLists(displayListIdBase,4);
-	}
-
-/********************************************
-Methods of class ShowEarthModel::BaseLocator:
-********************************************/
-
-ShowEarthModel::BaseLocator::BaseLocator(Vrui::LocatorTool* sLocatorTool,ShowEarthModel* sApplication)
-	:Vrui::LocatorToolAdapter(sLocatorTool),
-	 application(sApplication)
-	{
-	}
-
-void ShowEarthModel::BaseLocator::glRenderAction(GLContextData& contextData) const
-	{
-	}
-
-/********************************************
-Methods of class ShowEarthModel::DataLocator:
-********************************************/
-
-ShowEarthModel::DataLocator::DataLocator(Vrui::LocatorTool* sLocatorTool,ShowEarthModel* sApplication)
-	:BaseLocator(sLocatorTool,sApplication),
-	 dataDialog(0),selectedEvent(0)
-	{
-	const GLMotif::StyleSheet& ss=*Vrui::getWidgetManager()->getStyleSheet();
-	
-	/* Create the data dialog window: */
-	dataDialog=new GLMotif::PopupWindow("DataDialog",Vrui::getWidgetManager(),"Earthquake Data",ss.font);
-	
-	GLMotif::RowColumn* data=new GLMotif::RowColumn("Data",dataDialog,false);
-	data->setOrientation(GLMotif::RowColumn::VERTICAL);
-	data->setPacking(GLMotif::RowColumn::PACK_TIGHT);
-	data->setNumMinorWidgets(2);
-	data->setSpacing(ss.size);
-	
-	new GLMotif::Label("TimeLabel",data,"Time",ss.font);
-	timeTextField=new GLMotif::TextField("TimeValue",data,ss.font,19);
-	
-	new GLMotif::Label("MagnitudeLabel",data,"Magnitude",ss.font);
-	magnitudeTextField=new GLMotif::TextField("MagnitudeValue",data,ss.font,5);
-	magnitudeTextField->setFieldWidth(5);
-	magnitudeTextField->setPrecision(2);
-	
-	GLMotif::Button* setTimeButton=new GLMotif::Button("SetTimeButton",data,"Set Time",ss.font);
-	setTimeButton->getSelectCallbacks().add(this,&ShowEarthModel::DataLocator::setTimeButtonSelectCallback);
-	
-	data->manageChild();
-	
-	/* Pop up the data dialog: */
-	Vrui::popupPrimaryWidget(dataDialog);
-	}
-
-ShowEarthModel::DataLocator::~DataLocator(void)
-	{
-	/* Pop down the data dialog: */
-	Vrui::popdownPrimaryWidget(dataDialog);
-	
-	/* Delete the data dialog: */
-	delete dataDialog;
-	}
-
-void ShowEarthModel::DataLocator::getName(std::string& name) const
-	{
-	name="Earthquake Data";
-	}
-
-void ShowEarthModel::DataLocator::buttonPressCallback(Vrui::LocatorTool::ButtonPressCallbackData* cbData)
-	{
-	/* Find the event closest to the locator position: */
-	Geometry::Rotation<float,3> rot=Geometry::Rotation<float,3>::rotateAxis(Geometry::Rotation<float,3>::Vector(0.0f,0.0f,1.0f),Math::rad(application->rotationAngle));
-	EarthquakeSet::Point pos=rot.inverseTransform(EarthquakeSet::Point(cbData->currentTransformation.getOrigin()));
-	
-	selectedEvent=0;
-	float minDist2=Math::Constants<float>::max;
-	for(std::vector<EarthquakeSet*>::const_iterator esIt=application->earthquakeSets.begin();esIt!=application->earthquakeSets.end();++esIt)
-		{
-		const EarthquakeSet::Event* event=(*esIt)->selectEvent(pos,Math::sqrt(minDist2));
-		if(event!=0)
-			{
-			selectedEvent=event;
-			minDist2=Geometry::sqrDist(pos,event->position);
-			}
-		}
-	
-	/* Update the data dialog: */
-	if(selectedEvent!=0)
-		{
-		/* Display the event time: */
-		time_t tT=time_t(selectedEvent->time);
-		struct tm tTm;
-		localtime_r(&tT,&tTm);
-		char tBuffer[20];
-		snprintf(tBuffer,sizeof(tBuffer),"%04d/%02d/%02d %02d:%02d:%02d",tTm.tm_year+1900,tTm.tm_mon+1,tTm.tm_mday,tTm.tm_hour,tTm.tm_min,tTm.tm_sec);
-		timeTextField->setString(tBuffer);
-		
-		/* Display the event magnitude: */
-		magnitudeTextField->setValue(selectedEvent->magnitude);
-		}
-	else
-		{
-		timeTextField->setString("");
-		magnitudeTextField->setString("");
-		}
-	}
-
-void ShowEarthModel::DataLocator::glRenderAction(GLContextData& contextData) const
-	{
-	if(selectedEvent!=0)
-		{
-		/* Save and set up OpenGL state: */
-		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
-		glDisable(GL_LIGHTING);
-		
-		/* Determine the marker color: */
-		Vrui::Color bgColor=Vrui::getBackgroundColor();
-		Vrui::Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
-		/* Draw the marker: */
-		Vrui::Point pos=selectedEvent->position;
-		Vrui::Scalar markerSize=Vrui::getUiSize()/Vrui::getNavigationTransformation().getScaling();
-		
-		glLineWidth(3.0f);
-		glColor(bgColor);
-		glBegin(GL_LINES);
-		glVertex(pos[0]-markerSize,pos[1],pos[2]);
-		glVertex(pos[0]+markerSize,pos[1],pos[2]);
-		glVertex(pos[0],pos[1]-markerSize,pos[2]);
-		glVertex(pos[0],pos[1]+markerSize,pos[2]);
-		glVertex(pos[0],pos[1],pos[2]-markerSize);
-		glVertex(pos[0],pos[1],pos[2]+markerSize);
-		glEnd();
-		
-		glLineWidth(1.0f);
-		glColor(fgColor);
-		glBegin(GL_LINES);
-		glVertex(pos[0]-markerSize,pos[1],pos[2]);
-		glVertex(pos[0]+markerSize,pos[1],pos[2]);
-		glVertex(pos[0],pos[1]-markerSize,pos[2]);
-		glVertex(pos[0],pos[1]+markerSize,pos[2]);
-		glVertex(pos[0],pos[1],pos[2]-markerSize);
-		glVertex(pos[0],pos[1],pos[2]+markerSize);
-		glEnd();
-		
-		/* Reset OpenGL state: */
-		glPopAttrib();
-		}
-	}
-
-void ShowEarthModel::DataLocator::setTimeButtonSelectCallback(Misc::CallbackData* cbData)
-	{
-	if(selectedEvent!=0)
-		{
-		/* Set the current animation time to the event's time: */
-		application->currentTime=selectedEvent->time;
-		application->updateCurrentTime();
-		application->currentTimeSlider->setValue(application->currentTime);
-		}
 	}
 
 /*******************************
@@ -663,7 +505,7 @@ GLMotif::PopupWindow* ShowEarthModel::createAnimationDialog(void)
 	updateCurrentTime();
 	
 	currentTimeSlider=new GLMotif::Slider("CurrentTimeSlider",animationDialog,GLMotif::Slider::HORIZONTAL,ss.fontHeight*15.0f);
-	currentTimeSlider->setValueRange(earthquakeTimeRange.first,earthquakeTimeRange.second,playSpeed);
+	currentTimeSlider->setValueRange(earthquakeTimeRange.getMin()-playSpeed,earthquakeTimeRange.getMax()+playSpeed,playSpeed);
 	currentTimeSlider->setValue(currentTime);
 	currentTimeSlider->getValueChangedCallbacks().add(this,&ShowEarthModel::sliderCallback);
 	
@@ -768,6 +610,19 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 		POINTSETFILE,EARTHQUAKESETFILE,SEISMICPATHFILE,SENSORPATHFILE,SCENEGRAPHFILE
 		} fileMode=POINTSETFILE; // Treat all file names as point set files initially
 	float colorMask[3]={1.0f,1.0f,1.0f}; // Initial color mask for point set files
+	
+	/* Create an initial color map for event magnitudes: */
+	static const GLColorMap::Color magnitudeColors[]=
+		{
+		GLColorMap::Color(0.0f,1.0f,0.0f), // Magnitude 5
+		GLColorMap::Color(0.0f,1.0f,1.0f), // Magnitude 6
+		GLColorMap::Color(0.0f,0.0f,1.0f), // Magnitude 7
+		GLColorMap::Color(1.0f,0.0f,1.0f), // Magnitude 8
+		GLColorMap::Color(1.0f,0.0f,0.0f)  // Magnitude 9
+		};
+	static const GLdouble magnitudeKeys[]={5.0,6.0,7.0,8.0,9.0};
+	GLColorMap magnitudeColorMap(5,magnitudeColors,magnitudeKeys,5);
+	
 	SceneGraph::NodeCreator* sceneGraphNodeCreator=0;
 	for(int i=1;i<argc;++i)
 		{
@@ -834,9 +689,13 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 				case EARTHQUAKESETFILE:
 					{
 					/* Load an earthquake set: */
-					EarthquakeSet* earthquakeSet=new EarthquakeSet(argv[i],Vrui::openFile(argv[i]),1.0e-3);
+					Geometry::Geoid<double> wgs84; // Create a default WGS84 reference ellipsoid
+					EarthquakeSet* earthquakeSet=new EarthquakeSet(Vrui::openDirectory("."),argv[i],wgs84,Geometry::Vector<double,3>::zero,1.0e-3,magnitudeColorMap);
 					earthquakeSets.push_back(earthquakeSet);
 					showEarthquakeSets.push_back(false);
+					
+					/* Enable layered rendering on the earthquake set: */
+					earthquakeSet->enableLayeredRendering(EarthquakeSet::Point::origin); // Earth's center is at the origin
 					break;
 					}
 				
@@ -892,26 +751,16 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 	/* Calculate the time range of all earthquake events: */
 	if(!earthquakeSets.empty())
 		{
-		std::vector<EarthquakeSet*>::const_iterator esIt=earthquakeSets.begin();
-		earthquakeTimeRange=(*esIt)->getTimeRange();
-		for(++esIt;esIt!=earthquakeSets.end();++esIt)
-			{
-			std::pair<double,double> range=(*esIt)->getTimeRange();
-			if(earthquakeTimeRange.first>range.first)
-				earthquakeTimeRange.first=range.first;
-			if(earthquakeTimeRange.second<range.second)
-				earthquakeTimeRange.second=range.second;
-			}
+		earthquakeTimeRange=EarthquakeSet::TimeRange::empty;
+		for(std::vector<EarthquakeSet*>::const_iterator esIt=earthquakeSets.begin();esIt!=earthquakeSets.end();++esIt)
+			earthquakeTimeRange.addInterval((*esIt)->getTimeRange());
 		}
 	else
-		{
-		earthquakeTimeRange.first=0.0;
-		earthquakeTimeRange.second=0.0;
-		}
+		earthquakeTimeRange=EarthquakeSet::TimeRange(0.0,0.0);
 	
 	/* Initialize the earthquake animation: */
-	currentTime=earthquakeTimeRange.first;
 	playSpeed=365.0*24.0*60.0*60.0; // One second per year
+	currentTime=earthquakeTimeRange.getMin()-playSpeed;
 	play=false;
 	for(std::vector<EarthquakeSet*>::iterator esIt=earthquakeSets.begin();esIt!=earthquakeSets.end();++esIt)
 		{
@@ -965,9 +814,11 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
 	
 	if(!earthquakeSets.empty())
 		{
-		/* Register the custom tool class with the Vrui tool manager: */
-		EarthquakeToolFactory* earthquakeToolFactory=new EarthquakeToolFactory(*Vrui::getToolManager(),earthquakeSets[0]);
+		/* Register the custom tool classes with the Vrui tool manager: */
+		EarthquakeToolFactory* earthquakeToolFactory=new EarthquakeToolFactory(*Vrui::getToolManager(),earthquakeSets);
 		Vrui::getToolManager()->addClass(earthquakeToolFactory,EarthquakeToolFactory::factoryDestructor);
+		EarthquakeQueryToolFactory* earthquakeQueryToolFactory=new EarthquakeQueryToolFactory(*Vrui::getToolManager(),earthquakeSets,Misc::createFunctionCall(this,&ShowEarthModel::setEventTime));
+		Vrui::getToolManager()->addClass(earthquakeQueryToolFactory,EarthquakeQueryToolFactory::factoryDestructor);
 		}
 	
 	/* Set the navigational coordinate system unit: */
@@ -1053,41 +904,12 @@ void ShowEarthModel::initContext(GLContextData& contextData) const
 
 void ShowEarthModel::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData)
 	{
-	/* Check if the new tool is a locator tool: */
-	Vrui::LocatorTool* locatorTool=dynamic_cast<Vrui::LocatorTool*>(cbData->tool);
-	if(locatorTool!=0)
-		{
-		/* Create a new data locator: */
-		BaseLocator* newLocator=new DataLocator(locatorTool,this);
-		
-		/* Add new locator to list: */
-		baseLocators.push_back(newLocator);
-		}
-	
 	/* Check if the new tool is a surface navigation tool: */
 	Vrui::SurfaceNavigationTool* surfaceNavigationTool=dynamic_cast<Vrui::SurfaceNavigationTool*>(cbData->tool);
 	if(surfaceNavigationTool!=0)
 		{
 		/* Set the new tool's alignment function: */
 		surfaceNavigationTool->setAlignFunction(Misc::createFunctionCall(this,&ShowEarthModel::alignSurfaceFrame));
-		}
-	}
-
-void ShowEarthModel::toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData)
-	{
-	/* Check if the to-be-destroyed tool is a locator tool: */
-	Vrui::LocatorTool* locatorTool=dynamic_cast<Vrui::LocatorTool*>(cbData->tool);
-	if(locatorTool!=0)
-		{
-		/* Find the base locator associated with the tool in the list: */
-		for(BaseLocatorList::iterator blIt=baseLocators.begin();blIt!=baseLocators.end();++blIt)
-			if((*blIt)->getTool()==locatorTool)
-				{
-				/* Remove the data locator: */
-				delete *blIt;
-				baseLocators.erase(blIt);
-				break;
-				}
 		}
 	}
 
@@ -1113,9 +935,9 @@ void ShowEarthModel::frame(void)
 	if(play)
 		{
 		currentTime+=playSpeed*(newFrameTime-lastFrameTime);
-		if(currentTime>earthquakeTimeRange.second)
+		if(currentTime>=earthquakeTimeRange.getMax()+playSpeed)
 			{
-			currentTime=earthquakeTimeRange.first;
+			currentTime=earthquakeTimeRange.getMin()-playSpeed;
 			play=false;
 			playToggle->setToggle(false);
 			}
@@ -1274,22 +1096,30 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	
 	if(!sceneGraphs.empty())
 		{
-		/* Calculate the full navigation transformation: */
-		Vrui::NavTransform t=Vrui::getNavigationTransformation();
-		if(lockToSphere)
-			t*=sphereTransform;
-		t*=Vrui::NavTransform::rotate(Vrui::Rotation::rotateZ(Math::rad(rotationAngle)));
-		
 		/* Save OpenGL state: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 		
+		/* Calculate the navigation-relative sphere transformation: */
+		Vrui::NavTransform t=Vrui::NavTransform::rotate(Vrui::Rotation::rotateZ(Math::rad(rotationAngle)));
+		if(lockToSphere)
+			t.leftMultiply(sphereTransform);
+		
+		/* Save the modelview matrix: */
+		glPushMatrix();
+		
 		/* Create a render state to traverse the scene graph: */
-		SceneGraph::GLRenderState renderState(contextData,t.inverseTransform(Vrui::getMainViewer()->getHeadPosition()),t.inverseTransform(Vrui::getUpDirection()));
+		SceneGraph::GLRenderState* renderState=Vrui::createRenderState(t,true,contextData);
 		
 		/* Render all scene graphs: */
 		for(unsigned int i=0;i<sceneGraphs.size();++i)
 			if(showSceneGraphs[i])
-				sceneGraphs[i]->glRenderAction(renderState);
+				sceneGraphs[i]->glRenderAction(*renderState);
+		
+		/* Delete the render state: */
+		delete renderState;
+		
+		/* Restore the modelview matrix: */
+		glPopMatrix();
 		
 		/* Reset OpenGL state: */
 		glPopAttrib();
@@ -1339,10 +1169,6 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	
 	/* Enable lighting again to render transparent surfaces: */
 	glEnable(GL_LIGHTING);
-	
-	/* Render all locators: */
-	for(BaseLocatorList::const_iterator blIt=baseLocators.begin();blIt!=baseLocators.end();++blIt)
-		(*blIt)->glRenderAction(contextData);
 	
 	/* Render transparent surfaces in back-to-front order: */
 	glEnable(GL_BLEND);
@@ -1478,7 +1304,7 @@ void ShowEarthModel::alignSurfaceFrame(Vrui::SurfaceNavigationTool::AlignmentDat
 	{
 	/* Create a geoid: */
 	typedef Geometry::Geoid<Vrui::Scalar> Geoid;
-	Geoid geoid(6378.14,1.0/298.247); // Same geoid as used in EarthFunctions.cpp
+	Geoid geoid(Geoid::getDefaultRadius()*0.001,Geoid::getDefaultFlatteningFactor()); // Use default WGS84 geoid in kilometers
 	
 	/* Convert the surface frame's base point to geodetic latitude/longitude: */
 	Geoid::Point base=alignmentData.surfaceFrame.getOrigin();
@@ -1651,7 +1477,7 @@ void ShowEarthModel::sliderCallback(GLMotif::Slider::ValueChangedCallbackData* c
 		playSpeed=Math::pow(10.0,double(cbData->value));
 		playSpeedValue->setValue(Math::log10(playSpeed));
 		
-		currentTimeSlider->setValueRange(earthquakeTimeRange.first,earthquakeTimeRange.second,playSpeed);
+		currentTimeSlider->setValueRange(earthquakeTimeRange.getMin()-playSpeed,earthquakeTimeRange.getMax()+playSpeed,playSpeed);
 		
 		updateCurrentTime();
 		}
@@ -1673,6 +1499,14 @@ void ShowEarthModel::centerDisplayCallback(Misc::CallbackData* cbData)
 		nav*=Vrui::NavTransform::scale(Vrui::Scalar(8)*Vrui::getInchFactor()/Vrui::Scalar(6.4e3));
 		Vrui::setNavigationTransformation(nav);
 		}
+	}
+
+void ShowEarthModel::setEventTime(double newEventTime)
+	{
+	/* Set the current animation time to the event's time: */
+	currentTime=newEventTime;
+	updateCurrentTime();
+	currentTimeSlider->setValue(currentTime);
 	}
 
 int main(int argc,char* argv[])

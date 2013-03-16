@@ -1,7 +1,7 @@
 ########################################################################
 # Packages.Vrui - List of Vrui sub-packages that can be included/linked
 # into projects.
-# Copyright (c) 1999-2011 Oliver Kreylos
+# Copyright (c) 1999-2013 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -80,7 +80,7 @@ MYMATH_LIBDIR  = -L$(VRUI_LIBDIR)
 MYMATH_LIBS    = -lMath.$(LDEXT)
 
 MYGEOMETRY_BASEDIR = $(VRUI_PACKAGEROOT)
-MYGEOMETRY_DEPENDS = MYMATH MYTHREADS MYMISC
+MYGEOMETRY_DEPENDS = MYMATH MYIO MYTHREADS MYMISC
 MYGEOMETRY_INCLUDE = -I$(VRUI_INCLUDEDIR)
 MYGEOMETRY_LIBDIR  = -L$(VRUI_LIBDIR)
 MYGEOMETRY_LIBS    = -lGeometry.$(LDEXT)

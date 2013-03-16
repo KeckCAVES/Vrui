@@ -154,9 +154,25 @@ void VideoDevice::configure(const Misc::ConfigurationFileSection& cfg)
 				bestRateMatchRatio=rateMatchRatio;
 				}
 			}
-	currentFormat.pixelFormat=bestRateMatch->pixelFormat;
 	currentFormat.frameIntervalCounter=bestRateMatch->frameIntervalCounter;
 	currentFormat.frameIntervalDenominator=bestRateMatch->frameIntervalDenominator;
+	currentFormat.pixelFormat=bestRateMatch->pixelFormat;
+	
+	/* If the configuration file contains a pixel format tag, see if there is a match among the supporting video formats: */
+	if(cfg.hasTag("./pixelFormat"))
+		{
+		std::string pixelFormat=cfg.retrieveValue<std::string>("./pixelFormat");
+		for(std::vector<VideoDataFormat>::iterator dfIt=deviceFormats.begin();dfIt!=deviceFormats.end();++dfIt)
+			if(dfIt->size[0]==currentFormat.size[0]&&dfIt->size[1]==currentFormat.size[1]&&dfIt->frameIntervalCounter*currentFormat.frameIntervalDenominator==dfIt->frameIntervalDenominator*currentFormat.frameIntervalCounter)
+				{
+				/* Check if the pixel format matches the request: */
+				if(dfIt->isPixelFormat(pixelFormat.c_str()))
+					{
+					currentFormat.pixelFormat=dfIt->pixelFormat;
+					break;
+					}
+				}
+		}
 	
 	/* Set the selected video format: */
 	setVideoFormat(currentFormat);

@@ -1,7 +1,9 @@
 /***********************************************************************
 Queue - Simple unlimited-size queue to send data from one or more
-producers to one or more consumers.
-Copyright (c) 2012 Oliver Kreylos
+producers to one or more consumers, with an "alarm" facility to notify
+interested parties when at least a given number of consumers are waiting
+on the queue.
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -50,6 +52,9 @@ class Queue
 	
 	/* Elements: */
 	Mutex queueMutex; // Mutex to serialize access to the queue and condition variable
+	unsigned int numWaitingConsumers; // Number of consumers that are currently blocked on an empty queue
+	unsigned int waitingConsumerAlarmThreshold; // Minimum number of waiting consumers that triggers an "alarm"
+	Cond alarmCond; // Condition variable to signal that the threshold of blocked consumers has been reached
 	Cond queueCond; // Condition variable to signal queue becoming non-empty or non-full
 	ChunkHeader* headChunk; // Pointer to queue chunk containing first queue element
 	size_t headIndex; // Index of first queue element in head chunk
@@ -84,7 +89,8 @@ class Queue
 	/* Constructors and destructors: */
 	public:
 	Queue(void) // Creates an empty queue
-		:headChunk(allocChunk()),headIndex(0),
+		:numWaitingConsumers(0U),waitingConsumerAlarmThreshold(~0U),
+		 headChunk(allocChunk()),headIndex(0),
 		 tailChunk(headChunk),tailIndex(0)
 		{
 		}
@@ -103,6 +109,17 @@ class Queue
 		}
 	
 	/* Methods: */
+	void waitForAlarm(unsigned int newWaitingConsumerAlarmThreshold) // Waits until at least the given number of consumers are blocked on an empty queue
+		{
+		Mutex::Lock queueLock(queueMutex);
+		
+		/* Set the alarm threshold: */
+		waitingConsumerAlarmThreshold=newWaitingConsumerAlarmThreshold;
+		
+		/* Block while the number of waiting consumers is smaller than the threshold or there are still elements in the queue: */
+		while(numWaitingConsumers<waitingConsumerAlarmThreshold||tailChunk!=headChunk||tailIndex!=headIndex)
+			alarmCond.wait(queueMutex);
+		}
 	void push(const Value& value) // Pushes the given value into the queue
 		{
 		Mutex::Lock queueLock(queueMutex);
@@ -132,8 +149,26 @@ class Queue
 		Mutex::Lock queueLock(queueMutex);
 		
 		/* Block while the queue is empty: */
-		while(tailChunk==headChunk&&tailIndex==headIndex)
-			queueCond.wait(queueMutex);
+		if(tailChunk==headChunk&&tailIndex==headIndex)
+			{
+			/* Increment the number of waiting consumers: */
+			++numWaitingConsumers;
+			
+			/* Check the number against the alarm threshold: */
+			if(numWaitingConsumers>=waitingConsumerAlarmThreshold)
+				{
+				/* Raise an alarm: */
+				alarmCond.signal();
+				}
+			
+			/* Block while the queue is empty: */
+			do
+				queueCond.wait(queueMutex);
+			while(tailChunk==headChunk&&tailIndex==headIndex);
+			
+			/* Decrement the number of waiting consumers: */
+			--numWaitingConsumers;
+			}
 		
 		/* Return the first element from the queue: */
 		Value result=reinterpret_cast<Value*>(headChunk+1)[headIndex];

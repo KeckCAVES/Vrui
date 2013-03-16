@@ -202,12 +202,37 @@ void getJpegFileSize(const char* imageFileName,unsigned int& width,unsigned int&
 
 #if IMAGES_CONFIG_HAVE_TIFF
 
+namespace {
+
+/******************************************
+Helper functions for the TIFF image reader:
+******************************************/
+
+void tiffErrorFunction(const char* module,const char* fmt,va_list ap)
+	{
+	/* Throw an exception with the error message: */
+	char msg[1024];
+	vsnprintf(msg,sizeof(msg),fmt,ap);
+	throw std::runtime_error(msg);
+	}
+
+void tiffWarningFunction(const char* module,const char* fmt,va_list ap)
+	{
+	/* Ignore warnings */
+	}
+
+}
+
 /***********************************************
 Function to extract image size from TIFF images:
 ***********************************************/
 
 void getTiffFileSize(const char* imageFileName,unsigned int& width,unsigned int& height)
 	{
+	/* Set the TIFF error handler: */
+	TIFFSetErrorHandler(tiffErrorFunction);
+	TIFFSetWarningHandler(tiffWarningFunction);
+	
 	/* Open the TIFF image: */
 	TIFF* image=TIFFOpen(imageFileName,"r");
 	if(image==0)

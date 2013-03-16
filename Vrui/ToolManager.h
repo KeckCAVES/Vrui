@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -146,9 +146,11 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	~ToolManager(void); // Destroys tool manager
 	
 	/* Methods from Plugins::FactoryManager: */
+	void addClass(ToolFactory* newFactory,DestroyFactoryFunction newDestroyFactoryFunction =0); // Overrides base class method; adds new tool class to tool selection menu
 	void releaseClass(const char* className); // Overrides base class method; destroys all tools of the given class before destroying the class
 	
 	/* Methods: */
+	void addAbstractClass(ToolFactory* newFactory,DestroyFactoryFunction newDestroyFactoryFunction =0); // Same as addClass method, but does not add to tool selection menu (derived concrete tool classes will create the cascade button)
 	static void defaultToolFactoryDestructor(ToolFactory* factory); // Default destructor for tool factories; simply deletes them
 	Misc::ConfigurationFileSection getToolClassSection(const char* toolClassName) const; // Returns the configuration file section a tool class should use for its initialization
 	MutexMenu* getToolMenu(void) // Returns tool menu

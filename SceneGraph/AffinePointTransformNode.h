@@ -1,7 +1,7 @@
 /***********************************************************************
 AffinePointTransformNode - Point transformation class to transform
 points by arbitrary affine transformations.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -32,18 +32,19 @@ namespace SceneGraph {
 class AffinePointTransformNode:public PointTransformNode
 	{
 	/* Embedded classes: */
-	public:
-	typedef Geometry::AffineTransformation<Scalar,3> ATransform; // Type for affine transformations
+	private:
+	typedef Geometry::AffineTransformation<TScalar,3> ATransform; // Type for affine transformations
 	
 	/* Elements: */
 	
 	/* Fields: */
 	public:
-	MFFloat matrix;
+	MFTScalar matrix;
 	
 	/* Derived state: */
 	protected:
 	ATransform transform; // A transformation created from the row-major matrix
+	ATransform inverseTransform; // The inverse transformation
 	ATransform normalTransform; // The associated normal vector transformation
 	
 	/* Constructors and destructors: */
@@ -57,9 +58,11 @@ class AffinePointTransformNode:public PointTransformNode
 	virtual void update(void);
 	
 	/* Methods from PointTransformNode: */
-	virtual Point transformPoint(const Point& point) const;
-	virtual Box calcBoundingBox(const std::vector<Point>& points) const;
-	virtual Vector transformNormal(const Point& basePoint,const Vector& normal) const;
+	virtual TPoint transformPoint(const TPoint& point) const;
+	virtual TPoint inverseTransformPoint(const TPoint& point) const;
+	virtual TBox calcBoundingBox(const std::vector<Point>& points) const;
+	virtual TBox transformBox(const TBox& box) const;
+	virtual TVector transformNormal(const TPoint& basePoint,const TVector& normal) const;
 	};
 
 }

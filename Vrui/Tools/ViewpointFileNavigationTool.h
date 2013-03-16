@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,7 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <vector>
 #include <GLMotif/TextFieldSlider.h>
-#include <GLMotif/FileSelectionDialog.h>
+#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
@@ -49,6 +49,7 @@ class ViewpointFileNavigationToolFactory:public ToolFactory
 	/* Elements: */
 	private:
 	std::string viewpointFileName; // Name of file from which viewpoint data is loaded. Tool will show file selection dialog if empty
+	FileSelectionHelper viewpointSelectionHelper; // Helper object to load viewpoint curves from files
 	bool showGui; // Flag whether to show the playback control GUI
 	bool showKeyframes; // Flag whether to render the current target keyframe during animation
 	std::string pauseFileName; // Name of file from which scheduled pauses are loaded
@@ -117,8 +118,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	void speedSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
 	void createGui(void); // Creates the playback control GUI
 	void readViewpointFile(const char* fileName); // Reads the viewpoint file of the given name
-	void loadViewpointFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void loadViewpointFileCancelCallback(GLMotif::FileSelectionDialog::CancelCallbackData* cbData);
+	void loadViewpointFileCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void writeControlPoint(const ControlPoint& cp,Math::Matrix& b,unsigned int rowIndex); // Writes a control point to the spline calculation matrix
 	void interpolate(const ControlPoint& p0,const ControlPoint& p1,Scalar t,ControlPoint& result); // Interpolates between two control points
 	bool navigate(Scalar parameter); // Navigates to the given curve parameter

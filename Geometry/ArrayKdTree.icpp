@@ -2,7 +2,7 @@
 ArrayKdTree - Class to store k-dimensional points in a kd-tree. Version
 for fixed sets of points using index-based storage for added performance
 and smaller memory footprint.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -351,6 +351,8 @@ ArrayKdTree<StoredPointParam>::traverseTreeInBox(
 		traverseTreeInBox(mid+1,right,childSplitDimension,box,traversalFunction);
 	}
 
+#if !GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION
+
 template <class StoredPointParam>
 template <class DirectedTraversalFunctionParam>
 inline
@@ -508,6 +510,8 @@ ArrayKdTree<StoredPointParam>::findClosestPoints(
 		}
 	}
 
+#endif
+
 template <class StoredPointParam>
 inline
 ArrayKdTree<StoredPointParam>::ArrayKdTree(
@@ -643,6 +647,125 @@ ArrayKdTree<StoredPointParam>::checkTree(
 	checkTree(0,numNodes-1,0,bbMin,bbMax);
 	}
 
+#if GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION
+
+template <class StoredPointParam>
+template <class DirectedTraversalFunctionParam>
+inline
+void
+ArrayKdTree<StoredPointParam>::traverseTreeDirected(
+	DirectedTraversalFunctionParam& traversalFunction) const
+	{
+	/* Set up a traversal stack for explicit recursion: */
+	struct TraversalStack
+		{
+		/* Elements: */
+		public:
+		int left,right; // Left and right boundaries of the current subtree
+		int root; // Root of the current subtree
+		int splitDimension; // Split dimension of the current subtree
+		bool goLeftFirst; // Flag whether to traverse the left or right subtree in stage 0
+		} traversalStack[33]; // 33 is enough for all time! ALL TIME!
+	
+	/* Initialize the traversal stack: */
+	TraversalStack* tsPtr=traversalStack;
+	tsPtr->left=0;
+	tsPtr->right=numNodes-1;
+	tsPtr->splitDimension=0;
+	
+	/*********************************************************************
+	Traverse the tree recursively by ping-ponging between stages 0 and 1:
+	*********************************************************************/
+	
+	doTheStage0:
+	
+	/*****************************************************************
+	Stage 0: Traverse into the subtree closer to the query point.
+	*****************************************************************/
+	
+	/* Calculate the root node index: */
+	tsPtr->root=(tsPtr->left+tsPtr->right)>>1;
+	
+	/* Decide whether to go left or right first: */
+	tsPtr->goLeftFirst=traversalFunction.getQueryPosition()[tsPtr->splitDimension]<=nodes[tsPtr->root][tsPtr->splitDimension];
+	
+	if(tsPtr->goLeftFirst)
+		{
+		if(tsPtr->left<tsPtr->root)
+			{
+			/* Traverse left subtree: */
+			++tsPtr;
+			tsPtr->left=tsPtr[-1].left;
+			tsPtr->right=tsPtr[-1].root-1;
+			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==dimension)
+				tsPtr->splitDimension=0;
+			
+			goto doTheStage0;
+			}
+		}
+	else
+		{
+		if(tsPtr->root<tsPtr->right)
+			{
+			/* Traverse right subtree: */
+			++tsPtr;
+			tsPtr->left=tsPtr[-1].root+1;
+			tsPtr->right=tsPtr[-1].right;
+			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==dimension)
+				tsPtr->splitDimension=0;
+			
+			goto doTheStage0;
+			}
+		}
+	
+	doTheStage1:
+	
+	/*****************************************************************
+	Stage 1: Call the traversal function on the root node and decide
+	whether to traverse into the subtree farther from the query point.
+	*****************************************************************/
+	
+	/* Call the traversal function on the root node: */
+	if(traversalFunction(nodes[tsPtr->root],tsPtr->splitDimension))
+		{
+		/*****************************************************************
+		Stage 2: Traverse into the subtree farther from the query point.
+		*****************************************************************/
+		
+		if(tsPtr->goLeftFirst)
+			{
+			if(tsPtr->root<tsPtr->right)
+				{
+				/* Traverse right subtree, but stay in the same stack frame to avoid tail recursion: */
+				tsPtr->left=tsPtr->root+1;
+				if(++tsPtr->splitDimension==dimension)
+					tsPtr->splitDimension=0;
+				
+				goto doTheStage0;
+				}
+			}
+		else
+			{
+			if(tsPtr->left<tsPtr->root)
+				{
+				/* Traverse left subtree, but stay in the same stack frame to avoid tail recursion: */
+				tsPtr->right=tsPtr->root-1;
+				if(++tsPtr->splitDimension==dimension)
+					tsPtr->splitDimension=0;
+				
+				goto doTheStage0;
+				}
+			}
+		}
+	
+	/* Return to caller: */
+	--tsPtr;
+	if(tsPtr>=traversalStack)
+		goto doTheStage1;
+	}
+
+#endif
+
 template <class StoredPointParam>
 inline
 const typename ArrayKdTree<StoredPointParam>::StoredPoint&
@@ -680,6 +803,134 @@ ArrayKdTree<StoredPointParam>::findClosePoint(
 	return nodes[mid];
 	}
 
+#if GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION
+
+template <class StoredPointParam>
+inline
+const typename ArrayKdTree<StoredPointParam>::StoredPoint&
+ArrayKdTree<StoredPointParam>::findClosestPoint(
+	const typename ArrayKdTree<StoredPointParam>::Point& queryPosition) const
+	{
+	/* Initialize the result values: */
+	const StoredPoint* result=0;
+	Scalar resultDist2=Math::Constants<Scalar>::max;
+	
+	/* Set up a traversal stack for explicit recursion: */
+	struct TraversalStack
+		{
+		/* Elements: */
+		public:
+		int left,right; // Left and right boundaries of the current subtree
+		int root; // Root of the current subtree
+		int splitDimension; // Split dimension of the current subtree
+		bool goLeftFirst; // Flag whether to traverse into the left subtree in stage 0
+		} traversalStack[33]; // 33 is enough for all time! ALL TIME!
+	
+	/* Initialize the traversal stack: */
+	TraversalStack* tsPtr=traversalStack;
+	tsPtr->left=0;
+	tsPtr->right=numNodes-1;
+	tsPtr->splitDimension=0;
+	
+	/*********************************************************************
+	Traverse the tree recursively by ping-ponging between stages 0 and 1:
+	*********************************************************************/
+	
+	doTheStage0:
+
+	/*********************************************************************
+	Stage 0: Traverse into the subtree closer to the query position.
+	*********************************************************************/
+
+	/* Calculate the root node index: */
+	tsPtr->root=(tsPtr->left+tsPtr->right)>>1;
+	
+	/* Decide whether to go left or right first: */
+	tsPtr->goLeftFirst=queryPosition[tsPtr->splitDimension]<=nodes[tsPtr->root][tsPtr->splitDimension];
+	
+	if(tsPtr->goLeftFirst)
+		{
+		if(tsPtr->left<tsPtr->root)
+			{
+			/* Traverse left subtree: */
+			++tsPtr;
+			tsPtr->left=tsPtr[-1].left;
+			tsPtr->right=tsPtr[-1].root-1;
+			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+	else
+		{
+		if(tsPtr->root<tsPtr->right)
+			{
+			/* Traverse right subtree: */
+			++tsPtr;
+			tsPtr->left=tsPtr[-1].root+1;
+			tsPtr->right=tsPtr[-1].right;
+			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+
+	doTheStage1:
+
+	/*********************************************************************
+	Stage 1: Test the current root node against the closest point
+	candidate:
+	*********************************************************************/
+	
+	Scalar dist2=sqrDist(nodes[tsPtr->root],queryPosition);
+	if(resultDist2>dist2)
+		{
+		result=&nodes[tsPtr->root];
+		resultDist2=dist2;
+		}
+	
+	/*********************************************************************
+	Stage 2: Traverse into the subtree farther from the query point.
+	*********************************************************************/
+	
+	/* Check whether to go left or right: */
+	if(tsPtr->goLeftFirst)
+		{
+		if(tsPtr->root<tsPtr->right&&Math::sqr(nodes[tsPtr->root][tsPtr->splitDimension]-queryPosition[tsPtr->splitDimension])<resultDist2)
+			{
+			/* Traverse right subtree, but stay in the same stack frame to avoid tail recursion: */
+			tsPtr->left=tsPtr->root+1;
+			if(++tsPtr->splitDimension==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+	else
+		{
+		if(tsPtr->left<tsPtr->root&&Math::sqr(nodes[tsPtr->root][tsPtr->splitDimension]-queryPosition[tsPtr->splitDimension])<resultDist2)
+			{
+			/* Traverse left subtree, but stay in the same stack frame to avoid tail recursion: */
+			tsPtr->right=tsPtr->root-1;
+			if(++tsPtr->splitDimension==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+
+	/* Return to caller: */
+	--tsPtr;
+	if(tsPtr>=traversalStack)
+		goto doTheStage1;
+	
+	return *result;
+	}
+
+#else
+
 template <class StoredPointParam>
 inline
 const typename ArrayKdTree<StoredPointParam>::StoredPoint&
@@ -693,6 +944,132 @@ ArrayKdTree<StoredPointParam>::findClosestPoint(
 	
 	return *closestPoint;
 	}
+
+#endif
+
+#if GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION
+
+template <class StoredPointParam>
+inline
+typename ArrayKdTree<StoredPointParam>::ClosePointSet&
+ArrayKdTree<StoredPointParam>::findClosestPoints(
+	const typename ArrayKdTree<StoredPointParam>::Point& queryPosition,
+	typename ArrayKdTree<StoredPointParam>::ClosePointSet& closestPoints) const
+	{
+	/* Clear result point set: */
+	closestPoints.clear();
+	
+	/* Set up a traversal stack for explicit recursion: */
+	struct TraversalStack
+		{
+		/* Elements: */
+		public:
+		int left,right; // Left and right boundaries of the current subtree
+		int root; // Root of the current subtree
+		int splitDimension; // Split dimension of the current subtree
+		bool goLeftFirst; // Flag whether to traverse into the left subtree in stage 0
+		} traversalStack[33]; // 33 is enough for all time! ALL TIME!
+	
+	/* Initialize the traversal stack: */
+	TraversalStack* tsPtr=traversalStack;
+	tsPtr->left=0;
+	tsPtr->right=numNodes-1;
+	tsPtr->splitDimension=0;
+	
+	/*********************************************************************
+	Traverse the tree recursively by ping-ponging between stages 0 and 1:
+	*********************************************************************/
+	
+	doTheStage0:
+
+	/*****************************************************************
+	Stage 0: Traverse into the subtree closer to the query position.
+	*****************************************************************/
+
+	/* Calculate the root node index: */
+	tsPtr->root=(tsPtr->left+tsPtr->right)>>1;
+	
+	/* Decide whether to go left or right first: */
+	tsPtr->goLeftFirst=queryPosition[tsPtr->splitDimension]<=nodes[tsPtr->root][tsPtr->splitDimension];
+	
+	if(tsPtr->goLeftFirst)
+		{
+		if(tsPtr->left<tsPtr->root)
+			{
+			/* Traverse left subtree: */
+			++tsPtr;
+			tsPtr->left=tsPtr[-1].left;
+			tsPtr->right=tsPtr[-1].root-1;
+			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+	else
+		{
+		if(tsPtr->root<tsPtr->right)
+			{
+			/* Traverse right subtree: */
+			++tsPtr;
+			tsPtr->left=tsPtr[-1].root+1;
+			tsPtr->right=tsPtr[-1].right;
+			if((tsPtr->splitDimension=tsPtr[-1].splitDimension+1)==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+
+	doTheStage1:
+
+	/*****************************************************************
+	Stage 1: Enter the current root node into the closest point set.
+	*****************************************************************/
+	
+	/* Insert node's point into close point set: */
+	Scalar dist2=sqrDist(nodes[tsPtr->root],queryPosition);
+	closestPoints.insertPoint(nodes[tsPtr->root],dist2);
+	
+	/*****************************************************************
+	Stage 2: Traverse into the subtree farther from the query point.
+	*****************************************************************/
+	
+	/* Check whether to go left or right: */
+	if(tsPtr->goLeftFirst)
+		{
+		if(tsPtr->root<tsPtr->right&&Math::sqr(nodes[tsPtr->root][tsPtr->splitDimension]-queryPosition[tsPtr->splitDimension])<closestPoints.getMaxSqrDist())
+			{
+			/* Traverse right subtree, but stay in the same stack frame to avoid tail recursion: */
+			tsPtr->left=tsPtr->root+1;
+			if(++tsPtr->splitDimension==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+	else
+		{
+		if(tsPtr->left<tsPtr->root&&Math::sqr(nodes[tsPtr->root][tsPtr->splitDimension]-queryPosition[tsPtr->splitDimension])<closestPoints.getMaxSqrDist())
+			{
+			/* Traverse left subtree, but stay in the same stack frame to avoid tail recursion: */
+			tsPtr->right=tsPtr->root-1;
+			if(++tsPtr->splitDimension==dimension)
+				tsPtr->splitDimension=0;
+
+			goto doTheStage0;
+			}
+		}
+
+	/* Return to caller: */
+	--tsPtr;
+	if(tsPtr>=traversalStack)
+		goto doTheStage1;
+	
+	return closestPoints;
+	}
+
+#else
 
 template <class StoredPointParam>
 inline
@@ -709,5 +1086,7 @@ ArrayKdTree<StoredPointParam>::findClosestPoints(
 	
 	return closestPoints;
 	}
+
+#endif
 
 }

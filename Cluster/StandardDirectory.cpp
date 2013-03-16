@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -120,10 +120,20 @@ Misc::PathType StandardDirectory::getEntryType(void) const
 IO::FilePtr StandardDirectory::openFile(const char* fileName,IO::File::AccessMode accessMode) const
 	{
 	/* Assemble the absolute path name of the given file: */
-	std::string filePath=pathName;
-	if(filePath.length()>1)
-		filePath.push_back('/');
-	filePath.append(fileName);
+	std::string filePath;
+	if(fileName[0]=='/')
+		{
+		/* Use the provided absolute file path: */
+		filePath=fileName;
+		}
+	else
+		{
+		/* Create a relative file path: */
+		filePath=pathName;
+		if(filePath.length()>1)
+			filePath.push_back('/');
+		filePath.append(fileName);
+		}
 	
 	/* Open and return the file: */
 	return Cluster::openFile(pipe.getMultiplexer(),filePath.c_str(),accessMode);
@@ -132,10 +142,20 @@ IO::FilePtr StandardDirectory::openFile(const char* fileName,IO::File::AccessMod
 IO::DirectoryPtr StandardDirectory::openDirectory(const char* directoryName) const
 	{
 	/* Assemble the absolute path name of the given directory: */
-	std::string directoryPath=pathName;
-	if(directoryPath.length()>1)
-		directoryPath.push_back('/');
-	directoryPath.append(directoryName);
+	std::string directoryPath;
+	if(directoryName[0]=='/')
+		{
+		/* Use the provided absolute path: */
+		directoryPath=directoryName;
+		}
+	else
+		{
+		/* Create a relative path: */
+		directoryPath=pathName;
+		if(directoryPath.length()>1)
+			directoryPath.push_back('/');
+		directoryPath.append(directoryName);
+		}
 	
 	/* Return the new directory: */
 	if(pipe.getMultiplexer()->isMaster())

@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFileSection;
+}
+namespace IO {
+class Directory;
 }
 namespace Vrui {
 class VirtualInputDevice;
@@ -145,8 +148,8 @@ class InputGraphManager
 	void addTool(Tool* newTool); // Adds a tool to the input graph, based on its current input assignment
 	void removeTool(Tool* tool); // Removes a tool from the input graph
 	void loadInputGraph(Misc::ConfigurationFileSection& configFileSection); // Loads all virtual input devices and tools defined in the given configuration file section
-	void loadInputGraph(const char* configurationFileName,const char* baseSectionName); // Ditto
-	void saveInputGraph(const char* configurationFileName,const char* baseSectionName) const; // Saves the current state of all virtual input devices and assigned tools to the given section in the given configuration file
+	void loadInputGraph(IO::Directory& directory,const char* configurationFileName,const char* baseSectionName); // Ditto
+	void saveInputGraph(IO::Directory& directory,const char* configurationFileName,const char* baseSectionName) const; // Saves the current state of all virtual input devices and assigned tools to the given section in the given configuration file
 	bool isNavigational(InputDevice* device) const; // Returns whether the given device will follow navigation coordinates while ungrabbed
 	void setNavigational(InputDevice* device,bool newNavigational); // Sets whether the given device will follow navigation coordinates while ungrabbed
 	Glyph& getInputDeviceGlyph(InputDevice* device); // Returns the glyph associated with the given input device

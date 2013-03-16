@@ -2,7 +2,7 @@
 ArrayKdTree - Class to store k-dimensional points in a kd-tree. Version
 for fixed sets of points using index-based storage for added performance
 and smaller memory footprint.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -28,6 +28,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <Geometry/Box.h>
 #include <Geometry/ClosePointSet.h>
+
+#define GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION 1
 
 namespace Geometry {
 
@@ -85,10 +87,12 @@ class ArrayKdTree
 		}
 	template <class TraversalFunctionParam>
 	void traverseTreeInBox(int left,int right,int splitDimension,const Box& box,TraversalFunctionParam& traversalFunction) const; // Traverses sub-kd-tree in prefix order and calls traversal function for each node inside the given box
+	#if !GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION
 	template <class DirectedTraversalFunctionParam>
 	void traverseTreeDirected(int left,int right,int splitDimension,DirectedTraversalFunctionParam& traversalFunction) const; // Traverses sub-kd-tree in directed order and calls traversal function for each node
  	void findClosestPoint(int left,int right,int splitDimension,const Point& queryPosition,const StoredPoint*& closestPoint,Scalar& minDist2) const; // Recursively finds closest point in kd-tree
 	void findClosestPoints(int left,int right,int splitDimension,const Point& queryPosition,ClosePointSet& closestPoints) const; // Recursively finds closest points in kd-tree
+	#endif
 	
 	/* Constructors and destructors: */
 	public:
@@ -157,11 +161,16 @@ class ArrayKdTree
 		{
 		traverseTreeInBox(0,numNodes-1,0,box,traversalFunction);
 		}
+	#if GEOMETRY_ARRAYKDTREE_TRAVERSAL_EXPLICIT_RECURSION
+	template <class DirectedTraversalFunctionParam>
+	void traverseTreeDirected(DirectedTraversalFunctionParam& traversalFunction) const; // Traverses tree in directed order and calls traversal function for each node
+	#else
 	template <class DirectedTraversalFunctionParam>
 	void traverseTreeDirected(DirectedTraversalFunctionParam& traversalFunction) const // Traverses tree in directed order and calls traversal function for each node
 		{
 		traverseTreeDirected(0,numNodes-1,0,traversalFunction);
 		}
+	#endif
 	const StoredPoint& findClosePoint(const Point& queryPosition) const; // Returns a stored point that is close to the query position
 	const StoredPoint& findClosestPoint(const Point& queryPosition) const; // Returns the stored point closest to the query position
 	ClosePointSet& findClosestPoints(const Point& queryPosition,ClosePointSet& closestPoints) const; // Returns a set of closest points

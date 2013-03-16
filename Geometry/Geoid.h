@@ -47,7 +47,7 @@ class Geoid
 	typedef Geometry::OrthonormalTransformation<Scalar,dimension> Frame; // Type for coordinate frames
 	
 	/* Elements: */
-	public:
+	protected:
 	double radius; // Geoid's radius (semi-major axis) in whatever unit is convenient
 	double flatteningFactor; // Geoid's flattening factor
 	double b; // Geoid's semi-minor axis
@@ -105,10 +105,10 @@ class Geoid
 	Point cartesianToGeodetic(const Point& cartesian) const; // Transforms a point
 	};
 
+}
+
 #if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOID_IMPLEMENTATION)
 #include <Geometry/Geoid.icpp>
 #endif
-
-}
 
 #endif

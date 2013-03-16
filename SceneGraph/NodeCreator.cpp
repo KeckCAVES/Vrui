@@ -1,6 +1,6 @@
 /***********************************************************************
 NodeCreator - Class to create node objects based on a node type name.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -34,6 +34,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/AppearanceNode.h>
 #include <SceneGraph/AffinePointTransformNode.h>
 #include <SceneGraph/GeodeticToCartesianPointTransformNode.h>
+#include <SceneGraph/UTMPointTransformNode.h>
+#include <SceneGraph/ImageProjectionNode.h>
 #include <SceneGraph/BoxNode.h>
 #include <SceneGraph/ConeNode.h>
 #include <SceneGraph/CylinderNode.h>
@@ -81,6 +83,8 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<AppearanceNode>());
 	registerNodeType(new GenericNodeFactory<AffinePointTransformNode>());
 	registerNodeType(new GenericNodeFactory<GeodeticToCartesianPointTransformNode>());
+	registerNodeType(new GenericNodeFactory<UTMPointTransformNode>());
+	registerNodeType(new GenericNodeFactory<ImageProjectionNode>());
 	registerNodeType(new GenericNodeFactory<BoxNode>());
 	registerNodeType(new GenericNodeFactory<ConeNode>());
 	registerNodeType(new GenericNodeFactory<CylinderNode>());

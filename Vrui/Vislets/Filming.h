@@ -2,7 +2,7 @@
 Filming - Vislet class to assist shooting of video inside an immersive
 environment by providing run-time control over viewers and environment
 settings.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,9 +32,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/DropdownBox.h>
 #include <GLMotif/TextFieldSlider.h>
 #include <GLMotif/HSVColorSelector.h>
-#include <GLMotif/FileSelectionDialog.h>
 
 #include <Vrui/Vrui.h>
+#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/Tool.h>
 #include <Vrui/GenericToolFactory.h>
 #include <Vrui/ToolManager.h>
@@ -175,7 +175,7 @@ class Filming:public Vrui::Vislet
 	GLMotif::HSVColorSelector* backgroundColorSelector; // Color selector to change the background color
 	GLMotif::ToggleButton* drawGridToggle;
 	GLMotif::ToggleButton* drawDevicesToggle;
-	IO::DirectoryPtr settingsDirectory; // Directory from/to which the last settings were read/written
+	FileSelectionHelper settingsSelectionHelper; // Helper to load and save settings
 	
 	/* Private methods: */
 	void changeViewerMode(void); // Updates the GUI after a viewer mode change
@@ -187,10 +187,8 @@ class Filming:public Vrui::Vislet
 	void drawGridToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void resetGridCallback(Misc::CallbackData* cbData);
 	void drawDevicesToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
-	void loadSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void loadSettingsCallback(Misc::CallbackData* cbData);
-	void saveSettingsOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void saveSettingsCallback(Misc::CallbackData* cbData);
+	void loadSettingsCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveSettingsCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void buildFilmingControls(void); // Creates the filming controls dialog window
 	void toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData); // Callback called when a new tool is created
 	

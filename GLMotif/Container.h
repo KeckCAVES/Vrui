@@ -1,7 +1,7 @@
 /***********************************************************************
 Container - Base class for GLMotif UI components that contain other
 components.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -50,6 +50,8 @@ class Container:public Widget
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize) =0; // Allows a child to request a resize of itself
 	virtual Widget* getFirstChild(void) =0; // Returns pointer to the first child widget
 	virtual Widget* getNextChild(Widget* child) =0; // Returns pointer to next child after the given one; returns null at end of list or when given widget is not a child
+	Widget* findChild(const char* childName); // Returns pointer to a direct child of the given name; returns null if child of given name does not exist
+	Widget* findDescendant(const char* descendantPath); // Returns pointer to a descendent of the given path, widget names are separated by forward slashes; returns null if final child does not exist; throws exception if any intermediate path node does not exist
 	};
 
 }

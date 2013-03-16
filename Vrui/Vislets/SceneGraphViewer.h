@@ -1,7 +1,7 @@
 /***********************************************************************
 SceneGraphViewer - Vislet class to render a scene graph loaded from one
 or more VRML 2.0 files.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
