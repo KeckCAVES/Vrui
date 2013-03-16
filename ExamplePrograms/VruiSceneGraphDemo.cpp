@@ -2,7 +2,7 @@
 VruiSceneGraphDemo - Demonstration program for the Vrui scene graph
 architecture; shows how to construct a scene graph programmatically, or
 load one from one or more VRML 2.0 / 97 files.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -23,7 +23,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Geometry/ComponentArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <SceneGraph/GLRenderState.h>
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/TransformNode.h>
 #include <SceneGraph/AppearanceNode.h>
@@ -35,6 +34,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Vrui/Vrui.h>
 #include <Vrui/OpenFile.h>
 #include <Vrui/Application.h>
+#include <Vrui/SceneGraphSupport.h>
 
 class VruiSceneGraphDemo:public Vrui::Application
 	{
@@ -122,11 +122,14 @@ VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
 
 void VruiSceneGraphDemo::display(GLContextData& contextData) const
 	{
-	/* Create a GL render state object: */
-	SceneGraph::GLRenderState glRenderState(contextData,Vrui::getHeadPosition(),Vrui::getNavigationTransformation().inverseTransform(Vrui::getUpDirection()));
+	/* Save OpenGL state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 	
 	/* Render the scene graph: */
-	root->glRenderAction(glRenderState);
+	Vrui::renderSceneGraph(root.getPointer(),true,contextData);
+	
+	/* Restore OpenGL state: */
+	glPopAttrib();
 	}
 
 int main(int argc,char* argv[])

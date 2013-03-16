@@ -1,7 +1,7 @@
 /***********************************************************************
 UniformScalingTransformation - Class for n-dimensional uniform scaling
 transformations.
-Copyright (c) 2003-2011 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -21,7 +21,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Geometry/UniformScalingTransformation.h>
+#include <Geometry/UniformScalingTransformation.icpp>
 
 namespace Geometry {
 

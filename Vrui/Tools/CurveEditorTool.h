@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
-#include <GLMotif/FileSelectionDialog.h>
+#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/UtilityTool.h>
 
@@ -168,6 +168,7 @@ class CurveEditorTool:public UtilityTool
 	bool scrub; // Flag whether the view should follow the current curve point
 	bool play; // Flag whether the curve point should move automatically with time
 	double playStartTime; // Time offset for automatic curve movement
+	FileSelectionHelper curveSelectionHelper; // Helper object to load/save curve files
 	
 	/* Editing operation state: */
 	EditingMode editingMode; // Current editing mode
@@ -189,9 +190,8 @@ class CurveEditorTool:public UtilityTool
 	void nextControlPointCallback(Misc::CallbackData* cbData);
 	void scrubToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void autoPlayToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
-	void loadCurveCallback(Misc::CallbackData* cbData); // Displays a file selection dialog to load a curve
-	void loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData); // Loads selected curve file
-	void saveCurveCallback(Misc::CallbackData* cbData); // Saves current curve to "CurveEditorTool.curve"
+	void loadCurveCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData); // Loads selected curve file
+	void saveCurveCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData); // Saves selected curve file
 	void appendVertexCallback(Misc::CallbackData* cbData); // Appends current view as new vertex to curve
 	void snapVertexToViewToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void deleteVertexCallback(Misc::CallbackData* cbData); // Deletes picked vertex from curve

@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,10 +28,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <Misc/File.h>
-#include <Misc/CreateNumberedFileName.h>
+#include <Misc/SelfDestructArray.h>
+#include <Misc/StringMarshaller.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <IO/ValueSource.h>
+#include <Cluster/MulticastPipe.h>
 #include <Math/Math.h>
 #include <Math/Matrix.h>
 #include <Geometry/OrthogonalTransformation.h>
@@ -49,28 +51,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/OpenFile.h>
-
-namespace {
-
-/****************
-Helper functions:
-****************/
-
-bool readPoint(std::ifstream& file,Vrui::Point& point)
-	{
-	char openPar,comma1,comma2,closePar;
-	Vrui::Point p;
-	file>>openPar>>p[0]>>comma1>>p[1]>>comma2>>p[2]>>closePar;
-	if(openPar!='('||comma1!=','||comma2!=','||closePar!=')')
-		return false;
-	else
-		{
-		point=p;
-		return true;
-		}
-	}
-
-}
 
 namespace Vrui {
 
@@ -530,138 +510,154 @@ void CurveEditorTool::autoPlayToggleValueChangedCallback(GLMotif::ToggleButton::
 		autoPlayToggle->setToggle(false);
 	}
 
-void CurveEditorTool::loadCurveCallback(Misc::CallbackData*)
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+inline void expect(IO::ValueSource& source,char literal)
 	{
-	/* Create a file selection dialog to select a curve file: */
-	GLMotif::FileSelectionDialog* loadCurveDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curve...",openDirectory("."),".curve");
-	loadCurveDialog->getOKCallbacks().add(this,&CurveEditorTool::loadCurveOKCallback);
-	loadCurveDialog->deleteOnCancel();
-	
-	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadCurveDialog);
+	if(!source.isLiteral(literal))
+		throw std::runtime_error("File is not a curve file");
 	}
 
-void CurveEditorTool::loadCurveOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+inline void readCA(IO::ValueSource& source,Geometry::ComponentArray<Scalar,3>& ca)
 	{
-	try
+	expect(source,'(');
+	ca[0]=source.readNumber();
+	for(int i=1;i<3;++i)
 		{
-		/* Create intermediate lists of vertices and segments: */
-		std::vector<Vertex> vertices;
-		std::vector<Segment> segments;
+		expect(source,',');
+		ca[i]=source.readNumber();
+		}
+	expect(source,')');
+	}
+
+}
+
+void CurveEditorTool::loadCurveCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+	{
+	/* Open the curve file: */
+	IO::ValueSource curveFile(cbData->selectedDirectory->openFile(cbData->selectedFileName));
+	curveFile.setPunctuation("(),");
+	curveFile.skipWs();
+	
+	/* Create intermediate lists of vertices and segments: */
+	std::vector<Vertex> vertices;
+	std::vector<Segment> segments;
+	
+	/* Read the first vertex: */
+	Vertex v;
+	readCA(curveFile,v.center);
+	v.size=Math::log(curveFile.readNumber());
+	readCA(curveFile,v.forward);
+	readCA(curveFile,v.up);
+	v.continuity=Vertex::TANGENT;
+	
+	/* Store the first vertex: */
+	vertices.push_back(v);
+	
+	/* Read all curve segments: */
+	while(!curveFile.eof())
+		{
+		/* Read the next segment: */
+		Segment s;
+		s.parameterInterval=curveFile.readNumber();
+		s.forceStraight=false;
 		
-		Misc::File curveFile(cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str(),"rt");
-		
-		/* Read the first vertex: */
-		Vertex v;
-		if(fscanf(curveFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&v.center[0],&v.center[1],&v.center[2],&v.size,&v.forward[0],&v.forward[1],&v.forward[2],&v.up[0],&v.up[1],&v.up[2])==10)
+		/* Read the segment's intermediate vertices: */
+		for(int i=0;i<2;++i)
 			{
-			v.size=Math::log(v.size);
-			v.continuity=Vertex::TANGENT;
-			vertices.push_back(v);
-			
-			while(true)
-				{
-				/* Read the next segment: */
-				Segment s;
-				if(fscanf(curveFile.getFilePtr(),"%lf\n",&s.parameterInterval)!=1)
-					break;
-				for(int i=0;i<2;++i)
-					{
-					if(fscanf(curveFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&s.mid[i].center[0],&s.mid[i].center[1],&s.mid[i].center[2],&s.mid[i].size,&s.mid[i].forward[0],&s.mid[i].forward[1],&s.mid[i].forward[2],&s.mid[i].up[0],&s.mid[i].up[1],&s.mid[i].up[2])!=10)
-						break;
-					s.mid[i].size=Math::log(s.mid[i].size);
-					}
-				
-				/* Read the next vertex: */
-				if(fscanf(curveFile.getFilePtr(),"(%lf, %lf, %lf) %lf (%lf, %lf, %lf) (%lf, %lf, %lf)\n",&v.center[0],&v.center[1],&v.center[2],&v.size,&v.forward[0],&v.forward[1],&v.forward[2],&v.up[0],&v.up[1],&v.up[2])!=10)
-					break;
-				v.size=Math::log(v.size);
-				
-				/* Store the segment and vertex: */
-				s.forceStraight=false;
-				segments.push_back(s);
-				v.continuity=Vertex::TANGENT;
-				vertices.push_back(v);
-				}
-			
-			/* Delete the current curve: */
-			while(firstVertex!=0)
-				{
-				Segment* s=firstVertex->segments[1];
-				Vertex* nextVertex;
-				if(s!=0)
-					{
-					nextVertex=s->vertices[1];
-					delete s;
-					}
-				else
-					nextVertex=0;
-				delete firstVertex;
-				firstVertex=nextVertex;
-				}
-			lastVertex=0;
-			parameterInterval=Scalar(0);
-			numVertices=0;
-			forceC2Continuity=false;
-			pickedVertex=0;
-			pickedHandleSegment=0;
-			pickedSegment=0;
-			
-			/* Create the new curve: */
-			if(!vertices.empty())
-				{
-				firstVertex=new Vertex;
-				*firstVertex=vertices[0];
-				for(int i=0;i<2;++i)
-					firstVertex->segments[i]=0;
-				lastVertex=firstVertex;
-				}
-			for(unsigned int vertexIndex=1;vertexIndex<vertices.size();++vertexIndex)
-				{
-				/* Create the next segment: */
-				Segment* s=new Segment;
-				*s=segments[vertexIndex-1];
-				s->vertices[0]=lastVertex;
-				lastVertex->segments[1]=s;
-				
-				/* Create the next vertex: */
-				Vertex* newVertex=new Vertex;
-				*newVertex=vertices[vertexIndex];
-				newVertex->segments[0]=s;
-				newVertex->segments[1]=0;
-				s->vertices[1]=newVertex;
-				
-				parameterInterval+=s->parameterInterval;
-				lastVertex=newVertex;
-				}
-			numVertices=vertices.size();
-			
-			/* Update derived curve state: */
-			updateCurve();
-			
-			/* Update the curve editor dialog: */
-			updateDialog();
+			readCA(curveFile,s.mid[i].center);
+			s.mid[i].size=Math::log(curveFile.readNumber());
+			readCA(curveFile,s.mid[i].forward);
+			readCA(curveFile,s.mid[i].up);
 			}
-		}
-	catch(std::runtime_error err)
-		{
-		/* Ignore the error */
+		
+		/* Read the next vertex: */
+		readCA(curveFile,v.center);
+		v.size=Math::log(curveFile.readNumber());
+		readCA(curveFile,v.forward);
+		readCA(curveFile,v.up);
+		v.continuity=Vertex::TANGENT;
+		
+		/* Store the segment and vertex: */
+		segments.push_back(s);
+		vertices.push_back(v);
 		}
 	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
+	/* Delete the current curve: */
+	while(firstVertex!=0)
+		{
+		Segment* s=firstVertex->segments[1];
+		Vertex* nextVertex;
+		if(s!=0)
+			{
+			nextVertex=s->vertices[1];
+			delete s;
+			}
+		else
+			nextVertex=0;
+		delete firstVertex;
+		firstVertex=nextVertex;
+		}
+	lastVertex=0;
+	parameterInterval=Scalar(0);
+	numVertices=0;
+	forceC2Continuity=false;
+	pickedVertex=0;
+	pickedHandleSegment=0;
+	pickedSegment=0;
+	
+	/* Create the new curve: */
+	if(!vertices.empty())
+		{
+		firstVertex=new Vertex;
+		*firstVertex=vertices[0];
+		for(int i=0;i<2;++i)
+			firstVertex->segments[i]=0;
+		lastVertex=firstVertex;
+		}
+	for(unsigned int vertexIndex=1;vertexIndex<vertices.size();++vertexIndex)
+		{
+		/* Create the next segment: */
+		Segment* s=new Segment;
+		*s=segments[vertexIndex-1];
+		s->vertices[0]=lastVertex;
+		lastVertex->segments[1]=s;
+		
+		/* Create the next vertex: */
+		Vertex* newVertex=new Vertex;
+		*newVertex=vertices[vertexIndex];
+		newVertex->segments[0]=s;
+		newVertex->segments[1]=0;
+		s->vertices[1]=newVertex;
+		
+		parameterInterval+=s->parameterInterval;
+		lastVertex=newVertex;
+		}
+	numVertices=vertices.size();
+	
+	/* Update derived curve state: */
+	updateCurve();
+	
+	/* Update the curve editor dialog: */
+	updateDialog();
 	}
 
-void CurveEditorTool::saveCurveCallback(Misc::CallbackData*)
+void CurveEditorTool::saveCurveCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
-	if(isMaster()&&firstVertex!=0)
+	/* Bail out if there is no curve: */
+	if(firstVertex==0)
+		return;
+	
+	if(isMaster())
 		{
-		/* Write the curve to a text file: */
 		try
 			{
-			/* Create a uniquely named file: */
-			char numberedFileName[1024];
-			std::ofstream file(Misc::createNumberedFileName(factory->curveFileName.c_str(),4,numberedFileName),std::ios::trunc);
+			/* Write the curve to a text file: */
+			std::ofstream file(cbData->getSelectedPath().c_str(),std::ios::trunc);
 			
 			const Vertex* v0=firstVertex;
 			
@@ -693,11 +689,33 @@ void CurveEditorTool::saveCurveCallback(Misc::CallbackData*)
 				file<<" ("<<v0->forward[0]<<", "<<v0->forward[1]<<", "<<v0->forward[2]<<")";
 				file<<" ("<<v0->up[0]<<", "<<v0->up[1]<<", "<<v0->up[2]<<")"<<std::endl;
 				}
+			
+			if(getMainPipe()!=0)
+				{
+				/* Send a status message to the slave nodes: */
+				Misc::writeCString(0,*getMainPipe());
+				}
 			}
-		catch(std::runtime_error)
+		catch(std::runtime_error err)
 			{
-			/* Show an error message: */
-			showErrorMessage("Viewpoint Curve Editor","Could not create curve file; did not save curve");
+			if(getMainPipe()!=0)
+				{
+				/* Send an error message to the slaves: */
+				Misc::writeCString(err.what(),*getMainPipe());
+				}
+			
+			/* Re-throw the exception: */
+			throw;
+			}
+		}
+	else
+		{
+		/* Receive a status message from the master node: */
+		Misc::SelfDestructArray<char> error(Misc::readCString(*getMainPipe()));
+		if(error.getArray()!=0)
+			{
+			/* Throw an exception: */
+			throw std::runtime_error(error.getArray());
 			}
 		}
 	}
@@ -1124,7 +1142,8 @@ CurveEditorTool::CurveEditorTool(const ToolFactory* sFactory,const ToolInputAssi
 	 pickedHandleSegment(0),
 	 pickedSegment(0),
 	 scrub(false),
-	 play(false),
+	 play(false),playStartTime(0.0),
+	 curveSelectionHelper(factory->curveFileName.c_str(),".curve",openDirectory(".")),
 	 editingMode(IDLE),
 	 snapVertexToView(false)
 	{
@@ -1282,11 +1301,11 @@ CurveEditorTool::CurveEditorTool(const ToolFactory* sFactory,const ToolInputAssi
 	ioBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
 	ioBox->setPacking(GLMotif::RowColumn::PACK_GRID);
 	
-	GLMotif::Button* loadCurveButton=new GLMotif::Button("LoadCurveButton",ioBox,"Load Curve");
-	loadCurveButton->getSelectCallbacks().add(this,&CurveEditorTool::loadCurveCallback);
+	GLMotif::Button* loadCurveButton=new GLMotif::Button("LoadCurveButton",ioBox,"Load Curve...");
+	curveSelectionHelper.addLoadCallback(loadCurveButton,this,&CurveEditorTool::loadCurveCallback);
 	
-	GLMotif::Button* saveCurveButton=new GLMotif::Button("SaveCurveButton",ioBox,"Save Curve");
-	saveCurveButton->getSelectCallbacks().add(this,&CurveEditorTool::saveCurveCallback);
+	GLMotif::Button* saveCurveButton=new GLMotif::Button("SaveCurveButton",ioBox,"Save Curve...");
+	curveSelectionHelper.addSaveCallback(saveCurveButton,this,&CurveEditorTool::saveCurveCallback);
 	
 	ioBox->manageChild();
 	

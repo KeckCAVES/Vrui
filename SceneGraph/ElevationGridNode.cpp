@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -369,11 +369,25 @@ void ElevationGridNode::uploadIndexedQuadStripSet(void) const
 	for(int z=0;z<zDim;++z)
 		for(int x=0;x<xDim;++x,++vPtr,++vInd)
 			{
+			/* Calculate the raw vertex position: */
+			Point p;
+			p[0]=origin.getValue()[0]+Scalar(x)*Scalar(xSp);
+			p[hComp]=hOffset+height.getValue(vInd)*heightScale.getValue();
+			p[zComp]=zOffset+Scalar(z)*Scalar(zSp);
+			
 			/* Store the vertex' texture coordinate: */
-			if(texCoord.getValue()!=0)
+			if(imageProjection.getValue()!=0)
+				{
+				/* Retrieve texture coordinates from the image projection node: */
+				vPtr->texCoord=imageProjection.getValue()->calcTexCoord(p);
+				}
+			else if(texCoord.getValue()!=0)
 				vPtr->texCoord=texCoord.getValue()->point.getValue(vInd);
 			else
+				{
+				/* Generate standard texture coordinates: */
 				vPtr->texCoord=Vertex::TexCoord(Scalar(x)/Scalar(xDim-1),Scalar(z)/Scalar(zDim-1));
+				}
 			
 			/* Store the vertex' color: */
 			if(color.getValue()!=0)
@@ -383,11 +397,7 @@ void ElevationGridNode::uploadIndexedQuadStripSet(void) const
 			else
 				vPtr->color=Vertex::Color(255,255,255);
 			
-			/* Calculate the vertex' position and normal: */
-			Point p;
-			p[0]=origin.getValue()[0]+Scalar(x)*Scalar(xSp);
-			p[hComp]=hOffset+height.getValue(vInd)*heightScale.getValue();
-			p[zComp]=zOffset+Scalar(z)*Scalar(zSp);
+			/* Calculate the vertex normal: */
 			Vector n;
 			if(normal.getValue()!=0)
 				{
@@ -606,6 +616,18 @@ void ElevationGridNode::uploadQuadSet(void) const
 			}
 		}
 	
+	TexCoord* vertexTexCoords=0;
+	if(imageProjection.getValue()!=0)
+		{
+		/* Calculate per-vertex texture coordinates: */
+		vertexTexCoords=new TexCoord[xDim*zDim];
+		Point* vPtr=vertices;
+		TexCoord* vtcPtr=vertexTexCoords;
+		for(int z=0;z<zDim;++z)
+			for(int x=0;x<xDim;++x,++vPtr,++vtcPtr)
+				*vtcPtr=imageProjection.getValue()->calcTexCoord(*vPtr);
+		}
+	
 	if(pointTransform.getValue()!=0)
 		{
 		/* Transform all vertex positions: */
@@ -629,7 +651,15 @@ void ElevationGridNode::uploadQuadSet(void) const
 			Vertex v[4];
 			
 			/* Calculate the corner texture coordinates of the current quad: */
-			if(texCoord.getValue()!=0)
+			if(imageProjection.getValue()!=0)
+				{
+				/* Store the per-vertex texture coordinates: */
+				v[0].texCoord=vertexTexCoords[vInd];
+				v[1].texCoord=vertexTexCoords[vInd+1];
+				v[2].texCoord=vertexTexCoords[vInd+xDim+1];
+				v[3].texCoord=vertexTexCoords[vInd+xDim];
+				}
+			else if(texCoord.getValue()!=0)
 				{
 				v[0].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd));
 				v[1].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd+1));
@@ -720,9 +750,10 @@ void ElevationGridNode::uploadQuadSet(void) const
 	
 	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
 	
-	/* Delete the per-quad and per-vertex normals and vertex positions: */
+	/* Delete the per-quad and per-vertex normals, texture coordinates, and vertex positions: */
 	delete[] quadNormals;
 	delete[] vertexNormals;
+	delete[] vertexTexCoords;
 	delete[] vertices;
 	}
 
@@ -929,6 +960,18 @@ void ElevationGridNode::uploadHoleyQuadTriangleSet(GLuint& numQuads,GLuint& numT
 			}
 		}
 	
+	TexCoord* vertexTexCoords=0;
+	if(imageProjection.getValue()!=0)
+		{
+		/* Calculate per-vertex texture coordinates: */
+		vertexTexCoords=new TexCoord[xDim*zDim];
+		Point* vPtr=vertices;
+		TexCoord* vtcPtr=vertexTexCoords;
+		for(int z=0;z<zDim;++z)
+			for(int x=0;x<xDim;++x,++vPtr,++vtcPtr)
+				*vtcPtr=imageProjection.getValue()->calcTexCoord(*vPtr);
+		}
+	
 	if(pointTransform.getValue()!=0)
 		{
 		/* Transform all vertex positions: */
@@ -955,7 +998,15 @@ void ElevationGridNode::uploadHoleyQuadTriangleSet(GLuint& numQuads,GLuint& numT
 			Vertex v[4];
 			
 			/* Calculate the corner texture coordinates of the current quad: */
-			if(texCoord.getValue()!=0)
+			if(imageProjection.getValue()!=0)
+				{
+				/* Store the per-vertex texture coordinates: */
+				v[0].texCoord=vertexTexCoords[vInd];
+				v[1].texCoord=vertexTexCoords[vInd+1];
+				v[2].texCoord=vertexTexCoords[vInd+xDim+1];
+				v[3].texCoord=vertexTexCoords[vInd+xDim];
+				}
+			else if(texCoord.getValue()!=0)
 				{
 				v[0].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd));
 				v[1].texCoord=Vertex::TexCoord(texCoord.getValue()->point.getValue(vInd+1));
@@ -1133,10 +1184,11 @@ void ElevationGridNode::uploadHoleyQuadTriangleSet(GLuint& numQuads,GLuint& numT
 	
 	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
 	
-	/* Delete the per-quad and per-vertex normals, the triangulation cases, and the vertex positions: */
+	/* Delete the per-quad and per-vertex normals, the triangulation cases, texture coordinates, and the vertex positions: */
 	delete[] quadNormals;
 	delete[] vertexNormals;
 	delete[] quadCases;
+	delete[] vertexTexCoords;
 	delete[] vertices;
 	}
 
@@ -1146,6 +1198,7 @@ ElevationGridNode::ElevationGridNode(void)
 	 origin(Point::origin),
 	 xDimension(0),xSpacing(0),
 	 zDimension(0),zSpacing(0),
+	 heightScale(1),
 	 heightIsY(true),
 	 removeInvalids(false),invalidHeight(0),
 	 ccw(true),solid(true),
@@ -1171,6 +1224,8 @@ void ElevationGridNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		vrmlFile.parseSFNode(color);
 	else if(strcmp(fieldName,"colorMap")==0)
 		vrmlFile.parseSFNode(colorMap);
+	else if(strcmp(fieldName,"imageProjection")==0)
+		vrmlFile.parseSFNode(imageProjection);
 	else if(strcmp(fieldName,"colorPerVertex")==0)
 		vrmlFile.parseField(colorPerVertex);
 	else if(strcmp(fieldName,"normal")==0)

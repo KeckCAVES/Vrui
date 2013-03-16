@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Class for high-performance reading/writing from/to
 standard operating system files.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 

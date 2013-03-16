@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -644,6 +644,38 @@ ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::Con
 		loadClass(tcnIt->c_str());
 		}
 	
+	/* Get factory for tool selection menu tools: */
+	ToolFactory* toolSelectionMenuFactory=loadClass(configFileSection->retrieveString("./toolSelectionMenuToolClass").c_str());
+	if(!toolSelectionMenuFactory->isDerivedFrom("MenuTool"))
+		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class is not a menu tool class");
+	const ToolInputLayout& menuToolLayout=toolSelectionMenuFactory->getLayout();
+	if(menuToolLayout.getNumButtons()!=1||menuToolLayout.getNumValuators()!=0)
+		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class has wrong input layout");
+	
+	/* Create the tool creation device, bypassing the input device manager and input graph manager: */
+	toolCreationDevice=new InputDevice("ToolCreationDevice",InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT,1,0);
+	
+	/* Create a tool selection tool and attach it to the tool creation device: */
+	ToolInputAssignment tia(toolSelectionMenuFactory->getLayout());
+	tia.setButtonSlot(0,toolCreationDevice,0);
+	Tool* tool=toolSelectionMenuFactory->createTool(tia);
+	#if DEBUGGING
+	std::cout<<"Creating tool selection tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
+	#endif
+	toolCreationTool=dynamic_cast<MenuTool*>(tool);
+	if(toolCreationTool==0)
+		{
+		delete tool;
+		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class is not a menu tool class");
+		}
+	
+	/* Create the tool selection menu: */
+	toolMenuPopup=createToolMenu();
+	toolMenu=new MutexMenu(toolMenuPopup);
+	
+	/* Assign the tool selection menu to the tool creation tool: */
+	toolCreationTool->setMenu(toolMenu);
+	
 	/* Register callbacks with the input device manager: */
 	inputDeviceManager->getInputDeviceDestructionCallbacks().add(this,&ToolManager::inputDeviceDestructionCallback);
 	
@@ -706,6 +738,60 @@ ToolManager::~ToolManager(void)
 	delete configFileSection;
 	}
 
+void ToolManager::addClass(ToolFactory* newFactory,ToolManager::BaseClass::DestroyFactoryFunction newDestroyFactoryFunction)
+	{
+	/* Call the base class method to register the tool factory: */
+	BaseClass::addClass(newFactory,newDestroyFactoryFunction);
+	
+	/* Add the new tool factory to the tool selection menu if the latter already exists: */
+	if(toolMenuPopup!=0)
+		{
+		/* Extract the new tool factory's ancestor classes: */
+		const ToolFactory* ancestor=newFactory;
+		std::vector<const ToolFactory*> ancestors;
+		while(true)
+			{
+			ancestor=!ancestor->getParents().empty()?dynamic_cast<const ToolFactory*>(ancestor->getParents().front()):0;
+			if(ancestor==0)
+				break;
+			ancestors.push_back(ancestor);
+			}
+		
+		/* Traverse the tool menu, adding cascade buttons for parent classes: */
+		GLMotif::Container* menu=static_cast<GLMotif::Container*>(toolMenuPopup->getFirstChild());
+		for(std::vector<const ToolFactory*>::reverse_iterator aIt=ancestors.rbegin();aIt!=ancestors.rend();++aIt)
+			{
+			GLMotif::Widget* ancestorWidget=menu->findChild((*aIt)->getClassName());
+			GLMotif::CascadeButton* ancestorCascade=dynamic_cast<GLMotif::CascadeButton*>(ancestorWidget);
+			if(ancestorCascade!=0)
+				{
+				/* Go to the ancestor's tool submenu: */
+				menu=static_cast<GLMotif::Container*>(ancestorCascade->getPopup()->getFirstChild());
+				}
+			else if(ancestorWidget==0)
+				{
+				/* Create a new cascade button and tool submenu for the ancestor: */
+				GLMotif::CascadeButton* ancestorCascade=new GLMotif::CascadeButton((*aIt)->getClassName(),menu,(*aIt)->getName());
+				
+				char popupName[256];
+				snprintf(popupName,sizeof(popupName),"%sSubmenuPopup",(*aIt)->getClassName());
+				GLMotif::Popup* ancestorPopup=new GLMotif::Popup(popupName,getWidgetManager());
+				GLMotif::SubMenu* ancestorSubmenu=new GLMotif::SubMenu("ToolSubmenu",ancestorPopup,true);
+				
+				ancestorCascade->setPopup(ancestorPopup);
+				
+				menu=ancestorSubmenu;
+				}
+			else
+				Misc::throwStdErr("Vrui::ToolManager::addClass: Base class name \"%s\" already exists as concrete class",(*aIt)->getClassName());
+			}
+		
+		/* Create a button for the new tool factory: */
+		GLMotif::Button* toolButton=new GLMotif::Button(newFactory->getClassName(),menu,newFactory->getName());
+		toolButton->getSelectCallbacks().add(this,&ToolManager::toolMenuSelectionCallback);
+		}
+	}
+
 void ToolManager::releaseClass(const char* className)
 	{
 	/* Get a pointer to the given class' factory object: */
@@ -730,6 +816,12 @@ void ToolManager::releaseClass(const char* className)
 	
 	/* Call the base class method to release the tool class: */
 	BaseClass::releaseClass(className);
+	}
+
+void ToolManager::addAbstractClass(ToolFactory* newFactory,ToolManager::BaseClass::DestroyFactoryFunction newDestroyFactoryFunction)
+	{
+	/* Call the base class method to register the tool factory: */
+	BaseClass::addClass(newFactory,newDestroyFactoryFunction);
 	}
 
 void ToolManager::defaultToolFactoryDestructor(ToolFactory* factory)
@@ -837,38 +929,6 @@ void ToolManager::loadDefaultTools(void)
 		}
 	
 	#endif
-	
-	/* Get factory for tool selection menu tools: */
-	ToolFactory* toolSelectionMenuFactory=loadClass(configFileSection->retrieveString("./toolSelectionMenuToolClass").c_str());
-	if(!toolSelectionMenuFactory->isDerivedFrom("MenuTool"))
-		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class is not a menu tool class");
-	const ToolInputLayout& menuToolLayout=toolSelectionMenuFactory->getLayout();
-	if(menuToolLayout.getNumButtons()!=1||menuToolLayout.getNumValuators()!=0)
-		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class has wrong input layout");
-	
-	/* Create the tool creation device, bypassing the input device manager and input graph manager: */
-	toolCreationDevice=new InputDevice("ToolCreationDevice",InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT,1,0);
-	
-	/* Create a tool selection tool and attach it to the tool creation device: */
-	ToolInputAssignment tia(toolSelectionMenuFactory->getLayout());
-	tia.setButtonSlot(0,toolCreationDevice,0);
-	Tool* tool=toolSelectionMenuFactory->createTool(tia);
-	#if DEBUGGING
-	std::cout<<"Creating tool selection tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
-	#endif
-	toolCreationTool=dynamic_cast<MenuTool*>(tool);
-	if(toolCreationTool==0)
-		{
-		delete tool;
-		Misc::throwStdErr("ToolManager::loadDefaultTools: Tool selection menu tool class is not a menu tool class");
-		}
-	
-	/* Create the tool selection menu: */
-	toolMenuPopup=createToolMenu();
-	toolMenu=new MutexMenu(toolMenuPopup);
-	
-	/* Assign the tool selection menu to the tool creation tool: */
-	toolCreationTool->setMenu(toolMenu);
 	}
 
 void ToolManager::startToolCreation(const InputDeviceFeature& feature)

@@ -1,7 +1,7 @@
 /***********************************************************************
 HSVColorSelector - Class for widgets to display and select colors based
 on the HSV color model.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -61,6 +61,7 @@ class HSVColorSelector:public Container,public DragWidget
 	GLfloat hexRadius; // Radius of the color hexagon
 	GLfloat currentValue; // Current value (brightness) of the color hexagon
 	GLfloat currentColorPos[2]; // Position of current color inside color hexagon, normalized to [-1, 1]^2
+	bool snapping; // Flag whether color values during the current dragging operation are snapped to 7 "pure" colors
 	Misc::CallbackList valueChangedCallbacks; // List of callbacks to be called when the slider value changes due to a user interaction
 	
 	/* Private methods: */

@@ -1,6 +1,6 @@
 /***********************************************************************
 AnnotationTool - Tool to interactively annotate 3D models.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLLabel.h>
 #include <GLMotif/RadioBox.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/CoordinateManager.h>
 #include <Vrui/UtilityTool.h>
 
 /* Forward declarations: */
@@ -335,6 +336,7 @@ class AnnotationTool:public UtilityTool
 	GLMotif::PopupWindow* annotationDialogPopup; // Pointer to the annotation dialog window
 	GLMotif::RadioBox* creationButtons; // Container for annotation object creation buttons
 	std::vector<Annotation*> annotations; // List of created annotation objects
+	CoordinateTransform* userTransform; // The currently valid user-space coordinate transformation
 	Annotation* newObject; // Currently created annotation object
 	Annotation::CreationState* newCreationState; // Creation state of currently created annotation object
 	Annotation* pickedObject; // Object picked at beginning of current dragging operation
@@ -344,6 +346,7 @@ class AnnotationTool:public UtilityTool
 	
 	/* Private methods: */
 	void creationButtonsCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
+	void coordTransformChangedCallback(CoordinateManager::CoordinateTransformChangedCallbackData* cbData);
 	
 	/* Constructors and destructors: */
 	public:
@@ -351,6 +354,8 @@ class AnnotationTool:public UtilityTool
 	virtual ~AnnotationTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

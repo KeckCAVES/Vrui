@@ -1,7 +1,7 @@
 ########################################################################
 # Makefile template for inter-platform development with automatic
 # source dependency maintenance.
-# Copyright (c) 1999-2012 Oliver Kreylos
+# Copyright (c) 1999-2013 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -22,7 +22,7 @@
 ########################################################################
 
 # Set directory containing Vrui's build system:
-VRUI_MAKEDIR := $(HOME)/Vrui-2.6/share/make
+VRUI_MAKEDIR := $(HOME)/Vrui-2.7/share/make
 ifdef DEBUG
   VRUI_MAKEDIR = $(VRUI_MAKEDIR)/debug
 endif

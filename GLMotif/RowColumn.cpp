@@ -1,7 +1,7 @@
 /***********************************************************************
 RowColumn - Container class to arrange children on a two-dimensional
 grid.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -334,13 +334,13 @@ void RowColumn::draw(GLContextData& contextData) const
 	/* Draw the parent class widget: */
 	Container::draw(contextData);
 	
-	/* Draw the margin and separators: */
-	glColor(backgroundColor);
-	Vector p=getInterior().origin;
-	
 	/* Bail out if there are no children: */
 	if(children.empty())
 		return;
+	
+	/* Draw the margin and separators: */
+	glColor(backgroundColor);
+	Vector p=getInterior().origin;
 	
 	/* Draw the top left margin part: */
 	glBegin(GL_TRIANGLE_FAN);
@@ -471,8 +471,8 @@ bool RowColumn::findRecipient(Event& event)
 	{
 	/* Distribute the question to the child widgets: */
 	bool childFound=false;
-	for(WidgetList::iterator chIt=children.begin();chIt!=children.end();++chIt)
-		childFound|=(*chIt)->findRecipient(event);
+	for(WidgetList::iterator chIt=children.begin();!childFound&&chIt!=children.end();++chIt)
+		childFound=(*chIt)->findRecipient(event);
 	
 	/* If no child was found, return ourselves (and ignore any incoming events): */
 	if(childFound)
@@ -619,17 +619,17 @@ void RowColumn::requestResize(Widget* child,const Vector& newExteriorSize)
 				columnWidths[columnIndex]=newExteriorSize[0];
 			}
 
-		/* Calculate the overall size: */
-		Vector result(0.0f,0.0f,0.0f);
+		/* Calculate the new overall size: */
+		Vector newSize(0.0f,0.0f,0.0f);
 		for(std::vector<GLfloat>::iterator cIt=columnWidths.begin();cIt!=columnWidths.end();++cIt)
-			result[0]+=*cIt;
+			newSize[0]+=*cIt;
 		for(std::vector<GLfloat>::iterator rIt=rowHeights.begin();rIt!=rowHeights.end();++rIt)
-			result[1]+=*rIt;
-		result[0]+=2.0f*marginWidth+GLfloat(columnWidths.size()-1)*spacing;
-		result[1]+=2.0f*marginWidth+GLfloat(rowHeights.size()-1)*spacing;
+			newSize[1]+=*rIt;
+		newSize[0]+=2.0f*marginWidth+GLfloat(columnWidths.size()-1)*spacing;
+		newSize[1]+=2.0f*marginWidth+GLfloat(rowHeights.size()-1)*spacing;
 		
 		/* Try to resize the widget: */
-		parent->requestResize(this,calcExteriorSize(result));
+		parent->requestResize(this,calcExteriorSize(newSize));
 		}
 	}
 

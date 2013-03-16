@@ -1,7 +1,7 @@
 /***********************************************************************
 HSVColorSelector - Class for widgets to display and select colors based
 on the HSV color model.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -60,7 +60,8 @@ void HSVColorSelector::sliderValueChangedCallback(Slider::ValueChangedCallbackDa
 
 HSVColorSelector::HSVColorSelector(const char* sName,Container* sParent,bool sManageChild)
 	:Container(sName,sParent,false),
-	 slider(new Slider("Slider",this,Slider::VERTICAL,0.0f,false))
+	 slider(new Slider("Slider",this,Slider::VERTICAL,0.0f,false)),
+	 snapping(false)
 	{
 	/* Initialize the widget's layout: */
 	const StyleSheet* ss=getStyleSheet();
@@ -280,6 +281,20 @@ bool HSVColorSelector::findRecipient(Event& event)
 
 void HSVColorSelector::pointerButtonDown(Event& event)
 	{
+	/* Convert the widget point to hexagon coordinates: */
+	GLfloat colorPos[2];
+	for(int i=0;i<2;++i)
+		colorPos[i]=(event.getWidgetPoint().getPoint()[i]-hexCenter[i])/hexRadius;
+	
+	/* Calculate the (unnormalized) distance to the current color position: */
+	GLfloat dist=0.0f;
+	for(int i=0;i<2;++i)
+		dist+=Math::sqr(currentColorPos[i]-colorPos[i]);
+	dist=Math::sqrt(dist)*hexRadius;
+	
+	/* Enable snapping if the click is outside the current color indicator: */
+	snapping=dist>indicatorSize;
+	
 	/* Start dragging: */
 	startDragging(event);
 	
@@ -354,6 +369,30 @@ void HSVColorSelector::pointerMotion(Event& event)
 				currentColorPos[0]*=c/d2;
 				currentColorPos[1]*=c/d2;
 				}
+			}
+		
+		if(snapping)
+			{
+			/* Snap the current color against the 7 "pure" colors: */
+			GLfloat closestDist=Math::sqr(currentColorPos[0])+Math::sqr(currentColorPos[1]);
+			GLfloat closestColor[2];
+			closestColor[0]=closestColor[1]=0.0f;
+			for(int i=0;i<6;++i)
+				{
+				/* Calculate the pure color position: */
+				GLfloat angle=2.0f*Math::Constants<GLfloat>::pi*GLfloat(i)/6.0f;
+				GLfloat x=Math::sin(angle);
+				GLfloat y=Math::cos(angle);
+				GLfloat dist=Math::sqr(currentColorPos[0]-x)+Math::sqr(currentColorPos[1]-y);
+				if(closestDist>dist)
+					{
+					closestDist=dist;
+					closestColor[0]=x;
+					closestColor[1]=y;
+					}
+				}
+			for(int i=0;i<2;++i)
+				currentColorPos[i]=closestColor[i];
 			}
 		
 		/* Call the value changed callbacks: */

@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

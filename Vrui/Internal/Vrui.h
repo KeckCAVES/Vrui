@@ -1,7 +1,7 @@
 /***********************************************************************
 Internal kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2012 Oliver Kreylos
+Copyright (c) 2000-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -41,8 +41,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/SubMenu.h>
 #include <GLMotif/ToggleButton.h>
-#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/WindowProperties.h>
 #include <Vrui/DisplayState.h>
@@ -135,7 +135,7 @@ struct VruiState
 	Point newInputDevicePosition;
 	VirtualInputDevice* virtualInputDevice;
 	InputGraphManager* inputGraphManager;
-	IO::DirectoryPtr inputGraphDirectory; // Directory from which to load the next input graph
+	FileSelectionHelper inputGraphSelectionHelper; // Helper to load and save input graph files
 	bool loadInputGraph; // Flag whether to replace the current input graph with one loaded from the given file at the next opportune moment
 	std::string inputGraphFileName; // Name of input graph file to load if loadInputGraph is true
 	
@@ -192,7 +192,7 @@ struct VruiState
 	std::vector<GLMotif::PopupWindow*> poppedDialogs;
 	GLMotif::PopupMenu* systemMenuPopup;
 	MutexMenu* mainMenu;
-	IO::DirectoryPtr viewDirectory; // Directory from which the most recent view file was loaded
+	FileSelectionHelper viewSelectionHelper; // Helper to load and save view files
 	
 	/* 3D picking management: */
 	Scalar pointPickDistance;
@@ -255,7 +255,7 @@ struct VruiState
 	GLMotif::Popup* buildDevicesMenu(void); // Builds the input devices submenu
 	void buildSystemMenu(GLMotif::Container* parent); // Builds the Vrui system menu inside the given container widget
 	void updateNavigationTransformation(const NavTransform& newTransform); // Updates the working version of the navigation transformation
-	bool loadViewpointFile(IO::Directory& directory,const char* viewpointFileName); // Overrides the navigation transformation with viewpoint data stored in the given viewpoint file
+	void loadViewpointFile(IO::Directory& directory,const char* viewpointFileName); // Overrides the navigation transformation with viewpoint data stored in the given viewpoint file
 	void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData); // Callback method called when a tool is destroyed
 	
 	/* Constructors and destructors: */
@@ -281,17 +281,14 @@ struct VruiState
 	/* System menu callback methods: */
 	void dialogsMenuCallback(GLMotif::SubMenu::EntrySelectCallbackData* cbData);
 	void widgetPopCallback(GLMotif::WidgetManager::WidgetPopCallbackData* cbData);
-	void loadViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void loadViewCallback(Misc::CallbackData* cbData);
-	void saveViewOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void saveViewCallback(Misc::CallbackData* cbData);
-	void restoreViewCallback(Misc::CallbackData* cbData);
+	void loadViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void pushViewCallback(Misc::CallbackData* cbData);
+	void popViewCallback(Misc::CallbackData* cbData);
 	void createInputDeviceCallback(Misc::CallbackData* cbData,const int& numButtons);
 	void destroyInputDeviceCallback(Misc::CallbackData* cbData);
-	void loadInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void loadInputGraphCallback(Misc::CallbackData* cbData);
-	void saveInputGraphOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void saveInputGraphCallback(Misc::CallbackData* cbData);
+	void loadInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void quitCallback(Misc::CallbackData* cbData);
 	};

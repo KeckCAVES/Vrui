@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-2.6
+INSTALLDIR := $(HOME)/Vrui-2.7
 
 ########################################################################
 # Please do not change the following lines
@@ -137,9 +137,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 2006002
+VRUI_VERSION = 2007001
 MAJORLIBVERSION = 2
-MINORLIBVERSION = 6
+MINORLIBVERSION = 7
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -1008,7 +1008,10 @@ VIDEO_HEADERS = Video/Config.h \
                 Video/VideoDevice.h \
                 Video/Colorspaces.h \
                 Video/ImageExtractorRGB8.h \
+                Video/ImageExtractorY10B.h \
                 Video/ImageExtractorYUYV.h \
+                Video/ImageExtractorUYVY.h \
+                Video/ImageExtractorYV12.h \
                 Video/BayerPattern.h \
                 Video/ImageExtractorBA81.h \
                 Video/YpCbCr420Texture.h \
@@ -1040,7 +1043,10 @@ endif
 VIDEO_SOURCES = Video/VideoDataFormat.cpp \
                 Video/VideoDevice.cpp \
                 Video/ImageExtractorRGB8.cpp \
+                Video/ImageExtractorY10B.cpp \
                 Video/ImageExtractorYUYV.cpp \
+                Video/ImageExtractorUYVY.cpp \
+                Video/ImageExtractorYV12.cpp \
                 Video/ImageExtractorBA81.cpp \
                 Video/YpCbCr420Texture.cpp \
                 Video/VideoPane.cpp

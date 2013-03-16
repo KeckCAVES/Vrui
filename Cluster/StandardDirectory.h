@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 

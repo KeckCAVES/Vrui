@@ -1,7 +1,7 @@
 /***********************************************************************
 VRMLFile - Class to represent a VRML 2.0 file and state required to
 parse its contents.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
