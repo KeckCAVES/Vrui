@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -185,10 +185,20 @@ Misc::PathType StandardDirectory::getEntryType(void) const
 FilePtr StandardDirectory::openFile(const char* fileName,File::AccessMode accessMode) const
 	{
 	/* Assemble the absolute path name of the given file: */
-	std::string filePath=pathName;
-	if(filePath.length()>1)
-		filePath.push_back('/');
-	filePath.append(fileName);
+	std::string filePath;
+	if(fileName[0]=='/')
+		{
+		/* Use the provided absolute file path: */
+		filePath=fileName;
+		}
+	else
+		{
+		/* Create a relative file path: */
+		filePath=pathName;
+		if(filePath.length()>1)
+			filePath.push_back('/');
+		filePath.append(fileName);
+		}
 	
 	/* Open and return the file: */
 	return IO::openFile(filePath.c_str(),accessMode);
@@ -197,10 +207,20 @@ FilePtr StandardDirectory::openFile(const char* fileName,File::AccessMode access
 DirectoryPtr StandardDirectory::openDirectory(const char* directoryName) const
 	{
 	/* Assemble the absolute path name of the given directory: */
-	std::string directoryPath=pathName;
-	if(directoryPath.length()>1)
-		directoryPath.push_back('/');
-	directoryPath.append(directoryName);
+	std::string directoryPath;
+	if(directoryName[0]=='/')
+		{
+		/* Use the provided absolute path: */
+		directoryPath=directoryName;
+		}
+	else
+		{
+		/* Create a relative path: */
+		directoryPath=pathName;
+		if(directoryPath.length()>1)
+			directoryPath.push_back('/');
+		directoryPath.append(directoryName);
+		}
 	
 	/* Open and return the new directory: */
 	return new StandardDirectory(directoryPath.c_str());

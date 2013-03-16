@@ -81,6 +81,8 @@ void VRDeviceClient::initClient(void)
 	unsigned int serverProtocolVersionNumber=pipe.read<unsigned int>();
 	
 	/* Check server version number or something... */
+	if(serverProtocolVersionNumber<1U)
+		throw ProtocolError("VRDeviceClient: Unsupported server protocol version");
 	
 	/* Read server's layout and initialize current state: */
 	state.readLayout(pipe);

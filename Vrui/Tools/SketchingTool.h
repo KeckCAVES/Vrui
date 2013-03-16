@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColor.h>
 #include <GLMotif/NewButton.h>
 #include <GLMotif/Slider.h>
-#include <GLMotif/FileSelectionDialog.h>
+#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/UtilityTool.h>
 
@@ -105,10 +105,11 @@ class SketchingTool:public UtilityTool
 	Curve* currentCurve; // Pointer to the currently created curve
 	Point lastPoint; // The last point appended to the curve
 	Point currentPoint; // The current dragging position
+	FileSelectionHelper curvesSelectionHelper; // Helper object to load and save curve files
 	
 	/* Constructors and destructors: */
 	public:
-	SketchingTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
+	SketchingTool(const Vrui::ToolFactory* sFactory,const Vrui::ToolInputAssignment& inputAssignment);
 	virtual ~SketchingTool(void);
 	
 	/* Methods from Vrui::Tool: */
@@ -123,9 +124,8 @@ class SketchingTool:public UtilityTool
 	/* New methods: */
 	void lineWidthSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void colorButtonSelectCallback(GLMotif::NewButton::SelectCallbackData* cbData);
-	void saveCurvesCallback(Misc::CallbackData* cbData);
-	void loadCurvesCallback(Misc::CallbackData* cbData);
-	void loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void saveCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void deleteAllCurvesCallback(Misc::CallbackData* cbData);
 	};
 

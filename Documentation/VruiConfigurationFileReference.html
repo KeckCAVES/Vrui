@@ -23,6 +23,12 @@ The rest of this document lists and explains all tag/value pairs that exist with
 			</UL>
 		</LI>
 
+		<LI><A HREF="#inputdeviceadapterdevicedaemonsettings">Trackd Input Device Adapter Settings</A>
+			<UL>
+			<LI><A HREF="#devicedaemoninputdevicesections">Trackd Input Device Sections</A></LI>
+			</UL>
+		</LI>
+
 		<LI><A HREF="#inputdeviceadaptervisboxsettings">VisBox Input Device Adapter Settings</A></LI>
 
 		<LI><A HREF="#inputdeviceadapterhidsettings">HID Input Device Adapter Settings</A>
@@ -172,7 +178,8 @@ The rest of this document lists and explains all tag/value pairs that exist with
 
 <TR>
 <TD>floorPlane</TD><TD><A HREF="VruiCFGTypes.html#plane">plane</A></TD>
-<TD>Defines a plane in physical coordinates that corresponds to a Vrui display environment's floor. For walk-in environments such as CAVEs or upright display walls it is typically the true floor plane; for desktop-like environments it is typically a plane orthogonal to the &quot;up&quot; direction that is placed a few feet below the screen center.</TD>
+<TD>Defines a plane in physical coordinates that corresponds to a Vrui display environment's floor. For walk-in environments such as CAVEs or upright display walls it is typically the true floor plane; for desktop-like environments it is typically a plane orthogonal to the &quot;up&quot; direction that is placed a few feet below the screen center.<BR>
+The floor plane is used by some navigation tools or applications to lock the virtual floor of a virtual environment to the real floor of the real environment, to support virtual walking.</TD>
 </TR>
 
 <TR>
@@ -394,6 +401,8 @@ The rest of this document lists and explains all tag/value pairs that exist with
 
 <DT>DeviceDaemon</DT><DD>Adapter to receive input from Vrui's own stand-alone device driver daemon. Rest of the section contains <A HREF="#inputdeviceadapterdevicedaemonsettings">DeviceDaemon input device adapter settings</A>.</DD>
 
+<DT>Trackd</DT><DD>Adapter to receive input from an external trackd daemon (part of the CAVElib library). Rest of the section contains <A HREF="#inputdeviceadaptertrackdsettings">Trackd input device adapter settings</A>.</DD>
+
 <DT>VisBox</DT><DD>Adapter to receive input from the proprietary head tracker used in <A HREF="http://www.visbox.com">VisBox</A> systems. Rest of the section contains <A HREF="#inputdeviceadaptervisboxsettings">VisBox input device adapter settings</A>.</DD>
 
 <DT>HID</DT><DD>Adapter to receive input from human interface devices (HIDs) provided by the operating system's input layer. Rest of the section contains <A HREF="#inputdeviceadapterhidsettings">HID input device adapter settings</A>.</DD>
@@ -478,6 +487,126 @@ The rest of this document lists and explains all tag/value pairs that exist with
 </TABLE>
 
 <H4><A NAME="devicedaemoninputdevicesections">DeviceDaemon Input Device Sections</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
+</TR>
+
+<TR>
+<TD>trackType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
+<TD>
+<DL>
+<DT>None</DT><DD>The input device does not have a tracker; it only contains buttons and/or valuators.</DD>
+
+<DT>3D</DT><DD>The input device has a tracker that reports 3D position only, but no orientation.</DD>
+
+<DT>Ray</DT><DD>The input device has a tracker that reports 3D position and a single direction vector, but no full orientation.</DD>
+
+<DT>6D</DT><DD>The input device has a tracker that reports both 3D position and full 3D orientation.</DD>
+</DL>
+</TD>
+</TR>
+
+<TR>
+<TD>numButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of buttons on the input device.</TD>
+</TR>
+
+<TR>
+<TD>numValuators</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of valuators (analog axes) on the input device.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
+</TR>
+
+<TR>
+<TD>deviceGlyphType</TD><TD><A HREF="VruiCFGTypes.html#glyphtype">glyph type</A></TD>
+<TD>Type of glyph used to draw a 3D representation of the input device in the Vrui display environment.</TD>
+</TR>
+
+<TR>
+<TD>deviceGlyphMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
+<TD>Material properties to render the device glyph.</TD>
+</TR>
+
+<TR>
+<TD>trackerIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Index of the device's tracker in the flat tracker name space of the VR device daemon.</TD>
+</TR>
+
+<TR>
+<TD>buttonIndexBase</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Base index of the device's buttons in the flat button name space of the VR device daemon. Provides a default index for each device button by adding the button index on the device to the base index.</TD>
+</TR>
+
+<TR>
+<TD>buttonIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Index of one of the device's buttons in the flat button name space of the VR device daemon. Can be used to override default indices for individual buttons.</TD>
+</TR>
+
+<TR>
+<TD>valuatorIndexBase</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Base index of the device's valuators in the flat valuator name space of the VR device daemon. Provides a default index for each device valuator by adding the valuator index on the device to the base index.</TD>
+</TR>
+
+<TR>
+<TD>valuatorIndex&lt;<EM>index</EM>&gt;</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Index of one of the device's valuators in the flat valuator name space of the VR device daemon. Can be used to override default indices for individual valuators.</TD>
+</TR>
+
+<TR>
+<TD>buttonNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all buttons on the device. If no names or too few names are given, unnamed buttons are given a &quot;Button&lt;index&gt;&quot; default name.</TD>
+</TR>
+
+<TR>
+<TD>valuatorNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all valuators on the device. If no names or too few names are given, unnamed valuators are given a &quot;Valuator&lt;index&gt;&quot; default name.</TD>
+</TR>
+</TABLE>
+
+<H3><A NAME="inputdeviceadaptertrackdsettings">Trackd Input Device Adapter Settings</A></H3>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>sensorMemoryKey</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Key to access the trackd daemon's sensor data shared memory segment.</TD>
+</TR>
+
+<TR>
+<TD>controllerMemoryKey</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Key to access the trackd daemon's controller data shared memory segment.</TD>
+</TR>
+
+<TR>
+<TD>inputDeviceNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>List of names of <A HREF="#trackdinputdevicesections">Trackd input device sections</A>. Each section defines a single input device, i.e., a collection of an (optional) tracker and a set of buttons and valuators (analog axes).</TD>
+</TR>
+
+<TR>
+<TD>calibrationTransformation</TD><TD><A HREF="VruiCFGTypes.html#orthogonaltransformation">orthogonal transformation</A></TD>
+<TD>A transformation to convert incoming trackd sensor positions and orientations from the trackd daemon's own coordinate system to Vrui's physical coordinate system to account for mixed-use setups where the coordinate systems do not match.</TD>
+</TR>
+
+<TR>
+<TD>updateRate</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Forces a minimal update rate (in Hz) onto a Vrui application to work around the lack of event notification in the trackd daemon's shared-memory protocol. If set to 0.0 (the default), automatic updates are disabled.</TD>
+</TR>
+
+<TR>
+<TD>spinPoll</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>When true, starts a background thread simulating event notification by active-waiting for a change in data time stamp on the trackd daemon's sensor and controller shared memory segments.</TD>
+</TR>
+</TABLE>
+
+<H4><A NAME="trackdinputdevicesections">Trackd Input Device Sections</A></H4>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>

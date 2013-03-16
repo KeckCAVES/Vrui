@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -22,11 +22,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/SketchingTool.h>
 
-#include <Misc/CreateNumberedFileName.h>
+#include <Misc/SelfDestructArray.h>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <IO/ValueSource.h>
+#include <Cluster/MulticastPipe.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
@@ -37,6 +38,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Label.h>
+#include <GLMotif/Button.h>
 #include <GLMotif/TextField.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
@@ -137,11 +139,13 @@ const SketchingTool::Curve::Color SketchingTool::curveColors[8]=
 Methods of class SketchingTool:
 ******************************/
 
-SketchingTool::SketchingTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:UtilityTool(factory,inputAssignment),
+SketchingTool::SketchingTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
+	:UtilityTool(sFactory,inputAssignment),
 	 controlDialogPopup(0),lineWidthValue(0),colorBox(0),
 	 newLineWidth(3.0f),newColor(255,0,0),
-	 active(false)
+	 active(false),
+	 currentCurve(0),
+	 curvesSelectionHelper(factory->curveFileName.c_str(),".curves",openDirectory("."))
 	{
 	/* Get the style sheet: */
 	const GLMotif::StyleSheet* ss=getWidgetManager()->getStyleSheet();
@@ -201,13 +205,13 @@ SketchingTool::SketchingTool(const ToolFactory* factory,const ToolInputAssignmen
 	buttonBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	buttonBox->setAlignment(GLMotif::Alignment::RIGHT);
 	
-	GLMotif::NewButton* saveCurvesButton=new GLMotif::NewButton("SaveCurvesButton",buttonBox,"Save Curves");
-	saveCurvesButton->getSelectCallbacks().add(this,&SketchingTool::saveCurvesCallback);
+	GLMotif::Button* saveCurvesButton=new GLMotif::Button("SaveCurvesButton",buttonBox,"Save Curves...");
+	curvesSelectionHelper.addSaveCallback(saveCurvesButton,this,&SketchingTool::saveCurvesCallback);
 	
-	GLMotif::NewButton* loadCurvesButton=new GLMotif::NewButton("LoadCurvesButton",buttonBox,"Load Curves");
-	loadCurvesButton->getSelectCallbacks().add(this,&SketchingTool::loadCurvesCallback);
+	GLMotif::Button* loadCurvesButton=new GLMotif::Button("LoadCurvesButton",buttonBox,"Load Curves...");
+	curvesSelectionHelper.addLoadCallback(loadCurvesButton,this,&SketchingTool::loadCurvesCallback);
 	
-	GLMotif::NewButton* deleteAllCurvesButton=new GLMotif::NewButton("DeleteAllCurvesButton",buttonBox,"Delete All Curves");
+	GLMotif::Button* deleteAllCurvesButton=new GLMotif::Button("DeleteAllCurvesButton",buttonBox,"Delete All Curves");
 	deleteAllCurvesButton->getSelectCallbacks().add(this,&SketchingTool::deleteAllCurvesCallback);
 	
 	buttonBox->manageChild();
@@ -333,14 +337,14 @@ void SketchingTool::colorButtonSelectCallback(GLMotif::NewButton::SelectCallback
 	newColor=curveColors[colorBox->getChildIndex(cbData->button)];
 	}
 
-void SketchingTool::saveCurvesCallback(Misc::CallbackData* cbData)
+void SketchingTool::saveCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	if(isMaster())
 		{
 		try
 			{
 			/* Save all curves to a curve file: */
-			Misc::File curveFile(Misc::createNumberedFileName(factory->curveFileName,4).c_str(),"w");
+			Misc::File curveFile(cbData->getSelectedPath().c_str(),"w");
 			FILE* cf=curveFile.getFilePtr();
 			
 			/* Write the curve file header: */
@@ -361,27 +365,38 @@ void SketchingTool::saveCurvesCallback(Misc::CallbackData* cbData)
 				for(std::vector<Curve::ControlPoint>::const_iterator cpIt=c->controlPoints.begin();cpIt!=c->controlPoints.end();++cpIt)
 					fprintf(cf,"%f, %f %f %f\n",cpIt->t,cpIt->pos[0],cpIt->pos[1],cpIt->pos[2]);
 				}
+			
+			if(getMainPipe()!=0)
+				{
+				/* Send a status message to the slave nodes: */
+				Misc::writeCString(0,*getMainPipe());
+				}
 			}
 		catch(std::runtime_error err)
 			{
-			/* Show an error message: */
-			showErrorMessage("Curve Editor","Could not create curve file; did not save curves");
+			if(getMainPipe()!=0)
+				{
+				/* Send an error message to the slaves: */
+				Misc::writeCString(err.what(),*getMainPipe());
+				}
+			
+			/* Re-throw the exception: */
+			throw;
+			}
+		}
+	else
+		{
+		/* Receive a status message from the master node: */
+		Misc::SelfDestructArray<char> error(Misc::readCString(*getMainPipe()));
+		if(error.getArray()!=0)
+			{
+			/* Throw an exception: */
+			throw std::runtime_error(error.getArray());
 			}
 		}
 	}
 
-void SketchingTool::loadCurvesCallback(Misc::CallbackData* cbData)
-	{
-	/* Create a file selection dialog to select a curve file: */
-	GLMotif::FileSelectionDialog* loadCurvesDialog=new GLMotif::FileSelectionDialog(getWidgetManager(),"Load Curves...",openDirectory("."),".curves");
-	loadCurvesDialog->getOKCallbacks().add(this,&SketchingTool::loadCurvesOKCallback);
-	loadCurvesDialog->deleteOnCancel();
-	
-	/* Show the file selection dialog: */
-	popupPrimaryWidget(loadCurvesDialog);
-	}
-
-void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
+void SketchingTool::loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Deactivate the tool just in case: */
 	active=false;
@@ -391,55 +406,45 @@ void SketchingTool::loadCurvesOKCallback(GLMotif::FileSelectionDialog::OKCallbac
 		delete *cIt;
 	curves.clear();
 	
-	try
-		{
-		/* Open the curve file: */
-		IO::ValueSource curvesSource(cbData->selectedDirectory->openFile(cbData->selectedFileName));
-		curvesSource.setPunctuation(',',true);
-		
-		/* Read the curve file header: */
-		if(!curvesSource.isString("Vrui Curve Editor Tool Curve File"))
-			Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
-		
-		/* Read all curvesSource: */
-		unsigned int numCurves=curvesSource.readUnsignedInteger();
-		for(unsigned int curveIndex=0;curveIndex<numCurves;++curveIndex)
-			{
-			/* Create a new curve: */
-			Curve* c=new Curve;
-			
-			/* Read the curve's line width and color: */
-			c->lineWidth=GLfloat(curvesSource.readNumber());
-			if(curvesSource.readChar()!=',')
-				Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
-			for(int i=0;i<3;++i)
-				c->color[i]=Curve::Color::Scalar(curvesSource.readUnsignedInteger());
-			c->color[3]=Curve::Color::Scalar(255);
-			
-			/* Read the curve's control points: */
-			unsigned int numControlPoints=curvesSource.readUnsignedInteger();
-			for(unsigned int controlPointIndex=0;controlPointIndex<numControlPoints;++controlPointIndex)
-				{
-				Curve::ControlPoint cp;
-				cp.t=Scalar(curvesSource.readNumber());
-				if(curvesSource.readChar()!=',')
-					Misc::throwStdErr("SketchingTool::loadCurvesOKCallback: File %s is not a curve file",cbData->selectedDirectory->getPath(cbData->selectedFileName).c_str());
-				for(int i=0;i<3;++i)
-					cp.pos[i]=Point::Scalar(curvesSource.readNumber());
-				c->controlPoints.push_back(cp);
-				}
-			
-			/* Store the curve: */
-			curves.push_back(c);
-			}
-		}
-	catch(std::runtime_error err)
-		{
-		/* Ignore the error */
-		}
+	/* Open the curve file: */
+	IO::ValueSource curvesSource(cbData->selectedDirectory->openFile(cbData->selectedFileName));
+	curvesSource.setPunctuation(',',true);
 	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
+	/* Read the curve file header: */
+	if(!curvesSource.isString("Vrui Curve Editor Tool Curve File"))
+		Misc::throwStdErr("SketchingTool::loadCurvesCallback: File is not a curve file");
+	
+	/* Read all curves from the file: */
+	unsigned int numCurves=curvesSource.readUnsignedInteger();
+	for(unsigned int curveIndex=0;curveIndex<numCurves;++curveIndex)
+		{
+		/* Create a new curve: */
+		Curve* c=new Curve;
+		
+		/* Read the curve's line width and color: */
+		c->lineWidth=GLfloat(curvesSource.readNumber());
+		if(curvesSource.readChar()!=',')
+			Misc::throwStdErr("SketchingTool::loadCurvesCallback: File is not a curve file");
+		for(int i=0;i<3;++i)
+			c->color[i]=Curve::Color::Scalar(curvesSource.readUnsignedInteger());
+		c->color[3]=Curve::Color::Scalar(255);
+		
+		/* Read the curve's control points: */
+		unsigned int numControlPoints=curvesSource.readUnsignedInteger();
+		for(unsigned int controlPointIndex=0;controlPointIndex<numControlPoints;++controlPointIndex)
+			{
+			Curve::ControlPoint cp;
+			cp.t=Scalar(curvesSource.readNumber());
+			if(curvesSource.readChar()!=',')
+				Misc::throwStdErr("SketchingTool::loadCurvesCallback: File is not a curve file");
+			for(int i=0;i<3;++i)
+				cp.pos[i]=Point::Scalar(curvesSource.readNumber());
+			c->controlPoints.push_back(cp);
+			}
+		
+		/* Store the curve: */
+		curves.push_back(c);
+		}
 	}
 
 void SketchingTool::deleteAllCurvesCallback(Misc::CallbackData* cbData)

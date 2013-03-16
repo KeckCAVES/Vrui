@@ -1,7 +1,7 @@
 /***********************************************************************
 AffinePointTransformNode - Point transformation class to transform
 points by arbitrary affine transformations.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -37,7 +37,7 @@ AffinePointTransformNode::AffinePointTransformNode(void)
 	/* Initialize the matrix to the identity transformation: */
 	for(int i=0;i<3;++i)
 		for(int j=0;j<4;++j)
-			matrix.appendValue(i==j?Scalar(1):Scalar(0));
+			matrix.appendValue(i==j?TScalar(1):TScalar(0));
 	}
 
 const char* AffinePointTransformNode::getStaticClassName(void)
@@ -65,32 +65,54 @@ void AffinePointTransformNode::update(void)
 	/* Convert the matrix to an affine transformation: */
 	transform=ATransform::identity;
 	int index=0;
-	for(MFFloat::ValueList::const_iterator mIt=matrix.getValues().begin();mIt!=matrix.getValues().end()&&index<12;++mIt,++index)
+	for(MFTScalar::ValueList::const_iterator mIt=matrix.getValues().begin();mIt!=matrix.getValues().end()&&index<12;++mIt,++index)
 		transform.getMatrix()(index/4,index%4)=*mIt;
 	
-	/* Calculate the normal transformation: */
-	normalTransform=Geometry::invert(transform);
+	/* Calculate the inverse and normal transformation: */
+	inverseTransform=Geometry::invert(transform);
 	for(int i=0;i<3;++i)
-		for(int j=i;j<3;++j)
-			std::swap(normalTransform.getMatrix()(i,j),normalTransform.getMatrix()(j,i));
+		{
+		for(int j=0;j<3;++j)
+			normalTransform.getMatrix()(i,j)=inverseTransform.getMatrix()(j,i);
+		normalTransform.getMatrix()(i,3)=TScalar(0);
+		}
 	}
 
-Point AffinePointTransformNode::transformPoint(const Point& point) const
+PointTransformNode::TPoint AffinePointTransformNode::transformPoint(const PointTransformNode::TPoint& point) const
 	{
 	return transform.transform(point);
 	}
 
-Box AffinePointTransformNode::calcBoundingBox(const std::vector<Point>& points) const
+PointTransformNode::TPoint AffinePointTransformNode::inverseTransformPoint(const PointTransformNode::TPoint& point) const
 	{
-	Box result=Box::empty;
+	return inverseTransform.transform(point);
+	}
+
+PointTransformNode::TBox AffinePointTransformNode::calcBoundingBox(const std::vector<Point>& points) const
+	{
+	TBox result=Box::empty;
+	
+	/* Transform all points individually: */
 	for(std::vector<Point>::const_iterator pIt=points.begin();pIt!=points.end();++pIt)
-		result.addPoint(transform.transform(*pIt));
+		result.addPoint(transform.transform(TPoint(*pIt)));
+	
 	return result;
 	}
 
-Vector AffinePointTransformNode::transformNormal(const Point& basePoint,const Vector& normal) const
+PointTransformNode::TBox AffinePointTransformNode::transformBox(const PointTransformNode::TBox& box) const
 	{
-	Vector result=normalTransform.transform(normal);
+	TBox result=Box::empty;
+	
+	/* Transform the eight corners of the bounding box: */
+	for(int i=0;i<8;++i)
+		result.addPoint(transform.transform(box.getVertex(i)));
+	
+	return result;
+	}
+
+PointTransformNode::TVector AffinePointTransformNode::transformNormal(const PointTransformNode::TPoint& basePoint,const PointTransformNode::TVector& normal) const
+	{
+	TVector result=normalTransform.transform(normal);
 	result.normalize();
 	return result;
 	}

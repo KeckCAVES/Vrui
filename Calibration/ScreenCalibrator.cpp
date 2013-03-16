@@ -503,8 +503,10 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	Vector y=screenNormal-floorNormal*((screenNormal*floorNormal)/Geometry::sqr(floorNormal));
 	Vector x=Geometry::cross(y,floorNormal);
 	
+	#if 0
 	/* Calculate a rotation to align the floor normal with +z and the (horizontal) screen normal with +y: */
 	ONTransform::Rotation rot=ONTransform::Rotation::fromBaseVectors(x,y);
+	#endif
 	
 	/*********************************************************************
 	Calculate a transformation to move the Totalstation survey points into

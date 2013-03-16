@@ -1,7 +1,7 @@
 /***********************************************************************
 V4L2VideoDevice - Wrapper class around video devices as represented by
 the Video for Linux version 2 (V4L2) library.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -51,7 +52,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Margin.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/DropdownBox.h>
+#include <Video/ImageExtractorY10B.h>
 #include <Video/ImageExtractorYUYV.h>
+#include <Video/ImageExtractorUYVY.h>
+#include <Video/ImageExtractorBA81.h>
 #if IMAGES_CONFIG_HAVE_JPEG
 #include <Video/ImageExtractorMJPG.h>
 #endif
@@ -248,8 +252,16 @@ void* V4L2VideoDevice::streamingThreadMethod(void)
 			buffer.memory=V4L2_MEMORY_MMAP;
 		else
 			buffer.memory=V4L2_MEMORY_USERPTR;
-		if(ioctl(videoFd,VIDIOC_DQBUF,&buffer)!=0)
-			break;
+		if(ioctl(videoFd,VIDIOC_DQBUF,&buffer)<0)
+			{
+			if(errno==EINTR) // If the ioctl was interrupted, try again
+				{
+				/* Ignore and try again: */
+				continue;
+				}
+			else
+				break;
+			}
 		
 		/* Find the frame buffer object, and fill in its capture state: */
 		V4L2FrameBuffer* frame=&frameBuffers[buffer.index];
@@ -260,8 +272,11 @@ void* V4L2VideoDevice::streamingThreadMethod(void)
 		(*streamingCallback)(frame);
 		
 		/* Put the frame buffer back into the capture queue: */
-		if(ioctl(videoFd,VIDIOC_QBUF,&buffer)!=0)
+		if(ioctl(videoFd,VIDIOC_QBUF,&buffer)<0)
+			{
+			/* This is a serious problem, so we have to bail out: */
 			break;
+			}
 		}
 	
 	return 0;
@@ -477,8 +492,14 @@ ImageExtractor* V4L2VideoDevice::createImageExtractor(void) const
 	VideoDataFormat format=getVideoFormat();
 	
 	/* Create an extractor based on the video format's pixel format: */
-	if(format.isPixelFormat("YUYV"))
+	if(format.isPixelFormat("Y10B"))
+		return new ImageExtractorY10B(format.size);
+	else if(format.isPixelFormat("YUYV"))
 		return new ImageExtractorYUYV(format.size);
+	else if(format.isPixelFormat("UYVY"))
+		return new ImageExtractorUYVY(format.size);
+	else if(format.isPixelFormat("GRBG"))
+		return new ImageExtractorBA81(format.size,BAYER_GRBG);
 	#if IMAGES_CONFIG_HAVE_JPEG
 	else if(format.isPixelFormat("MJPG"))
 		return new ImageExtractorMJPG(format.size);

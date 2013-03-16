@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Class for high-performance reading/writing from/to
 standard operating system files.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -75,6 +75,10 @@ void StandardFile::writeData(const File::Byte* buffer,size_t bufferSize)
 		if(lseek64(fd,writePos,SEEK_SET)<0)
 			throw SeekError(writePos);
 	
+	/* Invalidate the read buffer to prevent reading stale data: */
+	flushReadBuffer();
+	
+	/* Write all data in the given buffer: */
 	while(bufferSize>0)
 		{
 		ssize_t writeResult=::write(fd,buffer,bufferSize);

@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Geometry/Point.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Geoid.h>
+#include <Geometry/AlbersEqualAreaProjection.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/ShapeNode.h>
 #include <SceneGraph/ColorNode.h>
@@ -116,47 +117,29 @@ class AlbersProjection:public MapProjection // Class for Albers equal-area conic
 	double centralMeridian; // Central meridian in radians
 	double centralParallel; // Central parallel in radians
 	double standardParallels[2]; // Lower and upper standard parallels in radians
-	double offset[2]; // False easting and northing in linear units
 	double unitFactor; // Conversion factor from linear units to meters
-	double a,e2,e,n,c,rho0; // Derived projection coefficients
+	double offset[2]; // False easting and northing in linear units
+	Geometry::AlbersEqualAreaProjection<double> projection; // The projection object
+	
+	/* Constructors and destructors: */
+	AlbersProjection(void)
+		:projection(0.0,0.0,0.0,0.0)
+		{
+		};
 	
 	/* Methods from MapProjection: */
 	virtual Point toCartesian(double x,double y,double z) const
 		{
-		x=(x-offset[0])*unitFactor;
-		y=(y-offset[1])*unitFactor;
-		
-		double longitude=centralMeridian+Math::atan(x/(rho0-y))/n;
-		
-		double rho=Math::sqrt(Math::sqr(x)+Math::sqr(rho0-y));
-		double q=(c-Math::sqr(rho*n/a))/n;
-		double beta=Math::asin(q/(1.0-((1.0-e2)/(2.0*e))*Math::log((1.0-e)/(1.0+e))));
-		double latitude=beta
-		                +(e2*(1.0/3.0+e2*(31.0/180.0+e2*517.0/5040.0)))*Math::sin(2.0*beta)
-		                +(e2*e2*(23.0/360.0+e2*251.0/3780.0))*Math::sin(4.0*beta)
-		                +(e2*e2*e2*761.0/45360.0)*Math::sin(6.0*beta);
-		return geoProjection.toCartesian(longitude,latitude,z);
+		return projection.mapToCartesian(Geometry::AlbersEqualAreaProjection<double>::Point(x,y,z));
 		}
 	
 	/* New methods: */
 	void update(void) // Updates derived projection coefficients
 		{
-		a=geoProjection.geoid.radius;
-		e2=geoProjection.geoid.e2;
-		e=Math::sqrt(e2);
-		double sPhi0=Math::sin(centralParallel);
-		double sPhi1=Math::sin(standardParallels[0]);
-		double sPhi2=Math::sin(standardParallels[1]);
-		double cPhi1=Math::cos(standardParallels[0]);
-		double cPhi2=Math::cos(standardParallels[1]);
-		double q0=(1.0-e2)*(sPhi0/(1.0-e2*Math::sqr(sPhi0))-(0.5/e)*Math::log((1.0-e*sPhi0)/(1.0+e*sPhi0)));
-		double q1=(1.0-e2)*(sPhi1/(1.0-e2*Math::sqr(sPhi1))-(0.5/e)*Math::log((1.0-e*sPhi1)/(1.0+e*sPhi1)));
-		double q2=(1.0-e2)*(sPhi2/(1.0-e2*Math::sqr(sPhi2))-(0.5/e)*Math::log((1.0-e*sPhi2)/(1.0+e*sPhi2)));
-		double m1=cPhi1/Math::sqrt(1.0-e2*Math::sqr(sPhi1));
-		double m2=cPhi2/Math::sqrt(1.0-e2*Math::sqr(sPhi2));
-		n=(Math::sqr(m1)-Math::sqr(m2))/(q2-q1);
-		c=Math::sqr(m1)+n*q1;
-		rho0=a*Math::sqrt(c-n*q0)/n;
+		projection=Geometry::AlbersEqualAreaProjection<double>(centralMeridian,centralParallel,standardParallels[0],standardParallels[1],geoProjection.geoid.getRadius(),geoProjection.geoid.getFlatteningFactor());
+		projection.setUnitFactor(unitFactor);
+		projection.setFalseEasting(offset[0]);
+		projection.setFalseNorthing(offset[1]);
 		geoProjection.longitudeFirst=true;
 		geoProjection.longitudeFactor=1.0;
 		geoProjection.latitudeFactor=1.0;

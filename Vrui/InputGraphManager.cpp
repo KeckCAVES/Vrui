@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputGraphManager.h>
 
 #include <iostream>
+#include <Misc/SelfDestructArray.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/PrintInteger.h>
 #include <Misc/FileTests.h>
@@ -32,6 +33,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Misc/StringMarshaller.h>
+#include <IO/Directory.h>
+#include <Cluster/MulticastPipe.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
@@ -51,7 +55,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <SceneGraph/CoordinateNode.h>
 #include <SceneGraph/IndexedLineSetNode.h>
 #include <SceneGraph/TextNode.h>
-#include <SceneGraph/GLRenderState.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/VirtualInputDevice.h>
 #include <Vrui/InputDeviceManager.h>
@@ -60,6 +63,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ToolInputAssignment.h>
 #include <Vrui/Tool.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/SceneGraphSupport.h>
 #include <Vrui/Internal/ToolKillZone.h>
 
 namespace Vrui {
@@ -987,10 +991,52 @@ void InputGraphManager::loadInputGraph(Misc::ConfigurationFileSection& baseSecti
 		}
 	}
 
-void InputGraphManager::loadInputGraph(const char* configurationFileName,const char* baseSectionName)
+void InputGraphManager::loadInputGraph(IO::Directory& directory,const char* configurationFileName,const char* baseSectionName)
 	{
-	/* Lod the configuration file: */
-	Misc::ConfigurationFile cfgFile(configurationFileName);
+	Misc::ConfigurationFile cfgFile;
+	if(isMaster())
+		{
+		try
+			{
+			/* Load the configuration file: */
+			cfgFile.load(directory.getPath(configurationFileName).c_str());
+			
+			if(getMainPipe()!=0)
+				{
+				/* Forward the configuration file to the slaves: */
+				Misc::writeCString(0,*getMainPipe());
+				cfgFile.writeToPipe(*getMainPipe());
+				getMainPipe()->flush();
+				}
+			}
+		catch(std::runtime_error err)
+			{
+			if(getMainPipe()!=0)
+				{
+				/* Forward the error message to the slaves: */
+				Misc::writeCString(err.what(),*getMainPipe());
+				getMainPipe()->flush();
+				}
+			
+			/* Re-throw the exception: */
+			throw;
+			}
+		}
+	else
+		{
+		/* Check if there was an error on the master: */
+		Misc::SelfDestructArray<char> error(Misc::readCString(*getMainPipe()));
+		if(error.getArray()==0)
+			{
+			/* Receive a configuration file from the master: */
+			cfgFile.readFromPipe(*getMainPipe());
+			}
+		else
+			{
+			/* Throw an exception: */
+			throw std::runtime_error(error.getArray());
+			}
+		}
 	
 	/* Navigate to the base section: */
 	Misc::ConfigurationFileSection baseSection=cfgFile.getSection(baseSectionName);
@@ -999,147 +1045,183 @@ void InputGraphManager::loadInputGraph(const char* configurationFileName,const c
 	loadInputGraph(baseSection);
 	}
 
-void InputGraphManager::saveInputGraph(const char* configurationFileName,const char* baseSectionName) const
+void InputGraphManager::saveInputGraph(IO::Directory& directory,const char* configurationFileName,const char* baseSectionName) const
 	{
-	/* Create a new configuration file: */
-	Misc::ConfigurationFile cfgFile;
-	
-	/* Merge in contents of the given configuration file, if it exists: */
-	if(Misc::isFileReadable(configurationFileName))
-		cfgFile.merge(configurationFileName);
-	
-	/* Navigate to the base section and clear it: */
-	Misc::ConfigurationFileSection baseSection=cfgFile.getSection(baseSectionName);
-	baseSection.clear();
-	
-	/* Create a hash table to map device pointers to temporary device names for disambiguation: */
-	typedef Misc::HashTable<InputDevice*,std::string> DeviceNameMap;
-	DeviceNameMap deviceNameMap(17);
-	int virtualDeviceIndex=0;
-	int toolIndex=0;
-	
-	/* Save all virtual input devices and all tools from all input graph levels: */
-	for(int level=0;level<=maxGraphLevel;++level)
+	if(isMaster())
 		{
-		/* Check if there are any unrepresented non-physical devices in this input graph level: */
-		for(const GraphInputDevice* gidPtr=deviceLevels[level];gidPtr!=0;gidPtr=gidPtr->levelSucc)
-			if(gidPtr->grabber!=&inputDeviceManager&&!deviceNameMap.isEntry(gidPtr->device))
-				{
-				/* Create a new section for the virtual input device: */
-				std::string deviceSectionName="Device";
-				char deviceIndexString[11];
-				deviceSectionName.append(Misc::print(virtualDeviceIndex,deviceIndexString+10));
-				++virtualDeviceIndex;
-				Misc::ConfigurationFileSection deviceSection=baseSection.getSection(deviceSectionName.c_str());
-				
-				/* Write the virtual input device's layout: */
-				deviceSection.storeValue<int>("./numButtons",gidPtr->device->getNumButtons());
-				deviceSection.storeValue<int>("./numValuators",gidPtr->device->getNumValuators());
-				
-				/* Write the virtual input device's navigation flag: */
-				deviceSection.storeValue<bool>("./navigational",gidPtr->navigational);
-				
-				/* Write the virtual input device's position and orientation: */
-				if(gidPtr->navigational)
-					{
-					/* Write the navigational-space position and orientation: */
-					TrackerState navPos(gidPtr->fromNavTransform.getTranslation(),gidPtr->fromNavTransform.getRotation());
-					deviceSection.storeValue<TrackerState>("./transform",navPos);
-					}
-				else
-					{
-					/* Write the physical-space position and orientation: */
-					deviceSection.storeValue<TrackerState>("./transform",gidPtr->device->getTransformation());
-					}
-				
-				/* Add the virtual input device to the device name mapper: */
-				deviceNameMap[gidPtr->device]=deviceSectionName;
-				}
-		
-		/* Save all tools in this level: */
-		for(GraphTool* gtPtr=toolLevels[level];gtPtr!=0;gtPtr=gtPtr->levelSucc)
+		try
 			{
-			/* Create a new section for the tool: */
-			std::string toolSectionName="Tool";
-			char toolIndexString[11];
-			toolSectionName.append(Misc::print(toolIndex,toolIndexString+10));
-			++toolIndex;
-			Misc::ConfigurationFileSection toolSection=baseSection.getSection(toolSectionName.c_str());
+			/* Create a new configuration file: */
+			Misc::ConfigurationFile cfgFile;
 			
-			/* Write the tool's class name: */
-			toolSection.storeValue<std::string>("./toolClass",gtPtr->tool->getFactory()->getClassName());
+			/* Merge in contents of the given configuration file, if it exists: */
+			std::string configurationFilePath=directory.getPath(configurationFileName);
+			if(Misc::isFileReadable(configurationFilePath.c_str()))
+				cfgFile.merge(configurationFilePath.c_str());
 			
-			/* Write the tool's feature bindings: */
-			std::string bindings="((";
-			const ToolInputAssignment& tia=gtPtr->tool->getInputAssignment();
+			/* Navigate to the base section and clear it: */
+			Misc::ConfigurationFileSection baseSection=cfgFile.getSection(baseSectionName);
+			baseSection.clear();
 			
-			/* Initialize the current device to collate features by device: */
-			InputDevice* currentDevice=tia.getSlotDevice(0);
+			/* Create a hash table to map device pointers to temporary device names for disambiguation: */
+			typedef Misc::HashTable<InputDevice*,std::string> DeviceNameMap;
+			DeviceNameMap deviceNameMap(17);
+			int virtualDeviceIndex=0;
+			int toolIndex=0;
 			
-			/* Get a (mapped) name for the current device: */
-			DeviceNameMap::Iterator dnmIt=deviceNameMap.findEntry(currentDevice);
-			if(dnmIt.isFinished())
-				bindings.append(currentDevice->getDeviceName());
-			else
-				bindings.append(dnmIt->getDest());
-			
-			for(int i=0;i<tia.getNumSlots();++i)
+			/* Save all virtual input devices and all tools from all input graph levels: */
+			for(int level=0;level<=maxGraphLevel;++level)
 				{
-				/* Check for a device change: */
-				if(currentDevice!=tia.getSlotDevice(i))
+				/* Check if there are any unrepresented non-physical devices in this input graph level: */
+				for(const GraphInputDevice* gidPtr=deviceLevels[level];gidPtr!=0;gidPtr=gidPtr->levelSucc)
+					if(gidPtr->grabber!=&inputDeviceManager&&!deviceNameMap.isEntry(gidPtr->device))
+						{
+						/* Create a new section for the virtual input device: */
+						std::string deviceSectionName="Device";
+						char deviceIndexString[11];
+						deviceSectionName.append(Misc::print(virtualDeviceIndex,deviceIndexString+10));
+						++virtualDeviceIndex;
+						Misc::ConfigurationFileSection deviceSection=baseSection.getSection(deviceSectionName.c_str());
+						
+						/* Write the virtual input device's layout: */
+						deviceSection.storeValue<int>("./numButtons",gidPtr->device->getNumButtons());
+						deviceSection.storeValue<int>("./numValuators",gidPtr->device->getNumValuators());
+						
+						/* Write the virtual input device's navigation flag: */
+						deviceSection.storeValue<bool>("./navigational",gidPtr->navigational);
+						
+						/* Write the virtual input device's position and orientation: */
+						if(gidPtr->navigational)
+							{
+							/* Write the navigational-space position and orientation: */
+							TrackerState navPos(gidPtr->fromNavTransform.getTranslation(),gidPtr->fromNavTransform.getRotation());
+							deviceSection.storeValue<TrackerState>("./transform",navPos);
+							}
+						else
+							{
+							/* Write the physical-space position and orientation: */
+							deviceSection.storeValue<TrackerState>("./transform",gidPtr->device->getTransformation());
+							}
+						
+						/* Add the virtual input device to the device name mapper: */
+						deviceNameMap[gidPtr->device]=deviceSectionName;
+						}
+				
+				/* Save all tools in this level: */
+				for(GraphTool* gtPtr=toolLevels[level];gtPtr!=0;gtPtr=gtPtr->levelSucc)
 					{
-					/* Close the current per-device feature list: */
-					bindings.append("), (");
+					/* Create a new section for the tool: */
+					std::string toolSectionName="Tool";
+					char toolIndexString[11];
+					toolSectionName.append(Misc::print(toolIndex,toolIndexString+10));
+					++toolIndex;
+					Misc::ConfigurationFileSection toolSection=baseSection.getSection(toolSectionName.c_str());
 					
-					/* Start a new per-device feature list: */
-					currentDevice=tia.getSlotDevice(i);
+					/* Write the tool's class name: */
+					toolSection.storeValue<std::string>("./toolClass",gtPtr->tool->getFactory()->getClassName());
+					
+					/* Write the tool's feature bindings: */
+					std::string bindings="((";
+					const ToolInputAssignment& tia=gtPtr->tool->getInputAssignment();
+					
+					/* Initialize the current device to collate features by device: */
+					InputDevice* currentDevice=tia.getSlotDevice(0);
 					
 					/* Get a (mapped) name for the current device: */
 					DeviceNameMap::Iterator dnmIt=deviceNameMap.findEntry(currentDevice);
 					if(dnmIt.isFinished())
-						bindings.append(Misc::ValueCoder<std::string>::encode(currentDevice->getDeviceName()));
+						bindings.append(currentDevice->getDeviceName());
 					else
-						bindings.append(Misc::ValueCoder<std::string>::encode(dnmIt->getDest()));
-					}
-				
-				/* Add the bound feature name: */
-				bindings.append(", ");
-				bindings.append(Misc::ValueCoder<std::string>::encode(getInputDeviceManager()->getFeatureName(tia.getSlotFeature(i))));
-				}
-			bindings.append("))");
-			toolSection.storeString("bindings",bindings);
-			
-			/* Let the tool store its settings: */
-			gtPtr->tool->storeState(toolSection);
-			
-			/* Check if the tool has forwarded devices: */
-			DeviceForwarder* df=dynamic_cast<DeviceForwarder*>(gtPtr->tool);
-			if(df!=0)
-				{
-				/* Create a mapped name for each forwarded device: */
-				std::vector<InputDevice*> forwardedDevices=df->getForwardedDevices();
-				if(forwardedDevices.size()==1)
-					{
-					/* Add an entry for the single forwarded device: */
-					deviceNameMap[forwardedDevices[0]]=toolSectionName;
-					}
-				else
-					{
-					/* Add an entry for each forwarded device, appending their indices: */
-					for(unsigned int index=0;index<forwardedDevices.size();++index)
+						bindings.append(dnmIt->getDest());
+					
+					for(int i=0;i<tia.getNumSlots();++i)
 						{
-						std::string forwardedDeviceName=toolSectionName;
-						char indexString[11];
-						forwardedDeviceName.append(Misc::print(index,indexString+10));
-						deviceNameMap[forwardedDevices[0]]=forwardedDeviceName;
+						/* Check for a device change: */
+						if(currentDevice!=tia.getSlotDevice(i))
+							{
+							/* Close the current per-device feature list: */
+							bindings.append("), (");
+							
+							/* Start a new per-device feature list: */
+							currentDevice=tia.getSlotDevice(i);
+							
+							/* Get a (mapped) name for the current device: */
+							DeviceNameMap::Iterator dnmIt=deviceNameMap.findEntry(currentDevice);
+							if(dnmIt.isFinished())
+								bindings.append(Misc::ValueCoder<std::string>::encode(currentDevice->getDeviceName()));
+							else
+								bindings.append(Misc::ValueCoder<std::string>::encode(dnmIt->getDest()));
+							}
+						
+						/* Add the bound feature name: */
+						bindings.append(", ");
+						bindings.append(Misc::ValueCoder<std::string>::encode(getInputDeviceManager()->getFeatureName(tia.getSlotFeature(i))));
+						}
+					bindings.append("))");
+					toolSection.storeString("bindings",bindings);
+					
+					/* Let the tool store its settings: */
+					gtPtr->tool->storeState(toolSection);
+					
+					/* Check if the tool has forwarded devices: */
+					DeviceForwarder* df=dynamic_cast<DeviceForwarder*>(gtPtr->tool);
+					if(df!=0)
+						{
+						/* Create a mapped name for each forwarded device: */
+						std::vector<InputDevice*> forwardedDevices=df->getForwardedDevices();
+						if(forwardedDevices.size()==1)
+							{
+							/* Add an entry for the single forwarded device: */
+							deviceNameMap[forwardedDevices[0]]=toolSectionName;
+							}
+						else
+							{
+							/* Add an entry for each forwarded device, appending their indices: */
+							for(unsigned int index=0;index<forwardedDevices.size();++index)
+								{
+								std::string forwardedDeviceName=toolSectionName;
+								char indexString[11];
+								forwardedDeviceName.append(Misc::print(index,indexString+10));
+								deviceNameMap[forwardedDevices[0]]=forwardedDeviceName;
+								}
+							}
 						}
 					}
 				}
+			
+			/* Save the configuration file: */
+			cfgFile.saveAs(configurationFilePath.c_str());
+			
+			if(getMainPipe()!=0)
+				{
+				/* Send a success flag to the slaves: */
+				Misc::writeCString(0,*getMainPipe());
+				getMainPipe()->flush();
+				}
+			}
+		catch(std::runtime_error err)
+			{
+			if(getMainPipe()!=0)
+				{
+				/* Send an error message to the slaves: */
+				Misc::writeCString(err.what(),*getMainPipe());
+				getMainPipe()->flush();
+				}
+			
+			/* Re-throw the exception: */
+			throw;
 			}
 		}
-	
-	/* Save the configuration file: */
-	cfgFile.saveAs(configurationFileName);
+	else
+		{
+		/* Check if there was an error on the master: */
+		Misc::SelfDestructArray<char> error(Misc::readCString(*getMainPipe()));
+		if(error.getArray()!=0)
+			{
+			/* Throw an exception: */
+			throw std::runtime_error(error.getArray());
+			}
+		}
 	}
 
 bool InputGraphManager::isNavigational(InputDevice* device) const
@@ -1559,17 +1641,8 @@ void InputGraphManager::glRenderAction(GLContextData& contextData) const
 		/* Save OpenGL state: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 		
-		/* Create a scene graph rendering state: */
-		SceneGraph::GLRenderState renderState(contextData,getMainViewer()->getHeadPosition(),getUpDirection());
-		
-		/* Go to the base device's local coordinate system: */
-		SceneGraph::OGTransform oldTransform=renderState.pushTransform(calcHUDTransform(toolStackBaseFeature.getDevice()->getPosition()));
-		
-		/* Draw the tool stack: */
-		toolStackNode->glRenderAction(renderState);
-		
-		/* Go back to physical coordinates: */
-		renderState.popTransform(oldTransform);
+		/* Visualize the tool stack: */
+		renderSceneGraph(toolStackNode.getPointer(),calcHUDTransform(toolStackBaseFeature.getDevice()->getPosition()),false,contextData);
 		
 		/* Restore OpenGL state: */
 		glPopAttrib();

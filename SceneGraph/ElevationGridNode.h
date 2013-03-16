@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/ColorNode.h>
 #include <SceneGraph/NormalNode.h>
 #include <SceneGraph/ColorMapNode.h>
+#include <SceneGraph/ImageProjectionNode.h>
 
 /* Forward declarations: */
 namespace Cluster {
@@ -47,6 +48,7 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	typedef SF<ColorNodePointer> SFColorNode;
 	typedef SF<NormalNodePointer> SFNormalNode;
 	typedef SF<ColorMapNodePointer> SFColorMapNode;
+	typedef SF<ImageProjectionNodePointer> SFImageProjectionNode;
 	
 	/* Elements: */
 	
@@ -71,6 +73,7 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	SFTextureCoordinateNode texCoord;
 	SFColorNode color;
 	SFColorMapNode colorMap;
+	SFImageProjectionNode imageProjection;
 	SFBool colorPerVertex;
 	SFNormalNode normal;
 	SFBool normalPerVertex;

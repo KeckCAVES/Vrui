@@ -2,7 +2,7 @@
 ReferenceEllipsoidNode - Class for nodes defining reference ellipsoid
 (geodesic data) for geodesic coordinate systems and transformations
 between them.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -58,6 +58,14 @@ void ReferenceEllipsoidNode::parseField(const char* fieldName,VRMLFile& vrmlFile
 	else if(strcmp(fieldName,"flattening")==0)
 		{
 		vrmlFile.parseField(flattening);
+		}
+	else if(strcmp(fieldName,"inverseFlattening")==0)
+		{
+		/* Parse the field as if it were normal flattening: */
+		vrmlFile.parseField(flattening);
+		
+		/* Invert the field value: */
+		flattening.setValue(1.0/flattening.getValue());
 		}
 	else if(strcmp(fieldName,"scale")==0)
 		{

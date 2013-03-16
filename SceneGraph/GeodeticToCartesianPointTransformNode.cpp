@@ -2,7 +2,7 @@
 GeodeticToCartesianPointTransformNode - Point transformation class to
 convert geodetic coordinates (longitude/latitude/altitude on a reference
 ellipsoid) to Cartesian coordinates.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -45,6 +45,7 @@ GeodeticToCartesianPointTransformNode::GeodeticToCartesianPointTransformNode(voi
 	 degrees(false),
 	 colatitude(false),
 	 elevationScale(1),
+	 moveToOrigin(false),
 	 re(0)
 	{
 	}
@@ -89,6 +90,14 @@ void GeodeticToCartesianPointTransformNode::parseField(const char* fieldName,VRM
 		{
 		vrmlFile.parseField(elevationScale);
 		}
+	else if(strcmp(fieldName,"moveToOrigin")==0)
+		{
+		vrmlFile.parseField(moveToOrigin);
+		}
+	else if(strcmp(fieldName,"originPoint")==0)
+		{
+		vrmlFile.parseField(originPoint);
+		}
 	else
 		PointTransformNode::parseField(fieldName,vrmlFile);
 	}
@@ -128,21 +137,39 @@ void GeodeticToCartesianPointTransformNode::update(void)
 	/* Calculate the geodetic point transformation: */
 	for(int i=0;i<3;++i)
 		{
-		componentScales[i]=GScalar(1);
-		componentOffsets[i]=GScalar(0);
+		componentScales[i]=TScalar(1);
+		componentOffsets[i]=TScalar(0);
 		}
 	if(degrees.getValue())
 		{
 		/* Scale longitude and latitude to radians: */
-		componentScales[0]=componentScales[1]=Math::Constants<GScalar>::pi/GScalar(180);
+		componentScales[0]=componentScales[1]=Math::Constants<TScalar>::pi/TScalar(180);
 		}
 	if(colatitude.getValue())
 		{
 		/* Subtract latitude in radians from pi/2: */
 		componentScales[1]=-componentScales[1];
-		componentOffsets[1]=Math::div2(Math::Constants<GScalar>::pi);
+		componentOffsets[1]=Math::div2(Math::Constants<TScalar>::pi);
 		}
 	componentScales[2]=elevationScale.getValue();
+	
+	/* Check if recentering was requested: */
+	if(moveToOrigin.getValue())
+		{
+		/* Convert the origin point to Cartesian coordinates: */
+		TPoint geodetic;
+		for(int i=0;i<3;++i)
+			geodetic[i]=TScalar(originPoint.getValue()[componentIndices[i]])*componentScales[i]+componentOffsets[i];
+		TPoint cartesian=re->geodeticToCartesian(geodetic);
+		
+		/* Calculate the offset vector: */
+		offset=TPoint::origin-cartesian;
+		}
+	else
+		{
+		/* Reset the offset vector: */
+		offset=TVector::zero;
+		}
 	
 	/* Check whether normal vectors need to be flipped: */
 	int ci[3];
@@ -167,59 +194,86 @@ void GeodeticToCartesianPointTransformNode::update(void)
 	flipNormals=numSwaps%2==1;
 	}
 
-Point GeodeticToCartesianPointTransformNode::transformPoint(const Point& point) const
+PointTransformNode::TPoint GeodeticToCartesianPointTransformNode::transformPoint(const PointTransformNode::TPoint& point) const
 	{
 	/* Convert the geodetic point to longitude and latitude in radians and elevation in meters: */
-	ReferenceEllipsoidNode::Geoid::Point geodetic;
+	TPoint geodetic;
 	for(int i=0;i<3;++i)
-		geodetic[i]=GScalar(point[componentIndices[i]])*componentScales[i]+componentOffsets[i];
+		geodetic[i]=point[componentIndices[i]]*componentScales[i]+componentOffsets[i];
 	
 	/* Return the transformed point: */
-	return re->geodeticToCartesian(geodetic);
+	return re->geodeticToCartesian(geodetic)+offset;
 	}
 
-Box GeodeticToCartesianPointTransformNode::calcBoundingBox(const std::vector<Point>& points) const
+PointTransformNode::TPoint GeodeticToCartesianPointTransformNode::inverseTransformPoint(const PointTransformNode::TPoint& point) const
 	{
-	Box result=Box::empty;
-	for(std::vector<Point>::const_iterator pIt=points.begin();pIt!=points.end();++pIt)
-		result.addPoint(transformPoint(*pIt));
+	/* Transform the point from Cartesian to geodetic coordinates: */
+	TPoint geodetic=re->cartesianToGeodetic(point-offset);
+	
+	/* Convert the geodetic point to geodetic coordinate order and scale: */
+	TPoint result;
+	for(int i=0;i<3;++i)
+		result[componentIndices[i]]=(geodetic[i]-componentOffsets[i])/componentScales[i];
 	return result;
 	}
 
-Vector GeodeticToCartesianPointTransformNode::transformNormal(const Point& basePoint,const Vector& normal) const
+PointTransformNode::TBox GeodeticToCartesianPointTransformNode::calcBoundingBox(const std::vector<Point>& points) const
+	{
+	TBox result=TBox::empty;
+	
+	/* Transform each point individually: */
+	for(std::vector<Point>::const_iterator pIt=points.begin();pIt!=points.end();++pIt)
+		result.addPoint(transformPoint(TPoint(*pIt)));
+	
+	return result;
+	}
+
+PointTransformNode::TBox GeodeticToCartesianPointTransformNode::transformBox(const PointTransformNode::TBox& box) const
+	{
+	TBox result=TBox::empty;
+	
+	/* Transform the eight corners of the box (this is not entirely correct; to be fixed later): */
+	for(int i=0;i<8;++i)
+		result.addPoint(transformPoint(box.getVertex(i)));
+	
+	return result;
+	}
+
+PointTransformNode::TVector GeodeticToCartesianPointTransformNode::transformNormal(const PointTransformNode::TPoint& basePoint,const PointTransformNode::TVector& normal) const
 	{
 	/* Convert the geodetic base point and normal vector to longitude and latitude in radians: */
-	ReferenceEllipsoidNode::Geoid::Point geodetic;
-	Geometry::Vector<GScalar,3> geonorm;
+	TPoint geodetic;
+	TVector geonormal;
 	for(int i=0;i<3;++i)
 		{
-		geodetic[i]=GScalar(basePoint[componentIndices[i]])*componentScales[i]+componentOffsets[i];
-		geonorm[i]=GScalar(normal[componentIndices[i]])/componentScales[i];
+		geodetic[i]=basePoint[componentIndices[i]]*componentScales[i]+componentOffsets[i];
+		geonormal[i]=normal[componentIndices[i]]/componentScales[i];
 		}
 	
 	/* Calculate the geoid transformation's derivative at the base point: */
 	ReferenceEllipsoidNode::Geoid::Derivative deriv=re->geodeticToCartesianDerivative(geodetic);
 	
 	/* Calculate the normal transformation matrix: */
-	GScalar a=deriv(1,1)*deriv(2,2)-deriv(1,2)*deriv(2,1);
-	GScalar b=deriv(1,2)*deriv(2,0)-deriv(1,0)*deriv(2,2);
-	GScalar c=deriv(1,0)*deriv(2,1)-deriv(1,1)*deriv(2,0);
-	GScalar d=deriv(0,2)*deriv(2,1)-deriv(0,1)*deriv(2,2);
-	GScalar e=deriv(0,0)*deriv(2,2)-deriv(0,2)*deriv(2,0);
-	GScalar f=deriv(0,1)*deriv(2,0)-deriv(0,0)*deriv(2,1);
-	GScalar g=deriv(0,1)*deriv(1,2)-deriv(0,2)*deriv(1,1);
-	GScalar h=deriv(0,2)*deriv(1,0)-deriv(0,0)*deriv(1,2);
-	GScalar i=deriv(0,0)*deriv(1,1)-deriv(0,1)*deriv(1,0);
+	TScalar a=deriv(1,1)*deriv(2,2)-deriv(1,2)*deriv(2,1);
+	TScalar b=deriv(1,2)*deriv(2,0)-deriv(1,0)*deriv(2,2);
+	TScalar c=deriv(1,0)*deriv(2,1)-deriv(1,1)*deriv(2,0);
+	TScalar d=deriv(0,2)*deriv(2,1)-deriv(0,1)*deriv(2,2);
+	TScalar e=deriv(0,0)*deriv(2,2)-deriv(0,2)*deriv(2,0);
+	TScalar f=deriv(0,1)*deriv(2,0)-deriv(0,0)*deriv(2,1);
+	TScalar g=deriv(0,1)*deriv(1,2)-deriv(0,2)*deriv(1,1);
+	TScalar h=deriv(0,2)*deriv(1,0)-deriv(0,0)*deriv(1,2);
+	TScalar i=deriv(0,0)*deriv(1,1)-deriv(0,1)*deriv(1,0);
 	
 	/* Calculate the result normal: */
-	Geometry::Vector<GScalar,3> norm;
-	norm[0]=a*geonorm[0]+b*geonorm[1]+c*geonorm[2];
-	norm[1]=d*geonorm[0]+e*geonorm[1]+f*geonorm[2];
-	norm[2]=g*geonorm[0]+h*geonorm[1]+i*geonorm[2];
-	GScalar normLen=Geometry::mag(norm);
+	TVector result;
+	result[0]=a*geonormal[0]+b*geonormal[1]+c*geonormal[2];
+	result[1]=d*geonormal[0]+e*geonormal[1]+f*geonormal[2];
+	result[2]=g*geonormal[0]+h*geonormal[1]+i*geonormal[2];
+	TScalar resultLen=Geometry::mag(result);
 	if(flipNormals)
-		normLen=-normLen;
-	return Vector(Scalar(norm[0]/normLen),Scalar(norm[1]/normLen),Scalar(norm[2]/normLen));
+		resultLen=-resultLen;
+	result/=resultLen;
+	return result;
 	}
 
 }
