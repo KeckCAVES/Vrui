@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,15 +24,20 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_FPSNAVIGATIONTOOL_INCLUDED
 #define VRUI_FPSNAVIGATIONTOOL_INCLUDED
 
+#include <Misc/FixedArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <GL/GLNumberRenderer.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/DeviceForwarder.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
 class GLContextData;
+class GLNumberRenderer;
 namespace Vrui {
 class InputDeviceAdapterMouse;
 }
@@ -45,17 +50,38 @@ class FPSNavigationToolFactory:public ToolFactory
 	{
 	friend class FPSNavigationTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure holding tool (class) configuration
+		{
+		/* Elements: */
+		public:
+		bool activationToggle; // Flag whether the activation button acts as a toggle
+		Misc::FixedArray<Scalar,2> rotateFactors; // Distance the mouse has to be moved to rotate by one radians horizontally and vertically, respectively
+		Misc::FixedArray<Scalar,2> moveSpeeds; // Moving speed when pressing move buttons in physical space units per second, for forward/back and left/right, respectively
+		Scalar fallAcceleration; // Acceleration when falling in physical space units per second^2, defaults to g
+		Scalar jumpVelocity; // Instantaneous vertical velocity when jumping in physical space units per second
+		Scalar probeSize; // Size of probe to use when aligning surface frames in physical space units
+		Scalar maxClimb; // Maximum amount of climb per frame in physical space units
+		bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
+		bool levelOnExit; // Flag whether to reset the elevation angle to zero upon deactivating the tool
+		bool drawHud; // Flag whether to draw the navigation heads-up display
+		Color hudColor; // Color to draw the HUD
+		float hudDist; // Distance of HUD plane from eye point in physical coordinate units
+		float hudRadius; // Radius of HUD on HUD plane
+		float hudFontSize; // HUD font size in physical coordinate units
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		
+		/* Methods: */
+		void load(const Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		};
+	
 	/* Elements: */
 	private:
-	Scalar rotateFactor; // Distance the mouse has to be moved to rotate by one radians
-	Scalar moveSpeed; // Moving speed when pressing move buttons
-	Scalar fallAcceleration; // Acceleration when falling in physical space units per second^2, defaults to g
-	Scalar jumpVelocity; // Instantaneous vertical velocity when jumping
-	Scalar probeSize; // Size of probe to use when aligning surface frames
-	Scalar maxClimb; // Maximum amount of climb per frame
-	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
-	bool showHud; // Flag whether to draw a heads-up display
-	bool levelOnExit; // Flag whether to reset the elevation angle to zero upon deactivating the tool
+	Configuration config; // The class configuration
 	
 	/* Constructors and destructors: */
 	public:
@@ -76,23 +102,21 @@ class FPSNavigationTool:public SurfaceNavigationTool,public DeviceForwarder
 	/* Elements: */
 	private:
 	static FPSNavigationToolFactory* factory; // Pointer to the factory object for this class
+	FPSNavigationToolFactory::Configuration config; // The tool configuration
 	InputDevice* buttonDevice; // Pointer to the input device representing the forwarded movement buttons
 	InputDeviceAdapterMouse* mouseAdapter; // Mouse adapter controlling the tool's input device (0 if none)
-	GLNumberRenderer numberRenderer; // Helper object to render numbers using a HUD-style font
+	GLNumberRenderer* numberRenderer; // Helper object to render numbers using a HUD-style font
 	
 	/* Transient navigation state: */
-	Scalar oldMousePos[2]; // Mouse position in input device adapter before navigation started
 	Point footPos; // Current position of main viewer's foot in physical coordinates
 	Scalar headHeight; // Height of viewer's head above the foot point
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of viewer position relative to local coordinate frame
 	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame
 	Vector moveVelocity; // Current movement velocity in frame coordinates
-	Point lastMousePos; // Last mouse position in screen coordinates
 	bool jump; // Flag whether the user requested a jump
 	
 	/* Private methods: */
-	Point calcMousePosition(void) const; // Calculates the current mouse position in screen coordinates
 	void applyNavState(void); // Applies the tool's current navigation state to the navigation transformation
 	void initNavState(void); // Initializes the tool's navigation state when it is activated
 	void stopNavState(void); // Leaves navigation mode
@@ -100,8 +124,11 @@ class FPSNavigationTool:public SurfaceNavigationTool,public DeviceForwarder
 	/* Constructors and destructors: */
 	public:
 	FPSNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	~FPSNavigationTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;

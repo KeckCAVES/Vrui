@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisNavigationTool - Class to convert an input device with six
 valuators into a navigation tool.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -59,7 +59,7 @@ SixAxisNavigationToolFactory::Configuration::Configuration(void)
 		rotations[i][i]=Scalar(1);
 	}
 
-void SixAxisNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+void SixAxisNavigationToolFactory::Configuration::load(const Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */
 	translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",translateFactor);
@@ -203,7 +203,7 @@ SixAxisNavigationTool::SixAxisNavigationTool(const ToolFactory* sFactory,const T
 	{
 	}
 
-void SixAxisNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void SixAxisNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Update the configuration: */
 	config.load(configFileSection);

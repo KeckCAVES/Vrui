@@ -1,6 +1,6 @@
 /***********************************************************************
 GLPolylineTube - Class to render a polyline as a cylindrical tube.
-Copyright (c) 2006 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -101,7 +101,7 @@ void GLPolylineTube::updateTubeVertices(GLPolylineTube::DataItem* dataItem) cons
 	tangent.normalize();
 	Vector x=Geometry::normal(tangent);
 	x.normalize();
-	Vector y=Geometry::cross(tangent,x);
+	Vector y=tangent^x;
 	y.normalize();
 	for(int i=0;i<numTubeSegments;++i)
 		{
@@ -116,7 +116,7 @@ void GLPolylineTube::updateTubeVertices(GLPolylineTube::DataItem* dataItem) cons
 		tangent.normalize();
 		x-=tangent*(x*tangent);
 		x.normalize();
-		y=Geometry::cross(tangent,x);
+		y=tangent^x;
 		y.normalize();
 		for(int i=0;i<numTubeSegments;++i)
 			{
@@ -130,7 +130,7 @@ void GLPolylineTube::updateTubeVertices(GLPolylineTube::DataItem* dataItem) cons
 	tangent.normalize();
 	x-=tangent*(x*tangent);
 	x.normalize();
-	y=Geometry::cross(tangent,x);
+	y=tangent^x;
 	y.normalize();
 	for(int i=0;i<numTubeSegments;++i)
 		{

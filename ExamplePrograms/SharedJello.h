@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -112,7 +112,7 @@ class SharedJello:public Vrui::Application,private SharedJelloProtocol
 	
 	/* Constructors and destructors: */
 	public:
-	SharedJello(int& argc,char**& argv,char**& appDefaults);
+	SharedJello(int& argc,char**& argv);
 	virtual ~SharedJello(void);
 	
 	/* Methods: */

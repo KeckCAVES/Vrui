@@ -2,7 +2,7 @@
 AlignTrackingMarkers - Utility to define a reasonable coordinate system
 based on tracking marker positions detected by an optical tracking
 system.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -629,7 +629,7 @@ void AlignTrackingMarkers::display(GLContextData& contextData) const
 		axis/=height;
 		Vector x=Geometry::normal(axis);
 		x.normalize();
-		Vector y=Geometry::cross(axis,x);
+		Vector y=axis^x;
 		y.normalize();
 		glBegin(GL_QUAD_STRIP);
 		glColor3f(0.5f,0.5f,0.5f);

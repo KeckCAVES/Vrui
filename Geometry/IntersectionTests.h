@@ -1,7 +1,7 @@
 /***********************************************************************
 IntersectionTests - Namespace-global functions to test for intersections
 between various geometric objects.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

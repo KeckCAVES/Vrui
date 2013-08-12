@@ -1,6 +1,6 @@
 /***********************************************************************
 Rotation - Class for 2D and 3D rotations.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -63,6 +63,8 @@ template <class ScalarParam>
 Rotation<ScalarParam,2> operator*(const Rotation<ScalarParam,2>& r1,const Rotation<ScalarParam,2>& r2);
 template <class ScalarParam>
 Rotation<ScalarParam,2> invert(const Rotation<ScalarParam,2>& r);
+template <class ScalarParam>
+Rotation<ScalarParam,2> operator/(const Rotation<ScalarParam,2>& r1,const Rotation<ScalarParam,2>& r2);
 
 template <class ScalarParam>
 class Rotation<ScalarParam,2>
@@ -169,6 +171,12 @@ class Rotation<ScalarParam,2>
 		return *this;
 		}
 	friend Rotation invert<>(const Rotation& r); // Inverts a rotation
+	Rotation& operator/=(const Rotation& other) // Division assignment (from the right)
+		{
+		setAngle(angle-other.angle);
+		return *this;
+		}
+	friend Rotation operator/<ScalarParam>(const Rotation& r1,const Rotation& r2); // Divides two rotations
 	
 	/* Transformation methods: */
 	Vector transform(const Vector& v) const // Transforms a vector
@@ -230,6 +238,11 @@ Rotation<ScalarParam,2> invert(const Rotation<ScalarParam,2>& r)
 	{
 	return Rotation<ScalarParam,2>(-r.angle);
 	}
+template <class ScalarParam>
+Rotation<ScalarParam,2> operator/(const Rotation<ScalarParam,2>& r1,const Rotation<ScalarParam,2>& r2)
+	{
+	return Rotation<ScalarParam,2>(r1.angle-r2.angle);
+	}
 
 /**********************************
 Specialized class for 3D rotations:
@@ -246,6 +259,8 @@ template <class ScalarParam>
 Rotation<ScalarParam,3> operator*(const Rotation<ScalarParam,3>& r1,const Rotation<ScalarParam,3>& r2);
 template <class ScalarParam>
 Rotation<ScalarParam,3> invert(const Rotation<ScalarParam,3>& r);
+template <class ScalarParam>
+Rotation<ScalarParam,3> operator/(const Rotation<ScalarParam,3>& r1,const Rotation<ScalarParam,3>& r2);
 
 template <class ScalarParam>
 class Rotation<ScalarParam,3>
@@ -448,6 +463,8 @@ class Rotation<ScalarParam,3>
 		return *this;
 		}
 	friend Rotation invert<>(const Rotation& r); // Inverts a rotation
+	Rotation& operator/=(const Rotation& other); // Division assignment (from the right)
+	friend Rotation operator/<ScalarParam>(const Rotation& r1,const Rotation& r2); // Divides two rotations
 	
 	/* Transformation methods: */
 	Vector transform(const Vector& v) const // Transforms a vector

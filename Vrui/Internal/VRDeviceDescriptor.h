@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceDescriptor - Class describing the structure of an input device
 represented by a VR device daemon.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,11 +25,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_INTERNAL_VRDEVICEDESCRIPTOR_INCLUDED
 
 #include <string>
-#include <Misc/StandardMarshallers.h>
-#include <Misc/ArrayMarshallers.h>
-#include <IO/File.h>
 #include <Geometry/Vector.h>
-#include <Geometry/GeometryMarshallers.h>
+
+/* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
+namespace IO {
+class File;
+}
 
 namespace Vrui {
 
@@ -50,7 +54,8 @@ class VRDeviceDescriptor
 	/* Elements: */
 	std::string name; // Device name
 	int trackType; // Device's tracking type
-	Vector rayDirection; // Device's preferred pointing direction in local device coordinates
+	Vector rayDirection; // Device's preferred pointing direction in local device coordinates; ignored if trackType is TRACK_NONE
+	float rayStart; // Starting parameter of device's ray in physical coordinate units; ignored if trackType is TRACK_NONE
 	int trackerIndex; // Index of device's tracker in VR device daemon's flat namespace, or -1 if trackType is TRACK_NONE
 	int numButtons; // Number of buttons on the device
 	std::string* buttonNames; // Array of button names
@@ -61,70 +66,19 @@ class VRDeviceDescriptor
 	
 	/* Constructors and destructors: */
 	public:
-	VRDeviceDescriptor(void) // Creates an empty descriptor
-		:trackType(TRACK_NONE),rayDirection(Vector::zero),trackerIndex(-1),
-		 numButtons(0),buttonNames(0),buttonIndices(0),
-		 numValuators(0),valuatorNames(0),valuatorIndices(0)
-		{
-		}
-	VRDeviceDescriptor(int sNumButtons,int sNumValuators) // Creates a descriptor with the given number of buttons and valuators
-		:trackType(TRACK_NONE),rayDirection(Vector::zero),trackerIndex(-1),
-		 numButtons(sNumButtons),buttonNames(new std::string[numButtons]),buttonIndices(new int[numButtons]),
-		 numValuators(sNumValuators),valuatorNames(new std::string[numValuators]),valuatorIndices(new int[numValuators])
-		{
-		/* Initialize button and valuator indices: */
-		for(int i=0;i<numButtons;++i)
-			buttonIndices[i]=-1;
-		for(int i=0;i<numValuators;++i)
-			valuatorIndices[i]=-1;
-		}
+	VRDeviceDescriptor(void); // Creates an empty descriptor
+	VRDeviceDescriptor(int sNumButtons,int sNumValuators); // Creates a descriptor with the given number of buttons and valuators
 	private:
 	VRDeviceDescriptor(const VRDeviceDescriptor& source); // Prohibit copy constructor
 	VRDeviceDescriptor& operator=(const VRDeviceDescriptor& source); // Prohibit assignment operator
 	public:
-	~VRDeviceDescriptor(void) // Destroys the descriptor
-		{
-		delete[] buttonNames;
-		delete[] buttonIndices;
-		delete[] valuatorNames;
-		delete[] valuatorIndices;
-		}
+	~VRDeviceDescriptor(void); // Destroys the descriptor
 	
 	/* Methods: */
-	void write(IO::File& sink) const // Writes the device descriptor to a data sink
-		{
-		Misc::Marshaller<std::string>::write(name,sink);
-		sink.write<int>(trackType);
-		Misc::Marshaller<Vector>::write(rayDirection,sink);
-		sink.write<int>(trackerIndex);
-		sink.write<int>(numButtons);
-		Misc::FixedArrayMarshaller<std::string>::write(buttonNames,numButtons,sink);
-		Misc::FixedArrayMarshaller<int>::write(buttonIndices,numButtons,sink);
-		sink.write<int>(numValuators);
-		Misc::FixedArrayMarshaller<std::string>::write(valuatorNames,numValuators,sink);
-		Misc::FixedArrayMarshaller<int>::write(valuatorIndices,numValuators,sink);
-		}
-	void read(IO::File& source) // Reads a device descriptor from a data source
-		{
-		name=Misc::Marshaller<std::string>::read(source);
-		trackType=source.read<int>();
-		rayDirection=Misc::Marshaller<Vector>::read(source);
-		trackerIndex=source.read<int>();
-		numButtons=source.read<int>();
-		delete[] buttonNames;
-		buttonNames=new std::string[numButtons];
-		Misc::FixedArrayMarshaller<std::string>::read(buttonNames,numButtons,source);
-		delete[] buttonIndices;
-		buttonIndices=new int[numButtons];
-		Misc::FixedArrayMarshaller<int>::read(buttonIndices,numButtons,source);
-		numValuators=source.read<int>();
-		delete[] valuatorNames;
-		valuatorNames=new std::string[numValuators];
-		Misc::FixedArrayMarshaller<std::string>::read(valuatorNames,numValuators,source);
-		delete[] valuatorIndices;
-		valuatorIndices=new int[numValuators];
-		Misc::FixedArrayMarshaller<int>::read(valuatorIndices,numValuators,source);
-		}
+	void write(IO::File& sink) const; // Writes the device descriptor to a data sink
+	void read(IO::File& source); // Reads a device descriptor from a data source
+	void save(Misc::ConfigurationFileSection& configFileSection) const; // Saves the device descriptor to the given configuration file section
+	void load(const Misc::ConfigurationFileSection& configFileSection); // Loads the device descriptor from the given configuration file section
 	};
 
 }

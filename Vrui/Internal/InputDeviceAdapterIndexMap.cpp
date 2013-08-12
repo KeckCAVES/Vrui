@@ -36,7 +36,7 @@ namespace Vrui {
 Methods of class InputDeviceAdapterIndexMap:
 *******************************************/
 
-void InputDeviceAdapterIndexMap::createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection)
+void InputDeviceAdapterIndexMap::createIndexMappings(void)
 	{
 	/* If the index mapping arrays have not been created yet, do so now: */
 	if(trackerIndexMapping==0)
@@ -53,6 +53,12 @@ void InputDeviceAdapterIndexMap::createInputDevice(int deviceIndex,const Misc::C
 		for(int i=0;i<numInputDevices;++i)
 			valuatorIndexMapping[i]=0;
 		}
+	}
+
+void InputDeviceAdapterIndexMap::createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Ensure that the index mapping tables exist: */
+	createIndexMappings();
 	
 	/* Call base class method to initialize basic input device settings: */
 	InputDeviceAdapter::createInputDevice(deviceIndex,configFileSection);

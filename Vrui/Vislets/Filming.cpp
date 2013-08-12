@@ -416,7 +416,7 @@ void Filming::resetGridCallback(Misc::CallbackData* cbData)
 		{
 		/* Initialize the grid transformation: */
 		gridTransform=ONTransform::translateFromOriginTo(getDisplayCenter());
-		gridTransform*=ONTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getUpDirection(),getForwardDirection()),getUpDirection()));
+		gridTransform*=ONTransform::rotate(Rotation::fromBaseVectors(getUpDirection()^getForwardDirection(),getUpDirection()));
 		}
 	}
 

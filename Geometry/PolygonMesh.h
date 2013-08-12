@@ -1,7 +1,7 @@
 /***********************************************************************
 PolygonMesh - Base class for polygon meshes represented by a split-edge
 data structure.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

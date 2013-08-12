@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -711,7 +711,7 @@ MeasurementTool::~MeasurementTool(void)
 	delete measurementDialogPopup;
 	}
 
-void MeasurementTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void MeasurementTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read the measurement mode: */
 	measurementMode=configFileSection.retrieveValue<MeasurementToolFactory::MeasurementMode>("./measurementMode",measurementMode);

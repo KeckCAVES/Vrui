@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisInputDeviceTool - Class for tools using six valuators for
 translational and rotational axes to control virtual input devices.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -50,7 +50,7 @@ SixAxisInputDeviceToolFactory::Configuration::Configuration(void)
 		rotations[i][i]=Scalar(1);
 	}
 
-void SixAxisInputDeviceToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+void SixAxisInputDeviceToolFactory::Configuration::load(const Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */
 	selectButtonToggle=cfs.retrieveValue<bool>("./selectButtonToggle",selectButtonToggle);
@@ -62,8 +62,6 @@ void SixAxisInputDeviceToolFactory::Configuration::load(Misc::ConfigurationFileS
 
 void SixAxisInputDeviceToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
 	{
-	typedef std::vector<Vector> VectorList;
-	
 	/* Save parameters: */
 	cfs.storeValue<bool>("./selectButtonToggle",selectButtonToggle);
 	cfs.storeValue<Scalar>("./translateFactor",translateFactor);
@@ -197,7 +195,7 @@ SixAxisInputDeviceTool::SixAxisInputDeviceTool(const ToolFactory* sFactory,const
 	interactionDevice=getButtonDevice(0);
 	}
 
-void SixAxisInputDeviceTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void SixAxisInputDeviceTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Update the configuration: */
 	config.load(configFileSection);

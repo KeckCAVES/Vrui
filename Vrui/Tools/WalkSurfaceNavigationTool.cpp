@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -116,9 +116,16 @@ const char* WalkSurfaceNavigationToolFactory::getButtonFunction(int) const
 	return "Start / Stop";
 	}
 
-const char* WalkSurfaceNavigationToolFactory::getValuatorFunction(int) const
+const char* WalkSurfaceNavigationToolFactory::getValuatorFunction(int valuatorSlotIndex) const
 	{
-	return "Fire Jetpack";
+	switch(valuatorSlotIndex)
+		{
+		case 0:
+			return "Fire Jetpack";
+		
+		default:
+			return "Unused";
+		}
 	}
 
 Tool* WalkSurfaceNavigationToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -305,7 +312,7 @@ void WalkSurfaceNavigationTool::frame(void)
 				rotateSpeed=factory->rotateSpeed;
 			else if(viewAngle>factory->innerAngle)
 				rotateSpeed=factory->rotateSpeed*(viewAngle-factory->innerAngle)/(factory->outerAngle-factory->innerAngle);
-			Vector x=Geometry::cross(factory->centerViewDirection,getUpDirection());
+			Vector x=factory->centerViewDirection^getUpDirection();
 			if(viewDir*x<Scalar(0))
 				rotateSpeed=-rotateSpeed;
 			
@@ -456,7 +463,7 @@ void WalkSurfaceNavigationTool::initContext(GLContextData& contextData) const
 		
 		/* Create a coordinate system for the floor plane: */
 		Vector y=factory->centerViewDirection;
-		Vector x=Geometry::cross(y,getFloorPlane().getNormal());
+		Vector x=y^getFloorPlane().getNormal();
 		x.normalize();
 		
 		/* Draw the inner circle: */

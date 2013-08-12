@@ -3445,3 +3445,298 @@ Vrui-2.7-001:
 - Included the virtual clay modeling application as another Vrui example
   program.
 - Added ImageSequenceViewer as Vrui example program.
+
+Vrui-2.8-001:
+- Added singular value decomposition, following Gene Golub's 1970 paper,
+  to Math::Matrix. Need to do more testing.
+- Fixed shared memory handling bug in Vrui::InputDeviceAdapterTrackd,
+  found by Calvin Robinson.
+  - Fixed another bug: passed calibrat*ion* transformation to controlled
+    device instead of calibrat*ed* transformation. D'oh.
+- Changed Vrui.Workbench.cpp to look for configuration files requested
+  by -mergeConfig in the main configuration directory first.
+- Fixed bug in VRDeviceDaemon/VRDeviceServer: default TCP port number
+  now correctly uses kernel-assigned listening port number.
+- Added suspend/resume functionality to
+  SceneGraph::Doom3MaterialManager::RenderContext.
+- Improved error handling in USB::Device::claimInterface.
+- Shuffled some code in Vrui::VRWindow::render().
+- Simplified tool kill zone position reading code in
+  Vrui::VRWindow::VRWindow.
+- Started adding lens distortion correction facilities to Vrui::VRWindow
+  to add support for Oculus Rift HMD.
+- Behavior change: calling initExtension on an OpenGL extension object
+  not supported by the local OpenGL will throw an exception.
+  - Changed GLShader, GLGeometryShader, GLFrameBuffer, and
+    Vrui::VRWindow to use new simplified extension initialization.
+- Added VRUI_APPLICATION_RUN(AppClassName) macro to Vrui/Application.h.
+- Added glDrawArrow function to GL/GLModels.h.
+- Added VR device driver for the Oculus Rift's built-in orientational
+  tracker.
+- Added two patch configuration files for Oculus Rift (5.6" and 7.0"
+  screens), and a template section for its tracker in VRDevices.cfg.
+- Added a main menu with toggle buttons for each loaded scene graph to
+  VruiSceneGraphDemo.
+- Added getWriteSize() method to IO::FixedMemoryFile.
+- Added new ToggleButtonTool to convert a set of regular buttons into
+  toggle buttons.
+- Added explicit sync() method to Cluster::ThreadSynchronizer.
+- Added thread ID synchronization points to Vrui initialization sequence
+  to guarantee matching thread IDs during vislet and tool creation.
+- Improved Vrui initialization so that input devices, viewers, and
+  listeners have valid states when Vrui::init function returns.
+- Improved valuator naming scheme in Vrui::WalkSurfaceNavigationTool.
+- Added Vrui::ValuatorWalkSurfaceNavigationTool to add valuator-based
+  movement to Vrui::WalkSurfaceNavigationTool.
+- Added support for TIFF format to Images::writeImageFile, if TIFF
+  library is installed.
+- Improved start-up behavior of Vrui::ViewpointFileNavigationTool.
+- Added "raw" interface to Images::writeImageFile.
+- Changed Vrui::ImageSequenceMovieSaver to use Images::writeImageFile,
+  giving it ability to write other formats than PPM.
+- Fixed Vrui::InputDeviceAdapterPlayback for new Vrui startup sequence.
+- Added movieFirstFrameIndex configuration tag to
+  Vrui::InputDeviceAdapterPlayback.
+- Complete overhaul of window management in Vrui:
+  - Windows are sorted into "window groups" using a groupId tag in a
+    window's configuration file section.
+  - Windows inside the same group share an X11 server connection, but
+    can be directed to different X screens on the same server via the
+    new screen tag in a window's configuration file section.
+  - Windows inside the same window groups share OpenGL contexts and
+    context data, and are always rendered in sequence.
+  - Different window groups have separate OpenGL contexts and context
+    data, and are rendered in parallel from multiple threads if support
+    for multithreaded OpenGL is enabled via setting GLSUPPORT_USE_TLS to
+    1 in the makefile.
+  - Window groups should coincide with physical GPUs inside the host
+    system for optimal performance.
+  - Resulting API changes: new class GLContext, many changes in GLWindow
+    and VRWindow. These changes do not affect the Vrui API.
+  - windowsMultithreaded and node<index>WindowsMultithreaded tags in
+    configuration file root section no longer exist.
+  - MYGLXSUPPORT package now depends on MYGLSUPPORT.
+- Added new page describing multi-window rendering options to Vrui
+  documentation.
+- Added questions about multi-window rendering and context data
+  management to Vrui FAQ.
+- Fixed memory leak in Vrui::FileSelectionHelper destructor.
+- Removed compose status handling from XLookupString call in
+  Vrui::VRWindow event handler to follow Xlib manual recommendation.
+- Fixed build commands for single-source executables in
+  BuildRoot/BasicMakefile.
+- Added functions to extract blobs of foreground pixels from images to
+  Images/ExtractBlobs.h.
+- Removed EnterWindowMask and LeaveWindowMask from X window event mask
+  in GLWindow.
+- Added FocusChangeMask to X window event mask in Vrui::VRWindow.
+- Changed event behavior in Vrui::VRWindow:
+  - Vrui display size tracks exact window size when panningViewport is
+    true.
+  - Vrui display center and size are updated when switching focus
+    between multiple windows with panningViewport.
+  - Tool kill zone tracks properly when switching focus.
+- Started removing direct references to mouse input device adapters from
+  desktop-based tool classes.
+- Added Vrui kernel functions: getUiPlane, calcUiPoint, calcUiTransform.
+  Might disappear again as Vrui moves towards having a proper "3D window
+  manager."
+
+Vrui-3.0-001:
+- Added subdivision to SceneGraph::QuadSetNode to support non-linear
+  point transformation. Controlled by new fields subdivideX and
+  subdivideY.
+- Added check for shutdown to beginning of Vrui::mainLoop in
+  Vrui/Internal/Vrui.Workbench.cpp to allow applications to exit during
+  initialization by calling Vrui::shutdown().
+- Changed lens distortion correction code in Vrui::VRWindow:
+  - Changed lcPoly to work with "normalized" coordinates in the [-w/h,
+    w/h] x [-1, 1] range for wide (half-)screens and the [-1, 1] x
+    [-h/w, h/w] range for tall (half-)screens. Makes it compatible with
+    factory calibration data stored in Oculus Rift HMD.
+  - Changed lcCenter to viewport-relative in [0, 1] x [0, 1].
+  - Enabled flexible overscan by extending each border of the view
+    individually.
+- Added accelerometer and magnetometer correction to Oculus Rift
+  tracking driver.
+- Added useMagnetometer switch to Oculus Rift tracking driver.
+- Improved tracking data output format of DeviceTest utility.
+- Changed section header parser in Misc::ConfigurationFile; section
+  names are now read to end-of-line; quoted section headers are parsed
+  as before for backwards compatibility.
+- Added special "+=" operator to the Misc::ConfigurationFile parser to
+  concatenate list-valued tags instead of overriding them. Requires that
+  current tag value ends with a ')', and new value starts with a '('.
+  Will remove starting/ending parentheses, insert a ", " list item
+  separator if the current list is not (), and concatenate the current
+  and new values. Will not do any other checking or processing.
+- Added "intersect" element and configuration file tag to Vrui::VRScreen
+  to exclude unsuitable screens, such as HMD screens, from UI
+  intersection tests.
+- Added operator/= and operator/ to Geometry::Rotation.
+- Added operator^ to Geometry::Vector as shorthand for vector cross
+  product.
+- Replaced Geometry::cross with operator^ in all library sources.
+- Added one frame delay to Vrui::InputDeviceDataSaver so that audio
+  recording starts at the first frame boundary, as playback expects.
+- Fixed PCM draining behavior in the ALSA version of
+  Sound::SoundRecorder.
+- Added hudRadius configuration file tag to
+  Vrui::ValuatorWalkSurfaceNavigationTool.
+- API changes in Vrui::VRDeviceClient:
+  - Rebased callback objects to Misc::FunctionCall.
+  - Changed callback semantics: callbacks only valid when in streaming
+    mode.
+  - Removed enable/disable methods for packet notification callback;
+    callback object is now passed to startStream method.
+  - Added error callback to notify clients of errors encountered in
+    background streaming thread.
+  - ProtocolError exception class now contains pointer to client object
+    causing the exception.
+  - Error callback receives ProtocolError exception object.
+  - Added proper error handling to getPacket() when in streaming mode.
+  - No longer crashes when server connection breaks down in streaming
+    mode.
+- Changed Vrui::InputDeviceAdapterDeviceDaemon to new
+  Vrui::VRDeviceClient API and added proper error handling. Vrui
+  applications now keep running when device server connection goes down.
+- New error handling keeps device server socket open if either side
+  crashes.
+- Adapted and robustified DeviceTest utility.
+- Added CFixedArrayCoder, a class to encode/decode arrays with compile-
+  time known sizes, to Misc/ArrayValueCoders.h.
+- Changed all uses of Misc::FixedArrayValueCoder in library sources to
+  Misc::CFixedArrayValueCoder.
+- API change: changed Misc::FixedArrayValueCoder to keep numElements and
+  elements pointer (for decoding) as state instead of method parameter;
+  methods no longer static.
+- API change: changed Misc::DynamicArrayValueCoder to keep numElements
+  and elements pointer (for decoding) as state instead of method
+  parameter; methods no longer static.
+  - Actual number of elements in parsed array now written to numElements
+    upon exit from decode().
+- API change: changed the retrieveValue and storeValue methods in
+  Misc::ConfigurationFile that take non-standard value coder classes to
+  expect a value coder object as last parameter, and changed their names
+  to ...WC (for "with coder") to avoid template ambiguities. Work in
+  progress.
+- Improved retrieveValue methods in Misc::ConfigurationFile: methods
+  with default values only call encode if absolutely necessary.
+- Added Vrui/Internal/VRDeviceDescriptor to enable defining compound
+  devices on the device server instead of the device client.
+- API change: changed type of configuration file section in
+  Vrui::Tool::configure to const; must be fixed by client code since
+  configure methods without const modifier will be ignored without
+  compiler warnings.
+- API change: changed type of configuration file sections in state-
+  reading functions to const throughout library.
+- Added contains() methods to GLWindow::WindowPos.
+- Changed mouse position traded between Vrui::VRWindow and
+  Vrui::InputDeviceAdapterMouse from screen coordinates to window
+  coordinates, as the former have become ambiguous due to dual-screen
+  windows.
+- Added grabPointer() and releasePointer() methods to GLWindow.
+- Fixed Vrui::FPSNavigationTool to work with changed VRWindow and
+  InputDeviceAdapterMouse interface.
+- Fixed accelerometer and magnetometer correction in Oculus Rift
+  tracking driver.
+- Changed Vrui::Viewer to immediately reflect the state of the head
+  tracking input device to reduce latency.
+- Changed Vrui::InputDeviceManager to always place mouse input device
+  adapters at the end of the adapter list in case the mouse depends on
+  other input devices (if viewers or screens are head-tracked).
+- Added code to change mouse cursor shape in all windows when switching
+  a mouse input device adapter between keyboard and button mode.
+  - Does not yet work for fake mouse cursors.
+  - Removed now-superfluous glRenderAction method.
+- Added buttonIndexBase and valuatorIndexBase configuration file tags to
+  Vrui::VRDeviceDescriptor.
+- Major API change in Vrui::InputDevice: added device ray starting
+  parameter as device state, and made deviceRayDirection part of current
+  state to support better handling of ray-based input devices.
+  - Renamed setDeviceRayDirection method to setDeviceRay and added ray
+    start parameter as method parameter.
+  - setDeviceRay can only be called immediately before
+    setTransformation.
+  - Added getDeviceRayStart and getRay methods.
+  - Added deviceRayDirection and deviceRayStart to input device state
+    distributed by Vrui::MultipipeDispatcher.
+  - Added deviceRayStart as per-device configuration option to
+    Vrui::InputDeviceAdapter.
+  - Added device ray start to Vrui::VRDeviceDescriptor.
+  - Added rayStart configuration parameter to
+    Vrui::InputDeviceAdapterTrackd.
+  - Added device ray direction and start to state saved by
+    Vrui::InputDeviceDataSaver and loaded by
+    Vrui::InputDeviceAdapterPlayback.
+    - Upped file version number to 3.0.
+    - Also added linear and angular velocities.
+  - Fixed device ray handling in Vrui::ToolManager.
+  - Fixed device ray handling in Vrui::TransformTool.
+  - More fixes in Vrui::WandNavigationTool,
+    Vrui::SixDofWithScaleNavigationTool, Vrui::FPSNavigationTool,
+    Vrui::MouseTool, Vrui::EyeRayTool, Vrui::TwoRayTransformTool,
+    Vrui::SixAxisTransformTool, Vrui::PanelMenuTool, Vrui::WidgetTool,
+    and Vrui::ScrollTool.
+  - Fixed PrintInputDeviceDataFile utility.
+  - Fixed device rendering in Vrui::InputGraphManager so that device
+    glyphs are properly aligned with a device's ray direction.
+  - Added mouse device velocity calculation to
+    Vrui::InputDeviceAdapterMouse.
+- Split Vrui::InputGraphManager's glRenderAction method into
+  glRenderDevices and glRenderTools to properly layer renderings when
+  GLMotif widgets are drawn in an overlay plane.
+  - Adjusted main rendering method in Vrui/Internal/Vrui.General.cpp.
+- Changed rendering order in main rendering method in
+  Vrui/Internal/Vrui.General.cpp so that tools are affected by clipping
+  planes.
+- Changed texture glyph rendering code in Vrui::GlyphRenderer to render
+  glyph at given 3D position, but aligned to the current window's screen
+  plane.
+- Added lockMouse and unlockMouse methods to
+  Vrui::InputDeviceAdapterMouse to support "relative" mouse mode, as
+  used by Vrui::FPSNavigationTool.
+- Fixed a time keeping bug in Vrui's main update method in
+  Vrui/Internal/Vrui.General.cpp; frame times are now consistent at
+  every step during frame processing.
+- Fixed FPSNavigationTool to work again, now using input device
+  velocities for rotation updates.
+  - Changed rotateFactor configuration tag to rotateFactors, a 2D vector
+    to support different horizontal and vertical speeds.
+  - Changed moveSpeed to moveSpeeds, a 2D vector, to support independent
+    speeds for forward motion and strafing.
+  - Replaced HUD rendering code with same used in
+    Vrui::SixAxisSurfaceNavigationTool with the following new settings:
+    drawHud, hudColor, hudDist, hudRadius, hudFontSize.
+- Changed Vrui::synchronize function: instead of setting the frame time
+  for the current frame, it sets the frame time for the next frame and
+  optionally delays the next frame until synch time matches real time.
+  - Added synchFrameTime and synchWait elements to Vrui::VruiState.
+- Added new state to Vrui::DisplayState:
+  - Added current viewport position/size and frame buffer size of
+    current window.
+  - Added maximum viewport and frame buffer size of all windows in the
+    current window group to support better frame buffer management.
+- Changed VruiWindowGroup structure to associate viewport and frame
+  buffer sizes with each window in a group.
+- Added full handling of "virtual" input devices, assembled from a
+  tracker and optional sets of buttons and/or valuators, to VR device
+  daemon.
+  - Changed version number of client/server protocol to 2
+- Added handling of virtual input devices to Vrui::VRDeviceClient.
+- Added option to list a device daemon's virtual devices to DeviceTest
+  utility.
+- Changed VRDeviceDaemon configuration file format: type of device
+  calibrators is now listed inside the calibrator's section, using the
+  "type" tag.
+- Changed OculusRift VR device driver module to create one virtual
+  device for the head tracker, "OculusRift" by default.
+- Changed RazerHydra VR device driver module to create one virtual
+  device for each handle, "RazerHydraLeft" and "RazerHydraRight,"
+  respectively, by default.
+- Added protected createIndexMappings method to
+  Vrui::InputDeviceAdapterIndexMap.
+- Added handling of server-defined virtual input devices to
+  Vrui::InputDeviceAdapterDeviceDaemon.
+- Changed Vrui::InputDeviceManager to remove all duplicates from the
+  list of input device adapters to improve configuration modularity.

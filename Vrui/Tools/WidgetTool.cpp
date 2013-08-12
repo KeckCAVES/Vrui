@@ -134,8 +134,8 @@ void WidgetTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
+	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
 	buttonDevice->setTransformation(interactionDevice->getTransformation());
-	buttonDevice->setDeviceRayDirection(interactionDevice->getDeviceRayDirection());
 	}
 
 void WidgetTool::deinitialize(void)
@@ -188,8 +188,8 @@ void WidgetTool::frame(void)
 	GUIInteractor::move();
 	
 	/* Update the virtual input device: */
+	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
 	buttonDevice->setTransformation(interactionDevice->getTransformation());
-	buttonDevice->setDeviceRayDirection(interactionDevice->getDeviceRayDirection());
 	}
 
 void WidgetTool::display(GLContextData& contextData) const

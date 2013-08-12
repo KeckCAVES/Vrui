@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -121,21 +121,33 @@ const Vrui::ToolFactory* MeasureEnvironment::PointSnapperTool::getFactory(void) 
 void MeasureEnvironment::PointSnapperTool::frame(void)
 	{
 	/* Pick a point: */
-	Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(sourceDevice);
-	Point pos=transform.getOrigin();
 	PickResult pr;
 	if(sourceDevice->isRayDevice())
-		pr=application->pickPoint(Ray(pos,transform.transform(sourceDevice->getDeviceRayDirection())));
+		{
+		/* Calculate the device's selection ray in navigational coordinates: */
+		Ray ray(sourceDevice->getRay());
+		ray.transform(Vrui::getInverseNavigationTransformation());
+		
+		/* Pick a point along a ray: */
+		pr=application->pickPoint(ray);
+		}
 	else
+		{
+		/* Calculate the device's selection position in navigational coordinates: */
+		Point pos(Vrui::getInverseNavigationTransformation().transform(sourceDevice->getPosition()));
+		
+		/* Pick a point: */
 		pr=application->pickPoint(pos);
+		}
 	
 	/* Move the device's origin to the picked point: */
-	pos=application->snapToPoint(pos,pr);
+	Point devicePos(sourceDevice->getPosition());
+	devicePos=application->snapToPoint(devicePos,pr);
 	
 	/* Set the transformed device's position to the intersection point: */
-	Vrui::TrackerState ts=Vrui::TrackerState::translateFromOriginTo(Vrui::getNavigationTransformation().transform(pos));
+	transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),sourceDevice->getDeviceRayStart());
+	Vrui::TrackerState ts(Vrui::getNavigationTransformation().transform(devicePos)-Vrui::Point::origin,sourceDevice->getOrientation());
 	transformedDevice->setTransformation(ts);
-	transformedDevice->setDeviceRayDirection(sourceDevice->getDeviceRayDirection());
 	}
 
 /***********************************************************
@@ -1107,7 +1119,7 @@ void MeasureEnvironment::createTransformationCallback(Misc::CallbackData* cbData
 	
 	/* Orthonormalize the screen normal against the floor normal: */
 	Point::Vector y=screenNormal-floorNormal*((screenNormal*floorNormal)/Geometry::sqr(floorNormal));
-	Point::Vector x=Geometry::cross(y,floorNormal);
+	Point::Vector x=y^floorNormal;
 	
 	/* Calculate a rotation to align the floor normal with +z and the (horizontal) screen normal with +y: */
 	OGTransform::Rotation rot=OGTransform::Rotation::fromBaseVectors(x,y);

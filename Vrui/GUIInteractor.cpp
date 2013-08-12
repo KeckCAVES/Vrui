@@ -1,7 +1,7 @@
 /***********************************************************************
 GUIInteractor - Helper class to implement tool classes that interact
 with graphical user interface elements.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -86,25 +86,17 @@ NavTrackerState GUIInteractor::calcInteractionTransform(void) const
 	if(device->isRayDevice())
 		{
 		/*******************************************************************
-		Calculate a transformation aligned with the first screen intersected
-		by the ray:
+		Calculate a transformation aligned with the interaction plane:
 		*******************************************************************/
 		
-		/* Get the first screen intersection: */
-		std::pair<VRScreen*,Scalar> si=findScreen(ray);
-		if(si.first!=0)
-			{
-			/* Get the screen's transformation: */
-			result=si.first->getScreenTransformation();
-			
-			/* Set the intersection point as origin: */
-			result.getTranslation()=ray(si.second)-Point::origin;
-			}
-		else
-			{
-			/* Create a translation to the ray's origin: */
-			result=NavTrackerState::translateFromOriginTo(ray.getOrigin());
-			}
+		/* Intersect the ray with the widget plane: */
+		Point planeCenter=getUiPlane().getOrigin();
+		Vector planeNormal=getUiPlane().getDirection(2);
+		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
+		
+		/* Move the widget plane transformation to the intersection point: */
+		result=NavTrackerState(getUiPlane());
+		result.getTranslation()=ray(lambda)-Point::origin;
 		}
 	else
 		{
@@ -221,7 +213,7 @@ bool GUIInteractor::textControl(const GLMotif::TextControlEvent& textControlEven
 void GUIInteractor::glRenderAction(GLfloat rayWidth,const GLColor<GLfloat,4>& rayColor,GLContextData& contextData) const
 	{
 	/* Check if the interaction ray needs to be drawn: */
-	if(pointing||interacting)
+	if(!useEyeRays&&(pointing||interacting))
 		{
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
@@ -244,18 +236,15 @@ Point GUIInteractor::calcHotSpot(void) const
 	{
 	if(device->isRayDevice())
 		{
-		/* Get the first screen intersection: */
-		std::pair<VRScreen*,Scalar> si=findScreen(ray);
-		if(si.first!=0)
-			{
-			/* Return the intersection point: */
-			return ray(si.second);
-			}
-		else
-			{
-			/* Return the ray's origin: */
-			return ray.getOrigin();
-			}
+		/*******************************************************************
+		Calculate a transformation aligned with the interaction plane:
+		*******************************************************************/
+		
+		/* Intersect the ray with the widget plane: */
+		Point planeCenter=getUiPlane().getOrigin();
+		Vector planeNormal=getUiPlane().getDirection(2);
+		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
+		return ray(lambda);
 		}
 	else
 		{

@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <vector>
+#include <Threads/Spinlock.h>
 #include <Vrui/Internal/VRDeviceClient.h>
 #include <Vrui/Internal/InputDeviceAdapterIndexMap.h>
 
@@ -44,9 +45,12 @@ class InputDeviceAdapterDeviceDaemon:public InputDeviceAdapterIndexMap
 	VRDeviceClient deviceClient; // Device client delivering "raw" device state
 	std::vector<std::string> buttonNames; // Array of button names for all defined input devices
 	std::vector<std::string> valuatorNames; // Array of valuator names for all defined input devices
+	Threads::Spinlock errorMessageMutex; // Mutex protecting the error message log
+	std::vector<std::string> errorMessages; // Log of error messages received from the device client
 	
 	/* Private methods: */
-	static void packetNotificationCallback(VRDeviceClient* client,void* userData);
+	static void packetNotificationCallback(VRDeviceClient* client);
+	void errorCallback(const VRDeviceClient::ProtocolError& error);
 	
 	/* Protected methods from InputDeviceAdapter: */
 	protected:

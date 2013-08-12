@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3Model - Class to represent static models using Doom3 materials and
 shaders.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

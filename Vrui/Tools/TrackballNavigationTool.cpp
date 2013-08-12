@@ -1,6 +1,6 @@
 /***********************************************************************
 TrackballNavigationTool - Class for trackball navigation in 3D space.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -181,7 +181,7 @@ void TrackballNavigationTool::frame(void)
 		/* Calculate incremental transformation from old to new point: */
 		Vector v1=lastDragPosition-getDisplayCenter();
 		Vector v2=dragPosition-getDisplayCenter();
-		Vector axis=Geometry::cross(v1,v2);
+		Vector axis=v1^v2;
 		Scalar axisLen=Geometry::mag(axis);
 		if(axisLen!=Scalar(0))
 			{

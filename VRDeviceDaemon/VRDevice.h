@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -31,6 +31,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 namespace Misc {
 class ConfigurationFile;
+}
+namespace Vrui {
+class VRDeviceDescriptor;
 }
 template <class BaseClassParam>
 class VRFactory;
@@ -72,6 +75,7 @@ class VRDevice
 	void setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile,const std::string* trackerNames =0); // Sets number of trackers
 	void setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile,const std::string* buttonNames =0); // Sets number of buttons
 	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile,const std::string* valuatorNames =0); // Sets number of valuators
+	void addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice); // Passes the given new virtual input device to the device manager
 	void calcVelocities(int deviceTrackerIndex,Vrui::VRDeviceState::TrackerState& newState); // Calculates tracker velocities based on elapsed time since last measurement
 	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state); // Sets (and calibrates) a tracker (device index given)
 	void setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState); // Sets a button state (device index given)

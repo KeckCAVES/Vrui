@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2012 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -119,6 +119,7 @@ class ConfigurationFileBase
 		
 		/* Tag value retrieval methods: */
 		bool hasTag(const char* relativeTagPath) const; // Returns true if the relative tag path exists
+		const std::string* findTagValue(const char* relativeTagPath) const; // Retrieves pointer to value of relative tag path; returns null pointer if tag does not exist
 		const std::string& retrieveTagValue(const char* relativeTagPath) const; // Retrieves value of relative tag path; throws exception if tag does not exist
 		std::string retrieveTagValue(const char* relativeTagPath,const std::string& defaultValue) const; // Retrieves value of relative tag path; returns default value if tag does not already exist
 		const std::string& retrieveTagValue(const char* relativeTagPath,const std::string& defaultValue); // Retrieves value of relative tag path; tries its best to create tag if it does not already exist
@@ -202,27 +203,33 @@ class ConfigurationFileBase
 		
 		/* Typed access methods with specified value coder class: */
 		template <class ValueParam,class ValueCoderParam>
-		ValueParam retrieveValue(const char* tag) const // Retrieves a value; throws exception if tag does not exist
+		ValueParam retrieveValueWC(const char* tag,ValueCoderParam& coder) const // Retrieves a value; throws exception if tag does not exist
 			{
 			std::string value=baseSection->retrieveTagValue(tag);
-			return ValueCoderParam::decode(value.data(),value.data()+value.size());
+			return coder.decode(value.data(),value.data()+value.size());
 			}
 		template <class ValueParam,class ValueCoderParam>
-		ValueParam retrieveValue(const char* tag,const ValueParam& defaultValue) const // Retrieves a value; returns default if tag does not exist
+		ValueParam retrieveValueWC(const char* tag,const ValueParam& defaultValue,ValueCoderParam& coder) const // Retrieves a value; returns default if tag does not exist
 			{
-			std::string value=baseSection->retrieveTagValue(tag,ValueCoderParam::encode(defaultValue));
-			return ValueCoderParam::decode(value.data(),value.data()+value.size());
+			const std::string* value=baseSection->findTagValue(tag);
+			return value!=0?coder.decode(value->data(),value->data()+value->size()):defaultValue;
 			}
 		template <class ValueParam,class ValueCoderParam>
-		ValueParam retrieveValue(const char* tag,const ValueParam& defaultValue) // Retrieves a value; returns default (and adds tag) if tag does not exist
+		ValueParam retrieveValueWC(const char* tag,const ValueParam& defaultValue,ValueCoderParam& coder) // Retrieves a value; returns default (and adds tag) if tag does not exist
 			{
-			std::string value=baseSection->retrieveTagValue(tag,ValueCoderParam::encode(defaultValue));
-			return ValueCoderParam::decode(value.data(),value.data()+value.size());
+			const std::string* value=baseSection->findTagValue(tag);
+			if(value!=0)
+				return coder.decode(value->data(),value->data()+value->size());
+			else
+				{
+				baseSection->storeTagValue(tag,coder.encode(defaultValue));
+				return defaultValue;
+				}
 			}
 		template <class ValueParam,class ValueCoderParam>
-		void storeValue(const char* tag,const ValueParam& newValue) // Stores a value; adds tag if tag does not exist
+		void storeValueWC(const char* tag,const ValueParam& newValue,const ValueCoderParam& coder) // Stores a value; adds tag if tag does not exist
 			{
-			baseSection->storeTagValue(tag,ValueCoderParam::encode(newValue));
+			baseSection->storeTagValue(tag,coder.encode(newValue));
 			}
 		
 		/*******************************************************************
@@ -241,14 +248,20 @@ class ConfigurationFileBase
 		template <class ValueParam>
 		ValueParam retrieveValue(const char* tag,const ValueParam& defaultValue) const // Ditto
 			{
-			std::string value=baseSection->retrieveTagValue(tag,ValueCoder<ValueParam>::encode(defaultValue));
-			return ValueCoder<ValueParam>::decode(value.data(),value.data()+value.size());
+			const std::string* value=baseSection->findTagValue(tag);
+			return value!=0?ValueCoder<ValueParam>::decode(value->data(),value->data()+value->size()):defaultValue;
 			}
 		template <class ValueParam>
 		ValueParam retrieveValue(const char* tag,const ValueParam& defaultValue) // Ditto
 			{
-			std::string value=baseSection->retrieveTagValue(tag,ValueCoder<ValueParam>::encode(defaultValue));
-			return ValueCoder<ValueParam>::decode(value.data(),value.data()+value.size());
+			const std::string* value=baseSection->findTagValue(tag);
+			if(value!=0)
+				return ValueCoder<ValueParam>::decode(value->data(),value->data()+value->size());
+			else
+				{
+				baseSection->storeTagValue(tag,ValueCoder<ValueParam>::encode(defaultValue));
+				return defaultValue;
+				}
 			}
 		template <class ValueParam>
 		void storeValue(const char* tag,const ValueParam& newValue) // Ditto

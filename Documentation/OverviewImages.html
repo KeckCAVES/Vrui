@@ -44,6 +44,9 @@ The Images library contains classes and functions to represent RGB images, and t
 
 <DT>WriteImageFile.h</DT>
 <DD>WriteImageFile.h contains a function to write RGB images to image files. The function detects the format of the given image file by its extension, and supports PPM, PNG, and JPEG image formats (the latter two rely on the libpng and libjpeg libraries, respectively).</DD>
+
+<DT>ExtractBlobs.h</DT>
+<DD>ExtractBlobs.h contains functions to extract &quot;blobs,&quot; sets of connected foreground pixels, from images with arbitrary pixel types. The header file defines several blob structures, each holding one specific additional attribute, that can be stacked on top of each other to collect multiple attributes at the same time.</DD>
 </DL>
 
 </BODY>

@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoRayTransformTool - Class to select 3D positions using ray-based input
 devices by intersecting two rays from two different starting points.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

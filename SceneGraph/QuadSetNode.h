@@ -24,17 +24,32 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define SCENEGRAPH_QUADSETNODE_INCLUDED
 
 #include <vector>
+#include <GL/gl.h>
+#include <GL/GLObject.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/GeometryNode.h>
 #include <SceneGraph/CoordinateNode.h>
 
 namespace SceneGraph {
 
-class QuadSetNode:public GeometryNode
+class QuadSetNode:public GeometryNode,public GLObject
 	{
 	/* Embedded classes: */
 	public:
 	typedef SF<CoordinateNodePointer> SFCoordinateNode;
+	
+	struct DataItem:public GLObject::DataItem
+		{
+		/* Elements: */
+		public:
+		GLuint vertexBufferObjectId; // ID of vertex buffer holding quad vertices
+		GLuint indexBufferObjectId; // ID of index buffer holding quad / quad strip vertex indices
+		unsigned int version; // Version of face set stored in vertex buffer object
+		
+		/* Constructors and destructors: */
+		DataItem(void);
+		virtual ~DataItem(void);
+		};
 	
 	/* Elements: */
 	
@@ -43,10 +58,16 @@ class QuadSetNode:public GeometryNode
 	SFCoordinateNode coord;
 	SFBool ccw;
 	SFBool solid;
+	SFInt subdivideX;
+	SFInt subdivideY;
 	
 	/* Derived state: */
-	Point quadTexCoords[4]; // Texture coordinates for all quads' corners
-	std::vector<Vector> quadNormals; // Per-quad normal vectors
+	private:
+	unsigned int numQuads; // Number of quads defined in the quad set
+	unsigned int version; // Version of quad se defined by fields
+	
+	/* Private methods: */
+	void uploadQuads(DataItem* dataItem) const; // Uploads the quad set state defined by the fields to the graphics card
 	
 	/* Constructors and destructors: */
 	public:
@@ -61,6 +82,9 @@ class QuadSetNode:public GeometryNode
 	/* Methods from GeometryNode: */
 	virtual Box calcBoundingBox(void) const;
 	virtual void glRenderAction(GLRenderState& renderState) const;
+	
+	/* Methods from GLObject: */
+	virtual void initContext(GLContextData& contextData) const;
 	};
 
 }

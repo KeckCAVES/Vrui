@@ -126,7 +126,7 @@ InputDeviceAdapterTrackd::InputDeviceAdapterTrackd(InputDeviceManager* sInputDev
 	int sensorMemoryID=shmget(sensorMemoryKey,sizeof(SensorHeader),0);
 	if(sensorMemoryID<0)
 		Misc::throwStdErr("InputDeviceAdapterTrackd::InputDeviceAdapterTrackd: Unable to access shared sensor memory segment using key %x",int(sensorMemoryKey));
-	sensorHeader=static_cast<SensorHeader*>(shmat(sensorMemoryKey,0,SHM_RDONLY));
+	sensorHeader=static_cast<SensorHeader*>(shmat(sensorMemoryID,0,SHM_RDONLY));
 	if(sensorHeader==(SensorHeader*)-1)
 		Misc::throwStdErr("InputDeviceAdapterTrackd::InputDeviceAdapterTrackd: Unable to attach to shared sensor memory segment using key %x",int(sensorMemoryKey));
 	
@@ -138,7 +138,7 @@ InputDeviceAdapterTrackd::InputDeviceAdapterTrackd(InputDeviceManager* sInputDev
 		sensorHeader=(SensorHeader*)-1;
 		Misc::throwStdErr("InputDeviceAdapterTrackd::InputDeviceAdapterTrackd: Unable to access shared controller memory segment using key %x",int(controllerMemoryKey));
 		}
-	controllerHeader=static_cast<ControllerHeader*>(shmat(controllerMemoryKey,0,SHM_RDONLY));
+	controllerHeader=static_cast<ControllerHeader*>(shmat(controllerMemoryID,0,SHM_RDONLY));
 	if(controllerHeader==(ControllerHeader*)-1)
 		{
 		shmdt(sensorHeader);
@@ -312,7 +312,7 @@ void InputDeviceAdapterTrackd::updateInputDevices(void)
 			calibratedTransformation*=OGTransform(translation,rotation,Scalar(1));
 			
 			/* Calibrate and set the device's transformation: */
-			device->setTransformation(TrackerState(calibrationTransformation.getTranslation(),calibrationTransformation.getRotation()));
+			device->setTransformation(TrackerState(calibratedTransformation.getTranslation(),calibratedTransformation.getRotation()));
 			
 			/* Set device's linear and angular velocities to zero because we don't know any better: */
 			device->setLinearVelocity(Vector::zero);

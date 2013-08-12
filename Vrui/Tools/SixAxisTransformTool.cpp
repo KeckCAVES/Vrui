@@ -56,7 +56,7 @@ SixAxisTransformToolFactory::Configuration::Configuration(void)
 		rotations[i][i]=Scalar(1);
 	}
 
-void SixAxisTransformToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+void SixAxisTransformToolFactory::Configuration::load(const Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */
 	translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",translateFactor);
@@ -205,7 +205,7 @@ SixAxisTransformTool::SixAxisTransformTool(const ToolFactory* sFactory,const Too
 	numPrivateButtons=1;
 	}
 
-void SixAxisTransformTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void SixAxisTransformTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Update the configuration: */
 	config.load(configFileSection);
@@ -233,8 +233,8 @@ void SixAxisTransformTool::initialize(void)
 	getInputGraphManager()->getInputDeviceGlyph(transformedDevice).setGlyphMaterial(config.deviceGlyphMaterial);
 	
 	/* Initialize the virtual input device's position: */
+	transformedDevice->setDeviceRay(Vector(0,1,0),-getInchFactor());
 	transformedDevice->setTransformation(TrackerState::translateFromOriginTo(config.followDisplayCenter?getDisplayCenter():config.homePosition));
-	transformedDevice->setDeviceRayDirection(getForwardDirection());
 	}
 
 const ToolFactory* SixAxisTransformTool::getFactory(void) const

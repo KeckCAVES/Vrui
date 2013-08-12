@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformTool - Base class for tools used to transform the position or
 orientation of input devices.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -83,8 +83,8 @@ void TransformTool::resetDevice(void)
 	if(sourceDevice!=0)
 		{
 		/* Copy the source device's position and orientation to the transformed device: */
+		transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),sourceDevice->getDeviceRayStart());
 		transformedDevice->setTransformation(sourceDevice->getTransformation());
-		transformedDevice->setDeviceRayDirection(sourceDevice->getDeviceRayDirection());
 		}
 	}
 

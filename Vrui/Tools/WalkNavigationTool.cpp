@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkNavigationTool - Class to navigate in a VR environment by walking
 around a fixed center position.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -231,7 +231,7 @@ void WalkNavigationTool::frame(void)
 				rotateSpeed=factory->rotateSpeed;
 			else if(viewAngle>factory->innerAngle)
 				rotateSpeed=factory->rotateSpeed*(viewAngle-factory->innerAngle)/(factory->outerAngle-factory->innerAngle);
-			Vector x=Geometry::cross(factory->centerViewDirection,getUpDirection());
+			Vector x=factory->centerViewDirection^getUpDirection();
 			if(viewDir*x<Scalar(0))
 				rotateSpeed=-rotateSpeed;
 			
@@ -312,7 +312,7 @@ void WalkNavigationTool::initContext(GLContextData& contextData) const
 		
 		/* Create a coordinate system for the floor plane: */
 		Vector y=factory->centerViewDirection;
-		Vector x=Geometry::cross(y,getFloorPlane().getNormal());
+		Vector x=y^getFloorPlane().getNormal();
 		x.normalize();
 		
 		/* Draw the inner circle: */

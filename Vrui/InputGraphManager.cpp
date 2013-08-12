@@ -814,7 +814,7 @@ void InputGraphManager::clear(void)
 		}
 	}
 
-void InputGraphManager::loadInputGraph(Misc::ConfigurationFileSection& baseSection)
+void InputGraphManager::loadInputGraph(const Misc::ConfigurationFileSection& baseSection)
 	{
 	/* Create a hash table to map section names to the forwarded or virtual input devices created by them: */
 	typedef Misc::HashTable<std::string,InputDevice*> CreatedDeviceMap;
@@ -1604,7 +1604,7 @@ void InputGraphManager::update(void)
 		}
 	}
 
-void InputGraphManager::glRenderAction(GLContextData& contextData) const
+void InputGraphManager::glRenderDevices(GLContextData& contextData) const
 	{
 	/* Get the glyph renderer's context data item: */
 	const GlyphRenderer::DataItem* glyphRendererContextDataItem=glyphRenderer->getContextDataItem(contextData);
@@ -1616,23 +1616,31 @@ void InputGraphManager::glRenderAction(GLContextData& contextData) const
 		if(gid->grabber==0)
 			virtualInputDevice->renderDevice(gid->device,gid->navigational,glyphRendererContextDataItem,contextData);
 		else
-			glyphRenderer->renderGlyph(gid->deviceGlyph,OGTransform(gid->device->getTransformation()),glyphRendererContextDataItem);
+			{
+			OGTransform transform(gid->device->getTransformation());
+			if(gid->deviceGlyph.getGlyphType()==Glyph::CONE)
+				{
+				/* Rotate the glyph so that its Y axis aligns to the device's ray direction: */
+				transform*=OGTransform::rotate(Rotation::rotateFromTo(Vector(0,1,0),gid->device->getDeviceRayDirection()));
+				}
+			glyphRenderer->renderGlyph(gid->deviceGlyph,transform,glyphRendererContextDataItem);
+			}
 		}
-
-	/* Render all tools in the first input graph level: */
-	for(const GraphTool* gt=toolLevels[0];gt!=0;gt=gt->levelSucc)
-		gt->tool->display(contextData);
 	
 	/* Iterate through all higher input graph levels: */
 	for(int level=1;level<=maxGraphLevel;++level)
 		{
 		/* Render all input devices in this level: */
 		for(const GraphInputDevice* gid=deviceLevels[level];gid!=0;gid=gid->levelSucc)
-			glyphRenderer->renderGlyph(gid->deviceGlyph,OGTransform(gid->device->getTransformation()),glyphRendererContextDataItem);
-		
-		/* Render all tools in this level: */
-		for(const GraphTool* gt=toolLevels[level];gt!=0;gt=gt->levelSucc)
-			gt->tool->display(contextData);
+			{
+			OGTransform transform(gid->device->getTransformation());
+			if(gid->deviceGlyph.getGlyphType()==Glyph::CONE)
+				{
+				/* Rotate the glyph so that its Y axis aligns to the device's ray direction: */
+				transform*=OGTransform::rotate(Rotation::rotateFromTo(Vector(0,1,0),gid->device->getDeviceRayDirection()));
+				}
+			glyphRenderer->renderGlyph(gid->deviceGlyph,transform,glyphRendererContextDataItem);
+			}
 		}
 	
 	/* Check if there is a tool stack visualization to display: */
@@ -1646,6 +1654,21 @@ void InputGraphManager::glRenderAction(GLContextData& contextData) const
 		
 		/* Restore OpenGL state: */
 		glPopAttrib();
+		}
+	}
+
+void InputGraphManager::glRenderTools(GLContextData& contextData) const
+	{
+	/* Render all tools in the first input graph level: */
+	for(const GraphTool* gt=toolLevels[0];gt!=0;gt=gt->levelSucc)
+		gt->tool->display(contextData);
+	
+	/* Iterate through all higher input graph levels: */
+	for(int level=1;level<=maxGraphLevel;++level)
+		{
+		/* Render all tools in this level: */
+		for(const GraphTool* gt=toolLevels[level];gt!=0;gt=gt->levelSucc)
+			gt->tool->display(contextData);
 		}
 	}
 

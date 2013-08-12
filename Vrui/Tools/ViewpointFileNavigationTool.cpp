@@ -393,7 +393,10 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		
 		/* Start animating if requested: */
 		if(autostart)
+			{
+			firstFrame=true;
 			activate();
+			}
 		}
 	else if(!viewpoints.empty()&&activate())
 		{
@@ -401,9 +404,9 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		const ControlPoint& v=viewpoints[0];
 		NavTransform nav=NavTransform::identity;
 		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+		nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
 		nav*=NavTransform::scale(getDisplaySize()/Math::exp(v.size)); // Scales are interpolated logarithmically
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(v.forward,v.up),v.forward)));
+		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(v.forward^v.up,v.forward)));
 		nav*=NavTransform::translateToOriginFrom(v.center);
 		setNavigationTransformation(nav);
 		
@@ -466,9 +469,9 @@ bool ViewpointFileNavigationTool::navigate(Scalar parameter)
 		/* Compute the appropriate navigation transformation from the next viewpoint: */
 		NavTransform nav=NavTransform::identity;
 		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+		nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
 		nav*=NavTransform::scale(getDisplaySize()/Math::exp(cp[5].size)); // Scales are interpolated logarithmically
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(cp[5].forward,cp[5].up),cp[5].forward)));
+		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(cp[5].forward^cp[5].up,cp[5].forward)));
 		nav*=NavTransform::translateToOriginFrom(cp[5].center);
 		
 		if(isActive())
@@ -505,7 +508,7 @@ ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFac
 	 autostart(factory->autostart),
 	 controlDialogPopup(0),positionSlider(0),
 	 nextViewpointIndex(0U),
-	 speed(1),paused(false),parameter(0),
+	 speed(1),firstFrame(false),paused(false),parameter(0),
 	 loadViewpointFileDialog(0)
 	{
 	}
@@ -515,7 +518,7 @@ ViewpointFileNavigationTool::~ViewpointFileNavigationTool(void)
 	delete controlDialogPopup;
 	}
 
-void ViewpointFileNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void ViewpointFileNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Override per-class configuration settings: */
 	viewpointFileName=configFileSection.retrieveString("./viewpointFileName",viewpointFileName);
@@ -578,9 +581,9 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 			const Viewpoint& v=viewpoints[nextViewpointIndex];
 			NavTransform nav=NavTransform::identity;
 			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-			nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+			nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
 			nav*=NavTransform::scale(getDisplaySize()/Math::exp(v.size)); // Scales are interpolated logarithmically
-			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(v.forward,v.up),v.forward)));
+			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(v.forward^v.up,v.forward)));
 			nav*=NavTransform::translateToOriginFrom(v.center);
 			
 			/* Set the viewpoint: */
@@ -613,6 +616,7 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 			else if(activate())
 				{
 				/* Animate from the beginning: */
+				firstFrame=true;
 				paused=false;
 				parameter=splines.front().t[0]-Scalar(getFrameTime())*speed;
 				if(positionSlider!=0)
@@ -630,6 +634,11 @@ void ViewpointFileNavigationTool::frame(void)
 		{
 		/* Get the next curve parameter: */
 		Scalar newParameter=parameter+Scalar(getFrameTime())*speed;
+		if(firstFrame)
+			{
+			newParameter=parameter;
+			firstFrame=false;
+			}
 		
 		/* Check if a pause was scheduled between the last frame and this one: */
 		bool passedPause=false;

@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -206,7 +206,7 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		
 		/* Calculate the billboard size and orientation: */
 		Vector y=axis;
-		Vector x=Geometry::cross(axis,eyePosition-origin);
+		Vector x=axis^(eyePosition-origin);
 		x.normalize();
 		y*=length*scaleFactor;
 		x*=Math::div2(factory->lightsaberWidth*scaleFactor);

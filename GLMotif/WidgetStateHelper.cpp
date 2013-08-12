@@ -1,7 +1,7 @@
 /***********************************************************************
 WidgetStateHelper - Helper functions to read or write top-level widget
 states from or to configuration files.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -46,7 +46,7 @@ void writeTopLevelPosition(const GLMotif::Widget* topLevelWidget,Misc::Configura
 	configFileSection.storeValue<WidgetManager::Transformation>("./widgetTransform",root->getManager()->calcWidgetTransformation(root));
 	}
 
-void readTopLevelPosition(GLMotif::Widget* topLevelWidget,Misc::ConfigurationFileSection& configFileSection,bool useDefaults)
+void readTopLevelPosition(GLMotif::Widget* topLevelWidget,const Misc::ConfigurationFileSection& configFileSection,bool useDefaults)
 	{
 	/* Get the widget's root: */
 	Widget* root=topLevelWidget->getRoot();

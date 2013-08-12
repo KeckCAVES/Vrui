@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#define EVILHACK_LOCK_INPUTDEVICE_POS 1
+
 #define DELAY_NAVIGATIONTRANSFORMATION 0
 #define RENDERFRAMETIMES 0
 #define SAVESHAREDVRUISTATE 0
@@ -100,6 +102,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceDataSaver.h>
 #include <Vrui/Internal/ScaleBar.h>
 #include <Vrui/OpenFile.h>
+
+#if EVILHACK_LOCK_INPUTDEVICE_POS
+
+Vrui::InputDevice* lockedDevice=0;
+Vrui::Vector lockedTranslation;
+
+#endif
 
 namespace Misc {
 
@@ -357,9 +366,9 @@ void VruiState::loadViewpointFile(IO::Directory& directory,const char* viewpoint
 		/* Construct the navigation transformation: */
 		NavTransform nav=NavTransform::identity;
 		nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-		nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+		nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
 		nav*=NavTransform::scale(getDisplaySize()/size);
-		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
+		nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(forward^up,forward)));
 		nav*=NavTransform::translateToOriginFrom(center);
 		setNavigationTransformation(nav);
 		}
@@ -431,6 +440,7 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 displayFunction(0),displayFunctionData(0),
 	 soundFunction(0),soundFunctionData(0),
 	 minimumFrameTime(0.0),nextFrameTime(0.0),
+	 synchFrameTime(0.0),synchWait(false),
 	 numRecentFrameTimes(0),recentFrameTimes(0),nextFrameTimeIndex(0),sortedFrameTimes(0),
 	 activeNavigationTool(0),
 	 mostRecentGUIInteractor(0),mostRecentHotSpot(displayCenter),
@@ -615,6 +625,31 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 			}
 		}
 	
+	/* Update all physical input devices to get initial positions and orientations: */
+	if(master)
+		{
+		inputDeviceManager->updateInputDevices();
+		
+		#if EVILHACK_LOCK_INPUTDEVICE_POS
+		if(lockedDevice!=0)
+			lockedDevice->setTransformation(Vrui::TrackerState(lockedTranslation,lockedDevice->getOrientation()));
+		#endif
+		
+		if(multiplexer!=0)
+			{
+			multipipeDispatcher->updateInputDevices();
+			pipe->flush();
+			}
+		}
+	else
+		{
+		inputDeviceManager->updateInputDevices();
+		}
+	
+	/* Save input device states to data file if requested: */
+	if(inputDeviceDataSaver!=0)
+		inputDeviceDataSaver->saveCurrentState(0.0);
+	
 	/* Initialize the update regime: */
 	if(master)
 		updateContinuously=configFileSection.retrieveValue<bool>("./updateContinuously",updateContinuously);
@@ -685,6 +720,8 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	widgetManager->setDrawOverlayWidgets(configFileSection.retrieveValue<bool>("./drawOverlayWidgets",widgetManager->getDrawOverlayWidgets()));
 	widgetManager->getWidgetPopCallbacks().add(this,&VruiState::widgetPopCallback);
 	popWidgetsOnScreen=configFileSection.retrieveValue<bool>("./popWidgetsOnScreen",popWidgetsOnScreen);
+	widgetPlane=ONTransform::translateFromOriginTo(displayCenter);
+	widgetPlane*=ONTransform::rotate(ONTransform::Rotation::fromBaseVectors(forwardDirection^upDirection,upDirection));
 	
 	/* Initialize the directories used to load files: */
 	viewSelectionHelper.setCurrentDirectory(openDirectory("."));
@@ -834,17 +871,30 @@ void VruiState::prepareMainLoop(void)
 
 void VruiState::update(void)
 	{
-	/* Take an application timer snapshot: */
+	/*********************************************************************
+	Update the application time and all related state:
+	*********************************************************************/
+	
 	double lastLastFrame=lastFrame;
-	lastFrame=appTime.peekTime(); // Result is only used on master node
-	
-	/* Reset the next scheduled frame time: */
-	nextFrameTime=0.0;
-	
-	int navBroadcastMask=navigationTransformationChangedMask;
 	if(master)
 		{
-		if(minimumFrameTime>0.0)
+		/* Take an application timer snapshot: */
+		lastFrame=appTime.peekTime();
+		if(synchFrameTime>0.0)
+			{
+			/* Check if the frame needs to be delayed: */
+			if(synchWait&&lastFrame<synchFrameTime)
+				{
+				/* Sleep for a while to reach the synchronized frame time: */
+				vruiDelay(synchFrameTime-lastFrame);
+				}
+			
+			/* Override the free-running timer: */
+			lastFrame=synchFrameTime;
+			synchFrameTime=0.0;
+			synchWait=false;
+			}
+		else if(minimumFrameTime>0.0)
 			{
 			/* Check if the time for the last frame was less than the allowed minimum: */
 			if(lastFrame-lastLastFrame<minimumFrameTime)
@@ -856,15 +906,8 @@ void VruiState::update(void)
 				lastFrame=appTime.peekTime();
 				}
 			}
-		
-		/* Update all physical input devices: */
-		inputDeviceManager->updateInputDevices();
 		if(multiplexer!=0)
-			multipipeDispatcher->updateInputDevices();
-		
-		/* Save input device states to data file if requested: */
-		if(inputDeviceDataSaver!=0)
-			inputDeviceDataSaver->saveCurrentState(lastFrame);
+			pipe->write<double>(lastFrame);
 		
 		/* Update the Vrui application timer and the frame time history: */
 		recentFrameTimes[nextFrameTimeIndex]=lastFrame-lastLastFrame;
@@ -881,6 +924,51 @@ void VruiState::update(void)
 			sortedFrameTimes[j+1]=recentFrameTimes[i];
 			}
 		currentFrameTime=sortedFrameTimes[numRecentFrameTimes/2];
+		if(multiplexer!=0)
+			pipe->write<double>(currentFrameTime);
+		}
+	else
+		{
+		/* Receive application time and current median frame time: */
+		pipe->read<double>(lastFrame);
+		pipe->read<double>(currentFrameTime);
+		}
+	
+	/* Calculate the current frame time delta: */
+	lastFrameDelta=lastFrame-lastLastFrame;
+	
+	#if RENDERFRAMETIMES
+	/* Update the frame time graph: */
+	++frameTimeIndex;
+	if(frameTimeIndex==numFrameTimes)
+		frameTimeIndex=0;
+	frameTimes[frameTimeIndex]=lastFrame-lastLastFrame;
+	#endif
+	
+	/* Reset the next scheduled frame time: */
+	nextFrameTime=0.0;
+	
+	/*********************************************************************
+	Update input device state and distribute all shared state:
+	*********************************************************************/
+	
+	int navBroadcastMask=navigationTransformationChangedMask;
+	if(master)
+		{
+		/* Update all physical input devices: */
+		inputDeviceManager->updateInputDevices();
+		
+		#if EVILHACK_LOCK_INPUTDEVICE_POS
+		if(lockedDevice!=0)
+			lockedDevice->setTransformation(Vrui::TrackerState(lockedTranslation,lockedDevice->getOrientation()));
+		#endif
+		
+		if(multiplexer!=0)
+			multipipeDispatcher->updateInputDevices();
+		
+		/* Save input device states to data file if requested: */
+		if(inputDeviceDataSaver!=0)
+			inputDeviceDataSaver->saveCurrentState(lastFrame);
 		
 		#if DELAY_NAVIGATIONTRANSFORMATION
 		if(navigationTransformationEnabled&&(navigationTransformationChangedMask&0x1))
@@ -899,10 +987,6 @@ void VruiState::update(void)
 	
 	if(multiplexer!=0)
 		{
-		/* Broadcast application time and current median frame time: */
-		pipe->broadcast<double>(lastFrame);
-		pipe->broadcast<double>(currentFrameTime);
-		
 		/* Broadcast the current navigation transformation and/or display center/size: */
 		pipe->broadcast<int>(navBroadcastMask);
 		if(navBroadcastMask&0x1)
@@ -953,9 +1037,6 @@ void VruiState::update(void)
 		pipe->flush();
 		}
 	
-	/* Calculate the current frame time delta: */
-	lastFrameDelta=lastFrame-lastLastFrame;
-	
 	#if SAVESHAREDVRUISTATE
 	/* Save shared state to a local file for post-mortem analysis purposes: */
 	vruiSharedStateFile->write<double>(lastFrame);
@@ -970,13 +1051,9 @@ void VruiState::update(void)
 		}
 	#endif
 	
-	#if RENDERFRAMETIMES
-	/* Update the frame time graph: */
-	++frameTimeIndex;
-	if(frameTimeIndex==numFrameTimes)
-		frameTimeIndex=0;
-	frameTimes[frameTimeIndex]=lastFrame-lastLastFrame;
-	#endif
+	/*********************************************************************
+	Update all managers:
+	*********************************************************************/
 	
 	/* Set the widget manager's time: */
 	widgetManager->setTime(lastFrame);
@@ -1057,11 +1134,8 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	/* Render input device manager's state: */
 	inputDeviceManager->glRenderAction(contextData);
 	
-	/* Render input graph state: */
-	inputGraphManager->glRenderAction(contextData);
-	
-	/* Render tool manager's state: */
-	toolManager->glRenderAction(contextData);
+	/* Render input graph devices: */
+	inputGraphManager->glRenderDevices(contextData);
 	
 	/* Display any realized widgets: */
 	glMaterial(GLMaterialEnums::FRONT,widgetMaterial);
@@ -1072,6 +1146,12 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	
 	/* Set clipping planes: */
 	clipPlaneManager->setClipPlanes(navigationTransformationEnabled,displayState,contextData);
+	
+	/* Render tool manager's state: */
+	toolManager->glRenderAction(contextData);
+	
+	/* Render input graph tools: */
+	inputGraphManager->glRenderTools(contextData);
 	
 	/* Display all loaded vislets: */
 	if(visletManager!=0)
@@ -1349,30 +1429,22 @@ void vruiDelay(double interval)
 	#endif
 	}
 
-void synchronize(double applicationTime)
+void synchronize(double nextFrameTime,bool wait)
 	{
-	#if 0
-	/* Calculate the drift in true and intended application time: */
-	double delta=applicationTime-vruiState->lastFrame;
-	if(delta>0.0)
-		{
-		/* Block to make up for the difference: */
-		struct timeval timeout;
-		timeout.tv_sec=long(Math::floor(delta));
-		timeout.tv_usec=long(Math::floor((delta-double(timeout.tv_sec))*1000000.0+0.5));
-		select(0,0,0,0,&timeout);
-		}
-	#endif
-	
-	/* Update the true application time: */
-	vruiState->lastFrame=applicationTime;
+	vruiState->synchFrameTime=nextFrameTime;
+	vruiState->synchWait=wait;
 	}
 
 void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize)
 	{
+	/* Update the display center: */
 	vruiState->displayCenter=newDisplayCenter;
 	vruiState->displaySize=newDisplaySize;
 	vruiState->navigationTransformationChangedMask|=0x2;
+	
+	/* Update the widget plane: */
+	vruiState->widgetPlane=ONTransform::translateFromOriginTo(vruiState->displayCenter);
+	vruiState->widgetPlane*=ONTransform::rotate(ONTransform::Rotation::fromBaseVectors(vruiState->forwardDirection^vruiState->upDirection,vruiState->upDirection));
 	}
 
 /**********************************
@@ -1554,48 +1626,49 @@ std::pair<VRScreen*,Scalar> findScreen(const Ray& ray)
 	VRScreen* closestScreen=0;
 	Scalar closestLambda=Math::Constants<Scalar>::max;
 	for(int screenIndex=0;screenIndex<vruiState->numScreens;++screenIndex)
-		{
-		VRScreen* screen=&vruiState->screens[screenIndex];
-		
-		/* Calculate screen plane: */
-		ONTransform t=screen->getScreenTransformation();
-		Vector screenNormal=t.getDirection(2);
-		Scalar screenOffset=screenNormal*t.getOrigin();
-		
-		/* Intersect selection ray with screen plane: */
-		Scalar divisor=screenNormal*ray.getDirection();
-		if(divisor!=Scalar(0))
+		if(vruiState->screens[screenIndex].isIntersect())
 			{
-			Scalar lambda=(screenOffset-screenNormal*ray.getOrigin())/divisor;
-			if(lambda>=Scalar(0)&&lambda<closestLambda)
+			VRScreen* screen=&vruiState->screens[screenIndex];
+			
+			/* Calculate screen plane: */
+			ONTransform t=screen->getScreenTransformation();
+			Vector screenNormal=t.getDirection(2);
+			Scalar screenOffset=screenNormal*t.getOrigin();
+			
+			/* Intersect selection ray with screen plane: */
+			Scalar divisor=screenNormal*ray.getDirection();
+			if(divisor!=Scalar(0))
 				{
-				/* Check if the ray intersects the screen: */
-				Point screenPos=t.inverseTransform(ray.getOrigin()+ray.getDirection()*lambda);
-				if(screen->isOffAxis())
+				Scalar lambda=(screenOffset-screenNormal*ray.getOrigin())/divisor;
+				if(lambda>=Scalar(0)&&lambda<closestLambda)
 					{
-					/* Check the intersection point against the projected screen quadrilateral: */
-					VRScreen::PTransform2::Point sp(screenPos[0],screenPos[1]);
-					sp=screen->getScreenHomography().inverseTransform(sp);
-					if(sp[0]>=Scalar(0)&&sp[0]<=screen->getWidth()&&sp[1]>=Scalar(0)&&sp[1]<=screen->getHeight())
+					/* Check if the ray intersects the screen: */
+					Point screenPos=t.inverseTransform(ray.getOrigin()+ray.getDirection()*lambda);
+					if(screen->isOffAxis())
 						{
-						/* Save the intersection: */
-						closestScreen=screen;
-						closestLambda=lambda;
+						/* Check the intersection point against the projected screen quadrilateral: */
+						VRScreen::PTransform2::Point sp(screenPos[0],screenPos[1]);
+						sp=screen->getScreenHomography().inverseTransform(sp);
+						if(sp[0]>=Scalar(0)&&sp[0]<=screen->getWidth()&&sp[1]>=Scalar(0)&&sp[1]<=screen->getHeight())
+							{
+							/* Save the intersection: */
+							closestScreen=screen;
+							closestLambda=lambda;
+							}
 						}
-					}
-				else
-					{
-					/* Check the intersection point against the upright screen rectangle: */
-					if(screenPos[0]>=Scalar(0)&&screenPos[0]<=screen->getWidth()&&screenPos[1]>=Scalar(0)&&screenPos[1]<=screen->getHeight())
+					else
 						{
-						/* Save the intersection: */
-						closestScreen=screen;
-						closestLambda=lambda;
+						/* Check the intersection point against the upright screen rectangle: */
+						if(screenPos[0]>=Scalar(0)&&screenPos[0]<=screen->getWidth()&&screenPos[1]>=Scalar(0)&&screenPos[1]<=screen->getHeight())
+							{
+							/* Save the intersection: */
+							closestScreen=screen;
+							closestLambda=lambda;
+							}
 						}
 					}
 				}
 			}
-		}
 	
 	return std::pair<VRScreen*,Scalar>(closestScreen,closestLambda);
 	}
@@ -1796,6 +1869,54 @@ GLMotif::WidgetManager* getWidgetManager(void)
 	return vruiState->widgetManager;
 	}
 
+const ONTransform& getUiPlane(void)
+	{
+	return vruiState->widgetPlane;
+	}
+
+Point calcUiPoint(const Ray& ray)
+	{
+	if(vruiState->popWidgetsOnScreen)
+		{
+		/* Intersect the ray with the widget plane: */
+		Point planeCenter=vruiState->widgetPlane.getOrigin();
+		Vector planeNormal=vruiState->widgetPlane.getDirection(2);
+		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
+		return ray(lambda);
+		}
+	else
+		{
+		/* Return ray's start: */
+		return ray.getOrigin();
+		}
+	}
+
+ONTransform calcUiTransform(const Ray& ray)
+	{
+	if(vruiState->popWidgetsOnScreen)
+		{
+		/* Intersect the ray with the widget plane: */
+		Point planeCenter=vruiState->widgetPlane.getOrigin();
+		Vector planeNormal=vruiState->widgetPlane.getDirection(2);
+		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
+		
+		/* Move the widget plane transformation to the intersection point: */
+		ONTransform result=vruiState->widgetPlane;
+		result.getTranslation()=ray(lambda)-Point::origin;
+		return result;
+		}
+	else
+		{
+		/* Align the transformation with the viewing direction: */
+		Vector viewDirection=ray.getOrigin()-vruiState->mainViewer->getHeadPosition();
+		Vector x=viewDirection^vruiState->upDirection;
+		Vector y=x^viewDirection;
+		ONTransform result=ONTransform::translateFromOriginTo(ray.getOrigin());
+		result*=ONTransform::rotate(Rotation::fromBaseVectors(x,y));
+		return result;
+		}
+	}
+
 ONTransform calcHUDTransform(const Point& hotSpot)
 	{
 	ONTransform result;
@@ -1804,30 +1925,24 @@ ONTransform calcHUDTransform(const Point& hotSpot)
 		{
 		/* Create a ray from the main viewer through the hot spot: */
 		Point start=vruiState->mainViewer->getHeadPosition();
-		Ray ray=Ray(start,hotSpot-start);
+		Vector dir=hotSpot-start;
 		
-		/* Get the first screen intersection: */
-		std::pair<VRScreen*,Scalar> si=findScreen(ray);
-		if(si.first!=0)
-			{
-			/* Get the screen's transformation: */
-			result=si.first->getScreenTransformation();
-			
-			/* Set the intersection point as origin: */
-			result.getTranslation()=ray(si.second)-Point::origin;
-			}
-		else
-			{
-			/* Create a translation to the ray's origin: */
-			result=ONTransform::translateFromOriginTo(ray.getOrigin());
-			}
+		/* Intersect the ray with the widget plane: */
+		Point planeCenter=vruiState->widgetPlane.getOrigin();
+		Vector planeNormal=vruiState->widgetPlane.getDirection(2);
+		Scalar lambda=((planeCenter-start)*planeNormal)/(dir*planeNormal);
+		
+		/* Move the widget plane transformation to the intersection point: */
+		ONTransform result=vruiState->widgetPlane;
+		result.getTranslation()=(start+dir*lambda)-Point::origin;
+		return result;
 		}
 	else
 		{
 		/* Align the transformation with the viewing direction: */
 		Vector viewDirection=hotSpot-vruiState->mainViewer->getHeadPosition();
-		Vector x=Geometry::cross(viewDirection,vruiState->upDirection);
-		Vector y=Geometry::cross(x,viewDirection);
+		Vector x=viewDirection^vruiState->upDirection;
+		Vector y=x^viewDirection;
 		result=ONTransform::translateFromOriginTo(hotSpot);
 		result*=ONTransform::rotate(Rotation::fromBaseVectors(x,y));
 		}
@@ -1854,7 +1969,6 @@ void popupPrimaryWidget(GLMotif::Widget* topLevel)
 void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational)
 	{
 	typedef GLMotif::WidgetManager::Transformation WTransform;
-	typedef WTransform::Point WPoint;
 	typedef WTransform::Vector WVector;
 	
 	/* Calculate the hot spot in physical coordinates: */
@@ -2323,5 +2437,16 @@ void setMostRecentGUIInteractor(GUIInteractor* interactor)
 	{
 	vruiState->mostRecentGUIInteractor=interactor;
 	}
+
+#if EVILHACK_LOCK_INPUTDEVICE_POS
+
+void lockDevice(Vrui::InputDevice* device)
+	{
+	lockedDevice=device;
+	if(lockedDevice!=0)
+		lockedTranslation=lockedDevice->getTransformation().getTranslation();
+	}
+	
+#endif
 
 }

@@ -153,8 +153,7 @@ const ToolFactory* MouseTool::getFactory(void) const
 void MouseTool::frame(void)
 	{
 	/* Calculate the ray equation: */
-	Ray ray(sourceDevice->getPosition(),sourceDevice->getRayDirection());
-	ray.setOrigin(ray.getOrigin()-ray.getDirection()*(factory->rayOffset/ray.getDirection().mag()));
+	Ray ray=sourceDevice->getRay();
 	
 	/* Find the closest intersection with any screen: */
 	std::pair<VRScreen*,Scalar> si=findScreen(ray);
@@ -165,8 +164,8 @@ void MouseTool::frame(void)
 		TrackerState ts=TrackerState::translateFromOriginTo(ray(si.second));
 		
 		/* Update the virtual input device's transformation: */
+		transformedDevice->setDeviceRay(ray.getDirection(),-factory->rayOffset);
 		transformedDevice->setTransformation(ts);
-		transformedDevice->setDeviceRayDirection(Geometry::normalize(ray.getDirection()));
 		}
 	}
 

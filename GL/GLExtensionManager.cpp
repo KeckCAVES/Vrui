@@ -1,6 +1,6 @@
 /***********************************************************************
 GLExtensionManager - Class to manage OpenGL extensions.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the OpenGL Support Library (GLSupport).
@@ -139,8 +139,12 @@ bool GLExtensionManager::isExtensionRegistered(const char* extensionName)
 	/* Search the extension name in the list of registered extensions: */
 	ExtensionHash::Iterator eIt=currentExtensionManager->extensions.findEntry(extensionName);
 	
-	/* Return true if the extension exists and has an associated extension object: */
-	return !eIt.isFinished()&&eIt->getDest()!=0;
+	/* Throw an exception if the extension is not supported by the current OpenGL context: */
+	if(eIt.isFinished())
+		Misc::throwStdErr("GLExtensionManager: Extension %s not supported by local OpenGL",extensionName);
+	
+	/* Return true if the extension already has an associated extension object: */
+	return eIt->getDest()!=0;
 	}
 
 void GLExtensionManager::registerExtension(GLExtension* newExtension)

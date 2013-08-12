@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -50,6 +50,7 @@ class GLShader
 	
 	/* Methods: */
 	static bool isSupported(void); // Returns true if the current OpenGL context supports GLSL shaders
+	static void initExtensions(void); // Initializes the OpenGL extensions required by GLSL shaders (optional; implicitly done by GLShader constructor)
 	void compileVertexShader(const char* shaderSourceFileName); // Loads and compiles a vertex shader from a source file
 	void compileVertexShaderFromString(const char* shaderSource); // Compiles a vertex shader from a source code string
 	void compileFragmentShader(const char* shaderSourceFileName); // Loads and compiles a fragment shader from a source file

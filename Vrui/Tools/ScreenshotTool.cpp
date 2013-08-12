@@ -2,7 +2,7 @@
 ScreenshotTool - Class for tools to save save screenshots from immersive
 environments by overriding a selected window's screen and viewer with
 virtual ones attached to an input device.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -200,7 +200,7 @@ void ScreenshotTool::initialize(void)
 			Vector viewDir=eyePosition-screenCenter;
 			vertical=factory->vertical-viewDir*((factory->vertical*viewDir)/Geometry::sqr(viewDir));
 			vertical.normalize();
-			horizontal=Geometry::cross(vertical,viewDir);
+			horizontal=vertical^viewDir;
 			horizontal.normalize();
 			}
 		else
@@ -329,7 +329,7 @@ void ScreenshotTool::frame(void)
 			Vector viewDir=eyePosition-screenCenter;
 			Vector vertical=factory->vertical-viewDir*((factory->vertical*viewDir)/Geometry::sqr(viewDir));
 			vertical.normalize();
-			Vector horizontal=Geometry::cross(vertical,viewDir);
+			Vector horizontal=vertical^viewDir;
 			horizontal.normalize();
 			ONTransform::Vector screenTranslation=screenCenter-horizontal*Math::div2(screenW)-vertical*Math::div2(screenH)-Point::origin;
 			ONTransform::Rotation screenRotation=ONTransform::Rotation::fromBaseVectors(horizontal,vertical);

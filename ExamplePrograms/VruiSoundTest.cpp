@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiSoundTest - Small application to illustrate principles of spatial
 audio programming using Vrui's OpenAL interface.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -18,8 +18,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <stdexcept>
-#include <iostream>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
@@ -92,7 +90,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 	
 	/* Constructors and destructors: */
 	public:
-	VruiSoundTest(int& argc,char**& argv,char**& appDefaults);
+	VruiSoundTest(int& argc,char**& argv);
 	virtual ~VruiSoundTest(void);
 	
 	/* Methods from GLObject: */
@@ -111,8 +109,8 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 Methods of class VruiSoundTest:
 ******************************/
 
-VruiSoundTest::VruiSoundTest(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults)
+VruiSoundTest::VruiSoundTest(int& argc,char**& argv)
+	:Vrui::Application(argc,argv)
 	{
 	/* Request sound processing: */
 	Vrui::requestSound();
@@ -256,19 +254,4 @@ void VruiSoundTest::sound(ALContextData& contextData) const
 		}
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		char** appDefaults=0;
-		VruiSoundTest app(argc,argv,appDefaults);
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	return 0;
-	}
+VRUI_APPLICATION_RUN(VruiSoundTest)
