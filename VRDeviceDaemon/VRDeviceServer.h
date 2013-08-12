@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2011 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -45,12 +45,13 @@ class VRDeviceServer
 		Threads::Mutex pipeMutex; // Mutex serializing write access to the client pipe
 		Vrui::VRDevicePipe pipe; // Pipe connected to the client
 		Threads::Thread communicationThread; // Client communication thread
+		unsigned int protocolVersion; // Version of the VR device daemon protocol to use with this client
 		volatile bool active; // Flag if the client is active
 		volatile bool streaming; // Flag if the client is streaming
 		
 		/* Constructors and destructors: */
 		ClientData(Comm::ListeningTCPSocket& listenSocket) // Accepts next incoming connection on given listening socket and establishes VR device connection
-			:pipe(listenSocket),active(false),streaming(false)
+			:pipe(listenSocket),protocolVersion(0),active(false),streaming(false)
 			{
 			};
 		};

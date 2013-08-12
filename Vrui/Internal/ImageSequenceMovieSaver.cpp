@@ -28,9 +28,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <unistd.h>
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Images/WriteImageFile.h>
 
 namespace Vrui {
 
@@ -79,25 +79,12 @@ void* ImageSequenceMovieSaver::frameSavingThreadMethod(void)
 		capturedFrames.pop_front();
 		}
 		
-		/* Open the next frame image file: */
+		/* Write the next frame image file: */
 		char frameName[1024];
 		snprintf(frameName,sizeof(frameName),frameNameTemplate.c_str(),frameIndex);
 		++frameIndex;
-		Misc::File frameFile(frameName,"wb");
 		
-		/* Get the image from the frame buffer: */
-		int width=frame.getFrameSize()[0];
-		int height=frame.getFrameSize()[1];
-		const unsigned char* buffer=frame.getBuffer();
-		
-		/* Write the PPM header: */
-		fprintf(frameFile.getFilePtr(),"P6\n");
-		fprintf(frameFile.getFilePtr(),"%d %d\n",width,height);
-		fprintf(frameFile.getFilePtr(),"255\n");
-		
-		/* Write each row of the frame buffer: */
-		for(int y=height-1;y>=0;--y)
-			frameFile.write(buffer+y*width*3,width*3);
+		Images::writeImageFile(frame.getFrameSize()[0],frame.getFrameSize()[1],frame.getBuffer(),frameName);
 		}
 	
 	return 0;

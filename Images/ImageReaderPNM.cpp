@@ -120,6 +120,8 @@ readBinary(
 		PixelChannelParam* pPtrs[3];
 		for(unsigned int i=0;i<imageSpec.numChannels;++i)
 			pPtrs[i]=rowPtrs[i];
+		for(unsigned int i=imageSpec.numChannels;i<3;++i)
+			pPtrs[i]=0;
 		for(unsigned int x=0;x<imageSpec.size[0];++x)
 			{
 			for(unsigned int i=0;i<imageSpec.numChannels;++i)

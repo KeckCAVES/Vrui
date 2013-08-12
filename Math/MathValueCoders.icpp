@@ -45,7 +45,7 @@ ValueCoder<Math::BrokenLine<ScalarParam> >::encode(
 	components[1]=value.deadMin;
 	components[2]=value.deadMax;
 	components[3]=value.max;
-	return FixedArrayValueCoder<ScalarParam>::encode(components,4);
+	return CFixedArrayValueCoder<ScalarParam,4>::encode(components);
 	}
 
 template <class ScalarParam>
@@ -60,7 +60,7 @@ ValueCoder<Math::BrokenLine<ScalarParam> >::decode(
 		{
 		/* Decode the broken line as a vector with four elements: */
 		ScalarParam components[4];
-		FixedArrayValueCoder<ScalarParam>::decode(components,4,start,end,decodeEnd);
+		CFixedArrayValueCoder<ScalarParam,4>(components).decode(start,end,decodeEnd);
 		Math::BrokenLine<ScalarParam> result;
 		result.min=components[0];
 		result.deadMin=components[1];

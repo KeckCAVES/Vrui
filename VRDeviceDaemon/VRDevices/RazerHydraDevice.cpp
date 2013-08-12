@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydraDevice - Class to wrap the low-level Razer Hydra device driver
 in a VRDevice.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -23,8 +23,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <VRDeviceDaemon/VRDevices/RazerHydraDevice.h>
 
+#include <Misc/FixedArray.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Vrui/Internal/VRDeviceDescriptor.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
 #include <VRDeviceDaemon/VRDevices/RazerHydra.h>
@@ -135,6 +138,39 @@ RazerHydraDevice::RazerHydraDevice(VRDevice::Factory* sFactory,VRDeviceManager* 
 		deviceTrackerStates[i].positionOrientation=PositionOrientation::identity;
 		deviceTrackerStates[i].linearVelocity=TrackerState::LinearVelocity::zero;
 		deviceTrackerStates[i].angularVelocity=TrackerState::AngularVelocity::zero;
+		}
+	
+	/* Create a virtual device: */
+	Misc::FixedArray<std::string,2> deviceNames;
+	deviceNames[0]="RazerHydraLeft";
+	deviceNames[1]="RazerHydraRight";
+	deviceNames=configFile.retrieveValue<Misc::FixedArray<std::string,2> >("./deviceNames",deviceNames);
+	for(int i=0;i<2;++i)
+		{
+		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(7,3);
+		vd->name=deviceNames[i];
+		vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
+		vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,1,0);
+		vd->rayStart=0.0f;
+		vd->trackerIndex=getTrackerIndex(i);
+		
+		vd->buttonNames[0]=i==0?"LB":"RB";
+		vd->buttonNames[1]="3";
+		vd->buttonNames[2]="1";
+		vd->buttonNames[3]="2";
+		vd->buttonNames[4]="4";
+		vd->buttonNames[5]="Center";
+		vd->buttonNames[6]="Stick";
+		for(int j=0;j<7;++j)
+			vd->buttonIndices[j]=getButtonIndex(i*7+j);
+		
+		vd->valuatorNames[0]="StickX";
+		vd->valuatorNames[1]="StickY";
+		vd->valuatorNames[2]=i==0?"LT":"RT";
+		for(int j=0;j<3;++j)
+			vd->valuatorIndices[j]=getValuatorIndex(i*3+j);
+		
+		addVirtualDevice(vd);
 		}
 	
 	/* Start device thread (Razer Hydra device cannot be suspended and runs the entire time): */

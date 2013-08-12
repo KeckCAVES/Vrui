@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_APPLICATION_INCLUDED
 #define VRUI_APPLICATION_INCLUDED
 
+#include <iostream>
+#include <stdexcept>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Tool.h>
 
@@ -174,6 +176,32 @@ class Application
 	};
 
 }
+
+/***********************************************************************
+Define a macro to create an application object of arbitrary type, run
+it, and catch any exceptions:
+***********************************************************************/
+
+#define VRUI_APPLICATION_RUN(AppClass) \
+	int main(int argc,char* argv[]) \
+		{ \
+		try \
+			{ \
+			AppClass app(argc,argv); \
+			app.run(); \
+			} \
+		catch(std::runtime_error err) \
+			{ \
+			std::cerr<<"Terminated "<<#AppClass<<" due to exception: "<<err.what()<<std::endl; \
+			return 1; \
+			} \
+		catch(...) \
+			{ \
+			std::cerr<<"Terminated "<<#AppClass<<" due to spurious exception"<<std::endl; \
+			return 2; \
+			} \
+		return 0; \
+		}
 
 #ifndef VRUI_APPLICATION_IMPLEMENTATION
 #include <Vrui/Application.icpp>

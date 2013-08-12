@@ -147,8 +147,8 @@ void PanelMenuTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
+	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
 	buttonDevice->setTransformation(interactionDevice->getTransformation());
-	buttonDevice->setDeviceRayDirection(interactionDevice->getDeviceRayDirection());
 	}
 
 void PanelMenuTool::deinitialize(void)
@@ -186,8 +186,8 @@ void PanelMenuTool::frame(void)
 		}
 	
 	/* Update the virtual input device's position: */
+	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
 	buttonDevice->setTransformation(interactionDevice->getTransformation());
-	buttonDevice->setDeviceRayDirection(interactionDevice->getDeviceRayDirection());
 	}
 
 void PanelMenuTool::setMenu(MutexMenu* newMenu)

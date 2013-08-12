@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -170,6 +170,10 @@ Tool::~Tool(void)
 		if(slot.device!=0&&slot.index>=0)
 			slot.device->getValuatorCallbacks(slot.index).remove(valuatorCallbackWrapper,this);
 		}
+	}
+
+void Tool::configure(const Misc::ConfigurationFileSection&)
+	{
 	}
 
 void Tool::configure(Misc::ConfigurationFileSection&)

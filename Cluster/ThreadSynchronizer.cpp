@@ -2,7 +2,7 @@
 ClusterSynchronizer - Helper class to synchronize the number of created
 child threads of the current thread across a cluster, in order to ensure
 multi-threaded pipe creation consistency.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -54,6 +54,24 @@ ThreadSynchronizer::~ThreadSynchronizer(void)
 		
 		/* Synchronize the next child thread index: */
 		Threads::Thread::getThreadObject()->advanceNextChildIndex(maxNumChildThreads-numChildThreads);
+		}
+	}
+
+void ThreadSynchronizer::sync(void)
+	{
+	if(pipe!=0)
+		{
+		/* Get the number of child threads created since initialization: */
+		unsigned int numChildThreads=Threads::Thread::getThreadObject()->getNextChildIndex()-startChildThreadIndex;
+		
+		/* Get the maximum number of created child threads for each cluster node: */
+		unsigned int maxNumChildThreads=pipe->gather(numChildThreads,Cluster::GatherOperation::MAX);
+		
+		/* Synchronize the next child thread index: */
+		Threads::Thread::getThreadObject()->advanceNextChildIndex(maxNumChildThreads-numChildThreads);
+		
+		/* Update the index of the next created child thread: */
+		startChildThreadIndex=Threads::Thread::getThreadObject()->getNextChildIndex();
 		}
 	}
 

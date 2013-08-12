@@ -1,7 +1,7 @@
 /***********************************************************************
 MultipipeDispatcher - Class to distribute input device and ancillary
 data between the nodes in a multipipe VR environment.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -69,9 +69,6 @@ MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager
 			/* Send track type: */
 			pipe->write<int>(device->getTrackType());
 			
-			/* Send device ray direction: */
-			pipe->write<Vector>(device->getDeviceRayDirection());
-			
 			/* Send number of buttons: */
 			pipe->write<int>(device->getNumButtons());
 			totalNumButtons+=device->getNumButtons();
@@ -117,9 +114,6 @@ MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager
 			/* Read track type: */
 			int trackType=pipe->read<int>();
 			
-			/* Read device ray direction: */
-			Vector deviceRayDirection=pipe->read<Vector>();
-			
 			/* Read number of buttons: */
 			int numButtons=pipe->read<int>();
 			totalNumButtons+=numButtons;
@@ -140,8 +134,7 @@ MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager
 			InputDevice* device=inputDevices[deviceIndex]=inputDeviceManager->createInputDevice(name,trackType,numButtons,numValuators,true);
 			delete[] name;
 			
-			/* Initialize the input device: */
-			device->setDeviceRayDirection(deviceRayDirection);
+			/* Initialize the input device glyph: */
 			inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(device)=deviceGlyph;
 			
 			/* Receive all button names: */
@@ -252,6 +245,8 @@ void MultipipeDispatcher::updateInputDevices(void)
 		double* vsPtr=valuatorStates;
 		for(int i=0;i<numInputDevices;++i)
 			{
+			trackingStates[i].deviceRayDirection=inputDevices[i]->getDeviceRayDirection();
+			trackingStates[i].deviceRayStart=inputDevices[i]->getDeviceRayStart();
 			trackingStates[i].transformation=inputDevices[i]->getTransformation();
 			trackingStates[i].linearVelocity=inputDevices[i]->getLinearVelocity();
 			trackingStates[i].angularVelocity=inputDevices[i]->getAngularVelocity();
@@ -278,6 +273,7 @@ void MultipipeDispatcher::updateInputDevices(void)
 		double* vsPtr=valuatorStates;
 		for(int i=0;i<numInputDevices;++i)
 			{
+			inputDevices[i]->setDeviceRay(trackingStates[i].deviceRayDirection,trackingStates[i].deviceRayStart);
 			inputDevices[i]->setTransformation(trackingStates[i].transformation);
 			inputDevices[i]->setLinearVelocity(trackingStates[i].linearVelocity);
 			inputDevices[i]->setAngularVelocity(trackingStates[i].angularVelocity);

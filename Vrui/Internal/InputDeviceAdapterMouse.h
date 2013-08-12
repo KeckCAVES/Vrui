@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMouse - Class to convert mouse and keyboard into a
 Vrui input device.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,11 +24,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_INPUTDEVICEADAPTERMOUSE_INCLUDED
 #define VRUI_INTERNAL_INPUTDEVICEADAPTERMOUSE_INCLUDED
 
+#include <X11/Xlib.h>
 #include <string>
 #include <utility>
 #include <vector>
 #include <Misc/HashTable.h>
-#include <X11/Xlib.h>
+#include <Geometry/Point.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <GLMotif/TextEvent.h>
 #include <GLMotif/TextControlEvent.h>
 #include <Vrui/Geometry.h>
@@ -87,13 +89,20 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	ControlKeyMap controlKeyMap; // Map from key codes and modifier states to GLMotif text control events
 	int modifierKeyMask; // Current modifier key mask
 	bool* buttonStates; // Array of current button states
+	int numPressedButtons; // Number of currently pressed buttons, to keep track of mouse pointer grabs
 	bool keyboardMode; // Flag whether the keyboard is in key mode
 	int* numMouseWheelTicks; // Number of mouse wheel ticks for each modifier key mask accumulated during frame processing
 	int nextEventOrdinal; // Ordering index for next accumulated text or text control event
 	std::vector<std::pair<int,GLMotif::TextEvent> > textEvents; // List of text events accumulated during frame processing in keyboard mode
 	std::vector<std::pair<int,GLMotif::TextControlEvent> > textControlEvents; // List of text control events accumulated during frame processing in keyboard mode
 	VRWindow* window; // VR window containing the last reported mouse position
-	Scalar mousePos[2]; // Current mouse position in screen coordinates
+	int mousePos[2]; // Current mouse position in window (pixel) coordinates of window containing the last known mouse position
+	VRWindow* grabWindow; // Window that currently has a pointer grab
+	bool mouseLocked; // Flag whether the mouse pointer is currently locked
+	int lockedMousePos[2]; // Mouse pointer position at time of locking in window coordinates
+	Vector lockedRayDirection; // Mouse device ray direction while the mouse is locked
+	Scalar lockedRayStart; // Mouse device ray start parameter while the mouse is locked
+	TrackerState lockedTransformation; // Mouse device transformation while the mouse is locked
 	bool fakeMouseCursor; // Flag whether the adapter draws its own mouse cursor
 	
 	/* Private methods: */
@@ -101,6 +110,7 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 	static std::string getKeyName(int keyCode); // Returns the key name for the given key code
 	int getButtonIndex(int keyCode) const; // Returns the button key index of the given key, or -1
 	int getModifierIndex(int keyCode) const; // Returns the modifier key index of the given key, or -1
+	bool changeButtonState(int stateIndex,bool newState); // Changes the state of a button and does related processing; returns true if button state actually changed
 	void changeModifierKeyMask(int newModifierKeyMask); // Called whenever the current modifier key mask changes
 	
 	/* Constructors and destructors: */
@@ -122,17 +132,19 @@ class InputDeviceAdapterMouse:public InputDeviceAdapter
 		{
 		return window;
 		}
-	const Scalar* getMousePosition(void) const // Returns the current mouse position in screen coordinates
+	const int* getMousePosition(void) const // Returns the current mouse position in window (pixel) coordinates
 		{
 		return mousePos;
 		}
-	void setMousePosition(VRWindow* newWindow,const Scalar newMousePos[2]); // Sets current mouse position in screen coordinates
+	void setMousePosition(VRWindow* newWindow,const int newMousePos[2]); // Sets current mouse position in window (pixel) coordinates of given window
 	bool keyPressed(int keyCode,int modifierMask,const char* string); // Notifies adapter that a key has been pressed; returns true if adapter's state changed
 	bool keyReleased(int keyCode); // Notifies adapter that a key has been released; returns true if adapter's state changed
 	void resetKeys(const XKeymapEvent& event); // Resets pressed keys and the modifier key mask when the mouse cursor re-enters a window
 	bool setButtonState(int buttonIndex,bool newButtonState); // Sets current button state; returns true if adapter's state changed
 	void incMouseWheelTicks(void); // Increases the number of mouse wheel ticks
 	void decMouseWheelTicks(void); // Decreases the number of mouse wheel ticks
+	void lockMouse(void); // Locks the mouse pointer to the center of the current window; future device updates only report velocities
+	void unlockMouse(void); // Unlocks the mouse pointer
 	};
 
 /****************

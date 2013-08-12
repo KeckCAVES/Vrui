@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2011 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -308,7 +308,7 @@ void* SoundRecorder::recordingThreadMethod(void)
 	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Read buffers worth of sound data from the PCM device until interrupted: */
-	while(true)
+	while(keepReading)
 		{
 		/* Read pending sound data, up to the buffer size: */
 		size_t numFramesRead=pcmDevice.read(sampleBuffer,sampleBufferSize);
@@ -382,6 +382,7 @@ SoundRecorder::SoundRecorder(const SoundDataFormat& sFormat,const char* outputFi
 	 outputFile(IO::openSeekableFile(outputFileName,IO::File::WriteOnly)),
 	 sampleBufferSize(0),sampleBuffer(0),
 	 numRecordedFrames(0),
+	 keepReading(true),
 	#endif
 	 active(false)
 	{
@@ -398,6 +399,7 @@ SoundRecorder::SoundRecorder(const char* audioSource,const SoundDataFormat& sFor
 	 outputFile(IO::openSeekableFile(outputFileName,IO::File::WriteOnly)),
 	 sampleBufferSize(0),sampleBuffer(0),
 	 numRecordedFrames(0),
+	 keepReading(true),
 	#endif
 	 active(false)
 	{
@@ -412,11 +414,8 @@ SoundRecorder::~SoundRecorder(void)
 	/* Stop the recording thread if still active: */
 	if(active)
 		{
-		/* Stop the PCM device: */
-		pcmDevice.drain();
-		usleep(10000);
-		
-		recordingThread.cancel();
+		/* Stop the recording thread at the next opportunity: */
+		keepReading=false;
 		recordingThread.join();
 		
 		/* Write the final audio file header if necessary: */

@@ -139,16 +139,16 @@ const ToolFactory* EyeRayTool::getFactory(void) const
 
 void EyeRayTool::frame(void)
 	{
-	/* Copy the source device's position and orientation: */
-	transformedDevice->setTransformation(sourceDevice->getTransformation());
-	
 	/* Calculate a sight line from the main viewer to the device's position in physical space: */
 	Vector physRayDir=sourceDevice->getPosition()-getMainViewer()->getHeadPosition();
 	
 	/* Transform the ray direction to device space: */
 	Vector deviceRayDir=sourceDevice->getTransformation().inverseTransform(physRayDir);
 	deviceRayDir.normalize();
-	transformedDevice->setDeviceRayDirection(deviceRayDir);
+	transformedDevice->setDeviceRay(deviceRayDir,-getInchFactor());
+	
+	/* Copy the source device's position and orientation: */
+	transformedDevice->setTransformation(sourceDevice->getTransformation());
 	}
 
 }

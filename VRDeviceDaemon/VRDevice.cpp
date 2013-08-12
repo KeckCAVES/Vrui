@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -135,6 +135,11 @@ void VRDevice::setNumValuators(int newNumValuators,const Misc::ConfigurationFile
 		valuatorIndices[i]=deviceManager->addValuator(valuatorNames!=0?valuatorNames[i].c_str():0);
 	}
 
+void VRDevice::addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice)
+	{
+	deviceManager->addVirtualDevice(newDevice);
+	}
+
 void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state)
 	{
 	Vrui::VRDeviceState::TrackerState calibratedState=state;
@@ -204,11 +209,13 @@ VRDevice::VRDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,M
 	 calibrator(0)
 	{
 	/* Check if the device has an attached calibrator: */
-	std::string calibratorType=configFile.retrieveString("./calibratorType","None");
-	if(calibratorType!="None")
+	if(configFile.hasTag("./calibratorName"))
 		{
-		/* Create the calibrator: */
+		/* Go to the calibrator's section and read the calibrator type: */
 		configFile.setCurrentSection(configFile.retrieveString("./calibratorName").c_str());
+		std::string calibratorType=configFile.retrieveString("./type");
+		
+		/* Create the calibrator: */
 		calibrator=deviceManager->createCalibrator(calibratorType,configFile);
 		configFile.setCurrentSection("..");
 		}

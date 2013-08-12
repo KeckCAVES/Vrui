@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveSetNode - Class for sets of curves written by curve tracing
 application.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

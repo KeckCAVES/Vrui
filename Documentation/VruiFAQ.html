@@ -20,6 +20,8 @@
 <LI><A HREF="#Q10">How do I receive input from the keyboard?</A></LI>
 <LI><A HREF="#Q11">How do I query the display resolution in points per inch etc.?</A></LI>
 <LI><A HREF="#Q12">Why does Vrui go all wonky when I use two monitors in a single-desktop setup?</A></LI>
+<LI><A HREF="#Q13">How do I manage server-side OpenGL state, such as texture objects?</A></LI>
+<LI><A HREF="#Q14">How do I set up multiple rendering windows, for example to drive multiple projectors?</A></LI>
 </OL>
 
 <H2><A NAME="Q1">1. What is this Vrui thing, anyway?</A></H2>
@@ -30,7 +32,7 @@ Vrui's overriding goal is to support development of correct, portable, and usabl
 
 <H2><A NAME="Q2">2. How is Vrui different from, say, glut?</A></H2>
 
-In certain ways, Vrui is very much like glut. It allows writing graphics applications without having to worry about the details of the underlying hardware or graphics system, and introduces very little overhead when writing simple applications. Also, Vrui allows applications direct access to OpenGL, to employ custom low-level code. In many cases, Vrui is a more powerful replacement for glut. It has little enough overhead that it easily used for very simple applications, but at the same time already offers much additional functionality, such as simplified window management, multiple built-in 3D navigation metaphors, 3D measurement and annotation tools, virtual 3D input devices, recording and playback facilities, etc.<P>
+In certain ways, Vrui is very much like glut. It allows writing graphics applications without having to worry about the details of the underlying hardware or graphics system, and introduces very little overhead when writing simple applications. Also, Vrui allows applications direct access to OpenGL, to employ custom low-level code. In many cases, Vrui is a more powerful replacement for glut. It has little enough overhead that it is easily used for very simple applications, but at the same time already offers much additional functionality, such as simplified window management, multiple built-in 3D navigation metaphors, 3D measurement and annotation tools, virtual 3D input devices, recording and playback facilities, etc.<P>
 
 Unlike glut, Vrui is portable to non-desktop environments. Here, portable means that a Vrui application is only written <EM>once</EM>, and then runs in <EM>any</EM> environment, without even having to be recompiled. This portability is achieved by shielding application writers much more from the underlying display system as glut does: Vrui applications do not have to open their windows or set up their OpenGL rendering contexts, and they do not directly receive input from mouse or keyboard. In fact, handling of input is probably the biggest difference between Vrui and glut.<P>
 
@@ -70,7 +72,7 @@ For example, Vrui's underlying geometry library is used throughout Vrui's API in
 
 Vrui runs on UNIX-like operating systems. It is primarily being developed on Linux, specifically 64-bit <A HREF="http://www.fedoraproject.org">Fedora Linux</A>, but it builds and runs without problems on any other Linux distribution.<P>
 
-Vrui also builds and runs on Mac OS X, but there are currently some Linux-only features, particularly handling of sound and video, some non-standard required libraries&nbsp;&ndash;libpng, libjpeg, libtiff, libusb&nbsp;&ndash; that need to be installed from source or using software management systems such as <A HREF="https://github.com/mxcl/homebrew">homebrew</A>, and Vrui is generally more thoroughly tested on Linux.<P>
+Vrui also builds and runs on Mac OS X, but there are currently some Linux-only features, particularly handling of sound and video, some non-standard required libraries&nbsp;&ndash; libpng, libjpeg, libtiff, libusb&nbsp;&ndash; that need to be installed from source or using software management systems such as <A HREF="https://github.com/mxcl/homebrew">homebrew</A>, and Vrui is generally more thoroughly tested on Linux.<P>
 
 Vrui <EM>does not</EM> build on Windows. Microsoft's Visual C++, at least the most recent version tested, cannot deal with some of the C++ template constructs used in Vrui. Other C++ compilers, such as Intel's, can do those, but they are typically quite expensive. Even with a proper C++ compiler, several of the underlying architecture decisions in Vrui are deeply rooted in the UNIX paradigm. Porting Vrui would take significant initial effort, and continual effort to maintain a split codebase.<P>
 
@@ -114,13 +116,23 @@ Another common example is an application needing to know how big to make a displ
 
 In other words, Vrui applications should always render in 3D application space in any unit of measurement they want, advertise that unit to Vrui's coordinate manager, and let Vrui take care of the rest. Any questions about appropriate display sizes, interaction fuzz values, optimal font sizes, etc. should be answered by querying the Vrui kernel API whenever needed.
 
-<H2><A NAME="Q12">Why does Vrui go all wonky when I use two monitors in a single-desktop setup?</A></H2>
+<H2><A NAME="Q12">12. Why does Vrui go all wonky when I use two monitors in a single-desktop setup?</A></H2>
 
 In its default desktop configuration, Vrui tries to determine the actual size of the environment's display by querying the X Windows system. Normally, this ensures that Vrui's rendering has the correct aspect ratio, e.g., spheres show up as spheres instead of ellipsoids, and that it has the correct size, e.g., the scale bar has the correct length, and that fonts show up at the correct sizes. However, X sometimes lies about the sizes of its attached displays, especially when multiple displays are joined in a single-desktop setup (such as Nvidia's TwinView). This is especially bad when the joined displays have different resolutions, say a laptop display with 100dpi next to a 3D TV with 30dpi.<P>
 
 In the first scenario, where all displays have comparable resolutions, but X lies, you will have to disable automatic screen size detection (by setting autoScreenSize to false in your window section), and enter the correct screen size in your screen section. In single-desktop setups, the screen size is the combined size of all screens, not that of a single screen.<P>
 
-This will not work if the screen's resolutions are different. If that's the case, getting Vrui to run properly will take some effort&nbsp;-- after all, it has to deal with a single (virtual) display that suddenly changes resolution in the middle. The only way to deal with it is having multiple separate windows, one on each physical display, and use a separate screen section with its own screen size for each window. This will result in correct display, but it means that it will not be possible to move the windows between screens. In other words, when there are multiple display resolutions involved, it's best not to use a single-desktop setup, but instead use multiple X screens.
+This will not work if the screens' resolutions are different. If that's the case, getting Vrui to run properly will take some effort&nbsp;-- after all, it has to deal with a single (virtual) display that suddenly changes resolution in the middle. The only way to deal with it is having multiple separate windows, one on each physical display, and use a separate screen section with its own screen size for each window. This will result in correct display, but it means that it will not be possible to move the windows between screens. In other words, when there are multiple display resolutions involved, it's best not to use a single-desktop setup, but instead use multiple X screens.
+
+<H2><A NAME="Q13">13. How do I manage server-side OpenGL state, such as texture objects?</A></H2>
+
+In most other 3D or VR toolkits, application-side state, such as a 3D mesh representation, and server-side OpenGL state, such as texture or buffer objects, are mixed freely. In an application object, a pointer to a mesh structure might directly be followed by a handle to a vertex buffer object holding the mesh's vertices. This, however, prevents portability to environments where one application has to deal with multiple OpenGL contexts, where a single mesh structure might be represented by several vertex buffers, each for a different OpenGL context, with a different handle. Vrui solves the problem by strictly separating application-side state from server-side OpenGL state, and associating multiple copies of an application's server-side state with a single copy of application-side state. Context and state management, and necessary state replication, are completely hidden by the Vrui API. Applications always only see a single copy of server-side state, and only at the time this state is needed for rendering. This process is described in detail in the <A HREF="GLContextData.html">GLContextData</A> document.
+
+<H2><A NAME="Q14">14. How do I set up multiple rendering windows, for example to drive multiple projectors?</A></H2>
+
+Vrui is quite flexible with regards to multi-window/multi-display rendering. The Vrui run-time environment can dynamically configure itself to run in a cluster with multiple rendering nodes, on a single machine with multiple graphics cards, or on a single machine with a single graphics card and multiple displays connected to multiple video outputs, or any combination of these. For example, when running a &quot;super CAVE&quot; with six walls and two pairs of stacked 4K projectors generating 4000x4000 pixel stereoscopic images per wall, one could use a seven-node cluster, where the head node drives a standard desktop monitor and is the user-facing console, and each of the six render nodes has two high-end graphics cards with two projectors connected to each graphics card. How to configure Vrui for such environments, and how to maximize rendering performance via context sharing and parallel rendering, is explained in detail in the <A HREF="MultiWindowRendering.html">Multi-window Rendering in Vrui</A> document.<P>
+
+As far as application programmers are concerned, the details of managing multiple windows, sharing or replicating OpenGL contexts, and parallel rendering are completely hidden by the Vrui API. See the <A HREF="GLContextData.html">GLContextData</A> document for a detailed explanation of the underlying abstraction mechanism.
 
 </BODY>
 </HTML>

@@ -1,7 +1,7 @@
 /***********************************************************************
 BoxRayDragger - A helper class to encapsulate dragging a wireframe
 box with a ray-based input device.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -168,7 +168,7 @@ bool BoxRayDragger::pick(const ONTransform& newTransformation,const Ray& ray,con
 					rotateAxis[i]=i==edgeDirection?Scalar(1):Scalar(0);
 				rotateCenter=initialTransformation.getOrigin();
 				rotateAxis=initialTransformation.transform(rotateAxis);
-				rotateDragDirection=Geometry::cross(rotateAxis,viewPlaneNormal);
+				rotateDragDirection=rotateAxis^viewPlaneNormal;
 				rotateDragDirection.normalize();
 				}
 			}
@@ -242,7 +242,7 @@ void BoxRayDragger::drag(const Ray& ray)
 			/* Calculate the axis and amount of rotation using a virtual trackball: */
 			Vector a=initialPoint-rotateCenter;
 			Vector delta=point-initialPoint;
-			Vector axis=Geometry::cross(a,delta);
+			Vector axis=a^delta;
 			Scalar axisLen=Geometry::mag(axis);
 			if(axisLen>Scalar(0))
 				{

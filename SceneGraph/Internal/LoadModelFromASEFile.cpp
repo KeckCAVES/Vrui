@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadModelFromASEFile - Function to load static (non-animated) models
 from files in ASE format.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -223,7 +223,7 @@ Doom3Model* loadModelFromASEFile(Doom3FileManager& fileManager,Doom3MaterialMana
 							Vector d1=Geometry::normalize(*v1-*v0);
 							
 							/* Calculate a normal vector and accumulation weight for the polygon corner: */
-							Vector cornerNormal=Geometry::cross(d0,d1);
+							Vector cornerNormal=d0^d1;
 							Scalar weight=Math::acos(-(d0*d1))/Geometry::mag(cornerNormal);
 							
 							/* Accumulate the vertex normal: */

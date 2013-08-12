@@ -354,7 +354,7 @@ class AnnotationTool:public UtilityTool
 	virtual ~AnnotationTool(void);
 	
 	/* Methods from Tool: */
-	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
 	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);

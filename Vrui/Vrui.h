@@ -1,7 +1,7 @@
 /***********************************************************************
 Vrui - Public kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2012 Oliver Kreylos
+Copyright (c) 2000-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -222,6 +222,9 @@ void setMainMenu(GLMotif::PopupMenu* newMainMenu); // Sets the application's mai
 MutexMenu* getMainMenu(void); // Returns pointer to the application's main menu
 Misc::TimerEventScheduler* getTimerEventScheduler(void); // Returns pointer to the scheduler for application timer events
 GLMotif::WidgetManager* getWidgetManager(void); // Returns pointer to the UI component manager
+const ONTransform& getUiPlane(void); // Returns a plane to create / interact with UI components
+Point calcUiPoint(const Ray& ray); // Returns a position to create / interact with UI components for the given input device
+ONTransform calcUiTransform(const Ray& ray); // Returns a transformation to create / interact with UI components for the given input device
 ONTransform calcHUDTransform(const Point& hotSpot); // Returns a transformation for showing a HUD or GUI element at the given hot spot
 void popupPrimaryWidget(GLMotif::Widget* topLevel); // Shows a top-level UI component at a default position in the environment
 void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational =true); // Shows a top-level UI component at the given position in physical or navigational coordinates

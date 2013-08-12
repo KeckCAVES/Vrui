@@ -151,8 +151,8 @@ void WandNavigationTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
+	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 	buttonDevice->setTransformation(device->getTransformation());
-	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void WandNavigationTool::deinitialize(void)
@@ -381,8 +381,8 @@ void WandNavigationTool::frame(void)
 	
 	/* Update the virtual input device: */
 	InputDevice* device=getButtonDevice(1);
+	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 	buttonDevice->setTransformation(device->getTransformation());
-	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 std::vector<InputDevice*> WandNavigationTool::getForwardedDevices(void)

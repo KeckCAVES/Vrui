@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisSurfaceNavigationTool - Class to convert an input device with six
 valuators into a surface-aligned navigation tool.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -61,7 +61,7 @@ SixAxisSurfaceNavigationToolFactory::Configuration::Configuration(void)
 	{
 	}
 
-void SixAxisSurfaceNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+void SixAxisSurfaceNavigationToolFactory::Configuration::load(const Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */
 	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
@@ -264,7 +264,7 @@ SixAxisSurfaceNavigationTool::~SixAxisSurfaceNavigationTool(void)
 	delete numberRenderer;
 	}
 
-void SixAxisSurfaceNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void SixAxisSurfaceNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Update the configuration: */
 	config.load(configFileSection);
@@ -342,7 +342,7 @@ void SixAxisSurfaceNavigationTool::frame(void)
 		/* Calculate the new head position: */
 		Point newHeadPos=getMainViewer()->getHeadPosition();
 		
-		/* Create a physical navigation frame around the new foot position: */
+		/* Create a physical navigation frame around the new head position: */
 		calcPhysicalFrame(newHeadPos);
 		
 		/* Calculate movement from head position change: */

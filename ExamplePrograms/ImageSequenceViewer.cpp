@@ -97,7 +97,7 @@ class ImageSequenceViewer:public Vrui::Application,public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	ImageSequenceViewer(int& argc,char**& argv,char**& appDefaults);
+	ImageSequenceViewer(int& argc,char**& argv);
 	virtual ~ImageSequenceViewer(void);
 	
 	/* Methods from Vrui::Application: */
@@ -259,8 +259,8 @@ void ImageSequenceViewer::frameIndexSliderCallback(GLMotif::TextFieldSlider::Val
 	loadRequestCond.signal();
 	}
 
-ImageSequenceViewer::ImageSequenceViewer(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+ImageSequenceViewer::ImageSequenceViewer(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 firstIndex(0),lastIndex(0),
 	 frameTime(1.0/30.0),
 	 playing(false),
@@ -541,19 +541,5 @@ void ImageSequenceViewer::initContext(GLContextData& contextData) const
 	glBindTexture(GL_TEXTURE_2D,0);
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		char** appDefaults=0;
-		ImageSequenceViewer app(argc,argv,appDefaults);
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(ImageSequenceViewer)

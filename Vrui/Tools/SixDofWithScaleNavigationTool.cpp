@@ -215,8 +215,8 @@ void SixDofWithScaleNavigationTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
+	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 	buttonDevice->setTransformation(device->getTransformation());
-	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void SixDofWithScaleNavigationTool::deinitialize(void)
@@ -326,8 +326,8 @@ void SixDofWithScaleNavigationTool::frame(void)
 	
 	/* Update the virtual input device: */
 	InputDevice* device=getButtonDevice(1);
+	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 	buttonDevice->setTransformation(device->getTransformation());
-	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void SixDofWithScaleNavigationTool::display(GLContextData& contextData) const

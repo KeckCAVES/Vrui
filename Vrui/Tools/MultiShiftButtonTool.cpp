@@ -2,7 +2,7 @@
 MultiShiftButtonTool - Class to switch between mulitple planes of
 buttons and/or valuators by pressing one from an array of "radio
 buttons."
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -133,7 +133,7 @@ MultiShiftButtonTool::~MultiShiftButtonTool(void)
 	{
 	}
 
-void MultiShiftButtonTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void MultiShiftButtonTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read settings: */
 	numPlanes=configFileSection.retrieveValue<int>("./numPlanes",numPlanes);

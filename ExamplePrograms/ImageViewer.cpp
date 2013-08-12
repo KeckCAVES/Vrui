@@ -1,6 +1,6 @@
 /***********************************************************************
 Small image viewer using Vrui.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -17,7 +17,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <iostream>
 #include <Math/Math.h>
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
@@ -59,7 +58,7 @@ class ImageViewer:public Vrui::Application,public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	ImageViewer(int& argc,char**& argv,char**& appDefaults);
+	ImageViewer(int& argc,char**& argv);
 	virtual ~ImageViewer(void);
 	
 	/* Methods from Vrui::Application: */
@@ -119,8 +118,8 @@ void ImageViewer::resetNavigationCallback(Misc::CallbackData* cbData)
 	Vrui::setNavigationTransformation(center,size,Vrui::Vector(0,1,0));
 	}
 
-ImageViewer::ImageViewer(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+ImageViewer::ImageViewer(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 mainMenu(0)
 	{
 	/* Load the image: */
@@ -232,19 +231,5 @@ void ImageViewer::initContext(GLContextData& contextData) const
 	glBindTexture(GL_TEXTURE_2D,0);
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		char** appDefaults=0;
-		ImageViewer app(argc,argv,appDefaults);
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(ImageViewer)

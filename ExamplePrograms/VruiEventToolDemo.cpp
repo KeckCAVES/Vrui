@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiEventToolDemo - VR application showing how to handle simple events
 (key or mouse button presses) using the "event tool" mechanism.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -162,14 +162,4 @@ void VruiEventToolDemo::eventCallback(Vrui::Application::EventID eventId,Vrui::I
 		}
 	}
 
-int main(int argc,char* argv[])
-	{
-	/* Create an application object: */
-	VruiEventToolDemo app(argc,argv);
-	
-	/* Run the Vrui main loop: */
-	app.run();
-	
-	/* Exit to OS: */
-	return 0;
-	}
+VRUI_APPLICATION_RUN(VruiEventToolDemo)

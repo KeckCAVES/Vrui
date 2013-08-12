@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewSpecification - Class to represent the viewing specification of a VR
 display window.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

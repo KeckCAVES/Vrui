@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiDemoSmall - Extremely simple Vrui application to demonstrate the
 small amount of code overhead introduced by the Vrui toolkit.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -61,14 +61,5 @@ void VruiDemoSmall::display(GLContextData& contextData) const
 	glPopMatrix();
 	}
 
-int main(int argc,char* argv[])
-	{
-	/* Create an application object: */
-	VruiDemoSmall app(argc,argv);
-	
-	/* Run the Vrui main loop: */
-	app.run();
-	
-	/* Exit to OS: */
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(VruiDemoSmall)

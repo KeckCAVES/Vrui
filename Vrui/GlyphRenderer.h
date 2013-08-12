@@ -1,6 +1,6 @@
 /***********************************************************************
 GlyphRenderer - Class to quickly render several kinds of common glyphs.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

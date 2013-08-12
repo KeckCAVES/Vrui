@@ -109,6 +109,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	std::vector<Scalar> pauses; // List of scheduled pauses along the viewpoint curve
 	unsigned int nextViewpointIndex; // Index of next viewpoint to be set
 	Scalar speed; // Playback speed
+	bool firstFrame; // Flag if the viewpoint animation has started on the current frame
 	bool paused; // Flag if the viewpoint animation is currently paused
 	Scalar parameter; // Current curve parameter
 	GLMotif::FileSelectionDialog* loadViewpointFileDialog; // Pointer to file selection dialog opened to select viewpoint file
@@ -129,7 +130,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	virtual ~ViewpointFileNavigationTool(void);
 	
 	/* Methods from Tool: */
-	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;

@@ -1,6 +1,6 @@
 /***********************************************************************
 GLValueCoders - Value coder classes for OpenGL abstraction classes.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

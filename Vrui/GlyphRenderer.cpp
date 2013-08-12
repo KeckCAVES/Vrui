@@ -1,6 +1,6 @@
 /***********************************************************************
 GlyphRenderer - Class to quickly render several kinds of common glyphs.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -307,24 +307,16 @@ void GlyphRenderer::renderGlyph(const Glyph& glyph,const OGTransform& transforma
 			Render a texture-based glyph:
 			****************************/
 			
-			/* Project the given transformation's origin onto the current window's current screen: */
+			/* Align the glyph texture with the current window's current screen: */
 			const DisplayState& ds=getDisplayState(contextDataItem->contextData);
-			Point to=transformation.getOrigin();
-			Ray ray(to,to-ds.viewer->getHeadPosition());
-			ONTransform st=ds.screen->getScreenTransformation();
-			Point sto=st.getOrigin();
-			Vector screenNormal=st.getDirection(2);
-			Scalar screenOffset=screenNormal*sto;
-			Scalar divisor=screenNormal*ray.getDirection();
-			if(divisor!=Scalar(0))
-				{
-				Scalar lambda=(screenOffset-screenNormal*ray.getOrigin())/divisor;
-				glPushMatrix();
-				glTranslate(ray(lambda)-sto);
-				glMultMatrix(st);
-				glCallList(contextDataItem->glyphDisplayLists+glyph.glyphType);
-				glPopMatrix();
-				}
+			glPushMatrix();
+			glTranslate(transformation.getTranslation());
+			glRotate(ds.screen->getScreenTransformation().getRotation());
+			
+			/* Draw the glyph texture: */
+			glCallList(contextDataItem->glyphDisplayLists+glyph.glyphType);
+			
+			glPopMatrix();
 			}
 		else
 			{

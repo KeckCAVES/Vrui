@@ -1,7 +1,7 @@
 /***********************************************************************
 Jello - VR program to interact with "virtual Jell-O" using a simplified
 force interaction model based on the Nanotech Construction Kit.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -23,9 +23,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "Jello.h"
 
 #include <stdlib.h>
-#include <iostream>
 #include <vector>
-#include <stdexcept>
 #include <Math/Math.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
@@ -159,8 +157,8 @@ GLMotif::PopupWindow* Jello::createSettingsDialog(void)
 	return settingsDialog;
 	}
 
-Jello::Jello(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+Jello::Jello(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 crystal(JelloCrystal::Index(4,4,8)),
 	 renderer(crystal),
 	 targetFrameRate(50.0),
@@ -305,24 +303,5 @@ void Jello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
 	showSettingsDialogToggle->setToggle(false);
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		/* Create an application object: */
-		char** appDefaults=0;
-		Jello app(argc,argv,appDefaults);
-		
-		/* Run the Vrui main loop: */
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		/* Print an error message and bail out: */
-		std::cerr<<"Caught exception: "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	/* Exit to OS: */
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(Jello)

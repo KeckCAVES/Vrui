@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -26,9 +26,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "ClusterJello.h"
 
 #include <stdlib.h>
-#include <iostream>
 #include <vector>
-#include <stdexcept>
 #include <Misc/Timer.h>
 #include <Cluster/MulticastPipe.h>
 #include <Math/Math.h>
@@ -310,8 +308,8 @@ void* ClusterJello::simulationThreadMethodSlave(void)
 	return 0;
 	}
 
-ClusterJello::ClusterJello(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+ClusterJello::ClusterJello(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 clusterPipe(Vrui::openPipe()),
 	 crystal(0),
 	 atomLocks(17),
@@ -508,24 +506,5 @@ void ClusterJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
 	showSettingsDialogToggle->setToggle(false);
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		/* Create an application object: */
-		char** appDefaults=0;
-		ClusterJello app(argc,argv,appDefaults);
-		
-		/* Run the Vrui main loop: */
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		/* Print an error message and bail out: */
-		std::cerr<<"Caught exception: "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	/* Exit to OS: */
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(ClusterJello)

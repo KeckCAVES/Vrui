@@ -89,10 +89,10 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		/* Elements: */
 		public:
 		Tool* tool; // Pointer to newly created tool
-		Misc::ConfigurationFileSection* cfg; // Optional pointer to the configuration file section from which the tool read its settings
+		const Misc::ConfigurationFileSection* cfg; // Optional pointer to the configuration file section from which the tool read its settings
 		
 		/* Constructors and destructors: */
-		ToolCreationCallbackData(Tool* sTool,Misc::ConfigurationFileSection* sCfg)
+		ToolCreationCallbackData(Tool* sTool,const Misc::ConfigurationFileSection* sCfg)
 			:tool(sTool),cfg(sCfg)
 			{
 			}
@@ -115,7 +115,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	private:
 	InputGraphManager* inputGraphManager; // Pointer to the input graph manager
 	InputDeviceManager* inputDeviceManager; // Pointer to input device manager
-	Misc::ConfigurationFileSection* configFileSection; // The tool manager's configuration file section - valid throughout the manager's entire lifetime
+	const Misc::ConfigurationFileSection* configFileSection; // The tool manager's configuration file section - valid throughout the manager's entire lifetime
 	
 	/* Tool management state: */
 	ToolList tools; // List of currently instantiated tools
@@ -166,7 +166,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	void startToolCreation(const InputDeviceFeature& feature); // Starts the interactive tool creation process with the given input device feature
 	void prepareFeatureAssignment(const InputDeviceFeature& feature); // Prepares the given input device feature for tool assignment
 	void assignFeature(const InputDeviceFeature& feature); // Assigns the given feature to the next available tool assignment slot
-	Tool* createTool(ToolFactory* factory,const ToolInputAssignment& tia,Misc::ConfigurationFileSection* cfg =0); // Programmatically creates a new tool of the given class and input assignment; optionally lets tool initialize itself by reading from the given configuration file section
+	Tool* createTool(ToolFactory* factory,const ToolInputAssignment& tia,const Misc::ConfigurationFileSection* cfg =0); // Programmatically creates a new tool of the given class and input assignment; optionally lets tool initialize itself by reading from the given configuration file section
 	void destroyTool(Tool* tool,bool destroyImmediately =true); // Destroys a tool programmatically, either right away or during the next call to update()
 	void update(void); // Called once every frame so that the tool manager has a well-defined place to create new tools
 	ToolList::const_iterator beginTools(void) const // Returns iterator to first instantiated tool

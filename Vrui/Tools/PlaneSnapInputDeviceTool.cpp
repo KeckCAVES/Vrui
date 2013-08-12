@@ -1,7 +1,7 @@
 /***********************************************************************
 PlaneSnapInputDeviceTool - Class for tools that snap a virtual input
 device to a plane defined by three points.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -157,7 +157,7 @@ void PlaneSnapInputDeviceTool::buttonCallback(int,InputDevice::ButtonCallbackDat
 			if(numSelectedPoints==3)
 				{
 				/* Snap the selected virtual input device to the plane defined by the three selected points: */
-				Vector y=Geometry::cross(selectedPoints[1]-selectedPoints[0],selectedPoints[2]-selectedPoints[0]);
+				Vector y=(selectedPoints[1]-selectedPoints[0])^(selectedPoints[2]-selectedPoints[0]);
 				Scalar offset=(selectedPoints[0]*y+selectedPoints[1]*y+selectedPoints[2]*y)/Scalar(3);
 				Vector x=Geometry::normal(y);
 				Point devicePos=getInverseNavigationTransformation().transform(getGrabbedDevice()->getPosition());

@@ -2,7 +2,7 @@
 ScreenCalibrator - Utility to create a calibration transformation
 between Vrui's physical coordinate system and a tracking system's
 internal coordinate system.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -501,7 +501,7 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	
 	/* Orthonormalize the screen normal against the floor normal: */
 	Vector y=screenNormal-floorNormal*((screenNormal*floorNormal)/Geometry::sqr(floorNormal));
-	Vector x=Geometry::cross(y,floorNormal);
+	Vector x=y^floorNormal;
 	
 	#if 0
 	/* Calculate a rotation to align the floor normal with +z and the (horizontal) screen normal with +y: */

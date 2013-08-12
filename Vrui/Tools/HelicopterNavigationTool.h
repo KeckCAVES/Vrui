@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -73,7 +73,7 @@ class HelicopterNavigationToolFactory:public ToolFactory
 		Configuration(void); // Creates default configuration
 		
 		/* Methods: */
-		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void load(const Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
 		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
 		};
 	
@@ -122,7 +122,7 @@ class HelicopterNavigationTool:public SurfaceNavigationTool
 	virtual ~HelicopterNavigationTool(void);
 	
 	/* Methods from Tool: */
-	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
 	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;

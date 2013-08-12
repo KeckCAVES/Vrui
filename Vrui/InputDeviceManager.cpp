@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <utility>
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
@@ -116,11 +117,27 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 	/* Retrieve the list of input device adapters: */
 	typedef std::vector<std::string> StringList;
 	StringList inputDeviceAdapterNames=configFileSection.retrieveValue<StringList>("./inputDeviceAdapterNames");
+	
+	/* Remove all duplicates from the list of input device adapters: */
+	for(unsigned int i=0;i<inputDeviceAdapterNames.size()-1;++i)
+		{
+		for(unsigned int j=inputDeviceAdapterNames.size()-1;j>i;--j)
+			{
+			if(inputDeviceAdapterNames[j]==inputDeviceAdapterNames[i])
+				{
+				/* Remove the duplicate list entry: */
+				inputDeviceAdapterNames.erase(inputDeviceAdapterNames.begin()+j);
+				}
+			}
+		}
+	
+	/* Initialize the adapter array: */
 	numInputDeviceAdapters=inputDeviceAdapterNames.size();
 	inputDeviceAdapters=new InputDeviceAdapter*[numInputDeviceAdapters];
 	
 	/* Initialize input device adapters: */
 	int numIgnoredAdapters=0;
+	int mouseAdapterIndex=-1;
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		{
 		/* Go to input device adapter's section: */
@@ -133,8 +150,20 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 			{
 			if(inputDeviceAdapterType=="Mouse")
 				{
-				/* Create mouse input device adapter: */
-				inputDeviceAdapters[i]=new InputDeviceAdapterMouse(this,inputDeviceAdapterSection);
+				/* Check if there is already a mouse input device adapter: */
+				if(mouseAdapterIndex>=0)
+					{
+					/* Ignore this input device adapter: */
+					inputDeviceAdapters[i]=0;
+					++numIgnoredAdapters;
+					std::cout<<"InputDeviceManager: Ignoring mouse input device adapter "<<inputDeviceAdapterNames[i]<<" because there is already a mouse input device adapter"<<std::endl;
+					}
+				else
+					{
+					/* Create mouse input device adapter: */
+					inputDeviceAdapters[i]=new InputDeviceAdapterMouse(this,inputDeviceAdapterSection);
+					mouseAdapterIndex=i;
+					}
 				}
 			else if(inputDeviceAdapterType=="DeviceDaemon")
 				{
@@ -194,6 +223,10 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 		numInputDeviceAdapters=newNumInputDeviceAdapters;
 		inputDeviceAdapters=newInputDeviceAdapters;
 		}
+	
+	/* If there is a mouse input device adapter, put it last in the list because it might implicitly depend on other input devices: */
+	if(mouseAdapterIndex>=0&&mouseAdapterIndex<numInputDeviceAdapters-1)
+		std::swap(inputDeviceAdapters[mouseAdapterIndex],inputDeviceAdapters[numInputDeviceAdapters-1]);
 	
 	/* Check if there are any valid input device adapters: */
 	if(numInputDeviceAdapters==0)
