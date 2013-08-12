@@ -1,7 +1,7 @@
 ########################################################################
 # BasicMakefile - Definitions and rules to build object files, shared
 # and static libraries, and executables.
-# Copyright (c) 1999-2012 Oliver Kreylos
+# Copyright (c) 1999-2013 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -245,10 +245,10 @@ endif
 %: %.cpp
 	@mkdir -p $(EXEDIR)/$(*D)
 ifdef SHOWCOMMAND
-	$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $(filter %.o,$^) $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+	$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $(filter %.cpp,$^) $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 else
 	@echo Compiling and linking $<...
-	@$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $(filter %.o,$^) $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+	@$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $(filter %.cpp,$^) $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 endif
 
 #

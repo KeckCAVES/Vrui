@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MD5Mesh - Class to represent animated mesh models in Doom3's MD5
 mesh format.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -358,7 +358,7 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 			Vector d2=pvs[2]->position-pvs[0]->position;
 			
 			/* Calculate the triangle's normal vector: */
-			Vector triangleNormal=Geometry::cross(d1,d2);
+			Vector triangleNormal=d1^d2;
 			triangleNormal.normalize();
 			
 			/* Calculate the triangle's tangent vectors: */

@@ -597,8 +597,8 @@ void ToolManager::toolCreationDeviceMotionCallback(Misc::CallbackData* cbData)
 	if(toolCreationState!=0&&device==toolCreationState->toolSelectionDevice)
 		{
 		/* Update the tool creation device's state: */
+		toolCreationDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 		toolCreationDevice->setTransformation(device->getTransformation());
-		toolCreationDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 		
 		/* Call the tool creation tool's frame method: */
 		toolCreationTool->frame();
@@ -945,8 +945,8 @@ void ToolManager::startToolCreation(const InputDeviceFeature& feature)
 	/* Let the tool creation device shadow the root device: */
 	rootDevice->getTrackingCallbacks().add(this,&ToolManager::toolCreationDeviceMotionCallback);
 	toolCreationDevice->setTrackType(rootDevice->getTrackType());
+	toolCreationDevice->setDeviceRay(rootDevice->getDeviceRayDirection(),rootDevice->getDeviceRayStart());
 	toolCreationDevice->setTransformation(rootDevice->getTransformation());
-	toolCreationDevice->setDeviceRayDirection(rootDevice->getDeviceRayDirection());
 	
 	/* Press the tool creation tool's button, which will pop up the tool selection menu: */
 	toolCreationDevice->setButtonState(0,true);
@@ -1026,7 +1026,7 @@ void ToolManager::assignFeature(const InputDeviceFeature& feature)
 		}
 	}
 
-Tool* ToolManager::createTool(ToolFactory* factory,const ToolInputAssignment& tia,Misc::ConfigurationFileSection* cfg)
+Tool* ToolManager::createTool(ToolFactory* factory,const ToolInputAssignment& tia,const Misc::ConfigurationFileSection* cfg)
 	{
 	/* Create tool of given class: */
 	Tool* newTool=factory->createTool(tia);

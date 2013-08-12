@@ -19,10 +19,16 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <stdio.h>
+#include <string>
+#include <vector>
 #include <iostream>
 #include <Geometry/ComponentArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <GLMotif/PopupMenu.h>
+#include <GLMotif/Menu.h>
+#include <GLMotif/ToggleButton.h>
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/TransformNode.h>
 #include <SceneGraph/AppearanceNode.h>
@@ -38,12 +44,23 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 class VruiSceneGraphDemo:public Vrui::Application
 	{
+	/* Embedded classes: */
+	private:
+	typedef std::vector<SceneGraph::GroupNodePointer> SGList; // Type for lists of scene graph roots
+	
 	/* Elements: */
-	SceneGraph::GroupNodePointer root; // Root of the scene graph
+	private:
+	SGList sceneGraphs; // List of root nodes of all loaded scene graphs
+	std::vector<bool> sceneGraphEnableds; // List of enable flags for each loaded scene graph
+	GLMotif::PopupMenu* mainMenuPopup;
+	
+	/* Private methods: */
+	void sceneGraphToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const unsigned int& index);
 	
 	/* Constructors and destructors: */
 	public:
 	VruiSceneGraphDemo(int& argc,char**& argv);
+	~VruiSceneGraphDemo(void);
 	
 	/* Methods: */
 	virtual void display(GLContextData& contextData) const;
@@ -53,9 +70,19 @@ class VruiSceneGraphDemo:public Vrui::Application
 Methods of class VruiSceneGraphDemo:
 ***********************************/
 
-VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
-	:Vrui::Application(argc,argv)
+void VruiSceneGraphDemo::sceneGraphToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const unsigned int& index)
 	{
+	/* Enable or disable the selected scene graph: */
+	sceneGraphEnableds[index]=cbData->set;
+	}
+
+VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
+	 mainMenuPopup(0)
+	{
+	/* Collect a list of scene graph names to build a menu later: */
+	std::vector<std::string> sceneGraphNames;
+	
 	if(argc>1)
 		{
 		/*************************************************
@@ -65,29 +92,52 @@ VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
 		/* Create a node creator to parse the VRML files: */
 		SceneGraph::NodeCreator nodeCreator;
 		
-		/* Create the scene graph's root node: */
-		root=new SceneGraph::GroupNode;
-		
 		/* Load all VRML files from the command line: */
 		for(int i=1;i<argc;++i)
 			{
 			try
 				{
+				/* Create the new scene graph's root node: */
+				SceneGraph::GroupNodePointer root=new SceneGraph::GroupNode;
+				
+				/* Load and parse the VRML file: */
 				SceneGraph::VRMLFile vrmlFile(argv[i],Vrui::openFile(argv[i]),nodeCreator,Vrui::getClusterMultiplexer());
 				vrmlFile.parse(root);
+				
+				/* Add the new scene graph to the list: */
+				sceneGraphs.push_back(root);
+				sceneGraphEnableds.push_back(true);
 				}
 			catch(std::runtime_error err)
 				{
 				/* Print an error message and try the next file: */
 				std::cerr<<"Ignoring input file "<<argv[i]<<" due to exception "<<err.what()<<std::endl;
 				}
+			
+			/* Remember the name of this scene graph: */
+			const char* start=argv[i];
+			const char* end=0;
+			for(const char* cPtr=argv[i];*cPtr!='\0';++cPtr)
+				{
+				if(*cPtr=='/')
+					{
+					start=cPtr+1;
+					end=0;
+					}
+				if(*cPtr=='.')
+					end=cPtr;
+				}
+			if(end!=0)
+				sceneGraphNames.push_back(std::string(start,end));
+			else
+				sceneGraphNames.push_back(std::string(start));
 			}
 		}
 	else
 		{
 		/* Create a small scene graph: */
 		SceneGraph::TransformNode* transform=new SceneGraph::TransformNode;
-		root=transform;
+		SceneGraph::GroupNodePointer root=transform;
 		
 		SceneGraph::ShapeNode* shape=new SceneGraph::ShapeNode;
 		root->children.appendValue(shape);
@@ -113,11 +163,43 @@ VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
 		shape->update();
 		
 		root->update();
+		
+		sceneGraphs.push_back(root);
+		sceneGraphEnableds.push_back(true);
+		sceneGraphNames.push_back("Box");
 		}
 	
+	/* Create a popup shell to hold the main menu: */
+	mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
+	mainMenuPopup->setTitle("Scene Graph Viewer");
+	
+	/* Create the main menu itself: */
+	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
+	
+	/* Add a toggle button for each scene graph: */
+	unsigned int numSceneGraphs=sceneGraphs.size();
+	for(unsigned int i=0;i<numSceneGraphs;++i)
+		{
+		char toggleName[40];
+		snprintf(toggleName,sizeof(toggleName),"SceneGraphToggle%u",i);
+		GLMotif::ToggleButton* sceneGraphToggle=new GLMotif::ToggleButton(toggleName,mainMenu,sceneGraphNames[i].c_str());
+		sceneGraphToggle->setToggle(sceneGraphEnableds[i]);
+		sceneGraphToggle->getValueChangedCallbacks().add(this,&VruiSceneGraphDemo::sceneGraphToggleCallback,i);
+		}
+	
+	mainMenu->manageChild();
+	Vrui::setMainMenu(mainMenuPopup);
+	
 	/* Set the navigation transformation: */
-	SceneGraph::Box bbox=root->calcBoundingBox();
+	SceneGraph::Box bbox=SceneGraph::Box::empty;
+	for(unsigned int i=0;i<numSceneGraphs;++i)
+		bbox.addBox(sceneGraphs[i]->calcBoundingBox());
 	Vrui::setNavigationTransformation(Geometry::mid(bbox.min,bbox.max),Geometry::dist(bbox.min,bbox.max));
+	}
+
+VruiSceneGraphDemo::~VruiSceneGraphDemo(void)
+	{
+	delete mainMenuPopup;
 	}
 
 void VruiSceneGraphDemo::display(GLContextData& contextData) const
@@ -125,21 +207,14 @@ void VruiSceneGraphDemo::display(GLContextData& contextData) const
 	/* Save OpenGL state: */
 	glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 	
-	/* Render the scene graph: */
-	Vrui::renderSceneGraph(root.getPointer(),true,contextData);
+	/* Render all scene graphs: */
+	unsigned int numSceneGraphs=sceneGraphs.size();
+	for(unsigned int i=0;i<numSceneGraphs;++i)
+		if(sceneGraphEnableds[i])
+			Vrui::renderSceneGraph(sceneGraphs[i].getPointer(),true,contextData);
 	
 	/* Restore OpenGL state: */
 	glPopAttrib();
 	}
 
-int main(int argc,char* argv[])
-	{
-	/* Create an application object: */
-	VruiSceneGraphDemo app(argc,argv);
-	
-	/* Run the Vrui main loop: */
-	app.run();
-	
-	/* Exit to OS: */
-	return 0;
-	}
+VRUI_APPLICATION_RUN(VruiSceneGraphDemo)

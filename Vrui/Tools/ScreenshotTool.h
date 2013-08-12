@@ -2,7 +2,7 @@
 ScreenshotTool - Class for tools to save save screenshots from immersive
 environments by overriding a selected window's screen and viewer with
 virtual ones attached to an input device.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMouse - Class to convert mouse and keyboard into a
 Vrui input device.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,13 +27,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdio.h>
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
+#include <X11/cursorfont.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Geometry/Point.h>
 #include <Geometry/Vector.h>
-#include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/Ray.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <GLMotif/WidgetManager.h>
@@ -192,16 +191,68 @@ int InputDeviceAdapterMouse::getModifierIndex(int keyCode) const
 	return -1;
 	}
 
+bool InputDeviceAdapterMouse::changeButtonState(int stateIndex,bool newState)
+	{
+	/* Check if the button state actually changed: */
+	if(buttonStates[stateIndex]==newState)
+		return false;
+	
+	/* Keep track of the total number of pressed buttons: */
+	if(buttonStates[stateIndex])
+		--numPressedButtons;
+	else
+		++numPressedButtons;
+	
+	/* Set the new button state: */
+	buttonStates[stateIndex]=newState;
+	
+	/* Grab or release the mouse pointer if necessary: */
+	if(numPressedButtons>0&&grabWindow==0)
+		{
+		/* Try grabbing the mouse pointer: */
+		if(window->grabPointer())
+			grabWindow=window;
+		}
+	if(numPressedButtons==0&&grabWindow!=0)
+		{
+		/* Release the mouse pointer: */
+		grabWindow->releasePointer();
+		grabWindow=0;
+		}
+	
+	return true;
+	}
+
 void InputDeviceAdapterMouse::changeModifierKeyMask(int newModifierKeyMask)
 	{
 	/* Copy all button states from the old layer to the new layer: */
 	bool* oldLayer=buttonStates+(numButtons+numButtonKeys)*modifierKeyMask;
 	bool* newLayer=buttonStates+(numButtons+numButtonKeys)*newModifierKeyMask;
 	for(int i=0;i<numButtons+numButtonKeys;++i)
+		{
+		if(newLayer[i]&&!oldLayer[i])
+			--numPressedButtons;
+		if(!newLayer[i]&&oldLayer[i])
+			++numPressedButtons;
 		newLayer[i]=oldLayer[i];
+		}
 	
 	/* Change the modifier key mask: */
 	modifierKeyMask=newModifierKeyMask;
+	
+	/* Grab or release the mouse pointer if necessary: */
+	if(numPressedButtons>0&&grabWindow==0)
+		{
+		/* Try grabbing the mouse pointer: */
+		if(window->grabPointer())
+			grabWindow=window;
+		}
+	if(numPressedButtons==0&&grabWindow!=0)
+		{
+		/* Release the mouse pointer: */
+		grabWindow->releasePointer();
+		grabWindow=0;
+		}
 	}
 
 InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
@@ -211,11 +262,13 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	 numModifierKeys(0),modifierKeyCodes(0),
 	 numButtonStates(0),
 	 keyboardModeToggleKeyCode(0),controlKeyMap(101),
-	 modifierKeyMask(0x0),buttonStates(0),
+	 modifierKeyMask(0x0),buttonStates(0),numPressedButtons(0),
 	 keyboardMode(false),
 	 numMouseWheelTicks(0),
 	 nextEventOrdinal(0),
 	 window(0),
+	 grabWindow(0),
+	 mouseLocked(false),
 	 fakeMouseCursor(false)
 	{
 	typedef std::vector<std::string> StringList;
@@ -256,7 +309,6 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	
 	/* Create new input device: */
 	InputDevice* newDevice=inputDeviceManager->createInputDevice("Mouse",InputDevice::TRACK_POS|InputDevice::TRACK_DIR,numButtonStates,numValuators,true);
-	newDevice->setDeviceRayDirection(Vector(0,1,0));
 	
 	/* Store the input device: */
 	inputDevices[0]=newDevice;
@@ -276,6 +328,9 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	numMouseWheelTicks=new int[numValuators];
 	for(int i=0;i<numValuators;++i)
 		numMouseWheelTicks[i]=0;
+	
+	/* Initialize the mouse position: */
+	mousePos[0]=mousePos[1]=0;
 	
 	/* Check if this adapter is supposed to draw a fake mouse cursor: */
 	fakeMouseCursor=configFileSection.retrieveValue<bool>("./fakeMouseCursor",fakeMouseCursor);
@@ -414,13 +469,29 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 	{
 	if(window!=0)
 		{
-		/* Set mouse device transformation: */
-		Ray mouseRay=window->reprojectWindowPos(mousePos);
-		Point mousePos=mouseRay.getOrigin();
-		Vector mouseY=mouseRay.getDirection();
-		Vector mouseX=Geometry::cross(mouseY,window->getVRScreen()->getScreenTransformation().getDirection(1));
-		TrackerState::Rotation rot=TrackerState::Rotation::fromBaseVectors(mouseX,mouseY);
-		inputDevices[0]->setTransformation(TrackerState(mousePos-Point::origin,rot));
+		/* Set mouse device's transformation and device ray: */
+		Point lastMousePos=inputDevices[0]->getPosition();
+		window->updateMouseDevice(mousePos,inputDevices[0]);
+		
+		/* Calculate the mouse device's linear velocity: */
+		inputDevices[0]->setLinearVelocity((inputDevices[0]->getPosition()-lastMousePos)/Vrui::getFrameTime());
+		
+		if(mouseLocked)
+			{
+			/* Move the mouse cursor back to the window center: */
+			int windowCenter[2];
+			window->getWindowCenterPos(windowCenter);
+			if(mousePos[0]!=windowCenter[0]||mousePos[1]!=windowCenter[1])
+				{
+				for(int i=0;i<2;++i)
+					mousePos[i]=windowCenter[i];
+				window->setCursorPos(mousePos[0],mousePos[1]);
+				
+				/* Reset the mouse device's ray and transformation to the locked values: */
+				inputDevices[0]->setDeviceRay(lockedRayDirection,lockedRayStart);
+				inputDevices[0]->setTransformation(lockedTransformation);
+				}
+			}
 		
 		/* Set mouse device button states: */
 		for(int i=0;i<numButtonStates;++i)
@@ -483,7 +554,7 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 		}
 	}
 
-void InputDeviceAdapterMouse::setMousePosition(VRWindow* newWindow,const Scalar newMousePos[2])
+void InputDeviceAdapterMouse::setMousePosition(VRWindow* newWindow,const int newMousePos[2])
 	{
 	/* Set current mouse position: */
 	window=newWindow;
@@ -498,7 +569,37 @@ bool InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char
 	bool stateChanged=false;
 	
 	if(keyCode==keyboardModeToggleKeyCode)
+		{
 		keyboardMode=!keyboardMode;
+		if(fakeMouseCursor)
+			{
+			/* Change the glyph renderer's cursor type to a text cursor: */
+			}
+		else if(keyboardMode)
+			{
+			/* Change the cursor in all windows to a text cursor: */
+			for(int i=0;i<getNumWindows();++i)
+				{
+				VRWindow* win=Vrui::getWindow(i);
+				if(win!=0)
+					{
+					Cursor cursor=XCreateFontCursor(win->getContext().getDisplay(),XC_xterm);
+					XDefineCursor(win->getContext().getDisplay(),win->getWindow(),cursor);
+					XFreeCursor(win->getContext().getDisplay(),cursor);
+					}
+				}
+			}
+		else
+			{
+			/* Change the cursor in all windows back to the regular: */
+			for(int i=0;i<getNumWindows();++i)
+				{
+				VRWindow* win=Vrui::getWindow(i);
+				if(win!=0)
+					XUndefineCursor(win->getContext().getDisplay(),win->getWindow());
+				}
+			}
+		}
 	else if(keyboardMode)
 		{
 		/* Process the key event: */
@@ -526,8 +627,7 @@ bool InputDeviceAdapterMouse::keyPressed(int keyCode,int modifierMask,const char
 			{
 			/* Set button state: */
 			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
-			stateChanged=!buttonStates[stateIndex];
-			buttonStates[stateIndex]=true;
+			stateChanged=changeButtonState(stateIndex,true);
 			}
 		
 		/* Check if the key is a modifier key: */
@@ -557,8 +657,7 @@ bool InputDeviceAdapterMouse::keyReleased(int keyCode)
 			{
 			/* Set button state: */
 			int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
-			stateChanged=buttonStates[stateIndex];
-			buttonStates[stateIndex]=false;
+			stateChanged=changeButtonState(stateIndex,false);
 			}
 		
 		/* Check if the key is a modifier key: */
@@ -606,7 +705,7 @@ void InputDeviceAdapterMouse::resetKeys(const XKeymapEvent& event)
 	for(int i=0;i<numButtonKeys;++i)
 		{
 		int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+i;
-		buttonStates[stateIndex]=false;
+		changeButtonState(stateIndex,false);
 		}
 	for(int i=0;i<256;++i)
 		if(event.key_vector[i>>3]&(0x1<<(i&0x7)))
@@ -626,7 +725,7 @@ void InputDeviceAdapterMouse::resetKeys(const XKeymapEvent& event)
 			if(buttonIndex>=0)
 				{
 				int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+numButtons+buttonIndex;
-				buttonStates[stateIndex]=true;
+				changeButtonState(stateIndex,true);
 				}
 			}
 	
@@ -642,8 +741,7 @@ bool InputDeviceAdapterMouse::setButtonState(int buttonIndex,bool newButtonState
 		{
 		/* Set current button state: */
 		int stateIndex=(numButtons+numButtonKeys)*modifierKeyMask+buttonIndex;
-		stateChanged=buttonStates[stateIndex]!=newButtonState;
-		buttonStates[stateIndex]=newButtonState;
+		stateChanged=changeButtonState(stateIndex,newButtonState);
 		
 		// requestUpdate();
 		}
@@ -663,6 +761,58 @@ void InputDeviceAdapterMouse::decMouseWheelTicks(void)
 	--numMouseWheelTicks[modifierKeyMask];
 	
 	// requestUpdate();
+	}
+
+void InputDeviceAdapterMouse::lockMouse(void)
+	{
+	/* Do nothing if the mouse is already locked, or if the current window is unknown: */
+	if(mouseLocked||window==0)
+		return;
+	
+	mouseLocked=true;
+	
+	/* Remember the current mouse pointer position to restore it upon unlock: */
+	for(int i=0;i<2;++i)
+		lockedMousePos[i]=mousePos[i];
+	
+	/* Move the mouse pointer to the center of the current window: */
+	window->getWindowCenterPos(mousePos);
+	window->updateMouseDevice(mousePos,inputDevices[0]);
+	inputDevices[0]->setLinearVelocity(Vector::zero);
+	window->setCursorPos(mousePos[0],mousePos[1]);
+	
+	/* Hide the mouse cursor: */
+	if(fakeMouseCursor)
+		getInputGraphManager()->getInputDeviceGlyph(inputDevices[0]).disable();
+	else
+		window->hideCursor();
+	
+	/* Remember the mouse transformation and ray at the window center: */
+	lockedRayDirection=inputDevices[0]->getDeviceRayDirection();
+	lockedRayStart=inputDevices[0]->getDeviceRayStart();
+	lockedTransformation=inputDevices[0]->getTransformation();
+	}
+
+void InputDeviceAdapterMouse::unlockMouse(void)
+	{
+	/* Do nothing if the mouse is not locked: */
+	if(!mouseLocked)
+		return;
+	
+	mouseLocked=false;
+	
+	/* Move the mouse pointer back to its pre-lock position: */
+	for(int i=0;i<2;++i)
+		mousePos[i]=lockedMousePos[i];
+	window->setCursorPos(mousePos[0],mousePos[1]);
+	window->updateMouseDevice(mousePos,inputDevices[0]);
+	inputDevices[0]->setLinearVelocity(Vector::zero);
+	
+	/* Show the mouse cursor: */
+	if(fakeMouseCursor)
+		getInputGraphManager()->getInputDeviceGlyph(inputDevices[0]).enable();
+	else
+		window->showCursor();
 	}
 
 ONTransform getMouseScreenTransform(InputDeviceAdapterMouse* mouseAdapter,Scalar viewport[4])

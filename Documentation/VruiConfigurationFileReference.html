@@ -23,9 +23,9 @@ The rest of this document lists and explains all tag/value pairs that exist with
 			</UL>
 		</LI>
 
-		<LI><A HREF="#inputdeviceadapterdevicedaemonsettings">Trackd Input Device Adapter Settings</A>
+		<LI><A HREF="#inputdeviceadaptertrackdsettings">Trackd Input Device Adapter Settings</A>
 			<UL>
-			<LI><A HREF="#devicedaemoninputdevicesections">Trackd Input Device Sections</A></LI>
+			<LI><A HREF="#trackdinputdevicesections">Trackd Input Device Sections</A></LI>
 			</UL>
 		</LI>
 
@@ -69,7 +69,11 @@ The rest of this document lists and explains all tag/value pairs that exist with
 		</UL>
 	</LI>
 
-	<LI><A HREF="#visletmanagersection">Vislet Manager Section</A></LI>
+	<LI><A HREF="#visletmanagersection">Vislet Manager Section</A>
+		<UL>
+		<LI><A HREF="#visletclassconfigurationsections">Vislet Class Configuration Sections</A></LI>
+		</UL>
+	</LI>
 	</UL>
 </LI>
 </UL>
@@ -172,7 +176,7 @@ The rest of this document lists and explains all tag/value pairs that exist with
 </TR>
 
 <TR>
-<TD>upDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD><A NAME="upDirection">upDirection</A></TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines a direction vector in physical coordinates that corresponds to &quot;up,&quot; i.e., the opposite direction of local gravity. It is mostly used by Vrui application to initialize their model coordinates such that models appear right side up.</TD>
 </TR>
 
@@ -240,11 +244,6 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>node&lt;<EM>index</EM>&gt;WindowNames<BR>windowNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#windowsections">window sections</A>. Windows are the &quot;glue&quot; that bind <EM>viewers</EM> to <EM>screens</EM> and implement the OpenGL-based 3D rendering used by Vrui. In cluster-based distributed display environments, there must be a <EM>node&lt;index&gt;WindowNames</EM> tag for each cluster node (the master node is always zero; slave nodes are numbered according to their order in the <EM>multipipeSlaves</EM> list, starting at one). Any nodes with empty window lists will not open any windows, but otherwise fully participate in the Vrui application. This is useful for cluster head nodes with low-powered graphics cards, or for dedicated audio rendering nodes.</TD>
-</TR>
-
-<TR>
-<TD>node&lt;<EM>index</EM>&gt;WindowsMultithreaded<BR>windowsMultithreaded</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>Toggles between serial and parallel rendering for multiple windows on the same computer. If any Vrui node has multiple windows and this setting is true, Vrui will use multiple threads, one per window, to render to the windows in parallel. The default mode, if this setting is false, is to render to the windows serially from a single thread. The appropriate mode for single-system-image multipipe systems such as SGI Onyx or Prism is to configure them as a non-distributed environment (<EM>enableMultipipe</EM> is false), assign one window to each graphics pipe, and render to these windows in parallel. However, if a node has multiple windows but only a single actual graphics card, it is usually better to render in serial since graphics cards are typically not optimized for rapid context switches.</TD>
 </TR>
 
 <TR>
@@ -443,26 +442,6 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TD>fakeMouseCursor</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Enables a texture-based mouse cursor to be rendered at the position of the mouse input device controlled by the input device adapter. This is useful in situations where the hardware mouse cursor is not available, or is inappropriate, such as in mouse-controlled cluster environments. This setting defaults to false.</TD>
 </TR>
-
-<TR>
-<TD>mouseCursorImageFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>The name of the cursor image file from which to load the fake mouse cursor, if enabled.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorNominalSize</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
-<TD>The nominal size of the mouse cursor which is to be loaded from the cursor image file. Nominal sizes are defined in the cursor file itself, and Vrui selects the most closely matching size from the file.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorSize</TD><TD><A HREF="VruiCFGTypes.html#size">size</A></TD>
-<TD>Size of the rendered mouse cursor glyph in physical coordinates. The third component of the given value is ignored.</TD>
-</TR>
-
-<TR>
-<TD>mouseCursorHotspot</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
-<TD>Offset from the bottom-left corner of the mouse cursor image to the cursor "hotspot," i.e., the position that corresponds to the mouse position. Normalized to lie within [0, 1] in both directions; the third component of the given value is ignored.</TD>
-</TR>
 </TABLE>
 
 <H3><A NAME="inputdeviceadapterdevicedaemonsettings">DeviceDaemon Input Device Adapter Settings</A></H3>
@@ -487,6 +466,8 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TABLE>
 
 <H4><A NAME="devicedaemoninputdevicesections">DeviceDaemon Input Device Sections</A></H4>
+
+If the name of an input device configuration file section matches the name of a virtual input device defined by the connected VR device daemon, all settings except deviceGlyphType and deviceGlyphMaterial are ignored, and their values are instead taken from the virtual input device descriptor received from the VR device daemon.<P>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>
@@ -522,6 +503,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayStart</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>The ray parameter from which on a device ray is considered valid for intersection tests, in physical coordinate units. Positive value move the ray start along the ray direction.</TD>
 </TR>
 
 <TR>
@@ -642,6 +628,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayStart</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>The ray parameter from which on a device ray is considered valid for intersection tests, in physical coordinate units. Positive value move the ray start along the ray direction.</TD>
 </TR>
 
 <TR>
@@ -835,6 +826,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>movieFileNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Printf-style format string to generate image file names for the screenshots written while generating a movie. The template must contain exactly one integer conversion specifier, of the form %[0-9]*d.</TD>
+</TR>
+
+<TR>
+<TD>movieFirstFrameIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>The index to assign to the first saved movie frame.</TD>
 </TR>
 
 <TR>
@@ -1034,6 +1030,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TD>homography</TD><TD><A HREF="VruiCFGTypes.html#matrix">3x3&nbsp;matrix</A></TD>
 <TD>A 3x3 matrix defining a homography in screen space, which transforms the screen's theoretical rectangle into the screen's projected quadrilateral.</TD>
 </TR>
+
+<TR>
+<TD>intersect</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether the screen is considered for intersection tests in screen-based UI methods.</TD>
+</TR>
 </TABLE>
 
 <H2><A NAME="windowsections">Window Sections</A></H2>
@@ -1069,6 +1070,16 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>display</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the X11 display to use for this window; defaults to the local display defined by the DISPLAY environment variable.</TD>
+</TR>
+
+<TR>
+<TD>screen</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Zero-based index of the X11 screen on the window's X11 display to which to direct this window. If not specified, defaults to the X11 connection's default screen, i.e., the .X part of the display name.</TD>
+</TR>
+
+<TR>
+<TD>groupId</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>ID of the window group to which this window belongs. Windows inside the same group share OpenGL contexts and OpenGL data and a rendered in sequence; separate groups are rendered in parallel from individual threads. Group IDs are local to each node in a Vrui cluster.</TD>
 </TR>
 
 <TR>
@@ -1140,6 +1151,31 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>movePrimaryWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag to move popped-up primary widgets along with a panning-viewport window when it is moved or resized.</TD>
+</TR>
+
+<TR>
+<TD>lensCorrection</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Master switch to enable post-rendering radial lens distortion correction for this window. Requires the left and right viewports for split-viewport stereo windows to have identical sizes.</TD>
+</TR>
+
+<TR>
+<TD>lcPoly<BR>leftLcPoly<BR>rightLcPoly</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>Specifies coefficients of a radial polynomial for both screens, or for the left and right screen individually. Polynomial degree is determined automatically from the number of coefficients. The left and right polynomials must have the same degrees.</TD>
+</TR>
+
+<TR>
+<TD>lcCenter<BR>leftLcCenter<BR>rightLcCenter</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>Specifies the center point of radial lens distortion correction for both screens, or for the left and right screen individually, in viewport-relative coordinates in the range [0, 1]&nbsp;x [0, 1].</TD>
+</TR>
+
+<TR>
+<TD>lcPreScales<BR>leftLcPreScales<BR>rightLcPreScales</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>Specifies the scaling factors from viewport-relative coordinates to undistortion coordinates, to which the undistortion polynomial is applied. Calculated by default on screen sizes such that distortion is circular.</TD>
+</TR>
+
+<TR>
+<TD>lcOverscan<BR>leftLcOverscan<BR>rightLcOverscan</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly four <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>Viewport-relative expansion of the pre-distorted view frustum, in order left, right, bottom, top. Zero values for all components disable overscan. When different for the left/right viewports, the total overscan ratios (1+left+right, 1+bottom+top) are assumed to be identical for both viewports.</TD>
 </TR>
 
 <TR>
@@ -1397,8 +1433,8 @@ settings</A>.</DD>
 </TR>
 
 <TR>
-<TD>toolNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
-<TD>List of names of <A HREF="#toolassignmentsections">tool assignment sections</A>. Tool assignments in this list will be processed by the tool manager during Vrui initialization; in other words, these are the default associations for the Vrui environment.</TD>
+<TD>defaultTools</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the <A HREF="#defaulttoolassignmentsection">default tool assignment section</A> containing <A HREF="#toolbindingsections">tool binding sections</A> to be created at application startup; in other words, this defines the default tool associations for the Vrui environment.</TD>
 </TR>
 </TABLE>
 
@@ -1409,7 +1445,8 @@ settings</A>.</DD>
 
 <TR>
 <TD>killZoneCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
-<TD>Center point of the kill zone in physical coordinates (if no <EM>killZoneBaseDevice</EM> is specified) or in local device coordinates.</TD>
+<TD>Center point of the kill zone in physical coordinates (if no <EM>killZoneBaseDevice</EM> is specified) or in local device coordinates.<BR>
+<B>Note:</B> This setting is overridden if a toolKillZonePos setting is defined in any active <A HREF="#windowsections">window sections</A>.</TD>
 </TR>
 
 <TR>
@@ -1435,7 +1472,8 @@ settings</A>.</DD>
 
 <TR>
 <TD>killZoneCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
-<TD>Center point of the kill zone in local screen coordinates of the screen the kill zone is associated with.</TD>
+<TD>Center point of the kill zone in local screen coordinates of the screen the kill zone is associated with.<BR>
+<B>Note:</B> This setting is overridden if a toolKillZonePos setting is defined in any active <A HREF="#windowsections">window sections</A>.</TD>
 </TR>
 
 <TR>
@@ -1485,6 +1523,10 @@ In addition to the above tag/value pairs, tool binding sections can contain any 
 <TD>List of additional directories to search for vislet plug-in DSOs. The directory extracted from the vislet DSO name template is searched first, then all directories from the list in order until a matching DSO file is found.</TD>
 </TR>
 </TABLE>
+
+<H3><A NAME="visletclassconfigurationsections">Vislet Class Configuration Sections</A></H3>
+
+Any subsections under the <A HREF="#visletmanagersection">Vislet Manager Section</A> whose names are equal to the class names of vislet classes contain configuration settings for their respective vislet classes.
 
 </BODY>
 </HTML>

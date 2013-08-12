@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,12 +26,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <stdio.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/FunctionCalls.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDeviceFeature.h>
+#include <Vrui/InputDeviceManager.h>
+#include <Vrui/InputGraphManager.h>
+#include <Vrui/Internal/VRDeviceDescriptor.h>
 
 namespace Vrui {
 
@@ -39,13 +44,90 @@ namespace Vrui {
 Methods of class InputDeviceAdapterDeviceDaemon:
 ***********************************************/
 
-void InputDeviceAdapterDeviceDaemon::packetNotificationCallback(VRDeviceClient* client,void* userData)
+void InputDeviceAdapterDeviceDaemon::packetNotificationCallback(VRDeviceClient* client)
 	{
+	/* Simply request a new Vrui frame: */
+	requestUpdate();
+	}
+
+void InputDeviceAdapterDeviceDaemon::errorCallback(const VRDeviceClient::ProtocolError& error)
+	{
+	/* Log the error message and request a new Vrui frame to wake up the main thread: */
+	{
+	Threads::Spinlock::Lock errorMessageLock(errorMessageMutex);
+	errorMessages.push_back(error.what());
+	}
 	requestUpdate();
 	}
 
 void InputDeviceAdapterDeviceDaemon::createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection)
 	{
+	/* Check if the device client has a virtual device of the same name as this configuration file section: */
+	for(int vdIndex=0;vdIndex<deviceClient.getNumVirtualDevices();++vdIndex)
+		{
+		const VRDeviceDescriptor& vd=deviceClient.getVirtualDevice(vdIndex);
+		if(vd.name==configFileSection.getName())
+			{
+			/* Ensure that the index mapping tables exist: */
+			createIndexMappings();
+			
+			/* Create an input device from the virtual input device descriptor: */
+			int trackType=InputDevice::TRACK_NONE;
+			if(vd.trackType&VRDeviceDescriptor::TRACK_POS)
+				trackType|=InputDevice::TRACK_POS;
+			if(vd.trackType&VRDeviceDescriptor::TRACK_DIR)
+				trackType|=InputDevice::TRACK_DIR;
+			if(vd.trackType&VRDeviceDescriptor::TRACK_ORIENT)
+				trackType|=InputDevice::TRACK_ORIENT;
+			
+			/* Create new input device as a physical device: */
+			std::string deviceName=configFileSection.retrieveString("./name",vd.name);
+			InputDevice* newDevice=inputDeviceManager->createInputDevice(deviceName.c_str(),trackType,vd.numButtons,vd.numValuators,true);
+			newDevice->setDeviceRay(vd.rayDirection,vd.rayStart);
+	
+			/* Initialize the new device's glyph from the current configuration file section: */
+			Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
+			deviceGlyph.configure(configFileSection,"./deviceGlyphType","./deviceGlyphMaterial");
+			
+			/* Save the new input device: */
+			inputDevices[deviceIndex]=newDevice;
+			
+			/* Assign the new device's tracker index: */
+			trackerIndexMapping[deviceIndex]=vd.trackerIndex;
+			
+			/* Assign the new device's button indices: */
+			if(vd.numButtons>0)
+				{
+				buttonIndexMapping[deviceIndex]=new int[vd.numButtons];
+				for(int i=0;i<vd.numButtons;++i)
+					buttonIndexMapping[deviceIndex][i]=vd.buttonIndices[i];
+				}
+			else
+				buttonIndexMapping[deviceIndex]=0;
+			
+			/* Store the virtual input device's button names: */
+			for(int i=0;i<vd.numButtons;++i)
+				buttonNames.push_back(vd.buttonNames[i]);
+			
+			/* Assign the new device's valuator indices: */
+			if(vd.numValuators>0)
+				{
+				valuatorIndexMapping[deviceIndex]=new int[vd.numValuators];
+				for(int i=0;i<vd.numValuators;++i)
+					valuatorIndexMapping[deviceIndex][i]=vd.valuatorIndices[i];
+				}
+			else
+				valuatorIndexMapping[deviceIndex]=0;
+			
+			/* Store the virtual input device's valuator names: */
+			for(int i=0;i<vd.numValuators;++i)
+				valuatorNames.push_back(vd.valuatorNames[i]);
+			
+			/* Skip the usual device creation procedure: */
+			return;
+			}
+		}
+	
 	/* Call base class method to initialize the input device: */
 	InputDeviceAdapterIndexMap::createInputDevice(deviceIndex,configFileSection);
 	
@@ -90,9 +172,11 @@ InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManage
 	InputDeviceAdapterIndexMap::initializeAdapter(deviceClient.getState().getNumTrackers(),deviceClient.getState().getNumButtons(),deviceClient.getState().getNumValuators(),configFileSection);
 	
 	/* Start VR devices: */
-	deviceClient.enablePacketNotificationCB(packetNotificationCallback,0);
 	deviceClient.activate();
-	deviceClient.startStream();
+	deviceClient.startStream(Misc::createFunctionCall(packetNotificationCallback),Misc::createFunctionCall(this,&InputDeviceAdapterDeviceDaemon::errorCallback));
+	
+	/* Wait for first device data packet: */
+	deviceClient.getPacket();
 	}
 
 InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
@@ -100,7 +184,6 @@ InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
 	/* Stop VR devices: */
 	deviceClient.stopStream();
 	deviceClient.deactivate();
-	deviceClient.disablePacketNotificationCB();
 	}
 
 std::string InputDeviceAdapterDeviceDaemon::getFeatureName(const InputDeviceFeature& feature) const
@@ -174,6 +257,15 @@ int InputDeviceAdapterDeviceDaemon::getFeatureIndex(InputDevice* device,const ch
 
 void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 	{
+	/* Check for error messages from the device client: */
+	{
+	Threads::Spinlock::Lock errorMessageLock(errorMessageMutex);
+	for(std::vector<std::string>::iterator emIt=errorMessages.begin();emIt!=errorMessages.end();++emIt)
+		showErrorMessage("Vrui::InputDeviceAdapterDeviceDaemon",emIt->c_str());
+	errorMessages.clear();
+	}
+	
+	/* Update all managed input devices: */
 	deviceClient.lockState();
 	const VRDeviceState& state=deviceClient.getState();
 	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)

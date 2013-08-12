@@ -1,7 +1,7 @@
 /***********************************************************************
 Jello - VR program to interact with "virtual Jell-O" using a simplified
 force interaction model based on the Nanotech Construction Kit.
-Copyright (c) 2006-2010 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -99,7 +99,7 @@ class Jello:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	Jello(int& argc,char**& argv,char**& appDefaults);
+	Jello(int& argc,char**& argv);
 	virtual ~Jello(void);
 	
 	/* Methods: */

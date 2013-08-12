@@ -188,6 +188,7 @@ struct VruiState
 	Misc::TimerEventScheduler* timerEventScheduler; // Scheduler for timer events
 	GLMotif::WidgetManager* widgetManager;
 	bool popWidgetsOnScreen;
+	ONTransform widgetPlane; // Plane to which to lock widgets when popWidgetsOnScreen is true
 	GLMotif::SubMenu* dialogsMenu;
 	std::vector<GLMotif::PopupWindow*> poppedDialogs;
 	GLMotif::PopupMenu* systemMenuPopup;
@@ -230,6 +231,8 @@ struct VruiState
 	double lastFrame; // Application time at which the last frame was started
 	double lastFrameDelta; // Duration of last frame
 	double nextFrameTime; // Scheduled time to start next frame, or 0.0 if no frame scheduled
+	double synchFrameTime; // Precise time to be used for next frame
+	bool synchWait; // Flag whether to delay the next frame until wallclock time matches synch time
 	int numRecentFrameTimes; // Number of recent frame times to average from
 	double* recentFrameTimes; // Array of recent times to complete a frame
 	int nextFrameTimeIndex; // Index at which the next frame time is stored in the array
@@ -299,11 +302,16 @@ extern VruiState* vruiState;
 Private Vrui function prototypes:
 ********************************/
 
+/* Forward declarations: */
+struct VruiWindowGroup;
+
 extern void setRandomSeed(unsigned int newRandomSeed); // Sets Vrui's random seed; can only be called by InputDeviceAdapterPlayback during its initialization
 extern void vruiDelay(double interval);
-extern void synchronize(double applicationTime); // Blocks execution until the given application time; can only be called by an input device adapter during its updateInputDevices() method
+extern void synchronize(double nextFrameTime,bool wait); // Gives a precise time value to use for the next frame; delays frame until wall-clock time matches if wait is true; can only be called by InputDeviceAdapterPlayback during playback
 extern void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize); // Sets the center and size of Vrui's display environment
 extern void setMostRecentGUIInteractor(GUIInteractor* interactor); // Sets the most-recently-used GUI interaction tool
+extern void resizeWindow(VruiWindowGroup* windowGroup,const VRWindow* window,const int newViewportSize[2],const int newFrameSize[2]); // Notifies the run-time environment that a window has changes viewport and/or frame buffer size
+extern void getMaxWindowSizes(VruiWindowGroup* windowGroup,int viewportSize[2],int frameSize[2]); // Returns the maximum viewport and frame buffer sizes for the given window group
 
 }
 

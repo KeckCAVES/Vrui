@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -27,9 +27,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdio.h>
 #include <dlfcn.h>
 #include <vector>
+#include <Misc/PrintInteger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Vrui/Internal/VRDeviceDescriptor.h>
 
 #include <VRDeviceDaemon/VRFactory.h>
 #include <VRDeviceDaemon/VRDevice.h>
@@ -57,67 +59,54 @@ VRDeviceManager::VRDeviceManager(Misc::ConfigurationFile& configFile)
 	valuatorIndexBases=new int[numDevices];
 	
 	/* Initialize VR devices: */
-	for(int deviceIndex=0;deviceIndex<numDevices;++deviceIndex)
+	for(currentDeviceIndex=0;currentDeviceIndex<numDevices;++currentDeviceIndex)
 		{
 		/* Save the device's base indices: */
-		trackerIndexBases[deviceIndex]=int(trackerNames.size());
-		buttonIndexBases[deviceIndex]=int(buttonNames.size());
-		valuatorIndexBases[deviceIndex]=int(valuatorNames.size());
+		trackerIndexBases[currentDeviceIndex]=int(trackerNames.size());
+		buttonIndexBases[currentDeviceIndex]=int(buttonNames.size());
+		valuatorIndexBases[currentDeviceIndex]=int(valuatorNames.size());
 		
 		/* Go to device's section: */
-		configFile.setCurrentSection(deviceNames[deviceIndex].c_str());
+		configFile.setCurrentSection(deviceNames[currentDeviceIndex].c_str());
 		
 		/* Retrieve device type: */
 		std::string deviceType=configFile.retrieveString("./deviceType");
 		
 		/* Initialize device: */
 		#ifdef VERBOSE
-		printf("VRDeviceManager: Loading device %s of type %s\n",deviceNames[deviceIndex].c_str(),deviceType.c_str());
+		printf("VRDeviceManager: Loading device %s of type %s\n",deviceNames[currentDeviceIndex].c_str(),deviceType.c_str());
 		fflush(stdout);
 		#endif
 		DeviceFactoryManager::Factory* deviceFactory=deviceFactories.getFactory(deviceType);
-		devices[deviceIndex]=deviceFactory->createObject(configFile);
+		devices[currentDeviceIndex]=deviceFactory->createObject(configFile);
 		
-		/* Override device's tracker names: */
-		try
+		if(configFile.hasTag("./trackerNames"))
 			{
 			StringList deviceTrackerNames=configFile.retrieveValue<StringList>("./trackerNames");
-			int trackerIndex=trackerIndexBases[deviceIndex];
+			int trackerIndex=trackerIndexBases[currentDeviceIndex];
 			int numTrackers=trackerNames.size();
 			for(StringList::iterator dtnIt=deviceTrackerNames.begin();dtnIt!=deviceTrackerNames.end()&&trackerIndex<numTrackers;++dtnIt,++trackerIndex)
 				trackerNames[trackerIndex]=*dtnIt;
 			}
-		catch(Misc::ConfigurationFile::TagNotFoundError)
-			{
-			/* Ignore the error... */
-			}
 		
 		/* Override device's button names: */
-		try
+		if(configFile.hasTag("./buttonNames"))
 			{
 			StringList deviceButtonNames=configFile.retrieveValue<StringList>("./buttonNames");
-			int buttonIndex=buttonIndexBases[deviceIndex];
+			int buttonIndex=buttonIndexBases[currentDeviceIndex];
 			int numButtons=buttonNames.size();
 			for(StringList::iterator dtnIt=deviceButtonNames.begin();dtnIt!=deviceButtonNames.end()&&buttonIndex<numButtons;++dtnIt,++buttonIndex)
 				buttonNames[buttonIndex]=*dtnIt;
 			}
-		catch(Misc::ConfigurationFile::TagNotFoundError)
-			{
-			/* Ignore the error... */
-			}
 		
 		/* Override device's valuator names: */
-		try
+		if(configFile.hasTag("./valuatorNames"))
 			{
 			StringList deviceValuatorNames=configFile.retrieveValue<StringList>("./valuatorNames");
-			int valuatorIndex=valuatorIndexBases[deviceIndex];
+			int valuatorIndex=valuatorIndexBases[currentDeviceIndex];
 			int numValuators=valuatorNames.size();
 			for(StringList::iterator dtnIt=deviceValuatorNames.begin();dtnIt!=deviceValuatorNames.end()&&valuatorIndex<numValuators;++dtnIt,++valuatorIndex)
 				valuatorNames[valuatorIndex]=*dtnIt;
-			}
-		catch(Misc::ConfigurationFile::TagNotFoundError)
-			{
-			/* Ignore the error... */
 			}
 		
 		/* Return to parent section: */
@@ -134,39 +123,19 @@ VRDeviceManager::VRDeviceManager(Misc::ConfigurationFile& configFile)
 	/* Read names of all virtual devices: */
 	StringList virtualDeviceNames=configFile.retrieveValue<StringList>("./virtualDeviceNames",StringList());
 	
-	#if 0
 	/* Initialize virtual devices: */
 	for(StringList::iterator vdnIt=virtualDeviceNames.begin();vdnIt!=virtualDeviceNames.end();++vdnIt)
 		{
-		/* Go to virtual device's section: */
-		configFile.setCurrentSection(vdnIt->c_str());
+		/* Create a new virtual device descriptor by reading the virtual device's configuration file section: */
+		Vrui::VRDeviceDescriptor* vdd=new Vrui::VRDeviceDescriptor;
+		vdd->load(configFile.getSection(vdnIt->c_str()));
 		
-		/* Read the virtual device's button indices: */
-		std::vector<int>
-		
-		
-		/* Read the virtual device's tracker index: */
-		int trackerIndex=configFile.retrieveValue<int>("./trackerIndex",-1);
-		
-		/* Read the virtual device's ray direction: */
-		Vrui::VRDeviceDescriptor::Vector rayDirection=
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		/* Return to parent section: */
-		configFile.setCurrentSection("..");
+		/* Store the virtual device descriptor: */
+		virtualDevices.push_back(vdd);
 		}
 	#ifdef VERBOSE
 	printf("VRDeviceManager: Managing %d virtual devices\n",int(virtualDevices.size()));
 	fflush(stdout);
-	#endif
-	
 	#endif
 	}
 
@@ -193,7 +162,15 @@ int VRDeviceManager::addTracker(const char* name)
 	int result=trackerNames.size();
 	
 	/* Push back a new tracker name: */
-	trackerNames.push_back(name!=0?name:"");
+	if(name==0)
+		{
+		std::string tname="Tracker";
+		char index[10];
+		tname.append(Misc::print(result,index+sizeof(index)-1));
+		trackerNames.push_back(tname);
+		}
+	else
+		trackerNames.push_back(name);
 	
 	/* Update the tracker report mask: */
 	fullTrackerReportMask=(0x1U<<(result+1))-1U;
@@ -207,7 +184,15 @@ int VRDeviceManager::addButton(const char* name)
 	int result=buttonNames.size();
 	
 	/* Push back a new button name: */
-	buttonNames.push_back(name!=0?name:"");
+	if(name==0)
+		{
+		std::string bname="Button";
+		char index[10];
+		bname.append(Misc::print(result,index+sizeof(index)-1));
+		buttonNames.push_back(bname);
+		}
+	else
+		buttonNames.push_back(name);
 	
 	return result;
 	}
@@ -218,7 +203,15 @@ int VRDeviceManager::addValuator(const char* name)
 	int result=valuatorNames.size();
 	
 	/* Push back a new valuator name: */
-	valuatorNames.push_back(name!=0?name:"");
+	if(name==0)
+		{
+		std::string vname="Valuator";
+		char index[10];
+		vname.append(Misc::print(result,index+sizeof(index)-1));
+		valuatorNames.push_back(vname);
+		}
+	else
+		valuatorNames.push_back(name);
 	
 	return result;
 	}
@@ -265,6 +258,16 @@ void VRDeviceManager::setValuatorState(int valuatorIndex,Vrui::VRDeviceState::Va
 	state.setValuatorState(valuatorIndex,newValuatorState);
 	}
 
+void VRDeviceManager::updateState(void)
+	{
+	Threads::Mutex::Lock stateLock(stateMutex);
+	if(trackerUpdateNotificationEnabled)
+		{
+		/* Wake up all client threads in stream mode: */
+		trackerUpdateCompleteCond->broadcast();
+		}
+	}
+
 void VRDeviceManager::enableTrackerUpdateNotification(Threads::MutexCond* sTrackerUpdateCompleteCond)
 	{
 	Threads::Mutex::Lock stateLock(stateMutex);
@@ -278,16 +281,6 @@ void VRDeviceManager::disableTrackerUpdateNotification(void)
 	Threads::Mutex::Lock stateLock(stateMutex);
 	trackerUpdateNotificationEnabled=false;
 	trackerUpdateCompleteCond=0;
-	}
-
-void VRDeviceManager::updateState(void)
-	{
-	Threads::Mutex::Lock stateLock(stateMutex);
-	if(trackerUpdateNotificationEnabled)
-		{
-		/* Wake up all client threads in stream mode: */
-		trackerUpdateCompleteCond->broadcast();
-		}
 	}
 
 void VRDeviceManager::start(void)

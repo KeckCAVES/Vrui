@@ -1,7 +1,7 @@
 /***********************************************************************
 GLLineLightingShader - Automatic shader class for Phong illumination of
 lines with tangent vectors.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

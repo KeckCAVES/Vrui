@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDevice - Class to represent input devices (6-DOF tracker with
 associated buttons and valuators) in virtual reality environments.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -33,9 +33,10 @@ Methods of class InputDevice:
 ****************************/
 
 InputDevice::InputDevice(void)
-	:deviceName(new char[1]),trackType(TRACK_NONE),deviceRayDirection(0,1,0),
+	:deviceName(new char[1]),trackType(TRACK_NONE),
 	 numButtons(0),numValuators(0),
 	 buttonCallbacks(0),valuatorCallbacks(0),
+	 deviceRayDirection(0,1,0),deviceRayStart(0),
 	 transformation(TrackerState::identity),linearVelocity(Vector::zero),angularVelocity(Vector::zero),
 	 buttonStates(0),valuatorValues(0),
 	 callbacksEnabled(true),
@@ -45,10 +46,11 @@ InputDevice::InputDevice(void)
 	}
 
 InputDevice::InputDevice(const char* sDeviceName,int sTrackType,int sNumButtons,int sNumValuators)
-	:deviceName(new char[strlen(sDeviceName)+1]),trackType(sTrackType),deviceRayDirection(0,1,0),
+	:deviceName(new char[strlen(sDeviceName)+1]),trackType(sTrackType),
 	 numButtons(sNumButtons),numValuators(sNumValuators),
 	 buttonCallbacks(numButtons>0?new Misc::CallbackList[numButtons]:0),
 	 valuatorCallbacks(numValuators>0?new Misc::CallbackList[numValuators]:0),
+	 deviceRayDirection(0,1,0),deviceRayStart(0),
 	 transformation(TrackerState::identity),linearVelocity(Vector::zero),angularVelocity(Vector::zero),
 	 buttonStates(numButtons>0?new bool[numButtons]:0),
 	 valuatorValues(numValuators>0?new double[numValuators]:0),
@@ -73,9 +75,10 @@ InputDevice::InputDevice(const char* sDeviceName,int sTrackType,int sNumButtons,
 	}
 
 InputDevice::InputDevice(const InputDevice& source)
-	:deviceName(new char[1]),trackType(TRACK_NONE),deviceRayDirection(0,1,0),
+	:deviceName(new char[1]),trackType(TRACK_NONE),
 	 numButtons(0),numValuators(0),
 	 buttonCallbacks(0),valuatorCallbacks(0),
+	 deviceRayDirection(0,1,0),deviceRayStart(0),
 	 transformation(TrackerState::identity),linearVelocity(Vector::zero),angularVelocity(Vector::zero),
 	 buttonStates(0),valuatorValues(0),
 	 callbacksEnabled(true),
@@ -148,16 +151,17 @@ InputDevice& InputDevice::set(const char* sDeviceName,int sTrackType,int sNumBut
 	return *this;
 	}
 
-void InputDevice::setDeviceRayDirection(const Vector& newDeviceRayDirection)
-	{
-	/* Set ray direction: */
-	deviceRayDirection=newDeviceRayDirection;
-	}
-
 void InputDevice::setTrackType(int newTrackType)
 	{
 	/* Set the tracking type: */
 	trackType=newTrackType;
+	}
+
+void InputDevice::setDeviceRay(const Vector& newDeviceRayDirection,Scalar newDeviceRayStart)
+	{
+	/* Set ray direction and starting parameter: */
+	deviceRayDirection=newDeviceRayDirection;
+	deviceRayStart=newDeviceRayStart;
 	}
 
 void InputDevice::setTransformation(const TrackerState& newTransformation)

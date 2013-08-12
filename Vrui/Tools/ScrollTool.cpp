@@ -137,8 +137,8 @@ void ScrollTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(valuatorDevice,this);
 	
 	/* Initialize the virtual input device's position: */
+	valuatorDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
 	valuatorDevice->setTransformation(interactionDevice->getTransformation());
-	valuatorDevice->setDeviceRayDirection(interactionDevice->getDeviceRayDirection());
 	}
 
 void ScrollTool::deinitialize(void)
@@ -197,8 +197,8 @@ void ScrollTool::frame(void)
 	GUIInteractor::move();
 	
 	/* Update the virtual input device: */
+	valuatorDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
 	valuatorDevice->setTransformation(interactionDevice->getTransformation());
-	valuatorDevice->setDeviceRayDirection(interactionDevice->getDeviceRayDirection());
 	}
 
 void ScrollTool::display(GLContextData& contextData) const

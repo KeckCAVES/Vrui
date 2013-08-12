@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceDataSaver - Class to save input device data to a file for
 later playback.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -55,7 +55,7 @@ class InputDeviceDataSaver
 	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
 	KinectRecorder* kinectRecorder; // Pointer to 3D video recorder object
 	#endif
-	bool firstFrame; // Flag to identify the first frame of input device data
+	unsigned int firstFrameCountdown; // Counter to indicate the first frame of the Vrui application
 	
 	/* Constructors and destructors: */
 	public:

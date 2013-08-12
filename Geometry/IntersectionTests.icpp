@@ -1,7 +1,7 @@
 /***********************************************************************
 IntersectionTests - Namespace-global functions to test for intersections
 between various geometric objects.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -282,7 +282,7 @@ doesLineIntersectTriangle(
 	const Point<ScalarParam,3> line[2])
 	{
 	/* Calculate the triangle's plane equation: */
-	Vector<ScalarParam,3> normal=cross(triangle[1]-triangle[0],triangle[2]-triangle[1]);
+	Vector<ScalarParam,3> normal=(triangle[1]-triangle[0])^(triangle[2]-triangle[1]);
 	ScalarParam offset=normal*triangle[1];
 	
 	/* Calculate the plane offsets of the line's vertices: */
@@ -422,7 +422,7 @@ doesTriangleIntersectBox(
 	*********************************************************************/
 	
 	/* Calculate the triangle's plane equation: */
-	Vector<ScalarParam,3> normal=cross(triangle[1]-triangle[0],triangle[2]-triangle[1]);
+	Vector<ScalarParam,3> normal=(triangle[1]-triangle[0])^(triangle[2]-triangle[1]);
 	ScalarParam offset=normal*triangle[1];
 	
 	/* Calculate the plane offsets of the box's eight vertices and the number of vertices on either side of the plane: */
@@ -625,7 +625,7 @@ doesTriangleIntersectBox(
 	*********************************************************************/
 	
 	/* Calculate the triangle's plane equation: */
-	Vector<ScalarParam,3> normal=cross((*triangle[1])-(*triangle[0]),(*triangle[2])-(*triangle[1]));
+	Vector<ScalarParam,3> normal=((*triangle[1])-(*triangle[0]))^((*triangle[2])-(*triangle[1]));
 	ScalarParam offset=normal*(*triangle[1]);
 	
 	/* Calculate the plane offsets of the box's eight vertices and the number of vertices on either side of the plane: */

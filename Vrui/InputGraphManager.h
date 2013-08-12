@@ -147,7 +147,7 @@ class InputGraphManager
 	void removeInputDevice(InputDevice* device); // Removes an input device from the graph
 	void addTool(Tool* newTool); // Adds a tool to the input graph, based on its current input assignment
 	void removeTool(Tool* tool); // Removes a tool from the input graph
-	void loadInputGraph(Misc::ConfigurationFileSection& configFileSection); // Loads all virtual input devices and tools defined in the given configuration file section
+	void loadInputGraph(const Misc::ConfigurationFileSection& configFileSection); // Loads all virtual input devices and tools defined in the given configuration file section
 	void loadInputGraph(IO::Directory& directory,const char* configurationFileName,const char* baseSectionName); // Ditto
 	void saveInputGraph(IO::Directory& directory,const char* configurationFileName,const char* baseSectionName) const; // Saves the current state of all virtual input devices and assigned tools to the given section in the given configuration file
 	bool isNavigational(InputDevice* device) const; // Returns whether the given device will follow navigation coordinates while ungrabbed
@@ -165,7 +165,8 @@ class InputGraphManager
 	InputDeviceFeature findFirstUnassignedFeature(const InputDeviceFeature& feature) const; // Returns the first unassigned input device feature forwarded from the given feature
 	void showToolStack(const InputDeviceFeature& feature); // Displays the stack of tools assigned to the given input device feature
 	void update(void); // Updates state of all tools and non-physical input devices in the graph
-	void glRenderAction(GLContextData& contextData) const; // Renders current state of all input devices and tools
+	void glRenderDevices(GLContextData& contextData) const; // Renders current state of all input devices
+	void glRenderTools(GLContextData& contextData) const; // Renders current state of all tools
 	};
 
 }

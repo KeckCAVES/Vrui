@@ -152,7 +152,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	ShowEarthModel(int& argc,char**& argv,char**& appDefaults);
+	ShowEarthModel(int& argc,char**& argv);
 	virtual ~ShowEarthModel(void);
 	
 	/* Methods: */

@@ -44,6 +44,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <LI><A HREF="#HelicopterNavigationTool">HelicopterNavigationTool</A> &quot;Helicopter Flight&quot;</LI>
 
 <LI><A HREF="#WalkSurfaceNavigationTool">WalkSurfaceNavigationTool</A> &quot;Walk&quot;</LI>
+
+<LI><A HREF="#ValuatorWalkSurfaceNavigationTool">ValuatorWalkSurfaceNavigationTool</A> &quot;Walk &amp; Valuators&quot;</LI>
 </UL>
 </LI>
 
@@ -90,6 +92,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <LI>Transformer
 <UL>
 <LI><A HREF="#MouseTool">MouseTool</A> &quot;Mouse->Screen Projector&quot;</LI>
+
+<LI><A HREF="#ToggleButtonTool">ToggleButtonTool</A> &quot;Toggle Button&quot;</LI>
 
 <LI><A HREF="#ButtonToValuatorTool">ButtonToValuatorTool</A> &quot;Button -> Valuator&quot;</LI>
 
@@ -384,12 +388,17 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>12.0"</TD>
-<TD>Distance in physical coordinate units by which the mouse has to be moved to rotate the model by one radians.</TD>
+<TD>activationToggle</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether the activation button acts as a toggle.</TD>
 </TR>
 
 <TR>
-<TD>moveSpeed</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>120.0"/s</TD>
+<TD>rotateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4)</TD>
+<TD>Distance in physical coordinate units by which the input device has to be moved to rotate the model by one radians horizontally and vertically, respectively. A factor of 0.0 is a special case that completely disables rotation in that direction.</TD>
+</TR>
+
+<TR>
+<TD>moveSpeeds</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(200.0"/s, 200"/s)</TD>
 <TD>Movement speed in physical coordinate units per second.</TD>
 </TR>
 
@@ -419,13 +428,33 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>showHud</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
-<TD>Flag whether to draw the heads-up display indicating the current aziumth.</TD>
+<TD>levelOnExit</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether to reset the tool's elevation to zero upon deactivation.</TD>
 </TR>
 
 <TR>
-<TD>levelOnExit</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
-<TD>Flag whether to reset the tool's elevation to zero upon deactivation.</TD>
+<TD>drawHud</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to draw the six-axis navigation tool's heads-up display, indicating azimuth, elevation, and roll angles.</TD>
+</TR>
+
+<TR>
+<TD>hudColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(0.0, 1.0, 0.0)</TD>
+<TD>Color to draw the HUD.</TD>
+</TR>
+
+<TR>
+<TD>hudDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>Distance from main viewer's head position to <A HREF="VruiConfigurationFileReference.html#displayCenter">displayCenter</A></TD>
+<TD>Distance from the viewer's eye to the HUD plane in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>*0.5</TD>
+<TD>Radius of the HUD physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudFontSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*1.5</TD>
+<TD>Font size for the HUD in physical coordinate units.</TD>
 </TR>
 </TABLE>
 
@@ -820,6 +849,137 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 </TABLE>
 
+<A NAME="ValuatorWalkSurfaceNavigationTool"><H3>ValuatorWalkSurfaceNavigationTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Toggle tool's activation state.</TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>2</TD>
+<TD>1: Move along local X axis (right/left).<BR>
+    2: Move along local Y axis (forward/backwards).</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>1</TD>
+<TD>Fire a &quot;jetpack&quot; thruster along the ray direction of the device associated with the valuator.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>activationToggle</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether the tool's activation button acts as a toggle button.</TD>
+</TR>
+
+<TR>
+<TD>centerOnActivation</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the tool's center point is set to the viewer's foot position when the tool is activated.</TD>
+</TR>
+
+<TR>
+<TD>centerPoint</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displayCenter">displayCenter</A></TD>
+<TD>Center point of the movement circle in physical coordinate system. Is projected to environment's floor plane before activation.</TD>
+</TR>
+
+<TR>
+<TD>moveSpeed</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/s</TD>
+<TD>Maximum walking speed in physical coordinate units per second if the viewer stepped outside the outer movement circle.</TD>
+</TR>
+
+<TR>
+<TD>innerRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>*0.5</TD>
+<TD>Radius of the inner movement circle. Movement speed is set to zero when the viewer is inside.</TD>
+</TR>
+
+<TR>
+<TD>outerRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>*0.75</TD>
+<TD>Radius of the outer movement circle. Movement speed varies linearly between zero and the maximum walking speed as the viewer moves from the inner circle to the outer circle.</TD>
+</TR>
+
+<TR>
+<TD>valuatorMoveSpeed</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of two <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>moveSpeed</TD>
+<TD>Maximum walking speed in physical coordinate units per second for X and Y axis valuators.</TD>
+</TR>
+
+<TR>
+<TD>centerViewDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD><TD><A HREF="VruiConfigurationFileReference.html#forwardDirection">forwardDirection</A></TD>
+<TD>Direction of the center line of the rotation cone. Is projected to environment's floor plane before activation.</TD>
+</TR>
+
+<TR>
+<TD>rotateSpeed</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>120.0&deg;/s</TD>
+<TD>Maximum rotation speed in degrees per second if the viewer looks outside the outer rotation angle.</TD>
+</TR>
+
+<TR>
+<TD>innerAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>30.0&deg;</TD>
+<TD>Inner rotation angle. Rotation speed is set to zero while the view direction is inside.</TD>
+</TR>
+
+<TR>
+<TD>outerAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>120.0&deg;</TD>
+<TD>Outer rotation angle. Rotation speed varies linearly between zero and maximum rotation speed as the viewer looks from the inner rotation angle to the outer rotation angle.</TD>
+</TR>
+
+<TR>
+<TD>fallAcceleration</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>9.81m/s<SUP>2</SUP></TD>
+<TD>Acceleration when falling towards the surface in physical coordinate units per second squared.</TD>
+</TR>
+
+<TR>
+<TD>jetpackAcceleration</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>fallAcceleration*1.5</TD>
+<TD>Maximum acceleration of virtual jetpack in physical coordinate units per second squared.</TD>
+</TR>
+
+<TR>
+<TD>probeSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>12.0"</TD>
+<TD>Radius in physical coordinate units of the probe sphere used to lock the viewer's feet to the surface.</TD>
+</TR>
+
+<TR>
+<TD>maxClimb</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>24.0"</TD>
+<TD>Maximum distance in physical coordinate units by which the probe sphere can climb when the viewer's feet are snapped to the surface.</TD>
+</TR>
+
+<TR>
+<TD>fixAzimuth</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether the current azimuth angle stays constant when the surface's local coordinate frame rotates.</TD>
+</TR>
+
+<TR>
+<TD>drawMovementCircles</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to draw the movement circles and the rotation cone while the tool is active.</TD>
+</TR>
+
+<TR>
+<TD>movementCircleColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(0.0, 1.0, 0.0)</TD>
+<TD>Line color with which to draw the movement circles and rotation cone.</TD>
+</TR>
+
+<TR>
+<TD>drawHud</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to draw the heads-up display indicating the current azimuth angle.</TD>
+</TR>
+
+<TR>
+<TD>hudRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>*2.0</TD>
+<TD>Radius of heads-up display in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hudFontSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*2.0</TD>
+<TD>Size of heads-up display's font in physical coordinate units.</TD>
+</TR>
+</TABLE>
+
 <A NAME="MouseNavigationTool"><H3>MouseNavigationTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -842,12 +1002,12 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>rotatePlaneOffset</TD><TD><A HREF="#number">number</A></TD><TD>3.0"</TD>
+<TD>rotatePlaneOffset</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4.0</TD>
 <TD>The mouse navigation tool uses an offset plane formula to calculate the rotation axis based on the mouse position and mouse motion in screen coordinates. If the plane offset is zero, any mouse movement will rotate around the screen's z axis (roll); a large plane offset will favor rotation around the screen's x and y axes (yaw and pitch, respectively).</TD>
 </TR>
 
 <TR>
-<TD>rotateFactor</TD><TD><A HREF="#number">number</A></TD><TD>3.0"</TD>
+<TD>rotateFactor</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4.0</TD>
 <TD>Distance in physical coordinate units by which the mouse pointer has to move on screen to rotate the view by one radians.</TD>
 </TR>
 
@@ -857,13 +1017,13 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>screenDollyingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
-<TD>Direction in screen coordinates along which the mouse has to slide to dolly in or out of the screen plane.</TD>
+<TD>dollyingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>-<A HREF="VruiConfigurationFileReference.html#upDirection">upDirection</A></TD>
+<TD>Direction in physical coordinates along which the mouse has to slide to dolly in or out of the screen plane.</TD>
 </TR>
 
 <TR>
-<TD>screenScalingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
-<TD>Direction in screen coordinates along which the mouse has to slide to scale.</TD>
+<TD>scalingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>-<A HREF="VruiConfigurationFileReference.html#upDirection">upDirection</A></TD>
+<TD>Direction in physical coordinates along which the mouse has to slide to scale.</TD>
 </TR>
 
 <TR>
@@ -872,12 +1032,12 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>scaleFactor</TD><TD><A HREF="#number">number</A></TD><TD>3.0"</TD>
+<TD>scaleFactor</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4.0</TD>
 <TD>Distance in physical coordinate units by which the mouse has to slide along the scaling direction to scale by a factor of e.</TD>
 </TR>
 
 <TR>
-<TD>wheelDollyFactor</TD><TD><A HREF="#number">number</A></TD><TD>-12.0"</TD>
+<TD>wheelDollyFactor</TD><TD><A HREF="#number">number</A></TD><TD>-<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A></TD>
 <TD>Dollying distance in physical coordinate units to apply for each tick of the mouse wheel.</TD>
 </TR>
 
@@ -1583,6 +1743,25 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TD>Size of crosshairs in physical coordinate units to indicate the position of the virtual input device in the screen plane. If left at 0.0", no crosshairs will be drawn.</TD>
 </TR>
 </TABLE>
+
+<A NAME="ToggleButtonTool"><H3>ToggleButtonTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Button to be converted into a toggle button.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>onRisingEdge</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>If true, the state of a virtual button is toggled when the real button changes state from released to pressed; if false, the other way.</TD>
+</TR>
 
 <A NAME="ButtonToValuatorTool"><H3>ButtonToValuatorTool</H3></A>
 

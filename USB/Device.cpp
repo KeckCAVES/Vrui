@@ -291,8 +291,25 @@ void Device::claimInterface(int interfaceNumber,bool detachKernelDriver)
 	if(detachKernelDriver&&libusb_kernel_driver_active(handle,interfaceNumber)>0)
 		{
 		/* Detach a kernel driver: */
+		int detachResult=libusb_detach_kernel_driver(handle,interfaceNumber);
+		switch(detachResult)
+			{
+			case 0:
+				break;
+			
+			case LIBUSB_ERROR_NOT_FOUND:
+				Misc::throwStdErr("USB::Device::claimInterface: No kernel driver attached to interface %d",interfaceNumber);
+			
+			case LIBUSB_ERROR_INVALID_PARAM:
+				Misc::throwStdErr("USB::Device::claimInterface: Interface %d does not exist",interfaceNumber);
+			
+			case LIBUSB_ERROR_NO_DEVICE:
+				Misc::throwStdErr("USB::Device::claimInterface: Device has been disconnected");
+			
+			default:
+				Misc::throwStdErr("USB::Device::claimInterface: Error while detaching kernel driver from interface %d",interfaceNumber);
+			}
 		ci.detachedKernelDriver=true;
-		libusb_detach_kernel_driver(handle,interfaceNumber);
 		}
 	
 	/* Claim the interface: */

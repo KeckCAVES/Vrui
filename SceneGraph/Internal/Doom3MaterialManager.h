@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MaterialManager - Class to manage access to shared Doom3 material
 definitions.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -426,6 +426,10 @@ class Doom3MaterialManager:public GLObject
 			 currentProgramIndex(-1)
 			{
 			}
+		
+		/* Methods: */
+		public:
+		void suspend(void); // Temporarily suspends rendering using Doom3 material properties
 		};
 	
 	/* Elements: */

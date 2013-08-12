@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -47,7 +47,8 @@ VRScreen::VRScreen(void)
 	:screenName(0),
 	 deviceMounted(false),device(0),
 	 transform(ONTransform::identity),inverseTransform(ONTransform::identity),
-	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity)
+	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity),
+	 intersect(true)
 	{
 	screenSize[0]=screenSize[1]=Scalar(0);
 	}
@@ -145,6 +146,9 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		
 		inverseClipHomography.doInvert();
 		}
+	
+	/* Read the intersect flag: */
+	intersect=configFileSection.retrieveValue<bool>("./intersect",intersect);
 	}
 
 void VRScreen::attachToDevice(const InputDevice* newDevice)

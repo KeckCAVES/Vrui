@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -70,19 +70,39 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	 #endif
 	 saveMovie(configFileSection.retrieveValue<bool>("./saveMovie",false)),
 	 movieWindowIndex(0),movieWindow(0),
-	 firstFrame(true),timeStamp(0.0),
+	 firstFrameCountdown(2),timeStamp(0.0),timeStampOffset(0.0),
+	 nextTimeStamp(0.0),nextMovieFrameTime(0.0),nextMovieFrameCounter(0),
 	 done(false)
 	{
 	/* Read file header: */
 	inputDeviceDataFile->setEndianness(Misc::LittleEndian);
-	static const char* fileHeader="Vrui Input Device Data File v2.0\n";
+	static const char* fileHeader="Vrui Input Device Data File v3.0\n";
 	char header[34];
 	inputDeviceDataFile->read<char>(header,34);
-	bool haveFeatureNames=strncmp(header,fileHeader,34)==0;
-	if(!haveFeatureNames)
+	header[33]='\0';
+	
+	if(strncmp(header,fileHeader,29)!=0)
 		{
+		/* Pre-versioning file version: */
+		fileVersion=1;
+		
 		/* Old file format doesn't have the header text: */
 		inputDeviceDataFile->setReadPosAbs(0);
+		}
+	else if(strcmp(header+29,"2.0\n")==0)
+		{
+		/* File version without ray direction and velocities: */
+		fileVersion=2;
+		}
+	else if(strcmp(header+29,"3.0\n")==0)
+		{
+		/* File version with ray direction and velocities: */
+		fileVersion=3;
+		}
+	else
+		{
+		header[32]='\0';
+		Misc::throwStdErr("Vrui::InputDeviceAdapterPlayback: Unsupported input device data file version %s",header+29);
 		}
 	
 	/* Read random seed value: */
@@ -99,7 +119,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		{
 		/* Read device's name and layout from file: */
 		std::string name;
-		if(haveFeatureNames)
+		if(fileVersion>=2)
 			name=Misc::readCppString(*inputDeviceDataFile);
 		else
 			{
@@ -111,12 +131,17 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		int trackType=inputDeviceDataFile->read<int>();
 		int numButtons=inputDeviceDataFile->read<int>();
 		int numValuators=inputDeviceDataFile->read<int>();
-		Vector deviceRayDirection;
-		inputDeviceDataFile->read<Scalar>(deviceRayDirection.getComponents(),3);
 		
 		/* Create new input device: */
 		InputDevice* newDevice=inputDeviceManager->createInputDevice(name.c_str(),trackType,numButtons,numValuators,true);
-		newDevice->setDeviceRayDirection(deviceRayDirection);
+		
+		if(fileVersion<3)
+			{
+			/* Read the device ray direction: */
+			Vector deviceRayDir;
+			inputDeviceDataFile->read(deviceRayDir.getComponents(),3);
+			newDevice->setDeviceRay(deviceRayDir,Scalar(0));
+			}
 		
 		/* Initialize the new device's glyph from the current configuration file section: */
 		Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
@@ -131,7 +156,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		
 		/* Read or create the device's feature names: */
 		deviceFeatureBaseIndices[i]=int(deviceFeatureNames.size());
-		if(haveFeatureNames)
+		if(fileVersion>=2)
 			{
 			/* Read feature names from file: */
 			for(int j=0;j<newDevice->getNumFeatures();++j)
@@ -239,16 +264,15 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		if(numConversions!=1||!hasIntConversion)
 			Misc::throwStdErr("InputDeviceAdapterPlayback::InputDeviceAdapterPlayback: movie file name template \"%s\" does not have exactly one %%d conversion",movieFileNameTemplate.c_str());
 		
+		/* Get the index of the first movie frame: */
+		nextMovieFrameCounter=configFileSection.retrieveValue<int>("./movieFirstFrameIndex",nextMovieFrameCounter);
+		
 		/* Get the index of the window from which to save the frames: */
 		movieWindowIndex=configFileSection.retrieveValue<int>("./movieWindowIndex",movieWindowIndex);
 		
 		/* Get the intended frame rate for the movie: */
 		double frameRate=configFileSection.retrieveValue<double>("./movieFrameRate",30.0);
 		movieFrameTimeInterval=1.0/frameRate;
-		
-		/* Calculate the first time at which to save a frame: */
-		nextMovieFrameTime=nextTimeStamp+movieFrameTimeInterval*0.5;
-		nextMovieFrameCounter=0;
 		}
 	}
 
@@ -310,35 +334,50 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 	if(done)
 		return;
 	
-	if(synchronizePlayback)
+	/* Check if this is the first real Vrui frame: */
+	if(firstFrameCountdown>0U)
 		{
-		Misc::Time rt=Misc::Time::now();
-		double realTime=double(rt.tv_sec)+double(rt.tv_nsec)/1000000000.0;
-		
-		if(firstFrame)
+		--firstFrameCountdown;
+		if(firstFrameCountdown==0U)
 			{
-			/* Calculate the offset between the saved timestamps and the system's wall clock time: */
-			timeStampOffset=nextTimeStamp-realTime;
-			}
-		else
-			{
-			/* Check if there is positive drift between the system's offset wall clock time and the next time stamp: */
-			double delta=nextTimeStamp-(realTime+timeStampOffset);
-			if(delta>0.0)
+			if(synchronizePlayback)
 				{
-				/* Block to correct the drift: */
-				vruiDelay(delta);
+				/* Calculate the offset between the saved timestamps and the system's wall clock time: */
+				Misc::Time rt=Misc::Time::now();
+				double realTime=double(rt.tv_sec)+double(rt.tv_nsec)/1000000000.0;
+				timeStampOffset=nextTimeStamp-realTime;
+				}
+			
+			/* Start the sound player, if there is one: */
+			if(soundPlayer!=0)
+				soundPlayer->start();
+			
+			if(saveMovie)
+				{
+				/* Get a pointer to the window from which to save movie frames: */
+				if(movieWindowIndex>=0&&movieWindowIndex<getNumWindows())
+					movieWindow=getWindow(movieWindowIndex);
+				else
+					std::cerr<<"InputDeviceAdapterPlayback: Not saving movie due to invalid movie window index "<<movieWindowIndex<<std::endl;
+				
+				/* Calculate the first time at which to save a frame: */
+				nextMovieFrameTime=nextTimeStamp+movieFrameTimeInterval*0.5;
 				}
 			}
 		}
 	
-	/* Update time stamp and synchronize Vrui's application timer: */
-	timeStamp=nextTimeStamp;
-	synchronize(timeStamp);
-	
-	/* Start sound playback: */
-	if(firstFrame&&soundPlayer!=0)
-		soundPlayer->start();
+	if(synchronizePlayback)
+		{
+		/* Check if there is positive drift between the system's offset wall clock time and the next time stamp: */
+		Misc::Time rt=Misc::Time::now();
+		double realTime=double(rt.tv_sec)+double(rt.tv_nsec)/1000000000.0;
+		double delta=nextTimeStamp-(realTime+timeStampOffset);
+		if(delta>0.0)
+			{
+			/* Block to correct the drift: */
+			vruiDelay(delta);
+			}
+		}
 	
 	/* Update all input devices: */
 	for(int device=0;device<numInputDevices;++device)
@@ -346,18 +385,52 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		/* Update tracker state: */
 		if(inputDevices[device]->getTrackType()!=InputDevice::TRACK_NONE)
 			{
+			if(fileVersion>=3)
+				{
+				Vector deviceRayDir;
+				inputDeviceDataFile->read(deviceRayDir.getComponents(),3);
+				Scalar deviceRayStart=inputDeviceDataFile->read<Scalar>();
+				inputDevices[device]->setDeviceRay(deviceRayDir,deviceRayStart);
+				}
 			TrackerState::Vector translation;
 			inputDeviceDataFile->read(translation.getComponents(),3);
 			Scalar quat[4];
 			inputDeviceDataFile->read(quat,4);
 			inputDevices[device]->setTransformation(TrackerState(translation,TrackerState::Rotation(quat)));
+			if(fileVersion>=3)
+				{
+				Vector linearVelocity,angularVelocity;
+				inputDeviceDataFile->read(linearVelocity.getComponents(),3);
+				inputDeviceDataFile->read(angularVelocity.getComponents(),3);
+				inputDevices[device]->setLinearVelocity(linearVelocity);
+				inputDevices[device]->setAngularVelocity(angularVelocity);
+				}
 			}
 		
 		/* Update button states: */
-		for(int i=0;i<inputDevices[device]->getNumButtons();++i)
+		if(fileVersion>=3)
 			{
-			int buttonState=inputDeviceDataFile->read<int>();
-			inputDevices[device]->setButtonState(i,buttonState);
+			unsigned char buttonBits=0x00U;
+			int numBits=0;
+			for(int i=0;i<inputDevices[device]->getNumButtons();++i)
+				{
+				if(numBits==0)
+					{
+					buttonBits=inputDeviceDataFile->read<unsigned char>();
+					numBits=8;
+					}
+				inputDevices[device]->setButtonState(i,(buttonBits&0x80U)!=0x00U);
+				buttonBits<<=1;
+				--numBits;
+				}
+			}
+		else
+			{
+			for(int i=0;i<inputDevices[device]->getNumButtons();++i)
+				{
+				int buttonState=inputDeviceDataFile->read<int>();
+				inputDevices[device]->setButtonState(i,buttonState);
+				}
 			}
 		
 		/* Update valuator states: */
@@ -373,7 +446,8 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		{
 		nextTimeStamp=inputDeviceDataFile->read<double>();
 		
-		/* Request an update for the next frame: */
+		/* Request a synchronized update for the next frame: */
+		synchronize(nextTimeStamp,false);
 		requestUpdate();
 		}
 	catch(IO::File::ReadError)
@@ -396,67 +470,53 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		}
 	#endif
 	
-	if(saveMovie)
+	if(saveMovie&&movieWindow!=0)
 		{
-		if(firstFrame)
+		/* Copy the last saved screenshot if multiple movie frames needed to be taken during the last Vrui frame: */
+		while(nextMovieFrameTime<timeStamp)
 			{
-			/* Get a pointer to the window from which to save movie frames: */
-			if(movieWindowIndex>=0&&movieWindowIndex<getNumWindows())
-				movieWindow=getWindow(movieWindowIndex);
-			else
-				std::cerr<<"InputDeviceAdapterPlayback: Not saving movie due to invalid movie window index "<<movieWindowIndex<<std::endl;
-			}
-		
-		if(movieWindow!=0)
-			{
-			/* Copy the last saved screenshot if multiple movie frames needed to be taken during the last Vrui frame: */
-			while(nextMovieFrameTime<timeStamp)
+			/* Copy the last saved screenshot: */
+			pid_t childPid=fork();
+			if(childPid==0)
 				{
-				/* Copy the last saved screenshot: */
-				pid_t childPid=fork();
-				if(childPid==0)
-					{
-					/* Create the old and new file names: */
-					char oldImageFileName[1024];
-					snprintf(oldImageFileName,sizeof(oldImageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter-1);
-					char imageFileName[1024];
-					snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter);
-					
-					/* Execute the cp system command: */
-					char* cpArgv[10];
-					int cpArgc=0;
-					cpArgv[cpArgc++]=const_cast<char*>("/bin/cp");
-					cpArgv[cpArgc++]=oldImageFileName;
-					cpArgv[cpArgc++]=imageFileName;
-					cpArgv[cpArgc++]=0;
-					execvp(cpArgv[0],cpArgv);
-					}
-				else
-					{
-					/* Wait for the copy process to finish: */
-					waitpid(childPid,0,0);
-					}
-				
-				/* Advance the frame counters: */
-				nextMovieFrameTime+=movieFrameTimeInterval;
-				++nextMovieFrameCounter;
-				}
-			
-			if(nextTimeStamp>nextMovieFrameTime)
-				{
-				/* Request a screenshot from the movie window: */
+				/* Create the old and new file names: */
+				char oldImageFileName[1024];
+				snprintf(oldImageFileName,sizeof(oldImageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter-1);
 				char imageFileName[1024];
 				snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter);
-				movieWindow->requestScreenshot(imageFileName);
 				
-				/* Advance the movie frame counters: */
-				nextMovieFrameTime+=movieFrameTimeInterval;
-				++nextMovieFrameCounter;
+				/* Execute the cp system command: */
+				char* cpArgv[10];
+				int cpArgc=0;
+				cpArgv[cpArgc++]=const_cast<char*>("/bin/cp");
+				cpArgv[cpArgc++]=oldImageFileName;
+				cpArgv[cpArgc++]=imageFileName;
+				cpArgv[cpArgc++]=0;
+				execvp(cpArgv[0],cpArgv);
 				}
+			else
+				{
+				/* Wait for the copy process to finish: */
+				waitpid(childPid,0,0);
+				}
+			
+			/* Advance the frame counters: */
+			nextMovieFrameTime+=movieFrameTimeInterval;
+			++nextMovieFrameCounter;
+			}
+		
+		if(nextTimeStamp>nextMovieFrameTime)
+			{
+			/* Request a screenshot from the movie window: */
+			char imageFileName[1024];
+			snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter);
+			movieWindow->requestScreenshot(imageFileName);
+			
+			/* Advance the movie frame counters: */
+			nextMovieFrameTime+=movieFrameTimeInterval;
+			++nextMovieFrameCounter;
 			}
 		}
-	
-	firstFrame=false;
 	}
 
 void InputDeviceAdapterPlayback::glRenderAction(GLContextData& contextData) const

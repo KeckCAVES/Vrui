@@ -2,7 +2,7 @@
 VruiDemo - "Empty" VR application that displays a simple OpenGL scene in
 a virtual reality environment, showing off some Vrui toolkit
 functionality.
-Copyright (c) 2003-2012 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -19,8 +19,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#include <iostream>
-#include <stdexcept>
 #include <Math/Math.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
@@ -303,25 +301,5 @@ void VruiDemo::initContext(GLContextData& contextData) const
 	glEndList();
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		/* Create an application object: */
-		VruiDemo app(argc,argv);
-		
-		/* Run the Vrui main loop: */
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		/* Catch any exceptions thrown by Vrui or the application: */
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		
-		/* Return error code to the OS: */
-		return 1;
-		}
-	
-	/* Exit to OS: */
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(VruiDemo)

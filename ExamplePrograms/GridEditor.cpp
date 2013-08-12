@@ -682,18 +682,5 @@ void GridEditor::initContext(GLContextData& contextData) const
 	glEndList();
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		GridEditor ge(argc,argv);
-		ge.run();
-		}
-	catch(std::runtime_error err)
-		{
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(GridEditor)

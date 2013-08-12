@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadModelFromASEFile - Function to load static (non-animated) models
 from files in ASE format.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

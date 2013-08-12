@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -29,7 +29,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
 #include <Vrui/Internal/VRDeviceState.h>
-#include <Vrui/Internal/VRDeviceDescriptor.h>
 
 #include <VRDeviceDaemon/VRFactoryManager.h>
 
@@ -79,6 +78,7 @@ class VRDeviceManager
 	int* trackerIndexBases; // Array of base tracker indices for each VR device
 	int* buttonIndexBases; // Array of base button indices for each VR device
 	int* valuatorIndexBases; // Array of base valuator indices for each VR device
+	int currentDeviceIndex; // Index of currently constructed device during initialization
 	std::vector<std::string> trackerNames; // List of tracker names
 	std::vector<std::string> buttonNames; // List of button names
 	std::vector<std::string> valuatorNames; // List of valuator names
@@ -95,12 +95,40 @@ class VRDeviceManager
 	VRDeviceManager(Misc::ConfigurationFile& configFile); // Creates device manager by reading current section of configuration file
 	~VRDeviceManager(void);
 	
-	/* Methods: */
+	/* Methods to communicate with device driver modules during initialization: */
+	int getTrackerIndexBase(void) const // Returns the tracker index base for the currently constructed device
+		{
+		return trackerIndexBases[currentDeviceIndex];
+		}
+	int getButtonIndexBase(void) const // Returns the button index base for the currently constructed device
+		{
+		return buttonIndexBases[currentDeviceIndex];
+		}
+	int getValuatorIndexBase(void) const // Returns the valuator index base for the currently constructed device
+		{
+		return valuatorIndexBases[currentDeviceIndex];
+		}
 	int addTracker(const char* name =0); // Adds a new tracker to the manager's namespace; returns tracker index
 	int addButton(const char* name =0); // Adds a new button to the manager's namespace; returns button index
 	int addValuator(const char* name =0); // Adds a new valuator to the manager's namespace; returns valuator index
 	VRCalibrator* createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile); // Loads calibrator of given type from current section in configuration file
 	void addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice); // Adds a virtual device; is adopted by device manager
+	
+	/* Methods to communicate with device driver modules during operation: */
+	void setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState); // Updates state of single tracker
+	void setButtonState(int buttonIndex,Vrui::VRDeviceState::ButtonState newButtonState); // Updates state of single button
+	void setValuatorState(int valuatorIndex,Vrui::VRDeviceState::ValuatorState newValuatorState); // Updates state of single valuator
+	void updateState(void); // Tells device manager that the current state should be considered "complete"
+	
+	/* Methods to communicate with device server: */
+	int getNumVirtualDevices(void) const // Returns the number of managed virtual input devices
+		{
+		return int(virtualDevices.size());
+		}
+	const Vrui::VRDeviceDescriptor& getVirtualDevice(int deviceIndex) const // Returns the virtual input device of the given index
+		{
+		return *(virtualDevices[deviceIndex]);
+		}
 	void lockState(void) // Locks current device states
 		{
 		stateMutex.lock();
@@ -113,12 +141,8 @@ class VRDeviceManager
 		{
 		return state;
 		};
-	void setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState); // Updates state of single tracker
-	void setButtonState(int buttonIndex,Vrui::VRDeviceState::ButtonState newButtonState); // Updates state of single button
-	void setValuatorState(int valuatorIndex,Vrui::VRDeviceState::ValuatorState newValuatorState); // Updates state of single valuator
 	void enableTrackerUpdateNotification(Threads::MutexCond* sTrackerUpdateCompleteCond); // Sets a condition variable to be signalled when all trackers have updated
 	void disableTrackerUpdateNotification(void); // Disables tracker update notification
-	void updateState(void); // Tells device manager that the current state should be considered "complete"
 	void start(void); // Starts device processing
 	void stop(void); // Stops device processing
 	};

@@ -1,7 +1,7 @@
 /***********************************************************************
 ForceJumpNavigationTool - Class to navigate by jumping from the viewer's
 current position to the position of an input device.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -167,7 +167,7 @@ void ForceJumpNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData
 			initialVelocity+=getUpDirection()*(deltaZ/factory->jumpTime+Scalar(0.5)*factory->gravity*factory->jumpTime);
 			
 			/* Calculate the flip rotation axis: */
-			flipAxis=Geometry::cross(translation,getUpDirection());
+			flipAxis=translation^getUpDirection();
 			flipAxis.normalize();
 			}
 		}

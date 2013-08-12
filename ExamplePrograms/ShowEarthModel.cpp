@@ -584,8 +584,8 @@ GLPolylineTube* ShowEarthModel::readSensorPathFile(const char* sensorPathFileNam
 	return result;
 	}
 
-ShowEarthModel::ShowEarthModel(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+ShowEarthModel::ShowEarthModel(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 scaleToEnvironment(true),
 	 rotateEarth(true),
 	 lastFrameTime(0.0),rotationAngle(0.0f),rotationSpeed(5.0f),
@@ -1509,24 +1509,5 @@ void ShowEarthModel::setEventTime(double newEventTime)
 	currentTimeSlider->setValue(currentTime);
 	}
 
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		/* Create the Vrui application object: */
-		char** appDefaults=0;
-		ShowEarthModel app(argc,argv,appDefaults);
-		
-		/* Run the Vrui application: */
-		app.run();
-		
-		/* Return to the OS: */
-		return 0;
-		}
-	catch(std::runtime_error err)
-		{
-		/* Print an error message and return to the OS: */
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(ShowEarthModel)

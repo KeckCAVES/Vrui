@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -200,7 +200,7 @@ void MultiDeviceNavigationTool::frame(void)
 					if(lastLen>factory->minRotationScalingDistance&&currentLen>factory->minRotationScalingDistance)
 						{
 						/* Calculate the rotation axis and angle: */
-						Vector rot=Geometry::cross(lastDist,currentDist);
+						Vector rot=lastDist^currentDist;
 						Scalar rotLen=Geometry::mag(rot);
 						if(rotLen>Scalar(0))
 							{

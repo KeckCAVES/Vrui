@@ -2,7 +2,7 @@
 MouseDialogNavigationTool - Class providing a newbie-friendly interface
 to the standard MouseDialogNavigationTool using a dialog box of navigation
 options.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -402,7 +402,7 @@ void MouseDialogNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackDa
 					{
 					/* Calculate spinning angular velocity: */
 					Vector offset=(lastRotationPos-screenCenter)+rotateOffset;
-					Vector axis=Geometry::cross(offset,delta);
+					Vector axis=offset^delta;
 					Scalar angularVelocity=Geometry::mag(delta)/(factory->rotateFactor*(getApplicationTime()-lastMoveTime));
 					spinAngularVelocity=axis*(Scalar(0.5)*angularVelocity/axis.mag());
 					
@@ -471,7 +471,7 @@ void MouseDialogNavigationTool::frame(void)
 					lastRotationPos=rotationPos;
 					
 					/* Calculate incremental rotation: */
-					Vector axis=Geometry::cross(offset,delta);
+					Vector axis=offset^delta;
 					Scalar angle=Geometry::mag(delta)/factory->rotateFactor;
 					if(angle!=Scalar(0))
 						rotation.leftMultiply(NavTrackerState::rotate(NavTrackerState::Rotation::rotateAxis(axis,angle)));

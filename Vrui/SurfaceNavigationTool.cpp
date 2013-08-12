@@ -1,7 +1,7 @@
 /***********************************************************************
 SurfaceNavigationTool - Base class for navigation tools that are limited
 to navigate along an application-defined surface.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -77,8 +77,8 @@ NavTransform& SurfaceNavigationTool::calcPhysicalFrame(const Point& basePoint)
 	physicalFrame=NavTransform::translateFromOriginTo(basePoint);
 	
 	/* Align the physical frame with the forward and up directions: */
-	Vector x=Geometry::cross(getForwardDirection(),getUpDirection());
-	Vector y=Geometry::cross(getUpDirection(),x);
+	Vector x=getForwardDirection()^getUpDirection();
+	Vector y=getUpDirection()^x;
 	physicalFrame*=NavTransform::rotate(Rotation::fromBaseVectors(x,y));
 	
 	return physicalFrame;

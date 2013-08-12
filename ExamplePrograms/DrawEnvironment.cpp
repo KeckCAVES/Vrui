@@ -289,10 +289,5 @@ void DrawEnvironment::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-int main(int argc,char* argv[])
-	{
-	DrawEnvironment app(argc,argv);
-	app.run();
-	
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(DrawEnvironment)

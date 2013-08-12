@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3Model - Class to represent static models using Doom3 materials and
 shaders.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -94,7 +94,7 @@ void Doom3Model::calcNormalVectors(void)
 		Vector d2=vs[2]->position-vs[0]->position;
 		
 		/* Calculate the triangle's normal vector: */
-		Vector triangleNormal=Geometry::cross(d2,d1); // Model faces have clockwise orientation!
+		Vector triangleNormal=d2^d1; // Model faces have clockwise orientation!
 		triangleNormal.normalize();
 		
 		/* Accumulate the normal vector in the triangle's vertices: */
@@ -132,7 +132,7 @@ void Doom3Model::calcTangentVectors(void)
 		Vector d2=vs[2].position-vs[0].position;
 		
 		/* Calculate the triangle's normal vector: */
-		Vector triangleNormal=Geometry::cross(d2,d1); // Model faces have clockwise orientation!
+		Vector triangleNormal=d2^d1; // Model faces have clockwise orientation!
 		triangleNormal.normalize();
 		
 		/* Calculate the triangle's tangent vectors: */

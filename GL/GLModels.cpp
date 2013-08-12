@@ -1,6 +1,6 @@
 /***********************************************************************
 GLModels - Helper functions to render simple models using OpenGL.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -490,5 +490,70 @@ void glDrawWireframeCube(GLfloat cubeSize,GLfloat edgeSize,GLfloat vertexSize)
 			}
 		}
 	
+	glEnd();
+	}
+
+void glDrawArrow(GLfloat shaftRadius,GLfloat tipRadius,GLfloat tipHeight,GLfloat totalHeight,GLsizei numStrips)
+	{
+	const GLfloat toRad=GLfloat(2.0*M_PI)/GLfloat(numStrips);
+	
+	GLfloat z0=-0.5f*totalHeight;
+	GLfloat z1=0.5f*totalHeight-tipHeight;
+	GLfloat z2=0.5f*totalHeight;
+	
+	/* Draw bottom circle: */
+	glBegin(GL_TRIANGLE_FAN);
+	glNormal3f(0.0f,0.0f,-1.0f);
+	glVertex3f(0.0f,0.0f,z0);
+	for(int j=numStrips;j>=0;--j)
+		{
+		GLfloat lng=GLfloat(j)*toRad;
+		GLfloat x=cosf(lng);
+		GLfloat y=sinf(lng);
+		glVertex3f(x*shaftRadius,y*shaftRadius,z0);
+		}
+	glEnd();
+	
+	/* Draw shaft: */
+	glBegin(GL_QUAD_STRIP);
+	for(int j=0;j<=numStrips;++j)
+		{
+		GLfloat lng=GLfloat(j)*toRad;
+		GLfloat x=cosf(lng);
+		GLfloat y=sinf(lng);
+		glNormal3f(x,y,0.0f);
+		glVertex3f(x*shaftRadius,y*shaftRadius,z1);
+		glVertex3f(x*shaftRadius,y*shaftRadius,z0);
+		}
+	glEnd();
+	
+	/* Draw tip bottom: */
+	glBegin(GL_QUAD_STRIP);
+	glNormal3f(0.0f,0.0f,-1.0f);
+	for(int j=0;j<=numStrips;++j)
+		{
+		GLfloat lng=GLfloat(j)*toRad;
+		GLfloat x=cosf(lng);
+		GLfloat y=sinf(lng);
+		glVertex3f(x*tipRadius,y*tipRadius,z1);
+		glVertex3f(x*shaftRadius,y*shaftRadius,z1);
+		}
+	glEnd();
+	
+	/* Draw tip: */
+	GLfloat zn=tipRadius/tipHeight;
+	GLfloat nl=sqrtf(1.0f+zn*zn);
+	GLfloat rn=1.0f/nl;
+	zn*=rn;
+	glBegin(GL_QUAD_STRIP);
+	for(int j=0;j<=numStrips;++j)
+		{
+		GLfloat lng=GLfloat(j)*toRad;
+		GLfloat x=cosf(lng);
+		GLfloat y=sinf(lng);
+		glNormal3f(x*rn,y*rn,zn);
+		glVertex3f(0.0f,0.0f,z2);
+		glVertex3f(x*tipRadius,y*tipRadius,z1);
+		}
 	glEnd();
 	}

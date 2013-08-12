@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -245,8 +245,8 @@ void* SharedJello::communicationThreadMethod(void)
 	return 0;
 	}
 
-SharedJello::SharedJello(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+SharedJello::SharedJello(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 pipe(0),
 	 newParameterVersion(1),parameterVersion(1),
 	 lockedIndex(0),mostRecentIndex(1),
@@ -524,23 +524,5 @@ void SharedJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)
 	showSettingsDialogToggle->setToggle(false);
 	}
 
-/*********************
-Main program function:
-*********************/
-
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		char** appDefaults=0;
-		SharedJello sj(argc,argv,appDefaults);
-		sj.run();
-		}
-	catch(std::runtime_error err)
-		{
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(SharedJello)

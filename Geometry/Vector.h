@@ -1,6 +1,6 @@
 /***********************************************************************
 Vector - Class for Euclidean and affine vectors.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -331,6 +331,12 @@ inline Vector<ScalarParam,dimensionParam> orthogonalize(const Vector<ScalarParam
 
 template <class ScalarParam>
 inline Vector<ScalarParam,3> cross(const Vector<ScalarParam,3>& v1,const Vector<ScalarParam,3>& v2) // Returns the cross product of two 3D vectors
+	{
+	return Vector<ScalarParam,3>(v1[1]*v2[2]-v1[2]*v2[1],v1[2]*v2[0]-v1[0]*v2[2],v1[0]*v2[1]-v1[1]*v2[0]);
+	}
+
+template <class ScalarParam>
+inline Vector<ScalarParam,3> operator^(const Vector<ScalarParam,3>& v1,const Vector<ScalarParam,3>& v2) // Returns the cross product of two 3D vectors
 	{
 	return Vector<ScalarParam,3>(v1[1]*v2[2]-v1[2]*v2[1],v1[2]*v2[0]-v1[0]*v2[2],v1[0]*v2[1]-v1[1]*v2[0]);
 	}

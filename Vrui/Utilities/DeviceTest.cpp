@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceTest - Program to test the connection to a Vrui VR Device Daemon
 and to dump device positions/orientations and button states.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/Timer.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/AffineCombiner.h>
+#include <Geometry/OutputOperators.h>
+#include <Vrui/Internal/VRDeviceDescriptor.h>
 #include <Vrui/Internal/VRDeviceClient.h>
 
 typedef Vrui::VRDeviceState::TrackerState TrackerState;
@@ -44,7 +46,7 @@ void printTrackerPos(const Vrui::VRDeviceState& state,int trackerIndex)
 	Point pos=ts.positionOrientation.getOrigin();
 	std::cout.setf(std::ios::fixed);
 	std::cout.precision(3);
-	std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<")";
+	std::cout<<"("<<std::setw(9)<<pos[0]<<" "<<std::setw(9)<<pos[1]<<" "<<std::setw(9)<<pos[2]<<")";
 	}
 
 void printTrackerPosOrient(const Vrui::VRDeviceState& state,int trackerIndex)
@@ -56,8 +58,8 @@ void printTrackerPosOrient(const Vrui::VRDeviceState& state,int trackerIndex)
 	Scalar angle=Math::deg(rot.getAngle());
 	std::cout.setf(std::ios::fixed);
 	std::cout.precision(3);
-	std::cout<<"("<<std::setw(8)<<pos[0]<<", "<<std::setw(8)<<pos[1]<<", "<<std::setw(8)<<pos[2]<<") ";
-	std::cout<<"("<<std::setw(8)<<axis[0]<<", "<<std::setw(8)<<axis[1]<<", "<<std::setw(8)<<axis[2]<<") ";
+	std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<") ";
+	std::cout<<"("<<std::setw(8)<<axis[0]<<" "<<std::setw(8)<<axis[1]<<" "<<std::setw(8)<<axis[2]<<") ";
 	std::cout<<std::setw(8)<<angle;
 	}
 
@@ -70,11 +72,11 @@ void printTrackerFrame(const Vrui::VRDeviceState& state,int trackerIndex)
 	Vector y=rot.getDirection(1);
 	Vector z=rot.getDirection(2);
 	std::cout.setf(std::ios::fixed);
-	std::cout.precision(4);
+	std::cout.precision(3);
 	std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<") ";
-	std::cout<<"("<<std::setw(8)<<x[0]<<" "<<std::setw(8)<<x[1]<<" "<<std::setw(8)<<x[2]<<") ";
-	std::cout<<"("<<std::setw(8)<<y[0]<<" "<<std::setw(8)<<y[1]<<" "<<std::setw(8)<<y[2]<<") ";
-	std::cout<<"("<<std::setw(8)<<z[0]<<" "<<std::setw(8)<<z[1]<<" "<<std::setw(8)<<z[2]<<")";
+	std::cout<<"("<<std::setw(6)<<x[0]<<" "<<std::setw(6)<<x[1]<<" "<<std::setw(6)<<x[2]<<") ";
+	std::cout<<"("<<std::setw(6)<<y[0]<<" "<<std::setw(6)<<y[1]<<" "<<std::setw(6)<<y[2]<<") ";
+	std::cout<<"("<<std::setw(6)<<z[0]<<" "<<std::setw(6)<<z[1]<<" "<<std::setw(6)<<z[2]<<")";
 	}
 
 void printButtons(const Vrui::VRDeviceState& state)
@@ -106,6 +108,7 @@ int main(int argc,char* argv[])
 	{
 	/* Parse command line: */
 	char* serverName=0;
+	bool printDevices=false;
 	int trackerIndex=0;
 	int printMode=0;
 	bool printButtonStates=false;
@@ -117,7 +120,9 @@ int main(int argc,char* argv[])
 		{
 		if(argv[i][0]=='-')
 			{
-			if(strcasecmp(argv[i],"-t")==0||strcasecmp(argv[i],"--trackerIndex")==0)
+			if(strcasecmp(argv[i],"-listDevices")==0||strcasecmp(argv[i],"-ld")==0)
+				printDevices=true;
+			else if(strcasecmp(argv[i],"-t")==0||strcasecmp(argv[i],"--trackerIndex")==0)
 				{
 				++i;
 				trackerIndex=atoi(argv[i]);
@@ -158,27 +163,72 @@ int main(int argc,char* argv[])
 		return 1;
 		}
 	
+	/* Split the server name into hostname:port: */
+	char* colonPtr=0;
+	for(char* cPtr=serverName;*cPtr!='\0';++cPtr)
+		if(*cPtr==':')
+			colonPtr=cPtr;
+	int portNumber=0;
+	if(colonPtr!=0)
+		{
+		portNumber=atoi(colonPtr+1);
+		*colonPtr='\0';
+		}
+	
 	/* Initialize device client: */
 	Vrui::VRDeviceClient* deviceClient=0;
 	try
 		{
-		/* Split the server name into hostname:port: */
-		char* colonPtr=0;
-		for(char* cPtr=serverName;*cPtr!='\0';++cPtr)
-			if(*cPtr==':')
-				colonPtr=cPtr;
-		int portNumber=0;
-		if(colonPtr!=0)
-			{
-			portNumber=atoi(colonPtr+1);
-			*colonPtr='\0';
-			}
 		deviceClient=new Vrui::VRDeviceClient(serverName,portNumber);
 		}
 	catch(std::runtime_error error)
 		{
 		std::cerr<<"Caught exception "<<error.what()<<" while initializing VR device client"<<std::endl;
 		return 1;
+		}
+	
+	if(printDevices)
+		{
+		/* Print information about the server's virtual input devices: */
+		std::cout<<"Device server at "<<serverName<<":"<<portNumber<<" defines "<<deviceClient->getNumVirtualDevices()<<" virtual input devices."<<std::endl;
+		for(int deviceIndex=0;deviceIndex<deviceClient->getNumVirtualDevices();++deviceIndex)
+			{
+			const Vrui::VRDeviceDescriptor& vd=deviceClient->getVirtualDevice(deviceIndex);
+			std::cout<<"Virtual device "<<vd.name<<":"<<std::endl;
+			std::cout<<"  Track type: ";
+			if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_ORIENT)
+				std::cout<<"6-DOF";
+			else if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_DIR)
+				std::cout<<"Ray-based";
+			else if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_POS)
+				std::cout<<"3-DOF";
+			else
+				std::cout<<"None";
+			std::cout<<std::endl;
+			
+			if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_DIR)
+				std::cout<<"  Device ray direction: "<<vd.rayDirection<<", start: "<<vd.rayStart<<std::endl;
+			
+			if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_POS)
+				std::cout<<"  Tracker index: "<<vd.trackerIndex<<std::endl;
+			
+			if(vd.numButtons>0)
+				{
+				std::cout<<"  "<<vd.numButtons<<" buttons:";
+				for(int i=0;i<vd.numButtons;++i)
+					std::cout<<" ("<<vd.buttonNames[i]<<", "<<vd.buttonIndices[i]<<")";
+				std::cout<<std::endl;
+				}
+			
+			if(vd.numValuators>0)
+				{
+				std::cout<<"  "<<vd.numValuators<<" valuators:";
+				for(int i=0;i<vd.numValuators;++i)
+					std::cout<<" ("<<vd.valuatorNames[i]<<", "<<vd.valuatorIndices[i]<<")";
+				std::cout<<std::endl;
+				}
+			}
+		std::cout<<std::endl;
 		}
 	
 	/* Disable printing of tracking information if there are no trackers: */
@@ -196,119 +246,128 @@ int main(int argc,char* argv[])
 	switch(printMode)
 		{
 		case 0:
-			std::cout<<"  Pos X    Pos Y    Pos Z   "<<std::endl;
+			std::cout<<"     Pos X     Pos Y     Pos Z "<<std::endl;
 			break;
 		
 		case 1:
-			std::cout<<"  Pos X    Pos Y    Pos Z      Axis X   Axis Y   Axis Z    Angle  "<<std::endl;
+			std::cout<<"    Pos X    Pos Y    Pos Z     Axis X   Axis Y   Axis Z     Angle"<<std::endl;
 			break;
 		
 		case 2:
-			std::cout<<" Pos X  Pos Y  Pos Z     XA X   XA Y   XA Z     YA X   YA Y   YA Z     ZA X   ZA Y   ZA Z  "<<std::endl;
+			std::cout<<"    Pos X    Pos Y    Pos Z     XA X   XA Y   XA Z     YA X   YA Y   YA Z     ZA X   ZA Y   ZA Z "<<std::endl;
 			break;
 		}
 	
 	/* Run main loop: */
-	deviceClient->activate();
-	deviceClient->startStream();
-	bool loop=true;
 	Misc::Timer t;
 	int numPackets=0;
-	bool oldTriggerState=false;
-	while(loop)
+	try
 		{
-		/* Print new device state: */
-		if(!printNewlines)
-			std::cout<<"\r";
-		deviceClient->lockState();
-		const Vrui::VRDeviceState& state=deviceClient->getState();
-		
-		if(savePositions&&saveFile!=0)
+		deviceClient->activate();
+		deviceClient->startStream(0);
+		bool loop=true;
+		bool oldTriggerState=false;
+		while(loop)
 			{
-			if(oldTriggerState==false&&state.getButtonState(triggerIndex))
+			/* Print new device state: */
+			if(!printNewlines)
+				std::cout<<"\r";
+			deviceClient->lockState();
+			const Vrui::VRDeviceState& state=deviceClient->getState();
+
+			if(savePositions&&saveFile!=0)
 				{
-				/* Save the current position: */
-				Point::AffineCombiner pc;
-				for(int i=0;i<50;++i)
+				if(oldTriggerState==false&&state.getButtonState(triggerIndex))
 					{
-					/* Accumulate the current position: */
-					const TrackerState& ts=state.getTrackerState(trackerIndex);
-					pc.addPoint(ts.positionOrientation.getOrigin());
-					
-					/* Wait for the next packet: */
-					deviceClient->unlockState();
-					deviceClient->getPacket();
-					deviceClient->lockState();
-					}
-				
-				/* Save the accumulated position: */
-				Point p=pc.getPoint();
-				fprintf(saveFile,"%14.8f %14.8f %14.8f\n",p[0],p[1],p[2]);
-				}
-			oldTriggerState=state.getButtonState(triggerIndex);
-			}
-		
-		switch(printMode)
-			{
-			case 0:
-				if(trackerIndex<0)
-					{
-					printTrackerPos(state,0);
-					for(int i=1;i<state.getNumTrackers();++i)
+					/* Save the current position: */
+					Point::AffineCombiner pc;
+					for(int i=0;i<50;++i)
 						{
-						std::cout<<" ";
-						printTrackerPos(state,i);
+						/* Accumulate the current position: */
+						const TrackerState& ts=state.getTrackerState(trackerIndex);
+						pc.addPoint(ts.positionOrientation.getOrigin());
+
+						/* Wait for the next packet: */
+						deviceClient->unlockState();
+						deviceClient->getPacket();
+						deviceClient->lockState();
 						}
+
+					/* Save the accumulated position: */
+					Point p=pc.getPoint();
+					fprintf(saveFile,"%14.8f %14.8f %14.8f\n",p[0],p[1],p[2]);
 					}
-				else
-					printTrackerPos(state,trackerIndex);
-				break;
-			
-			case 1:
-				printTrackerPosOrient(state,trackerIndex);
-				break;
-			
-			case 2:
-				printTrackerFrame(state,trackerIndex);
-				break;
-			
-			case 3:
-				printValuators(state);
-				break;
-			
-			default:
-				; // Print nothing; nothing, I say!
+				oldTriggerState=state.getButtonState(triggerIndex);
+				}
+
+			switch(printMode)
+				{
+				case 0:
+					if(trackerIndex<0)
+						{
+						printTrackerPos(state,0);
+						for(int i=1;i<state.getNumTrackers();++i)
+							{
+							std::cout<<" ";
+							printTrackerPos(state,i);
+							}
+						}
+					else
+						printTrackerPos(state,trackerIndex);
+					break;
+
+				case 1:
+					printTrackerPosOrient(state,trackerIndex);
+					break;
+
+				case 2:
+					printTrackerFrame(state,trackerIndex);
+					break;
+
+				case 3:
+					printValuators(state);
+					break;
+
+				default:
+					; // Print nothing; nothing, I say!
+				}
+			if(printButtonStates)
+				{
+				std::cout<<" ";
+				printButtons(state);
+				}
+			deviceClient->unlockState();
+			if(printNewlines)
+				std::cout<<std::endl;
+			else
+				std::cout<<std::flush;
+
+			/* Check for a key press event: */
+			fd_set readFdSet;
+			FD_ZERO(&readFdSet);
+			FD_SET(fileno(stdin),&readFdSet);
+			struct timeval timeout;
+			timeout.tv_sec=0;
+			timeout.tv_usec=0;
+			bool dataWaiting=select(fileno(stdin)+1,&readFdSet,0,0,&timeout)>=0&&FD_ISSET(fileno(stdin),&readFdSet);
+			if(dataWaiting)
+				loop=false;
+
+			if(loop)
+				{
+				/* Wait for next packet: */
+				deviceClient->getPacket();
+				++numPackets;
+				}
 			}
-		if(printButtonStates)
-			{
-			std::cout<<" ";
-			printButtons(state);
-			}
-		deviceClient->unlockState();
-		if(printNewlines)
-			std::cout<<std::endl;
-		else
-			std::cout<<std::flush;
-		
-		/* Check for a key press event: */
-		fd_set readFdSet;
-		FD_ZERO(&readFdSet);
-		FD_SET(fileno(stdin),&readFdSet);
-		struct timeval timeout;
-		timeout.tv_sec=0;
-		timeout.tv_usec=0;
-		bool dataWaiting=select(fileno(stdin)+1,&readFdSet,0,0,&timeout)>=0&&FD_ISSET(fileno(stdin),&readFdSet);
-		if(dataWaiting)
-			loop=false;
-		
-		if(loop)
-			{
-			/* Wait for next packet: */
-			deviceClient->getPacket();
-			++numPackets;
-			}
+		std::cout<<std::endl;
 		}
-	std::cout<<std::endl;
+	catch(std::runtime_error err)
+		{
+		if(!printNewlines)
+			std::cout<<std::endl;
+		std::cerr<<"Caught exception "<<err.what()<<" while reading tracking data"<<std::endl;
+		}
 	t.elapse();
 	std::cout<<"Received "<<numPackets<<" device data packets in "<<t.getTime()*1000.0<<" ms ("<<double(numPackets)/t.getTime()<<" packets/s)"<<std::endl;
 	deviceClient->stopStream();

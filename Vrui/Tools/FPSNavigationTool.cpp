@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Tools/FPSNavigationTool.h>
 
 #include <Misc/StandardValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Ray.h>
@@ -33,6 +34,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
+#include <GL/GLValueCoders.h>
+#include <GL/GLContextData.h>
+#include <GL/GLNumberRenderer.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Vrui/Vrui.h>
@@ -40,27 +44,74 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/Viewer.h>
-#include <Vrui/VRScreen.h>
 #include <Vrui/VRWindow.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
+
+/********************************************************
+Methods of class FPSNavigationToolFactory::Configuration:
+********************************************************/
+
+FPSNavigationToolFactory::Configuration::Configuration(void)
+	:activationToggle(true),
+	 rotateFactors(getDisplaySize()/Scalar(4)),
+	 moveSpeeds(getInchFactor()*Scalar(200)),
+	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
+	 jumpVelocity(getMeterFactor()*Scalar(4)),
+	 probeSize(getInchFactor()*Scalar(12)),
+	 maxClimb(getInchFactor()*Scalar(12)),
+	 fixAzimuth(false),
+	 levelOnExit(false),
+	 drawHud(true),hudColor(0.0f,1.0f,0.0f),
+	 hudDist(Geometry::dist(getDisplayCenter(),getMainViewer()->getHeadPosition())),
+	 hudRadius(getDisplaySize()*0.5f),
+	 hudFontSize(float(getUiSize())*1.5f)
+	{
+	}
+
+void FPSNavigationToolFactory::Configuration::load(const Misc::ConfigurationFileSection& cfs)
+	{
+	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
+	rotateFactors=cfs.retrieveValue<Misc::FixedArray<Scalar,2> >("./rotateFactors",rotateFactors);
+	moveSpeeds=cfs.retrieveValue<Misc::FixedArray<Scalar,2> >("./moveSpeeds",moveSpeeds);
+	fallAcceleration=cfs.retrieveValue<Scalar>("./fallAcceleration",fallAcceleration);
+	jumpVelocity=cfs.retrieveValue<Scalar>("./jumpVelocity",jumpVelocity);
+	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
+	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
+	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
+	levelOnExit=cfs.retrieveValue<bool>("./levelOnExit",levelOnExit);
+	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
+	hudColor=cfs.retrieveValue<Color>("./hudColor",hudColor);
+	hudDist=cfs.retrieveValue<float>("./hudDist",hudDist);
+	hudRadius=cfs.retrieveValue<float>("./hudRadius",hudRadius);
+	hudFontSize=cfs.retrieveValue<float>("./hudFontSize",hudFontSize);
+	}
+
+void FPSNavigationToolFactory::Configuration::save(Misc::ConfigurationFileSection& cfs) const
+	{
+	cfs.storeValue<bool>("./activationToggle",activationToggle);
+	cfs.storeValue<Misc::FixedArray<Scalar,2> >("./rotateFactors",rotateFactors);
+	cfs.storeValue<Misc::FixedArray<Scalar,2> >("./moveSpeeds",moveSpeeds);
+	cfs.storeValue<Scalar>("./fallAcceleration",fallAcceleration);
+	cfs.storeValue<Scalar>("./jumpVelocity",jumpVelocity);
+	cfs.storeValue<Scalar>("./probeSize",probeSize);
+	cfs.storeValue<Scalar>("./maxClimb",maxClimb);
+	cfs.storeValue<bool>("./fixAzimuth",fixAzimuth);
+	cfs.storeValue<bool>("./levelOnExit",levelOnExit);
+	cfs.storeValue<bool>("./drawHud",drawHud);
+	cfs.storeValue<Color>("./hudColor",hudColor);
+	cfs.storeValue<float>("./hudDist",hudDist);
+	cfs.storeValue<float>("./hudRadius",hudRadius);
+	cfs.storeValue<float>("./hudFontSize",hudFontSize);
+	}
 
 /*****************************************
 Methods of class FPSNavigationToolFactory:
 *****************************************/
 
 FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
-	:ToolFactory("FPSNavigationTool",toolManager),
-	 rotateFactor(getInchFactor()*Scalar(12)),
-	 moveSpeed(getInchFactor()*Scalar(120)),
-	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
-	 jumpVelocity(getMeterFactor()*Scalar(4)),
-	 probeSize(getInchFactor()*Scalar(12)),
-	 maxClimb(getInchFactor()*Scalar(12)),
-	 fixAzimuth(false),
-	 showHud(true),
-	 levelOnExit(false)
+	:ToolFactory("FPSNavigationTool",toolManager)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(6);
@@ -71,16 +122,7 @@ FPSNavigationToolFactory::FPSNavigationToolFactory(ToolManager& toolManager)
 	addParentClass(navigationToolFactory);
 	
 	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
-	moveSpeed=cfs.retrieveValue<Scalar>("./moveSpeed",moveSpeed);
-	fallAcceleration=cfs.retrieveValue<Scalar>("./fallAcceleration",fallAcceleration);
-	jumpVelocity=cfs.retrieveValue<Scalar>("./jumpVelocity",jumpVelocity);
-	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
-	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
-	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
-	showHud=cfs.retrieveValue<bool>("./showHud",showHud);
-	levelOnExit=cfs.retrieveValue<bool>("./levelOnExit",levelOnExit);
+	config.load(toolManager.getToolClassSection(getClassName()));
 	
 	/* Set tool class' factory pointer: */
 	FPSNavigationTool::factory=this;
@@ -167,29 +209,6 @@ FPSNavigationToolFactory* FPSNavigationTool::factory=0;
 Methods of class FPSNavigationTool:
 **********************************/
 
-Point FPSNavigationTool::calcMousePosition(void) const
-	{
-	if(mouseAdapter!=0)
-		{
-		/* Return the mouse position directly: */
-		return Point(mouseAdapter->getMousePosition()[0],mouseAdapter->getMousePosition()[1],Scalar(0));
-		}
-	else
-		{
-		/* Calculate the ray equation: */
-		Ray ray=getButtonDeviceRay(0);
-		
-		/* Intersect the ray with the main screen: */
-		ONTransform screenT=getMainScreen()->getScreenTransformation();
-		Vector screenNormal=screenT.getDirection(2);
-		Scalar screenOffset=screenT.getOrigin()*screenNormal;
-		Scalar lambda=(screenOffset-ray.getOrigin()*screenNormal)/(ray.getDirection()*screenNormal);
-		
-		/* Return the intersection point in screen coordinates: */
-		return screenT.inverseTransform(ray(lambda));
-		}
-	}
-
 void FPSNavigationTool::applyNavState(void)
 	{
 	/* Compose and apply the navigation transformation: */
@@ -205,19 +224,9 @@ void FPSNavigationTool::initNavState(void)
 	/* Initialize the navigation state: */
 	if(mouseAdapter!=0)
 		{
-		/* Get the current cursor position in the controlling window: */
-		for(int i=0;i<2;++i)
-			oldMousePos[i]=mouseAdapter->getMousePosition()[i];
-		
-		/* Enable mouse warping on the controlling window: */
-		mouseAdapter->getWindow()->hideCursor();
-		mouseAdapter->getWindow()->getWindowCenterPos(lastMousePos.getComponents());
-		lastMousePos[2]=Scalar(0);
-		mouseAdapter->getWindow()->setCursorPosWithAdjust(lastMousePos.getComponents());
-		mouseAdapter->setMousePosition(mouseAdapter->getWindow(),lastMousePos.getComponents());
+		/* Lock the mouse to the center of the window: */
+		mouseAdapter->lockMouse();
 		}
-	else
-		lastMousePos=calcMousePosition();
 	
 	/* Calculate the main viewer's current head and foot positions: */
 	Point headPos=getMainViewer()->getHeadPosition();
@@ -232,7 +241,7 @@ void FPSNavigationTool::initNavState(void)
 	NavTransform newSurfaceFrame=surfaceFrame;
 	
 	/* Align the initial frame with the application's surface and calculate Euler angles: */
-	AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
+	AlignmentData ad(surfaceFrame,newSurfaceFrame,config.probeSize,config.maxClimb);
 	Scalar roll;
 	align(ad,azimuth,elevation,roll);
 	
@@ -245,7 +254,7 @@ void FPSNavigationTool::initNavState(void)
 	if(z>Scalar(0))
 		{
 		newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
-		moveVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
+		moveVelocity[2]-=config.fallAcceleration*getCurrentFrameTime();
 		}
 	
 	/* Move the physical frame to the foot position, and adjust the surface frame accordingly: */
@@ -259,21 +268,51 @@ void FPSNavigationTool::initNavState(void)
 
 void FPSNavigationTool::stopNavState(void)
 	{
+	if(config.levelOnExit)
+		{
+		/* Calculate the main viewer's current head and foot positions: */
+		Point headPos=getMainViewer()->getHeadPosition();
+		footPos=projectToFloor(headPos);
+		headHeight=Geometry::dist(headPos,footPos);
+		
+		/* Reset the elevation angle: */
+		elevation=Scalar(0);
+		
+		/* Apply the final navigation state: */
+		applyNavState();
+		}
+	
 	if(mouseAdapter!=0)
 		{
-		/* Disable mouse warping on the controlling window: */
-		mouseAdapter->setMousePosition(mouseAdapter->getWindow(),oldMousePos);
-		mouseAdapter->getWindow()->setCursorPos(oldMousePos);
-		mouseAdapter->getWindow()->showCursor();
+		/* Unlock the mouse pointer: */
+		mouseAdapter->unlockMouse();
 		}
 	}
 
 FPSNavigationTool::FPSNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:SurfaceNavigationTool(factory,inputAssignment),
+	 config(FPSNavigationTool::factory->config),
 	 buttonDevice(0),
 	 mouseAdapter(0),
-	 numberRenderer(float(getUiSize())*1.5f,true)
+	 numberRenderer(0)
 	{
+	}
+
+FPSNavigationTool::~FPSNavigationTool(void)
+	{
+	delete numberRenderer;
+	}
+
+void FPSNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Override the current configuration from the given configuration file section: */
+	config.load(configFileSection);
+	}
+
+void FPSNavigationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Save the current configuration to the given configuration file section: */
+	config.save(configFileSection);
 	}
 
 void FPSNavigationTool::initialize(void)
@@ -294,11 +333,14 @@ void FPSNavigationTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
+	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 	buttonDevice->setTransformation(device->getTransformation());
-	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	
 	/* Get a pointer to the input device's controlling adapter: */
 	mouseAdapter=dynamic_cast<InputDeviceAdapterMouse*>(getInputDeviceManager()->findInputDeviceAdapter(getButtonDevice(0)));
+	
+	/* Create the number renderer: */
+	numberRenderer=new GLNumberRenderer(config.hudFontSize,true);
 	}
 
 void FPSNavigationTool::deinitialize(void)
@@ -318,64 +360,74 @@ const ToolFactory* FPSNavigationTool::getFactory(void) const
 
 void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	if(isActive())
+	if(buttonSlotIndex==0)
+		{
+		/* Determine the new activation state of the tool: */
+		bool newActive;
+		if(config.activationToggle)
+			{
+			newActive=isActive();
+			if(cbData->newButtonState)
+				newActive=!newActive;
+			}
+		else
+			newActive=cbData->newButtonState;
+		
+		/* Activate or deactivate the tool: */
+		if(isActive())
+			{
+			if(!newActive)
+				{
+				/* Deactivate this tool: */
+				stopNavState();
+				deactivate();
+				
+				/* Set the forwarded buttons to the states of the real buttons: */
+				for(int i=0;i<4;++i)
+					buttonDevice->setButtonState(i,getButtonState(1+i));
+				}
+			}
+		else
+			{
+			/* Try activating this tool: */
+			if(newActive&&activate())
+				{
+				/* Initialize the navigation: */
+				initNavState();
+				}
+			}
+		}
+	else if(isActive())
 		{
 		/* Process based on which button was pressed: */
 		switch(buttonSlotIndex)
 			{
-			case 0:
-				if(cbData->newButtonState) // Button has just been pressed
-					{
-					if(factory->levelOnExit)
-						{
-						/* Calculate the main viewer's current head and foot positions: */
-						Point headPos=getMainViewer()->getHeadPosition();
-						footPos=projectToFloor(headPos);
-						headHeight=Geometry::dist(headPos,footPos);
-						
-						/* Reset the elevation angle: */
-						elevation=Scalar(0);
-						
-						/* Apply the final navigation state: */
-						applyNavState();
-						}
-					
-					/* Deactivate this tool: */
-					deactivate();
-					stopNavState();
-					
-					/* Set the forwarded buttons to the states of the real buttons: */
-					for(int i=0;i<4;++i)
-						buttonDevice->setButtonState(i,getButtonState(1+i));
-					}
-				break;
-			
 			case 1:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[0]-=factory->moveSpeed;
+					moveVelocity[0]-=config.moveSpeeds[0];
 				else // Button has just been released
-					moveVelocity[0]+=factory->moveSpeed;
+					moveVelocity[0]+=config.moveSpeeds[0];
 				break;
 			
 			case 2:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[0]+=factory->moveSpeed;
+					moveVelocity[0]+=config.moveSpeeds[0];
 				else // Button has just been released
-					moveVelocity[0]-=factory->moveSpeed;
+					moveVelocity[0]-=config.moveSpeeds[0];
 				break;
 			
 			case 3:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[1]-=factory->moveSpeed;
+					moveVelocity[1]-=config.moveSpeeds[1];
 				else // Button has just been released
-					moveVelocity[1]+=factory->moveSpeed;
+					moveVelocity[1]+=config.moveSpeeds[1];
 				break;
 			
 			case 4:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[1]+=factory->moveSpeed;
+					moveVelocity[1]+=config.moveSpeeds[1];
 				else // Button has just been released
-					moveVelocity[1]-=factory->moveSpeed;
+					moveVelocity[1]-=config.moveSpeeds[1];
 				break;
 			
 			case 5:
@@ -390,50 +442,45 @@ void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCa
 		}
 	else
 		{
-		if(buttonSlotIndex==0)
-			{
-			if(cbData->newButtonState) // Button has just been pressed
-				{
-				/* Try activating this tool: */
-				if(activate())
-					initNavState();
-				}
-			}
-		else
-			{
-			/* Forward the movement buttons to the virtual input device: */
-			buttonDevice->setButtonState(buttonSlotIndex-1,cbData->newButtonState);
-			}
+		/* Forward the movement buttons to the virtual input device: */
+		buttonDevice->setButtonState(buttonSlotIndex-1,cbData->newButtonState);
 		}
 	}
 
 void FPSNavigationTool::frame(void)
 	{
+	InputDevice* device=getButtonDevice(1);
+	
 	/* Act depending on this tool's current state: */
 	if(isActive())
 		{
 		bool update=false;
 		
-		/* Calculate the change in mouse position: */
-		Point mousePos=calcMousePosition();
-		if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1])
+		/* Get the device's linear velocity and calculate its left/right and up/down components: */
+		Vector right=getForwardDirection()^getUpDirection();
+		right.normalize();
+		Scalar x=(right*device->getLinearVelocity())*getFrameTime();
+		Scalar y=(getUpDirection()*device->getLinearVelocity())*getFrameTime();
+		if(x!=Scalar(0)||y!=Scalar(0))
 			{
 			/* Update the azimuth angle: */
-			azimuth=wrapAngle(azimuth+(mousePos[0]-lastMousePos[0])/factory->rotateFactor);
+			if(config.rotateFactors[0]!=Scalar(0))
+				azimuth=wrapAngle(azimuth+x/config.rotateFactors[0]);
 			
 			/* Update the elevation angle: */
-			elevation+=(mousePos[1]-lastMousePos[1])/factory->rotateFactor;
-			if(elevation<Math::rad(Scalar(-90)))
-				elevation=Math::rad(Scalar(-90));
-			else if(elevation>Math::rad(Scalar(90)))
-				elevation=Math::rad(Scalar(90));
+			if(config.rotateFactors[1]!=Scalar(0))
+				{
+				Scalar zenith=Math::rad(Scalar(90));
+				elevation=Math::clamp(elevation+y/config.rotateFactors[1],-zenith,zenith);
+				}
 			
 			update=true;
 			}
 		
 		/* Calculate the new head and foot positions: */
-		Point newFootPos=projectToFloor(getMainViewer()->getHeadPosition());
-		headHeight=Geometry::dist(getMainViewer()->getHeadPosition(),newFootPos);
+		Point newHeadPos=getMainViewer()->getHeadPosition();
+		Point newFootPos=projectToFloor(newHeadPos);
+		headHeight=Geometry::dist(newHeadPos,newFootPos);
 		
 		/* Check for movement: */
 		if(moveVelocity!=Vector::zero||newFootPos!=footPos||jump)
@@ -464,10 +511,10 @@ void FPSNavigationTool::frame(void)
 			/* Re-align the surface frame with the surface: */
 			Point initialOrigin=newSurfaceFrame.getOrigin();
 			Rotation initialOrientation=newSurfaceFrame.getRotation();
-			AlignmentData ad(surfaceFrame,newSurfaceFrame,factory->probeSize,factory->maxClimb);
+			AlignmentData ad(surfaceFrame,newSurfaceFrame,config.probeSize,config.maxClimb);
 			align(ad);
 			
-			if(!factory->fixAzimuth)
+			if(!config.fixAzimuth)
 				{
 				/* Have the azimuth angle track changes in the surface frame's rotation: */
 				Rotation rot=Geometry::invert(initialOrientation)*newSurfaceFrame.getRotation();
@@ -482,7 +529,7 @@ void FPSNavigationTool::frame(void)
 				{
 				/* Lift the aligned frame back up to the original altitude and fall: */
 				newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
-				moveVelocity[2]-=factory->fallAcceleration*getCurrentFrameTime();
+				moveVelocity[2]-=config.fallAcceleration*getCurrentFrameTime();
 				}
 			else
 				{
@@ -491,7 +538,7 @@ void FPSNavigationTool::frame(void)
 				
 				/* Check if the user wants to jump: */
 				if(jump)
-					moveVelocity[2]=factory->jumpVelocity;
+					moveVelocity[2]=config.jumpVelocity;
 				}
 			
 			/* Apply the newly aligned surface frame: */
@@ -503,17 +550,6 @@ void FPSNavigationTool::frame(void)
 				/* Request another frame: */
 				scheduleUpdate(getApplicationTime()+1.0/125.0);
 				}
-			
-			if(mousePos[0]!=lastMousePos[0]||mousePos[1]!=lastMousePos[1])
-				{
-				if(mouseAdapter!=0)
-					{
-					/* Warp the cursor back to the center of the window: */
-					mouseAdapter->getWindow()->setCursorPos(lastMousePos.getComponents());
-					}
-				else
-					lastMousePos=mousePos;
-				}
 			}
 		
 		/* Reset the jump request flag: */
@@ -521,123 +557,95 @@ void FPSNavigationTool::frame(void)
 		}
 	
 	/* Update the virtual input device: */
-	InputDevice* device=getButtonDevice(1);
+	buttonDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
 	buttonDevice->setTransformation(device->getTransformation());
-	buttonDevice->setDeviceRayDirection(device->getDeviceRayDirection());
 	}
 
 void FPSNavigationTool::display(GLContextData& contextData) const
 	{
-	if(factory->showHud&&isActive())
+	if(isActive()&&config.drawHud)
 		{
-		/* Save and set up OpenGL state: */
-		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
+		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
-		
-		/* Go to screen coordinates: */
-		glPushMatrix();
-		Scalar viewport[4];
-		glMultMatrix(getMouseScreenTransform(mouseAdapter,viewport));
-		
-		/* Determine the crosshair colors: */
-		Color bgColor=getBackgroundColor();
-		Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
-		/* Calculate the window's or screen's center: */
-		Scalar centerPos[2];
-		for(int i=0;i<2;++i)
-			centerPos[i]=Math::mid(viewport[2*i+0],viewport[2*i+1]);
-		
-		/* Calculate the HUD layout: */
-		Scalar crosshairSize1=getUiSize()*Scalar(0.5);
-		Scalar crosshairSize2=getUiSize()*Scalar(1.5);
-		Scalar ribbonY=viewport[3]-getUiSize()*Scalar(3);
-		Scalar ribbonSize=(viewport[1]-viewport[0])*Scalar(0.25);
-		Scalar ribbonTickSize=getUiSize();
-		Scalar azimuthDeg=Math::deg(azimuth);
-		
-		/* Draw the foreground: */
 		glLineWidth(1.0f);
-		glColor(fgColor);
+		glColor(config.hudColor);
+		
+		/* Get the HUD layout parameters: */
+		float y=config.hudDist;
+		float r=config.hudRadius;
+		float s=config.hudFontSize;
+		
+		/* Go to the physical frame: */
+		glPushMatrix();
+		glMultMatrix(physicalFrame);
+		
+		/* Go to the HUD frame: */
+		glTranslatef(0.0f,y,float(headHeight));
+		glRotatef(90.0f,1.0f,0.0f,0.0f);
+		
+		/* Draw the boresight crosshairs: */
 		glBegin(GL_LINES);
+		glVertex2f(-r*0.05f,   0.00f);
+		glVertex2f(-r*0.02f,   0.00f);
+		glVertex2f( r*0.02f,   0.00f);
+		glVertex2f( r*0.05f,   0.00f);
+		glVertex2f(   0.00f,-r*0.05f);
+		glVertex2f(   0.00f,-r*0.02f);
+		glVertex2f(   0.00f, r*0.02f);
+		glVertex2f(   0.00f, r*0.05f);
+		glEnd();
 		
-		/* Draw the crosshairs: */
-		glVertex(centerPos[0]-crosshairSize2,centerPos[1]);
-		glVertex(centerPos[0]-crosshairSize1,centerPos[1]);
-		glVertex(centerPos[0]+crosshairSize1,centerPos[1]);
-		glVertex(centerPos[0]+crosshairSize2,centerPos[1]);
-		glVertex(centerPos[0],centerPos[1]-crosshairSize2);
-		glVertex(centerPos[0],centerPos[1]-crosshairSize1);
-		glVertex(centerPos[0],centerPos[1]+crosshairSize1);
-		glVertex(centerPos[0],centerPos[1]+crosshairSize2);
+		/* Get the tool's orientation Euler angles in degrees: */
+		float azimuthDeg=Math::deg(azimuth);
 		
-		/* Draw the azimuth ribbon: */
-		glVertex(centerPos[0]-ribbonTickSize,ribbonY+ribbonTickSize*Scalar(2));
-		glVertex(centerPos[0],ribbonY);
-		glVertex(centerPos[0]+ribbonTickSize,ribbonY+ribbonTickSize*Scalar(2));
-		glVertex(centerPos[0],ribbonY);
-		glVertex(centerPos[0]-ribbonSize,ribbonY);
-		glVertex(centerPos[0]+ribbonSize,ribbonY);
+		/* Draw the compass ribbon: */
+		glBegin(GL_LINES);
+		glVertex2f(-r,r);
+		glVertex2f(r,r);
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		glVertex2f(-s*0.5f,r+s);
+		glVertex2f(0.0f,r);
+		glVertex2f(s*0.5f,r+s);
+		glEnd();
 		
-		/* Draw the small azimuth tick marks: */
+		/* Draw the azimuth tick marks: */
+		glBegin(GL_LINES);
 		for(int az=0;az<360;az+=10)
 			{
-			Scalar dist=Scalar(az)-azimuthDeg;
-			if(dist<Scalar(-180))
-				dist+=Scalar(360);
-			if(dist>Scalar(180))
-				dist-=Scalar(360);
-			if(Math::abs(dist)<=Scalar(60))
+			float dist=float(az)-azimuthDeg;
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<=60.0f)
 				{
-				glVertex(centerPos[0]+dist*ribbonSize/Scalar(60),ribbonY);
-				glVertex(centerPos[0]+dist*ribbonSize/Scalar(60),ribbonY-ribbonTickSize);
+				float x=dist*r/60.0f;
+				glVertex2f(x,r);
+				glVertex2f(x,r-(az%30==0?s*1.5f:s));
 				}
 			}
-		
-		/* Draw the big azimuth tick marks: */
-		for(int az=0;az<360;az+=30)
-			{
-			Scalar dist=Scalar(az)-azimuthDeg;
-			if(dist<Scalar(-180))
-				dist+=Scalar(360);
-			if(dist>Scalar(180))
-				dist-=Scalar(360);
-			if(Math::abs(dist)<=Scalar(60))
-				{
-				Scalar x=centerPos[0]+dist*ribbonSize/Scalar(60);
-				glVertex(x,ribbonY);
-				glVertex(x,ribbonY-ribbonTickSize*Scalar(2));
-				}
-			}
-		
 		glEnd();
 		
 		/* Draw the azimuth labels: */
+		GLNumberRenderer::Vector pos;
+		pos[1]=r-s*2.0f;
+		pos[2]=0.0f;
 		for(int az=0;az<360;az+=30)
 			{
-			Scalar dist=Scalar(az)-azimuthDeg;
-			if(dist<Scalar(-180))
-				dist+=Scalar(360);
-			if(dist>Scalar(180))
-				dist-=Scalar(360);
-			if(Math::abs(dist)<=Scalar(60))
+			float dist=float(az)-azimuthDeg;
+			if(dist<-180.0f)
+				dist+=360.0f;
+			if(dist>180.0f)
+				dist-=360.0f;
+			if(Math::abs(dist)<=60.0f)
 				{
-				/* Draw the azimuth number: */
-				GLNumberRenderer::Vector pos;
-				pos[0]=centerPos[0]+dist*ribbonSize/Scalar(60);
-				pos[1]=ribbonY-ribbonTickSize*Scalar(2.5);
-				pos[2]=0.0f;
-				numberRenderer.drawNumber(pos,az,contextData,0,1);
+				pos[0]=dist*r/60.0f;
+				numberRenderer->drawNumber(pos,az,contextData,0,1);
 				}
 			}
 		
-		/* Go back to physical coordinates: */
 		glPopMatrix();
-		
-		/* Restore OpenGL state: */
 		glPopAttrib();
 		}
 	}

@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -73,7 +73,7 @@ HelicopterNavigationToolFactory::Configuration::Configuration(void)
 	viewAngleFactors[1]=Scalar(-25);
 	}
 
-void HelicopterNavigationToolFactory::Configuration::load(Misc::ConfigurationFileSection& cfs)
+void HelicopterNavigationToolFactory::Configuration::load(const Misc::ConfigurationFileSection& cfs)
 	{
 	/* Get parameters: */
 	activationToggle=cfs.retrieveValue<bool>("./activationToggle",activationToggle);
@@ -299,7 +299,7 @@ HelicopterNavigationTool::~HelicopterNavigationTool(void)
 	delete numberRenderer;
 	}
 
-void HelicopterNavigationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void HelicopterNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Update the configuration: */
 	config.load(configFileSection);
@@ -415,7 +415,7 @@ void HelicopterNavigationTool::frame(void)
 		accel+=orientation.inverseTransform(drag);
 		
 		/* Rotate the helicopter body slightly if there is off-axis drag: */
-		Vector torque=Geometry::cross(Vector(0.0,-0.0002,0.0002),localVelocity);
+		Vector torque=Vector(0.0,-0.0002,0.0002)^localVelocity;
 		orientation.leftMultiply(Rotation::rotateScaledAxis(torque*dt));
 		orientation.renormalize();
 		

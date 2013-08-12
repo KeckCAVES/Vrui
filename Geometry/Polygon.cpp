@@ -1,6 +1,6 @@
 /***********************************************************************
 Polygon - Class for planar polygons in affine space.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
