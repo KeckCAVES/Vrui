@@ -330,9 +330,9 @@ void CurveEditorTool::moveToControlPoint(const CurveEditorTool::ControlPoint& cp
 	/* Set the navigation transformation to the picked vertex: */
 	NavTransform nav=NavTransform::identity;
 	nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-	nav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+	nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
 	nav*=NavTransform::scale(getDisplaySize()/Math::exp(cp.size));
-	nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(cp.forward,cp.up),cp.forward)));
+	nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(cp.forward^cp.up,cp.forward)));
 	nav*=NavTransform::translateToOriginFrom(cp.center);
 	setNavigationTransformation(nav);
 	}

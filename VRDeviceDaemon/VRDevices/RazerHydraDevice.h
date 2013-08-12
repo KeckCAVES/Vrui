@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydraDevice - Class to wrap the low-level Razer Hydra device driver
 in a VRDevice.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 

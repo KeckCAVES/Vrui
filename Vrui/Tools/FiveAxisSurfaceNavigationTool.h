@@ -2,7 +2,7 @@
 FiveAxisSurfaceNavigationTool - Class for navigation tools that use a
 six-axis spaceball or similar input device to move along an application-
 defined surface.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -67,7 +67,7 @@ class FiveAxisSurfaceNavigationToolFactory:public ToolFactory
 		Configuration(void); // Creates default configuration
 		
 		/* Methods: */
-		void load(Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
+		void load(const Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
 		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
 		};
 	
@@ -129,7 +129,7 @@ class FiveAxisSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	virtual ~FiveAxisSurfaceNavigationTool(void);
 	
 	/* Methods from Tool: */
-	virtual void configure(Misc::ConfigurationFileSection& configFileSection);
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
 	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);

@@ -1,7 +1,7 @@
 /***********************************************************************
 ShiftButtonTool - Class to switch between planes of buttons and/or
 valuators by pressing a "shift" button.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -140,7 +140,7 @@ ShiftButtonTool::~ShiftButtonTool(void)
 	{
 	}
 
-void ShiftButtonTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void ShiftButtonTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read settings: */
 	toggle=configFileSection.retrieveValue<bool>("./toggle",toggle);

@@ -173,6 +173,7 @@ FileSelectionHelper::~FileSelectionHelper(void)
 		CallbackState* succ=head->succ;
 		if(head->dialog!=0)
 			head->dialog->close();
+		delete head->callback;
 		delete head;
 		head=succ;
 		}

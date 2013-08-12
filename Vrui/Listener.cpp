@@ -1,6 +1,6 @@
 /***********************************************************************
 Listener - Class for listeners/ sound observers in VR environments.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -66,6 +66,9 @@ void Listener::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		headDevice=findInputDevice(configFileSection.retrieveString("./headDevice").c_str());
 		if(headDevice==0)
 			Misc::throwStdErr("Listener: Head device \"%s\" not found",configFileSection.retrieveString("./headDevice").c_str());
+		
+		/* Initialize the head device transformation: */
+		headDeviceTransformation=headDevice->getTransformation();
 		}
 	else
 		{

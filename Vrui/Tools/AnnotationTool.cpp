@@ -277,8 +277,8 @@ void AnnotationTool::Position::draw(GLContextData& contextData) const
 	glPushMatrix();
 	glTranslate(physPos-Point::origin);
 	Vector z=getMainViewer()->getHeadPosition()-physPos;
-	Vector x=Geometry::cross(getUpDirection(),z);
-	Vector y=Geometry::cross(z,x);
+	Vector x=getUpDirection()^z;
+	Vector y=z^x;
 	glRotate(Rotation::fromBaseVectors(x,y));
 	
 	for(int i=0;i<3;++i)
@@ -423,7 +423,7 @@ void AnnotationTool::Distance::draw(GLContextData& contextData) const
 	
 	Vector x=physPos[1]-physPos[0];
 	Vector z=getMainViewer()->getHeadPosition()-physPos[0];
-	Vector y=Geometry::cross(z,x);
+	Vector y=z^x;
 	y.normalize();
 	
 	/* Draw the distance measure: */
@@ -462,8 +462,8 @@ void AnnotationTool::Distance::draw(GLContextData& contextData) const
 	Point p=Geometry::mid(physPos[0],physPos[1])+y*factory->markerSize*Scalar(2);
 	glTranslate(p-Point::origin);
 	z=getMainViewer()->getHeadPosition()-p+y*factory->markerSize*Scalar(0.5);
-	y=Geometry::cross(z,x);
-	x=Geometry::cross(y,z);
+	y=z^x;
+	x=y^z;
 	glRotate(Rotation::fromBaseVectors(x,y));
 	
 	distLabel.draw(contextData);
@@ -642,7 +642,7 @@ void AnnotationTool::Angle::draw(GLContextData& contextData) const
 		x[i]=physPos[i+1]-physPos[0];
 		xLen[i]=Geometry::mag(x[i]);
 		Vector z=getMainViewer()->getHeadPosition()-physPos[i+1];
-		y[i]=Geometry::cross(z,x[i]);
+		y[i]=z^x[i];
 		y[i].normalize();
 		}
 	Vector c=x[0]*(factory->markerSize*Scalar(6)/xLen[0]);
@@ -703,8 +703,8 @@ void AnnotationTool::Angle::draw(GLContextData& contextData) const
 	Point p=physPos[0]+(c*Math::cos(angle*Scalar(0.5))+s*Math::sin(angle*Scalar(0.5)))*Scalar(7.0/6.0);
 	glTranslate(p-Point::origin);
 	Vector lz=getMainViewer()->getHeadPosition()-p;
-	Vector lx=Geometry::cross(getUpDirection(),lz);
-	Vector ly=Geometry::cross(lz,lx);
+	Vector lx=getUpDirection()^lz;
+	Vector ly=lz^lx;
 	glRotate(Rotation::fromBaseVectors(lx,ly));
 	
 	angleLabel.draw(contextData);
@@ -952,7 +952,7 @@ AnnotationTool::~AnnotationTool(void)
 	delete dragState;
 	}
 
-void AnnotationTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void AnnotationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read the currently selected toggle: */
 	int creationState=configFileSection.retrieveValue<int>("./creationState",-1);

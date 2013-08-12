@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2012 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -415,6 +415,21 @@ bool ConfigurationFileBase::Section::hasTag(const char* relativeTagPath) const
 	return tvIt!=sPtr->values.end();
 	}
 
+const std::string* ConfigurationFileBase::Section::findTagValue(const char* relativeTagPath) const
+	{
+	/* Go to the section containing the given tag: */
+	const char* tagName=0;
+	const Section* sPtr=getSection(relativeTagPath,&tagName);
+	
+	/* Find the tag name in the section's tag list: */
+	std::list<TagValue>::const_iterator tvIt;
+	for(tvIt=sPtr->values.begin();tvIt!=sPtr->values.end()&&tvIt->tag!=tagName;++tvIt)
+		;
+	
+	/* Return tag value or null pointer: */
+	return tvIt!=sPtr->values.end()?&(tvIt->value):0;
+	}
+
 const std::string& ConfigurationFileBase::Section::retrieveTagValue(const char* relativeTagPath) const
 	{
 	/* Go to the section containing the given tag: */
@@ -620,9 +635,21 @@ void ConfigurationFileBase::merge(const char* mergeFileName)
 		
 		if(strcasecmp(token.c_str(),"section")==0)
 			{
+			/* Check if the section name starts with a double quote for backwards compatibility: */
+			std::string sectionName;
+			if(linePtr!=lineEndPtr&&*linePtr=='\"')
+				{
+				/* Parse the section name as a string: */
+				sectionName=ValueCoder<std::string>::decode(linePtr,lineEndPtr,&decodeEnd);
+				}
+			else
+				{
+				/* Read everything after the "section" token as the section name, including whitespace and special characters: */
+				sectionName=std::string(linePtr,lineEndPtr);
+				}
+			
 			/* Add a new subsection to the current section and make it the current section: */
-			std::string sectionName=ValueCoder<std::string>::decode(linePtr,lineEndPtr,&decodeEnd);
-			if(sectionName=="")
+			if(sectionName.empty())
 				throw MalformedConfigFileError("Missing section name after section command",lineNumber,fileName);
 			sectionPtr=sectionPtr->addSubsection(sectionName);
 			}
@@ -636,8 +663,41 @@ void ConfigurationFileBase::merge(const char* mergeFileName)
 			}
 		else if(linePtr!=lineEndPtr)
 			{
-			/* Add a tag/value pair to the current section: */
-			sectionPtr->addTagValue(token,std::string(linePtr,lineEndPtr));
+			/* Check for the special "+=" operator: */
+			if(*linePtr=='+'&&linePtr+1!=lineEndPtr&&linePtr[1]=='=')
+				{
+				/* Skip the operator and whitespace and get the new tag value: */
+				for(linePtr+=2;linePtr!=lineEndPtr&&isspace(*linePtr);++linePtr)
+					;
+				if(linePtr!=lineEndPtr)
+					{
+					/* Get the current tag value, defaulting to an empty list if the tag does not exist yet: */
+					std::string currentValue=sectionPtr->retrieveTagValue(token.c_str(),"()");
+					
+					/* Check that the current tag ends with a closing parenthesis, and the new tag value starts with an opening parenthesis: */
+					if(*linePtr=='('&&*(currentValue.end()-1)==')')
+						{
+						/* Concatenate the current and new tag values: */
+						currentValue.erase(currentValue.end()-1);
+						
+						/* Insert a list item separator if the current value is not the empty list: */
+						if(*(currentValue.end()-1)!='(')
+							currentValue.append(", ");
+						
+						currentValue.append(std::string(linePtr+1,lineEndPtr));
+						
+						/* Store the concatenated tag values: */
+						sectionPtr->addTagValue(token,currentValue);
+						}
+					else
+						throw MalformedConfigFileError("+= operator used on non-list",lineNumber,fileName);
+					}
+				}
+			else
+				{
+				/* Add a tag/value pair to the current section: */
+				sectionPtr->addTagValue(token,std::string(linePtr,lineEndPtr));
+				}
 			}
 		else
 			{

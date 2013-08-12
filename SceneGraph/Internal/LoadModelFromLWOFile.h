@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadModelFromLWOFile - Function to load static (non-animated) models
 from files in LightWave Object (LWO) format.
-Copyright (c) 2007-2011l Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

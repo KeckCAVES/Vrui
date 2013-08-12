@@ -119,26 +119,5 @@ void VruiCustomToolDemo::selectApplicationObject(void)
 	std::cout<<"VruiCustomToolDemo: selectApplicationObject has just been called"<<std::endl;
 	}
 
-/*************
-Main function:
-*************/
-
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		/* Create an application object: */
-		VruiCustomToolDemo app(argc,argv);
-		
-		/* Run the Vrui main loop: */
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	/* Exit to OS: */
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(VruiCustomToolDemo)

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLGeometryShader - Class to represent GLSL shaders that contain at least
 one geometry shader according to the GL_EXT_geometry_shader4 extension.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 Based on code provided by Tony Bernardin
 
 This file is part of the OpenGL Support Library (GLSupport).
@@ -36,11 +36,7 @@ Methods of class GLGeometryShader:
 
 GLGeometryShader::GLGeometryShader(void)
 	{
-	/* Check for the required OpenGL extensions: */
-	if(!GLEXTGeometryShader4::isSupported())
-		Misc::throwStdErr("GLGeometryShader::GLGeometryShader: GL_EXT_geometry_shader4 not supported");
-	
-	/* Initialize the required extensions: */
+	/* Initialize the required extensions, extension manager will throw exception if any are not supported: */
 	GLEXTGeometryShader4::initExtension();
 	}
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 GLPolylineTube - Class to render a polyline as a cylindrical tube.
-Copyright (c) 2006 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

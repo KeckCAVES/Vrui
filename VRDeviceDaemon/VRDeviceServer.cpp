@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2011 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdexcept>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Vrui/Internal/VRDeviceDescriptor.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
 
@@ -95,19 +96,28 @@ void* VRDeviceServer::clientCommunicationThreadMethod(VRDeviceServer::ClientData
 						case Vrui::VRDevicePipe::CONNECT_REQUEST:
 							{
 							/* Read client's protocol version number: */
-							unsigned int clientProtocolVersion=pipe.read<unsigned int>();
+							clientData->protocolVersion=pipe.read<unsigned int>();
 							
 							/* Lock the pipe for writing: */
 							Threads::Mutex::Lock pipeLock(clientData->pipeMutex);
 							
 							/* Send connect reply message: */
 							pipe.writeMessage(Vrui::VRDevicePipe::CONNECT_REPLY);
-							if(clientProtocolVersion>Vrui::VRDevicePipe::protocolVersionNumber)
-								clientProtocolVersion=Vrui::VRDevicePipe::protocolVersionNumber;
-							pipe.write<unsigned int>(clientProtocolVersion);
+							if(clientData->protocolVersion>Vrui::VRDevicePipe::protocolVersionNumber)
+								clientData->protocolVersion=Vrui::VRDevicePipe::protocolVersionNumber;
+							pipe.write<unsigned int>(clientData->protocolVersion);
 							
 							/* Send server layout: */
 							deviceManager->getState().writeLayout(pipe);
+							
+							if(clientData->protocolVersion>=2U)
+								{
+								/* Send the layout of all virtual devices: */
+								pipe.write<int>(deviceManager->getNumVirtualDevices());
+								for(int deviceIndex=0;deviceIndex<deviceManager->getNumVirtualDevices();++deviceIndex)
+									deviceManager->getVirtualDevice(deviceIndex).write(pipe);
+								}
+							
 							pipe.flush();
 							}
 							
@@ -381,7 +391,7 @@ void* VRDeviceServer::streamingThreadMethod(void)
 
 VRDeviceServer::VRDeviceServer(VRDeviceManager* sDeviceManager,const Misc::ConfigurationFile& configFile)
 	:deviceManager(sDeviceManager),
-	 listenSocket(configFile.retrieveValue<int>("./serverPort"),0),
+	 listenSocket(configFile.retrieveValue<int>("./serverPort"),-1),
 	 numActiveClients(0)
 	{
 	/* Enable tracker update notification: */

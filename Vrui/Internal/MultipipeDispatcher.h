@@ -1,7 +1,7 @@
 /***********************************************************************
 MultipipeDispatcher - Class to distribute input device and ancillary
 data between the nodes in a multipipe VR environment.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -49,6 +49,8 @@ class MultipipeDispatcher:public InputDeviceAdapter
 		{
 		/* Elements: */
 		public:
+		Vector deviceRayDirection;
+		Scalar deviceRayStart;
 		TrackerState transformation;
 		Vector linearVelocity;
 		Vector angularVelocity;

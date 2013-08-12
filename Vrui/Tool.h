@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -148,7 +148,10 @@ class Tool
 	virtual ~Tool(void);
 	
 	/* Methods: */
-	virtual void configure(Misc::ConfigurationFileSection& configFileSection); // Optionally called right after constructor
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection); // Optionally called right after constructor
+	private:
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection); // Previous method now forbidden
+	public:
 	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const; // Allows the tool to store its current state in the given configuration file section
 	virtual void initialize(void); // Called right after a tool has been created and is fully installed
 	virtual void deinitialize(void); // Called right before a tool is destroyed during runtime

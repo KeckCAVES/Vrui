@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -55,6 +55,7 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	/* Elements: */
 	private:
 	IO::SeekableFilePtr inputDeviceDataFile; // File containing the input device data
+	unsigned int fileVersion; // Version of the input device data file
 	int* deviceFeatureBaseIndices; // Array of base indices in feature name array for each input device
 	std::vector<std::string> deviceFeatureNames; // Array of input device feature names
 	MouseCursorFaker* mouseCursorFaker; // Pointer to object used to render a fake mouse cursor
@@ -69,7 +70,7 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	int movieWindowIndex; // Index of the master node window from which to save screenshots; awkward, but windows have no names
 	VRWindow* movieWindow; // Pointer to the window from which to save screenshots; determined from name on first frame
 	double movieFrameTimeInterval; // Time between adjacent frames in the saved movie; == 1.0/movieFrameRate
-	bool firstFrame; // Flag to indicate the first frame of the Vrui application
+	unsigned int firstFrameCountdown; // Counter to indicate the first frame of the Vrui application
 	double timeStamp; // Current time stamp of input device data
 	double timeStampOffset; // Offset from system's wall clock time to input data's time stamp sequence
 	double nextTimeStamp; // Time stamp of next frame of input device data

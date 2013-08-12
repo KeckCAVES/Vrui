@@ -1,7 +1,7 @@
 /***********************************************************************
 YpCbCr420Texture - Class to use video frames in Y'CbCr 4:2:0 pixel
 format as OpenGL textures.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 

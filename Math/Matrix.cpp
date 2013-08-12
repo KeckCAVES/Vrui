@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <stdexcept>
 #include <Math/Math.h>
+#include <Math/Constants.h>
 
 namespace Math {
 
@@ -1056,6 +1057,276 @@ std::pair<Matrix,Matrix> Matrix::jacobiIteration(void) const
 	/* Clean up and return the result matrices: */
 	delete[] rowPivots;
 	return std::make_pair(q,e);
+	}
+
+SVD Matrix::svd(bool calcU,bool calcV) const
+	{
+	/* Initialize the result: */
+	SVD result;
+	
+	/* Copy this matrix into the U matrix: */
+	result.u=*this;
+	result.u.makePrivate();
+	
+	/* Initialize the sigma matrix: */
+	result.sigma=Matrix(numColumns,1);
+	
+	/*********************************************************************
+	Reduce the matrix to bidiagonal form using Householder's method:
+	*********************************************************************/
+	
+	double* e=new double[numColumns];
+	double g=0.0;
+	double x=0.0;
+	double tol=Math::Constants<double>::smallest/Math::Constants<double>::epsilon;
+	for(unsigned int i=0;i<numColumns;++i)
+		{
+		e[i]=g;
+		double s=0.0;
+		for(unsigned int j=i;j<numRows;++j)
+			s+=sqr(result.u(j,i));
+		if(s<tol)
+			g=0.0;
+		else
+			{
+			double f=result.u(i,i);
+			g=copysign(sqrt(s),-f);
+			double h=f*g-s;
+			result.u(i,i)=f-g;
+			for(unsigned int j=i+1;j<numColumns;++j)
+				{
+				s=0.0;
+				for(unsigned int k=i;k<numRows;++k)
+					s+=result.u(k,j)*result.u(k,i);
+				f=s/h;
+				for(unsigned int k=i;k<numRows;++k)
+					result.u(k,j)+=f*result.u(k,i);
+				}
+			}
+		
+		result.sigma(i)=g;
+		s=0.0;
+		for(unsigned int j=i+1;j<numColumns;++j)
+			s+=sqr(result.u(i,j));
+		if(s<tol)
+			g=0.0;
+		else
+			{
+			double f=result.u(i,i+1);
+			g=copysign(sqrt(s),-f);
+			double h=f*g-s;
+			result.u(i,i+1)=f-g;
+			for(unsigned int j=i+1;j<numColumns;++j)
+				e[j]=result.u(i,j)/h;
+			for(unsigned int j=i+1;j<numRows;++j)
+				{
+				s=0.0;
+				for(unsigned int k=i+1;k<numColumns;++k)
+					s+=result.u(j,k)*result.u(i,k);
+				for(unsigned int k=i+1;k<numColumns;++k)
+					result.u(j,k)+=s*e[k];
+				}
+			}
+		
+		x=max(x,abs(result.sigma(i))+abs(e[i]));
+		}
+	
+	if(calcV)
+		{
+		/*******************************************************************
+		Calculate the matrix of right-singular vectors:
+		*******************************************************************/
+		
+		/* Initialize the right-singular matrix: */
+		result.v=Matrix(numColumns,numColumns);
+		
+		/* Calculate the right-singular vectors: */
+		for(unsigned int l=numColumns;l>0;--l)
+			{
+			unsigned int i=l-1;
+			if(g!=0.0) // On first iteration, this g is the last g computed in the Householder reduction
+				{
+				double h=result.u(i,l)*g;
+				for(unsigned int j=l;j<numColumns;++j)
+					result.v(j,i)=result.u(i,j)/h;
+				for(unsigned int j=l;j<numColumns;++j)
+					{
+					double s=0.0;
+					for(unsigned int k=l;k<numColumns;++k)
+						s+=result.v(k,j)*result.u(i,k);
+					for(unsigned int k=l;k<numColumns;++k)
+						result.v(k,j)+=s*result.v(k,i);
+					}
+				}
+			
+			for(unsigned int j=l;j<numColumns;++j)
+				result.v(i,j)=result.v(j,i)=0.0;
+			result.v(i,i)=1.0;
+			g=e[i];
+			}
+		}
+	
+	if(calcU)
+		{
+		/*******************************************************************
+		Calculate the matrix of left-singular vectors:
+		*******************************************************************/
+		
+		for(unsigned int l=numColumns;l>0;--l)
+			{
+			unsigned int i=l-1;
+			g=result.sigma(i);
+			for(unsigned int j=l;j<numColumns;++j)
+				result.u(i,j)=0.0;
+			if(g!=0.0)
+				{
+				double h=result.u(i,i)*g;
+				for(unsigned int j=l;j<numColumns;++j)
+					{
+					double s=0.0;
+					for(unsigned int k=l;k<numRows;++k)
+						s+=result.u(k,j)*result.u(k,i);
+					double f=s/h;
+					for(unsigned int k=l;k<numRows;++k)
+						result.u(k,j)+=f*result.u(k,i);
+					}
+				
+				for(unsigned int j=i;j<numRows;++j)
+					result.u(j,i)/=g;
+				}
+			else
+				{
+				for(unsigned int j=i;j<numRows;++j)
+					result.u(j,i)=0.0;
+				}
+			
+			result.u(i,i)+=1.0;
+			}
+		}
+	
+	/*********************************************************************
+	Diagonalize the bidiagonal form:
+	*********************************************************************/
+	
+	double eps=Math::Constants<double>::epsilon*x;
+	for(unsigned int k1=numColumns;k1>0;--k1)
+		{
+		unsigned int k=k1-1;
+		unsigned int l,l1;
+		double c,s;
+		double f,g,h,x,y,z;
+		
+		testForSplitting:
+		for(unsigned int l1=k1;l1>0;--l1)
+			{
+			l=l1-1;
+			if(abs(e[l])<=eps)
+				goto testForConvergence;
+			if(abs(result.sigma(l-1))<=eps) // Never executed when l==0, because e[0] is always 0.0
+				goto cancellation;
+			}
+		
+		/* Cancellation of e[l] if l>0: */
+		cancellation:
+		c=0.0;
+		s=1.0;
+		l1=l-1;
+		for(unsigned int i=l;i<=k;++i)
+			{
+			double f=s*e[i];
+			e[i]=c*e[i];
+			if(abs(f)<=eps)
+				goto testForConvergence;
+			g=result.sigma(i);
+			double h=sqrt(f*f+g*g);
+			result.sigma(i)=h;
+			c=g/h;
+			s=-f/h;
+			if(calcU)
+				for(unsigned int j=0;j<numRows;++j)
+					{
+					double y=result.u(j,l1);
+					double z=result.u(j,i);
+					result.u(j,l1)=y*c+z*s;
+					result.u(j,i)=-y*s+z*c;
+					}
+			}
+		
+		testForConvergence:
+		z=result.sigma(k);
+		if(l==k)
+			goto convergence;
+		
+		/* Shift from bottom 2x2 minor: */
+		x=result.sigma(l);
+		y=result.sigma(k-1);
+		g=e[k-1];
+		h=e[k];
+		f=((y-z)*(y+z)+(g-h)*(g+h))/(2.0*h*y);
+		g=sqrt(f*f+1.0);
+		f=((x-z)*(x+z)+h*(y/(f<0.0?f-g:f+g)-h))/x;
+		
+		/* Next QR transformation: */
+		c=1.0;
+		s=1.0;
+		for(unsigned int i=l+1;i<=k;++i)
+			{
+			double g=e[i];
+			double y=result.sigma(i);
+			double h=s*g;
+			g=c*g;
+			double z=sqrt(f*f+h*h);
+			e[i-1]=z;
+			c=f/z;
+			s=h/z;
+			f=x*c+g*s;
+			g=-x*s+g*c;
+			h=y*s;
+			y*=c;
+			if(calcV)
+				for(unsigned int j=0;j<numColumns;++j)
+					{
+					double x=result.v(j,i-1);
+					double z=result.v(j,i);
+					result.v(j,i-1)=x*c+z*s;
+					result.v(j,i)=-x*s+z*c;
+					}
+			
+			z=sqrt(f*f+h*h);
+			result.sigma(i-1)=z;
+			c=f/z;
+			s=h/z;
+			f=c*g+s*y;
+			x=-s*g+c*y;
+			if(calcU)
+				for(unsigned int j=0;j<numRows;++j)
+					{
+					double y=result.u(j,i-1);
+					double z=result.u(j,i);
+					result.u(j,i-1)=y*c+z*s;
+					result.u(j,i)=-y*s+z*c;
+					}
+			}
+		
+		e[l]=0.0;
+		e[k]=f;
+		result.sigma(k)=x;
+		goto testForSplitting;
+		
+		convergence:
+		if(z<0.0)
+			{
+			/* Make result.sigma[k] non-negative: */
+			result.sigma(k)=-z;
+			if(calcV)
+				for(unsigned int j=0;j<numColumns;++j)
+					result.v(j,k)=-result.v(j,k);
+			}
+		}
+	
+	/* Clean up and return the result: */
+	delete[] e;
+	return result;
 	}
 
 }

@@ -2,7 +2,7 @@
 RevolverTool - Class to control multiple buttons (and tools) from a
 single button using a revolver metaphor. Generalized from the rotator
 tool initially developed by Braden Pellett and Jordan van Aalsburg.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -146,7 +146,7 @@ RevolverTool::~RevolverTool(void)
 	{
 	}
 
-void RevolverTool::configure(Misc::ConfigurationFileSection& configFileSection)
+void RevolverTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read the current chamber index: */
 	currentChamber=configFileSection.retrieveValue<int>("./currentChamber",currentChamber);

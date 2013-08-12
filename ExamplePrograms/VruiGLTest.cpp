@@ -1,7 +1,7 @@
 /***********************************************************************
 Test program to show the initialization sequence of Vrui with regard to
 per-context state of objects derived from GLObject.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -171,10 +171,4 @@ void VruiGLTest::display(GLContextData& contextData) const
 	renderer2->glRenderAction(contextData);
 	}
 
-int main(int argc,char* argv[])
-	{
-	VruiGLTest app(argc,argv);
-	app.run();
-	
-	return 0;
-	}
+VRUI_APPLICATION_RUN(VruiGLTest)

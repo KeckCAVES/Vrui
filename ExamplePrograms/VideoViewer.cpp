@@ -21,7 +21,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FunctionCalls.h>
 #include <Threads/TripleBuffer.h>
@@ -451,26 +450,5 @@ void VideoViewer::initContext(GLContextData& contextData) const
 	glBindTexture(GL_TEXTURE_2D,0);
 	}
 
-/****************
-Main entry point:
-****************/
-
-int main(int argc,char* argv[])
-	{
-	try
-		{
-		/* Create the application object: */
-		VideoViewer app(argc,argv);
-		
-		/* Run the application: */
-		app.run();
-		}
-	catch(std::runtime_error err)
-		{
-		/* Print an error message and return an error code: */
-		std::cerr<<"Caught exception "<<err.what()<<std::endl;
-		return 1;
-		}
-	
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(VideoViewer)

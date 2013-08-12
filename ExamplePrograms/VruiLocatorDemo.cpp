@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiLocatorDemo - VR application showing how to use locator tools in
 Vrui.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -230,14 +230,4 @@ void VruiLocatorDemo::resetNavigationCallback(Misc::CallbackData* cbData)
 	Vrui::setNavigationTransformation(t);
 	}
 
-int main(int argc,char* argv[])
-	{
-	/* Create an application object: */
-	VruiLocatorDemo app(argc,argv);
-	
-	/* Run the Vrui main loop: */
-	app.run();
-	
-	/* Exit to OS: */
-	return 0;
-	}
+VRUI_APPLICATION_RUN(VruiLocatorDemo)

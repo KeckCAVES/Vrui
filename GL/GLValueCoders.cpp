@@ -1,6 +1,6 @@
 /***********************************************************************
 GLValueCoders - Value coder classes for OpenGL abstraction classes.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -42,7 +42,7 @@ std::string ValueCoder<GLColor<ScalarParam,3> >::encode(const GLColor<ScalarPara
 	GLColor<GLdouble,3> dv(value);
 	
 	/* Return the encoded vector: */
-	return FixedArrayValueCoder<GLdouble>::encode(dv.getRgba(),3);
+	return CFixedArrayValueCoder<GLdouble,3>::encode(dv.getRgba());
 	}
 
 template <class ScalarParam>
@@ -52,7 +52,7 @@ GLColor<ScalarParam,3> ValueCoder<GLColor<ScalarParam,3> >::decode(const char* s
 		{
 		/* Decode string into array of GLdoubles: */
 		GLdouble components[3];
-		FixedArrayValueCoder<GLdouble>::decode(components,3,start,end,decodeEnd);
+		CFixedArrayValueCoder<GLdouble,3>(components).decode(start,end,decodeEnd);
 		
 		/* Return result color: */
 		return GLColor<ScalarParam,3>(components);
@@ -74,10 +74,10 @@ std::string ValueCoder<GLColor<ScalarParam,4> >::encode(const GLColor<ScalarPara
 	GLColor<GLdouble,4> dv(value);
 	
 	/* Only encode three components if alpha is default value: */
-	size_t numComponents=dv[3]==1.0?3:4;
-	
-	/* Return the encoded vector: */
-	return FixedArrayValueCoder<GLdouble>::encode(dv.getRgba(),numComponents);
+	if(dv[3]==1.0)
+		return CFixedArrayValueCoder<GLdouble,3>::encode(dv.getRgba());
+	else
+		return CFixedArrayValueCoder<GLdouble,4>::encode(dv.getRgba());
 	}
 
 template <class ScalarParam>
@@ -87,14 +87,15 @@ GLColor<ScalarParam,4> ValueCoder<GLColor<ScalarParam,4> >::decode(const char* s
 		{
 		/* Decode string into array of GLdoubles: */
 		GLdouble components[4];
-		size_t numComponents=DynamicArrayValueCoder<GLdouble>::decode(components,4,start,end,decodeEnd);
+		DynamicArrayValueCoder<GLdouble> decoder(components,4);
+		decoder.decode(start,end,decodeEnd);
 		
 		/* Check for correct vector size: */
-		if(numComponents<3||numComponents>4)
+		if(decoder.numElements<3||decoder.numElements>4)
 			throw DecodingError("wrong number of components");
 		
 		/* Set default alpha value for three-component colors: */
-		if(numComponents==3)
+		if(decoder.numElements==3)
 			components[3]=1.0;
 		
 		/* Return result color: */
@@ -114,7 +115,7 @@ template <class ScalarParam,GLsizei numComponentsParam>
 std::string ValueCoder<GLVector<ScalarParam,numComponentsParam> >::encode(const GLVector<ScalarParam,numComponentsParam>& value)
 	{
 	/* Return the encoded vector: */
-	return FixedArrayValueCoder<ScalarParam>::encode(value.getXyzw(),numComponentsParam);
+	return CFixedArrayValueCoder<ScalarParam,numComponentsParam>::encode(value.getXyzw());
 	}
 
 template <class ScalarParam,GLsizei numComponentsParam>
@@ -123,7 +124,7 @@ GLVector<ScalarParam,numComponentsParam> ValueCoder<GLVector<ScalarParam,numComp
 	try
 		{
 		GLVector<ScalarParam,numComponentsParam> result;
-		FixedArrayValueCoder<ScalarParam>::decode(result.getXyzw(),numComponentsParam,start,end,decodeEnd);
+		CFixedArrayValueCoder<ScalarParam,numComponentsParam>(result.getXyzw()).decode(start,end,decodeEnd);
 		return result;
 		}
 	catch(std::runtime_error err)

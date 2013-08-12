@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapter - Base class to convert from diverse "raw" input
 device representations to Vrui's internal input device representation.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,6 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Vector.h>
 #include <Geometry/GeometryValueCoders.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
@@ -68,7 +69,9 @@ void InputDeviceAdapter::createInputDevice(int deviceIndex,const Misc::Configura
 	
 	/* Create new input device as a physical device: */
 	InputDevice* newDevice=inputDeviceManager->createInputDevice(name.c_str(),trackType,numButtons,numValuators,true);
-	newDevice->setDeviceRayDirection(configFileSection.retrieveValue<Vector>("./deviceRayDirection",Vector(0,1,0)));
+	Vector deviceRayDirection=configFileSection.retrieveValue<Vector>("./deviceRayDirection",Vector(0,1,0));
+	Scalar deviceRayStart=configFileSection.retrieveValue<Scalar>("./deviceRayStart",-getInchFactor());
+	newDevice->setDeviceRay(deviceRayDirection,deviceRayStart);
 	
 	/* Initialize the new device's glyph from the current configuration file section: */
 	Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);

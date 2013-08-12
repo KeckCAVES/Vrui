@@ -1,6 +1,6 @@
 /***********************************************************************
 TrackballNavigationTool - Class for trackball navigation in 3D space.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

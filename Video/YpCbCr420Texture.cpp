@@ -1,7 +1,7 @@
 /***********************************************************************
 YpCbCr420Texture - Class to use video frames in Y'CbCr 4:2:0 pixel
 format as OpenGL textures.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -39,9 +39,11 @@ YpCbCr420Texture::DataItem::DataItem(void)
 	 shaderSupported(GLARBMultitexture::isSupported()&&GLShader::isSupported()),
 	 chromaKey(false),frameNumber(0)
 	{
-	/* Initialize the multitexture and non-power-of-two extensions: */
-	GLARBMultitexture::initExtension();
-	GLARBTextureNonPowerOfTwo::initExtension();
+	/* Initialize optional OpenGL extensions: */
+	if(npotdtSupported)
+		GLARBTextureNonPowerOfTwo::initExtension();
+	if(shaderSupported)
+		GLARBMultitexture::initExtension();
 	
 	/* Create the texture objects: */
 	if(shaderSupported)

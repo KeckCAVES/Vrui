@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -39,15 +39,7 @@ Methods of class GLShader:
 GLShader::GLShader(void)
 	:programObject(0)
 	{
-	/* Check for the required OpenGL extensions: */
-	if(!GLARBShaderObjects::isSupported())
-		Misc::throwStdErr("GLShader::GLShader: GL_ARB_shader_objects not supported");
-	if(!GLARBVertexShader::isSupported())
-		Misc::throwStdErr("GLShader::GLShader: GL_ARB_vertex_shader not supported");
-	if(!GLARBFragmentShader::isSupported())
-		Misc::throwStdErr("GLShader::GLShader: GL_ARB_fragment_shader not supported");
-	
-	/* Initialize the required extensions: */
+	/* Initialize the required extensions; extension manager will throw exceptions if any are not supported: */
 	GLARBShaderObjects::initExtension();
 	GLARBVertexShader::initExtension();
 	GLARBFragmentShader::initExtension();
@@ -62,6 +54,14 @@ GLShader::~GLShader(void)
 bool GLShader::isSupported(void)
 	{
 	return GLARBShaderObjects::isSupported()&&GLARBVertexShader::isSupported()&&GLARBFragmentShader::isSupported();
+	}
+
+void GLShader::initExtensions(void)
+	{
+	/* Initialize the required extensions; extension manager will throw exceptions if any are not supported: */
+	GLARBShaderObjects::initExtension();
+	GLARBVertexShader::initExtension();
+	GLARBFragmentShader::initExtension();
 	}
 
 void GLShader::compileVertexShader(const char* shaderSourceFileName)
