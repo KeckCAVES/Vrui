@@ -1242,6 +1242,8 @@ void startDisplay(void)
 				vruiWindowGroups[i].windows.push_back(newWindow);
 				newWindow.window->setWindowGroup(&vruiWindowGroups[i]);
 				}
+			vruiWindowGroups[i].maxViewportSize[0]=vruiWindowGroups[i].maxViewportSize[1]=0;
+			vruiWindowGroups[i].maxFrameSize[0]=vruiWindowGroups[i].maxFrameSize[1]=0;
 			}
 		}
 		}
