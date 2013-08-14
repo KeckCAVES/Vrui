@@ -117,7 +117,7 @@ ValuatorWalkSurfaceNavigationToolFactory::~ValuatorWalkSurfaceNavigationToolFact
 
 const char* ValuatorWalkSurfaceNavigationToolFactory::getName(void) const
 	{
-	return "Walk";
+	return "Walk & Valuators";
 	}
 
 const char* ValuatorWalkSurfaceNavigationToolFactory::getButtonFunction(int) const

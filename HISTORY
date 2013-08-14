@@ -3740,3 +3740,8 @@ Vrui-3.0-001:
   Vrui::InputDeviceAdapterDeviceDaemon.
 - Changed Vrui::InputDeviceManager to remove all duplicates from the
   list of input device adapters to improve configuration modularity.
+
+Vrui-3.0-002:
+- Fixed tool name in Vrui::ValuatorWalkSurfaceNavigationTool.
+- Fixed missing initialization of per-window group maximum frame and
+  viewport sizes. D'oh!
