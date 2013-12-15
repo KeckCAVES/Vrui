@@ -1,7 +1,7 @@
 /***********************************************************************
 FdSet - Class to simplify using sets of file descriptors for the select
-and pselect system calls
-Copyright (c) 2008-2011 Oliver Kreylos
+and pselect system calls.
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -35,6 +35,13 @@ class Time;
 }
 
 namespace Misc {
+
+/* Forward declarations for friend functions: */
+class FdSet;
+int select(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,struct timeval* timeout =0);
+int select(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const Misc::Time& timeout);
+int pselect(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const struct timespec* timeout =0,const sigset_t* sigmask =0);
+int pselect(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const Misc::Time& timeout,const sigset_t* sigmask =0);
 
 class FdSet:public fd_set
 	{
@@ -96,10 +103,10 @@ class FdSet:public fd_set
 		if(maxFd==fd)
 			update();
 		}
-	friend int select(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,struct timeval* timeout =0); // Wrapper for select() function
+	friend int select(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,struct timeval* timeout); // Wrapper for select() function
 	friend int select(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const Misc::Time& timeout); // Ditto, with Misc::Time timeout
-	friend int pselect(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const struct timespec* timeout =0,const sigset_t* sigmask =0); // Wrapper for pselect() function
-	friend int pselect(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const Misc::Time& timeout,const sigset_t* sigmask =0); // Ditto, with Misc::Time timeout
+	friend int pselect(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const struct timespec* timeout,const sigset_t* sigmask); // Wrapper for pselect() function
+	friend int pselect(FdSet* readFdSet,FdSet* writeFdSet,FdSet* exceptFdSet,const Misc::Time& timeout,const sigset_t* sigmask); // Ditto, with Misc::Time timeout
 	};
 
 }

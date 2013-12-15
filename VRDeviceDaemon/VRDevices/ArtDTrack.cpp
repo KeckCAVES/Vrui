@@ -1,6 +1,6 @@
 /***********************************************************************
 ArtDTrack - Class for ART DTrack tracking devices.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -676,7 +676,7 @@ void ArtDTrack::deviceThreadMethod(void)
 
 ArtDTrack::ArtDTrack(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
-	 useRemoteControl(configFile.retrieveValue<bool>("./useRemoteControl",true)),
+	 useRemoteControl(configFile.retrieveValue<bool>("./useRemoteControl",false)),
 	 controlSocket(useRemoteControl?new Comm::UDPSocket(-1,configFile.retrieveString("./serverName"),configFile.retrieveValue<int>("./serverControlPort")):0),
 	 dataSocket(configFile.retrieveValue<int>("./serverDataPort"),0),
 	 dataFormat(configFile.retrieveValue<DataFormat>("./dataFormat",ASCII)),

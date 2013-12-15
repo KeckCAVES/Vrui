@@ -303,7 +303,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0"</TD>
+<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4.0</TD>
 <TD>Distance in physical coordinate units by which the mouse has to be moved in rotation mode to rotate the model by one radians.</TD>
 </TR>
 
@@ -313,7 +313,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>scaleFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0"</TD>
+<TD>scaleFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4.0</TD>
 <TD>Distance in physical coordinate units by which the mouse has to slide along the scaling direction in scaling mode to scale by a factor of e.</TD>
 </TR>
 
@@ -393,12 +393,12 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>rotateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4)</TD>
+<TD>rotateFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/2, <A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/2)</TD>
 <TD>Distance in physical coordinate units by which the input device has to be moved to rotate the model by one radians horizontally and vertically, respectively. A factor of 0.0 is a special case that completely disables rotation in that direction.</TD>
 </TR>
 
 <TR>
-<TD>moveSpeeds</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(200.0"/s, 200"/s)</TD>
+<TD>moveSpeeds</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>(200.0"/s, 200"/s)</TD>
 <TD>Movement speed in physical coordinate units per second.</TD>
 </TR>
 
@@ -1709,7 +1709,7 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>showGui</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>showGui</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
 <TD>Flag whether the tool will display a dialog window to control playback position and speed.</TD>
 </TR>
 </TABLE>

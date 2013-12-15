@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexShader - OpenGL extension class for the GL_ARB_vertex_shader
 extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

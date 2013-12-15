@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-3.0
+INSTALLDIR := $(HOME)/Vrui-3.1
 
 ########################################################################
 # Please do not change the following lines
@@ -71,6 +71,15 @@ include $(VRUI_MAKEDIR)/Packages.System
 # SYSTEM_HAVE_DC1394 = 0
 # SYSTEM_HAVE_THEORA = 0
 # SYSTEM_HAVE_BLUETOOTH = 0
+
+# The build system attempts to auto-detect optional features in system
+# libraries. If autodetection fails and the build process generates
+# error messages related to undeclared functions, the use of these
+# optional features can be disabled manually by uncommenting any of the
+# following lines:
+
+# Presense of libusb_get_parent in libusb.h:
+# LIBUSB1_HAS_TOPOLOGY_CALLS 0
 
 ########################################################################
 # Please do not change the following line
@@ -137,9 +146,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 3000002
+VRUI_VERSION = 3001001
 MAJORLIBVERSION = 3
-MINORLIBVERSION = 0
+MINORLIBVERSION = 1
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -160,11 +169,9 @@ ifdef SYSTEMINSTALL
   ifdef DEBUG
     LIBINSTALLDIR = $(INSTALLDIR)/usr/$(LIBEXT)/$(VRUI_NAME)/debug
     EXECUTABLEINSTALLDIR = $(INSTALLDIR)/usr/$(BINEXT)/debug
-    PLUGININSTALLDIR = $(INSTALLDIR)/usr/$(LIBEXT)/$(VRUI_NAME)/debug
   else
     LIBINSTALLDIR = $(INSTALLDIR)/usr/$(LIBEXT)/$(VRUI_NAME)
     EXECUTABLEINSTALLDIR = $(INSTALLDIR)/usr/$(BINEXT)
-    PLUGININSTALLDIR = $(INSTALLDIR)/usr/$(LIBEXT)/$(VRUI_NAME)
   endif
   ETCINSTALLDIR = $(INSTALLDIR)/etc/$(VRUI_NAME)
   SHAREINSTALLDIR = $(INSTALLDIR)/usr/share/$(VRUI_NAME)
@@ -172,22 +179,26 @@ ifdef SYSTEMINSTALL
   DOCINSTALLDIR = $(INSTALLDIR)/usr/share/doc/$(VRUI_NAME)
   INSTALLROOT = /usr
 else
+  ifeq ($(findstring $(VRUI_NAME),$(INSTALLDIR)),$(VRUI_NAME))
+    INSTALLSHIM = 
+  else
+    INSTALLSHIM = /$(VRUI_NAME)
+  endif
   HEADERINSTALLDIR = $(INSTALLDIR)/$(INCLUDEEXT)
   ifdef DEBUG
     LIBINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)/debug
     EXECUTABLEINSTALLDIR = $(INSTALLDIR)/$(BINEXT)/debug
-    PLUGININSTALLDIR = $(INSTALLDIR)/$(LIBEXT)/debug
   else
     LIBINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)
     EXECUTABLEINSTALLDIR = $(INSTALLDIR)/$(BINEXT)
-    PLUGININSTALLDIR = $(INSTALLDIR)/$(LIBEXT)
   endif
-  ETCINSTALLDIR = $(INSTALLDIR)/etc
-  SHAREINSTALLDIR = $(INSTALLDIR)/share
+  ETCINSTALLDIR = $(INSTALLDIR)/etc$(INSTALLSHIM)
+  SHAREINSTALLDIR = $(INSTALLDIR)/share$(INSTALLSHIM)
   PKGCONFIGINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)/pkgconfig
-  DOCINSTALLDIR = $(INSTALLDIR)/share/doc
+  DOCINSTALLDIR = $(INSTALLDIR)/share/doc$(INSTALLSHIM)
   INSTALLROOT = $(INSTALLDIR)
 endif
+PLUGININSTALLDIR = $(LIBINSTALLDIR)
 ifdef DEBUG
   MAKEINSTALLDIR = $(SHAREINSTALLDIR)/make/debug
 else
@@ -328,6 +339,12 @@ PLUGINS += $(VRCALIBRATORS)
 EXECUTABLES += $(EXEDIR)/DeviceTest
 
 #
+# The Vrui eye calibration program:
+#
+
+EXECUTABLES += $(EXEDIR)/EyeCalibrator
+
+#
 # The input device data file dumping program:
 #
 
@@ -376,28 +393,42 @@ config: Configure-End
 
 .PHONY: Configure-Begin
 Configure-Begin:
-	@echo "---- Configured Vrui options: ----"
-	@echo "Installation directory: $(INSTALLDIR)"
-ifdef SYSTEMINSTALL
-	@echo "System-level installation requested"
-endif
+	@echo "---- Vrui configuration options: ----"
 ifneq ($(USE_RPATH),0)
 	@echo "Run-time library search paths enabled"
 else
 	@echo "Run-time library search paths disabled"
 endif
 
+.PHONY: Configure-Install
+Configure-Install: Configure-Threads \
+                   Configure-USB \
+                   Configure-Realtime \
+                   Configure-GLSupport \
+                   Configure-Images \
+                   Configure-Sound \
+                   Configure-ALSupport \
+                   Configure-Video \
+                   Configure-Vrui \
+                   Configure-VRDeviceDaemon
+	@echo "---- Vrui installation configuration ----"
+ifdef SYSTEMINSTALL
+	@echo "System-level installation requested"
+endif
+	@echo "Root installation directory               : $(INSTALLDIR)"
+	@echo "Header installation root directory        : $(HEADERINSTALLDIR)"
+	@echo "Library installation root directory       : $(LIBINSTALLDIR)"
+	@echo "Executable installation directory         : $(EXECUTABLEINSTALLDIR)"
+	@echo "Plug-in installation root directory       : $(PLUGININSTALLDIR)"
+	@echo "Configuration file installation directory : $(ETCINSTALLDIR)"
+	@echo "Shared file installation root directory   : $(SHAREINSTALLDIR)"
+	@echo "Makefile fragment installation directory  : $(SHAREINSTALLDIR)"
+	@echo "Build system installation directory       : $(MAKEINSTALLDIR)"
+	@echo "pkg-config metafile installation directory: $(PKGCONFIGINSTALLDIR)"
+	@echo "Documentation installation directory      : $(DOCINSTALLDIR)"
+
 .PHONY: Configure-End
-Configure-End: Configure-Threads \
-               Configure-USB \
-               Configure-Realtime \
-               Configure-GLSupport \
-               Configure-Images \
-               Configure-Sound \
-               Configure-ALSupport \
-               Configure-Video \
-               Configure-Vrui \
-               Configure-VRDeviceDaemon
+Configure-End: Configure-Install
 	@echo "---- End of Vrui configuration options ----"
 
 ########################################################################
@@ -497,11 +528,17 @@ libThreads: $(call LIBRARYNAME,libThreads)
 Configure-USB: Configure-Begin
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
 	@echo Libusb library version 1.0 exists on host system
+  ifneq ($(LIBUSB1_HAS_TOPOLOGY_CALLS),0)
+	@echo Libusb library supports bus topology queries
+  else
+	@echo Libusb library does not support bus topology queries
+  endif
 else
 	@echo Libusb library version 1.0 does not exist on host system
 endif
 	@cp USB/Config.h USB/Config.h.temp
 	@$(call CONFIG_SETVAR,USB/Config.h.temp,USB_CONFIG_HAVE_LIBUSB1,$(SYSTEM_HAVE_LIBUSB1))
+	@$(call CONFIG_SETVAR,USB/Config.h.temp,USB_CONFIG_HAVE_TOPOLOGY_CALLS,$(LIBUSB1_HAS_TOPOLOGY_CALLS))
 	@if ! diff USB/Config.h.temp USB/Config.h > /dev/null ; then cp USB/Config.h.temp USB/Config.h ; fi
 	@rm USB/Config.h.temp
 USB/Config.h: Configure-USB
@@ -675,7 +712,6 @@ GLWRAPPERS_HEADERS = GL/GLTexCoordTemplates.h \
                      GL/GLColorTemplates.h \
                      GL/GLSecondaryColorTemplates.h \
                      GL/GLNormalTemplates.h \
-                     GL/GLFogCoordTemplates.h \
                      GL/GLVertexTemplates.h \
                      GL/GLIndexTemplates.h \
                      GL/GLPrimitiveTemplates.h \
@@ -1193,7 +1229,14 @@ ifneq ($(VRUI_VRWINDOW_USE_SWAPGROUPS),0)
   $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DVRWINDOW_USE_SWAPGROUPS
 endif
 $(OBJDIR)/Vrui/Internal/Vrui.General.o: CFLAGS += -DDEFAULTGLYPHRENDERERCURSORFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-$(OBJDIR)/Vrui/Internal/Vrui.Workbench.o: CFLAGS += -DSYSVRUICONFIGFILE='"$(ETCINSTALLDIR)/Vrui.cfg"' -DVRUIDEFAULTROOTSECTIONNAME='"Desktop"'
+$(OBJDIR)/Vrui/Internal/Vrui.Workbench.o: CFLAGS += -DSYSVRUICONFIGFILE='"$(ETCINSTALLDIR)/Vrui.cfg"' \
+                                                    -DVRUIDEFAULTROOTSECTIONNAME='"Desktop"' \
+                                                    -DVRUIVERSION=$(VRUI_VERSION) \
+                                                    -DVRUILIBDIR='"$(LIBINSTALLDIR)"' \
+                                                    -DVRUIEXECUTABLEDIR='"$(EXECUTABLEINSTALLDIR)"' \
+                                                    -DVRUIPLUGINDIR='"$(PLUGININSTALLDIR)"' \
+                                                    -DVRUIETCDIR='"$(ETCINSTALLDIR)"' \
+                                                    -DVRUISHAREDIR='"$(SHAREINSTALLDIR)"'
 
 $(VRUI_SOURCES): config
 
@@ -1300,9 +1343,9 @@ else
 	@echo "Bluetooth support (for Nintendo Wii controller) disabled"
 endif
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
-	@echo "USB support (for Razer Hydra tracker) enabled"
+	@echo "USB support (for Razer Hydra and Oculus Rift tracker) enabled"
 else
-	@echo "USB support (for Razer Hydra tracker) disabled"
+	@echo "USB support (for Razer Hydra and Oculus Rift tracker) disabled"
 endif
 
 VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRDevice.cpp \
@@ -1420,6 +1463,17 @@ $(EXEDIR)/DeviceTest: PACKAGES += MYVRUI
 $(EXEDIR)/DeviceTest: $(OBJDIR)/Vrui/Utilities/DeviceTest.o
 .PHONY: DeviceTest
 DeviceTest: $(EXEDIR)/DeviceTest
+
+#
+# The Vrui eye calibration program:
+#
+
+Vrui/Utilities/EyeCalibrator.cpp: config
+
+$(EXEDIR)/EyeCalibrator: PACKAGES += MYVRUI
+$(EXEDIR)/EyeCalibrator: $(OBJDIR)/Vrui/Utilities/EyeCalibrator.o
+.PHONY: EyeCalibrator
+EyeCalibrator: $(EXEDIR)/EyeCalibrator
 
 #
 # The Vrui input device data file printer:
@@ -1620,7 +1674,7 @@ endif
 
 install:
 # Install all header files in HEADERINSTALLDIR:
-	@echo Installing header files...
+	@echo Installing header files in $(HEADERINSTALLDIR)...
 	@install -d $(HEADERINSTALLDIR)/Misc
 	@install -m u=rw,go=r $(MISC_HEADERS) $(HEADERINSTALLDIR)/Misc
 	@install -d $(HEADERINSTALLDIR)/Threads
@@ -1679,13 +1733,13 @@ endif
 	@install -d $(HEADERINSTALLDIR)/Vrui
 	@install -m u=rw,go=r $(VRUI_HEADERS) $(HEADERINSTALLDIR)/Vrui
 # Install all library files in LIBINSTALLDIR:
-	@echo Installing libraries...
+	@echo Installing libraries in $(LIBINSTALLDIR)...
 	@install -d $(LIBINSTALLDIR)
 	@install $(LIBRARIES) $(LIBINSTALLDIR)
 	@echo Configuring run-time linker...
 	$(foreach LIBNAME,$(LIBRARY_NAMES),$(call CREATE_SYMLINK,$(LIBNAME)))
-# Install all binaries in BININSTALLDIR:
-	@echo Installing executables...
+# Install all binaries in EXECUTABLEINSTALLDIR:
+	@echo Installing executables in $(EXECUTABLEINSTALLDIR)...
 	@install -d $(EXECUTABLEINSTALLDIR)
 	@install $(EXECUTABLES) $(EXECUTABLEINSTALLDIR)
 ifeq ($(SYSTEM),DARWIN)
@@ -1696,7 +1750,7 @@ ifeq ($(SYSTEM),DARWIN)
 	@rm Share/MacOSX/runwithx.tmp
 endif
 # Install all plug-ins in PLUGININSTALLDIR:
-	@echo Installing plug-ins...
+	@echo Installing plug-ins in $(PLUGININSTALLDIR)...
 	@install -d $(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
 	@install $(VRTOOLS) $(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)
 	@install -d $(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)
@@ -1706,7 +1760,7 @@ endif
 	@install -d $(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT)
 	@install $(VRCALIBRATORS) $(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT)
 # Install all configuration files in ETCINSTALLDIR:
-	@echo Installing configuration files...
+	@echo Installing configuration files in $(ETCINSTALLDIR)...
 	@install -d $(ETCINSTALLDIR)
 	@if [ ! -e $(ETCINSTALLDIR)/Vrui.cfg ]; then install -m u=rw,go=r Share/Vrui.cfg $(ETCINSTALLDIR); else echo "Retaining existing $(ETCINSTALLDIR)/Vrui.cfg"; fi
 	@if [ ! -e $(ETCINSTALLDIR)/VRDevices.cfg ]; then install -m u=rw,go=r Share/VRDevices.cfg $(ETCINSTALLDIR); else echo "Retaining existing $(ETCINSTALLDIR)/VRDevices.cfg"; fi
@@ -1715,7 +1769,7 @@ ifeq ($(SYSTEM),DARWIN)
 	@install -m u=rw,go=r Share/MacOSX/Vrui.xinitrc $(ETCINSTALLDIR)
 endif
 # Install all shared files in SHAREINSTALLDIR:
-	@echo Installing shared files...
+	@echo Installing shared files in $(SHAREINSTALLDIR)...
 	@install -d $(SHAREINSTALLDIR)/GLFonts
 	@install -m u=rw,go=r Share/GLFonts/* $(SHAREINSTALLDIR)/GLFonts
 	@install -d $(SHAREINSTALLDIR)/Textures
@@ -1724,18 +1778,18 @@ endif
 	@install -d $(SHAREINSTALLDIR)/Shaders/SceneGraph
 	@install -m u=rw,go=r Share/Shaders/SceneGraph/* $(SHAREINSTALLDIR)/Shaders/SceneGraph
 # Install makefile fragment in SHAREINSTALLDIR:
-	@echo Installing application makefile fragment...
+	@echo Installing application makefile fragment in $(SHAREINSTALLDIR)...
 	@install -m u=rw,go=r $(MAKEFILEFRAGMENT) $(SHAREINSTALLDIR)
 # Install full build system in MAKEINSTALLDIR:
-	@echo Installing build system...
+	@echo Installing build system in $(MAKEINSTALLDIR)...
 	@install -d $(MAKEINSTALLDIR)
 	@install -m u=rw,go=r BuildRoot/* $(MAKEINSTALLDIR)
 	@chmod a+x $(MAKEINSTALLDIR)/FindLibrary.sh
 # Install pkg-config metafile in PKGCONFIGINSTALLDIR:
-	@echo Installing pkg-config metafile...
+	@echo Installing pkg-config metafile in $(PKGCONFIGINSTALLDIR)...
 	@install -d $(PKGCONFIGINSTALLDIR)
 	@install -m u=rw,go=r $(PKGCONFIGFILE) $(PKGCONFIGINSTALLDIR)
 # Install documentation in DOCINSTALLDIR:
-	@echo Installing documentation...
+	@echo Installing documentation in $(DOCINSTALLDIR)...
 	@install -d $(DOCINSTALLDIR)
 	@install -m u=rw,go=r Documentation/* $(DOCINSTALLDIR)

@@ -1,7 +1,7 @@
 /***********************************************************************
 LabelSetNode - Class for nodes to render sets of single-line labels at
 individual positions.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -60,7 +60,9 @@ Methods of class LabelSetNode:
 *****************************/
 
 LabelSetNode::LabelSetNode(void)
-	:maxExtent(Scalar(0))
+	:GLObject(false),
+	 maxExtent(Scalar(0)),
+	 inited(false)
 	{
 	}
 
@@ -173,6 +175,13 @@ void LabelSetNode::update(void)
 					break;
 				}
 			}
+		}
+	
+	/* Register the object with all OpenGL contexts if not done already: */
+	if(!inited)
+		{
+		GLObject::init();
+		inited=true;
 		}
 	}
 

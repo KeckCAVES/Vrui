@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBGeometryShader4 - OpenGL extension class for the
 GL_ARB_geometry_shader4 extension.
-Copyright (c) 2007-2012 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2013 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

@@ -2,7 +2,7 @@
 ZipArchive - Class to represent ZIP archive files, with functionality to
 traverse contained directory hierarchies and extract files using a File
 interface.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -159,6 +159,7 @@ ZipArchiveStreamingFile::ZipArchiveStreamingFile(SeekableFilePtr sArchive,unsign
 		
 		/* Create and initialize the zlib decompression object: */
 		stream=new z_stream;
+		memset(stream,0,sizeof(z_stream));
 		stream->next_in=compressedBuffer;
 		stream->avail_in=compressedReadSize;
 		stream->zalloc=0;

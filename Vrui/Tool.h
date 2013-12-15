@@ -104,7 +104,8 @@ class Tool
 	Ray getButtonDeviceRay(int buttonSlotIndex) const // Returns the default ray of the input device associated with the given button slot in physical coordinates
 		{
 		const InputDevice* device=input.getButtonSlot(buttonSlotIndex).device;
-		return Ray(device->getPosition(),device->getRayDirection());
+		Vector rayDir=device->getRayDirection();
+		return Ray(device->getPosition()+rayDir*device->getDeviceRayStart(),rayDir);
 		}
 	bool getButtonState(int buttonSlotIndex) const // Returns the state of the input device button associated with the given button slot
 		{
@@ -134,7 +135,8 @@ class Tool
 	Ray getValuatorDeviceRay(int valuatorSlotIndex) const // Returns the default ray of the input device associated with the given valuator slot in physical coordinates
 		{
 		const InputDevice* device=input.getValuatorSlot(valuatorSlotIndex).device;
-		return Ray(device->getPosition(),device->getRayDirection());
+		Vector rayDir=device->getRayDirection();
+		return Ray(device->getPosition()+rayDir*device->getDeviceRayStart(),rayDir);
 		}
 	double getValuatorState(int valuatorSlotIndex) const // Returns the value of the input device valuator associated with the given valuator slot
 		{

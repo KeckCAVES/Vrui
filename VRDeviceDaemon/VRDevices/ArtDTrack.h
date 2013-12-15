@@ -1,6 +1,6 @@
 /***********************************************************************
 ArtDTrack - Class for ART DTrack tracking devices.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 

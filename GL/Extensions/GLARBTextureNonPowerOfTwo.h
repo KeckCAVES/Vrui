@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureNonPowerOfTwo - OpenGL extension class for the
 GL_ARB_texture_non_power_of_two extension.
-Copyright (c) 2006 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

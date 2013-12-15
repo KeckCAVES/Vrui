@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -285,7 +285,8 @@ void CAVERenderer::renderFloor(CAVERenderer::DataItem* dataItem) const
 	}
 
 CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
-	:surfaceMaterial(factory->surfaceMaterial),
+	:GLObject(false),
+	 surfaceMaterial(factory->surfaceMaterial),
 	 tilesPerFoot(factory->tilesPerFoot),
 	 numViewers(getNumViewers()),
 	 viewerHeadlightStates(0),
@@ -330,6 +331,8 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 				pos[j]=-pos[j];
 		lightsources[i]=getLightsourceManager()->createLightsource(true,GLLight(lightColor,pos));
 		}
+	
+	GLObject::init();
 	}
 
 CAVERenderer::~CAVERenderer(void)

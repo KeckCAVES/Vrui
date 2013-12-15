@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Class for high-performance reading/writing from/to connected
 TCP sockets.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -166,6 +166,9 @@ TCPPipe::TCPPipe(ListeningTCPSocket& listenSocket)
 
 TCPPipe::~TCPPipe(void)
 	{
+	/* Flush the write buffer: */
+	flush();
+	
 	/* Close the socket: */
 	if(fd>=0)
 		close(fd);

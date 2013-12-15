@@ -1,7 +1,7 @@
 ########################################################################
 # Packages.System - List of system packages that can be included/linked
 # into projects.
-# Copyright (c) 1999-2011 Oliver Kreylos
+# Copyright (c) 1999-2013 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -73,28 +73,28 @@ ZLIB_LIBDIR  =
 ZLIB_LIBS    = -lz
 
 # The PNG image package
-PNG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh png.h libpng.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+PNG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh png.h libpng.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 PNG_DEPENDS = 
 PNG_INCLUDE = -I$(PNG_BASEDIR)/$(INCLUDEEXT)
 PNG_LIBDIR  = -L$(PNG_BASEDIR)/$(LIBEXT)
 PNG_LIBS    = -lpng
 
 # The JPEG encoding/decoding package
-JPEG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh jpeglib.h libjpeg.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+JPEG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh jpeglib.h libjpeg.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 JPEG_DEPENDS = 
 JPEG_INCLUDE = -I$(JPEG_BASEDIR)/$(INCLUDEEXT)
 JPEG_LIBDIR  = -L$(JPEG_BASEDIR)/$(LIBEXT)
 JPEG_LIBS    = -ljpeg
 
 # The TIFF encoding/decoding package
-TIFF_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh tiffio.h libtiff.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+TIFF_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh tiffio.h libtiff.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 TIFF_DEPENDS = 
 TIFF_INCLUDE = -I$(TIFF_BASEDIR)/$(INCLUDEEXT)
 TIFF_LIBDIR  = -L$(TIFF_BASEDIR)/$(LIBEXT)
 TIFF_LIBS    = -ltiff
 
 # The ALSA low-level sound library
-ALSA_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh alsa/asoundlib.h libasound.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+ALSA_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh alsa/asoundlib.h libasound.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 ALSA_DEPENDS = 
 ALSA_INCLUDE = -I$(ALSA_BASEDIR)/$(INCLUDEEXT)
 ALSA_LIBDIR  = -L$(ALSA_BASEDIR)/$(LIBEXT)
@@ -115,49 +115,50 @@ AUDIOTOOLBOX_LIBDIR  =
 AUDIOTOOLBOX_LIBS    = -framework AudioToolbox
 
 # The Video4Linux2 video library
-V4L2_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh linux/videodev2.h libv4l2.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+V4L2_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh linux/videodev2.h None $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 V4L2_DEPENDS = 
 V4L2_INCLUDE = -I$(V4L2_BASEDIR)/$(INCLUDEEXT)
 V4L2_LIBDIR  = -L$(V4L2_BASEDIR)/$(LIBEXT)
 V4L2_LIBS    = 
 
 # The DC1394 IEEE 1394 (Firewire) DCAM video library
-DC1394_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh dc1394/dc1394.h libdc1394.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+DC1394_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh dc1394/dc1394.h libdc1394.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 DC1394_DEPENDS = 
 DC1394_INCLUDE = -I$(DC1394_BASEDIR)/$(INCLUDEEXT)
 DC1394_LIBDIR  = -L$(DC1394_BASEDIR)/$(LIBEXT)
 DC1394_LIBS    = -ldc1394
 
 # The speex speech encoding/decoding library
-SPEEX_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh speex/speex.h libspeex.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+SPEEX_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh speex/speex.h libspeex.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 SPEEX_DEPENDS = 
 SPEEX_INCLUDE = -I$(SPEEX_BASEDIR)/$(INCLUDEEXT)
 SPEEX_LIBDIR  = -L$(SPEEX_BASEDIR)/$(LIBEXT)
 SPEEX_LIBS    = -lspeex
 
 # The ogg multimedia container library
-OGG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh ogg/ogg.h libogg.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+OGG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh ogg/ogg.h libogg.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 OGG_DEPENDS = 
 OGG_INCLUDE = -I$(OGG_BASEDIR)/$(INCLUDEEXT)
 OGG_LIBDIR  = -L$(OGG_BASEDIR)/$(LIBEXT)
 OGG_LIBS    = -logg
 
 # The Theora video codec library
-THEORA_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh theora/theoraenc.h libtheoraenc.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+THEORA_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh theora/theoraenc.h libtheoraenc.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 THEORA_DEPENDS = OGG
 THEORA_INCLUDE = -I$(THEORA_BASEDIR)/$(INCLUDEEXT)
 THEORA_LIBDIR  = -L$(THEORA_BASEDIR)/$(LIBEXT)
 THEORA_LIBS    = -ltheoraenc -ltheoradec
 
 # The user-level USB library, version 1.0
-LIBUSB1_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libusb-1.0/libusb.h libusb-1.0.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+LIBUSB1_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libusb-1.0/libusb.h libusb-1.0.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 LIBUSB1_DEPENDS = 
 LIBUSB1_INCLUDE = -I$(LIBUSB1_BASEDIR)/$(INCLUDEEXT)
 LIBUSB1_LIBDIR  = -L$(LIBUSB1_BASEDIR)/$(LIBEXT)
 LIBUSB1_LIBS    = -lusb-1.0
+LIBUSB1_HAS_TOPOLOGY_CALLS = $(shell $(VRUI_MAKEDIR)/FindInHeader.sh $(LIBUSB1_BASEDIR)/$(INCLUDEEXT)/libusb-1.0/libusb.h libusb_get_parent)
 
 # The user-level Bluetooth library
-BLUETOOTH_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh bluetooth/bluetooth.h libbluetooth.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+BLUETOOTH_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh bluetooth/bluetooth.h libbluetooth.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 BLUETOOTH_DEPENDS = 
 BLUETOOTH_INCLUDE = -I$(BLUETOOTH_BASEDIR)/$(INCLUDEEXT)
 BLUETOOTH_LIBDIR  = -L$(BLUETOOTH_BASEDIR)/$(LIBEXT)
@@ -205,7 +206,7 @@ ifneq ($(SYSTEM_OPENAL_FRAMEWORK),0)
   OPENAL_LIBS    = -framework OpenAL
 else
   # Use the standard OpenAL library
-  OPENAL_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh AL/al.h libopenal.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) /usr /usr/local)
+  OPENAL_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh AL/al.h libopenal.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
   OPENAL_DEPENDS = PTHREADS
   OPENAL_INCLUDE = -I$(OPENAL_BASEDIR)/$(INCLUDEEXT)
   OPENAL_LIBDIR  = -L$(OPENAL_BASEDIR)/$(LIBEXT)

@@ -1,7 +1,7 @@
 /***********************************************************************
 IndexedFaceSetNode - Class for sets of polygonal faces as renderable
 geometry.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -71,18 +71,24 @@ Methods of class IndexedFaceSetNode:
 void IndexedFaceSetNode::uploadColoredFaceSet(DataItem* dataItem) const
 	{
 	/* Define the vertex type used in the vertex array: */
-	typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> Vertex;
+	// typedef GLGeometry::Vertex<Scalar,2,Scalar,4,Scalar,Scalar,3> Vertex;
+	
+	/* This should maybe be implemented at some point... */
 	}
 
 void IndexedFaceSetNode::uploadFaceSet(DataItem* dataItem) const
 	{
 	/* Define the vertex type used in the vertex array: */
-	typedef GLGeometry::Vertex<Scalar,2,void,0,Scalar,Scalar,3> Vertex;
+	// typedef GLGeometry::Vertex<Scalar,2,void,0,Scalar,Scalar,3> Vertex;
+	
+	/* This should maybe be implemented at some point... */
 	}
 
 IndexedFaceSetNode::IndexedFaceSetNode(void)
-	:colorPerVertex(true),normalPerVertex(true),
+	:GLObject(false),
+	 colorPerVertex(true),normalPerVertex(true),
 	 ccw(true),convex(true),solid(true),
+	 inited(false),
 	 version(0)
 	{
 	}
@@ -163,6 +169,13 @@ void IndexedFaceSetNode::update(void)
 	{
 	/* Bump up the indexed face set's version number: */
 	++version;
+	
+	/* Register the object with all OpenGL contexts if not done already: */
+	if(!inited)
+		{
+		GLObject::init();
+		inited=true;
+		}
 	}
 
 Box IndexedFaceSetNode::calcBoundingBox(void) const

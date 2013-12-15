@@ -81,9 +81,9 @@ class VRWindow:public GLWindow
 	int multisamplingLevel; // Level of multisampling (FSAA) for this window (1 == multisampling disabled)
 	GLWindow::WindowPos splitViewportPos[2]; // Positions and sizes of viewports for split-viewport stereo windows
 	bool panningViewport; // Flag whether the window's viewport depends on the window's position on the display screen
+	WindowPos panningDomain; // Origin and size of window's panning domain
 	bool navigate; // Flag if the window should move the display when it is moved/resized
 	bool movePrimaryWidgets; // Flag if the window should move primary popped-up widgets when it is moved/resized
-	int displaySize[2]; // Pixel size of the display containing this window
 	Scalar viewports[2][4]; // Viewport borders (left, right, bottom, top) for each VR screen in VR screen coordinates
 	bool hasFramebufferObjectExtension; // Flag whether the local OpenGL supports GL_EXT_framebuffer_object (for interleaved viewport and autostereoscopic stereo modes)
 	
@@ -117,10 +117,13 @@ class VRWindow:public GLWindow
 	float lcOverscanSize[2]; // Total horizontal and vertical overscan
 	int lcFrameSize[2]; // Width and height of frame buffer to render the distorted image
 	GLuint lcColorTextureObjectID; // Texture ID of the color texture used to render the distorted image
+	GLuint lcMsColorBufferObjectID; // Object ID of the multisampling color buffer used to render the multisampled distorted image
 	GLuint lcDepthBufferObjectID; // Object ID of the depth buffer used to render the distorted image
 	GLenum lcStencilPixelFormat; // Pixel format for the (optional) stencil buffer
 	GLuint lcStencilBufferObjectID; // Object ID of the (optional) stencil buffer used to render the distorted image
 	GLuint lcFrameBufferObjectID; // Object ID of the frame buffer used to render the distorted image
+	GLuint lcMsFrameBufferObjectID; // Object ID of the frame buffer used to "fix" a multisampling framebuffer
+	bool lcCubic; // Flag whether to use bicubic interpolation instead of bilinear for texture look-up in the distorted image
 	GLShader* lcUndistortionShader; // GLSL shader to undistort the intermediate distorted image
 	int lcUndistortionShaderUniformIndices[5]; // Locations of the undistortion shader's uniform variables
 	

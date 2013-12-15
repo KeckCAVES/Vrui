@@ -56,7 +56,7 @@ ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManag
 	:ToolFactory("ViewpointFileNavigationTool",toolManager),
 	 viewpointFileName(""),
 	 viewpointSelectionHelper("",".views,.curve",openDirectory(".")),
-	 showGui(false),
+	 showGui(true),
 	 showKeyframes(true),
 	 pauseFileName("ViewpointFileNavigation.pauses"),
 	 autostart(false)
@@ -601,13 +601,7 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 		/* Start animating the viewpoint if there are spline segments and the tool can be activated: */
 		if(!splines.empty())
 			{
-			if(paused&&activate())
-				{
-				/* Unpause the animation: */
-				paused=false;
-				parameter-=Scalar(getFrameTime())*speed;
-				}
-			else if(isActive())
+			if(isActive())
 				{
 				/* Pause the animation: */
 				paused=true;
@@ -615,12 +609,15 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 				}
 			else if(activate())
 				{
-				/* Animate from the beginning: */
+				if(!paused)
+					{
+					/* Animate from the beginning: */
+					parameter=splines.front().t[0];
+					}
+				
+				/* Resume the animation: */
 				firstFrame=true;
 				paused=false;
-				parameter=splines.front().t[0]-Scalar(getFrameTime())*speed;
-				if(positionSlider!=0)
-					positionSlider->setValue(parameter);
 				}
 			}
 		#endif

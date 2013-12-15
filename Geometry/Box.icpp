@@ -1,6 +1,6 @@
 /***********************************************************************
 Box - Class for n-dimensional axis-aligned boxes.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Box.h>
 
+#include <Math/Math.h>
 #include <Math/Constants.h>
 
 namespace Geometry {
@@ -308,11 +309,8 @@ add(
 		/* Calculate result box's borders: */
 		for(int i=0;i<dimensionParam;++i)
 			{
-			result.min[i]=b1.min[i];
-			if(result.min[i]>b2.min[i])
-				result.min[i]=b2.min[i];
-			if(result.max[i]<b2.max[i])
-				result.max[i]=b2.max[i];
+			result.min[i]=Math::min(b1.min[i],b2.min[i]);
+			result.max[i]=Math::max(b1.max[i],b2.max[i]);
 			}
 		
 		return result;
@@ -332,12 +330,8 @@ intersect(
 	bool null=false;
 	for(int i=0;i<dimensionParam;++i)
 		{
-		result.min[i]=b1.min[i];
-		if(result.min[i]<b2.min[i])
-			result.min[i]=b2.min[i];
-		result.max[i]=b1.max[i];
-		if(result.max[i]>b2.max[i])
-			result.max[i]=b2.max[i];
+		result.min[i]=Math::max(b1.min[i],b2.min[i]);
+		result.max[i]=Math::min(b1.max[i],b2.max[i]);
 		
 		null|=result.min[i]>result.max[i];
 		}

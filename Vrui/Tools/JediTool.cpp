@@ -128,9 +128,11 @@ Methods of class JediTool:
 
 JediTool::JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:PointingTool(factory,inputAssignment),
+	 GLObject(false),
 	 lightsaberImage(Images::readImageFile(JediTool::factory->lightsaberImageFileName.c_str())),
 	 active(false)
 	{
+	GLObject::init();
 	}
 
 const ToolFactory* JediTool::getFactory(void) const

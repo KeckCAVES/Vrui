@@ -100,7 +100,7 @@ SerialPort::SerialPort(const char* deviceName)
 	 fd(-1)
 	{
 	/* Open the device file: */
-	fd=open(deviceName,O_RDWR|O_NOCTTY|O_NDELAY);
+	fd=open(deviceName,O_RDWR|O_NOCTTY);
 	if(fd<0)
 		throw OpenError(Misc::printStdErrMsg("Comm::SerialPort: Unable to open device %s",deviceName));
 	

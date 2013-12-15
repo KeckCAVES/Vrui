@@ -1,7 +1,7 @@
 /***********************************************************************
 GLVertexArrayTemplates - Overloaded versions of OpenGL API calls related
 to vertex arrays.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -143,6 +143,7 @@ inline void glColorPointer(GLsizei stride,const GLColor<ScalarParam,numComponent
 	}
 
 #if 0
+
 /****************************************************
 Overloaded versions of glSecondaryColorPointer calls:
 ****************************************************/
@@ -191,26 +192,6 @@ template <class ScalarParam,GLsizei numComponentsParam>
 inline void glSecondaryColorPointer(GLsizei stride,const GLColor<ScalarParam,numComponentsParam>* pointer)
 	{
 	glSecondaryColorPointer(numComponentsParam,stride,pointer[0].getRgba());
-	}
-
-/**********************************************
-Overloaded versions of glFogCoordPointer calls:
-**********************************************/
-
-inline void glFogCoordPointer(GLsizei stride,const GLfloat* pointer)
-	{
-	glFogCoordPointer(GL_FLOAT,stride,pointer);
-	}
-
-inline void glFogCoordPointer(GLsizei stride,const GLdouble* pointer)
-	{
-	glFogCoordPointer(GL_DOUBLE,stride,pointer);
-	}
-
-template <class ScalarParam>
-inline void glFogCoordPointer(GLsizei stride,const GLVector<ScalarParam,1>* pointer)
-	{
-	glFogCoordPointer(stride,pointer[0].getXyzw());
 	}
 
 #endif

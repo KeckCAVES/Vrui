@@ -1,7 +1,7 @@
 /***********************************************************************
 FdSet - Class to simplify using sets of file descriptors for the select
-and pselect system calls
-Copyright (c) 2008-2011 Oliver Kreylos
+and pselect system calls.
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 

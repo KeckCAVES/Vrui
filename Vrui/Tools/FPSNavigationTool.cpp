@@ -55,7 +55,7 @@ Methods of class FPSNavigationToolFactory::Configuration:
 
 FPSNavigationToolFactory::Configuration::Configuration(void)
 	:activationToggle(true),
-	 rotateFactors(getDisplaySize()/Scalar(4)),
+	 rotateFactors(getDisplaySize()/Scalar(2)),
 	 moveSpeeds(getInchFactor()*Scalar(200)),
 	 fallAcceleration(getMeterFactor()*Scalar(9.81)),
 	 jumpVelocity(getMeterFactor()*Scalar(4)),

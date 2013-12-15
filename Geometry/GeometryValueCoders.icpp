@@ -668,10 +668,91 @@ ValueCoder<Geometry::AffineTransformation<ScalarParam,dimensionParam> >::decode(
 	const char* end,
 	const char** decodeEnd)
 	{
+	typedef Geometry::AffineTransformation<ScalarParam,dimensionParam> AT;
+	
 	try
 		{
-		Geometry::AffineTransformation<ScalarParam,dimensionParam> result;
-		result.getMatrix()=ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam,dimensionParam+1> >::decode(start,end,decodeEnd);
+		AT result=AT::identity;
+		const char* cPtr=start;
+		
+		/* Decode all atomic transformations: */
+		while(true)
+			{
+			if(*cPtr=='(')
+				{
+				/* Parse an affine matrix: */
+				AT matrix;
+				matrix.getMatrix()=ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam,dimensionParam+1> >::decode(cPtr,end,&cPtr);
+				result*=matrix;
+				}
+			else
+				{
+				std::string token=ValueCoder<std::string>::decode(cPtr,end,&cPtr);
+				if(token=="translate")
+					{
+					/* Parse a translation transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Vector t=ValueCoder<typename AT::Vector>::decode(cPtr,end,&cPtr);
+					result*=AT::translate(t);
+					}
+				else if(token=="rotate")
+					{
+					/* Parse a rotation transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Rotation r=ValueCoder<typename AT::Rotation>::decode(cPtr,end,&cPtr);
+					result*=AT::rotate(r);
+					}
+				else if(token=="rotateAround")
+					{
+					/* Parse a center point: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Point p=ValueCoder<typename AT::Point>::decode(cPtr,end,&cPtr);
+					
+					/* Check for comma separator: */
+					cPtr=checkSeparator(',',cPtr,end);
+					
+					/* Parse a rotation transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Rotation r=ValueCoder<typename AT::Rotation>::decode(cPtr,end,&cPtr);
+					result*=AT::rotateAround(p,r);
+					}
+				else if(token=="scale")
+					{
+					/* Parse a scaling transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Scalar s=ValueCoder<typename AT::Scalar>::decode(cPtr,end,&cPtr);
+					result*=AT::scale(s);
+					}
+				else if(token=="scaleAround")
+					{
+					/* Parse a center point: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Point p=ValueCoder<typename AT::Point>::decode(cPtr,end,&cPtr);
+					
+					/* Check for comma separator: */
+					cPtr=checkSeparator(',',cPtr,end);
+					
+					/* Parse a scaling transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename AT::Scalar s=ValueCoder<typename AT::Scalar>::decode(cPtr,end,&cPtr);
+					result*=AT::scaleAround(p,s);
+					}
+				else if(token!="identity")
+					{
+					throw DecodingError(std::string("unknown token ")+token);
+					}
+				}
+			cPtr=skipWhitespace(cPtr,end);
+			
+			/* Check for multiplication sign: */
+			if(cPtr==end||*cPtr!='*')
+				break;
+			++cPtr;
+			cPtr=skipWhitespace(cPtr,end);
+			}
+		
+		if(decodeEnd!=0)
+			*decodeEnd=cPtr;
 		return result;
 		}
 	catch(std::runtime_error err)
@@ -701,10 +782,91 @@ ValueCoder<Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> >::dec
 	const char* end,
 	const char** decodeEnd)
 	{
+	typedef Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> PT;
+	
 	try
 		{
-		Geometry::ProjectiveTransformation<ScalarParam,dimensionParam> result;
-		result.getMatrix()=ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam+1,dimensionParam+1> >::decode(start,end,decodeEnd);
+		PT result=PT::identity;
+		const char* cPtr=start;
+		
+		/* Decode all atomic transformations: */
+		while(true)
+			{
+			if(*cPtr=='(')
+				{
+				/* Parse a projective matrix: */
+				PT matrix;
+				matrix.getMatrix()=ValueCoder<Geometry::Matrix<ScalarParam,dimensionParam+1,dimensionParam+1> >::decode(cPtr,end,&cPtr);
+				result*=matrix;
+				}
+			else
+				{
+				std::string token=ValueCoder<std::string>::decode(cPtr,end,&cPtr);
+				if(token=="translate")
+					{
+					/* Parse a translation transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Vector t=ValueCoder<typename PT::Vector>::decode(cPtr,end,&cPtr);
+					result*=PT::translate(t);
+					}
+				else if(token=="rotate")
+					{
+					/* Parse a rotation transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Rotation r=ValueCoder<typename PT::Rotation>::decode(cPtr,end,&cPtr);
+					result*=PT::rotate(r);
+					}
+				else if(token=="rotateAround")
+					{
+					/* Parse a center point: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Point p=ValueCoder<typename PT::Point>::decode(cPtr,end,&cPtr);
+					
+					/* Check for comma separator: */
+					cPtr=checkSeparator(',',cPtr,end);
+					
+					/* Parse a rotation transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Rotation r=ValueCoder<typename PT::Rotation>::decode(cPtr,end,&cPtr);
+					result*=PT::rotateAround(p,r);
+					}
+				else if(token=="scale")
+					{
+					/* Parse a scaling transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Scalar s=ValueCoder<typename PT::Scalar>::decode(cPtr,end,&cPtr);
+					result*=PT::scale(s);
+					}
+				else if(token=="scaleAround")
+					{
+					/* Parse a center point: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Point p=ValueCoder<typename PT::Point>::decode(cPtr,end,&cPtr);
+					
+					/* Check for comma separator: */
+					cPtr=checkSeparator(',',cPtr,end);
+					
+					/* Parse a scaling transformation: */
+					cPtr=skipWhitespace(cPtr,end);
+					typename PT::Scalar s=ValueCoder<typename PT::Scalar>::decode(cPtr,end,&cPtr);
+					result*=PT::scaleAround(p,s);
+					}
+				else if(token!="identity")
+					{
+					throw DecodingError(std::string("unknown token ")+token);
+					}
+				}
+			cPtr=skipWhitespace(cPtr,end);
+			
+			/* Check for multiplication sign: */
+			if(cPtr==end||*cPtr!='*')
+				break;
+			++cPtr;
+			cPtr=skipWhitespace(cPtr,end);
+			}
+		
+		if(decodeEnd!=0)
+			*decodeEnd=cPtr;
 		return result;
 		}
 	catch(std::runtime_error err)

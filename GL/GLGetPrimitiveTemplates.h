@@ -1,7 +1,7 @@
 /***********************************************************************
 GLGetPrimitiveTemplates - Overloaded versions of all OpenGL functions
 related to querying current state of primitive specification.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the OpenGL C++ Wrapper Library (GLWrappers).
 
@@ -71,30 +71,6 @@ inline void glGetCurrentNormal(GLVector<ScalarParam,3>& param)
 	{
 	glGet(GL_CURRENT_NORMAL,param.getXyzw());
 	}
-
-#if defined(GL_VERSION_1_4) && GL_VERSION_1_4 == 1 && defined(GL_GLEXT_PROTOTYPES)
-
-template <class ScalarParam>
-inline void glGetCurrentFogCoord(ScalarParam params[1])
-	{
-	glGet(GL_CURRENT_FOG_COORDINATE,params);
-	}
-
-template <class ScalarParam>
-inline GLVector<ScalarParam,1> glGetCurrentFogCoord(void)
-	{
-	GLVector<ScalarParam,1> result;
-	glGet(GL_CURRENT_FOG_COORDINATE,result.getXyzw());
-	return result;
-	}
-
-template <class ScalarParam>
-inline void glGetCurrentFogCoord(GLVector<ScalarParam,1>& param)
-	{
-	glGet(GL_CURRENT_FOG_COORDINATE,param.getXyzw());
-	}
-
-#endif
 
 template <class ScalarParam>
 inline void glGetCurrentColor(ScalarParam params[4])

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexShader - OpenGL extension class for the GL_ARB_vertex_shader
 extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -57,6 +57,11 @@ typedef GLint (APIENTRY * PFNGLGETATTRIBLOCATIONARBPROC)(GLhandleARB programObj,
 #define GL_OBJECT_ACTIVE_ATTRIBUTE_MAX_LENGTH_ARB 0x8B8A
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glBindAttribLocationARB(GLhandleARB programObj,GLuint index,const GLcharARB* name);
+void glGetActiveAttribARB(GLhandleARB programObj,GLuint index,GLsizei maxLength,GLsizei* length,GLint* size,GLenum* type,GLcharARB* name);
+GLint glGetAttribLocationARB(GLhandleARB programObj,const GLcharARB* name);
 
 class GLARBVertexShader:public GLExtension
 	{

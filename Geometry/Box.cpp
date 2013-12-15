@@ -1,6 +1,6 @@
 /***********************************************************************
 Box - Class for n-dimensional axis-aligned boxes.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

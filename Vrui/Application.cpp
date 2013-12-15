@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -137,10 +137,27 @@ void Application::toolCreationCallback(ToolManager::ToolCreationCallbackData* cb
 		/* Set the application tool's application pointer: */
 		applicationTool->setApplication(this);
 		}
+	
+	/* Check if the new tool is an event tool: */
+	EventToolBase* eventTool=dynamic_cast<EventToolBase*>(cbData->tool);
+	const EventToolFactoryBase* eventToolFactory=dynamic_cast<const EventToolFactoryBase*>(cbData->tool->getFactory());
+	if(eventTool!=0&&eventToolFactory!=0)
+		{
+		/* Call the event tool creation callback: */
+		eventToolCreationCallback(eventToolFactory->getEventId(),cbData);
+		}
 	}
 
-void Application::toolDestructionCallback(ToolManager::ToolDestructionCallbackData*)
+void Application::toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData)
 	{
+	/* Check if the destroyed tool is an event tool: */
+	EventToolBase* eventTool=dynamic_cast<EventToolBase*>(cbData->tool);
+	const EventToolFactoryBase* eventToolFactory=dynamic_cast<const EventToolFactoryBase*>(cbData->tool->getFactory());
+	if(eventTool!=0&&eventToolFactory!=0)
+		{
+		/* Call the event tool destruction callback: */
+		eventToolDestructionCallback(eventToolFactory->getEventId(),cbData);
+		}
 	}
 
 void Application::frame(void)
@@ -152,6 +169,14 @@ void Application::display(GLContextData&) const
 	}
 
 void Application::sound(ALContextData&) const
+	{
+	}
+
+void Application::eventToolCreationCallback(Application::EventID eventId,ToolManager::ToolCreationCallbackData* cbData)
+	{
+	}
+
+void Application::eventToolDestructionCallback(Application::EventID eventId,ToolManager::ToolDestructionCallbackData* cbData)
 	{
 	}
 

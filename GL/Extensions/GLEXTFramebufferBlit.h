@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferBlit - OpenGL extension class for the
 GL_EXT_framebuffer_blit extension.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -44,6 +44,9 @@ typedef void (APIENTRY * PFNGLBLITFRAMEBUFFEREXTPROC) (GLint srcX0, GLint srcY0,
 #define GL_READ_FRAMEBUFFER_BINDING_EXT   0x8CAA
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glBlitFramebufferEXT(GLint srcX0,GLint srcY0,GLint srcX1,GLint srcY1,GLint dstX0,GLint dstY0,GLint dstX1,GLint dstY1,GLbitfield mask,GLenum filter);
 
 class GLEXTFramebufferBlit:public GLExtension
 	{

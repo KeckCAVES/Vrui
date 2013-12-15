@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferObject - OpenGL extension class for the
 GL_EXT_framebuffer_object extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -109,6 +109,25 @@ typedef void (APIENTRY * PFNGLGENERATEMIPMAPEXTPROC) (GLenum target);
 #define GL_RENDERBUFFER_STENCIL_SIZE_EXT  0x8D55
 
 #endif
+
+/* Forward declarations of friend functions: */
+GLboolean glIsRenderbufferEXT(GLuint renderbuffer);
+void glBindRenderbufferEXT(GLenum target,GLuint renderbuffer);
+void glDeleteRenderbuffersEXT(GLsizei n,const GLuint* renderbuffers);
+void glGenRenderbuffersEXT(GLsizei n,GLuint* renderbuffers);
+void glRenderbufferStorageEXT(GLenum target,GLenum internalformat,GLsizei width,GLsizei height);
+void glGetRenderbufferParameterivEXT(GLenum target,GLenum pname,GLint* params);
+GLboolean glIsFramebufferEXT(GLuint framebuffer);
+void glBindFramebufferEXT(GLenum target,GLuint framebuffer);
+void glDeleteFramebuffersEXT(GLsizei n,const GLuint* framebuffers);
+void glGenFramebuffersEXT(GLsizei n,GLuint* framebuffers);
+GLenum glCheckFramebufferStatusEXT(GLenum target);
+void glFramebufferTexture1DEXT(GLenum target,GLenum attachment,GLenum textarget,GLuint texture,GLint level);
+void glFramebufferTexture2DEXT(GLenum target,GLenum attachment,GLenum textarget,GLuint texture,GLint level);
+void glFramebufferTexture3DEXT(GLenum target,GLenum attachment,GLenum textarget,GLuint texture,GLint level,GLint zoffset);
+void glFramebufferRenderbufferEXT(GLenum target,GLenum attachment,GLenum renderbuffertarget,GLuint renderbuffer);
+void glGetFramebufferAttachmentParameterivEXT(GLenum target,GLenum attachment,GLenum pname,GLint* params);
+void glGenerateMipmapEXT(GLenum target);
 
 class GLEXTFramebufferObject:public GLExtension
 	{
