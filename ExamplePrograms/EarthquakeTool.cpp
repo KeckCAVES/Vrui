@@ -164,7 +164,7 @@ void EarthquakeTool::frame(void)
 			}
 		}
 	
-	transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),sourceDevice->getDeviceRayStart());
+	transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),Vrui::Scalar(0));
 	if(event!=0)
 		{
 		/* Set the virtual device to the event's position: */
@@ -177,7 +177,7 @@ void EarthquakeTool::frame(void)
 	else
 		{
 		/* Position the virtual device at the same ray parameter as the last successful intersection: */
-		Vrui::Point pos=sourceDevice->getPosition()+sourceDevice->getRayDirection()*lastRayParameter;
+		Vrui::Point pos=sourceDevice->getRay()(lastRayParameter);
 		Vrui::TrackerState ts(pos-Vrui::Point::origin,sourceDevice->getOrientation());
 		transformedDevice->setTransformation(ts);
 		}

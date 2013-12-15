@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureRg - OpenGL extension class for the GL_ARB_texture_rg
 extension.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -19,7 +19,6 @@ You should have received a copy of the GNU General Public License along
 with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
-
 
 #include <GL/Extensions/GLARBTextureRg.h>
 

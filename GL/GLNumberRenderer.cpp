@@ -1,6 +1,6 @@
 /***********************************************************************
 GLNumberRenderer - Class to render numbers using a HUD-like font.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -117,7 +117,8 @@ void GLNumberRenderer::drawString(const char* string,const GLNumberRenderer::Vec
 	}
 
 GLNumberRenderer::GLNumberRenderer(GLfloat sFontHeight,bool sProportional)
-	:fontHeight(sFontHeight),proportional(sProportional)
+	:GLObject(false),
+	 fontHeight(sFontHeight),proportional(sProportional)
 	{
 	/* Set all characters to the same width: */
 	GLfloat width=fontHeight*0.75f;
@@ -130,6 +131,8 @@ GLNumberRenderer::GLNumberRenderer(GLfloat sFontHeight,bool sProportional)
 		charWidths[1]=fontHeight*0.25f; // 1
 		charWidths[10]=fontHeight*0.25f; // Decimal point
 		}
+	
+	GLObject::init();
 	}
 
 void GLNumberRenderer::initContext(GLContextData& contextData) const

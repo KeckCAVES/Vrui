@@ -31,6 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <unistd.h>
 #include <iostream>
 #include <X11/keysym.h>
+#include <Misc/PrintInteger.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/CallbackData.h>
 #include <Misc/CreateNumberedFileName.h>
@@ -59,7 +60,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/Extensions/GLARBMultitexture.h>
 #include <GL/Extensions/GLARBTextureRectangle.h>
 #include <GL/Extensions/GLARBShaderObjects.h>
+#include <GL/Extensions/GLEXTFramebufferBlit.h>
 #include <GL/Extensions/GLEXTFramebufferObject.h>
+#include <GL/Extensions/GLEXTFramebufferMultisample.h>
+#include <GL/Extensions/GLEXTPackedDepthStencil.h>
 #include <GL/GLShader.h>
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
@@ -370,6 +374,8 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	modelview.renormalize();
 	displayState->modelviewNavigational=modelview;
 	
+	#if 0 // Don't do this; it's a bad idea
+	
 	/*********************************************************************
 	Fudge the navigational modelview transformation such that the point
 	that should end up being transformed to the display center actually
@@ -396,11 +402,20 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	/* Multiply the error correction translation vector onto the modelview matrix: */
 	displayState->modelviewNavigational.leftMultiply(OGTransform::translate(dcEye-oglDcEye));
 	
+	#endif
+	
 	/* Call Vrui's main rendering function: */
 	vruiState->display(displayState,getContextData());
 	
 	if(lcPolynomialDegree>=0)
 		{
+		if(multisamplingLevel>1)
+			{
+			/* Blit the multisampling color buffer containing the distorted image into the "fixing" frame buffer: */
+			glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT,lcMsFrameBufferObjectID);
+			glBlitFramebufferEXT(0,0,lcFrameSize[0],lcFrameSize[1],0,0,lcFrameSize[0],lcFrameSize[1],GL_COLOR_BUFFER_BIT,GL_NEAREST);
+			}
+		
 		/* Unbind the lens correction frame buffer: */
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcPrevFrameBuffer);
 		
@@ -646,12 +661,14 @@ GLContext* VRWindow::createContext(const WindowProperties& properties,const Misc
 		visualPropertyList[numProperties++]=properties.numAuxBuffers;
 		}
 	
+	#if 1
 	if(properties.stencilBufferSize>0)
 		{
 		/* Ask for a stencil buffer: */
 		visualPropertyList[numProperties++]=GLX_STENCIL_SIZE;
 		visualPropertyList[numProperties++]=properties.stencilBufferSize;
 		}
+	#endif
 	
 	if(properties.accumBufferSize[0]>0||properties.accumBufferSize[1]>0||properties.accumBufferSize[2]>0||properties.accumBufferSize[3]>0)
 		{
@@ -666,6 +683,7 @@ GLContext* VRWindow::createContext(const WindowProperties& properties,const Misc
 		visualPropertyList[numProperties++]=properties.accumBufferSize[3];
 		}
 	
+	#if 1
 	/* Check for multisample requests: */
 	int multisamplingLevel=configFileSection.retrieveValue<int>("./multisamplingLevel",1);
 	if(multisamplingLevel>1)
@@ -675,6 +693,7 @@ GLContext* VRWindow::createContext(const WindowProperties& properties,const Misc
 		visualPropertyList[numProperties++]=GLX_SAMPLES_ARB;
 		visualPropertyList[numProperties++]=multisamplingLevel;
 		}
+	#endif
 	
 	/* Check for quad buffering (active stereo) requests: */
 	if(configFileSection.retrieveValue<WindowType>("./windowType")==QUADBUFFER_STEREO)
@@ -714,8 +733,8 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 	 asDepthBufferObjectID(0),asFrameBufferObjectID(0),
 	 asInterzigShader(0),asQuadSizeUniformIndex(-1),
 	 lcPolynomialDegree(-1),
-	 lcColorTextureObjectID(0),lcDepthBufferObjectID(0),lcStencilPixelFormat(GL_NONE),lcStencilBufferObjectID(0),lcFrameBufferObjectID(0),
-	 lcUndistortionShader(0),
+	 lcColorTextureObjectID(0),lcMsColorBufferObjectID(0),lcDepthBufferObjectID(0),lcStencilPixelFormat(GL_NONE),lcStencilBufferObjectID(0),lcFrameBufferObjectID(0),lcMsFrameBufferObjectID(0),
+	 lcCubic(false),lcUndistortionShader(0),
 	 mouseScreen(0),
 	 showFpsFont(0),
 	 showFps(configFileSection.retrieveValue<bool>("./showFps",false)),burnMode(false),
@@ -766,10 +785,11 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 	if(viewers[0]==0||viewers[1]==0)
 		Misc::throwStdErr("VRWindow::VRWindow: No viewer(s) provided");
 	
-	/* Get the size of the entire display in pixels: */
-	WindowPos rootWindowPos=getRootWindowPos();
-	for(int i=0;i<2;++i)
-		displaySize[i]=rootWindowPos.size[i];
+	/* Set the panning domain to the entire display in pixels: */
+	panningDomain=getRootWindowPos();
+	
+	/* Override the panning domain from the configuration file: */
+	panningDomain=configFileSection.retrieveValue<WindowPos>("./panningDomain",panningDomain);
 	
 	/* Initialize other window state: */
 	for(int i=0;i<2;++i)
@@ -792,7 +812,7 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 		/* Query the screen's configured size (use mean of both screens, assuming they're the same): */
 		Scalar oldSize=Scalar(1);
 		for(int i=0;i<2;++i)
-			oldSize*=Math::sqrt(Math::sqr(screens[0]->getWidth())+Math::sqr(screens[1]->getWidth()));
+			oldSize*=Math::sqrt(Math::sqr(screens[i]->getWidth())+Math::sqr(screens[i]->getHeight()));
 		oldSize=Math::sqrt(oldSize);
 		
 		/* Adjust the size of the screen used by this window: */
@@ -835,10 +855,10 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 		/* Adapt the viewports to the size of the window in relation to the size of the display: */
 		for(int i=0;i<2;++i)
 			{
-			viewports[i][0]=Scalar(getWindowOrigin()[0])*screens[i]->getWidth()/Scalar(displaySize[0]);
-			viewports[i][1]=Scalar(getWindowOrigin()[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(displaySize[0]);
-			viewports[i][2]=Scalar(displaySize[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(displaySize[1]);
-			viewports[i][3]=Scalar(displaySize[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(displaySize[1]);
+			viewports[i][0]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0])*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+			viewports[i][1]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+			viewports[i][2]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
+			viewports[i][3]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
 			}
 		
 		/* Calculate the window center and size in physical coordinates: */
@@ -1109,6 +1129,13 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 			/* Initialize the required OpenGL extensions: */
 			GLARBMultitexture::initExtension();
 			GLEXTFramebufferObject::initExtension();
+			if(vruiState->windowProperties.stencilBufferSize>0)
+				GLEXTPackedDepthStencil::initExtension();
+			if(multisamplingLevel>1)
+				{
+				GLEXTFramebufferBlit::initExtension();
+				GLEXTFramebufferMultisample::initExtension();
+				}
 			GLShader::initExtensions();
 			}
 		catch(std::runtime_error err)
@@ -1198,6 +1225,9 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 		for(int i=0;i<2;++i)
 			lcFrameSize[i]=int(Math::ceil(float(lcFrameSize[i])*lcOverscanSize[i]));
 		
+		/* Check whether to use bicubic texture look-ups: */
+		lcCubic=configFileSection.retrieveValue<bool>("./lcCubic",lcCubic);
+		
 		/* Create the lens correction frame buffer: */
 		glGenFramebuffersEXT(1,&lcFrameBufferObjectID);
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcFrameBufferObjectID);
@@ -1205,52 +1235,124 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 		/* Create the lens correction color texture: */
 		glGenTextures(1,&lcColorTextureObjectID);
 		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAX_LEVEL,0);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MIN_FILTER,lcCubic?GL_NEAREST:GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAG_FILTER,lcCubic?GL_NEAREST:GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_S,GL_CLAMP);
 		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_T,GL_CLAMP);
 		glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_RGB8,lcFrameSize[0],lcFrameSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,0);
 		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
 		
-		/* Attach the lens correction color texture to the frame buffer: */
-		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID,0);
-		
-		/* Create the lens correction depth render buffer: */
-		glGenRenderbuffersEXT(1,&lcDepthBufferObjectID);
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
-		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH_COMPONENT,lcFrameSize[0],lcFrameSize[1]);
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
-		
-		/* Attach the lens correction depth buffer to the frame buffer: */
-		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
-		
-		if(vruiState->windowProperties.stencilBufferSize>0)
+		if(multisamplingLevel>1)
 			{
-			/* Find the appropriate stencil pixel format: */
-			if(vruiState->windowProperties.stencilBufferSize==1)
-				lcStencilPixelFormat=GL_STENCIL_INDEX1_EXT;
-			else if(vruiState->windowProperties.stencilBufferSize<=4)
-				lcStencilPixelFormat=GL_STENCIL_INDEX4_EXT;
-			else if(vruiState->windowProperties.stencilBufferSize<=8)
-				lcStencilPixelFormat=GL_STENCIL_INDEX8_EXT;
-			else
-				lcStencilPixelFormat=GL_STENCIL_INDEX16_EXT;
-			
-			/* Create the lens correction stencil render buffer: */
-			glGenRenderbuffersEXT(1,&lcStencilBufferObjectID);
-			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcStencilBufferObjectID);
-			glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,lcStencilPixelFormat,lcFrameSize[0],lcFrameSize[1]);
+			/* Create the multisampling lens correction color buffer: */
+			glGenRenderbuffersEXT(1,&lcMsColorBufferObjectID);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcMsColorBufferObjectID);
+			glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT,multisamplingLevel,GL_RGB8,lcFrameSize[0],lcFrameSize[1]);
 			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
 			
-			/* Attach the lens correction stencil buffer to the frame buffer: */
-			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_STENCIL_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcStencilBufferObjectID);
+			/* Attach the multisampling lens correction color buffer to the frame buffer: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_RENDERBUFFER_EXT,lcMsColorBufferObjectID);
+			}
+		else
+			{
+			/* Attach the lens correction color texture to the frame buffer: */
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID,0);
+			}
+		
+		/* Create the lens correction depth render buffer: */
+		if(vruiState->windowProperties.stencilBufferSize>0)
+			{
+			/* Create an interleaved depth+stencil render buffer: */
+			if(vruiState->windowProperties.stencilBufferSize>8)
+				Misc::throwStdErr("VRWindow::VRWindow: Lens distortion correction not supported with stencil depth %d>8",int(vruiState->windowProperties.stencilBufferSize));
+			glGenRenderbuffersEXT(1,&lcDepthBufferObjectID);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			if(multisamplingLevel>1)
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT,multisamplingLevel,GL_DEPTH24_STENCIL8_EXT,lcFrameSize[0],lcFrameSize[1]);
+			else
+				glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH24_STENCIL8_EXT,lcFrameSize[0],lcFrameSize[1]);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+			
+			/* Attach the lens correction interleaved depth and stencil buffer to the frame buffer: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_STENCIL_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			}
+		else
+			{
+			/* Create a depth-only render buffer: */
+			glGenRenderbuffersEXT(1,&lcDepthBufferObjectID);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			if(multisamplingLevel>1)
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT,multisamplingLevel,GL_DEPTH_COMPONENT,lcFrameSize[0],lcFrameSize[1]);
+			else
+				glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH_COMPONENT,lcFrameSize[0],lcFrameSize[1]);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+			
+			/* Attach the lens correction depth buffer to the frame buffer: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
 			}
 		
 		/* Set up pixel sources and destinations: */
 		glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 		glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 		
-		/* Protect the lens correction frame buffer: */
+		/* Check the status of the lens correction frame buffer: */
+		GLenum lcFramebufferStatus=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+		if(lcFramebufferStatus!=GL_FRAMEBUFFER_COMPLETE_EXT)
+			{
+			std::string reason="Vrui::VRWindow: Lens correction framebuffer incomplete because of ";
+			switch(lcFramebufferStatus)
+				{
+				case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
+					reason.append("invalid attachment");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
+					reason.append("missing attachment");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
+					reason.append("invalid dimensions");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
+					reason.append("invalid format");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
+					reason.append("invalid draw buffer");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
+					reason.append("invalid read buffer");
+					break;
+				
+				case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+					reason.append("unsupported feature");
+					break;
+				
+				default:
+					{
+					reason.append("unknown failure code ");
+					char codeBuffer[10];
+					reason.append(Misc::print(lcFramebufferStatus,codeBuffer+sizeof(codeBuffer)-1));
+					}
+				}
+			throw std::runtime_error(reason.c_str());
+			}
+		
+		if(multisamplingLevel>1)
+			{
+			/* Create the multisample "fixing" frame buffer: */
+			glGenFramebuffersEXT(1,&lcMsFrameBufferObjectID);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcMsFrameBufferObjectID);
+			
+			/* Attach the lens correction color texture to the "fixing" frame buffer: */
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID,0);
+			}
+		
+		/* Protect the lens correction frame buffer(s): */
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
 		
 		/* Create the lens correction shader: */
@@ -1266,7 +1368,7 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 		lcUndistortionShader->compileVertexShaderFromString(lcVertexShader);
 		
 		/* Compile the fragment program: */
-		static const char* lcFragmentShader="\
+		static const char* lcFragmentShaderLinear="\
 			#extension GL_ARB_texture_rectangle : enable\n\
 			\n\
 			uniform sampler2DRect distortedImageSampler;\n\
@@ -1285,7 +1387,48 @@ VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 				else\n\
 					gl_FragColor=vec4(0.0,0.0,0.0,1.0);\n\
 				}\n";
-		lcUndistortionShader->compileFragmentShaderFromString(lcFragmentShader);
+		
+		static const char* lcFragmentShaderCubic="\
+			#extension GL_ARB_texture_rectangle : enable\n\
+			\n\
+			uniform sampler2DRect distortedImageSampler;\n\
+			uniform float coeffs[4];\n\
+			uniform vec2 center;\n\
+			uniform vec2 scale;\n\
+			uniform vec2 size;\n\
+			\n\
+			vec4 sample(in vec2 p)\n\
+				{\n\
+				vec2 sp0=floor(p+0.5)-1.5;\n\
+				vec2 d=sp0-p;\n\
+				vec2 w[4];\n\
+				w[0]=((0.5*d+2.5)*d+4.0)*d+2.0;\n\
+				w[1]=((-1.5*d-7.0)*d-9.5)*d-3.0;\n\
+				w[2]=((1.5*d+6.5)*d+8.0)*d+3.0;\n\
+				w[3]=((-0.5*d-2.0)*d-2.5)*d-1.0;\n\
+				vec4 result=vec4(0.0);\n\
+				for(int y=0;y<4;++y)\n\
+					{\n\
+					vec4 xsum=vec4(0.0);\n\
+					for(int x=0;x<4;++x)\n\
+						xsum+=texture2DRect(distortedImageSampler,sp0+vec2(x,y))*w[x].x;\n\
+					result+=xsum*w[y].y;\n\
+					}\n\
+				return result;\n\
+				}\n\
+			\n\
+			void main()\n\
+				{\n\
+				float r2=dot(gl_TexCoord[0].xy,gl_TexCoord[0].xy);\n\
+				float rp=coeffs[0]+r2*(coeffs[1]+r2*(coeffs[2]+r2*coeffs[3]));\n\
+				vec2 pp=center+gl_TexCoord[0].xy*rp*scale;\n\
+				if(pp.x>=0.0&&pp.x<=size.x&&pp.y>=0.0&&pp.y<=size.y)\n\
+					gl_FragColor=sample(pp);\n\
+				else\n\
+					gl_FragColor=vec4(0.0,0.0,0.0,1.0);\n\
+				}\n";
+		
+		lcUndistortionShader->compileFragmentShaderFromString(lcCubic?lcFragmentShaderCubic:lcFragmentShaderLinear);
 		
 		/* Link the shader program and query the uniform locations: */
 		lcUndistortionShader->linkShader();
@@ -1450,6 +1593,11 @@ void VRWindow::deinit(void)
 		glDeleteTextures(1,&lcColorTextureObjectID);
 		glDeleteRenderbuffersEXT(1,&lcDepthBufferObjectID);
 		glDeleteRenderbuffersEXT(1,&lcStencilBufferObjectID);
+		if(multisamplingLevel>1)
+			{
+			glDeleteFramebuffersEXT(1,&lcMsFrameBufferObjectID);
+			glDeleteRenderbuffersEXT(1,&lcMsColorBufferObjectID);
+			}
 		delete lcUndistortionShader;
 		}
 	delete showFpsFont;
@@ -1539,8 +1687,8 @@ void VRWindow::updateMouseDevice(const int windowPos[2],InputDevice* mouse) cons
 		else if(panningViewport)
 			{
 			screen=screens[viewport];
-			screenPos[0]=(Scalar(getWindowOrigin()[0]+windowPos[0])+Scalar(0.5))*screen->getWidth()/Scalar(displaySize[0]);
-			screenPos[1]=(Scalar(displaySize[1]-getWindowOrigin()[1]-windowPos[1])-Scalar(0.5))*screen->getHeight()/Scalar(displaySize[1]);
+			screenPos[0]=(Scalar(getWindowOrigin()[0]-panningDomain.origin[0]+windowPos[0])+Scalar(0.5))*screen->getWidth()/Scalar(panningDomain.size[0]);
+			screenPos[1]=(Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1]-windowPos[1])-Scalar(0.5))*screen->getHeight()/Scalar(panningDomain.size[1]);
 			}
 		else
 			{
@@ -1561,16 +1709,16 @@ void VRWindow::updateMouseDevice(const int windowPos[2],InputDevice* mouse) cons
 	ONTransform screenT=screen->getScreenTransformation();
 	
 	/* Set the mouse device's position and orientation: */
-	ONTransform mouseT(screenT.transform(Point(screenPos[0],screenPos[1],Scalar(0)))-Point::origin,screenT.getRotation());
+	ONTransform mouseT(screenT.transform(Point(screenPos[0],screenPos[1],Scalar(0)))-Point::origin,screenT.getRotation()*Rotation::rotateX(Math::rad(-90.0)));
 	
 	/* Transform the eye position to screen coordinates: */
 	Point screenEyePos=screenT.inverseTransform(viewers[viewport]->getEyePosition(Viewer::MONO));
 	
-	/* Calculate the mouse device's ray direction in device, i.e., screen coordinates: */
-	Vector mouseRayDir(screenPos[0]-screenEyePos[0],screenPos[1]-screenEyePos[1],-screenEyePos[2]);
+	/* Calculate the mouse device's ray direction in device, i.e., rotated screen coordinates: */
+	Vector mouseRayDir(screenPos[0]-screenEyePos[0],screenEyePos[2],screenPos[1]-screenEyePos[1]);
 	Scalar mouseRayLen=Geometry::mag(mouseRayDir);
 	mouseRayDir/=mouseRayLen;
-	Scalar mouseRayStart=-mouseRayLen*(screenEyePos[2]-getFrontplaneDist())/screenEyePos[2];
+	Scalar mouseRayStart=-mouseRayLen;
 	
 	/* Set the mouse device: */
 	mouse->setDeviceRay(mouseRayDir,mouseRayStart);
@@ -1675,10 +1823,10 @@ bool VRWindow::processEvent(const XEvent& event)
 				/* Update the window's viewport: */
 				for(int i=0;i<2;++i)
 					{
-					viewports[i][0]=Scalar(getWindowOrigin()[0])*screens[i]->getWidth()/Scalar(displaySize[0]);
-					viewports[i][1]=Scalar(getWindowOrigin()[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(displaySize[0]);
-					viewports[i][2]=Scalar(displaySize[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(displaySize[1]);
-					viewports[i][3]=Scalar(displaySize[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(displaySize[1]);
+					viewports[i][0]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0])*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+					viewports[i][1]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+					viewports[i][2]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
+					viewports[i][3]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
 					}
 				
 				/* Compute the new viewport center and size: */

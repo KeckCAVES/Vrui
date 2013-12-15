@@ -2,7 +2,7 @@
 GLARBDrawInstanced - OpenGL extension class for the
 GL_ARB_draw_instanced extension.
 Copyright (c) 2010 Rolf Westerteiger
-Fixes copyright (c) 2010 Oliver Kreylos
+Fixes copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

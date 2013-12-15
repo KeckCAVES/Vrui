@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTexture3D - OpenGL extension class for the
 GL_EXT_texture3D extension.
-Copyright (c) 2006 Oliver Kreylos
+Copyright (c) 2006-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -59,6 +59,10 @@ typedef void (APIENTRY * PFNGLTEXSUBIMAGE3DEXTPROC) (GLenum target, GLint level,
 #define GL_MAX_3D_TEXTURE_SIZE_EXT        0x8073
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glTexImage3DEXT(GLenum target,GLint level,GLenum internalformat,GLsizei width,GLsizei height,GLsizei depth,GLint border,GLenum format,GLenum type,const GLvoid* pixels);
+void glTexSubImage3DEXT(GLenum target,GLint level,GLint xoffset,GLint yoffset,GLint zoffset,GLsizei width,GLsizei height,GLsizei depth,GLenum format,GLenum type,const GLvoid* pixels);
 
 class GLEXTTexture3D:public GLExtension
 	{

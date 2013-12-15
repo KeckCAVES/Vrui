@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTGeometryShader4 - OpenGL extension class for the
 GL_EXT_geometry_shader4 extension.
-Copyright (c) 2007-2009 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2013 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,11 +20,11 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/Extensions/GLEXTGeometryShader4.h>
+
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
-
-#include <GL/Extensions/GLEXTGeometryShader4.h>
 
 /*********************************************
 Static elements of class GLEXTGeometryShader4:

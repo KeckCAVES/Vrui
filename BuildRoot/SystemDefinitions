@@ -1,7 +1,7 @@
 ########################################################################
 # SystemDefinitions - System-dependent settings for the WhyTools build
 # environment.
-# Copyright (c) 1999-2012 Oliver Kreylos
+# Copyright (c) 1999-2013 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -64,6 +64,9 @@ EXTRACPPSYSFLAGS =
 # System-dependent linker settings for applications:
 VRUIAPP_LFLAGS =
 
+# Set search paths for system libraries:
+SYSTEM_PACKAGE_SEARCH_PATHS = /usr/local /usr
+
 # System library settings:
 SYSTEM_SEPARATE_LIBDL = 1
 SYSTEM_HAVE_RT = 1
@@ -74,7 +77,6 @@ SYSTEM_CAN_CANCEL_THREADS = 0
 SYSTEM_SEPARATE_LIBPTHREAD = 1
 SYSTEM_GL_WITH_X11 = 0
 SYSTEM_HAVE_GLXGETPROCADDRESS = 1
-SYSTEM_GET_GLEXT_PROTOTYPES = -DGL_GLEXT_PROTOTYPES
 SYSTEM_OPENAL_FRAMEWORK = 0
 
 # Configure if it is safe to sort the list of linked libraries passed to the linker:
@@ -129,7 +131,11 @@ ifeq ($(HOST_OS),Darwin)
   PLUGINLINKFLAGS = -bundle -undefined dynamic_lookup
   PLUGINHOSTLINKFLAGS = 
   SYSTEM_HAVE_TRANSITIVE_PLUGINS = 0
-  VRUIAPP_LFLAGS = -flat_namespace -bind_at_load 
+  VRUIAPP_LFLAGS = -flat_namespace -bind_at_load
+	
+	# MacPorts installs packages in /opt/local by default:
+	SYSTEM_PACKAGE_SEARCH_PATHS += /opt/local
+	
   SYSTEM_SEPARATE_LIBDL = 0
   SYSTEM_HAVE_RT = 0
   SYSTEM_SEPARATE_LIBPTHREAD = 0
@@ -140,7 +146,6 @@ ifeq ($(HOST_OS),Darwin)
   ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "9"),1)
     ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "10"),1)
       SYSTEM_DARWIN_VERSION = 10.6
-      SYSTEM_GET_GLEXT_PROTOTYPES = 
     else
       SYSTEM_DARWIN_VERSION = 10.5
       VRUIAPP_LFLAGS += -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
@@ -177,9 +182,7 @@ ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "3.0.0"),1)
   # root name and in the same directory as the created object file
   DEPFILETEMPLATE = '$(patsubst %.o,%.d,$@)'
   ifeq ($(shell expr `$(BASECCOMP) -dumpversion` ">=" "4.1.0"),1)
-    # gcc version 4.1.0 and up requires friend injection flag
-    EXTRACPPSYSFLAGS += -ffriend-injection
-		# To make up for that, it also provides built-in atomics:
+		# gcc version 4.1.0 and up provide built-in atomics:
 		SYSTEM_HAVE_ATOMICS = 1
   endif
 else

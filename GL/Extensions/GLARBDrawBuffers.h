@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBDrawBuffers - OpenGL extension class for the GL_ARB_draw_buffers
 extension.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -57,6 +57,9 @@ typedef void (APIENTRY * PFNGLDRAWBUFFERSARBPROC) (GLsizei n, const GLenum *bufs
 #define GL_DRAW_BUFFER15_ARB              0x8834
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glDrawBuffersARB(GLsizei n,const GLenum* bufs);
 
 class GLARBDrawBuffers:public GLExtension
 	{

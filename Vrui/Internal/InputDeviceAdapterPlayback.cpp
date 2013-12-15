@@ -69,9 +69,11 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	 kinectPlayer(0),
 	 #endif
 	 saveMovie(configFileSection.retrieveValue<bool>("./saveMovie",false)),
-	 movieWindowIndex(0),movieWindow(0),
+	 movieWindowIndex(0),movieWindow(0),movieFrameTimeInterval(1.0/30.0),
+	 movieFrameStart(0),movieFrameOffset(0),
 	 firstFrameCountdown(2),timeStamp(0.0),timeStampOffset(0.0),
-	 nextTimeStamp(0.0),nextMovieFrameTime(0.0),nextMovieFrameCounter(0),
+	 nextTimeStamp(0.0),
+	 nextMovieFrameTime(0.0),nextMovieFrameCounter(0),
 	 done(false)
 	{
 	/* Read file header: */
@@ -264,15 +266,17 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		if(numConversions!=1||!hasIntConversion)
 			Misc::throwStdErr("InputDeviceAdapterPlayback::InputDeviceAdapterPlayback: movie file name template \"%s\" does not have exactly one %%d conversion",movieFileNameTemplate.c_str());
 		
-		/* Get the index of the first movie frame: */
-		nextMovieFrameCounter=configFileSection.retrieveValue<int>("./movieFirstFrameIndex",nextMovieFrameCounter);
-		
 		/* Get the index of the window from which to save the frames: */
 		movieWindowIndex=configFileSection.retrieveValue<int>("./movieWindowIndex",movieWindowIndex);
 		
 		/* Get the intended frame rate for the movie: */
-		double frameRate=configFileSection.retrieveValue<double>("./movieFrameRate",30.0);
-		movieFrameTimeInterval=1.0/frameRate;
+		movieFrameTimeInterval=1.0/configFileSection.retrieveValue<double>("./movieFrameRate",1.0/movieFrameTimeInterval);
+		
+		/* Get the number of movie frames to skip: */
+		movieFrameStart=configFileSection.retrieveValue<int>("./movieSkipFrames",movieFrameStart);
+		
+		/* Get the index of the first movie frame: */
+		movieFrameOffset=configFileSection.retrieveValue<int>("./movieFirstFrameIndex",movieFrameOffset);
 		}
 	}
 
@@ -473,7 +477,7 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 	if(saveMovie&&movieWindow!=0)
 		{
 		/* Copy the last saved screenshot if multiple movie frames needed to be taken during the last Vrui frame: */
-		while(nextMovieFrameTime<timeStamp)
+		while(nextMovieFrameTime<timeStamp&&nextMovieFrameCounter>movieFrameStart)
 			{
 			/* Copy the last saved screenshot: */
 			pid_t childPid=fork();
@@ -481,9 +485,9 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 				{
 				/* Create the old and new file names: */
 				char oldImageFileName[1024];
-				snprintf(oldImageFileName,sizeof(oldImageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter-1);
+				snprintf(oldImageFileName,sizeof(oldImageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter-movieFrameStart+movieFrameOffset-1);
 				char imageFileName[1024];
-				snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter);
+				snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter-movieFrameStart+movieFrameOffset);
 				
 				/* Execute the cp system command: */
 				char* cpArgv[10];
@@ -507,10 +511,13 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		
 		if(nextTimeStamp>nextMovieFrameTime)
 			{
-			/* Request a screenshot from the movie window: */
-			char imageFileName[1024];
-			snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter);
-			movieWindow->requestScreenshot(imageFileName);
+			if(nextMovieFrameCounter>=movieFrameStart)
+				{
+				/* Request a screenshot from the movie window: */
+				char imageFileName[1024];
+				snprintf(imageFileName,sizeof(imageFileName),movieFileNameTemplate.c_str(),nextMovieFrameCounter-movieFrameStart+movieFrameOffset);
+				movieWindow->requestScreenshot(imageFileName);
+				}
 			
 			/* Advance the movie frame counters: */
 			nextMovieFrameTime+=movieFrameTimeInterval;
@@ -519,15 +526,17 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		}
 	}
 
+#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
+
 void InputDeviceAdapterPlayback::glRenderAction(GLContextData& contextData) const
 	{
-	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
 	if(kinectPlayer!=0)
 		{
 		/* Let the 3D video player render its current frames: */
 		kinectPlayer->glRenderAction(contextData);
 		}
-	#endif
 	}
+
+#endif
 
 }

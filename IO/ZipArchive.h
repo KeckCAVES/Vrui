@@ -2,7 +2,7 @@
 ZipArchive - Class to represent ZIP archive files, with functionality to
 traverse contained directory hierarchies and extract files using a File
 interface.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 

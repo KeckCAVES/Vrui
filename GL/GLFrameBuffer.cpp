@@ -95,9 +95,6 @@ void GLFrameBuffer::checkConsistency(void)
 			case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
 				Misc::throwStdErr("GLFrameBuffer::finish: missing attachment");
 			
-			case GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT:
-				Misc::throwStdErr("GLFrameBuffer::finish: duplicate attachment");
-			
 			case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
 				Misc::throwStdErr("GLFrameBuffer::finish: dimensions");
 			

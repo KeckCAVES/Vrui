@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -50,9 +50,9 @@ Methods of class MouseSurfaceNavigationToolFactory:
 
 MouseSurfaceNavigationToolFactory::MouseSurfaceNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("MouseSurfaceNavigationTool",toolManager),
-	 rotateFactor(getInchFactor()*Scalar(3)),
+	 rotateFactor(getDisplaySize()/Scalar(4)),
 	 screenScalingDirection(0,-1,0),
-	 scaleFactor(getInchFactor()*Scalar(3)),
+	 scaleFactor(getDisplaySize()/Scalar(4)),
 	 wheelScaleFactor(Scalar(0.5)),
 	 throwThreshold(getUiSize()*Scalar(2)),
 	 probeSize(getUiSize()),

@@ -129,7 +129,8 @@ void Doom3MD5Mesh::poseMesh(Doom3MD5Mesh::Mesh& mesh)
 	}
 
 Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& sMaterialManager,const char* meshFileName)
-	:materialManager(sMaterialManager),
+	:GLObject(false),
+	 materialManager(sMaterialManager),
 	 numJoints(0),
 	 joints(0),
 	 numMeshes(0),
@@ -412,6 +413,8 @@ Doom3MD5Mesh::Doom3MD5Mesh(Doom3FileManager& fileManager,Doom3MaterialManager& s
 				}
 			}
 		}
+	
+	GLObject::init();
 	}
 
 Doom3MD5Mesh::~Doom3MD5Mesh(void)

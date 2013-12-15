@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceList - Class representing lists of USB devices resulting from
 device enumeration.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -23,7 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <USB/DeviceList.h>
 
 #include <libusb-1.0/libusb.h>
-#include <Misc/ThrowStdErr.h>
+#include <stdexcept>
+#include <USB/Config.h>
 #include <USB/Context.h>
 
 namespace USB {
@@ -42,7 +43,7 @@ DeviceList::DeviceList(const Context& context)
 	else
 		{
 		deviceList=0;
-		Misc::throwStdErr("USB::DeviceList::DeviceList: Error while enumerating USB devices");
+		throw std::runtime_error("USB::DeviceList::DeviceList: Error while enumerating USB devices");
 		}
 	}
 
@@ -53,6 +54,23 @@ DeviceList::~DeviceList(void)
 		/* Unreference all devices and destroy the list: */
 		libusb_free_device_list(deviceList,1);
 		}
+	}
+
+libusb_device_descriptor& DeviceList::getDeviceDescriptor(size_t index,libusb_device_descriptor& descriptor) const
+	{
+	if(libusb_get_device_descriptor(deviceList[index],&descriptor)!=0)
+		throw std::runtime_error("USB::DeviceList::getDeviceDescriptor: Error while retrieving device descriptor");
+	
+	return descriptor;
+	}
+
+VendorProductId DeviceList::getVendorProductId(size_t index) const
+	{
+	libusb_device_descriptor descriptor;
+	if(libusb_get_device_descriptor(deviceList[index],&descriptor)==0)
+		return VendorProductId(descriptor.idVendor,descriptor.idProduct);
+	else
+		throw std::runtime_error("USB::DeviceList::getVendorProductId: Error while retrieving device descriptor");
 	}
 
 size_t DeviceList::getNumDevices(unsigned short idVendor,unsigned short idProduct) const
@@ -96,6 +114,15 @@ libusb_device* DeviceList::getDevice(unsigned short idVendor,unsigned short idPr
 			}
 		}
 	return result;
+	}
+
+libusb_device* DeviceList::getParent(libusb_device* device) const
+	{
+	#if USB_CONFIG_HAVE_TOPOLOGY_CALLS
+	return libusb_get_parent(device);
+	#else
+	return 0;
+	#endif
 	}
 
 }

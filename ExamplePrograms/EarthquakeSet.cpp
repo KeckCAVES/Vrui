@@ -747,7 +747,8 @@ void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem,const GLClipP
 	}
 
 EarthquakeSet::EarthquakeSet(IO::DirectoryPtr directory,const char* earthquakeFileName,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,const GLColorMap& sColorMap)
-	:colorMap(sColorMap),
+	:GLObject(false),
+	 colorMap(sColorMap),
 	 treePointIndices(0),
 	 layeredRendering(false),
 	 pointRadius(1.0f),highlightTime(1.0),currentTime(0.0)
@@ -791,6 +792,8 @@ EarthquakeSet::EarthquakeSet(IO::DirectoryPtr directory,const char* earthquakeFi
 	stPtr=sortTree.accessPoints();
 	for(int i=0;i<sortTree.getNumNodes();++i,++stPtr)
 		treePointIndices[i]=stPtr->value;
+	
+	GLObject::init();
 	}
 
 EarthquakeSet::~EarthquakeSet(void)

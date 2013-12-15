@@ -63,6 +63,7 @@ class QuadSetNode:public GeometryNode,public GLObject
 	
 	/* Derived state: */
 	private:
+	bool inited; // Flag whether GLObject::init() has already been called
 	unsigned int numQuads; // Number of quads defined in the quad set
 	unsigned int version; // Version of quad se defined by fields
 	

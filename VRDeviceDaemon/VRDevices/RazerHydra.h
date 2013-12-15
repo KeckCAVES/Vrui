@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydra - Class to represent a Razer / Sixense Hydra dual-sensor
 desktop 6-DOF tracking device.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 

@@ -185,8 +185,10 @@ void QuadSetNode::uploadQuads(QuadSetNode::DataItem* dataItem) const
 	}
 
 QuadSetNode::QuadSetNode(void)
-	:ccw(true),solid(true),
+	:GLObject(false),
+	 ccw(true),solid(true),
 	 subdivideX(1),subdivideY(1),
+	 inited(false),
 	 version(0)
 	{
 	}
@@ -234,6 +236,13 @@ void QuadSetNode::update(void)
 	
 	/* Update the quad set version number: */
 	++version;
+	
+	/* Register the object with all OpenGL contexts if not done already: */
+	if(!inited)
+		{
+		GLObject::init();
+		inited=true;
+		}
 	}
 
 Box QuadSetNode::calcBoundingBox(void) const

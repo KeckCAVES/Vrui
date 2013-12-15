@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui version 3.0, build 002
+README for Vrui version 3.1, build 001
 Copyright (c) 1998-2013 Oliver Kreylos
 ========================================================================
 
@@ -181,9 +181,65 @@ If the root installation directory is set to /usr, Vrui will almost (but
 not quite) follow the UNIX installation conventions. Concretely,
 configuration files will end up in /usr/etc and not in /etc. If the
 latter is desired, the additional SYSTEMINSTALL parameter needs to be
-added to make's command line, and INSTALLDIR must be set to /:
+added to make's command line, and INSTALLDIR must be set to the empty
+string:
 
-> make SYSTEMINSTALL=1 INSTALLDIR=/
+> make SYSTEMINSTALL=1 INSTALLDIR=
+
+Fine-tuning Installation Directories
+------------------------------------
+
+Normally, Vrui installation is controlled by the INSTALLDIR variable
+defining the root installation directory, and the optional SYSTEMINSTALL
+flag to create a standard-conformant root level installation. If more
+fine-tuning is required to install Vrui in a pre-existing directory
+hierarchy, Vrui's component directories can be specified individually:
+
+HEADERINSTALLDIR: root directory for include files. Installation will
+  create subdirectories Misc, Threads, Plugins, Vrui, ...
+
+LIBINSTALLDIR: directory for shared library files.
+
+EXECUTABLEINSTALLDIR: directory for executable files.
+
+PLUGININSTALLDIR: root directory for tool and vislet plug-ins.
+  Installation will create subdirectories VRTools, VRVislets, VRDevices
+  and VRCalibrators.
+
+ETCINSTALLDIR: directory for configuration files.
+
+SHAREINSTALLDIR: root directory for non-executable files. Installation
+  will create subdirectories GLFonts, Shaders, and Textures.
+
+PKGCONFIGINSTALLDIR: directory for Vrui's pkg-config file (Vrui.pc).
+
+DOCINSTALLDIR: directory for Vrui's HTML documentation.
+
+MAKEINSTALLDIR: directory for Vrui's build system.
+
+Preparing Binary Packages
+-------------------------
+
+Many operating systems contain package managers to distribute software
+as binaries for simplified installation and management. It is
+straightforward to build Vrui into such packages, but the details depend
+on the particular operating system version.
+
+The one thing all packagers have in common is that the software must be
+built in a "fake root" environment. Meaning, while the software is
+intended to end up in, say, /etc, /usr/bin, /usr/lib, ..., during
+package preparation the software has to be copied into a hierarchy under
+some base directory, such as ~/packages/etc, ~/packages/usr/bin, ...
+
+This can be achieved by using the final installation directory during
+compilation and linking, and using the "fake root" directory during
+installation. For example:
+
+> make INSTALLDIR= SYSTEMINSTALL=1
+> make INSTALLDIR=$HOME/packages SYSTEMINSTALL=1 install
+
+will configure the software to be run from /etc, /usr/bin, etc., but
+will install the files in the same hierarchy underneath ~/packages.
 
 Path to the C++ Compiler
 ------------------------

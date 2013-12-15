@@ -70,6 +70,8 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	int movieWindowIndex; // Index of the master node window from which to save screenshots; awkward, but windows have no names
 	VRWindow* movieWindow; // Pointer to the window from which to save screenshots; determined from name on first frame
 	double movieFrameTimeInterval; // Time between adjacent frames in the saved movie; == 1.0/movieFrameRate
+	int movieFrameStart; // Number of movie frames to skip at the beginning of playback. First frame will always be written with index 0
+	int movieFrameOffset; // Index to assign to the first saved movie frame (after initial frames have been skipped)
 	unsigned int firstFrameCountdown; // Counter to indicate the first frame of the Vrui application
 	double timeStamp; // Current time stamp of input device data
 	double timeStampOffset; // Offset from system's wall clock time to input data's time stamp sequence
@@ -87,7 +89,9 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
 	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
+	#ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
 	virtual void glRenderAction(GLContextData& contextData) const;
+	#endif
 	
 	/* New methods: */
 	bool isDone(void) const // Returns true if file has been entirely read

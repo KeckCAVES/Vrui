@@ -1,7 +1,7 @@
 /***********************************************************************
 Device - Class representing a USB device and optionally a handle
 resulting from opening the device.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <vector>
+#include <USB/VendorProductId.h>
 
 /* Forward declarations: */
 struct libusb_device;
@@ -76,6 +77,7 @@ class Device
 	unsigned int getBusNumber(void) const; // Returns the number of the USB bus to which the device is connected
 	unsigned int getAddress(void) const; // REturns the device's address on the USB bus to which it is connected
 	libusb_device_descriptor getDeviceDescriptor(void); // Returns the device's device descriptor
+	VendorProductId getVendorProductId(void); // Returns the device's USB ID
 	std::string getSerialNumber(void); // Returns the device's serial number, or the empty string if none is defined
 	libusb_config_descriptor* getActiveConfigDescriptor(void); // Returns a descriptor for the device's active configuration
 	libusb_config_descriptor* getConfigDescriptorByIndex(unsigned int index); // Returns a descriptor for the device's configuration of the given index

@@ -1,6 +1,6 @@
 /***********************************************************************
 TextNode - Class for nodes to render 3D text.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -53,7 +53,9 @@ Methods of class TextNode:
 *************************/
 
 TextNode::TextNode(void)
-	:maxExtent(Scalar(0))
+	:GLObject(false),
+	 maxExtent(Scalar(0)),
+	 inited(false)
 	{
 	}
 
@@ -201,6 +203,13 @@ void TextNode::update(void)
 	bbOrigin[2]=Scalar(0);
 	bbSize[2]=Scalar(0);
 	boundingBox=Box(bbOrigin,bbSize);
+	
+	/* Register the object with all OpenGL contexts if not done already: */
+	if(!inited)
+		{
+		GLObject::init();
+		inited=true;
+		}
 	}
 
 Box TextNode::calcBoundingBox(void) const

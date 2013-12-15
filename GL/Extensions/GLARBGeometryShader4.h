@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBGeometryShader4 - OpenGL extension class for the
 GL_ARB_geometry_shader4 extension.
-Copyright (c) 2007-2012 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2013 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -70,6 +70,12 @@ typedef void (APIENTRY * PFNGLFRAMEBUFFERTEXTUREFACEARBPROC) (GLenum target, GLe
 #define GL_PROGRAM_POINT_SIZE_ARB         0x8642
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glProgramParameteriARB(GLuint program,GLenum pname,GLint value);
+void glFramebufferTextureARB(GLenum target,GLenum attachment,GLuint texture,GLint level);
+void glFramebufferTextureLayerARB(GLenum target,GLenum attachment,GLuint texture,GLint level,GLint layer);
+void glFramebufferTextureFaceARB(GLenum target,GLenum attachment,GLuint texture,GLint level,GLenum face);
 
 class GLARBGeometryShader4:public GLExtension
 	{

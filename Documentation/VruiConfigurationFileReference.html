@@ -829,11 +829,6 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
-<TD>movieFirstFrameIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
-<TD>The index to assign to the first saved movie frame.</TD>
-</TR>
-
-<TR>
 <TD>movieWindowIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>The index of the master node window from which to save screenshots for a movie. This integer must be a valid index in the master node's list of windows; saving movie screenshots from a window on a slave node is not yet supported.</TD>
 </TR>
@@ -841,6 +836,16 @@ If the name of an input device configuration file section matches the name of a 
 <TR>
 <TD>movieFrameRate</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Target frame rate for the exported movie. The playback input device adapter will export slices at exactly the specified times to guarantee real-time playback even if Vrui's main loop frame rate varies. Movie frames will point sample the sequence of Vrui frames: short Vrui frames might be skipped and not generate movie frames, and long Vrui frames might generate multiple identical movie frames.</TD>
+</TR>
+
+<TR>
+<TD>movieSkipFrames</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of initial frames to skip when saving a movie. Defaults to 0.</TD>
+</TR>
+
+<TR>
+<TD>movieFirstFrameIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>The index to assign to the first saved movie frame after initial frames have been skipped. Defaults to 0.</TD>
 </TR>
 </TABLE>
 
@@ -1144,6 +1149,11 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
+<TD>panningDomain</TD><TD><A HREF="VruiCFGTypes.html#windowposition">window position</A></TD>
+<TD>Overrides a window's panning domain if panningViewport is true. By default, a window's panning domain is the entire X screen. Explicitly specifying a panning domain, and disabling autoScreenSize, makes it possible to use panning windows in multi-monitor setups where the monitor's resolutions (in pixels/length unit) do not match.</TD>
+</TR>
+
+<TR>
 <TD>navigate</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag defining the effect of moving or resizing a panning-viewport window on the displayed 3D scene. If this flag is true, moving the window will move the 3D scene, and resizing the window will scale the 3D scene using a &quot;fake&quot; navigation tool. In effect, navigation will make a Vrui window behave almost exactly like a 3D window in desktop-centric applications, but the 3D scene will still be projected from the correct viewpoint to provide, for example, correct stereoscopic rendering.</TD>
 </TR>
@@ -1176,6 +1186,11 @@ If the name of an input device configuration file section matches the name of a 
 <TR>
 <TD>lcOverscan<BR>leftLcOverscan<BR>rightLcOverscan</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly four <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
 <TD>Viewport-relative expansion of the pre-distorted view frustum, in order left, right, bottom, top. Zero values for all components disable overscan. When different for the left/right viewports, the total overscan ratios (1+left+right, 1+bottom+top) are assumed to be identical for both viewports.</TD>
+</TR>
+
+<TR>
+<TD>lcCubic</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable bicubic sampling for post-rendering radial lens distortion correction.</TD>
 </TR>
 
 <TR>
