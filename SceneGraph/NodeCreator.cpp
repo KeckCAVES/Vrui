@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/UTMPointTransformNode.h>
 #include <SceneGraph/ImageProjectionNode.h>
 #include <SceneGraph/BoxNode.h>
+#include <SceneGraph/SphereNode.h>
 #include <SceneGraph/ConeNode.h>
 #include <SceneGraph/CylinderNode.h>
 #include <SceneGraph/TextureCoordinateNode.h>
@@ -86,6 +87,7 @@ NodeCreator::NodeCreator(void)
 	registerNodeType(new GenericNodeFactory<UTMPointTransformNode>());
 	registerNodeType(new GenericNodeFactory<ImageProjectionNode>());
 	registerNodeType(new GenericNodeFactory<BoxNode>());
+	registerNodeType(new GenericNodeFactory<SphereNode>());
 	registerNodeType(new GenericNodeFactory<ConeNode>());
 	registerNodeType(new GenericNodeFactory<CylinderNode>());
 	registerNodeType(new GenericNodeFactory<TextureCoordinateNode>());

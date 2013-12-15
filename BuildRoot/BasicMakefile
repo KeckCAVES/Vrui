@@ -58,14 +58,14 @@ PACKAGES8 = $(foreach PACKAGENAME,$(PACKAGES7),$($(PACKAGENAME)_DEPENDS))
 PACKAGES9 = $(foreach PACKAGENAME,$(PACKAGES8),$($(PACKAGENAME)_DEPENDS))
 PACKAGES_RECEXPAND = $(PACKAGES) $(PACKAGES1) $(PACKAGES2) $(PACKAGES3) $(PACKAGES4) $(PACKAGES5) $(PACKAGES6) $(PACKAGES7) $(PACKAGES8) $(PACKAGES9)
 
-# Generate the list of include file directories from list of packages:
-CINCLUDEFLAGS = $(EXTRACINCLUDEFLAGS) $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_INCLUDE)))
+# Generate the list of include file directories from list of packages, not including the system directory:
+CINCLUDEFLAGS = $(EXTRACINCLUDEFLAGS) $(sort $(filter-out -I/usr/$(INCLUDEEXT),$(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_INCLUDE))))
 
 # Generate compiler flags from list of packages:
 CPACKAGEFLAGS = $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_CFLAGS)))
 
-# Generate the list of library directories from list of packages:
-LINKDIRFLAGS  = $(EXTRALINKDIRFLAGS) $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBDIR)))
+# Generate the list of library directories from list of packages, not including the system directory:
+LINKDIRFLAGS  = $(EXTRALINKDIRFLAGS) $(sort $(filter-out -L/usr/$(LIBEXT),$(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBDIR))))
 
 # Generate the list of libraries from list of packages:
 ifneq ($(SORT_LINKLIBFLAGS),0)

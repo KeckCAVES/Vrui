@@ -3745,3 +3745,151 @@ Vrui-3.0-002:
 - Fixed tool name in Vrui::ValuatorWalkSurfaceNavigationTool.
 - Fixed missing initialization of per-window group maximum frame and
   viewport sizes. D'oh!
+
+Vrui-3.1-001:
+- Added option to skip initial frames when saving movies using a
+  Vrui::InputDeviceAdapterPlayback. Controlled by movieSkipFrames
+  configuration file option.
+- Added EyeCalibrator, a calibration program to generate precise viewer
+  configurations, to Vrui utilities.
+- Added new event tool creation and destruction callbacks to
+  Vrui::Application to allow applications to manage event tool state.
+  - Had to insert common base classes for event tools and their
+    factories into Vrui::Application's private interface.
+- Added PrecisionTest utility to Vrui example programs.
+- Disabled some yet-unused code in SceneGraph::IndexedFaceSetNode.
+- Removed O_NDELAY opening flag from Comm::SerialPort; must have been
+  left over from some debugging or experiments.
+- Fixed include file order in GL/Extensions/GLEXTTexture3D.cpp.
+- Added new extension class GLEXTTextureInteger.
+- Shuffled OpenGL matrix code in Vrui::VRWindow methods to save a few
+  API calls.
+- Reorganized off-screen rendering buffer management code in
+  Vrui::VRWindow.
+- Added automatic flush() to Comm::TCPPipe's destructor.
+- Fixed getButtonDeviceRay and getValuatorDeviceRay methods in
+  Vrui::Tool to take input device's rayStart parameter into account.
+- Improved value coders for affine and projective transformations in
+  Geometry/GeometryValueCoders.h; can now parse any combination of
+  elementary transformations and matrices.
+- Added delayed initialization option to GLObject constructor such that
+  derived class state is properly constructed before initContext is
+  called. Derived classes can pass false to the GLObject constructor,
+  and initialize the GLObject at a later point inside the constructor
+  by calling GLObject::init().
+- Added delayed initialization to the following classes:
+  - GLNumberRenderer
+  - GLPolylineTube
+  - Video::YpCbCr420Texture
+  - SceneGraph::LabelSetNode
+  - SceneGraph::TextNode
+  - SceneGraph::QuadSetNode
+  - SceneGraph::IndexedFaceSetNode
+  - SceneGraph::Doom3MD5Mesh
+  - Vrui::Vislets::CAVERenderer
+  - Vrui::MouseCursorFaker
+  - Vrui::JediTool
+  - Vrui::GlyphRenderer
+- Fixed wrong initialization order of window group frame sizes in
+  Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed bad group stack management in
+  Vrui/SceneGraph/Internal/LoadModelFromASEFile.cpp.
+- Fixed wrong handling of absolute paths in
+  IO::StandardDirectory::getPath and
+  Cluster::StandardDirectory::getPath. Pointed out by Daniel Rubin.
+- Added ViewerConfiguration, a Vrui vislet class to configure the eye
+  positions of viewers from inside a running Vrui application.
+- Fixed Vrui::RevolverTool::initialize() method to fully initialize
+  virtual device state.
+- Added option to use bicubic sampling during post-rendering lens
+  distortion correction to Vrui::VRWindow.
+- Added branch for unknown GL error codes to GL/GLPrintError.cpp.
+- Fixed include file order in GL/Extensions/GLARBTextureRectangle.cpp.
+- Added extension class for GL_EXT_packed_depth_stencil OpenGL
+  extension.
+- Added extension class for GL_EXT_framebuffer_multisample OpenGL
+  extension.
+- Added option to use multisampling for post-rendering lens distortion
+  correction to Vrui::VRWindow.
+- Added note that Oculus Rift tracker module depends on libusb-1 to
+  makefile's configuration output.
+- Added error check on number of connected devices to RazerHydra
+  VRDeviceDaemon module.
+- Added more content to "VR Device Daemon Configuration File Settings
+  Reference."
+- Added class USB::VendorProductId to represent USB device IDs.
+- Added getDeviceDescriptor and getVendorProductId methods to
+  USB::DeviceList.
+- Added getVendorProductId method to USB::Device.
+- Added functor-based getNumDevices and getDevice methods to
+  USB::DeviceList to allow arbitrary matching comparisons. Implemented
+  in USB/DeviceList.icpp.
+- Changed default value of remoteControl tag in ArtDTrack VR device
+  driver module to false; apparently, that functionality is no longer
+  supported by DTrack.
+- Fixed bug in animation parameter calculation in
+  Vrui::ViewpointFileNavigationTool.
+- Changed showGui setting default value in
+  Vrui::ViewpointFileNavigationTool to true.
+- Added Vrui build version and installation directories to output from
+  -vruiVerbose command line option.
+- Fixed orientation and ray start parameter of mouse input devices in
+  screen plane.
+- Fixed friend function declarations in Misc/FdSet.h; as a result, Vrui
+  should now compile again with the new version of llvm shipping with
+  Mac OS X Mavericks.
+- Added panningDomain tag to Vrui::VRWindow's configuration settings to
+  support panning windows in multi-monitor setups with mismatching
+  resolutions.
+- Fixed missing initialization in Geometry::Box::add. Pointed out by
+  Jens Bauer.
+- Fixed wrong destructor name in Vrui::GenericAbstractToolFactory.
+  Pointed out by Jens Bauer.
+- Adapted GLFrameBuffer class to revision #117 of
+  GL_EXT_framebuffer_object extension specification. Pointed out by Jens
+  Bauer.
+- Introduced new variable SYSTEM_PACKAGE_SEARCH_PATHS to centralize
+  search locations for system packages in BuildRoot/SystemDefinitions
+  and BuildRoot/Packages.System.
+- Added /opt/local to search paths when on Mac OS X, to accomodate
+  MacPorts' default installation location. Suggested by Jens Bauer.
+- Fixed wrong parameter name in declaration of Vrui::setBackplaneDist in
+  Vrui/Vrui.h.
+- Changed default rotate and scale factors in
+  Vrui::MouseSurfaceNavigationTool to be display-dependent.
+- Increased default rotation factors in Vrui::FPSNavigationTool for
+  smoother rotation.
+- Added initial code for Vrui::PanelButtonTool, but is not functional at
+  this point.
+- Added forward declarations for all friend functions defined inside
+  class declarations to get rid of reliance on -ffriend-injection
+  compiler flag, which no longer exists on C++ compiler shipped with Mac
+  OS X Mavericks.
+- Removed reliance on GL_GLEXT_PROTOTYPES from all source files.
+- Removed handling of GL_GLEXT_PROTOTYPES from build system.
+- Fixed a typo in function pointer loader in GLEXTPalettedTexture
+  extension.
+- API change: Added new extension class GLEXTFogCoord for
+  GL_EXT_fog_coord extension.
+  - Removed GL/GLFogCoordTemplates.h and added its functions to
+    GLEXTFogCoord.h.
+    - Removed #include <GL/GLFogCoordTemplates.h> from
+      GL/GLPrimitiveTemplates.h.
+  - Removed fog coordinate functions from GL/GLVertexArrayTemplates.h
+    and added them to GLEXTFogCoord.
+  - Removed fog coordinate gets from GL/GLGetPrimitiveTemplates.h and
+    added them to GLEXTFogCoord.
+- Added some smarts to the build system to generate better installation
+  directory hierarchies.
+  - Added new make target "planinstall" that prints out the configured
+    installation directories.
+  - Added description of installation hierachy, fine-tuning, and binary
+    package generation to README file.
+- Added getParent method to USB::DeviceList using the topology query
+  functions from libusbx. Returns a null pointer for every device if
+  libusbx is not installed.
+- Added script to search for function declarations in system header
+  files to Vrui build system.
+- Added setting to select USB bus topology query functions to build
+  system; auto-detected in BuildRoot/Packages.system; manual override in
+  makefile.

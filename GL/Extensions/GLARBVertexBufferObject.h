@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexBufferObject - OpenGL extension class for the
 GL_ARB_vertex_buffer_object extension.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -86,6 +86,19 @@ typedef void (APIENTRY * PFNGLGETBUFFERPOINTERVARBPROC)(GLenum target, GLenum pn
 #define GL_BUFFER_MAP_POINTER_ARB                       0x88BD
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glBindBufferARB(GLenum target,GLuint buffer);
+void glDeleteBuffersARB(GLsizei n,const GLuint* buffers);
+void glGenBuffersARB(GLsizei n,GLuint* buffers);
+GLboolean glIsBufferARB(GLuint buffer);
+void glBufferDataARB(GLenum target,GLsizeiptrARB size,const GLvoid* data,GLenum usage);
+void glBufferSubDataARB(GLenum target,GLintptrARB offset,GLsizeiptrARB size,const GLvoid* data);
+void glGetBufferSubDataARB(GLenum target,GLintptrARB offset,GLsizeiptrARB size,GLvoid* data);
+GLvoid* glMapBufferARB(GLenum target,GLenum access);
+GLboolean glUnmapBufferARB(GLenum target);
+void glGetBufferParameterivARB(GLenum target,GLenum pname,GLint* params);
+void glGetBufferPointervARB(GLenum target,GLenum pname,GLvoid** params);
 
 class GLARBVertexBufferObject:public GLExtension
 	{

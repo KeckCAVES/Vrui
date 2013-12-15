@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <unistd.h>
 #include <fcntl.h>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <string>
 #include <stdexcept>
@@ -538,6 +539,18 @@ void init(int& argc,char**& argv,char**&)
 				{
 				std::cout<<"Vrui: Entering verbose mode"<<std::endl;
 				vruiVerbose=true;
+				
+				/* Print information about the Vrui run-time installation: */
+				std::cout<<"Vrui: Run-time version ";
+				char prevFill=std::cout.fill('0');
+				std::cout<<VRUIVERSION/1000000<<'.'<<(VRUIVERSION/1000)%1000<<'-'<<std::setw(3)<<VRUIVERSION%1000;
+				std::cout.fill(prevFill);
+				std::cout<<" installed in:"<<std::endl;
+				std::cout<<"        libraries   : "<<VRUILIBDIR<<std::endl;
+				std::cout<<"        executables : "<<VRUIEXECUTABLEDIR<<std::endl;
+				std::cout<<"        plug-ins    : "<<VRUIPLUGINDIR<<std::endl;
+				std::cout<<"        config files: "<<VRUIETCDIR<<std::endl;
+				std::cout<<"        shared files: "<<VRUISHAREDIR<<std::endl;
 				
 				/* Remove parameter from argument list: */
 				argc-=1;
@@ -1233,6 +1246,8 @@ void startDisplay(void)
 			{
 			vruiWindowGroups[i].display=vruiWindows[wgIt->getDest().windows.front().windowIndex]->getContext().getDisplay();
 			vruiWindowGroups[i].displayFd=ConnectionNumber(vruiWindowGroups[i].display);
+			vruiWindowGroups[i].maxViewportSize[0]=vruiWindowGroups[i].maxViewportSize[1]=0;
+			vruiWindowGroups[i].maxFrameSize[0]=vruiWindowGroups[i].maxFrameSize[1]=0;
 			for(std::vector<VruiWindowGroupCreator::VruiWindow>::iterator wIt=wgIt->getDest().windows.begin();wIt!=wgIt->getDest().windows.end();++wIt)
 				{
 				VruiWindowGroup::Window newWindow;
@@ -1242,8 +1257,6 @@ void startDisplay(void)
 				vruiWindowGroups[i].windows.push_back(newWindow);
 				newWindow.window->setWindowGroup(&vruiWindowGroups[i]);
 				}
-			vruiWindowGroups[i].maxViewportSize[0]=vruiWindowGroups[i].maxViewportSize[1]=0;
-			vruiWindowGroups[i].maxFrameSize[0]=vruiWindowGroups[i].maxFrameSize[1]=0;
 			}
 		}
 		}

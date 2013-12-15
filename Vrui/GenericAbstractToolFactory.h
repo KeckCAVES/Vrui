@@ -2,7 +2,7 @@
 GenericToolFactory - Class for factories for generic user interaction
 tools that are never actually created, i.e., only serve as base classes
 for derived tools.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,7 +54,7 @@ class GenericAbstractToolFactory:public ToolFactory
 			addParentClass(parentClass);
 			}
 		}
-	~GenericToolFactory(void)
+	~GenericAbstractToolFactory(void)
 		{
 		}
 	

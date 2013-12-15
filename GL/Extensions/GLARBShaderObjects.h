@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBShaderObjects - OpenGL extension class for the
 GL_ARB_shader_objects extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -124,6 +124,47 @@ typedef void (APIENTRY * PFNGLGETSHADERSOURCEARBPROC)(GLhandleARB obj, GLsizei m
 #define GL_OBJECT_SHADER_SOURCE_LENGTH_ARB 0x8B88
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glDeleteObjectARB(GLhandleARB obj);
+GLhandleARB glGetHandleARB(GLenum pname);
+void glDetachObjectARB(GLhandleARB containerObj,GLhandleARB attachedObj);
+GLhandleARB glCreateShaderObjectARB(GLenum shaderType);
+void glShaderSourceARB(GLhandleARB shaderObj,GLsizei count,const GLcharARB** string,const GLint* length);
+void glCompileShaderARB(GLhandleARB shaderObj);
+GLhandleARB glCreateProgramObjectARB(void);
+void glAttachObjectARB(GLhandleARB containerObj,GLhandleARB obj);
+void glLinkProgramARB(GLhandleARB programObj);
+void glUseProgramObjectARB(GLhandleARB programObj);
+void glValidateProgramARB(GLhandleARB programObj);
+void glUniform1fARB(GLint location,GLfloat v0);
+void glUniform2fARB(GLint location,GLfloat v0,GLfloat v1);
+void glUniform3fARB(GLint location,GLfloat v0,GLfloat v1,GLfloat v2);
+void glUniform4fARB(GLint location,GLfloat v0,GLfloat v1,GLfloat v2,GLfloat v3);
+void glUniform1iARB(GLint location,GLint v0);
+void glUniform2iARB(GLint location,GLint v0,GLint v1);
+void glUniform3iARB(GLint location,GLint v0,GLint v1,GLint v2);
+void glUniform4iARB(GLint location,GLint v0,GLint v1,GLint v2,GLint v3);
+void glUniform1fvARB(GLint location,GLsizei count,const GLfloat* value);
+void glUniform2fvARB(GLint location,GLsizei count,const GLfloat* value);
+void glUniform3fvARB(GLint location,GLsizei count,const GLfloat* value);
+void glUniform4fvARB(GLint location,GLsizei count,const GLfloat* value);
+void glUniform1ivARB(GLint location,GLsizei count,const GLint* value);
+void glUniform2ivARB(GLint location,GLsizei count,const GLint* value);
+void glUniform3ivARB(GLint location,GLsizei count,const GLint* value);
+void glUniform4ivARB(GLint location,GLsizei count,const GLint* value);
+void glUniformMatrix2fvARB(GLint location,GLsizei count,GLboolean transpose,const GLfloat* value);
+void glUniformMatrix3fvARB(GLint location,GLsizei count,GLboolean transpose,const GLfloat* value);
+void glUniformMatrix4fvARB(GLint location,GLsizei count,GLboolean transpose,const GLfloat* value);
+void glGetObjectParameterfvARB(GLhandleARB obj,GLenum pname,GLfloat* params);
+void glGetObjectParameterivARB(GLhandleARB obj,GLenum pname,GLint* params);
+void glGetInfoLogARB(GLhandleARB obj,GLsizei maxLength,GLsizei* length,GLcharARB* infoLog);
+void glGetAttachedObjectsARB(GLhandleARB containerObj,GLsizei maxCount,GLsizei* count,GLhandleARB* obj);
+GLint glGetUniformLocationARB(GLhandleARB programObj,const GLcharARB* name);
+void glGetActiveUniformARB(GLhandleARB programObj,GLuint index,GLsizei maxLength,GLsizei* length,GLint* size,GLenum* type,GLcharARB* name);
+void glGetUniformfvARB(GLhandleARB programObj,GLint location,GLfloat* params);
+void glGetUniformivARB(GLhandleARB programObj,GLint location,GLint* params);
+void glGetShaderSourceARB(GLhandleARB obj,GLsizei maxLength,GLsizei* length,GLcharARB* source);
 
 class GLARBShaderObjects:public GLExtension
 	{

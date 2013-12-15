@@ -214,10 +214,12 @@ Methods of class GlyphRenderer:
 ******************************/
 
 GlyphRenderer::GlyphRenderer(GLfloat sGlyphSize,std::string sCursorImageFileName,unsigned int sCursorNominalSize)
-	:glyphSize(sGlyphSize),
+	:GLObject(false),
+	 glyphSize(sGlyphSize),
 	 cursorImageFileName(sCursorImageFileName),
 	 cursorNominalSize(sCursorNominalSize)
 	{
+	GLObject::init();
 	}
 
 void GlyphRenderer::initContext(GLContextData& contextData) const

@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseCursorFaker - Helper class to render a fake mouse cursor for cases
 where a hardware cursor is not available, or not appropriate.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,7 +54,8 @@ Methods of class MouseCursorFaker:
 *********************************/
 
 MouseCursorFaker::MouseCursorFaker(const InputDevice* sDevice,const char* cursorImageFileName,unsigned int cursorNominalSize)
-	:device(sDevice),
+	:GLObject(false),
+	 device(sDevice),
 	 cursorImage(Images::readCursorFile(cursorImageFileName,cursorNominalSize)),
 	 cursorSize(getUiSize(),getUiSize(),0),
 	 cursorHotspot(0,1,0)
@@ -70,6 +71,8 @@ MouseCursorFaker::MouseCursorFaker(const InputDevice* sDevice,const char* cursor
 		tcMax[i]=(float(cursorImage.getSize(i))-0.5f)/float(texSize);
 		}
 	cursorTexCoordBox=Geometry::Box<float,2>(tcMin,tcMax);
+	
+	GLObject::init();
 	}
 
 void MouseCursorFaker::initContext(GLContextData& contextData) const

@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceList - Class representing lists of USB devices resulting from
 device enumeration.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -24,9 +24,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define USB_DEVICELIST_INCLUDED
 
 #include <stddef.h>
+#include <USB/VendorProductId.h>
 
 /* Forward declarations: */
 struct libusb_device;
+struct libusb_device_descriptor;
 namespace USB {
 class Context;
 }
@@ -62,10 +64,21 @@ class DeviceList
 		{
 		return deviceList[index];
 		}
+	libusb_device_descriptor& getDeviceDescriptor(size_t index,libusb_device_descriptor& descriptor) const; // Returns a device descriptor for the device of the given index
+	VendorProductId getVendorProductId(size_t index) const; // Returns the USB ID of the device of the given index
 	size_t getNumDevices(unsigned short idVendor,unsigned short idProduct) const; // Returns the number of USB devices with the given vendor / product ID
+	template <class DeviceMatcherParam>
+	size_t getNumDevices(const DeviceMatcherParam& deviceMatcher) const; // Returns the number of USB devices matching the given functor
 	libusb_device* getDevice(unsigned short idVendor,unsigned short idProduct,size_t index =0) const; // Returns index-th USB devices with the given vendor / product ID, or NULL
+	template <class DeviceMatcherParam>
+	libusb_device* getDevice(const DeviceMatcherParam& deviceMatcher,size_t index =0) const; // Returns index-th USB device matching the given functor
+	libusb_device* getParent(libusb_device* device) const; // Returns the parent (hub) device of the given device
 	};
 
 }
+
+#if !defined(USB_DEVICELIST_IMPLEMENTATION)
+#include <USB/DeviceList.icpp>
+#endif
 
 #endif

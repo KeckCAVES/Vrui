@@ -1,7 +1,7 @@
 /***********************************************************************
 GLPrintError - Helper function to print a plain-text OpenGL error
 message.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

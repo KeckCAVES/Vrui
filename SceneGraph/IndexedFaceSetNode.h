@@ -1,7 +1,7 @@
 /***********************************************************************
 IndexedFaceSetNode - Class for sets of polygonal faces as renderable
 geometry.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -79,6 +79,7 @@ class IndexedFaceSetNode:public GeometryNode,public GLObject
 	
 	/* Derived state: */
 	protected:
+	bool inited; // Flag whether GLObject::init() has already been called
 	unsigned int version; // Version number of face set
 	
 	/* Protected methods: */

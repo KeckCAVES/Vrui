@@ -70,14 +70,26 @@ std::string StandardDirectory::getPath(void) const
 
 std::string StandardDirectory::getPath(const char* relativePath) const
 	{
-	/* Assemble and normalize the absolute path name: */
-	std::string result=pathName;
-	if(result.length()>1)
-		result.push_back('/');
-	result.append(relativePath);
-	normalizePath(result,1);
-	
-	return result;
+	/* Check if the given path is absolute: */
+	if(relativePath[0]=='/')
+		{
+		/* Normalize the given absolute path name: */
+		std::string result=relativePath;
+		normalizePath(result,1);
+		
+		return result;
+		}
+	else
+		{
+		/* Assemble and normalize the absolute path name: */
+		std::string result=pathName;
+		if(result.length()>1)
+			result.push_back('/');
+		result.append(relativePath);
+		normalizePath(result,1);
+		
+		return result;
+		}
 	}
 
 bool StandardDirectory::hasParent(void) const

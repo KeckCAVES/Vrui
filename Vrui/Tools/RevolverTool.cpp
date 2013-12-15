@@ -173,7 +173,7 @@ void RevolverTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(transformedDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(sourceDevice->getTransformation());
+	resetDevice();
 	}
 
 const ToolFactory* RevolverTool::getFactory(void) const

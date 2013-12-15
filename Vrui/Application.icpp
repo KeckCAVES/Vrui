@@ -41,11 +41,10 @@ Application::EventToolFactory<DerivedApplicationParam>::EventToolFactory(
 	typename Application::EventToolFactory<DerivedApplicationParam>::DerivedApplication* sApplication,
 	typename Application::EventToolFactory<DerivedApplicationParam>::EventCallbackMethod sEventCallbackMethod,
 	typename Application::EventID sEventId)
-	:ToolFactory(sClassName,*getToolManager()),
+	:EventToolFactoryBase(sClassName,*getToolManager(),sEventId),
 	 displayName(sDisplayName),
 	 application(sApplication),
-	 eventCallbackMethod(sEventCallbackMethod),
-	 eventId(sEventId)
+	 eventCallbackMethod(sEventCallbackMethod)
 	{
 	/* Initialize the tool's layout: */
 	layout.setNumButtons(1);
@@ -110,7 +109,7 @@ inline
 Application::EventTool<DerivedApplicationParam>::EventTool(
 	const ToolFactory* sFactory,
 	const ToolInputAssignment& inputAssignment)
-	:Vrui::Tool(sFactory,inputAssignment),
+	:EventToolBase(sFactory,inputAssignment),
 	 factory(dynamic_cast<const Factory*>(sFactory))
 	{
 	}
@@ -140,7 +139,7 @@ Application::EventTool<DerivedApplicationParam>::buttonCallback(
 	int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
 	/* Call the event callback with the event ID and the "press" flag: */
-	(factory->application->*(factory->eventCallbackMethod))(factory->eventId,cbData);
+	(factory->application->*(factory->eventCallbackMethod))(factory->getEventId(),cbData);
 	}
 
 /****************************

@@ -58,6 +58,9 @@ class YpCbCr420Texture:public GLObject
 		/* Constructors and destructors: */
 		DataItem(void);
 		virtual ~DataItem(void);
+		
+		/* Methods: */
+		void buildShader(bool newChromaKey); // Rebuilds the rendering shader (assuming that shaders are supported) with the given chroma key setting
 		};
 	
 	/* Elements: */

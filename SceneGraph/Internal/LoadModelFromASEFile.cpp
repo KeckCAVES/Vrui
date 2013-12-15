@@ -128,7 +128,6 @@ struct MeshFace
 
 enum Group
 	{
-	ROOT,
 	MATERIAL_LIST,
 	MATERIAL,
 	SUBMATERIAL,
@@ -179,7 +178,7 @@ Doom3Model* loadModelFromASEFile(Doom3FileManager& fileManager,Doom3MaterialMana
 		const char* tag=aseTok.readNextToken();
 		if(strcasecmp(tag,"}")==0)
 			{
-			if(groupStack.back()==ROOT)
+			if(groupStack.empty())
 				Misc::throwStdErr("loadModelFromASEFile: Extra closing brace in file %s",aseFileName);
 			
 			if(groupStack.back()==GEOMOBJECT&&geomobjectMaterialIndex>=0&&materialNames[geomobjectMaterialIndex]!="")
@@ -293,7 +292,7 @@ Doom3Model* loadModelFromASEFile(Doom3FileManager& fileManager,Doom3MaterialMana
 		else if(strcasecmp(tag,"*MATERIAL_LIST")==0)
 			{
 			/* Check if at top level: */
-			if(groupStack.back()!=ROOT)
+			if(!groupStack.empty())
 				Misc::throwStdErr("loadModelFromASEFile: Non-global MATERIAL_LIST group in file %s",aseFileName);
 			
 			/* Enter a material list group: */
@@ -415,7 +414,7 @@ Doom3Model* loadModelFromASEFile(Doom3FileManager& fileManager,Doom3MaterialMana
 		else if(strcasecmp(tag,"*GEOMOBJECT")==0||strcasecmp(tag,"*SHAPEOBJECT")==0)
 			{
 			/* Check if at top level: */
-			if(groupStack.back()!=ROOT)
+			if(!groupStack.empty())
 				Misc::throwStdErr("loadModelFromASEFile: Non-global GEOMOBJECT group in file %s",aseFileName);
 			
 			/* Enter a geometry object group: */

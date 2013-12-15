@@ -71,22 +71,6 @@ YpCbCr420Texture::DataItem::~DataItem(void)
 		glDeleteTextures(1,planeTextureIds);
 	}
 
-/*********************************
-Methods of class YpCbCr420Texture:
-*********************************/
-
-YpCbCr420Texture::YpCbCr420Texture(void)
-	:chromaKey(false),frameNumber(0)
-	{
-	/* Initialize the image planes: */
-	for(int i=0;i<3;++i)
-		{
-		planes[i].size[0]=planes[i].size[1]=0;
-		planes[i].base=0;
-		planes[i].stride=0;
-		}
-	}
-
 namespace {
 
 /***************************************
@@ -162,6 +146,41 @@ const char* ypcbcr420FragmentShaderSourceChromaKey="\
 
 }
 
+void YpCbCr420Texture::DataItem::buildShader(bool newChromaKey)
+	{
+	/* Copy the chroma key setting: */
+	chromaKey=newChromaKey;
+
+	/* Build the Y'CbCr 4:2:0 -> RGB conversion shader: */
+	ypcbcr420Shader.compileVertexShaderFromString(ypcbcr420VertexShaderSource);
+	ypcbcr420Shader.compileFragmentShaderFromString(chromaKey?ypcbcr420FragmentShaderSourceChromaKey:ypcbcr420FragmentShaderSource);
+	ypcbcr420Shader.linkShader();
+
+	/* Get the shader's texture sampler uniform location: */
+	textureSamplerLocs[0]=ypcbcr420Shader.getUniformLocation("ypTextureSampler");
+	textureSamplerLocs[1]=ypcbcr420Shader.getUniformLocation("cbTextureSampler");
+	textureSamplerLocs[2]=ypcbcr420Shader.getUniformLocation("crTextureSampler");
+	}
+
+/*********************************
+Methods of class YpCbCr420Texture:
+*********************************/
+
+YpCbCr420Texture::YpCbCr420Texture(void)
+	:GLObject(false),
+	 chromaKey(false),frameNumber(0)
+	{
+	/* Initialize the image planes: */
+	for(int i=0;i<3;++i)
+		{
+		planes[i].size[0]=planes[i].size[1]=0;
+		planes[i].base=0;
+		planes[i].stride=0;
+		}
+	
+	GLObject::init();
+	}
+
 void YpCbCr420Texture::initContext(GLContextData& contextData) const
 	{
 	/* Create and store the data item: */
@@ -187,18 +206,8 @@ void YpCbCr420Texture::initContext(GLContextData& contextData) const
 	
 	if(dataItem->shaderSupported)
 		{
-		/* Copy the chroma key setting: */
-		dataItem->chromaKey=chromaKey;
-		
-		/* Build the Y'CbCr 4:2:0 -> RGB conversion shader: */
-		dataItem->ypcbcr420Shader.compileVertexShaderFromString(ypcbcr420VertexShaderSource);
-		dataItem->ypcbcr420Shader.compileFragmentShaderFromString(chromaKey?ypcbcr420FragmentShaderSourceChromaKey:ypcbcr420FragmentShaderSource);
-		dataItem->ypcbcr420Shader.linkShader();
-		
-		/* Get the shader's texture sampler uniform location: */
-		dataItem->textureSamplerLocs[0]=dataItem->ypcbcr420Shader.getUniformLocation("ypTextureSampler");
-		dataItem->textureSamplerLocs[1]=dataItem->ypcbcr420Shader.getUniformLocation("cbTextureSampler");
-		dataItem->textureSamplerLocs[2]=dataItem->ypcbcr420Shader.getUniformLocation("crTextureSampler");
+		/* Build the rendering shader: */
+		dataItem->buildShader(chromaKey);
 		}
 	}
 
@@ -307,18 +316,8 @@ void YpCbCr420Texture::install(GLContextData& contextData,GLfloat texCoord[2]) c
 		/* Check if the shader is valid: */
 		if(dataItem->chromaKey!=chromaKey)
 			{
-			/* Rebuild the Y'CbCr 4:2:0 -> RGB conversion shader: */
-			dataItem->ypcbcr420Shader.compileVertexShaderFromString(ypcbcr420VertexShaderSource);
-			dataItem->ypcbcr420Shader.compileFragmentShaderFromString(chromaKey?ypcbcr420FragmentShaderSourceChromaKey:ypcbcr420FragmentShaderSource);
-			dataItem->ypcbcr420Shader.linkShader();
-			
-			/* Get the shader's texture sampler uniform location: */
-			dataItem->textureSamplerLocs[0]=dataItem->ypcbcr420Shader.getUniformLocation("ypTextureSampler");
-			dataItem->textureSamplerLocs[1]=dataItem->ypcbcr420Shader.getUniformLocation("cbTextureSampler");
-			dataItem->textureSamplerLocs[2]=dataItem->ypcbcr420Shader.getUniformLocation("crTextureSampler");
-			
-			/* Mark the shader as valid: */
-			dataItem->chromaKey=chromaKey;
+			/* Rebuild the rendering shader: */
+			dataItem->buildShader(chromaKey);
 			}
 		
 		/* Install the Y'CbCr 4:2:0 -> RGB shader: */

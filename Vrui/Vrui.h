@@ -202,7 +202,7 @@ const Plane& getFloorPlane(void); // Returns a plane equation for the "floor" of
 /* Manage rendering parameters: */
 void setFrontplaneDist(Scalar newFrontplaneDist); // Sets the distance of the OpenGL front plane in physical units
 Scalar getFrontplaneDist(void); // Returns the distance of the OpenGL front plane in physical units
-void setBackplaneDist(Scalar newFrontplaneDist); // Sets the distance of the OpenGL back plane in physical units
+void setBackplaneDist(Scalar newBackplaneDist); // Sets the distance of the OpenGL back plane in physical units
 Scalar getBackplaneDist(void); // Returns the distance of the OpenGL back plane in physical units
 void setBackgroundColor(const Color& newBackgroundColor); // Sets the OpenGL background color
 const Color& getBackgroundColor(void); // Returns the OpenGL background color

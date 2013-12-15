@@ -2,7 +2,7 @@
 GLARBDrawInstanced - OpenGL extension class for the
 GL_ARB_draw_instanced extension.
 Copyright (c) 2010 Rolf Westerteiger
-Fixes copyright (c) 2010 Oliver Kreylos
+Fixes copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -40,6 +40,10 @@ typedef void (GLAPIENTRY * PFNGLDRAWARRAYSINSTANCEDARBPROC) (GLenum, GLint, GLsi
 typedef void (GLAPIENTRY * PFNGLDRAWELEMENTSINSTANCEDARBPROC) (GLenum, GLsizei, GLenum, const GLvoid*, GLsizei);
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glDrawArraysInstancedARB(GLenum mode,GLint first,GLsizei count,GLsizei primcount);
+void glDrawElementsInstancedARB(GLenum mode,GLsizei count,GLenum type,const GLvoid* indices,GLsizei primcount);
 
 class GLARBDrawInstanced:public GLExtension
 	{

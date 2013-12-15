@@ -199,7 +199,8 @@ void GLPolylineTube::updateTubeIndices(GLPolylineTube::DataItem* dataItem) const
 	}
 
 GLPolylineTube::GLPolylineTube(GLPolylineTube::Scalar sTubeRadius,size_t sNumVertices,const GLPolylineTube::Point* sVertices)
-	:tubeRadius(sTubeRadius),numTubeSegments(8),
+	:GLObject(false),
+	 tubeRadius(sTubeRadius),numTubeSegments(8),
 	 vertexVersion(1),indexVersion(1)
 	{
 	vertices.reserve(sNumVertices);
@@ -209,6 +210,8 @@ GLPolylineTube::GLPolylineTube(GLPolylineTube::Scalar sTubeRadius,size_t sNumVer
 		for(size_t i=0;i<sNumVertices;++i)
 			vertices[i]=sVertices[i];
 		}
+	
+	GLObject::init();
 	}
 
 GLPolylineTube::~GLPolylineTube(void)

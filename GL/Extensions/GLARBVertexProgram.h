@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexProgram - OpenGL extension class for the
 GL_ARB_vertex_program extension.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -180,6 +180,70 @@ typedef GLboolean (APIENTRY * PFNGLISPROGRAMARBPROC) (GLuint program);
 #define GL_MATRIX31_ARB                             0x88DF
 
 #endif
+
+/* Forward declarations of friend functions: */
+void glVertexAttrib1sARB(GLuint index,GLshort x);
+void glVertexAttrib1fARB(GLuint index,GLfloat x);
+void glVertexAttrib1dARB(GLuint index,GLdouble x);
+void glVertexAttrib2sARB(GLuint index,GLshort x,GLshort y);
+void glVertexAttrib2fARB(GLuint index,GLfloat x,GLfloat y);
+void glVertexAttrib2dARB(GLuint index,GLdouble x,GLdouble y);
+void glVertexAttrib3sARB(GLuint index,GLshort x,GLshort y,GLshort z);
+void glVertexAttrib3fARB(GLuint index,GLfloat x,GLfloat y,GLfloat z);
+void glVertexAttrib3dARB(GLuint index,GLdouble x,GLdouble y,GLdouble z);
+void glVertexAttrib4sARB(GLuint index,GLshort x,GLshort y,GLshort z,GLshort w);
+void glVertexAttrib4fARB(GLuint index,GLfloat x,GLfloat y,GLfloat z,GLfloat w);
+void glVertexAttrib4dARB(GLuint index,GLdouble x,GLdouble y,GLdouble z,GLdouble w);
+void glVertexAttrib4NubARB(GLuint index,GLubyte x,GLubyte y,GLubyte z,GLubyte w);
+void glVertexAttrib1svARB(GLuint index,const GLshort* v);
+void glVertexAttrib1fvARB(GLuint index,const GLfloat* v);
+void glVertexAttrib1dvARB(GLuint index,const GLdouble* v);
+void glVertexAttrib2svARB(GLuint index,const GLshort* v);
+void glVertexAttrib2fvARB(GLuint index,const GLfloat* v);
+void glVertexAttrib2dvARB(GLuint index,const GLdouble* v);
+void glVertexAttrib3svARB(GLuint index,const GLshort* v);
+void glVertexAttrib3fvARB(GLuint index,const GLfloat* v);
+void glVertexAttrib3dvARB(GLuint index,const GLdouble* v);
+void glVertexAttrib4bvARB(GLuint index,const GLbyte* v);
+void glVertexAttrib4svARB(GLuint index,const GLshort* v);
+void glVertexAttrib4ivARB(GLuint index,const GLint* v);
+void glVertexAttrib4ubvARB(GLuint index,const GLubyte* v);
+void glVertexAttrib4usvARB(GLuint index,const GLushort* v);
+void glVertexAttrib4uivARB(GLuint index,const GLuint* v);
+void glVertexAttrib4fvARB(GLuint index,const GLfloat* v);
+void glVertexAttrib4dvARB(GLuint index,const GLdouble* v);
+void glVertexAttrib4NbvARB(GLuint index,const GLbyte* v);
+void glVertexAttrib4NsvARB(GLuint index,const GLshort* v);
+void glVertexAttrib4NivARB(GLuint index,const GLint* v);
+void glVertexAttrib4NubvARB(GLuint index,const GLubyte* v);
+void glVertexAttrib4NusvARB(GLuint index,const GLushort* v);
+void glVertexAttrib4NuivARB(GLuint index,const GLuint* v);
+void glVertexAttribPointerARB(GLuint index,GLint size,GLenum type,GLboolean normalized,GLsizei stride,const GLvoid* pointer);
+void glEnableVertexAttribArrayARB(GLuint index);
+void glDisableVertexAttribArrayARB(GLuint index);
+void glProgramStringARB(GLenum target,GLenum format,GLsizei len,const GLvoid* string);
+void glBindProgramARB(GLenum target,GLuint program);
+void glDeleteProgramsARB(GLsizei n,const GLuint* programs);
+void glGenProgramsARB(GLsizei n,GLuint* programs);
+void glProgramEnvParameter4dARB(GLenum target,GLuint index,GLdouble x,GLdouble y,GLdouble z,GLdouble w);
+void glProgramEnvParameter4dvARB(GLenum target,GLuint index,const GLdouble* params);
+void glProgramEnvParameter4fARB(GLenum target,GLuint index,GLfloat x,GLfloat y,GLfloat z,GLfloat w);
+void glProgramEnvParameter4fvARB(GLenum target,GLuint index,const GLfloat* params);
+void glProgramLocalParameter4dARB(GLenum target,GLuint index,GLdouble x,GLdouble y,GLdouble z,GLdouble w);
+void glProgramLocalParameter4dvARB(GLenum target,GLuint index,const GLdouble* params);
+void glProgramLocalParameter4fARB(GLenum target,GLuint index,GLfloat x,GLfloat y,GLfloat z,GLfloat w);
+void glProgramLocalParameter4fvARB(GLenum target,GLuint index,const GLfloat* params);
+void glGetProgramEnvParameterdvARB(GLenum target,GLuint index,GLdouble* params);
+void glGetProgramEnvParameterfvARB(GLenum target,GLuint index,GLfloat* params);
+void glGetProgramLocalParameterdvARB(GLenum target,GLuint index,GLdouble* params);
+void glGetProgramLocalParameterfvARB(GLenum target,GLuint index,GLfloat* params);
+void glGetProgramivARB(GLenum target,GLenum pname,GLint* params);
+void glGetProgramStringARB(GLenum target,GLenum pname,GLvoid* string);
+void glGetVertexAttribdvARB(GLuint index,GLenum pname,GLdouble* params);
+void glGetVertexAttribfvARB(GLuint index,GLenum pname,GLfloat* params);
+void glGetVertexAttribivARB(GLuint index,GLenum pname,GLint* params);
+void glGetVertexAttribPointervARB(GLuint index,GLenum pname,GLvoid** pointer);
+GLboolean glIsProgramARB(GLuint program);
 
 class GLARBVertexProgram:public GLExtension
 	{
