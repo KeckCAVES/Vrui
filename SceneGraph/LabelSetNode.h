@@ -1,7 +1,7 @@
 /***********************************************************************
 LabelSetNode - Class for nodes to render sets of single-line labels at
 individual positions.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -67,6 +67,7 @@ class LabelSetNode:public GeometryNode,public GLObject
 	
 	/* Derived elements: */
 	protected:
+	bool inited; // Flag whether GLObject::init() has already been called
 	std::vector<GLFont::Box> stringBox; // Array of model-space positions and sizes of the quads used to render the strings
 	std::vector<GLFont::TBox> stringTexBox; // Array of texture-space boxes to map the strings to the quads
 	

@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformTool - Base class for tools used to transform the position or
 orientation of input devices.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,15 +23,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/TransformTool.h>
 
-#include <vector>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/StandardValueCoders.h>
-#include <Misc/CompoundValueCoders.h>
-#include <Misc/ConfigurationFile.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -40,10 +36,7 @@ Methods of class TransformToolFactory:
 *************************************/
 
 TransformToolFactory::TransformToolFactory(ToolManager& toolManager)
-	:ToolFactory("TransformTool",toolManager),
-	 numButtons(1),
-	 buttonToggleFlags(0),
-	 numValuators(0)
+	:ToolFactory("TransformTool",toolManager)
 	{
 	#if 0
 	/* Insert class into class hierarchy: */
@@ -52,33 +45,12 @@ TransformToolFactory::TransformToolFactory(ToolManager& toolManager)
 	addParentClass(toolFactory);
 	#endif
 	
-	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	numButtons=cfs.retrieveValue<int>("./numButtons",numButtons);
-	buttonToggleFlags=new bool[numButtons];
-	for(int i=0;i<numButtons;++i)
-		buttonToggleFlags[i]=false;
-	std::vector<int> toggleButtonIndices=cfs.retrieveValue<std::vector<int> >("./toggleButtonIndices",std::vector<int>());
-	for(std::vector<int>::const_iterator tbiIt=toggleButtonIndices.begin();tbiIt!=toggleButtonIndices.end();++tbiIt)
-		{
-		if(*tbiIt<0||*tbiIt>=numButtons)
-			Misc::throwStdErr("TransformToolFactory::TransformToolFactory: Toggle button index out of valid range");
-		buttonToggleFlags[*tbiIt]=true;
-		}
-	numValuators=cfs.retrieveValue<int>("./numValuators",numValuators);
-	
-	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,numButtons);
-	layout.setNumValuators(0,numValuators);
-	
 	/* Set tool class' factory pointer: */
 	TransformTool::factory=this;
 	}
 
 TransformToolFactory::~TransformToolFactory(void)
 	{
-	delete[] buttonToggleFlags;
 	}
 
 const char* TransformToolFactory::getName(void) const
@@ -86,21 +58,14 @@ const char* TransformToolFactory::getName(void) const
 	return "Transformer";
 	}
 
-extern "C" ToolFactory* createTransformToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+const char* TransformToolFactory::getButtonFunction(int) const
 	{
-	/* Get pointer to tool manager: */
-	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
-	
-	/* Create factory object and insert it into class hierarchy: */
-	TransformToolFactory* navigationToolFactory=new TransformToolFactory(*toolManager);
-	
-	/* Return factory object: */
-	return navigationToolFactory;
+	return "Forwarded Button";
 	}
 
-extern "C" void destroyTransformToolFactory(ToolFactory* factory)
+const char* TransformToolFactory::getValuatorFunction(int) const
 	{
-	delete factory;
+	return "Forwarded Valuator";
 	}
 
 /**************************************
@@ -113,59 +78,45 @@ TransformToolFactory* TransformTool::factory=0;
 Methods of class TransformTool:
 ******************************/
 
-bool TransformTool::setButtonState(int buttonIndex,bool newButtonState)
+void TransformTool::resetDevice(void)
 	{
-	bool result=false;
-	
-	if(factory->buttonToggleFlags[buttonIndex])
+	if(sourceDevice!=0)
 		{
-		if(!newButtonState)
-			{
-			result=true;
-			buttonStates[buttonIndex]=!buttonStates[buttonIndex];
-			}
+		/* Copy the source device's position and orientation to the transformed device: */
+		transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),sourceDevice->getDeviceRayStart());
+		transformedDevice->setTransformation(sourceDevice->getTransformation());
 		}
-	else
-		{
-		result=buttonStates[buttonIndex]!=newButtonState;
-		buttonStates[buttonIndex]=newButtonState;
-		}
-	
-	return result;
 	}
 
 TransformTool::TransformTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:Tool(sFactory,inputAssignment),
-	 transformedDevice(0),
-	 buttonStates(0),
-	 transformEnabled(true)
+	 sourceDevice(0),transformedDevice(0)
 	{
-	/* Initialize the button states array: */
-	buttonStates=new bool[factory->numButtons];
-	for(int i=0;i<factory->numButtons;++i)
-		buttonStates[i]=false;
+	/* Initialize the number of private buttons and valuators by assuming that required buttons/valuators are private: */
+	numPrivateButtons=sFactory->getLayout().getNumButtons();
+	numPrivateValuators=sFactory->getLayout().getNumValuators();
 	}
 
 TransformTool::~TransformTool(void)
 	{
-	delete[] buttonStates;
 	}
 
 void TransformTool::initialize(void)
 	{
 	/* Create a virtual input device to shadow the source input device: */
-	transformedDevice=addVirtualInputDevice("TransformedDevice",factory->numButtons,factory->numValuators);
+	transformedDevice=addVirtualInputDevice("TransformedDevice",input.getNumButtonSlots()-numPrivateButtons,input.getNumValuatorSlots()-numPrivateValuators);
 	
-	/* Set the virtual device's glyph to the source device's glyph: */
-	getInputGraphManager()->getInputDeviceGlyph(transformedDevice)=getInputGraphManager()->getInputDeviceGlyph(getDevice(0));
+	if(sourceDevice!=0)
+		{
+		/* Set the virtual input device's glyph to the source device's glyph: */
+		getInputGraphManager()->getInputDeviceGlyph(transformedDevice)=getInputGraphManager()->getInputDeviceGlyph(sourceDevice);
+		}
 	
 	/* Permanently grab the virtual input device: */
 	getInputGraphManager()->grabInputDevice(transformedDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	InputDevice* device=input.getDevice(0);
-	transformedDevice->setTransformation(device->getTransformation());
-	transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+	resetDevice();
 	}
 
 void TransformTool::deinitialize(void)
@@ -183,46 +134,117 @@ const ToolFactory* TransformTool::getFactory(void) const
 	return factory;
 	}
 
-void TransformTool::buttonCallback(int,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData)
+void TransformTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
-	/* Set the new button state and forward to the transformed device if it changed: */
-	if(setButtonState(deviceButtonIndex,cbData->newButtonState))
+	/* Check if the button is a forwarded button: */
+	if(buttonSlotIndex>=numPrivateButtons)
 		{
-		/* Disable the transformation if an unassigned button is pressed: */
-		if(transformEnabled)
-			{
-			if(buttonStates[deviceButtonIndex]&&!getToolManager()->doesButtonHaveTool(transformedDevice,deviceButtonIndex))
-				{
-				/* Set the transformed device back to the untransformed position: */
-				InputDevice* device=input.getDevice(0);
-				transformedDevice->setTransformation(device->getTransformation());
-				transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
-				transformEnabled=false;
-				transformDisablerButtonIndex=deviceButtonIndex;
-				}
-			}
-		else
-			{
-			if(deviceButtonIndex==transformDisablerButtonIndex&&!buttonStates[deviceButtonIndex])
-				transformEnabled=true;
-			}
+		int forwardButtonIndex=buttonSlotIndex-numPrivateButtons;
 		
-		transformedDevice->setButtonState(deviceButtonIndex,buttonStates[deviceButtonIndex]);
+		/* Forward the button's state to the transformed device: */
+		transformedDevice->setButtonState(forwardButtonIndex,cbData->newButtonState);
 		}
 	}
 
-void TransformTool::valuatorCallback(int,int deviceValuatorIndex,InputDevice::ValuatorCallbackData* cbData)
+void TransformTool::valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData)
 	{
-	/* Forward the new valuator state to the transformed device: */
-	transformedDevice->setValuator(deviceValuatorIndex,cbData->newValuatorValue);
+	/* Check if the valuator is a forwarded valuator: */
+	if(valuatorSlotIndex>=numPrivateValuators)
+		{
+		int forwardValuatorIndex=valuatorSlotIndex-numPrivateValuators;
+		
+		/* Forward the new valuator state to the transformed device: */
+		transformedDevice->setValuator(forwardValuatorIndex,cbData->newValuatorValue);
+		}
 	}
 
 void TransformTool::frame(void)
 	{
-	/* Set the transformed device's position and orientation: */
-	InputDevice* device=input.getDevice(0);
-	transformedDevice->setTransformation(device->getTransformation());
-	transformedDevice->setDeviceRayDirection(device->getDeviceRayDirection());
+	/* Let the transformed device shadow the source device: */
+	resetDevice();
+	}
+
+std::vector<InputDevice*> TransformTool::getForwardedDevices(void)
+	{
+	std::vector<InputDevice*> result;
+	result.push_back(transformedDevice);
+	return result;
+	}
+
+InputDeviceFeatureSet TransformTool::getSourceFeatures(const InputDeviceFeature& forwardedFeature)
+	{
+	/* Paranoia: Check if the forwarded feature is on the transformed device: */
+	if(forwardedFeature.getDevice()!=transformedDevice)
+		Misc::throwStdErr("TransformTool::getSourceFeatures: Forwarded feature is not on transformed device");
+	
+	/* Create an empty feature set: */
+	InputDeviceFeatureSet result;
+	
+	if(forwardedFeature.isButton())
+		{
+		/* Add the slot's feature to the result set: */
+		result.push_back(input.getButtonSlotFeature(forwardedFeature.getIndex()+numPrivateButtons));
+		}
+	
+	if(forwardedFeature.isValuator())
+		{
+		/* Add the slot's feature to the result set: */
+		result.push_back(input.getValuatorSlotFeature(forwardedFeature.getIndex()+numPrivateValuators));
+		}
+	
+	return result;
+	}
+
+InputDevice* TransformTool::getSourceDevice(const InputDevice* forwardedDevice)
+	{
+	/* Paranoia: Check if the forwarded device is the same as the transformed device: */
+	if(forwardedDevice!=transformedDevice)
+		Misc::throwStdErr("TransformTool::getSourceDevice: Forwarded device is not transformed device");
+	
+	/* Return the designated source device: */
+	return sourceDevice;
+	}
+
+InputDeviceFeatureSet TransformTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)
+	{
+	/* Find the input assignment slot for the given feature: */
+	int slotIndex=input.findFeature(sourceFeature);
+	
+	/* Check if the source feature belongs to this tool: */
+	if(slotIndex<0)
+		Misc::throwStdErr("TransformTool::getForwardedFeatures: Source feature is not part of tool's input assignment");
+	
+	/* Create an empty feature set: */
+	InputDeviceFeatureSet result;
+	
+	/* Check if the feature is a button or valuator: */
+	if(sourceFeature.isButton())
+		{
+		/* Get the slot's button slot index: */
+		int buttonSlotIndex=input.getButtonSlotIndex(slotIndex);
+		
+		/* Check if the button is part of the forwarded subset: */
+		if(buttonSlotIndex>=numPrivateButtons)
+			{
+			/* Add the forwarded feature to the result set: */
+			result.push_back(InputDeviceFeature(transformedDevice,InputDevice::BUTTON,buttonSlotIndex-numPrivateButtons));
+			}
+		}
+	
+	if(sourceFeature.isValuator())
+		{
+		/* Get the slot's valuator slot index: */
+		int valuatorSlotIndex=input.getValuatorSlotIndex(slotIndex);
+		
+		/* Check if the valuator is part of the forwarded subset: */
+		if(valuatorSlotIndex>=numPrivateValuators)
+			{
+			/* Add the forwarded feature to the result set: */
+			result.push_back(InputDeviceFeature(transformedDevice,InputDevice::VALUATOR,valuatorSlotIndex-numPrivateValuators));
+			}
+		}
+	
+	return result;
 	}
 
 }

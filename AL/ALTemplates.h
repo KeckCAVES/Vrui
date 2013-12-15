@@ -1,6 +1,6 @@
 /***********************************************************************
 ALTemplates - Overloaded versions of OpenAL functions.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the OpenAL Support Library (ALSupport).
 
@@ -22,11 +22,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef ALTEMPLATES_INCLUDED
 #define ALTEMPLATES_INCLUDED
 
-#ifdef __DARWIN__
-#include <OpenAL/al.h>
-#else
-#include <AL/al.h>
-#endif
+#include <AL/Config.h>
+
+#if ALSUPPORT_CONFIG_HAVE_OPENAL
 
 /***********************************************************
 Structure to define enumeration values for alListener calls:
@@ -506,5 +504,7 @@ inline void alBuffer<3,ALdouble>(ALuint bid,ALBufferEnums::Param param,const ALd
 		tempValues[i]=ALfloat(values[i]);
 	alBufferfv(bid,param,tempValues);
 	}
+
+#endif
 
 #endif

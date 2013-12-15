@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -29,16 +29,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <fstream>
 #include <iomanip>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/FileCharacterSource.h>
-#include <Misc/TokenSource.h>
+#include <IO/TokenSource.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Math/Matrix.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Vector.h>
 #include <Geometry/ProjectiveTransformation.h>
-#include <Geometry/Sphere.h>
 #include <Geometry/PCACalculator.h>
+#include <Geometry/PointPicker.h>
+#include <Geometry/RayPicker.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
@@ -56,6 +56,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/OpenFile.h>
 
 #include "NaturalPointClient.h"
 #include "PTransformFitter.h"
@@ -93,6 +94,16 @@ MeasureEnvironment::PointSnapperToolFactory* MeasureEnvironment::PointSnapperToo
 Methods of class MeasureEnvironment::PointSnapperTool:
 *****************************************************/
 
+MeasureEnvironment::PointSnapperTool::PointSnapperTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment)
+	:Vrui::TransformTool(factory,inputAssignment)
+	{
+	/* Set the source device: */
+	if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else
+		sourceDevice=getValuatorDevice(0);
+	}
+
 void MeasureEnvironment::PointSnapperTool::initialize(void)
 	{
 	/* Initialize the base tool: */
@@ -102,33 +113,41 @@ void MeasureEnvironment::PointSnapperTool::initialize(void)
 	Vrui::getInputGraphManager()->getInputDeviceGlyph(transformedDevice).disable();
 	}
 
+const Vrui::ToolFactory* MeasureEnvironment::PointSnapperTool::getFactory(void) const
+	{
+	return factory;
+	}
+
 void MeasureEnvironment::PointSnapperTool::frame(void)
 	{
-	/* Get pointer to input device: */
-	Vrui::InputDevice* iDevice=input.getDevice(0);
-	
-	if(transformEnabled)
+	/* Pick a point: */
+	PickResult pr;
+	if(sourceDevice->isRayDevice())
 		{
-		/* Pick a point: */
-		Vrui::Scalar pointSize=Vrui::getUiSize()*Vrui::getInverseNavigationTransformation().getScaling();
-		Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(iDevice);
-		Point pos=transform.getOrigin();
-		PickResult pr;
-		if(iDevice->isRayDevice())
-			pr=application->pickPoint(Ray(pos,transform.transform(iDevice->getDeviceRayDirection())),pointSize);
-		else
-			pr=application->pickPoint(pos,pointSize);
+		/* Calculate the device's selection ray in navigational coordinates: */
+		Ray ray(sourceDevice->getRay());
+		ray.transform(Vrui::getInverseNavigationTransformation());
 		
-		/* Move the device's origin to the picked point: */
-		pos=application->snapToPoint(pos,pr);
-		
-		/* Set the transformed device's position to the intersection point: */
-		Vrui::TrackerState ts=Vrui::TrackerState::translateFromOriginTo(Vrui::getNavigationTransformation().transform(pos));
-		transformedDevice->setTransformation(ts);
+		/* Pick a point along a ray: */
+		pr=application->pickPoint(ray);
 		}
 	else
-		transformedDevice->setTransformation(iDevice->getTransformation());
-	transformedDevice->setDeviceRayDirection(iDevice->getDeviceRayDirection());
+		{
+		/* Calculate the device's selection position in navigational coordinates: */
+		Point pos(Vrui::getInverseNavigationTransformation().transform(sourceDevice->getPosition()));
+		
+		/* Pick a point: */
+		pr=application->pickPoint(pos);
+		}
+	
+	/* Move the device's origin to the picked point: */
+	Point devicePos(sourceDevice->getPosition());
+	devicePos=application->snapToPoint(devicePos,pr);
+	
+	/* Set the transformed device's position to the intersection point: */
+	transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),sourceDevice->getDeviceRayStart());
+	Vrui::TrackerState ts(Vrui::getNavigationTransformation().transform(devicePos)-Vrui::Point::origin,sourceDevice->getOrientation());
+	transformedDevice->setTransformation(ts);
 	}
 
 /***********************************************************
@@ -239,7 +258,7 @@ MeasureEnvironment::PointQueryTool::PointQueryTool(const Vrui::ToolFactory* fact
 	dialog->manageChild();
 	
 	/* Pop up the data dialog: */
-	Vrui::popupPrimaryWidget(dialogPopup,Vrui::getNavigationTransformation().transform(Vrui::getDisplayCenter()));
+	Vrui::popupPrimaryWidget(dialogPopup);
 	}
 
 MeasureEnvironment::PointQueryTool::~PointQueryTool(void)
@@ -248,7 +267,7 @@ MeasureEnvironment::PointQueryTool::~PointQueryTool(void)
 	delete dialogPopup;
 	}
 
-void MeasureEnvironment::PointQueryTool::buttonCallback(int deviceIndex,int deviceButtonIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
+void MeasureEnvironment::PointQueryTool::buttonCallback(int,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState)
 		{
@@ -267,17 +286,16 @@ void MeasureEnvironment::PointQueryTool::frame(void)
 	if(dragging)
 		{
 		/* Get pointer to input device: */
-		Vrui::InputDevice* iDevice=input.getDevice(0);
+		Vrui::InputDevice* iDevice=getButtonDevice(0);
 		
 		/* Pick a point: */
-		Vrui::Scalar pointSize=Vrui::getUiSize()*Vrui::getInverseNavigationTransformation().getScaling();
 		Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(iDevice);
 		Point pos=transform.getOrigin();
 		PickResult newPickResult;
 		if(iDevice->isRayDevice())
-			newPickResult=application->pickPoint(Ray(pos,transform.transform(iDevice->getDeviceRayDirection())),pointSize);
+			newPickResult=application->pickPoint(Ray(pos,transform.transform(iDevice->getDeviceRayDirection())));
 		else
-			newPickResult=application->pickPoint(pos,pointSize);
+			newPickResult=application->pickPoint(pos);
 		
 		/* Check if the pick result has changed: */
 		if(pickResult!=newPickResult)
@@ -426,7 +444,7 @@ GLMotif::PopupMenu* MeasureEnvironment::createMainMenu(void)
 void* MeasureEnvironment::pointCollectorThreadMethod(void)
 	{
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	while(true)
 		{
@@ -460,13 +478,14 @@ void* MeasureEnvironment::pointCollectorThreadMethod(void)
 						if(naturalPointFlipZ)
 							tp[2]=-tp[2];
 						trackerPoints.push_back(pointTransform.transform(tp));
-						std::cout<<"Read tracking marker "<<tp[0]<<", "<<tp[1]<<", "<<tp[2]<<std::endl;
 						ballPoints.push_back(p);
 						}
 					else
 						{
-						/* Indicate an error somehow: */
-						/* ... */
+						/* Ignore the measurement and show an error message: */
+						char message[256];
+						snprintf(message,sizeof(message),"OptiTrack delivered %u points; ignoring measurement",(unsigned int)(frame.otherMarkers.size()));
+						Vrui::showErrorMessage("NaturalPoint Client",message);
 						}
 					}
 				else
@@ -483,13 +502,12 @@ void* MeasureEnvironment::pointCollectorThreadMethod(void)
 	return 0;
 	}
 
-void MeasureEnvironment::loadMeasurementFile(const char* fileName)
+void MeasureEnvironment::loadMeasurementFile(IO::Directory& directory,const char* fileName)
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
 	/* Open the input file: */
-	Misc::FileCharacterSource pointFile(fileName);
-	Misc::TokenSource tok(pointFile);
+	IO::TokenSource tok(directory.openFile(fileName));
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -543,16 +561,30 @@ void MeasureEnvironment::saveMeasurementFile(const char* fileName)
 		pointFile<<std::setw(12)<<*spIt<<",\"SCREEN\""<<std::endl;
 	for(PointList::const_iterator bpIt=ballPoints.begin();bpIt!=ballPoints.end();++bpIt)
 		pointFile<<std::setw(12)<<*bpIt<<",\"BALLS\""<<std::endl;
+	
+	if(naturalPointClient!=0)
+		{
+		/* Save all Optitrack sample points: */
+		std::ofstream pointFile("TrackingPoints.csv");
+		pointFile.setf(std::ios::fixed);
+		pointFile<<std::setprecision(6);
+		size_t i=0;
+		for(PointList::const_iterator tpIt=trackerPoints.begin();tpIt!=trackerPoints.end();++tpIt)
+			{
+			pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;
+			++i;
+			}
+		}
+	
 	measurementsDirty=false;
 	}
 
-void MeasureEnvironment::loadOptitrackSampleFile(const char* fileName,bool flipZ)
+void MeasureEnvironment::loadOptitrackSampleFile(IO::Directory& directory,const char* fileName,bool flipZ)
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
 	/* Open the CSV input file: */
-	Misc::FileCharacterSource file(fileName);
-	Misc::TokenSource tok(file);
+	IO::TokenSource tok(directory.openFile(fileName));
 	tok.setPunctuation(",\n");
 	tok.setQuotes("\"");
 	tok.skipWs();
@@ -621,7 +653,7 @@ void MeasureEnvironment::loadOptitrackSampleFile(const char* fileName,bool flipZ
 
 MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefaults)
 	:Vrui::Application(argc,argv,appDefaults),
-	 totalStation(0),initialPrismOffset(0.0),
+	 totalStation(0),basePrismOffset(34.4),initialPrismOffset(0),
 	 naturalPointClient(0),naturalPointFlipZ(false),
 	 pointTransform(OGTransform::identity),
 	 measuringMode(0),
@@ -632,14 +664,16 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	{
 	/* Register the point snapper tool class with the Vrui tool manager: */
 	PointSnapperToolFactory* pointSnapperToolFactory=new PointSnapperToolFactory("PointSnapperTool","Snap To Points",Vrui::getToolManager()->loadClass("TransformTool"),*Vrui::getToolManager());
-	pointSnapperToolFactory->setNumDevices(1);
-	pointSnapperToolFactory->setNumButtons(0,1);
+	pointSnapperToolFactory->setNumButtons(0,true);
+	pointSnapperToolFactory->setNumValuators(0,true);
+	pointSnapperToolFactory->setButtonFunction(0,"Transformed Button");
+	pointSnapperToolFactory->setValuatorFunction(0,"Transformed Valuator");
 	Vrui::getToolManager()->addClass(pointSnapperToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Register the point query tool class with the Vrui tool manager: */
 	PointQueryToolFactory* pointQueryToolFactory=new PointQueryToolFactory("PointQueryTool","Query Points",0,*Vrui::getToolManager());
-	pointQueryToolFactory->setNumDevices(1);
-	pointQueryToolFactory->setNumButtons(0,1);
+	pointQueryToolFactory->setNumButtons(1);
+	pointQueryToolFactory->setButtonFunction(0,"Query Point");
 	Vrui::getToolManager()->addClass(pointQueryToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
 	
 	/* Parse the command line: */
@@ -647,7 +681,7 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	const char* naturalPointServerName=0;
 	int naturalPointCommandPort=1510;
 	const char* naturalPointDataAddress="224.0.0.1";
-	int naturalPointDataPort=1001;
+	int naturalPointDataPort=1511;
 	int totalStationBaudRate=19200;
 	const char* measurementFileName=0;
 	TotalStation::Scalar totalStationUnitScale=TotalStation::Scalar(1);
@@ -677,6 +711,14 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 				++i;
 				if(i<argc)
 					totalStationUnitScale=TotalStation::Scalar(atof(argv[i]));
+				else
+					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
+				}
+			else if(strcasecmp(argv[i]+1,"prismOffset")==0)
+				{
+				++i;
+				if(i<argc)
+					basePrismOffset=TotalStation::Scalar(atof(argv[i]));
 				else
 					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
@@ -736,7 +778,7 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 		initialPrismOffset=totalStation->getPrismOffset();
 		
 		/* Set the prism offset to zero for floor or screen measurements: */
-		totalStation->setPrismOffset(TotalStation::Scalar(0));
+		totalStation->setPrismOffset(basePrismOffset);
 		
 		/* Start the point recording thread: */
 		totalStation->startRecording();
@@ -752,7 +794,7 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	/* Import a measurement file if one is given: */
 	if(measurementFileName!=0)
 		{
-		loadMeasurementFile(measurementFileName);
+		loadMeasurementFile(*Vrui::openDirectory("."),measurementFileName);
 		measurementsDirty=false;
 		}
 	
@@ -786,20 +828,6 @@ MeasureEnvironment::~MeasureEnvironment(void)
 		{
 		/* Save all measured points: */
 		saveMeasurementFile("MeasuredPoints.csv");
-		
-		if(naturalPointClient!=0)
-			{
-			/* Save all Optitrack sample points: */
-			std::ofstream pointFile("TrackingPoints.csv");
-			pointFile.setf(std::ios::fixed);
-			pointFile<<std::setprecision(6);
-			size_t i=0;
-			for(PointList::const_iterator tpIt=trackerPoints.begin();tpIt!=trackerPoints.end();++tpIt)
-				{
-				pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;;
-				++i;
-				}
-			}
 		}
 	
 	delete naturalPointClient;
@@ -838,105 +866,48 @@ void MeasureEnvironment::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Point& point,MeasureEnvironment::Scalar pointSize) const
+MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Point& point) const
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
-	PickResult bestPointIndex=~PickResult(0);
-	Scalar minSqrDist=Math::sqr(pointSize);
+	/* Create a point picker: */
+	Geometry::PointPicker<Scalar,3> picker(point,Scalar(Vrui::getPointPickDistance()));
 	
-	/* Compare the query point against all points: */
-	size_t indexBase=0;
+	/* Process all points: */
+	for(PointList::const_iterator pIt=floorPoints.begin();pIt!=floorPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=screenPoints.begin();pIt!=screenPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=ballPoints.begin();pIt!=ballPoints.end();++pIt)
+		picker(*pIt);
 	
-	/* Compare against floor points: */
-	for(size_t i=0;i<floorPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(point,floorPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=i+indexBase;
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=floorPoints.size();
-	
-	/* Compare against screen points: */
-	for(size_t i=0;i<screenPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(point,screenPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=i+indexBase;
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=screenPoints.size();
-	
-	/* Compare against ball points: */
-	for(size_t i=0;i<ballPoints.size();++i)
-		{
-		Scalar sqrDist=Geometry::sqrDist(point,ballPoints[i]);
-		if(minSqrDist>sqrDist)
-			{
-			bestPointIndex=i+indexBase;
-			minSqrDist=sqrDist;
-			}
-		}
-	indexBase+=ballPoints.size();
-	
-	return bestPointIndex;
+	/* Return the index of the picked point: */
+	if(picker.havePickedPoint())
+		return picker.getPickIndex();
+	else
+		return ~PickResult(0);
 	}
 
-MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Ray& ray,MeasureEnvironment::Scalar pointSize) const
+MeasureEnvironment::PickResult MeasureEnvironment::pickPoint(const MeasureEnvironment::Ray& ray) const
 	{
 	Threads::Mutex::Lock measuringLock(measuringMutex);
 	
-	PickResult bestPointIndex=~PickResult(0);
-	Scalar minLambda=Math::Constants<Scalar>::max;
+	/* Create a ray picker: */
+	Geometry::RayPicker<Scalar,3> picker(ray,Scalar(Vrui::getRayPickCosine()));
 	
-	/* Compare the query ray against all points: */
-	size_t indexBase=0;
+	/* Process all points: */
+	for(PointList::const_iterator pIt=floorPoints.begin();pIt!=floorPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=screenPoints.begin();pIt!=screenPoints.end();++pIt)
+		picker(*pIt);
+	for(PointList::const_iterator pIt=ballPoints.begin();pIt!=ballPoints.end();++pIt)
+		picker(*pIt);
 	
-	/* Compare against floor points: */
-	for(size_t i=0;i<floorPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(floorPoints[i],pointSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(ray);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=i+indexBase;
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=floorPoints.size();
-	
-	/* Compare against screen points: */
-	for(size_t i=0;i<screenPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(screenPoints[i],pointSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(ray);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=i+indexBase;
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=screenPoints.size();
-	
-	/* Compare against ball points: */
-	for(size_t i=0;i<ballPoints.size();++i)
-		{
-		Geometry::Sphere<Scalar,3> sphere(ballPoints[i],pointSize);
-		Geometry::Sphere<Scalar,3>::HitResult hr=sphere.intersectRay(ray);
-		if(hr.isValid()&&minLambda>hr.getParameter())
-			{
-			bestPointIndex=i+indexBase;
-			minLambda=hr.getParameter();
-			}
-		}
-	indexBase+=ballPoints.size();
-	
-	return bestPointIndex;
+	/* Return the index of the picked point: */
+	if(picker.havePickedPoint())
+		return picker.getPickIndex();
+	else
+		return ~PickResult(0);
 	}
 
 std::pair<int,int> MeasureEnvironment::classifyPickResult(const MeasureEnvironment::PickResult& pickResult) const
@@ -1039,7 +1010,7 @@ void MeasureEnvironment::changeMeasuringModeCallback(GLMotif::RadioBox::ValueCha
 		pointCollectorThread.join();
 		
 		/* Set the Total Station's prism offset to measure balls: */
-		totalStation->setPrismOffset(ballRadius);
+		totalStation->setPrismOffset(basePrismOffset+ballRadius);
 		
 		/* Restart the point collector thread: */
 		pointCollectorThread.start(this,&MeasureEnvironment::pointCollectorThreadMethod);
@@ -1051,7 +1022,7 @@ void MeasureEnvironment::changeMeasuringModeCallback(GLMotif::RadioBox::ValueCha
 		pointCollectorThread.join();
 		
 		/* Set the Total Station's prism offset to measure points on the floor or screen: */
-		totalStation->setPrismOffset(TotalStation::Scalar(0));
+		totalStation->setPrismOffset(basePrismOffset);
 		
 		/* Restart the point collector thread: */
 		pointCollectorThread.start(this,&MeasureEnvironment::pointCollectorThreadMethod);
@@ -1066,9 +1037,9 @@ void MeasureEnvironment::changeMeasuringModeCallback(GLMotif::RadioBox::ValueCha
 void MeasureEnvironment::loadMeasurementFileCallback(Misc::CallbackData* cbData)
 	{
 	/* Open a file selection dialog: */
-	GLMotif::FileSelectionDialog* loadMeasurementFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",0,".csv",Vrui::openPipe());
+	GLMotif::FileSelectionDialog* loadMeasurementFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadMeasurementFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadMeasurementFileOKCallback);
-	loadMeasurementFileDialog->getCancelCallbacks().add(loadMeasurementFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	loadMeasurementFileDialog->deleteOnCancel();
 	
 	/* Show the file selection dialog: */
 	Vrui::popupPrimaryWidget(loadMeasurementFileDialog);
@@ -1077,18 +1048,18 @@ void MeasureEnvironment::loadMeasurementFileCallback(Misc::CallbackData* cbData)
 void MeasureEnvironment::loadMeasurementFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected measurement file: */
-	loadMeasurementFile(cbData->selectedFileName.c_str());
+	loadMeasurementFile(*cbData->selectedDirectory,cbData->selectedFileName);
 	
 	/* Destroy the file selection dialog: */
-	Vrui::getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbData)
 	{
 	/* Open a file selection dialog: */
-	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",0,".csv",Vrui::openPipe());
+	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
 	loadOptitrackSampleFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadOptitrackSampleFileOKCallback);
-	loadOptitrackSampleFileDialog->getCancelCallbacks().add(loadOptitrackSampleFileDialog,&GLMotif::FileSelectionDialog::defaultCloseCallback);
+	loadOptitrackSampleFileDialog->deleteOnCancel();
 	
 	/* Show the file selection dialog: */
 	Vrui::popupPrimaryWidget(loadOptitrackSampleFileDialog);
@@ -1097,10 +1068,10 @@ void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbD
 void MeasureEnvironment::loadOptitrackSampleFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
 	/* Load the selected Optitrack sample file: */
-	loadOptitrackSampleFile(cbData->selectedFileName.c_str(),naturalPointFlipZ);
+	loadOptitrackSampleFile(*cbData->selectedDirectory,cbData->selectedFileName,naturalPointFlipZ);
 	
 	/* Destroy the file selection dialog: */
-	Vrui::getWidgetManager()->deleteWidget(cbData->fileSelectionDialog);
+	cbData->fileSelectionDialog->close();
 	}
 
 void MeasureEnvironment::saveMeasurementFileCallback(Misc::CallbackData* cbData)
@@ -1148,7 +1119,7 @@ void MeasureEnvironment::createTransformationCallback(Misc::CallbackData* cbData
 	
 	/* Orthonormalize the screen normal against the floor normal: */
 	Point::Vector y=screenNormal-floorNormal*((screenNormal*floorNormal)/Geometry::sqr(floorNormal));
-	Point::Vector x=Geometry::cross(y,floorNormal);
+	Point::Vector x=y^floorNormal;
 	
 	/* Calculate a rotation to align the floor normal with +z and the (horizontal) screen normal with +y: */
 	OGTransform::Rotation rot=OGTransform::Rotation::fromBaseVectors(x,y);

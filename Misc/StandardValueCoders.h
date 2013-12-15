@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardValueCoders - Specialized ValueCoder classes for standard data
 types.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -48,6 +48,24 @@ class ValueCoder<bool>
 	public:
 	static std::string encode(const bool& value);
 	static bool decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <>
+class ValueCoder<short int>
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const short int& value);
+	static short int decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <>
+class ValueCoder<unsigned short int>
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const unsigned short int& value);
+	static unsigned short int decode(const char* start,const char* end,const char** decodeEnd =0);
 	};
 
 template <>

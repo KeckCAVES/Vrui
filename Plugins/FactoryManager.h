@@ -2,7 +2,7 @@
 FactoryManager - Generic base class for managers of factory classes
 derived from a common base class. Intended to manage loading of dynamic
 shared objects.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Plugin Handling Library (Plugins).
 
@@ -62,8 +62,10 @@ class FactoryManager
 	private:
 	typedef void (*ResolveDependenciesFunction)(FactoryManager<ManagedFactory>&); // Type of dependency resolution function stored in DSOs
 	typedef ManagedFactory* (*CreateFactoryFunction)(FactoryManager<ManagedFactory>&); // Type of class loader function stored in DSOs
+	public:
 	typedef void (*DestroyFactoryFunction)(ManagedFactory*); // Type of class unloader function stored in DSOs
 	
+	private:
 	struct FactoryData // Structure containing information about a factory
 		{
 		/* Elements: */
@@ -204,6 +206,7 @@ class FactoryManager
 	void releaseClasses(void); // Releases all loaded classes
 	ClassIdType getClassId(const ManagedFactory* factory) const; // Returns class ID based on factory object
 	ManagedFactory* getFactory(ClassIdType classId) const; // Returns factory object based on class ID
+	ManagedFactory* getFactory(const char* className) const; // Returns factory object based on class name
 	ConstFactoryIterator begin(void) const // Returns iterator to the beginning of the managed class list
 		{
 		return ConstFactoryIterator(factories.begin());

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTextureCubeMap - OpenGL extension class for the
 GL_EXT_texture_cube_map extension.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

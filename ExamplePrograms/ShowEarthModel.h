@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -26,12 +26,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GL/GLObject.h>
+#include <Images/RGBImage.h>
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/GeodeticCoordinateTransform.h>
-#include <Vrui/LocatorTool.h>
-#include <Vrui/LocatorToolAdapter.h>
 #include <Vrui/ToolManager.h>
+#include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/Application.h>
 
 #include "EarthquakeSet.h"
@@ -72,6 +72,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 		virtual const char* getUnitName(int componentIndex) const;
 		virtual const char* getUnitAbbreviation(int componentIndex) const;
 		virtual Vrui::Point transform(const Vrui::Point& navigationPoint) const;
+		virtual Vrui::Point inverseTransform(const Vrui::Point& userPoint) const;
 		
 		/* New methods: */
 		void setRotationAngle(Vrui::Scalar newRotationAngle);
@@ -92,48 +93,9 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 		virtual ~DataItem(void);
 		};
 	
-	class BaseLocator:public Vrui::LocatorToolAdapter // Base class for locators
-		{
-		/* Elements: */
-		protected:
-		ShowEarthModel* application;
-		
-		/* Constructors and destructors: */
-		public:
-		BaseLocator(Vrui::LocatorTool* sTool,ShowEarthModel* sApplication);
-		
-		/* Methods: */
-		virtual void glRenderAction(GLContextData& contextData) const;
-		};
-	
-	class DataLocator:public BaseLocator
-		{
-		/* Elements: */
-		protected:
-		GLMotif::PopupWindow* dataDialog;
-		GLMotif::TextField* timeTextField;
-		GLMotif::TextField* magnitudeTextField;
-		const EarthquakeSet::Event* selectedEvent;
-		
-		/* Constructors and destructors: */
-		public:
-		DataLocator(Vrui::LocatorTool* sTool,ShowEarthModel* sApplication);
-		virtual ~DataLocator(void);
-		
-		/* Methods: */
-		virtual void buttonPressCallback(Vrui::LocatorTool::ButtonPressCallbackData* cbData);
-		virtual void glRenderAction(GLContextData& contextData) const;
-		void setTimeButtonSelectCallback(Misc::CallbackData* cbData);
-		};
-	
-	typedef std::vector<BaseLocator*> BaseLocatorList;
-	
-	friend class BaseLocator;
-	friend class DataLocator;
-	
 	/* Elements: */
 	std::vector<EarthquakeSet*> earthquakeSets; // Vector of earthquake sets to render
-	std::pair<double,double> earthquakeTimeRange; // Range to earthquake event times
+	EarthquakeSet::TimeRange earthquakeTimeRange; // Range to earthquake event times
 	std::vector<PointSet*> pointSets; // Vector of additional point sets to render
 	std::vector<SeismicPath*> seismicPaths; // Vector of seismic paths to render
 	std::vector<GLPolylineTube*> sensorPaths; // Vector of sensor paths to render
@@ -144,6 +106,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	float rotationAngle; // Current Earth rotation angle
 	float rotationSpeed; // Earth rotation speed in degree/second
 	RotatedGeodeticCoordinateTransform* userTransform; // Coordinate transformation from user space to navigation space
+	Images::RGBImage surfaceImage; // Texture image for the Earth surface
 	bool showSurface; // Flag if the Earth surface is rendered
 	bool surfaceTransparent; // Flag if the Earth surface is rendered transparently
 	GLMaterial surfaceMaterial; // OpenGL material properties for the Earth surface
@@ -160,13 +123,14 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMaterial innerCoreMaterial; // OpenGL material properties for the inner core
 	float earthquakePointSize; // Point size to render earthquake hypocenters
 	GLMaterial sensorPathMaterial; // OpenGL material properties for sensor paths
+	bool fog; // Flag whether depth cueing via fog is enabled
+	float bpDist; // Current backplane distance for clipping and fog attenuation
 	double currentTime; // Current animation time in seconds since the epoch in UTC
 	double playSpeed; // Animation playback speed in real-world seconds per visualization second
 	bool play; // Flag if automatic playback is enabled
 	bool lockToSphere; // Flag whether the navigation transformation is locked to a fixed-radius sphere
 	Vrui::Scalar sphereRadius; // Radius of the fixed sphere to which to lock the navigation transformation
 	Vrui::NavTransform sphereTransform; // Transformation pre-applied to navigation transformation to lock it to a sphere
-	BaseLocatorList baseLocators; // List of active locators
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
 	GLMotif::ToggleButton* showRenderDialogToggle;
 	GLMotif::ToggleButton* showAnimationDialogToggle;
@@ -178,9 +142,6 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMotif::Slider* playSpeedSlider; // Slider to adjust the animation speed
 	GLMotif::ToggleButton* playToggle; // Toggle button for automatic playback
 	
-	// DEBUGGING
-	//Vrui::NavTransform navFrame;
-	
 	/* Private methods: */
 	GLMotif::Popup* createRenderTogglesMenu(void); // Creates the "Rendering Modes" submenu
 	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
@@ -191,21 +152,21 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	ShowEarthModel(int& argc,char**& argv,char**& appDefaults);
+	ShowEarthModel(int& argc,char**& argv);
 	virtual ~ShowEarthModel(void);
 	
 	/* Methods: */
 	virtual void initContext(GLContextData& contextData) const;
 	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
-	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	void alignSurfaceFrame(Vrui::NavTransform& surfaceFrame);
+	void alignSurfaceFrame(Vrui::SurfaceNavigationTool::AlignmentData& alignmentData);
 	void menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void renderDialogCloseCallback(Misc::CallbackData* cbData);
 	void animationDialogCloseCallback(Misc::CallbackData* cbData);
 	void sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
 	void centerDisplayCallback(Misc::CallbackData* cbData);
+	void setEventTime(double newEventTime);
 	};
 
 #endif

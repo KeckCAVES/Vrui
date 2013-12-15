@@ -2,7 +2,7 @@
 GeodeticToCartesianPointTransformNode - Point transformation class to
 convert geodetic coordinates (longitude/latitude/altitude on a reference
 ellipsoid) to Cartesian coordinates.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef SCENEGRAPH_GEODETICTOCARTESIANPOINTTRANSFORMNODE_INCLUDED
 #define SCENEGRAPH_GEODETICTOCARTESIANPOINTTRANSFORMNODE_INCLUDED
 
+#include <Geometry/Vector.h>
 #include <SceneGraph/FieldTypes.h>
 #include <SceneGraph/PointTransformNode.h>
 #include <SceneGraph/ReferenceEllipsoidNode.h>
@@ -46,11 +47,16 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	SFString elevation;
 	SFBool degrees;
 	SFBool colatitude;
+	SFTScalar elevationScale;
+	SFBool moveToOrigin;
+	SFTPoint originPoint;
 	
 	/* Derived state: */
 	protected:
 	const ReferenceEllipsoidNode::Geoid* re;
 	int componentIndices[3]; // Indices of (longitude, latitude, elevation) components in input points
+	TScalar componentScales[3],componentOffsets[3]; // Scale and offset values to transform input points to long, lat in radians and elevation
+	TVector offset; // Offset vector to be applied to Cartesian coordinates
 	bool flipNormals; // Flag whether to flip normal vectors after transformation
 	
 	/* Constructors and destructors: */
@@ -64,9 +70,11 @@ class GeodeticToCartesianPointTransformNode:public PointTransformNode
 	virtual void update(void);
 	
 	/* Methods from PointTransformNode: */
-	virtual Point transformPoint(const Point& point) const;
-	virtual Box calcBoundingBox(const std::vector<Point>& points) const;
-	virtual Vector transformNormal(const Point& basePoint,const Vector& normal) const;
+	virtual TPoint transformPoint(const TPoint& point) const;
+	virtual TPoint inverseTransformPoint(const TPoint& point) const;
+	virtual TBox calcBoundingBox(const std::vector<Point>& points) const;
+	virtual TBox transformBox(const TBox& box) const;
+	virtual TVector transformNormal(const TPoint& basePoint,const TVector& normal) const;
 	};
 
 }

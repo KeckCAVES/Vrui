@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseCursorFaker - Helper class to render a fake mouse cursor for cases
 where a hardware cursor is not available, or not appropriate.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

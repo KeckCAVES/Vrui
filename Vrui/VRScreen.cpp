@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -47,7 +47,8 @@ VRScreen::VRScreen(void)
 	:screenName(0),
 	 deviceMounted(false),device(0),
 	 transform(ONTransform::identity),inverseTransform(ONTransform::identity),
-	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity)
+	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity),
+	 intersect(true)
 	{
 	screenSize[0]=screenSize[1]=Scalar(0);
 	}
@@ -76,13 +77,26 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		}
 	
 	/* Retrieve screen position/orientation in physical or device coordinates: */
-	Point origin=configFileSection.retrieveValue<Point>("./origin");
-	Vector horizontalAxis=configFileSection.retrieveValue<Vector>("./horizontalAxis");
+	try
+		{
+		/* Try reading the screen transformation directly: */
+		transform=configFileSection.retrieveValue<ONTransform>("./transform");
+		}
+	catch(std::runtime_error)
+		{
+		/* Fall back to reading the screen's origin and axis directions: */
+		Point origin=configFileSection.retrieveValue<Point>("./origin");
+		Vector horizontalAxis=configFileSection.retrieveValue<Vector>("./horizontalAxis");
+		Vector verticalAxis=configFileSection.retrieveValue<Vector>("./verticalAxis");
+		ONTransform::Rotation rot=ONTransform::Rotation::fromBaseVectors(horizontalAxis,verticalAxis);
+		transform=ONTransform(origin-Point::origin,rot);
+		}
+	
+	/* Read the screen's size: */
 	screenSize[0]=configFileSection.retrieveValue<Scalar>("./width");
-	Vector verticalAxis=configFileSection.retrieveValue<Vector>("./verticalAxis");
 	screenSize[1]=configFileSection.retrieveValue<Scalar>("./height");
-	ONTransform::Rotation rot=ONTransform::Rotation::fromBaseVectors(horizontalAxis,verticalAxis);
-	transform=ONTransform(origin-Point::origin,rot);
+	
+	/* Apply a rotation around a single axis: */
 	Point rotateCenter=configFileSection.retrieveValue<Point>("./rotateCenter",Point::origin);
 	Vector rotateAxis=configFileSection.retrieveValue<Vector>("./rotateAxis",Vector(1,0,0));
 	Scalar rotateAngle=configFileSection.retrieveValue<Scalar>("./rotateAngle",Scalar(0));
@@ -93,6 +107,13 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		screenRotation*=ONTransform::translateToOriginFrom(rotateCenter);
 		transform.leftMultiply(screenRotation);
 		}
+	
+	/* Apply an arbitrary pre-transformation: */
+	ONTransform preTransform=configFileSection.retrieveValue<ONTransform>("./preTransform",ONTransform::identity);
+	transform.leftMultiply(preTransform);
+	
+	/* Finalize the screen transformation: */
+	transform.renormalize();
 	inverseTransform=Geometry::invert(transform);
 	
 	/* Check if the screen is projected off-axis: */
@@ -125,6 +146,9 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		
 		inverseClipHomography.doInvert();
 		}
+	
+	/* Read the intersect flag: */
+	intersect=configFileSection.retrieveValue<bool>("./intersect",intersect);
 	}
 
 void VRScreen::attachToDevice(const InputDevice* newDevice)

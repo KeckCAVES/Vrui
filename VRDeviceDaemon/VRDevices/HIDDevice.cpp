@@ -35,50 +35,19 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
+#include <Math/MathValueCoders.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
-
-namespace Misc {
-
-/**************
-Helper classes:
-**************/
-
-template <class ScalarParam>
-class ValueCoder<Math::BrokenLine<ScalarParam> >
-	{
-	/* Methods: */
-	public:
-	static std::string encode(const Math::BrokenLine<ScalarParam>& v)
-		{
-		/* Encode the broken line as a vector with four elements: */
-		std::vector<ScalarParam> values;
-		values.push_back(v.min);
-		values.push_back(v.deadMin);
-		values.push_back(v.deadMax);
-		values.push_back(v.max);
-		return Misc::ValueCoder<std::vector<ScalarParam> >::encode(values);
-		}
-	static Math::BrokenLine<ScalarParam> decode(const char* start,const char* end,const char** decodeEnd =0)
-		{
-		/* Decode a vector with four elements: */
-		std::vector<ScalarParam> values=Misc::ValueCoder<std::vector<ScalarParam> >::decode(start,end,decodeEnd);
-		if(values.size()!=4)
-			throw Misc::DecodingError(std::string("Wrong number of elements in ")+std::string(start,end));
-		return Math::BrokenLine<ScalarParam>(values[0],values[1],values[2],values[3]);
-		}
-	};
-
-}
 
 /*************************
 System specific functions:
 *************************/
 
-#if defined (__LINUX__)
-  #include <VRDeviceDaemon/VRDevices/Linux/HIDDevice.cpp>
-#elif defined (__DARWIN__)
-  #include <VRDeviceDaemon/VRDevices/MacOSX/HIDDevice.cpp>
+#ifdef __linux__
+#include <VRDeviceDaemon/VRDevices/Linux/HIDDevice.cpp>
+#endif
+#ifdef __APPLE__
+#include <VRDeviceDaemon/VRDevices/MacOSX/HIDDevice.cpp>
 #endif
 
 /*************************************

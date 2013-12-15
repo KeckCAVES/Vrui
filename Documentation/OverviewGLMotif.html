@@ -63,6 +63,9 @@ The GLMotif library contains classes to implement 3D graphical user interfaces u
 <DT>Separator.h</DT>
 <DD>Separator is a widget class to visually separate adjacent components in a widget layout.</DD>
 
+<DT>Image.h</DT>
+<DD>Image is a class for widgets displaying color images.</DD>
+
 <DT>Label.h</DT>
 <DD>Label is a class for widgets containing a single line of text.</DD>
 
@@ -85,13 +88,19 @@ The GLMotif library contains classes to implement 3D graphical user interfaces u
 <DD>CascadeButton is a subclass of DecoratedButton that adds a cascade arrow, and pops up a child widget when the button is activated.</DD>
 
 <DT>DragWidget.h</DT>
-<DD>DragWidget is the base class for widgets that support dragging operations in their area, such as sliders.</DD>
+<DD>DragWidget is a mix-in class denoting widgets that support dragging operations in their area, such as sliders.</DD>
 
 <DT>Slider.h</DT>
 <DD>Slider is a subclass of DragWidget to change a floating-point value linearly between two extremes by dragging with the pointing device.</DD>
 
 <DT>TextFieldSlider.h</DT>
 <DD>TextFieldSlider is a compound widget class consisting of a slider and a text field displaying the slider's current value.</DD>
+
+<DT>HSVColorSelector.h</DT>
+<DD>HSVColorSelector is a compound widget class consisting of a color hexagon and a slider to select an RGB color using an interface based on the HSV color model.</DD>
+
+<DT>MaterialEditor.h</DT>
+<DD>MaterialEditor is a compound widget class consisting of several HSV color selectors and a slider to select OpenGL material properties.</DD>
 
 <DT>ScrollBar.h></DT>
 <DD>ScrollBar is a class for horizontal or vertical scroll bars, used to move a &quot;sliding window&quot; through a larger space. Scroll bars are similar to sliders in function, but are used for a different purpose.</DD>
@@ -120,6 +129,9 @@ The GLMotif library contains classes to implement 3D graphical user interfaces u
 <DT>PopupMenu.h</DT>
 <DD>PopupMenu is a subclass of Popup and implements menus that require only a single button press/pointer move/button release sequence to pop up a menu and select one of its choices.</DD>
 
+<DT>Pager.h</DT>
+<DD>Pager is a subclass of Container that lays out its children as pages in a flipbook, with a row of buttons to select the currently-displayed page.</DD>
+
 <DT>TitleBar.h</DT>
 <DD>TitleBar is a helper class representing the title bars of popup windows, such that dragging a TitleBar changes the position of its parent window in application space.</DD>
 
@@ -128,6 +140,9 @@ The GLMotif library contains classes to implement 3D graphical user interfaces u
 
 <DT>FileSelectionDialog.h</DT>
 <DD>FileSelectionDialog is a compound widget class providing applications with a standard user interface to select (existing) files from the file system. Its design follows the Gnome file selection dialog, and it features settable lists of file types for filtering.</DD>
+
+<DT>WidgetStateHelper.h</DT>
+<DD>WidgetStateHelper.h contains namespace-global functions to read/write widget state from/to configuration files.</DD>
 
 <DT>WidgetAlgorithms.h</DT>
 <DD>WidgetAlgorithms.h contains a namespace-global function that traverses an entire tree of widgets and applies a given functor to each widget in turn.</DD>

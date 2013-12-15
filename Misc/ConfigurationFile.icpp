@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -105,6 +105,29 @@ ConfigurationFileBase::ConfigurationFileBase(
 	{
 	/* Read the root section: */
 	rootSection=new Section(0,pipe);
+	
+	/* Reset edit flag: */
+	rootSection->clearEditFlag();
+	}
+
+template <class PipeParam>
+inline
+void
+ConfigurationFileBase::readFromPipe(
+	PipeParam& pipe)
+	{
+	/* Delete current configuration file contents: */
+	delete rootSection;
+	rootSection=0;
+	
+	/* Read the new file name: */
+	fileName=Misc::readCppString(pipe);
+	
+	/* Read the new root section: */
+	rootSection=new Section(0,pipe);
+	
+	/* Reset edit flag: */
+	rootSection->clearEditFlag();
 	}
 
 template <class PipeParam>

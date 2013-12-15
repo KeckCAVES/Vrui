@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferBlit - OpenGL extension class for the
 GL_EXT_framebuffer_blit extension.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

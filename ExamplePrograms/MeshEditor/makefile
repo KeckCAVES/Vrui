@@ -1,6 +1,7 @@
 ########################################################################
-# Makefile for MeshEditor Vrui example program.
-# Copyright (c) 2003-2006 Oliver Kreylos
+# Makefile for MeshEditor Vrui example program, using Vrui's legacy
+# build system.
+# Copyright (c) 2003-2013 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +20,7 @@
 ########################################################################
 
 # Set the Vrui installation directory:
-VRUIDIR = $(HOME)/Vrui-2.0
+VRUIDIR := $(HOME)/Vrui-3.1
 
 # Set up additional flags for the C++ compiler:
 CFLAGS = 
@@ -27,11 +28,11 @@ CFLAGS =
 # Include the Vrui application makefile fragment:
 ifdef DEBUG
   # Build debug version of the applications, using the debug version of Vrui:
-  include $(VRUIDIR)/etc/Vrui.debug.makeinclude
+  include $(VRUIDIR)/share/Vrui.debug.makeinclude
   CFLAGS += -g2 -O0
 else
   # Build release version of the applications, using the release version of Vrui:
-  include $(VRUIDIR)/etc/Vrui.makeinclude
+  include $(VRUIDIR)/share/Vrui.makeinclude
   CFLAGS += -g0 -O2
 endif
 
@@ -46,6 +47,19 @@ clean:
 	-rm -f $(ALL)
 
 # Build the mesh editor program:
-VRMeshEditor: Influence.cpp \
+VRMeshEditor: PolygonMesh.cpp \
+              PlyFileStructures.cpp \
+              MeshGenerators.cpp \
+              CatmullClark.cpp \
+              AutoTriangleMesh.cpp \
+              BallPivoting.cpp \
+              SphereRenderer.cpp \
+              Influence.cpp \
+              MorphBox.cpp \
+              BallPivotLocator.cpp \
+              VertexRemovalLocator.cpp \
+              FaceRemovalLocator.cpp \
+              MeshDragger.cpp \
+              MorphBoxDragger.cpp \
               VRMeshEditor.cpp
 	g++ -o $@ -I. $(VRUI_CFLAGS) $(CFLAGS) $^ $(VRUI_LINKFLAGS)

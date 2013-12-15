@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformNode - Class for group nodes that apply an orthogonal
 transformation to their children.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -71,6 +71,8 @@ class TransformNode:public GroupNode
 		return transform;
 		}
 	};
+
+typedef Misc::Autopointer<TransformNode> TransformNodePointer;
 
 }
 

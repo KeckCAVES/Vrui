@@ -70,6 +70,8 @@ class BoxNode:public GeometryNode,public DisplayList
 		}
 	};
 
+typedef Misc::Autopointer<BoxNode> BoxNodePointer;
+
 }
 
 #endif

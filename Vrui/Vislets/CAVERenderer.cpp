@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2007 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,6 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLMatrixTemplates.h>
 #include <GL/GLLight.h>
 #include <GL/GLValueCoders.h>
+#include <GL/GLClipPlaneTracker.h>
 #include <GL/GLContextData.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Images/ReadImageFile.h>
@@ -284,10 +285,11 @@ void CAVERenderer::renderFloor(CAVERenderer::DataItem* dataItem) const
 	}
 
 CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
-	:surfaceMaterial(factory->surfaceMaterial),
+	:GLObject(false),
+	 surfaceMaterial(factory->surfaceMaterial),
 	 tilesPerFoot(factory->tilesPerFoot),
 	 numViewers(getNumViewers()),
-	 viewerHeadlightStates(new bool[numViewers]),
+	 viewerHeadlightStates(0),
 	 angle(720.0),angleAnimStep(0.0),lastFrame(0.0)
 	{
 	/* Parse the command line: */
@@ -297,17 +299,17 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 		{
 		if(arguments[i][0]=='-')
 			{
-			if(strcasecmp(arguments[i]+1,"WALL")==0)
+			if(strcasecmp(arguments[i]+1,"wall")==0)
 				{
 				++i;
 				wallTextureFileName=arguments[i];
 				}
-			else if(strcasecmp(arguments[i]+1,"FLOOR")==0)
+			else if(strcasecmp(arguments[i]+1,"floor")==0)
 				{
 				++i;
 				floorTextureFileName=arguments[i];
 				}
-			else if(strcasecmp(arguments[i]+1,"TILESPERFOOT")==0)
+			else if(strcasecmp(arguments[i]+1,"tilesPerFoot")==0)
 				{
 				++i;
 				tilesPerFoot=atoi(arguments[i]);
@@ -319,24 +321,27 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	wallTextureImage=Images::readImageFile(wallTextureFileName.c_str());
 	floorTextureImage=Images::readImageFile(floorTextureFileName.c_str());
 	
-	/* Create several light sources in the CAVE room: */
+	/* Create static ceiling light sources in the CAVE room: */
 	GLLight::Color lightColor(0.25f,0.25f,0.25f);
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f,-30.0f,96.0f,1.0f)));
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f,-30.0f,96.0f,1.0f)));
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(-30.0f, 30.0f,96.0f,1.0f)));
-	getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position( 30.0f, 30.0f,96.0f,1.0f)));
-	
-	/* Save all viewers' head light states and then turn them off: */
-	for(int i=0;i<getNumViewers()&&i<numViewers;++i)
+	for(int i=0;i<4;++i)
 		{
-		viewerHeadlightStates[i]=getViewer(i)->getHeadlight().isEnabled();
-		getViewer(i)->setHeadlightState(false);
+		GLLight::Position pos(30.0f,30.0f,96.0f,1.0f);
+		for(int j=0;j<2;++j)
+			if(i&(0x1<<j))
+				pos[j]=-pos[j];
+		lightsources[i]=getLightsourceManager()->createLightsource(true,GLLight(lightColor,pos));
 		}
+	
+	GLObject::init();
 	}
 
 CAVERenderer::~CAVERenderer(void)
 	{
 	delete[] viewerHeadlightStates;
+	
+	/* Destroy static ceiling light sources: */
+	for(int i=0;i<4;++i)
+		getLightsourceManager()->destroyLightsource(lightsources[i]);
 	}
 
 VisletFactory* CAVERenderer::getFactory(void) const
@@ -349,14 +354,21 @@ void CAVERenderer::disable(void)
 	/* Trigger the folding animation: */
 	angleAnimStep=-90.0;
 	lastFrame=getApplicationTime();
-	requestUpdate();
+		
+	/* Request another frame: */
+	scheduleUpdate(getApplicationTime()+1.0/125.0);
 	
 	/* Frame function will disable vislet when animation is done */
 	}
 
 void CAVERenderer::enable(void)
 	{
+	/* Enable the static ceiling light sources: */
+	for(int i=0;i<4;++i)
+		lightsources[i]->enable();
+	
 	/* Save all viewers' head light states and then turn them off: */
+	viewerHeadlightStates=new bool[getNumViewers()];
 	for(int i=0;i<getNumViewers()&&i<numViewers;++i)
 		{
 		viewerHeadlightStates[i]=getViewer(i)->getHeadlight().isEnabled();
@@ -369,7 +381,9 @@ void CAVERenderer::enable(void)
 	/* Trigger the unfolding animation: */
 	angleAnimStep=90.0;
 	lastFrame=getApplicationTime();
-	requestUpdate();
+	
+	/* Request another frame: */
+	scheduleUpdate(getApplicationTime()+1.0/125.0);
 	}
 
 void CAVERenderer::initContext(GLContextData& contextData) const
@@ -426,9 +440,15 @@ void CAVERenderer::frame(void)
 			angle=0.0;
 			angleAnimStep=0.0;
 			
+			/* Disable the static ceiling light sources: */
+			for(int i=0;i<4;++i)
+				lightsources[i]->disable();
+			
 			/* Set all viewers' head lights to the saved state: */
 			for(int i=0;i<getNumViewers()&&i<numViewers;++i)
 				getViewer(i)->setHeadlightState(viewerHeadlightStates[i]);
+			delete[] viewerHeadlightStates;
+			viewerHeadlightStates=0;
 			
 			/* Disable the vislet: */
 			active=false;
@@ -439,7 +459,10 @@ void CAVERenderer::frame(void)
 			angleAnimStep=0.0;
 			}
 		else
-			requestUpdate();
+			{
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			}
 		}
 	}
 
@@ -447,6 +470,9 @@ void CAVERenderer::display(GLContextData& contextData) const
 	{
 	/* Get a pointer to the data item: */
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	
+	/* Temporarily disable all clipping planes: */
+	contextData.getClipPlaneTracker()->pause();
 	
 	/* Set up the rendering mode for the CAVE room: */
 	glMaterial(GLMaterialEnums::FRONT,surfaceMaterial);
@@ -477,6 +503,9 @@ void CAVERenderer::display(GLContextData& contextData) const
 	
 	/* Restore the modelview matrix: */
 	glPopMatrix();
+	
+	/* Re-enable clipping: */
+	contextData.getClipPlaneTracker()->resume();
 	}
 
 }

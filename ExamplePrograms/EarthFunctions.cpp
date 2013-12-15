@@ -113,14 +113,15 @@ Function to draw a model of Earth using texture-mapped quad strips:
 void drawEarth(int numStrips,int numQuads,double scaleFactor)
 	{
 	Geometry::Geoid<double> wgs84; // Standard reference ellipsoid
+	double wgs84E2=(2.0-wgs84.getFlatteningFactor())*wgs84.getFlatteningFactor();
 	
 	float texY1=float(0)/float(numStrips);
 	double lat1=(Math::Constants<double>::pi*double(0))/double(numStrips)-0.5*Math::Constants<double>::pi;
 	double s1=Math::sin(lat1);
 	double c1=Math::cos(lat1);
-	double chi1=Math::sqrt(1.0-wgs84.e2*s1*s1);
-	double xy1=wgs84.radius/chi1*c1*scaleFactor;
-	double z1=wgs84.radius*(1.0-wgs84.e2)/chi1*s1*scaleFactor;
+	double chi1=Math::sqrt(1.0-wgs84E2*s1*s1);
+	double xy1=wgs84.getRadius()/chi1*c1*scaleFactor;
+	double z1=wgs84.getRadius()*(1.0-wgs84E2)/chi1*s1*scaleFactor;
 	
 	/* Draw latitude quad strips: */
 	for(int i=1;i<numStrips+1;++i)
@@ -134,9 +135,9 @@ void drawEarth(int numStrips,int numQuads,double scaleFactor)
 		lat1=(Math::Constants<double>::pi*double(i))/double(numStrips)-0.5*Math::Constants<double>::pi;
 		s1=Math::sin(lat1);
 		c1=Math::cos(lat1);
-		chi1=Math::sqrt(1.0-wgs84.e2*s1*s1);
-		xy1=wgs84.radius/chi1*c1*scaleFactor;
-		z1=wgs84.radius*(1.0-wgs84.e2)/chi1*s1*scaleFactor;
+		chi1=Math::sqrt(1.0-wgs84E2*s1*s1);
+		xy1=wgs84.getRadius()/chi1*c1*scaleFactor;
+		z1=wgs84.getRadius()*(1.0-wgs84E2)/chi1*s1*scaleFactor;
 		
 		glBegin(GL_QUAD_STRIP);
 		for(int j=0;j<=numQuads;++j)
@@ -167,6 +168,7 @@ void drawEarth(int numStrips,int numQuads,double scaleFactor,unsigned int vertex
 	typedef GLVertex<GLfloat,2,void,0,GLfloat,GLfloat,3> Vertex;
 	
 	Geometry::Geoid<double> wgs84; // Standard reference ellipsoid
+	double wgs84E2=(2.0-wgs84.getFlatteningFactor())*wgs84.getFlatteningFactor();
 	
 	GLVertexArrayParts::enable(Vertex::getPartsMask());
 	
@@ -180,9 +182,9 @@ void drawEarth(int numStrips,int numQuads,double scaleFactor,unsigned int vertex
 		double lat=(double(i)/double(numStrips)-0.5)*Math::Constants<double>::pi;
 		double s=Math::sin(lat);
 		double c=Math::cos(lat);
-		double chi=Math::sqrt(1.0-wgs84.e2*s*s);
-		double xy=wgs84.radius/chi*c*scaleFactor;
-		double z=wgs84.radius*(1.0-wgs84.e2)/chi*s*scaleFactor;
+		double chi=Math::sqrt(1.0-wgs84E2*s*s);
+		double xy=wgs84.getRadius()/chi*c*scaleFactor;
+		double z=wgs84.getRadius()*(1.0-wgs84E2)/chi*s*scaleFactor;
 		for(int j=0;j<=numQuads;++j,++vPtr)
 			{
 			float texX=float(j)/float(numQuads)+0.5f;
@@ -236,6 +238,7 @@ Function to draw a latitude/longitude grid on the Earth's surface:
 void drawGrid(int numStrips,int numQuads,int overSample,double scaleFactor)
 	{
 	Geometry::Geoid<double> wgs84; // Standard reference ellipsoid
+	double wgs84E2=(2.0-wgs84.getFlatteningFactor())*wgs84.getFlatteningFactor();
 	
 	/* Draw parallels: */
 	for(int i=1;i<numStrips;++i)
@@ -244,9 +247,9 @@ void drawGrid(int numStrips,int numQuads,int overSample,double scaleFactor)
 		
 		double s=Math::sin(lat);
 		double c=Math::cos(lat);
-		double chi=Math::sqrt(1.0-wgs84.e2*s*s);
-		double xy=wgs84.radius/chi*c*scaleFactor;
-		double z=wgs84.radius*(1.0-wgs84.e2)/chi*s*scaleFactor;
+		double chi=Math::sqrt(1.0-wgs84E2*s*s);
+		double xy=wgs84.getRadius()/chi*c*scaleFactor;
+		double z=wgs84.getRadius()*(1.0-wgs84E2)/chi*s*scaleFactor;
 		
 		glBegin(GL_LINE_LOOP);
 		for(int j=0;j<numQuads*overSample;++j)
@@ -267,18 +270,18 @@ void drawGrid(int numStrips,int numQuads,int overSample,double scaleFactor)
 		double sl=Math::sin(lng);
 		
 		glBegin(GL_LINE_STRIP);
-		glVertex3d(0.0,0.0,-wgs84.b*scaleFactor);
+		glVertex3d(0.0,0.0,-wgs84.getRadius()*(1.0-wgs84.getFlatteningFactor())*scaleFactor);
 		for(int j=1;j<numStrips*overSample;++j)
 			{
 			double lat=(Math::Constants<double>::pi*double(j))/double(numStrips*overSample)-0.5*Math::Constants<double>::pi;
 			double s=Math::sin(lat);
 			double c=Math::cos(lat);
-			double chi=Math::sqrt(1.0-wgs84.e2*s*s);
-			double xy=wgs84.radius/chi*c*scaleFactor;
-			double z=wgs84.radius*(1.0-wgs84.e2)/chi*s*scaleFactor;
+			double chi=Math::sqrt(1.0-wgs84E2*s*s);
+			double xy=wgs84.getRadius()/chi*c*scaleFactor;
+			double z=wgs84.getRadius()*(1.0-wgs84E2)/chi*s*scaleFactor;
 			glVertex3d(xy*cl,xy*sl,z);
 			}
-		glVertex3d(0.0,0.0,wgs84.b*scaleFactor);
+		glVertex3d(0.0,0.0,wgs84.getRadius()*(1.0-wgs84.getFlatteningFactor())*scaleFactor);
 		glEnd();
 		}
 	}

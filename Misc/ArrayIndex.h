@@ -359,6 +359,12 @@ class ArrayIndex<1>:public ArrayIndexBase<1>
 		ArrayIndexBase<1>::operator=(source);
 		return *this;
 		}
+	
+	/* Methods: */
+	operator int(void) const // Converts one-dimensional multiindex to integer
+		{
+		return index[0];
+		}
 	};
 
 /* Operators on 1-dimensional multiindices: */

@@ -1,7 +1,7 @@
 /***********************************************************************
 LaserpointerTool - Class for tools using rays to point out features in a
 3D display.
-Copyright (c) 2006-2009 Oliver Kreylos
+Copyright (c) 2006-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,6 +21,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/LaserpointerTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Point.h>
@@ -29,10 +31,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLColorTemplates.h>
 #include <GL/GLValueCoders.h>
 #include <GL/GLGeometryWrappers.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/LaserpointerTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -47,8 +47,7 @@ LaserpointerToolFactory::LaserpointerToolFactory(ToolManager& toolManager)
 	 rayColor(1.0f,0.0f,0.0f)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
@@ -130,7 +129,7 @@ const ToolFactory* LaserpointerTool::getFactory(void) const
 	return factory;
 	}
 
-void LaserpointerTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void LaserpointerTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{
@@ -149,7 +148,7 @@ void LaserpointerTool::frame(void)
 	if(active)
 		{
 		/* Update the laser ray: */
-		ray=getDeviceRay(0);
+		ray=getButtonDeviceRay(0);
 		}
 	}
 
@@ -164,7 +163,7 @@ void LaserpointerTool::display(GLContextData&) const
 		glLineWidth(factory->rayLineWidth);
 		glBegin(GL_LINES);
 		glVertex(ray.getOrigin());
-		glVertex(ray(factory->rayLength));
+		glVertex(ray(factory->rayLength*scaleFactor));
 		glEnd();
 		glPopAttrib();
 		}

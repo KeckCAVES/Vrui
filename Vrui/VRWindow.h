@@ -1,7 +1,8 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
+ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VRWINDOW_INCLUDED
 
 #include <string>
+#include <Geometry/ComponentArray.h>
 #include <Geometry/Point.h>
 #include <Geometry/Ray.h>
 #include <GL/gl.h>
@@ -40,12 +42,18 @@ class GLShader;
 class GLContextData;
 class GLFont;
 namespace Vrui {
+class InputDevice;
 class Viewer;
 class VRScreen;
+struct WindowProperties;
 class ViewSpecification;
 class DisplayState;
 class InputDeviceAdapterMouse;
+class MovieSaver;
 class VruiState;
+}
+namespace Vrui {
+struct VruiWindowGroup;
 }
 
 namespace Vrui {
@@ -62,19 +70,20 @@ class VRWindow:public GLWindow
 	/* Elements: */
 	private:
 	VruiState* vruiState; // Pointer to the Vrui state object this window belongs to
+	VruiWindowGroup* windowGroup; // Pointer to the window group to which this window belongs
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter (if one exists; 0 otherwise)
-	GLExtensionManager* extensionManager; // An OpenGL extension manager for this window
-	GLContextData* contextData; // An OpenGL context data structure for this window
+	int windowMousePos[2]; // Last reported mouse position in window coordinates
+	GLbitfield clearBufferMask; // Bit mask of OpenGL buffers that need to be cleared before rendering to this window
 	DisplayState* displayState; // The display state object associated with this window's OpenGL context; updated before each rendering pass
 	VRScreen* screens[2]; // Pointer to the two VR screens this window projects onto (left and right, usually identical)
-	Viewer* viewer; // Pointer to viewer viewing this window
+	Viewer* viewers[2]; // Pointers to the two viewers viewing this window (left and right, usually identical)
 	WindowType windowType; // Type of this window
 	int multisamplingLevel; // Level of multisampling (FSAA) for this window (1 == multisampling disabled)
 	GLWindow::WindowPos splitViewportPos[2]; // Positions and sizes of viewports for split-viewport stereo windows
 	bool panningViewport; // Flag whether the window's viewport depends on the window's position on the display screen
+	WindowPos panningDomain; // Origin and size of window's panning domain
 	bool navigate; // Flag if the window should move the display when it is moved/resized
 	bool movePrimaryWidgets; // Flag if the window should move primary popped-up widgets when it is moved/resized
-	int displaySize[2]; // Pixel size of the display containing this window
 	Scalar viewports[2][4]; // Viewport borders (left, right, bottom, top) for each VR screen in VR screen coordinates
 	bool hasFramebufferObjectExtension; // Flag whether the local OpenGL supports GL_EXT_framebuffer_object (for interleaved viewport and autostereoscopic stereo modes)
 	
@@ -85,7 +94,7 @@ class VRWindow:public GLWindow
 	GLuint ivRightViewportTextureID; // Texture ID of the right viewport texture (left viewport uses window drawable)
 	GLuint ivRightDepthbufferObjectID; // Object ID of the right viewport depthbuffer (alas, can't reuse window's depthbuffer)
 	GLuint ivRightFramebufferObjectID; // Object ID of the right viewport framebuffer (left viewport uses window drawable)
-	GLubyte* ivRightStipplePatterns[2]; // The two stipple patterns for the right viewport (depends on window origin position)
+	GLubyte* ivRightStipplePatterns[4]; // Four stipple patterns for the right viewport (which one is used depends on window origin position)
 	
 	/* State for rendering to autostereoscopic displays with multiple viewing zones: */
 	int asNumViewZones; // Number of viewing zones for autostereoscopic rendering
@@ -99,8 +108,31 @@ class VRWindow:public GLWindow
 	GLShader* asInterzigShader; // GLSL shader to "interzig" separate view zone images into autostereoscopic image
 	int asQuadSizeUniformIndex; // Index of quad size uniform variable in interzigging shader
 	
+	/* State for post-rendering lens distortion correction: */
+	int lcPolynomialDegree; // Degree of the radial undistortion polynomial; -1 disables lens distortion correction
+	float lcPolynomialCoefficients[2][4]; // Coefficients of the radial undistortion polynomial in the left and right viewports
+	Geometry::Point<float,2> lcCenters[2]; // Radial distortion centers in viewport coordinates [0, 1] x [0, 1] in the left and right viewports
+	Geometry::ComponentArray<float,2> lcPreScales[2]; // Scale factors from viewport coordinates to radial coordinates in the left and right viewports
+	float lcOverscan[2][4]; // Overscan on left, right, bottom, and top for the left and right viewports to fill the undistorted viewports in cases where undistortion shrinks the image; 0.0 = no overscan
+	float lcOverscanSize[2]; // Total horizontal and vertical overscan
+	int lcFrameSize[2]; // Width and height of frame buffer to render the distorted image
+	GLuint lcColorTextureObjectID; // Texture ID of the color texture used to render the distorted image
+	GLuint lcMsColorBufferObjectID; // Object ID of the multisampling color buffer used to render the multisampled distorted image
+	GLuint lcDepthBufferObjectID; // Object ID of the depth buffer used to render the distorted image
+	GLenum lcStencilPixelFormat; // Pixel format for the (optional) stencil buffer
+	GLuint lcStencilBufferObjectID; // Object ID of the (optional) stencil buffer used to render the distorted image
+	GLuint lcFrameBufferObjectID; // Object ID of the frame buffer used to render the distorted image
+	GLuint lcMsFrameBufferObjectID; // Object ID of the frame buffer used to "fix" a multisampling framebuffer
+	bool lcCubic; // Flag whether to use bicubic interpolation instead of bilinear for texture look-up in the distorted image
+	GLShader* lcUndistortionShader; // GLSL shader to undistort the intermediate distorted image
+	int lcUndistortionShaderUniformIndices[5]; // Locations of the undistortion shader's uniform variables
+	
+	VRScreen* mouseScreen; // Pointer to an optional screen used to map mouse positions from window coordinates to physical coordinates
 	GLFont* showFpsFont; // Font to render the current update frequency
 	bool showFps; // Flag if the window is to display the current update frequency
+	bool burnMode; // Flag if the window is currently in burn mode, i.e., if it runs Vrui frames as quickly as possible and displays smoothed FPS
+	unsigned int burnModeNumFrames; // Number of frames rendered in burn mode
+	double burnModeStartTime; // Application time at which the window entered burn mode
 	bool protectScreens; // Flag if the window's screen(s) need to be protected from nearby input devices
 	bool trackToolKillZone; // Flag if the tool manager's tool kill zone should follow the window when moved/resized
 	Scalar toolKillZonePos[2]; // Position of tool kill zone in relative window coordinates (0.0-1.0 in both directions)
@@ -108,73 +140,76 @@ class VRWindow:public GLWindow
 	bool resizeViewport; // Flag if the window's OpenGL viewport needs to be resized on the next draw() call
 	bool saveScreenshot; // Flag if the window is to save its contents after the next draw() call
 	std::string screenshotImageFileName; // Name of the image file into which to save the next screen shot
+	MovieSaver* movieSaver; // Pointer to a movie saver object if the window is supposed to write contents to a movie
 	
 	/* Private methods: */
-	static std::string getDisplayName(const Misc::ConfigurationFileSection& configFileSection);
-	static int* getVisualProperties(const Misc::ConfigurationFileSection& configFileSection);
 	void render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye);
-	bool calcMousePos(int x,int y,Scalar mousePos[2]) const; // Returns mouse position in screen coordinates based on window coordinates
 	
 	/* Constructors and destructors: */
 	public:
-	VRWindow(const char* windowName,const Misc::ConfigurationFileSection& configFileSection,VruiState* sVruiState,InputDeviceAdapterMouse* sMouseAdapter); // Initializes VR window based on settings from given configuration file section
-	~VRWindow(void);
+	static GLContext* createContext(const WindowProperties& properties,const Misc::ConfigurationFileSection& configFileSection); // Creates an OpenGL context based on settings from the given window properties and configuration file section
+	VRWindow(GLContext* sContext,int sScreen,const char* windowName,const Misc::ConfigurationFileSection& configFileSection,VruiState* sVruiState,InputDeviceAdapterMouse* sMouseAdapter); // Initializes VR window using given OpenGL context and settings from given configuration file section
+	virtual ~VRWindow(void);
 	
 	/* Methods: */
-	void setVRScreen(VRScreen* newScreen); // Overrides the window's screen; caller must know what he's doing
-	void setViewer(Viewer* newViewer); // Overrides the window's viewer; caller must know what he's doing
+	void setWindowGroup(VruiWindowGroup* newWindowGroup); // Sets the window's window group
+	void setVRScreen(int screenIndex,VRScreen* newScreen); // Overrides the window's screen; caller must know what he's doing
+	void setVRScreen(VRScreen* newScreen); // Ditto; sets both windows
 	void setScreenViewport(const Scalar newViewport[4]); // Overrides the window's viewport on its screen in screen coordinates
-	const int* getViewportSize(void) const // Returns window's viewport size
+	void setViewer(int viewerIndex,Viewer* newViewer); // Overrides the window's viewer; caller must know what he's doing
+	void setViewer(Viewer* newViewer); // Ditto; sets both viewers
+	void deinit(void); // Releases a window's resources before destruction
+	const int* getViewportSize(void) const // Returns window's viewport size in pixels
 		{
 		if(windowType==SPLITVIEWPORT_STEREO)
 			return splitViewportPos[0].size; // Return size of left viewport for now
 		else
 			return GLWindow::getWindowSize();
 		}
-	int getViewportSize(int dimension) const // Returns one component of the window's viewport size
+	int getViewportSize(int dimension) const // Returns one component of the window's viewport size in pixels
 		{
 		if(windowType==SPLITVIEWPORT_STEREO)
 			return splitViewportPos[0].size[dimension]; // Return size of left viewport for now
 		else
 			return GLWindow::getWindowSize()[dimension];
 		}
-	const VRScreen* getVRScreen(void) const // Returns the VR screen this window renders to
+	const VRScreen* getVRScreen(int screenIndex =0) const // Returns the VR screen this window renders to
 		{
-		return screens[0]; // Just return the left screen for now
+		return screens[screenIndex];
 		}
-	VRScreen* getVRScreen(void) // Ditto
+	VRScreen* getVRScreen(int screenIndex =0) // Ditto
 		{
-		return screens[0]; // Just return the left screen for now
+		return screens[screenIndex];
 		}
 	const Scalar* getScreenViewport(void) const // Returns the window's viewport on its screen in screen coordinates
 		{
 		return viewports[0];
 		}
-	const Viewer* getViewer(void) const // Returns the viewer this window renders from
+	Scalar* getScreenViewport(Scalar resultViewport[4]) const // Ditto, but copies viewport into provided array and returns pointer to array
 		{
-		return viewer;
+		for(int i=0;i<4;++i)
+			resultViewport[i]=viewports[0][i];
+		return resultViewport;
 		}
-	Viewer* getViewer(void) // Ditto
+	const Viewer* getViewer(int viewerIndex =0) const // Returns the viewer this window renders from
 		{
-		return viewer;
+		return viewers[viewerIndex];
+		}
+	Viewer* getViewer(int viewerIndex =0) // Ditto
+		{
+		return viewers[viewerIndex];
 		}
 	int getNumEyes(void) const; // Returns the number of eyes this window renders from
 	Point getEyePosition(int eyeIndex) const; // Returns the position of the given eye in physical coordinates
-	Ray reprojectWindowPos(const Scalar windowPos[2]) const; // Returns a ray in physical coordinates going through the given point in screen coordinates
+	void updateMouseDevice(const int windowPos[2],InputDevice* mouse) const; // Positions a 3D mouse device based on the given pointer position in window coordinates
 	ViewSpecification calcViewSpec(int eyeIndex) const; // Returns a view specification for the given eye in physical coordinates
-	GLExtensionManager& getExtensionManager(void) // Returns the window's extension manager
+	int* getWindowCenterPos(int windowCenterPos[2]) const // Returns the center of the window in window coordinates
 		{
-		return *extensionManager;
+		for(int i=0;i<2;++i)
+			windowCenterPos[i]=Math::div2(getWindowSize()[i]);
+		return windowCenterPos;
 		}
-	GLContextData& getContextData(void) // Returns the window's context data
-		{
-		return *contextData;
-		}
-	Scalar* getWindowCenterPos(Scalar windowCenterPos[2]) const; // Returns the center of the window in screen coordinates
-	void setCursorPos(const Scalar newCursorPos[2]); // Sets the cursor position in screen coordinates
-	void setCursorPosWithAdjust(Scalar newCursorPos[2]); // Sets the cursor position in screen coordinates and changes passed values such that they exactly match the next reported cursor position
-	void makeCurrent(void); // Overloaded version of the base class' makeCurrent method
-	bool processEvent(const XEvent& event); // Processes an X event
+	bool processEvent(const XEvent& event); // Processes an X event; returns true if the Vrui mainloop should stop processing events for this frame
 	bool isDirty(void) const // Returns true if the window needs to be redrawn
 		{
 		return dirty;

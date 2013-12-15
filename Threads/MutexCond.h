@@ -1,7 +1,7 @@
 /***********************************************************************
 MutexCond - Convenience class for condition variables that are protected
 by their own mutual exclusion semaphores.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -25,6 +25,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <pthread.h>
 #include <Misc/Time.h>
+#include <Threads/Config.h>
+
+#if THREADS_CONFIG_DEBUG
+#include <errno.h>
+#include <iostream>
+#endif
 
 namespace Threads {
 
@@ -46,7 +52,12 @@ class MutexCond
 			:mutexPtr(&mutexCond.mutex)
 			{
 			/* Lock the mutex: */
+			#if THREADS_CONFIG_DEBUG
+			if(pthread_mutex_lock(mutexPtr)!=0)
+				std::cerr<<"Error in Threads::MutexCond::Lock::Lock"<<std::endl;
+			#else
 			pthread_mutex_lock(mutexPtr);
+			#endif
 			}
 		private:
 		Lock(const Lock& source); // Prohibit copy constructor
@@ -55,7 +66,12 @@ class MutexCond
 		~Lock(void)
 			{
 			/* Unlock the mutex: */
+			#if THREADS_CONFIG_DEBUG
+			if(pthread_mutex_unlock(mutexPtr)!=0)
+				std::cerr<<"Error in Threads::MutexCond::Lock::~Lock"<<std::endl;
+			#else
 			pthread_mutex_unlock(mutexPtr);
+			#endif
 			}
 		};
 	
@@ -70,18 +86,33 @@ class MutexCond
 	public:
 	MutexCond(void) // Creates default mutex and default condition variable
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_mutex_init(&mutex,0)!=0||pthread_cond_init(&cond,0)!=0)
+			std::cerr<<"Error in Threads::MutexCond::MutexCond"<<std::endl;
+		#else
 		pthread_mutex_init(&mutex,0);
 		pthread_cond_init(&cond,0);
+		#endif
 		}
 	MutexCond(pthread_mutexattr_t* mutexAttributes) // Creates mutex with given attributes and default condition variable
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_mutex_init(&mutex,mutexAttributes)!=0||pthread_cond_init(&cond,0)!=0)
+			std::cerr<<"Error in Threads::MutexCond::MutexCond"<<std::endl;
+		#else
 		pthread_mutex_init(&mutex,mutexAttributes);
 		pthread_cond_init(&cond,0);
+		#endif
 		}
 	MutexCond(pthread_mutexattr_t* mutexAttributes,pthread_condattr_t* condAttributes) // Creates mutex and condition variable with given attributes
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_mutex_init(&mutex,mutexAttributes)!=0||pthread_cond_init(&cond,condAttributes)!=0)
+			std::cerr<<"Error in Threads::MutexCond::MutexCond"<<std::endl;
+		#else
 		pthread_mutex_init(&mutex,mutexAttributes);
 		pthread_cond_init(&cond,condAttributes);
+		#endif
 		}
 	private:
 	MutexCond(const MutexCond& source); // Prohibit copy constructor
@@ -89,51 +120,71 @@ class MutexCond
 	public:
 	~MutexCond(void)
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_mutex_destroy(&mutex)!=0||pthread_cond_destroy(&cond)!=0)
+			std::cerr<<"Error in Threads::MutexCond::~MutexCond"<<std::endl;
+		#else
 		pthread_mutex_destroy(&mutex);
 		pthread_cond_destroy(&cond);
+		#endif
 		}
 	
 	/* Methods: */
 	void signal(void) // Signals the condition variable
 		{
-		pthread_mutex_lock(&mutex);
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_signal(&cond)!=0)
+			std::cerr<<"Error in Threads::MutexCond::signal"<<std::endl;
+		#else
 		pthread_cond_signal(&cond);
-		pthread_mutex_unlock(&mutex);
+		#endif
 		}
 	void broadcast(void) // Broadcasts the condition variable
 		{
-		pthread_mutex_lock(&mutex);
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_broadcast(&cond)!=0)
+			std::cerr<<"Error in Threads::MutexCond::broadcast"<<std::endl;
+		#else
 		pthread_cond_broadcast(&cond);
-		pthread_mutex_unlock(&mutex);
+		#endif
 		}
-	void wait(void) // Waits on condition variable
+	void wait(void) // Waits on condition variable; automatically obtains lock on mutex
 		{
-		pthread_mutex_lock(&mutex);
+		Lock lock(*this);
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_wait(&cond,&mutex)!=0)
+			std::cerr<<"Error in Threads::MutexCond::wait"<<std::endl;
+		#else
 		pthread_cond_wait(&cond,&mutex);
-		pthread_mutex_unlock(&mutex);
+		#endif
 		}
-	bool timedWait(const Misc::Time& abstime) // Waits on condition variable; returns true if signal occurred; returns false if time expires
+	bool timedWait(const Misc::Time& abstime) // Waits on condition variable; automatically obtains lock on mutex; returns true if signal occurred; returns false if time expires
 		{
-		pthread_mutex_lock(&mutex);
-		bool result=pthread_cond_timedwait(&cond,&mutex,&abstime)==0;
-		pthread_mutex_unlock(&mutex);
-		return result;
-		}
-	void signal(const Lock&) // Signals the condition variable using already established lock
-		{
-		pthread_cond_signal(&cond);
-		}
-	void broadcast(const Lock&) // Broadcasts the condition variable using already established lock
-		{
-		pthread_cond_broadcast(&cond);
+		Lock lock(*this);
+		int result=pthread_cond_timedwait(&cond,&mutex,&abstime);
+		#if THREADS_CONFIG_DEBUG
+		if(result!=0&&result!=ETIMEDOUT)
+			std::cerr<<"Error in Threads::MutexCond::timedWait"<<std::endl;
+		#endif
+		return result==0;
 		}
 	void wait(const Lock& lock) // Waits on condition variable when lock is already established
 		{
+		#if THREADS_CONFIG_DEBUG
+		if(pthread_cond_wait(&cond,lock.mutexPtr)!=0)
+			std::cerr<<"Error in Threads::MutexCond::wait"<<std::endl;
+		#else
 		pthread_cond_wait(&cond,lock.mutexPtr);
+		#endif
 		}
 	bool timedWait(const Lock& lock,const Misc::Time& abstime) // Waits on condition variable when lock is already established; returns true if signal occurred; returns false if time expires
 		{
-		return pthread_cond_timedwait(&cond,lock.mutexPtr,&abstime)==0;
+		int result=pthread_cond_timedwait(&cond,lock.mutexPtr,&abstime);
+		#if THREADS_CONFIG_DEBUG
+		if(result!=0&&result!=ETIMEDOUT)
+			std::cerr<<"Error in Threads::MutexCond::timedWait"<<std::endl;
+		#endif
+		return result==0;
 		}
 	};
 

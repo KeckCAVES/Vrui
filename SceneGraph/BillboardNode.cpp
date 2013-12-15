@@ -1,7 +1,7 @@
 /***********************************************************************
 BillboardNode - Class for group nodes that transform their children to
 always face the viewer.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -89,7 +89,7 @@ void BillboardNode::update(void)
 		orthoZAxis=Vector(0,0,1);
 		orthoZAxis-=axisOfRotation.getValue()*((orthoZAxis*axisOfRotation.getValue())/aor2);
 		orthoZAxis.normalize();
-		rotationNormal=Geometry::cross(axisOfRotation.getValue(),orthoZAxis);
+		rotationNormal=axisOfRotation.getValue()^orthoZAxis;
 		}
 	}
 

@@ -130,6 +130,11 @@ class MF:public Field
 		{
 		return values[index];
 		}
+	void setValue(const Value& newValue) // Sets the field to the single given value
+		{
+		values.clear();
+		values.push_back(newValue);
+		}
 	void setValue(size_t index,const Value& newValue) // Sets one value in the list
 		{
 		values[index]=newValue;

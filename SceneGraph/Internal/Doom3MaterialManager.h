@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MaterialManager - Class to manage access to shared Doom3 material
 definitions.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -426,6 +426,10 @@ class Doom3MaterialManager:public GLObject
 			 currentProgramIndex(-1)
 			{
 			}
+		
+		/* Methods: */
+		public:
+		void suspend(void); // Temporarily suspends rendering using Doom3 material properties
 		};
 	
 	/* Elements: */
@@ -458,6 +462,7 @@ class Doom3MaterialManager:public GLObject
 	GLint getTangentAttributeIndex(RenderContext& renderContext,int tangentIndex) const; // Returns the index of the generic vertex attribute bound to the tangent vector used in the vertex program or -1 if not used
 	void setStage(RenderContext& renderContext,const Material::Stage& stage,int textureUnit) const; // Uploads the texture map stored with a material state into the given texture unit
 	bool setMaterial(RenderContext& renderContext,const MaterialID& materialID) const; // Installs the given material in the OpenGL context; returns true if the surface needs to be rendered
+	void disableMaterial(RenderContext& renderContext) const; // Temporarily disables material rendering in the OpenGL context
 	void finish(RenderContext& renderContext) const; // Finishes material rendering into the current OpenGL context
 	};
 

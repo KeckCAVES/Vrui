@@ -1,7 +1,7 @@
 /***********************************************************************
 ClipPlaneManager - Class to manage clipping planes in virtual
 environments. Maps created ClipPlane objects to OpenGL clipping planes.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,18 +24,18 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_CLIPPLANEMANAGER_INCLUDED
 #define VRUI_CLIPPLANEMANAGER_INCLUDED
 
-#include <GL/GLObject.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/ClipPlane.h>
 
 /* Forward declarations: */
+class GLContextData;
 namespace Vrui {
 class DisplayState;
 }
 
 namespace Vrui {
 
-class ClipPlaneManager:public GLObject
+class ClipPlaneManager
 	{
 	/* Embedded classes: */
 	private:
@@ -58,18 +58,6 @@ class ClipPlaneManager:public GLObject
 			}
 		};
 	
-	struct DataItem:public GLObject::DataItem
-		{
-		/* Elements: */
-		public:
-		int numClipPlanes; // Number of clipping planes supported by the OpenGL context
-		int lastNumClipPlanes; // Number of clipping planes enabled in previous rendering pass
-		
-		/* Constructors and destructors: */
-		DataItem(void);
-		virtual ~DataItem(void);
-		};
-	
 	/* Elements: */
 	private:
 	ClipPlaneListItem* firstClipPlane; // Pointer to first clipping plane
@@ -78,16 +66,14 @@ class ClipPlaneManager:public GLObject
 	/* Constructors and destructors: */
 	public:
 	ClipPlaneManager(void); // Creates an empty clipping plane manager
-	virtual ~ClipPlaneManager(void); // Destroys the clipping plane manager
+	~ClipPlaneManager(void); // Destroys the clipping plane manager
 	
-	/* Methods: */
-	void initContext(GLContextData& contextData) const;
+	/* New methods: */
 	ClipPlane* createClipPlane(bool physical); // Creates a disabled clipping plane
 	ClipPlane* createClipPlane(bool physical,const Plane& sPlane); // Creates an enabled clipping plane with the given plane equation
 	void destroyClipPlane(ClipPlane* clipPlane); // Destroys the given clipping plane
-	void setClipPlanes(GLContextData& contextData) const; // Sets the clipping planes in the current OpenGL context
-	void setClipPlanes(DisplayState* displayState,GLContextData& contextData) const; // Sets the clipping planes in the current OpenGL context using the navigation transformations stored in the given display state object
-	void disableClipPlanes(GLContextData& contextData); // Disables all clipping planes
+	void setClipPlanes(bool navigationEnabled,DisplayState* displayState,GLContextData& contextData) const; // Sets the clipping planes in the current OpenGL context
+	void clipRay(bool physical,Ray& ray,Scalar& lambdaMax) const; // Clips the given ray (in physical or navigational coordinates) against all enabled clipping planes by adjusting the ray's origin and the maximum ray intercept
 	};
 
 }

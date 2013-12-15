@@ -39,7 +39,10 @@ class TextFieldSlider:public Container
 		{
 		LINEAR,EXP10
 		};
-	
+	enum ValueType // Enumerated type for value types
+		{
+		UINT,INT,FLOAT
+		};
 	class ValueChangedCallbackData:public Misc::CallbackData
 		{
 		/* Embedded classes: */
@@ -72,6 +75,7 @@ class TextFieldSlider:public Container
 	GLfloat spacing; // Spacing between text field and slider widget
 	Slider* slider; // Pointer to the slider widget
 	SliderMapping sliderMapping; // Mapping from slider positions to values
+	ValueType valueType; // Slider's value type for display in the text field
 	double valueMin,valueMax; // Value range
 	double valueIncrement; // Value increment in slider position units
 	double value; // The current value of the compound slider
@@ -91,6 +95,7 @@ class TextFieldSlider:public Container
 	
 	/* Methods inherited from Container: */
 	virtual void addChild(Widget* newChild);
+	virtual void removeChild(Widget* removeChild);
 	virtual void requestResize(Widget* child,const Vector& newExteriorSize);
 	virtual Widget* getFirstChild(void);
 	virtual Widget* getNextChild(Widget* child);
@@ -122,6 +127,11 @@ class TextFieldSlider:public Container
 		return sliderMapping;
 		}
 	void setSliderMapping(SliderMapping newSliderMapping); // Sets the slider position mapping
+	ValueType getValueType(void) const // Returns the slider's value type
+		{
+		return valueType;
+		}
+	void setValueType(ValueType newValueType); // Sets the slider's value type
 	void setValueRange(double newValueMin,double newValueMax,double newValueIncrement); // Sets the slider's value range
 	double getValue(void) const // Returns the current slider value
 		{

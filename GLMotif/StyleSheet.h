@@ -48,6 +48,8 @@ struct StyleSheet
 	GLfloat textfieldMarginWidth; // Margin width for text fields and derived widgets
 	Color textfieldBgColor; // Background color for text fields displaying values
 	Color textfieldFgColor; // Foreground color for text fields displaying values
+	Color selectionBgColor; // Background color for selected text items
+	Color selectionFgColor; // Foreground color for selected text items
 	GLfloat buttonBorderWidth; // Border width for buttons and derived widgets
 	GLfloat buttonMarginWidth; // Margin width for buttons and derived widgets
 	Color buttonArmedBackgroundColor; // Background color for armed buttons and derived classes

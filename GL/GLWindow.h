@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2013 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -23,8 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLWINDOW_INCLUDED
 #define GLWINDOW_INCLUDED
 
+#include <Misc/CallbackList.h>
 #include <X11/X.h>
-#include <GL/glx.h>
+#include <GL/GLContext.h>
 
 class GLWindow
 	{
@@ -71,12 +72,21 @@ class GLWindow
 				size[i]=sSize[i];
 				}
 			}
+		
+		/* Methods: */
+		bool contains(int x,int y) const // Returns true if the given position is inside the window
+			{
+			return x>=origin[0]&&y>=origin[1]&&x<origin[0]+size[0]&&y<origin[1]+size[1];
+			}
+		bool contains(const int pos[2]) const // Ditto
+			{
+			return pos[0]>=origin[0]&&pos[1]>=origin[1]&&pos[0]<origin[0]+size[0]&&pos[1]<origin[1]+size[1];
+			}
 		};
 	
 	/* Elements: */
 	private:
-	bool privateConnection; // Flag if the connection to the X server is private
-	Display* display; // Display this window belongs to
+	GLContextPtr context; // Pointer to a GL context object
 	int screen; // Screen this window belongs to
 	Window root; // Handle of the screen's root window
 	Colormap colorMap; // Colormap used in window
@@ -84,28 +94,42 @@ class GLWindow
 	Atom wmProtocolsAtom,wmDeleteWindowAtom; // Atoms needed for window manager communication
 	WindowPos windowPos; // Current position and size of output window
 	bool fullscreen; // Flag if the window occupies the full screen (and has no decoration)
-	GLXContext context; // GLX context handle
+	Misc::CallbackList closeCallbacks; // List of callbacks to be called when the user attempts to close the window
 	
 	/* Private methods: */
-	void initWindow(const char* windowName,int* visualProperties); // Common part of all constructors
+	void initWindow(const char* windowName,bool decorate); // Common part of all constructors
 	
 	/* Constructors and destructors: */
 	public:
-	GLWindow(Display* sDisplay,int sScreen,const char* sWindowName,const WindowPos& sWindowPos,int* visualProperties =0); // Creates a window on an already open X display connection
-	GLWindow(const char* sDisplayName,const char* sWindowName,const WindowPos& sWindowPos,int* visualProperties =0); // Opens a private connection to an X server and creates a window
-	GLWindow(const char* sWindowName,const WindowPos& sWindowPos,int* visualProperties =0); // Same as above, but gets the display name from the environment
-	~GLWindow(void); // Destroys the window and all associated resources
+	GLWindow(GLContext* sContext,int sScreen,const char* windowName,const WindowPos& sWindowPos,bool decorate); // Creates a window using the given OpenGL context
+	GLWindow(const char* displayName,const char* windowName,const WindowPos& sWindowPos,bool decorate,int* visualProperties =0); // Creates a window by connecting to the given X display
+	GLWindow(const char* windowName,const WindowPos& sWindowPos,bool decorate,int* visualProperties =0); // Ditto; gets the default display name from the environment
+	GLWindow(GLWindow* source,int sScreen,const char* windowName,const WindowPos& sWindowPos,bool decorate); // Creates a window using the same GL context as the given source window, on the given screen of the source window's display
+	GLWindow(GLWindow* source,const char* windowName,const WindowPos& sWindowPos,bool decorate); // Ditto; uses the same screen as the source window
+	virtual ~GLWindow(void); // Destroys the window and all associated resources
 	
 	/* Methods: */
-	Display* getDisplay(void)
+	GLContext& getContext(void) // Returns the window's OpenGL context
 		{
-		return display;
+		return *context;
 		}
-	int getScreen(void) const
+	int getConnectionNumber(void) const // Returns a file descriptor for the window's event pipe
+		{
+		return ConnectionNumber(context->getDisplay());
+		}
+	GLExtensionManager& getExtensionManager(void) // Returns the window's extension manager
+		{
+		return context->getExtensionManager();
+		}
+	GLContextData& getContextData(void) // Returns the window's context data
+		{
+		return context->getContextData();
+		}
+	int getScreen(void) const // Returns the window's screen index
 		{
 		return screen;
 		}
-	Window getWindow(void)
+	Window getWindow(void) const
 		{
 		return window;
 		}
@@ -132,25 +156,43 @@ class GLWindow
 	WindowPos getRootWindowPos(void) const; // Returns the position and size of the root window containing this window
 	double getScreenWidthMM(void) const; // Returns the physical width of the window's screen in mm
 	double getScreenHeightMM(void) const; // Returns the physical height of the window's screen in mm
+	Misc::CallbackList& getCloseCallbacks(void) // Returns the list of close callbacks
+		{
+		return closeCallbacks;
+		}
 	void makeFullscreen(void); // Turns the window into a "fake" fullscreen window by making it slightly larger than the root window
 	void disableMouseEvents(void); // Tells the window to ignore mouse events (pointer motion, button click and release) from that point on
 	void hideCursor(void); // Hides the cursor while inside the window
 	void showCursor(void); // Resets the cursor to the one used by the parent window
+	bool grabPointer(void); // Grabs the mouse pointer to redirect all following mouse and keyboard events to this window; returns true if grab successful
+	void releasePointer(void); // Releases the mouse pointer after a successful grab
 	void setCursorPos(int newCursorX,int newCursorY); // Sets the cursor to the given position in window coordinates
 	void redraw(void); // Signals a window that it should redraw itself (can be sent from outside window processing thread)
 	void makeCurrent(void) // Sets the window's GL context as the current context
 		{
-		glXMakeCurrent(display,window,context);
+		context->makeCurrent(window);
 		}
 	void swapBuffers(void) // Swaps front and back buffer
 		{
-		glXSwapBuffers(display,window);
+		context->swapBuffers(window);
+		}
+	bool pendingEvents(void) // Returns true if there are pending events on this window's X display connection
+		{
+		return XPending(context->getDisplay());
+		}
+	void peekEvent(XEvent& event) // Waits for and returns the next event intended for this window without removing it from the event queue
+		{
+		XPeekEvent(context->getDisplay(),&event);
+		}
+	void nextEvent(XEvent& event) // Waits for and returns the next event intended for this window
+		{
+		XNextEvent(context->getDisplay(),&event);
 		}
 	bool isEventForWindow(const XEvent& event) const // Returns true if the given event is intended for this window
 		{
 		return event.xany.window==window;
 		}
-	bool processEvent(const XEvent& event); // Sends an X event to the window for processing. Returns true if the window wants to be closed
+	void processEvent(const XEvent& event); // Sends an X event to the window for processing
 	};
 
 #endif

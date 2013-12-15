@@ -1,7 +1,7 @@
 /***********************************************************************
 MultipipeDispatcher - Class to distribute input device and ancillary
 data between the nodes in a multipipe VR environment.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,12 +23,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/MultipipeDispatcher.h>
 
-#include <string.h>
-#include <Comm/MulticastPipe.h>
+#include <Misc/ThrowStdErr.h>
+#include <Misc/StringMarshaller.h>
+#include <Cluster/MulticastPipe.h>
+#include <GL/GLMarshallers.h>
 #include <Vrui/InputDevice.h>
-#include <Vrui/InputDeviceManager.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputGraphManager.h>
+#include <Vrui/InputDeviceManager.h>
 
 namespace Vrui {
 
@@ -36,10 +39,9 @@ namespace Vrui {
 Methods of class MultipipeDispatcher:
 ************************************/
 
-MultipipeDispatcher::MultipipeDispatcher(Comm::MulticastPipe* sPipe,InputDeviceManager* sInputDeviceManager)
-	:pipe(sPipe),
-	 inputDeviceManager(sInputDeviceManager),
-	 numInputDevices(0),
+MultipipeDispatcher::MultipipeDispatcher(InputDeviceManager* sInputDeviceManager,Cluster::MulticastPipe* sPipe)
+	:InputDeviceAdapter(sInputDeviceManager),
+	 pipe(sPipe),
 	 totalNumButtons(0),
 	 totalNumValuators(0),
 	 trackingStates(0),
@@ -53,58 +55,64 @@ MultipipeDispatcher::MultipipeDispatcher(Comm::MulticastPipe* sPipe,InputDeviceM
 		/* Send number of input devices: */
 		numInputDevices=inputDeviceManager->getNumInputDevices();
 		pipe->write<int>(numInputDevices);
+		inputDevices=new InputDevice*[numInputDevices];
 		
 		/* Send configuration of all input devices: */
-		for(int i=0;i<numInputDevices;++i)
+		for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
 			{
 			/* Get pointer to input device: */
-			InputDevice* id=inputDeviceManager->getInputDevice(i);
+			InputDevice* device=inputDevices[deviceIndex]=inputDeviceManager->getInputDevice(deviceIndex);
 			
 			/* Send input device name: */
-			int nameLen=strlen(id->getDeviceName());
-			pipe->write<int>(nameLen);
-			pipe->write<char>(id->getDeviceName(),nameLen+1);
+			Misc::writeCString(device->getDeviceName(),*pipe);
 			
 			/* Send track type: */
-			pipe->write<int>(id->getTrackType());
-			
-			/* Send device ray direction: */
-			pipe->write<Vector>(id->getDeviceRayDirection());
+			pipe->write<int>(device->getTrackType());
 			
 			/* Send number of buttons: */
-			pipe->write<int>(id->getNumButtons());
-			totalNumButtons+=id->getNumButtons();
+			pipe->write<int>(device->getNumButtons());
+			totalNumButtons+=device->getNumButtons();
 			
 			/* Send number of valuators: */
-			pipe->write<int>(id->getNumValuators());
-			totalNumValuators+=id->getNumValuators();
+			pipe->write<int>(device->getNumValuators());
+			totalNumValuators+=device->getNumValuators();
 			
 			/* Send device glyph: */
-			pipe->write<Glyph>(inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(id));
+			Glyph& glyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(device);
+			pipe->write<char>(glyph.isEnabled()?1:0);
+			pipe->write<int>(glyph.getGlyphType());
+			Misc::Marshaller<GLMaterial>::write(glyph.getGlyphMaterial(),*pipe);
+			
+			/* Send all button names: */
+			for(int buttonIndex=0;buttonIndex<device->getNumButtons();++buttonIndex)
+				Misc::writeCppString(inputDeviceManager->getFeatureName(InputDeviceFeature(device,InputDevice::BUTTON,buttonIndex)),*pipe);
+			
+			/* Send all valuator names: */
+			for(int valuatorIndex=0;valuatorIndex<device->getNumValuators();++valuatorIndex)
+				Misc::writeCppString(inputDeviceManager->getFeatureName(InputDeviceFeature(device,InputDevice::VALUATOR,valuatorIndex)),*pipe);
 			}
 		
-		pipe->finishMessage();
+		pipe->flush();
 		}
 	else
 		{
+		/* Add the dispatcher as an input device adapter to the input device manager: */
+		inputDeviceManager->addAdapter(this);
+		
 		/* Receive the input device configuration from the master node: */
 		
 		/* Read number of input devices: */
 		numInputDevices=pipe->read<int>();
+		inputDevices=new InputDevice*[numInputDevices];
 		
 		/* Read configuration of all input devices: */
-		for(int i=0;i<numInputDevices;++i)
+		for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
 			{
 			/* Read input device name: */
-			int nameLen=pipe->read<int>();
-			char* name=new char[nameLen+1];
-			pipe->read<char>(name,nameLen+1);
+			char* name=Misc::readCString(*pipe);
 			
 			/* Read track type: */
 			int trackType=pipe->read<int>();
-			
-			/* Read device ray direction: */
-			Vector deviceRayDirection=pipe->read<Vector>();
 			
 			/* Read number of buttons: */
 			int numButtons=pipe->read<int>();
@@ -115,15 +123,27 @@ MultipipeDispatcher::MultipipeDispatcher(Comm::MulticastPipe* sPipe,InputDeviceM
 			totalNumValuators+=numValuators;
 			
 			/* Read device glyph: */
-			Glyph deviceGlyph=pipe->read<Glyph>();
+			Glyph deviceGlyph;
+			bool glyphEnabled=pipe->read<char>()!=0;
+			Glyph::GlyphType glyphType=Glyph::GlyphType(pipe->read<int>());
+			GLMaterial glyphMaterial=Misc::Marshaller<GLMaterial>::read(*pipe);
+			if(glyphEnabled)
+				deviceGlyph.enable(glyphType,glyphMaterial);
 			
 			/* Create the input device: */
-			InputDevice* id=inputDeviceManager->createInputDevice(name,trackType,numButtons,numValuators,true);
+			InputDevice* device=inputDevices[deviceIndex]=inputDeviceManager->createInputDevice(name,trackType,numButtons,numValuators,true);
 			delete[] name;
 			
-			/* Initialize the input device: */
-			id->setDeviceRayDirection(deviceRayDirection);
-			inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(id)=deviceGlyph;
+			/* Initialize the input device glyph: */
+			inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(device)=deviceGlyph;
+			
+			/* Receive all button names: */
+			for(int buttonIndex=0;buttonIndex<device->getNumButtons();++buttonIndex)
+				buttonNames.push_back(Misc::readCppString(*pipe));
+			
+			/* Receive all valuator names: */
+			for(int valuatorIndex=0;valuatorIndex<device->getNumValuators();++valuatorIndex)
+				valuatorNames.push_back(Misc::readCppString(*pipe));
 			}
 		}
 	
@@ -135,12 +155,88 @@ MultipipeDispatcher::MultipipeDispatcher(Comm::MulticastPipe* sPipe,InputDeviceM
 
 MultipipeDispatcher::~MultipipeDispatcher(void)
 	{
+	if(pipe->isMaster())
+		{
+		/* Do not destroy input devices on the master node, since they belong to input device adapters: */
+		for(int i=0;i<numInputDevices;++i)
+			inputDevices[i]=0;
+		}
+	
 	delete[] trackingStates;
 	delete[] buttonStates;
 	delete[] valuatorStates;
 	}
 
-void MultipipeDispatcher::dispatchState(void)
+std::string MultipipeDispatcher::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Find the input device owning the given feature: */
+	bool deviceFound=false;
+	int buttonIndexBase=0;
+	int valuatorIndexBase=0;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		{
+		if(inputDevices[deviceIndex]==feature.getDevice())
+			{
+			deviceFound=true;
+			break;
+			}
+		
+		/* Go to the next device: */
+		buttonIndexBase+=inputDevices[deviceIndex]->getNumButtons();
+		valuatorIndexBase+=inputDevices[deviceIndex]->getNumValuators();
+		}
+	if(!deviceFound)
+		Misc::throwStdErr("MultipipeDispatcher::getFeatureName: Unknown device %s",feature.getDevice()->getDeviceName());
+	
+	/* Check whether the feature is a button or a valuator: */
+	std::string result;
+	if(feature.isButton())
+		{
+		/* Return the button feature's name: */
+		result=buttonNames[buttonIndexBase+feature.getIndex()];
+		}
+	if(feature.isValuator())
+		{
+		/* Return the valuator feature's name: */
+		result=valuatorNames[valuatorIndexBase+feature.getIndex()];
+		}
+	
+	return result;
+	}
+
+int MultipipeDispatcher::getFeatureIndex(InputDevice* device,const char* featureName) const
+	{
+	/* Find the input device owning the given feature: */
+	bool deviceFound=false;
+	int buttonIndexBase=0;
+	int valuatorIndexBase=0;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		{
+		if(inputDevices[deviceIndex]==device)
+			{
+			deviceFound=true;
+			break;
+			}
+		
+		/* Go to the next device: */
+		buttonIndexBase+=inputDevices[deviceIndex]->getNumButtons();
+		valuatorIndexBase+=inputDevices[deviceIndex]->getNumValuators();
+		}
+	if(!deviceFound)
+		Misc::throwStdErr("MultipipeDispatcher::getFeatureIndex: Unknown device %s",device->getDeviceName());
+	
+	/* Check if the feature names a button or a valuator: */
+	for(int buttonIndex=0;buttonIndex<device->getNumButtons();++buttonIndex)
+		if(buttonNames[buttonIndexBase+buttonIndex]==featureName)
+			return device->getButtonFeatureIndex(buttonIndex);
+	for(int valuatorIndex=0;valuatorIndex<device->getNumValuators();++valuatorIndex)
+		if(valuatorNames[valuatorIndexBase+valuatorIndex]==featureName)
+			return device->getValuatorFeatureIndex(valuatorIndex);
+	
+	return -1;
+	}
+
+void MultipipeDispatcher::updateInputDevices(void)
 	{
 	if(pipe->isMaster())
 		{
@@ -149,14 +245,15 @@ void MultipipeDispatcher::dispatchState(void)
 		double* vsPtr=valuatorStates;
 		for(int i=0;i<numInputDevices;++i)
 			{
-			InputDevice* id=inputDeviceManager->getInputDevice(i);
-			trackingStates[i].transformation=id->getTransformation();
-			trackingStates[i].linearVelocity=id->getLinearVelocity();
-			trackingStates[i].angularVelocity=id->getAngularVelocity();
-			for(int j=0;j<id->getNumButtons();++j,++bsPtr)
-				*bsPtr=id->getButtonState(j);
-			for(int j=0;j<id->getNumValuators();++j,++vsPtr)
-				*vsPtr=id->getValuator(j);
+			trackingStates[i].deviceRayDirection=inputDevices[i]->getDeviceRayDirection();
+			trackingStates[i].deviceRayStart=inputDevices[i]->getDeviceRayStart();
+			trackingStates[i].transformation=inputDevices[i]->getTransformation();
+			trackingStates[i].linearVelocity=inputDevices[i]->getLinearVelocity();
+			trackingStates[i].angularVelocity=inputDevices[i]->getAngularVelocity();
+			for(int j=0;j<inputDevices[i]->getNumButtons();++j,++bsPtr)
+				*bsPtr=inputDevices[i]->getButtonState(j);
+			for(int j=0;j<inputDevices[i]->getNumValuators();++j,++vsPtr)
+				*vsPtr=inputDevices[i]->getValuator(j);
 			}
 		
 		/* Send the input device states to the slave nodes: */
@@ -176,14 +273,14 @@ void MultipipeDispatcher::dispatchState(void)
 		double* vsPtr=valuatorStates;
 		for(int i=0;i<numInputDevices;++i)
 			{
-			InputDevice* id=inputDeviceManager->getInputDevice(i);
-			id->setTransformation(trackingStates[i].transformation);
-			id->setLinearVelocity(trackingStates[i].linearVelocity);
-			id->setAngularVelocity(trackingStates[i].angularVelocity);
-			for(int j=0;j<id->getNumButtons();++j,++bsPtr)
-				id->setButtonState(j,*bsPtr);
-			for(int j=0;j<id->getNumValuators();++j,++vsPtr)
-				id->setValuator(j,*vsPtr);
+			inputDevices[i]->setDeviceRay(trackingStates[i].deviceRayDirection,trackingStates[i].deviceRayStart);
+			inputDevices[i]->setTransformation(trackingStates[i].transformation);
+			inputDevices[i]->setLinearVelocity(trackingStates[i].linearVelocity);
+			inputDevices[i]->setAngularVelocity(trackingStates[i].angularVelocity);
+			for(int j=0;j<inputDevices[i]->getNumButtons();++j,++bsPtr)
+				inputDevices[i]->setButtonState(j,*bsPtr);
+			for(int j=0;j<inputDevices[i]->getNumValuators();++j,++vsPtr)
+				inputDevices[i]->setValuator(j,*vsPtr);
 			}
 		}
 	}

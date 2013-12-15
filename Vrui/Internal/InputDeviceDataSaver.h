@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceDataSaver - Class to save input device data to a file for
 later playback.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,7 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_INTERNAL_INPUTDEVICEDATASAVER_INCLUDED
 
 #include <string>
-#include <Misc/File.h>
+#include <IO/File.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -37,6 +37,9 @@ class SoundRecorder;
 namespace Vrui {
 class InputDevice;
 class InputDeviceManager;
+#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+class KinectRecorder;
+#endif
 }
 
 namespace Vrui {
@@ -45,14 +48,14 @@ class InputDeviceDataSaver
 	{
 	/* Elements: */
 	private:
-	Misc::File inputDeviceDataFile; // File input device data is saved to
+	IO::FilePtr inputDeviceDataFile; // File input device data is saved to
 	int numInputDevices; // Number of saved (physical) input devices
 	InputDevice** inputDevices; // Array of pointers to saved input devices
 	Sound::SoundRecorder* soundRecorder; // Pointer to sound recorder object to record commentary tracks
-	bool firstFrame; // Flag to identify the first frame of input device data
-	
-	/* Private methods: */
-	static std::string getInputDeviceDataFileName(const Misc::ConfigurationFileSection& configFileSection);
+	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
+	KinectRecorder* kinectRecorder; // Pointer to 3D video recorder object
+	#endif
+	unsigned int firstFrameCountdown; // Counter to indicate the first frame of the Vrui application
 	
 	/* Constructors and destructors: */
 	public:

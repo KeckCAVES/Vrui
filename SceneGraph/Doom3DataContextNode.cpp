@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/Doom3DataContextNode.h>
 
 #include <string.h>
+#include <Cluster/OpenFile.h>
 #include <SceneGraph/VRMLFile.h>
 #include <SceneGraph/Internal/Doom3FileManager.h>
 #include <SceneGraph/Internal/Doom3TextureManager.h>
@@ -36,7 +37,8 @@ Methods of class Doom3DataContextNode:
 *************************************/
 
 Doom3DataContextNode::Doom3DataContextNode(void)
-	:fileManager(0),textureManager(0),materialManager(0)
+	:multiplexer(0),
+	 fileManager(0),textureManager(0),materialManager(0)
 	{
 	}
 
@@ -66,6 +68,8 @@ void Doom3DataContextNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 		/* Fully qualify all URLs: */
 		for(size_t i=0;i<baseUrl.getNumValues();++i)
 			baseUrl.setValue(i,vrmlFile.getFullUrl(baseUrl.getValue(i)));
+		
+		multiplexer=vrmlFile.getMultiplexer();
 		}
 	else if(strcmp(fieldName,"pakFilePrefix")==0)
 		{
@@ -83,7 +87,7 @@ void Doom3DataContextNode::update(void)
 	delete fileManager;
 	
 	/* Create a file manager: */
-	fileManager=new Doom3FileManager(baseUrl.getValue(0).c_str(),pakFilePrefix.getValue().c_str());
+	fileManager=new Doom3FileManager(Cluster::openDirectory(multiplexer,baseUrl.getValue(0).c_str()),pakFilePrefix.getValue().c_str());
 	
 	/* Create texture and material managers: */
 	textureManager=new Doom3TextureManager(*fileManager);

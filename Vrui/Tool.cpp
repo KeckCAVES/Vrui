@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,7 +23,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tool.h>
 
-#include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Vrui/Vrui.h>
 
@@ -36,6 +35,34 @@ Methods of class ToolFactory:
 ToolFactory::ToolFactory(const char* sClassName,ToolManager&)
 	:Factory(sClassName)
 	{
+	}
+
+const char* ToolFactory::getButtonFunction(int buttonSlotIndex) const
+	{
+	/* Check if any of the class's parent classes are derived from ToolFactory: */
+	for(ClassList::const_iterator pIt=parentsBegin();pIt!=parentsEnd();++pIt)
+		{
+		const ToolFactory* tf=dynamic_cast<const ToolFactory*>(*pIt);
+		if(tf!=0)
+			return tf->getButtonFunction(buttonSlotIndex);
+		}
+	
+	/* Return a default name otherwise: */
+	return "(unknown function)";
+	}
+
+const char* ToolFactory::getValuatorFunction(int valuatorSlotIndex) const
+	{
+	/* Check if any of the class's parent classes are derived from ToolFactory: */
+	for(ClassList::const_iterator pIt=parentsBegin();pIt!=parentsEnd();++pIt)
+		{
+		const ToolFactory* tf=dynamic_cast<const ToolFactory*>(*pIt);
+		if(tf!=0)
+			return tf->getValuatorFunction(valuatorSlotIndex);
+		}
+	
+	/* Return a default name otherwise: */
+	return "(unknown function)";
 	}
 
 Tool* ToolFactory::createTool(const ToolInputAssignment&) const
@@ -58,91 +85,103 @@ Methods of class Tool:
 void Tool::buttonCallbackWrapper(Misc::CallbackData* cbData,void* userData)
 	{
 	/* Determine callback target tool: */
-	Tool* thisPtr=static_cast<Tool*>(userData);
+	Tool* tool=static_cast<Tool*>(userData);
 	
-	/* Determine device and button index: */
+	/* Retrieve the callback data: */
 	InputDevice::ButtonCallbackData* bcbData=static_cast<InputDevice::ButtonCallbackData*>(cbData);
-	int deviceIndex;
-	for(deviceIndex=0;deviceIndex<thisPtr->layout.getNumDevices();++deviceIndex)
-		if(thisPtr->input.getDevice(deviceIndex)==bcbData->inputDevice)
-			break;
-	if(deviceIndex>=thisPtr->layout.getNumDevices()) // Is the callback really for this tool?
-		return;
-	int buttonIndex;
-	for(buttonIndex=0;buttonIndex<thisPtr->layout.getNumButtons(deviceIndex);++buttonIndex)
-		if(thisPtr->input.getButtonIndex(deviceIndex,buttonIndex)==bcbData->buttonIndex)
-			break;
-	if(buttonIndex>=thisPtr->layout.getNumButtons(deviceIndex)) // Is the callback really for this tool?
-		return;
 	
-	/* Call the tool's callback method: */
-	thisPtr->buttonCallback(deviceIndex,buttonIndex,bcbData);
+	/* Find the index of the button slot to which the input device button is assigned: */
+	int buttonSlotIndex;
+	for(buttonSlotIndex=0;buttonSlotIndex<tool->input.getNumButtonSlots();++buttonSlotIndex)
+		{
+		const ToolInputAssignment::Slot& slot=tool->input.getButtonSlot(buttonSlotIndex);
+		if(slot.index==bcbData->buttonIndex&&slot.device==bcbData->inputDevice)
+			break;
+		}
+	
+	/* Check if the callback is really for this tool: */
+	if(buttonSlotIndex<tool->input.getNumButtonSlots())
+		{
+		/* Call the tool's callback method: */
+		tool->buttonCallback(buttonSlotIndex,bcbData);
+		}
 	}
 
 void Tool::valuatorCallbackWrapper(Misc::CallbackData* cbData,void* userData)
 	{
 	/* Determine callback target tool: */
-	Tool* thisPtr=static_cast<Tool*>(userData);
+	Tool* tool=static_cast<Tool*>(userData);
 	
-	/* Determine device and valuator index: */
+	/* Retrieve the callback data: */
 	InputDevice::ValuatorCallbackData* vcbData=static_cast<InputDevice::ValuatorCallbackData*>(cbData);
-	int deviceIndex;
-	for(deviceIndex=0;deviceIndex<thisPtr->layout.getNumDevices();++deviceIndex)
-		if(thisPtr->input.getDevice(deviceIndex)==vcbData->inputDevice)
-			break;
-	if(deviceIndex>=thisPtr->layout.getNumDevices()) // Is the callback really for this tool?
-		return;
-	int valuatorIndex;
-	for(valuatorIndex=0;valuatorIndex<thisPtr->layout.getNumValuators(deviceIndex);++valuatorIndex)
-		if(thisPtr->input.getValuatorIndex(deviceIndex,valuatorIndex)==vcbData->valuatorIndex)
-			break;
-	if(valuatorIndex>=thisPtr->layout.getNumValuators(deviceIndex)) // Is the callback really for this tool?
-		return;
 	
-	/* Call the tool's callback method: */
-	thisPtr->valuatorCallback(deviceIndex,valuatorIndex,vcbData);
+	/* Find the index of the valuator slot to which the input device valuator is assigned: */
+	int valuatorSlotIndex;
+	for(valuatorSlotIndex=0;valuatorSlotIndex<tool->input.getNumValuatorSlots();++valuatorSlotIndex)
+		{
+		const ToolInputAssignment::Slot& slot=tool->input.getValuatorSlot(valuatorSlotIndex);
+		if(slot.index==vcbData->valuatorIndex&&slot.device==vcbData->inputDevice)
+			break;
+		}
+	
+	/* Check if the callback is really for this tool: */
+	if(valuatorSlotIndex<tool->input.getNumValuatorSlots())
+		{
+		/* Call the tool's callback method: */
+		tool->valuatorCallback(valuatorSlotIndex,vcbData);
+		}
 	}
 
 Tool::Tool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:layout(factory->getLayout()),
-	 input(layout)
+	 input(inputAssignment)
 	{
-	/* Set the tool's input assignment based on the given assignment: */
-	for(int deviceIndex=0;deviceIndex<layout.getNumDevices();++deviceIndex)
+	/* Register input device callbacks for all button slot assignments: */
+	for(int buttonSlotIndex=0;buttonSlotIndex<input.getNumButtonSlots();++buttonSlotIndex)
 		{
-		/* Set the device: */
-		InputDevice* device=inputAssignment.getDevice(deviceIndex);
-		input.setDevice(deviceIndex,device);
-		
-		/* Set all buttons on the device: */
-		for(int buttonIndex=0;buttonIndex<layout.getNumButtons(deviceIndex);++buttonIndex)
-			{
-			/* Set new button index: */
-			int deviceButtonIndex=inputAssignment.getButtonIndex(deviceIndex,buttonIndex);
-			input.setButtonIndex(deviceIndex,buttonIndex,deviceButtonIndex);
-			
-			/* Register button callback for new button: */
-			device->getButtonCallbacks(deviceButtonIndex).add(buttonCallbackWrapper,this);
-			}
-		
-		/* Set all valuators on the device: */
-		for(int valuatorIndex=0;valuatorIndex<layout.getNumValuators(deviceIndex);++valuatorIndex)
-			{
-			/* Set new valuator index: */
-			int deviceValuatorIndex=inputAssignment.getValuatorIndex(deviceIndex,valuatorIndex);
-			input.setValuatorIndex(deviceIndex,valuatorIndex,deviceValuatorIndex);
-			
-			/* Register valuator callback for new valuator: */
-			device->getValuatorCallbacks(deviceValuatorIndex).add(valuatorCallbackWrapper,this);
-			}
+		const ToolInputAssignment::Slot& slot=input.getButtonSlot(buttonSlotIndex);
+		if(slot.device!=0&&slot.index>=0)
+			slot.device->getButtonCallbacks(slot.index).add(buttonCallbackWrapper,this);
+		}
+	
+	/* Register input device callbacks for all valuator slot assignments: */
+	for(int valuatorSlotIndex=0;valuatorSlotIndex<input.getNumValuatorSlots();++valuatorSlotIndex)
+		{
+		const ToolInputAssignment::Slot& slot=input.getValuatorSlot(valuatorSlotIndex);
+		if(slot.device!=0&&slot.index>=0)
+			slot.device->getValuatorCallbacks(slot.index).add(valuatorCallbackWrapper,this);
 		}
 	}
 
 Tool::~Tool(void)
 	{
-	/* Clear all input device assignments: */
-	for(int device=0;device<layout.getNumDevices();++device)
-		assignInputDevice(device,0);
+	/* Remove input device callbacks for all button slot assignments: */
+	for(int buttonSlotIndex=0;buttonSlotIndex<input.getNumButtonSlots();++buttonSlotIndex)
+		{
+		const ToolInputAssignment::Slot& slot=input.getButtonSlot(buttonSlotIndex);
+		if(slot.device!=0&&slot.index>=0)
+			slot.device->getButtonCallbacks(slot.index).remove(buttonCallbackWrapper,this);
+		}
+	
+	/* Remove input device callbacks for all valuator slot assignments: */
+	for(int valuatorSlotIndex=0;valuatorSlotIndex<input.getNumValuatorSlots();++valuatorSlotIndex)
+		{
+		const ToolInputAssignment::Slot& slot=input.getValuatorSlot(valuatorSlotIndex);
+		if(slot.device!=0&&slot.index>=0)
+			slot.device->getValuatorCallbacks(slot.index).remove(valuatorCallbackWrapper,this);
+		}
+	}
+
+void Tool::configure(const Misc::ConfigurationFileSection&)
+	{
+	}
+
+void Tool::configure(Misc::ConfigurationFileSection&)
+	{
+	}
+
+void Tool::storeState(Misc::ConfigurationFileSection&) const
+	{
 	}
 
 void Tool::initialize(void)
@@ -161,62 +200,62 @@ const ToolFactory* Tool::getFactory(void) const
 	return 0;
 	}
 
-void Tool::assignInputDevice(int deviceIndex,InputDevice* newAssignedDevice)
+std::string Tool::getName(void) const
 	{
-	/* Clear all button assignments for the affected device: */
-	for(int i=0;i<layout.getNumButtons(deviceIndex);++i)
-		assignButton(deviceIndex,i,-1);
-	
-	/* Clear all valuator assignments for the affected device: */
-	for(int i=0;i<layout.getNumValuators(deviceIndex);++i)
-		assignValuator(deviceIndex,i,-1);
-	
-	/* Assign new input device: */
-	input.setDevice(deviceIndex,newAssignedDevice);
+	/* Return the descriptive class name: */
+	return getFactory()->getName();
 	}
 
-void Tool::assignButton(int deviceIndex,int deviceButtonIndex,int newAssignedButtonIndex)
+void Tool::assignButtonSlot(int buttonSlotIndex,InputDevice* newSlotDevice,int newSlotButtonIndex)
 	{
-	/* Unregister button callback from previous button: */
-	if(input.getButtonIndex(deviceIndex,deviceButtonIndex)>=0)
-		input.getDevice(deviceIndex)->getButtonCallbacks(input.getButtonIndex(deviceIndex,deviceButtonIndex)).remove(buttonCallbackWrapper,this);
+	const ToolInputAssignment::Slot& slot=input.getButtonSlot(buttonSlotIndex);
 	
-	/* Set new button index: */
-	input.setButtonIndex(deviceIndex,deviceButtonIndex,newAssignedButtonIndex);
+	/* Remove input device callback from previously assigned input device button: */
+	if(slot.device!=0&&slot.index>=0)
+		slot.device->getButtonCallbacks(slot.index).remove(buttonCallbackWrapper,this);
 	
-	/* Register button callback for new button: */
-	if(newAssignedButtonIndex>=0)
-		input.getDevice(deviceIndex)->getButtonCallbacks(newAssignedButtonIndex).add(buttonCallbackWrapper,this);
+	/* Assign the new input device button: */
+	input.setButtonSlot(buttonSlotIndex,newSlotDevice,newSlotButtonIndex);
+	
+	/* Register input device callback with newly assigned input device button: */
+	if(slot.device!=0&&slot.index>=0)
+		slot.device->getButtonCallbacks(slot.index).add(buttonCallbackWrapper,this);
 	}
 
-void Tool::assignValuator(int deviceIndex,int deviceValuatorIndex,int newAssignedValuatorIndex)
+void Tool::assignValuatorSlot(int valuatorSlotIndex,InputDevice* newSlotDevice,int newSlotValuatorIndex)
 	{
-	/* Unregister valuator callback from previous valuator: */
-	if(input.getValuatorIndex(deviceIndex,deviceValuatorIndex)>=0)
-		input.getDevice(deviceIndex)->getValuatorCallbacks(input.getValuatorIndex(deviceIndex,deviceValuatorIndex)).remove(valuatorCallbackWrapper,this);
+	const ToolInputAssignment::Slot& slot=input.getValuatorSlot(valuatorSlotIndex);
 	
-	/* Set new valuator index: */
-	input.setValuatorIndex(deviceIndex,deviceValuatorIndex,newAssignedValuatorIndex);
+	/* Remove input device callback from previously assigned input device valuator: */
+	if(slot.device!=0&&slot.index>=0)
+		slot.device->getValuatorCallbacks(slot.index).remove(valuatorCallbackWrapper,this);
 	
-	/* Register valuator callback for new valuator: */
-	if(newAssignedValuatorIndex>=0)
-		input.getDevice(deviceIndex)->getValuatorCallbacks(newAssignedValuatorIndex).add(valuatorCallbackWrapper,this);
+	/* Assign the new input device valuator: */
+	input.setValuatorSlot(valuatorSlotIndex,newSlotDevice,newSlotValuatorIndex);
+	
+	/* Register input device callback with newly assigned input device valuator: */
+	if(slot.device!=0&&slot.index>=0)
+		slot.device->getValuatorCallbacks(slot.index).add(valuatorCallbackWrapper,this);
 	}
 
-void Tool::buttonCallback(int,int,InputDevice::ButtonCallbackData*)
+void Tool::buttonCallback(int,InputDevice::ButtonCallbackData*)
 	{
+	/* No default behavior */
 	}
 
-void Tool::valuatorCallback(int,int,InputDevice::ValuatorCallbackData*)
+void Tool::valuatorCallback(int,InputDevice::ValuatorCallbackData*)
 	{
+	/* No default behavior */
 	}
 
 void Tool::frame(void)
 	{
+	/* No default behavior */
 	}
 
 void Tool::display(GLContextData&) const
 	{
+	/* No default behavior */
 	}
 
 }

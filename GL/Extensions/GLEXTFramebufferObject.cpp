@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferObject - OpenGL extension class for the
 GL_EXT_framebuffer_object extension.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,11 +20,11 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/Extensions/GLEXTFramebufferObject.h>
+
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
-
-#include <GL/Extensions/GLEXTFramebufferObject.h>
 
 /***********************************************
 Static elements of class GLEXTFramebufferObject:
@@ -93,5 +93,46 @@ void GLEXTFramebufferObject::initExtension(void)
 		
 		/* Register the extension with the current extension manager: */
 		GLExtensionManager::registerExtension(newExtension);
+		}
+	}
+
+void glPrintFramebufferStatusEXT(std::ostream& stream,const char* tag)
+	{
+	GLenum status=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	switch(status)
+		{
+		case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
+			stream<<tag<<" frame buffer has an incomplete attachment"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
+			stream<<tag<<" frame buffer has no attachments"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
+			stream<<tag<<" frame buffer has attachments with mismatching sizes"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
+			stream<<tag<<" frame buffer has an attachment with an invalid format"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
+			stream<<tag<<" frame buffer is missing a draw buffer attachment"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
+			stream<<tag<<" frame buffer is missing a read buffer attachment"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+			stream<<tag<<" frame buffer configuration is unsupported by local OpenGL"<<std::endl;
+			break;
+		
+		case GL_FRAMEBUFFER_COMPLETE_EXT:
+			break;
+		
+		default:
+			stream<<tag<<" frame buffer is incomplete for unknown reasons"<<std::endl;
 		}
 	}

@@ -43,34 +43,42 @@ class MenuToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	};
 
 class MenuTool:public UserInterfaceTool
 	{
 	/* Embedded classes: */
 	public:
-	class ActivationCallbackData:public Misc::CallbackData // Event data structure sent to activation callbacks
+	class CallbackData:public Misc::CallbackData // Base class for menu tool callback data structures
 		{
 		/* Elements: */
 		public:
 		MenuTool* tool; // Tool that caused the event
 		
 		/* Constructors and destructors: */
-		ActivationCallbackData(MenuTool* sTool)
+		CallbackData(MenuTool* sTool)
 			:tool(sTool)
 			{
 			}
 		};
 	
-	class DeactivationCallbackData:public Misc::CallbackData // Event data structure sent to deactivation callbacks
+	class ActivationCallbackData:public CallbackData // Event data structure sent to activation callbacks
 		{
-		/* Elements: */
-		public:
-		MenuTool* tool; // Tool that caused the event
-		
 		/* Constructors and destructors: */
+		public:
+		ActivationCallbackData(MenuTool* sTool)
+			:CallbackData(sTool)
+			{
+			}
+		};
+	
+	class DeactivationCallbackData:public CallbackData // Event data structure sent to deactivation callbacks
+		{
+		/* Constructors and destructors: */
+		public:
 		DeactivationCallbackData(MenuTool* sTool)
-			:tool(sTool)
+			:CallbackData(sTool)
 			{
 			}
 		};

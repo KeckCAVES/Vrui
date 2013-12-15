@@ -39,6 +39,7 @@ class GLString
 	
 	/* Elements: */
 	private:
+	GLsizei length; // The string's length in characters
 	char* string; // The string's C-style representation
 	protected:
 	GLsizei texelWidth; // The string's width in texels (based on its current font)
@@ -48,15 +49,20 @@ class GLString
 	/* Constructors and destructors: */
 	public:
 	GLString(void) // Dummy constructor
-		:string(0)
+		:length(0),string(0)
 		{
 		}
 	GLString(const char* sString,const GLFont& font); // Creates string from C-style string and associates it with the given font
+	GLString(const char* sStringBegin,const char* sStringEnd,const GLFont& font); // Creates string from character array and associates it with the given font
 	GLString(const GLString& source); // Copies the given string
 	GLString& operator=(const GLString& source); // Ditto
 	~GLString(void); // Destroys the string
 	
 	/* Methods: */
+	GLsizei getLength(void) const // Returns the string's length in characters
+		{
+		return length;
+		}
 	const char* getString(void) const // Returns the C-style string representation
 		{
 		return string;
@@ -74,7 +80,9 @@ class GLString
 		return textureBox;
 		}
 	void setString(const char* newString,const GLFont& font); // Replaces the string and associates it with the given font
+	void setString(const char* newStringBegin,const char* newStringEnd,const GLFont& font); // Ditto, from character array
 	void adoptString(char* newString,const GLFont& font); // Takes ownership of the new[]-allocated string and associates it with the given font
+	void adoptString(GLsizei newLength,char* newString,const GLFont& font); // Ditto, if length of new string is already known
 	void setFont(const GLFont& font); // Re-associates the string with the given font
 	};
 

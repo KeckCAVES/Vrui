@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3ValueSource - Derived Misc::ValueSource class to count lines and
 skip comments in Doom3 files.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -25,15 +25,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <Misc/StringPrintf.h>
-#include <Misc/ValueSource.h>
+#include <IO/ValueSource.h>
 
 namespace SceneGraph {
 
-class Doom3ValueSource:public Misc::ValueSource
+class Doom3ValueSource:public IO::ValueSource
 	{
 	/* Embedded classes: */
 	private:
-	typedef Misc::ValueSource Base; // Base class type
+	typedef IO::ValueSource Base; // Base class type
 	
 	/* Elements: */
 	private:
@@ -101,7 +101,7 @@ class Doom3ValueSource:public Misc::ValueSource
 	
 	/* Constructors and destructors: */
 	public:
-	Doom3ValueSource(Misc::CharacterSource& sSource,std::string sFileName)
+	Doom3ValueSource(IO::FilePtr sSource,std::string sFileName)
 		:Base(sSource),fileName(sFileName),lineNumber(1)
 		{
 		/* Set default punctuation and quote characters: */
@@ -111,7 +111,7 @@ class Doom3ValueSource:public Misc::ValueSource
 		skipComments();
 		}
 	
-	/* Overloaded methods from Misc::ValueSource: */
+	/* Overloaded methods from IO::ValueSource: */
 	void skipWs(void)
 		{
 		Base::skipWs();
@@ -143,6 +143,30 @@ class Doom3ValueSource:public Misc::ValueSource
 		skipComments();
 		return result;
 		}
+	bool isLiteral(const char* literal)
+		{
+		bool result=Base::isLiteral(literal);
+		skipComments();
+		return result;
+		}
+	bool isLiteral(char literal)
+		{
+		bool result=Base::isLiteral(literal);
+		skipComments();
+		return result;
+		}
+	bool isCaseLiteral(const char* literal)
+		{
+		bool result=Base::isCaseLiteral(literal);
+		skipComments();
+		return result;
+		}
+	bool isCaseLiteral(char literal)
+		{
+		bool result=Base::isCaseLiteral(literal);
+		skipComments();
+		return result;
+		}
 	void skipString(void)
 		{
 		Base::skipString();
@@ -164,7 +188,7 @@ class Doom3ValueSource:public Misc::ValueSource
 			}
 		catch(Base::NumberError err)
 			{
-			Misc::throwStdErr("ValueSource: Number format error at %s:%s",fileName.c_str(),lineNumber);
+			Misc::throwStdErr("Doom3ValueSource: Number format error at %s:%s",fileName.c_str(),lineNumber);
 			}
 		return result;
 		}
@@ -178,7 +202,7 @@ class Doom3ValueSource:public Misc::ValueSource
 			}
 		catch(Base::NumberError err)
 			{
-			Misc::throwStdErr("ValueSource: Number format error at %s:%u",fileName.c_str(),lineNumber);
+			Misc::throwStdErr("Doom3ValueSource: Number format error at %s:%u",fileName.c_str(),lineNumber);
 			}
 		return result;
 		}
@@ -194,7 +218,7 @@ class Doom3ValueSource:public Misc::ValueSource
 			}
 		catch(Base::NumberError err)
 			{
-			Misc::throwStdErr("ValueSource: Number format error at %s:%u",fileName.c_str(),lineNumber);
+			Misc::throwStdErr("Doom3ValueSource: Number format error at %s:%u",fileName.c_str(),lineNumber);
 			}
 		return result;
 		}

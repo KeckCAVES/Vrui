@@ -47,13 +47,75 @@ const char* LocatorToolFactory::getName(void) const
 	return "Locator";
 	}
 
+const char* LocatorToolFactory::getButtonFunction(int) const
+	{
+	/* By default, locator tools only use a single button: */
+	return "Locate";
+	}
+
 /****************************
 Methods of class LocatorTool:
 ****************************/
 
 LocatorTool::LocatorTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:Tool(factory,inputAssignment)
+	:Tool(factory,inputAssignment),
+	 storeStateFunction(0),getNameFunction(0)
 	{
+	}
+
+LocatorTool::~LocatorTool(void)
+	{
+	delete storeStateFunction;
+	delete getNameFunction;
+	}
+
+void LocatorTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Call the function pointer if it is valid: */
+	if(storeStateFunction!=0)
+		(*storeStateFunction)(configFileSection);
+	}
+
+std::string LocatorTool::getName(void) const
+	{
+	/* Get the name of the tool class itself: */
+	std::string result=getFactory()->getName();
+	
+	/* Append the name returned by the function pointer if it is valid and returns a non-empty string: */
+	if(getNameFunction!=0)
+		{
+		/* Get the dependent name: */
+		std::string dependentName;
+		(*getNameFunction)(dependentName);
+		
+		if(!dependentName.empty())
+			{
+			/* Append the dependent name in parentheses: */
+			result.append(" (");
+			result.append(dependentName);
+			result.push_back(')');
+			}
+		}
+	
+	return result;
+	}
+
+void LocatorTool::setStoreStateFunction(LocatorTool::StoreStateFunction* newStoreStateFunction)
+	{
+	/* Delete the previous function pointer: */
+	delete storeStateFunction;
+	
+	/* Adopt the given function pointer: */
+	storeStateFunction=newStoreStateFunction;
+	}
+
+void LocatorTool::setGetNameFunction(LocatorTool::GetNameFunction* newGetNameFunction)
+	{
+	/* Delete the previous function pointer: */
+	delete getNameFunction;
+	
+	/* Adopt the given function pointer: */
+	getNameFunction=newGetNameFunction;
 	}
 
 }

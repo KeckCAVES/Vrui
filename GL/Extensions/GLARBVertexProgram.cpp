@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexProgram - OpenGL extension class for the
 GL_ARB_vertex_program extension.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -20,11 +20,11 @@ with the OpenGL Support Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GL/Extensions/GLARBVertexProgram.h>
+
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
-
-#include <GL/Extensions/GLARBVertexProgram.h>
 
 /*******************************************
 Static elements of class GLARBVertexProgram:

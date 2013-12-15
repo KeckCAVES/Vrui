@@ -1,5 +1,5 @@
-Vrui Change History
-===================
+Vrui change log
+===============
 
 Vrui-1.0-030:
 - Beginning of history file
@@ -1574,7 +1574,7 @@ Vrui-1.0-068:
 - Reordered code in Vrui's main loop in Vrui/Vrui.Workbench.cpp; does
   not change functionality.
 
-Vrui-2.0-pre:
+Vrui-2.0-001:
 - Added flag to Vrui::popupPrimaryWidget to specify whether the given
   hot spot position is in physical or navigational coordinates.
   Parameter defaults to navigational, the previous setting.
@@ -1929,3 +1929,1967 @@ Vrui-2.0-pre:
   SceneGraph::Doom3FileManager.
 - Fixed include file path in
   Vrui/Internal/MacOSX/InputDeviceAdapterHID.cpp.
+- Clarified use of pixel vs screen coordinates in Vrui/VRWindow.h.
+- Added method to copy window's screen viewport to Vrui::VRWindow.
+- Added method to copy screen's viewport to Vrui::VRScreen.
+- Added helper function getMouseScreenTransform to
+  Vrui::InputDeviceAdapterMouse.
+- Simplified handling of screens and windows in Vrui::FPSNavigationTool,
+  Vrui::MouseNavigationTool, Vrui::MouseDialogNavigationTool, and
+  Vrui::MouseSurfaceNavigationTool.
+- Added GLNumberRenderer, a class to render numbers using a HUD-like
+  font.
+- Extended API of Vrui::SurfaceNavigationTool:
+  - Added physical navigation frame as protected element.
+  - Added method to calculate default physical navigation frame.
+  - Added method to align surface frames while calculating Euler angles.
+- Fixed navigation behavior of Vrui::FPSNavigationTool.
+- Fixed serial port parameter setting code in Comm::SerialPort; forgot
+  to clear settings before overriding them.
+- Fixed Total Station initialization code in MeasureEnvironment utility.
+- Fixed some minor issues in MeasureEnvironment and ScreenCalibrator
+  utilities.
+- Improved focus behavior of GLMotif::TextField.
+- Added hasFocus method to GLMotif::TextField.
+- Added value type field to GLMotif::TextFieldSlider.
+- Fixed scaling behavior of Vrui's scale bar widget.
+- Added maximum point picking distance in navigational space and (cosine
+  of) maximum ray picking angle to Vrui kernel state as
+  Vrui::getPointPickDistance() and Vrui::getRayPickCosine().
+- Added pointPickDistance and rayPickAngle (in degrees) to Vrui main
+  configuration file section.
+- Added projectToFloor method to Vrui::SurfaceNavigationTool.
+- Added getFactor method to Geometry::LinearUnit.
+- Fixed display in Vrui::MeasurementTool when using scaled units.
+- Started improving navigation behavior of
+  Vrui::WalkSurfaceNavigationTool.
+- Changed parameter of surface frame alignment callback in
+  Vrui::SurfaceNavigationTool from orthogonal transformation to an
+  alignment structure to facilitate full collision detection.
+  - Adapted Vrui::MouseSurfaceNavigationTool, Vrui::FPSNavigationTool,
+    and Vrui::WalkSurfaceNavigationTool accordingly.
+- Fixed behaviors of Vrui::FPSNavigationTool and
+  Vrui::WalkSurfaceNavigationTool.
+- Created Vrui::QuikWriteTool implementing Ken Perlin's QuikWrite user
+  interface for text entry.
+- Added new protected dependsOn() method to GLObject to allow enforcing
+  initialization order of GL state, in case an object depends on the
+  state of an embedded object that would otherwise be initialized after
+  it.
+  - Adapted APIs of GLThingManager and GLContextData to support GLObject
+    dependency tracking.
+- Fixed background color initialization and label rendering in
+  Vrui::ScaleBar.
+- Fixed resizing algorithm in Vrui::ScaleBar to keep scale bar centered
+  on the same spot during resizes.
+- Added calcHUDTransform function to Vrui kernel API.
+- Changed all mentions of "model coordinates" in Vrui.h to "navigational
+  coordinates."
+- Changed name of USE_RENDERCACHE macro in GLMotif/PopupWindow.h to
+  GLMOTIF_POPUPWINDOW_USE_RENDERCACHE to prohibit potential clashes.
+- Added facility to pop up top-level widgets at the current position of
+  the most-recently-used menu tool, to simplify user interaction.
+  - Added pointer to most-recently-used menu tool to Vrui state object.
+  - Added tool destruction callback to Vrui state object.
+  - Added abstract calcHotSpot method to Vrui::MenuTool.
+  - Added implementations of calcHotSpot method to Vrui menu tool
+    classes.
+  - Added mostRecentHotSpot to keep track of hot spots should the most-
+    recently-used menu tool get destroyed.
+  - Changed popupPrimaryWidget method to pop up dialogs at most-
+    recently-used menu tool's hot spot position.
+- Updated Vrui::MouseSurfaceNavigationTool to use GUIInteractor helper
+  class.
+- Removed superfluous forward declaration of GLMotif::Widget from
+  Vrui::MouseNavigationTool and Vrui::MouseSurfaceNavigationTool.
+- Changed menu tools to grab the pointer when popping up a menu to
+  prevent lost button-up events.
+- Changed visual selection code in GLWindow to initially ask for at
+  least 8 bits of resolution per color channel, and fall back to fewer
+  bits if that fails, to work around Apple's stupid decision to default
+  to hi-color visuals in Mac OS X 10.6.
+- Fixed cursor dragging and double-click behavior in GLMotif::TextField.
+- Improved accuracy of calculation in Geometry::Rotation::fromMatrix.
+- Added selection rendering to GL labels and GLMotif text fields:
+  - Added selection-aware string texture upload methods to GLFont.
+  - Added selection-aware draw method to GLLabel.
+  - Added invalidate method to GLLabel.
+  - Added selection colors to GLMotif::StyleSheet.
+  - Added selection rendering to GLMotif::TextField.
+  - Added selection color tags to Vrui's main configuration file
+   section.
+- Changed GLMotif::ListBox to use selection color from style sheet.
+- Changed Vrui build system to simplify binary installations via RPM
+  or DEB packages.
+- Added WhyTools build system to Vrui installation.
+- Added HTML documentation to Vrui installation.
+- Added flag indicating whether the window has been resized since the
+  last redraw to Vrui::DisplayState.
+- Armor-plated timer initialization in Realtime::AlarmTimer due to
+  warning from valgrind.
+- Added Misc/FileTests.h containing helper functions to query file
+  system objects in an operating system-independent manner.
+- Added Misc/GetCurrentDirectory.h containing a helper function to
+  retrieve the name of the calling process' current working directory as
+  a string.
+- Added Misc/Directory.h for exception-safe access to directories.
+- Changed Misc::FileLocator, Comm::Clusterize,
+  GLMotif::FileSelectionDialog, and Vrui/Internal/Vrui.Workbench.cpp to
+  use new functions from Misc/GetCurrentDirectory.h and
+  Misc/FileTests.h.
+- Added isValid method to Misc::SelfDestructPointer.
+- Fixed subtle memory access bug shown by valgrind in GLMotif::RowColumn.
+- Added Misc::ReadBuffer to support an endianness-safe pipe interface
+  for reading from a memory buffer.
+- Added Misc::WriteBuffer to support an endianness-safe pipe interface
+  for writing into a dynamic memory buffer.
+- Added Basic Video Library (Video) to the Vrui library bundle, to
+  support video capture via multiple video APIs, and video encoding/
+  decoding using the Theora codec library.
+- Unified endianness-safe binary I/O interface in Misc::File,
+  Misc::LargeFile, Misc::MemMappedFile, Comm::TCPPipe,
+  Comm::MulticastPipe, and Comm::ClusterPipe by adding mustSwapOnRead,
+	readRaw, mustSwapOnWrite, and writeRaw methods.
+- API change: Needed to rename readRaw method in Comm::TCPPipe and
+  Comm::ClusterPipe to readUpto to enable uniform binary I/O interface
+  across all supported data sources and sinks. Changed dependent classes
+  and code accordingly.
+- Improved performance in Comm::TCPPipe and Comm::ClusterPipe by
+  correcting size comparisons; behavior was not affected.
+- Added override releaseClass method to Vrui::ToolManager to safely
+  destroy all tool of the given class before destroying the class
+  itself.
+- Added beginTools and endTools method to Vrui::ToolManager to iterate
+  through currently instantiated tools.
+- Added killTool method to Vrui::ToolManager.
+- Added input device update callback to Vrui::InputDeviceManager to give
+  code a well-defined point at which to change the state of Vrui input
+  devices.
+- Added class Misc::CSVSource to read comma-separated value files
+  through a Misc::CharacterSource.
+- Added value coder class for std::pair to Misc/CompoundValueCoders.h.
+- Added singularity check to invertFullPivot and divideFullPivot methods
+  in Math::Matrix.
+- Added string length element to GLString class, and added (begin, end)-
+  based constructors and copy operators.
+  - Changed GLLabel, GLMotif::Label, and GLMotif::TextField accordingly.
+- Added showErrorMessage method to Vrui kernel API.
+- Removed now superfluous plug-in initialization functions from those
+  Vrui tool classes that moved into the base library.
+- Removed extra valuators for 2D mouse position and mouse velocity from
+  Vrui::InputDeviceAdapterMouse.
+- API change: major rewrite of Vrui's tool management architecture.
+  - Simplified Vrui::ToolInputLayout class to use a flat list of button
+    and valuator slots and additional optional buttons or valuators.
+  - Simplified Vrui::ToolInputAssignment to use flat lists of (device,
+    slot index) pairs for button and valuator assignments.
+  - Rewrote Vrui::Tool to use new layout and input assignment classes,
+    and to present a flat button / valuator slot list.
+  - Added getButtonFunction and getValuatorFunction introspection
+    methods to Vrui::ToolFactory to provide a better user interface for
+    tool management.
+  - Adapted Vrui::InputGraphManager to new tool input assignment
+    structure.
+  - Adapted Vrui tool base classes to new tool input assignment
+    structure and provided default implementations of introspection
+    methods.
+  - Rewrote Vrui::TransformTool to properly deal with dynamic numbers
+    of button and valuator slots.
+  - Removed button hijacking facility from Vrui::InputDeviceTool, since
+    that functionality is better implemented using layered tools.
+  - Major rewrite of Vrui::ToolManager to support a modal multi-slot
+    tool assignment process with visual feedback, adapt to the tool
+    management architecture changes, and implement a new syntax for
+    configuration file tool bindings.
+  - Made Vrui::ToolManager::assignTool method private, renamed private
+    destroyTool method to deleteTool, and added public createTool and
+    destroyTool methods, both bypassing the tool management queue for
+    immediate effect.
+  - Improved performance in Vrui::ToolManager by replacing the
+    inefficient std::list of tool assignment slots with a per-device C-
+    style array.
+  - Replaced old strategy of assigning tool selection tools to all empty
+    device slots by single virtual input device and tool selection tool
+    assigned to slots on demand. Now support assigning tools to
+    valuators.
+  - Adapted and partially rewrote concrete tool classes for new tool
+    management architecture and introspection methods.
+  - Fixed bugs in tool creation process in Vrui::ToolManager and added
+    dead zone with hysteresis when moving valuators during tool
+    creation.
+  - Added getRootDevice method to Vrui::InputGraphManager to find the
+    source device of a chain of transform tools, to disable
+    transformations during tool selection.
+  - Removed now-superfluous state to disable transform tools during tool
+    creation from Vrui::TransformTool and derived classes.
+  - Added new mixin class Vrui::DeviceForwarder to group tool types that
+    create and manage permanently-bound virtual input devices.
+  - Derived Vrui::TransformTool from Vrui::DeviceForwarder and provided
+    default implementations of the latter's methods.
+  - Added FeatureType enum to Vrui::InputDevice so it won't have to be
+    redefined all over the place.
+  - Added feature-based unified accessor methods to Vrui::InputDevice.
+  - Added isAssigned method to Vrui::ToolInputAssignment.
+  - Added slot-based accessor methods to Vrui::ToolInputAssignment.
+  - Removed doesButonHaveTool and doesValuatorHaveTool methods from
+    Vrui::ToolManager.
+  - Changed syntax of tool bindings in Vrui configuration file to use
+    lists of (device name, button / valuator index list).
+  - Started adding code to display tool stacking for an input device
+    feature when activating a feature in the tool kill zone and then
+    releasing it outside.
+  - Reimplemented Vrui::InputGraphManager to take over tool assignment
+    slot management from Vrui::ToolManager to avoid duplication of data
+    structures.
+  - Removed tool assignment slot management from Vrui::ToolManager.
+  - Added new helper class Vrui::InputDeviceFeature to simplify passing
+    individual input device buttons or valuators.
+  - Added capability to stack tools from default tool bindings in Vrui
+    configuration file by repeating base input device buttons and
+    valuators.
+  - Added facility to query names of input device features and find
+    input device features by name to Vrui::InputDeviceManager. Behavior
+    is implemented by concrete input device adapter classes.
+  - Added addAdapter method to Vrui::InputDeviceManager.
+  - Rewrote Vrui::MultipipeDispatcher to act as an InputDeviceAdapter,
+    such that feature name queries work on slave nodes in a cluster.
+    As a result, input device data is now sent to slave nodes before
+    other frame data, and feature names are exchanged during startup.
+  - Added cleanup code to Vrui::InputDeviceManager such that input
+    devices not owned by any input device adapters are removed on
+    destruction; should fix shutdown segfault in cluster environments.
+  - Added configure method to Vrui::Tool, to allow a just-created tool
+    to read configuration data from a configuration file section.
+  - Added optional configuration file section parameter to
+    Vrui::ToolManager::createTool.
+  - Added optional pointer to configuration file section to
+    Vrui::ToolManager::ToolCreationCallback.
+  - Added method to query all forwarded devices to
+    Vrui::DeviceForwarder.
+  - Added function to remove all tools and virtual input devices from
+    the input graph to Vrui::InputGraphManager.
+  - Added functions to load and save input graph states to
+    Vrui::InputGraphManager.
+  - Added getName method to Vrui::Tool, to return a descriptive name for
+    a particular tool object.
+  - Added storeState and getName function pointers to Vrui::LocatorTool
+    and Vrui::DraggingTool to allow applications to insert behavior.
+  - Added virtual storeState and getName methods to
+    Vrui::LocatorToolAdapter and Vrui::DraggingToolAdapter.
+  - Added simplistic tool stack visualization if button or valuator are
+    pushed within the tool kill zone; as a result, Vrui now depends on
+    scene graph library.
+  - Fixed button and valuator function query methods in
+    Vrui::ToolFactory.
+  - Fixed input graph saving and loading algorithms.
+  - Changed tool destruction process to incremental unwind of tool
+    stacks.
+- Added several convenience methods and default behaviors to Vrui base
+  tool classes.
+  - Vrui::TransformTool has sourceDevice, numPrivateButtons, and
+    numPrivateValuators which need to be set by derived tool objects in
+    their constructors.
+  - Vrui::TransformTool has getSourceDevice virtual method to support
+    root device finding in Vrui::InputGraphManager.
+  - Vrui::UserInterfaceTool has interactionDevice, which needs to be set
+    by derived tool objects in their constructors.
+  - Added method getInteractionPosition to Vrui::UserInterfaceTool.
+  - Vrui::InputDeviceTool has numPrivateButtons and numPrivateValuators
+    which need to be set by derived tool objects in their constructors.
+- Added support for introspection methods to Vrui::GenericToolFactory.
+- Added callback data base class to Vrui::MenuTool.
+- Added extension class for GL_ARB_draw_instanced; code provided by Rolf
+  Westerteiger.
+- Added Geometry::PointPicker and Geometry::RayPicker, two functor
+  classes to pick points based on distance from a point and along a ray,
+  respectively.
+- Added configuration option to disable toggle behavior on device select
+  button to SixDofInputDeviceTool; changed default behavior to switch.
+- Added broken-line axis mappings to SpaceBallRaw VRDeviceDaemon driver
+  module.
+- Added tool class SixAxisInputDeviceTool to control virtual input
+  devices using six valuators for translations and rotations.
+- Added Sound::SpeexEncoder and Sound::SpeexDecoder to Linux portion of
+  basic sound library, currently using the same API as used by
+  collaboration infrastructure.
+- Removed obsolete widgetInteraction and motionWidget elements from
+  internal Vrui kernel state.
+- Added locking mechanism to Vrui::GUIInteractor such that only one GUI
+  interactor can be active at a time.
+- Changed how Vrui kernel keeps track of most-recently used GUI tools to
+  determine reasonable popup positions; now based on GUIInteractor.
+- Added Vrui tool class SixAxisTransformTool to create virtual 6-DOF
+  devices from six valuators.
+- Changed Vrui::Application::Tool to public to enable out-of-class
+  application tools.
+- Finally fixed problem with "stuck" modifier keys when a Vrui window
+  loses and regains focus.
+- Fixed conversion bug in Intersense VRDeviceDaemon module that did not
+  allow valuator values to go to 0.0.
+- Added proper input device destruction to Vrui::InputDeviceAdapter.
+- Fixed minor bug in Misc::ValueCoder<std::pair<...> >.
+- Major upgrade of basic video library:
+  - Added Video::ImageExtractorRGB8 to extract images from raw frames in
+    8-bit RGB format.
+  - Improved and fixed Video::ImageExtractorBA81 for Bayer images.
+  - Added Video/Colorspaces.h containing convenience functions to
+    convert color values between several common color spaces.
+  - Unified color space conversion functions in ImageExtractor classes.
+  - Improved API of Theora wrapper classes in Video library.
+  - Added video device enumeration and selection to Video::VideoDevice.
+  - Added video format enumeration to Video::VideoDevice and derived
+    classes.
+  - Made other improvements to Video::V4L2VideoDevice and
+    Video::DC1394VideoDevice.
+  - Added Video::YpCbCr420Texture, a class to encapsulate video
+    textures.
+  - Added Video::VideoPane, a GLMotif widget class to display streaming
+    video frames in Y'CbCr 4:2:0 pixel format.
+  - Added Video::OggPage, Video::OggSync, and Video::OggStream to
+    simplify writing Theora video packets to Ogg stream containers.
+- Added Vrui::MovieSaver to internal Vrui library to enable saving video
+  from VRWindows, either as stacks of images or Theora video streams in
+  Ogg containers. Vrui now depends on Video.
+- Added saveAs method to Misc::ConfigurationFile to allow creating an
+  unnamed configuration file in memory and then saving it.
+- Added clear, removeSubsection, and removeTag methods to
+  Misc::ConfigurationFileBase::Section and
+  Misc::ConfigurationFileSection.
+- Added section iteration methods to
+  Misc::ConfigurationFileBase::SectionValueCoder.
+- Changed skipSeparator function semantics and name in
+  Misc/ValueCoder.h.
+- Reimplemented or cleaned up value coder classes.
+- Changed class names and APIs in Misc/ArrayValueCoders.h.
+- Fixed bug in Misc::ValueCoder<Geometry::Rotation<ScalarParam,2> >: did
+  not convert angle to degrees before encoding.
+- Added value coder classes for short int and unsigned short int to
+  Misc/StandardValueCoders.h.
+- Added value coder classes for GLVector and GLBox to
+  GL/GLValueCoders.h.
+- Added GLMotif/WidgetStateHelper.h to read/write widget state from/to
+  configuration files.
+- Added Misc/Marshaller.h, Misc/StandardMarshallers.h,
+  Misc::ArrayMarshallers, and Misc/CompoundMarshallers.h.
+- Added Math/MathMarshallers.h, Geometry/GeometryMarshallers.h, and
+  GL/GLMarshallers.h.
+- Improved support for dynamic removal of widgets in GLMotif library:
+  - Added unmanageChild method to GLMotif::Widget; can only be called by
+    widget's parent.
+  - Added pure removeChild method to GLMotif::Container.
+  - Added deleteChild convenience method to safely unmanage and delete a
+    child widget to GLMotif::Container.
+  - Added implementations of GLMotif::Container::removeWidget to all
+    GLMotif container classes.
+- Reimplemented Vrui device daemon protocol:
+  - Rebased VRDevicePipe to use Comm::TCPPipe for performance and
+    endianness safety.
+  - Reimplemented VRDeviceServer to support proper client disconnect
+    when all devices are idle.
+- Added isValid method to GLShader and improved error handling.
+- Added method to limit ray to current clipping volume to
+  Vrui::ClipPlaneManager.
+- Added ShiftButtonTool class to generalize InputDeviceAdapterMouse's
+  modifier key behavior to any input device button.
+- Removed replicated value coder implementation for Math::BrokenLine
+  from VRDeviceDaemon HIDDevice module.
+- Added pre-calibration debugging output to Linux version of
+  VRDeviceDaemon HIDDevice module.
+- Added methods to draw positioned and aligned numbers to
+  GLNumberRenderer.
+- Added constructor with emtpy drop-down box to GLMotif::DropdownBox.
+- Added clearItems method to GLMotif::DropdownBox.
+- Improved Vrui::MovieSaver by splitting into abstract base class and
+  separate derived classes for movie formats (image stack, Theora).
+- Fixed error in Comm::TCPSocket::blockingRead which didn't handle EINTR
+  correctly in newer socket implementations.
+- Fixed some minor issues compiling Vrui and applications on Mac OS X.
+- Changed build system and code to use per-library configuration header
+  files instead of compiler command line arguments to set configuration
+  options.
+- Added hasTag method to Misc::ConfigurationFile::SectionValueCoder.
+- Added SixAxisNavigationTool.
+- Fixed and improved ShiftButtonTool.
+- Changed loadDefaultTools method in Vrui::ToolManager to use the new
+  Vrui::InputGraphManager::loadInputGraph method instead.
+  - Uses new tag defaultTools in tool manager's configuration file
+    section to specify name of section containing tool bindings.
+  - Tool bindings in named section are processed in order of appearance
+    in the configuration file.
+- Removed obsolete DesktopDeviceTool and DesktopDeviceNavigationTool
+  Vrui tool classes.
+- Changed VR device daemon protocol to exchange a version number between
+  client and server, to proof against the upcoming protocol change.
+
+Vrui-2.0-002:
+- Added merge method to Geometry::PCACalculator.
+- Fixed installation bug in makefile.
+- Fixed bug in creation of pkg-config metafile Vrui.pc.
+
+Vrui-2.0-003:
+- Fixed compiler flag bug for GLExtensionManager in makefile.
+- Changed default Vrui installation directory back to ~/Vrui-2.0.
+
+Vrui-2.1-001:
+- Fixed bug in Misc::ConfigurationFile; current section was not reset on
+  load or reload call. Pointed out by Tony Bernardin.
+- Fixed package autodetection bug in Vrui build system; had SPEEX and
+  OGG flipped.
+- Added readTransparentImageFile method to Images/ReadImageFile.h to
+  create images with alpha channel.
+- Changed SceneGraph::ImageTextureNode to use textures with alpha
+  channel.
+- Added Misc::RefCountedArray.
+- Added Threads::RefCountedArray, a thread-safe version of
+  Misc::RefCountedArray.
+- Added new abstract class Misc::BufferedFile for high-performance
+  access to binary files,
+- Added Misc::BufferedStandardFile as concrete implementation of
+  Misc::BufferedFile.
+- Added getMaxSpeedLeve and setSpeedLevel methods to
+  Video::TheoraEncoder.
+- Fixed bug in handling of old recordings in
+  Vrui::InputDeviceAdapterPlayback.
+- Added class Misc::BufferedMemoryFile to write data to lists of in-
+  memory buffers.
+- Added readRaw and writeRaw methods to Comm::TCPSocket to get APIs
+  unified.
+- Added Comm::BufferedTCPSocket as concrete implementation of
+  Misc::BufferedFile.
+- Fixed some flaws and bugs in Misc::BufferedFile and derived classes.
+- Fixed typo in sound context names in Vrui.cfg, and added sound support
+  in the KeckCAVES CAVE by default.
+- Fixed bad write of compound glyph to pipe in
+  Vrui::MultipipeDispatcher.
+- Fixed race condition due to lax pipe locks in
+  Comm::MulticastPipeMultiplexer.
+- Added missing public: access modifier to Misc::Marshaller<GLMaterial>.
+- Added default initializations to Vrui::InputDevice and removed
+  redundant initializations from Vrui::addVirtualInputDevice.
+- Fixed missing socket check in Comm::ClusterPipe::writeRaw.
+- Removed implicit shutdown from Comm::BufferedTCPSocket destructor and
+  added explicit shutdown method.
+- Added ability to specify audio data sources by name to
+  Sound::SoundRecorder.
+- Added levelOnExit flag to Vrui::FPSNavigationTool.
+- Added Vrui::ForceJumpNavigationTool.
+- Added Comm::BufferedClusterSocket, a Misc::BufferedFile wrapper for
+  Comm::ClusterPipe. Currently unoptimized and using double buffering.
+- Added waitForData methods to Comm::BufferedTCPSocket.
+- Changed internal API of Comm::MulticastPipeMultiplexer to support new
+  Comm::BufferedMulticastPipe class.
+- Changed constructor of Comm::MulticastPipe to public, to allow clients
+  to directly create pipes from multiplexers.
+- Added Comm::BufferedMulticastPipe.
+- Added Vrui::getMulticastPipeMultiplexer function to Vrui kernel API.
+- Added Comm::ClusterBufferedTCPSocket to forward incoming data from a
+  TCP socket across a cluster using a multicast pipe.
+- Added method to traverse points inside a box to Geometry::ArrayKdTree.
+- Fixed typo in Marshaller for OrthogonalTransformation in
+  Geometry/GeometryMarshallers.icpp.
+- Added getChar and ungetChar methods to Misc::BufferedFile to replace
+  Misc::CharacterSource as backbone for ASCII-based file readers.
+- Rebased Misc::TokenSource and Misc::ValueSource to Misc::BufferedFile
+  abstraction.
+- Added Misc::BufferedGzippedFile.
+- Started adding Threads::BufferedGzippedFile.
+- Added Comm::ClusterBufferedStandardFile.
+- Started moving Vrui to use Misc::BufferedFile abstraction internally
+  instead of Misc::CharacterSource.
+- Added Misc/OpenFile.h and Comm/OpenFile.h to simplify opening files
+  of varying types using the Misc::BufferedFile abstraction.
+- Added getMultiplexer method to Comm::MulticastPipe.
+- Added multicast pipe multiplexer pointer to SceneGraph::VRMLFile.
+- Rebased Misc::CSVSource to use Misc::BufferedFile.
+- Added error message display to Vrui::ViewpointFileNavigationTool.
+- Added color configuration options and interaction ray rendering to
+  Vrui::QuikWriteTool.
+- Added optional parameter to receive hotpot position to
+  Images::readCursorFile.
+- Added glyph type for screen-aligned texture-based cursors to
+  Vrui::GlyphRenderer.
+- Changed Vrui::InputDeviceAdapterMouse to use cursor glyph instead of
+  Vrui::MouseCursorFaker.
+- Added base class Misc::SeekableFile to indicate files whose file
+  position can be changed.
+- Rebased Misc::BufferedStandardFile to Misc::SeekableFile.
+- Added skip() method to Misc::BufferedFile to quickly skip typed values
+  during reading.
+- Added getTarget method to Misc::SelfDestructPointer.
+- Replaced Misc::File API with Misc::BufferedFile API in many classes.
+- Fixed memory leak in glLinkShader functions in
+  GL/Extensions/GLARBShaderObjects.cpp.
+- Moved FdSet from Comm library to Misc library.
+- Added base class Comm::BufferedPipe to indicate files implementing
+  pipes and sockets, with automatic endianness negotiation and wait()
+  methods.
+- Added Comm::BufferedSerialPort to create Misc::BufferedFile
+  abstraction for serial ports.
+- Rebased SpaceballRaw VRDevice module to use Comm::BufferedSerialPort.
+- Rebased InterSense VRDevice module to use either
+  Comm::BufferedSerialPort or Comm::BufferedTCPSocket to support
+  connecting via both serial ports or Ethernet cables.
+- Upped window size in Comm::MulticastPipeMultiplexer to improve bulk
+  throughput on GigE networks.
+- Added glRenderAction method to Vrui::InputDeviceAdapter and
+  Vrui::InputDeviceManager to allow input device adapters to render
+  graphical state.
+- Started adding Vrui::AnnotationTool.
+- Fixed bug in GLMotif::RadioBox::setSelectedToggle(int).
+- Added #include <stddef.h> to Misc/PriorityHeap.h and
+  Plugins/FunctionPointerHack.h to adapt to changes in gcc 4.6.0.
+  Pointed out by James Mouradian.
+- Added Misc::ZipArchive to read and process ZIP archives using
+  Misc::BufferedFile abstractions.
+- Added Misc::BufferedMemoryBlock to represent in-memory files using a
+  Misc::SeekableFile interface.
+- Fixed normal vector transformation bug in
+  SceneGraph::GeodeticToCartesianPointTransformNode.
+- Added simple node for quad sets to scene graph library.
+- Fixed some bugs in SceneGraph/LoadElevationGrid.cpp.
+- Added build line for single-source executables to Vrui's make system.
+- Split new file abstraction classes from Misc library off into new IO
+  library and shortened/improved class names while at it.
+  - Renamed Misc::BufferedFile to IO::File.
+  - Renamed Misc::BufferedStandardFile to IO::StandardFile.
+  - Renamed Misc::BufferedGzippedFile to IO::GzippedFile.
+  - Renamed Misc::BufferedMemMappedFile to IO::MemMappedFile.
+  - Renamed Misc::BufferedMemoryBlock to IO::FixedMemoryFile.
+  - Renamed Misc::BufferedMemoryFile to IO::VariableMemoryFile.
+  - Moved Misc/OpenFile.h to IO.
+  - Moved Misc::ZipArchive, Misc::XBaseTable, Misc::TokenSource,
+    Misc::ValueSource, Misc::CSVSource to IO.
+  - Added openSeekableFile function to IO/OpenFile.h.
+  - Renamed Threads::BufferedGzippedFile to Threads::GzippedFile.
+  - Renamed Comm::BufferedPipe to Comm::Pipe.
+  - Adapted Comm::BufferedSerialPort.
+  - Adapted Comm::BufferedTCPSocket.
+  - Renamed Comm::SlaveBufferedFile to Comm::SlaveFile.
+  - Adapted Comm::SlaveSeekableFile.
+  - Renamed Comm::MasterBufferedStandardFile to Comm::MasterStandardFile.
+  - Adapted Comm::BufferedMulticastPipe.
+  - Renamed Comm::ClusterBufferedStandardFile to Comm::ClusterStandardFile.
+  - Adapted Comm/OpenFile.h.
+    - Added openSeekableFile functions to Comm/OpenFile.h.
+  - Adapted Comm/ClusterBufferedTCPSocket.h.
+  - Adapted Comm/BufferedClusterSocket.h.
+  - Adapted GLARBShaderObjects.
+    - Added function to compile shader by reading from supplied IO::File object.
+  - Adapted GLColorMap.
+  - Adapted GLFont.
+  - Adapted Sound::SoundRecorder.
+  - Adapted Sound::SoundPlayer.
+  - Adapted Video::OggSync.
+  - Adapted SceneGraph::VRMLFile.
+  - Adapted SceneGraph::InlineNode.
+  - Adapted SceneGraph::CurveSetNode.
+  - Adapted SceneGraph::LoadElevationGrid.
+  - Adapted SceneGraph::TSurfFileNode.
+  - Adapted SceneGraph::ArcInfoExportFileNode.
+  - Adapted SceneGraph::EsriShapeFileNode.
+  - Adapted SceneGraph::Doom3FileManager.
+  - Adapted SceneGraph::Doom3TextureManager.
+  - Adapted SceneGraph::Doom3ValueSource.
+  - Adapted SceneGraph::Doom3MaterialManager.
+  - Adapted SceneGraph/Internal/LoadModelFromASEFile.cpp.
+  - Adapted SceneGraph/Internal/LoadModelFromLWOFile.cpp.
+  - Adapted SceneGraph::Doom3MD5Mesh.
+  - Adapted SceneGraph::Doom3MD5Anim.
+  - Adapted Vrui::InputDeviceAdapterPlayback.
+    - Made Kinect 3D video playback optional via #define
+  - Adapted Vrui::KinectPlayback.
+  - Adapted Vrui::TheoraMovieSaver.
+  - Adapted Vrui::InputDeviceDataSaver.
+    - Made Kinect 3D video recording optional via #define
+  - Adapted Vrui/Internal/Vrui.General.cpp.
+  - Adapted Vrui::SketchingTool.
+  - Adapted Vrui utilities.
+  - Adapted Vrui demo programs.
+  - Adapted VRDeviceDaemon::Intersense.
+  - Adapted VRDeviceDaemon utilities.
+- Started improving cluster transparency provided by file abstractions
+  in Comm library.
+  - Implemented Comm::StandardFile and Comm/OpenFile.h.
+  - Added Vrui/OpenFile.h.
+- Removed some now-obsolete classes and files from libraries.
+
+Vrui-2.2-001:
+- Added configurable interleaved stereo patterns to Vrui::VRWindow,
+  generalizing patch submitted by Matthias Deller.
+- Improved VRDeviceDaemon module for A.R.T. DTrack
+  - Now handles all device types, including gloves (no finger tracking
+    yet)
+  - Per-device report format (6d, 6df, ...) must now be defined in
+    device's configuration file section using the reportFormat tag.
+  - Now allows shared device IDs between report types.
+- Updated a lot of documentation; improved "Using Vrui Applications"
+  page. A lot.
+- Added useRemoteControl flag to A.R.T. DTrack tracker driver to disable
+  the use of server remote control, for those weirdos who don't want to
+	use it. :)
+- Added Mac OS X-specific #include to Misc/FdSet.h to work around old-
+  style declaration of pselect in BSD.
+- Made Vrui::AnnotationTool::markerSize public.
+- Added Misc::SizedTypes.h defining exact-size integer and floating-
+  point types to guarantee matching data sizes across binary files and
+  network connections.
+- Fixed g++ 4.6.0-issue in Misc/UnorderedTuple.h.
+- Fixed new version of A.R.T. DTrack VR device driver module with help
+  from Matthias Deller.
+- Added new[]-like constructor to Misc::SelfDestructArray.
+- Added configuration header to Threads library.
+- Added Threads::Spinlock as a busy-waiting low-overhead alternative to
+  Threads::Mutex. Should only be used if the time any caller holds a
+  lock is very short.
+- Fixed extremely nasty race condition in Threads::TripleBuffer; alas,
+  needed to insert spinlock.
+- Changed behavior of Threads::Barrier; throws exception when changing
+  barrier size in mid-wait; synchronize() returns true for exactly one
+  caller.
+- Augmented API of Misc::HashTable. Map-style tables now support get/set
+  operations using brackets; set-style tables can directly take source
+  value in setEntry().
+- Changed Threads::RefCounted and Threads::RefCountedArray to use atomic
+  counters instead of spinlocks where available.
+- Disabled asynchronous dependent thread cancellation in all library
+  sources.
+- Changed Vrui::SixAxisTransformTool to use the dynamic display center
+  as home position by default.
+- Added Vrui::NopTool, which does nothing at all, to allow "capping"
+  buttons or valuators to disable them.
+- Fixed cluster bug in code to save input graphs.
+- Replaced some time-critical mutexes in Comm::MulticastPipeMultiplexer
+  with spinlocks.
+- Added method to set send buffer size to
+  Comm::MulticastPipeMultiplexer.
+- Added configuration file setting multipipeSendBufferSize to Vrui
+  environment main section.
+- Added constructor to wrap an already-opened file descriptor to
+  IO::StandardFile; does not duplicate file descriptor or change file's
+  mode or flags.
+- Fixed mutex lock leak in Threads::MutexCond; changed MutexCond
+  behavior to not implicitly lock on signal and broadcast, and removed
+  signal and broadcast methods with lock argument.
+- Fixed synchronization bug in Intersense VR device module.
+- Fixed missing tracker report mask update bug in VRDeviceManager.
+- Added specific exception class FileNotFound to Misc::FileLocator.
+- Changed event handling in VR windows to improve responsiveness for
+  slow-running programs:
+  - Added close callback to GLWindow; removed "closed" return value for
+    processEvent().
+  - Added return values indicating whether state has changed to setter
+    methods of Vrui::InputDeviceAdapterMouse.
+    - Removed (redundant?) calls to Vrui::requestUpdate from setter
+      methods.
+  - Changed meaning of return value of Vrui::VRWindow::processEvent from
+    "closed" to "finish processing events for this frame."
+  - Adapted Vrui mainloop to these changes.
+    - Added code to completely ignore key repeat events to
+      vruiHandleAllEvents.
+    - Added return value indicating if any events were processed to
+      vruiHandleAllEvents.
+- Some code cleanup in Vrui::InputDeviceDataSaver and
+  Vrui::InputDeviceAdapterPlayback.
+- Fixed buffer allocation bug and subsequent memory leak in IO::File.
+- Fixed subtle but serious bug in code that sends rotations across files
+  or pipes: removed extra renormalization on the receiver side by making
+  elementwise constructors public and using them instead of
+  fromQuaternion().
+- Fixed spinning speed calculation in Vrui::MouseNavigationTool and
+  Vrui::MouseDialogNavigationTool.
+- Added throwing animation to Vrui::MouseSurfaceNavigationTool.
+- Removed superfluous forward declaration for Misc::File from
+  IO/ZipArchive.h.
+- Fixed missing slash bug in Misc::createNumberedFileName.
+- Added pre-transformation option to VRScreen's configuration file
+  settings.
+- Added key-based scrolling to GLMotif::ListBox.
+- Fixed key repeat issue again, this time for good?
+- Fixed bug with empty file pattern list in GLMotif::FileSelectionDialog
+  constructor.
+- Added #include <stddef.h> to Misc/SelfDestructArray.h.
+- Fixed missing initialization for VruiState::dialogsMenu.
+- Fixed slash insertion bug in Misc::CreateNumberedFileName.
+- Added configuration file settings to set interaction ray draw enable
+  flag, color, and line width to Vrui::UserInterfaceTool.
+- Added missing parameter to method declaration in downcasted method
+  callback with additional parameter in Misc::CallbackList.
+- Added GLMotif::Image, a widget to display images.
+- GLMotif library now depends on Images library; changed order in
+  makefile and Packages file.
+- Significantly improved performance of transform() and
+  inverseTransform() methods of Geometry::Rotation.
+- Added specialization for one-dimensional arrays to Misc::Array.
+- Added conversion operator to int to Misc::ArrayIndex<1>.
+- Created generic Geometry::LinearInterpolator class to interpolate
+  arbitrary geometry types.
+- Created unified generic class for tensor-product B-spline curves/
+  surfaces/etc. of arbitrary dimensions and control point types.
+- Finally fixed light source behavior in Vrui::CAVERenderer vislet.
+- Added redundant initializations to Comm::MulticastPipeMultiplexer to
+  shut up valgrind.
+- Added workaround for spurious packet receive error to
+  Comm::MulticastPipeMultiplexer.
+- Added a new Vrui application template source to example programs.
+- Fixes to widget handling in GLMotif::WidgetManager:
+  - Changed event processing lock to use RAII for exception safety.
+  - Inserted missing code to pop down secondary widgets before popping
+    down a primary widget.
+- Fixed Vrui shutdown sequence to allow clean shutdown when exceptions
+  are thrown from inside UI and tool callbacks.
+- Added directed textControl() method to GLMotif::WidgetManager.
+- Added textControl() method to Vrui::GUIInteractor.
+- Added valuator-based GUI scroll tool to enable the use of the mouse
+  wheel to scroll in GLMotif widgets in desktop mode.
+- Fixed reaction of Vrui's blocking main loop to due timer events.
+- Added "transform" tag to screen configuration file sections to
+  directly specify a screen's transformation with respect to physical or
+  device space.
+- Added range adjustment to GLMotif::ScrollBar's setPosition() method.
+- Slight changes to Vrui::WalkSurfaceNavigationTool to be compatible
+  with Vrui::FPSNavigationTool.
+- Added -setLinearUnit <unit name> <unit factor> optional argument to
+  Vrui command line.
+- Added valuator-based "jetpack" to Vrui::WalkSurfaceNavigationTool.
+- New protected convenience methods in Vrui::SurfaceNavigationTool:
+  - wrapAngle.
+  - limitAngle.
+  - calcAzimuth.
+  - calcEulerAngles.
+- Updated surface navigation tool classes to use new convenience methods
+  from Vrui::SurfaceNavigationTool where applicable.
+- Improved Vrui::HelicopterNavigationTool:
+  - Improved collision detection.
+  - New planar HUD rendering with compass ribbon.
+- Added Vrui::SixAxisSurfaceNavigationTool; HUD copied from
+  Vrui::HelicopterNavigationTool.
+- Added new class Comm::ListeningTCPSocket to cleanly separate server-
+  and client-side TCP connection establishment.
+- Split off new cluster abstraction library (Cluster) from Comm library
+  to simplify class names and APIs.
+  - Adapted dependent library classes and applications to new API.
+- Renamed Vrui::getMulticastPipeMultiplexer function to
+  Vrui::getClusterMultiplexer.
+- Added Cluster::ClusterPipe as base class for cluster abstraction
+  classes using multicast pipes internally.
+- Rebased Cluster::MulticastPipe to implement IO::File abstraction; old
+  finishMessage() method is now IO::File's flush() method.
+- Needed to rename dummy access mode "None" in IO::File to "NoAccess" to
+  dodge #define conflict with system header files.
+- Rebased Vrui::VRDeviceState, Vrui::VRDevicePipe,
+  Vrui::VRDeviceDescriptor, Vrui::VRDeviceClient, and VRDeviceServer
+  from Comm::TCPPipe to Comm::BufferedTCPPipe.
+- Updated ViconTarsusRaw and ViconTarsus VR device driver modules to use
+  Comm::BufferedTCPPipe.
+- Updated RemoteDevice VR device driver module to new
+  Vrui::VRDeviceClient API.
+- Removed obsolete class Comm::TCPPipe; functionality is assumed by
+  Comm::BufferedTCPSocket.
+- Renamed Comm::BufferedTCPSocket to Comm::TCPPipe; in effect,
+  Comm::TCPPipe class has been reimplemented using the Comm::Pipe
+  abstraction.
+- Added Cluster::TCPPipe for cluster-transparent TCP pipes based on the
+  Comm::Pipe abstraction.
+- Added Cluster/OpenPipe.h containing convenience functions to open
+  pipes based on the Comm::Pipe abstraction in a cluster-transparent
+  manner.
+- Fixed missing flush() bug in SpaceBallRaw VR device driver module.
+- Updated Vrui/ClusterSupport.h to use Cluster library.
+- Added new image readers using the IO:File abstractions to Images
+  library:
+  - ReadPNMImage.h for images in Portable AnyMap format.
+  - ReadPNGImage.h for images in PNG format (uses libpng).
+  - ReadJPEGImage.h for images in JPEG format (uses libjpeg).
+  - ReadTIFFImage.h for images in TIFF format (uses libtiff).
+- Made getReadBufferSize and getWriteBufferSize methods in IO::File
+  public.
+- Fixed semantics of IO::ValueSource::isLiteral and isCaseLiteral
+  methods: stop reading at the first mismatch.
+- Renamed IO::ValueSource::initCharacterClasses to resetCharacterClasses
+  and made it public.
+- Added explicit conversion operator getArray() to
+  Misc::SelfDestructArray.
+- Added readImageFile functions for IO::File abstractions to
+  Images/ReadImageFile.h and reimplemented functions in terms of new
+  image file reader classes.
+- Changed semantics of Misc::getExtension function in
+  Misc/FileNameExtensions.h to include period in result, and return
+  empty string in case of no extension instead of null pointer.
+  - Improved use of Misc::getExtension in other library sources.
+- Added getExtension method taking begin and end pointers to
+  Misc/FileNameExtensions.h to facilitate repeated extension removal.
+- Added scalar type and channel number conversion methods to
+  Images::Image and derived classes.
+- Added optimized implementations for common GLColor scalar type
+  conversions.
+- Added readInBuffer method to IO::File to enable zero-copy read access.
+- Created IO::GzipFilter, a IO::File-derived class to read/write gzip-
+  compressed files via an IO::File abstraction for the compressed file.
+- Added rotateAround token to Misc::ValueCoder class for orthonormal
+  transformations.
+- Added rotateAround and scaleAround tokens to Misc::ValueCoder class
+  for orthogonal transformations.
+- Derived IO::File from Misc::RefCounted to simplify memory management
+  of file objects, especially when stacking.
+- Changed IO::OpenFile.h, Cluster::openFile, Cluster::openPipe, and
+  Vrui::openFile to return automatic pointers.
+  - Moved all higher libraries and applications to new API.
+- Changed IO::ValueSource, IO::TokenSource, IO::CSVSource to retain
+  autopointers to underlying files.
+- Changed template definition in GL/GLColor.h to get around annoying
+  compiler warning, but to no avail.
+- Added protected appendReadBufferData method to IO::File to further
+  support zero-copy reads.
+- Added IO::IFFChunk, a class to simplify reading from files using the
+  IFF/RIFF container format.
+- Moved all classes using Comm::SerialPort to Comm::BufferedSerialPort.
+  - Improved SpaceBall and PolhemusFastrak VR device drivers.
+- Replaced implementation of Comm::SerialPort with
+  Comm::BufferedSerialPort and removed latter from library.
+- Added GL/GLLightTracker to provide a shared collection point for
+  changing OpenGL lighting states to support just-in-time compilation
+  for GLSL shaders.
+- Added a GLLightTracker object to Vrui::LightsourceManager to track the
+  state of lighting as set up by Vrui.
+- Added getLightTracker method to Vrui::LightsourceManager.
+- Added writeInBufferPrepare and writeInBufferFinish methods to IO::File
+  to support zero-copy writes.
+- Changed main functions in Images/ReadImageFile.h to take an already-
+  opened IO::File object, and provided convenience functions with old
+  signatures.
+- Added Comm::HttpFile to read remote files using the HTTP/1.1 protocol
+  and an IO::File abstraction.
+- Added Comm::OpenFile.h handling remote HTTP files.
+- Added support for remote HTTP files to Cluster::OpenFile.h.
+- Added full set of dynamic casting operators to Misc::Autopointer.
+- Created IO::SeekableFilter, a caching adapter to convert streaming
+  files into seekable files.
+- Added default implementations of readData and writeData methods to
+  IO::File; readData returns EOF and writeData throws a WriteError
+  exception.
+- Made IO::File::getReadBufferSize and IO::File::getWriteBufferSize
+  virtual so that derived classes playing with the buffers for zero-copy
+  access can report "nominal" buffer sizes.
+- Added type size safeguard to Misc::Marshaller<std::string>.
+- Added clear() method to IO::VariableMemoryFile.
+- Oops. Fixed infinite-recursion typos in three classes: Comm::TCPPipe,
+  Cluster::TCPPipe, and one I can't remember. Sorry.
+- Added comparison operators to all transformation classes from the
+  Geometry library.
+- Improved Vrui navigation management by only requesting a post-
+  navigation frame if the navigation transformation actually changed,
+  saving tons of CPU cycles in most applications.
+- Reduced default spin threshold in mouse navigation tool for smoother
+  spinning.
+- Added comparison operators to Geometry::Plane.
+- Added copy constructor with scalar type conversion to Geometry::Plane.
+- Added getMostRecentValue() method to Threads::TripleBuffer and
+  clarified producer/consumer API.
+- Added class name-based getFactory() method to Plugins::FactoryManager.
+- Added missing initialization to Vrui::ToolManager constructor.
+- Fixed bug when trying to release non-registered tool classes in
+  Vrui::ToolManager::releaseClass().
+- Added Misc::Marshaller for Geometry::Ray to
+  Geometry/GeometryMarshallers.h.
+- Added scheduleUpdate() function to Vrui kernel API to request the next
+  Vrui frame at the given application time.
+- Changed Vrui::MouseNavigationTool and Vrui::MouseSurfaceNavigationTool
+  to use Vrui::scheduleUpdate during animations.
+- Changed Vrui::InputDeviceAdapterMouse to schedule a frame shortly
+  after any mouse wheel tick to detect the end of mouse wheel motion.
+- Changed animation and navigation tools to use scheduleUpdate.
+- Changed order of Vrui library layers: Threads now below Plugins and
+  Realtime, IO now above Threads.
+  - Moved IO-related classes from Threads into IO library.
+- Retired Threads::GzippedFile and Threads::GzippedFileCharacterSource.
+- Retired Misc::ReadBuffer and Misc::WriteBuffer.
+- Retired Misc::CharacterSource, Misc::BufferCharacterSource,
+  Misc::FileCharacterSource, and Misc::GzippedFileCharacterSource.
+- Retired Comm::TCPSocketCharacterSource.
+- Removed superfluous reference to Misc::BufferCharacterSource from
+  SceneGraph/Internal/Doom3MaterialManager.h.
+- Created new IO::Directory abstraction.
+  - Created concrete implementations IO::StandardDirectory and
+    Cluster::StandardDirectory.
+  - Added openDirectory functions to IO::OpenFile.h and
+    Cluster::OpenFile.h.
+- Improved openSeekableFile functions in OpenFile.h in IO, Comm, and
+  Cluster libraries by automatically using an IO::SeekableFilter wrapper
+  if the base file is not seekable.
+- Improved IO::Directory:
+  - Changed API compared to obsoleted Misc::Directory to increase
+    performance when using Directory objects as file factories.
+    Use
+    while(dir.readNextEntry())
+      ...dir.getEntryName()...
+    instead of
+    while(!dir.eod()) {
+      ...dir.getEntryName()...
+      dir.readNextEntry(); }
+  - Added rewind() method.
+  - Added hasParent / getParent directory traversal methods.
+  - Added convenience method normalizePath.
+- Added openDirectory method to IO::ZipArchive to traverse archives
+  using an IO::Directory abstraction.
+- Improvements to GLMotif::FileSelectionDialog:
+  - Now uses IO::Directory objects to traverse directory structure.
+	- Added getCurrentDirectory method to return currently displayed
+    directory as IO::DirectoryPtr.
+  - Added setCanSelectDirectory method to enable pressing OK when no
+    file in the current directory is selected, in which case the OK
+    callbacks are called with the full path of the current directory.
+  - Added isFile flag to OKCallbackData to distinguish between file and
+    directory names.
+  - Changed OK callback data structure to provide an IO::Directory
+    object for the current directory, and a directory-relative file
+    name.
+  - Added close method to simplify deleting a file selection dialog for
+    callers.
+- Added openDirectory function to Vrui::OpenFile.h.
+- Adapted rest of Vrui to new file selection dialog API.
+- Changed SceneGraph::Doom3FileManager to use IO::Directory objects for
+  transparent file access.
+- Added getPath(const char* relativePath) method to IO::Directory.
+- Moved USB support classes from Kinect project into new USB Support
+  Library (USB) and made a few additions.
+- Added Endianness enumerated type to Misc/Endianness.h to unify
+  separate definitions.
+  - Changed "DontCare" enum to "HostEndianness".
+  - Removed definition of Endianness from IO::File.
+- Revived Misc::ReadBuffer with streamlined IO::File-like API.
+- Significantly improved Misc/FunctionCalls.h:
+  - Added functor type for const methods taking an additional argument.
+  - Convenience functions are finally working.
+- Added "confirm" flag to GLMotif::TextField::ValueChangedCallbackData
+  so that a client can react if the user causes a confirmation event.
+- Added new constructor for "save-like" file selection dialogs to
+  GLMotif::FileSelectionDialog, which will then add a text field to
+  enter a file name.
+- Added a "Save View..." file selection dialog to Vrui.
+- Added a "Save Input Graph..." file selection dialog to Vrui.
+- Added createNumberedFileName to IO::Directory replacing
+  Misc::createNumberedFileName.
+- Created new VR device driver module for Razer Hydra desktop 6-DOF
+  tracking devices.
+- Improved Vrui build system to simplify creating extension libraries.
+  - Moved DEPENDENCIES function and CREATE_SYMLINK and DESTROY_SYMLINK
+    sequences into BuildRoot/BasicMakefile.
+  - Replaced references to $(VRUIPACKAGEROOT)/BuildRoot with
+    $(VRUI_MAKEDIR).
+- Added optional cancel parameter to VRDevice::stopDeviceThread to
+  handle cases where cancellation might cause trouble.
+- Removed superfluous deinitialize method from Vrui::RevolverTool.
+- Created Vrui tool to convert one or two buttons into a two- or three-
+  state valuator, respectively.
+- Created Vrui tool to convert a set of valuators into a pair of buttons
+  each.
+- Added configuration flag for pthread spinlocks support and fallback to
+  mutexes if spinlocks are not supported.
+- Fixed bad calls to Threads::MutexCond::broadcast in
+  Sound::SoundRecorder.
+- Changed build system to improve handling of optional system packages:
+  - Split BuildRoot/Packages into Packages.System and Packages.Vrui.
+  - Packages.System contains code to auto-detect optional system
+    libraries.
+  - Main Vrui makefile contains commented-out lines to disable each
+    optional library individually if auto-detection fails.
+  - Main Vrui makefile generates $(VRUI_MAKEDIR)/Configuration.Vrui
+    makefile fragment with all settings configured during build.
+  - Extension packages can add their own Packages.<extension> and
+    Configuration.<extension> files in $(VRUI_MAKEDIR).
+  - Moved common functionality from makefiles into build system files.
+- Changed example programs makefile to use new modular build system.
+- Added scaleFactor element to Vrui::PointingTool base class to enable
+  proper scaling for remote pointing tools.
+  - Adapted Vrui::LaserpointerTool and Vrui::JediTool to use
+    scaleFactor.
+- Needed to disable end-of-play detection in Sound::SoundPlayer:
+  pcm_drain doesn't actually wait until all written samples have been
+  played, so there is no way to tell when a PCM is done playing.
+  Probably a bug in pulseaudio, that pile of manure. For now,
+  SoundPlayer signals end-of-play when it's done writing, which can be
+  many seconds before the PCM is done playing.
+
+Vrui-2.2-002:
+- Fixed minor bug in conditional compilation code in
+  Images/ReadPNGImage.cpp when PNG library is not installed.
+- Improved conditional compilation brackets in other
+  Images/Read...Image.cpp sources.
+
+Vrui-2.2-003:
+- Added Vrui::getTimeOfDay to return the system's current wall clock
+  time in a cluster-transparent fashion.
+- Removed libv4l2.so library file from V4L2 package dependency, because
+  it is not actually needed to use V4L2, and sometimes missing on older
+  systems.
+- Changed include order of makefile fragments in Vrui build system to
+  work correctly when optional packages are manually disabled.
+
+Vrui-2.3-001:
+- Improved Vrui::WalkSurfaceNavigationTool:
+  - Fixed crash when no jetpack valuator is assigned.
+  - Improved jetpack handling
+  - Added configuration options for jetpack acceleration and HUD font
+    size.
+- Changed void* to gzFile in IO/GzippedFile.h to account for changed
+  zlib headers.
+- Allowed per-instance override of Vrui::ViewpointFileNavigationTool's
+  configuration settings.
+- Fixed pixel pipeline handling in Vrui::VRWindow's InterleavedViewport
+  mode.
+- Fixed pixel pipeline handling in Video::YpCbCr420Texture.
+- Added reset() method to GLShader.
+- Added cross-machine thread identification mechanism to
+  Threads::Thread.
+  - Threads library again has a dynamic library file.
+  - Threads library now requires initialization and deinitialization,
+    transparently handled using gcc function attributes.
+- Concomitant changes to Threads library:
+  - Added optional debugging features selected by THREADS_CONFIG_DEBUG
+    in Threads/Config.h.
+  - Added configuration flag whether pthread implementation supports
+    thread cancellation (Mac OS X doesn't).
+- Overhaul of Cluster::Multiplexer:
+  - Fixed bad bug: A slave missing a pipe-closing barrier completion
+    message used to be left hanging; now master simply sends another
+    completion message.
+  - Removed internal structure definitions from Cluster/Multiplexer.h.
+  - Improved protocol message data structures.
+  - Fixed concurrent openPipe() calls by associating calls with global
+    thread IDs provided by Threads::Thread.
+  - Fixed another bad bug: In a broadcast cluster, master would receive
+    its own multicast packets and sometimes interpret them wrongly.
+  - Fixed packet handling bugs in Cluster::MulticastPipe that could lead
+    to crashes or memory leaks.
+- Added configuration option for intra-cluster MTU size to
+  Cluster/Config.h. This allows to exploit jumbo packets by increasing
+  from the default of 1500 bytes, albeit only at build-time.
+- Fixed const bug in GLMotif::WidgetManager::getWidgetAttribute.
+  Reported by Braden Pellett.
+- Fixed missing system-package include directories in Vrui pkg-config
+  file. Reported by Braden Pellett.
+- Clarified normal vector transformation return value semantics in
+  SceneGraph::PointTransformNode.
+- Added handling of invalid elevation values to
+  SceneGraph::ElevationGridNode and improved performance somewhat.
+- Fixed copyright notices in GL/GLLightTracker.h and
+  GL/GLLightTracker.cpp.
+- Added OpenGL extension class for GL_EXT_rescale_normal.
+- Added tracking of normal vector rescaling and/or normalization state
+  to GLLightTracker.
+- Added set... functions to GLLightTracker to avoid having to query
+  state from OpenGL in many cases.
+- Added GLLightTracker object directly to GLContextData.
+  - Started using GLLightTracker in GLLabel's rendering methods.
+  - Changed context data and display state initialization sequence in
+    Vrui::VRWindow.
+  - Removed GLLightTracker object from Vrui::LightsourceManager.
+    - Vrui::LightsourceManager no longer has OpenGL state.
+  - Added light tracker initialization to Vrui's display function.
+- Added GLClipPlaneTracker, a class to track the state of OpenGL's
+  clipping planes to support dynamic shader compilation.
+- Added GLClipPlaneTracker object directly to GLContextData.
+- Changed Vrui::ClipPlaneManager to use GLClipPlaneTracker.
+  - Vrui::ClipPlaneManager no longer has OpenGL state.
+  - Removed now-redundant disableClipPlanes method.
+- Changed GLMotif::DragWidget from an intermediate base class into a
+  mix-in class to increase flexibility.
+  - Changed GLMotif::Slider and GLMotif::ScrollBar accordingly.
+- Fixed minor layout bug in GLMotif::TextFieldSlider.
+- Added GLMotif::HSVColorSelector, a class to select an RGB color using
+  an interface around the HSV color model.
+- Added GLAutomaticShader, a base class for GLSL shaders that
+  automatically track the fixed-functionality state of the current
+  OpenGL context.
+- Added GLLineLightingShader, a shader for Phong illumination of curves.
+- Changed default Vrui.cfg such that selection rays are not drawn in
+  desktop mode.
+- Fixed ray drawing behavior in Vrui::RayInputDeviceTool.
+- Implemented Vrui::VRWindow::setCursorPos and
+  Vrui::VRWindow::setCursorPosWithAdjust for split-viewport windows.
+- Added Threads::Atomic, a class for atomic operations on integral value
+  types.
+- Finally fixed bug in program shutdown detection for headless Vrui
+  environments.
+
+Vrui-2.4-001:
+- Fixed some subtle potential problems in Cluster::Multiplexer's packet
+  loss handling protocol.
+- Changed key handling in Vrui::VRWindow:
+  - Screenshot key is now Win+PrintScreen.
+    - Window now prints confirmation when saving a screenshot.
+  - Exit application key is still Escape, but now without any modifier
+    keys (except NumLock or CapsLock).
+- Changed fps display in Vrui::VRWindow:
+  - To show fps rate in window, window must have showFps=true, and must
+    be in new "burn mode," where it requests Vrui frames as rapidly as
+    possible.
+  - Burn mode is entered/exited by pressing Win+ScrollLock.
+  - Upon exiting burn mode, window prints total number of frames, time,
+    and average fps.
+- Added VR device driver module for various models of 5DT finger-bend
+  data gloves, including simple gesture detection.
+- Added several Vrui-wide command line options to Vrui::init:
+  - -vruiHelp explains all Vrui-wide command line options.
+  - -vruiVerbose prints details about Vrui's initialization and shutdown
+    procedures.
+  - dumpConfig writes the current configuration space, as the command
+    line is being processed, to a configuration file.
+- Fixed several bugs in Vrui's startup and shutdown procedure.
+- Fixed potential spurious object deletion bug in Misc::Autopointer's
+  assignment operators. Reported by Jens Bauer.
+- Added missing #include <stddef.h> to Misc/ChunkedArray.h.
+- Added detachPoints method to Geometry::ArrayKdTree to enable in-place
+  kd-tree creation.
+- Added Threads::Queue and Threads::LimitedQueue, two classes for simple
+  unlimited and limited producer/consumer queues to Threads library.
+- Added ability to request additional visual properties for Vrui's
+  rendering windows before the main loop starts, such as stencil or
+  accumulation buffers.
+  - Added struct Vrui::WindowProperties.
+  - Added Vrui::requestWindowProperties() to Vrui kernel API; can be
+    called by any entity before Vrui's main loop starts.
+  - Added property handling to Vrui::VRWindow's initialization code.
+- Moved OpenGL initialization and buffer clearing code from
+  Vrui::VruiState::display() to Vrui::VRWindow::render().
+- Fixed cursor positioning code in Vrui::VRWindow once again.
+- Added Geometry/IntersectionTests.h, providing namespace-global
+  functions to test for intersections between various geometric objects.
+- Added clamp() function to Math/Math.h.
+- Added application state retention to Vrui::SurfaceNavigationTool.
+  - Added AlignmentState base class.
+  - Added alignmentState pointer to AlignmentData structure.
+  - Added alignmentState pointer to tool state.
+  - alignmentState pointers stay valid while the tool stays active.
+- API change: removed limitAngle protected function from
+  Vrui::SurfaceNavigationTool, replaced by Math::clamp in Math/Math.h.
+- Added orthogonalize and reflect methods and friend functions to
+  Geometry::Vector.
+- Reduced default maxClimb value in Vrui::FPSNavigationTool and
+  Vrui::WalkSurfaceNavigationTool.
+- Changed Vrui::FPSNavigationTool to forward movement buttons when not
+  active.
+- Improved user guidance in tool creation status dialog by displaying
+  the full name of the button/valuator to confirm or cancel creation.
+- Changed GLMotif::CascadeButton to vertically center popups relative to
+  the cascade button.
+  - Added #define to GLMotif/CascadeButton.cpp to switch between old and
+    new behaviors.
+- Added getFileName function to Misc/FileNameExtensions.h.
+- API change: Changed constructors of IO::StandardDirectory and
+  Cluster::StandardDirectory to take const char* instead of std::string.
+- Changed Vrui mainloop starter to properly handle command-line provided
+  view files from other directories than the current. Pointed out by
+  Braden Pellett.
+- Added getDefaultRadius and getDefaultFlatteningFactor static methods
+  to Geometry::Geoid.
+- Added inverseTransform method to Vrui::CoordinateTransform and all
+  derived transformation classes.
+- Changed Vrui::GeodeticCoordinateTransform to use Geometry::Geoid class
+  and its improved formula.
+- Changed Vrui::MeasurementTool to store points in whatever selected
+  coordinate system and render in physical coordinates.
+- Added Vrui::AffineCoordinateTransform, a user transformation class for
+  arbitrary affine transformations.
+- Improved error handling in Vrui callbacks dealing with file selection.
+- Improved behavior of Vrui scale bar when clicking on left or right
+  ends.
+- Added methods to couple and decouple cluster-forwarded pipes on demand
+  to Cluster::ClusterPipe. While decoupled, slaves must not read from or
+  write to pipe until re-coupled.
+- Changed default for drawRay in Vrui::UserInterfaceTool; now defaults
+  to !useEyeRay.
+- Disabled interaction ray drawing in Vrui::MouseNavigationTool and
+  Vrui::MouseSurfaceNavigationTool. After all, they're supposed to be
+  used with mouse devices.
+- Added GLMotif::PopupWindow::close, a convenience method to safely
+  close and destroy a popup window from within a callback.
+- Added static GLMotif::PopupWindow::defaultCloseCallback that simply
+  destroys the window.
+- API change: Rebased GLMotif::FileSelectionDialog::CallbackData to
+  GLMotif::PopupWindow::CallbackData so that file selection dialogs can
+  use PopupWindow's default close callback.
+- Removed defaultCloseCallback and close methods from
+  GLMotif::FileSelectionDialog; same functionality now handled by
+  GLMotif::PopupWindow base class.
+  - Adapted client classes and code accordingly.
+- Added calback type for C functions taking no extra arguments to
+  Misc::CallbackList.
+- Replaced typeid comparisons in Misc::CallbackList with dynamic casts.
+- Added constructor with piecewise linear color function to GLColorMap.
+- Fixed typo in compile guard in GLARBTextureFloat OpenGL extension
+  class.
+- Added readMore method to Misc::DynamicArrayMarshaller.
+- Added OpenGL extension class for GL_ARB_texture_rectangle.
+- Added OpenGL extension class for GL_ARB_texture_rg.
+- Added Misc::print, low-level helper functions to print all types of
+  integers, to Misc/PrintInteger.h.
+  - Changed the following classes and functions to use Misc::print:
+    - Integer value coders in Misc/StandardValueCoders.h
+    - GLNumberRenderer
+    - GLLightTracker
+    - GLClipPlaneTracker
+    - GLLineLightingShader
+    - GLMotif::TextField
+- Added findParallelAxis and findOrthogonalAxis namespace-global
+  functions to Geometry/Vector.h.
+- Fixed bug in Geometry::Vector::operator- for 4 or more dimensional
+  vectors. Pointed out by Chris Ellison.
+- Added Math::Noise, implementing Ken Perlin's improved 3D band-limited
+  noise function following his 2002 SIGGRAPH paper.
+- Added IO::FileMonitor class to monitor changes to files or directories
+  using Linux's inotify service; currently no Mac OS X implementation.
+- Adapted GLColor, Video::V4L2VideoDevice, Vrui::InputDeviceAdapterHID
+  to g++ 4.7.0.
+- Added convenience functions to compile shaders from variable argument
+  lists to GLARBShaderObject, GLARBVertexShader, GLARBGeometryShader4,
+  and GLARBFragmentShader.
+- Added convenience functions to link shaders from variable argument
+  lists to GLARBShaderObject.
+- Added convenience functions to compile shaders from already-opened
+  files to GLARBVertexShader, GLARBGeometryShader4, and
+  GLARBFragmentShader.
+- Improved exception handling in GLSL shader convenience functions.
+- Fixed key handling in Vrui::VRWindow when the shift key is held.
+- Improved window handling by fixing window positioning code in GLWindow
+  and adding toggle to disable window decorations to GLWindow and
+  Vrui::VRWindow. Suggested by, and following code by, William Sherman.
+- Finally caved and created alternative constructor for
+  Vrui::Application that does not require the appDefaults argument.
+- Added min and max functions to Math/Math.h.
+- Added int versions of floor and ceil, which are both no-ops, to
+  Math/Math.h for completeness sake.
+- Added extension class for GL_ARB_draw_buffers.
+- Removed GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT enum from
+  GLEXTFramebufferObject extension because it was removed from the
+  specification.
+- Added convenience function to print frame buffer status to
+  GLEXTFramebufferObject extension.
+- Fixed bad initialization code in Vrui::ViewpointFileNavigationTool.
+  Reported by Dawn Sumner.
+- Fixed API mismatch bug in Vrui::CurveEditorTool. Reported by Dawn
+  Sumner.
+- Made some improvements to UI of Vrui::CurveEditorTool.
+- Changed makefile to retain previously-installed versions of Vrui.cfg
+  and VRDevices.cfg during make install.
+- Added support for notches to GLMotif::Slider.
+- Added variable speeds and playback control dialog to
+  Vrui::ViewpointFileNavigationTool.
+- Improved Vrui::InputGraphManager's loadInputGraph and saveInputGraph
+  methods.
+  - Changed naming scheme of created virtual input devices to make
+    bindings mix-and-matchable; device names are based on section names.
+  - Improved fault tolerance of loadInputGraph by catching binding
+    exceptions per-section.
+- Added bankFactor configuration setting to
+  Vrui::SixAxisSurfaceNavigationTool.
+- Added activation button and activationToggle setting to
+  Vrui::SixAxisSurfaceNavigationTool.
+- Added -loadInputGraph option to Vrui command line.
+- Improved HUD rendering in Vrui::SixAxisNavigationTool and
+  Vrui::HelicopterNavigationTool via new configuration settings hudDist,
+  hudRadius, and hudFontSize.
+- Added forwardShiftButton setting to Vrui::ShiftButtonTool.
+- Added methods to temporarily pause all clipping to GLClipPlaneTracker.
+
+Vrui-2.4-002:
+- Adapted Realtime/AlarmTimer.cpp to API shift in signal.h. Pointed out
+  by Braden Pellett.
+- Fixed wrong base directory setting in template makefile installed in
+  <install dir>/share/make.
+- Added jumping to FPSNavigationTool; requires sixth button binding.
+  Changed packaged Vrui.cfg accordingly.
+- Fixed battery level indicator in Wiimote VR device driver module.
+- Fixed handling of forced shutdowns in VRDeviceDaemon when clients are
+  still listening.
+- Fixed layout bug in GLMotif::FileSelectionDialog.
+- Fixed file selection dialog handling bug in
+  Vrui::ViewpointFileNavigationTool.
+- Fixed bad bug in Cluster::ClusterPipe's handling of uncoupled pipes.
+- Added Vrui::MultiShiftButtonTool, a tool class to manage multiple
+  virtual button/valuator planes via a set of "radio buttons."
+- Started moving Vrui tool classes towards per-tool configuration
+  options.
+- Added new string-based setGlyphType method to
+  Vrui::GlyphRenderer::Glyph.
+- Added Misc::FixedArray.
+- Added value coder class for Misc::FixedArray to
+  Misc/ArrayValueCoders.h.
+- Added drag torque to Vrui::HelicopterNavigationTool.
+
+Vrui-2.4-003:
+- Removed superfluous copy constructors from tool configuration classes.
+- Added five-axis surface-aligned navigation tool for spaceball or
+  similar devices; acts like surface-aligned mouse navigation tool.
+- Fixed lock type mismatch in fallback path of Threads::Atomic.
+- Improved virtual compass handling in Vrui::MouseSurfaceNavigationTool
+  and Vrui::FiveAxisSurfaceNavigationTool. Compass stays visible until
+  the navigation transformation is changed from outside the tool. Also,
+  moved compass rendering to display list.
+- Fixed bug in tool deconstruction during Vrui shutdown.
+
+Vrui-2.4-004:
+- Removed default request for accumulation buffer from
+  Vrui::WindowProperties to work with new Mac OS X, and certain virtual
+  machines.
+- Removed "find" warning on first-time builds from build system.
+
+Vrui-2.5-001:
+- Added marshaller for Misc::FixedArray wrapper class to
+  Misc/ArrayMarshallers.h.
+- Added support for two different viewers to Vrui::VRWindow, as a hack
+  to allow another way of setting up split views specifically for
+  filming.
+- Added readFromPipe method to Misc::ConfigurationFile.
+- Improved debugging mode in Cluster::Multiplexer.
+- Added Cluster::ThreadSynchronizer, a helper class to ensure that
+  thread IDs stay consistent across a cluster even when different code
+  paths are used on master and slaves.
+- Added cluster thread synchronization to
+  Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed bug when automatically incrementing a GLMotif::Slider.
+- Slightly improved debugging output in Cluster::Multiplexer's verbose
+  mode.
+- Fixed some minor issues in calibration utilities.
+- API change: removed defaultCloseCallback in GLMotif::PopupWindow.
+  - Added popDownFunction and deleteFunction instead.
+  - Added convenience methods popDownOnClose and deleteOnClose.
+- Added deleteOnCancel to GLMotif::FileSelectionDialog.
+- Build system change: debug version of Vrui build system now installed
+  in /debug/ subdirectory of $(VRUI_MAKEDIR). Application makefiles need
+  to be adapted accordingly, following the template makefile in
+  $(VRUI_MAKEDIR).
+- Added MAKEINSTALLDIR variable to $(VRUI_MAKEDIR)/Configuration.Vrui.
+- Fixed bug in Vrui verbose mode.
+- Improved window initialization logging in Vrui verbose mode.
+- Improved error handling in Comm::UDPSocket.
+- Improved error handling in Calibration/NaturalPointClient.cpp.
+- Improved error handling in MeasureEnvironment calibration utility.
+- MeasureEnvironment calibration utility now saves points received from
+  an OptiTrack engine when user requests saving measurement file.
+- Improvements to SceneGraph::ElevationGridNode:
+  - Added ability to load elevation grids from greyscale image files.
+  - Added heightScale field.
+  - Fixed minor bug in file type checking.
+- Added explanation of vertex coordinates to icosahedron generator in
+  GL/GLModels.cpp.
+- Removed manage checks in resize() methods of several GLMotif widgets,
+  which caused initialization problems.
+- Added -physical option to SceneGraphViewer vislet to place scene
+  graphs into physical space.
+- Enabled texture transformations in SceneGraph::AppearanceNode.
+- Added simplified method to bind callback methods to input device
+  button presses to Vrui::Application; removes almost all overhead from
+  creating simple button-based user interfaces.
+  - Added VruiEventToolDemo to ExamplePrograms to illustrate the new
+    event tool mechanism.
+- Adapted Wiimote VR device driver module to new bluetooth protocol used
+  in Wii Remote Plus devices.
+- Improvements to build system to reduce redundancies during linking and
+  fix plug-in library issues on newest Ubuntu release (pointed out by
+  Hannes Hofmann and Chris Want).
+
+Vrui-2.6-001:
+- Disabled clipping planes for CAVERenderer vislet.
+- Added methods to set and query individual viewers and screens to
+  Vrui::VRWindow.
+- Added getItemWidget() and getItem() convenience methods to
+  GLMotif::DropdownBox::ValueChangedCallbackData.
+- API change: Changed vislet initialization procedure:
+  - All vislets start in disabled state.
+	- Added enable() and disable() methods to Vrui::VisletManager.
+  - Each vislet's enable() methods is called once immediately before
+    Vrui's main loop starts.
+  - Each active vislet's disable() method is called immediately after
+    Vrui's main loop ends.
+- Added isReal() and isGrabbed() methods to Vrui::InputGraphManager.
+- API change: changed semantics of Vrui::getNumWindows() and
+  Vrui::getWindow() functions:
+  - Vrui::getNumWindows() returns total number of windows in the entire
+    environment, including non-local windows on other cluster nodes.
+  - Vrui::getWindow() returns NULL for non-local windows.
+  - Vrui::calcViewSpec returns garbage for non-local windows.
+- Added uniform scaling glScale(factor) to GL/GLMatrixTemplates.h.
+
+Vrui-2.6-002:
+- Added new filming support vislet to interactively change rendering
+  modes and camera positions.
+- Fixed linking problem in Razer Hydra VR device driver module.
+- Added template setup for Razer Hydra to VRDevices.cfg.
+- Added patch configuration files for typical 3D TV and Razer Hydra.
+
+Vrui-2.7-001:
+- Fixed missing initialization of heightScale in ElevationGrid scene
+  graph node.
+- Added missing #include <sys/types.h> to Images/ImageReader.h.
+- Fixed typo in compilation guard in Video/TheoraDecoder.h.
+- Added Video::ImageExtractorYV12, an image extractor class for Y'CbCr
+  4:2:0 video frames.
+- Added pixel format request option to Video::VideoDevice::configure.
+- Fixed compilation problem with Razer Hydra driver on systems with
+  libusb1 in a non-standard location.
+- Added some error recovery to Video::V4L2VideoDevice's capture thread.
+- Added new video viewer example program using the Video library.
+- Added Video::ImageExtractorY10B to unpack 10-bit greyscale video from
+  the Kinect's IR camera.
+- Added support for Y10B and GRBG pixel formats to
+  Video::V4L2VideoDevice.
+- API change: changed how Vrui's scene graph module handles
+  transformation nodes to support working around OpenGL's precision
+  limits. The SceneGraph::GLRenderState constructor now takes an initial
+  transformation from eye space to model space.
+- Added scene graph support functions in Vrui/SceneGraphSupport to
+  simplify creating SceneGraph::GLRenderState objects, and rendering
+  simple scene graphs.
+- Changed all uses of the scene graph inside Vrui to new API and
+  convenience functions.
+- Added moveToOrigin flag and originPoint position to
+  SceneGraph::GeodeticToCartesianPointTransformNode to work around
+  precision problems.
+- Changed internal representation of transformations in
+  SceneGraph::GLRenderState to double precision.
+- Changed transformation stack manipulation code in
+  SceneGraph::TransformNode to work with temporary double-precision
+  transformations.
+- Added manual control of RTS/CTS lines to Comm::SerialPort.
+- Added (experimental) device driver for Ascension Wanda 6-DOF tracked
+  wands compatible with Flock of Birds tracking system.
+- API change: Changed access of elements of Geometry::Geoid to
+  protected.
+- Added new Geometry::AlbersEqualAreaProjection class to transform from
+  Albers equal area conic coordinates to geodetic and Earth-centered
+  Earth-fixed Cartesian coordinates and back.
+- Added hyperbolic trigonometric functions and their inverses to
+  Math/Math.h.
+- Added new Geometry::UTMProjection class to transform from Universal
+  Transverse Mercator coordinates to geodetic and Earth-centered Earth-
+  fixed Cartesian coordinates and back.
+- Adapted SceneGraph::ESRIShapeFileNode to use new projection classes.
+- Added Geometry::LambertConformalProjection class to transform from
+  Lambert conformal conic coordinates to geodetic and Earth-centered
+  Earth-fixed Cartesian coordinates and back.
+- Added Math::copysign as a generic function for all signed types to
+  Math/Math.h.
+- Added "inverseFlattening" virtual field to
+  SceneGraph::ReferenceEllipsoidNode.
+- API change: Changed data types of points and vectors used by
+  SceneGraph::PointTransformNode and derived classes to double.
+- Added inverseTransformPoint and transformBox virtual methods to
+  SceneGraph::PointTransformNode.
+- Added parsers for double-precision points and vectors to
+  SceneGraph::VRMLFile.
+- Added SceneGraph::UTMPointTransformNode to transform from UTM
+  coordinates to geodetic coordinates.
+- Added translateOnly flag to
+  SceneGraph::GeodeticToCartesianTransformNode to simplify undoing a
+  offset point transformation.
+- Added SceneGraph::ImageProjectionNode to support on-the-fly
+  reprojection of georeferenced images onto elevation grids.
+- Added imageProjection field holding an ImageProjection node to
+  SceneGraph::ElevationGridNode.
+- Added "pure" color snapping to GLMotif::HSVColorSelector.
+- Added GLMotif::MaterialEditor, a composite widget to edit OpenGL
+  material properties.
+- Inconsequential changes in GLMotif::RowColumn::draw and
+  GLMotif::RowColumn::findRecipient methods.
+- New GLMotif::Pager class to create multi-page flip-book style
+  container widgets.
+- Added Geometry::GeoCoordinateSystem, an abstract base class to
+  represent geodetic coordinate systems, and a namespace-global function
+  to parse projection files in WKT (well-known text) format.
+- Geometry library now depends on IO library.
+- Corrected handling of absolute file and directory names in
+  IO::StandardDirectory and Cluster::StandardDirectory.
+- Added new Geometry::TransverseMercatorProjection class to transform
+  from generic transverse Mercator coordinates to geodetic and Earth-
+  centered Earth- fixed Cartesian coordinates and back.
+- Changed TIFF reader in Images::getImageFileSize to suppress warnings
+  messages from the TIFF library.
+- Fixed problem in IO/StandardFile and Cluster/StandardFile with
+  returning stale data in a read immediately following a write and
+  flush.
+- Added simple "alarm" facility to Threads::Queue, where a caller can
+  wait until at least a given number of consumers is blocked on an empty
+  queue.
+- Removed redundant conditional in Geometry::ClosePointSet::insertPoint.
+- Added non-recursive versions of Geometry::ArrayKdTree's
+  traverseTreeDirected and findClosestPoints methods, for fugly code and
+  a significant speed-up.
+- Improved configuration parser in Vrui::SixAxisTransformTool; setting
+  homePosition now works as expected.
+- Fixed visibility of Plugins::FactoryManager::DestroyFactoryFunction.
+- Added findChild and findDescendant methods to GLMotif::Container.
+- Added state saving to Vrui::AnnotationTool.
+- API change: added addAbstractClass to Vrui::ToolManager. Abstract tool
+  classes, i.e., those that have child tool classes, must be registered
+  using the new method instead of addClass.
+- Added experimental hack to Vrui::VRWindow::render to increase the
+  precision of OpenGL's matrix stack by calculating the accumulated
+  rounding error in the modelview matrix and applying a correction
+  translation.
+- Added Vrui input device adapter to receive tracking, button, and
+  valuator data from an external trackd daemon, including an option to
+  convert tracking coordinate systems on-the-fly.
+- Added DrawEnvironment, a simple program to visualize the layout of a
+  Vrui environment, to example programs.
+- Fixed #include bug in Geometry/UniformScalingTransformation.cpp.
+- Added Vrui::FileSelectionHelper, a helper class to simplify working
+  with GLMotif file selection dialogs.
+- Simplified file selection code inside Vrui by using
+  Vrui::FileSelectionHelper.
+- Changed Vrui view menu: Added dedicated push/pop buttons; "save view"
+  no longer pushes.
+- API change: changed loadInputGraph and saveInputGraph methods in
+  Vrui::InputGraphManager to accept an IO::Directory& and a directory-
+  relative file name.
+- Included the virtual clay modeling application as another Vrui example
+  program.
+- Added ImageSequenceViewer as Vrui example program.
+
+Vrui-2.8-001:
+- Added singular value decomposition, following Gene Golub's 1970 paper,
+  to Math::Matrix. Need to do more testing.
+- Fixed shared memory handling bug in Vrui::InputDeviceAdapterTrackd,
+  found by Calvin Robinson.
+  - Fixed another bug: passed calibrat*ion* transformation to controlled
+    device instead of calibrat*ed* transformation. D'oh.
+- Changed Vrui.Workbench.cpp to look for configuration files requested
+  by -mergeConfig in the main configuration directory first.
+- Fixed bug in VRDeviceDaemon/VRDeviceServer: default TCP port number
+  now correctly uses kernel-assigned listening port number.
+- Added suspend/resume functionality to
+  SceneGraph::Doom3MaterialManager::RenderContext.
+- Improved error handling in USB::Device::claimInterface.
+- Shuffled some code in Vrui::VRWindow::render().
+- Simplified tool kill zone position reading code in
+  Vrui::VRWindow::VRWindow.
+- Started adding lens distortion correction facilities to Vrui::VRWindow
+  to add support for Oculus Rift HMD.
+- Behavior change: calling initExtension on an OpenGL extension object
+  not supported by the local OpenGL will throw an exception.
+  - Changed GLShader, GLGeometryShader, GLFrameBuffer, and
+    Vrui::VRWindow to use new simplified extension initialization.
+- Added VRUI_APPLICATION_RUN(AppClassName) macro to Vrui/Application.h.
+- Added glDrawArrow function to GL/GLModels.h.
+- Added VR device driver for the Oculus Rift's built-in orientational
+  tracker.
+- Added two patch configuration files for Oculus Rift (5.6" and 7.0"
+  screens), and a template section for its tracker in VRDevices.cfg.
+- Added a main menu with toggle buttons for each loaded scene graph to
+  VruiSceneGraphDemo.
+- Added getWriteSize() method to IO::FixedMemoryFile.
+- Added new ToggleButtonTool to convert a set of regular buttons into
+  toggle buttons.
+- Added explicit sync() method to Cluster::ThreadSynchronizer.
+- Added thread ID synchronization points to Vrui initialization sequence
+  to guarantee matching thread IDs during vislet and tool creation.
+- Improved Vrui initialization so that input devices, viewers, and
+  listeners have valid states when Vrui::init function returns.
+- Improved valuator naming scheme in Vrui::WalkSurfaceNavigationTool.
+- Added Vrui::ValuatorWalkSurfaceNavigationTool to add valuator-based
+  movement to Vrui::WalkSurfaceNavigationTool.
+- Added support for TIFF format to Images::writeImageFile, if TIFF
+  library is installed.
+- Improved start-up behavior of Vrui::ViewpointFileNavigationTool.
+- Added "raw" interface to Images::writeImageFile.
+- Changed Vrui::ImageSequenceMovieSaver to use Images::writeImageFile,
+  giving it ability to write other formats than PPM.
+- Fixed Vrui::InputDeviceAdapterPlayback for new Vrui startup sequence.
+- Added movieFirstFrameIndex configuration tag to
+  Vrui::InputDeviceAdapterPlayback.
+- Complete overhaul of window management in Vrui:
+  - Windows are sorted into "window groups" using a groupId tag in a
+    window's configuration file section.
+  - Windows inside the same group share an X11 server connection, but
+    can be directed to different X screens on the same server via the
+    new screen tag in a window's configuration file section.
+  - Windows inside the same window groups share OpenGL contexts and
+    context data, and are always rendered in sequence.
+  - Different window groups have separate OpenGL contexts and context
+    data, and are rendered in parallel from multiple threads if support
+    for multithreaded OpenGL is enabled via setting GLSUPPORT_USE_TLS to
+    1 in the makefile.
+  - Window groups should coincide with physical GPUs inside the host
+    system for optimal performance.
+  - Resulting API changes: new class GLContext, many changes in GLWindow
+    and VRWindow. These changes do not affect the Vrui API.
+  - windowsMultithreaded and node<index>WindowsMultithreaded tags in
+    configuration file root section no longer exist.
+  - MYGLXSUPPORT package now depends on MYGLSUPPORT.
+- Added new page describing multi-window rendering options to Vrui
+  documentation.
+- Added questions about multi-window rendering and context data
+  management to Vrui FAQ.
+- Fixed memory leak in Vrui::FileSelectionHelper destructor.
+- Removed compose status handling from XLookupString call in
+  Vrui::VRWindow event handler to follow Xlib manual recommendation.
+- Fixed build commands for single-source executables in
+  BuildRoot/BasicMakefile.
+- Added functions to extract blobs of foreground pixels from images to
+  Images/ExtractBlobs.h.
+- Removed EnterWindowMask and LeaveWindowMask from X window event mask
+  in GLWindow.
+- Added FocusChangeMask to X window event mask in Vrui::VRWindow.
+- Changed event behavior in Vrui::VRWindow:
+  - Vrui display size tracks exact window size when panningViewport is
+    true.
+  - Vrui display center and size are updated when switching focus
+    between multiple windows with panningViewport.
+  - Tool kill zone tracks properly when switching focus.
+- Started removing direct references to mouse input device adapters from
+  desktop-based tool classes.
+- Added Vrui kernel functions: getUiPlane, calcUiPoint, calcUiTransform.
+  Might disappear again as Vrui moves towards having a proper "3D window
+  manager."
+
+Vrui-3.0-001:
+- Added subdivision to SceneGraph::QuadSetNode to support non-linear
+  point transformation. Controlled by new fields subdivideX and
+  subdivideY.
+- Added check for shutdown to beginning of Vrui::mainLoop in
+  Vrui/Internal/Vrui.Workbench.cpp to allow applications to exit during
+  initialization by calling Vrui::shutdown().
+- Changed lens distortion correction code in Vrui::VRWindow:
+  - Changed lcPoly to work with "normalized" coordinates in the [-w/h,
+    w/h] x [-1, 1] range for wide (half-)screens and the [-1, 1] x
+    [-h/w, h/w] range for tall (half-)screens. Makes it compatible with
+    factory calibration data stored in Oculus Rift HMD.
+  - Changed lcCenter to viewport-relative in [0, 1] x [0, 1].
+  - Enabled flexible overscan by extending each border of the view
+    individually.
+- Added accelerometer and magnetometer correction to Oculus Rift
+  tracking driver.
+- Added useMagnetometer switch to Oculus Rift tracking driver.
+- Improved tracking data output format of DeviceTest utility.
+- Changed section header parser in Misc::ConfigurationFile; section
+  names are now read to end-of-line; quoted section headers are parsed
+  as before for backwards compatibility.
+- Added special "+=" operator to the Misc::ConfigurationFile parser to
+  concatenate list-valued tags instead of overriding them. Requires that
+  current tag value ends with a ')', and new value starts with a '('.
+  Will remove starting/ending parentheses, insert a ", " list item
+  separator if the current list is not (), and concatenate the current
+  and new values. Will not do any other checking or processing.
+- Added "intersect" element and configuration file tag to Vrui::VRScreen
+  to exclude unsuitable screens, such as HMD screens, from UI
+  intersection tests.
+- Added operator/= and operator/ to Geometry::Rotation.
+- Added operator^ to Geometry::Vector as shorthand for vector cross
+  product.
+- Replaced Geometry::cross with operator^ in all library sources.
+- Added one frame delay to Vrui::InputDeviceDataSaver so that audio
+  recording starts at the first frame boundary, as playback expects.
+- Fixed PCM draining behavior in the ALSA version of
+  Sound::SoundRecorder.
+- Added hudRadius configuration file tag to
+  Vrui::ValuatorWalkSurfaceNavigationTool.
+- API changes in Vrui::VRDeviceClient:
+  - Rebased callback objects to Misc::FunctionCall.
+  - Changed callback semantics: callbacks only valid when in streaming
+    mode.
+  - Removed enable/disable methods for packet notification callback;
+    callback object is now passed to startStream method.
+  - Added error callback to notify clients of errors encountered in
+    background streaming thread.
+  - ProtocolError exception class now contains pointer to client object
+    causing the exception.
+  - Error callback receives ProtocolError exception object.
+  - Added proper error handling to getPacket() when in streaming mode.
+  - No longer crashes when server connection breaks down in streaming
+    mode.
+- Changed Vrui::InputDeviceAdapterDeviceDaemon to new
+  Vrui::VRDeviceClient API and added proper error handling. Vrui
+  applications now keep running when device server connection goes down.
+- New error handling keeps device server socket open if either side
+  crashes.
+- Adapted and robustified DeviceTest utility.
+- Added CFixedArrayCoder, a class to encode/decode arrays with compile-
+  time known sizes, to Misc/ArrayValueCoders.h.
+- Changed all uses of Misc::FixedArrayValueCoder in library sources to
+  Misc::CFixedArrayValueCoder.
+- API change: changed Misc::FixedArrayValueCoder to keep numElements and
+  elements pointer (for decoding) as state instead of method parameter;
+  methods no longer static.
+- API change: changed Misc::DynamicArrayValueCoder to keep numElements
+  and elements pointer (for decoding) as state instead of method
+  parameter; methods no longer static.
+  - Actual number of elements in parsed array now written to numElements
+    upon exit from decode().
+- API change: changed the retrieveValue and storeValue methods in
+  Misc::ConfigurationFile that take non-standard value coder classes to
+  expect a value coder object as last parameter, and changed their names
+  to ...WC (for "with coder") to avoid template ambiguities. Work in
+  progress.
+- Improved retrieveValue methods in Misc::ConfigurationFile: methods
+  with default values only call encode if absolutely necessary.
+- Added Vrui/Internal/VRDeviceDescriptor to enable defining compound
+  devices on the device server instead of the device client.
+- API change: changed type of configuration file section in
+  Vrui::Tool::configure to const; must be fixed by client code since
+  configure methods without const modifier will be ignored without
+  compiler warnings.
+- API change: changed type of configuration file sections in state-
+  reading functions to const throughout library.
+- Added contains() methods to GLWindow::WindowPos.
+- Changed mouse position traded between Vrui::VRWindow and
+  Vrui::InputDeviceAdapterMouse from screen coordinates to window
+  coordinates, as the former have become ambiguous due to dual-screen
+  windows.
+- Added grabPointer() and releasePointer() methods to GLWindow.
+- Fixed Vrui::FPSNavigationTool to work with changed VRWindow and
+  InputDeviceAdapterMouse interface.
+- Fixed accelerometer and magnetometer correction in Oculus Rift
+  tracking driver.
+- Changed Vrui::Viewer to immediately reflect the state of the head
+  tracking input device to reduce latency.
+- Changed Vrui::InputDeviceManager to always place mouse input device
+  adapters at the end of the adapter list in case the mouse depends on
+  other input devices (if viewers or screens are head-tracked).
+- Added code to change mouse cursor shape in all windows when switching
+  a mouse input device adapter between keyboard and button mode.
+  - Does not yet work for fake mouse cursors.
+  - Removed now-superfluous glRenderAction method.
+- Added buttonIndexBase and valuatorIndexBase configuration file tags to
+  Vrui::VRDeviceDescriptor.
+- Major API change in Vrui::InputDevice: added device ray starting
+  parameter as device state, and made deviceRayDirection part of current
+  state to support better handling of ray-based input devices.
+  - Renamed setDeviceRayDirection method to setDeviceRay and added ray
+    start parameter as method parameter.
+  - setDeviceRay can only be called immediately before
+    setTransformation.
+  - Added getDeviceRayStart and getRay methods.
+  - Added deviceRayDirection and deviceRayStart to input device state
+    distributed by Vrui::MultipipeDispatcher.
+  - Added deviceRayStart as per-device configuration option to
+    Vrui::InputDeviceAdapter.
+  - Added device ray start to Vrui::VRDeviceDescriptor.
+  - Added rayStart configuration parameter to
+    Vrui::InputDeviceAdapterTrackd.
+  - Added device ray direction and start to state saved by
+    Vrui::InputDeviceDataSaver and loaded by
+    Vrui::InputDeviceAdapterPlayback.
+    - Upped file version number to 3.0.
+    - Also added linear and angular velocities.
+  - Fixed device ray handling in Vrui::ToolManager.
+  - Fixed device ray handling in Vrui::TransformTool.
+  - More fixes in Vrui::WandNavigationTool,
+    Vrui::SixDofWithScaleNavigationTool, Vrui::FPSNavigationTool,
+    Vrui::MouseTool, Vrui::EyeRayTool, Vrui::TwoRayTransformTool,
+    Vrui::SixAxisTransformTool, Vrui::PanelMenuTool, Vrui::WidgetTool,
+    and Vrui::ScrollTool.
+  - Fixed PrintInputDeviceDataFile utility.
+  - Fixed device rendering in Vrui::InputGraphManager so that device
+    glyphs are properly aligned with a device's ray direction.
+  - Added mouse device velocity calculation to
+    Vrui::InputDeviceAdapterMouse.
+- Split Vrui::InputGraphManager's glRenderAction method into
+  glRenderDevices and glRenderTools to properly layer renderings when
+  GLMotif widgets are drawn in an overlay plane.
+  - Adjusted main rendering method in Vrui/Internal/Vrui.General.cpp.
+- Changed rendering order in main rendering method in
+  Vrui/Internal/Vrui.General.cpp so that tools are affected by clipping
+  planes.
+- Changed texture glyph rendering code in Vrui::GlyphRenderer to render
+  glyph at given 3D position, but aligned to the current window's screen
+  plane.
+- Added lockMouse and unlockMouse methods to
+  Vrui::InputDeviceAdapterMouse to support "relative" mouse mode, as
+  used by Vrui::FPSNavigationTool.
+- Fixed a time keeping bug in Vrui's main update method in
+  Vrui/Internal/Vrui.General.cpp; frame times are now consistent at
+  every step during frame processing.
+- Fixed FPSNavigationTool to work again, now using input device
+  velocities for rotation updates.
+  - Changed rotateFactor configuration tag to rotateFactors, a 2D vector
+    to support different horizontal and vertical speeds.
+  - Changed moveSpeed to moveSpeeds, a 2D vector, to support independent
+    speeds for forward motion and strafing.
+  - Replaced HUD rendering code with same used in
+    Vrui::SixAxisSurfaceNavigationTool with the following new settings:
+    drawHud, hudColor, hudDist, hudRadius, hudFontSize.
+- Changed Vrui::synchronize function: instead of setting the frame time
+  for the current frame, it sets the frame time for the next frame and
+  optionally delays the next frame until synch time matches real time.
+  - Added synchFrameTime and synchWait elements to Vrui::VruiState.
+- Added new state to Vrui::DisplayState:
+  - Added current viewport position/size and frame buffer size of
+    current window.
+  - Added maximum viewport and frame buffer size of all windows in the
+    current window group to support better frame buffer management.
+- Changed VruiWindowGroup structure to associate viewport and frame
+  buffer sizes with each window in a group.
+- Added full handling of "virtual" input devices, assembled from a
+  tracker and optional sets of buttons and/or valuators, to VR device
+  daemon.
+  - Changed version number of client/server protocol to 2
+- Added handling of virtual input devices to Vrui::VRDeviceClient.
+- Added option to list a device daemon's virtual devices to DeviceTest
+  utility.
+- Changed VRDeviceDaemon configuration file format: type of device
+  calibrators is now listed inside the calibrator's section, using the
+  "type" tag.
+- Changed OculusRift VR device driver module to create one virtual
+  device for the head tracker, "OculusRift" by default.
+- Changed RazerHydra VR device driver module to create one virtual
+  device for each handle, "RazerHydraLeft" and "RazerHydraRight,"
+  respectively, by default.
+- Added protected createIndexMappings method to
+  Vrui::InputDeviceAdapterIndexMap.
+- Added handling of server-defined virtual input devices to
+  Vrui::InputDeviceAdapterDeviceDaemon.
+- Changed Vrui::InputDeviceManager to remove all duplicates from the
+  list of input device adapters to improve configuration modularity.
+
+Vrui-3.0-002:
+- Fixed tool name in Vrui::ValuatorWalkSurfaceNavigationTool.
+- Fixed missing initialization of per-window group maximum frame and
+  viewport sizes. D'oh!
+
+Vrui-3.1-001:
+- Added option to skip initial frames when saving movies using a
+  Vrui::InputDeviceAdapterPlayback. Controlled by movieSkipFrames
+  configuration file option.
+- Added EyeCalibrator, a calibration program to generate precise viewer
+  configurations, to Vrui utilities.
+- Added new event tool creation and destruction callbacks to
+  Vrui::Application to allow applications to manage event tool state.
+  - Had to insert common base classes for event tools and their
+    factories into Vrui::Application's private interface.
+- Added PrecisionTest utility to Vrui example programs.
+- Disabled some yet-unused code in SceneGraph::IndexedFaceSetNode.
+- Removed O_NDELAY opening flag from Comm::SerialPort; must have been
+  left over from some debugging or experiments.
+- Fixed include file order in GL/Extensions/GLEXTTexture3D.cpp.
+- Added new extension class GLEXTTextureInteger.
+- Shuffled OpenGL matrix code in Vrui::VRWindow methods to save a few
+  API calls.
+- Reorganized off-screen rendering buffer management code in
+  Vrui::VRWindow.
+- Added automatic flush() to Comm::TCPPipe's destructor.
+- Fixed getButtonDeviceRay and getValuatorDeviceRay methods in
+  Vrui::Tool to take input device's rayStart parameter into account.
+- Improved value coders for affine and projective transformations in
+  Geometry/GeometryValueCoders.h; can now parse any combination of
+  elementary transformations and matrices.
+- Added delayed initialization option to GLObject constructor such that
+  derived class state is properly constructed before initContext is
+  called. Derived classes can pass false to the GLObject constructor,
+  and initialize the GLObject at a later point inside the constructor
+  by calling GLObject::init().
+- Added delayed initialization to the following classes:
+  - GLNumberRenderer
+  - GLPolylineTube
+  - Video::YpCbCr420Texture
+  - SceneGraph::LabelSetNode
+  - SceneGraph::TextNode
+  - SceneGraph::QuadSetNode
+  - SceneGraph::IndexedFaceSetNode
+  - SceneGraph::Doom3MD5Mesh
+  - Vrui::Vislets::CAVERenderer
+  - Vrui::MouseCursorFaker
+  - Vrui::JediTool
+  - Vrui::GlyphRenderer
+- Fixed wrong initialization order of window group frame sizes in
+  Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed bad group stack management in
+  Vrui/SceneGraph/Internal/LoadModelFromASEFile.cpp.
+- Fixed wrong handling of absolute paths in
+  IO::StandardDirectory::getPath and
+  Cluster::StandardDirectory::getPath. Pointed out by Daniel Rubin.
+- Added ViewerConfiguration, a Vrui vislet class to configure the eye
+  positions of viewers from inside a running Vrui application.
+- Fixed Vrui::RevolverTool::initialize() method to fully initialize
+  virtual device state.
+- Added option to use bicubic sampling during post-rendering lens
+  distortion correction to Vrui::VRWindow.
+- Added branch for unknown GL error codes to GL/GLPrintError.cpp.
+- Fixed include file order in GL/Extensions/GLARBTextureRectangle.cpp.
+- Added extension class for GL_EXT_packed_depth_stencil OpenGL
+  extension.
+- Added extension class for GL_EXT_framebuffer_multisample OpenGL
+  extension.
+- Added option to use multisampling for post-rendering lens distortion
+  correction to Vrui::VRWindow.
+- Added note that Oculus Rift tracker module depends on libusb-1 to
+  makefile's configuration output.
+- Added error check on number of connected devices to RazerHydra
+  VRDeviceDaemon module.
+- Added more content to "VR Device Daemon Configuration File Settings
+  Reference."
+- Added class USB::VendorProductId to represent USB device IDs.
+- Added getDeviceDescriptor and getVendorProductId methods to
+  USB::DeviceList.
+- Added getVendorProductId method to USB::Device.
+- Added functor-based getNumDevices and getDevice methods to
+  USB::DeviceList to allow arbitrary matching comparisons. Implemented
+  in USB/DeviceList.icpp.
+- Changed default value of remoteControl tag in ArtDTrack VR device
+  driver module to false; apparently, that functionality is no longer
+  supported by DTrack.
+- Fixed bug in animation parameter calculation in
+  Vrui::ViewpointFileNavigationTool.
+- Changed showGui setting default value in
+  Vrui::ViewpointFileNavigationTool to true.
+- Added Vrui build version and installation directories to output from
+  -vruiVerbose command line option.
+- Fixed orientation and ray start parameter of mouse input devices in
+  screen plane.
+- Fixed friend function declarations in Misc/FdSet.h; as a result, Vrui
+  should now compile again with the new version of llvm shipping with
+  Mac OS X Mavericks.
+- Added panningDomain tag to Vrui::VRWindow's configuration settings to
+  support panning windows in multi-monitor setups with mismatching
+  resolutions.
+- Fixed missing initialization in Geometry::Box::add. Pointed out by
+  Jens Bauer.
+- Fixed wrong destructor name in Vrui::GenericAbstractToolFactory.
+  Pointed out by Jens Bauer.
+- Adapted GLFrameBuffer class to revision #117 of
+  GL_EXT_framebuffer_object extension specification. Pointed out by Jens
+  Bauer.
+- Introduced new variable SYSTEM_PACKAGE_SEARCH_PATHS to centralize
+  search locations for system packages in BuildRoot/SystemDefinitions
+  and BuildRoot/Packages.System.
+- Added /opt/local to search paths when on Mac OS X, to accomodate
+  MacPorts' default installation location. Suggested by Jens Bauer.
+- Fixed wrong parameter name in declaration of Vrui::setBackplaneDist in
+  Vrui/Vrui.h.
+- Changed default rotate and scale factors in
+  Vrui::MouseSurfaceNavigationTool to be display-dependent.
+- Increased default rotation factors in Vrui::FPSNavigationTool for
+  smoother rotation.
+- Added initial code for Vrui::PanelButtonTool, but is not functional at
+  this point.
+- Added forward declarations for all friend functions defined inside
+  class declarations to get rid of reliance on -ffriend-injection
+  compiler flag, which no longer exists on C++ compiler shipped with Mac
+  OS X Mavericks.
+- Removed reliance on GL_GLEXT_PROTOTYPES from all source files.
+- Removed handling of GL_GLEXT_PROTOTYPES from build system.
+- Fixed a typo in function pointer loader in GLEXTPalettedTexture
+  extension.
+- API change: Added new extension class GLEXTFogCoord for
+  GL_EXT_fog_coord extension.
+  - Removed GL/GLFogCoordTemplates.h and added its functions to
+    GLEXTFogCoord.h.
+    - Removed #include <GL/GLFogCoordTemplates.h> from
+      GL/GLPrimitiveTemplates.h.
+  - Removed fog coordinate functions from GL/GLVertexArrayTemplates.h
+    and added them to GLEXTFogCoord.
+  - Removed fog coordinate gets from GL/GLGetPrimitiveTemplates.h and
+    added them to GLEXTFogCoord.
+- Added some smarts to the build system to generate better installation
+  directory hierarchies.
+  - Added new make target "planinstall" that prints out the configured
+    installation directories.
+  - Added description of installation hierachy, fine-tuning, and binary
+    package generation to README file.
+- Added getParent method to USB::DeviceList using the topology query
+  functions from libusbx. Returns a null pointer for every device if
+  libusbx is not installed.
+- Added script to search for function declarations in system header
+  files to Vrui build system.
+- Added setting to select USB bus topology query functions to build
+  system; auto-detected in BuildRoot/Packages.system; manual override in
+  makefile.

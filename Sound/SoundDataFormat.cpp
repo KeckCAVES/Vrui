@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Sound/SoundDataFormat.h>
 
+#include <Sound/Config.h>
+
 namespace Sound {
 
 /********************************
@@ -55,7 +57,7 @@ void SoundDataFormat::setStandardSampleFormat(int newBitsPerSample,bool newSigne
 	sampleEndianness=bitsPerSample>8?newSampleEndianness:DontCare;
 	}
 
-#ifdef SOUND_USE_ALSA
+#if SOUND_CONFIG_HAVE_ALSA
 
 snd_pcm_format_t SoundDataFormat::getPCMFormat(void) const
 	{

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferObject - OpenGL extension class for the
 GL_EXT_framebuffer_object extension.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLEXTENSIONS_GLEXTFRAMEBUFFEROBJECT_INCLUDED
 #define GLEXTENSIONS_GLEXTFRAMEBUFFEROBJECT_INCLUDED
 
+#include <ostream>
 #include <GL/gl.h>
 #include <GL/TLSHelper.h>
 #include <GL/Extensions/GLExtension.h>
@@ -66,7 +67,6 @@ typedef void (APIENTRY * PFNGLGENERATEMIPMAPEXTPROC) (GLenum target);
 #define GL_FRAMEBUFFER_COMPLETE_EXT       0x8CD5
 #define GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT 0x8CD6
 #define GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT 0x8CD7
-#define GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT 0x8CD8
 #define GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT 0x8CD9
 #define GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT 0x8CDA
 #define GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT 0x8CDB
@@ -109,6 +109,25 @@ typedef void (APIENTRY * PFNGLGENERATEMIPMAPEXTPROC) (GLenum target);
 #define GL_RENDERBUFFER_STENCIL_SIZE_EXT  0x8D55
 
 #endif
+
+/* Forward declarations of friend functions: */
+GLboolean glIsRenderbufferEXT(GLuint renderbuffer);
+void glBindRenderbufferEXT(GLenum target,GLuint renderbuffer);
+void glDeleteRenderbuffersEXT(GLsizei n,const GLuint* renderbuffers);
+void glGenRenderbuffersEXT(GLsizei n,GLuint* renderbuffers);
+void glRenderbufferStorageEXT(GLenum target,GLenum internalformat,GLsizei width,GLsizei height);
+void glGetRenderbufferParameterivEXT(GLenum target,GLenum pname,GLint* params);
+GLboolean glIsFramebufferEXT(GLuint framebuffer);
+void glBindFramebufferEXT(GLenum target,GLuint framebuffer);
+void glDeleteFramebuffersEXT(GLsizei n,const GLuint* framebuffers);
+void glGenFramebuffersEXT(GLsizei n,GLuint* framebuffers);
+GLenum glCheckFramebufferStatusEXT(GLenum target);
+void glFramebufferTexture1DEXT(GLenum target,GLenum attachment,GLenum textarget,GLuint texture,GLint level);
+void glFramebufferTexture2DEXT(GLenum target,GLenum attachment,GLenum textarget,GLuint texture,GLint level);
+void glFramebufferTexture3DEXT(GLenum target,GLenum attachment,GLenum textarget,GLuint texture,GLint level,GLint zoffset);
+void glFramebufferRenderbufferEXT(GLenum target,GLenum attachment,GLenum renderbuffertarget,GLuint renderbuffer);
+void glGetFramebufferAttachmentParameterivEXT(GLenum target,GLenum attachment,GLenum pname,GLint* params);
+void glGenerateMipmapEXT(GLenum target);
 
 class GLEXTFramebufferObject:public GLExtension
 	{
@@ -222,5 +241,7 @@ class GLEXTFramebufferObject:public GLExtension
 /*******************************
 Extension-specific entry points:
 *******************************/
+
+void glPrintFramebufferStatusEXT(std::ostream& stream,const char* tag); // Convenience function to check framebuffer status and print detailed message to given stream if incomplete
 
 #endif

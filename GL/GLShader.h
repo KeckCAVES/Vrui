@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -39,10 +39,6 @@ class GLShader
 	HandleList fragmentShaderObjects; // List of handles of compiled fragment shader objects
 	GLhandleARB programObject; // Handle for the linked shader program
 	
-	/* Protected methods: */
-	void loadAndCompileShader(GLhandleARB shaderObject,const char* shaderSourceFileName); // Loads a vertex, geometry, or fragment shader into an existing shader object
-	void compileShader(GLhandleARB shaderObject,const char* shaderSource); // Compiles a vertex, geometry, or fragment shader into an existing shader object
-	
 	/* Constructors and destructors: */
 	public:
 	GLShader(void); // Creates an "empty" shader
@@ -54,11 +50,17 @@ class GLShader
 	
 	/* Methods: */
 	static bool isSupported(void); // Returns true if the current OpenGL context supports GLSL shaders
+	static void initExtensions(void); // Initializes the OpenGL extensions required by GLSL shaders (optional; implicitly done by GLShader constructor)
 	void compileVertexShader(const char* shaderSourceFileName); // Loads and compiles a vertex shader from a source file
 	void compileVertexShaderFromString(const char* shaderSource); // Compiles a vertex shader from a source code string
 	void compileFragmentShader(const char* shaderSourceFileName); // Loads and compiles a fragment shader from a source file
 	void compileFragmentShaderFromString(const char* shaderSource); // Compiles a fragment shader from a source code string
 	void linkShader(void); // Links all previously loaded vertex and fragment shaders into a shader program
+	void reset(void); // Deletes all compiled vertex and fragment shaders and the linked program
+	bool isValid(void) const // Returns true if the shader linked successfully and can be used
+		{
+		return programObject!=0;
+		}
 	int getUniformLocation(const char* uniformName) const; // Returns the index of a uniform variable defined in the shader program
 	void useProgram(void) const; // Installs the shader program in the current OpenGL context
 	static void disablePrograms(void); // Removes any installed shader programs from the current OpenGL context

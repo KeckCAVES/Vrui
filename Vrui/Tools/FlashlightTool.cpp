@@ -1,7 +1,7 @@
 /***********************************************************************
 FlashlightTool - Class for tools that add an additional light source
 into an environment when activated.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,10 +30,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLValueCoders.h>
 #include <GL/GLGeometryWrappers.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/Lightsource.h>
 #include <Vrui/LightsourceManager.h>
 #include <Vrui/ToolManager.h>
-#include <Vrui/Vrui.h>
 
 namespace Vrui {
 
@@ -45,8 +45,7 @@ FlashlightToolFactory::FlashlightToolFactory(ToolManager& toolManager)
 	:ToolFactory("FlashlightTool",toolManager)
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* toolFactory=toolManager.loadClass("PointingTool");
@@ -139,7 +138,7 @@ const ToolFactory* FlashlightTool::getFactory(void) const
 	return factory;
 	}
 
-void FlashlightTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void FlashlightTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -159,13 +158,10 @@ void FlashlightTool::frame(void)
 	{
 	if(active)
 		{
-		/* Get light ray: */
-		Ray ray=getDeviceRay(0);
-		
 		/* Set the light source parameters: */
-		Point start=ray.getOrigin();
+		Point start=getButtonDevicePosition(0);
 		lightsource->getLight().position=GLLight::Position(GLfloat(start[0]),GLfloat(start[1]),GLfloat(start[2]),1.0f);
-		Vector direction=ray.getDirection();
+		Vector direction=getButtonDeviceRayDirection(0);
 		direction.normalize();
 		lightsource->getLight().spotDirection=GLLight::SpotDirection(GLfloat(direction[0]),GLfloat(direction[1]),GLfloat(direction[2]));
 		}

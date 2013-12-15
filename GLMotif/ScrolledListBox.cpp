@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrolledListBox - Compound widget containing a list box, a vertical, and
 an optional horizontal scroll bar.
-Copyright (c) 2008 Oliver Kreylos
+Copyright (c) 2008-2010 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -20,13 +20,13 @@ with the GLMotif Widget Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <GLMotif/ScrolledListBox.h>
+
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/Event.h>
-
-#include <GLMotif/ScrolledListBox.h>
 
 namespace GLMotif {
 
@@ -98,9 +98,9 @@ ScrolledListBox::ScrolledListBox(const char* sName,Container* sParent,ListBox::S
 ScrolledListBox::~ScrolledListBox(void)
 	{
 	/* Delete the child widgets: */
-	delete listBox;
-	delete verticalScrollBar;
-	delete horizontalScrollBar;
+	deleteChild(listBox);
+	deleteChild(verticalScrollBar);
+	deleteChild(horizontalScrollBar);
 	}
 
 Vector ScrolledListBox::calcNaturalSize(void) const
@@ -150,9 +150,6 @@ void ScrolledListBox::resize(const Box& newExterior)
 	{
 	/* Resize the parent class widget: */
 	Container::resize(newExterior);
-	
-	if(!isManaged)
-		return;
 	
 	/* Get the new interior size: */
 	Box lbBox=getInterior();
@@ -260,6 +257,11 @@ void ScrolledListBox::addChild(Widget* newChild)
 	/* Only the dedicated children can call this, and they get managed in the constructor, so ignore this */
 	}
 
+void ScrolledListBox::removeChild(Widget* removeChild)
+	{
+	/* This should never be called, so simply ignore it */
+	}
+
 void ScrolledListBox::requestResize(Widget* child,const Vector& newExteriorSize)
 	{
 	if(isManaged)
@@ -333,8 +335,8 @@ void ScrolledListBox::showHorizontalScrollBar(bool enable)
 		}
 	else if(!enable&&horizontalScrollBar!=0)
 		{
-		/* Destroy the horizontal scroll bar: */
-		delete horizontalScrollBar;
+		/* Delete the horizontal scroll bar: */
+		deleteChild(horizontalScrollBar);
 		
 		/* Remove it from the widget's layout: */
 		Vector lbSize=listBox->getExterior().size;

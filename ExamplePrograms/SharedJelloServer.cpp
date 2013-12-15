@@ -1,7 +1,7 @@
 /***********************************************************************
 SharedJelloServer - Dedicated server program to allow multiple clients
 to collaboratively smack around a Jell-O crystal.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -26,6 +26,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <iostream>
 #include <Misc/Timer.h>
 #include <Misc/ThrowStdErr.h>
+#include <Comm/TCPPipe.h>
 
 #include "SharedJelloServer.h"
 
@@ -37,7 +38,7 @@ void* SharedJelloServer::listenThreadMethod(void)
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Process incoming connections until shut down: */
 	while(true)
@@ -46,11 +47,12 @@ void* SharedJelloServer::listenThreadMethod(void)
 		#ifdef VERBOSE
 		std::cout<<"SharedJelloServer: Waiting for client connection"<<std::endl<<std::flush;
 		#endif
-		Comm::TCPSocket clientSocket=listenSocket.accept();
+		Comm::NetPipePtr clientPipe=new Comm::TCPPipe(listenSocket);
+		clientPipe->negotiateEndianness();
 		
 		/* Connect the new client: */
 		#ifdef VERBOSE
-		std::cout<<"SharedJelloServer: Connecting new client from host "<<clientSocket.getPeerHostname(false)<<", port "<<clientSocket.getPeerPortId()<<std::endl<<std::flush;
+		std::cout<<"SharedJelloServer: Connecting new client from host "<<clientPipe->getPeerHostName()<<", port "<<clientPipe->getPeerPortId()<<std::endl<<std::flush;
 		#endif
 		
 		/**************************************************************************************
@@ -64,7 +66,7 @@ void* SharedJelloServer::listenThreadMethod(void)
 		try
 			{
 			/* Create a new client state object and add it to the list: */
-			ClientState* newClientState=new ClientState(clientSocket);
+			ClientState* newClientState=new ClientState(clientPipe);
 			clientStates.push_back(newClientState);
 			
 			/* Start a communication thread for the new client: */
@@ -73,10 +75,6 @@ void* SharedJelloServer::listenThreadMethod(void)
 		catch(std::runtime_error err)
 			{
 			std::cerr<<"SharedJelloServer: Cancelled connecting new client due to exception "<<err.what()<<std::endl<<std::flush;
-			}
-		catch(...)
-			{
-			std::cerr<<"SharedJelloServer: Cancelled connecting new client due to spurious exception"<<std::endl<<std::flush;
 			}
 		}
 		}
@@ -88,19 +86,23 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 	{
 	/* Enable immediate cancellation of this thread: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
-	SharedJelloPipe& pipe=clientState->pipe;
+	Comm::NetPipe& pipe=*(clientState->pipe);
+	Threads::Mutex& pipeMutex=clientState->pipeMutex;
 	
 	try
 		{
 		/* Connect the client by sending the size of the Jell-O crystal: */
 		{
-		Threads::Mutex::Lock pipeLock(pipe.getMutex());
-		pipe.writeMessage(SharedJelloPipe::CONNECT_REPLY);
-		pipe.writePoint(crystal.getDomain().min);
-		pipe.writePoint(crystal.getDomain().max);
-		pipe.write<int>(crystal.getNumAtoms().getComponents(),3);
+		Threads::Mutex::Lock pipeLock(pipeMutex);
+		writeMessage(CONNECT_REPLY,pipe);
+		write(crystal.getDomain().min,pipe);
+		write(crystal.getDomain().max,pipe);
+		Card numAtoms[3];
+		for(int i=0;i<3;++i)
+			numAtoms[i]=crystal.getNumAtoms()[i];
+		pipe.write(numAtoms,3);
 		pipe.flush();
 		}
 		
@@ -111,92 +113,70 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 		}
 		
 		#ifdef VERBOSE
-		std::cout<<"SharedJelloServer: Connection to client from host "<<pipe.getPeerHostname()<<", port "<<pipe.getPeerPortId()<<" established"<<std::endl<<std::flush;
+		std::cout<<"SharedJelloServer: Connection to client from host "<<pipe.getPeerHostName()<<", port "<<pipe.getPeerPortId()<<" established"<<std::endl<<std::flush;
 		#endif
 		
 		/* Run the client communication protocol machine: */
-		while(true)
+		bool goOn=true;
+		while(goOn)
 			{
-			/* Wait for the next message: */
-			SharedJelloPipe::MessageIdType message=pipe.readMessage();
-			
-			/* Bail out if a disconnect request or an unexpected message was received: */
-			if(message==SharedJelloPipe::DISCONNECT_REQUEST)
+			/* Wait for and handle the next message: */
+			switch(readMessage(pipe))
 				{
-				/* Send a disconnect reply: */
-				{
-				Threads::Mutex::Lock pipeLock(pipe.getMutex());
-				pipe.writeMessage(SharedJelloPipe::DISCONNECT_REPLY);
-				pipe.flush();
-				pipe.shutdown(false,true);
-				}
-				
-				/* Bail out: */
-				break;
-				}
-			else if(message==SharedJelloPipe::CLIENT_PARAMUPDATE)
-				{
-				/* Update the simulation parameter set: */
-				{
-				Threads::Mutex::Lock parameterLock(parameterMutex);
-				++newParameterVersion;
-				newAtomMass=pipe.read<Scalar>();
-				newAttenuation=pipe.read<Scalar>();
-				newGravity=pipe.read<Scalar>();
-				}
-				}
-			else if(message==SharedJelloPipe::CLIENT_UPDATE)
-				{
-				/* Lock the next free client update slot: */
-				int nextIndex=(clientState->lockedIndex+1)%3;
-				if(nextIndex==clientState->mostRecentIndex)
-					nextIndex=(nextIndex+1)%3;
-				ClientState::StateUpdate& su=clientState->stateUpdates[nextIndex];
-				
-				/* Process the client update message: */
-				int newNumDraggers=pipe.read<int>();
-				if(newNumDraggers!=su.numDraggers)
+				case CLIENT_PARAMUPDATE:
+					/* Update the simulation parameter set: */
 					{
-					delete[] su.draggerIDs;
-					delete[] su.draggerRayBaseds;
-					delete[] su.draggerRays;
-					delete[] su.draggerTransformations;
-					delete[] su.draggerActives;
-					su.numDraggers=newNumDraggers;
-					if(su.numDraggers!=0)
+					Threads::Mutex::Lock parameterLock(parameterMutex);
+					++newParameterVersion;
+					newAtomMass=pipe.read<Scalar>();
+					newAttenuation=pipe.read<Scalar>();
+					newGravity=pipe.read<Scalar>();
+					}
+					break;
+				
+				case CLIENT_UPDATE:
+					{
+					/* Lock the next free client update slot: */
+					ClientState::StateUpdate& su=clientState->stateUpdates.startNewValue();
+					
+					/* Process the client update message: */
+					unsigned int newNumDraggers=pipe.read<Card>();
+					if(newNumDraggers!=su.numDraggers)
 						{
-						su.draggerIDs=new unsigned int[su.numDraggers];
-						su.draggerRayBaseds=new bool[su.numDraggers];
-						su.draggerRays=new Ray[su.numDraggers];
-						su.draggerTransformations=new ONTransform[su.numDraggers];
-						su.draggerActives=new bool[su.numDraggers];
+						delete[] su.draggerStates;
+						su.numDraggers=newNumDraggers;
+						su.draggerStates=su.numDraggers!=0?new ClientState::StateUpdate::DraggerState[su.numDraggers]:0;
 						}
-					else
+					
+					for(unsigned int draggerIndex=0;draggerIndex<su.numDraggers;++draggerIndex)
 						{
-						su.draggerIDs=0;
-						su.draggerRayBaseds=0;
-						su.draggerRays=0;
-						su.draggerTransformations=0;
-						su.draggerActives=0;
+						su.draggerStates[draggerIndex].id=pipe.read<Card>();
+						su.draggerStates[draggerIndex].rayBased=pipe.read<Byte>()!=0;
+						SharedJelloProtocol::read(su.draggerStates[draggerIndex].ray,pipe);
+						SharedJelloProtocol::read(su.draggerStates[draggerIndex].transform,pipe);
+						su.draggerStates[draggerIndex].active=pipe.read<Byte>()!=0;
 						}
+
+					/* Mark the client update slot as most recent: */
+					clientState->stateUpdates.postNewValue();
+					break;
 					}
 				
-				for(int draggerIndex=0;draggerIndex<su.numDraggers;++draggerIndex)
+				case DISCONNECT_REQUEST:
+					/* Send a disconnect reply: */
 					{
-					su.draggerIDs[draggerIndex]=pipe.read<unsigned int>();
-					su.draggerRayBaseds[draggerIndex]=pipe.read<int>()!=0;
-					Point rayStart=pipe.readPoint();
-					Vector rayDirection=pipe.readVector();
-					su.draggerRays[draggerIndex]=Ray(rayStart,rayDirection);
-					su.draggerTransformations[draggerIndex]=pipe.readONTransform();
-					su.draggerActives[draggerIndex]=pipe.read<char>()!=char(0);
+					Threads::Mutex::Lock pipeLock(pipeMutex);
+					writeMessage(DISCONNECT_REPLY,pipe);
+					pipe.flush();
 					}
+					
+					goOn=false;
+					
+					break;
 				
-				/* Mark the client update slot as most recent: */
-				clientState->mostRecentIndex=nextIndex;
+				default:
+					Misc::throwStdErr("Protocol error in client communication");
 				}
-			else
-				Misc::throwStdErr("Protocol error in client communication");
 			}
 		}
 	catch(std::runtime_error err)
@@ -204,18 +184,13 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 		/* Ignore any connection errors; just disconnect the client */
 		std::cerr<<"SharedJelloServer: Disconnecting client due to exception "<<err.what()<<std::endl<<std::flush;
 		}
-	catch(...)
-		{
-		/* Ignore any connection errors; just disconnect the client */
-		std::cerr<<"SharedJelloServer: Disconnecting client due to spurious exception"<<std::endl<<std::flush;
-		}
 	
 	/******************************************************************************************
 	Disconnect the client by removing it from the list and deleting the client state structure:
 	******************************************************************************************/
 	
 	#ifdef VERBOSE
-	std::cout<<"SharedJelloServer: Disconnecting client from host "<<pipe.getPeerHostname()<<", port "<<pipe.getPeerPortId()<<std::endl<<std::flush;
+	std::cout<<"SharedJelloServer: Disconnecting client from host "<<pipe.getPeerHostName()<<", port "<<pipe.getPeerPortId()<<std::endl<<std::flush;
 	#endif
 	
 	{
@@ -223,8 +198,8 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 	Threads::Mutex::Lock clientStateListLock(clientStateListMutex);
 	
 	/* Unlock all atoms held by the client: */
-	for(std::vector<ClientState::AtomLock>::iterator alIt=clientState->atomLocks.begin();alIt!=clientState->atomLocks.end();++alIt)
-		crystal.unlockAtom(alIt->draggedAtom);
+	for(ClientState::AtomLockMap::Iterator alIt=clientState->atomLocks.begin();!alIt.isFinished();++alIt)
+		crystal.unlockAtom(alIt->getDest().draggedAtom);
 	
 	/* Find this client's state in the list: */
 	ClientStateList::iterator cslIt;
@@ -253,7 +228,6 @@ SharedJelloServer::SharedJelloServer(const SharedJelloServer::Index& numAtoms,in
 
 SharedJelloServer::~SharedJelloServer(void)
 	{
-	{
 	/* Lock client list: */
 	Threads::Mutex::Lock clientStateListLock(clientStateListMutex);
 	
@@ -271,7 +245,6 @@ SharedJelloServer::~SharedJelloServer(void)
 		/* Delete client state object: */
 		delete *cslIt;
 		}
-	}
 	}
 
 void SharedJelloServer::simulate(double timeStep)
@@ -301,63 +274,58 @@ void SharedJelloServer::simulate(double timeStep)
 		{
 		/* Check if there has been an update since the last frame: */
 		ClientState* cs=*cslIt;
-		if(cs->lockedIndex!=cs->mostRecentIndex)
+		if(cs->stateUpdates.hasNewValue())
 			{
 			/* Lock the most recent update: */
-			cs->lockedIndex=cs->mostRecentIndex;
-			ClientState::StateUpdate* su=&cs->stateUpdates[cs->lockedIndex];
+			cs->stateUpdates.lockNewValue();
+			ClientState::StateUpdate& su=cs->stateUpdates.getLockedValue();
 			
 			/* Update the list of atoms locked by this client: */
-			for(int draggerIndex=0;draggerIndex<su->numDraggers;++draggerIndex)
+			for(unsigned int draggerIndex=0;draggerIndex<su.numDraggers;++draggerIndex)
 				{
-				if(su->draggerActives[draggerIndex])
+				if(su.draggerStates[draggerIndex].active)
 					{
 					/* Check if this dragger has just become active: */
-					std::vector<ClientState::AtomLock>::iterator alIt;
-					for(alIt=cs->atomLocks.begin();alIt!=cs->atomLocks.end()&&alIt->draggerID!=su->draggerIDs[draggerIndex];++alIt)
-						;
-					if(alIt==cs->atomLocks.end())
+					ClientState::AtomLockMap::Iterator alIt=cs->atomLocks.findEntry(su.draggerStates[draggerIndex].id);
+					if(alIt.isFinished())
 						{
 						/* Find the atom picked by the dragger: */
 						ClientState::AtomLock al;
-						al.draggerID=su->draggerIDs[draggerIndex];
-						if(su->draggerRayBaseds[draggerIndex])
-							al.draggedAtom=crystal.pickAtom(su->draggerRays[draggerIndex]);
+						if(su.draggerStates[draggerIndex].rayBased)
+							al.draggedAtom=crystal.pickAtom(su.draggerStates[draggerIndex].ray);
 						else
-							al.draggedAtom=crystal.pickAtom(su->draggerTransformations[draggerIndex].getOrigin());
+							al.draggedAtom=crystal.pickAtom(su.draggerStates[draggerIndex].transform.getOrigin());
 						
 						/* Try locking the atom: */
 						if(crystal.lockAtom(al.draggedAtom))
 							{
 							/* Calculate the dragging transformation: */
-							al.dragTransformation=su->draggerTransformations[draggerIndex];
+							al.dragTransformation=su.draggerStates[draggerIndex].transform;
 							al.dragTransformation.doInvert();
 							al.dragTransformation*=crystal.getAtomState(al.draggedAtom);
 							
-							/* Store the atom lock in the list: */
-							alIt=cs->atomLocks.insert(alIt,al);
+							/* Store the atom lock in the map: */
+							cs->atomLocks.setEntry(ClientState::AtomLockMap::Entry(su.draggerStates[draggerIndex].id,al));
 							}
 						}
-					
-					if(alIt!=cs->atomLocks.end())
+					else
 						{
 						/* Set the position/orientation of the locked atom: */
-						ONTransform transform=su->draggerTransformations[draggerIndex];
-						transform*=alIt->dragTransformation;
-						crystal.setAtomState(alIt->draggedAtom,transform);
+						ONTransform transform=su.draggerStates[draggerIndex].transform;
+						transform*=alIt->getDest().dragTransformation;
+						crystal.setAtomState(alIt->getDest().draggedAtom,transform);
 						}
 					}
 				else
 					{
 					/* Check if this dragger has just become inactive: */
-					for(std::vector<ClientState::AtomLock>::iterator alIt=cs->atomLocks.begin();alIt!=cs->atomLocks.end();++alIt)
-						if(alIt->draggerID==su->draggerIDs[draggerIndex])
-							{
-							/* Release the atom lock: */
-							crystal.unlockAtom(alIt->draggedAtom);
-							cs->atomLocks.erase(alIt);
-							break;
-							}
+					ClientState::AtomLockMap::Iterator alIt=cs->atomLocks.findEntry(su.draggerStates[draggerIndex].id);
+					if(!alIt.isFinished())
+						{
+						/* Release the atom lock: */
+						crystal.unlockAtom(alIt->getDest().draggedAtom);
+						cs->atomLocks.removeEntry(alIt);
+						}
 					}
 				}
 			}
@@ -370,7 +338,6 @@ void SharedJelloServer::simulate(double timeStep)
 
 void SharedJelloServer::sendServerUpdate(void)
 	{
-	{
 	/* Lock the client state list: */
 	Threads::Mutex::Lock clientStateListLock(clientStateListMutex);
 	
@@ -382,39 +349,32 @@ void SharedJelloServer::sendServerUpdate(void)
 			{
 			try
 				{
-				{
-				Threads::Mutex::Lock pipeLock(cs->pipe.getMutex());
+				Threads::Mutex::Lock pipeLock(cs->pipeMutex);
 				
 				if(cs->parameterVersion!=parameterVersion)
 					{
 					/* Send a parameter update message: */
-					cs->pipe.writeMessage(SharedJelloPipe::SERVER_PARAMUPDATE);
-					cs->pipe.write<Scalar>(crystal.getAtomMass());
-					cs->pipe.write<Scalar>(crystal.getAttenuation());
-					cs->pipe.write<Scalar>(crystal.getGravity());
+					writeMessage(SERVER_PARAMUPDATE,*cs->pipe);
+					cs->pipe->write<Scalar>(crystal.getAtomMass());
+					cs->pipe->write<Scalar>(crystal.getAttenuation());
+					cs->pipe->write<Scalar>(crystal.getGravity());
 					cs->parameterVersion=parameterVersion;
 					}
 				
 				/* Send a server update message: */
-				cs->pipe.writeMessage(SharedJelloPipe::SERVER_UPDATE);
+				writeMessage(SERVER_UPDATE,*cs->pipe);
 				
 				/* Send the crystal's state: */
-				crystal.writeAtomStates(cs->pipe);
+				crystal.writeAtomStates(*cs->pipe);
 				
-				cs->pipe.flush();
-				}
-				}
-			catch(Comm::TCPSocket::PipeError err)
-				{
-				/* Ignore the pipe error; let the client communication thread handle it */
+				cs->pipe->flush();
 				}
 			catch(...)
 				{
-				/* Ignore the pipe error; let the client communication thread handle it */
+				/* Ignore write errors; let the client communication thread handle them */
 				}
 			}
 		}
-	}
 	}
 
 /*********************

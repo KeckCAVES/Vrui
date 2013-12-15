@@ -25,17 +25,24 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define MISC_ENDIANNESS_INCLUDED
 
 #include <stddef.h>
-#ifdef __DARWIN__
+#ifdef __APPLE__
 #include <machine/endian.h>
 #define __BIG_ENDIAN __DARWIN_BIG_ENDIAN
 #define __LITTLE_ENDIAN __DARWIN_LITTLE_ENDIAN
 #define __BYTE_ORDER __DARWIN_BYTE_ORDER
 #endif
-#ifdef __LINUX__
+#ifdef __linux__
 #include <endian.h>
 #endif
 
 namespace Misc {
+
+enum Endianness // Enumerated type to select endianness types
+	{
+	HostEndianness, // Data has same endianness as host, i.e., never swap
+	LittleEndian, // Data has little endianness
+	BigEndian // Data has big endianness
+	};
 
 /****************************************************************
 Helper class to allow partial specialization of endianness

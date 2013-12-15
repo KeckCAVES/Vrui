@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2013 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -48,7 +48,7 @@ void signalHandler(int signalId)
 			{
 			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=false;
-			shutdownCond.broadcast(shutdownLock);
+			shutdownCond.broadcast();
 			}
 			break;
 		
@@ -58,7 +58,7 @@ void signalHandler(int signalId)
 			{
 			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=true;
-			shutdownCond.broadcast(shutdownLock);
+			shutdownCond.broadcast();
 			}
 			break;
 		}
@@ -192,9 +192,11 @@ int main(int argc,char* argv[])
 			}
 		
 		/* Set current section to given root section or name of current machine: */
-		if(rootSectionName==0)
+		if(rootSectionName==0||rootSectionName[0]=='\0')
 			rootSectionName=getenv("HOSTNAME");
-		if(rootSectionName==0)
+		if(rootSectionName==0||rootSectionName[0]=='\0')
+			rootSectionName=getenv("HOST");
+		if(rootSectionName==0||rootSectionName[0]=='\0')
 			rootSectionName="localhost";
 		configFile->setCurrentSection(rootSectionName);
 		
@@ -241,7 +243,7 @@ int main(int argc,char* argv[])
 		/* Create shutdown condition variable: */
 		shutdown=false;
 		
-		/* Wait for shutdown: */
+		/* Wait for restart or shutdown: */
 		shutdownCond.wait();
 		
 		/* Clean up: */

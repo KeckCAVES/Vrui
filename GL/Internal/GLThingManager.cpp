@@ -145,6 +145,44 @@ void GLThingManager::destroyThing(const GLObject* thing)
 		}
 	}
 
+void GLThingManager::orderThings(const GLObject* thing1,const GLObject* thing2)
+	{
+	Threads::Mutex::Lock newActionLock(newActionMutex);
+	if(active)
+		{
+		/*******************************************************************
+		Search the new action list for thing1's initialization, and remember
+		the position of thing2's initialization:
+		*******************************************************************/
+		
+		ThingAction* thing2PredPtr=0;
+		ThingAction* thing2Ptr=0;
+		ThingAction* ta1Ptr=0;
+		ThingAction* ta2Ptr;
+		for(ta2Ptr=firstNewAction;ta2Ptr!=0&&ta2Ptr->thing!=thing1;ta1Ptr=ta2Ptr,ta2Ptr=ta2Ptr->succ)
+			if(ta2Ptr->thing==thing2)
+				{
+				thing2PredPtr=ta1Ptr;
+				thing2Ptr=ta2Ptr;
+				}
+		
+		/* Check if the things are out of order: */
+		if(thing2Ptr!=0&&ta2Ptr!=0)
+			{
+			/* Move the action for thing2 right after the action for thing1: */
+			if(thing2PredPtr!=0)
+				thing2PredPtr->succ=thing2Ptr->succ;
+			else
+				firstNewAction=thing2Ptr->succ;
+			
+			thing2Ptr->succ=ta2Ptr->succ;
+			ta2Ptr->succ=thing2Ptr;
+			if(thing2Ptr->succ==0)
+				lastNewAction=thing2Ptr;
+			}
+		}
+	}
+
 void GLThingManager::processActions(void)
 	{
 	/* Delete the old process list: */

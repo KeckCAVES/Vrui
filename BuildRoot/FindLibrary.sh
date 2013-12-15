@@ -3,7 +3,7 @@
 # Shell script to find include and library file directories for
 # libraries that might be installed in non-standard places, or not be
 # installed at all.
-# Copyright (c) 2008 Oliver Kreylos
+# Copyright (c) 2008-2011 Oliver Kreylos
 # 
 # This file is part of the WhyTools Build Environment.
 # 
@@ -28,7 +28,7 @@
 ########################################################################
 
 # $1 - name of header file to find
-# $2 - name of library file to find
+# $2 - name of library file to find (can be "None" to search for headers only)
 # $3 - include directory ("include")
 # $4 - library directory ("lib" or "lib64")
 # $5-$n - base directories to search in order
@@ -42,28 +42,25 @@ LIBEXT=$4
 # Remove search parameters from command line:
 shift ; shift ; shift ; shift
 
-# Initialize result variables:
-FOUNDBASEDIR=""
-FOUNDINCLUDEDIR=""
-FOUNDLIBDIR=""
-
-# Search all given base directories:
-for BASEDIR in $*
-do
-	if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER ]
-	then
-		FOUNDINCLUDEDIR=$BASEDIR/$INCLUDEEXT
-	fi
-	if [ -e $BASEDIR/$LIBEXT/$SEARCH_DSO ]
-	then
-		FOUNDLIBDIR=$BASEDIR/$LIBEXT
-	fi
-	if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER -a -e $BASEDIR/$LIBEXT/$SEARCH_DSO ]
-	then
-		FOUNDBASEDIR=$BASEDIR
-	fi
-done
-
-# Report result, currently only base directory:
-echo $FOUNDBASEDIR
-
+if [ $SEARCH_DSO != None ]
+then
+	# Search all given base directories for header and library files:
+	for BASEDIR in $*
+	do
+		if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER ] # -a -e $BASEDIR/$LIBEXT/$SEARCH_DSO ] Yeah, still not working right
+		then
+			echo $BASEDIR
+			exit 0
+		fi
+	done
+else
+	# Search all given base directories for header files:
+	for BASEDIR in $*
+	do
+		if [ -e $BASEDIR/$INCLUDEEXT/$SEARCH_HEADER ]
+		then
+			echo $BASEDIR
+			exit 0
+		fi
+	done
+fi

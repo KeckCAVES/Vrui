@@ -1,7 +1,7 @@
 /***********************************************************************
 PointingTool - Base class for tools used to point at positions or
 features in a virtual environment.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -47,21 +47,10 @@ const char* PointingToolFactory::getName(void) const
 	return "Pointer";
 	}
 
-extern "C" ToolFactory* createPointingToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+const char* PointingToolFactory::getButtonFunction(int) const
 	{
-	/* Get pointer to tool manager: */
-	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
-	
-	/* Create factory object and insert it into class hierarchy: */
-	PointingToolFactory* pointingToolFactory=new PointingToolFactory(*toolManager);
-	
-	/* Return factory object: */
-	return pointingToolFactory;
-	}
-
-extern "C" void destroyPointingToolFactory(ToolFactory* factory)
-	{
-	delete factory;
+	/* By default, pointing tools only use a single button: */
+	return "Point";
 	}
 
 /*****************************
@@ -69,8 +58,14 @@ Methods of class PointingTool:
 *****************************/
 
 PointingTool::PointingTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
-	:Tool(factory,inputAssignment)
+	:Tool(factory,inputAssignment),
+	 scaleFactor(1)
 	{
+	}
+
+void PointingTool::setScaleFactor(Scalar newScaleFactor)
+	{
+	scaleFactor=newScaleFactor;
 	}
 
 }

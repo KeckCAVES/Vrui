@@ -1,7 +1,7 @@
 /***********************************************************************
 ButtonInputDeviceTool - Class for tools using buttons (such as keyboard
 keys) to interact with virtual input devices.
-Copyright (c) 2007-2009 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,14 +21,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ButtonInputDeviceTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Point.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ButtonInputDeviceTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -39,13 +39,12 @@ Methods of class ButtonInputDeviceToolFactory:
 ButtonInputDeviceToolFactory::ButtonInputDeviceToolFactory(ToolManager& toolManager)
 	:ToolFactory("ButtonInputDeviceTool",toolManager)
 	{
+	/* Initialize tool layout: */
+	layout.setNumButtons(8,true);
+	layout.setNumValuators(0,true);
+	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	int numButtons=cfs.retrieveValue<int>("./numButtons",8); // 8 buttons is required minimum
-	
-	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,numButtons);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* inputDeviceToolFactory=toolManager.loadClass("InputDeviceTool");
@@ -53,13 +52,10 @@ ButtonInputDeviceToolFactory::ButtonInputDeviceToolFactory(ToolManager& toolMana
 	addParentClass(inputDeviceToolFactory);
 	
 	/* Initialize translation and rotation vectors: */
-	for(int i=0;i<6;++i)
-		{
-		translations[i]=Vector::zero;
-		rotations[i]=Vector::zero;
-		}
 	Scalar translateFactor=cfs.retrieveValue<Scalar>("./translateFactor",Scalar(4)*getInchFactor());
 	Scalar rotateFactor=Math::rad(cfs.retrieveValue<Scalar>("./rotateFactor",Scalar(60)));
+	for(int i=0;i<6;++i)
+		translations[i]=Vector::zero;
 	for(int i=0;i<3;++i)
 		{
 		translations[2*i+0][i]=-translateFactor;
@@ -85,6 +81,39 @@ ButtonInputDeviceToolFactory::~ButtonInputDeviceToolFactory(void)
 const char* ButtonInputDeviceToolFactory::getName(void) const
 	{
 	return "Button-Based Driver";
+	}
+
+const char* ButtonInputDeviceToolFactory::getButtonFunction(int buttonSlotIndex) const
+	{
+	switch(buttonSlotIndex)
+		{
+		case 0:
+			return "Switch Device";
+		
+		case 1:
+			return "Switch Translation / Rotation";
+		
+		case 2:
+			return "Translate -X / Rotate -Z";
+		
+		case 3:
+			return "Translate +X / Rotate +Z";
+		
+		case 4:
+			return "Translate -Y / Rotate -Y";
+		
+		case 5:
+			return "Translate +Y / Rotate +Y";
+		
+		case 6:
+			return "Translate -Z / Rotate -X";
+		
+		case 7:
+			return "Translate +Z / Rotate +X";
+		
+		default:
+			return "Forwarded Button";
+		}
 	}
 
 Tool* ButtonInputDeviceToolFactory::createTool(const ToolInputAssignment& inputAssignment) const
@@ -145,11 +174,11 @@ const ToolFactory* ButtonInputDeviceTool::getFactory(void) const
 	return factory;
 	}
 
-void ButtonInputDeviceTool::buttonCallback(int,int buttonIndex,InputDevice::ButtonCallbackData* cbData)
+void ButtonInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
-		switch(buttonIndex)
+		switch(buttonSlotIndex)
 			{
 			case 0: // Device switch button
 				grabNextDevice();
@@ -168,23 +197,23 @@ void ButtonInputDeviceTool::buttonCallback(int,int buttonIndex,InputDevice::Butt
 			case 5:
 			case 6:
 			case 7:
-				if(!navButtonStates[buttonIndex-2])
+				if(!navButtonStates[buttonSlotIndex-2])
 					{
-					navButtonStates[buttonIndex-2]=true;
+					navButtonStates[buttonSlotIndex-2]=true;
 					if(numPressedNavButtons==0)
 						lastFrameTime=getApplicationTime();
 					++numPressedNavButtons;
 					}
 				break;
 			
-			default: // Device button buttons
-				if(isActive()&&buttonIndex-8<getGrabbedDevice()->getNumButtons())
-					getGrabbedDevice()->setButtonState(buttonIndex-8,true);
+			default: // Forwarded buttons
+				/* Let input device tool handle it: */
+				InputDeviceTool::buttonCallback(buttonSlotIndex,cbData);
 			}
 		}
 	else // Button has just been released
 		{
-		switch(buttonIndex)
+		switch(buttonSlotIndex)
 			{
 			case 0: // Device switch button
 			case 1: // Transformation mode toggle
@@ -196,16 +225,16 @@ void ButtonInputDeviceTool::buttonCallback(int,int buttonIndex,InputDevice::Butt
 			case 5:
 			case 6:
 			case 7:
-				if(navButtonStates[buttonIndex-2])
+				if(navButtonStates[buttonSlotIndex-2])
 					{
-					navButtonStates[buttonIndex-2]=false;
+					navButtonStates[buttonSlotIndex-2]=false;
 					--numPressedNavButtons;
 					}
 				break;
 			
-			default: // Device button buttons
-				if(isActive()&&buttonIndex-8<getGrabbedDevice()->getNumButtons())
-					getGrabbedDevice()->setButtonState(buttonIndex-8,false);
+			default: // Forwarded buttons
+				/* Let input device tool handle it: */
+				InputDeviceTool::buttonCallback(buttonSlotIndex,cbData);
 			}
 		}
 	}
@@ -237,7 +266,9 @@ void ButtonInputDeviceTool::frame(void)
 			ts.leftMultiply(TrackerState::translateFromOriginTo(p));
 			}
 		getGrabbedDevice()->setTransformation(ts);
-		requestUpdate();
+		
+		/* Request another frame: */
+		scheduleUpdate(getApplicationTime()+1.0/125.0);
 		}
 	}
 

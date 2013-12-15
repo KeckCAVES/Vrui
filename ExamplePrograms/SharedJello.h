@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2013 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -26,7 +26,9 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define SHAREDJELLO_INCLUDED
 
 #include <vector>
+#include <Threads/Mutex.h>
 #include <Threads/Thread.h>
+#include <Comm/NetPipe.h>
 #include <GL/gl.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/TextFieldSlider.h>
@@ -37,7 +39,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "JelloAtom.h"
 #include "JelloCrystal.h"
 #include "JelloRenderer.h"
-#include "SharedJelloPipe.h"
+#include "SharedJelloProtocol.h"
 
 /* Forward declarations: */
 namespace GLMotif {
@@ -45,18 +47,10 @@ class PopupMenu;
 class PopupWindow;
 }
 
-class SharedJello:public Vrui::Application
+class SharedJello:public Vrui::Application,private SharedJelloProtocol
 	{
 	/* Embedded classes: */
 	private:
-	typedef JelloCrystal::Scalar Scalar;
-	typedef JelloCrystal::Point Point;
-	typedef JelloCrystal::Vector Vector;
-	typedef JelloCrystal::Rotation Rotation;
-	typedef JelloCrystal::Ray Ray;
-	typedef JelloCrystal::Box Box;
-	typedef SharedJelloPipe::ONTransform ONTransform;
-	
 	class AtomDragger:public Vrui::DraggingToolAdapter // Class to drag Jell-O atoms
 		{
 		/* Elements: */
@@ -84,7 +78,8 @@ class SharedJello:public Vrui::Application
 	friend class AtomDragger;
 	
 	/* Elements: */
-	SharedJelloPipe* pipe; // Communication pipe connected to the shared Jell-O server
+	Threads::Mutex pipeMutex; // Mutex serializing access to the communication pipe
+	Comm::NetPipePtr pipe; // Communication pipe connected to the shared Jell-O server
 	Box domain; // The domain box of the Jell-O crystals
 	Scalar atomMass;
 	Scalar attenuation;
@@ -117,7 +112,7 @@ class SharedJello:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	SharedJello(int& argc,char**& argv,char**& appDefaults);
+	SharedJello(int& argc,char**& argv);
 	virtual ~SharedJello(void);
 	
 	/* Methods: */

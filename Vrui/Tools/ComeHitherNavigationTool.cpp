@@ -1,7 +1,7 @@
 /***********************************************************************
 ComeHitherNavigationTool - Class to navigate by smoothly moving the
 position of a 3D input device to the display center point.
-Copyright (c) 2008-2009 Oliver Kreylos
+Copyright (c) 2008-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,17 +21,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/Tools/ComeHitherNavigationTool.h>
+
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
-#include <Geometry/Vector.h>
-#include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/Tools/ComeHitherNavigationTool.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -41,14 +39,13 @@ Methods of class ComeHitherNavigationToolFactory:
 
 ComeHitherNavigationToolFactory::ComeHitherNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ComeHitherNavigationTool",toolManager),
-	 linearSnapThreshold(getDisplaySize()*Scalar(0.5)),
-	 angularSnapThreshold(Scalar(45)),
-	 maxLinearVelocity(getDisplaySize()*Scalar(1.5)),
+	 linearSnapThreshold(getDisplaySize()*Scalar(0.25)),
+	 angularSnapThreshold(Scalar(15)),
+	 maxLinearVelocity(getDisplaySize()*Scalar(5)),
 	 maxAngularVelocity(Scalar(90.0))
 	{
 	/* Initialize tool layout: */
-	layout.setNumDevices(1);
-	layout.setNumButtons(0,1);
+	layout.setNumButtons(1);
 	
 	/* Insert class into class hierarchy: */
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
@@ -73,6 +70,11 @@ ComeHitherNavigationToolFactory::~ComeHitherNavigationToolFactory(void)
 	}
 
 const char* ComeHitherNavigationToolFactory::getName(void) const
+	{
+	return "Warp to Position";
+	}
+
+const char* ComeHitherNavigationToolFactory::getButtonFunction(int) const
 	{
 	return "Warp to Position";
 	}
@@ -130,7 +132,7 @@ const ToolFactory* ComeHitherNavigationTool::getFactory(void) const
 	return factory;
 	}
 
-void ComeHitherNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbackData* cbData)
+void ComeHitherNavigationTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState) // Button has just been pressed
 		{
@@ -152,7 +154,7 @@ void ComeHitherNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbac
 				startTime=getApplicationTime();
 				
 				/* Get the target transformation: */
-				NavTransform device=getDeviceTransformation(0);
+				NavTransform device=getButtonDeviceTransformation(0);
 				device.leftMultiply(getInverseNavigationTransformation());
 				Point center=device.getOrigin();
 				Vector forward=device.getDirection(1);
@@ -161,9 +163,9 @@ void ComeHitherNavigationTool::buttonCallback(int,int,InputDevice::ButtonCallbac
 				/* Compute the navigation transformation for the target transformation: */
 				targetNav=NavTransform::identity;
 				targetNav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-				targetNav*=NavTransform::rotate(Rotation::fromBaseVectors(Geometry::cross(getForwardDirection(),getUpDirection()),getForwardDirection()));
+				targetNav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
 				targetNav*=NavTransform::scale(startNav.getScaling());
-				targetNav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Geometry::cross(forward,up),forward)));
+				targetNav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(forward^up,forward)));
 				targetNav*=NavTransform::translateToOriginFrom(center);
 				
 				/* Compute the linear and angular velocities for the movement: */
@@ -222,6 +224,9 @@ void ComeHitherNavigationTool::frame(void)
 			NavTransform delta=NavTransform(linearVelocity*deltaTime,Rotation::rotateScaledAxis(angularVelocity*deltaTime),Scalar(1));
 			delta*=startNav;
 			setNavigationTransformation(delta);
+			
+			/* Request another frame: */
+			scheduleUpdate(getApplicationTime()+1.0/125.0);
 			}
 		}
 	}

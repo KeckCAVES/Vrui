@@ -1,7 +1,7 @@
 ########################################################################
 # Makefile template for inter-platform development with automatic
 # source dependency maintenance.
-# Copyright (c) 1999-2006 Oliver Kreylos
+# Copyright (c) 1999-2013 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -21,31 +21,33 @@
 # 02111-1307 USA
 ########################################################################
 
-# Include definitions for the system environment
-include $(VRUIPACKAGEROOT)/BuildRoot/SystemDefinitions
-
-# Specify default optimization/debug level
+# Set directory containing Vrui's build system:
+VRUI_MAKEDIR := $(HOME)/Vrui-3.0/share/make
 ifdef DEBUG
-  DEFAULTDEBUGLEVEL = 2
-  DEFAULTOPTLEVEL = 0
-else
-  DEFAULTDEBUGLEVEL = 0
-  DEFAULTOPTLEVEL = 3
+  VRUI_MAKEDIR := $(VRUI_MAKEDIR)/debug
 endif
+
+# Include definitions for the system environment and system-provided
+# packages
+include $(VRUI_MAKEDIR)/SystemDefinitions
+include $(VRUI_MAKEDIR)/Packages.System
+include $(VRUI_MAKEDIR)/Packages.Vrui
+include $(VRUI_MAKEDIR)/Configuration.Vrui
 
 ########################################################################
 # Specifiy additional compiler and linker flags
 ########################################################################
 
 ########################################################################
-# List packages used by this project
-# (Supported packages can be found in $(BUILDROOT)/Packages)
+# List common packages used by all components of this project
+# (Supported packages can be found in $(VRUI_MAKEDIR)/Packages.*)
 ########################################################################
 
 PACKAGES = 
 
 ########################################################################
 # Specify all final targets
+# Use $(EXEDIR)/ before executable names
 ########################################################################
 
 ALL = 
@@ -64,7 +66,7 @@ extraclean:
 extrasqueakyclean:
 
 # Include basic makefile
-include $(VRUIPACKAGEROOT)/BuildRoot/BasicMakefile
+include $(VRUI_MAKEDIR)/BasicMakefile
 
 ########################################################################
 # Specify rules for all non-C/C++ sources

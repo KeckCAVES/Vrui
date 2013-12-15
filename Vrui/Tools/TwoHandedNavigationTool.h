@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoHandedNavigationTool - Class encapsulating the behaviour of the old
 famous Vrui two-handed navigation tool.
-Copyright (c) 2004-2009 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,6 +43,7 @@ class TwoHandedNavigationToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
 	};
@@ -64,7 +65,7 @@ class TwoHandedNavigationTool:public NavigationTool
 	
 	/* Transient navigation state: */
 	NavigationMode navigationMode; // The tool's current navigation mode
-	int movingDeviceIndex; // Index of the device that is responsible for moving
+	int movingButtonSlotIndex; // Index of the button slot whose device is responsible for moving
 	NavTrackerState preScale; // Transformation to be applied to the navigation transformation before scaling
 	Point scalingCenter; // Center position of scaling operation
 	Scalar initialScale; // Initial distance between input devices
@@ -76,7 +77,7 @@ class TwoHandedNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual const ToolFactory* getFactory(void) const;
-	virtual void buttonCallback(int deviceIndex,int buttonIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	};
 

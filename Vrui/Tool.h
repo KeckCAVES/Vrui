@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_TOOL_INCLUDED
 #define VRUI_TOOL_INCLUDED
 
+#include <string>
 #include <Plugins/Factory.h>
 #include <Geometry/Ray.h>
 #include <Vrui/InputDevice.h>
@@ -33,6 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 namespace Misc {
 class CallbackData;
+class ConfigurationFileSection;
 }
 class GLContextData;
 namespace Vrui {
@@ -59,6 +61,8 @@ class ToolFactory:public Plugins::Factory
 		{
 		return layout;
 		}
+	virtual const char* getButtonFunction(int buttonSlotIndex) const; // Returns a descriptive name for the function associated with the given button slot; buttonSlotIndex==layout.numButtons returns generic name for optional buttons
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const; // Returns a descriptive name for the function associated with the given valuator slot; valuatorSlotIndex==layout.numValuators returns generic name for optional valuators
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const; // Creates a tool of the class represented by this factory and assigns it to the given input device(s)
 	virtual void destroyTool(Tool* tool) const; // Destroys a tool of the class represented by this factory
 	};
@@ -77,38 +81,67 @@ class Tool
 	
 	/* Protected helper methods: */
 	protected:
-	const InputDevice* getDevice(int deviceIndex) const // Returns a pointer to one of the tool's assigned input devices
+	const InputDevice* getButtonDevice(int buttonSlotIndex) const // Returns the input device associated with the given button slot
 		{
-		return input.getDevice(deviceIndex);
+		return input.getButtonSlot(buttonSlotIndex).device;
 		}
-	InputDevice* getDevice(int deviceIndex) // Ditto
+	InputDevice* getButtonDevice(int buttonSlotIndex) // Ditto
 		{
-		return input.getDevice(deviceIndex);
+		return input.getButtonSlot(buttonSlotIndex).device;
 		}
-	const ONTransform& getDeviceTransformation(int deviceIndex) const // Returns the position and orientation of the given device in physical coordinates
+	const ONTransform& getButtonDeviceTransformation(int buttonSlotIndex) const // Returns the position and orientation of the input device associated with the given button slot in physical coordinates
 		{
-		return input.getDevice(deviceIndex)->getTransformation();
+		return input.getButtonSlot(buttonSlotIndex).device->getTransformation();
 		}
-	Point getDevicePosition(int deviceIndex) const // Returns the position of the given device in physical coordinates
+	Point getButtonDevicePosition(int buttonSlotIndex) const // Returns the position of the input device associated with the given button slot in physical coordinates
 		{
-		return input.getDevice(deviceIndex)->getPosition();
+		return input.getButtonSlot(buttonSlotIndex).device->getPosition();
 		}
-	Vector getDeviceRayDirection(int deviceIndex) const // Returns the given device's default ray direction in physical coordinates
+	Vector getButtonDeviceRayDirection(int buttonSlotIndex) const // Returns the default ray direction of the input device associated with the given button slot in physical coordinates
 		{
-		return input.getDevice(deviceIndex)->getRayDirection();
+		return input.getButtonSlot(buttonSlotIndex).device->getRayDirection();
 		}
-	Ray getDeviceRay(int deviceIndex) const // Returns the given device's default ray in physical coordinates
+	Ray getButtonDeviceRay(int buttonSlotIndex) const // Returns the default ray of the input device associated with the given button slot in physical coordinates
 		{
-		const InputDevice* device=input.getDevice(deviceIndex);
-		return Ray(device->getPosition(),device->getRayDirection());
+		const InputDevice* device=input.getButtonSlot(buttonSlotIndex).device;
+		Vector rayDir=device->getRayDirection();
+		return Ray(device->getPosition()+rayDir*device->getDeviceRayStart(),rayDir);
 		}
-	bool getDeviceButtonState(int deviceIndex,int buttonIndex) const // Returns the state of one of the given device's buttons
+	bool getButtonState(int buttonSlotIndex) const // Returns the state of the input device button associated with the given button slot
 		{
-		return input.getDevice(deviceIndex)->getButtonState(input.getButtonIndex(deviceIndex,buttonIndex));
+		const ToolInputAssignment::Slot& slot=input.getButtonSlot(buttonSlotIndex);
+		return slot.device->getButtonState(slot.index);
 		}
-	Scalar getDeviceValuator(int deviceIndex,int valuatorIndex) const // Returns the state of one of the given device's valuators
+	const InputDevice* getValuatorDevice(int valuatorSlotIndex) const // Returns the input device associated with the given valuator slot
 		{
-		return input.getDevice(deviceIndex)->getValuator(input.getValuatorIndex(deviceIndex,valuatorIndex));
+		return input.getValuatorSlot(valuatorSlotIndex).device;
+		}
+	InputDevice* getValuatorDevice(int valuatorSlotIndex) // Ditto
+		{
+		return input.getValuatorSlot(valuatorSlotIndex).device;
+		}
+	const ONTransform& getValuatorDeviceTransformation(int valuatorSlotIndex) const // Returns the position and orientation of the input device associated with the given valuator slot in physical coordinates
+		{
+		return input.getValuatorSlot(valuatorSlotIndex).device->getTransformation();
+		}
+	Point getValuatorDevicePosition(int valuatorSlotIndex) const // Returns the position of the input device associated with the given valuator slot in physical coordinates
+		{
+		return input.getValuatorSlot(valuatorSlotIndex).device->getPosition();
+		}
+	Vector getValuatorDeviceRayDirection(int valuatorSlotIndex) const // Returns the default ray direction of the input device associated with the given valuator slot in physical coordinates
+		{
+		return input.getValuatorSlot(valuatorSlotIndex).device->getRayDirection();
+		}
+	Ray getValuatorDeviceRay(int valuatorSlotIndex) const // Returns the default ray of the input device associated with the given valuator slot in physical coordinates
+		{
+		const InputDevice* device=input.getValuatorSlot(valuatorSlotIndex).device;
+		Vector rayDir=device->getRayDirection();
+		return Ray(device->getPosition()+rayDir*device->getDeviceRayStart(),rayDir);
+		}
+	double getValuatorState(int valuatorSlotIndex) const // Returns the value of the input device valuator associated with the given valuator slot
+		{
+		const ToolInputAssignment::Slot& slot=input.getValuatorSlot(valuatorSlotIndex);
+		return slot.device->getValuator(slot.index);
 		}
 	
 	/* Constructors and destructors: */
@@ -117,6 +150,11 @@ class Tool
 	virtual ~Tool(void);
 	
 	/* Methods: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection); // Optionally called right after constructor
+	private:
+	virtual void configure(Misc::ConfigurationFileSection& configFileSection); // Previous method now forbidden
+	public:
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const; // Allows the tool to store its current state in the given configuration file section
 	virtual void initialize(void); // Called right after a tool has been created and is fully installed
 	virtual void deinitialize(void); // Called right before a tool is destroyed during runtime
 	const ToolInputLayout& getLayout(void) const // Returns tool's input layout
@@ -128,11 +166,11 @@ class Tool
 		return input;
 		}
 	virtual const ToolFactory* getFactory(void) const; // Returns pointer to factory that created this tool
-	void assignInputDevice(int deviceIndex,InputDevice* newAssignedDevice); // Re-assigns an input device (resets all button and valuator assignments of affected device)
-	void assignButton(int deviceIndex,int deviceButtonIndex,int newAssignedButtonIndex); // Re-assigns a button of the given input device
-	void assignValuator(int deviceIndex,int deviceValuatorIndex,int newAssignedValuatorIndex); // Re-assigns a valuator of the given input device
-	virtual void buttonCallback(int deviceIndex,int deviceButtonIndex,InputDevice::ButtonCallbackData* cbData); // Method called when state of a button changes
-	virtual void valuatorCallback(int deviceIndex,int deviceValuatorIndex,InputDevice::ValuatorCallbackData* cbData); // Method called when state of a valuator changes
+	virtual std::string getName(void) const; // Returns a descriptive name for the tool
+	void assignButtonSlot(int buttonSlotIndex,InputDevice* newSlotDevice,int newSlotButtonIndex); // Re-assigns a button slot
+	void assignValuatorSlot(int valuatorSlotIndex,InputDevice* newSlotDevice,int newSlotValuatorIndex); // Re-assigns a valuator slot
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData); // Method called when the state of a button changes
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData); // Method called when value of a valuator changes
 	virtual void frame(void); // Method called exactly once every frame
 	virtual void display(GLContextData& contextData) const; // Method for rendering the tool's current state into the current OpenGL context
 	};

@@ -1,7 +1,7 @@
 /***********************************************************************
 PolygonMesh - Base class for polygon meshes represented by a split-edge
 data structure.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2013 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -216,7 +216,7 @@ PolygonMeshBaseFace<ScalarParam,dimensionParam,VertexDataParam,EdgeDataParam,Fac
 	do
 		{
 		Vector d2=ePtr->getEnd()->getPosition()-ePtr->getStart()->getPosition();
-		normal+=Geometry::cross(d1,d2);
+		normal+=d1^d2;
 		d1=d2;
 		ePtr=ePtr->getFaceSucc();
 		}
@@ -239,7 +239,7 @@ PolygonMeshBaseFace<ScalarParam,dimensionParam,VertexDataParam,EdgeDataParam,Fac
 	do
 		{
 		Vector d2=ePtr->getEnd()->getPosition()-ePtr->getStart()->getPosition();
-		normal+=Geometry::cross(d1,d2);
+		normal+=d1^d2;
 		d1=d2;
 		centroidCombiner.addPoint(ePtr->getStart()->getPosition());
 		ePtr=ePtr->getFaceSucc();

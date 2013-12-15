@@ -1,6 +1,6 @@
 /***********************************************************************
 GLFont - Class to represent texture-based fonts and to render 3D text.
-Copyright (c) 1999-2010 Oliver Kreylos
+Copyright (c) 1999-2011 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -25,7 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <string.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/File.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLTexEnvTemplates.h>
@@ -36,7 +37,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 Methods of class GLFont::CharInfo:
 *********************************/
 
-void GLFont::CharInfo::read(Misc::File& file)
+void GLFont::CharInfo::read(IO::File& file)
 	{
 	file.read(width);
 	file.read(ascent);
@@ -54,11 +55,14 @@ GLsizei GLFont::calcStringWidth(const char* string) const
 	{
 	/* Figure out the string's total width in texels: */
 	GLsizei result=maxLeftLap+maxRightLap+2;
-	for(const char* cPtr=string;*cPtr!=0;++cPtr)
+	if(string!=0)
 		{
-		int charIndex=int(*cPtr)-firstCharacter;
-		if(charIndex>=0&&charIndex<numCharacters)
-			result+=characters[charIndex].width;
+		for(const char* cPtr=string;*cPtr!=0;++cPtr)
+			{
+			int charIndex=int(*cPtr)-firstCharacter;
+			if(charIndex>=0&&charIndex<numCharacters)
+				result+=characters[charIndex].width;
+			}
 		}
 	
 	return result;
@@ -88,32 +92,35 @@ void GLFont::uploadStringTexture(const char* string,GLsizei stringWidth,GLsizei 
 	GLubyte* image=new GLubyte[imageWidth*imageHeight];
 	memset(image,255,imageWidth*imageHeight);
 	
-	/* Copy all characters into the texture image: */
-	for(const char* cPtr=string;*cPtr!=0;++cPtr)
+	if(string!=0)
 		{
-		int charIndex=int(*cPtr)-firstCharacter;
-		if(charIndex>=0&&charIndex<numCharacters)
+		/* Copy all characters into the texture image: */
+		for(const char* cPtr=string;*cPtr!=0;++cPtr)
 			{
-			const CharInfo* ciPtr=&characters[charIndex];
-			const unsigned char* rasterLine=&rasterLines[ciPtr->rasterLineOffset];
-			const unsigned char* span=&spans[ciPtr->spanOffset];
-
-			/* Copy all raster lines: */
-			for(int y=baseLineRow-ciPtr->descent;y<baseLineRow+ciPtr->ascent;++y,++rasterLine)
+			int charIndex=int(*cPtr)-firstCharacter;
+			if(charIndex>=0&&charIndex<numCharacters)
 				{
-				/* Copy all spans in this line: */
-				GLubyte* texPtr=&image[imageWidth*y+x+ciPtr->glyphOffset];
-				int numSpans=int(*rasterLine);
-				for(int i=0;i<numSpans;++i,++span)
+				const CharInfo* ciPtr=&characters[charIndex];
+				const unsigned char* rasterLine=&rasterLines[ciPtr->rasterLineOffset];
+				const unsigned char* span=&spans[ciPtr->spanOffset];
+				
+				/* Copy all raster lines: */
+				for(int y=baseLineRow-ciPtr->descent;y<baseLineRow+ciPtr->ascent;++y,++rasterLine)
 					{
-					texPtr+=int((*span)>>3);
-					int numPixels=int((*span)&0x07);
-					for(int j=0;j<numPixels;++j,++texPtr)
-						*texPtr=GLubyte(0);
+					/* Copy all spans in this line: */
+					GLubyte* texPtr=&image[imageWidth*y+x+ciPtr->glyphOffset];
+					int numSpans=int(*rasterLine);
+					for(int i=0;i<numSpans;++i,++span)
+						{
+						texPtr+=int((*span)>>3);
+						int numPixels=int((*span)&0x07);
+						for(int j=0;j<numPixels;++j,++texPtr)
+							*texPtr=GLubyte(0);
+						}
 					}
+				
+				x+=ciPtr->width;
 				}
-
-			x+=ciPtr->width;
 			}
 		}
 	
@@ -174,32 +181,35 @@ void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringB
 	for(int i=imageWidth*imageHeight;i>0;--i,++iPtr)
 		*iPtr=bg;
 	
-	/* Copy all characters into the texture image: */
-	for(const char* cPtr=string;*cPtr!=0;++cPtr)
+	if(string!=0)
 		{
-		int charIndex=int(*cPtr)-firstCharacter;
-		if(charIndex>=0&&charIndex<numCharacters)
+		/* Copy all characters into the texture image: */
+		for(const char* cPtr=string;*cPtr!=0;++cPtr)
 			{
-			const CharInfo* ciPtr=&characters[charIndex];
-			const unsigned char* rasterLine=&rasterLines[ciPtr->rasterLineOffset];
-			const unsigned char* span=&spans[ciPtr->spanOffset];
-
-			/* Copy all raster lines: */
-			for(int y=baseLineRow-ciPtr->descent;y<baseLineRow+ciPtr->ascent;++y,++rasterLine)
+			int charIndex=int(*cPtr)-firstCharacter;
+			if(charIndex>=0&&charIndex<numCharacters)
 				{
-				/* Copy all spans in this line: */
-				iPtr=&image[imageWidth*y+x+ciPtr->glyphOffset];
-				int numSpans=int(*rasterLine);
-				for(int i=0;i<numSpans;++i,++span)
+				const CharInfo* ciPtr=&characters[charIndex];
+				const unsigned char* rasterLine=&rasterLines[ciPtr->rasterLineOffset];
+				const unsigned char* span=&spans[ciPtr->spanOffset];
+				
+				/* Copy all raster lines: */
+				for(int y=baseLineRow-ciPtr->descent;y<baseLineRow+ciPtr->ascent;++y,++rasterLine)
 					{
-					iPtr+=int((*span)>>3);
-					int numPixels=int((*span)&0x07);
-					for(int j=0;j<numPixels;++j,++iPtr)
-						*iPtr=fg;
+					/* Copy all spans in this line: */
+					iPtr=&image[imageWidth*y+x+ciPtr->glyphOffset];
+					int numSpans=int(*rasterLine);
+					for(int i=0;i<numSpans;++i,++span)
+						{
+						iPtr+=int((*span)>>3);
+						int numPixels=int((*span)&0x07);
+						for(int j=0;j<numPixels;++j,++iPtr)
+							*iPtr=fg;
+						}
 					}
+				
+				x+=ciPtr->width;
 				}
-
-			x+=ciPtr->width;
 			}
 		}
 	
@@ -230,7 +240,114 @@ void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringB
 	delete[] image;
 	}
 
-void GLFont::loadFont(Misc::File& file)
+void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const GLFont::Color& selectionBackgroundColor,const GLFont::Color& selectionForegroundColor,GLsizei stringWidth,GLsizei textureWidth) const
+	{
+	/* Calculate the proper texture image dimensions: */
+	GLsizei imageWidth,imageHeight;
+	int x,baseLineRow;
+	if(antialiasing)
+		{
+		imageWidth=stringWidth;
+		imageHeight=fontHeight;
+		baseLineRow=baseLine;
+		x=maxLeftLap+1;
+		}
+	else
+		{
+		imageWidth=stringWidth;
+		imageHeight=fontHeight;
+		baseLineRow=baseLine;
+		x=maxLeftLap+1;
+		}
+	
+	/* Convert the string colors to 8-bit RGBA: */
+	GLColor<GLubyte,4> bg=stringBackgroundColor;
+	GLColor<GLubyte,4> fg=stringForegroundColor;
+	GLColor<GLubyte,4> sbg=selectionBackgroundColor;
+	GLColor<GLubyte,4> sfg=selectionForegroundColor;
+	
+	/* Create an RGBA texture image of appropriate size: */
+	GLColor<GLubyte,4>* image=new GLColor<GLubyte,4>[imageWidth*imageHeight];
+	GLColor<GLubyte,4>* iPtr=image;
+	for(int i=imageWidth*imageHeight;i>0;--i,++iPtr)
+		*iPtr=bg;
+	
+	if(string!=0)
+		{
+		/* Copy all characters into the texture image: */
+		GLsizei index=0;
+		for(const char* cPtr=string;*cPtr!=0;++cPtr,++index)
+			{
+			int charIndex=int(*cPtr)-firstCharacter;
+			if(charIndex>=0&&charIndex<numCharacters)
+				{
+				const CharInfo* ciPtr=&characters[charIndex];
+				const unsigned char* rasterLine=&rasterLines[ciPtr->rasterLineOffset];
+				const unsigned char* span=&spans[ciPtr->spanOffset];
+				
+				GLColor<GLubyte,4> tfg=fg;
+				if(index>=selectionStart&&index<selectionEnd)
+					{
+					/* Change the background color to the selection background color: */
+					for(int y1=0;y1<imageHeight;++y1)
+						{
+						iPtr=&image[imageWidth*y1+x];
+						for(int x1=x;x1<x+ciPtr->width;++x1,++iPtr)
+							*iPtr=sbg;
+						}
+					
+					/* Use the selection foreground color: */
+					tfg=sfg;
+					}
+				
+				/* Copy all raster lines: */
+				for(int y=baseLineRow-ciPtr->descent;y<baseLineRow+ciPtr->ascent;++y,++rasterLine)
+					{
+					/* Copy all spans in this line: */
+					iPtr=&image[imageWidth*y+x+ciPtr->glyphOffset];
+					int numSpans=int(*rasterLine);
+					for(int i=0;i<numSpans;++i,++span)
+						{
+						iPtr+=int((*span)>>3);
+						int numPixels=int((*span)&0x07);
+						for(int j=0;j<numPixels;++j,++iPtr)
+							*iPtr=tfg;
+						}
+					}
+				
+				x+=ciPtr->width;
+				}
+			}
+		}
+	
+	/* Upload the created texture image: */
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
+	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,textureWidth,textureHeight,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
+	if(antialiasing)
+		{
+		static GLfloat kernel[3]={0.25,0.5,0.25};
+		// static GLfloat kernel[5]={0.125,0.2,0.35,0.2,0.125};
+		glConvolutionParameteri(GL_SEPARABLE_2D,GL_CONVOLUTION_BORDER_MODE,GL_REPLICATE_BORDER);
+		glSeparableFilter2D(GL_SEPARABLE_2D,GL_RGBA8,3,3,GL_LUMINANCE,GL_FLOAT,kernel,kernel);
+		glEnable(GL_SEPARABLE_2D);
+		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,imageWidth,imageHeight,GL_RGBA,GL_UNSIGNED_BYTE,image);
+		glDisable(GL_SEPARABLE_2D);
+		}
+	else
+		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,imageWidth,imageHeight,GL_RGBA,GL_UNSIGNED_BYTE,image);
+	
+	/* Clean up and return: */
+	delete[] image;
+	}
+
+void GLFont::loadFont(IO::File& file)
 	{
 	/* Load the font file header: */
 	firstCharacter=file.read<GLint>();
@@ -283,8 +400,9 @@ GLFont::GLFont(const char* fontName)
 		{
 		/* Try given directory first: */
 		snprintf(fontFileName,sizeof(fontFileName),"%s.fnt",fontName);
-		Misc::File fontFile(fontFileName,"rb",Misc::File::LittleEndian);
-		loadFont(fontFile);
+		IO::FilePtr fontFile(IO::openFile(fontFileName));
+		fontFile->setEndianness(Misc::LittleEndian);
+		loadFont(*fontFile);
 		return;
 		}
 	catch(...)
@@ -299,8 +417,9 @@ GLFont::GLFont(const char* fontName)
 			{
 			/* Try the GLFONTDIR directory next: */
 			snprintf(fontFileName,sizeof(fontFileName),"%s/%s.fnt",getenv("GLFONTDIR"),fontName);
-			Misc::File fontFile(fontFileName,"rb",Misc::File::LittleEndian);
-			loadFont(fontFile);
+			IO::FilePtr fontFile(IO::openFile(fontFileName));
+			fontFile->setEndianness(Misc::LittleEndian);
+			loadFont(*fontFile);
 			return;
 			}
 		catch(...)
@@ -313,8 +432,9 @@ GLFont::GLFont(const char* fontName)
 		{
 		/* Try system-wide GL font directory last: */
 		snprintf(fontFileName,sizeof(fontFileName),"%s/%s.fnt",SYSGLFONTDIR,fontName);
-		Misc::File fontFile(fontFileName,"rb",Misc::File::LittleEndian);
-		loadFont(fontFile);
+		IO::FilePtr fontFile(IO::openFile(fontFileName));
+		fontFile->setEndianness(Misc::LittleEndian);
+		loadFont(*fontFile);
 		return;
 		}
 	catch(...)
@@ -411,23 +531,26 @@ GLint GLFont::calcCharacterPos(const char* string,GLsizei textureWidth,GLfloat t
 	
 	/* Find the character whose box contains the texel-space texture coordinate: */
 	GLint result=0;
-	const char* cPtr=string;
-	GLfloat left=GLfloat(maxLeftLap);
-	while(*cPtr!='\0')
+	if(string!=0)
 		{
-		/* Calculate the current character's box extents: */
-		int charIndex=int(*cPtr)-firstCharacter;
-		GLfloat right=left;
-		if(charIndex>=0&&charIndex<numCharacters)
-			right+=GLfloat(characters[charIndex].width);
-		
-		if(texX<(left+right)*0.5f)
-			break;
-		
-		/* Go to the next character: */
-		++result;
-		++cPtr;
-		left=right;
+		const char* cPtr=string;
+		GLfloat left=GLfloat(maxLeftLap);
+		while(*cPtr!='\0')
+			{
+			/* Calculate the current character's box extents: */
+			int charIndex=int(*cPtr)-firstCharacter;
+			GLfloat right=left;
+			if(charIndex>=0&&charIndex<numCharacters)
+				right+=GLfloat(characters[charIndex].width);
+			
+			if(texX<(left+right)*0.5f)
+				break;
+			
+			/* Go to the next character: */
+			++result;
+			++cPtr;
+			left=right;
+			}
 		}
 	
 	return result;
@@ -436,18 +559,21 @@ GLint GLFont::calcCharacterPos(const char* string,GLsizei textureWidth,GLfloat t
 GLfloat GLFont::calcCharacterTexCoord(const char* string,GLsizei textureWidth,GLint characterPos) const
 	{
 	/* Find the character's texel position: */
-	const char* cPtr=string;
 	GLint texelPos=maxLeftLap;
-	while(characterPos>0&&*cPtr!='\0')
+	if(string!=0)
 		{
-		/* Calculate the current character's box extents: */
-		int charIndex=int(*cPtr)-firstCharacter;
-		if(charIndex>=0&&charIndex<numCharacters)
-			texelPos+=characters[charIndex].width;
-		
-		/* Go to the next character: */
-		--characterPos;
-		++cPtr;
+		const char* cPtr=string;
+		while(characterPos>0&&*cPtr!='\0')
+			{
+			/* Calculate the current character's box extents: */
+			int charIndex=int(*cPtr)-firstCharacter;
+			if(charIndex>=0&&charIndex<numCharacters)
+				texelPos+=characters[charIndex].width;
+			
+			/* Go to the next character: */
+			--characterPos;
+			++cPtr;
+			}
 		}
 	
 	/* Convert the texel position to a texture coordinate: */
@@ -492,6 +618,26 @@ void GLFont::uploadStringTexture(const GLString& string,const GLFont::Color& str
 	{
 	/* Upload the string's texture image: */
 	uploadStringTexture(string.string,stringBackgroundColor,stringForegroundColor,string.texelWidth,string.textureWidth);
+	}
+
+void GLFont::uploadStringTexture(const char* string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const
+	{
+	/* Calculate the string's texel width: */
+	GLsizei stringWidth=calcStringWidth(string);
+	
+	/* Calculate the texture width: */
+	GLsizei textureWidth;
+	for(textureWidth=1;textureWidth<stringWidth;textureWidth<<=1)
+		;
+	
+	/* Upload the string's texture image: */
+	uploadStringTexture(string,stringBackgroundColor,stringForegroundColor,selectionStart,selectionEnd,selectionBackgroundColor,selectionForegroundColor,stringWidth,textureWidth);
+	}
+
+void GLFont::uploadStringTexture(const GLString& string,const GLFont::Color& stringBackgroundColor,const GLFont::Color& stringForegroundColor,GLsizei selectionStart,GLsizei selectionEnd,const Color& selectionBackgroundColor,const Color& selectionForegroundColor) const
+	{
+	/* Upload the string's texture image: */
+	uploadStringTexture(string.string,stringBackgroundColor,stringForegroundColor,selectionStart,selectionEnd,selectionBackgroundColor,selectionForegroundColor,string.texelWidth,string.textureWidth);
 	}
 
 void GLFont::drawString(const GLFont::Vector& origin,const char* string) const

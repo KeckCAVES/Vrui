@@ -1,7 +1,7 @@
 /***********************************************************************
 Vrui - Public kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,10 +32,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 namespace Misc {
+class Time;
 class CallbackList;
 class TimerEventScheduler;
 }
-namespace Comm {
+namespace Cluster {
+class Multiplexer;
 class MulticastPipe;
 }
 class GLContextData;
@@ -60,6 +62,7 @@ class LightsourceManager;
 class ClipPlaneManager;
 class Viewer;
 class VRScreen;
+struct WindowProperties;
 class VRWindow;
 class ViewSpecification;
 class Listener;
@@ -131,11 +134,12 @@ Vrui control functions:
 void shutdown(void);
 
 /* Manage multipipe rendering: */
+Cluster::Multiplexer* getClusterMultiplexer(void); // Returns the intra-cluster communication multiplexer in a cluster-based Vrui environment; returns 0 if called in a non-cluster environment)
 bool isMaster(void); // Returns true if the multipipe node the caller is running on is the master
 int getNodeIndex(void); // Returns index of the multipipe node the caller is running on (0: master node)
 int getNumNodes(void); // Returns number of multipipe nodes, including master
-Comm::MulticastPipe* getMainPipe(void); // Returns Vrui's main frame pipe; safe to use inside frame function, user must call finishMessage() when done (returns 0 if called in a non-cluster environment)
-Comm::MulticastPipe* openPipe(void); // Opens a pipe for 1-to-n communication from master to all slaves (returns 0 if called in a non-cluster environment)
+Cluster::MulticastPipe* getMainPipe(void); // Returns Vrui's main frame pipe; safe to use inside frame function, user must call finishMessage() when done (returns 0 if called in a non-cluster environment)
+Cluster::MulticastPipe* openPipe(void); // Opens a pipe for 1-to-n communication from master to all slaves (returns 0 if called in a non-cluster environment)
 
 /* Manage glyph rendering: */
 GlyphRenderer* getGlyphRenderer(void); // Returns pointer to the glyph renderer
@@ -170,9 +174,10 @@ VRScreen* findScreen(const char* name); // Returns pointer to screen of given na
 std::pair<VRScreen*,Scalar> findScreen(const Ray& ray); // Returns pointer to closest screen intersected by ray, and intersection ray parameter (returns 0 if no screen is intersected)
 
 /* Query information about rendering windows: */
-int getNumWindows(void); // Returns the number of active rendering windows
-VRWindow* getWindow(int index); // Returns pointer to window of given index
-ViewSpecification calcViewSpec(int windowIndex,int eyeIndex); // Returns viewing specification in navigation coordinates for given eye in given window
+void requestWindowProperties(const WindowProperties& properties); // Requests the given set of properties from all subsequently opened display windows (must be called before main loop)
+int getNumWindows(void); // Returns the total number of active rendering windows in the environment
+VRWindow* getWindow(int index); // Returns pointer to window of given index; windows on other cluster nodes have NULL pointers
+ViewSpecification calcViewSpec(int windowIndex,int eyeIndex); // Returns viewing specification in navigation coordinates for given eye in given window; returns garbage if given window is on another cluster node
 
 /* Query information about listeners: */
 Listener* getMainListener(void); // Returns pointer to the "main" listener (the one to use when clueless)
@@ -197,7 +202,7 @@ const Plane& getFloorPlane(void); // Returns a plane equation for the "floor" of
 /* Manage rendering parameters: */
 void setFrontplaneDist(Scalar newFrontplaneDist); // Sets the distance of the OpenGL front plane in physical units
 Scalar getFrontplaneDist(void); // Returns the distance of the OpenGL front plane in physical units
-void setBackplaneDist(Scalar newFrontplaneDist); // Sets the distance of the OpenGL back plane in physical units
+void setBackplaneDist(Scalar newBackplaneDist); // Sets the distance of the OpenGL back plane in physical units
 Scalar getBackplaneDist(void); // Returns the distance of the OpenGL back plane in physical units
 void setBackgroundColor(const Color& newBackgroundColor); // Sets the OpenGL background color
 const Color& getBackgroundColor(void); // Returns the OpenGL background color
@@ -217,10 +222,19 @@ void setMainMenu(GLMotif::PopupMenu* newMainMenu); // Sets the application's mai
 MutexMenu* getMainMenu(void); // Returns pointer to the application's main menu
 Misc::TimerEventScheduler* getTimerEventScheduler(void); // Returns pointer to the scheduler for application timer events
 GLMotif::WidgetManager* getWidgetManager(void); // Returns pointer to the UI component manager
+const ONTransform& getUiPlane(void); // Returns a plane to create / interact with UI components
+Point calcUiPoint(const Ray& ray); // Returns a position to create / interact with UI components for the given input device
+ONTransform calcUiTransform(const Ray& ray); // Returns a transformation to create / interact with UI components for the given input device
+ONTransform calcHUDTransform(const Point& hotSpot); // Returns a transformation for showing a HUD or GUI element at the given hot spot
 void popupPrimaryWidget(GLMotif::Widget* topLevel); // Shows a top-level UI component at a default position in the environment
-void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational =true); // Shows a top-level UI component in the environment
+void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational =true); // Shows a top-level UI component at the given position in physical or navigational coordinates
 void popupPrimaryScreenWidget(GLMotif::Widget* topLevel,Scalar x,Scalar y); // Shows a top-level UI component aligned to the given screen in the environment
 void popdownPrimaryWidget(GLMotif::Widget* topLevel); // Hides a top-level UI component
+void showErrorMessage(const char* title,const char* message); // Pops up a temporary dialog window to show an error message with an acknowledgment button
+
+/* Manage 3D picking and selection: */
+Scalar getPointPickDistance(void); // Returns the maximum distance to be used for point-based pick queries in navigational space
+Scalar getRayPickCosine(void); // Returns the cosine of the maximum angle to be used for ray-based pick queries
 
 /* Navigation transformation management: */
 void setNavigationTransformation(const NavTransform& newNavigationTransformation); // Sets the navigation transformation
@@ -230,15 +244,15 @@ void concatenateNavigationTransformation(const NavTransform& t); // Concatenates
 void concatenateNavigationTransformationLeft(const NavTransform& t); // Concatenates the given transformation to the navigation transformation from the left
 const NavTransform& getNavigationTransformation(void); // Returns the navigation transformation
 const NavTransform& getInverseNavigationTransformation(void); // Returns the inverse of the navigation transformation
-void disableNavigationTransformation(void); // Disable all navigation; from this point on, model coordinates are physical coordinates
+void disableNavigationTransformation(void); // Disable all navigation; from this point on, navigational coordinates are physical coordinates
 Misc::CallbackList& getNavigationTransformationChangedCallbacks(void); // Returns the lists of callbacks called when the navigation transformation changes
 CoordinateManager* getCoordinateManager(void); // Returns pointer to the coordinate manager
 
 /* Pointer/device position/orientation management: */
-Point getHeadPosition(void); // Returns the current position of the main viewer in model coordinates
-Vector getViewDirection(void); // Returns the view direction of the main viewer in model coordinates
-Point getDevicePosition(InputDevice* device); // Returns the position of the given input device in model coordinates
-NavTrackerState getDeviceTransformation(InputDevice* device); // Returns the transformation of the given input device in model coordiantes
+Point getHeadPosition(void); // Returns the current position of the main viewer in navigational coordinates
+Vector getViewDirection(void); // Returns the view direction of the main viewer in navigational coordinates
+Point getDevicePosition(InputDevice* device); // Returns the position of the given input device in navigational coordinates
+NavTrackerState getDeviceTransformation(InputDevice* device); // Returns the transformation of the given input device in navigational coordiantes
 
 /* Tool management: */
 ToolManager* getToolManager(void); // Returns pointer to the tool manager
@@ -249,13 +263,15 @@ void deactivateNavigationTool(const Tool* tool); // Deactivates a navigation too
 VisletManager* getVisletManager(void); // Returns pointer to the vislet manager
 
 /* Time management: */
-double getApplicationTime(void); // Returns the time since the application was started in seconds
+Misc::Time getTimeOfDay(void); // Returns the system's wall clock time; requires a multicast data exchange in cluster environments
+double getApplicationTime(void); // Returns the time since the application was started in seconds; is identical throughout a Vrui frame and across a cluster
 double getFrameTime(void); // Returns the duration of the last frame in seconds
 double getCurrentFrameTime(void); // Returns the current average time between frames (1/framerate) in seconds
 
 /* Rendering management: */
 void updateContinuously(void); // Tells Vrui to continuously update its state (must be called before mainLoop)
-void requestUpdate(void); // Tells Vrui to update its internal state and redraw the VR windows
+void requestUpdate(void); // Tells Vrui to update its internal state and redraw the VR windows; can be called from any thread
+void scheduleUpdate(double nextFrameTime); // Asks Vrui to update its internal state and redraw the VR windows at the given application time; must be called from main thread
 const DisplayState& getDisplayState(GLContextData& contextData); // Returns the Vrui display state valid for the current display method call
 
 }

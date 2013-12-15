@@ -47,8 +47,6 @@ class InputDeviceToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	bool createInputDevice; // Flag whether any newly created input device tool also creates a new unbound input device
-	int newDeviceNumButtons; // Number of buttons on newly created input devices
 	VirtualInputDevice* virtualInputDevice; // Pointer to the helper object for virtual input devices
 	
 	/* Constructors and destructors: */
@@ -58,38 +56,28 @@ class InputDeviceToolFactory:public ToolFactory
 	
 	/* Methods from ToolFactory: */
 	virtual const char* getName(void) const;
+	virtual const char* getButtonFunction(int buttonSlotIndex) const;
+	virtual const char* getValuatorFunction(int valuatorSlotIndex) const;
 	};
 
 class InputDeviceTool:public UserInterfaceTool
 	{
 	friend class InputDeviceToolFactory;
 	
-	/* Embedded classes: */
-	private:
-	struct ButtonHijacker // Structure to "hijack" a button from an input device and redirect it to another input device
-		{
-		/* Elements: */
-		public:
-		InputDevice* targetDevice; // Pointer to the target device of the hijacked button
-		int buttonIndex; // Index of the hijacked button on the target input device
-		
-		/* Constructors and destructors: */
-		ButtonHijacker(void);
-		
-		static void buttonCallbackWrapper(Misc::CallbackData* cbData,void* userData); // Hijacking callback registered with the source input device
-		};
-	
 	/* Elements: */
+	private:
 	static InputDeviceToolFactory* factory; // Pointer to the factory object for this class
-	InputDevice* createdDevice; // Pointer to an input device that was created by this input device tool
-	ButtonHijacker* buttonHijackers; // Array of button hijackers to override buttons on the tool's input device
+	
+	protected:
+	int numPrivateButtons; // Number of initial button slots that are not forwarded to a grabbed device
+	int numPrivateValuators; // Number of initial valuator slots that are not forwarded to a grabbed device
+	
+	private:
 	bool active; // Flag whether the tool is active (has an input device grabbed)
 	InputDevice* grabbedDevice; // Pointer to the input device grabbed by the tool
 	
 	/* Protected methods: */
 	protected:
-	void hijackButtons(void); // Reroutes buttons from the tool's input device to the currently grabbed device
-	void releaseButtons(void); // Removes all installed button hijacks
 	bool activate(const Point& position); // Tries grabbing an input device at the given position; returns true on success
 	bool activate(const Ray& ray); // Tries grabbing an input device with the given ray; returns true on success
 	bool isActive(void) const // Returns true if the tool is currently active
@@ -112,6 +100,8 @@ class InputDeviceTool:public UserInterfaceTool
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
+	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);
 	};
 
 }

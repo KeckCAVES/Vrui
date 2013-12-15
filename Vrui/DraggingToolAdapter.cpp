@@ -1,7 +1,7 @@
 /***********************************************************************
 DraggingToolAdapter - Adapter class to connect a generic dragging tool
 to application functionality.
-Copyright (c) 2004-2008 Oliver Kreylos
+Copyright (c) 2004-2010 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/DraggingToolAdapter.h>
 
+#include <Misc/FunctionCalls.h>
+
 namespace Vrui {
 
 /************************************
@@ -32,6 +34,10 @@ Methods of class DraggingToolAdapter:
 DraggingToolAdapter::DraggingToolAdapter(DraggingTool* sTool)
 	:tool(sTool)
 	{
+	/* Register functions with the dragging tool: */
+	tool->setStoreStateFunction(Misc::createFunctionCall(this,&DraggingToolAdapter::storeState));
+	tool->setGetNameFunction(Misc::createFunctionCall(this,&DraggingToolAdapter::getName));
+	
 	/* Register callbacks with the dragging tool: */
 	tool->getIdleMotionCallbacks().add(this,&DraggingToolAdapter::idleMotionCallback);
 	tool->getDragStartCallbacks().add(this,&DraggingToolAdapter::dragStartCallback);
@@ -41,11 +47,25 @@ DraggingToolAdapter::DraggingToolAdapter(DraggingTool* sTool)
 
 DraggingToolAdapter::~DraggingToolAdapter(void)
 	{
+	/* Unregister functions from the dragging tool: */
+	tool->setStoreStateFunction(0);
+	tool->setGetNameFunction(0);
+	
 	/* Unregister callbacks from the dragging tool: */
 	tool->getIdleMotionCallbacks().remove(this,&DraggingToolAdapter::idleMotionCallback);
 	tool->getDragStartCallbacks().remove(this,&DraggingToolAdapter::dragStartCallback);
 	tool->getDragCallbacks().remove(this,&DraggingToolAdapter::dragCallback);
 	tool->getDragEndCallbacks().remove(this,&DraggingToolAdapter::dragEndCallback);
+	}
+
+void DraggingToolAdapter::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* No default behavior... */
+	}
+
+void DraggingToolAdapter::getName(std::string& name) const
+	{
+	/* No default behavior... */
 	}
 
 void DraggingToolAdapter::idleMotionCallback(DraggingTool::IdleMotionCallbackData*)

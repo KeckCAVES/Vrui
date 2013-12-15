@@ -2,7 +2,7 @@
 Geoid - Class to represent geoids, actually reference ellipsoids, to
 support coordinate system transformations between several spherical or
 ellipsoidal coordinate systems commonly used in geodesy.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2012 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
+#include <Geometry/Matrix.h>
 #include <Geometry/Rotation.h>
 #include <Geometry/OrthonormalTransformation.h>
 
@@ -41,11 +42,12 @@ class Geoid
 	typedef ScalarParam Scalar; // Scalar type for input/output geometry objects
 	static const int dimension=3; // Geoids are always three-dimensional
 	typedef Geometry::Point<Scalar,dimension> Point; // Type for points
+	typedef Geometry::Matrix<Scalar,dimension,dimension> Derivative; // Type for transformation derivatives
 	typedef Geometry::Rotation<Scalar,dimension> Orientation; // Type for coordinate orientations
 	typedef Geometry::OrthonormalTransformation<Scalar,dimension> Frame; // Type for coordinate frames
 	
 	/* Elements: */
-	public:
+	protected:
 	double radius; // Geoid's radius (semi-major axis) in whatever unit is convenient
 	double flatteningFactor; // Geoid's flattening factor
 	double b; // Geoid's semi-minor axis
@@ -54,6 +56,8 @@ class Geoid
 	
 	/* Constructors and destructors: */
 	public:
+	static double getDefaultRadius(void); // Returns radius of default geoid (WGS84)
+	static double getDefaultFlatteningFactor(void); // Returns flattening factor of default geoid (WGS84)
 	Geoid(void); // Creates a default geoid (WGS84)
 	Geoid(double sRadius,double sFlatteningFactor); // Creates a geoid with the given parameters
 	
@@ -90,6 +94,7 @@ class Geoid
 		double chi=Math::sqrt(1.0-e2*sLat*sLat);
 		return Point(Scalar((radius/chi+elev)*cLat*cLon),Scalar((radius/chi+elev)*cLat*sLon),Scalar((radius*(1.0-e2)/chi+elev)*sLat));
 		}
+	Derivative geodeticToCartesianDerivative(const Point& geodeticBase) const; // Returns the derivative of the point transformation at the given base point in geodetic coordinates
 	Orientation geodeticToCartesianOrientation(const Point& geodeticBase) const // Returns a geoid-tangential coordinate orientation at the given base point in geodetic coordinates
 		{
 		Orientation o=Orientation::rotateZ(Scalar(0.5*Math::Constants<double>::pi+double(geodeticBase[0])));
@@ -100,10 +105,10 @@ class Geoid
 	Point cartesianToGeodetic(const Point& cartesian) const; // Transforms a point
 	};
 
+}
+
 #if defined(GEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GEOMETRY_GEOID_IMPLEMENTATION)
 #include <Geometry/Geoid.icpp>
 #endif
-
-}
 
 #endif

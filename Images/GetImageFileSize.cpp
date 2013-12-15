@@ -20,21 +20,23 @@ with the Image Handling Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <Images/GetImageFileSize.h>
+
+#include <Images/Config.h>
+
 #include <stdio.h>
 #include <string.h>
-#ifdef IMAGES_USE_PNG
+#if IMAGES_CONFIG_HAVE_PNG
 #include <png.h>
 #endif
-#ifdef IMAGES_USE_JPEG
+#if IMAGES_CONFIG_HAVE_JPEG
 #include <jpeglib.h>
 #endif
-#ifdef IMAGES_USE_TIFF
+#if IMAGES_CONFIG_HAVE_TIFF
 #include <tiffio.h>
 #endif
 #include <Misc/ThrowStdErr.h>
 #include <Misc/File.h>
-
-#include <Images/GetImageFileSize.h>
 
 namespace Images {
 
@@ -66,7 +68,7 @@ void getPnmFileSize(const char* imageFileName,unsigned int& width,unsigned int& 
 	sscanf(line,"%u %u",&width,&height);
 	}
 
-#ifdef IMAGES_USE_PNG
+#if IMAGES_CONFIG_HAVE_PNG
 
 /**********************************************
 Function to extract image size from PNG images:
@@ -122,7 +124,7 @@ void getPngFileSize(const char* imageFileName,unsigned int& width,unsigned int& 
 
 #endif
 
-#ifdef IMAGES_USE_JPEG
+#if IMAGES_CONFIG_HAVE_JPEG
 
 /***************************************************
 Helper structures and functions for the JPEG reader:
@@ -198,7 +200,28 @@ void getJpegFileSize(const char* imageFileName,unsigned int& width,unsigned int&
 
 #endif
 
-#ifdef IMAGES_USE_TIFF
+#if IMAGES_CONFIG_HAVE_TIFF
+
+namespace {
+
+/******************************************
+Helper functions for the TIFF image reader:
+******************************************/
+
+void tiffErrorFunction(const char* module,const char* fmt,va_list ap)
+	{
+	/* Throw an exception with the error message: */
+	char msg[1024];
+	vsnprintf(msg,sizeof(msg),fmt,ap);
+	throw std::runtime_error(msg);
+	}
+
+void tiffWarningFunction(const char* module,const char* fmt,va_list ap)
+	{
+	/* Ignore warnings */
+	}
+
+}
 
 /***********************************************
 Function to extract image size from TIFF images:
@@ -206,6 +229,10 @@ Function to extract image size from TIFF images:
 
 void getTiffFileSize(const char* imageFileName,unsigned int& width,unsigned int& height)
 	{
+	/* Set the TIFF error handler: */
+	TIFFSetErrorHandler(tiffErrorFunction);
+	TIFFSetWarningHandler(tiffWarningFunction);
+	
 	/* Open the TIFF image: */
 	TIFF* image=TIFFOpen(imageFileName,"r");
 	if(image==0)
@@ -243,15 +270,15 @@ void getImageFileSize(const char* imageFileName,unsigned int& width,unsigned int
 	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
 	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))
 		getPnmFileSize(imageFileName,width,height);
-	#ifdef IMAGES_USE_PNG
+	#if IMAGES_CONFIG_HAVE_PNG
 	else if(strcasecmp(extStart,"png")==0)
 		getPngFileSize(imageFileName,width,height);
 	#endif
-	#ifdef IMAGES_USE_JPEG
+	#if IMAGES_CONFIG_HAVE_JPEG
 	else if(strcasecmp(extStart,"jpg")==0||strcasecmp(extStart,"jpeg")==0)
 		getJpegFileSize(imageFileName,width,height);
 	#endif
-	#ifdef IMAGES_USE_TIFF
+	#if IMAGES_CONFIG_HAVE_TIFF
 	else if(strcasecmp(extStart,"tif")==0||strcasecmp(extStart,"tiff")==0)
 		getTiffFileSize(imageFileName,width,height);
 	#endif

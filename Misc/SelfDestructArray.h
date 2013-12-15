@@ -4,7 +4,7 @@ automatically deletes the array when the pointer goes out of scope. Does
 not support multiple references to the same object or anything fancy
 like that (use Misc::Autopointer instead), but does not require any help
 from the target class, either.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2011 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -27,6 +27,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_SELFDESTRUCTARRAY_INCLUDED
 #define MISC_SELFDESTRUCTARRAY_INCLUDED
 
+#include <stddef.h>
+
 namespace Misc {
 
 template <class TargetParam>
@@ -44,6 +46,10 @@ class SelfDestructArray
 	public:
 	SelfDestructArray(void) // Creates invalid array
 		:target(0)
+		{
+		}
+	SelfDestructArray(size_t numElements) // Creates self-destructor for new-allocated array
+		:target(new Target[numElements])
 		{
 		}
 	SelfDestructArray(Target* sTarget) // Creates self-destructor for given target array
@@ -67,6 +73,14 @@ class SelfDestructArray
 		return target;
 		}
 	operator Target*(void) // Ditto
+		{
+		return target;
+		}
+	const Target* getArray(void) const // Explicit conversion to standard array pointer
+		{
+		return target;
+		}
+	Target* getArray(void) // Ditto
 		{
 		return target;
 		}

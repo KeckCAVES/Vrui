@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -30,6 +30,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/TextureCoordinateNode.h>
 #include <SceneGraph/ColorNode.h>
 #include <SceneGraph/NormalNode.h>
+#include <SceneGraph/ColorMapNode.h>
+#include <SceneGraph/ImageProjectionNode.h>
+
+/* Forward declarations: */
+namespace Cluster {
+class Multiplexer;
+}
 
 namespace SceneGraph {
 
@@ -40,6 +47,8 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	typedef SF<TextureCoordinateNodePointer> SFTextureCoordinateNode;
 	typedef SF<ColorNodePointer> SFColorNode;
 	typedef SF<NormalNodePointer> SFNormalNode;
+	typedef SF<ColorMapNodePointer> SFColorMapNode;
+	typedef SF<ImageProjectionNodePointer> SFImageProjectionNode;
 	
 	/* Elements: */
 	
@@ -50,6 +59,8 @@ class ElevationGridNode:public GeometryNode,public GLObject
 		public:
 		GLuint vertexBufferObjectId; // ID of vertex buffer object containing the vertices, if supported
 		GLuint indexBufferObjectId; // ID of index buffer object containing the vertex indices, if supported
+		GLuint numQuads; // Number of quads in a non-indexed quad set
+		GLuint numTriangles; // Number of triangles in a non-indexed quad/triangle set
 		unsigned int version; // Version of point set stored in vertex buffer object
 		
 		/* Constructors and destructors: */
@@ -61,6 +72,8 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	public:
 	SFTextureCoordinateNode texCoord;
 	SFColorNode color;
+	SFColorMapNode colorMap;
+	SFImageProjectionNode imageProjection;
 	SFBool colorPerVertex;
 	SFNormalNode normal;
 	SFBool normalPerVertex;
@@ -71,21 +84,31 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	SFInt zDimension;
 	SFFloat zSpacing;
 	MFFloat height;
-	MFString heightUrl;
+	MFString heightUrl; // URL of external file(s) containing the height array in several file formats
+	MFString heightUrlFormat; // Format of external height file: "BIL", "ARC/INFO ASCII GRID"
+	SFFloat heightScale; // Scale factor applied to all height values
 	SFBool heightIsY;
+	SFBool removeInvalids; // Flag to remove "invalid" elevation samples from the height array by leaving holes in the triangulation
+	SFFloat invalidHeight; // Value to indicate "invalid" elevations
 	SFBool ccw;
 	SFBool solid;
 	
 	/* Derived state: */
 	protected:
+	Cluster::Multiplexer* multiplexer; // Pointer to a multicast pipe multiplexer when parsing VRML files in a cluster environment
 	bool valid; // Flag whether the elevation grid has a valid renderable representation
 	bool indexed; // Flag whether the elevation grid is represented as a set of indexed quad strips or a set of quads
+	bool haveInvalids; // Flag whether there are some invalid elevation samples that need to be removed
 	unsigned int version; // Version number of elevation grid
 	
 	/* Private methods: */
-	Vector calcVertexNormal(int x,int z) const; // Calculates a vertex' normal vector using central differencing
+	Point* calcVertices(void) const; // Returns a new-allocated array of vertex positions, untransformed by the point transformation
+	Vector* calcQuadNormals(void) const; // Returns a new-allocated array of non-normalized per-quad normal vectors
+	int* calcHoleyQuadCases(GLuint& numQuads,GLuint& numTriangles) const; // Returns a new-allocated array of quad triangulation cases
+	Vector* calcHoleyQuadNormals(const int* quadCases) const; // Returns a new-allocated array of non-normalized per-quad normal vectors with removal of invalid samples
 	void uploadIndexedQuadStripSet(void) const; // Uploads the elevation grid as a set of indexed quad strips
 	void uploadQuadSet(void) const; // Uploads the elevation grid as a set of quads
+	void uploadHoleyQuadTriangleSet(GLuint& numQuads,GLuint& numTriangles) const; // Uploads the elevation grid as a set of quads and triangles with removal of invalid samples; updates passed number of quads and triangles
 	
 	/* Constructors and destructors: */
 	public:

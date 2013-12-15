@@ -36,6 +36,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <Vrui/Geometry.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceManager.h>
@@ -71,7 +72,7 @@ InputDeviceAdapterVisBox::InputDeviceAdapterVisBox(InputDeviceManager* sInputDev
 	/* Create new input device: */
 	std::string deviceName=configFileSection.retrieveString("./name");
 	inputDevices[0]=inputDeviceManager->createInputDevice(deviceName.c_str(),InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT,0,0,true);
-	inputDevices[0]->setDeviceRayDirection(configFileSection.retrieveValue<Vector>("./deviceRayDirection",Vector(0,1,0)));
+	inputDevices[0]->setDeviceRay(configFileSection.retrieveValue<Vector>("./deviceRayDirection",Vector(0,1,0)),configFileSection.retrieveValue<Scalar>("./deviceRayStart",-getInchFactor()));
 	
 	/* Initialize the new device's glyph from the current configuration file section: */
 	Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(inputDevices[0]);

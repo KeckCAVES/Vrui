@@ -27,11 +27,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <IOKit/hid/IOHIDKeys.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Math/MathValueCoders.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Vrui.h>
 
@@ -71,6 +73,11 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 	
 	/* Don't create Vrui input device: */
 	newDevice.device=0;
+	
+	/* Read the names of all button and valuator features: */
+	typedef std::vector<std::string> StringList;
+	newDevice.buttonNames=configFileSection.retrieveValue<StringList>("./buttonNames",StringList());
+	newDevice.valuatorNames=configFileSection.retrieveValue<StringList>("./valuatorNames",StringList());
 	
 	/* Store the new device structure: */
 	devices.push_back(newDevice);
@@ -136,7 +143,7 @@ void* InputDeviceAdapterHID::devicePollingThreadMethod(void)
 	{
 	/* Enable immediate cancellation: */
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
 	/* Associate the HID manager with the current run loop: */
 	IOHIDManagerScheduleWithRunLoop(hidManager,CFRunLoopGetCurrent(),kCFRunLoopDefaultMode);
@@ -339,6 +346,22 @@ InputDeviceAdapterHID::InputDeviceAdapterHID(InputDeviceManager* sInputDeviceMan
 				/* Create new input device as a physical device: */
 				dIt->device=inputDeviceManager->createInputDevice(dIt->name.c_str(),InputDevice::TRACK_NONE,dIt->numButtons,dIt->numValuators,true);
 				
+				/* Complete the button and valuator name arrays: */
+				int buttonIndex=int(dIt->buttonNames.size());
+				for(;buttonIndex<dIt->numButtons;++buttonIndex)
+					{
+					char buttonName[40];
+					snprintf(buttonName,sizeof(buttonName),"Button%d",buttonIndex);
+					dIt->buttonNames.push_back(buttonName);
+					}
+				int valuatorIndex=int(dIt->valuatorNames.size());
+				for(;valuatorIndex<dIt->numValuators;++valuatorIndex)
+					{
+					char valuatorName[40];
+					snprintf(valuatorName,sizeof(valuatorName),"Valuator%d",valuatorIndex);
+					dIt->valuatorNames.push_back(valuatorName);
+					}
+				
 				/* Register a value change callback with the HID device: */
 				IOHIDDeviceRegisterInputValueCallback(device,hidDeviceValueChangedCallbackWrapper,this);
 				}
@@ -378,6 +401,51 @@ InputDeviceAdapterHID::~InputDeviceAdapterHID(void)
 	/* Delete the state arrays: */
 	delete[] buttonStates;
 	delete[] valuatorStates;
+	}
+
+std::string InputDeviceAdapterHID::getFeatureName(const InputDeviceFeature& feature) const
+	{
+	/* Find the HID structure for the given input device: */
+	std::vector<Device>::const_iterator dIt;
+	for(dIt=devices.begin();dIt!=devices.end()&&dIt->device!=feature.getDevice();++dIt)
+		;
+	if(dIt==devices.end())
+		Misc::throwStdErr("InputDeviceAdapterHID::getFeatureName: Unknown device %s",feature.getDevice()->getDeviceName());
+	
+	/* Check whether the feature is a button or a valuator: */
+	std::string result;
+	if(feature.isButton())
+		{
+		/* Return the button feature's name: */
+		result=dIt->buttonNames[feature.getIndex()];
+		}
+	if(feature.isValuator())
+		{
+		/* Return the valuator feature's name: */
+		result=dIt->valuatorNames[feature.getIndex()];
+		}
+	
+	return result;
+	}
+
+int InputDeviceAdapterHID::getFeatureIndex(InputDevice* device,const char* featureName) const
+	{
+	/* Find the HID structure for the given input device: */
+	std::vector<Device>::const_iterator dIt;
+	for(dIt=devices.begin();dIt!=devices.end()&&dIt->device!=device;++dIt)
+		;
+	if(dIt==devices.end())
+		Misc::throwStdErr("InputDeviceAdapterHID::getFeatureIndex: Unknown device %s",device->getDeviceName());
+	
+	/* Check if the feature names a button or a valuator: */
+	for(int buttonIndex=0;buttonIndex<dIt->numButtons;++buttonIndex)
+		if(dIt->buttonNames[buttonIndex]==featureName)
+			return device->getButtonFeatureIndex(buttonIndex);
+	for(int valuatorIndex=0;valuatorIndex<dIt->numValuators;++valuatorIndex)
+		if(dIt->valuatorNames[valuatorIndex]==featureName)
+			return device->getValuatorFeatureIndex(valuatorIndex);
+	
+	return -1;
 	}
 
 void InputDeviceAdapterHID::updateInputDevices(void)

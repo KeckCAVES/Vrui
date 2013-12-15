@@ -22,8 +22,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/NavigationTool.h>
 
-#include <Vrui/ToolManager.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/ToolManager.h>
 
 namespace Vrui {
 
@@ -47,21 +47,14 @@ const char* NavigationToolFactory::getName(void) const
 	return "Navigation";
 	}
 
-extern "C" ToolFactory* createNavigationToolFactory(Plugins::FactoryManager<ToolFactory>& manager)
+const char* NavigationToolFactory::getButtonFunction(int) const
 	{
-	/* Get pointer to tool manager: */
-	ToolManager* toolManager=static_cast<ToolManager*>(&manager);
-	
-	/* Create factory object and insert it into class hierarchy: */
-	NavigationToolFactory* navigationToolFactory=new NavigationToolFactory(*toolManager);
-	
-	/* Return factory object: */
-	return navigationToolFactory;
+	return "Navigate";
 	}
 
-extern "C" void destroyNavigationToolFactory(ToolFactory* factory)
+const char* NavigationToolFactory::getValuatorFunction(int) const
 	{
-	delete factory;
+	return "Navigate";
 	}
 
 /*******************************

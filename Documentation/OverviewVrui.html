@@ -13,10 +13,16 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DL>
 <DT>Geometry.h</DT>
-<DD>Geometry.h contains typedefs defining the low-level <A HREF="OverViewGeometry.html">geometry library types</A> used by the Vrui toolkit.</DD>
+<DD>Geometry.h contains typedefs defining the low-level <A HREF="OverviewGeometry.html">geometry library types</A> used by the Vrui toolkit.</DD>
 
 <DT>Vrui.h</DT>
 <DD>Vrui.h contains namespace-global functions to query or set all relevant parts of the internal Vrui state, and therefore defines the Vrui kernel API.</DD>
+
+<DT>OpenFile.h</DT>
+<DD>OpenFile.h declares convenience functions to open files in a cluster-transparent fashion.</DD>
+
+<DT>FileSelectionHelper.h</DT>
+<DD>FileSelectionHelper is a helper class to simplify working with GLMotif file selection dialogs. It hides creation and management of file selection dialog objects, and offers file name selection using only a single application callback function or method.</DD>
 
 <DT>ClusterSupport.h</DT>
 <DD>ClusterSupport.h contains namespace-global functions to simplify developing cluster-aware Vrui applications.</DD>
@@ -32,6 +38,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DT>InputDevice.h</DT>
 <DD>InputDevice is a class representing input devices with an (optional) 6-DOF position/orientation, and any numbers of buttons and valuators (floating-point values ranging from -1 to 1).</DD>
+
+<DT>InputDeviceFeature.h</DT>
+<DD>InputDeviceFeature is a helper class to identify individual buttons or valuators on input devices. InputDeviceFeatureSet is a class for lists of input device features in no particular order.</DD>
 
 <DT>VirtualInputDevice.h</DT>
 <DD>VirtualInputDevice is a helper class to manage and interact with ungrabbed virtual input devices, by representing them as 3D widgets.</DD>
@@ -63,6 +72,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>OrthogonalCoordinateTransform.h</DT>
 <DD>Coordinate transformation class for orthogonal transformations (translations, rotations, uniform scalings).</DD>
 
+<DT>AffineCoordinateTransform.h</DT>
+<DD>Coordinate transformation class for arbitrary affine transformations.</DD>
+
 <DT>GeodeticCoordinateTransform.h</DT>
 <DD>Coordinate transformation class from geocentric Cartesian coordinates to geodetic coordinates (latitude, longitude, elevation) on a variety of geoids.</DD>
 
@@ -75,6 +87,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>VRScreen.h</DT>
 <DD>VRScreen is a class representing fixed or device-mounted projection surfaces in VR environments. Together with viewers, screens describe how to display 3D scenes as (stereoscopic) images.</DD>
 
+<DT>WindowProperties.h</DT>
+<DD>WindowProperties is a helper structure to allow any Vrui entities (applications, vislets, tools, ...) to request special properties, such as color buffer channel sizes or additional buffers, from any subsequently opened Vrui windows.</DD>
+
 <DT>ViewSpecification.h</DT>
 <DD>ViewSpecification is a class representing the visible space (frustum) of a VR display window, i.e., a combination of a viewer and a screen. View specifications are mostly used for view-dependent rendering and software frustum culling.</DD>
 
@@ -84,12 +99,6 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 <DT>DisplayState.h</DT>
 <DD>Helper class to allow applications to query per-display Vrui rendering state from within a display method.</DD>
 
-<DT>alc.h</DT>
-<DD>Wrapper around OpenAL's alc.h include file, to shield client code from missing OpenAL libraries or different include file locations.</DD>
-
-<DT>al.h</DT>
-<DD>Wrapper around OpenAL's main al.h include file, to shield client code from missing OpenAL libraries or different include file locations.</DD>
-
 <DT>Listener.h</DT>
 <DD>Listener is a class representing listeners in VR environments. Listeners essentially consist of potentially headtracked ear positions and head orientations that are used to create 3D sound using OpenAL.</DD>
 
@@ -98,6 +107,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DT>GUIInteractor.h</DT>
 <DD>GUIInteractor is a helper class containing common code for tools that allow interaction with graphical user interface elements.</DD>
+
+<DT>DeviceForwarder.h</DT>
+<DD>DeviceForwarder is an abstract mixin class for tools that forward some of their assigned input devices to permanently bound virtual input devices. Used by InputGraphManager and ToolManager to trace event flow through the input graph.</DD>
 
 <DT>ToolInputLayout.h</DT>
 <DD>ToolInputLayout is a helper class describing the interface of a tool class, i.e., the number of devices/buttons/valuators used by each instance of the tool class.</DD>
@@ -158,6 +170,9 @@ Vrui is a powerful high-level development toolkit for portable virtual reality a
 
 <DT>VisletManager.h</DT>
 <DD>VisletManager is a class managing the available vislet classes, and vislet instances.</DD>
+
+<DT>SceneGraphSupport.h</DT>
+<DT>SceneGraphSupport.h contains namespace-global functions to simplify rendering scene graphs.</DD>
 </DL>
 
 </BODY>

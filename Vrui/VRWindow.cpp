@@ -1,7 +1,8 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
+ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,54 +24,69 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define GLX_GLXEXT_PROTOTYPES 1
 #define SAVE_SCREENSHOT_PROJECTION 0
+#define RENDERFRAMETIMES 0
 
 #include <Vrui/VRWindow.h>
 
-#define RENDERFRAMETIMES 0
-
-#include <stdio.h>
+#include <unistd.h>
+#include <iostream>
 #include <X11/keysym.h>
-#ifndef VRUI_USE_PNG
-#include <Misc/File.h>
-#endif
+#include <Misc/PrintInteger.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/CallbackData.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ArrayValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#if SAVE_SCREENSHOT_PROJECTION
+#include <IO/File.h>
+#endif
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/AffineTransformation.h>
 #include <Geometry/Plane.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glx.h>
 // #include <GL/glxext.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLMatrixTemplates.h>
+#include <GL/GLPrintError.h>
 #include <GL/GLExtensionManager.h>
 #include <GL/Extensions/GLARBMultitexture.h>
+#include <GL/Extensions/GLARBTextureRectangle.h>
 #include <GL/Extensions/GLARBShaderObjects.h>
+#include <GL/Extensions/GLEXTFramebufferBlit.h>
 #include <GL/Extensions/GLEXTFramebufferObject.h>
+#include <GL/Extensions/GLEXTFramebufferMultisample.h>
+#include <GL/Extensions/GLEXTPackedDepthStencil.h>
 #include <GL/GLShader.h>
 #include <GL/GLContextData.h>
 #include <GL/GLFont.h>
 #include <GL/GLTransformationWrappers.h>
-#include <GLMotif/WidgetManager.h>
+#include <Images/Config.h>
 #include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
 #include <Images/WriteImageFile.h>
+#include <GLMotif/WidgetManager.h>
+#include <Vrui/Vrui.h>
+#if SAVE_SCREENSHOT_PROJECTION
+#include <Vrui/OpenFile.h>
+#endif
 #include <Vrui/InputDevice.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
+#include <Vrui/WindowProperties.h>
 #include <Vrui/ViewSpecification.h>
 #include <Vrui/Tool.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Internal/ToolKillZone.h>
-#include <Vrui/Vrui.h>
+#include <Vrui/Internal/MovieSaver.h>
 #include <Vrui/Internal/Vrui.h>
 
 #if SAVE_SCREENSHOT_PROJECTION
@@ -184,10 +200,12 @@ class ValueCoder<GLWindow::WindowPos>
 	public:
 	static std::string encode(const GLWindow::WindowPos& value)
 		{
-		std::string result="";
-		result+=ValueCoderArray<int>::encode(2,value.origin);
-		result+=", ";
-		result+=ValueCoderArray<int>::encode(2,value.size);
+		std::string result;
+		
+		result.append(CFixedArrayValueCoder<int,2>::encode(value.origin));
+		result.push_back(',');
+		result.push_back(' ');
+		result.append(CFixedArrayValueCoder<int,2>::encode(value.size));
 		return result;
 		}
 	static GLWindow::WindowPos decode(const char* start,const char* end,const char** decodeEnd =0)
@@ -195,29 +213,25 @@ class ValueCoder<GLWindow::WindowPos>
 		try
 			{
 			GLWindow::WindowPos result;
-			const char* tokenPtr=start;
+			const char* cPtr=start;
 			
 			/* Parse the origin: */
-			int numComponents;
-			numComponents=ValueCoderArray<int>::decode(2,result.origin,tokenPtr,end,&tokenPtr);
-			if(numComponents!=2)
-				throw 42;
+			CFixedArrayValueCoder<int,2>(result.origin).decode(cPtr,end,&cPtr);
+			cPtr=skipWhitespace(cPtr,end);
 			
-			/* Skip whitespace and check for separating comma: */
-			tokenPtr=skipSeparator(',',tokenPtr,end);
+			/* Check for separating comma: */
+			cPtr=checkSeparator(',',cPtr,end);
 			
 			/* Parse the size: */
-			numComponents=ValueCoderArray<int>::decode(2,result.size,tokenPtr,end,&tokenPtr);
-			if(numComponents!=2)
-				throw 42;
+			CFixedArrayValueCoder<int,2>(result.size).decode(cPtr,end,&cPtr);
 			
 			if(decodeEnd!=0)
-				*decodeEnd=tokenPtr;
+				*decodeEnd=cPtr;
 			return result;
 			}
-		catch(...)
+		catch(std::runtime_error err)
 			{
-			throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to GLWindow::WindowPos"));
+			throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to GLWindow::WindowPos due to ")+err.what());
 			}
 		}
 	};
@@ -236,56 +250,70 @@ extern int frameTimeIndex;
 Methods of class VRWindow:
 *************************/
 
-std::string VRWindow::getDisplayName(const Misc::ConfigurationFileSection& configFileSection)
-	{
-	const char* defaultDisplay=getenv("DISPLAY");
-	if(defaultDisplay==0)
-		defaultDisplay=":0.0";
-	return configFileSection.retrieveString("./display",defaultDisplay);
-	}
-
-int* VRWindow::getVisualProperties(const Misc::ConfigurationFileSection& configFileSection)
-	{
-	static int visualPropertyList[256];
-	
-	/* Create a list of desired visual properties: */
-	int numProperties=0;
-	
-	/* Add standard properties first: */
-	visualPropertyList[numProperties++]=GLX_RGBA;
-	visualPropertyList[numProperties++]=GLX_DEPTH_SIZE;
-	visualPropertyList[numProperties++]=16;
-	visualPropertyList[numProperties++]=GLX_DOUBLEBUFFER;
-	
-	/* Check for multisample requests: */
-	int multisamplingLevel=configFileSection.retrieveValue<int>("./multisamplingLevel",1);
-	if(multisamplingLevel>1)
-		{
-		visualPropertyList[numProperties++]=GLX_SAMPLE_BUFFERS_ARB;
-		visualPropertyList[numProperties++]=1;
-		visualPropertyList[numProperties++]=GLX_SAMPLES_ARB;
-		visualPropertyList[numProperties++]=multisamplingLevel;
-		}
-	
-	/* Check for quad buffering (active stereo) requests: */
-	if(configFileSection.retrieveValue<WindowType>("./windowType")==QUADBUFFER_STEREO)
-		{
-		visualPropertyList[numProperties++]=GLX_STEREO;
-		}
-	
-	/* Finish and return the property list: */
-	visualPropertyList[numProperties]=None;
-	return visualPropertyList;
-	}
-
 void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye)
 	{
-	/* Update the window's display state object: */
-	displayState->eyePosition=eye;
-	displayState->screen=screens[screenIndex];
+	/*********************************************************************
+	First step: Re-initialize OpenGL state and clear all buffers.
+	*********************************************************************/
+	
+	/* Set up lens distortion correction if requested: */
+	GLint lcPrevFrameBuffer=0;
+	if(lcPolynomialDegree>=0)
+		{
+		/* Bind the lens correction frame buffer to render the distorted view: */
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT,&lcPrevFrameBuffer);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcFrameBufferObjectID);
+		glViewport(0,0,lcFrameSize[0],lcFrameSize[1]);
+		displayState->viewport[0]=displayState->viewport[1]=0;
+		displayState->viewport[2]=lcFrameSize[0];
+		displayState->viewport[3]=lcFrameSize[1];
+		for(int i=0;i<2;++i)
+			displayState->frameSize[i]=lcFrameSize[i];
+		}
+	else
+		{
+		/* Set the viewport: */
+		glViewport(viewportPos.origin[0],viewportPos.origin[1],viewportPos.size[0],viewportPos.size[1]);
+		for(int i=0;i<2;++i)
+			{
+			displayState->viewport[i]=viewportPos.origin[i];
+			displayState->viewport[2+i]=viewportPos.size[i];
+			}
+		for(int i=0;i<2;++i)
+			displayState->frameSize[i]=getWindowSize()[i];
+		}
+	
+	/* Initialize standard OpenGL settings: */
+	glDisable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_ALWAYS,0.0f);
+	glDisable(GL_BLEND);
+	glBlendFunc(GL_ONE,GL_ZERO);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_TRUE);
+	if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+		{
+		glDisable(GL_STENCIL_TEST);
+		glStencilFunc(GL_ALWAYS,0,~0x0U);
+		glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);
+		glStencilMask(~0x0U);
+		}
+	glFrontFace(GL_CCW);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
+	
+	/* Clear all relevant buffers: */
+	glClearColor(getBackgroundColor());
+	glClearDepth(1.0); // Clear depth is "infinity"
+	if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+		glClearStencil(0x0);
+	if(clearBufferMask&GL_ACCUM_BUFFER_BIT)
+		glClearAccum(0.0f,0.0f,0.0f,0.0f);
+	glClear(clearBufferMask);
 	
 	/*********************************************************************
-	First step: Set up the projection and modelview matrices to project
+	Second step: Set up the projection and modelview matrices to project
 	from the given eye onto the given screen.
 	*********************************************************************/
 	
@@ -314,11 +342,31 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	double right=(viewports[screenIndex][1]-screenEyePos[0])/screenEyePos[2]*near;
 	double bottom=(viewports[screenIndex][2]-screenEyePos[1])/screenEyePos[2]*near;
 	double top=(viewports[screenIndex][3]-screenEyePos[1])/screenEyePos[2]*near;
+	if(lcPolynomialDegree>=0)
+		{
+		/* Apply overscan: */
+		double w=right-left;
+		left-=w*double(lcOverscan[screenIndex][0]);
+		right+=w*double(lcOverscan[screenIndex][1]);
+		double h=top-bottom;
+		bottom-=h*double(lcOverscan[screenIndex][2]);
+		top+=h*double(lcOverscan[screenIndex][3]);
+		}
 	glFrustum(left,right,bottom,top,near,far);
 	
 	/* Calculate the base modelview matrix: */
 	OGTransform modelview=OGTransform::translateToOriginFrom(screenEyePos);
 	modelview*=OGTransform(invScreenT);
+	
+	/*********************************************************************
+	Third step: Render Vrui state.
+	*********************************************************************/
+	
+	/* Update the window's display state object: */
+	displayState->resized=resizeViewport;
+	displayState->viewer=viewers[screenIndex];
+	displayState->eyePosition=eye;
+	displayState->screen=screens[screenIndex];
 	
 	/* Store the physical and navigational modelview matrices: */
 	displayState->modelviewPhysical=modelview;
@@ -326,8 +374,120 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	modelview.renormalize();
 	displayState->modelviewNavigational=modelview;
 	
-	/* Render Vrui state: */
-	vruiState->display(displayState,*contextData);
+	#if 0 // Don't do this; it's a bad idea
+	
+	/*********************************************************************
+	Fudge the navigational modelview transformation such that the point
+	that should end up being transformed to the display center actually
+	does get transformed to the display center, given OpenGL's limited
+	precision.
+	*********************************************************************/
+	
+	/* Get the display center point both in eye and navigational coordinates: */
+	Point dcEye=displayState->modelviewPhysical.transform(getDisplayCenter());
+	Point dcNav=getNavigationTransformation().inverseTransform(getDisplayCenter());
+	
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glMultMatrix(displayState->modelviewNavigational);
+	typedef Geometry::ProjectiveTransformation<double,3> PTransform;
+	PTransform oglMv=glGetModelviewMatrix<double>();
+	// PTransform oglMv=PTransform::translate(displayState->modelviewNavigational.getTranslation());
+	// oglMv*=PTransform::rotate(displayState->modelviewNavigational.getRotation());
+	// oglMv*=PTransform::scale(displayState->modelviewNavigational.getScaling());
+	
+	/* Transform the navigational-space display center with the truncated modelview matrix: */
+	Point oglDcEye=oglMv.transform(dcNav);
+	
+	/* Multiply the error correction translation vector onto the modelview matrix: */
+	displayState->modelviewNavigational.leftMultiply(OGTransform::translate(dcEye-oglDcEye));
+	
+	#endif
+	
+	/* Call Vrui's main rendering function: */
+	vruiState->display(displayState,getContextData());
+	
+	if(lcPolynomialDegree>=0)
+		{
+		if(multisamplingLevel>1)
+			{
+			/* Blit the multisampling color buffer containing the distorted image into the "fixing" frame buffer: */
+			glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT,lcMsFrameBufferObjectID);
+			glBlitFramebufferEXT(0,0,lcFrameSize[0],lcFrameSize[1],0,0,lcFrameSize[0],lcFrameSize[1],GL_COLOR_BUFFER_BIT,GL_NEAREST);
+			}
+		
+		/* Unbind the lens correction frame buffer: */
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcPrevFrameBuffer);
+		
+		/* Set up the original viewport: */
+		glViewport(viewportPos.origin[0],viewportPos.origin[1],viewportPos.size[0],viewportPos.size[1]);
+		if(windowType==ANAGLYPHIC_STEREO)
+			{
+			if(screenIndex==0)
+				glColorMask(GL_TRUE,GL_FALSE,GL_FALSE,GL_FALSE);
+			else
+				glColorMask(GL_FALSE,GL_TRUE,GL_TRUE,GL_FALSE);
+			}
+		
+		/* Bind and set up the lens distortion correction shader: */
+		lcUndistortionShader->useProgram();
+		glActiveTextureARB(GL_TEXTURE0_ARB);
+		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID);
+		glUniformARB(lcUndistortionShaderUniformIndices[0],0);
+		glUniformARB<1>(lcUndistortionShaderUniformIndices[1],4,lcPolynomialCoefficients[screenIndex]);
+		GLfloat lcuPostCenter[2];
+		for(int i=0;i<2;++i)
+			lcuPostCenter[i]=((lcCenters[screenIndex][i]+lcOverscan[screenIndex][i*2])/lcOverscanSize[i])*float(lcFrameSize[i]);
+		glUniformARB<2>(lcUndistortionShaderUniformIndices[2],1,lcuPostCenter);
+		GLfloat lcuPostScale[2];
+		for(int i=0;i<2;++i)
+			lcuPostScale[i]=float(lcFrameSize[i])/(lcPreScales[screenIndex][i]*lcOverscanSize[i]);
+		glUniformARB<2>(lcUndistortionShaderUniformIndices[3],1,lcuPostScale);
+		float lcuSize[2];
+		for(int i=0;i<2;++i)
+			lcuSize[i]=float(lcFrameSize[i]);
+		glUniformARB<2>(lcUndistortionShaderUniformIndices[4],1,lcuSize);
+		
+		/* Render a viewport-sized quad to execute the shader: */
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glLoadIdentity();
+		
+		/* Calculate lens correction coordinates for the current viewport: */
+		float lcLeft=(0.0f-lcCenters[screenIndex][0])*lcPreScales[screenIndex][0];
+		float lcRight=(1.0f-lcCenters[screenIndex][0])*lcPreScales[screenIndex][0];
+		float lcBottom=(0.0f-lcCenters[screenIndex][1])*lcPreScales[screenIndex][1];
+		float lcTop=(1.0f-lcCenters[screenIndex][1])*lcPreScales[screenIndex][1];
+		
+		/* Draw the quad: */
+		glBegin(GL_QUADS);
+		glTexCoord2f(lcLeft,lcBottom);
+		glVertex2f(-1.0f,-1.0f);
+		glTexCoord2f(lcRight,lcBottom);
+		glVertex2f(1.0f,-1.0f);
+		glTexCoord2f(lcRight,lcTop);
+		glVertex2f(1.0f,1.0f);
+		glTexCoord2f(lcLeft,lcTop);
+		glVertex2f(-1.0f,1.0f);
+		glEnd();
+		
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
+		
+		/* Disable the lens distortion correction shader: */
+		GLShader::disablePrograms();
+		}
+	
+	/*********************************************************************
+	Fourth step: Render screen protectors and fps counter.
+	*********************************************************************/
 	
 	if(protectScreens&&vruiState->numProtectors>0)
 		{
@@ -350,6 +510,11 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 		
 		if(renderProtection)
 			{
+			/* Save and set up OpenGL state: */
+			glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+			glDisable(GL_LIGHTING);
+			glLineWidth(1.0f);
+			
 			/* Set OpenGL matrices to pixel-based: */
 			glMatrixMode(GL_PROJECTION);
 			glPushMatrix();
@@ -361,11 +526,8 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 			glLoadIdentity();
 			
 			/* Render grid onto screen: */
-			glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
-			glDisable(GL_LIGHTING);
-			glLineWidth(1.0f);
-			glColor3f(0.0f,1.0f,0.0f);
 			glBegin(GL_LINES);
+			glColor3f(0.0f,1.0f,0.0f);
 			for(int x=0;x<=10;++x)
 				{
 				int pos=x*(viewportPos.size[0]-1)/10;
@@ -379,17 +541,19 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 				glVertex2i(viewportPos.size[0],pos);
 				}
 			glEnd();
-			glPopAttrib();
 			
 			/* Reset the OpenGL matrices: */
 			glMatrixMode(GL_PROJECTION);
 			glPopMatrix();
 			glMatrixMode(GL_MODELVIEW);
 			glPopMatrix();
+			
+			/* Restore OpenGL state: */
+			glPopAttrib();
 			}
 		}
 	
-	if(showFps)
+	if(showFps&&burnMode)
 		{
 		/* Set OpenGL matrices to pixel-based: */
 		glMatrixMode(GL_PROJECTION);
@@ -402,8 +566,13 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 		glLoadIdentity();
 		
 		#if RENDERFRAMETIMES
-		/* Render EKG of recent frame rates: */
+		
+		/* Save and set up OpenGL state: */
+		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
+		glLineWidth(1.0f);
+		
+		/* Render EKG of recent frame rates: */
 		glBegin(GL_LINES);
 		glColor3f(0.0f,1.0f,0.0f);
 		for(int i=0;i<numFrameTimes;++i)
@@ -416,14 +585,41 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 		glVertex2i(frameTimeIndex,0);
 		glVertex2i(frameTimeIndex,int(floor(frameTimes[frameTimeIndex]*1000.0+0.5)));
 		glEnd();
-		glEnable(GL_LIGHTING);
+		
+		/* Restore OpenGL state: */
+		glPopAttrib();
+		
 		#else
-		/* Print the current frame time: */
-		char buffer[20];
-		snprintf(buffer,sizeof(buffer),"%6.1f fps",1.0/vruiState->currentFrameTime);
+		
+		/* Save and set up OpenGL state: */
+		glPushAttrib(GL_ENABLE_BIT);
 		glDisable(GL_LIGHTING);
-		showFpsFont->drawString(GLFont::Vector(showFpsFont->getCharacterWidth()*9.5f+10.0f,10.0f,0.0f),buffer);
-		glEnable(GL_LIGHTING);
+		
+		/* Print the current frame time: */
+		unsigned int fps=(unsigned int)(10.0/vruiState->currentFrameTime+0.5);
+		char buffer[20];
+		char* bufPtr=buffer+15;
+		*(--bufPtr)=char(fps%10+'0');
+		fps/=10;
+		*(--bufPtr)='.';
+		do
+			{
+			*(--bufPtr)=char(fps%10+'0');
+			fps/=10;
+			}
+		while(bufPtr>buffer&&fps!=0);
+		buffer[15]=' ';
+		buffer[16]='f';
+		buffer[17]='p';
+		buffer[18]='s';
+		buffer[19]='\0';
+		
+		/* Draw the current frame time: */
+		showFpsFont->drawString(GLFont::Vector(showFpsFont->getCharacterWidth()*9.5f+2.0f,2.0f,0.0f),bufPtr);
+		
+		/* Restore OpenGL state: */
+		glPopAttrib();
+		
 		#endif
 		
 		/* Reset the OpenGL matrices: */
@@ -434,52 +630,96 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 		}
 	}
 
-bool VRWindow::calcMousePos(int x,int y,Scalar mousePos[2]) const
+GLContext* VRWindow::createContext(const WindowProperties& properties,const Misc::ConfigurationFileSection& configFileSection)
 	{
-	if(windowType==SPLITVIEWPORT_STEREO)
+	/* Create a list of desired visual properties: */
+	int visualPropertyList[256];
+	int numProperties=0;
+	
+	/* Add standard properties first: */
+	visualPropertyList[numProperties++]=GLX_RGBA;
+	visualPropertyList[numProperties++]=GLX_DOUBLEBUFFER;
+	
+	/* Ask for the requested main buffer channel sizes: */
+	visualPropertyList[numProperties++]=GLX_RED_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[0];
+	visualPropertyList[numProperties++]=GLX_GREEN_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[1];
+	visualPropertyList[numProperties++]=GLX_BLUE_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[2];
+	visualPropertyList[numProperties++]=GLX_ALPHA_SIZE;
+	visualPropertyList[numProperties++]=properties.colorBufferSize[3];
+	
+	/* Ask for the requested depth buffer size: */
+	visualPropertyList[numProperties++]=GLX_DEPTH_SIZE;
+	visualPropertyList[numProperties++]=properties.depthBufferSize;
+	
+	if(properties.numAuxBuffers>0)
 		{
-		/* Find viewport containing mouse: */
-		for(int i=0;i<2;++i)
-			{
-			int vx=x-splitViewportPos[i].origin[0];
-			int vy=(getWindowHeight()-1-y)-splitViewportPos[i].origin[1];
-			if(vx>=0&&vx<splitViewportPos[i].size[0]&&vy>=0&&vy<splitViewportPos[i].size[1])
-				{
-				/* Calculate mouse position based on found viewport: */
-				mousePos[0]=(Scalar(vx)+Scalar(0.5))*screens[i]->getWidth()/Scalar(splitViewportPos[i].size[0]);
-				mousePos[1]=(Scalar(vy)+Scalar(0.5))*screens[i]->getHeight()/Scalar(splitViewportPos[i].size[1]);
-				return true;
-				}
-			}
-		return false;
+		/* Ask for auxiliary buffers: */
+		visualPropertyList[numProperties++]=GLX_AUX_BUFFERS;
+		visualPropertyList[numProperties++]=properties.numAuxBuffers;
 		}
-	else
+	
+	#if 1
+	if(properties.stencilBufferSize>0)
 		{
-		/* Calculate mouse position based on entire window: */
-		if(panningViewport)
-			{
-			mousePos[0]=(Scalar(getWindowOrigin()[0]+x)+Scalar(0.5))*screens[0]->getWidth()/Scalar(displaySize[0]);
-			mousePos[1]=(Scalar(displaySize[1]-getWindowOrigin()[1]-y)-Scalar(0.5))*screens[0]->getHeight()/Scalar(displaySize[1]);
-			}
-		else
-			{
-			mousePos[0]=(Scalar(x)+Scalar(0.5))*screens[0]->getWidth()/getWindowWidth();
-			mousePos[1]=(getWindowHeight()-Scalar(y)-Scalar(0.5))*screens[0]->getHeight()/getWindowHeight();
-			}
-		return true;
+		/* Ask for a stencil buffer: */
+		visualPropertyList[numProperties++]=GLX_STENCIL_SIZE;
+		visualPropertyList[numProperties++]=properties.stencilBufferSize;
 		}
+	#endif
+	
+	if(properties.accumBufferSize[0]>0||properties.accumBufferSize[1]>0||properties.accumBufferSize[2]>0||properties.accumBufferSize[3]>0)
+		{
+		/* Ask for an accumulation buffer of the requested channel sizes: */
+		visualPropertyList[numProperties++]=GLX_ACCUM_RED_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[0];
+		visualPropertyList[numProperties++]=GLX_ACCUM_GREEN_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[1];
+		visualPropertyList[numProperties++]=GLX_ACCUM_BLUE_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[2];
+		visualPropertyList[numProperties++]=GLX_ACCUM_ALPHA_SIZE;
+		visualPropertyList[numProperties++]=properties.accumBufferSize[3];
+		}
+	
+	#if 1
+	/* Check for multisample requests: */
+	int multisamplingLevel=configFileSection.retrieveValue<int>("./multisamplingLevel",1);
+	if(multisamplingLevel>1)
+		{
+		visualPropertyList[numProperties++]=GLX_SAMPLE_BUFFERS_ARB;
+		visualPropertyList[numProperties++]=1;
+		visualPropertyList[numProperties++]=GLX_SAMPLES_ARB;
+		visualPropertyList[numProperties++]=multisamplingLevel;
+		}
+	#endif
+	
+	/* Check for quad buffering (active stereo) requests: */
+	if(configFileSection.retrieveValue<WindowType>("./windowType")==QUADBUFFER_STEREO)
+		visualPropertyList[numProperties++]=GLX_STEREO;
+	
+	/* Terminate the property list: */
+	visualPropertyList[numProperties]=None;
+	
+	/* Retrieve the display connection name: */
+	const char* defaultDisplay=getenv("DISPLAY");
+	if(defaultDisplay==0)
+		defaultDisplay="";
+	std::string displayName=configFileSection.retrieveString("./display",defaultDisplay);
+	
+	/* Create and return an OpenGL context: */
+	return new GLContext(displayName.empty()?0:displayName.c_str(),visualPropertyList);
 	}
 
-VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& configFileSection,VruiState* sVruiState,InputDeviceAdapterMouse* sMouseAdapter)
-	:GLWindow(getDisplayName(configFileSection).c_str(),
-	          windowName,
-						configFileSection.retrieveValue<GLWindow::WindowPos>("./windowPos",GLWindow::WindowPos(800,600)),
-	          getVisualProperties(configFileSection)),
-	 vruiState(sVruiState),
+VRWindow::VRWindow(GLContext* sContext,int sScreen,const char* windowName,const Misc::ConfigurationFileSection& configFileSection,VruiState* sVruiState,InputDeviceAdapterMouse* sMouseAdapter)
+	:GLWindow(sContext,sScreen,windowName,
+	          configFileSection.retrieveValue<GLWindow::WindowPos>("./windowPos",GLWindow::WindowPos(800,600)),
+	          configFileSection.retrieveValue<bool>("./decorate",true)),
+	 vruiState(sVruiState),windowGroup(0),
 	 mouseAdapter(sMouseAdapter),
-	 extensionManager(0),
-	 contextData(new GLContextData(101)),displayState(vruiState->registerContext(*contextData)),
-	 viewer(findViewer(configFileSection.retrieveString("./viewerName").c_str())),
+	 clearBufferMask(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT),
+	 displayState(0),
 	 windowType(configFileSection.retrieveValue<WindowType>("./windowType")),
 	 multisamplingLevel(configFileSection.retrieveValue<int>("./multisamplingLevel",1)),
 	 panningViewport(configFileSection.retrieveValue<bool>("./panningViewport",false)),
@@ -492,15 +732,38 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	 asViewMapTextureID(0),asViewZoneTextureID(0),
 	 asDepthBufferObjectID(0),asFrameBufferObjectID(0),
 	 asInterzigShader(0),asQuadSizeUniformIndex(-1),
+	 lcPolynomialDegree(-1),
+	 lcColorTextureObjectID(0),lcMsColorBufferObjectID(0),lcDepthBufferObjectID(0),lcStencilPixelFormat(GL_NONE),lcStencilBufferObjectID(0),lcFrameBufferObjectID(0),lcMsFrameBufferObjectID(0),
+	 lcCubic(false),lcUndistortionShader(0),
+	 mouseScreen(0),
 	 showFpsFont(0),
-	 showFps(configFileSection.retrieveValue<bool>("./showFps",false)),
+	 showFps(configFileSection.retrieveValue<bool>("./showFps",false)),burnMode(false),
 	 protectScreens(configFileSection.retrieveValue<bool>("./protectScreens",true)),
 	 trackToolKillZone(false),
 	 dirty(true),
 	 resizeViewport(true),
-	 saveScreenshot(false)
+	 saveScreenshot(false),
+	 movieSaver(0)
 	{
-	/* Get the screen(s) this window projects onto: */
+	/* Update the X window's event mask: */
+	{
+	XWindowAttributes wa;
+	XGetWindowAttributes(getContext().getDisplay(),getWindow(),&wa);
+	XSetWindowAttributes swa;
+	swa.event_mask=wa.your_event_mask|FocusChangeMask;
+	XChangeWindowAttributes(getContext().getDisplay(),getWindow(),CWEventMask,&swa);
+	}
+	
+	/* Initialize the window mouse position: */
+	windowMousePos[0]=windowMousePos[1]=0;
+	
+	/* Update the clear buffer bit mask: */
+	if(vruiState->windowProperties.stencilBufferSize>0)
+		clearBufferMask|=GL_STENCIL_BUFFER_BIT;
+	if(vruiState->windowProperties.accumBufferSize[0]>0||vruiState->windowProperties.accumBufferSize[1]>0||vruiState->windowProperties.accumBufferSize[2]>0||vruiState->windowProperties.accumBufferSize[3]>0)
+		clearBufferMask|=GL_ACCUM_BUFFER_BIT;
+	
+	/* Get the screen(s) onto which this window projects: */
 	screens[0]=findScreen(configFileSection.retrieveString("./leftScreenName","").c_str());
 	screens[1]=findScreen(configFileSection.retrieveString("./rightScreenName","").c_str());
 	if(screens[0]==0||screens[1]==0)
@@ -511,29 +774,33 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	if(screens[0]==0||screens[1]==0)
 		Misc::throwStdErr("VRWindow::VRWindow: No screen(s) provided");
 	
-	/* Get the size of the entire display in pixels: */
-	WindowPos rootWindowPos=getRootWindowPos();
-	for(int i=0;i<2;++i)
-		displaySize[i]=rootWindowPos.size[i];
+	/* Get the viewer(s) observing this window: */
+	viewers[0]=findViewer(configFileSection.retrieveString("./leftViewerName","").c_str());
+	viewers[1]=findViewer(configFileSection.retrieveString("./rightViewerName","").c_str());
+	if(viewers[0]==0||viewers[1]==0)
+		{
+		/* Get the common viewer: */
+		viewers[0]=viewers[1]=findViewer(configFileSection.retrieveString("./viewerName").c_str());
+		}
+	if(viewers[0]==0||viewers[1]==0)
+		Misc::throwStdErr("VRWindow::VRWindow: No viewer(s) provided");
+	
+	/* Set the panning domain to the entire display in pixels: */
+	panningDomain=getRootWindowPos();
+	
+	/* Override the panning domain from the configuration file: */
+	panningDomain=configFileSection.retrieveValue<WindowPos>("./panningDomain",panningDomain);
 	
 	/* Initialize other window state: */
 	for(int i=0;i<2;++i)
 		{
 		ivTextureSize[i]=0;
 		ivTexCoord[i]=0.0f;
-		ivRightStipplePatterns[i]=0;
 		asNumTiles[i]=0;
 		asTextureSize[i]=0;
 		}
-	
-	/* Check if the window has a viewer: */
-	if(viewer==0)
-		Misc::throwStdErr("VRWindow::VRWindow: No viewer provided");
-	
-	/* Initialize the window's display state object: */
-	displayState->window=this;
-	displayState->viewer=viewer;
-	displayState->eyeIndex=0;
+	for(int i=0;i<4;++i)
+		ivRightStipplePatterns[i]=0;
 	
 	/* Check if the window's screen size should be defined based on the X display's real size: */
 	if(configFileSection.retrieveValue<bool>("./autoScreenSize",false))
@@ -545,7 +812,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		/* Query the screen's configured size (use mean of both screens, assuming they're the same): */
 		Scalar oldSize=Scalar(1);
 		for(int i=0;i<2;++i)
-			oldSize*=Math::sqrt(Math::sqr(screens[0]->getWidth())+Math::sqr(screens[1]->getWidth()));
+			oldSize*=Math::sqrt(Math::sqr(screens[i]->getWidth())+Math::sqr(screens[i]->getHeight()));
 		oldSize=Math::sqrt(oldSize);
 		
 		/* Adjust the size of the screen used by this window: */
@@ -588,38 +855,36 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		/* Adapt the viewports to the size of the window in relation to the size of the display: */
 		for(int i=0;i<2;++i)
 			{
-			viewports[i][0]=Scalar(getWindowOrigin()[0])*screens[i]->getWidth()/Scalar(displaySize[0]);
-			viewports[i][1]=Scalar(getWindowOrigin()[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(displaySize[0]);
-			viewports[i][2]=Scalar(displaySize[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(displaySize[1]);
-			viewports[i][3]=Scalar(displaySize[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(displaySize[1]);
+			viewports[i][0]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0])*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+			viewports[i][1]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+			viewports[i][2]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
+			viewports[i][3]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
 			}
+		
+		/* Calculate the window center and size in physical coordinates: */
+		Point windowCenter;
+		Scalar windowSize(0);
+		for(int i=0;i<2;++i)
+			{
+			windowCenter[i]=Math::mid(viewports[0][i*2+0],viewports[0][i*2+1]);
+			windowSize+=Math::sqr(viewports[0][i*2+1]-viewports[0][i*2+0]);
+			}
+		windowCenter[2]=Scalar(0);
+		ONTransform screenT=screens[0]->getScreenTransformation();
+		windowSize=Math::div2(Math::sqrt(windowSize));
+		windowCenter=screenT.transform(windowCenter);
 		
 		if(navigate)
 			{
 			/* Navigate such that the previous transformation, which assumed a full-screen window, fits into the actual window: */
 			Point screenCenter(Math::div2(screens[0]->getWidth()),Math::div2(screens[0]->getHeight()),Scalar(0));
-			Scalar screenSize=Math::sqrt(Math::sqr(screens[0]->getWidth())+Math::sqr(screens[0]->getHeight()));
-			Point windowCenter;
-			Scalar windowSize(0);
-			for(int i=0;i<2;++i)
-				{
-				windowCenter[i]=Math::mid(viewports[0][i*2+0],viewports[0][i*2+1]);
-				windowSize+=Math::sqr(viewports[0][i*2+1]-viewports[0][i*2+0]);
-				}
-			windowCenter[2]=Scalar(0);
-			windowSize=Math::sqrt(windowSize);
-			
-			ONTransform screenT=screens[0]->getScreenTransformation();
 			screenCenter=screenT.transform(screenCenter);
-			windowCenter=screenT.transform(windowCenter);
 			
 			/* Try activating a fake navigation tool: */
 			if(activateNavigationTool(reinterpret_cast<Tool*>(this)))
 				{
 				/* Scale to fit the old viewport into the new viewport: */
-				NavTransform nav=NavTransform::translateFromOriginTo(windowCenter);
-				nav*=NavTransform::scale(windowSize/screenSize);
-				nav*=NavTransform::translateToOriginFrom(windowCenter);
+				NavTransform nav=NavTransform::scaleAround(windowCenter,windowSize/getDisplaySize());
 				
 				/* Translate to move to the new viewport center: */
 				nav*=NavTransform::translate(windowCenter-screenCenter);
@@ -630,33 +895,25 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 				/* Deactivate the fake navigation tool: */
 				deactivateNavigationTool(reinterpret_cast<Tool*>(this));
 				}
-			
-			/* Update the display center and size: */
-			setDisplayCenter(windowCenter,getDisplaySize()*windowSize/screenSize);
 			}
+		
+		/* Update the display center and size: */
+		setDisplayCenter(windowCenter,windowSize);
 		}
 	else
 		{
 		/* Set the viewport dimensions to the full screen: */
 		for(int i=0;i<2;++i)
-			{
-			viewports[i][0]=Scalar(0);
-			viewports[i][1]=screens[i]->getWidth();
-			viewports[i][2]=Scalar(0);
-			viewports[i][3]=screens[i]->getHeight();
-			}
+			screens[i]->getViewport(viewports[i]);
 		}
 	
 	/* Check if the window is supposed to track the tool manager's tool kill zone: */
-	try
+	if(configFileSection.hasTag("./toolKillZonePos"))
 		{
-		/* Parse the tool kill zone's relative window position: */
-		std::string toolKillZonePosValue=configFileSection.retrieveString("./toolKillZonePos");
-		const char* start=toolKillZonePosValue.data();
-		const char* end=start+toolKillZonePosValue.length();
-		int numComponents=Misc::ValueCoderArray<Scalar>::decode(2,toolKillZonePos,start,end,0);
-		if(numComponents!=2)
-			throw 42;
+		/* Read the tool kill zone's relative window position: */
+		Geometry::Point<Scalar,2> tkzp=configFileSection.retrieveValue<Geometry::Point<Scalar,2> >("./toolKillZonePos");
+		for(int i=0;i<2;++i)
+			toolKillZonePos[i]=tkzp[i];
 		trackToolKillZone=true;
 		
 		/* Move the tool kill zone to the desired position: */
@@ -673,23 +930,27 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 		toolKillZone->setCenter(screens[0]->getScreenTransformation().transform(screenPos));
 		vruiState->navigationTransformationChangedMask|=0x4;
 		}
-	catch(...)
-		{
-		}
 	
 	/* Hide mouse cursor and ignore mouse events if the mouse is not used as an input device: */
-	if(mouseAdapter==0)
+	if(mouseAdapter==0||!mouseAdapter->needMouseCursor())
 		{
 		hideCursor();
-		disableMouseEvents();
+		if(mouseAdapter==0)
+			disableMouseEvents();
 		}
 	
 	/* Initialize the window's OpenGL context: */
 	makeCurrent();
-	extensionManager=new GLExtensionManager;
-	GLExtensionManager::makeCurrent(extensionManager);
+	displayState=vruiState->registerContext(getContextData());
+	displayState->window=this;
+	displayState->eyeIndex=0;
 	glViewport(0,0,getWindowWidth(),getWindowHeight());
 	glClearColor(getBackgroundColor());
+	glClearDepth(1.0);
+	if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+		glClearStencil(0x0);
+	if(clearBufferMask&GL_ACCUM_BUFFER_BIT)
+		glClearAccum(0.0f,0.0f,0.0f,0.0f);
 	if(multisamplingLevel>1)
 		glEnable(GL_MULTISAMPLE_ARB);
 	
@@ -702,7 +963,7 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 				;
 			ivTexCoord[i]=float(GLWindow::getWindowSize()[i])/float(ivTextureSize[i]);
 			}
-		ivEyeIndexOffset=GLWindow::getWindowOrigin()[0]+GLWindow::getWindowOrigin()[1];
+		ivEyeIndexOffset=(GLWindow::getWindowOrigin()[1]%2)*2+(GLWindow::getWindowOrigin()[0]%2);
 		glGenTextures(1,&ivRightViewportTextureID);
 		glBindTexture(GL_TEXTURE_2D,ivRightViewportTextureID);
 		glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,ivTextureSize[0],ivTextureSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,0);
@@ -736,25 +997,45 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
 			}
 		
+		/* Read the target display's interleave pattern: */
+		std::string pattern=configFileSection.retrieveValue<std::string>("./interleavePattern","LRRL");
+		bool patRight[2][2];
+		bool patternValid=pattern.size()==4;
+		for(int y=0;patternValid&&y<2;++y)
+			for(int x=0;patternValid&&x<2;++x)
+				{
+				char pat=toupper(pattern[y*2+x]);
+				patternValid=pat=='L'||pat=='R';
+				patRight[y][x]=pat=='R';
+				}
+		if(!patternValid)
+			Misc::throwStdErr("VRWindow::VRWindow: Invalid interleave pattern %s ",pattern.c_str());
+		
 		/* Initialize the interleave stipple patterns: */
-		for(int offset=0;offset<2;++offset)
-			{
-			ivRightStipplePatterns[offset]=new GLubyte[128];
-			for(int row=0;row<32;++row)
-				for(int col=0;col<4;++col)
-					ivRightStipplePatterns[offset][row*4+col]=(row+offset)&0x1?GLubyte(0x55):GLubyte(0xaa);
-			}
+		for(int yoff=0;yoff<2;++yoff)
+			for(int xoff=0;xoff<2;++xoff)
+				{
+				GLubyte* stipPat=ivRightStipplePatterns[yoff*2+xoff]=new GLubyte[128];
+				for(int i=0;i<128;++i)
+					stipPat[i]=GLubyte(0);
+				for(int y=0;y<32;++y)
+					for(int x=0;x<32;++x)
+						if(patRight[(y+yoff)%2][(x+xoff)%2])
+							stipPat[y*4+x/8]|=0x1U<<(x%8);
+				}
 		}
 	else if(windowType==AUTOSTEREOSCOPIC_STEREO)
 		{
-		/* Check if the local OpenGL supports the required extensions: */
-		if(!GLARBMultitexture::isSupported())
-			Misc::throwStdErr("VRWindow::VRWindow: Local OpenGL does not support multitexturing");
-		if(!GLShader::isSupported())
-			Misc::throwStdErr("VRWindow::VRWindow: Local OpenGL does not support GLSL shaders");
-		
-		/* Initialize the required OpenGL extensions: */
-		GLARBMultitexture::initExtension();
+		try
+			{
+			/* Initialize the required OpenGL extensions: */
+			GLARBMultitexture::initExtension();
+			GLShader::initExtensions();
+			}
+		catch(std::runtime_error err)
+			{
+			Misc::throwStdErr("VRWindow::VRWindow: Unable to set mode AutoStereoscopicStereo due to exception %s",err.what());
+			}
 		
 		/* Read the number of view zones and the view zone offset: */
 		asNumViewZones=configFileSection.retrieveValue<int>("./autostereoNumViewZones");
@@ -836,6 +1117,337 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 			Misc::throwStdErr("VRWindow::VRWindow: Interzigging shader does not define quadSize variable");
 		}
 	
+	/* Check if the window is supposed to perform post-rendering lens distortion correction: */
+	if(configFileSection.retrieveValue<bool>("./lensCorrection",false))
+		{
+		/* Check if the left and right viewports have the same size: */
+		if(windowType==SPLITVIEWPORT_STEREO&&(splitViewportPos[0].size[0]!=splitViewportPos[1].size[0]||splitViewportPos[0].size[1]!=splitViewportPos[1].size[1]))
+			Misc::throwStdErr("VRWindow::VRWindow: Left and right viewports need to have identical sizes for lens correction");
+		
+		try
+			{
+			/* Initialize the required OpenGL extensions: */
+			GLARBMultitexture::initExtension();
+			GLEXTFramebufferObject::initExtension();
+			if(vruiState->windowProperties.stencilBufferSize>0)
+				GLEXTPackedDepthStencil::initExtension();
+			if(multisamplingLevel>1)
+				{
+				GLEXTFramebufferBlit::initExtension();
+				GLEXTFramebufferMultisample::initExtension();
+				}
+			GLShader::initExtensions();
+			}
+		catch(std::runtime_error err)
+			{
+			Misc::throwStdErr("VRWindow::VRWindow: Unable to enable lens distortion correction due to exception %s",err.what());
+			}
+		
+		/* Get the viewport sizes: */
+		switch(windowType)
+			{
+			case SPLITVIEWPORT_STEREO:
+				{
+				/* Create a correction buffer the size of one viewport (viewports must be same size): */
+				for(int i=0;i<2;++i)
+					lcFrameSize[i]=splitViewportPos[0].size[i];
+				break;
+				}
+			
+			case AUTOSTEREOSCOPIC_STEREO:
+				{
+				/* Create a correction buffer the size of one autostereo tile: */
+				WindowPos rootPos=getRootWindowPos();
+				for(int i=0;i<2;++i)
+					lcFrameSize[i]=(rootPos.size[i]+asNumTiles[i]-1)/asNumTiles[i];
+				break;
+				}
+			
+			default:
+				{
+				/* Create a correction buffer of the current window size: */
+				for(int i=0;i<2;++i)
+					lcFrameSize[i]=getWindowSize()[i];
+				}
+			}
+		
+		/* Read lens correction parameters for both eyes: */
+		std::vector<float> lcpcs[2];
+		lcpcs[1]=configFileSection.retrieveValue<std::vector<float> >("./lcPoly",lcpcs[1]);
+		lcpcs[0]=configFileSection.retrieveValue<std::vector<float> >("./leftLcPoly",lcpcs[1]);
+		lcpcs[1]=configFileSection.retrieveValue<std::vector<float> >("./rightLcPoly",lcpcs[1]);
+		if(lcpcs[0].size()!=lcpcs[1].size())
+			Misc::throwStdErr("VRWindow::VRWindow: Left and right lens undistortion polynomials have different degrees");
+		lcPolynomialDegree=int(lcpcs[0].size())-1;
+		if(lcPolynomialDegree>3)
+			Misc::throwStdErr("VRWindow::VRWindow: Lens undistortion polynomials must have degree <= 3");
+		for(int p=0;p<2;++p)
+			{
+			for(int i=0;i<=lcPolynomialDegree;++i)
+				lcPolynomialCoefficients[p][i]=lcpcs[p][i];
+			for(int i=lcPolynomialDegree+1;i<4;++i)
+				lcPolynomialCoefficients[p][i]=0.0f;
+			}
+		for(int i=0;i<2;++i)
+			lcCenters[1][i]=0.5f;
+		lcCenters[1]=configFileSection.retrieveValue<Geometry::Point<float,2> >("./lcCenter",lcCenters[1]);
+		lcCenters[0]=configFileSection.retrieveValue<Geometry::Point<float,2> >("./leftLcCenter",lcCenters[1]);
+		lcCenters[1]=configFileSection.retrieveValue<Geometry::Point<float,2> >("./rightLcCenter",lcCenters[1]);
+		for(int si=0;si<2;++si)
+			{
+			if(screens[si]->getWidth()>=screens[si]->getHeight())
+				{
+				lcPreScales[si][0]=2.0f*float(screens[si]->getWidth()/screens[si]->getHeight());
+				lcPreScales[si][1]=2.0f;
+				}
+			else
+				{
+				lcPreScales[si][0]=2.0f;
+				lcPreScales[si][1]=2.0f*float(screens[si]->getHeight()/screens[si]->getWidth());
+				}
+			}
+		if(configFileSection.hasTag("./lcPreScales"))
+			lcPreScales[0]=lcPreScales[1]=configFileSection.retrieveValue<Geometry::ComponentArray<float,2> >("./lcPreScales");
+		lcPreScales[0]=configFileSection.retrieveValue<Geometry::ComponentArray<float,2> >("./leftLcPreScales",lcPreScales[0]);
+		lcPreScales[1]=configFileSection.retrieveValue<Geometry::ComponentArray<float,2> >("./rightLcPreScales",lcPreScales[1]);
+		Geometry::ComponentArray<float,4> lco[2];
+		lco[1]=Geometry::ComponentArray<float,4>(0.0f);
+		lco[1]=configFileSection.retrieveValue<Geometry::ComponentArray<float,4> >("./lcOverscan",lco[1]);
+		lco[0]=configFileSection.retrieveValue<Geometry::ComponentArray<float,4> >("./leftLcOverscan",lco[1]);
+		lco[1]=configFileSection.retrieveValue<Geometry::ComponentArray<float,4> >("./rightLcOverscan",lco[1]);
+		for(int si=0;si<2;++si)
+			for(int i=0;i<4;++i)
+				lcOverscan[si][i]=lco[si][i];
+		lcOverscanSize[0]=1.0f+lcOverscan[0][0]+lcOverscan[0][1];
+		lcOverscanSize[1]=1.0f+lcOverscan[0][2]+lcOverscan[0][3];
+		
+		/* Overscan the lens correction frame: */
+		for(int i=0;i<2;++i)
+			lcFrameSize[i]=int(Math::ceil(float(lcFrameSize[i])*lcOverscanSize[i]));
+		
+		/* Check whether to use bicubic texture look-ups: */
+		lcCubic=configFileSection.retrieveValue<bool>("./lcCubic",lcCubic);
+		
+		/* Create the lens correction frame buffer: */
+		glGenFramebuffersEXT(1,&lcFrameBufferObjectID);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcFrameBufferObjectID);
+		
+		/* Create the lens correction color texture: */
+		glGenTextures(1,&lcColorTextureObjectID);
+		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAX_LEVEL,0);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MIN_FILTER,lcCubic?GL_NEAREST:GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAG_FILTER,lcCubic?GL_NEAREST:GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_S,GL_CLAMP);
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_T,GL_CLAMP);
+		glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_RGB8,lcFrameSize[0],lcFrameSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,0);
+		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+		
+		if(multisamplingLevel>1)
+			{
+			/* Create the multisampling lens correction color buffer: */
+			glGenRenderbuffersEXT(1,&lcMsColorBufferObjectID);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcMsColorBufferObjectID);
+			glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT,multisamplingLevel,GL_RGB8,lcFrameSize[0],lcFrameSize[1]);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+			
+			/* Attach the multisampling lens correction color buffer to the frame buffer: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_RENDERBUFFER_EXT,lcMsColorBufferObjectID);
+			}
+		else
+			{
+			/* Attach the lens correction color texture to the frame buffer: */
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID,0);
+			}
+		
+		/* Create the lens correction depth render buffer: */
+		if(vruiState->windowProperties.stencilBufferSize>0)
+			{
+			/* Create an interleaved depth+stencil render buffer: */
+			if(vruiState->windowProperties.stencilBufferSize>8)
+				Misc::throwStdErr("VRWindow::VRWindow: Lens distortion correction not supported with stencil depth %d>8",int(vruiState->windowProperties.stencilBufferSize));
+			glGenRenderbuffersEXT(1,&lcDepthBufferObjectID);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			if(multisamplingLevel>1)
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT,multisamplingLevel,GL_DEPTH24_STENCIL8_EXT,lcFrameSize[0],lcFrameSize[1]);
+			else
+				glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH24_STENCIL8_EXT,lcFrameSize[0],lcFrameSize[1]);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+			
+			/* Attach the lens correction interleaved depth and stencil buffer to the frame buffer: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_STENCIL_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			}
+		else
+			{
+			/* Create a depth-only render buffer: */
+			glGenRenderbuffersEXT(1,&lcDepthBufferObjectID);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			if(multisamplingLevel>1)
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT,multisamplingLevel,GL_DEPTH_COMPONENT,lcFrameSize[0],lcFrameSize[1]);
+			else
+				glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH_COMPONENT,lcFrameSize[0],lcFrameSize[1]);
+			glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+			
+			/* Attach the lens correction depth buffer to the frame buffer: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+			}
+		
+		/* Set up pixel sources and destinations: */
+		glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+		glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+		
+		/* Check the status of the lens correction frame buffer: */
+		GLenum lcFramebufferStatus=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+		if(lcFramebufferStatus!=GL_FRAMEBUFFER_COMPLETE_EXT)
+			{
+			std::string reason="Vrui::VRWindow: Lens correction framebuffer incomplete because of ";
+			switch(lcFramebufferStatus)
+				{
+				case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
+					reason.append("invalid attachment");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
+					reason.append("missing attachment");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
+					reason.append("invalid dimensions");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
+					reason.append("invalid format");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
+					reason.append("invalid draw buffer");
+					break;
+				
+				case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
+					reason.append("invalid read buffer");
+					break;
+				
+				case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+					reason.append("unsupported feature");
+					break;
+				
+				default:
+					{
+					reason.append("unknown failure code ");
+					char codeBuffer[10];
+					reason.append(Misc::print(lcFramebufferStatus,codeBuffer+sizeof(codeBuffer)-1));
+					}
+				}
+			throw std::runtime_error(reason.c_str());
+			}
+		
+		if(multisamplingLevel>1)
+			{
+			/* Create the multisample "fixing" frame buffer: */
+			glGenFramebuffersEXT(1,&lcMsFrameBufferObjectID);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,lcMsFrameBufferObjectID);
+			
+			/* Attach the lens correction color texture to the "fixing" frame buffer: */
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT,GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID,0);
+			}
+		
+		/* Protect the lens correction frame buffer(s): */
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
+		
+		/* Create the lens correction shader: */
+		lcUndistortionShader=new GLShader;
+		
+		/* Compile the vertex program: */
+		static const char* lcVertexShader="\
+			void main()\n\
+				{\n\
+				gl_TexCoord[0]=gl_MultiTexCoord0;\n\
+				gl_Position=ftransform();\n\
+				}\n";
+		lcUndistortionShader->compileVertexShaderFromString(lcVertexShader);
+		
+		/* Compile the fragment program: */
+		static const char* lcFragmentShaderLinear="\
+			#extension GL_ARB_texture_rectangle : enable\n\
+			\n\
+			uniform sampler2DRect distortedImageSampler;\n\
+			uniform float coeffs[4];\n\
+			uniform vec2 center;\n\
+			uniform vec2 scale;\n\
+			uniform vec2 size;\n\
+			\n\
+			void main()\n\
+				{\n\
+				float r2=dot(gl_TexCoord[0].xy,gl_TexCoord[0].xy);\n\
+				float rp=coeffs[0]+r2*(coeffs[1]+r2*(coeffs[2]+r2*coeffs[3]));\n\
+				vec2 pp=center+gl_TexCoord[0].xy*rp*scale;\n\
+				if(pp.x>=0.0&&pp.x<=size.x&&pp.y>=0.0&&pp.y<=size.y)\n\
+					gl_FragColor=texture2DRect(distortedImageSampler,pp);\n\
+				else\n\
+					gl_FragColor=vec4(0.0,0.0,0.0,1.0);\n\
+				}\n";
+		
+		static const char* lcFragmentShaderCubic="\
+			#extension GL_ARB_texture_rectangle : enable\n\
+			\n\
+			uniform sampler2DRect distortedImageSampler;\n\
+			uniform float coeffs[4];\n\
+			uniform vec2 center;\n\
+			uniform vec2 scale;\n\
+			uniform vec2 size;\n\
+			\n\
+			vec4 sample(in vec2 p)\n\
+				{\n\
+				vec2 sp0=floor(p+0.5)-1.5;\n\
+				vec2 d=sp0-p;\n\
+				vec2 w[4];\n\
+				w[0]=((0.5*d+2.5)*d+4.0)*d+2.0;\n\
+				w[1]=((-1.5*d-7.0)*d-9.5)*d-3.0;\n\
+				w[2]=((1.5*d+6.5)*d+8.0)*d+3.0;\n\
+				w[3]=((-0.5*d-2.0)*d-2.5)*d-1.0;\n\
+				vec4 result=vec4(0.0);\n\
+				for(int y=0;y<4;++y)\n\
+					{\n\
+					vec4 xsum=vec4(0.0);\n\
+					for(int x=0;x<4;++x)\n\
+						xsum+=texture2DRect(distortedImageSampler,sp0+vec2(x,y))*w[x].x;\n\
+					result+=xsum*w[y].y;\n\
+					}\n\
+				return result;\n\
+				}\n\
+			\n\
+			void main()\n\
+				{\n\
+				float r2=dot(gl_TexCoord[0].xy,gl_TexCoord[0].xy);\n\
+				float rp=coeffs[0]+r2*(coeffs[1]+r2*(coeffs[2]+r2*coeffs[3]));\n\
+				vec2 pp=center+gl_TexCoord[0].xy*rp*scale;\n\
+				if(pp.x>=0.0&&pp.x<=size.x&&pp.y>=0.0&&pp.y<=size.y)\n\
+					gl_FragColor=sample(pp);\n\
+				else\n\
+					gl_FragColor=vec4(0.0,0.0,0.0,1.0);\n\
+				}\n";
+		
+		lcUndistortionShader->compileFragmentShaderFromString(lcCubic?lcFragmentShaderCubic:lcFragmentShaderLinear);
+		
+		/* Link the shader program and query the uniform locations: */
+		lcUndistortionShader->linkShader();
+		lcUndistortionShaderUniformIndices[0]=lcUndistortionShader->getUniformLocation("distortedImageSampler");
+		lcUndistortionShaderUniformIndices[1]=lcUndistortionShader->getUniformLocation("coeffs");
+		lcUndistortionShaderUniformIndices[2]=lcUndistortionShader->getUniformLocation("center");
+		lcUndistortionShaderUniformIndices[3]=lcUndistortionShader->getUniformLocation("scale");
+		lcUndistortionShaderUniformIndices[4]=lcUndistortionShader->getUniformLocation("size");
+		}
+	
+	/* Check if the window has a dedicated mouse mapping screen: */
+	if(configFileSection.hasTag("./mouseScreenName"))
+		{
+		std::string mouseScreenName=configFileSection.retrieveString("./mouseScreenName");
+		mouseScreen=findScreen(mouseScreenName.c_str());
+		if(mouseScreen==0)
+			Misc::throwStdErr("VRWindow::VRWindow: Screen %s does not exist",mouseScreenName.c_str());
+		}
+	
 	if(showFps)
 		{
 		/* Load font: */
@@ -862,51 +1474,68 @@ VRWindow::VRWindow(const char* windowName,const Misc::ConfigurationFileSection& 
 	if(configFileSection.retrieveValue<bool>("./joinSwapGroup",false))
 		{
 		GLuint maxSwapGroupName,maxSwapBarrierName;
-		glXQueryMaxSwapGroupsNV(getDisplay(),getScreen(),&maxSwapGroupName,&maxSwapBarrierName);
+		glXQueryMaxSwapGroupsNV(getContext().getDisplay(),getScreen(),&maxSwapGroupName,&maxSwapBarrierName);
 		GLuint swapGroupName=configFileSection.retrieveValue<GLuint>("./swapGroupName",0);
 		if(swapGroupName>maxSwapGroupName)
 			Misc::throwStdErr("VRWindow::VRWindow: Swap group name %u larger than maximum %u",swapGroupName,maxSwapGroupName);
 		GLuint swapBarrierName=configFileSection.retrieveValue<GLuint>("./swapBarrierName",0);
 		if(swapBarrierName>maxSwapBarrierName)
 			Misc::throwStdErr("VRWindow::VRWindow: Swap barrier name %u larger than maximum %u",swapBarrierName,maxSwapBarrierName);
-		if(!glXJoinSwapGroupNV(getDisplay(),getWindow(),swapGroupName))
+		if(!glXJoinSwapGroupNV(getContext().getDisplay(),getWindow(),swapGroupName))
 			Misc::throwStdErr("VRWindow::VRWindow: Unable to join swap group %u",swapGroupName);
-		if(!glXBindSwapBarrierNV(getDisplay(),swapGroupName,swapBarrierName))
+		if(!glXBindSwapBarrierNV(getContext().getDisplay(),swapGroupName,swapBarrierName))
 			Misc::throwStdErr("VRWindow::VRWindow: Unable to bind swap barrier %u",swapBarrierName);
 		}
 	#endif
+	
+	/* Check if the window is supposed to save a movie: */
+	if(configFileSection.retrieveValue<bool>("./saveMovie",false))
+		{
+		/* Create a movie saver object: */
+		movieSaver=MovieSaver::createMovieSaver(configFileSection);
+		}
 	}
 
 VRWindow::~VRWindow(void)
 	{
-	makeCurrent();
-	if(windowType==INTERLEAVEDVIEWPORT_STEREO)
+	delete movieSaver;
+	}
+
+void VRWindow::setWindowGroup(VruiWindowGroup* newWindowGroup)
+	{
+	/* Store the window group association: */
+	windowGroup=newWindowGroup;
+	
+	/* Immediately advertise the current viewport and frame buffer size: */
+	int viewportSize[2];
+	if(windowType==SPLITVIEWPORT_STEREO)
 		{
-		if(hasFramebufferObjectExtension)
-			{
-			glDeleteFramebuffersEXT(1,&ivRightFramebufferObjectID);
-			glDeleteRenderbuffersEXT(1,&ivRightDepthbufferObjectID);
-			}
-		glDeleteTextures(1,&ivRightViewportTextureID);
-		for(int offset=0;offset<2;++offset)
-			delete[] ivRightStipplePatterns[offset];
+		for(int i=0;i<2;++i)
+			viewportSize[i]=Math::max(splitViewportPos[0].size[i],splitViewportPos[1].size[i]);
 		}
-	else if(windowType==AUTOSTEREOSCOPIC_STEREO)
+	else
 		{
-		delete asInterzigShader;
-		if(hasFramebufferObjectExtension)
-			{
-			glDeleteFramebuffersEXT(1,&asFrameBufferObjectID);
-			glDeleteRenderbuffersEXT(1,&asDepthBufferObjectID);
-			}
-		glDeleteTextures(1,&asViewZoneTextureID);
-		glDeleteTextures(1,&asViewMapTextureID);
+		for(int i=0;i<2;++i)
+			viewportSize[i]=getWindowSize()[i];
 		}
-	delete showFpsFont;
-	GLContextData::makeCurrent(0);
-	delete contextData;
-	GLExtensionManager::makeCurrent(0);
-	delete extensionManager;
+	int frameSize[2];
+	if(lcPolynomialDegree>=0)
+		{
+		for(int i=0;i<2;++i)
+			frameSize[i]=lcFrameSize[i];
+		}
+	else
+		{
+		for(int i=0;i<2;++i)
+			frameSize[i]=getWindowSize()[i];
+		}
+	
+	resizeWindow(windowGroup,this,viewportSize,frameSize);
+	}
+
+void VRWindow::setVRScreen(int screenIndex,VRScreen* newScreen)
+	{
+	screens[screenIndex]=newScreen;
 	}
 
 void VRWindow::setVRScreen(VRScreen* newScreen)
@@ -922,10 +1551,56 @@ void VRWindow::setScreenViewport(const Scalar newViewport[4])
 		viewports[0][i]=viewports[1][i]=newViewport[i];
 	}
 
+void VRWindow::setViewer(int viewerIndex,Viewer* newViewer)
+	{
+	viewers[viewerIndex]=newViewer;
+	}
+
 void VRWindow::setViewer(Viewer* newViewer)
 	{
-	/* Set the viewer to the given viewer: */
-	viewer=newViewer;
+	/* Set both viewers to the given viewer: */
+	viewers[0]=viewers[1]=newViewer;
+	}
+
+void VRWindow::deinit(void)
+	{
+	makeCurrent();
+	if(windowType==INTERLEAVEDVIEWPORT_STEREO)
+		{
+		if(hasFramebufferObjectExtension)
+			{
+			glDeleteFramebuffersEXT(1,&ivRightFramebufferObjectID);
+			glDeleteRenderbuffersEXT(1,&ivRightDepthbufferObjectID);
+			}
+		glDeleteTextures(1,&ivRightViewportTextureID);
+		for(int i=0;i<4;++i)
+			delete[] ivRightStipplePatterns[i];
+		}
+	else if(windowType==AUTOSTEREOSCOPIC_STEREO)
+		{
+		delete asInterzigShader;
+		if(hasFramebufferObjectExtension)
+			{
+			glDeleteFramebuffersEXT(1,&asFrameBufferObjectID);
+			glDeleteRenderbuffersEXT(1,&asDepthBufferObjectID);
+			}
+		glDeleteTextures(1,&asViewZoneTextureID);
+		glDeleteTextures(1,&asViewMapTextureID);
+		}
+	if(lcPolynomialDegree>=0)
+		{
+		glDeleteFramebuffersEXT(1,&lcFrameBufferObjectID);
+		glDeleteTextures(1,&lcColorTextureObjectID);
+		glDeleteRenderbuffersEXT(1,&lcDepthBufferObjectID);
+		glDeleteRenderbuffersEXT(1,&lcStencilBufferObjectID);
+		if(multisamplingLevel>1)
+			{
+			glDeleteFramebuffersEXT(1,&lcMsFrameBufferObjectID);
+			glDeleteRenderbuffersEXT(1,&lcMsColorBufferObjectID);
+			}
+		delete lcUndistortionShader;
+		}
+	delete showFpsFont;
 	}
 
 int VRWindow::getNumEyes(void) const
@@ -950,17 +1625,17 @@ Point VRWindow::getEyePosition(int eyeIndex) const
 	switch(windowType)
 		{
 		case MONO:
-			return viewer->getEyePosition(Viewer::MONO);
+			return viewers[0]->getEyePosition(Viewer::MONO);
 		
 		case LEFT:
-			return viewer->getEyePosition(Viewer::LEFT);
+			return viewers[0]->getEyePosition(Viewer::LEFT);
 		
 		case RIGHT:
-			return viewer->getEyePosition(Viewer::RIGHT);
+			return viewers[1]->getEyePosition(Viewer::RIGHT);
 		
 		case AUTOSTEREOSCOPIC_STEREO:
 			{
-			Point asEye=viewer->getEyePosition(Viewer::MONO);
+			Point asEye=viewers[0]->getEyePosition(Viewer::MONO);
 			Vector asViewZoneOffsetVector=screens[0]->getScreenTransformation().inverseTransform(Vector(asViewZoneOffset,0,0));
 			asEye+=asViewZoneOffsetVector*(Scalar(eyeIndex)-Math::div2(Scalar(asNumViewZones-1)));
 			return asEye;
@@ -968,49 +1643,86 @@ Point VRWindow::getEyePosition(int eyeIndex) const
 		
 		default:
 			if(eyeIndex==0)
-				return viewer->getEyePosition(Viewer::LEFT);
+				return viewers[0]->getEyePosition(Viewer::LEFT);
 			else
-				return viewer->getEyePosition(Viewer::RIGHT);
+				return viewers[1]->getEyePosition(Viewer::RIGHT);
 		}
 	}
 
-Ray VRWindow::reprojectWindowPos(const Scalar windowPos[2]) const
+void VRWindow::updateMouseDevice(const int windowPos[2],InputDevice* mouse) const
 	{
-	/* Get the current screen transformation: */
-	ONTransform screenT=screens[0]->getScreenTransformation();
-	
-	/* Transform the eye position to screen coordinates: */
-	Point eyePos=viewer->getEyePosition(Viewer::MONO);
-	Point screenEyePos=screenT.inverseTransform(eyePos);
-	
-	/* Check if the screen is projected off-axis: */
-	Point nearPoint;
-	if(screens[0]->isOffAxis())
+	/* Find the screen and viewer responsible for the given window position and transform the window position to screen coordinates: */
+	int viewport=0;
+	const VRScreen* screen;
+	Geometry::Point<Scalar,2> screenPos;
+	if(windowType==SPLITVIEWPORT_STEREO)
 		{
-		/* Transform the window position from rectified screen coordinates to projected screen coordinates: */
-		VRScreen::PTransform2::Point wp(windowPos);
-		wp=screens[0]->getScreenHomography().transform(wp);
+		/* Check which viewport contains the given window position: */
+		if(splitViewportPos[1].contains(windowPos))
+			viewport=1;
 		
-		/* Calculate point on near plane: */
-		Scalar near=getFrontplaneDist();
-		nearPoint[0]=(wp[0]-screenEyePos[0])/screenEyePos[2]*near+screenEyePos[0];
-		nearPoint[1]=(wp[1]-screenEyePos[1])/screenEyePos[2]*near+screenEyePos[1];
-		nearPoint[2]=screenEyePos[2]-near;
+		/* Convert the window position to screen coordinates: */
+		if(mouseScreen!=0)
+			{
+			screen=mouseScreen;
+			screenPos[0]=(Scalar(windowPos[0])+Scalar(0.5))*mouseScreen->getWidth()/getWindowWidth();
+			screenPos[1]=(Scalar(getWindowHeight()-windowPos[1])-Scalar(0.5))*mouseScreen->getHeight()/getWindowHeight();
+			}
+		else
+			{
+			screen=screens[viewport];
+			screenPos[0]=(Scalar(windowPos[0]-splitViewportPos[viewport].origin[0])+Scalar(0.5))*screen->getWidth()/Scalar(splitViewportPos[viewport].size[0]);
+			screenPos[1]=(Scalar(splitViewportPos[viewport].origin[1]+splitViewportPos[viewport].size[1]-windowPos[1])-Scalar(0.5))*screen->getHeight()/Scalar(splitViewportPos[viewport].size[1]);
+			}
 		}
 	else
 		{
-		/* Calculate point on near plane: */
-		Scalar near=getFrontplaneDist();
-		nearPoint[0]=(windowPos[0]-screenEyePos[0])/screenEyePos[2]*near+screenEyePos[0];
-		nearPoint[1]=(windowPos[1]-screenEyePos[1])/screenEyePos[2]*near+screenEyePos[1];
-		nearPoint[2]=screenEyePos[2]-near;
+		/* Convert the window position to screen coordinates: */
+		if(mouseScreen!=0)
+			{
+			screen=mouseScreen;
+			screenPos[0]=(Scalar(windowPos[0])+Scalar(0.5))*mouseScreen->getWidth()/getWindowWidth();
+			screenPos[1]=(Scalar(getWindowHeight()-windowPos[1])-Scalar(0.5))*mouseScreen->getHeight()/getWindowHeight();
+			}
+		else if(panningViewport)
+			{
+			screen=screens[viewport];
+			screenPos[0]=(Scalar(getWindowOrigin()[0]-panningDomain.origin[0]+windowPos[0])+Scalar(0.5))*screen->getWidth()/Scalar(panningDomain.size[0]);
+			screenPos[1]=(Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1]-windowPos[1])-Scalar(0.5))*screen->getHeight()/Scalar(panningDomain.size[1]);
+			}
+		else
+			{
+			screen=screens[viewport];
+			screenPos[0]=(Scalar(windowPos[0])+Scalar(0.5))*screen->getWidth()/getWindowWidth();
+			screenPos[1]=(Scalar(getWindowHeight()-windowPos[1])-Scalar(0.5))*screen->getHeight()/getWindowHeight();
+			}
 		}
 	
-	/* Transform near point to world coordinates: */
-	nearPoint=screenT.transform(nearPoint);
+	/* Check if the screen is projected off-axis: */
+	if(screen->isOffAxis())
+		{
+		/* Transform the window position from rectified screen coordinates to projected screen coordinates: */
+		screenPos=screen->getScreenHomography().transform(screenPos);
+		}
 	
-	/* Return result ray: */
-	return Ray(nearPoint,nearPoint-eyePos);
+	/* Get the current screen transformation: */
+	ONTransform screenT=screen->getScreenTransformation();
+	
+	/* Set the mouse device's position and orientation: */
+	ONTransform mouseT(screenT.transform(Point(screenPos[0],screenPos[1],Scalar(0)))-Point::origin,screenT.getRotation()*Rotation::rotateX(Math::rad(-90.0)));
+	
+	/* Transform the eye position to screen coordinates: */
+	Point screenEyePos=screenT.inverseTransform(viewers[viewport]->getEyePosition(Viewer::MONO));
+	
+	/* Calculate the mouse device's ray direction in device, i.e., rotated screen coordinates: */
+	Vector mouseRayDir(screenPos[0]-screenEyePos[0],screenEyePos[2],screenPos[1]-screenEyePos[1]);
+	Scalar mouseRayLen=Geometry::mag(mouseRayDir);
+	mouseRayDir/=mouseRayLen;
+	Scalar mouseRayStart=-mouseRayLen;
+	
+	/* Set the mouse device: */
+	mouse->setDeviceRay(mouseRayDir,mouseRayStart);
+	mouse->setTransformation(mouseT);
 	}
 
 ViewSpecification VRWindow::calcViewSpec(int eyeIndex) const
@@ -1057,10 +1769,10 @@ ViewSpecification VRWindow::calcViewSpec(int eyeIndex) const
 	result.setEyeScreenDistance(eyeZ);
 	
 	/* Calculate the six frustum face planes: */
-	result.setFrustumPlane(0,Plane(Geometry::cross(screenY,eye-left),left));
-	result.setFrustumPlane(1,Plane(Geometry::cross(eye-right,screenY),right));
-	result.setFrustumPlane(2,Plane(Geometry::cross(eye-bottom,screenX),bottom));
-	result.setFrustumPlane(3,Plane(Geometry::cross(screenX,eye-top),top));
+	result.setFrustumPlane(0,Plane(screenY^(eye-left),left));
+	result.setFrustumPlane(1,Plane((eye-right)^screenY,right));
+	result.setFrustumPlane(2,Plane((eye-bottom)^screenX,bottom));
+	result.setFrustumPlane(3,Plane(screenX^(eye-top),top));
 	result.setFrustumPlane(4,Plane(-screenZ,eye-screenZ*getFrontplaneDist()));
 	result.setFrustumPlane(5,Plane(screenZ,eye-screenZ*getBackplaneDist()));
 	
@@ -1083,82 +1795,9 @@ ViewSpecification VRWindow::calcViewSpec(int eyeIndex) const
 	return result;
 	}
 
-Scalar* VRWindow::getWindowCenterPos(Scalar windowCenterPos[2]) const
-	{
-	if(windowType!=SPLITVIEWPORT_STEREO&&panningViewport)
-		{
-		windowCenterPos[0]=(Scalar(getWindowOrigin()[0]+GLWindow::getWindowSize()[0]/2)+Scalar(0.5))*screens[0]->getWidth()/Scalar(displaySize[0]);
-		windowCenterPos[1]=(Scalar(displaySize[1]-getWindowOrigin()[1]-GLWindow::getWindowSize()[1]/2)-Scalar(0.5))*screens[0]->getHeight()/Scalar(displaySize[1]);
-		}
-	else
-		{
-		windowCenterPos[0]=Math::div2(screens[0]->getWidth());
-		windowCenterPos[1]=Math::div2(screens[0]->getHeight());
-		}
-	
-	return windowCenterPos;
-	}
-
-void VRWindow::setCursorPos(const Scalar newCursorPos[2])
-	{
-	/* Convert from screen coordinates to window coordinates: */
-	if(windowType!=SPLITVIEWPORT_STEREO)
-		{
-		/* Calculate mouse position based on entire window: */
-		int cursorX,cursorY;
-		if(panningViewport)
-			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()-Scalar(getWindowOrigin()[0])));
-			cursorY=int(Math::floor(Scalar(displaySize[1]-getWindowOrigin()[1])-newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()));
-			}
-		else
-			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
-			cursorY=int(Math::floor(Scalar(getWindowHeight())-newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
-			}
-		GLWindow::setCursorPos(cursorX,cursorY);
-		}
-	}
-
-void VRWindow::setCursorPosWithAdjust(Scalar newCursorPos[2])
-	{
-	/* Convert from screen coordinates to window coordinates: */
-	if(windowType!=SPLITVIEWPORT_STEREO)
-		{
-		/* Calculate mouse position based on entire window: */
-		int cursorX,cursorY;
-		if(panningViewport)
-			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(displaySize[0])/screens[0]->getWidth()-Scalar(getWindowOrigin()[0])));
-			cursorY=int(Math::floor(Scalar(displaySize[1]-getWindowOrigin()[1])-newCursorPos[1]*Scalar(displaySize[1])/screens[0]->getHeight()));
-			}
-		else
-			{
-			cursorX=int(Math::floor(newCursorPos[0]*Scalar(getWindowWidth())/screens[0]->getWidth()));
-			cursorY=int(Math::floor(Scalar(getWindowHeight())-newCursorPos[1]*Scalar(getWindowHeight())/screens[0]->getHeight()));
-			}
-		GLWindow::setCursorPos(cursorX,cursorY);
-		
-		/* Adjust the given cursor position: */
-		calcMousePos(cursorX,cursorY,newCursorPos);
-		}
-	}
-
-void VRWindow::makeCurrent(void)
-	{
-	/* Call the base class method: */
-	GLWindow::makeCurrent();
-	
-	/* Install this window's GL extension manager: */
-	GLExtensionManager::makeCurrent(extensionManager);
-	
-	/* Install the window's GL context data manager: */
-	GLContextData::makeCurrent(contextData);
-	}
-
 bool VRWindow::processEvent(const XEvent& event)
 	{
-	bool finished=false;
+	bool stopProcessing=false;
 	
 	switch(event.type)
 		{
@@ -1171,28 +1810,23 @@ bool VRWindow::processEvent(const XEvent& event)
 		case ConfigureNotify:
 			{
 			/* Call the base class' event handler: */
-			finished=GLWindow::processEvent(event);
+			GLWindow::processEvent(event);
 			
 			if(panningViewport)
 				{
-				/* Compute the old viewport center and size: */
+				/* Compute a translation from the old viewport center to the new viewport center: */
 				Vector translate;
-				Scalar oldSize(0);
 				for(int i=0;i<2;++i)
-					{
 					translate[i]=-Math::mid(viewports[0][i*2+0],viewports[0][i*2+1]);
-					oldSize+=Math::sqr(viewports[0][i*2+1]-viewports[0][i*2+0]);
-					}
 				translate[2]=Scalar(0);
-				oldSize=Math::sqrt(oldSize);
 				
 				/* Update the window's viewport: */
 				for(int i=0;i<2;++i)
 					{
-					viewports[i][0]=Scalar(getWindowOrigin()[0])*screens[i]->getWidth()/Scalar(displaySize[0]);
-					viewports[i][1]=Scalar(getWindowOrigin()[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(displaySize[0]);
-					viewports[i][2]=Scalar(displaySize[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(displaySize[1]);
-					viewports[i][3]=Scalar(displaySize[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(displaySize[1]);
+					viewports[i][0]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0])*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+					viewports[i][1]=Scalar(getWindowOrigin()[0]-panningDomain.origin[0]+getWindowWidth())*screens[i]->getWidth()/Scalar(panningDomain.size[0]);
+					viewports[i][2]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1]-getWindowHeight())*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
+					viewports[i][3]=Scalar(panningDomain.origin[1]+panningDomain.size[1]-getWindowOrigin()[1])*screens[i]->getHeight()/Scalar(panningDomain.size[1]);
 					}
 				
 				/* Compute the new viewport center and size: */
@@ -1208,7 +1842,7 @@ bool VRWindow::processEvent(const XEvent& event)
 				newCenter[2]=Scalar(0);
 				newCenter=screenT.transform(newCenter);
 				translate=screenT.transform(translate);
-				newSize=Math::sqrt(newSize);
+				newSize=Math::div2(Math::sqrt(newSize));
 				
 				if(navigate)
 					{
@@ -1216,9 +1850,7 @@ bool VRWindow::processEvent(const XEvent& event)
 					if(activateNavigationTool(reinterpret_cast<Tool*>(this)))
 						{
 						/* Scale to fit the old viewport into the new viewport: */
-						NavTransform nav=NavTransform::translateFromOriginTo(newCenter);
-						nav*=NavTransform::scale(newSize/oldSize);
-						nav*=NavTransform::translateToOriginFrom(newCenter);
+						NavTransform nav=NavTransform::scaleAround(newCenter,newSize/getDisplaySize());
 						
 						/* Translate navigation coordinates to move the display with the window: */
 						nav*=NavTransform::translate(translate);
@@ -1241,7 +1873,7 @@ bool VRWindow::processEvent(const XEvent& event)
 					}
 				
 				/* Update the display center and size: */
-				setDisplayCenter(newCenter,getDisplaySize()*newSize/oldSize);
+				setDisplayCenter(newCenter,newSize);
 				
 				requestUpdate();
 				}
@@ -1280,7 +1912,7 @@ bool VRWindow::processEvent(const XEvent& event)
 						mustReallocate=true;
 					ivTextureSize[i]=newTextureSize;
 					}
-				ivEyeIndexOffset=GLWindow::getWindowOrigin()[0]+GLWindow::getWindowOrigin()[1];
+				ivEyeIndexOffset=(GLWindow::getWindowOrigin()[1]%2)*2+(GLWindow::getWindowOrigin()[0]%2);
 				
 				if(mustReallocate)
 					{
@@ -1298,16 +1930,50 @@ bool VRWindow::processEvent(const XEvent& event)
 						}
 					}
 				}
+			
+			if(lcPolynomialDegree>=0&&windowType!=SPLITVIEWPORT_STEREO&&windowType!=AUTOSTEREOSCOPIC_STEREO)
+				{
+				/* Reallocate the lens correction buffers: */
+				for(int i=0;i<2;++i)
+					lcFrameSize[i]=int(Math::ceil(float(getWindowSize()[i])*lcOverscanSize[i]));
+				
+				/* Resize the lens correction color texture: */
+				glBindTexture(GL_TEXTURE_RECTANGLE_ARB,lcColorTextureObjectID);
+				glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_RGB8,lcFrameSize[0],lcFrameSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,0);
+				glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+				
+				/* Resize the lens correction depth render buffer: */
+				glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcDepthBufferObjectID);
+				glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH_COMPONENT,lcFrameSize[0],lcFrameSize[1]);
+				glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+				
+				if(lcStencilBufferObjectID!=0)
+					{
+					/* Resize the lens correction stencil render buffer: */
+					glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,lcStencilBufferObjectID);
+					glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,lcStencilPixelFormat,lcFrameSize[0],lcFrameSize[1]);
+					glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+					}
+				}
+			
+			if(windowGroup!=0)
+				{
+				/* Notify the Vrui run-time that the window size has changed: */
+				setWindowGroup(windowGroup); // Lazy, lazy...
+				}
+			
 			break;
 			}
 		
 		case MotionNotify:
 			if(mouseAdapter!=0)
 				{
+				/* Remember window-coordinate mouse position: */
+				windowMousePos[0]=event.xmotion.x;
+				windowMousePos[1]=event.xmotion.y;
+				
 				/* Set mouse position in input device adapter: */
-				Scalar mousePos[2];
-				if(calcMousePos(event.xmotion.x,event.xmotion.y,mousePos))
-					mouseAdapter->setMousePosition(this,mousePos);
+				mouseAdapter->setMousePosition(this,windowMousePos);
 				}
 			break;
 		
@@ -1315,15 +1981,17 @@ bool VRWindow::processEvent(const XEvent& event)
 		case ButtonRelease:
 			if(mouseAdapter!=0)
 				{
+				/* Remember window-coordinate mouse position: */
+				windowMousePos[0]=event.xbutton.x;
+				windowMousePos[1]=event.xbutton.y;
+				
 				/* Set mouse position in input device adapter: */
-				Scalar mousePos[2];
-				if(calcMousePos(event.xbutton.x,event.xbutton.y,mousePos))
-					mouseAdapter->setMousePosition(this,mousePos);
+				mouseAdapter->setMousePosition(this,windowMousePos);
 				
 				/* Set the state of the appropriate button in the input device adapter: */
 				bool newState=event.type==ButtonPress;
 				if(event.xbutton.button<4)
-					mouseAdapter->setButtonState(event.xbutton.button-1,newState);
+					stopProcessing=mouseAdapter->setButtonState(event.xbutton.button-1,newState);
 				else if(event.xbutton.button==4)
 					{
 					if(newState)
@@ -1335,7 +2003,7 @@ bool VRWindow::processEvent(const XEvent& event)
 						mouseAdapter->decMouseWheelTicks();
 					}
 				else if(event.xbutton.button>5)
-					mouseAdapter->setButtonState(event.xbutton.button-3,newState);
+					stopProcessing=mouseAdapter->setButtonState(event.xbutton.button-3,newState);
 				}
 			break;
 		
@@ -1343,17 +2011,16 @@ bool VRWindow::processEvent(const XEvent& event)
 		case KeyRelease:
 			{
 			/* Convert event key index to keysym: */
-			#if 0
-			XKeyEvent keyEvent=event.xkey;
-			KeySym keySym=XLookupKeysym(&keyEvent,0);
-			#else
 			char keyString[20];
 			KeySym keySym;
-			XComposeStatus compose;
 			XKeyEvent keyEvent=event.xkey;
-			int keyStringLen=XLookupString(&keyEvent,keyString,sizeof(keyString),&keySym,&compose);
+			
+			/* Use string lookup method to get proper key value for text events: */
+			int keyStringLen=XLookupString(&keyEvent,keyString,sizeof(keyString),&keySym,0);
 			keyString[keyStringLen]='\0';
-			#endif
+			
+			/* Use keysym lookup a second time to get raw key code ignoring modifier keys: */
+			keySym=XLookupKeysym(&keyEvent,0);
 			
 			if(event.type==KeyPress)
 				{
@@ -1361,28 +2028,57 @@ bool VRWindow::processEvent(const XEvent& event)
 				switch(keySym)
 					{
 					case XK_Print:
-						{  
-						saveScreenshot=true;
-						char numberedFileName[256];
-						#ifdef VRUI_USE_PNG
-						/* Save the screenshot as a PNG file: */
-						screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.png",4,numberedFileName);
-						#else
-						/* Save the screenshot as a PPM file: */
-						screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.ppm",4,numberedFileName);
-						#endif
+						if((keyEvent.state&0xedU)==0x40U)
+							{
+							saveScreenshot=true;
+							char numberedFileName[256];
+							#if IMAGES_CONFIG_HAVE_PNG
+							/* Save the screenshot as a PNG file: */
+							screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.png",4,numberedFileName);
+							#else
+							/* Save the screenshot as a PPM file: */
+							screenshotImageFileName=Misc::createNumberedFileName("VruiScreenshot.ppm",4,numberedFileName);
+							#endif
+							
+							/* Write a confirmation message: */
+							std::cout<<"Saving window contents as "<<screenshotImageFileName<<std::endl;
+							}
 						break;
-						}
+					
+					case XK_Scroll_Lock:
+						if((keyEvent.state&0xedU)==0x40U)
+							{
+							/* Enter or leave burn mode: */
+							if(burnMode)
+								{
+								double burnModeTime=getApplicationTime()-burnModeStartTime;
+								std::cout<<"Leaving burn mode: "<<burnModeNumFrames<<" frames in "<<burnModeTime*1000.0<<" ms, averaging "<<double(burnModeNumFrames)/burnModeTime<<" fps"<<std::endl;
+								burnMode=false;
+								}
+							else
+								{
+								std::cout<<"Entering burn mode"<<std::endl;
+								burnMode=true;
+								burnModeNumFrames=~0U;
+								}
+							}
+						break;
 					
 					case XK_Escape:
-						finished=true;
+						if((keyEvent.state&0xedU)==0x00U)
+							{
+							/* Call the window close callbacks: */
+							Misc::CallbackData cbData;
+							getCloseCallbacks().call(&cbData);
+							stopProcessing=true;
+							}
 						break;
 					}
 				
 				if(mouseAdapter!=0)
 					{
 					/* Send key event to input device adapter: */
-					mouseAdapter->keyPressed(keySym,keyEvent.state,keyString);
+					stopProcessing=mouseAdapter->keyPressed(keySym,keyEvent.state,keyString);
 					}
 				}
 			else
@@ -1390,18 +2086,75 @@ bool VRWindow::processEvent(const XEvent& event)
 				if(mouseAdapter!=0)
 					{
 					/* Send key event to input device adapter: */
-					mouseAdapter->keyReleased(keySym);
+					stopProcessing=mouseAdapter->keyReleased(keySym);
 					}
 				}
 			break;
 			}
 		
+		case FocusIn:
+			if(panningViewport)
+				{
+				/* Compute the new viewport center and size: */
+				ONTransform screenT=screens[0]->getScreenTransformation();
+				Point newCenter;
+				Scalar newSize(0);
+				for(int i=0;i<2;++i)
+					{
+					newCenter[i]=Math::mid(viewports[0][i*2+0],viewports[0][i*2+1]);
+					newSize+=Math::sqr(viewports[0][i*2+1]-viewports[0][i*2+0]);
+					}
+				newCenter[2]=Scalar(0);
+				newCenter=screenT.transform(newCenter);
+				newSize=Math::div2(Math::sqrt(newSize));
+				
+				/* Update the display center and size: */
+				setDisplayCenter(newCenter,newSize);
+				
+				requestUpdate();
+				}
+			
+			if(trackToolKillZone)
+				{
+				/* Move the tool kill zone to its intended position in relative window coordinates: */
+				ToolKillZone* toolKillZone=getToolManager()->getToolKillZone();
+				Vector toolKillZoneSize=screens[0]->getScreenTransformation().inverseTransform(Vector(toolKillZone->getSize()));
+				Point screenPos;
+				for(int i=0;i<2;++i)
+					{
+					Scalar min=viewports[0][2*i+0]+toolKillZoneSize[i]*Scalar(0.5);
+					Scalar max=viewports[0][2*i+1]-toolKillZoneSize[i]*Scalar(0.5);
+					screenPos[i]=min+(max-min)*toolKillZonePos[i];
+					}
+				screenPos[2]=Scalar(0);
+				toolKillZone->setCenter(screens[0]->getScreenTransformation().transform(screenPos));
+				vruiState->navigationTransformationChangedMask|=0x4;
+				}
+			
+			if(mouseAdapter!=0)
+				{
+				/* Create a fake XKeymap event: */
+				XKeymapEvent keymapEvent;
+				keymapEvent.type=KeymapNotify;
+				keymapEvent.serial=event.xcrossing.serial;
+				keymapEvent.send_event=event.xcrossing.send_event;
+				keymapEvent.display=event.xcrossing.display;
+				keymapEvent.window=event.xcrossing.window;
+				
+				/* Query the current key map: */
+				XQueryKeymap(getContext().getDisplay(),keymapEvent.key_vector);
+				
+				/* Reset the input device adapter's key states: */
+				mouseAdapter->resetKeys(keymapEvent);
+				}
+			break;
+		
 		default:
 			/* Call base class method: */
-			finished=GLWindow::processEvent(event);
+			GLWindow::processEvent(event);
 		}
 	
-	return finished;
+	return stopProcessing;
 	}
 
 void VRWindow::requestScreenshot(const char* sScreenshotImageFileName)
@@ -1413,6 +2166,9 @@ void VRWindow::requestScreenshot(const char* sScreenshotImageFileName)
 
 void VRWindow::draw(void)
 	{
+	/* Update the window's display state: */
+	getMaxWindowSizes(windowGroup,displayState->maxViewportSize,displayState->maxFrameSize);
+	
 	/* Activate the window's OpenGL context: */
 	makeCurrent();
 	
@@ -1423,60 +2179,65 @@ void VRWindow::draw(void)
 		glViewport(0,0,getWindowWidth(),getWindowHeight());
 		
 		/* Clear the entire window (important if the usual rendering mode masks part of the frame buffer): */
+		glDisable(GL_SCISSOR_TEST);
 		glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		
-		resizeViewport=false;
+		glDepthMask(GL_TRUE);
+		if(clearBufferMask&GL_STENCIL_BUFFER_BIT)
+			glStencilMask(~0x0U);
+		glClear(clearBufferMask);
 		}
 	
 	/* Update things in the window's GL context data: */
-	contextData->updateThings();
+	getContextData().updateThings();
 	
 	/* Draw the window's contents: */
+	GLWindow::WindowPos windowViewport(getWindowWidth(),getWindowHeight());
 	switch(windowType)
 		{
 		case MONO:
 			/* Render both-eyes view: */
 			glDrawBuffer(GL_BACK);
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::MONO));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::MONO));
 			break;
 		
 		case LEFT:
 			/* Render left-eye view: */
 			glDrawBuffer(GL_BACK);
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
 			break;
 		
 		case RIGHT:
 			/* Render right-eye view: */
 			glDrawBuffer(GL_BACK);
-			render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
 			break;
 		
 		case QUADBUFFER_STEREO:
 			/* Render left-eye view: */
 			glDrawBuffer(GL_BACK_LEFT);
 			displayState->eyeIndex=0;
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
 			
 			/* Render right-eye view: */
 			glDrawBuffer(GL_BACK_RIGHT);
 			displayState->eyeIndex=1;
-			render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
 			break;
 		
 		case ANAGLYPHIC_STEREO:
 			glDrawBuffer(GL_BACK);
 			
 			/* Render left-eye view: */
-			glColorMask(GL_TRUE,GL_FALSE,GL_FALSE,GL_FALSE);
+			if(lcPolynomialDegree<0)
+				glColorMask(GL_TRUE,GL_FALSE,GL_FALSE,GL_FALSE);
 			displayState->eyeIndex=0;
-			render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
 			
 			/* Render right-eye view: */
-			glColorMask(GL_FALSE,GL_TRUE,GL_TRUE,GL_FALSE);
+			if(lcPolynomialDegree<0)
+				glColorMask(GL_FALSE,GL_TRUE,GL_TRUE,GL_FALSE);
 			displayState->eyeIndex=1;
-			render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
 			break;
 		
 		case SPLITVIEWPORT_STEREO:
@@ -1484,17 +2245,18 @@ void VRWindow::draw(void)
 			glDrawBuffer(GL_BACK);
 			
 			/* Render both views into the split viewport: */
-			glEnable(GL_SCISSOR_TEST);
+			if(lcPolynomialDegree<0)
+				glEnable(GL_SCISSOR_TEST);
 			for(int eye=0;eye<2;++eye)
 				{
-				glViewport(splitViewportPos[eye].origin[0],splitViewportPos[eye].origin[1],
-				           splitViewportPos[eye].size[0],splitViewportPos[eye].size[1]);
-				glScissor(splitViewportPos[eye].origin[0],splitViewportPos[eye].origin[1],
-				          splitViewportPos[eye].size[0],splitViewportPos[eye].size[1]);
+				if(lcPolynomialDegree<0)
+					glScissor(splitViewportPos[eye].origin[0],splitViewportPos[eye].origin[1],
+					          splitViewportPos[eye].size[0],splitViewportPos[eye].size[1]);
 				displayState->eyeIndex=eye;
-				render(splitViewportPos[eye],eye,viewer->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
+				render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
 				}
-			glDisable(GL_SCISSOR_TEST);
+			if(lcPolynomialDegree<0)
+				glDisable(GL_SCISSOR_TEST);
 			break;
 			}
 		
@@ -1505,12 +2267,12 @@ void VRWindow::draw(void)
 				{
 				/* Render the left-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=0;
-				render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+				render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
 				
 				/* Render the right-eye view into the right viewport framebuffer: */
 				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,ivRightFramebufferObjectID);
 				displayState->eyeIndex=1;
-				render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+				render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
 				
 				/* Re-bind the default framebuffer to get access to the right viewport image as a texture: */
 				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
@@ -1519,7 +2281,7 @@ void VRWindow::draw(void)
 				{
 				/* Render the right-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=1;
-				render(getWindowPos(),1,viewer->getEyePosition(Viewer::RIGHT));
+				render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
 				
 				/* Copy the rendered view into the viewport texture: */
 				glBindTexture(GL_TEXTURE_2D,ivRightViewportTextureID);
@@ -1528,7 +2290,7 @@ void VRWindow::draw(void)
 				
 				/* Render the left-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=0;
-				render(getWindowPos(),0,viewer->getEyePosition(Viewer::LEFT));
+				render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
 				}
 			
 			/* Set up matrices to render a full-screen quad: */
@@ -1549,7 +2311,11 @@ void VRWindow::draw(void)
 			glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 			
 			/* Set the polygon stippling pattern: */
-			glPolygonStipple(ivRightStipplePatterns[ivEyeIndexOffset%2]);
+			glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+			glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
+			glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+			glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+			glPolygonStipple(ivRightStipplePatterns[ivEyeIndexOffset]);
 				
 			/* Render the quad: */
 			glBegin(GL_QUADS);
@@ -1597,7 +2363,7 @@ void VRWindow::draw(void)
 				}
 			
 			/* Calculate the central eye position and the view zone offset vector: */
-			Point asEye=viewer->getEyePosition(Viewer::MONO);
+			Point asEye=viewers[0]->getEyePosition(Viewer::MONO);
 			Vector asViewZoneOffsetVector=screens[0]->getScreenTransformation().inverseTransform(Vector(asViewZoneOffset,0,0));
 			
 			/* Render the view zones: */
@@ -1606,12 +2372,12 @@ void VRWindow::draw(void)
 				{
 				int row=zoneIndex/asNumTiles[0];
 				int col=zoneIndex%asNumTiles[0];
-				glViewport(asTileSize[0]*col,asTileSize[1]*row,asTileSize[0],asTileSize[1]);
+				GLWindow::WindowPos asTile(asTileSize[0]*col,asTileSize[1]*row,asTileSize[0],asTileSize[1]);
 				glScissor(asTileSize[0]*col,asTileSize[1]*row,asTileSize[0],asTileSize[1]);
 				Point eyePos=asEye;
 				eyePos+=asViewZoneOffsetVector*(Scalar(zoneIndex)-Math::div2(Scalar(asNumViewZones-1)));
 				displayState->eyeIndex=zoneIndex;
-				render(GLWindow::WindowPos(asTileSize[0],asTileSize[1]),0,eyePos);
+				render(asTile,0,eyePos);
 				}
 			glDisable(GL_SCISSOR_TEST);
 			
@@ -1687,46 +2453,7 @@ void VRWindow::draw(void)
 		}
 	
 	/* Check for OpenGL errors: */
-	GLenum error;
-	while((error=glGetError())!=GL_NO_ERROR)
-		{
-		printf("GL error: ");
-		switch(error)
-			{
-			case 0:
-				printf("Internal error in glGetError()");
-				break;
-			
-			case GL_INVALID_ENUM:
-				printf("Invalid enum");
-				break;
-			
-			case GL_INVALID_VALUE:
-				printf("Invalid value");
-				break;
-			
-			case GL_INVALID_OPERATION:
-				printf("Invalid operation");
-				break;
-			
-			case GL_STACK_OVERFLOW:
-				printf("Stack overflow");
-				break;
-			
-			case GL_STACK_UNDERFLOW:
-				printf("Stack underflow");
-				break;
-			
-			case GL_OUT_OF_MEMORY:
-				printf("Out of memory");
-				break;
-			
-			case GL_TABLE_TOO_LARGE:
-				printf("Table too large");
-				break;
-			}
-		printf("\n");
-		}
+	glPrintError(std::cerr);
 	
 	/* Take a screen shot if requested: */
 	if(saveScreenshot)
@@ -1760,9 +2487,10 @@ void VRWindow::draw(void)
 		
 		/* Write the matrices to a projection file: */
 		{
-		Misc::File projFile((screenshotImageFileName+".proj").c_str(),"wb",Misc::File::LittleEndian);
-		projFile.write(proj,16);
-		projFile.write(mv,16);
+		IO::AutoFile projFile(Vrui::openFile((screenshotImageFileName+".proj").c_str(),Misc::BufferedFile::WriteOnly));
+		projFile->setEndianness(IO::File::LittleEndian);
+		projFile->write(proj,16);
+		projFile->write(mv,16);
 		}
 		
 		#endif
@@ -1770,8 +2498,42 @@ void VRWindow::draw(void)
 		saveScreenshot=false;
 		}
 	
-	/* Window is not up-to-date: */
+	/* Check if the window is supposed to save a movie: */
+	if(movieSaver!=0)
+		{
+		/* Get a fresh frame buffer: */
+		MovieSaver::FrameBuffer& frameBuffer=movieSaver->startNewFrame();
+		
+		/* Update the frame buffer's size and prepare it for writing: */
+		frameBuffer.setFrameSize(getWindowWidth(),getWindowHeight());
+		frameBuffer.prepareWrite();
+		
+		/* Wait for the OpenGL pipeline to finish: */
+		glFinish();
+		
+		/* Read the window contents into the movie saver's frame buffer: */
+		glPixelStorei(GL_PACK_ALIGNMENT,1);
+		glPixelStorei(GL_PACK_SKIP_PIXELS,0);
+		glPixelStorei(GL_PACK_ROW_LENGTH,0);
+		glPixelStorei(GL_PACK_SKIP_ROWS,0);
+		glReadPixels(0,0,getWindowWidth(),getWindowHeight(),GL_RGB,GL_UNSIGNED_BYTE,frameBuffer.getBuffer());
+		
+		/* Post the new frame: */
+		movieSaver->postNewFrame();
+		}
+	
+	/* Window is now up-to-date: */
+	resizeViewport=false;
 	dirty=false;
+	
+	if(burnMode)
+		{
+		if(++burnModeNumFrames==0)
+			burnModeStartTime=getApplicationTime();
+		
+		/* Request another Vrui frame immediately: */
+		requestUpdate();
+		}
 	}
 
 }

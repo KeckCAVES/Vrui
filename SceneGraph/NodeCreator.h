@@ -1,6 +1,6 @@
 /***********************************************************************
 NodeCreator - Class to create node objects based on a node type name.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

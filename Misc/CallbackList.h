@@ -2,7 +2,7 @@
 CallbackList - Class for lists of callback functions associated with
 certain events. Uses new-style templatized callback mechanism and offers
 backwards compatibility for traditional C-style callbacks.
-Copyright (c) 2000-2005 Oliver Kreylos
+Copyright (c) 2000-2012 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -25,7 +25,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef MISC_CALLBACKLIST_INCLUDED
 #define MISC_CALLBACKLIST_INCLUDED
 
-#include <typeinfo>
 #include <Misc/CallbackData.h>
 
 namespace Misc {
@@ -54,8 +53,28 @@ class CallbackList // Class for lists of callbacks
 		virtual void call(CallbackData* callbackData) const =0; // Virtual method to invoke callback
 		};
 	
-	/* Class to call C functions with an additional void* parameter (traditional C-style callback): */
+	/* Class to call C functions: */
 	class FunctionCallback:public CallbackListItem
+		{
+		/* Embedded classes: */
+		public:
+		typedef void (*CallbackFunction)(CallbackData*); // Type of called callback function
+		
+		/* Elements: */
+		private:
+		CallbackFunction callbackFunction; // Pointer to callback function
+		
+		/* Constructors and destructors: */
+		public:
+		FunctionCallback(CallbackFunction sCallbackFunction); // Creates callback for given function
+		
+		/* Methods: */
+		virtual bool operator==(const CallbackListItem& other) const;
+		virtual void call(CallbackData* cbData) const;
+		};
+	
+	/* Class to call C functions with an additional void* parameter (traditional C-style callback): */
+	class FunctionVoidArgCallback:public CallbackListItem
 		{
 		/* Embedded classes: */
 		public:
@@ -68,7 +87,7 @@ class CallbackList // Class for lists of callbacks
 		
 		/* Constructors and destructors: */
 		public:
-		FunctionCallback(CallbackFunction sCallbackFunction,void* sUserData); // Creates callback for given function with given additional parameter
+		FunctionVoidArgCallback(CallbackFunction sCallbackFunction,void* sUserData); // Creates callback for given function with given additional parameter
 		
 		/* Methods: */
 		virtual bool operator==(const CallbackListItem& other) const;
@@ -99,10 +118,8 @@ class CallbackList // Class for lists of callbacks
 		/* Methods: */
 		virtual bool operator==(const CallbackListItem& other) const
 			{
-			if(typeid(other)!=typeid(MethodCallback))
-				return false;
-			const MethodCallback* other2=static_cast<const MethodCallback*>(&other);
-			return callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod;
+			const MethodCallback* other2=dynamic_cast<const MethodCallback*>(&other);
+			return other2!=0&&callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod;
 			}
 		virtual void call(CallbackData* callbackData) const
 			{
@@ -137,10 +154,8 @@ class CallbackList // Class for lists of callbacks
 		/* Methods: */
 		virtual bool operator==(const CallbackListItem& other) const
 			{
-			if(typeid(other)!=typeid(MethodParameterCallback))
-				return false;
-			const MethodParameterCallback* other2=static_cast<const MethodParameterCallback*>(&other);
-			return callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod&&parameter==other2->parameter;
+			const MethodParameterCallback* other2=dynamic_cast<const MethodParameterCallback*>(&other);
+			return other2!=0&&callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod&&parameter==other2->parameter;
 			}
 		virtual void call(CallbackData* callbackData) const
 			{
@@ -174,10 +189,8 @@ class CallbackList // Class for lists of callbacks
 		/* Methods: */
 		virtual bool operator==(const CallbackListItem& other) const
 			{
-			if(typeid(other)!=typeid(MethodCastCallback))
-				return false;
-			const MethodCastCallback* other2=static_cast<const MethodCastCallback*>(&other);
-			return callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod;
+			const MethodCastCallback* other2=dynamic_cast<const MethodCastCallback*>(&other);
+			return other2!=0&&callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod;
 			}
 		virtual void call(CallbackData* callbackData) const
 			{
@@ -195,7 +208,7 @@ class CallbackList // Class for lists of callbacks
 		typedef CallbackClassParam CallbackClass; // Class of called objects
 		typedef DerivedCallbackDataParam DerivedCallbackData; // Class of callback data (must be derived from CallbackData)
 		typedef ParameterParam Parameter; // Type of additional parameter
-		typedef void (CallbackClass::*CallbackMethod)(DerivedCallbackData*); // Type of called callback method
+		typedef void (CallbackClass::*CallbackMethod)(DerivedCallbackData*,const Parameter&); // Type of called callback method
 		
 		/* Elements: */
 		private:
@@ -213,10 +226,8 @@ class CallbackList // Class for lists of callbacks
 		/* Methods: */
 		virtual bool operator==(const CallbackListItem& other) const
 			{
-			if(typeid(other)!=typeid(MethodCastParameterCallback))
-				return false;
-			const MethodCastParameterCallback* other2=static_cast<const MethodCastParameterCallback*>(&other);
-			return callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod&&parameter==other2->parameter;
+			const MethodCastParameterCallback* other2=dynamic_cast<const MethodCastParameterCallback*>(&other);
+			return other2!=0&&callbackObject==other2->callbackObject&&callbackMethod==other2->callbackMethod&&parameter==other2->parameter;
 			}
 		virtual void call(CallbackData* callbackData) const
 			{
@@ -245,20 +256,36 @@ class CallbackList // Class for lists of callbacks
 	public:
 	~CallbackList(void); // Destroys the callback list and all its callbacks
 	
-	/* Callback list creation/manipulation methods: */
+	/*********************************************************************
+	Callback list creation/manipulation methods:
+	*********************************************************************/
 	
-	/* Interface for traditional C-style callbacks: */
-	void add(CallbackType newCallbackFunction,void* newUserData) // Adds a callback to the end of the list
+	/* Interface for C-style callbacks with no additional argument: */
+	void add(FunctionCallback::CallbackFunction newCallbackFunction) // Adds a callback to the end of the list
 		{
-		addCli(new FunctionCallback(newCallbackFunction,newUserData));
+		addCli(new FunctionCallback(newCallbackFunction));
 		}
-	void addToFront(CallbackType newCallbackFunction,void* newUserData) // Adds a callback to the front of the list
+	void addToFront(FunctionCallback::CallbackFunction newCallbackFunction) // Adds a callback to the front of the list
 		{
-		addCliToFront(new FunctionCallback(newCallbackFunction,newUserData));
+		addCliToFront(new FunctionCallback(newCallbackFunction));
 		}
-	void remove(CallbackType removeCallbackFunction,void* removeUserData) // Removes the first matching callback from the list
+	void remove(FunctionCallback::CallbackFunction removeCallbackFunction) // Removes the first matching callback from the list
 		{
-		removeCli(FunctionCallback(removeCallbackFunction,removeUserData));
+		removeCli(FunctionCallback(removeCallbackFunction));
+		}
+	
+	/* Interface for traditional C-style callbacks (with void* argument): */
+	void add(FunctionVoidArgCallback::CallbackFunction newCallbackFunction,void* newUserData) // Adds a callback to the end of the list
+		{
+		addCli(new FunctionVoidArgCallback(newCallbackFunction,newUserData));
+		}
+	void addToFront(FunctionVoidArgCallback::CallbackFunction newCallbackFunction,void* newUserData) // Adds a callback to the front of the list
+		{
+		addCliToFront(new FunctionVoidArgCallback(newCallbackFunction,newUserData));
+		}
+	void remove(FunctionVoidArgCallback::CallbackFunction removeCallbackFunction,void* removeUserData) // Removes the first matching callback from the list
+		{
+		removeCli(FunctionVoidArgCallback(removeCallbackFunction,removeUserData));
 		}
 	
 	/* Interface for method callbacks: */

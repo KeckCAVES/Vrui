@@ -39,7 +39,7 @@ PopupMenu::PopupMenu(const char* sName,WidgetManager* sManager)
 Vector PopupMenu::calcHotSpot(void) const
 	{
 	Vector result=Widget::calcHotSpot();
-	result[0]=getExterior().origin[0]+getExterior().size[0]-0.01f;
+	result[0]=getExterior().origin[0]+getExterior().size[0]-marginWidth*0.5f;
 	return result;
 	}
 

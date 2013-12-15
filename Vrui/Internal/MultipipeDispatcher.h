@@ -1,7 +1,7 @@
 /***********************************************************************
 MultipipeDispatcher - Class to distribute input device and ancillary
 data between the nodes in a multipipe VR environment.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,21 +24,24 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_MULTIPIPEDISPATCHER_INCLUDED
 #define VRUI_INTERNAL_MULTIPIPEDISPATCHER_INCLUDED
 
+#include <string>
+#include <vector>
 #include <Geometry/Vector.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Vrui/Geometry.h>
+#include <Vrui/Internal/InputDeviceAdapter.h>
 
 /* Forward declarations: */
-namespace Comm {
+namespace Cluster {
 class MulticastPipe;
 }
 namespace Vrui {
-class InputDeviceManager;
+class InputDevice;
 }
 
 namespace Vrui {
 
-class MultipipeDispatcher
+class MultipipeDispatcher:public InputDeviceAdapter
 	{
 	/* Embedded classes: */
 	private:
@@ -46,6 +49,8 @@ class MultipipeDispatcher
 		{
 		/* Elements: */
 		public:
+		Vector deviceRayDirection;
+		Scalar deviceRayStart;
 		TrackerState transformation;
 		Vector linearVelocity;
 		Vector angularVelocity;
@@ -53,22 +58,28 @@ class MultipipeDispatcher
 	
 	/* Elements: */
 	private:
-	Comm::MulticastPipe* pipe; // Multicast pipe connecting the master node to all slave nodes
-	InputDeviceManager* inputDeviceManager; // Pointer to input device manager on this node
-	int numInputDevices; // Number of dispatched input devices
+	Cluster::MulticastPipe* pipe; // Multicast pipe connecting the master node to all slave nodes
 	int totalNumButtons; // Total number of buttons on all dispatched input devices
 	int totalNumValuators; // Total number of valuators on all dispatched input devices
+	
+	/* Slave state: */
+	std::vector<std::string> buttonNames; // Array of button names for all dispatched input devices
+	std::vector<std::string> valuatorNames; // Array of button names for all dispatched input devices
+	
+	/* Transient state to marshall input device states over a multicast pipe: */
 	InputDeviceTrackingState* trackingStates; // Array of input device tracking states
 	bool* buttonStates; // Array of input device button states
 	double* valuatorStates; // Array of input device valuator states
 	
 	/* Constructors and destructors: */
 	public:
-	MultipipeDispatcher(Comm::MulticastPipe* sPipe,InputDeviceManager* sInputDeviceManager);
-	~MultipipeDispatcher(void);
+	MultipipeDispatcher(InputDeviceManager* sInputDeviceManager,Cluster::MulticastPipe* sPipe);
+	virtual ~MultipipeDispatcher(void);
 	
-	/* Methods: */
-	void dispatchState(void); // Dispatches input device states to all nodes
+	/* Methods from InputDeviceAdapter: */
+	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
+	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
+	virtual void updateInputDevices(void);
 	};
 
 }

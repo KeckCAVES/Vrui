@@ -428,6 +428,11 @@ HIDDevice::HIDDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager
 				if(ioctl(deviceFd,EVIOCGABS(i),&absAxisConf)<0)
 					Misc::throwStdErr("HIDDevice: Unable to query device absolute axis configuration");
 				
+				#ifdef VERBOSE
+				printf("Axis %2d: min %d, max %d, fuzz %d, flat %d\n",absAxisMap[i],absAxisConf.minimum,absAxisConf.maximum,absAxisConf.fuzz,absAxisConf.flat);
+				fflush(stdout);
+				#endif
+				
 				/* Initialize converter with queried values: */
 				AxisConverter& converter=axisConverters[absAxisMap[i]];
 				float mid=Math::mid(absAxisConf.minimum,absAxisConf.maximum);

@@ -1,6 +1,6 @@
 /***********************************************************************
 ImageTextureNode - Class for textures loaded from external image files.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2010 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

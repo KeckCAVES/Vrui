@@ -1,6 +1,6 @@
 /***********************************************************************
 GlyphRenderer - Class to quickly render several kinds of common glyphs.
-Copyright (c) 2004-2005 Oliver Kreylos
+Copyright (c) 2004-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_GLYPHRENDERER_INCLUDED
 #define VRUI_GLYPHRENDERER_INCLUDED
 
+#include <string>
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GL/GLObject.h>
@@ -44,14 +45,14 @@ class Glyph // Class for reusable visualizations of positions and orientations
 	public:
 	enum GlyphType // Enumerated type for glyph types
 		{
-		CONE=0,CUBE,SPHERE,CROSSBALL,BOX,GLYPHS_END
+		CONE=0,CUBE,SPHERE,CROSSBALL,BOX,CURSOR,GLYPHS_END
 		};
 	
 	/* Elements: */
 	private:
 	bool enabled; // Flag if glyph is enabled
 	GlyphType glyphType; // Type of the glyph
-	GLMaterial glyphMaterial; // Material for rendering the glyph
+	GLMaterial glyphMaterial; // Material for rendering the glyph (not used for cursor glyphs)
 	
 	/* Private methods: */
 	static void render(int glyphType,GLfloat glyphSize); // Renders glyph of given type and size "from scratch"
@@ -81,6 +82,7 @@ class Glyph // Class for reusable visualizations of positions and orientations
 	void enable(GlyphType newGlyphType,const GLMaterial& newGlyphMaterial); // Enables a glyph
 	void disable(void); // Disables a glyph
 	void setGlyphType(GlyphType newGlyphType); // Changes the glyph's type
+	void setGlyphType(const char* newGlyphType); // Changes the glyph's type based on the given literal string
 	void setGlyphMaterial(const GLMaterial& newGlyphMaterial); // Changes the glyph's material
 	void configure(const Misc::ConfigurationFileSection& configFileSection,const char* glyphTypeTagName,const char* glyphMaterialTagName); // Configures glyph by reading the two given tags from the given configuration file section
 	};
@@ -95,10 +97,12 @@ class GlyphRenderer:public GLObject
 		
 		/* Elements: */
 		private:
+		GLContextData& contextData; // Reference to context data structure containing this data item
 		GLuint glyphDisplayLists; // Base ID for consecutive display lists to render glyphs
+		GLuint cursorTextureObjectId; // ID of texture object containing cursor glyph texture
 		
 		/* Constructors and destructors: */
-		DataItem(void);
+		DataItem(GLContextData& sContextData);
 		public:
 		virtual ~DataItem(void);
 		};
@@ -106,10 +110,12 @@ class GlyphRenderer:public GLObject
 	/* Elements: */
 	private:
 	GLfloat glyphSize; // Overall size of all glyphs
+	std::string cursorImageFileName; // Name of file containing cursor image
+	unsigned int cursorNominalSize; // Nominal size of cursor image
 	
 	/* Constructors and destructors: */
 	public:
-	GlyphRenderer(GLfloat sGlyphSize); // Initializes glyph renderer for given glyph size
+	GlyphRenderer(GLfloat sGlyphSize,std::string sCursorImageFileName,unsigned int sCursorNominalSize); // Initializes glyph renderer for given glyph size
 	
 	/* Methods: */
 	virtual void initContext(GLContextData& contextData) const;

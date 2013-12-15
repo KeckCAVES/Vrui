@@ -1,7 +1,7 @@
 /***********************************************************************
 TotalStation - Class to represent a Leica Total Station survey
 instrument to measure points for coordinate system calibration.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2011 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -23,10 +23,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include "TotalStation.h"
 
+#include <stdarg.h>
+#include <string.h>
 #include <stdio.h>
 #include <string>
 #include <Misc/ThrowStdErr.h>
-#include <Comm/SerialPort.h>
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Geometry/Point.h>
@@ -81,17 +82,31 @@ int readInt(std::string::const_iterator& sIt,int numDigits)
 Methods of class TotalStation:
 *****************************/
 
+void TotalStation::sendRequest(const char* format,...)
+	{
+	/* Assemble the request message: */
+	char requestBuffer[256];
+	va_list ap;
+	va_start(ap,format);
+	vsnprintf(requestBuffer,sizeof(requestBuffer),format,ap);
+	va_end(ap);
+	
+	/* Send the message to the device: */
+	devicePort.writeRaw(requestBuffer,strlen(requestBuffer));
+	devicePort.flush();
+	}
+
 std::string TotalStation::readReply(void)
 	{
 	std::string result;
-	char byte;
+	int byte;
 	while(true)
 		{
-		byte=devicePort.readByte();
+		byte=devicePort.getChar();
 		if(byte=='\r')
 			{
 			/* Skip the \n as well: */
-			byte=devicePort.readByte();
+			byte=devicePort.getChar();
 			break;
 			}
 		else if(byte=='\n')
@@ -169,9 +184,7 @@ std::string TotalStation::readReply(void)
 unsigned int TotalStation::conf(unsigned int confId)
 	{
 	/* Send the CONF request: */
-	char confRequest[20];
-	snprintf(confRequest,sizeof(confRequest),"CONF/%04u\r\n",confId);
-	devicePort.writeString(confRequest);
+	sendRequest("CONF/%04u\r\n",confId);
 	
 	/* Parse the CONF reply: */
 	std::string confReply=readReply();
@@ -195,9 +208,7 @@ std::string TotalStation::getString(unsigned int getId,bool requestMeasurement)
 unsigned int TotalStation::getUInt(unsigned int getId,bool requestMeasurement)
 	{
 	/* Send the GET request: */
-	char getRequest[20];
-	snprintf(getRequest,sizeof(getRequest),"GET/%c/WI%02u\r\n",requestMeasurement?'M':'I',getId);
-	devicePort.writeString(getRequest);
+	sendRequest("GET/%c/WI%02u\r\n",requestMeasurement?'M':'I',getId);
 	
 	/* Parse the GET reply: */
 	std::string getReply=readReply();
@@ -214,9 +225,7 @@ unsigned int TotalStation::getUInt(unsigned int getId,bool requestMeasurement)
 int TotalStation::getInt(unsigned int getId,bool requestMeasurement)
 	{
 	/* Send the GET request: */
-	char getRequest[20];
-	snprintf(getRequest,sizeof(getRequest),"GET/%c/WI%02u\r\n",requestMeasurement?'M':'I',getId);
-	devicePort.writeString(getRequest);
+	sendRequest("GET/%c/WI%02u\r\n",requestMeasurement?'M':'I',getId);
 	
 	/* Parse the GET reply: */
 	std::string getReply=readReply();
@@ -309,9 +318,7 @@ double parseMeasurement(std::string::const_iterator& sIt)
 double TotalStation::getMeasurement(unsigned int getId,bool requestMeasurement)
 	{
 	/* Send the GET request: */
-	char getRequest[20];
-	snprintf(getRequest,sizeof(getRequest),"GET/%c/WI%02u\r\n",requestMeasurement?'M':'I',getId);
-	devicePort.writeString(getRequest);
+	sendRequest("GET/%c/WI%02u\r\n",requestMeasurement?'M':'I',getId);
 	
 	/* Parse the GET reply: */
 	std::string getReply=readReply();
@@ -332,15 +339,16 @@ void TotalStation::getMultiMeasurement(size_t numGets,const unsigned int getIds[
 		return;
 	
 	/* Send the GET request: */
-	devicePort.writeString("GET/");
-	devicePort.writeByte(requestMeasurement?'M':'I');
+	devicePort.writeRaw("GET/",4);
+	devicePort.putChar(requestMeasurement?'M':'I');
 	for(size_t i=0;i<numGets;++i)
 		{
-		char getBuffer[10];
+		char getBuffer[20];
 		snprintf(getBuffer,sizeof(getBuffer),"/WI%02u",getIds[i]);
-		devicePort.writeString(getBuffer);
+		devicePort.writeRaw(getBuffer,strlen(getBuffer));
 		}
-	devicePort.writeString("\r\n");
+	devicePort.writeRaw("\r\n",2);
+	devicePort.flush();
 	
 	/* Parse the GET reply: */
 	std::string getReply=readReply();
@@ -386,11 +394,13 @@ TotalStation::TotalStation(const char* devicePortName,int deviceBaudRate)
 	 prismOffset(0.0)
 	{
 	/* Initialize the device port: */
-	devicePort.setSerialSettings(19200,8,Comm::SerialPort::PARITY_NONE,1,false);
+	devicePort.ref();
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
 	devicePort.setRawMode(1,0);
+	// devicePort.setLineControl(false,false);
 	
 	/* Power on Total Station: */
-	devicePort.writeString("a\r\n");
+	sendRequest("a\r\n");
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::TotalStation: Unable to communicate with device on port %s with baud rate %d",devicePortName,deviceBaudRate);
 	
@@ -467,7 +477,7 @@ TotalStation::TotalStation(const char* devicePortName,int deviceBaudRate)
 		}
 	
 	/* Set the Total Station's GIS packet type to GIS16: */
-	devicePort.writeString("SET/137/1\r\n");
+	sendRequest("SET/137/1\r\n");
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::TotalStation: Unable to set RS232 packet format to GIS16");
 	
@@ -482,10 +492,7 @@ TotalStation::~TotalStation(void)
 TotalStation::Scalar TotalStation::getPrismOffset(void)
 	{
 	/* Get the Total Station's current prism offset: */
-	prismOffset=getMeasurement(58,false);
-	
-	/* Convert prism offset to external unit: */
-	return prismOffset*unitScale;
+	return getMeasurement(58,false);
 	}
 
 unsigned int TotalStation::getEDMMode(void)
@@ -502,13 +509,8 @@ void TotalStation::setUnitScale(TotalStation::Scalar newUnitScale)
 
 void TotalStation::setPrismOffset(TotalStation::Scalar newPrismOffset)
 	{
-	/* Convert prism offset to internal unit: */
-	newPrismOffset/=unitScale;
-	
 	/* Set the Total Station's prism offset: */
-	char putBuffer[40];
-	snprintf(putBuffer,sizeof(putBuffer),"PUT/58..16%+09d \r\n",int(Math::floor(newPrismOffset*10.0+0.5)));
-	devicePort.writeString(putBuffer);
+	sendRequest("PUT/58..16%+09d \r\n",int(Math::floor(newPrismOffset*10.0+0.5)));
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::setPrismOffset: Unable to set prism offset");
 	
@@ -518,9 +520,7 @@ void TotalStation::setPrismOffset(TotalStation::Scalar newPrismOffset)
 
 void TotalStation::setEDMMode(unsigned int newEDMMode)
 	{
-	char setBuffer[40];
-	snprintf(setBuffer,sizeof(setBuffer),"SET/161/%u\r\n",newEDMMode);
-	devicePort.writeString(setBuffer);
+	sendRequest("SET/161/%u\r\n",newEDMMode);
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::setEDMMode: Unable to set EDM mode");
 	}
@@ -561,10 +561,10 @@ TotalStation::Point TotalStation::requestMeasurement(void)
 void TotalStation::startRecording(void)
 	{
 	/* Set the Total Station's data recording device to RS232: */
-	devicePort.writeString("SET/75/0\r\n");
+	sendRequest("SET/75/0\r\n");
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::startRecording: Unable to start recording mode");
-	devicePort.writeString("SET/76/1\r\n");
+	sendRequest("SET/76/1\r\n");
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::startRecording: Unable to start recording mode");
 	}
@@ -572,7 +572,7 @@ void TotalStation::startRecording(void)
 void TotalStation::stopRecording(void)
 	{
 	/* Set the Total Station's data recording device to back to its internal memory: */
-	devicePort.writeString("SET/76/0\r\n");
+	sendRequest("SET/76/0\r\n");
 	if(readReply()!="?")
 		Misc::throwStdErr("TotalStation::stopRecording: Unable to stop recording mode");
 	}

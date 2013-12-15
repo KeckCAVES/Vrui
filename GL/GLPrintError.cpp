@@ -1,7 +1,7 @@
 /***********************************************************************
 GLPrintError - Helper function to print a plain-text OpenGL error
 message.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2013 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -65,6 +65,9 @@ void glPrintErrorMsg(std::ostream& os,GLenum error)
 		case GL_TABLE_TOO_LARGE:
 			os<<"Table too large";
 			break;
+		
+		default:
+			os<<"Unknown error "<<error;
 		}
 	}
 

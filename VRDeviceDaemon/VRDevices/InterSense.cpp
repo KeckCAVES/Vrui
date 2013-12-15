@@ -1,7 +1,7 @@
 /***********************************************************************
 InterSense - Class for InterSense IS-900 hybrid inertial/sonic 6-DOF
 tracking devices.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -31,6 +31,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Comm/SerialPort.h>
+#include <Comm/TCPPipe.h>
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -113,42 +115,101 @@ class ValueCoder<Transmitter>
 
 }
 
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+inline bool waitForData(Comm::Pipe& pipe,const Misc::Time& deadline)
+	{
+	/* Check if there is still data in the read buffer: */
+	if(pipe.canReadImmediately())
+		return true;
+	
+	/* Calculate a timeout: */
+	Misc::Time timeout=deadline;
+	timeout-=Misc::Time::now();
+	
+	/* Check if the deadline has already passed: */
+	if(timeout.tv_sec<0)
+		return false;
+	
+	/* Wait for data: */
+	return pipe.waitForData(timeout);
+	}
+
+inline void writeCommand(Comm::Pipe& pipe,char command)
+	{
+	/* Write the command character: */
+	pipe.putChar(command);
+	
+	/* Flush the pipe: */
+	pipe.flush();
+	}
+
+inline void writeCommand(Comm::Pipe& pipe,const char* command)
+	{
+	/* Write the command string: */
+	while(*command!='\0')
+		pipe.putChar(*(command++));
+	
+	/* Flush the pipe: */
+	pipe.flush();
+	}
+
+int readStationId(Comm::Pipe& pipe)
+	{
+	/* Check for the synchronization sequence: */
+	if(pipe.getChar()!='\r'||pipe.getChar()!='\n'||pipe.getChar()!='0')
+		return -1;
+	
+	/* Extract the station ID: */
+	int stationId=-1;
+	int idTag=pipe.getChar();
+	if(idTag>='0'&&idTag<='9')
+		stationId=idTag-'0';
+	else if(idTag>='a'&&idTag<='z')
+		stationId=idTag-'a'+10;
+	else if(idTag>='A'&&idTag<='Z')
+		stationId=idTag-'A'+10;
+	else
+		return -1;
+	
+	/* Check for filler character: */
+	int filler=pipe.getChar();
+	if(filler!=' '&&(filler<'a'||filler>'z')&&(filler<'A'||filler>'Z'))
+		return -1;
+	
+	return stationId;
+	}
+
+}
+
 /***************************
 Methods of class InterSense:
 ***************************/
 
-float InterSense::readFloat(const char* lsb) const
+char* InterSense::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& deadline)
 	{
-	float result=*reinterpret_cast<const float*>(lsb);
-	#if __BYTE_ORDER==__BIG_ENDIAN
-	Misc::swapEndianness(result);
-	#endif
-	return result;
-	}
-
-char* InterSense::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time& timeout)
-	{
-	/* Calculate a deadline by which the complete line has to have arrived: */
-	Misc::Time deadline=Misc::Time::now()+timeout;
-	
 	/* Read bytes from the serial port until CR/LF has been read or deadline is reached: */
 	int state=0;
 	char* bufPtr=lineBuffer;
 	int bytesLeft=lineBufferSize-1;
 	while(state<2)
 		{
-		/* Wait for next byte, but not too long: */
-		if(!serialPort.waitForByte(deadline-Misc::Time::now()))
+		/* Wait for more data: */
+		if(!waitForData(*devicePort,deadline))
 			break;
 		
 		/* Read next byte: */
-		int input=serialPort.readByte();
+		int input=devicePort->getChar();
 		
 		/* Process byte: */
 		switch(state)
 			{
 			case 0: // Still waiting for CR
-				if(input==13) // CR read?
+				if(input=='\r') // CR read?
 					{
 					/* Go to next state: */
 					state=1;
@@ -163,7 +224,7 @@ char* InterSense::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time&
 				break;
 			
 			case 1: // Waiting for LF
-				if(input==10) // LF read?
+				if(input=='\n') // LF read?
 					{
 					/* Go to final state: */
 					state=2;
@@ -185,18 +246,19 @@ char* InterSense::readLine(int lineBufferSize,char* lineBuffer,const Misc::Time&
 bool InterSense::readStatusReply(void)
 	{
 	/* Create a deadline by which the complete status reply has to have arrived: */
-	Misc::Time deadline=Misc::Time::now()+Misc::Time(10.0);
+	Misc::Time deadline=Misc::Time::now();
+	deadline.tv_sec+=10;
 	
 	/* Read bytes from the serial port until the status report's prefix has been matched or the deadline is reached: */
 	int state=0;
 	while(state<4)
 		{
-		/* Wait for next byte, but not too long: */
-		if(!serialPort.waitForByte(deadline-Misc::Time::now()))
+		/* Wait for more data: */
+		if(!waitForData(*devicePort,deadline))
 			break;
 		
 		/* Read next byte and try matching status reply's prefix: */
-		int input=serialPort.readByte();
+		int input=devicePort->getChar();
 		switch(state)
 			{
 			case 0: // Haven't matched anything
@@ -241,7 +303,7 @@ bool InterSense::readStatusReply(void)
 	
 	/* Read rest of status reply until final CR/LF pair: */
 	char buffer[256];
-	readLine(sizeof(buffer),buffer,deadline-Misc::Time::now());
+	readLine(sizeof(buffer),buffer,deadline);
 	#ifdef VERBOSE
 	printf("InterSense: Received status reply\n  %s",buffer);
 	fflush(stdout);
@@ -256,40 +318,115 @@ bool InterSense::readStatusReply(void)
 	return true;
 	}
 
-void InterSense::processBuffer(int station,const char* recordBuffer)
+bool InterSense::processRecord(void)
 	{
-	Vrui::VRDeviceState::TrackerState ts;
+	/* Check for the synchronization sequence: */
+	bool lostSync=false;
+	int stationId=readStationId(*devicePort);
+	if(stationId<0)
+		{
+		lostSync=true;
 		
+		/* Re-synchronize with the data stream: */
+		int state=0;
+		while(state<5)
+			{
+			int input=devicePort->getChar();
+			switch(state)
+				{
+				case 0: // Haven't matched anything
+					if(input=='\r')
+						state=1;
+					else
+						state=0;
+					break;
+				
+				case 1: // Have matched CR
+					if(input=='\n')
+						state=2;
+					else if(input=='\r')
+						state=1;
+					else
+						state=0;
+					break;
+				
+				case 2: // Have matched CR/LF
+					if(input=='0')
+						state=3;
+					else if(input=='\r')
+						state=1;
+					else
+						state=0;
+					break;
+				
+				case 3: // Have matched CR/LF + 0
+					if(input>='0'&&input<='9')
+						{
+						stationId=input-'0';
+						state=4;
+						}
+					else if(input>='A'&&input<='Z')
+						{
+						stationId=input-'A'+10;
+						state=4;
+						}
+					else if(input>='a'&&input<='z')
+						{
+						stationId=input-'a'+10;
+						state=4;
+						}
+					else if(input=='\r')
+						state=1;
+					else
+						state=0;
+					break;
+				
+				case 4: // Have matched CR/LF + 0 + <receiver number>
+					if(input==' '||(input>='A'&&input<='Z')||(input>='a'&&input<='z'))
+						state=5;
+					else if(input=='\r')
+						{
+						stationId=-1;
+						state=1;
+						}
+					else
+						{
+						stationId=-1;
+						state=0;
+						}
+					break;
+				}
+			}
+		}
+	
+	/* Process the binary part of the record: */
+	int stationIndex=stationIdToIndex[stationId];
+	Vrui::VRDeviceState::TrackerState ts;
+	
 	/* Calculate raw position and orientation: */
+	float trans[3];
+	devicePort->read<float>(trans,3);
 	typedef PositionOrientation::Vector Vector;
-	typedef Vector::Scalar VScalar;
-	Vector v;
-	v[0]=VScalar(readFloat(recordBuffer+8));
-	v[1]=VScalar(readFloat(recordBuffer+12));
-	v[2]=VScalar(readFloat(recordBuffer+16));
-
+	Vector v(trans);
+	float rotAngles[3];
+	devicePort->read<float>(rotAngles,3);
 	typedef PositionOrientation::Rotation Rotation;
 	typedef Rotation::Scalar RScalar;
-	RScalar angles[3];
-	angles[0]=Math::rad(RScalar(readFloat(recordBuffer+20)));
-	angles[1]=Math::rad(RScalar(readFloat(recordBuffer+24)));
-	angles[2]=Math::rad(RScalar(readFloat(recordBuffer+28)));
-	Rotation o=Rotation::identity;
-	o*=Rotation::rotateZ(angles[0]);
-	o*=Rotation::rotateY(angles[1]);
-	o*=Rotation::rotateX(angles[2]);
+	Rotation o=Rotation::rotateZ(Math::rad(RScalar(rotAngles[0])));
+	o*=Rotation::rotateY(Math::rad(RScalar(rotAngles[1])));
+	o*=Rotation::rotateX(Math::rad(RScalar(rotAngles[2])));
 	
 	/* Set new position and orientation: */
 	ts.positionOrientation=Vrui::VRDeviceState::TrackerState::PositionOrientation(v,o);
 	
 	/* Calculate linear and angular velocities: */
-	timers[station].elapse();
-	if(notFirstMeasurements[station])
+	timers[stationIndex].elapse();
+	if(notFirstMeasurements[stationIndex])
 		{
 		/* Estimate velocities by dividing position/orientation differences by elapsed time since last measurement: */
-		double time=timers[station].getTime();
-		ts.linearVelocity=(v-oldPositionOrientations[station].getTranslation())/Vrui::VRDeviceState::TrackerState::LinearVelocity::Scalar(time);
-		Rotation dO=o*Geometry::invert(oldPositionOrientations[station].getRotation());
+		double time=timers[stationIndex].getTime();
+		ts.linearVelocity=(v-oldPositionOrientations[stationIndex].getTranslation())/Vrui::VRDeviceState::TrackerState::LinearVelocity::Scalar(time);
+		Rotation dO=o*Geometry::invert(oldPositionOrientations[stationIndex].getRotation());
 		ts.angularVelocity=dO.getScaledAxis()/Vrui::VRDeviceState::TrackerState::AngularVelocity::Scalar(time);
 		}
 	else
@@ -297,131 +434,30 @@ void InterSense::processBuffer(int station,const char* recordBuffer)
 		/* Force initial velocities to zero: */
 		ts.linearVelocity=Vrui::VRDeviceState::TrackerState::LinearVelocity::zero;
 		ts.angularVelocity=Vrui::VRDeviceState::TrackerState::AngularVelocity::zero;
-		notFirstMeasurements[station]=true;
+		notFirstMeasurements[stationIndex]=true;
 		}
-	oldPositionOrientations[station]=ts.positionOrientation;
+	oldPositionOrientations[stationIndex]=ts.positionOrientation;
 	
 	/* Update button states: */
-	for(int i=0;i<stations[station].numButtons;++i)
-		setButtonState(stations[station].firstButtonIndex+i,recordBuffer[32]&(1<<i));
+	unsigned int buttonMask=devicePort->read<unsigned char>();
+	for(int i=0;i<stations[stationIndex].numButtons;++i)
+		setButtonState(stations[stationIndex].firstButtonIndex+i,buttonMask&(0x1U<<i));
 	
 	/* Update valuator states: */
-	if(stations[station].joystick)
+	if(stations[stationIndex].joystick)
 		{
-		float x=(float(*(unsigned char*)(recordBuffer+33))-127.5f)/127.5f;
-		float y=(float(*(unsigned char*)(recordBuffer+34))-127.5f)/127.5f;
-		setValuatorState(stations[station].firstValuatorIndex+0,x);
-		setValuatorState(stations[station].firstValuatorIndex+1,y);
+		float x=(float(devicePort->read<unsigned char>())-128.0f)/127.0f;
+		float y=(float(devicePort->read<unsigned char>())-128.0f)/127.0f;
+		setValuatorState(stations[stationIndex].firstValuatorIndex+0,x);
+		setValuatorState(stations[stationIndex].firstValuatorIndex+1,y);
 		}
+	else
+		devicePort->skip<unsigned char>(2);
 	
 	/* Update tracker state: */
-	setTrackerState(station,ts);
-	}
-
-int InterSense::readRecordSync(char* recordBuffer)
-	{
-	int station=-1;
-	int state=0;
-	while(state<5)
-		{
-		int input=serialPort.readByte();
-		switch(state)
-			{
-			case 0: // Haven't matched anything
-				if(input==13)
-					state=1;
-				else
-					state=0;
-				break;
-			
-			case 1: // Have matched CR
-				if(input==10)
-					state=2;
-				else if(input==13)
-					state=1;
-				else
-					state=0;
-				break;
-			
-			case 2: // Have matched CR/LF
-				if(input=='0')
-					state=3;
-				else if(input==13)
-					state=1;
-				else
-					state=0;
-				break;
-			
-			case 3: // Have matched CR/LF + 0
-				if(input==13)
-					state=1;
-				else if(input>='1'&&input<='9')
-					{
-					station=input-'0';
-					state=4;
-					}
-				else if(input>='A'&&input<='Z')
-					{
-					station=input-'A'+10;
-					state=4;
-					}
-				else if(input>='a'&&input<='z')
-					{
-					station=input-'a'+10;
-					state=4;
-					}
-				else
-					{
-					station=0;
-					state=0;
-					}
-				break;
-			
-			case 4: // Have matched CR/LF + 0 + <receiver number>
-				if(input==' '||(input>='A'&&input<='Z')||(input>='a'&&input<='z'))
-					state=5;
-				else if(input==13)
-					state=1;
-				else
-					state=0;
-				break;
-			}
-		}
+	setTrackerState(stationIndex,ts);
 	
-	/* Read rest of record: */
-	serialPort.readBytes(27,recordBuffer+8);
-	
-	/* Return station ID: */
-	return station;
-	}
-
-int InterSense::readRecordNoSync(char* recordBuffer)
-	{
-	/* Read complete record's worth of data: */
-	serialPort.readBytes(32,recordBuffer+3);
-	
-	/* Check if we're still synchronized: */
-	bool nSync=true;
-	nSync=nSync&&recordBuffer[3]==char(13);
-	nSync=nSync&&recordBuffer[4]==char(10);
-	nSync=nSync&&recordBuffer[5]=='0';
-	
-	/* Decode station ID: */
-	int stationId=0;
-	if(recordBuffer[6]>='1'&&recordBuffer[6]<='9')
-		stationId=recordBuffer[6]-'0';
-	else if(recordBuffer[6]>='A'&&recordBuffer[6]<='Z')
-		stationId=recordBuffer[6]-'A'+10;
-	else if(recordBuffer[6]>='a'&&recordBuffer[6]<='z')
-		stationId=recordBuffer[6]-'a'+10;
-	
-	nSync=nSync&&stationId>0;
-	nSync=nSync&&(recordBuffer[7]==' '||(recordBuffer[7]>='A'&&recordBuffer[7]<='Z')||(recordBuffer[7]>='a'&&recordBuffer[7]<='z'));
-	if(!nSync)
-		return 0;
-	
-	/* Return station ID: */
-	return stationId;
+	return lostSync;
 	}
 
 void InterSense::deviceThreadMethod(void)
@@ -430,42 +466,56 @@ void InterSense::deviceThreadMethod(void)
 	for(int i=0;i<numTrackers;++i)
 		notFirstMeasurements[i]=false;
 	
-	/* Read first record in synchronizing mode: */
-	int stationId;
-	char recordBuffer[256];
-	stationId=readRecordSync(recordBuffer);
-	
-	/* Parse read buffer: */
-	processBuffer(stationIdToIndex[stationId],recordBuffer);
+	/* Process first record: */
+	processRecord();
 	
 	while(true)
 		{
-		/* Try reading record in synchronized mode: */
-		if((stationId=readRecordNoSync(recordBuffer))==0)
+		/* Process the next record and check for loss of synchronization: */
+		if(processRecord())
 			{
 			/* Fall back to synchronizing mode: */
 			#ifdef VERBOSE
-			printf("InterSense: Resynchronizing with tracker stream\n");
+			printf("InterSense: Lost synchronization with tracker stream\n");
 			fflush(stdout);
 			#endif
-			stationId=readRecordSync(recordBuffer);
 			}
-		
-		/* Parse read buffer: */
-		processBuffer(stationIdToIndex[stationId],recordBuffer);
 		}
 	}
 
 InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
-	 serialPort(configFile.retrieveString("./serialPort").c_str()),
+	 devicePort(0),
 	 stations(0),
 	 timers(0),notFirstMeasurements(0),oldPositionOrientations(0)
 	{
-	/* Set device port parameters: */
-	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate");
-	serialPort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
-	serialPort.setRawMode(1,0);
+	/* Check if the device is connected via a serial port or Ethernet: */
+	std::string serialPortName=configFile.retrieveString("./serialPortName","");
+	if(!serialPortName.empty())
+		{
+		/* Connect to the device via the serial port: */
+		Comm::SerialPort* serialPort=new Comm::SerialPort(serialPortName.c_str());
+		
+		/* Set serial port parameters: */
+		int serialPortBaudRate=configFile.retrieveValue<int>("./serialPortBaudRate",115200);
+		serialPort->setSerialSettings(serialPortBaudRate,8,Comm::SerialPort::NoParity,1,false);
+		serialPort->setRawMode(1,0);
+		
+		devicePort=serialPort;
+		}
+	else
+		{
+		/* Get the device's host name and port number: */
+		std::string ethernetHostName=configFile.retrieveString("./ethernetHostName");
+		int ethernetPort=configFile.retrieveValue<int>("./ethernetPort");
+		
+		/* Connect to the device via a TCP socket: */
+		Comm::TCPPipe* tcpSocket=new Comm::TCPPipe(ethernetHostName.c_str(),ethernetPort);
+		
+		devicePort=tcpSocket;
+		}
+	
+	devicePort->setEndianness(Misc::LittleEndian);
 	
 	if(configFile.retrieveValue<bool>("./resetDevice",false))
 		{
@@ -474,8 +524,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		printf("InterSense: Resetting device\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeByte('\31');
-		delay(15.0);
+		writeCommand(*devicePort,'\31');
+		Misc::sleep(15.0);
 		}
 	else
 		{
@@ -484,7 +534,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		printf("InterSense: Disabling continuous mode\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeByte('c');
+		writeCommand(*devicePort,'c');
 		}
 	
 	/* Request status record to check if device is okey-dokey: */
@@ -492,7 +542,7 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	printf("InterSense: Requesting status record\n");
 	fflush(stdout);
 	#endif
-	serialPort.writeByte('S');
+	writeCommand(*devicePort,'S');
 	if(!readStatusReply())
 		{
 		/* Try resetting the device, seeing if that helps: */
@@ -500,15 +550,15 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		printf("InterSense: Resetting device\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeByte('\31');
-		delay(15.0);
+		writeCommand(*devicePort,'\31');
+		Misc::sleep(15.0);
 		
 		/* Request another status record: */
 		#ifdef VERBOSE
 		printf("InterSense: Re-requesting status record\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeByte('S');
+		writeCommand(*devicePort,'S');
 		if(!readStatusReply())
 			Misc::throwStdErr("InterSense: Device not responding");
 		}
@@ -518,10 +568,10 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	printf("InterSense: Detecting enabled stations\n");
 	fflush(stdout);
 	#endif
-	serialPort.writeString("l*\r\n");
-	delay(0.1);
+	writeCommand(*devicePort,"l*\r\n");
+	Misc::sleep(0.1);
 	char buffer[256];
-	readLine(sizeof(buffer),buffer,Misc::Time(1.0));
+	readLine(sizeof(buffer),buffer,Misc::Time::now()+Misc::Time(1,0));
 	if(strncmp(buffer,"21l",3)!=0)
 		Misc::throwStdErr("InterSense: Unable to detect enabled stations");
 	
@@ -533,8 +583,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 			{
 			char command[20];
 			snprintf(command,sizeof(command),"l%d,0\r\n",i+1);
-			serialPort.writeString(command);
-			delay(0.1);
+			writeCommand(*devicePort,command);
+			Misc::sleep(0.1);
 			}
 		}
 	
@@ -546,13 +596,13 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		printf("InterSense: Probing constellation configuration\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeString("MCF\r\n");
-		delay(0.1);
+		writeCommand(*devicePort,"MCF\r\n");
+		Misc::sleep(0.1);
 		int numTransmitters=0;
 		while(true)
 			{
 			/* Read the next transmitter line: */
-			readLine(sizeof(buffer),buffer,Misc::Time(1.0));
+			readLine(sizeof(buffer),buffer,Misc::Time::now()+Misc::Time(1,0));
 			
 			/* Check if it's a valid transmitter line: */
 			int transmitterNum,transmitterId;
@@ -610,8 +660,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 				}
 			
 			/* Upload constellation configuration to device: */
-			serialPort.writeString("MCC\r\n");
-			delay(0.1);
+			writeCommand(*devicePort,"MCC\r\n");
+			Misc::sleep(0.1);
 			for(int i=0;i<numTransmitters;++i)
 				{
 				const Transmitter& t=transmitters[i];
@@ -619,11 +669,11 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 				snprintf(transmitterLine,sizeof(transmitterLine),
 				         "MCF%d, %8.4f, %8.4f, %8.4f, %6.3f, %6.3f, %6.3f, %d\r\n",
 				         i+1,t.pos[0],t.pos[1],t.pos[2],t.dir[0],t.dir[1],t.dir[2],i+transmitterIdBase);
-				serialPort.writeString(transmitterLine);
-				delay(0.1);
+				writeCommand(*devicePort,transmitterLine);
+				Misc::sleep(0.1);
 				}
-			serialPort.writeString("MCe\r\n");
-			delay(0.1);
+			writeCommand(*devicePort,"MCe\r\n");
+			Misc::sleep(0.1);
 			}
 		catch(std::runtime_error err)
 			{
@@ -670,46 +720,46 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		
 		/* Enable station: */
 		snprintf(command,sizeof(command),"l%d,1\r\n",stations[i].id);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Reset station's alignment frame: */
 		snprintf(command,sizeof(command),"R%d\r\n",stations[i].id);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Disable boresight mode: */
 		snprintf(command,sizeof(command),"b%d\r\n",stations[i].id);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Reset station's tip offset: */
 		snprintf(command,sizeof(command),"N%d,%8.4f,%8.4f,%8.4f\r\n",stations[i].id,0.0f,0.0f,0.0f);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Set station's output format: */
 		snprintf(command,sizeof(command),"O%d,2,4,22,23,1\r\n",stations[i].id);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Set stations' motion prediction: */
 		int predictionTime=configFile.retrieveValue<int>("./predictionTime",0);
 		snprintf(command,sizeof(command),"Mp%d,%d\r\n",stations[i].id,predictionTime);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Set stations' perceptual enhancement level: */
 		int perceptualEnhancement=configFile.retrieveValue<int>("./perceptualEnhancement",2);
 		snprintf(command,sizeof(command),"MF%d,%d\r\n",stations[i].id,perceptualEnhancement);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Set station's rotational sensitivity: */
 		int rotationalSensitivity=configFile.retrieveValue<int>("./rotationalSensitivity",3);
 		snprintf(command,sizeof(command),"MQ%d,%d\r\n",stations[i].id,rotationalSensitivity);
-		serialPort.writeString(command);
-		delay(0.1);
+		writeCommand(*devicePort,command);
+		Misc::sleep(0.1);
 		
 		/* Go back to device's section: */
 		configFile.setCurrentSection("..");
@@ -723,8 +773,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		printf("InterSense: Enabling sonistrip LEDs\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeString("ML1\r\n");
-		delay(0.1);
+		writeCommand(*devicePort,"ML1\r\n");
+		Misc::sleep(0.1);
 		}
 	else
 		{
@@ -733,8 +783,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		printf("InterSense: Disabling sonistrip LEDs\n");
 		fflush(stdout);
 		#endif
-		serialPort.writeString("ML0\r\n");
-		delay(0.1);
+		writeCommand(*devicePort,"ML0\r\n");
+		Misc::sleep(0.1);
 		}
 	
 	/* Set unit mode to inches: */
@@ -742,15 +792,15 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	printf("InterSense: Setting unit mode\n");
 	fflush(stdout);
 	#endif
-	serialPort.writeByte('U');
-	delay(0.1);
+	writeCommand(*devicePort,'U');
+	Misc::sleep(0.1);
 	
 	/* Enable binary mode: */
 	#ifdef VERBOSE
 	printf("InterSense: Enabling binary mode\n");
 	fflush(stdout);
 	#endif
-	serialPort.writeByte('f');
+	writeCommand(*devicePort,'f');
 	
 	/* Set number of buttons and valuators: */
 	setNumButtons(totalNumButtons,configFile);
@@ -764,6 +814,8 @@ InterSense::InterSense(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 
 InterSense::~InterSense(void)
 	{
+	if(isActive())
+		stop();
 	delete[] stations;
 	delete[] timers;
 	delete[] notFirstMeasurements;
@@ -780,7 +832,7 @@ void InterSense::start(void)
 	printf("InterSense: Enabling continuous mode\n");
 	fflush(stdout);
 	#endif
-	serialPort.writeByte('C');
+	writeCommand(*devicePort,'C');
 	}
 
 void InterSense::stop(void)
@@ -790,7 +842,7 @@ void InterSense::stop(void)
 	printf("InterSense: Disabling continuous mode\n");
 	fflush(stdout);
 	#endif
-	serialPort.writeByte('c');
+	writeCommand(*devicePort,'c');
 	
 	/* Stop device communication thread: */
 	stopDeviceThread();

@@ -1,7 +1,7 @@
 /***********************************************************************
 AlarmTimer - Class to implement one-off alarm timers using the real-time
 signal mechanism.
-Copyright (c) 2005-2006 Oliver Kreylos
+Copyright (c) 2005-2012 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the Realtime Processing Library (Realtime).
@@ -22,13 +22,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <sys/time.h>
-#ifdef REALTIME_HAVE_POSIX_TIMERS
-#include <signal.h>
-#endif
-#include <Misc/Time.h>
-
 #include <Realtime/AlarmTimer.h>
+
+#include <Realtime/Config.h>
+
+#include <string.h>
+#include <sys/time.h>
+#include <Misc/Time.h>
 
 namespace Realtime {
 
@@ -36,7 +36,7 @@ namespace Realtime {
 Static elements of class AlarmTimer:
 ***********************************/
 
-#ifdef REALTIME_HAVE_POSIX_TIMERS
+#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 unsigned int AlarmTimer::numAlarmTimers=0;
 #endif
 
@@ -44,8 +44,8 @@ unsigned int AlarmTimer::numAlarmTimers=0;
 Methods of class AlarmTimer:
 ***************************/
 
-#ifdef REALTIME_HAVE_POSIX_TIMERS
-void AlarmTimer::signalHandler(int,siginfo* sigInfo,void*)
+#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
+void AlarmTimer::signalHandler(int,siginfo_t* sigInfo,void*)
 	{
 	/* Get pointer to the alarm timer object: */
 	AlarmTimer* at=static_cast<AlarmTimer*>(sigInfo->si_value.sival_ptr);
@@ -56,7 +56,7 @@ void AlarmTimer::signalHandler(int,siginfo* sigInfo,void*)
 	}
 #endif
 
-#ifdef REALTIME_HAVE_POSIX_TIMERS
+#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 AlarmTimer::AlarmTimer(void)
 	:timerId(0),armed(false),expired(false)
 	{
@@ -65,6 +65,7 @@ AlarmTimer::AlarmTimer(void)
 		{
 		/* Install the signal handler: */
 		struct sigaction sigAction;
+		memset(&sigAction,0,sizeof(sigAction));
 		sigAction.sa_sigaction=signalHandler;
 		sigemptyset(&sigAction.sa_mask);
 		sigAction.sa_flags=SA_SIGINFO;
@@ -74,6 +75,7 @@ AlarmTimer::AlarmTimer(void)
 	
 	/* Create a per-process timer: */
 	struct sigevent timerEvent;
+	memset(&timerEvent,0,sizeof(timerEvent));
 	timerEvent.sigev_notify=SIGEV_SIGNAL;
 	timerEvent.sigev_signo=SIGRTMIN;
 	timerEvent.sigev_value.sival_ptr=this;
@@ -88,7 +90,7 @@ AlarmTimer::AlarmTimer(void)
 
 AlarmTimer::~AlarmTimer(void)
 	{
-	#ifdef REALTIME_HAVE_POSIX_TIMERS
+	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 	/* Destroy the per-process timer: */
 	timer_delete(timerId);
 	
@@ -108,7 +110,7 @@ AlarmTimer::~AlarmTimer(void)
 
 bool AlarmTimer::armTimer(const Misc::Time& expirationTime)
 	{
-	#ifdef REALTIME_HAVE_POSIX_TIMERS
+	#if REALTIME_CONFIG_HAVE_POSIX_TIMERS
 	/* Arm the timer signal: */
 	struct itimerspec timerInterval;
 	timerInterval.it_interval.tv_sec=0;

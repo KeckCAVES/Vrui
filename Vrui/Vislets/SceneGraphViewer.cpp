@@ -1,7 +1,7 @@
 /***********************************************************************
 SceneGraphViewer - Vislet class to render a scene graph loaded from one
 or more VRML 2.0 files.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,15 +23,16 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Vislets/SceneGraphViewer.h>
 
-#include <Misc/FileCharacterSource.h>
+#include <string.h>
 #include <GL/gl.h>
 #include <GL/GLTransformationWrappers.h>
 #include <SceneGraph/NodeCreator.h>
 #include <SceneGraph/VRMLFile.h>
-#include <SceneGraph/GLRenderState.h>
-#include <Vrui/DisplayState.h>
-#include <Vrui/VisletManager.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/Viewer.h>
+#include <Vrui/OpenFile.h>
+#include <Vrui/VisletManager.h>
+#include <Vrui/SceneGraphSupport.h>
 
 namespace Vrui {
 
@@ -107,6 +108,7 @@ Methods of class SceneGraphViewer:
 *********************************/
 
 SceneGraphViewer::SceneGraphViewer(int numArguments,const char* const arguments[])
+	:navigational(true)
 	{
 	/* Create a node creator: */
 	SceneGraph::NodeCreator nodeCreator;
@@ -117,9 +119,16 @@ SceneGraphViewer::SceneGraphViewer(int numArguments,const char* const arguments[
 	/* Load all VRML files from the command line: */
 	for(int i=0;i<numArguments;++i)
 		{
-		Misc::FileCharacterSource inputFile(arguments[i]);
-		SceneGraph::VRMLFile vrmlFile(arguments[i],inputFile,nodeCreator);
-		vrmlFile.parse(root);
+		if(arguments[i][0]=='-')
+			{
+			if(strcasecmp(arguments[i]+1,"physical")==0)
+				navigational=false;
+			}
+		else
+			{
+			SceneGraph::VRMLFile vrmlFile(arguments[i],Vrui::openFile(arguments[i]),nodeCreator,getClusterMultiplexer());
+			vrmlFile.parse(root);
+			}
 		}
 	}
 
@@ -149,19 +158,9 @@ void SceneGraphViewer::display(GLContextData& contextData) const
 	/* Save OpenGL state: */
 	glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 	
-	/* Go to navigational coordinates: */
-	glPushMatrix();
-	glLoadIdentity();
-	glMultMatrix(getDisplayState(contextData).modelviewNavigational);
+	/* Render the scene graph in navigational or physical space: */
+	renderSceneGraph(root.getPointer(),navigational,contextData);
 	
-	/* Create a render state to traverse the scene graph: */
-	SceneGraph::GLRenderState renderState(contextData,getHeadPosition(),getNavigationTransformation().inverseTransform(getUpDirection()));
-	
-	/* Traverse the scene graph: */
-	root->glRenderAction(renderState);
-	
-	/* Restore OpenGL state: */
-	glPopMatrix();
 	glPopAttrib();
 	}
 

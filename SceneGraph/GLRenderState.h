@@ -1,7 +1,7 @@
 /***********************************************************************
 GLRenderState - Class encapsulating the traversal state of a scene graph
 during OpenGL rendering.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2013 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -39,6 +39,7 @@ class GLRenderState
 	/* Embedded classes: */
 	public:
 	typedef GLColor<GLfloat,3> Color; // Type for RGBA colors
+	typedef Geometry::OrthogonalTransformation<double,3> DOGTransform; // Double-precision orthogonal transformations as internal representations
 	typedef GLFrustum<Scalar> Frustum; // Class describing the rendering context's view frustum
 	
 	/* Elements: */
@@ -47,7 +48,7 @@ class GLRenderState
 	Frustum baseFrustum; // The rendering context's view frustum in initial model coordinates
 	Point baseViewerPos; // Viewer position in initial model coordinates
 	Vector baseUpVector; // Up vector in initial model coordinates
-	OGTransform currentTransform; // Transformation from initial model coordinates to current model coordinates
+	DOGTransform currentTransform; // Transformation from initial model coordinates to current model coordinates
 	
 	/* Elements shadowing current OpenGL state: */
 	public:
@@ -60,19 +61,20 @@ class GLRenderState
 	bool separateSpecularColorEnabled;
 	
 	/* Constructors and destructors: */
-	GLRenderState(GLContextData& sContextData,const Point& sBaseViewerPos,const Vector& sBaseUpVector); // Creates a render state object
+	GLRenderState(GLContextData& sContextData,const DOGTransform& initialTransform,const Point& sBaseViewerPos,const Vector& sBaseUpVector); // Creates a render state object
 	
 	/* Methods: */
 	Point getViewerPos(void) const // Returns the viewer position in current model coordinates
 		{
-		return currentTransform.inverseTransform(baseViewerPos);
+		return Point(currentTransform.inverseTransform(baseViewerPos));
 		}
 	Vector getUpVector(void) const // Returns the up direction in current model coordinates
 		{
-		return currentTransform.inverseTransform(baseUpVector);
+		return Vector(currentTransform.inverseTransform(baseUpVector));
 		}
-	OGTransform pushTransform(const OGTransform& deltaTransform); // Pushes the given transformation onto the matrix stack and returns the previous transformation
-	void popTransform(const OGTransform& previousTransform); // Resets the matrix stack to the given transformation; must be result from previous pushTransform call
+	DOGTransform pushTransform(const OGTransform& deltaTransform); // Pushes the given transformation onto the matrix stack and returns the previous transformation
+	DOGTransform pushTransform(const DOGTransform& deltaTransform); // Ditto, with a double-precision transformation
+	void popTransform(const DOGTransform& previousTransform); // Resets the matrix stack to the given transformation; must be result from previous pushTransform call
 	bool doesBoxIntersectFrustum(const Box& box) const; // Returns true if the given box in current model coordinates intersects the view frustum
 	
 	/* OpenGL state management methods: */

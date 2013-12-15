@@ -1,6 +1,6 @@
 /***********************************************************************
 FakespacePinchGlove - Class for pinch glove device of same name.
-Copyright (c) 1998-2010 Oliver Kreylos
+Copyright (c) 1998-2011 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -35,19 +35,21 @@ Methods of class FakespacePinchGlove:
 
 void FakespacePinchGlove::writeCommand(const char* command)
 	{
-	devicePort.writeByte(command[0]);
-	delay(0.25);
-	devicePort.writeByte(command[1]);
-	delay(0.25);
+	devicePort.putChar(command[0]);
+	devicePort.flush();
+	Misc::sleep(0.25);
+	devicePort.putChar(command[1]);
+	devicePort.flush();
+	Misc::sleep(0.25);
 	}
 
 char* FakespacePinchGlove::readReply(int stringBufferLen,char* stringBuffer)
 	{
-	while(devicePort.readByte()!=char(0x82))
+	while(devicePort.getChar()!=char(0x82))
 		;
 	char* sPtr=stringBuffer;
 	char* stringBufferEnd=stringBuffer+(stringBufferLen-1);
-	while(sPtr<stringBufferEnd&&(*sPtr=devicePort.readByte())!=char(0x8F))
+	while(sPtr<stringBufferEnd&&(*sPtr=devicePort.getChar())!=char(0x8F))
 		++sPtr;
 	*sPtr='\0';
 	return stringBuffer;
@@ -55,9 +57,9 @@ char* FakespacePinchGlove::readReply(int stringBufferLen,char* stringBuffer)
 
 void FakespacePinchGlove::ignoreReply(void)
 	{
-	while(devicePort.readByte()!=char(0x82))
+	while(devicePort.getChar()!=char(0x82))
 		;
-	while(devicePort.readByte()!=char(0x8F))
+	while(devicePort.getChar()!=char(0x8F))
 		;
 	}
 
@@ -66,7 +68,7 @@ void FakespacePinchGlove::deviceThreadMethod(void)
 	while(true)
 		{
 		/* Wait for start byte: */
-		while(devicePort.readByte()!=char(0x80))
+		while(devicePort.getChar()!=char(0x80))
 			;
 		
 		/* Process all contacts in the message: */
@@ -74,10 +76,10 @@ void FakespacePinchGlove::deviceThreadMethod(void)
 		int contacts[10][2];
 		while(true)
 			{
-			contacts[numContacts][0]=devicePort.readByte();
+			contacts[numContacts][0]=devicePort.getChar();
 			if(contacts[numContacts][0]==char(0x8F))
 				break;
-			contacts[numContacts][1]=devicePort.readByte();
+			contacts[numContacts][1]=devicePort.getChar();
 			++numContacts;
 			}
 		
@@ -144,8 +146,9 @@ FakespacePinchGlove::FakespacePinchGlove(VRDevice::Factory* sFactory,VRDeviceMan
 	setNumButtons(2*4,configFile); // Four buttons for each hand
 	
 	/* Set device port parameters: */
+	devicePort.ref();
 	int deviceBaudRate=configFile.retrieveValue<int>("./deviceBaudRate");
-	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::PARITY_NONE,1,false);
+	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
 	devicePort.setRawMode(1,0);
 	
 	/* Synchronize the device's command stream: */
@@ -153,10 +156,14 @@ FakespacePinchGlove::FakespacePinchGlove(VRDevice::Factory* sFactory,VRDeviceMan
 	printf("FakespacePinchGlove: Synchronizing command stream\n");
 	fflush(stdout);
 	#endif
-	devicePort.writeByte('*'); // Write a byte to complete eventually incomplete command sequences
-	if(!devicePort.waitForByte(Misc::Time(0.5)))
-		devicePort.writeByte('*'); // We screwed things up; write another byte to complete the first completion byte
-	if(devicePort.waitForByte(Misc::Time(0.5)))
+	devicePort.putChar('*'); // Write a byte to complete eventually incomplete command sequences
+	devicePort.flush();
+	if(!devicePort.waitForData(Misc::Time(0.5)))
+		{
+		devicePort.putChar('*'); // We screwed things up; write another byte to complete the first completion byte
+		devicePort.flush();
+		}
+	if(devicePort.waitForData(Misc::Time(0.5)))
 		ignoreReply(); // Ignore the device's reply
 	else
 		Misc::throwStdErr("FakespacePinchGlove: Pinch glove device not responding");

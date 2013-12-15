@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiCalibrator - Simple program to check the calibration of a VR
 environment.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2013 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -33,7 +33,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
-class VruiDemo:public Vrui::Application
+class VruiCalibrator:public Vrui::Application
 	{
 	/* Elements: */
 	private:
@@ -47,8 +47,8 @@ class VruiDemo:public Vrui::Application
 	
 	/* Constructors and destructors: */
 	public:
-	VruiDemo(int& argc,char**& argv,char**& appDefaults); // Initializes the Vrui toolkit and the application
-	virtual ~VruiDemo(void); // Shuts down the Vrui toolkit
+	VruiCalibrator(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
+	virtual ~VruiCalibrator(void); // Shuts down the Vrui toolkit
 	
 	/* Methods: */
 	virtual void display(GLContextData& contextData) const; // Called for every eye and every window on every frame
@@ -56,10 +56,10 @@ class VruiDemo:public Vrui::Application
 	};
 
 /*************************
-Methods of class VruiDemo:
+Methods of class VruiCalibrator:
 *************************/
 
-GLMotif::PopupMenu* VruiDemo::createMainMenu(void)
+GLMotif::PopupMenu* VruiCalibrator::createMainMenu(void)
 	{
 	/* Create a popup shell to hold the main menu: */
 	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
@@ -72,7 +72,7 @@ GLMotif::PopupMenu* VruiDemo::createMainMenu(void)
 	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
 	
 	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&VruiDemo::resetNavigationCallback);
+	resetNavigationButton->getSelectCallbacks().add(this,&VruiCalibrator::resetNavigationCallback);
 	
 	/* Finish building the main menu: */
 	mainMenu->manageChild();
@@ -80,8 +80,8 @@ GLMotif::PopupMenu* VruiDemo::createMainMenu(void)
 	return mainMenuPopup;
 	}
 
-VruiDemo::VruiDemo(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+VruiCalibrator::VruiCalibrator(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 mainMenu(0)
 	{
 	/* Calculate the model color: */
@@ -99,12 +99,12 @@ VruiDemo::VruiDemo(int& argc,char**& argv,char**& appDefaults)
 	resetNavigationCallback(0);
 	}
 
-VruiDemo::~VruiDemo(void)
+VruiCalibrator::~VruiCalibrator(void)
 	{
 	delete mainMenu;
 	}
 
-void VruiDemo::display(GLContextData& contextData) const
+void VruiCalibrator::display(GLContextData& contextData) const
 	{
 	Vrui::Point displayCenter=Vrui::getDisplayCenter();
 	Vrui::Scalar inchScale=Vrui::getInchFactor();
@@ -199,7 +199,7 @@ void VruiDemo::display(GLContextData& contextData) const
 		glEnable(GL_LIGHTING);
 	}
 
-void VruiDemo::resetNavigationCallback(Misc::CallbackData* cbData)
+void VruiCalibrator::resetNavigationCallback(Misc::CallbackData* cbData)
 	{
 	/* Reset the Vrui navigation transformation: */
 	Vrui::NavTransform t=Vrui::NavTransform::identity;
@@ -209,15 +209,5 @@ void VruiDemo::resetNavigationCallback(Misc::CallbackData* cbData)
 	Vrui::setNavigationTransformation(t);
 	}
 
-int main(int argc,char* argv[])
-	{
-	/* Create an application object: */
-	char** appDefaults=0; // This is an additional parameter no one ever uses
-	VruiDemo app(argc,argv,appDefaults);
-	
-	/* Run the Vrui main loop: */
-	app.run();
-	
-	/* Exit to OS: */
-	return 0;
-	}
+/* Create and execute an application object: */
+VRUI_APPLICATION_RUN(VruiCalibrator)

@@ -2,7 +2,7 @@
 MemMappedFile - Wrapper class to provide a file-like interface for
 blocks of memory or memory-mapped files with exception safety, typed
 data I/O, and automatic endianness conversion.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2010 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -72,32 +72,6 @@ class MemMappedFile
 	bool writeProtected; // Flag if the class is allowed to write into the memory block
 	Endianness endianness; // Endianness of the represented file
 	bool mustSwapEndianness; // Flag if current file endianness is different from machine endianness
-	
-	/* Private methods: */
-	void readRaw(void* buffer,size_t size)
-		{
-		/* Check if the memory block contains enough data: */
-		if(ioPtr+size>blockEnd)
-			throw ReadError(size,blockEnd-ioPtr);
-		
-		/* Copy data from the memory block: */
-		memcpy(buffer,ioPtr,size);
-		ioPtr+=size;
-		}
-	void writeRaw(const void* buffer,size_t size)
-		{
-		/* Check if writing is allowed: */
-		if(!writeProtected)
-			throw WriteError(size,0);
-		
-		/* Check if the memory block can hold enough data: */
-		if(ioPtr+size>blockEnd)
-			throw WriteError(size,blockEnd-ioPtr);
-		
-		/* Copy data into the memory block: */
-		memcpy(ioPtr,buffer,size);
-		ioPtr+=size;
-		}
 	
 	/* Constructors and destructors: */
 	public:
@@ -218,7 +192,21 @@ class MemMappedFile
 		return 1;
 		}
 	
-	/* Methods for binary file I/O with endianness conversion: */
+	/* Endianness-safe binary I/O interface: */
+	bool mustSwapOnRead(void) // Retusn true if the file must endianness-swap data on read
+		{
+		return mustSwapEndianness;
+		}
+	void readRaw(void* buffer,size_t size)
+		{
+		/* Check if the memory block contains enough data: */
+		if(ioPtr+size>blockEnd)
+			throw ReadError(size,blockEnd-ioPtr);
+		
+		/* Copy data from the memory block: */
+		memcpy(buffer,ioPtr,size);
+		ioPtr+=size;
+		}
 	template <class DataParam>
 	DataParam read(void) // Reads single value
 		{
@@ -250,6 +238,24 @@ class MemMappedFile
 		if(mustSwapEndianness)
 			swapEndianness(data,numReadItems);
 		return numReadItems;
+		}
+	bool mustSwapOnWrite(void) // Returns true if the file must endianness-swap data on write
+		{
+		return mustSwapEndianness;
+		}
+	void writeRaw(const void* buffer,size_t size)
+		{
+		/* Check if writing is allowed: */
+		if(!writeProtected)
+			throw WriteError(size,0);
+		
+		/* Check if the memory block can hold enough data: */
+		if(ioPtr+size>blockEnd)
+			throw WriteError(size,blockEnd-ioPtr);
+		
+		/* Copy data into the memory block: */
+		memcpy(ioPtr,buffer,size);
+		ioPtr+=size;
 		}
 	template <class DataParam>
 	void write(const DataParam& data) // Writes single value

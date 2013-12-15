@@ -2,7 +2,7 @@
 Image - Base class to represent images of arbitrary pixel formats. The
 image coordinate system is such that pixel (0,0) is in the lower-left
 corner.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2011 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -62,6 +62,29 @@ Image<ScalarParam,numComponentsParam>::ImageRepresentation::ImageRepresentation(
 	
 	/* Copy the source image data: */
 	memcpy(image,source.image,size_t(size[0])*size_t(size[1])*sizeof(Color));
+	}
+
+template <class ScalarParam,int numComponentsParam>
+template <class SourceScalarParam,int sourceNumComponentsParam>
+Image<ScalarParam,numComponentsParam>::ImageRepresentation::ImageRepresentation(
+	const unsigned int sSize[2],
+	const GLColor<SourceScalarParam,sourceNumComponentsParam>* sPixels)
+	:refCount(1),
+	 image(0)
+	{
+	/* Set the image size: */
+	for(int i=0;i<2;++i)
+		size[i]=sSize[i];
+	
+	/* Allocate the image array: */
+	image=new Color[size_t(size[0])*size_t(size[1])];
+	
+	/* Copy the source image data: */
+	const typename Image<SourceScalarParam,sourceNumComponentsParam>::Color* sPtr=sPixels;
+	Color* dPtr=image;
+	for(unsigned int y=0;y<size[1];++y)
+		for(unsigned int x=0;x<size[0];++x,++sPtr,++dPtr)
+			*dPtr=*sPtr;
 	}
 
 template <class ScalarParam,int numComponentsParam>
@@ -224,6 +247,19 @@ Image<ScalarParam,numComponentsParam>::resize(
 /*************************************************
 Force instantiation of all standard Image classes:
 *************************************************/
+
+template Image<GLubyte,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,3>*);
+template Image<GLubyte,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,4>*);
+template Image<GLubyte,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,4>*);
+template Image<GLushort,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,3>*);
+template Image<GLushort,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,4>*);
+template Image<GLushort,3>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,4>*);
+template Image<GLubyte,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,3>*);
+template Image<GLubyte,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,3>*);
+template Image<GLubyte,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,4>*);
+template Image<GLushort,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLushort,3>*);
+template Image<GLushort,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,3>*);
+template Image<GLushort,4>::ImageRepresentation::ImageRepresentation(const unsigned int[2],const GLColor<GLubyte,4>*);
 
 template class Image<GLubyte,3>;
 template class Image<GLubyte,4>;
