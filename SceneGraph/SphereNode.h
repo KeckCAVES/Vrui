@@ -40,6 +40,8 @@ class SphereNode:public GeometryNode,public DisplayList
 	SFPoint center;
 	SFFloat radius;
 	SFInt numSegments;
+	SFBool latLong;
+	SFBool texCoords;
 	
 	/* Derived state: */
 	protected:

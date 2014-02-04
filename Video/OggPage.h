@@ -1,6 +1,6 @@
 /***********************************************************************
 OggPage - Wrapper class for ogg_page structure from Ogg API.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -77,10 +77,10 @@ class OggPage:public ogg_page
 	void write(SinkParam& sink) const // Writes the page to the given data sink
 		{
 		/* Write the page header: */
-		sink.write<unsigned char>(header,header_len);
+		sink.template write<unsigned char>(header,header_len);
 		
 		/* Write the page body: */
-		sink.write<unsigned char>(body,body_len);
+		sink.template write<unsigned char>(body,body_len);
 		}
 	};
 
