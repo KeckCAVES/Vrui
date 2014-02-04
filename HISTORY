@@ -3893,3 +3893,22 @@ Vrui-3.1-001:
 - Added setting to select USB bus topology query functions to build
   system; auto-detected in BuildRoot/Packages.system; manual override in
   makefile.
+- #ifdef-ed out experimental code in Vrui::VRWindow::render method to
+  reduce numerical jitter when rotating; wasn't such a hot idea after
+  all.
+- Added SceneGraph::SphereNode (finally!).
+
+Vrui-3.1-002:
+- Fixed orientation of SceneGraph::SphereNode, and added flags to
+  disable texture coordinate generation and to select icosahedral
+  tesselation mode.
+- Improved build system by using order-only prerequisites for
+  prerequisite dynamic libraries.
+- Fixed target directory generation in implicit makefile rules.
+- Fixed templated function calls in Video::OggPage and
+  Video::TheoraPacket. Pointed out by Jens Bauer.
+- Clarified semantics of GLMotif::Container::getFirstChild: returns null
+  if container has no children.
+- Fixed getFirstChild method in GLMotif::RowColumn. Suggested by Jens
+  Bauer.
+- Fixed getFirstChild method in GLMotif::Pager.
