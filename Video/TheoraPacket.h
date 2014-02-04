@@ -1,7 +1,7 @@
 /***********************************************************************
 TheoraPacket - Wrapper class for Ogg packets containing Theora video
 streams.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -69,15 +69,15 @@ class TheoraPacket:public ogg_packet
 	void read(PipeParam& pipe) // Reads a packet from a pipe
 		{
 		/* Read the packet flags: */
-		b_o_s=pipe.read<char>();
+		b_o_s=pipe.template read<char>();
 		e_o_s=0;
 		
 		/* Read the packet stream position: */
-		granulepos=pipe.read<ogg_int64_t>();
-		packetno=pipe.read<ogg_int64_t>();
+		granulepos=pipe.template read<ogg_int64_t>();
+		packetno=pipe.template read<ogg_int64_t>();
 		
 		/* Read the packet size: */
-		bytes=pipe.read<unsigned int>();
+		bytes=pipe.template read<unsigned int>();
 		
 		/* Check if the packet needs to allocate a private buffer: */
 		if(allocSize<size_t(bytes))
@@ -90,16 +90,16 @@ class TheoraPacket:public ogg_packet
 			}
 		
 		/* Read the packet data: */
-		pipe.read<unsigned char>(packet,bytes);
+		pipe.template read<unsigned char>(packet,bytes);
 		}
 	template <class PipeParam>
 	void write(PipeParam& pipe) const
 		{
-		pipe.write<char>(b_o_s);
-		pipe.write<ogg_int64_t>(granulepos);
-		pipe.write<ogg_int64_t>(packetno);
-		pipe.write<unsigned int>(bytes);
-		pipe.write<unsigned char>(packet,bytes);
+		pipe.template write<char>(b_o_s);
+		pipe.template write<ogg_int64_t>(granulepos);
+		pipe.template write<ogg_int64_t>(packetno);
+		pipe.template write<unsigned int>(bytes);
+		pipe.template write<unsigned char>(packet,bytes);
 		}
 	};
 

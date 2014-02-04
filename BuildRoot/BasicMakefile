@@ -1,7 +1,7 @@
 ########################################################################
 # BasicMakefile - Definitions and rules to build object files, shared
 # and static libraries, and executables.
-# Copyright (c) 1999-2013 Oliver Kreylos
+# Copyright (c) 1999-2014 Oliver Kreylos
 # Mac OS X adaptation copyright (c) 2006 Braden Pellett
 #
 # This file is part of the WhyTools Build Environment.
@@ -106,8 +106,8 @@ endef
 
 # Set default compile command from .c to .o:
 $(OBJDIR)/%.o: %.c
-	@mkdir -p $(DEPDIR)/$(*D)
-	@mkdir -p $(OBJDIR)/$(*D)
+	@mkdir -p $(abspath $(DEPDIR)/$(*D))
+	@mkdir -p $(abspath $(OBJDIR)/$(*D))
 ifdef SHOWCOMMAND
 	$(PLAINCCOMP) -MD -c -o $@ $(CCFLAGS) $<
 else
@@ -119,8 +119,8 @@ endif
 
 # Set default compile commands from .cc/.cpp to .o:
 $(OBJDIR)/%.o: %.cpp
-	@mkdir -p $(DEPDIR)/$(*D)
-	@mkdir -p $(OBJDIR)/$(*D)
+	@mkdir -p $(abspath $(DEPDIR)/$(*D))
+	@mkdir -p $(abspath $(OBJDIR)/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) -MD -c -o $@ $(CPPCFLAGS) $<
 else
@@ -131,8 +131,8 @@ endif
 	@rm -f $(DEPFILETEMPLATE)
 
 $(OBJDIR)/%.o: %.cc
-	@mkdir -p $(DEPDIR)/$(*D)
-	@mkdir -p $(OBJDIR)/$(*D)
+	@mkdir -p $(abspath $(DEPDIR)/$(*D))
+	@mkdir -p $(abspath $(OBJDIR)/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) -MD -c -o $@ $(CPPCFLAGS) $<
 else
@@ -144,8 +144,8 @@ endif
 
 # Set default compile command from .c to position-independent code for plugins:
 $(OBJDIR)/pic/%.o: %.c
-	@mkdir -p $(DEPDIR)/$(*D)
-	@mkdir -p $(OBJDIR)/pic/$(*D)
+	@mkdir -p $(abspath $(DEPDIR)/$(*D))
+	@mkdir -p $(abspath $(OBJDIR)/pic/$(*D))
 ifdef SHOWCOMMAND
 	$(PLAINCCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
 else
@@ -157,8 +157,8 @@ endif
 
 # Set default compile commands from .cc/.cpp to position-independent code for plugins:
 $(OBJDIR)/pic/%.o: %.cpp
-	@mkdir -p $(DEPDIR)/$(*D)
-	@mkdir -p $(OBJDIR)/pic/$(*D)
+	@mkdir -p $(abspath $(DEPDIR)/$(*D))
+	@mkdir -p $(abspath $(OBJDIR)/pic/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
 else
@@ -169,8 +169,8 @@ endif
 	@rm -f $(DEPFILETEMPLATE)
 
 $(OBJDIR)/pic/%.o: %.cc
-	@mkdir -p $(DEPDIR)/$(*D)
-	@mkdir -p $(OBJDIR)/pic/$(*D)
+	@mkdir -p $(abspath $(DEPDIR)/$(*D))
+	@mkdir -p $(abspath $(OBJDIR)/pic/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) -MD -c -o $@ $(CPLUGINFLAGS) $(CPPCFLAGS) $<
 else
@@ -189,7 +189,7 @@ MINORLIBVERSION ?= 0
 
 # Default link command to create dynamic library:
 $(LIBDESTDIR)/$(call FULLDSONAME,%):
-	@mkdir -p $(LIBDESTDIR)/$(*D)
+	@mkdir -p $(abspath $(LIBDESTDIR)/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) $(call DSOLINKFLAGS,$(*F)) -o $@ $(filter %.o,$^) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 else
@@ -202,7 +202,7 @@ endif
 
 # Default link command to create static library:
 $(LIBDESTDIR)/%.$(LDEXT).a:
-	@mkdir -p $(LIBDESTDIR)/$(*D)
+	@mkdir -p $(abspath $(LIBDESTDIR)/$(*D))
 	@-rm -f $@
 ifdef SHOWCOMMAND
 	ar crs $@ $^
@@ -233,7 +233,7 @@ endef
 
 # Set default link command for executables:
 $(EXEDIR)/%:
-	@mkdir -p $(EXEDIR)/$(*D)
+	@mkdir -p $(abspath $(EXEDIR)/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) $(LINKFLAGS) -o $@ $(filter %.o,$^) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 else
@@ -243,7 +243,7 @@ endif
 
 # Set default compile+link command for single-source executables:
 %: %.cpp
-	@mkdir -p $(EXEDIR)/$(*D)
+	@mkdir -p $(abspath $(EXEDIR)/$(*D))
 ifdef SHOWCOMMAND
 	$(CCOMP) -o $(EXEDIR)/$@ $(CCFLAGS) $(filter %.cpp,$^) $(LINKFLAGS) $(LINKDIRFLAGS) $(LINKLIBFLAGS)
 else
