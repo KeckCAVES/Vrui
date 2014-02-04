@@ -1,7 +1,7 @@
 /***********************************************************************
 Pager - Container class to arrange children as individual pages in a
 "flipbook" of sorts.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

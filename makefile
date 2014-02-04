@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2013 Oliver Kreylos
+# Copyright (c) 1998-2014 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -146,7 +146,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 3001001
+VRUI_VERSION = 3001002
 MAJORLIBVERSION = 3
 MINORLIBVERSION = 1
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -381,8 +381,9 @@ ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT) $(MAKECONFIGFIL
 .PHONY: all
 all: config $(ALL)
 
-$(PLUGINS): $(LIBRARIES)
-$(EXECUTABLES): $(LIBRARIES)
+# Build all libraries before any plug-ins or executables:
+$(PLUGINS): | $(LIBRARIES)
+$(EXECUTABLES): | $(LIBRARIES)
 
 ########################################################################
 # Pseudo-target to print configuration options and configure libraries
@@ -466,7 +467,7 @@ $(MISC_SOURCES): config
 
 $(call LIBRARYNAME,libMisc): PACKAGES += $(MYMISC_DEPENDS)
 $(call LIBRARYNAME,libMisc): EXTRACINCLUDEFLAGS += $(MYMISC_INCLUDE)
-$(call LIBRARYNAME,libMisc): $(call DEPENDENCIES,MYMISC)
+$(call LIBRARYNAME,libMisc): | $(call DEPENDENCIES,MYMISC)
 $(call LIBRARYNAME,libMisc): $(MISC_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libMisc
 libMisc: $(call LIBRARYNAME,libMisc)
@@ -515,7 +516,7 @@ $(THREADS_SOURCES): config
 
 $(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
 $(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
-$(call LIBRARYNAME,libThreads): $(call DEPENDENCIES,MYTHREADS)
+$(call LIBRARYNAME,libThreads): | $(call DEPENDENCIES,MYTHREADS)
 $(call LIBRARYNAME,libThreads): $(THREADS_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libThreads
 libThreads: $(call LIBRARYNAME,libThreads)
@@ -552,7 +553,7 @@ $(USB_SOURCES): config
 
 $(call LIBRARYNAME,libUSB): PACKAGES += $(MYUSB_DEPENDS)
 $(call LIBRARYNAME,libUSB): EXTRACINCLUDEFLAGS += $(MYUSB_INCLUDE)
-$(call LIBRARYNAME,libUSB): $(call DEPENDENCIES,MYUSB)
+$(call LIBRARYNAME,libUSB): | $(call DEPENDENCIES,MYUSB)
 $(call LIBRARYNAME,libUSB): $(USB_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libUSB
 libUSB: $(call LIBRARYNAME,libUSB)
@@ -570,7 +571,7 @@ $(IO_SOURCES): config
 
 $(call LIBRARYNAME,libIO): PACKAGES += $(MYIO_DEPENDS)
 $(call LIBRARYNAME,libIO): EXTRACINCLUDEFLAGS += $(MYIO_INCLUDE)
-$(call LIBRARYNAME,libIO): $(call DEPENDENCIES,MYIO)
+$(call LIBRARYNAME,libIO): | $(call DEPENDENCIES,MYIO)
 $(call LIBRARYNAME,libIO): $(IO_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libIO
 libIO: $(call LIBRARYNAME,libIO)
@@ -588,7 +589,7 @@ $(PLUGINS_SOURCES): config
 
 $(call LIBRARYNAME,libPlugins): PACKAGES += $(MYPLUGINS_DEPENDS)
 $(call LIBRARYNAME,libPlugins): EXTRACINCLUDEFLAGS += $(MYPLUGINS_INCLUDE)
-$(call LIBRARYNAME,libPlugins): $(call DEPENDENCIES,MYPLUGINS)
+$(call LIBRARYNAME,libPlugins): | $(call DEPENDENCIES,MYPLUGINS)
 $(call LIBRARYNAME,libPlugins): $(PLUGINS_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libPlugins
 libPlugins: $(call LIBRARYNAME,libPlugins)
@@ -619,7 +620,7 @@ $(REALTIME_SOURCES): config
 
 $(call LIBRARYNAME,libRealtime): PACKAGES += $(MYREALTIME_DEPENDS)
 $(call LIBRARYNAME,libRealtime): EXTRACINCLUDEFLAGS += $(MYREALTIME_INCLUDE)
-$(call LIBRARYNAME,libRealtime): $(call DEPENDENCIES,MYREALTIME)
+$(call LIBRARYNAME,libRealtime): | $(call DEPENDENCIES,MYREALTIME)
 $(call LIBRARYNAME,libRealtime): $(REALTIME_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libRealtime
 libRealtime: $(call LIBRARYNAME,libRealtime)
@@ -637,7 +638,7 @@ $(COMM_SOURCES): config
 
 $(call LIBRARYNAME,libComm): PACKAGES += $(MYCOMM_DEPENDS)
 $(call LIBRARYNAME,libComm): EXTRACINCLUDEFLAGS += $(MYCOMM_INCLUDE)
-$(call LIBRARYNAME,libComm): $(call DEPENDENCIES,MYCOMM)
+$(call LIBRARYNAME,libComm): | $(call DEPENDENCIES,MYCOMM)
 $(call LIBRARYNAME,libComm): $(COMM_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libComm
 libComm: $(call LIBRARYNAME,libComm)
@@ -655,7 +656,7 @@ $(CLUSTER_SOURCES): config
 
 $(call LIBRARYNAME,libCluster): PACKAGES += $(MYCLUSTER_DEPENDS)
 $(call LIBRARYNAME,libCluster): EXTRACINCLUDEFLAGS += $(MYCLUSTER_INCLUDE)
-$(call LIBRARYNAME,libCluster): $(call DEPENDENCIES,MYCLUSTER)
+$(call LIBRARYNAME,libCluster): | $(call DEPENDENCIES,MYCLUSTER)
 $(call LIBRARYNAME,libCluster): $(CLUSTER_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libCluster
 libCluster: $(call LIBRARYNAME,libCluster)
@@ -673,7 +674,7 @@ $(MATH_SOURCES): config
 
 $(call LIBRARYNAME,libMath): PACKAGES += $(MYMATH_DEPENDS)
 $(call LIBRARYNAME,libMath): EXTRACINCLUDEFLAGS += $(MYMATH_INCLUDE)
-$(call LIBRARYNAME,libMath): $(call DEPENDENCIES,MYMATH)
+$(call LIBRARYNAME,libMath): | $(call DEPENDENCIES,MYMATH)
 $(call LIBRARYNAME,libMath): $(MATH_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libMath
 libMath: $(call LIBRARYNAME,libMath)
@@ -691,7 +692,7 @@ $(GEOMETRY_SOURCES): config
 
 $(call LIBRARYNAME,libGeometry): PACKAGES += $(MYGEOMETRY_DEPENDS)
 $(call LIBRARYNAME,libGeometry): EXTRACINCLUDEFLAGS += $(MYGEOMETRY_INCLUDE)
-$(call LIBRARYNAME,libGeometry): $(call DEPENDENCIES,MYGEOMETRY)
+$(call LIBRARYNAME,libGeometry): | $(call DEPENDENCIES,MYGEOMETRY)
 $(call LIBRARYNAME,libGeometry): $(GEOMETRY_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGeometry
 libGeometry: $(call LIBRARYNAME,libGeometry)
@@ -761,7 +762,7 @@ $(GLWRAPPERS_SOURCES): config
 $(call LIBRARYNAME,libGLWrappers): PACKAGES += $(MYGLWRAPPERS_DEPENDS)
 $(call LIBRARYNAME,libGLWrappers): EXTRACINCLUDEFLAGS += $(MYGLWRAPPERS_INCLUDE)
 $(call LIBRARYNAME,libGLWrappers): CFLAGS += $(MYGLWRAPPERS_CFLAGS)
-$(call LIBRARYNAME,libGLWrappers): $(call DEPENDENCIES,MYGLWRAPPERS)
+$(call LIBRARYNAME,libGLWrappers): | $(call DEPENDENCIES,MYGLWRAPPERS)
 $(call LIBRARYNAME,libGLWrappers): $(GLWRAPPERS_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGLWrappers
 libGLWrappers: $(call LIBRARYNAME,libGLWrappers)
@@ -847,7 +848,7 @@ $(GLSUPPORT_SOURCES): config
 $(call LIBRARYNAME,libGLSupport): PACKAGES += $(MYGLSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libGLSupport): EXTRACINCLUDEFLAGS += $(MYGLSUPPORT_INCLUDE)
 $(call LIBRARYNAME,libGLSupport): CFLAGS += $(MYGLSUPPORT_CFLAGS)
-$(call LIBRARYNAME,libGLSupport): $(call DEPENDENCIES,MYGLSUPPORT)
+$(call LIBRARYNAME,libGLSupport): | $(call DEPENDENCIES,MYGLSUPPORT)
 $(call LIBRARYNAME,libGLSupport): $(GLSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGLSupport
 libGLSupport: $(call LIBRARYNAME,libGLSupport)
@@ -867,7 +868,7 @@ $(GLXSUPPORT_SOURCES): config
 $(call LIBRARYNAME,libGLXSupport): PACKAGES += $(MYGLXSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libGLXSupport): EXTRACINCLUDEFLAGS += $(MYGLXSUPPORT_INCLUDE)
 $(call LIBRARYNAME,libGLXSupport): CFLAGS += $(MYGLXSUPPORT_CFLAGS)
-$(call LIBRARYNAME,libGLXSupport): $(call DEPENDENCIES,MYGLXSUPPORT)
+$(call LIBRARYNAME,libGLXSupport): | $(call DEPENDENCIES,MYGLXSUPPORT)
 $(call LIBRARYNAME,libGLXSupport): $(GLXSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGLXSupport
 libGLXSupport: $(call LIBRARYNAME,libGLXSupport)
@@ -891,7 +892,7 @@ $(GLGEOMETRY_SOURCES): config
 
 $(call LIBRARYNAME,libGLGeometry): PACKAGES += $(MYGLGEOMETRY_DEPENDS)
 $(call LIBRARYNAME,libGLGeometry): EXTRACINCLUDEFLAGS += $(MYGLGEOMETRY_INCLUDE)
-$(call LIBRARYNAME,libGLGeometry): $(call DEPENDENCIES,MYGLGEOMETRY)
+$(call LIBRARYNAME,libGLGeometry): | $(call DEPENDENCIES,MYGLGEOMETRY)
 $(call LIBRARYNAME,libGLGeometry): $(GLGEOMETRY_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGLGeometry
 libGLGeometry: $(call LIBRARYNAME,libGLGeometry)
@@ -934,7 +935,7 @@ $(IMAGES_SOURCES): config
 
 $(call LIBRARYNAME,libImages): PACKAGES += $(MYIMAGES_DEPENDS)
 $(call LIBRARYNAME,libImages): EXTRACINCLUDEFLAGS += $(MYIMAGES_INCLUDE)
-$(call LIBRARYNAME,libImages): $(call DEPENDENCIES,MYIMAGES)
+$(call LIBRARYNAME,libImages): | $(call DEPENDENCIES,MYIMAGES)
 $(call LIBRARYNAME,libImages): $(IMAGES_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libImages
 libImages: $(call LIBRARYNAME,libImages)
@@ -952,7 +953,7 @@ $(GLMOTIF_SOURCES): config
 
 $(call LIBRARYNAME,libGLMotif): PACKAGES += $(MYGLMOTIF_DEPENDS)
 $(call LIBRARYNAME,libGLMotif): EXTRACINCLUDEFLAGS += $(MYGLMOTIF_INCLUDE)
-$(call LIBRARYNAME,libGLMotif): $(call DEPENDENCIES,MYGLMOTIF)
+$(call LIBRARYNAME,libGLMotif): | $(call DEPENDENCIES,MYGLMOTIF)
 $(call LIBRARYNAME,libGLMotif): $(GLMOTIF_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libGLMotif
 libGLMotif: $(call LIBRARYNAME,libGLMotif)
@@ -1010,7 +1011,7 @@ $(SOUND_SOURCES): config
 
 $(call LIBRARYNAME,libSound): PACKAGES += $(MYSOUND_DEPENDS)
 $(call LIBRARYNAME,libSound): EXTRACINCLUDEFLAGS += $(MYSOUND_INCLUDE)
-$(call LIBRARYNAME,libSound): $(call DEPENDENCIES,MYSOUND)
+$(call LIBRARYNAME,libSound): | $(call DEPENDENCIES,MYSOUND)
 $(call LIBRARYNAME,libSound): $(SOUND_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libSound
 libSound: $(call LIBRARYNAME,libSound)
@@ -1117,7 +1118,7 @@ $(VIDEO_SOURCES): config
 
 $(call LIBRARYNAME,libVideo): PACKAGES += $(MYVIDEO_DEPENDS)
 $(call LIBRARYNAME,libVideo): EXTRACINCLUDEFLAGS += $(MYVIDEO_INCLUDE)
-$(call LIBRARYNAME,libVideo): $(call DEPENDENCIES,MYVIDEO)
+$(call LIBRARYNAME,libVideo): | $(call DEPENDENCIES,MYVIDEO)
 $(call LIBRARYNAME,libVideo): $(VIDEO_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libVideo
 libVideo: $(call LIBRARYNAME,libVideo)
@@ -1149,7 +1150,7 @@ $(ALSUPPORT_SOURCES): config
 
 $(call LIBRARYNAME,libALSupport): PACKAGES += $(MYALSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libALSupport): EXTRACINCLUDEFLAGS += $(MYALSUPPORT_INCLUDE)
-$(call LIBRARYNAME,libALSupport): $(call DEPENDENCIES,MYALSUPPORT)
+$(call LIBRARYNAME,libALSupport): | $(call DEPENDENCIES,MYALSUPPORT)
 $(call LIBRARYNAME,libALSupport): $(ALSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libALSupport
 libALSupport: $(call LIBRARYNAME,libALSupport)
@@ -1170,7 +1171,7 @@ $(SCENEGRAPH_SOURCES): config
 
 $(call LIBRARYNAME,libSceneGraph): PACKAGES += $(MYSCENEGRAPH_DEPENDS)
 $(call LIBRARYNAME,libSceneGraph): EXTRACINCLUDEFLAGS += $(MYSCENEGRAPH_INCLUDE)
-$(call LIBRARYNAME,libSceneGraph): $(call DEPENDENCIES,MYSCENEGRAPH)
+$(call LIBRARYNAME,libSceneGraph): | $(call DEPENDENCIES,MYSCENEGRAPH)
 $(call LIBRARYNAME,libSceneGraph): $(SCENEGRAPH_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libSceneGraph
 libSceneGraph: $(call LIBRARYNAME,libSceneGraph)
@@ -1242,7 +1243,7 @@ $(VRUI_SOURCES): config
 
 $(call LIBRARYNAME,libVrui): PACKAGES += $(MYVRUI_DEPENDS)
 $(call LIBRARYNAME,libVrui): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
-$(call LIBRARYNAME,libVrui): $(call DEPENDENCIES,MYVRUI)
+$(call LIBRARYNAME,libVrui): | $(call DEPENDENCIES,MYVRUI)
 $(call LIBRARYNAME,libVrui): $(VRUI_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libVrui
 libVrui: $(call LIBRARYNAME,libVrui)
