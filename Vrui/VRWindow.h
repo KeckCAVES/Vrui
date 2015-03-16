@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
