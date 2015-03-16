@@ -3912,3 +3912,8 @@ Vrui-3.1-002:
 - Fixed getFirstChild method in GLMotif::RowColumn. Suggested by Jens
   Bauer.
 - Fixed getFirstChild method in GLMotif::Pager.
+
+Vrui-3.1-003:
+- Fixed event handling bug in Vrui::VRWindow: keyboard events now set
+  mouse position in window-attached mouse input device adapter, fixing
+  a possible crash at start-up. Reported by Burak Yikilmaz.

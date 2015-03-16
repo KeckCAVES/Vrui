@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -2010,6 +2010,16 @@ bool VRWindow::processEvent(const XEvent& event)
 		case KeyPress:
 		case KeyRelease:
 			{
+			if(mouseAdapter!=0)
+				{
+				/* Remember window-coordinate mouse position: */
+				windowMousePos[0]=event.xbutton.x;
+				windowMousePos[1]=event.xbutton.y;
+				
+				/* Set mouse position in input device adapter: */
+				mouseAdapter->setMousePosition(this,windowMousePos);
+				}
+			
 			/* Convert event key index to keysym: */
 			char keyString[20];
 			KeySym keySym;
