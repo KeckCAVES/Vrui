@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -1194,6 +1194,11 @@ void ToolManager::glRenderAction(GLContextData& contextData) const
 	
 	/* Render the tool kill zone: */
 	toolKillZone->glRenderAction(contextData);
+	}
+
+bool ToolManager::isDeviceInToolKillZone(const InputDevice* device) const
+	{
+	return toolKillZone->isDeviceIn(device);
 	}
 
 }

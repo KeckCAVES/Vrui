@@ -1,3 +1,25 @@
+/***********************************************************************
+XBackground - Utility to draw one of several calibration patterns.
+Copyright (c) 2004-2015 Oliver Kreylos
+
+This file is part of the Vrui calibration utility package.
+
+The Vrui calibration utility package is free software; you can
+redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
+
+The Vrui calibration utility package is distributed in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Vrui calibration utility package; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
@@ -97,16 +119,19 @@ struct WindowState
 	/* Elements: */
 	public:
 	Display* display; // The display connection
+	int screen; // The screen containing the window
 	Window window; // X11 window handle
 	int size[2]; // Window width and height in pixels
 	GC gc; // Graphics context for the window
 	XImage* image; // Image to display in the window (or 0 if no image was given)
+	bool fullscreened; // Flag if the window is currently in full-screen mode
 	
 	/* Constructors and destructors: */
 	public:
 	WindowState(void)
-		:display(0),
-		 image(0)
+		:display(0),screen(0),
+		 image(0),
+		 fullscreened(false)
 		{
 		}
 	~WindowState(void)
@@ -121,10 +146,11 @@ struct WindowState
 		}
 	
 	/* Methods: */
-	void init(Display* sDisplay,int screen)
+	void init(Display* sDisplay,int sScreen,bool makeFullscreen)
 		{
 		/* Store the display connection: */
 		display=sDisplay;
+		screen=sScreen;
 		
 		/* Get root window of this screen: */
 		Window root=RootWindow(display,screen);
@@ -140,43 +166,12 @@ struct WindowState
 		XSelectInput(display,window,ExposureMask|StructureNotifyMask|KeyPressMask);
 		XMapRaised(display,window);
 		
-		/* Get relevant window manager protocol atoms: */
-		Atom netwmStateAtom=XInternAtom(display,"_NET_WM_STATE",True);
-		Atom netwmStateFullscreenAtom=XInternAtom(display,"_NET_WM_STATE_FULLSCREEN",True);
-		if(netwmStateAtom!=None&&netwmStateFullscreenAtom!=None)
+		if(makeFullscreen)
 			{
-			/* Ask the window manager to make this window fullscreen: */
-			XEvent fullscreenEvent;
-			fullscreenEvent.xclient.type=ClientMessage;
-			fullscreenEvent.xclient.serial=0;
-			fullscreenEvent.xclient.send_event=True;
-			fullscreenEvent.xclient.display=display;
-			fullscreenEvent.xclient.window=window;
-			fullscreenEvent.xclient.message_type=netwmStateAtom;
-			fullscreenEvent.xclient.format=32;
-			fullscreenEvent.xclient.data.l[0]=1; // Should be _NET_WM_STATE_ADD, but that doesn't work for some reason
-			fullscreenEvent.xclient.data.l[1]=netwmStateFullscreenAtom;
-			fullscreenEvent.xclient.data.l[2]=0;
-			XSendEvent(display,RootWindow(display,screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&fullscreenEvent);
-			XFlush(display);
+			/* Switch the window to full-screen mode: */
+			toggleFullscreen();
 			}
-		else
-			{
-			/*******************************************************************
-			Use hacky method of adjusting window size just beyond the root
-			window.
-			*******************************************************************/
-			
-			/* Query the window's geometry to calculate its offset inside its parent window (the window manager decoration): */
-			Window win_root;
-			int win_x,win_y;
-			unsigned int win_width,win_height,win_borderWidth,win_depth;
-			XGetGeometry(display,window,&win_root,&win_x,&win_y,&win_width,&win_height,&win_borderWidth,&win_depth);
-			
-			/* Set the window's position and size such that the window manager decoration falls outside the root window: */
-			XMoveResizeWindow(display,window,-win_x,-win_y,DisplayWidth(display,screen),DisplayHeight(display,screen));
-			}
-
+		
 		/* Raise the window to the top of the stacking hierarchy: */
 		XRaiseWindow(display,window);
 		
@@ -290,6 +285,70 @@ struct WindowState
 		image->blue_mask=windowAttr.visual->blue_mask;
 		XInitImage(image);
 		}
+	void toggleFullscreen(void) // Switches the window in or out of full-screen mode
+		{
+		/* Get relevant window manager protocol atoms: */
+		Atom netwmStateAtom=XInternAtom(display,"_NET_WM_STATE",True);
+		Atom netwmStateFullscreenAtom=XInternAtom(display,"_NET_WM_STATE_FULLSCREEN",True);
+		
+		if(fullscreened)
+			{
+			if(netwmStateAtom!=None&&netwmStateFullscreenAtom!=None)
+				{
+				/* Ask the window manager to make this window fullscreen: */
+				XEvent fullscreenEvent;
+				fullscreenEvent.xclient.type=ClientMessage;
+				fullscreenEvent.xclient.serial=0;
+				fullscreenEvent.xclient.send_event=True;
+				fullscreenEvent.xclient.display=display;
+				fullscreenEvent.xclient.window=window;
+				fullscreenEvent.xclient.message_type=netwmStateAtom;
+				fullscreenEvent.xclient.format=32;
+				fullscreenEvent.xclient.data.l[0]=0; // Should be _NET_WM_STATE_REMOVE, but that doesn't work for some reason
+				fullscreenEvent.xclient.data.l[1]=netwmStateFullscreenAtom;
+				fullscreenEvent.xclient.data.l[2]=0;
+				XSendEvent(display,RootWindow(display,screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&fullscreenEvent);
+				XFlush(display);
+				}
+			}
+		else
+			{
+			if(netwmStateAtom!=None&&netwmStateFullscreenAtom!=None)
+				{
+				/* Ask the window manager to make this window fullscreen: */
+				XEvent fullscreenEvent;
+				fullscreenEvent.xclient.type=ClientMessage;
+				fullscreenEvent.xclient.serial=0;
+				fullscreenEvent.xclient.send_event=True;
+				fullscreenEvent.xclient.display=display;
+				fullscreenEvent.xclient.window=window;
+				fullscreenEvent.xclient.message_type=netwmStateAtom;
+				fullscreenEvent.xclient.format=32;
+				fullscreenEvent.xclient.data.l[0]=1; // Should be _NET_WM_STATE_ADD, but that doesn't work for some reason
+				fullscreenEvent.xclient.data.l[1]=netwmStateFullscreenAtom;
+				fullscreenEvent.xclient.data.l[2]=0;
+				XSendEvent(display,RootWindow(display,screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&fullscreenEvent);
+				XFlush(display);
+				}
+			else
+				{
+				/*******************************************************************
+				Use hacky method of adjusting window size just beyond the root
+				window.
+				*******************************************************************/
+				
+				/* Query the window's geometry to calculate its offset inside its parent window (the window manager decoration): */
+				Window win_root;
+				int win_x,win_y;
+				unsigned int win_width,win_height,win_borderWidth,win_depth;
+				XGetGeometry(display,window,&win_root,&win_x,&win_y,&win_width,&win_height,&win_borderWidth,&win_depth);
+				
+				/* Set the window's position and size such that the window manager decoration falls outside the root window: */
+				XMoveResizeWindow(display,window,-win_x,-win_y,DisplayWidth(display,screen),DisplayHeight(display,screen));
+				}
+			}
+		fullscreened=!fullscreened;
+		}
 	};
 
 void redraw(const WindowState& ws,int winOriginX,int winOriginY,int winWidth,int winHeight,int imageType,int squareSize)
@@ -321,6 +380,8 @@ void redraw(const WindowState& ws,int winOriginX,int winOriginY,int winWidth,int
 				
 				/* Draw some circles: */
 				int r=winHeight/2;
+				if(r>winWidth/2)
+					r=winWidth/2;
 				XDrawArc(ws.display,ws.window,ws.gc,winOriginX+winWidth/2-r,winOriginY+winHeight/2-r,r*2,r*2,0,360*64);
 				r=(winHeight*2)/15;
 				XDrawArc(ws.display,ws.window,ws.gc,winOriginX,winOriginY,r*2,r*2,0,360*64);
@@ -372,6 +433,7 @@ int main(int argc,char* argv[])
 	/* Parse command line: */
 	char* displayName=getenv("DISPLAY");
 	// char* displayName=":0.0";
+	bool makeFullscreen=false;
 	int imageType=0;
 	int squareSize=300;
 	char* imgFileName=0;
@@ -398,6 +460,8 @@ int main(int argc,char* argv[])
 				}
 			else if(strcasecmp(argv[i]+1,"stereo")==0)
 				splitStereo=true;
+			else if(strcasecmp(argv[1]+1,"f")==0)
+				makeFullscreen=true;
 			}
 		else if(imgFileName==0)
 			imgFileName=argv[i];
@@ -429,7 +493,7 @@ int main(int argc,char* argv[])
 		numWindows=1;
 		ws=new WindowState[numWindows];
 		int screen=atoi(periodPtr+1);
-		ws[0].init(display,screen);
+		ws[0].init(display,screen,makeFullscreen);
 		
 		/* Load an image, if given: */
 		if(imgFileName!=0&&strcasecmp(imgFileName,"Grid")!=0)
@@ -442,7 +506,7 @@ int main(int argc,char* argv[])
 		ws=new WindowState[numWindows];
 		for(int screen=0;screen<numWindows;++screen)
 			{
-			ws[screen].init(display,screen);
+			ws[screen].init(display,screen,makeFullscreen);
 			
 			/* Load an image, if given: */
 			if(imgFileName!=0&&strcasecmp(imgFileName,"Grid")!=0)
@@ -475,6 +539,9 @@ int main(int argc,char* argv[])
 					{
 					XKeyEvent keyEvent=event.xkey;
 					KeySym keySym=XLookupKeysym(&keyEvent,0);
+					if(keySym==XK_F||keySym==XK_f)
+						ws[i].toggleFullscreen();
+					
 					goOn=keySym!=XK_Escape;
 					break;
 					}
