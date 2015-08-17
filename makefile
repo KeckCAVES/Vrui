@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2014 Oliver Kreylos
+# Copyright (c) 1998-2015 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -146,7 +146,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 3001003
+VRUI_VERSION = 3001004
 MAJORLIBVERSION = 3
 MINORLIBVERSION = 1
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)

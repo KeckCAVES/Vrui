@@ -22,6 +22,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 ***********************************************************************/
 
 #define EVILHACK_LOCK_INPUTDEVICE_POS 1
+#define USE_BLINDERS 0
 
 #define DELAY_NAVIGATIONTRANSFORMATION 0
 #define RENDERFRAMETIMES 0
@@ -1109,6 +1110,24 @@ void VruiState::update(void)
 		pipe->flush();
 	}
 
+#if USE_BLINDERS
+
+namespace {
+
+void setClipPlane(GLClipPlaneTracker* cpt,const Plane& clipPlane,GLint clipPlaneIndex)
+	{
+	/* Set the clipping plane in the clipping plane tracker and OpenGL: */
+	GLClipPlaneTracker::Plane plane;
+	for(int i=0;i<3;++i)
+		plane[i]=clipPlane.getNormal()[i];
+	plane[3]=-clipPlane.getOffset();
+	cpt->enableClipPlane(clipPlaneIndex,plane);
+	}
+
+}
+
+#endif
+
 void VruiState::display(DisplayState* displayState,GLContextData& contextData) const
 	{
 	/* Initialize lighting state through the display state's light tracker: */
@@ -1131,6 +1150,38 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	/* Set light sources: */
 	lightsourceManager->setLightsources(navigationTransformationEnabled,displayState,contextData);
 	
+	#if USE_BLINDERS
+	
+	Scalar horzFov2=Math::rad(Math::div2(Scalar(30)));
+	Scalar vertFov2=horzFov2*Scalar(9)/Scalar(16);
+	Scalar frontFov=Scalar(24)*inchScale;
+	
+	/* Attach blinders to the main viewer: */
+	const TrackerState& vts=mainViewer->getHeadTransformation();
+	Point eyePos=mainViewer->getDeviceEyePosition(Viewer::MONO);
+	
+	Plane cpLeft(Vector(Math::cos(horzFov2),Math::sin(horzFov2),0),eyePos);
+	cpLeft.transform(vts);
+	setClipPlane(contextData.getClipPlaneTracker(),cpLeft,0);
+	
+	Plane cpRight(Vector(-Math::cos(horzFov2),Math::sin(horzFov2),0),eyePos);
+	cpRight.transform(vts);
+	setClipPlane(contextData.getClipPlaneTracker(),cpRight,1);
+	
+	Plane cpBottom(Vector(0,Math::sin(vertFov2),Math::cos(vertFov2)),eyePos);
+	cpBottom.transform(vts);
+	setClipPlane(contextData.getClipPlaneTracker(),cpBottom,2);
+	
+	Plane cpTop(Vector(0,Math::sin(vertFov2),-Math::cos(vertFov2)),eyePos);
+	cpTop.transform(vts);
+	setClipPlane(contextData.getClipPlaneTracker(),cpTop,3);
+	
+	Plane cpFront(Vector(0,1,0),eyePos+Vector(0,frontFov,0));
+	cpFront.transform(vts);
+	setClipPlane(contextData.getClipPlaneTracker(),cpFront,4);
+	
+	#endif
+	
 	/* Render input device manager's state: */
 	inputDeviceManager->glRenderAction(contextData);
 	
@@ -1144,8 +1195,12 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	widgetManager->draw(contextData);
 	glDisable(GL_COLOR_MATERIAL);
 	
+	#if !USE_BLINDERS
+	
 	/* Set clipping planes: */
 	clipPlaneManager->setClipPlanes(navigationTransformationEnabled,displayState,contextData);
+	
+	#endif
 	
 	/* Render tool manager's state: */
 	toolManager->glRenderAction(contextData);

@@ -3917,3 +3917,26 @@ Vrui-3.1-003:
 - Fixed event handling bug in Vrui::VRWindow: keyboard events now set
   mouse position in window-attached mouse input device adapter, fixing
   a possible crash at start-up. Reported by Burak Yikilmaz.
+
+Vrui-3.1-004:
+- Fixed convenience function for argument-taking functions/methods in
+  Misc/FunctionCalls.h.
+- Replaced use of GL_ARB_imaging extension to create anti-aliased text
+  in GLFont with software implementation.
+- Added toggleFullscreen method to GLWindow class.
+- Added code to toggle window's fullscreen state when Win+F is pressed
+  to Vrui::VRWindow::processEvent.
+- Changes to XBackground calibration utility:
+  - Starts in windowed mode by default.
+  - Passing -f on command line starts in full-screen mode.
+  - Pressing "f" toggles window between windowed and full-screen modes.
+- Fixed event handling in Vrui/Internal/Vrui.Workbench.cpp to properly
+  react to Vrui::requestUpdate calls from background threads.
+- Added isDeviceInToolKillZone method to Vrui::ToolManager, to allow
+  tools or applications to use the kill zone for additional purposes
+  such as deleting objects.
+  - Changed device parameter of ToolKillZone::isDeviceIn method to
+    const.
+  - Updated derived classes accordingly.
+- Added Geometry/LevenbergMarquardtMinimizer.
+- Added Math/SimplexMinimizer.
