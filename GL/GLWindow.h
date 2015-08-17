@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -161,6 +161,7 @@ class GLWindow
 		return closeCallbacks;
 		}
 	void makeFullscreen(void); // Turns the window into a "fake" fullscreen window by making it slightly larger than the root window
+	void toggleFullscreen(void); // Attempts to toggle the window's fullscreen state by communicating with the window manager
 	void disableMouseEvents(void); // Tells the window to ignore mouse events (pointer motion, button click and release) from that point on
 	void hideCursor(void); // Hides the cursor while inside the window
 	void showCursor(void); // Resets the cursor to the one used by the parent window

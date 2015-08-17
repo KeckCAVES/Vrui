@@ -2037,6 +2037,15 @@ bool VRWindow::processEvent(const XEvent& event)
 				/* Handle Vrui application keys: */
 				switch(keySym)
 					{
+					case XK_f:
+					case XK_F:
+						if((keyEvent.state&0xedU)==0x40U)
+							{
+							/* Toggle the window's full-screen state: */
+							toggleFullscreen();
+							}
+						break;
+					
 					case XK_Print:
 						if((keyEvent.state&0xedU)==0x40U)
 							{

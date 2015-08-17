@@ -1,7 +1,7 @@
 /***********************************************************************
 FunctionCalls - Set of functor objects implementing function (or method)
 calls as first-class variables.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -261,10 +261,10 @@ template <class ParameterParam,class ArgumentParam>
 inline
 FunctionCall<ParameterParam>*
 createFunctionCall(
-	void (*function)(ParameterParam,const ArgumentParam&),
+	void (*function)(ParameterParam,ArgumentParam),
 	ArgumentParam argument)
 	{
-	return new SingleArgumentFunctionCall<ParameterParam,const ArgumentParam&>(function,argument);
+	return new SingleArgumentFunctionCall<ParameterParam,ArgumentParam>(function,argument);
 	}
 
 template <class ParameterParam,class CalleeParam>
@@ -292,10 +292,10 @@ inline
 FunctionCall<ParameterParam>*
 createFunctionCall(
 	CalleeParam* callee,
-	void (CalleeParam::*method)(ParameterParam,const ArgumentParam&),
+	void (CalleeParam::*method)(ParameterParam,ArgumentParam),
 	ArgumentParam argument)
 	{
-	return new SingleArgumentMethodCall<ParameterParam,CalleeParam,const ArgumentParam&>(callee,method,argument);
+	return new SingleArgumentMethodCall<ParameterParam,CalleeParam,ArgumentParam>(callee,method,argument);
 	}
 
 template <class ParameterParam,class CalleeParam,class ArgumentParam>

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -320,6 +320,31 @@ void GLWindow::makeFullscreen(void)
 	
 	/* Raise the window to the top of the stacking hierarchy: */
 	XRaiseWindow(context->getDisplay(),window);
+	}
+
+void GLWindow::toggleFullscreen(void)
+	{
+	/* Get relevant window manager protocol atoms: */
+	Atom netwmStateAtom=XInternAtom(context->getDisplay(),"_NET_WM_STATE",True);
+	Atom netwmStateFullscreenAtom=XInternAtom(context->getDisplay(),"_NET_WM_STATE_FULLSCREEN",True);
+	if(netwmStateAtom!=None&&netwmStateFullscreenAtom!=None)
+		{
+		/* Ask the window manager to make this window fullscreen: */
+		XEvent fullscreenEvent;
+		memset(&fullscreenEvent,0,sizeof(XEvent));
+		fullscreenEvent.xclient.type=ClientMessage;
+		fullscreenEvent.xclient.serial=0;
+		fullscreenEvent.xclient.send_event=True;
+		fullscreenEvent.xclient.display=context->getDisplay();
+		fullscreenEvent.xclient.window=window;
+		fullscreenEvent.xclient.message_type=netwmStateAtom;
+		fullscreenEvent.xclient.format=32;
+		fullscreenEvent.xclient.data.l[0]=2; // Should be _NET_WM_STATE_TOGGLE, but that doesn't work for some reason
+		fullscreenEvent.xclient.data.l[1]=netwmStateFullscreenAtom;
+		fullscreenEvent.xclient.data.l[2]=0;
+		XSendEvent(context->getDisplay(),RootWindow(context->getDisplay(),screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&fullscreenEvent);
+		XFlush(context->getDisplay());
+		}
 	}
 
 void GLWindow::disableMouseEvents(void)

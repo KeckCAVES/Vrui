@@ -1,6 +1,6 @@
 /***********************************************************************
 GLFont - Class to represent texture-based fonts and to render 3D text.
-Copyright (c) 1999-2011 Oliver Kreylos
+Copyright (c) 1999-2015 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 

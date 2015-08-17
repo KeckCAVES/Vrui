@@ -1,0 +1,193 @@
+/***********************************************************************
+SimplexMinimizer - Generic class to perform minimization of arbitrary
+target functions using a simplex algorithm.
+Copyright (c) 2014 Oliver Kreylos
+
+This file is part of the Templatized Math Library (Math).
+
+The Templatized Math Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Math Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Math Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define MATH_SIMPLEXMINIMIZER_IMPLEMENTATION
+
+#include <Math/SimplexMinimizer.h>
+
+#include <Misc/FunctionCalls.h>
+
+namespace Math {
+
+template <class MinimizationFunctionParam>
+inline
+SimplexMinimizer<MinimizationFunctionParam>::SimplexMinimizer(
+	void)
+	:maxNumSteps(1000),
+	 expansionFactor(1.2),contractionFactor(0.8),
+	 progressFrequency(0),progressCallback(0)
+	{
+	}
+
+template <class MinimizationFunctionParam>
+inline
+SimplexMinimizer<MinimizationFunctionParam>::~SimplexMinimizer(
+	void)
+	{
+	delete progressCallback;
+	}
+
+template <class MinimizationFunctionParam>
+inline
+void
+SimplexMinimizer<MinimizationFunctionParam>::setProgressCallback(
+	unsigned int newProgressFrequency,
+	typename SimplexMinimizer<MinimizationFunctionParam>::ProgressCallback* newProgressCallback)
+	{
+	/* Set the new progress callback frequency: */
+	progressFrequency=newProgressFrequency;
+	
+	/* Delete the current progress callback and install the new one: */
+	delete progressCallback;
+	progressCallback=newProgressCallback;
+	}
+
+template <class MinimizationFunctionParam>
+inline
+typename SimplexMinimizer<MinimizationFunctionParam>::ValuedVertex
+SimplexMinimizer<MinimizationFunctionParam>::minimize(
+	const typename SimplexMinimizer<MinimizationFunctionParam>::MinimizationFunction& function,
+	const typename SimplexMinimizer<MinimizationFunctionParam>::Vertex& initialVertex,
+	typename SimplexMinimizer<MinimizationFunctionParam>::Scalar initialSimplexSize)
+	{
+	/* Construct the initial simplex: */
+	vertices[0]=initialVertex;
+	for(unsigned int i=0;i<dimension;++i)
+		vertices[0].move(i,-initialSimplexSize/Scalar(dimension+1));
+	values[0]=function(vertices[0]);
+	for(unsigned int i=1;i<=dimension;++i)
+		{
+		vertices[i]=vertices[0];
+		vertices[i].move(i-1,initialSimplexSize);
+		values[i]=function(vertices[i]);
+		}
+	
+	/* Run the minimization loop: */
+	unsigned int nextProgressCall=progressFrequency;
+	unsigned int lastWorstVertex=dimension+1;
+	for(unsigned int step=0;step<maxNumSteps;++step)
+		{
+		/* Find the maximum-value vertex that is not the most recently reflected vertex: */
+		unsigned int worstVertex=lastWorstVertex==0?1:0;
+		Value worstValue=values[worstVertex];
+		for(unsigned int i=worstVertex+1;i<=dimension;++i)
+			if(i!=lastWorstVertex&&worstValue<values[i])
+				{
+				worstVertex=i;
+				worstValue=values[i];
+				}
+		lastWorstVertex=worstVertex;
+		
+		/* Reflect the maximum-value vertex about the center of its opposite face: */
+		Vertex fc=Vertex::calcFaceCenter(vertices,worstVertex);
+		Vertex r=Vertex::move(vertices[worstVertex],fc,Scalar(1));
+		Value rValue=function(r);
+		
+		/* Determine the reflected vertex's rank among all current vertices: */
+		unsigned int rank=0;
+		for(unsigned int i=0;i<=dimension;++i)
+			if(rValue<=values[i])
+				++rank;
+		
+		/* Determine the type of simplex shape change operation: */
+		if(rank==dimension+1) // Reflected vertex is best vertex
+			{
+			/* Reflect and expand the simplex: */
+			Vertex e=Vertex::move(vertices[worstVertex],fc,expansionFactor);
+			Value eValue=function(e);
+			
+			/* Determine the expanded vertex's rank among all current vertices: */
+			rank=0;
+			for(unsigned int i=0;i<=dimension;++i)
+				if(eValue<=values[i])
+					++rank;
+			
+			if(rank==dimension+1) // Expanded vertex is still the best
+				{
+				/* Accept the expansion: */
+				vertices[worstVertex]=e;
+				values[worstVertex]=eValue;
+				}
+			else
+				{
+				/* Reject the expansion: */
+				vertices[worstVertex]=r;
+				values[worstVertex]=rValue;
+				}
+			}
+		else if(rank>=(dimension+2)/2) // Reflected vertex is better than half of all vertices
+			{
+			/* Accept the reflection: */
+			vertices[worstVertex]=r;
+			values[worstVertex]=rValue;
+			}
+		else if(rank>=(dimension+2)/4) // Reflected vertex is better than a quarter of all vertices
+			{
+			/* Reflect and contract the simplex: */
+			vertices[worstVertex]=Vertex::move(vertices[worstVertex],fc,contractionFactor);
+			values[worstVertex]=function(vertices[worstVertex]);
+			}
+		else // Reflected vertex is worse than three quarter of all vertices
+			{
+			/* Contract the simplex: */
+			vertices[worstVertex]=Vertex::move(vertices[worstVertex],fc,-contractionFactor);
+			values[worstVertex]=function(vertices[worstVertex]);
+			}
+		
+		/* Check if the simplex is too small to continue: */
+		if(Vertex::isTooSmall(vertices))
+			break;
+		
+		/* Check if it's time to call the progress callback: */
+		if(progressCallback!=0&&--nextProgressCall==0)
+			{
+			/* Find the current minimum-value vertex: */
+			unsigned int bestVertex=0;
+			Value bestValue=values[0];
+			for(unsigned int i=1;i<=dimension;++i)
+				if(bestValue>values[i])
+					{
+					bestVertex=i;
+					bestValue=values[i];
+					}
+			
+			/* Call the progress callback: */
+			(*progressCallback)(ValuedVertex(vertices[bestVertex],values[bestVertex]));
+			
+			/* Reset the progress callback counter: */
+			nextProgressCall=progressFrequency;
+			}
+		}
+	
+	/* Find and return the minimum-value vertex: */
+	unsigned int bestVertex=0;
+	Value bestValue=values[0];
+	for(unsigned int i=1;i<=dimension;++i)
+		if(bestValue>values[i])
+			{
+			bestVertex=i;
+			bestValue=values[i];
+			}
+	return ValuedVertex(vertices[bestVertex],values[bestVertex]);
+	}
+
+}

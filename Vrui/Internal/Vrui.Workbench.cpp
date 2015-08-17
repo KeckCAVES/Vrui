@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -108,8 +108,6 @@ Workbench-specific global variables:
 
 bool vruiVerbose=false;
 int vruiEventPipe[2]={-1,-1};
-Threads::Mutex vruiEventPipeMutex;
-volatile unsigned int vruiNumSignaledEvents=0;
 Misc::ConfigurationFile* vruiConfigFile=0;
 char* vruiApplicationName=0;
 int vruiNumWindows=0;
@@ -240,12 +238,9 @@ void vruiErrorShutdown(bool signalError)
 	/* Close the configuration file: */
 	delete vruiConfigFile;
 	
-	if(vruiEventPipe[0]>=0)
-		{
-		/* Close the event pipe: */
-		close(vruiEventPipe[0]);
-		close(vruiEventPipe[1]);
-		}
+	/* Close the event pipe: */
+	close(vruiEventPipe[0]);
+	close(vruiEventPipe[1]);
 	}
 
 void vruiOpenConfigurationFile(const char* userConfigurationFileName)
@@ -600,7 +595,7 @@ void init(int& argc,char**& argv,char**&)
 			}
 		
 		/* Open the Vrui event pipe: */
-		if(pipe(vruiEventPipe)!=0)
+		if(pipe(vruiEventPipe)!=0||vruiEventPipe[0]<0||vruiEventPipe[1]<0)
 			{
 			/* This is bad; need to shut down: */
 			std::cerr<<"Error while opening event pipe"<<std::endl;
@@ -1376,36 +1371,14 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 	{
 	bool handledEvents=false;
 	
-	/* Check if there are pending events on the event pipe or any windows' X event queues: */
-	Misc::FdSet readFds;
-	bool mustBlock=allowBlocking;
-	#ifdef DEBUG
-	{
-	Threads::Mutex::Lock vruiEventPipeLock(vruiEventPipeMutex);
-	#endif
-	if(vruiNumSignaledEvents>0&&vruiEventPipe[0]>=0)
-		{
-		readFds.add(vruiEventPipe[0]);
-		mustBlock=false;
-		}
-	#ifdef DEBUG
-	}
-	#endif
-	for(int i=0;i<vruiNumWindowGroups;++i)
-		if(XPending(vruiWindowGroups[i].display))
-			{
-			readFds.add(vruiWindowGroups[i].displayFd);
-			mustBlock=false;
-			}
-	
 	/* If there are no pending events, and blocking is allowed, block until something happens: */
-	if(mustBlock)
+	Misc::FdSet readFds;
+	if(allowBlocking)
 		{
 		/* Fill the file descriptor set to wait for events: */
 		if(checkStdin)
 			readFds.add(fileno(stdin)); // Return on input on stdin, as well
-		if(vruiEventPipe[0]>=0)
-			readFds.add(vruiEventPipe[0]);
+		readFds.add(vruiEventPipe[0]);
 		for(int i=0;i<vruiNumWindowGroups;++i)
 			readFds.add(vruiWindowGroups[i].displayFd);
 		
@@ -1444,50 +1417,48 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 	
 	/* Process any pending X events: */
 	for(int i=0;i<vruiNumWindowGroups;++i)
-		if(readFds.isSet(vruiWindowGroups[i].displayFd))
+		{
+		/* Process all pending events for this display connection: */
+		bool isKeyRepeat=false; // Flag if the next event is a key repeat event
+		while(XPending(vruiWindowGroups[i].display))
 			{
-			/* Process all pending events for this display connection: */
-			bool isKeyRepeat=false; // Flag if the next event is a key repeat event
-			do
+			/* Get the next event: */
+			XEvent event;
+			XNextEvent(vruiWindowGroups[i].display,&event);
+			
+			/* Check for key repeat events (a KeyRelease immediately followed by a KeyPress with the same time stamp): */
+			if(event.type==KeyRelease&&XPending(vruiWindowGroups[i].display))
 				{
-				/* Get the next event: */
-				XEvent event;
-				XNextEvent(vruiWindowGroups[i].display,&event);
-				
-				/* Check for key repeat events (a KeyRelease immediately followed by a KeyPress with the same time stamp): */
-				if(event.type==KeyRelease&&XPending(vruiWindowGroups[i].display))
+				/* Check if the next event is a KeyPress with the same time stamp: */
+				XEvent nextEvent;
+				XPeekEvent(vruiWindowGroups[i].display,&nextEvent);
+				if(nextEvent.type==KeyPress&&nextEvent.xkey.window==event.xkey.window&&nextEvent.xkey.time==event.xkey.time&&nextEvent.xkey.keycode==event.xkey.keycode)
 					{
-					/* Check if the next event is a KeyPress with the same time stamp: */
-					XEvent nextEvent;
-					XPeekEvent(vruiWindowGroups[i].display,&nextEvent);
-					if(nextEvent.type==KeyPress&&nextEvent.xkey.window==event.xkey.window&&nextEvent.xkey.time==event.xkey.time&&nextEvent.xkey.keycode==event.xkey.keycode)
-						{
-						/* Mark the next event as a key repeat: */
-						isKeyRepeat=true;
-						continue;
-						}
+					/* Mark the next event as a key repeat: */
+					isKeyRepeat=true;
+					continue;
 					}
-				
-				/* Pass it to all windows interested in it: */
-				bool finishProcessing=false;
-				for(std::vector<VruiWindowGroup::Window>::iterator wIt=vruiWindowGroups[i].windows.begin();wIt!=vruiWindowGroups[i].windows.end();++wIt)
-					if(wIt->window->isEventForWindow(event))
-						finishProcessing=wIt->window->processEvent(event)||finishProcessing;
-				handledEvents=!isKeyRepeat||finishProcessing;
-				isKeyRepeat=false;
-				
-				/* Stop processing events if something significant happened: */
-				if(finishProcessing)
-					goto doneWithEvents;
 				}
-			while(XPending(vruiWindowGroups[i].display));
+			
+			/* Pass it to all windows interested in it: */
+			bool finishProcessing=false;
+			for(std::vector<VruiWindowGroup::Window>::iterator wIt=vruiWindowGroups[i].windows.begin();wIt!=vruiWindowGroups[i].windows.end();++wIt)
+				if(wIt->window->isEventForWindow(event))
+					finishProcessing=wIt->window->processEvent(event)||finishProcessing;
+			handledEvents=!isKeyRepeat||finishProcessing;
+			isKeyRepeat=false;
+			
+			/* Stop processing events if something significant happened: */
+			if(finishProcessing)
+				goto doneWithEvents;
 			}
+		}
 	doneWithEvents:
 	
 	/* Read pending data from stdin and exit if escape key is pressed: */
 	if(checkStdin)
 		{
-		if(!mustBlock)
+		if(!allowBlocking)
 			{
 			/* Check for pending key presses real quick: */
 			struct timeval timeout;
@@ -1513,19 +1484,10 @@ bool vruiHandleAllEvents(bool allowBlocking,bool checkStdin)
 			}
 		}
 	
-	if(vruiEventPipe[0]>=0)
-		{
-		/* Flush the event pipe no matter what: */
-		Threads::Mutex::Lock eventPipeLock(vruiEventPipeMutex);
-		
-		/* Read accumulated bytes from the event pipe (it's nonblocking): */
-		char readBuffer[16]; // More than enough; there should only be one byte in the pipe
-		if(read(vruiEventPipe[0],readBuffer,sizeof(readBuffer))>0)
-			handledEvents=true;
-		
-		/* Reset the number of accumulated events: */
-		vruiNumSignaledEvents=0;
-		}
+	/* Read accumulated bytes from the event pipe (it's nonblocking): */
+	char readBuffer[64]; // More than enough
+	if(read(vruiEventPipe[0],readBuffer,sizeof(readBuffer))>0)
+		handledEvents=true;
 	
 	return handledEvents;
 	}
@@ -1923,12 +1885,9 @@ void deinit(void)
 	/* Close the configuration file: */
 	delete vruiConfigFile;
 	
-	if(vruiEventPipe[0]>=0)
-		{
-		/* Close the vrui event pipe: */
-		close(vruiEventPipe[0]);
-		close(vruiEventPipe[1]);
-		}
+	/* Close the vrui event pipe: */
+	close(vruiEventPipe[0]);
+	close(vruiEventPipe[1]);
 	}
 
 void shutdown(void)
@@ -2006,20 +1965,12 @@ void requestUpdate(void)
 	{
 	if(vruiState->master)
 		{
-		Threads::Mutex::Lock eventPipeLock(vruiEventPipeMutex);
-		
-		/* Send a byte to the event pipe if nothing has been written yet: */
-		if(vruiNumSignaledEvents==0)
+		/* Send a byte to the event pipe: */
+		char byte=1;
+		if(write(vruiEventPipe[1],&byte,sizeof(char))<0)
 			{
-			char byte=1;
-			if(write(vruiEventPipe[1],&byte,sizeof(char))<0)
-				{
-				/* There's nothing to do! Stupid gcc! */
-				}
+			/* g++ expects me to check the return value, but there's nothing to do... */
 			}
-		
-		/* Count the number of pending events: */
-		++vruiNumSignaledEvents;
 		}
 	}
 

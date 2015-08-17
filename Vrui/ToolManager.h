@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -198,6 +198,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 		{
 		return toolKillZone;
 		}
+	bool isDeviceInToolKillZone(const InputDevice* device) const; // Returns true if the given device is in (or pointing at) the tool kill zone
 	};
 
 }
