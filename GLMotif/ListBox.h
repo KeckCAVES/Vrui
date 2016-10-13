@@ -1,6 +1,6 @@
 /***********************************************************************
 ListBox - Class for widgets containing lists of text strings.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2016 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -330,7 +330,7 @@ class ListBox:public Widget,public GLObject
 		}
 	Misc::CallbackList& getSelectionChangedCallbacks(void) // Returns list of selection changed callbacks
 		{
-		return itemSelectedCallbacks;
+		return selectionChangedCallbacks;
 		}
 	};
 

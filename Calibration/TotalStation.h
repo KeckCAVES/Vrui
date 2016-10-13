@@ -1,7 +1,7 @@
 /***********************************************************************
 TotalStation - Class to represent a Leica Total Station survey
 instrument to measure points for coordinate system calibration.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 

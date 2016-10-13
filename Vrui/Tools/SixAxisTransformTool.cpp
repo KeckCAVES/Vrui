@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,8 +44,6 @@ SixAxisTransformToolFactory::Configuration::Configuration(void)
 	 translations(Vector::zero),
 	 rotateFactor(Scalar(180)),
 	 rotations(Vector::zero),
-	 followDisplayCenter(true),
-	 homePosition(getDisplayCenter()),
 	 deviceGlyphType("Cone"),
 	 deviceGlyphMaterial(GLMaterial::Color(0.5f,0.5f,0.5f),GLMaterial::Color(1.0f,1.0f,1.0f),25.0f)
 	{
@@ -63,11 +61,8 @@ void SixAxisTransformToolFactory::Configuration::load(const Misc::ConfigurationF
 	translations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
 	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
 	rotations=cfs.retrieveValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
-	if(cfs.hasTag("./homePosition"))
-		{
-		followDisplayCenter=false;
-		homePosition=cfs.retrieveValue<Point>("./homePosition",homePosition);
-		}
+	homePosition.retrieve(cfs,"./homePosition");
+	position.retrieve(cfs,"./position");
 	deviceGlyphType=cfs.retrieveValue<std::string>("./deviceGlyphType",deviceGlyphType);
 	deviceGlyphMaterial=cfs.retrieveValue<GLMaterial>("./deviceGlyphMaterial",deviceGlyphMaterial);
 	}
@@ -79,10 +74,26 @@ void SixAxisTransformToolFactory::Configuration::save(Misc::ConfigurationFileSec
 	cfs.storeValue<Misc::FixedArray<Vector,3> >("./translationVectors",translations);
 	cfs.storeValue<Scalar>("./rotateFactor",rotateFactor);
 	cfs.storeValue<Misc::FixedArray<Vector,3> >("./scaledRotationAxes",rotations);
-	if(!followDisplayCenter)
-		cfs.storeValue<Point>("./homePosition",homePosition);
+	homePosition.store(cfs,"./homePosition");
+	position.store(cfs,"./position");
 	cfs.storeValue<std::string>("./deviceGlyphType",deviceGlyphType);
 	cfs.storeValue<GLMaterial>("./deviceGlyphMaterial",deviceGlyphMaterial);
+	}
+
+TrackerState SixAxisTransformToolFactory::Configuration::getHomePosition(void) const
+	{
+	if(homePosition.isSpecified())
+		{
+		/* Return the configured home position: */
+		return homePosition.getValue();
+		}
+	else
+		{
+		/* Calculate the home position from current display center and environment orientation: */
+		Vector x=getForwardDirection()^getUpDirection();
+		Vector y=getUpDirection()^x;
+		return TrackerState(getDisplayCenter()-Point::origin,Rotation::fromBaseVectors(x,y));
+		}
 	}
 
 /********************************************
@@ -102,8 +113,7 @@ SixAxisTransformToolFactory::SixAxisTransformToolFactory(ToolManager& toolManage
 	addParentClass(transformToolFactory);
 	
 	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	config.load(cfs);
+	config.load(toolManager.getToolClassSection(getClassName()));
 	
 	/* Set tool class' factory pointer: */
 	SixAxisTransformTool::factory=this;
@@ -199,7 +209,8 @@ Methods of class SixAxisTransformTool:
 *************************************/
 
 SixAxisTransformTool::SixAxisTransformTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
-	:TransformTool(sFactory,inputAssignment)
+	:TransformTool(sFactory,inputAssignment),
+	 config(factory->config)
 	{
 	/* Set the number of private buttons: */
 	numPrivateButtons=1;
@@ -234,7 +245,7 @@ void SixAxisTransformTool::initialize(void)
 	
 	/* Initialize the virtual input device's position: */
 	transformedDevice->setDeviceRay(Vector(0,1,0),-getInchFactor());
-	transformedDevice->setTransformation(TrackerState::translateFromOriginTo(config.followDisplayCenter?getDisplayCenter():config.homePosition));
+	transformedDevice->setTransformation(config.position.isSpecified()?config.position.getValue():config.getHomePosition());
 	}
 
 const ToolFactory* SixAxisTransformTool::getFactory(void) const
@@ -249,7 +260,7 @@ void SixAxisTransformTool::buttonCallback(int buttonSlotIndex,InputDevice::Butto
 		if(cbData->newButtonState) // Button has just been pressed
 			{
 			/* Reset the transformed device to the home position: */
-			transformedDevice->setTransformation(TrackerState::translateFromOriginTo(config.followDisplayCenter?getDisplayCenter():config.homePosition));
+			transformedDevice->setTransformation(config.getHomePosition());
 			}
 		}
 	else
@@ -289,7 +300,7 @@ void SixAxisTransformTool::frame(void)
 	if(translation!=Vector::zero||rotation!=Vector::zero)
 		{
 		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 

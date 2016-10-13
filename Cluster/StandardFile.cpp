@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Pair of classes for high-performance cluster-transparent
 reading/writing from/to standard operating system files.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -22,12 +22,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Cluster/StandardFile.h>
 
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <string.h>
 #include <Misc/ThrowStdErr.h>
 #include <Cluster/Packet.h>
 #include <Cluster/Multiplexer.h>
@@ -37,6 +37,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #endif
 
 namespace Cluster {
+
+namespace {
+
+/****************
+String constants:
+****************/
+
+const char fileReadErrorString[]="Cluster::StandardFile: Fatal error %d (%s) while reading from file";
+const char fileWriteErrorString[]="Cluster::StandardFile: Fatal error %d (%s) while writing to file";
+const char fileOpenErrorString[]="Cluster::StandardFile: Unable to open file %s for %s due to error %d (%s)";
+const char fileGetFdErrorString[]="Cluster::StandardFile::getFd: Cannot query file descriptor";
+const char fileGetSizeErrorString[]="Cluster::StandardFile: Error %d (%s) while determining file size";
+
+}
 
 /***********************************
 Methods of class StandardFileMaster:
@@ -118,7 +132,7 @@ size_t StandardFileMaster::readData(IO::File::Byte* buffer,size_t bufferSize)
 		if(errorType==1)
 			throw SeekError(readPos);
 		else if(errorType==3)
-			throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while reading from file",errorCode));
+			throw Error(Misc::printStdErrMsg(fileReadErrorString,errorCode,strerror(errorCode)));
 		
 		/* Only reached in case of end-of-file: */
 		filePos=readPos;
@@ -141,8 +155,11 @@ void StandardFileMaster::writeData(const IO::File::Byte* buffer,size_t bufferSiz
 			errorType=1; // Seek error
 		}
 	
-	/* Invalidate the read buffer to prevent reading stale data: */
-	flushReadBuffer();
+	if(errorType==0)
+		{
+		/* Invalidate the read buffer to prevent reading stale data: */
+		flushReadBuffer();
+		}
 	
 	/* Write all data in the given buffer: */
 	while(errorType==0&&bufferSize>0)
@@ -160,9 +177,76 @@ void StandardFileMaster::writeData(const IO::File::Byte* buffer,size_t bufferSiz
 			
 			numBytesWritten+=writeResult;
 			}
-		else if(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))
+		else if(writeResult==0)
 			{
-			/* Do nothing and try again */
+			/* Sink has reached end-of-file: */
+			errorType=2;
+			errorCode=int(bufferSize);
+			}
+		else if(errno!=EAGAIN&&errno!=EWOULDBLOCK&&errno!=EINTR)
+			{
+			/* Unknown error; probably fatal: */
+			errorType=3;
+			errorCode=errno;
+			}
+		}
+	
+	if(isWriteCoupled())
+		{
+		/* Send a status packet to the slaves: */
+		Packet* packet=multiplexer->newPacket();
+		{
+		Packet::Writer writer(packet);
+		writer.write<int>(errorType);
+		writer.write<int>(errorCode);
+		writer.write<int>(int(numBytesWritten));
+		}
+		multiplexer->sendPacket(pipeId,packet);
+		}
+	
+	/* Handle errors: */
+	if(errorType==1)
+		throw SeekError(writePos);
+	else if(errorType==2)
+		throw WriteError(errorCode);
+	else if(errorType==3)
+		throw Error(Misc::printStdErrMsg(fileWriteErrorString,errorCode,strerror(errorCode)));
+	}
+
+size_t StandardFileMaster::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSize)
+	{
+	/* Collect error codes: */
+	int errorType=0;
+	int errorCode=0;
+	size_t numBytesWritten=0;
+	
+	/* Check if file needs to be repositioned: */
+	if(filePos!=writePos)
+		{
+		/* Set the file position and check for seek errors: */
+		if(lseek64(fd,writePos,SEEK_SET)<0)
+			errorType=1; // Seek error
+		}
+	
+	if(errorType==0)
+		{
+		/* Invalidate the read buffer to prevent reading stale data: */
+		flushReadBuffer();
+		
+		/* Write data from the given buffer: */
+		ssize_t writeResult;
+		do
+			{
+			writeResult=::write(fd,buffer,bufferSize);
+			}
+		while(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
+		if(writeResult>0)
+			{
+			/* Advance the write pointer: */
+			writePos+=writeResult;
+			filePos=writePos;
+			
+			numBytesWritten+=writeResult;
 			}
 		else if(writeResult==0)
 			{
@@ -197,7 +281,9 @@ void StandardFileMaster::writeData(const IO::File::Byte* buffer,size_t bufferSiz
 	else if(errorType==2)
 		throw WriteError(errorCode);
 	else if(errorType==3)
-		throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while writing to file",errorCode));
+		throw Error(Misc::printStdErrMsg(fileWriteErrorString,errorCode,strerror(errorCode)));
+	
+	return numBytesWritten;
 	}
 
 void StandardFileMaster::openFile(const char* fileName,IO::File::AccessMode accessMode,int flags,int mode)
@@ -242,7 +328,7 @@ void StandardFileMaster::openFile(const char* fileName,IO::File::AccessMode acce
 	if(errorCode!=0)
 		{
 		/* Throw an exception: */
-		throw OpenError(Misc::printStdErrMsg("Cluster::StandardFile: Unable to open file %s for %s due to error %d",fileName,getAccessModeName(accessMode),errorCode));
+		throw OpenError(Misc::printStdErrMsg(fileOpenErrorString,fileName,getAccessModeName(accessMode),errorCode,strerror(errorCode)));
 		}
 	
 	/* Install a read buffer the size of a multicast packet: */
@@ -285,7 +371,7 @@ StandardFileMaster::~StandardFileMaster(void)
 
 int StandardFileMaster::getFd(void) const
 	{
-	Misc::throwStdErr("Cluster::StandardFile::getFd: Cannot query file descriptor");
+	throw Error(fileGetFdErrorString);
 	
 	/* Just to make compiler happy: */
 	return -1;
@@ -302,6 +388,7 @@ IO::SeekableFile::Offset StandardFileMaster::getSize(void) const
 	/* Get the file's total size: */
 	struct stat statBuffer;
 	int statResult=fstat(fd,&statBuffer);
+	int errorCode=errno;
 	Offset fileSize=statBuffer.st_size;
 	
 	if(isReadCoupled())
@@ -311,14 +398,14 @@ IO::SeekableFile::Offset StandardFileMaster::getSize(void) const
 		{
 		Packet::Writer writer(statusPacket);
 		writer.write<int>(statResult);
-		writer.write<Offset>(fileSize);
+		writer.write<Offset>(statResult>=0?fileSize:Offset(errorCode));
 		}
 		multiplexer->sendPacket(pipeId,statusPacket);
 		}
 	
 	/* Check for errors: */
 	if(statResult<0)
-		throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Error while determining file size"));
+		throw Error(Misc::printStdErrMsg(fileGetSizeErrorString,errorCode,strerror(errorCode)));
 	
 	/* Return the file size: */
 	return fileSize;
@@ -363,7 +450,7 @@ size_t StandardFileSlave::readData(IO::File::Byte* buffer,size_t bufferSize)
 			if(errorType==1)
 				throw SeekError(readPos);
 			else if(errorType==3)
-				throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while reading from file",errorCode));
+				throw Error(Misc::printStdErrMsg(fileReadErrorString,errorCode,strerror(errorCode)));
 			
 			/* Only reached in case of end-of-file packet: */
 			return 0;
@@ -378,9 +465,6 @@ size_t StandardFileSlave::readData(IO::File::Byte* buffer,size_t bufferSize)
 
 void StandardFileSlave::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
-	/* Invalidate the read buffer to prevent reading stale data: */
-	flushReadBuffer();
-	
 	if(isWriteCoupled())
 		{
 		/* Receive a status packet from the master: */
@@ -396,15 +480,53 @@ void StandardFileSlave::writeData(const IO::File::Byte* buffer,size_t bufferSize
 			throw SeekError(writePos);
 		else
 			{
+			/* Invalidate the read buffer to prevent reading stale data: */
+			flushReadBuffer();
+			
 			/* Advance the write pointer in case partial data was written: */
 			writePos+=numBytesWritten;
 			
 			if(errorType==2)
 				throw WriteError(errorCode);
 			else if(errorType==3)
-				throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Fatal error %d while writing to file",errorCode));
+				throw Error(Misc::printStdErrMsg(fileWriteErrorString,errorCode));
 			}
 		}
+	}
+
+size_t StandardFileSlave::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSize)
+	{
+	if(isWriteCoupled())
+		{
+		/* Receive a status packet from the master: */
+		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet::Reader reader(statusPacket);
+		int errorType=reader.read<int>();
+		int errorCode=reader.read<int>();
+		int numBytesWritten=reader.read<int>();
+		multiplexer->deletePacket(statusPacket);
+		
+		/* Handle errors: */
+		if(errorType==1)
+			throw SeekError(writePos);
+		else
+			{
+			/* Invalidate the read buffer to prevent reading stale data: */
+			flushReadBuffer();
+			
+			/* Advance the write pointer in case partial data was written: */
+			writePos+=numBytesWritten;
+			
+			if(errorType==2)
+				throw WriteError(errorCode);
+			else if(errorType==3)
+				throw Error(Misc::printStdErrMsg(fileWriteErrorString,errorCode));
+			}
+		
+		return size_t(numBytesWritten);
+		}
+	else
+		return 0;
 	}
 
 StandardFileSlave::StandardFileSlave(Multiplexer* sMultiplexer,const char* fileName,IO::File::AccessMode accessMode)
@@ -421,7 +543,7 @@ StandardFileSlave::StandardFileSlave(Multiplexer* sMultiplexer,const char* fileN
 	if(errorCode!=0)
 		{
 		/* Throw an exception: */
-		throw OpenError(Misc::printStdErrMsg("Cluster::StandardFile: Unable to open file %s for %s due to error %d",fileName,getAccessModeName(accessMode),errorCode));
+		throw OpenError(Misc::printStdErrMsg(fileOpenErrorString,fileName,getAccessModeName(accessMode),errorCode));
 		}
 	
 	canReadThrough=false;
@@ -439,7 +561,7 @@ StandardFileSlave::~StandardFileSlave(void)
 
 int StandardFileSlave::getFd(void) const
 	{
-	Misc::throwStdErr("Cluster::StandardFile::getFd: Cannot query file descriptor");
+	throw Error(fileGetFdErrorString);
 	
 	/* Just to make compiler happy: */
 	return -1;
@@ -470,7 +592,10 @@ IO::SeekableFile::Offset StandardFileSlave::getSize(void) const
 		
 		/* Check for errors: */
 		if(statResult<0)
-			throw Error(Misc::printStdErrMsg("Cluster::StandardFile: Error while determining file size"));
+			{
+			int errorCode=int(fileSize);
+			throw Error(Misc::printStdErrMsg(fileGetSizeErrorString,errorCode,strerror(errorCode)));
+			}
 		
 		/* Return the file size: */
 		return fileSize;

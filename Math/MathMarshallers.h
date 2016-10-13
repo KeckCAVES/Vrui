@@ -1,6 +1,6 @@
 /***********************************************************************
 MathMarshallers - Marshaller classes for math objects.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -23,9 +23,39 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define MATH_MATHMARSHALLERS_INCLUDED
 
 #include <Misc/Marshaller.h>
+#include <Math/Complex.h>
 #include <Math/BrokenLine.h>
 
 namespace Misc {
+
+template <class ScalarParam>
+class Marshaller<Math::Complex<ScalarParam> >
+	{
+	/* Embedded classes: */
+	public:
+	typedef ScalarParam Scalar; // Scalar type for complex numbers
+	typedef Math::Complex<ScalarParam> Value; // Value type
+	
+	/* Methods: */
+	public:
+	static size_t getSize(const Value& value);
+		{
+		return Marshaller<Scalar>::getSize(value.getReal())+Marshaller<Scalar>::getSize(value.getImag());
+		}
+	template <class DataSinkParam>
+	static void write(const Value& sink)
+		{
+		Marshaller<Scalar>::write(value.getReal(),sink);
+		Marshaller<Scalar>::write(value.getImag(),sink);
+		}
+	template <class DataSourceParam>
+	static Value read(DataSourceParam& source)
+		{
+		Scalar real=Marshaller<Scalar>::read(source);
+		Scalar imag=Marshaller<Scalar>::read(source);
+		return Value(real,imag);
+		}
+	};
 
 template <class ScalarParam>
 class Marshaller<Math::BrokenLine<ScalarParam> >

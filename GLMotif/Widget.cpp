@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -48,7 +48,8 @@ Widget::Widget(const char* sName,Container* sParent,bool sManageChild)
 	 exterior(Vector(0.0f,0.0f,0.0f),Vector(0.0f,0.0f,0.0f)),
 	 borderWidth(0.0f),borderType(PLAIN),
 	 interior(Vector(0.0f,0.0f,0.0f),Vector(0.0f,0.0f,0.0f)),
-	 zRange(0.0f,0.0f)
+	 zRange(0.0f,0.0f),
+	 enabled(true)
 	{
 	/* Copy the widget name: */
 	strcpy(name,sName);
@@ -83,6 +84,33 @@ Widget::~Widget(void)
 		parent->removeChild(this);
 	
 	delete[] name;
+	}
+
+void Widget::reparent(Container* newParent,bool manageChild)
+	{
+	/* Remove the widget from its current parent: */
+	if(isManaged)
+		parent->removeChild(this);
+	isManaged=false;
+	
+	/* Attach the widget to the new parent: */
+	parent=newParent;
+	if(parent!=0)
+		{
+		/* Inherit most settings from parent: */
+		borderWidth=parent->borderWidth;
+		borderType=parent->borderType;
+		borderColor=parent->borderColor;
+		backgroundColor=parent->backgroundColor;
+		foregroundColor=parent->foregroundColor;
+		
+		if(manageChild)
+			{
+			/* Add the widget to the parent widget: */
+			parent->addChild(this);
+			isManaged=true;
+			}
+		}
 	}
 
 void Widget::manageChild(void)
@@ -324,8 +352,17 @@ Scalar Widget::intersectRay(const Ray& ray,Point& intersection) const
 	return lambda;
 	}
 
+void Widget::setEnabled(bool newEnabled)
+	{
+	enabled=newEnabled;
+	}
+
 bool Widget::findRecipient(Event& event)
 	{
+	/* Reject events if the widget is disabled: */
+	if(!enabled)
+		return false;
+	
 	/* Find the event's point in our coordinate system: */
 	Event::WidgetPoint wp=event.calcWidgetPoint(this);
 	

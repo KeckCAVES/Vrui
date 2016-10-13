@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -36,11 +36,27 @@ class MultiDeviceNavigationToolFactory:public ToolFactory
 	{
 	friend class MultiDeviceNavigationTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure containing tool settings
+		{
+		/* Elements: */
+		public:
+		Scalar translationFactor; // Scale factor for translations
+		Scalar minRotationScalingDistance; // Minimum distance from a device to the centroid for rotation and scaling to take effect
+		Scalar rotationFactor; // Scale factor for rotations
+		Scalar scalingFactor; // Scale factor for scalings
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		
+		/* Methods: */
+		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
+		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
+		};
+	
 	/* Elements: */
-	Scalar translationFactor; // Scale factor for translations
-	Scalar minRotationScalingDistance; // Minimum distance from a device to the centroid for rotation and scaling to take effect
-	Scalar rotationFactor; // Scale factor for rotations
-	Scalar scalingFactor; // Scale factor for scalings
+	Configuration configuration; // Default configuration for all tools
 	
 	/* Constructors and destructors: */
 	public:
@@ -61,6 +77,7 @@ class MultiDeviceNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static MultiDeviceNavigationToolFactory* factory; // Pointer to the factory object for this class
+	MultiDeviceNavigationToolFactory::Configuration configuration; // Private configuration of this tool
 	
 	/* Transient navigation state: */
 	int numPressedButtons; // Number of currently pressed buttons
@@ -73,6 +90,8 @@ class MultiDeviceNavigationTool:public NavigationTool
 	MultiDeviceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
 	
 	/* Methods from Tool: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

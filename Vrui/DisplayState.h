@@ -3,7 +3,7 @@ DisplayState - Class to store Vrui rendering state in a GLContextData
 object so it can be queried by applications from inside their display
 methods. Workaround until a "proper" method to pass display state into
 applications is found.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <Geometry/ProjectiveTransformation.h>
 #include <Vrui/Geometry.h>
 
 /* Forward declarations: */
@@ -53,6 +54,7 @@ class DisplayState
 	int eyeIndex; // Index of the eye currently projected from
 	Point eyePosition; // Exact eye position used for projection
 	const VRScreen* screen; // The screen onto which the viewer's view is projected
+	PTransform projection; // Projection transformation
 	NavTransform modelviewPhysical; // Model view transformation for physical coordinates
 	NavTransform modelviewNavigational; // Model view transformation for navigational coordinates
 	};

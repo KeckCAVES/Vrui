@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -192,6 +192,27 @@ Misc::PathType StandardDirectory::getEntryType(void) const
 	return Misc::getPathType(entryPath.c_str());
 	
 	#endif
+	}
+
+Misc::PathType StandardDirectory::getPathType(const char* relativePath) const
+	{
+	/* Check if the given path is absolute: */
+	if(relativePath[0]=='/')
+		{
+		/* Use the given absolute path directly: */
+		return Misc::getPathType(relativePath);
+		}
+	else
+		{
+		/* Assemble the absolute path name: */
+		std::string absolutePath=pathName;
+		if(absolutePath.length()>1)
+			absolutePath.push_back('/');
+		absolutePath.append(relativePath);
+		
+		/* Use the assembled absolute path: */
+		return Misc::getPathType(absolutePath.c_str());
+		}
 	}
 
 FilePtr StandardDirectory::openFile(const char* fileName,File::AccessMode accessMode) const

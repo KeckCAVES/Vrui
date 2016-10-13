@@ -1,7 +1,7 @@
 /***********************************************************************
 DC1394VideoDevice - Wrapper class around video devices as represented by
 the dc1394 IEEE 1394 (Firewire) DCAM video library.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -101,6 +101,15 @@ bool calcFrameInterval(dc1394framerate_t framerate,unsigned int& intervalCounter
 	}
 
 }
+
+/********************************************
+Methods of class DC1394VideoDevice::DeviceId:
+********************************************/
+
+VideoDevice* DC1394VideoDevice::DeviceId::createDevice(void) const
+	{
+	return new DC1394VideoDevice(guid,unitIndex);
+	}
 
 /**********************************
 Methods of class DC1394VideoDevice:
@@ -589,7 +598,7 @@ VideoDataFormat& DC1394VideoDevice::setVideoFormat(VideoDataFormat& newFormat)
 	
 	/* Find the best-matching video mode in the list: */
 	int bestModeIndex=-1;
-	double bestSizeMatch=1.0e10;
+	double bestSizeMatch=0.0;
 	for(unsigned int modeIndex=0;modeIndex<videoModes.num;++modeIndex)
 		{
 		/* Check if the video mode matches the requested color coding: */
@@ -601,18 +610,14 @@ VideoDataFormat& DC1394VideoDevice::setVideoFormat(VideoDataFormat& newFormat)
 			if(dc1394_get_image_size_from_video_mode(camera,videoModes.modes[modeIndex],&modeSize[0],&modeSize[1])==DC1394_SUCCESS)
 				{
 				/* Calculate the image size discrepancy: */
-				double sizeMatch=1.0;
+				double match=1.0;
 				for(int i=0;i<2;++i)
-					{
-					if(newFormat.size[i]>=modeSize[i])
-						sizeMatch*=double(newFormat.size[i])/double(modeSize[i]);
-					else
-						sizeMatch*=double(modeSize[i])/double(newFormat.size[i]);
-					}
-				if(bestSizeMatch>sizeMatch)
+					match*=newFormat.size[i]>=modeSize[i]?double(modeSize[i])/double(newFormat.size[i]):double(modeSize[i])/double(newFormat.size[i]);
+				
+				if(bestSizeMatch<match)
 					{
 					bestModeIndex=modeIndex;
-					bestSizeMatch=sizeMatch;
+					bestSizeMatch=match;
 					}
 				}
 			}
@@ -629,21 +634,18 @@ VideoDataFormat& DC1394VideoDevice::setVideoFormat(VideoDataFormat& newFormat)
 	/* Find the best-matching frame rate in the list: */
 	double requestedInterval=double(newFormat.frameIntervalCounter)/double(newFormat.frameIntervalDenominator);
 	int bestFramerateIndex=-1;
-	double bestFramerateMatch=1.0e10;
+	double bestFramerateMatch=0.0;
 	for(unsigned int framerateIndex=0;framerateIndex<framerates.num;++framerateIndex)
 		{
 		unsigned int counter,denominator;
 		calcFrameInterval(framerates.framerates[framerateIndex],counter,denominator);
 		double interval=double(counter)/double(denominator);
-		double framerateMatch=1.0;
-		if(requestedInterval>interval)
-			framerateMatch*=requestedInterval/interval;
-		else
-			framerateMatch*=interval/requestedInterval;
-		if(bestFramerateMatch>framerateMatch)
+		double match=1.0;
+		match*=requestedInterval>=interval?interval/requestedInterval:requestedInterval/interval;
+		if(bestFramerateMatch<match)
 			{
 			bestFramerateIndex=framerateIndex;
-			bestFramerateMatch=framerateMatch;
+			bestFramerateMatch=match;
 			}
 		}
 	if(bestFramerateIndex==-1)
@@ -657,6 +659,12 @@ VideoDataFormat& DC1394VideoDevice::setVideoFormat(VideoDataFormat& newFormat)
 		Misc::throwStdErr("Video::DC1394VideoDevice::setVideoFormat: Unable to set camera's frame rate");
 	
 	return newFormat;
+	}
+
+void DC1394VideoDevice::saveConfiguration(Misc::ConfigurationFileSection& cfg) const
+	{
+	/* Call the base class method to save frame size, frame rate, and pixel format: */
+	VideoDevice::saveConfiguration(cfg);
 	}
 
 void DC1394VideoDevice::configure(const Misc::ConfigurationFileSection& cfg)

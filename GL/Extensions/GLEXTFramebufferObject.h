@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferObject - OpenGL extension class for the
 GL_EXT_framebuffer_object extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -134,7 +134,7 @@ class GLEXTFramebufferObject:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTFramebufferObject*) current; // Pointer to extension object for current OpenGL context
-
+	static const char* name; // Extension name
 	PFNGLISRENDERBUFFEREXTPROC glIsRenderbufferEXTProc;
 	PFNGLBINDRENDERBUFFEREXTPROC glBindRenderbufferEXTProc;
 	PFNGLDELETERENDERBUFFERSEXTPROC glDeleteRenderbuffersEXTProc;
@@ -243,5 +243,6 @@ Extension-specific entry points:
 *******************************/
 
 void glPrintFramebufferStatusEXT(std::ostream& stream,const char* tag); // Convenience function to check framebuffer status and print detailed message to given stream if incomplete
+void glThrowFramebufferStatusExceptionEXT(const char* tag); // Convenience function to check framebuffer status and throw a std::runtime_error if incomplete
 
 #endif

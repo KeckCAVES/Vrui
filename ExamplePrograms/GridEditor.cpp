@@ -1,7 +1,7 @@
 /***********************************************************************
 GridEditor - Vrui application for interactive virtual clay modeling
 using a density grid and interactive isosurface extraction.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This file is part of the Virtual Clay Editing Package.
 
@@ -27,7 +27,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <Misc/SelfDestructPointer.h>
 #include <Misc/ThrowStdErr.h>
-#include <Misc/File.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Geometry/Box.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
@@ -40,14 +41,13 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/StyleSheet.h>
+#include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/TextField.h>
 #include <GLMotif/ToggleButton.h>
-#include <GLMotif/WidgetManager.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/OpenFile.h>
@@ -121,10 +121,10 @@ GridEditor::EditToolFactory* GridEditor::EditTool::initClass(Vrui::ToolManager& 
 	/* Set up the tool class' input layout: */
 	factory->setNumButtons(1,true);
 	factory->setButtonFunction(0,"Edit");
-	//factory->setButtonFunction(1,"Set Add Mode");
-	//factory->setButtonFunction(2,"Set Subtract Mode");
-	//factory->setButtonFunction(3,"Set Smooth Mode");
-	//factory->setButtonFunction(4,"Set Drag Mode");
+	factory->setButtonFunction(1,"Set Add Mode");
+	factory->setButtonFunction(2,"Set Subtract Mode");
+	factory->setButtonFunction(3,"Set Smooth Mode");
+	factory->setButtonFunction(4,"Set Drag Mode");
 	
 	/* Register and return the class: */
 	toolManager.addClass(factory,Vrui::ToolManager::defaultToolFactoryDestructor);
@@ -488,117 +488,176 @@ void GridEditor::EditTool::glRenderActionTransparent(GLContextData& contextData)
 Methods of class GridEditor:
 ***************************/
 
-void GridEditor::centerDisplayCallback(Misc::CallbackData* cbData)
+void GridEditor::saveGridCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
-	typedef Geometry::Box<float,3> Box;
-	
-	Box::Point max;
-	for(int i=0;i<3;++i)
-		max[i]=float(grid->getNumVertices(i)-1)*grid->getCellSize(i);
-	Box bb(Box::Point::origin,max);
-	
-	/* Calculate the center and radius of the box: */
-	Vrui::Point center=Geometry::mid(bb.min,bb.max);
-	Vrui::Scalar radius=Vrui::Scalar(Geometry::dist(bb.min,bb.max))*Vrui::Scalar(0.5);
-	Vrui::setNavigationTransformation(center,radius);
-	}
-
-void GridEditor::saveGridCallback(Misc::CallbackData* cbData)
-	{
-	/* Write the current contents of the grid to a floating-point vol file: */
-	Misc::File volFile("Grid.fvol","wb",Misc::File::BigEndian);
-	
-	/* Write the vol file header: */
-	volFile.write<int>(grid->getNumVertices().getComponents(),3);
-	volFile.write<int>(0);
-	float domainSize[3];
-	for(int i=0;i<3;++i)
-		domainSize[i]=float(grid->getNumVertices(i)-1)*grid->getCellSize(i);
-	volFile.write<float>(domainSize,3);
-	
-	/* Write the grid data values: */
-	for(EditableGrid::Index i(0);i[0]<grid->getNumVertices(0);i.preInc(grid->getNumVertices()))
-		volFile.write<float>(grid->getValue(i));
+	try
+		{
+		/* Write the current contents of the grid to a floating-point vol file: */
+		IO::FilePtr gridFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
+		gridFile->setEndianness(Misc::BigEndian);
+		gridFile->write<int>(grid->getNumVertices().getComponents(),3);
+		gridFile->write<int>(0);
+		float domainSize[3];
+		for(int i=0;i<3;++i)
+			domainSize[i]=float(grid->getNumVertices(i)-1)*grid->getCellSize(i);
+		gridFile->write<float>(domainSize,3);
+		
+		/* Write the grid data values: */
+		for(EditableGrid::Index i(0);i[0]<grid->getNumVertices(0);i.preInc(grid->getNumVertices()))
+			gridFile->write<float>(grid->getValue(i));
+		}
+	catch(std::runtime_error err)
+		{
+		Vrui::showErrorMessage("Save Grid...",Misc::printStdErrMsg("Could not save grid due to exception %s",err.what()));
+		}
 	}
 
 void GridEditor::exportSurfaceCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
-	/* Write the PLY file: */
-	IO::FilePtr plyFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
-	grid->exportSurface(*plyFile);
+	try
+		{
+		/* Write the PLY file: */
+		IO::FilePtr plyFile(cbData->selectedDirectory->openFile(cbData->selectedFileName,IO::File::WriteOnly));
+		grid->exportSurface(*plyFile);
+		}
+	catch(std::runtime_error err)
+		{
+		Vrui::showErrorMessage("Export Surface...",Misc::printStdErrMsg("Could not export surface due to exception %s",err.what()));
+		}
 	}
 
 GLMotif::PopupMenu* GridEditor::createMainMenu(void)
 	{
-	/* Create a top-level shell for the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("3D Grid Editor");
-	
-	/* Create the actual menu inside the top-level shell: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button to reset the navigation coordinates to the default (showing the entire grid): */
-	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
-	centerDisplayButton->getSelectCallbacks().add(this,&GridEditor::centerDisplayCallback);
+	/* Create the main menu shell: */
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("3D Grid Editor");
 	
 	/* Create a button to save the grid to a file: */
-	GLMotif::Button* saveGridButton=new GLMotif::Button("SaveGridButton",mainMenu,"Save Grid");
-	saveGridButton->getSelectCallbacks().add(this,&GridEditor::saveGridCallback);
+	GLMotif::Button* saveGridButton=new GLMotif::Button("SaveGridButton",mainMenu,"Save Grid...");
+	saveGridHelper.addSaveCallback(saveGridButton,this,&GridEditor::saveGridCallback);
 	
 	/* Create a button to export the current isosurface to a mesh file: */
 	GLMotif::Button* exportSurfaceButton=new GLMotif::Button("ExportSurfaceButton",mainMenu,"Export Surface...");
 	exportSurfaceHelper.addSaveCallback(exportSurfaceButton,this,&GridEditor::exportSurfaceCallback);
 	
 	/* Calculate the main menu's proper layout: */
-	mainMenu->manageChild();
+	mainMenu->manageMenu();
 	
 	/* Return the created top-level shell: */
-	return mainMenuPopup;
+	return mainMenu;
 	}
 
 GridEditor::GridEditor(int& argc,char**& argv)
 	:Vrui::Application(argc,argv),
 	 grid(0),
-	 exportSurfaceHelper("ExportedSurface.ply",".ply",Vrui::openDirectory(".")),
+	 saveGridHelper(Vrui::getWidgetManager(),"SavedGrid.fvol",".fvol",Vrui::openDirectory(".")),
+	 exportSurfaceHelper(Vrui::getWidgetManager(),"ExportedSurface.ply",".ply",Vrui::openDirectory(".")),
 	 mainMenu(0)
 	{
-	if(argc>=2)
+	/* Parse the command line: */
+	EditableGrid::Index newGridSize(256,256,256);
+	EditableGrid::Size newCellSize(1.0f,1.0f,1.0f);
+	const char* gridFileName=0;
+	for(int i=1;i<argc;++i)
 		{
-		/* Load the grid from a float-valued vol file: */
-		Misc::File volFile(argv[1],"rb",Misc::File::BigEndian);
-		
-		/* Read the file header: */
-		EditableGrid::Index numVertices;
-		volFile.read<int>(numVertices.getComponents(),3);
-		int borderSize=volFile.read<int>();
-		for(int i=0;i<3;++i)
-			numVertices[i]+=borderSize*2;
-		float domainSize[3];
-		volFile.read<float>(domainSize,3);
-		EditableGrid::Size cellSize;
-		for(int i=0;i<3;++i)
-			cellSize[i]=domainSize[i]/float(numVertices[i]-borderSize*2-1);
-		
-		/* Create the grid: */
-		grid=new EditableGrid(numVertices,cellSize);
-		
-		/* Read all grid values: */
-		for(EditableGrid::Index i(0);i[0]<grid->getNumVertices(0);i.preInc(grid->getNumVertices()))
-			grid->setValue(i,volFile.read<float>());
-		grid->invalidateVertices(EditableGrid::Index(0,0,0),grid->getNumVertices());
+		if(argv[i][0]=='-')
+			{
+			if(strcasecmp(argv[i]+1,"h")==0)
+				{
+				std::cout<<"Usage:"<<std::endl;
+				std::cout<<"  "<<argv[0]<<" [-gridSize <sx> <sy> <sz>] [-cellSize <cx> <cy> <cz>] [<grid file name>]"<<std::endl;
+				std::cout<<"Options:"<<std::endl;
+				std::cout<<"  -gridSize <sx> <sy> <sz>"<<std::endl;
+				std::cout<<"    Number of vertices for newly-created grids in x, y, and z. Defaults to 256 256 256."<<std::endl;
+				std::cout<<"  -cellSize <cx> <cy> <cz>"<<std::endl;
+				std::cout<<"    Grid cell dimensions for newly-created grids in x, y, and z in some arbitrary unit of measurement. Defaults to 1.0 1.0 1.0."<<std::endl;
+				std::cout<<"  <grid file name>"<<std::endl;
+				std::cout<<"    Name of a grid file (extension .fvol) to load upon start-up. If not provided, a new grid will be created."<<std::endl;
+				}
+			else if(strcasecmp(argv[i]+1,"gridSize")==0)
+				{
+				if(i+3<argc)
+					{
+					/* Read the requested size for new grids: */
+					for(int j=0;j<3;++j)
+						{
+						++i;
+						newGridSize[j]=atoi(argv[i]);
+						}
+					}
+				else
+					{
+					std::cerr<<"Ignoring dangling -gridSize option"<<std::endl;
+					i=argc;
+					}
+				}
+			else if(strcasecmp(argv[i]+1,"cellSize")==0)
+				{
+				if(i+3<argc)
+					{
+					/* Read the requested cell size for new grids: */
+					for(int j=0;j<3;++j)
+						{
+						++i;
+						newCellSize[j]=EditableGrid::Size::Scalar(atof(argv[i]));
+						}
+					}
+				else
+					{
+					std::cerr<<"Ignoring dangling -gridSize option"<<std::endl;
+					i=argc;
+					}
+				}
+			}
+		else if(gridFileName==0)
+			gridFileName=argv[i];
+		}
+	
+	if(gridFileName!=0)
+		{
+		try
+			{
+			/* Load the grid from a float-valued vol file: */
+			IO::FilePtr volFile=Vrui::openFile(gridFileName);
+			volFile->setEndianness(Misc::BigEndian);
+			
+			/* Read the file header: */
+			EditableGrid::Index numVertices;
+			volFile->read<int>(numVertices.getComponents(),3);
+			int borderSize=volFile->read<int>();
+			for(int i=0;i<3;++i)
+				numVertices[i]+=borderSize*2;
+			float domainSize[3];
+			volFile->read<float>(domainSize,3);
+			EditableGrid::Size cellSize;
+			for(int i=0;i<3;++i)
+				cellSize[i]=domainSize[i]/float(numVertices[i]-borderSize*2-1);
+			
+			/* Create the grid: */
+			grid=new EditableGrid(numVertices,cellSize);
+			
+			/* Read all grid values: */
+			for(EditableGrid::Index i(0);i[0]<grid->getNumVertices(0);i.preInc(grid->getNumVertices()))
+				grid->setValue(i,volFile->read<float>());
+			grid->invalidateVertices(EditableGrid::Index(0,0,0),grid->getNumVertices());
+			}
+		catch(std::runtime_error err)
+			{
+			std::cerr<<"Unable to load grid file "<<gridFileName<<" due to exception "<<err.what()<<std::endl;
+			
+			/* Create a new grid: */
+			grid=new EditableGrid(newGridSize,newCellSize);
+			}
 		}
 	else
 		{
 		/* Create a new grid: */
-		grid=new EditableGrid(EditableGrid::Index(256,256,256),EditableGrid::Size(1.0f,1.0f,1.0f));
+		grid=new EditableGrid(newGridSize,newCellSize);
 		}
 	
 	/* Create the program GUI: */
 	mainMenu=createMainMenu();
 	Vrui::setMainMenu(mainMenu);
-	
-	/* Initialize the navigation transformation: */
-	centerDisplayCallback(0);
 	
 	/* Initialize the tool classes: */
 	EditTool::initClass(*Vrui::getToolManager());
@@ -629,6 +688,21 @@ void GridEditor::display(GLContextData& contextData) const
 	/* Render the grid's current state: */
 	glMaterial(GLMaterialEnums::FRONT,GLMaterial(GLMaterial::Color(0.5f,0.5f,0.5f),GLMaterial::Color(0.5f,0.5f,0.5f),25.0f));
 	grid->glRenderAction(contextData);
+	}
+
+void GridEditor::resetNavigation(void)
+	{
+	typedef Geometry::Box<float,3> Box;
+	
+	Box::Point max;
+	for(int i=0;i<3;++i)
+		max[i]=float(grid->getNumVertices(i)-1)*grid->getCellSize(i);
+	Box bb(Box::Point::origin,max);
+	
+	/* Calculate the center and radius of the box: */
+	Vrui::Point center=Geometry::mid(bb.min,bb.max);
+	Vrui::Scalar radius=Vrui::Scalar(Geometry::dist(bb.min,bb.max))*Vrui::Scalar(0.5);
+	Vrui::setNavigationTransformation(center,radius);
 	}
 
 void GridEditor::initContext(GLContextData& contextData) const

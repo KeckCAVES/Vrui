@@ -1,7 +1,7 @@
 /***********************************************************************
 GzipFilter - Class for read/write access to gzip-compressed files using
 a IO::File abstraction.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -40,6 +40,7 @@ class GzipFilter:public IO::File
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Private methods: */
 	private:
@@ -50,6 +51,9 @@ class GzipFilter:public IO::File
 	GzipFilter(FilePtr sGzippedFile); // Creates a gzip filter for the given underlying gzip-compressed file; inherits access mode from compressed file
 	GzipFilter(const char* gzippedFileName,File::AccessMode sAccessMode); // Opens the gzip-compressed file of the given name with the given access mode
 	virtual ~GzipFilter(void); // Destroys the gzip filter
+	
+	/* Methods from File: */
+	virtual int getFd(void) const;
 	};
 
 }

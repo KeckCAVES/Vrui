@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceList - Class representing lists of USB devices resulting from
 device enumeration.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -25,13 +25,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <stddef.h>
 #include <USB/VendorProductId.h>
+#include <USB/Context.h>
 
 /* Forward declarations: */
 struct libusb_device;
 struct libusb_device_descriptor;
-namespace USB {
-class Context;
-}
 
 namespace USB {
 
@@ -39,16 +37,13 @@ class DeviceList
 	{
 	/* Elements: */
 	private:
+	ContextPtr context; // Pointer to the USB library context
 	size_t numDevices; // Number of devices in list
 	libusb_device** deviceList; // Array of device structure pointers as returned by device enumeration function
 	
 	/* Constructors and destructors: */
 	public:
-	DeviceList(void) // Creates empty device list
-		:numDevices(0),deviceList(0)
-		{
-		}
-	DeviceList(const Context& context); // Creates a device list by enumerating all devices in the given context
+	DeviceList(void); // Creates a device list by enumerating all devices in the USB context
 	private:
 	DeviceList(const DeviceList& source); // Prohibit copy constructor
 	DeviceList& operator=(const DeviceList& source); // Prohibit assignment operator

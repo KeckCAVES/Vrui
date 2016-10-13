@@ -2,7 +2,7 @@
 ScrollTool - Class for tools that can scroll inside certain GLMotif GUI
 widgets. ScrollTool objects are cascadable and prevent valuator events
 if they would fall into the area of interest of scrollable widgets.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

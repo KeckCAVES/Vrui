@@ -1,7 +1,7 @@
 /***********************************************************************
 VRFactory - Class to create objects of a specific class class derived
 from a common base class.
-Copyright (c) 2002-2010 Oliver Kreylos
+Copyright (c) 2002-2014 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdio.h>
 #include <dlfcn.h>
 #include <Misc/ThrowStdErr.h>
+#include <VRDeviceDaemon/Config.h>
 
 namespace {
 
@@ -69,7 +70,7 @@ VRFactory<BaseClassParam>::VRFactory(
 	dsoNamePtr[0]='/';
 	++dsoNamePtr;
 	--dsoNameLen;
-	snprintf(dsoNamePtr,dsoNameLen,SYSDSONAMETEMPLATE,className.c_str());
+	snprintf(dsoNamePtr,dsoNameLen,VRDEVICEDAEMON_CONFIG_DSONAMETEMPLATE,className.c_str());
 	
 	/* Load DSO: */
 	dsoHandle=dlopen(dsoName,RTLD_LAZY|RTLD_GLOBAL);

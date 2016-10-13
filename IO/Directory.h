@@ -1,7 +1,7 @@
 /***********************************************************************
 Directory - Base class to access directory-like objects in a generic
 fashion.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -25,9 +25,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <stdexcept>
-#include <Misc/RefCounted.h>
 #include <Misc/Autopointer.h>
 #include <Misc/FileTests.h>
+#include <Threads/RefCounted.h>
 #include <IO/File.h>
 
 /* Forward declarations: */
@@ -39,7 +39,7 @@ namespace IO {
 
 typedef Misc::Autopointer<Directory> DirectoryPtr; // Type for pointers to reference-counted directory objects
 
-class Directory:public Misc::RefCounted
+class Directory:public Threads::RefCounted
 	{
 	/* Embedded classes: */
 	public:
@@ -49,6 +49,10 @@ class Directory:public Misc::RefCounted
 		public:
 		OpenError(const char* directoryName);
 		};
+	
+	/* Elements: */
+	private:
+	static DirectoryPtr currentDirectory; // The current directory
 	
 	/* Protected methods: */
 	protected:
@@ -60,6 +64,11 @@ class Directory:public Misc::RefCounted
 	virtual ~Directory(void);
 	
 	/* Directory tree traversal methods: */
+	static void setCurrent(DirectoryPtr newCurrentDirectory); // Sets the current directory
+	static DirectoryPtr getCurrent(void) // Returns the current directory
+		{
+		return currentDirectory;
+		}
 	virtual std::string getName(void) const =0; // Returns the name of this directory within its parent directory
 	virtual std::string getPath(void) const =0; // Returns the path name of this directory
 	virtual std::string getPath(const char* relativePath) const =0; // Returns the normalized absolute path corresponding to the given relative path; throws OpenError if path is invalid
@@ -69,6 +78,9 @@ class Directory:public Misc::RefCounted
 	virtual bool readNextEntry(void) =0; // Reads the next directory entry; returns false if there are no more entries
 	virtual const char* getEntryName(void) const =0; // Returns the name of the current directory entry
 	virtual Misc::PathType getEntryType(void) const =0; // Returns the filesystem object type of the current directory entry
+	
+	/* Convenience methods: */
+	virtual Misc::PathType getPathType(const char* relativePath) const =0; // Returns the filesystem object type of the given path relative to this directory, or starting from this directory's root directory if the path begins with a '/'
 	
 	/* Helper methods: */
 	virtual std::string createNumberedFileName(const char* fileNameTemplate,int numDigits); // Returns a file name unique in this directory by inserting a unique number before the file name's first extension

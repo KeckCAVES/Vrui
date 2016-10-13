@@ -1,7 +1,7 @@
 /***********************************************************************
 SerialPort - Class for high-performance reading/writing from/to serial
 ports.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -23,6 +23,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Comm/SerialPort.h>
 
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -61,7 +62,8 @@ size_t SerialPort::readData(IO::File::Byte* buffer,size_t bufferSize)
 	if(readResult<0)
 		{
 		/* Unknown error; probably a bad thing: */
-		Misc::throwStdErr("Comm::SerialPort: Fatal error while reading from source");
+		int error=errno;
+		throw Error(Misc::printStdErrMsg("Comm::SerialPort: Fatal error %d (%s) while reading from source",error,strerror(error)));
 		}
 	
 	return size_t(readResult);
@@ -78,29 +80,53 @@ void SerialPort::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 			buffer+=writeResult;
 			bufferSize-=writeResult;
 			}
-		else if(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))
-			{
-			/* Do nothing */
-			}
 		else if(writeResult==0)
 			{
 			/* Sink has reached end-of-file: */
 			throw WriteError(bufferSize);
 			}
-		else
+		else if(errno!=EAGAIN&&errno!=EWOULDBLOCK&&errno!=EINTR)
 			{
 			/* Unknown error; probably a bad thing: */
-			Misc::throwStdErr("Comm::SerialPort: Fatal error while writing to sink");
+			int error=errno;
+			throw Error(Misc::printStdErrMsg("Comm::SerialPort: Fatal error %d (%s) while writing to sink",error,strerror(error)));
 			}
 		}
 	}
 
-SerialPort::SerialPort(const char* deviceName)
+size_t SerialPort::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSize)
+	{
+	/* Write data from the given buffer: */
+	ssize_t writeResult;
+	do
+		{
+		writeResult=::write(fd,buffer,bufferSize);
+		}
+	while(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
+	if(writeResult>0)
+		return size_t(writeResult);
+	else if(writeResult==0)
+		{
+		/* Sink has reached end-of-file: */
+		throw WriteError(bufferSize);
+		}
+	else
+		{
+		/* Unknown error; probably a bad thing: */
+		int error=errno;
+		throw Error(Misc::printStdErrMsg("Comm::SerialPort: Fatal error %d (%s) while writing to sink",error,strerror(error)));
+		}
+	}
+
+SerialPort::SerialPort(const char* deviceName,bool nonBlocking)
 	:Pipe(ReadWrite),
 	 fd(-1)
 	{
 	/* Open the device file: */
-	fd=open(deviceName,O_RDWR|O_NOCTTY);
+	int openFlags=O_RDWR|O_NOCTTY;
+	if(nonBlocking)
+		openFlags|=O_NONBLOCK;
+	fd=open(deviceName,openFlags);
 	if(fd<0)
 		throw OpenError(Misc::printStdErrMsg("Comm::SerialPort: Unable to open device %s",deviceName));
 	
@@ -178,7 +204,7 @@ void SerialPort::setPortSettings(int portSettingsMask)
 	
 	/* Set new flags: */
 	if(fcntl(fd,F_SETFL,fileFlags)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setPortSettings: Unable to configure device");
+		throw Error("Comm::SerialPort::setPortSettings: Unable to configure device");
 	}
 
 void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity parity,int numStopbits,bool enableHandshake)
@@ -186,7 +212,7 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 	/* Initialize a termios structure: */
 	struct termios term;
 	if(tcgetattr(fd,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setSerialSettings: Unable to read device configuration");
+		throw Error("Comm::SerialPort::setSerialSettings: Unable to read device configuration");
 	
 	/* Set rate of bits per second: */
 	#ifdef __SGI_IRIX__
@@ -270,7 +296,7 @@ void SerialPort::setSerialSettings(int bitRate,int charLength,SerialPort::Parity
 		
 	/* Configure the port: */
 	if(tcsetattr(fd,TCSADRAIN,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setSerialSettings: Unable to configure device");
+		throw Error("Comm::SerialPort::setSerialSettings: Unable to configure device");
 	}
 
 void SerialPort::setRawMode(int minNumBytes,int timeOut)
@@ -278,7 +304,7 @@ void SerialPort::setRawMode(int minNumBytes,int timeOut)
 	/* Read the current port settings: */
 	struct termios term;
 	if(tcgetattr(fd,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setRawMode: Unable to read device configuration");
+		throw Error("Comm::SerialPort::setRawMode: Unable to read device configuration");
 	
 	/* Disable canonical mode: */
 	term.c_lflag&=~ICANON;
@@ -289,7 +315,7 @@ void SerialPort::setRawMode(int minNumBytes,int timeOut)
 	
 	/* Set the port: */
 	if(tcsetattr(fd,TCSANOW,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setRawMode: Unable to configure device");
+		throw Error("Comm::SerialPort::setRawMode: Unable to configure device");
 	}
 
 void SerialPort::setCanonicalMode(void)
@@ -297,14 +323,14 @@ void SerialPort::setCanonicalMode(void)
 	/* Read the current port settings: */
 	struct termios term;
 	if(tcgetattr(fd,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setCanonicalMode: Unable to read device configuration");
+		throw Error("Comm::SerialPort::setCanonicalMode: Unable to read device configuration");
 	
 	/* Enable canonical mode: */
 	term.c_lflag|=ICANON;
 	
 	/* Set the port: */
 	if(tcsetattr(fd,TCSANOW,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setCanonicalMode: Unable to configure device");
+		throw Error("Comm::SerialPort::setCanonicalMode: Unable to configure device");
 	}
 
 void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
@@ -312,7 +338,7 @@ void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 	/* Read the current port settings: */
 	struct termios term;
 	if(tcgetattr(fd,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setLineControl: Unable to read device configuration");
+		throw Error("Comm::SerialPort::setLineControl: Unable to read device configuration");
 	
 	if(respectModemLines)
 		term.c_cflag&=~CLOCAL;
@@ -325,7 +351,7 @@ void SerialPort::setLineControl(bool respectModemLines,bool hangupOnClose)
 	
 	/* Set the port: */
 	if(tcsetattr(fd,TCSANOW,&term)!=0)
-		Misc::throwStdErr("Comm::SerialPort::setLineControl: Unable to configure device");
+		throw Error("Comm::SerialPort::setLineControl: Unable to configure device");
 	}
 
 bool SerialPort::getRTS(void)
@@ -333,7 +359,7 @@ bool SerialPort::getRTS(void)
 	/* Read the current state of the control bits: */
 	int controlBits;
 	if(ioctl(fd,TIOCMGET,&controlBits)<0)
-		Misc::throwStdErr("Comm::SerialPort::getRTS: Unable to query control bits");
+		throw Error("Comm::SerialPort::getRTS: Unable to query control bits");
 	
 	/* Return the RTS bit's state: */
 	return (controlBits&TIOCM_RTS)!=0;
@@ -344,7 +370,7 @@ bool SerialPort::setRTS(bool newRTS)
 	/* Read the current state of the control bits: */
 	int controlBits;
 	if(ioctl(fd,TIOCMGET,&controlBits)<0)
-		Misc::throwStdErr("Comm::SerialPort::setRTS: Unable to query control bits");
+		throw Error("Comm::SerialPort::setRTS: Unable to query control bits");
 	bool result=(controlBits&TIOCM_RTS)!=0;
 	
 	/* Set the RTS bit: */
@@ -353,7 +379,7 @@ bool SerialPort::setRTS(bool newRTS)
 	else
 		controlBits&=~TIOCM_RTS;
 	if(ioctl(fd,TIOCMSET,&controlBits)<0)
-		Misc::throwStdErr("Comm::SerialPort::setRTS: Unable to set control bits");
+		throw Error("Comm::SerialPort::setRTS: Unable to set control bits");
 	
 	/* Return the RTS bit's previous state: */
 	return result;
@@ -364,7 +390,7 @@ bool SerialPort::getCTS(void)
 	/* Read the current state of the control bits: */
 	int controlBits;
 	if(ioctl(fd,TIOCMGET,&controlBits)<0)
-		Misc::throwStdErr("Comm::SerialPort::getCTS: Unable to query control bits");
+		throw Error("Comm::SerialPort::getCTS: Unable to query control bits");
 	
 	/* Return the CTS bit's state: */
 	return (controlBits&TIOCM_CTS)!=0;
@@ -375,7 +401,7 @@ bool SerialPort::setCTS(bool newCTS)
 	/* Read the current state of the control bits: */
 	int controlBits;
 	if(ioctl(fd,TIOCMGET,&controlBits)<0)
-		Misc::throwStdErr("Comm::SerialPort::setCTS: Unable to query control bits");
+		throw Error("Comm::SerialPort::setCTS: Unable to query control bits");
 	bool result=(controlBits&TIOCM_CTS)!=0;
 	
 	/* Set the CTS bit: */
@@ -384,7 +410,7 @@ bool SerialPort::setCTS(bool newCTS)
 	else
 		controlBits&=~TIOCM_CTS;
 	if(ioctl(fd,TIOCMSET,&controlBits)<0)
-		Misc::throwStdErr("Comm::SerialPort::setCTS: Unable to set control bits");
+		throw Error("Comm::SerialPort::setCTS: Unable to set control bits");
 	
 	/* Return the CTS bit's previous state: */
 	return result;

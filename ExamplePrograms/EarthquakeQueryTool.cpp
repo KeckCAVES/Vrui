@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeQueryTool - Vrui tool class to query and display meta data
 about earthquake events.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -167,7 +167,7 @@ void EarthquakeQueryTool::frame(void)
 				if(e!=0)
 					{
 					newEvent=e;
-					maxDistance=Geometry::dist(position,newEvent->position);
+					maxDistance=Geometry::dist(position,*newEvent);
 					}
 				}
 			}
@@ -186,7 +186,7 @@ void EarthquakeQueryTool::frame(void)
 				if(e!=0)
 					{
 					/* Calculate the test event's ray parameter: */
-					Vrui::Scalar rp=((Vrui::Point(e->position)-ray.getOrigin())*ray.getDirection())/rayLength;
+					Vrui::Scalar rp=((Vrui::Point(*e)-ray.getOrigin())*ray.getDirection())/rayLength;
 					if(rayParameter>rp)
 						{
 						newEvent=e;
@@ -231,7 +231,7 @@ void EarthquakeQueryTool::display(GLContextData& contextData) const
 		fgColor[3]=bgColor[3];
 		
 		/* Draw the marker: */
-		Vrui::Point pos=Vrui::getNavigationTransformation().transform(Vrui::Point(selectedEvent->position));
+		Vrui::Point pos=Vrui::getNavigationTransformation().transform(Vrui::Point(*selectedEvent));
 		Vrui::Scalar markerSize=Vrui::getUiSize();
 		
 		glLineWidth(3.0f);

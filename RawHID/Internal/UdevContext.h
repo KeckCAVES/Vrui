@@ -1,0 +1,73 @@
+/***********************************************************************
+UdevContext - Class to represent a udev device management context, to
+locate hardware devices in the file system.
+Copyright (c) 2014-2016 Oliver Kreylos
+
+This file is part of the Raw HID Support Library (RawHID).
+
+The Raw HID Support Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Raw HID Support Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Raw HID Support Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#ifndef RAWHID_INTERNAL_UDEVCONTEXT_INCLUDED
+#define RAWHID_INTERNAL_UDEVCONTEXT_INCLUDED
+
+#include <stdarg.h>
+
+/* Forward declarations: */
+struct udev;
+namespace RawHID {
+class UdevDevice;
+class UdevMonitor;
+}
+
+namespace RawHID {
+
+class UdevContext
+	{
+	friend class UdevEnumerator;
+	
+	/* Elements: */
+	private:
+	udev* context; // Pointer to the low-level udev context
+	
+	/* Private methods: */
+	static void logFunction(udev* context,int priority,const char* file,int line,const char* fn,const char* format,va_list args); // Function to re-route udev log messages to a message logger
+	
+	/* Constructors and destructors: */
+	public:
+	UdevContext(void); // Creates a new udev context; throws exception if context cannot be created
+	UdevContext(udev* sContext) // Creates context from low-level udev context; does not reference
+		:context(sContext)
+		{
+		}
+	UdevContext(const UdevContext& source); // Copy constructor
+	UdevContext& operator=(const UdevContext& source); // Assignment operator
+	~UdevContext(void); // Destroys the udev context
+	
+	/* Methods: */
+	udev* getContext(void) // Returns the low-level udev context
+		{
+		return context;
+		}
+	void setUserData(void* userData); // Stores a pointer to user data in the udev context
+	const void* getUserData(void) const; // Returns previously-stored user data
+	void* getUserData(void); // Ditto
+	void installLogFunction(void); // Reroutes udev log messages to a message logger
+	UdevDevice getDeviceFromSyspath(const char* syspath); // Returns a udev device object for the given path in the sys file system
+	};
+
+}
+
+#endif

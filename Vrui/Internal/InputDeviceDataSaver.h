@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceDataSaver - Class to save input device data to a file for
 later playback.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,7 @@ class SoundRecorder;
 namespace Vrui {
 class InputDevice;
 class InputDeviceManager;
+class TextEventDispatcher;
 #ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
 class KinectRecorder;
 #endif
@@ -51,6 +52,7 @@ class InputDeviceDataSaver
 	IO::FilePtr inputDeviceDataFile; // File input device data is saved to
 	int numInputDevices; // Number of saved (physical) input devices
 	InputDevice** inputDevices; // Array of pointers to saved input devices
+	TextEventDispatcher* textEventDispatcher; // Pointer to the dispatcher for GLMotif text and text control events
 	Sound::SoundRecorder* soundRecorder; // Pointer to sound recorder object to record commentary tracks
 	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
 	KinectRecorder* kinectRecorder; // Pointer to 3D video recorder object
@@ -59,7 +61,7 @@ class InputDeviceDataSaver
 	
 	/* Constructors and destructors: */
 	public:
-	InputDeviceDataSaver(const Misc::ConfigurationFileSection& configFileSection,InputDeviceManager& inputDeviceManager,unsigned int randomSeed); // Creates an object saving all devices currently in the manager
+	InputDeviceDataSaver(const Misc::ConfigurationFileSection& configFileSection,InputDeviceManager& inputDeviceManager,TextEventDispatcher* sTextEventDispatcher,unsigned int randomSeed); // Creates an object saving all devices currently in the manager
 	~InputDeviceDataSaver(void);
 	
 	/* Methods: */

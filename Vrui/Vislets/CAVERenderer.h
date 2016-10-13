@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,10 +25,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_VISLETS_CAVERENDERER_INCLUDED
 
 #include <string>
+#include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GL/GLObject.h>
 #include <Images/RGBImage.h>
+#include <Vrui/Geometry.h>
 #include <Vrui/Vislet.h>
 
 /* Forward declarations: */
@@ -43,7 +45,7 @@ namespace Vislets {
 
 class CAVERenderer;
 
-class CAVERendererFactory:public Vrui::VisletFactory
+class CAVERendererFactory:public VisletFactory
 	{
 	friend class CAVERenderer;
 	
@@ -56,7 +58,7 @@ class CAVERendererFactory:public Vrui::VisletFactory
 	
 	/* Constructors and destructors: */
 	public:
-	CAVERendererFactory(Vrui::VisletManager& visletManager);
+	CAVERendererFactory(VisletManager& visletManager);
 	virtual ~CAVERendererFactory(void);
 	
 	/* Methods: */
@@ -64,7 +66,7 @@ class CAVERendererFactory:public Vrui::VisletFactory
 	virtual void destroyVislet(Vislet* vislet) const;
 	};
 
-class CAVERenderer:public Vrui::Vislet,public GLObject
+class CAVERenderer:public Vislet,public GLObject
 	{
 	friend class CAVERendererFactory;
 	
@@ -88,6 +90,7 @@ class CAVERenderer:public Vrui::Vislet,public GLObject
 	static CAVERendererFactory* factory; // Pointer to the factory object for this class
 	
 	/* Renderer properties: */
+	OGTransform caveTransform; // Transformation to align the CAVE model with the local VR environment
 	GLMaterial surfaceMaterial;
 	int tilesPerFoot;
 	Images::RGBImage wallTextureImage;

@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLTexEnvTemplates.h>
 #include <GL/GLTexCoordTemplates.h>
 #include <GL/GLVertexTemplates.h>
+#include <GL/Config.h>
 
 /*********************************
 Methods of class GLFont::CharInfo:
@@ -503,7 +504,7 @@ GLFont::GLFont(const char* fontName)
 	try
 		{
 		/* Try system-wide GL font directory last: */
-		snprintf(fontFileName,sizeof(fontFileName),"%s/%s.fnt",SYSGLFONTDIR,fontName);
+		snprintf(fontFileName,sizeof(fontFileName),"%s/%s.fnt",GLSUPPORT_CONFIG_GL_FONT_DIR,fontName);
 		IO::FilePtr fontFile(IO::openFile(fontFileName));
 		fontFile->setEndianness(Misc::LittleEndian);
 		loadFont(*fontFile);

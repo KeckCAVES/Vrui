@@ -1,7 +1,7 @@
 /***********************************************************************
 Tool - Abstract base class for user interaction tools (navigation, menu
 selection, selection, etc.).
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -103,9 +103,7 @@ class Tool
 		}
 	Ray getButtonDeviceRay(int buttonSlotIndex) const // Returns the default ray of the input device associated with the given button slot in physical coordinates
 		{
-		const InputDevice* device=input.getButtonSlot(buttonSlotIndex).device;
-		Vector rayDir=device->getRayDirection();
-		return Ray(device->getPosition()+rayDir*device->getDeviceRayStart(),rayDir);
+		return input.getButtonSlot(buttonSlotIndex).device->getRay();
 		}
 	bool getButtonState(int buttonSlotIndex) const // Returns the state of the input device button associated with the given button slot
 		{
@@ -134,9 +132,7 @@ class Tool
 		}
 	Ray getValuatorDeviceRay(int valuatorSlotIndex) const // Returns the default ray of the input device associated with the given valuator slot in physical coordinates
 		{
-		const InputDevice* device=input.getValuatorSlot(valuatorSlotIndex).device;
-		Vector rayDir=device->getRayDirection();
-		return Ray(device->getPosition()+rayDir*device->getDeviceRayStart(),rayDir);
+		return input.getValuatorSlot(valuatorSlotIndex).device->getRay();
 		}
 	double getValuatorState(int valuatorSlotIndex) const // Returns the value of the input device valuator associated with the given valuator slot
 		{

@@ -1,7 +1,7 @@
 /***********************************************************************
 Directory - Base class to access directory-like objects in a generic
 fashion.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -34,6 +34,12 @@ Directory::OpenError::OpenError(const char* directoryName)
 	:std::runtime_error(Misc::printStdErrMsg("Error opening directory %s",directoryName))
 	{
 	}
+
+/**********************************
+Static elements of class Directory:
+**********************************/
+
+DirectoryPtr Directory::currentDirectory(0);
 
 /**************************
 Methods of class Directory:
@@ -122,6 +128,11 @@ std::string::const_iterator Directory::getLastComponent(const std::string& path,
 
 Directory::~Directory(void)
 	{
+	}
+
+void Directory::setCurrent(DirectoryPtr newCurrentDirectory)
+	{
+	currentDirectory=newCurrentDirectory;
 	}
 
 std::string Directory::createNumberedFileName(const char* fileNameTemplate,int numDigits)

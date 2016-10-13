@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTRescaleNormal - OpenGL extension class for the
 GL_EXT_rescale_normal extension.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTRescaleNormal:
 *******************************************/
 
 GL_THREAD_LOCAL(GLEXTRescaleNormal*) GLEXTRescaleNormal::current=0;
+const char* GLEXTRescaleNormal::name="GL_EXT_rescale_normal";
 
 /***********************************
 Methods of class GLEXTRescaleNormal:
@@ -46,7 +47,7 @@ GLEXTRescaleNormal::~GLEXTRescaleNormal(void)
 
 const char* GLEXTRescaleNormal::getExtensionName(void) const
 	{
-	return "GL_EXT_rescale_normal";
+	return name;
 	}
 
 void GLEXTRescaleNormal::activate(void)
@@ -62,13 +63,13 @@ void GLEXTRescaleNormal::deactivate(void)
 bool GLEXTRescaleNormal::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_rescale_normal");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTRescaleNormal::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_rescale_normal"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTRescaleNormal* newExtension=new GLEXTRescaleNormal;

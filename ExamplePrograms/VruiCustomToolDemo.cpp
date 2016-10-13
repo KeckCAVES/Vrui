@@ -2,7 +2,7 @@
 VruiCustomToolDemo - VR application showing how to create application-
 specific tools and register them with the Vrui tool manager, and how
 custom tools can interact with the VR application.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -43,6 +43,7 @@ class VruiCustomToolDemo:public Vrui::Application
 		
 		/* Constructors and destructors: */
 		public:
+		static void initClass(void); // Initializes the custom tool's factory class
 		MyTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment);
 		
 		/* Methods: */
@@ -67,6 +68,21 @@ VruiCustomToolDemo::MyToolFactory* VruiCustomToolDemo::MyTool::factory=0;
 /*******************************************
 Methods of class VruiCustomToolDemo::MyTool:
 *******************************************/
+
+void VruiCustomToolDemo::MyTool::initClass(void)
+	{
+	/* Create a factory object for the custom tool class: */
+	factory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
+	
+	/* Set the custom tool class' input layout: */
+	factory->setNumButtons(2,true); // Needs two buttons and can take optional buttons
+	factory->setButtonFunction(0,"Does nothing");
+	factory->setButtonFunction(1,"Select Application Object");
+	factory->setButtonFunction(2,"Optional Button");
+	
+	/* Register the custom tool class with Vrui's tool manager: */
+	Vrui::getToolManager()->addClass(factory,Vrui::ToolManager::defaultToolFactoryDestructor);
+	}
 
 VruiCustomToolDemo::MyTool::MyTool(const Vrui::ToolFactory* factory,const Vrui::ToolInputAssignment& inputAssignment)
 	:Vrui::Tool(factory,inputAssignment)
@@ -101,17 +117,8 @@ Methods of class VruiCustomToolDemo:
 VruiCustomToolDemo::VruiCustomToolDemo(int& argc,char**& argv)
 	:Vrui::Application(argc,argv)
 	{
-	/* Create a factory object for the custom tool class: */
-	MyToolFactory* myToolFactory=new MyToolFactory("MyTool","Demo Application Tool",0,*Vrui::getToolManager());
-	
-	/* Set the custom tool class' input layout: */
-	myToolFactory->setNumButtons(2,true); // Needs two buttons and can take optional buttons
-	myToolFactory->setButtonFunction(0,"Does nothing");
-	myToolFactory->setButtonFunction(1,"Select Application Object");
-	myToolFactory->setButtonFunction(2,"Optional Button");
-	
-	/* Register the custom tool class with the Vrui tool manager: */
-	Vrui::getToolManager()->addClass(myToolFactory,Vrui::ToolManager::defaultToolFactoryDestructor);
+	/* Initialize the custom tool class: */
+	MyTool::initClass();
 	}
 
 void VruiCustomToolDemo::selectApplicationObject(void)

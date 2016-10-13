@@ -1,6 +1,6 @@
 /***********************************************************************
 Listener - Class for listeners/ sound observers in VR environments.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,7 +54,7 @@ Listener::~Listener(void)
 void Listener::initialize(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read the listener's name: */
-	std::string name=configFileSection.retrieveString("./name");
+	std::string name=configFileSection.retrieveString("./name",configFileSection.getName());
 	listenerName=new char[name.size()+1];
 	strcpy(listenerName,name.c_str());
 	

@@ -1,7 +1,7 @@
 /***********************************************************************
 SplineCurve - Class for n-dimensional non-uniform, non-rational B-spline
 curves.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2014 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -55,7 +55,7 @@ class SplineCurve
 	
 	enum KnotVectorType // Enumerated type for types of automatically generated knot vectors
 		{
-		UNIFORM, // Uniform knot vector from 0 to numPoints-degree
+		UNIFORM, // Uniform knot vector [0, 1, ..., numPoints+degree-2]
 		NATURAL // Natural knot vector; interpolates first and last control points
 		};
 	

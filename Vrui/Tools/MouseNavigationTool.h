@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,8 +26,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/GUIInteractor.h>
 #include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
@@ -49,7 +49,9 @@ class MouseNavigationToolFactory:public ToolFactory
 		public:
 		Scalar rotatePlaneOffset; // Offset of rotation plane from screen plane
 		Scalar rotateFactor; // Distance the device has to be moved to rotate by one radians
-		bool invertDolly; // Flag whether to invert the switch between dollying/zooming
+		bool invertDolly; // Flag whether to invert the switch between dollying/scaling
+		bool dollyCenter; // Flag whether to dolly around the display center or current device position
+		bool scaleCenter; // Flag whether to scale around the display center or current device position
 		Vector dollyingDirection; // Direction of dollying line in physical coordinates
 		Vector scalingDirection; // Direction of scaling line in physical coordinates
 		Scalar dollyFactor; // Distance the device has to be moved along the scaling line to dolly by one physical unit
@@ -58,7 +60,6 @@ class MouseNavigationToolFactory:public ToolFactory
 		Scalar wheelScaleFactor; // Scaling factor for one wheel click
 		Scalar spinThreshold; // Distance the device has to be moved on the last step of rotation to activate spinning
 		bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
-		bool interactWithWidgets; // Flag if the mouse navigation tool doubles as a widget tool (this is an evil hack)
 		
 		/* Constructors and destructors: */
 		Configuration(void); // Creates default configuration
@@ -84,7 +85,7 @@ class MouseNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseNavigationTool:public NavigationTool,public GUIInteractor
+class MouseNavigationTool:public NavigationTool
 	{
 	friend class MouseNavigationToolFactory;
 	
@@ -92,7 +93,7 @@ class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	private:
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
-		IDLE,WIDGETING,ROTATING,SPINNING,PANNING,DOLLYING,SCALING,DOLLYING_WHEEL,SCALING_WHEEL
+		IDLE,ROTATING,SPINNING,PANNING,DOLLYING,SCALING,DOLLYING_WHEEL,SCALING_WHEEL
 		};
 	
 	/* Elements: */
@@ -100,13 +101,14 @@ class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	MouseNavigationToolFactory::Configuration configuration; // Private configuration of this tool
 	
 	/* Transient navigation state: */
+	ONTransform interactionPlane; // Local coordinate plane in which navigation interactions happen
 	Point currentPos; // Current projected position of mouse input device on screen
 	double lastMoveTime; // Application time at which the projected position last changed
 	Scalar currentValue; // Value of the associated valuator
 	bool dolly; // Flag whether to dolly instead of scale
 	NavigationMode navigationMode; // The tool's current navigation mode
 	Point screenCenter; // Center of screen; center of rotation and scaling operations
-	Vector dollyDirection; // Transformation direction of dollying (vector from eye to screen center)
+	Vector dollyDirection; // Transformation direction of dollying
 	Point motionStart; // Start position of mouse motion
 	Vector rotateOffset; // Offset vector applied to device position during rotations
 	Point lastRotationPos; // Last mouse position during rotation
@@ -117,6 +119,7 @@ class MouseNavigationTool:public NavigationTool,public GUIInteractor
 	NavTrackerState postScale; // Transformation to be applied to the navigation transformation after scaling
 	
 	/* Private methods: */
+	void startNavigating(void); // Sets up common navigation state
 	Point calcInteractionPos(void) const; // Returns the current device position in the interaction plane
 	void startRotating(void); // Sets up rotation
 	void startPanning(void); // Sets up panning

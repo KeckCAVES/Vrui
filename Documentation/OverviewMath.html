@@ -18,6 +18,9 @@ The Math library contains functions providing overloaded entry points for the st
 <DT>Constants.h</DT>
 <DD>Constants.h defines a generic class Constants containing numerical limits of atomic types and mathematical constants for floating-point types.</DD>
 
+<DT>Complex.h</DT>
+<DD>Complex is a class representing complex numbers, templatized by scalar type.</DD>
+
 <DT>Interval.h</DT>
 <DD>Interval is a class representing fully closed intervals, templatized by the underlying scalar type. Interval provides constructors, comparison operators, set arithmetic on intervals, and some interval arithmetic operators.</DD>
 
@@ -35,6 +38,12 @@ The Math library contains functions providing overloaded entry points for the st
 
 <DT>SimplexMinimizer.h</DT>
 <DD>SimplexMinimizer is a class implementing a non-linear optimizer based on a simplex algorithm, templatized by a functor implementing the minimization target function.</DD>
+
+<DT>VarianceAccumulator.h</DT>
+<DD>VarianceAccumulator is a class to accumulate the mean and sample variance of a sequence of samples, based on D.E. Knuth's recurrence relation from "The Art of Computer Programming, Vol. 2".</DD>
+
+<DT>Histogram.h</DT>
+<DD>Histogram is a class to represent histograms of values of arbitrary scalar types.</DD>
 
 <DT>MathMarshallers.h</DT>
 <DD>MathMarshallers contains specializations of the Misc::Marshaller templatized class for objects from the Math library.</DD>

@@ -1,6 +1,6 @@
 /***********************************************************************
 VisletManager - Class to manage vislet classes.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,8 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 /* Forward declarations: */
 class GLContextData;
 namespace GLMotif {
-class Popup;
-class SubMenu;
+class PopupMenu;
 }
 class ALContextData;
 
@@ -48,7 +47,7 @@ class VisletManager:public Plugins::FactoryManager<VisletFactory>
 	/* Elements: */
 	Misc::ConfigurationFileSection configFileSection; // The vislet manager's configuration file section - valid throughout the manager's entire lifetime
 	VisletList vislets; // List of all loaded vislets
-	GLMotif::SubMenu* visletMenu; // Submenu to activate or deactivate individual vislets
+	GLMotif::PopupMenu* visletMenu; // Submenu to activate or deactivate individual vislets
 	
 	/* Private methods: */
 	void visletMenuToggleButtonCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
@@ -69,7 +68,7 @@ class VisletManager:public Plugins::FactoryManager<VisletFactory>
 		{
 		return vislets[visletIndex];
 		}
-	GLMotif::Popup* buildVisletMenu(void); // Returns a popup containing a submenu with one toggle button for each managed vislet
+	GLMotif::PopupMenu* buildVisletMenu(void); // Returns a popup containing a submenu with one toggle button for each managed vislet
 	void enable(void); // Enables all vislets
 	void disable(void); // Disables all vislets
 	void frame(void); // Calls the frame function of all loaded vislets

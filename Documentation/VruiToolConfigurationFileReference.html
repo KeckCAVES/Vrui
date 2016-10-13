@@ -93,6 +93,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <UL>
 <LI><A HREF="#MouseTool">MouseTool</A> &quot;Mouse->Screen Projector&quot;</LI>
 
+<LI><A HREF="#ScreenMouseTool">ScreenMouseTool</A> &quot;Screen-based Virtual Mouse&quot;</LI>
+
 <LI><A HREF="#ToggleButtonTool">ToggleButtonTool</A> &quot;Toggle Button&quot;</LI>
 
 <LI><A HREF="#ButtonToValuatorTool">ButtonToValuatorTool</A> &quot;Button -> Valuator&quot;</LI>
@@ -183,7 +185,9 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <LI><A HREF="#ScreenshotTool">ScreenshotTool</A> &quot;Virtual Still Camera&quot;</LI>
 
-<LI><A HREF="#ScreenshotTool">NopTool</A> &quot;Do Nothing&quot;</LI>
+<LI><A HREF="#WiggleScreenshotTool">WiggleScreenshotTool</A> &quot;Virtual Still Camera&quot; to create wiggle stereograms</LI>
+
+<LI><A HREF="#NopTool">NopTool</A> &quot;Do Nothing&quot;</LI>
 </UL>
 </LI>
 </UL>
@@ -308,8 +312,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>screenScalingDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
-<TD>Direction in screen coordinates along which the mouse has to slide to scale in scaling mode.</TD>
+<TD>scalingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>-<A HREF="VruiConfigurationFileReference.html#upDirection">upDirection</A></TD>
+<TD>Direction in physical coordinates along which the mouse has to slide to scale.</TD>
 </TR>
 
 <TR>
@@ -348,6 +352,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
+<TD>compassPos</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD><TD>(<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/2.0,<A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/2.0, 0.0)</TD>
+<TD>Offset from interaction center to center of virtual compass, in interaction plane coordinates (x goes right, y goes up).</TD>
+</TR>
+
+<TR>
 <TD>compassSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*5.0</TD>
 <TD>Radius of the displayed compass rose in physical coordinate units.</TD>
 </TR>
@@ -360,11 +369,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>showScreenCenter</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
 <TD>Flag whether to show crosshairs indicating the screen plane and the screen center while the tool is active.</TD>
-</TR>
-
-<TR>
-<TD>interactWithWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
-<TD>Flag whether the tool's first button interacts with 3D GUI widgets if pressed over a displayed widget.</TD>
 </TR>
 </TABLE>
 
@@ -420,6 +424,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>maxClimb</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>24.0"</TD>
 <TD>Maximum distance in physical coordinate units by which the probe sphere can climb when the viewer's feet are snapped to the surface.</TD>
+</TR>
+
+<TR>
+<TD>azimuthStep</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>0.0&deg;</TD>
+<TD>Discrete increment in azimuth angle in degrees during mouse rotation to fight motion sickness for HMD users.</TD>
 </TR>
 
 <TR>
@@ -866,7 +875,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>Optional Valuators</TD><TD>1</TD>
+<TD>Optional Valuators</TD><TD>2</TD>
+<TD>Rotate around the local Z axis (up direction).</TD>
 <TD>Fire a &quot;jetpack&quot; thruster along the ray direction of the device associated with the valuator.</TD>
 </TR>
 </TABLE><P>
@@ -910,6 +920,11 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
+<TD>valuatorViewFollowFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.0</TD>
+<TD>Blending factor in the range [0, 1] such that valuator movement is relative to the fixed forward direction (0) or the current view direction (1).</TD>
+</TR>
+
+<TR>
 <TD>centerViewDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD><TD><A HREF="VruiConfigurationFileReference.html#forwardDirection">forwardDirection</A></TD>
 <TD>Direction of the center line of the rotation cone. Is projected to environment's floor plane before activation.</TD>
 </TR>
@@ -927,6 +942,16 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>outerAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>120.0&deg;</TD>
 <TD>Outer rotation angle. Rotation speed varies linearly between zero and maximum rotation speed as the viewer looks from the inner rotation angle to the outer rotation angle.</TD>
+</TR>
+
+<TR>
+<TD>valuatorSnapRotate</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD><TD>false</TD>
+<TD>Flag to enable snap rotation, where pushing the rotation valuator all the way left or right rotates instantaneously by the valuatorRotateSpeed angle.</TD>
+</TR>
+
+<TR>
+<TD>valuatorRotateSpeed</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>rotateSpeed</TD>
+<TD>Maximum rotation speed in degrees per second when using the rotation valuator if valuatorSnapRotate is false, or instantaneous rotation angle in degrees if valuatorSnapRotate is true.</TD>
 </TR>
 
 <TR>
@@ -1017,6 +1042,16 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
+<TD>dollyCenter</TD><TD><A HREF="#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to dolly around the display center, or the input device position at the time dollying started.</TD>
+</TR>
+
+<TR>
+<TD>scaleCenter</TD><TD><A HREF="#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to scale around the display center, or the input device position at the time scaling started.</TD>
+</TR>
+
+<TR>
 <TD>dollyingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>-<A HREF="VruiConfigurationFileReference.html#upDirection">upDirection</A></TD>
 <TD>Direction in physical coordinates along which the mouse has to slide to dolly in or out of the screen plane.</TD>
 </TR>
@@ -1055,11 +1090,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TD>showScreenCenter</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
 <TD>Flag whether to show crosshairs indicating the screen plane and the screen center while the tool is active.</TD>
 </TR>
-
-<TR>
-<TD>interactWithWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
-<TD>Flag whether the tool's first button interacts with 3D GUI widgets if pressed over a displayed widget.</TD>
-</TR>
 </TABLE>
 
 <A NAME="MouseDialogNavigationTool"><H3>MouseDialogNavigationTool</H3></A>
@@ -1087,13 +1117,23 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>screenDollyingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
-<TD>Direction in screen coordinates along which the mouse has to slide to dolly in or out of the screen plane.</TD>
+<TD>dollyCenter</TD><TD><A HREF="#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to dolly around the display center, or the input device position at the time dollying started.</TD>
 </TR>
 
 <TR>
-<TD>screenScalingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
-<TD>Direction in screen coordinates along which the mouse has to slide to scale.</TD>
+<TD>scaleCenter</TD><TD><A HREF="#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether to scale around the display center, or the input device position at the time scaling started.</TD>
+</TR>
+
+<TR>
+<TD>dollyingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
+<TD>Direction in physical coordinates along which the mouse has to slide to dolly in or out of the screen plane.</TD>
+</TR>
+
+<TR>
+<TD>scalingDirection</TD><TD><A HREF="#vector">vector</A></TD><TD>(0.0, -1.0, 0.0)</TD>
+<TD>Direction in physical coordinates along which the mouse has to slide to scale.</TD>
 </TR>
 
 <TR>
@@ -1109,11 +1149,6 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 <TR>
 <TD>spinThreshold</TD><TD><A HREF="#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiSize">uiSize</A>*2.0</TD>
 <TD>Distance in physical coordinate units by which the mouse has to move while button 1 is released in rotation mode to trigger spinning animation.</TD>
-</TR>
-
-<TR>
-<TD>interactWithWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
-<TD>Flag whether the tool's first button interacts with 3D GUI widgets if pressed over a displayed widget.</TD>
 </TR>
 </TABLE>
 
@@ -1346,7 +1381,7 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 </TR>
 
 <TR>
-<TD>minRotationScalingDistance</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.0"</TD>
+<TD>minRotationScalingDistance</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#pointPickDistance">pointPickDistance</A></TD>
 <TD>Minimum separation distance between two active devices to allow rotation and scaling.</TD>
 </TR>
 
@@ -1744,6 +1779,51 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 </TABLE>
 
+<A NAME="ScreenMouseTool"><H3>ScreenMouseTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Forwarded to virtual input device.</TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>2</TD>
+<TD>Move the input device along the screen's X and Y axes, respectively.</TD>
+</TR>
+
+<TR>
+<TD>Optional Valuators</TD><TD>&gt;=0</TD>
+<TD>Forwarded to virtual input device.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>screenName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD><TD>Name of main screen</TD>
+<TD>Name of screen to contain the input device.</TD>
+</TR>
+
+<TR>
+<TD>deadZone</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>0.1</TD>
+<TD>Size of &quot;dead zone&quot; around assigned valuators' zero value in terms of 2D vector lengh.</TD>
+</TR>
+
+<TR>
+<TD>exponent</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.0</TD>
+<TD>Exponent for non-linear scaling of valuator values in terms of 2D vector length.</TD>
+</TR>
+
+<TR>
+<TD>velocityFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly 2 <A HREF="VruiCFGTypes.html#number">numbers</A></TD><TD>Width and height of selected screen per second, respectively.</TD>
+<TD>Conversion factor from valuator values to physical coordinate units per second.</TD>
+</TR>
+</TABLE>
+
 <A NAME="ToggleButtonTool"><H3>ToggleButtonTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -2060,6 +2140,11 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TD>resetFeatures</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether buttons and valuators reset to their default values when the tool shifts away from their plane.</TD>
 </TR>
+
+<TR>
+<TD>initialPlane</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD><TD>0</TD>
+<TD>Index of button/valuator plane activated when a tool is created.</TD>
+</TR>
 </TABLE>
 
 <A NAME="RevolverTool"><H3>RevolverTool</H3></A>
@@ -2143,6 +2228,11 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
+<TD>alignMenuWithPointer</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
+<TD>Flag whether pop-up menus are aligned with both the viewing and the pointing direction for easier interaction.</TD>
+</TR>
+
+<TR>
 <TD>interactWithWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether the tool's button interacts with 3D GUI widgets if pressed over a displayed widget.</TD>
 </TR>
@@ -2204,7 +2294,7 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0"</TD>
+<TD>rotateFactor</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#displaySize">displaySize</A>/4.0</TD>
 <TD>Distance in physical coordinate units by which a virtual input device's edge has to be dragged to rotate by one radians.</TD>
 </TR>
 </TABLE>
@@ -2409,6 +2499,11 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
 
 <TR>
+<TD>deviceName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD><TD>(not set)</TD>
+<TD>If present, specifies the name of an input device to be used for interaction instead of the device bound to the first button slot. Added as a hack to support gaze-directed writing.</TD>
+</TR>
+
+<TR>
 <TD>squareSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD><A HREF="VruiConfigurationFileReference.html#uiFontTextHeight">uiFontTextHeight</A>*10.0</TD><TD>Overall side length of QuikWrite panel.</TD>
 </TR>
 
@@ -2421,7 +2516,19 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
-<TD>foregroundColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>Complement of <A HREF="VruiConfigurationFileReference.html#backgroundColor">backgroundColor</A></TD><TD>Foreground and text color for the QuikWrite panel.</TD>
+<TD>foregroundColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD><A HREF="VruiConfigurationFileReference.html#foregroundColor">foregroundColor</A></TD><TD>Foreground and text color for the QuikWrite panel.</TD>
+</TR>
+
+<TR>
+<TD>drawPoint</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD><TD>Flag whether to draw the current interaction point while the tool is active.</TD>
+</TR>
+
+<TR>
+<TD>pointColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>Complement of <A HREF="VruiConfigurationFileReference.html#backgroundColor">backgroundColor</A></TD><TD>Color to draw the intersection point.</TD>
+</TR>
+
+<TR>
+<TD>pointSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3.0</TD><TD>Size to draw the intersection point in pixels.</TD>
 </TR>
 </TABLE>
 
@@ -2720,6 +2827,29 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+</TABLE>
+
+<A NAME="WiggleScreenshotTool"><H3>WiggleScreenshotTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Take wiggle screenshot.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR><TD>screenshotFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD><TD>WiggleScreenshotTool.png (if PNG support is built into Images library) or WiggleScreenshotTool.ppm</TD><TD>Base name for screenshot file names. Index of animation frame will be inserted before the file name extension.</TD></TR>
+
+<TR><TD>windowIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD><TD>0</TD><TD>Index of the Vrui window from which to record screenshots.</TD></TR>
+
+<TR><TD>numFrames</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD><TD>10</TD><TD>Number of animation frames for the left-to-right and right-to-left sweeps.</TD></TR>
+
+<TR><TD>angleIncrement</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>2.5&deg;</TD><TD>Rotation angle increment between subsequent animation frames in degrees.</TD></TR>
 </TABLE>
 
 <A NAME="NopTool"><H3>NopTool</H3></A>

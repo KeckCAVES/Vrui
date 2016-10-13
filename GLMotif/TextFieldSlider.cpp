@@ -1,7 +1,7 @@
 /***********************************************************************
 TextFieldSlider - Compound widget containing a slider and a text field
 to display and edit the slider value.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -207,6 +207,16 @@ void TextFieldSlider::draw(GLContextData& contextData) const
 	/* Draw the child widgets: */
 	textField->draw(contextData);
 	slider->draw(contextData);
+	}
+
+void TextFieldSlider::setEnabled(bool newEnabled)
+	{
+	/* Call the base class method: */
+	Container::setEnabled(newEnabled);
+	
+	/* Forward the call to the child widgets: */
+	textField->setEnabled(newEnabled);
+	slider->setEnabled(newEnabled);
 	}
 
 bool TextFieldSlider::findRecipient(Event& event)

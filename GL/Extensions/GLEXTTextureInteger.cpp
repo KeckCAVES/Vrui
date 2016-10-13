@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTextureInteger - OpenGL extension class for the
 GL_EXT_texture_integer extension.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTTextureInteger:
 ********************************************/
 
 GL_THREAD_LOCAL(GLEXTTextureInteger*) GLEXTTextureInteger::current=0;
+const char* GLEXTTextureInteger::name="GL_EXT_texture_integer";
 
 /************************************
 Methods of class GLEXTTextureInteger:
@@ -52,7 +53,7 @@ GLEXTTextureInteger::~GLEXTTextureInteger(void)
 
 const char* GLEXTTextureInteger::getExtensionName(void) const
 	{
-	return "GL_EXT_texture_integer";
+	return name;
 	}
 
 void GLEXTTextureInteger::activate(void)
@@ -68,13 +69,13 @@ void GLEXTTextureInteger::deactivate(void)
 bool GLEXTTextureInteger::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_texture_integer");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTTextureInteger::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_texture_integer"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTTextureInteger* newExtension=new GLEXTTextureInteger;

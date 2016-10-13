@@ -1,7 +1,7 @@
 /***********************************************************************
 GUIInteractor - Helper class to implement tool classes that interact
 with graphical user interface elements.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -46,7 +46,6 @@ class GUIInteractor
 	{
 	/* Elements: */
 	private:
-	static GUIInteractor* activeInteractor; // Static pointer to the currently active GUI interactor, or null
 	bool useEyeRays; // Flag whether ray directions come from the device or from an eye line to the viewer
 	Scalar rayOffset; // Ray origin offset for 6-DOF devices
 	InputDevice* device; // Pointer to input device with which the interaction tool is associated
@@ -68,10 +67,7 @@ class GUIInteractor
 		return ray;
 		}
 	NavTrackerState calcInteractionTransform(void) const; // Calculates a transformation corresponding to the current interaction ray
-	bool canActivate(void) const // Returns true if the interactor can be activated, or is currently active
-		{
-		return activeInteractor==0||activeInteractor==this;
-		}
+	bool canActivate(void) const; // Returns true if the interactor can be activated, or is currently active
 	bool isActive(void) const // Returns true if the interactor is distributing events
 		{
 		return interacting;

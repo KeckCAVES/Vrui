@@ -1,7 +1,7 @@
 /***********************************************************************
 ListeningTCPSocket - Class for TCP half-sockets that can accept incoming
 connections.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -23,13 +23,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Comm/ListeningTCPSocket.h>
 
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <Misc/PrintInteger.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/FdSet.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -41,32 +44,69 @@ namespace Comm {
 Methods of class ListeningTCPSocket:
 ***********************************/
 
-ListeningTCPSocket::ListeningTCPSocket(int portId,int backlog)
+ListeningTCPSocket::ListeningTCPSocket(int portId,int backlog,ListeningTCPSocket::AddressFamily addressFamily)
 	:fd(-1)
 	{
-	/* Create the socket file descriptor: */
-	fd=socket(PF_INET,SOCK_STREAM,0);
-	if(fd<0)
-		Misc::throwStdErr("Comm::ListeningTCPSocket: Unable to create socket");
+	/* Convert port ID to string for getaddrinfo (awkward!): */
+	if(portId<0||portId>65535)
+		Misc::throwStdErr("Comm::ListeningTCPSocket: Invalid port %d",portId);
+	char portIdBuffer[6];
+	char* portIdString=Misc::print(portId,portIdBuffer+5);
 	
-	/* Bind the socket file descriptor to the port ID: */
-	struct sockaddr_in socketAddress;
-	socketAddress.sin_family=AF_INET;
-	socketAddress.sin_port=portId>=0?htons(portId):0;
-	socketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-	if(bind(fd,(struct sockaddr*)&socketAddress,sizeof(struct sockaddr_in))==-1)
+	/* Create a local any-IP address: */
+	struct addrinfo hints;
+	memset(&hints,0,sizeof(struct addrinfo));
+	switch(addressFamily)
 		{
+		case Any:
+			hints.ai_family=AF_UNSPEC;
+			break;
+			
+		case IPv4:
+			hints.ai_family=AF_INET;
+			break;
+		
+		case IPv6:
+			hints.ai_family=AF_INET6;
+			break;
+		}
+	hints.ai_socktype=SOCK_STREAM;
+	hints.ai_flags=AI_NUMERICSERV|AI_PASSIVE|AI_ADDRCONFIG;
+	hints.ai_protocol=0;
+	struct addrinfo* addresses;
+	int aiResult=getaddrinfo(0,portIdString,&hints,&addresses);
+	if(aiResult!=0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket: Unable to generate listening address on port %d due to error %s",portId,gai_strerror(aiResult));
+	
+	/* Try all returned addresses in order until one successfully binds: */
+	struct addrinfo* aiPtr;
+	for(aiPtr=addresses;aiPtr!=0;aiPtr=aiPtr->ai_next)
+		{
+		/* Open a socket: */
+		fd=socket(aiPtr->ai_family,aiPtr->ai_socktype,aiPtr->ai_protocol);
+		if(fd<0)
+			continue;
+		
+		/* Bind the local address and bail out if successful: */
+		if(bind(fd,reinterpret_cast<struct sockaddr*>(aiPtr->ai_addr),aiPtr->ai_addrlen)==0)
+			break;
+		
+		/* Close the socket and try the next address: */
 		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::ListeningTCPSocket: Unable to bind socket to port %d",portId);
 		}
 	
+	/* Release the returned addresses: */
+	freeaddrinfo(addresses);
+	
+	/* Check if socket setup failed: */
+	if(aiPtr==0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket: Unable to create listening socket on port %d",portId);
+	
 	/* Start listening on the socket: */
-	if(listen(fd,backlog)==-1)
+	if(listen(fd,backlog)<0)
 		{
 		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::ListeningTCPSocket: Unable to start listening on socket");
+		Misc::throwStdErr("Comm::ListeningTCPSocket: Unable to start listening on port %d",portId);
 		}
 	}
 
@@ -78,62 +118,65 @@ ListeningTCPSocket::~ListeningTCPSocket(void)
 
 int ListeningTCPSocket::getPortId(void) const
 	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	if(getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen)==-1)
-		Misc::throwStdErr("ListeningTCPSocket::getPortId: Unable to query socket's port ID");
-	return ntohs(socketAddress.sin_port);
+	/* Get the socket's local address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getsockname(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket::getPortId: Unable to query socket address");
+	
+	/* Extract a numeric port ID from the socket's address: */
+	char portIdBuffer[NI_MAXSERV];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,0,0,portIdBuffer,sizeof(portIdBuffer),NI_NUMERICSERV);
+	if(niResult!=0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket::getPortId: Unable to retrieve port ID due to error %s",gai_strerror(niResult));
+	
+	/* Convert the port ID string to a number: */
+	int result=0;
+	for(int i=0;i<NI_MAXSERV&&portIdBuffer[i]!='\0';++i)
+		result=result*10+int(portIdBuffer[i]-'0');
+	
+	return result;
 	}
 
 std::string ListeningTCPSocket::getAddress(void) const
 	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	if(getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen)==-1)
-		Misc::throwStdErr("ListeningTCPSocket::getAddress: Unable to query socket's interface address");
-	char resultBuffer[INET_ADDRSTRLEN];
-	if(inet_ntop(AF_INET,&socketAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN)==0)
-		Misc::throwStdErr("ListeningTCPSocket::getAddress: Unable to convert socket's interface address to dotted notation");
-	return std::string(resultBuffer);
+	/* Get the socket's local address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getsockname(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket::getAddress: Unable to query socket address");
+	
+	/* Extract a numeric address from the socket's address: */
+	char addressBuffer[NI_MAXHOST];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,addressBuffer,sizeof(addressBuffer),0,0,NI_NUMERICHOST);
+	if(niResult!=0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket::getAddress: Unable to retrieve address due to error %s",gai_strerror(niResult));
+	
+	return addressBuffer;
 	}
 
 std::string ListeningTCPSocket::getInterfaceName(bool throwException) const
 	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	if(getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen)==-1)
-		Misc::throwStdErr("ListeningTCPSocket::getInterfaceName: Unable to query socket's interface address");
+	/* Get the socket's local address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getsockname(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket::getInterfaceName: Unable to query socket address");
 	
-	/* Lookup interface's name: */
-	std::string result;
-	struct hostent* hostEntry=gethostbyaddr((const char*)&socketAddress.sin_addr,sizeof(struct in_addr),AF_INET);
-	if(hostEntry==0)
-		{
-		/* Fall back to returning address in dotted notation or throwing exception: */
-		char addressBuffer[INET_ADDRSTRLEN];
-		if(inet_ntop(AF_INET,&socketAddress.sin_addr,addressBuffer,INET_ADDRSTRLEN)==0)
-			Misc::throwStdErr("ListeningTCPSocket::getInterfaceName: Unable to convert socket's interface address to dotted notation");
-		if(throwException)
-			Misc::throwStdErr("ListeningTCPSocket::getInterfaceName: Cannot resolve interface address %s",addressBuffer);
-		else
-			result=std::string(addressBuffer);
-		}
-	else
-		result=std::string(hostEntry->h_name);
+	/* Extract a numeric address from the socket's address: */
+	char addressBuffer[NI_MAXHOST];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,addressBuffer,sizeof(addressBuffer),0,0,0);
+	if(niResult!=0)
+		Misc::throwStdErr("Comm::ListeningTCPSocket::getInterfaceName: Unable to retrieve interface name due to error %s",gai_strerror(niResult));
 	
-	return result;
+	return addressBuffer;
+	}
+
+bool ListeningTCPSocket::waitForConnection(const Misc::Time& timeout) const
+	{
+	/* Wait for a connection (socket ready for reading) and return whether one is available: */
+	Misc::FdSet readFds(fd);
+	return Misc::pselect(&readFds,0,0,timeout)>=0&&readFds.isSet(fd);
 	}
 
 }

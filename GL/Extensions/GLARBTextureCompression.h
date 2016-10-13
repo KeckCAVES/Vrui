@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureCompression - OpenGL extension class for the
 GL_ARB_texture_compression extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -72,6 +72,7 @@ class GLARBTextureCompression:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBTextureCompression*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLCOMPRESSEDTEXIMAGE3DARBPROC glCompressedTexImage3DARBProc;
 	PFNGLCOMPRESSEDTEXIMAGE2DARBPROC glCompressedTexImage2DARBProc;
 	PFNGLCOMPRESSEDTEXIMAGE1DARBPROC glCompressedTexImage1DARBProc;

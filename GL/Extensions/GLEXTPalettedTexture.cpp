@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTPalettedTexture - OpenGL extension class for the
 GL_EXT_paletted_texture extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTPalettedTexture:
 *********************************************/
 
 GL_THREAD_LOCAL(GLEXTPalettedTexture*) GLEXTPalettedTexture::current=0;
+const char* GLEXTPalettedTexture::name="GL_EXT_paletted_texture";
 
 /*************************************
 Methods of class GLEXTPalettedTexture:
@@ -51,7 +52,7 @@ GLEXTPalettedTexture::~GLEXTPalettedTexture(void)
 
 const char* GLEXTPalettedTexture::getExtensionName(void) const
 	{
-	return "GL_EXT_paletted_texture";
+	return name;
 	}
 
 void GLEXTPalettedTexture::activate(void)
@@ -67,13 +68,13 @@ void GLEXTPalettedTexture::deactivate(void)
 bool GLEXTPalettedTexture::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_paletted_texture");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTPalettedTexture::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_paletted_texture"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTPalettedTexture* newExtension=new GLEXTPalettedTexture;

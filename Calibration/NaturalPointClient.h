@@ -1,7 +1,7 @@
 /***********************************************************************
 Client to read tracking data from a NaturalPoint OptiTrack tracking
 system.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -35,6 +35,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Rotation.h>
 
 #include "PacketBuffer.h"
+
+/* Forward declarations: */
+namespace Misc {
+template <class ParameterParam>
+class FunctionCall;
+}
 
 class NaturalPointClient
 	{
@@ -112,12 +118,13 @@ class NaturalPointClient
 		std::vector<int> markerIds; // Unique IDs of all markers; only defined in protocol version >= 2.0.0.0
 		std::vector<Scalar> markerSizes; // Sizes of all markers; only defined in protocol version >= 2.0.0.0
 		Scalar meanMarkerError; // Mean fitting error for all markers; only defined in protocol version >= 2.0.0.0
+		bool valid; // Flag whether the rigid body was successfully tracked in this frame; only defined in protocol version >= 2.6.0.0
 		
 		/* Constructors and destructors: */
 		RigidBody(void) // Creates invalid rigid body
 			:id(-1),
 			 position(Point::origin),orientation(Rotation::identity),
-			 meanMarkerError(0)
+			 meanMarkerError(0),valid(false)
 			{
 			}
 		};
@@ -136,6 +143,27 @@ class NaturalPointClient
 			}
 		};
 	
+	struct LabeledMarker // Structure to hold the current state of a defined labeled marker
+		{
+		/* Elements: */
+		public:
+		int id; // Unique ID of labeled marker
+		Point position; // Position of labeled marker
+		Scalar size; // Size of labeled marker
+		bool occluded; // Marker is occluded in this frame; only defined in protocol version >= 2.6.0.0
+		bool pointCloudSolved; // Marker position from point cloud solver; only defined in protocol version >= 2.6.0.0
+		bool modelSolved; // Marker position from model solver; only defined in protocol version >= 2.6.0.0
+		
+		/* Constructors and destructors: */
+		LabeledMarker(void)
+			:id(-1),
+			 position(Point::origin),
+			 size(0),
+			 occluded(false),pointCloudSolved(false),modelSolved(false)
+			{
+			}
+		};
+	
 	struct Frame // Structure to hold a frame of tracking data
 		{
 		/* Elements: */
@@ -145,14 +173,22 @@ class NaturalPointClient
 		std::vector<Point> otherMarkers; // List of unidentified markers
 		std::vector<RigidBody> rigidBodies; // List of rigid bodies
 		std::vector<Skeleton> skeletons; // List of skeletons; only defined in protocol version >= 2.1.0.0
-		int latency; // Frame latency
+		std::vector<LabeledMarker> labeledMarkers; // List of labeled markers; only defined in protocol version >= 2.3.0.0
+		double latency; // Frame latency in ms
+		unsigned int timeCode[2]; // Frame time code
+		double timeStamp; // Packet time stamp
+		bool recording; // Flag if the server is recording
+		bool trackedModelsChanged; // Flag whether the list of tracked models has changed since the last frame
 		
 		/* Constructors and destructors: */
 		Frame(void) // Creates empty frame
-			:number(-1),latency(-1)
+			:number(-1),latency(0),timeStamp(0),recording(false),trackedModelsChanged(false)
 			{
+			timeCode[0]=timeCode[1]=0;
 			}
 		};
+	
+	typedef Misc::FunctionCall<const Frame&> FrameCallback; // Type for callbacks when a new frame arrives
 	
 	/* Elements: */
 	private:
@@ -166,6 +202,7 @@ class NaturalPointClient
 	std::string serverName; // Name of the server application
 	int serverVersion[4]; // Server application version number
 	int protocolVersion[4]; // Protocol version number
+	FrameCallback* frameCallback; // Function called from a background thread when a new tracking frame arrives
 	Threads::MutexCond pingCond; // Condition variable to allow a caller to block until a ping response
 	ModelDef* nextModelDef; // Pointer to next model definition structure to be filled by a ModelDef reply packet
 	Threads::MutexCond modelDefCond; // Condition variable to allow a caller to block until a model definition arrives
@@ -173,6 +210,7 @@ class NaturalPointClient
 	Threads::MutexCond frameCond; // Condition variable to allow a caller to block until a data frame arrives
 	
 	/* Private methods: */
+	void readRigidBody(PacketBuffer& packet,RigidBody& rigidBody,bool readValidFlag) const;
 	void handlePacket(PacketBuffer& packet);
 	void* commandHandlingThreadMethod(void);
 	void* dataHandlingThreadMethod(void);
@@ -196,8 +234,17 @@ class NaturalPointClient
 		return protocolVersion;
 		}
 	ModelDef& queryModelDef(ModelDef& modelDef); // Queries the models currently defined in the tracking engine and fills in the given structure
-	const Frame& requestFrame(void); // Requests a data frame and blocks until it arrives
-	const Frame& waitForNextFrame(void); // Waits until a requested frame arrives
+	void setFrameCallback(FrameCallback* newFrameCallback); // Sets a frame callback; adopts function object
+	const Frame& requestFrame(void); // Requests a data frame, blocks until it arrives, and locks it for querying
+	bool lockNewFrame(void) // Locks the most recently received frame for querying; returns true if the frame is new
+		{
+		return frames.lockNewValue();
+		}
+	const Frame& getLockedFrame(void) const // Returns the most recently locked frame
+		{
+		return frames.getLockedValue();
+		}
+	const Frame& waitForNextFrame(void); // Waits until a new frame arrives and locks if for querying
 	};
 
 #endif

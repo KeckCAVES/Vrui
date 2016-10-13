@@ -1,6 +1,6 @@
 /***********************************************************************
 VisletManager - Class to manage vislet classes.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -20,16 +20,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/VisletManager.h>
+
 #include <vector>
 #include <Misc/ConfigurationFile.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
-#include <GLMotif/Popup.h>
-#include <GLMotif/SubMenu.h>
+#include <GLMotif/PopupMenu.h>
+#include <GLMotif/RowColumn.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/Vrui.h>
-
-#include <Vrui/VisletManager.h>
+#include <Vrui/Internal/Config.h>
 
 namespace Vrui {
 
@@ -40,7 +41,7 @@ Methods of class VisletManager:
 void VisletManager::visletMenuToggleButtonCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
 	{
 	/* Get the toggle button's index in its container: */
-	GLMotif::SubMenu* visletMenu=dynamic_cast<GLMotif::SubMenu*>(cbData->toggle->getParent());
+	GLMotif::RowColumn* visletMenu=dynamic_cast<GLMotif::RowColumn*>(cbData->toggle->getParent());
 	
 	if(visletMenu!=0)
 		{
@@ -49,15 +50,33 @@ void VisletManager::visletMenuToggleButtonCallback(GLMotif::ToggleButton::ValueC
 			{
 			/* Activate or deactivate the vislet: */
 			if(cbData->set)
+				{
 				vislets[toggleIndex]->enable();
+				
+				/* Check if the vislet enabled successfully: */
+				if(!vislets[toggleIndex]->isActive())
+					{
+					/* Turn the toggle back off: */
+					cbData->toggle->setToggle(false);
+					}
+				}
 			else
+				{
 				vislets[toggleIndex]->disable();
+				
+				/* Check if the vislet disabled successfully: */
+				if(vislets[toggleIndex]->isActive())
+					{
+					/* Turn the toggle back on: */
+					cbData->toggle->setToggle(true);
+					}
+				}
 			}
 		}
 	}
 
 VisletManager::VisletManager(const Misc::ConfigurationFileSection& sConfigFileSection)
-	:Plugins::FactoryManager<VisletFactory>(sConfigFileSection.retrieveString("./visletDsoNameTemplate",SYSVISLETDSONAMETEMPLATE)),
+	:Plugins::FactoryManager<VisletFactory>(sConfigFileSection.retrieveString("./visletDsoNameTemplate",VRUI_INTERNAL_CONFIG_VISLETDSONAMETEMPLATE)),
 	 configFileSection(sConfigFileSection),
 	 visletMenu(0)
 	{
@@ -99,11 +118,10 @@ Vislet* VisletManager::createVislet(VisletFactory* factory,int numVisletArgument
 	return newVislet;
 	}
 
-GLMotif::Popup* VisletManager::buildVisletMenu(void)
+GLMotif::PopupMenu* VisletManager::buildVisletMenu(void)
 	{
-	/* Create the popup and menu: */
-	GLMotif::Popup* visletMenuPopup=new GLMotif::Popup("VisletsMenuPopup",getWidgetManager());
-	visletMenu=new GLMotif::SubMenu("Vislets",visletMenuPopup,false);
+	/* Create the popup menu: */
+	visletMenu=new GLMotif::PopupMenu("VisletsMenu",getWidgetManager());
 	
 	/* Create a toggle button for each vislet: */
 	for(unsigned int i=0;i<vislets.size();++i)
@@ -116,8 +134,8 @@ GLMotif::Popup* VisletManager::buildVisletMenu(void)
 		}
 	
 	/* Finalize and return the vislet menu popup: */
-	visletMenu->manageChild();
-	return visletMenuPopup;
+	visletMenu->manageMenu();
+	return visletMenu;
 	}
 
 void VisletManager::enable(void)
@@ -127,7 +145,7 @@ void VisletManager::enable(void)
 		if(!vislets[i]->isActive())
 			{
 			vislets[i]->enable();
-			static_cast<GLMotif::ToggleButton*>(visletMenu->getChild(i))->setToggle(vislets[i]->isActive());
+			static_cast<GLMotif::ToggleButton*>(visletMenu->getMenu()->getChild(i))->setToggle(vislets[i]->isActive());
 			}
 	}
 
@@ -138,7 +156,7 @@ void VisletManager::disable(void)
 		if(vislets[i]->isActive())
 			{
 			vislets[i]->disable();
-			static_cast<GLMotif::ToggleButton*>(visletMenu->getChild(i))->setToggle(vislets[i]->isActive());
+			static_cast<GLMotif::ToggleButton*>(visletMenu->getMenu()->getChild(i))->setToggle(vislets[i]->isActive());
 			}
 	}
 

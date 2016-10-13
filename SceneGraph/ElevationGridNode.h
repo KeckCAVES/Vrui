@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -85,7 +85,7 @@ class ElevationGridNode:public GeometryNode,public GLObject
 	SFFloat zSpacing;
 	MFFloat height;
 	MFString heightUrl; // URL of external file(s) containing the height array in several file formats
-	MFString heightUrlFormat; // Format of external height file: "BIL", "ARC/INFO ASCII GRID"
+	MFString heightUrlFormat; // Format of external height file: "BIL", "ARC/INFO ASCII GRID", "RAW (UINT8 SINT8 UINT16 SINT16 UINT32 SINT32 FLOAT32 FLOAT64) (LE BE)"
 	SFFloat heightScale; // Scale factor applied to all height values
 	SFBool heightIsY;
 	SFBool removeInvalids; // Flag to remove "invalid" elevation samples from the height array by leaving holes in the triangulation

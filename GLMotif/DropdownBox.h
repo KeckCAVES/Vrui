@@ -1,7 +1,7 @@
 /***********************************************************************
 DropdownBox - Class for labels that show one string out of a list of
 strings and allow changing the selection by choosing from a pop-up list.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2016 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -130,7 +130,7 @@ class DropdownBox:public Label
 	const Widget* getItemWidget(int item) const; // Returns the widget representing the item of the given index
 	const char* getItem(int item) const; // Returns the item of the given index
 	void clearItems(void); // Removes all items from the drop-down list
-	void addItem(const char* newItem); // Adds an item to the drop-down list
+	Widget* addItem(const char* newItem); // Adds an item to the drop-down list and returns the new item widget
 	int getSelectedItem(void) const // Returns the index of the currently selected item
 		{
 		return selectedItem;

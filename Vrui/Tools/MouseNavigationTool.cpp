@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseNavigationTool - Class encapsulating the navigation behaviour of a
 mouse in the OpenInventor SoXtExaminerViewer.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -36,6 +36,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRWindow.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -48,6 +49,7 @@ MouseNavigationToolFactory::Configuration::Configuration(void)
 	:rotatePlaneOffset(getDisplaySize()/Scalar(4)),
 	 rotateFactor(getDisplaySize()/Scalar(4)),
 	 invertDolly(false),
+	 dollyCenter(true),scaleCenter(true),
 	 dollyingDirection(-getUpDirection()),
 	 scalingDirection(-getUpDirection()),
 	 dollyFactor(Scalar(1)),
@@ -55,8 +57,7 @@ MouseNavigationToolFactory::Configuration::Configuration(void)
 	 wheelDollyFactor(-getDisplaySize()),
 	 wheelScaleFactor(Scalar(0.5)),
 	 spinThreshold(getUiSize()*Scalar(1)),
-	 showScreenCenter(true),
-	 interactWithWidgets(true)
+	 showScreenCenter(true)
 	{
 	}
 
@@ -65,6 +66,8 @@ void MouseNavigationToolFactory::Configuration::read(const Misc::ConfigurationFi
 	rotatePlaneOffset=cfs.retrieveValue<Scalar>("./rotatePlaneOffset",rotatePlaneOffset);
 	rotateFactor=cfs.retrieveValue<Scalar>("./rotateFactor",rotateFactor);
 	invertDolly=cfs.retrieveValue<bool>("./invertDolly",invertDolly);
+	dollyCenter=cfs.retrieveValue<bool>("./dollyCenter",dollyCenter);
+	scaleCenter=cfs.retrieveValue<bool>("./scaleCenter",scaleCenter);
 	dollyingDirection=cfs.retrieveValue<Vector>("./dollyingDirection",dollyingDirection);
 	scalingDirection=cfs.retrieveValue<Vector>("./scalingDirection",scalingDirection);
 	dollyFactor=cfs.retrieveValue<Scalar>("./dollyFactor",dollyFactor);
@@ -73,7 +76,6 @@ void MouseNavigationToolFactory::Configuration::read(const Misc::ConfigurationFi
 	wheelScaleFactor=cfs.retrieveValue<Scalar>("./wheelScaleFactor",wheelScaleFactor);
 	spinThreshold=cfs.retrieveValue<Scalar>("./spinThreshold",spinThreshold);
 	showScreenCenter=cfs.retrieveValue<bool>("./showScreenCenter",showScreenCenter);
-	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	}
 
 void MouseNavigationToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
@@ -81,6 +83,8 @@ void MouseNavigationToolFactory::Configuration::write(Misc::ConfigurationFileSec
 	cfs.storeValue<Scalar>("./rotatePlaneOffset",rotatePlaneOffset);
 	cfs.storeValue<Scalar>("./rotateFactor",rotateFactor);
 	cfs.storeValue<bool>("./invertDolly",invertDolly);
+	cfs.storeValue<bool>("./dollyCenter",dollyCenter);
+	cfs.storeValue<bool>("./scaleCenter",scaleCenter);
 	cfs.storeValue<Vector>("./dollyingDirection",dollyingDirection);
 	cfs.storeValue<Vector>("./scalingDirection",scalingDirection);
 	cfs.storeValue<Scalar>("./dollyFactor",dollyFactor);
@@ -89,7 +93,6 @@ void MouseNavigationToolFactory::Configuration::write(Misc::ConfigurationFileSec
 	cfs.storeValue<Scalar>("./wheelScaleFactor",wheelScaleFactor);
 	cfs.storeValue<Scalar>("./spinThreshold",spinThreshold);
 	cfs.storeValue<bool>("./showScreenCenter",showScreenCenter);
-	cfs.storeValue<bool>("./interactWithWidgets",interactWithWidgets);
 	}
 
 /*******************************************
@@ -200,28 +203,39 @@ MouseNavigationToolFactory* MouseNavigationTool::factory=0;
 Methods of class MouseNavigationTool:
 ************************************/
 
+void MouseNavigationTool::startNavigating(void)
+	{
+	/* Calculate the rotation center: */
+	screenCenter=getDisplayCenter();
+	
+	/* Set up the interaction plane: */
+	interactionPlane=getUiManager()->calcUITransform(screenCenter);
+	
+	/* Project the rotation center into the interaction plane: */
+	screenCenter=interactionPlane.getOrigin();
+	}
+
 Point MouseNavigationTool::calcInteractionPos(void) const
 	{
 	/* Intersect the device's pointing ray with the widget plane: */
 	Point deviceRayStart=getButtonDevicePosition(0);
 	Vector deviceRayDir=getButtonDeviceRayDirection(0);
 	
-	Point planeCenter=getUiPlane().getOrigin();
-	Vector planeNormal=getUiPlane().getDirection(2);
+	Point planeCenter=interactionPlane.getOrigin();
+	Vector planeNormal=interactionPlane.getDirection(2);
 	Scalar lambda=((planeCenter-deviceRayStart)*planeNormal)/(deviceRayDir*planeNormal);
 	return deviceRayStart+deviceRayDir*lambda;
 	}
 
 void MouseNavigationTool::startRotating(void)
 	{
-	/* Calculate the rotation center: */
-	screenCenter=getDisplayCenter();
+	startNavigating();
 	
 	/* Calculate initial rotation position: */
 	lastRotationPos=calcInteractionPos();
 	
 	/* Calculate the rotation offset vector: */
-	rotateOffset=getUiPlane().transform(Vector(0,0,configuration.rotatePlaneOffset));
+	rotateOffset=interactionPlane.transform(Vector(0,0,configuration.rotatePlaneOffset));
 	
 	preScale=NavTrackerState::translateFromOriginTo(screenCenter);
 	rotation=NavTrackerState::identity;
@@ -234,8 +248,7 @@ void MouseNavigationTool::startRotating(void)
 
 void MouseNavigationTool::startPanning(void)
 	{
-	/* Calculate the screen center: */
-	screenCenter=getDisplayCenter();
+	startNavigating();
 	
 	/* Calculate initial motion position: */
 	motionStart=calcInteractionPos();
@@ -248,12 +261,13 @@ void MouseNavigationTool::startPanning(void)
 
 void MouseNavigationTool::startDollying(void)
 	{
-	/* Calculate the screen center: */
-	screenCenter=getDisplayCenter();
+	startNavigating();
 	
 	/* Calculate the dollying direction: */
-	dollyDirection=getMainViewer()->getHeadPosition()-screenCenter;
-	dollyDirection.normalize();
+	if(configuration.dollyCenter)
+		dollyDirection=-getForwardDirection();
+	else
+		dollyDirection=-getButtonDeviceRayDirection(0);
 	
 	/* Calculate initial motion position: */
 	motionStart=calcInteractionPos();
@@ -266,14 +280,21 @@ void MouseNavigationTool::startDollying(void)
 
 void MouseNavigationTool::startScaling(void)
 	{
-	/* Calculate the scaling center: */
-	screenCenter=getDisplayCenter();
+	startNavigating();
 	
 	/* Calculate initial motion position: */
 	motionStart=calcInteractionPos();
 	
-	preScale=NavTrackerState::translateFromOriginTo(screenCenter);
-	postScale=NavTrackerState::translateToOriginFrom(screenCenter);
+	if(configuration.scaleCenter)
+		{
+		preScale=NavTrackerState::translateFromOriginTo(screenCenter);
+		postScale=NavTrackerState::translateToOriginFrom(screenCenter);
+		}
+	else
+		{
+		preScale=NavTrackerState::translateFromOriginTo(motionStart);
+		postScale=NavTrackerState::translateToOriginFrom(motionStart);
+		}
 	postScale*=getNavigationTransformation();
 	
 	/* Go to scaling mode: */
@@ -282,7 +303,6 @@ void MouseNavigationTool::startScaling(void)
 
 MouseNavigationTool::MouseNavigationTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
-	 GUIInteractor(false,Scalar(0),getButtonDevice(0)),
 	 configuration(MouseNavigationTool::factory->configuration),
 	 currentPos(Point::origin),currentValue(0),
 	 dolly(configuration.invertDolly),navigationMode(IDLE)
@@ -319,32 +339,9 @@ void MouseNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Button
 					{
 					case IDLE:
 					case SPINNING:
-						if(configuration.interactWithWidgets)
-							{
-							/* Check if the GUI interactor accepts the event: */
-							GUIInteractor::updateRay();
-							if(GUIInteractor::buttonDown(false))
-								{
-								/* Deactivate this tool if it is spinning: */
-								if(navigationMode==SPINNING)
-									deactivate();
-								
-								/* Go to widget interaction mode: */
-								navigationMode=WIDGETING;
-								}
-							else
-								{
-								/* Try activating this tool: */
-								if(navigationMode==SPINNING||activate())
-									startRotating();
-								}
-							}
-						else
-							{
-							/* Try activating this tool: */
-							if(navigationMode==SPINNING||activate())
-								startRotating();
-							}
+						/* Try activating this tool: */
+						if(navigationMode==SPINNING||activate())
+							startRotating();
 						break;
 					
 					case PANNING:
@@ -364,19 +361,6 @@ void MouseNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Button
 				/* Act depending on this tool's current state: */
 				switch(navigationMode)
 					{
-					case WIDGETING:
-						{
-						if(GUIInteractor::isActive())
-							{
-							/* Deliver the event: */
-							GUIInteractor::buttonUp();
-							}
-						
-						/* Deactivate this tool: */
-						navigationMode=IDLE;
-						break;
-						}
-					
 					case ROTATING:
 						{
 						/* Check if the input device is still moving: */
@@ -518,31 +502,20 @@ void MouseNavigationTool::valuatorCallback(int,InputDevice::ValuatorCallbackData
 					{
 					if(dolly)
 						{
-						/* Calculate the dollying direction: */
-						dollyDirection=getMainViewer()->getHeadPosition()-getDisplayCenter();
-						dollyDirection.normalize();
+						/* Start normal dollying: */
+						startDollying();
 						
-						/* Initialize the wheel dollying factor: */
+						/* Change to wheel dollying mode: */
 						currentWheelScale=Scalar(1);
-						
-						preScale=getNavigationTransformation();
-						
-						/* Go to wheel dollying mode: */
 						navigationMode=DOLLYING_WHEEL;
 						}
 					else
 						{
-						/* Calculate the scaling center: */
-						screenCenter=getDisplayCenter();
+						/* Start normal scaling: */
+						startScaling();
 						
-						/* Initialize the wheel scaling factor: */
+						/* Change to wheel scaling mode: */
 						currentWheelScale=Scalar(1);
-						
-						preScale=NavTrackerState::translateFromOriginTo(screenCenter);
-						postScale=NavTrackerState::translateToOriginFrom(screenCenter);
-						postScale*=getNavigationTransformation();
-						
-						/* Go to wheel scaling mode: */
 						navigationMode=SCALING_WHEEL;
 						}
 					}
@@ -583,12 +556,6 @@ void MouseNavigationTool::frame(void)
 		currentPos=newCurrentPos;
 		lastMoveTime=getApplicationTime();
 		}
-	if(configuration.interactWithWidgets)
-		{
-		/* Update the GUI interactor: */
-		GUIInteractor::updateRay();
-		GUIInteractor::move();
-		}
 	
 	/* Act depending on this tool's current state: */
 	switch(navigationMode)
@@ -626,7 +593,8 @@ void MouseNavigationTool::frame(void)
 			t*=postScale;
 			setNavigationTransformation(t);
 			
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			/* Request another frame: */
+			scheduleUpdate(getNextAnimationTime());
 			
 			break;
 			}
@@ -691,33 +659,18 @@ void MouseNavigationTool::frame(void)
 
 void MouseNavigationTool::display(GLContextData& contextData) const
 	{
-	#if 0 // Don't draw the interaction ray -- it's a mouse tool, it should be invisible
-	if(configuration.interactWithWidgets)
-		{
-		/* Draw the GUI interactor's state: */
-		GUIInteractor::glRenderAction(3.0f,GLColor<GLfloat,4>(1.0f,0.0f,0.0f),contextData);
-		}
-	#endif
-	
-	if(configuration.showScreenCenter&&navigationMode!=IDLE&&navigationMode!=WIDGETING)
+	if(configuration.showScreenCenter&&navigationMode!=IDLE)
 		{
 		/* Save and set up OpenGL state: */
 		glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
 		glDepthFunc(GL_LEQUAL);
 		
-		/* Determine the crosshair colors: */
-		Color bgColor=getBackgroundColor();
-		Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
 		/* Draw the screen center crosshairs: */
-		Vector x=getUiPlane().getDirection(0)*getDisplaySize();
-		Vector y=getUiPlane().getDirection(1)*getDisplaySize();
+		Vector x=interactionPlane.getDirection(0)*getDisplaySize();
+		Vector y=interactionPlane.getDirection(1)*getDisplaySize();
 		glLineWidth(3.0f);
-		glColor(bgColor);
+		glColor(getBackgroundColor());
 		glBegin(GL_LINES);
 		glVertex(screenCenter-x);
 		glVertex(screenCenter+x);
@@ -725,7 +678,7 @@ void MouseNavigationTool::display(GLContextData& contextData) const
 		glVertex(screenCenter+y);
 		glEnd();
 		glLineWidth(1.0f);
-		glColor(fgColor);
+		glColor(getForegroundColor());
 		glBegin(GL_LINES);
 		glVertex(screenCenter-x);
 		glVertex(screenCenter+x);

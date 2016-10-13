@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2014 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -34,7 +34,7 @@ class StandardDirectory:public IO::Directory // Common base class for master- an
 	{
 	/* Elements: */
 	protected:
-	MulticastPipe pipe; // Multicast pipe to forward directory data to the slave nodes
+	mutable MulticastPipe pipe; // Multicast pipe to forward directory data to the slave nodes
 	std::string pathName; // Path name of this directory
 	Misc::PathType entryType; // Path type of current directory entry
 	
@@ -77,6 +77,7 @@ class StandardDirectoryMaster:public StandardDirectory
 	virtual void rewind(void);
 	virtual bool readNextEntry(void);
 	virtual const char* getEntryName(void) const;
+	virtual Misc::PathType getPathType(const char* relativePath) const;
 	};
 
 class StandardDirectorySlave:public StandardDirectory
@@ -99,6 +100,7 @@ class StandardDirectorySlave:public StandardDirectory
 	virtual void rewind(void);
 	virtual bool readNextEntry(void);
 	virtual const char* getEntryName(void) const;
+	virtual Misc::PathType getPathType(const char* relativePath) const;
 	};
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Class for high-performance reading/writing from/to connected
 TCP sockets.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -23,6 +23,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Comm/TCPPipe.h>
 
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -31,11 +32,25 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <Misc/PrintInteger.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/FdSet.h>
 #include <Comm/ListeningTCPSocket.h>
 
 namespace Comm {
+
+namespace {
+
+/****************
+String constants:
+****************/
+
+const char pipeReadErrorString[]="Comm::TCPPipe: Fatal error %d (%s) while reading from source";
+const char pipeHangupErrorString[]="Comm::TCPPipe: Connection terminated by peer";
+const char pipeWriteErrorString[]="Comm::TCPPipe: Fatal error %d (%s) while writing to sink";
+
+}
 
 /************************
 Methods of class TCPPipe:
@@ -55,8 +70,8 @@ size_t TCPPipe::readData(IO::File::Byte* buffer,size_t bufferSize)
 	if(readResult<0)
 		{
 		/* Unknown error; probably a bad thing: */
-		int errorCode=errno;
-		Misc::throwStdErr("Comm::TCPPipe: Fatal error %d while reading from source",errorCode);
+		int error=errno;
+		throw Error(Misc::printStdErrMsg(pipeReadErrorString,error,strerror(error)));
 		}
 	
 	return size_t(readResult);
@@ -66,6 +81,7 @@ void TCPPipe::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	{
 	while(bufferSize>0)
 		{
+		/* Write data to the sink: */
 		ssize_t writeResult=::write(fd,buffer,bufferSize);
 		if(writeResult>0)
 			{
@@ -73,81 +89,122 @@ void TCPPipe::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 			buffer+=writeResult;
 			bufferSize-=writeResult;
 			}
-		else if(errno==EPIPE)
-			{
-			/* Other side hung up: */
-			Misc::throwStdErr("Comm::TCPPipe: Connection terminated by peer");
-			}
-		else if(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))
-			{
-			/* Do nothing and try again */
-			}
 		else if(writeResult==0)
 			{
 			/* Sink has reached end-of-file: */
 			throw WriteError(bufferSize);
 			}
-		else
+		else if(errno==EPIPE)
+			{
+			/* Other side hung up: */
+			throw Error(pipeHangupErrorString);
+			}
+		else if(errno!=EAGAIN&&errno!=EWOULDBLOCK&&errno!=EINTR)
 			{
 			/* Unknown error; probably a bad thing: */
-			int errorCode=errno;
-			Misc::throwStdErr("Comm::TCPPipe: Fatal error %d while writing to sink",errorCode);
+			int error=errno;
+			throw Error(Misc::printStdErrMsg(pipeWriteErrorString,error,strerror(error)));
 			}
 		}
 	}
+
+size_t TCPPipe::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSize)
+	{
+	/* Write data to the sink: */
+	ssize_t writeResult;
+	do
+		{
+		writeResult=::write(fd,buffer,bufferSize);
+		}
+	while(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
+	if(writeResult>0)
+		return size_t(writeResult);
+	else if(writeResult==0)
+		{
+		/* Sink has reached end-of-file: */
+		throw WriteError(bufferSize);
+		}
+	else if(errno==EPIPE)
+		{
+		/* Other side hung up: */
+		throw Error(pipeHangupErrorString);
+		}
+	else
+		{
+		/* Unknown error; probably a bad thing: */
+		int error=errno;
+		throw Error(Misc::printStdErrMsg(pipeWriteErrorString,error,strerror(error)));
+		}
+	}
+
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+void disableNagle(int fd) // Disables Nagle's algorithm on the given socket
+	{
+	/* Set the TCP_NODELAY socket option: */
+	int flag=1;
+	if(setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&flag,sizeof(flag))==-1)
+		{
+		/* Close the socket and throw an exception: */
+		close(fd);
+		throw IO::File::Error("Comm::TCPPipe::TCPPipe: Unable to disable Nagle's algorithm on socket");
+		}
+	}
+
+}
 
 TCPPipe::TCPPipe(const char* hostName,int portId)
 	:NetPipe(ReadWrite),
 	 fd(-1)
 	{
-	/* Create the socket file descriptor: */
-	fd=socket(PF_INET,SOCK_STREAM,0);
-	if(fd<0)
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to create socket");
-	
-	/* Bind the socket file descriptor: */
-	struct sockaddr_in mySocketAddress;
-	mySocketAddress.sin_family=AF_INET;
-	mySocketAddress.sin_port=0;
-	mySocketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-	if(bind(fd,(struct sockaddr*)&mySocketAddress,sizeof(struct sockaddr_in))==-1)
-		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to bind socket to port");
-		}
+	/* Convert port ID to string for getaddrinfo (awkward!): */
+	if(portId<0||portId>65535)
+		throw OpenError(Misc::printStdErrMsg("Comm::TCPPipe::TCPPipe: Invalid port %d",portId));
+	char portIdBuffer[6];
+	char* portIdString=Misc::print(portId,portIdBuffer+5);
 	
 	/* Lookup host's IP address: */
-	struct hostent* hostEntry=gethostbyname(hostName);
-	if(hostEntry==0)
-		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to resolve host name %s",hostName);
-		}
-	struct in_addr hostNetAddress;
-	hostNetAddress.s_addr=ntohl(((struct in_addr*)hostEntry->h_addr_list[0])->s_addr);
+	struct addrinfo hints;
+	memset(&hints,0,sizeof(struct addrinfo));
+	hints.ai_family=AF_UNSPEC;
+	hints.ai_socktype=SOCK_STREAM;
+	hints.ai_flags=AI_NUMERICSERV|AI_ADDRCONFIG;
+	hints.ai_protocol=0;
+	struct addrinfo* addresses;
+	int aiResult=getaddrinfo(hostName,portIdString,&hints,&addresses);
+	if(aiResult!=0)
+		throw OpenError(Misc::printStdErrMsg("Comm::TCPPipe::TCPPipe: Unable to resolve host name %s due to error %s",hostName,gai_strerror(aiResult)));
 	
-	/* Connect to the remote host: */
-	struct sockaddr_in hostAddress;
-	hostAddress.sin_family=AF_INET;
-	hostAddress.sin_port=htons(portId);
-	hostAddress.sin_addr.s_addr=htonl(hostNetAddress.s_addr);
-	if(connect(fd,(const struct sockaddr*)&hostAddress,sizeof(struct sockaddr_in))==-1)
+	/* Try all returned addresses in order until one successfully connects: */
+	for(struct addrinfo* aiPtr=addresses;aiPtr!=0;aiPtr=aiPtr->ai_next)
 		{
+		/* Open a socket: */
+		fd=socket(aiPtr->ai_family,aiPtr->ai_socktype,aiPtr->ai_protocol);
+		if(fd<0)
+			continue;
+		
+		/* Connect to the remote host and bail out if successful: */
+		if(connect(fd,reinterpret_cast<struct sockaddr*>(aiPtr->ai_addr),aiPtr->ai_addrlen)>=0)
+			break;
+		
+		/* Close the socket and try the next address: */
 		close(fd);
 		fd=-1;
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to connect to host %s on port %d",hostName,portId);
 		}
 	
-	/* Set the TCP_NODELAY socket option: */
-	int flag=1;
-	if(setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&flag,sizeof(flag))==-1)
-		{
-		close(fd);
-		fd=-1;
-		Misc::throwStdErr("Cluster::TCPPipe::TCPPipe: Unable to disable Nagle's algorithm on socket");
-		}
+	/* Release the returned addresses: */
+	freeaddrinfo(addresses);
+	
+	/* Check if connection setup failed: */
+	if(fd<0)
+		throw OpenError(Misc::printStdErrMsg("Comm::TCPPipe::TCPPipe: Unable to connect to host %s on port %d",hostName,portId));
+	
+	/* Turn off socket-level buffering: */
+	disableNagle(fd);
 	}
 
 TCPPipe::TCPPipe(ListeningTCPSocket& listenSocket)
@@ -157,17 +214,24 @@ TCPPipe::TCPPipe(ListeningTCPSocket& listenSocket)
 	/* Wait for a connection attempt on the listening socket: */
 	fd=accept(listenSocket.getFd(),0,0);
 	if(fd==-1)
-		Misc::throwStdErr("Comm::TCPPipe::TCPPipe: Unable to accept connection");
+		throw OpenError("Comm::TCPPipe::TCPPipe: Unable to accept connection");
 	
-	/* Set the TCP_NODELAY socket option: */
-	int flag=1;
-	setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&flag,sizeof(flag));
+	/* Turn off socket-level buffering: */
+	disableNagle(fd);
 	}
 
 TCPPipe::~TCPPipe(void)
 	{
-	/* Flush the write buffer: */
-	flush();
+	try
+		{
+		/* Flush the write buffer: */
+		flush();
+		}
+	catch(std::runtime_error err)
+		{
+		/* Print an error message and carry on: */
+		Misc::formattedUserError("Comm::TCPPipe: Caught exception \"%s\" while closing pipe",err.what());
+		}
 	
 	/* Close the socket: */
 	if(fd>=0)
@@ -217,106 +281,114 @@ void TCPPipe::shutdown(bool read,bool write)
 
 int TCPPipe::getPortId(void) const
 	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
-	return ntohs(socketAddress.sin_port);
+	/* Get the socket's local address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getsockname(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		throw Error("Comm::TCPPipe::getPortId: Unable to query socket address");
+	
+	/* Extract a numeric port ID from the socket's address: */
+	char portIdBuffer[NI_MAXSERV];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,0,0,portIdBuffer,sizeof(portIdBuffer),NI_NUMERICSERV);
+	if(niResult!=0)
+		throw Error(Misc::printStdErrMsg("Comm::TCPPipe::getPortId: Unable to retrieve port ID due to error %s",gai_strerror(niResult)));
+	
+	/* Convert the port ID string to a number: */
+	int result=0;
+	for(int i=0;i<NI_MAXSERV&&portIdBuffer[i]!='\0';++i)
+		result=result*10+int(portIdBuffer[i]-'0');
+	
+	return result;
 	}
 
 std::string TCPPipe::getAddress(void) const
 	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
-	char resultBuffer[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET,&socketAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN);
-	return std::string(resultBuffer);
+	/* Get the socket's local address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getsockname(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		throw Error("Comm::TCPPipe::getAddress: Unable to query socket address");
+	
+	/* Extract a numeric address from the socket's address: */
+	char addressBuffer[NI_MAXHOST];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,addressBuffer,sizeof(addressBuffer),0,0,NI_NUMERICHOST);
+	if(niResult!=0)
+		throw Error(Misc::printStdErrMsg("Comm::TCPPipe::getAddress: Unable to retrieve address due to error %s",gai_strerror(niResult)));
+	
+	return addressBuffer;
 	}
 
 std::string TCPPipe::getHostName(void) const
 	{
-	struct sockaddr_in socketAddress;
-	#ifdef __SGI_IRIX__
-	int socketAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t socketAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getsockname(fd,(struct sockaddr*)&socketAddress,&socketAddressLen);
+	/* Get the socket's local address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getsockname(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		throw Error("Comm::TCPPipe::getHostName: Unable to query socket address");
 	
-	/* Lookup host's name: */
-	std::string result;
-	struct hostent* hostEntry=gethostbyaddr((const char*)&socketAddress.sin_addr,sizeof(struct in_addr),AF_INET);
-	if(hostEntry==0)
-		{
-		/* Fall back to returning address in dotted notation: */
-		char addressBuffer[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET,&socketAddress.sin_addr,addressBuffer,INET_ADDRSTRLEN);
-		result=std::string(addressBuffer);
-		}
-	else
-		result=std::string(hostEntry->h_name);
+	/* Extract a host name from the socket's address: */
+	char hostNameBuffer[NI_MAXHOST];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,hostNameBuffer,sizeof(hostNameBuffer),0,0,0);
+	if(niResult!=0)
+		throw Error(Misc::printStdErrMsg("Comm::TCPPipe::getHostName: Unable to retrieve host name due to error %s",gai_strerror(niResult)));
 	
-	return result;
+	return hostNameBuffer;
 	}
 
 int TCPPipe::getPeerPortId(void) const
 	{
-	struct sockaddr_in peerAddress;
-	#ifdef __SGI_IRIX__
-	int peerAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t peerAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
-	return ntohs(peerAddress.sin_port);
+	/* Get the socket's peer address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getpeername(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		throw Error("Comm::TCPPipe::getPeerPortId: Unable to query socket's peer address");
+	
+	/* Extract a numeric port ID from the socket's peer address: */
+	char portIdBuffer[NI_MAXSERV];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,0,0,portIdBuffer,sizeof(portIdBuffer),NI_NUMERICSERV);
+	if(niResult!=0)
+		throw Error(Misc::printStdErrMsg("Comm::TCPPipe::getPeerPortId: Unable to retrieve peer port ID due to error %s",gai_strerror(niResult)));
+	
+	/* Convert the port ID string to a number: */
+	int result=0;
+	for(int i=0;i<NI_MAXSERV&&portIdBuffer[i]!='\0';++i)
+		result=result*10+int(portIdBuffer[i]-'0');
+	
+	return result;
 	}
 
 std::string TCPPipe::getPeerAddress(void) const
 	{
-	struct sockaddr_in peerAddress;
-	#ifdef __SGI_IRIX__
-	int peerAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t peerAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
-	char resultBuffer[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET,&peerAddress.sin_addr,resultBuffer,INET_ADDRSTRLEN);
-	return std::string(resultBuffer);
+	/* Get the socket's peer address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getpeername(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		throw Error("Comm::TCPPipe::getPeerAddress: Unable to query socket's peer address");
+	
+	/* Extract a numeric address from the socket's peer address: */
+	char addressBuffer[NI_MAXHOST];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,addressBuffer,sizeof(addressBuffer),0,0,NI_NUMERICHOST);
+	if(niResult!=0)
+		throw Error(Misc::printStdErrMsg("Comm::TCPPipe::getPeerAddress: Unable to retrieve peer address due to error %s",gai_strerror(niResult)));
+	
+	return addressBuffer;
 	}
 
 std::string TCPPipe::getPeerHostName(void) const
 	{
-	struct sockaddr_in peerAddress;
-	#ifdef __SGI_IRIX__
-	int peerAddressLen=sizeof(struct sockaddr_in);
-	#else
-	socklen_t peerAddressLen=sizeof(struct sockaddr_in);
-	#endif
-	getpeername(fd,(struct sockaddr*)&peerAddress,&peerAddressLen);
+	/* Get the socket's peer address: */
+	struct sockaddr_storage socketAddress;
+	socklen_t socketAddressLen=sizeof(socketAddress);
+	if(getpeername(fd,reinterpret_cast<struct sockaddr*>(&socketAddress),&socketAddressLen)<0)
+		throw Error("Comm::TCPPipe::getPeerHostName: Unable to query socket's peer address");
 	
-	/* Lookup host's name: */
-	std::string result;
-	struct hostent* hostEntry=gethostbyaddr((const char*)&peerAddress.sin_addr,sizeof(struct in_addr),AF_INET);
-	if(hostEntry==0)
-		{
-		/* Fall back to returning address in dotted notation: */
-		char addressBuffer[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET,&peerAddress.sin_addr,addressBuffer,INET_ADDRSTRLEN);
-		result=std::string(addressBuffer);
-		}
-	else
-		result=std::string(hostEntry->h_name);
+	/* Extract a host name from the socket's peer address: */
+	char hostNameBuffer[NI_MAXHOST];
+	int niResult=getnameinfo(reinterpret_cast<const struct sockaddr*>(&socketAddress),socketAddressLen,hostNameBuffer,sizeof(hostNameBuffer),0,0,0);
+	if(niResult!=0)
+		throw Error(Misc::printStdErrMsg("Comm::TCPPipe::getPeerHostName: Unable to retrieve peer host name due to error %s",gai_strerror(niResult)));
 	
-	return result;
+	return hostNameBuffer;
 	}
 
 }

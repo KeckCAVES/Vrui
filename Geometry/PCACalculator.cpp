@@ -2,7 +2,7 @@
 PCACalculator - Helper class to calculate the principal component
 analysis matrix of a set of 3D points by a single traversal over the set
 of points.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -94,7 +94,7 @@ calcEigenvector(
 		}
 	
 	/* Calculate the swizzled result using backsubstitution: */
-	double x[3];
+	double x[dimensionParam];
 	x[dimensionParam-1]=1.0;
 	for(int i=dimensionParam-2;i>=0;--i)
 		{

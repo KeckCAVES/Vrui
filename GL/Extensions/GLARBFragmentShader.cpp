@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBFragmentShader - OpenGL extension class for the
 GL_ARB_fragment_shader extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -32,6 +32,7 @@ Static elements of class GLARBFragmentShader:
 ******************************************/
 
 GL_THREAD_LOCAL(GLARBFragmentShader*) GLARBFragmentShader::current=0;
+const char* GLARBFragmentShader::name="GL_ARB_fragment_shader";
 
 /**********************************
 Methods of class GLARBFragmentShader:
@@ -47,7 +48,7 @@ GLARBFragmentShader::~GLARBFragmentShader(void)
 
 const char* GLARBFragmentShader::getExtensionName(void) const
 	{
-	return "GL_ARB_fragment_shader";
+	return name;
 	}
 
 void GLARBFragmentShader::activate(void)
@@ -63,13 +64,13 @@ void GLARBFragmentShader::deactivate(void)
 bool GLARBFragmentShader::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_fragment_shader");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBFragmentShader::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_fragment_shader"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBFragmentShader* newExtension=new GLARBFragmentShader;

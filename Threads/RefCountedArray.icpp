@@ -1,7 +1,7 @@
 /***********************************************************************
 RefCountedArray - Generic class for fixed-size arrays with copy-on-write
 sharing and automatic garbage collection. Thread-safe version.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -40,16 +40,7 @@ RefCountedArray<ElementParam>::create(
 	unsigned char* mem=new unsigned char[sizeof(Header)+newSize*sizeof(Element)];
 	
 	/* Construct the header structure in-place: */
-	Header* result=new(mem) Header;
-	#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-	#if THREADS_CONFIG_HAVE_SPINLOCKS
-	pthread_spin_init(&result->refCountSpinlock,0);
-	#else
-	pthread_mutex_init(&result->refCountSpinlock,0);
-	#endif
-	#endif
-	result->refCount=1;
-	result->size=newSize;
+	Header* result=new(mem) Header(newSize);
 	
 	/* Construct the elements in-place, in case they have custom default constructors: */
 	for(size_t i=0;i<newSize;++i)
@@ -68,16 +59,10 @@ RefCountedArray<ElementParam>::destroy(
 	for(size_t i=0;i<header->size;++i)
 		header->elements[i].~Element();
 	
-	#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-	/* Destroy the spinlock: */
-	#if THREADS_CONFIG_HAVE_SPINLOCKS
-	pthread_spin_destroy(&header->refCountSpinlock);
-	#else
-	pthread_mutex_destroy(&header->refCountSpinlock);
-	#endif
-	#endif
+	/* Destruct the header itself: */
+	header->~Header();
 	
-	/* Destroy the header itself: */
+	/* Release the allocated bare memory block: */
 	delete[] reinterpret_cast<unsigned char*>(header);
 	}
 
@@ -88,29 +73,20 @@ RefCountedArray<ElementParam>::modify(
 	void)
 	{
 	/* Bail out if the array is already private: */
-	if(header->refCount==1)
+	if(header->refCount.get()==1)
 		return;
 	
 	/* Allocate a bare memory block of the required size: */
 	unsigned char* mem=new unsigned char[sizeof(Header)+header->size*sizeof(Element)];
 	
 	/* Construct the header structure in-place: */
-	Header* newHeader=new(mem) Header;
-	#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-	#if THREADS_CONFIG_HAVE_SPINLOCKS
-	pthread_spin_init(&result->refCountSpinlock,0);
-	#else
-	pthread_mutex_init(&result->refCountSpinlock,0);
-	#endif
-	#endif
-	newHeader->refCount=1;
-	newHeader->size=header->size;
+	Header* newHeader=new(mem) Header(header->size);
 	
 	/* Copy-construct the elements in-place: */
 	for(size_t i=0;i<header->size;++i)
-		new(newHeader->elements+i) Element(header->elements[i]);
+		new(newHeader->elements+i) Element(header->elements[i];
 	
-	/* Unreference and potentially destroy the current shared array: */
+	/* Unreference and potentially destroy the current shared array (yes, this can happen): */
 	if(header->unref())
 		destroy(header);
 	

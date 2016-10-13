@@ -1,7 +1,7 @@
 /***********************************************************************
 ValuatorTurnNavigationTool - Class providing a rotation navigation tool
 using two valuators.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -240,7 +240,7 @@ void ValuatorTurnNavigationTool::frame(void)
 		setNavigationTransformation(t);
 		
 		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 

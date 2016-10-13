@@ -1,0 +1,57 @@
+/***********************************************************************
+Complex - Class for complex numbers, big surprise. Why not use the C++
+standard complex  type? For fun reasons,  that's why.
+Copyright (c) 2002-2016 Oliver Kreylos
+
+This file is part of the Templatized Math Library (Math).
+
+The Templatized Math Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Math Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Math Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define MATH_COMPLEX_IMPLEMENTATION
+
+#include <Math/Complex.h>
+
+namespace Math {
+
+/********************************
+Static elements of class Complex:
+********************************/
+
+template <class ScalarParam>
+const Complex<ScalarParam> Complex<ScalarParam>::zero(ScalarParam(0));
+template <class ScalarParam>
+const Complex<ScalarParam> Complex<ScalarParam>::one(ScalarParam(1));
+template <class ScalarParam>
+const Complex<ScalarParam> Complex<ScalarParam>::i(ScalarParam(0),ScalarParam(1));
+
+/*******************************************
+Static elements of class Constants<Complex>:
+*******************************************/
+
+template <class ScalarParam>
+const bool Constants<Complex<ScalarParam> >::isIntegral;
+template <class ScalarParam>
+const bool Constants<Complex<ScalarParam> >::isRing;
+template <class ScalarParam>
+const bool Constants<Complex<ScalarParam> >::isField;
+template <class ScalarParam>
+const bool Constants<Complex<ScalarParam> >::isReal;
+template <class ScalarParam>
+const typename Constants<Complex<ScalarParam> >::Scalar Constants<Complex<ScalarParam> >::zero(ScalarParam(0));
+template <class ScalarParam>
+const typename Constants<Complex<ScalarParam> >::Scalar Constants<Complex<ScalarParam> >::one(ScalarParam(1));
+
+}

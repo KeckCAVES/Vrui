@@ -1,6 +1,6 @@
 /***********************************************************************
 Label - Class for (text) labels.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -97,10 +97,27 @@ void Label::setInsets(GLfloat newLeftInset,GLfloat newRightInset)
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 	}
 
+void Label::updateColors(void)
+	{
+	/* Calculate the foreground color based on the widget's enabled state: */
+	Color fg=enabledForegroundColor;
+	if(!isEnabled())
+		{
+		/* Blend the foreground color and the background color: */
+		for(int i=0;i<4;++i)
+			fg[i]=(backgroundColor[i]+enabledForegroundColor[i])*0.5f;
+		}
+	
+	/* Set the widget's and label's foreground color: */
+	Widget::setForegroundColor(fg);
+	label.setForeground(fg);
+	}
+
 Label::Label(const char* sName,Container* sParent,const char* sLabel,const GLFont* sFont,bool sManageChild)
 	:Widget(sName,sParent,false),
 	 marginWidth(0.0f),
 	 leftInset(0.0f),rightInset(0.0f),
+	 enabledForegroundColor(foregroundColor),
 	 label(sLabel,*sFont),
 	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
 	{
@@ -117,6 +134,9 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,const GLFon
 	/* Get the margin width: */
 	marginWidth=ss->labelMarginWidth;
 	
+	/* Initialize the minimum size: */
+	minSize[0]=minSize[1]=0.0f;
+	
 	/* Manage me: */
 	if(sManageChild)
 		manageChild();
@@ -126,6 +146,7 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,bool sManag
 	:Widget(sName,sParent,false),
 	 marginWidth(0.0f),
 	 leftInset(0.0f),rightInset(0.0f),
+	 enabledForegroundColor(foregroundColor),
 	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
 	{
 	/* Get the style sheet: */
@@ -144,6 +165,9 @@ Label::Label(const char* sName,Container* sParent,const char* sLabel,bool sManag
 	/* Get the margin width: */
 	marginWidth=ss->labelMarginWidth;
 	
+	/* Initialize the minimum size: */
+	minSize[0]=minSize[1]=0.0f;
+	
 	/* Manage me: */
 	if(sManageChild)
 		manageChild();
@@ -153,6 +177,7 @@ Label::Label(const char* sName,Container* sParent,const char* sLabelBegin,const 
 	:Widget(sName,sParent,false),
 	 marginWidth(0.0f),
 	 leftInset(0.0f),rightInset(0.0f),
+	 enabledForegroundColor(foregroundColor),
 	 hAlignment(GLFont::Left),vAlignment(GLFont::VCenter)
 	{
 	/* Get the style sheet: */
@@ -171,6 +196,9 @@ Label::Label(const char* sName,Container* sParent,const char* sLabelBegin,const 
 	/* Get the margin width: */
 	marginWidth=ss->labelMarginWidth;
 	
+	/* Initialize the minimum size: */
+	minSize[0]=minSize[1]=0.0f;
+	
 	/* Manage me: */
 	if(sManageChild)
 		manageChild();
@@ -182,6 +210,11 @@ Vector Label::calcNaturalSize(void) const
 	Vector result=label.calcNaturalSize();
 	result[0]+=2.0f*marginWidth+leftInset+rightInset;
 	result[1]+=2.0f*marginWidth;
+	
+	/* Check against the minimum size: */
+	for(int i=0;i<2;++i)
+		if(result[i]<minSize[i])
+			result[i]=minSize[i];
 	
 	return calcExteriorSize(result);
 	}
@@ -197,20 +230,21 @@ void Label::resize(const Box& newExterior)
 
 void Label::setBackgroundColor(const Color& newBackgroundColor)
 	{
-	/* Set the widget's background color: */
+	/* Set the widget's and label's background color: */
 	Widget::setBackgroundColor(newBackgroundColor);
-	
-	/* Set the label's background color: */
 	label.setBackground(newBackgroundColor);
+	
+	/* Update the foreground colors: */
+	updateColors();
 	}
 
 void Label::setForegroundColor(const Color& newForegroundColor)
 	{
-	/* Set the widget's foreground color: */
-	Widget::setForegroundColor(newForegroundColor);
+	/* Set the enabled-state foreground color: */
+	enabledForegroundColor=newForegroundColor;
 	
-	/* Set the label's foreground color: */
-	label.setForeground(newForegroundColor);
+	/* Update the foreground colors: */
+	updateColors();
 	}
 
 void Label::draw(GLContextData& contextData) const
@@ -238,6 +272,15 @@ void Label::draw(GLContextData& contextData) const
 	label.draw(contextData);
 	}
 
+void Label::setEnabled(bool newEnabled)
+	{
+	/* Call base class method: */
+	Widget::setEnabled(newEnabled);
+	
+	/* Update the foreground colors: */
+	updateColors();
+	}
+
 void Label::setMarginWidth(GLfloat newMarginWidth)
 	{
 	/* Set the new margin width: */
@@ -250,6 +293,25 @@ void Label::setMarginWidth(GLfloat newMarginWidth)
 		}
 	else
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+	}
+
+void Label::setMinSize(GLfloat newMinWidth,GLfloat newMinHeight)
+	{
+	/* Set the new minimum sizes: */
+	minSize[0]=newMinWidth;
+	minSize[1]=newMinHeight;
+	
+	/* Check if the widget violates the new minimum sizes: */
+	if(getInterior().size[0]<minSize[0]||getInterior().size[1]<minSize[1])
+		{
+		if(isManaged)
+			{
+			/* Try adjusting the widget size to accomodate the new margin width: */
+			parent->requestResize(this,calcNaturalSize());
+			}
+		else
+			resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+		}
 	}
 
 void Label::setHAlignment(GLFont::HAlignment newHAlignment)

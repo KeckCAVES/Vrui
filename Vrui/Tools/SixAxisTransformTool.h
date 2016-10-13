@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisTransformTool - Class to convert an input device with six
 valuators into a virtual 6-DOF input device.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <Misc/FixedArray.h>
+#include <Misc/Optional.h>
 #include <Geometry/Vector.h>
 #include <GL/GLMaterial.h>
 #include <Vrui/TransformTool.h>
@@ -53,8 +54,8 @@ class SixAxisTransformToolFactory:public ToolFactory
 		Misc::FixedArray<Vector,3> translations; // Translation vectors in physical space
 		Scalar rotateFactor; // Scaling factor for all scaled rotation axes
 		Misc::FixedArray<Vector,3> rotations; // Scaled rotation axes in physical space
-		bool followDisplayCenter; // If true, home position is the current display center
-		Point homePosition; // Position at which to create the device, and to which to return it when the home button is pressed
+		Misc::Optional<TrackerState> homePosition; // Position/orientation to which to return the virtual device when the home button is pressed
+		Misc::Optional<TrackerState> position; // Initial position/orientation of virtual device when the tool is created
 		std::string deviceGlyphType; // Name of glyph type to use to visualize the virtual input device
 		GLMaterial deviceGlyphMaterial; // Material properties for the device glyph
 		
@@ -64,6 +65,7 @@ class SixAxisTransformToolFactory:public ToolFactory
 		/* Methods: */
 		void load(const Misc::ConfigurationFileSection& cfs); // Loads configuration from configuration file section
 		void save(Misc::ConfigurationFileSection& cfs) const; // Saves configuration to configuration file section
+		TrackerState getHomePosition(void) const; // Returns the current home position
 		};
 	
 	/* Elements: */

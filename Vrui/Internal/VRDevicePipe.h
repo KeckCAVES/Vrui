@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevicePipe - Class defining the client-server protocol for remote VR
 devices and VR applications.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_VRDEVICEPIPE_INCLUDED
 #define VRUI_INTERNAL_VRDEVICEPIPE_INCLUDED
 
+#include <Misc/SizedTypes.h>
 #include <Comm/TCPPipe.h>
 
 namespace Vrui {
@@ -32,8 +33,8 @@ class VRDevicePipe:public Comm::TCPPipe
 	{
 	/* Embedded classes: */
 	public:
-	static const unsigned int protocolVersionNumber; // Version number of client/server protocol
-	typedef unsigned short int MessageIdType; // Network type for protocol messages
+	static const Misc::UInt32 protocolVersionNumber; // Version number of client/server protocol
+	typedef Misc::UInt16 MessageIdType; // Network type for protocol messages
 	
 	enum MessageId // Enumerated type for protocol messages
 		{
@@ -46,7 +47,8 @@ class VRDevicePipe:public Comm::TCPPipe
 		PACKET_REPLY, // Sends a device state packet
 		STARTSTREAM_REQUEST, // Requests entering stream mode (server sends packets automatically)
 		STOPSTREAM_REQUEST, // Requests leaving stream mode
-		STOPSTREAM_REPLY // Server's reply after last stream packet has been sent
+		STOPSTREAM_REPLY, // Server's reply after last stream packet has been sent
+		HMDCONFIG_UPDATE=16 // Server has an updated HMD configuration; lowest three bits of message ID define which components are updated
 		};
 	
 	/* Constructors and destructors: */
@@ -60,7 +62,7 @@ class VRDevicePipe:public Comm::TCPPipe
 		}
 	
 	/* New methods: */
-	void writeMessage(MessageId messageId) // Writes a protocol message to the pipe
+	void writeMessage(MessageIdType messageId) // Writes a protocol message to the pipe
 		{
 		write<MessageIdType>(messageId);
 		}

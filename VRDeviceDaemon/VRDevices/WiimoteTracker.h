@@ -1,7 +1,7 @@
 /***********************************************************************
 WiimoteTracker - Class to use a Nintendo Wii controller and a special
 infrared LED beacon as a 6-DOF tracking device.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,9 +24,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef WIIMOTETRACKER_INCLUDED
 #define WIIMOTETRACKER_INCLUDED
 
-#include <VRDeviceDaemon/VRDevices/CameraFitter.h>
-#include <VRDeviceDaemon/LevenbergMarquardtMinimizer.h>
+#include <Geometry/LevenbergMarquardtMinimizer.h>
 
+#include <VRDeviceDaemon/VRDevices/CameraFitter.h>
 #include <VRDeviceDaemon/VRDevice.h>
 
 /* Forward declarations: */
@@ -44,7 +44,7 @@ class WiimoteTracker:public VRDevice
 	typedef CameraFitter::Vector Vector;
 	typedef CameraFitter::Transform Transform;
 	typedef CameraFitter::Pixel Pixel;
-	typedef LevenbergMarquardtMinimizer<CameraFitter> LMCamera;
+	typedef Geometry::LevenbergMarquardtMinimizer<CameraFitter> LMCamera;
 	typedef Vrui::VRDeviceState::TrackerState::PositionOrientation PositionOrientation; // Type for tracker position/orientation
 	
 	/* Elements: */
@@ -52,6 +52,7 @@ class WiimoteTracker:public VRDevice
 	int ledMask; // LED array mask for the Wiimote device; set while Wiimote is active
 	bool enableTracker; // Flag whether to enable position tracking using the accelerometers and camera. If disabled, will report only buttons and optional Nunchuck joystick
 	CameraFitter wiiCamera; // Camera fitter object for the Wiimote
+	LMCamera wiiCameraMinimizer; // Non-linear Levenberg-Marquardt optimizer for the Wiimote camera fitter
 	Transform homeTransform; // "Home" position of the Wiimote; used when resetting tracking
 	bool firstEvent; // Flag if the received status update is the first
 	Vector acceleration; // Wiimote's current acceleration vector in device coordinates

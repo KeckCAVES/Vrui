@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceTest - Program to test the connection to a Vrui VR Device Daemon
 and to dump device positions/orientations and button states.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,10 +27,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iomanip>
 #include <stdexcept>
 #include <Misc/Timer.h>
+#include <Misc/FunctionCalls.h>
 #include <Misc/ConfigurationFile.h>
+#include <Realtime/Time.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/OutputOperators.h>
 #include <Vrui/Internal/VRDeviceDescriptor.h>
+#include <Vrui/Internal/HMDConfiguration.h>
 #include <Vrui/Internal/VRDeviceClient.h>
 
 typedef Vrui::VRDeviceState::TrackerState TrackerState;
@@ -39,6 +42,96 @@ typedef PositionOrientation::Scalar Scalar;
 typedef PositionOrientation::Point Point;
 typedef PositionOrientation::Vector Vector;
 typedef PositionOrientation::Rotation Rotation;
+
+class LatencyHistogram // Helper class to collect and print tracker data latency histograms
+	{
+	/* Elements: */
+	private:
+	unsigned int binSize; // Size of a histogram bin in microseconds
+	unsigned int maxBinLatency; // Maximum latency to expect in microseconds
+	unsigned int numBins; // Number of bins in the histogram
+	unsigned int* bins; // Array of histogram bins
+	unsigned int numSamples; // Number of samples in current observation period
+	double latencySum; // Sum of all latencies to calculate average latency
+	unsigned int minLatency,maxLatency; // Latency range in current observation period in microseconds
+	unsigned int maxBinSize; // Maximum number of samples in any bin
+	
+	/* Constructors and destructors: */
+	public:
+	LatencyHistogram(unsigned int sBinSize,unsigned int sMaxBinLatency)
+		:binSize(sBinSize),maxBinLatency(sMaxBinLatency),
+		 numBins(maxBinLatency/binSize+2),bins(new unsigned int[numBins])
+		{
+		/* Initialize the histogram: */
+		reset();
+		}
+	~LatencyHistogram(void)
+		{
+		delete[] bins;
+		}
+	
+	/* Methods: */
+	void reset(void) // Resets the histogram for the next observation period
+		{
+		/* Clear the histogram: */
+		for(unsigned int i=0;i<numBins;++i)
+			bins[i]=0;
+		
+		/* Reset the latency counter and range: */
+		numSamples=0;
+		latencySum=0.0;
+		minLatency=~0x0U;
+		maxLatency=0U;
+		maxBinSize=0U;
+		}
+	void addSample(unsigned int latency) // Adds a latency sample
+		{
+		/* Update the histogram: */
+		unsigned int binIndex=latency/binSize;
+		if(binIndex>numBins-1)
+			binIndex=numBins-1; // All outliers go into the last bin
+		++bins[binIndex];
+		if(maxBinSize<bins[binIndex])
+			maxBinSize=bins[binIndex];
+		
+		/* Update sample counter and range: */
+		++numSamples;
+		latencySum+=double(latency);
+		if(minLatency>latency)
+			minLatency=latency;
+		if(maxLatency<latency)
+			maxLatency=latency;
+		}
+	unsigned int getNumSamples(void) const
+		{
+		return numSamples;
+		}
+	void printHistogram(void) const // Prints the histogram
+		{
+		/* Calculate the range of non-empty bins: */
+		unsigned int firstBinIndex=minLatency/binSize;
+		if(firstBinIndex>numBins-1)
+			firstBinIndex=numBins-1;
+		unsigned int lastBinIndex=maxLatency/binSize;
+		if(lastBinIndex>numBins-1)
+			lastBinIndex=numBins-1;
+		
+		std::cout<<"Histogram of "<<numSamples<<" latency samples:"<<std::endl;
+		for(unsigned int i=firstBinIndex;i<=lastBinIndex;++i)
+			{
+			if(i<numBins-1)
+				std::cout<<std::setw(8)<<i*binSize<<' ';
+			else
+				std::cout<<"Outliers ";
+			unsigned int width=(bins[i]*71+maxBinSize-1)/maxBinSize;
+			for(unsigned int j=0;j<width;++j)
+				std::cout<<'*';
+			std::cout<<std::endl;
+			}
+		
+		std::cout<<"Average latency: "<<latencySum/double(numSamples)<<" us"<<std::endl;
+		}
+	};
 
 void printTrackerPos(const Vrui::VRDeviceState& state,int trackerIndex)
 	{
@@ -104,11 +197,53 @@ void printValuators(const Vrui::VRDeviceState& state)
 		}
 	}
 
+unsigned int numHmdConfigurations=0;
+const Vrui::HMDConfiguration** hmdConfigurations=0;
+unsigned int* eyePosVersions=0;
+unsigned int* eyeVersions=0;
+unsigned int* distortionMeshVersions=0;
+
+void hmdConfigurationUpdatedCallback(const Vrui::HMDConfiguration& hmdConfiguration)
+	{
+	/* Find the updated HMD configuration in the list: */
+	unsigned int index;
+	for(index=0;index<numHmdConfigurations&&hmdConfigurations[index]!=&hmdConfiguration;++index)
+		;
+	if(index<numHmdConfigurations)
+		{
+		std::cout<<"Received configuration update for HMD "<<index<<std::endl;
+		if(eyePosVersions[index]!=hmdConfiguration.getEyePosVersion())
+			{
+			std::cout<<"  Updated left eye position : "<<hmdConfiguration.getEyePosition(0)<<std::endl;
+			std::cout<<"  Updated right eye position: "<<hmdConfiguration.getEyePosition(0)<<std::endl;
+			
+			eyePosVersions[index]=hmdConfiguration.getEyePosVersion();
+			}
+		if(eyeVersions[index]!=hmdConfiguration.getEyeVersion())
+			{
+			std::cout<<"  Updated left eye field-of-view : "<<hmdConfiguration.getFov(0)[0]<<", "<<hmdConfiguration.getFov(0)[1]<<", "<<hmdConfiguration.getFov(0)[2]<<", "<<hmdConfiguration.getFov(0)[3]<<std::endl;
+			std::cout<<"  Updated right eye field-of-view: "<<hmdConfiguration.getFov(1)[0]<<", "<<hmdConfiguration.getFov(1)[1]<<", "<<hmdConfiguration.getFov(1)[2]<<", "<<hmdConfiguration.getFov(1)[3]<<std::endl;
+			
+			eyeVersions[index]=hmdConfiguration.getEyeVersion();
+			}
+		if(distortionMeshVersions[index]!=hmdConfiguration.getDistortionMeshVersion())
+			{
+			std::cout<<"  Updated render target size: "<<hmdConfiguration.getRenderTargetSize()[0]<<" x "<<hmdConfiguration.getRenderTargetSize()[1]<<std::endl;
+			std::cout<<"  Updated distortion mesh size: "<<hmdConfiguration.getDistortionMeshSize()[0]<<" x "<<hmdConfiguration.getDistortionMeshSize()[1]<<std::endl;
+			std::cout<<"  Updated left eye viewport : "<<hmdConfiguration.getViewport(0)[0]<<", "<<hmdConfiguration.getViewport(0)[1]<<", "<<hmdConfiguration.getViewport(0)[2]<<", "<<hmdConfiguration.getViewport(0)[3]<<std::endl;
+			std::cout<<"  Updated right eye viewport: "<<hmdConfiguration.getViewport(1)[0]<<", "<<hmdConfiguration.getViewport(1)[1]<<", "<<hmdConfiguration.getViewport(1)[2]<<", "<<hmdConfiguration.getViewport(1)[3]<<std::endl;
+			
+			distortionMeshVersions[index]=hmdConfiguration.getDistortionMeshVersion();
+			}
+		}
+	}
+
 int main(int argc,char* argv[])
 	{
 	/* Parse command line: */
 	char* serverName=0;
 	bool printDevices=false;
+	bool printHmdConfigurations=false;
 	int trackerIndex=0;
 	int printMode=0;
 	bool printButtonStates=false;
@@ -116,12 +251,18 @@ int main(int argc,char* argv[])
 	bool savePositions=false;
 	std::string saveFileName;
 	int triggerIndex=0;
+	int latencyIndex=-1;
+	unsigned int latencyBinSize=250;
+	unsigned int latencyMaxLatency=20000;
+	unsigned int latencyNumSamples=1000;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
 			{
 			if(strcasecmp(argv[i],"-listDevices")==0||strcasecmp(argv[i],"-ld")==0)
 				printDevices=true;
+			else if(strcasecmp(argv[i],"-listHMDs")==0||strcasecmp(argv[i],"-lh")==0)
+				printHmdConfigurations=true;
 			else if(strcasecmp(argv[i],"-t")==0||strcasecmp(argv[i],"--trackerIndex")==0)
 				{
 				++i;
@@ -152,6 +293,17 @@ int main(int argc,char* argv[])
 				++i;
 				triggerIndex=atoi(argv[i]);
 				}
+			else if(strcasecmp(argv[i],"-latency")==0)
+				{
+				++i;
+				latencyIndex=atoi(argv[i]);
+				++i;
+				latencyBinSize=(unsigned int)(atoi(argv[i]));
+				++i;
+				latencyMaxLatency=(unsigned int)(atoi(argv[i]));
+				++i;
+				latencyNumSamples=(unsigned int)(atoi(argv[i]));
+				}
 			}
 		else
 			serverName=argv[i];
@@ -159,7 +311,7 @@ int main(int argc,char* argv[])
 	
 	if(serverName==0)
 		{
-		std::cerr<<"Usage: "<<argv[0]<<" [(-t | --trackerIndex) <trackerIndex>] [-p | -o | -f | -v] [-b] <serverName:serverPort>"<<std::endl;
+		std::cerr<<"Usage: "<<argv[0]<<" [-ld | -listDevices] [-lh | -listHMDs] [(-t | --trackerIndex) <trackerIndex>] [-alltrackers] [-p | -o | -f | -v] [-b] [-n] [-save <save file name>] [-trigger <trigger index>] [-latency <trackerIndex> <bin size> <max latency> <num samples>] <serverName:serverPort>"<<std::endl;
 		return 1;
 		}
 	
@@ -231,6 +383,45 @@ int main(int argc,char* argv[])
 		std::cout<<std::endl;
 		}
 	
+	if(printHmdConfigurations)
+		{
+		/* Print information about the server's HMD configurations: */
+		std::cout<<"Device server at "<<serverName<<":"<<portNumber<<" defines "<<deviceClient->getNumHmdConfigurations()<<" head-mounted devices."<<std::endl;
+		deviceClient->lockHmdConfigurations();
+		for(unsigned int hmdIndex=0;hmdIndex<deviceClient->getNumHmdConfigurations();++hmdIndex)
+			{
+			const Vrui::HMDConfiguration& hc=deviceClient->getHmdConfiguration(hmdIndex);
+			std::cout<<"Head-mounted device "<<hmdIndex<<":"<<std::endl;
+			std::cout<<"  Tracker index: "<<hc.getTrackerIndex()<<std::endl;
+			std::cout<<"  Left eye position : "<<hc.getEyePosition(0)<<std::endl;
+			std::cout<<"  Right eye position: "<<hc.getEyePosition(1)<<std::endl;
+			std::cout<<"  Recommended per-eye render target size: "<<hc.getRenderTargetSize()[0]<<" x "<<hc.getRenderTargetSize()[1]<<std::endl;
+			std::cout<<"  Per-eye distortion mesh size: "<<hc.getDistortionMeshSize()[0]<<" x "<<hc.getDistortionMeshSize()[1]<<std::endl;
+			std::cout<<"  Left eye display viewport : "<<hc.getViewport(0)[0]<<", "<<hc.getViewport(0)[1]<<", "<<hc.getViewport(0)[2]<<", "<<hc.getViewport(0)[3]<<std::endl;
+			std::cout<<"  Right eye display viewport: "<<hc.getViewport(1)[0]<<", "<<hc.getViewport(1)[1]<<", "<<hc.getViewport(1)[2]<<", "<<hc.getViewport(1)[3]<<std::endl;
+			std::cout<<"  Left eye field-of-view : "<<hc.getFov(0)[0]<<", "<<hc.getFov(0)[1]<<", "<<hc.getFov(0)[2]<<", "<<hc.getFov(0)[3]<<std::endl;
+			std::cout<<"  Right eye field-of-view: "<<hc.getFov(1)[0]<<", "<<hc.getFov(1)[1]<<", "<<hc.getFov(1)[2]<<", "<<hc.getFov(1)[3]<<std::endl;
+			}
+		deviceClient->unlockHmdConfigurations();
+		}
+	
+	/* Initialize HMD configuration state arrays: */
+	numHmdConfigurations=deviceClient->getNumHmdConfigurations();
+	hmdConfigurations=new const Vrui::HMDConfiguration*[numHmdConfigurations];
+	eyePosVersions=new unsigned int[numHmdConfigurations];
+	eyeVersions=new unsigned int[numHmdConfigurations];
+	distortionMeshVersions=new unsigned int[numHmdConfigurations];
+	deviceClient->lockHmdConfigurations();
+	for(unsigned int i=0;i<numHmdConfigurations;++i)
+		{
+		hmdConfigurations[i]=&deviceClient->getHmdConfiguration(i);
+		eyePosVersions[i]=hmdConfigurations[i]->getEyePosVersion();
+		eyeVersions[i]=hmdConfigurations[i]->getEyeVersion();
+		distortionMeshVersions[i]=hmdConfigurations[i]->getDistortionMeshVersion();
+		deviceClient->setHmdConfigurationUpdatedCallback(hmdConfigurations[i]->getTrackerIndex(),Misc::createFunctionCall(hmdConfigurationUpdatedCallback));
+		}
+	deviceClient->unlockHmdConfigurations();
+	
 	/* Disable printing of tracking information if there are no trackers: */
 	deviceClient->lockState();
 	if(printMode==0&&deviceClient->getState().getNumTrackers()==0)
@@ -258,6 +449,13 @@ int main(int argc,char* argv[])
 			break;
 		}
 	
+	LatencyHistogram* latencyHistogram=0;
+	if(latencyIndex>=0)
+		{
+		/* Create a latency histogram: */
+		latencyHistogram=new LatencyHistogram(latencyBinSize,latencyMaxLatency);
+		}
+	
 	/* Run main loop: */
 	Misc::Timer t;
 	int numPackets=0;
@@ -265,16 +463,32 @@ int main(int argc,char* argv[])
 		{
 		deviceClient->activate();
 		deviceClient->startStream(0);
+		
 		bool loop=true;
 		bool oldTriggerState=false;
 		while(loop)
 			{
+			/* Get packet timestamp: */
+			Realtime::TimePointMonotonic now;
+			Vrui::VRDeviceState::TimeStamp nowTs=Vrui::VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+			++numPackets;
+			
 			/* Print new device state: */
 			if(!printNewlines)
 				std::cout<<"\r";
 			deviceClient->lockState();
 			const Vrui::VRDeviceState& state=deviceClient->getState();
-
+			
+			if(latencyHistogram!=0)
+				{
+				latencyHistogram->addSample(nowTs-state.getTrackerTimeStamp(latencyIndex));
+				if(latencyHistogram->getNumSamples()>=latencyNumSamples)
+					{
+					latencyHistogram->printHistogram();
+					latencyHistogram->reset();
+					}
+				}
+			
 			if(savePositions&&saveFile!=0)
 				{
 				if(oldTriggerState==false&&state.getButtonState(triggerIndex))
@@ -352,13 +566,9 @@ int main(int argc,char* argv[])
 			bool dataWaiting=select(fileno(stdin)+1,&readFdSet,0,0,&timeout)>=0&&FD_ISSET(fileno(stdin),&readFdSet);
 			if(dataWaiting)
 				loop=false;
-
-			if(loop)
-				{
-				/* Wait for next packet: */
-				deviceClient->getPacket();
-				++numPackets;
-				}
+			
+			/* Wait for next packet: */
+			deviceClient->getPacket();
 			}
 		std::cout<<std::endl;
 		}
@@ -374,6 +584,11 @@ int main(int argc,char* argv[])
 	deviceClient->deactivate();
 	
 	/* Clean up and terminate: */
+	delete[] hmdConfigurations;
+	delete[] eyePosVersions;
+	delete[] eyeVersions;
+	delete[] distortionMeshVersions;
+	delete latencyHistogram;
 	if(saveFile!=0)
 		fclose(saveFile);
 	delete deviceClient;

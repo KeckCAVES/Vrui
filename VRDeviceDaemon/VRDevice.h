@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRDEVICE_INCLUDED
 #define VRDEVICE_INCLUDED
 
+#include <Realtime/Time.h>
 #include <Threads/Thread.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Vrui/Internal/VRDeviceState.h>
@@ -52,19 +53,19 @@ class VRDevice
 	Factory* factory; // Pointer to factory that created this object
 	
 	protected:
+	VRDeviceManager* deviceManager; // Manager gathering data from VR devices
 	int numTrackers; // Number of trackers (position reporting devices) connected to device
 	int numButtons; // Number of buttons connected to device
 	int numValuators; // Number of valuators (non-positional analog dials) connected to device
+	TrackerPostTransformation* trackerPostTransformations; // Array of transformations to apply to calibrated tracker measurements
 	private:
 	int* trackerIndices; // Mapping from device tracker indices to "logical" tracker indices
-	TrackerPostTransformation* trackerPostTransformations; // Array of transformations to apply to calibrated tracker measurements
 	int* buttonIndices; // Mapping from device button indices to "logical" button indices
 	int* valuatorIndices; // Mapping from device valuator indices to "logical" valuator indices
 	float* valuatorThresholds; // Array of threshold values around zero for broken-line value mapping
 	float* valuatorExponents; // Array of exponent values for non-linear value mapping
 	bool active; // Flag if device is currently active
 	Threads::Thread deviceThread; // Device communication thread
-	VRDeviceManager* deviceManager; // Manager gathering data from VR devices
 	VRCalibrator* calibrator; // Calibrator for tracker measurements
 	
 	/* Private methods: */
@@ -77,7 +78,13 @@ class VRDevice
 	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile,const std::string* valuatorNames =0); // Sets number of valuators
 	void addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice); // Passes the given new virtual input device to the device manager
 	void calcVelocities(int deviceTrackerIndex,Vrui::VRDeviceState::TrackerState& newState); // Calculates tracker velocities based on elapsed time since last measurement
-	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state); // Sets (and calibrates) a tracker (device index given)
+	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state,Vrui::VRDeviceState::TimeStamp timeStamp); // Sets (and calibrates) a tracker (device index given)
+	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state) // Ditto, using current time as time stamp
+		{
+		Realtime::TimePointMonotonic now;
+		Vrui::VRDeviceState::TimeStamp nowTs=Vrui::VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+		setTrackerState(deviceTrackerIndex,state,nowTs);
+		}
 	void setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState); // Sets a button state (device index given)
 	void setValuatorState(int deviceValuatorIndex,Vrui::VRDeviceState::ValuatorState newState); // Sets a valuator state (device index given)
 	void updateState(void); // Notifies the device manager that this device's state can be sent to clients

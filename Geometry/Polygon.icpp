@@ -1,6 +1,6 @@
 /***********************************************************************
 Polygon - Class for planar polygons in affine space.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -45,7 +45,7 @@ template <class ScalarParam,int dimensionParam>
 inline
 PolygonBase<ScalarParam,dimensionParam>::PolygonBase(
 	int sNumVertices)
-	:numVertices(sNumVertices),vertices(new Point[numVertices])
+	:numVertices(sNumVertices),vertices(numVertices>0?new Point[numVertices]:0)
 	{
 	}
 
@@ -54,7 +54,7 @@ inline
 PolygonBase<ScalarParam,dimensionParam>::PolygonBase(
 	int sNumVertices,
 	const typename PolygonBase<ScalarParam,dimensionParam>::Point sVertices[])
-	:numVertices(sNumVertices),vertices(new Point[numVertices])
+	:numVertices(sNumVertices),vertices(numVertices>0?new Point[numVertices]:0)
 	{
 	/* Copy the source vertices: */
 	for(int i=0;i<numVertices;++i)
@@ -65,7 +65,7 @@ template <class ScalarParam,int dimensionParam>
 inline
 PolygonBase<ScalarParam,dimensionParam>::PolygonBase(
 	const PolygonBase<ScalarParam,dimensionParam>& source)
-	:numVertices(source.numVertices),vertices(new Point[numVertices])
+	:numVertices(source.numVertices),vertices(numVertices>0?new Point[numVertices]:0)
 	{
 	/* Copy the source vertices: */
 	for(int i=0;i<numVertices;++i)
@@ -86,7 +86,7 @@ PolygonBase<ScalarParam,dimensionParam>::operator=(
 			{
 			delete[] vertices;
 			numVertices=source.numVertices;
-			vertices=new Point[numVertices];
+			vertices=numVertices>0?new Point[numVertices]:0;
 			}
 		
 		/* Copy the source vertices: */
@@ -103,6 +103,26 @@ PolygonBase<ScalarParam,dimensionParam>::~PolygonBase(
 	void)
 	{
 	delete[] vertices;
+	}
+
+template <class ScalarParam,int dimensionParam>
+inline
+void
+PolygonBase<ScalarParam,dimensionParam>::setVertices(
+	int newNumVertices,
+	const typename PolygonBase<ScalarParam,dimensionParam>::Point newVertices[])
+	{
+	/* Re-allocate the vertex array: */
+	if(numVertices!=newNumVertices)
+		{
+		delete[] vertices;
+		numVertices=newNumVertices;
+		vertices=numVertices>0?new Point[numVertices]:0;
+		}
+
+	/* Copy the new vertices: */
+	for(int i=0;i<numVertices;++i)
+		vertices[i]=newVertices[i];
 	}
 
 template <class ScalarParam,int dimensionParam>
@@ -126,7 +146,7 @@ PolygonBase<ScalarParam,dimensionParam>::doClip(
 	{
 	/* Create temporary array of vertices: */
 	int numClipVertices=0;
-	Point* clipVertices=new Point[numVertices+1];
+	Point* clipVertices=new Point[numVertices+numVertices/2];
 	
 	/* Process each edge of the polygon: */
 	Point* p1=&vertices[numVertices-1];
@@ -158,15 +178,69 @@ PolygonBase<ScalarParam,dimensionParam>::doClip(
 		}
 	
 	/* Create the final polygon: */
-	if(numClipVertices!=numVertices)
-		{
-		delete[] vertices;
-		numVertices=numClipVertices;
-		vertices=new Point[numVertices];
-		}
-	for(int i=0;i<numVertices;++i)
-		vertices[i]=clipVertices[i];
+	setVertices(numClipVertices,clipVertices);
 	delete[] clipVertices;
+	}
+
+template <class ScalarParam,int dimensionParam>
+inline
+void
+PolygonBase<ScalarParam,dimensionParam>::doSplit(
+	const typename PolygonBase<ScalarParam,dimensionParam>::Plane& plane,
+	PolygonBase<ScalarParam,dimensionParam>& front)
+	{
+	/* Create two temporary arrays of vertices: */
+	int numSplitVertices[2];
+	Point* splitVertices[2];
+	for(int i=0;i<2;++i)
+		{
+		numSplitVertices[i]=0;
+		splitVertices[i]=new Point[numVertices+numVertices/2];
+		}
+	
+	/* Process each edge of the polygon: */
+	Point* p1=&vertices[numVertices-1];
+	Scalar d1=plane.calcDistance(*p1);
+	for(int i=0;i<numVertices;++i)
+		{
+		Point* p2=&vertices[i];
+		Scalar d2=plane.calcDistance(*p2);
+		
+		/* Check if the edge intersects the plane: */
+		if(d1*d2<Scalar(0))
+			{
+			/* Add the intersection point to both split polygons: */
+			splitVertices[0][numSplitVertices[0]]=splitVertices[1][numSplitVertices[1]]=affineCombination(*p1,*p2,-d1/(d2-d1));
+			++numSplitVertices[0];
+			++numSplitVertices[1];
+			}
+		
+		/* Check if the edge's end point is behind the plane: */
+		if(d2<=Scalar(0))
+			{
+			/* Add the end point to the first split polygon: */
+			splitVertices[0][numSplitVertices[0]]=*p2;
+			++numSplitVertices[0];
+			}
+		
+		/* Check if the edge's end point is in front of the plane: */
+		if(d2>=Scalar(0))
+			{
+			/* Add the end point to the second split polygon: */
+			splitVertices[1][numSplitVertices[1]]=*p2;
+			++numSplitVertices[1];
+			}
+		
+		/* Go to the next vertex: */
+		p1=p2;
+		d1=d2;
+		}
+	
+	/* Create the two final polygons: */
+	setVertices(numSplitVertices[0],splitVertices[0]);
+	front.setVertices(numSplitVertices[1],splitVertices[1]);
+	for(int i=0;i<2;++i)
+		delete[] splitVertices[i];
 	}
 
 /************************

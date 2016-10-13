@@ -1,7 +1,7 @@
 /***********************************************************************
 Atomic - Class for integer data types with atomic addition / subtraction
 operations.
-Copyright (c) 2012 Oliver Kreylos
+Copyright (c) 2012-2014 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -57,6 +57,10 @@ class Atomic
 	
 	/* Methods: */
 	public:
+	const Value& get(void) const // Returns current value
+		{
+		return value;
+		}
 	
 	/* Pre-operation methods; return atomic value after operation: */
 	Value preAdd(Value other) // Pre-addition

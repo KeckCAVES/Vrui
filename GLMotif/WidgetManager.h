@@ -1,7 +1,7 @@
 /***********************************************************************
 WidgetManager - Class to manage top-level GLMotif UI components and user
 events.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -41,7 +41,8 @@ namespace GLMotif {
 class Event;
 class TextEvent;
 class TextControlEvent;
-class StyleSheet;
+struct StyleSheet;
+class WidgetArranger;
 class Widget;
 }
 
@@ -223,6 +224,7 @@ class WidgetManager
 	/* Elements: */
 	private:
 	const StyleSheet* styleSheet; // The widget manager's style sheet
+	WidgetArranger* arranger; // Helper class to arrange top-level widgets in 3D display space
 	Misc::TimerEventScheduler* timerEventScheduler; // Pointer to a scheduler for timer events managed by the OS/window system binding layer
 	bool drawOverlayWidgets; // Flag whether widgets are drawn in an overlay layer on top of all other 3D imagery
 	WidgetAttributeMap widgetAttributeMap; // Map from widgets to widget attributes
@@ -243,7 +245,9 @@ class WidgetManager
 	/* Private methods: */
 	const PopupBinding* getRootBinding(const Widget* widget) const; // Returns the binding for a widget's root, or null if the widget's root is not bound
 	PopupBinding* getRootBinding(Widget* widget); // Ditto
+	void popupPrimaryWidgetAt(Widget* topLevelWidget,const Transformation& widgetToWorld); // Pops up a primary top level widget using the given widget transformation
 	void moveSecondaryWidgets(PopupBinding* parent,const Transformation& parentTransform); // Calls move callbacks for all secondary widgets belonging to the given parent
+	void deleteWidgetImmediately(Widget* widget); // Immediately deletes the given widget and removes and locks or holds
 	void deleteQueuedWidgets(void); // Deletes all widgets in the deletion list
 	
 	/* Constructors and destructors: */
@@ -256,6 +260,11 @@ class WidgetManager
 	const StyleSheet* getStyleSheet(void) const // Returns the widget manager's style sheet
 		{
 		return styleSheet;
+		}
+	void setArranger(WidgetArranger* newArranger); // Sets the widget manager's top-level widget arranger; manager inherits object
+	WidgetArranger* getArranger(void) const // Returns the widget manager's widget arranger
+		{
+		return arranger;
 		}
 	void setTimerEventScheduler(Misc::TimerEventScheduler* newTimerEventScheduler); // Sets the widget manager's timer event scheduler
 	const Misc::TimerEventScheduler* getTimerEventScheduler(void) const // Returns a pointer to the timer event scheduler
@@ -310,7 +319,9 @@ class WidgetManager
 			Misc::throwStdErr("GLMotif::WidgetManager::getWidgetAttribute: Attribute for widget %p is of wrong type",widget);
 		return wa->getValue();
 		}
-	void popupPrimaryWidget(Widget* topLevelWidget,const Transformation& widgetToWorld); // Pops up a primary top level widget
+	void popupPrimaryWidget(Widget* topLevelWidget); // Pops up a primary top level widget at a default position/orientation
+	void popupPrimaryWidget(Widget* topLevelWidget,const Point& hotspot); // Pops up a primary top level widget so that the widget's hot spot coincides with the given position
+	void popupPrimaryWidget(Widget* topLevelWidget,const Transformation& widgetToWorld); // Pops up a primary top level widget close to the given transformation
 	void popupSecondaryWidget(Widget* owner,Widget* topLevelWidget,const Vector& offset); // Pops up a secondary top level widget
 	void popdownWidget(Widget* widget); // Pops down the top level widget containing the given widget
 	PoppedWidgetIterator beginPrimaryWidgets(void) // Returns iterator to first primary widget
@@ -346,7 +357,11 @@ class WidgetManager
 		return pointerGrabWidget!=0;
 		}
 	bool requestFocus(Widget* widget); // Allows a widget to request the text entry focus; returns false if request was denied
-	void releaseFocus(Widget* widget); // Allows a widget to release the text entry focus; must be called by focus-holding widgets before destruction
+	void releaseFocus(Widget* widget); // Allows a widget to release the text entry focus
+	bool hasFocus(const Widget* widget) const // Returns true if the given widget currently has the text entry focus
+		{
+		return textFocusWidget==widget;
+		}
 	void focusPreviousWidget(void); // Moves the text entry focus to the previous widget in the list
 	void focusNextWidget(void); // Moves the text entry focus to the next widget in the list
 	bool text(const TextEvent& textEvent); // Handles a text event; returns true if event was received by a widget

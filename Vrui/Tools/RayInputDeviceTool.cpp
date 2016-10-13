@@ -1,7 +1,7 @@
 /***********************************************************************
 RayInputDeviceTool - Class for tools using a ray to interact with
 virtual input devices.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,7 +44,7 @@ Methods of class RayInputDeviceToolFactory:
 
 RayInputDeviceToolFactory::RayInputDeviceToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayInputDeviceTool",toolManager),
-	 rotateFactor(getInchFactor()*Scalar(3))
+	 rotateFactor(getDisplaySize()/Scalar(4))
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1,true);
@@ -121,8 +121,6 @@ RayInputDeviceTool::RayInputDeviceTool(const ToolFactory* sFactory,const ToolInp
 	:InputDeviceTool(sFactory,inputAssignment),
 	 dragger(getGlyphRenderer()->getGlyphSize(),factory->rotateFactor)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* RayInputDeviceTool::getFactory(void) const
@@ -137,13 +135,13 @@ void RayInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonC
 		if(cbData->newButtonState) // Button has just been pressed
 			{
 			/* Update the interaction ray: */
-			interactionRay=calcInteractionRay();
+			interactionRay=getButtonDeviceRay(0);
 
 			/* Try activating the tool: */
 			if(activate(interactionRay))
 				{
 				/* Pick the input device with the box ray dragger: */
-				if(!dragger.pick(getGrabbedDevice()->getTransformation(),interactionRay,-getMainViewer()->getViewDirection()))
+				if(!dragger.pick(getGrabbedDevice()->getTransformation(),interactionRay,-interactionRay.getDirection()))
 					{
 					/* Deactivate the tool again (it was a close miss): */
 					deactivate();
@@ -174,13 +172,17 @@ void RayInputDeviceTool::frame(void)
 	if(isActive())
 		{
 		/* Update the interaction ray: */
-		interactionRay=calcInteractionRay();
+		interactionRay=getButtonDeviceRay(0);
 		
 		/* Drag the box dragger: */
 		dragger.drag(interactionRay);
 		
 		/* Set the grabbed device's position and orientation: */
-		getGrabbedDevice()->setTransformation(dragger.getCurrentTransformation());
+		const ONTransform& transform=dragger.getCurrentTransformation();
+		getGrabbedDevice()->setTransformation(transform);
+		
+		/* Set the grabbed device's selection ray to the grabbing device's ray: */
+		getGrabbedDevice()->setDeviceRay(transform.inverseTransform(interactionRay.getDirection()),Scalar(0));
 		}
 	}
 

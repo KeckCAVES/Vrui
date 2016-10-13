@@ -1,7 +1,7 @@
 /***********************************************************************
 EyeRayTool - Class to transform the ray direction of an input device to
 point along the sight line from the main viewer to the input device.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -141,14 +141,17 @@ void EyeRayTool::frame(void)
 	{
 	/* Calculate a sight line from the main viewer to the device's position in physical space: */
 	Vector physRayDir=sourceDevice->getPosition()-getMainViewer()->getHeadPosition();
+	Scalar physRayDirLen=Geometry::mag(physRayDir);
+	physRayDir/=physRayDirLen;
 	
 	/* Transform the ray direction to device space: */
 	Vector deviceRayDir=sourceDevice->getTransformation().inverseTransform(physRayDir);
-	deviceRayDir.normalize();
-	transformedDevice->setDeviceRay(deviceRayDir,-getInchFactor());
+	transformedDevice->setDeviceRay(deviceRayDir,-physRayDirLen);
 	
 	/* Copy the source device's position and orientation: */
 	transformedDevice->setTransformation(sourceDevice->getTransformation());
+	transformedDevice->setLinearVelocity(sourceDevice->getLinearVelocity());
+	transformedDevice->setAngularVelocity(sourceDevice->getAngularVelocity());
 	}
 
 }

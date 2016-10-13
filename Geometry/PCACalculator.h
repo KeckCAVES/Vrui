@@ -2,7 +2,7 @@
 PCACalculator - Helper class to calculate the principal component
 analysis matrix of a set of 3D points by a single traversal over the set
 of points.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

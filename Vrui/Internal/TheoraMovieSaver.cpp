@@ -1,7 +1,7 @@
 /***********************************************************************
 TheoraMovieSaver - Helper class to save movies as Theora video streams
 packed into an Ogg container.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,9 +43,41 @@ Methods of class TheoraMovieSaver:
 
 void TheoraMovieSaver::frameWritingThreadMethod(void)
 	{
-	/* Get the first frame: */
-	frames.lockNewValue();
-	const FrameBuffer& frame=frames.getLockedValue();
+	/* Save frames until shut down: */
+	unsigned int frameIndex=0;
+	while(!done)
+		{
+		/* Add the most recent frame to the captured frame queue: */
+		{
+		Threads::MutexCond::Lock captureLock(captureCond);
+		frames.lockNewValue();
+		capturedFrames.push_back(frames.getLockedValue());
+		captureCond.signal();
+		}
+		
+		/* Wait for the next frame: */
+		int numSkippedFrames=waitForNextFrame();
+		if(numSkippedFrames>0)
+			{
+			std::cerr<<"TheoraMovieSaver: Skipped frames "<<frameIndex<<" to "<<frameIndex+numSkippedFrames-1<<std::endl;
+			frameIndex+=numSkippedFrames;
+			}
+		}
+	}
+
+void* TheoraMovieSaver::frameSavingThreadMethod(void)
+	{
+	/* Wait for the first frame: */
+	FrameBuffer frame;
+	{
+	Threads::MutexCond::Lock captureLock(captureCond);
+	while(!done&&capturedFrames.empty())
+		captureCond.wait(captureLock);
+	if(capturedFrames.empty()) // Bail out if there will be no more frames
+		return 0;
+	frame=capturedFrames.front();
+	capturedFrames.pop_front();
+	}
 	
 	/* Create the Theora info structure: */
 	Video::TheoraInfo theoraInfo;
@@ -65,8 +97,8 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 	theoraEncoder.init(theoraInfo);
 	if(!theoraEncoder.isValid())
 		{
-		std::cerr<<"MovieSaver: Could not initialize Theora encoder"<<std::endl;
-		return;
+		std::cerr<<"TheoraMovieSaver: Could not initialize Theora encoder"<<std::endl;
+		return 0;
 		}
 	
 	/* Create the image extractor: */
@@ -109,27 +141,32 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 		page.write(*movieFile);
 	
 	/* Encode and save frames until shut down: */
-	unsigned int frameIndex=0;
 	while(true)
 		{
-		/* Get the most recent frame and check whether it's new: */
-		bool newFrame=frames.lockNewValue();
-		FrameBuffer& frame=frames.getLockedValue();
-		if(newFrame)
+		/* Wait for the next frame: */
+		FrameBuffer frame;
+		{
+		Threads::MutexCond::Lock captureLock(captureCond);
+		while(!done&&capturedFrames.empty())
+			captureCond.wait(captureLock);
+		if(capturedFrames.empty()) // Bail out if there will be no more frames
+			break;
+		frame=capturedFrames.front();
+		capturedFrames.pop_front();
+		}
+		
+		/* Check if the frame is still the same size: */
+		if(imageSize[0]!=(unsigned int)frame.getFrameSize()[0]||imageSize[1]!=(unsigned int)frame.getFrameSize()[1])
 			{
-			/* Check if it's still the same size: */
-			if(imageSize[0]!=(unsigned int)frame.getFrameSize()[0]||imageSize[1]!=(unsigned int)frame.getFrameSize()[1])
-				{
-				/* Theora cannot handle changing frame sizes; bail out with an error: */
-				std::cerr<<"MovieSaver: Terminating due to changed frame size"<<std::endl;
-				return;
-				}
-			
-			/* Convert the new raw RGB frame to Y'CbCr 4:2:0: */
-			Video::FrameBuffer tempFrame;
-			tempFrame.start=frame.getBuffer();
-			imageExtractor->extractYpCbCr420(&tempFrame,theoraFrame.planes[0].data,theoraFrame.planes[0].stride,theoraFrame.planes[1].data,theoraFrame.planes[1].stride,theoraFrame.planes[2].data,theoraFrame.planes[2].stride);
+			/* Theora cannot handle changing frame sizes; bail out with an error: */
+			std::cerr<<"TheoraMovieSaver: Terminating due to changed frame size"<<std::endl;
+			return 0;
 			}
+		
+		/* Convert the new raw RGB frame to Y'CbCr 4:2:0: */
+		Video::FrameBuffer tempFrame;
+		tempFrame.start=frame.getBuffer();
+		imageExtractor->extractYpCbCr420(&tempFrame,theoraFrame.planes[0].data,theoraFrame.planes[0].stride,theoraFrame.planes[1].data,theoraFrame.planes[1].stride,theoraFrame.planes[2].data,theoraFrame.planes[2].stride);
 		
 		/* Feed the last converted Y'CbCr 4:2:0 frame to the Theora encoder: */
 		theoraEncoder.encodeFrame(theoraFrame);
@@ -146,16 +183,9 @@ void TheoraMovieSaver::frameWritingThreadMethod(void)
 			while(oggStream.pageOut(page))
 				page.write(*movieFile);
 			}
-		++frameIndex;
-		
-		/* Wait for the next frame: */
-		int numSkippedFrames=waitForNextFrame();
-		if(numSkippedFrames>0)
-			{
-			std::cerr<<"MovieSaver: Skipped frames "<<frameIndex<<" to "<<frameIndex+numSkippedFrames-1<<std::endl;
-			frameIndex+=numSkippedFrames;
-			}
 		}
+	
+	return 0;
 	}
 
 TheoraMovieSaver::TheoraMovieSaver(const Misc::ConfigurationFileSection& configFileSection)
@@ -163,6 +193,7 @@ TheoraMovieSaver::TheoraMovieSaver(const Misc::ConfigurationFileSection& configF
 	 movieFile(IO::openFile(configFileSection.retrieveString("./movieFileName").c_str(),IO::File::WriteOnly)),
 	 oggStream(1),
 	 theoraBitrate(0),theoraQuality(32),theoraGopSize(32),
+	 done(false),
 	 imageExtractor(0)
 	{
 	movieFile->setEndianness(Misc::LittleEndian);
@@ -184,13 +215,19 @@ TheoraMovieSaver::TheoraMovieSaver(const Misc::ConfigurationFileSection& configF
 	theoraFrameRate=int(frameRate+0.5);
 	frameRate=theoraFrameRate;
 	frameInterval=Misc::Time(1.0/frameRate);
+	
+	/* Start the movie file writing thread: */
+	frameSavingThread.start(this,&TheoraMovieSaver::frameSavingThreadMethod);
 	}
 
 TheoraMovieSaver::~TheoraMovieSaver(void)
 	{
-	/* Stop the frame writing thread: */
-	frameWritingThread.cancel();
-	frameWritingThread.join();
+	/* Signal the frame capturing and saving threads to shut down: */
+	done=true;
+	captureCond.signal();
+	
+	/* Wait until the frame saving thread has saved all frames and terminates: */
+	frameSavingThread.join();
 	
 	/* Flush the Ogg stream: */
 	Video::OggPage page;

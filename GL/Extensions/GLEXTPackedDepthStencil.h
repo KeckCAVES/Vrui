@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTPackedDepthStencil - OpenGL extension class for the
 GL_EXT_packed_depth_stencil extension.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -47,6 +47,7 @@ class GLEXTPackedDepthStencil:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTPackedDepthStencil*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

@@ -1,7 +1,7 @@
 /***********************************************************************
 SixDofInputDeviceTool - Class for tools using a 6-DOF input device to
 interact with virtual input devices.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -112,8 +112,6 @@ Methods of class SixDofInputDeviceTool:
 SixDofInputDeviceTool::SixDofInputDeviceTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:InputDeviceTool(sFactory,inputAssignment)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* SixDofInputDeviceTool::getFactory(void) const
@@ -138,10 +136,10 @@ void SixDofInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::Butt
 				else
 					{
 					/* Try activating the tool: */
-					if(activate(getInteractionPosition()))
+					if(activate(getButtonDevicePosition(0)))
 						{
 						/* Initialize the dragging transformation: */
-						preScale=Geometry::invert(interactionDevice->getTransformation());
+						preScale=Geometry::invert(getButtonDeviceTransformation(0));
 						preScale*=getGrabbedDevice()->getTransformation();
 						}
 					}
@@ -150,10 +148,10 @@ void SixDofInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::Butt
 		else if(cbData->newButtonState) // Button has just been pressed
 			{
 			/* Try activating the tool: */
-			if(activate(getInteractionPosition()))
+			if(activate(getButtonDevicePosition(0)))
 				{
 				/* Initialize the dragging transformation: */
-				preScale=Geometry::invert(interactionDevice->getTransformation());
+				preScale=Geometry::invert(getButtonDeviceTransformation(0));
 				preScale*=getGrabbedDevice()->getTransformation();
 				}
 			}
@@ -175,7 +173,7 @@ void SixDofInputDeviceTool::frame(void)
 	if(isActive())
 		{
 		/* Calculate the current transformation: */
-		TrackerState current=interactionDevice->getTransformation();
+		TrackerState current=getButtonDeviceTransformation(0);
 		current*=preScale;
 		
 		/* Set the grabbed device's position and orientation: */

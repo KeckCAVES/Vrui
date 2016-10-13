@@ -1,7 +1,7 @@
 /***********************************************************************
 VariableMemoryFile - Class to write to variable-sized in-memory files as
 temporary file storage.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2016 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -81,7 +81,9 @@ class VariableMemoryFile:public File
 	BufferHeader* current; // Pointer to the buffer currently being filled by the base class
 	
 	/* Protected methods from File: */
+	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:

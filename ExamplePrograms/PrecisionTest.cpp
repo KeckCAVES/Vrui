@@ -1,7 +1,7 @@
 /***********************************************************************
 PrecisionTest - Simple utility to measure the 3D picking accuracy of a
 user in a holographic display.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -162,7 +162,7 @@ PrecisionTest::~PrecisionTest(void)
 void PrecisionTest::frame(void)
 	{
 	if(Vrui::getApplicationTime()<traverseEnd)
-		Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0);
+		Vrui::scheduleUpdate(Vrui::getNextAnimationTime());
 	}
 
 void PrecisionTest::display(GLContextData& contextData) const

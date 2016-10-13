@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,13 +21,20 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Vrui/InputDeviceManager.h>
+
+#define DEBUGGING 0
+#if DEBUGGING
+#include <iostream>
+#endif
+
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <utility>
-#include <iostream>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -35,6 +42,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/Internal/InputDeviceAdapter.h>
 #include <Vrui/Internal/InputDeviceAdapterMouse.h>
+#include <Vrui/Internal/InputDeviceAdapterMultitouch.h>
 #include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
 #include <Vrui/Internal/InputDeviceAdapterTrackd.h>
 #include <Vrui/Internal/InputDeviceAdapterVisBox.h>
@@ -44,9 +52,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifdef __APPLE__
 #include <Vrui/Internal/MacOSX/InputDeviceAdapterHID.h>
 #endif
+#include <Vrui/Internal/InputDeviceAdapterOVRD.h>
 #include <Vrui/Internal/InputDeviceAdapterPlayback.h>
-
-#include <Vrui/InputDeviceManager.h>
+#include <Vrui/Internal/InputDeviceAdapterDummy.h>
 
 namespace Vrui {
 
@@ -85,8 +93,8 @@ static int getPrefixLength(const char* deviceName)
 Methods of class InputDeviceManager:
 ***********************************/
 
-InputDeviceManager::InputDeviceManager(InputGraphManager* sInputGraphManager)
-	:inputGraphManager(sInputGraphManager),
+InputDeviceManager::InputDeviceManager(InputGraphManager* sInputGraphManager,TextEventDispatcher* sTextEventDispatcher)
+	:inputGraphManager(sInputGraphManager),textEventDispatcher(sTextEventDispatcher),
 	 numInputDeviceAdapters(0),inputDeviceAdapters(0)
 	{
 	}
@@ -138,6 +146,7 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 	/* Initialize input device adapters: */
 	int numIgnoredAdapters=0;
 	int mouseAdapterIndex=-1;
+	int multitouchAdapterIndex=-1;
 	for(int i=0;i<numInputDeviceAdapters;++i)
 		{
 		/* Go to input device adapter's section: */
@@ -156,13 +165,30 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 					/* Ignore this input device adapter: */
 					inputDeviceAdapters[i]=0;
 					++numIgnoredAdapters;
-					std::cout<<"InputDeviceManager: Ignoring mouse input device adapter "<<inputDeviceAdapterNames[i]<<" because there is already a mouse input device adapter"<<std::endl;
+					Misc::formattedConsoleError("InputDeviceManager: Ignoring mouse input device adapter %s because there is already a mouse input device adapter",inputDeviceAdapterNames[i].c_str());
 					}
 				else
 					{
 					/* Create mouse input device adapter: */
 					inputDeviceAdapters[i]=new InputDeviceAdapterMouse(this,inputDeviceAdapterSection);
 					mouseAdapterIndex=i;
+					}
+				}
+			else if(inputDeviceAdapterType=="Multitouch")
+				{
+				/* Check if there is already a multitouch input device adapter: */
+				if(multitouchAdapterIndex>=0)
+					{
+					/* Ignore this input device adapter: */
+					inputDeviceAdapters[i]=0;
+					++numIgnoredAdapters;
+					Misc::formattedConsoleError("InputDeviceManager: Ignoring multitouch input device adapter %s because there is already a multitouch input device adapter",inputDeviceAdapterNames[i].c_str());
+					}
+				else
+					{
+					/* Create multitouch input device adapter: */
+					inputDeviceAdapters[i]=new InputDeviceAdapterMultitouch(this,inputDeviceAdapterSection);
+					multitouchAdapterIndex=i;
 					}
 				}
 			else if(inputDeviceAdapterType=="DeviceDaemon")
@@ -185,19 +211,28 @@ void InputDeviceManager::initialize(const Misc::ConfigurationFileSection& config
 				/* Create HID input device adapter: */
 				inputDeviceAdapters[i]=new InputDeviceAdapterHID(this,inputDeviceAdapterSection);
 				}
+			else if(inputDeviceAdapterType=="OVRD")
+				{
+				/* Create OVRD input device adapter: */
+				inputDeviceAdapters[i]=new InputDeviceAdapterOVRD(this,inputDeviceAdapterSection);
+				}
 			else if(inputDeviceAdapterType=="Playback")
 				{
-				/* Create device daemon input device adapter: */
+				/* Create playback input device adapter: */
 				inputDeviceAdapters[i]=new InputDeviceAdapterPlayback(this,inputDeviceAdapterSection);
+				}
+			else if(inputDeviceAdapterType=="Dummy")
+				{
+				/* Create dummy input device adapter: */
+				inputDeviceAdapters[i]=new InputDeviceAdapterDummy(this,inputDeviceAdapterSection);
 				}
 			else
 				typeFound=false;
 			}
 		catch(std::runtime_error err)
 			{
-			/* Print a warning message: */
-			std::cout<<"InputDeviceManager: Ignoring input device adapter "<<inputDeviceAdapterNames[i];
-			std::cout<<" due to exception "<<err.what()<<std::endl;
+			/* Print an error message: */
+			Misc::formattedConsoleError("InputDeviceManager: Ignoring input device adapter %s due to exception %s",inputDeviceAdapterNames[i].c_str(),err.what());
 			
 			/* Ignore the input device adapter: */
 			inputDeviceAdapters[i]=0;
@@ -247,7 +282,7 @@ void InputDeviceManager::addAdapter(InputDeviceAdapter* newAdapter)
 	inputDeviceAdapters[numInputDeviceAdapters-1]=newAdapter;
 	}
 
-InputDeviceAdapter* InputDeviceManager::findInputDeviceAdapter(InputDevice* device) const
+InputDeviceAdapter* InputDeviceManager::findInputDeviceAdapter(const InputDevice* device) const
 	{
 	/* Search all input device adapters: */
 	for(int i=0;i<numInputDeviceAdapters;++i)
@@ -300,6 +335,10 @@ InputDevice* InputDeviceManager::createInputDevice(const char* deviceName,int tr
 	else
 		newDevicePtr->set(deviceName,trackType,numButtons,numValuators);
 	
+	#if DEBUGGING
+	std::cout<<"IDM: Creating "<<(physicalDevice?"physical":"virtual")<<" input device "<<newDevicePtr<<" ("<<newDevicePtr->getDeviceName()<<") with "<<numButtons<<" buttons and "<<numValuators<<" valuators"<<std::endl;
+	#endif
+	
 	/* Add the new input device to the input graph: */
 	inputGraphManager->addInputDevice(newDevicePtr);
 	
@@ -341,11 +380,21 @@ InputDevice* InputDeviceManager::findInputDevice(const char* deviceName)
 
 void InputDeviceManager::destroyInputDevice(InputDevice* inputDevice)
 	{
+	#if DEBUGGING
+	std::cout<<"IDM: Destruction process for input device "<<inputDevice<<" ("<<inputDevice->getDeviceName()<<")"<<std::endl;
+	#endif
+	
 	/* Call the input device destruction callbacks: */
+	#if DEBUGGING
+	std::cout<<"IDM: Calling destruction callbacks for input device "<<inputDevice<<std::endl;
+	#endif
 	InputDeviceDestructionCallbackData cbData(this,inputDevice);
 	inputDeviceDestructionCallbacks.call(&cbData);
 	
 	/* Remove the device from the input graph: */
+	#if DEBUGGING
+	std::cout<<"IDM: Removing input device "<<inputDevice<<" from input graph"<<std::endl;
+	#endif
 	inputGraphManager->removeInputDevice(inputDevice);
 	
 	/* Find the input device in the list: */
@@ -356,6 +405,10 @@ void InputDeviceManager::destroyInputDevice(InputDevice* inputDevice)
 			inputDevices.erase(idIt);
 			break;
 			}
+	
+	#if DEBUGGING
+	std::cout<<"IDM: Finished destruction process for input device "<<inputDevice<<std::endl;
+	#endif
 	}
 
 std::string InputDeviceManager::getFeatureName(const InputDeviceFeature& feature) const

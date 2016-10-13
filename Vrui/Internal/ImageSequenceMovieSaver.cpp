@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageSequenceMovieSaver - Helper class to save movies as sequences of
 image files in formats supported by the Images library.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,9 +34,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
-/*********************************
-Methods of class TheoraMovieSaver:
-*********************************/
+/****************************************
+Methods of class ImageSequenceMovieSaver:
+****************************************/
 
 void ImageSequenceMovieSaver::frameWritingThreadMethod(void)
 	{
@@ -56,7 +56,7 @@ void ImageSequenceMovieSaver::frameWritingThreadMethod(void)
 		int numSkippedFrames=waitForNextFrame();
 		if(numSkippedFrames>0)
 			{
-			std::cerr<<"MovieSaver: Skipped frames "<<frameIndex<<" to "<<frameIndex+numSkippedFrames-1<<std::endl;
+			std::cerr<<"ImageSequenceMovieSaver: Skipped frames "<<frameIndex<<" to "<<frameIndex+numSkippedFrames-1<<std::endl;
 			frameIndex+=numSkippedFrames;
 			}
 		}

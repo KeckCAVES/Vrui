@@ -1,6 +1,6 @@
 /***********************************************************************
 Polygon - Class for planar polygons in affine space.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -74,6 +74,7 @@ class PolygonBase
 		{
 		return vertices[vertexIndex];
 		}
+	void setVertices(int newNumVertices,const Point newVertices[]); // Assigns a new vertex list to the polygon
 	Point calcCentroid(void) const; // Returns the polygon's centroid
 	template <class TransformationParam>
 	void doTransform(const TransformationParam& t) // Transforms the polygon by the given transformation
@@ -83,6 +84,7 @@ class PolygonBase
 			vertices[i]=t.transform(vertices[i]);
 		}
 	void doClip(const Plane& plane); // Clips a convex polygon against the given plane; retains part of the polygon behind the plane
+	void doSplit(const Plane& plane,PolygonBase& front); // Ditto, but copies part of the polygon in front of the plane to the given front polygon
 	};
 
 /*************************
@@ -140,6 +142,11 @@ class Polygon:public PolygonBase<ScalarParam,dimensionParam>
 	Polygon& clip(const Plane& plane) // Clips a convex polygon against the given plane; retains part of the polygon behind the plane
 		{
 		Base::doClip(plane);
+		return *this;
+		}
+	Polygon& split(const Plane& plane,Polygon& front) // Ditto, but copies part of the polygon in front of the plane to the front polygon
+		{
+		Base::doSplit(plane,front);
 		return *this;
 		}
 	int* calcProjectionAxes(const Vector& polygonNormal,int projectionAxes[2]) const; // Calculates projection axes for later point-in-polygon tests
@@ -206,9 +213,14 @@ class Polygon<ScalarParam,2>:public PolygonBase<ScalarParam,2>
 		Base::doTransform(t);
 		return *this;
 		}
-	Polygon& clip(const typename Base::Plane& plane) // Clips a convex polygon against the given plane; retains part of the polygon behind the plane
+	Polygon& clip(const Plane& plane) // Clips a convex polygon against the given plane; retains part of the polygon behind the plane
 		{
 		Base::doClip(plane);
+		return *this;
+		}
+	Polygon& split(const Plane& plane,Polygon& front) // Ditto, but copies part of the polygon in front of the plane to the front polygon
+		{
+		Base::doSplit(plane,front);
 		return *this;
 		}
 	bool isInside(const Point& p) const; // Returns true if the polygon contains the point

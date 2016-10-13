@@ -1,6 +1,6 @@
 /***********************************************************************
 AnnotationTool - Tool to interactively annotate 3D models.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

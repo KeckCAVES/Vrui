@@ -1,6 +1,6 @@
 /***********************************************************************
 Matrix - Class to represent double-valued matrices of dynamic sizes.
-Copyright (c) 2000-2010 Oliver Kreylos
+Copyright (c) 2000-2015 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -36,7 +36,7 @@ Helper functions:
 
 /* Perform Gaussian elimination with column pivoting on an extended matrix: */
 
-void gaussColumnPivoting(unsigned int numRows,unsigned int numColumns,double* m)
+bool gaussColumnPivoting(unsigned int numRows,unsigned int numColumns,double* m)
 	{
 	for(unsigned int step=0;step<numRows-1;++step)
 		{
@@ -57,7 +57,7 @@ void gaussColumnPivoting(unsigned int numRows,unsigned int numColumns,double* m)
 		
 		/* Check for rank deficiency: */
 		if(pivot==0.0)
-			throw Matrix::RankDeficientError();
+			return false;
 		
 		/* Swap current and pivot rows if necessary: */
 		if(pivotRow!=step)
@@ -82,6 +82,8 @@ void gaussColumnPivoting(unsigned int numRows,unsigned int numColumns,double* m)
 				*r2Ptr+=(*r1Ptr)*factor;
 			}
 		}
+	
+	return true;
 	}
 
 /* Perform Gaussian elimination with full pivoting on an extended matrix; returns row rank of matrix: */
@@ -421,7 +423,12 @@ Matrix Matrix::inverse(void) const
 		}
 	
 	/* Perform Gauss elimination with column pivoting on the extended matrix: */
-	gaussColumnPivoting(numRows,numRows*2,ext);
+	if(!gaussColumnPivoting(numRows,numRows*2,ext))
+		{
+		/* Matrix is not invertible; throw exception: */
+		delete[] ext;
+		throw RankDeficientError();
+		}
 	
 	/* Create the result matrix by backsubstitution: */
 	Matrix result(numRows,numRows);
@@ -472,7 +479,12 @@ Matrix Matrix::inverseFullPivot(void) const
 	/* Perform Gauss elimination with full pivoting on the extended matrix: */
 	int swapSign;
 	if(gaussFullPivoting(numRows,numRows*2,ext,numRows,columnIndices,swapSign)<numRows)
+		{
+		/* Matrix is not invertible; throw exception: */
+		delete[] ext;
+		delete[] columnIndices;
 		throw RankDeficientError();
+		}
 	
 	/* Create the result matrix by backsubstitution: */
 	Matrix result(numRows,numRows);
@@ -546,7 +558,12 @@ Matrix& Matrix::operator/=(const Matrix& other)
 		}
 	
 	/* Perform Gauss elimination with column pivoting on the extended matrix: */
-	gaussColumnPivoting(numRows,numRows+numColumns,ext);
+	if(!gaussColumnPivoting(numRows,numRows+numColumns,ext))
+		{
+		/* Matrix is not invertible; throw exception: */
+		delete[] ext;
+		throw RankDeficientError();
+		}
 	
 	/* Ensure that the element array is private: */
 	makePrivate();
@@ -599,7 +616,12 @@ Matrix& Matrix::divideFullPivot(const Matrix& other)
 	/* Perform Gauss elimination with full pivoting on the extended matrix: */
 	int swapSign;
 	if(gaussFullPivoting(numRows,numRows+numColumns,ext,numRows,columnIndices,swapSign)<numRows)
+		{
+		/* Matrix is not invertible; throw exception: */
+		delete[] ext;
+		delete[] columnIndices;
 		throw RankDeficientError();
+		}
 	
 	/* Ensure that the element array is private: */
 	makePrivate();
@@ -784,7 +806,7 @@ Matrix Matrix::kernel(void) const
 	return result;
 	}
 
-std::pair<Matrix,Matrix> Matrix::solveLinearSystem(const Matrix& coefficients) const
+std::pair<Matrix,Matrix> Matrix::solveLinearSystem(const Matrix& coefficients,double zeroFudge) const
 	{
 	/* Create a temporary matrix: */
 	double* ext=new double[numRows*(numColumns+coefficients.numColumns)];
@@ -822,7 +844,7 @@ std::pair<Matrix,Matrix> Matrix::solveLinearSystem(const Matrix& coefficients) c
 			vector[i1-1]=0.0;
 			
 			/* Check if the solution exists: */
-			if(i1<=numRows&&ext[(i1-1)*(numColumns+coefficients.numColumns)+numColumns+columnIndex]!=0.0)
+			if(i1<=numRows&&Math::abs(ext[(i1-1)*(numColumns+coefficients.numColumns)+numColumns+columnIndex])>zeroFudge)
 				throw RankDeficientError();
 			}
 		for(unsigned int i1=rank;i1>0;--i1) // i1 is actual i+1

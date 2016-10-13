@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexShader - OpenGL extension class for the GL_ARB_vertex_shader
 extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -68,6 +68,7 @@ class GLARBVertexShader:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBVertexShader*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLBINDATTRIBLOCATIONARBPROC glBindAttribLocationARBProc;
 	PFNGLGETACTIVEATTRIBARBPROC glGetActiveAttribARBProc;
 	PFNGLGETATTRIBLOCATIONARBPROC glGetAttribLocationARBProc;

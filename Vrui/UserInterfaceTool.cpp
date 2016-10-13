@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,15 +34,35 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
+/********************************************************
+Methods of class UserInterfaceToolFactory::Configuration:
+********************************************************/
+
+UserInterfaceToolFactory::Configuration::Configuration(void)
+	:drawRay(true),rayColor(1.0f,0.0f,0.0f),rayWidth(3.0f)
+	{
+	}
+
+void UserInterfaceToolFactory::Configuration::read(const Misc::ConfigurationFileSection& cfs)
+	{
+	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
+	rayColor=cfs.retrieveValue<GLColor<GLfloat,4> >("./rayColor",rayColor);
+	rayWidth=cfs.retrieveValue<GLfloat>("./rayWidth",rayWidth);
+	}
+
+void UserInterfaceToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
+	{
+	cfs.storeValue<bool>("./drawRay",drawRay);
+	cfs.storeValue<GLColor<GLfloat,4> >("./rayColor",rayColor);
+	cfs.storeValue<GLfloat>("./rayWidth",rayWidth);
+	}
+
 /*****************************************
 Methods of class UserInterfaceToolFactory:
 *****************************************/
 
 UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
-	:ToolFactory("UserInterfaceTool",toolManager),
-	 useEyeRay(false),
-	 rayOffset(getUiSize()*Scalar(2)),
-	 drawRay(true),rayColor(1.0f,0.0f,0.0f),rayWidth(3.0f)
+	:ToolFactory("UserInterfaceTool",toolManager)
 	{
 	#if 0
 	/* Insert class into class hierarchy: */
@@ -53,16 +73,7 @@ UserInterfaceToolFactory::UserInterfaceToolFactory(ToolManager& toolManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	useEyeRay=cfs.retrieveValue<bool>("./useEyeRay",useEyeRay);
-	if(useEyeRay)
-		{
-		/* The default is not to draw the interaction ray when eye rays are used: */
-		drawRay=false;
-		}
-	rayOffset=cfs.retrieveValue<Scalar>("./rayOffset",rayOffset);
-	drawRay=cfs.retrieveValue<bool>("./drawRay",drawRay);
-	rayColor=cfs.retrieveValue<GLColor<GLfloat,4> >("./rayColor",rayColor);
-	rayWidth=cfs.retrieveValue<GLfloat>("./rayWidth",rayWidth);
+	configuration.read(cfs);
 	
 	/* Set tool class' factory pointer: */
 	UserInterfaceTool::factory=this;
@@ -89,53 +100,22 @@ UserInterfaceToolFactory* UserInterfaceTool::factory=0;
 Methods of class UserInterfaceTool:
 **********************************/
 
-Ray UserInterfaceTool::calcInteractionRay(void) const
-	{
-	Ray result;
-	
-	if(factory->useEyeRay)
-		{
-		/* Shoot a ray from the main viewer: */
-		Point start=getMainViewer()->getHeadPosition();
-		Vector direction=interactionDevice->getPosition()-start;
-		direction.normalize();
-		result=Ray(start,direction);
-		}
-	else
-		{
-		/* Use the device's ray direction: */
-		result=Ray(interactionDevice->getPosition(),interactionDevice->getRayDirection());
-		
-		/* Offset the ray start point backwards: */
-		result.setOrigin(result.getOrigin()-result.getDirection()*(factory->rayOffset/result.getDirection().mag()));
-		}
-	
-	return result;
-	}
-
-ONTransform UserInterfaceTool::calcScreenTransform(const Ray& ray) const
-	{
-	ONTransform result;
-	
-	std::pair<VRScreen*,Scalar> si=findScreen(ray);
-	if(si.first!=0)
-		{
-		/* Get the screen's transformation: */
-		result=si.first->getScreenTransformation();
-		
-		/* Set the intersection point as origin: */
-		result.getTranslation()=ray(si.second)-Point::origin;
-		}
-	else
-		result=ONTransform::translateFromOriginTo(ray.getOrigin());
-	
-	return result;
-	}
-
 UserInterfaceTool::UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:Tool(factory,inputAssignment),
-	 interactionDevice(0)
+	 configuration(UserInterfaceTool::factory->configuration)
 	{
+	}
+
+void UserInterfaceTool::configure(const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Override private configuration data from given configuration file section: */
+	configuration.read(configFileSection);
+	}
+
+void UserInterfaceTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Write private configuration data to given configuration file section: */
+	configuration.write(configFileSection);
 	}
 
 }

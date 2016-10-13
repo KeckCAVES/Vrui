@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -194,7 +194,7 @@ EarthquakeSet::DataItem::~DataItem(void)
 Methods of class EarthquakeSet:
 ******************************/
 
-void EarthquakeSet::loadANSSFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor)
+void EarthquakeSet::loadANSSFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,std::vector<Event>& eventList)
 	{
 	/* Wrap a value source around the input file: */
 	IO::ValueSource source(earthquakeFile);
@@ -245,18 +245,18 @@ void EarthquakeSet::loadANSSFile(IO::FilePtr earthquakeFile,const Geometry::Geoi
 		/* Convert the spherical position to offset and scaled Cartesian: */
 		Geometry::Geoid<double>::Point cartesianPosition=referenceEllipsoid.geodeticToCartesian(geodeticPosition);
 		for(int i=0;i<3;++i)
-			e.position[i]=float((cartesianPosition[i]+offset[i])*scaleFactor);
+			e[i]=float((cartesianPosition[i]+offset[i])*scaleFactor);
 		
 		/* Read magnitude: */
 		std::string mag(line,49,5);
 		e.magnitude=float(atof(mag.c_str()));
 		
 		/* Save the event: */
-		events.push_back(e);
+		eventList.push_back(e);
 		}
 	}
 
-void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor)
+void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,std::vector<Event>& eventList)
 	{
 	/* Wrap a value source around the input file: */
 	IO::ValueSource source(earthquakeFile);
@@ -430,7 +430,7 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 				cartesianPosition=referenceEllipsoid.geodeticToCartesian(geodeticPosition);
 				}
 			for(int i=0;i<3;++i)
-				e.position[i]=float((cartesianPosition[i]+offset[i])*scaleFactor);
+				e[i]=float((cartesianPosition[i]+offset[i])*scaleFactor);
 			
 			/* Calculate the event time: */
 			e.time=parseDateTime(date.c_str(),time.c_str());
@@ -439,7 +439,7 @@ void EarthquakeSet::loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid
 			e.magnitude=magnitude;
 			
 			/* Append the event to the earthquake set: */
-			events.push_back(e);
+			eventList.push_back(e);
 			}
 		
 		++lineNumber;
@@ -464,7 +464,7 @@ void EarthquakeSet::drawBackToFront(const Point& eyePos,GLuint* bufferPtr) const
 	/* Initialize the traversal stack: */
 	TraversalStack* tsPtr=traversalStack;
 	tsPtr->left=0;
-	tsPtr->right=int(events.size())-1;
+	tsPtr->right=events.getNumNodes()-1;
 	tsPtr->splitDimension=0;
 	
 	/*********************************************************************
@@ -481,7 +481,7 @@ void EarthquakeSet::drawBackToFront(const Point& eyePos,GLuint* bufferPtr) const
 	tsPtr->root=(tsPtr->left+tsPtr->right)>>1;
 	
 	/* Decide whether to go left or right first: */
-	tsPtr->goLeftFirst=eyePos[tsPtr->splitDimension]>events[tsPtr->root].position[tsPtr->splitDimension];
+	tsPtr->goLeftFirst=eyePos[tsPtr->splitDimension]>events.getNode(tsPtr->root)[tsPtr->splitDimension];
 	
 	if(tsPtr->goLeftFirst)
 		{
@@ -568,7 +568,7 @@ void EarthquakeSet::drawBackToFront(int left,int right,int splitDimension,const 
 		childSplitDimension=0;
 	
 	/* Traverse into the subtree on the far side of the split plane first: */
-	if(eyePos[splitDimension]>events[treePointIndices[mid]].position[splitDimension])
+	if(eyePos[splitDimension]>events.getNode(mid)[splitDimension])
 		{
 		/* Traverse left child: */
 		if(left<mid)
@@ -749,7 +749,6 @@ void EarthquakeSet::createShader(EarthquakeSet::DataItem* dataItem,const GLClipP
 EarthquakeSet::EarthquakeSet(IO::DirectoryPtr directory,const char* earthquakeFileName,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,const GLColorMap& sColorMap)
 	:GLObject(false),
 	 colorMap(sColorMap),
-	 treePointIndices(0),
 	 layeredRendering(false),
 	 pointRadius(1.0f),highlightTime(1.0),currentTime(0.0)
 	{
@@ -758,17 +757,23 @@ EarthquakeSet::EarthquakeSet(IO::DirectoryPtr directory,const char* earthquakeFi
 	
 	try
 		{
+		/* Create a temporary event list: */
+		std::vector<Event> eventList;
+		
 		/* Check the earthquake file name's extension: */
 		if(Misc::hasCaseExtension(earthquakeFileName,".anss"))
 			{
 			/* Read an earthquake database snapshot in "readable" ANSS format: */
-			loadANSSFile(earthquakeFile,referenceEllipsoid,offset,scaleFactor);
+			loadANSSFile(earthquakeFile,referenceEllipsoid,offset,scaleFactor,eventList);
 			}
 		else
 			{
 			/* Read an earthquake event file in space- or comma-separated format: */
-			loadCSVFile(earthquakeFile,referenceEllipsoid,offset,scaleFactor);
+			loadCSVFile(earthquakeFile,referenceEllipsoid,offset,scaleFactor,eventList);
 			}
+		
+		/* Sort the event list into a kd-tree: */
+		events.setPoints(int(eventList.size()),&eventList[0],8);
 		}
 	catch(std::runtime_error err)
 		{
@@ -776,29 +781,11 @@ EarthquakeSet::EarthquakeSet(IO::DirectoryPtr directory,const char* earthquakeFi
 		Misc::throwStdErr("EarthquakeSet::EarthquakeSet: Error \"%s\" while reading file %s",err.what(),earthquakeFileName);
 		}
 	
-	/* Create a temporary kd-tree to sort the events for back-to-front traversal: */
-	Geometry::ArrayKdTree<Geometry::ValuedPoint<Point,int> > sortTree(events.size());
-	Geometry::ValuedPoint<Point,int>* stPtr=sortTree.accessPoints();
-	int i=0;
-	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt,++stPtr,++i)
-		{
-		*stPtr=eIt->position;
-		stPtr->value=i;
-		}
-	sortTree.releasePoints(8);
-	
-	/* Retrieve the sorted event indices: */
-	treePointIndices=new int[events.size()];
-	stPtr=sortTree.accessPoints();
-	for(int i=0;i<sortTree.getNumNodes();++i,++stPtr)
-		treePointIndices[i]=stPtr->value;
-	
 	GLObject::init();
 	}
 
 EarthquakeSet::~EarthquakeSet(void)
 	{
-	delete[] treePointIndices;
 	}
 
 void EarthquakeSet::initContext(GLContextData& contextData) const
@@ -812,24 +799,21 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 		typedef GLGeometry::Vertex<float,2,GLubyte,4,void,float,3> Vertex;
 		
 		/* Create a vertex buffer object to store the events: */
+		const Event* ePtr=events.accessPoints();
 		glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
-		glBufferDataARB(GL_ARRAY_BUFFER_ARB,events.size()*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
+		glBufferDataARB(GL_ARRAY_BUFFER_ARB,size_t(events.getNumNodes())*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
 		Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
-		int numPoints=int(events.size());
-		for(int i=0;i<numPoints;++i,++vPtr)
+		for(int i=0;i<events.getNumNodes();++i,++ePtr,++vPtr)
 			{
-			/* Get a reference to the event in kd-tree order: */
-			const Event& e=events[treePointIndices[i]];
-			
 			/* Copy the event's magnitude and time: */
-			vPtr->texCoord[0]=Vertex::TexCoord::Scalar(e.magnitude);
-			vPtr->texCoord[1]=Vertex::TexCoord::Scalar(e.time);
+			vPtr->texCoord[0]=Vertex::TexCoord::Scalar(ePtr->magnitude);
+			vPtr->texCoord[1]=Vertex::TexCoord::Scalar(ePtr->time);
 			
 			/* Map the event's magnitude to color: */
-			vPtr->color=Vertex::Color(colorMap(e.magnitude));
+			vPtr->color=Vertex::Color(colorMap(ePtr->magnitude));
 			
 			/* Copy the event's position: */
-			vPtr->position=e.position;
+			vPtr->position=*ePtr;
 			}
 		glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
 		
@@ -872,7 +856,7 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 		
 		/* Create an index buffer to render points in depth order: */
 		glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,dataItem->sortedPointIndicesBufferObjectId);
-		glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,events.size()*sizeof(GLuint),0,GL_STREAM_DRAW_ARB);
+		glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,size_t(events.getNumNodes())*sizeof(GLuint),0,GL_STREAM_DRAW_ARB);
 		glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
 		}
 	}
@@ -880,8 +864,9 @@ void EarthquakeSet::initContext(GLContextData& contextData) const
 EarthquakeSet::TimeRange EarthquakeSet::getTimeRange(void) const
 	{
 	TimeRange result=TimeRange::empty;
-	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
-		result.addValue(eIt->time);
+	const Event* ePtr=events.accessPoints();
+	for(int i=0;i<events.getNumNodes();++i,++ePtr)
+		result.addValue(ePtr->time);
 	
 	return result;
 	}
@@ -964,7 +949,7 @@ void EarthquakeSet::glRenderAction(GLContextData& contextData) const
 		glVertexPointer(static_cast<Vertex*>(0));
 		
 		/* Render the vertex array: */
-		glDrawArrays(GL_POINTS,0,events.size());
+		glDrawArrays(GL_POINTS,0,events.getNumNodes());
 		
 		/* Protect the vertex buffer object: */
 		GLVertexArrayParts::disable(Vertex::getPartsMask());
@@ -974,8 +959,8 @@ void EarthquakeSet::glRenderAction(GLContextData& contextData) const
 		{
 		/* Render the earthquake set as a regular vertex array of points: */
 		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3,GL_FLOAT,sizeof(Event),&events[0].position);
-		glDrawArrays(GL_POINTS,0,events.size());
+		glVertexPointer(3,GL_FLOAT,sizeof(Event),events.accessPoints()->getComponents());
+		glDrawArrays(GL_POINTS,0,events.getNumNodes());
 		glDisableClientState(GL_VERTEX_ARRAY);
 		}
 	
@@ -1067,6 +1052,9 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 			/* Check if the eye position changed since the last rendering pass: */
 			if(dataItem->eyePos!=eyePos)
 				{
+				/* Start a new buffer to hopefully exploit double-buffering and fool Nvidia's buffer upload heuristics: */
+				glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,size_t(events.getNumNodes())*sizeof(GLuint),0,GL_STREAM_DRAW_ARB);
+				
 				/* Re-sort the points according to the new eye position: */
 				GLuint* bufferPtr=static_cast<GLuint*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
 				#if EARTHQUAKESET_EXPLICIT_RECURSION
@@ -1080,7 +1068,7 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 				}
 			
 			/* Render the vertex array in back-to-front order: */
-			glDrawElements(GL_POINTS,events.size(),GL_UNSIGNED_INT,0);
+			glDrawElements(GL_POINTS,events.getNumNodes(),GL_UNSIGNED_INT,0);
 			
 			/* Protect the point indices buffer: */
 			glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
@@ -1088,7 +1076,7 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 		else
 			{
 			/* Render the points in arbitrary order: */
-			glDrawArrays(GL_POINTS,0,events.size());
+			glDrawArrays(GL_POINTS,0,events.getNumNodes());
 			}
 		
 		/* Protect the vertex buffer object: */
@@ -1099,8 +1087,8 @@ void EarthquakeSet::glRenderAction(const EarthquakeSet::Point& eyePos,bool front
 		{
 		/* Render the earthquake set as a regular vertex array of points: */
 		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3,GL_FLOAT,sizeof(Event),&events[0].position);
-		glDrawArrays(GL_POINTS,0,events.size());
+		glVertexPointer(3,GL_FLOAT,sizeof(Event),events.accessPoints()->getComponents());
+		glDrawArrays(GL_POINTS,0,events.getNumNodes());
 		glDisableClientState(GL_VERTEX_ARRAY);
 		}
 	
@@ -1122,12 +1110,13 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Poin
 	const Event* result=0;
 	
 	float minDist2=Math::sqr(maxDist);
-	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
+	const Event* ePtr=events.accessPoints();
+	for(int i=0;i<events.getNumNodes();++i,++ePtr)
 		{
-		float dist2=Geometry::sqrDist(pos,eIt->position);
+		float dist2=Geometry::sqrDist(pos,*ePtr);
 		if(minDist2>dist2)
 			{
-			result=&(*eIt);
+			result=ePtr;
 			minDist2=dist2;
 			}
 		}
@@ -1141,15 +1130,16 @@ const EarthquakeSet::Event* EarthquakeSet::selectEvent(const EarthquakeSet::Ray&
 	
 	float coneAngleCos2=Math::sqr(coneAngleCos);
 	float lambdaMin=Math::Constants<float>::max;
-	for(std::vector<Event>::const_iterator eIt=events.begin();eIt!=events.end();++eIt)
+	const Event* ePtr=events.accessPoints();
+	for(int i=0;i<events.getNumNodes();++i,++ePtr)
 		{
-		Ray::Vector sp=eIt->position-ray.getOrigin();
+		Ray::Vector sp=*ePtr-ray.getOrigin();
 		float x=sp*ray.getDirection();
 		if(x>=0.0f&&x<lambdaMin)
 			{
 			if(Math::sqr(x)>coneAngleCos2*Geometry::sqr(sp))
 				{
-				result=&(*eIt);
+				result=ePtr;
 				lambdaMin=x;
 				}
 			}

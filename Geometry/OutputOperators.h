@@ -1,7 +1,7 @@
 /***********************************************************************
 OutputOperators - Basic iostream output operators for templatized
 geometry objects.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

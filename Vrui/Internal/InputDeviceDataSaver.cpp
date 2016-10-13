@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceDataSaver - Class to save input device data to a file for
 later playback.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -40,6 +40,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
+#include <Vrui/TextEventDispatcher.h>
 #ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
 #include <Vrui/Internal/KinectRecorder.h>
 #endif
@@ -50,10 +51,11 @@ namespace Vrui {
 Methods of class InputDeviceDataSaver:
 *************************************/
 
-InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection& configFileSection,InputDeviceManager& inputDeviceManager,unsigned int randomSeed)
+InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection& configFileSection,InputDeviceManager& inputDeviceManager,TextEventDispatcher* sTextEventDispatcher,unsigned int randomSeed)
 	:inputDeviceDataFile(IO::openFile(Misc::createNumberedFileName(configFileSection.retrieveString("./inputDeviceDataFileName"),4).c_str(),IO::File::WriteOnly)),
 	 numInputDevices(inputDeviceManager.getNumInputDevices()),
 	 inputDevices(new InputDevice*[numInputDevices]),
+	 textEventDispatcher(sTextEventDispatcher),
 	 soundRecorder(0),
 	 #ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT
 	 kinectRecorder(0),
@@ -62,7 +64,7 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 	{
 	/* Write a file identification header: */
 	inputDeviceDataFile->setEndianness(Misc::LittleEndian);
-	static const char* fileHeader="Vrui Input Device Data File v3.0\n";
+	static const char* fileHeader="Vrui Input Device Data File v4.0\n";
 	inputDeviceDataFile->write<char>(fileHeader,34);
 	
 	/* Save the random number seed: */
@@ -198,6 +200,9 @@ void InputDeviceDataSaver::saveCurrentState(double currentTimeStamp)
 			inputDeviceDataFile->write(valuatorState);
 			}
 		}
+	
+	/* Write all enqueued text and text control events: */
+	textEventDispatcher->writeEventQueues(*inputDeviceDataFile);
 	}
 
 }

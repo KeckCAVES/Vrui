@@ -1,7 +1,7 @@
 /***********************************************************************
 GLContext - Class to encapsulate state relating to a single OpenGL
 context, to facilitate context sharing between windows.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -31,20 +31,45 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 Methods of class GLContext:
 **************************/
 
-GLContext::GLContext(const char* displayName,int* visualProperties)
-	:display(0),visual(0),depth(-1),
+GLContext::GLContext(const char* sDisplayName)
+	:displayName(sDisplayName!=0?sDisplayName:"default"),display(0),screen(-1),visual(0),context(None),depth(-1),
 	 extensionManager(0),contextData(0)
 	{
 	/* Open connection to the X server: */
-	display=XOpenDisplay(displayName);
+	display=XOpenDisplay(sDisplayName);
 	if(display==0)
-		Misc::throwStdErr("GLContext: Unable to open display %s",displayName!=0?displayName:"default");
-	int screen=DefaultScreen(display);
+		Misc::throwStdErr("GLContext: Unable to open display %s",displayName.c_str());
 	
 	/* Query for GLX extension: */
 	int errorBase,eventBase;
 	if(!glXQueryExtension(display,&errorBase,&eventBase))
-		Misc::throwStdErr("GLContext: GLX extension not supported on display %s",displayName!=0?displayName:"default");
+		Misc::throwStdErr("GLContext: GLX extension not supported on display %s",displayName.c_str());
+	}
+
+GLContext::~GLContext(void)
+	{
+	/* Release this GLX context if it is the current one: */
+	if(glXGetCurrentContext()==context)
+		glXMakeCurrent(display,None,0);
+	
+	if(context!=None)
+		{
+		/* Destroy this GLX context: */
+		glXDestroyContext(display,context);
+		}
+	
+	/* Close the X server connection: */
+	XCloseDisplay(display);
+	}
+
+void GLContext::initialize(int sScreen,int* visualProperties)
+	{
+	/* Select a screen: */
+	screen=sScreen;
+	if(screen<0)
+		screen=XDefaultScreen(display);
+	else if(screen>=XScreenCount(display))
+		Misc::throwStdErr("GLContext::createContext: Requested screen index %d on display %s larger than %d",screen,displayName.c_str(),XScreenCount(display)-1);
 	
 	/* Use default visual properties if none were provided: */
 	int defaultVisualProperties[]={GLX_RGBA,GLX_RED_SIZE,8,GLX_GREEN_SIZE,8,GLX_BLUE_SIZE,8,GLX_DEPTH_SIZE,16,GLX_DOUBLEBUFFER,None};
@@ -82,7 +107,7 @@ GLContext::GLContext(const char* displayName,int* visualProperties)
 			if(visInfo==0)
 				{
 				/* Now fail: */
-				Misc::throwStdErr("GLContext: No suitable visual found on display %s",displayName!=0?displayName:"default");
+				Misc::throwStdErr("GLContext::createContext: No suitable visual found on display %s",displayName.c_str());
 				}
 			}
 		}
@@ -90,7 +115,7 @@ GLContext::GLContext(const char* displayName,int* visualProperties)
 	/* Create an OpenGL context: */
 	context=glXCreateContext(display,visInfo,0,GL_TRUE);
 	if(context==0)
-		Misc::throwStdErr("GLContext: Unable to create OpenGL context on display %s",displayName!=0?displayName:"default");
+		Misc::throwStdErr("GLContext::createContext: Unable to create OpenGL context on display %s",displayName.c_str());
 	
 	/* Remember the chosen visual and display bit depth: */
 	visual=visInfo->visual;
@@ -100,17 +125,9 @@ GLContext::GLContext(const char* displayName,int* visualProperties)
 	XFree(visInfo);
 	}
 
-GLContext::~GLContext(void)
+bool GLContext::isDirect(void) const
 	{
-	/* Release this GLX context if it is the current one: */
-	if(glXGetCurrentContext()==context)
-		glXMakeCurrent(display,None,0);
-	
-	/* Destroy this GLX context: */
-	glXDestroyContext(display,context);
-	
-	/* Close the X server connection: */
-	XCloseDisplay(display);
+	return glXIsDirect(display,context);
 	}
 
 void GLContext::init(GLXDrawable drawable)

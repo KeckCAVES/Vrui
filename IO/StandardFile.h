@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Class for high-performance reading/writing from/to
 standard operating system files.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -38,6 +38,7 @@ class StandardFile:public SeekableFile
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Private methods: */
 	void openFile(const char* fileName,AccessMode accessMode,int flags,int mode); // Opens a file and handles errors

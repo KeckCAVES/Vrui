@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -381,6 +381,9 @@ class ConfigurationFileBase
 		{
 		return SectionIterator(rootSection);
 		}
+	
+	/* External file operations: */
+	static void patchFile(const char* fileName,const char* tagPath,const char* newValue); // Patches the given tag/value pair into the configuration file of the given name while leaving the file's layout as intact as possible
 	};
 
 class ConfigurationFileSection:public ConfigurationFileBase::SectionValueCoder
@@ -442,6 +445,15 @@ class ConfigurationFile:public ConfigurationFileBase,public ConfigurationFileBas
 	void reload(void) // Reloads contents of original configuration file, and resets current section to root section
 		{
 		load(fileName.c_str());
+		}
+	template <class PipeParam>
+	void readFromPipe(PipeParam& pipe) // Reads a configuration file from a pipe, and resets current section to root section
+		{
+		/* Call base class method: */
+		ConfigurationFileBase::readFromPipe(pipe);
+		
+		/* Reset the current section pointer to the root section: */
+		baseSection=rootSection;
 		}
 	
 	/* New methods: */

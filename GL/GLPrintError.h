@@ -1,7 +1,7 @@
 /***********************************************************************
 GLPrintError - Helper function to print a plain-text OpenGL error
 message.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <ostream>
 
-void glPrintError(std::ostream& os); // Prints an error message to the given output stream
-void glPrintError(std::ostream& os,const char* messageTag); // Ditto, but prints the given message tag before the error message
+void glPrintError(void); // Prints the most recent OpenGL error message to the error log
+void glPrintError(const char* messageTag); // Ditto, but prints the given message tag before the error message
 
 #endif

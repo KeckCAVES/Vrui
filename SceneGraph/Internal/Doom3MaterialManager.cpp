@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3MaterialManager - Class to manage access to shared Doom3 material
 definitions.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <SceneGraph/Internal/Doom3FileManager.h>
 #include <SceneGraph/Internal/Doom3CollisionFlags.h>
 #include <SceneGraph/Internal/Doom3ValueSource.h>
+#include <SceneGraph/Internal/Config.h>
 
 namespace SceneGraph {
 
@@ -569,7 +570,7 @@ void Doom3MaterialManager::initContext(GLContextData& contextData) const
 	
 	if(dataItem->haveShaders)
 		{
-		std::string shaderDir=SCENEGRAPH_DOOM3MATERIALMANAGER_SHADERDIR;
+		std::string shaderDir=SCENEGRAPH_CONFIG_DOOM3MATERIALMANAGER_SHADERDIR;
 		shaderDir.push_back('/');
 		
 		/* Load the shared vertex program: */

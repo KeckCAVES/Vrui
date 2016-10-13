@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFogCoord - OpenGL extension class for the GL_EXT_fog_coord
 extension.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -67,6 +67,7 @@ class GLEXTFogCoord:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTFogCoord*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLFOGCOORDFEXTPROC glFogCoordfEXTProc;
 	PFNGLFOGCOORDDEXTPROC glFogCoorddEXTProc;
 	PFNGLFOGCOORDFVEXTPROC glFogCoordfvEXTProc;

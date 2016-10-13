@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBGeometryShader4 - OpenGL extension class for the
 GL_ARB_geometry_shader4 extension.
-Copyright (c) 2007-2013 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2014 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -32,6 +32,7 @@ Static elements of class GLARBGeometryShader4:
 *********************************************/
 
 GL_THREAD_LOCAL(GLARBGeometryShader4*) GLARBGeometryShader4::current=0;
+const char* GLARBGeometryShader4::name="GL_ARB_geometry_shader4";
 
 /*************************************
 Methods of class GLARBGeometryShader4:
@@ -51,7 +52,7 @@ GLARBGeometryShader4::~GLARBGeometryShader4(void)
 
 const char* GLARBGeometryShader4::getExtensionName(void) const
 	{
-	return "GL_ARB_geometry_shader4";
+	return name;
 	}
 
 void GLARBGeometryShader4::activate(void)
@@ -67,13 +68,13 @@ void GLARBGeometryShader4::deactivate(void)
 bool GLARBGeometryShader4::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_geometry_shader4");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBGeometryShader4::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_geometry_shader4"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBGeometryShader4* newExtension=new GLARBGeometryShader4;

@@ -1,7 +1,7 @@
 /***********************************************************************
 GeoCoordinateSystem - Abstract base class for projected, geographic, or
 geocentric coordinate systems used in geodesy.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -24,15 +24,15 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef GEOMETRY_GEOCOORDINATESYSTEM_INCLUDED
 #define GEOMETRY_GEOCOORDINATESYSTEM_INCLUDED
 
-#include <Misc/RefCounted.h>
 #include <Misc/Autopointer.h>
+#include <Threads/RefCounted.h>
 #include <IO/Directory.h>
 #include <Geometry/Point.h>
 #include <Geometry/Box.h>
 
 namespace Geometry {
 
-class GeoCoordinateSystem:public Misc::RefCounted
+class GeoCoordinateSystem:public Threads::RefCounted
 	{
 	/* Embedded classes: */
 	public:
@@ -46,7 +46,7 @@ class GeoCoordinateSystem:public Misc::RefCounted
 
 typedef Misc::Autopointer<GeoCoordinateSystem> GeoCoordinateSystemPtr; // Type for autopointers to geodetic coordinate systems
 
-class GeoReprojector:public Misc::RefCounted // Abstract base class to reproject points from a source to a destination coordinate system
+class GeoReprojector:public Threads::RefCounted // Abstract base class to reproject points from a source to a destination coordinate system
 	{
 	/* Embedded classes: */
 	public:

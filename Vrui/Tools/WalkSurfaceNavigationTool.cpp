@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkSurfaceNavigationTool - Version of the WalkNavigationTool that lets
 a user navigate along an application-defined surface.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -344,7 +344,7 @@ void WalkSurfaceNavigationTool::frame(void)
 		/* Add the current flying and falling velocities: */
 		if(jetpack!=Scalar(0))
 			moveDir+=getValuatorDeviceRayDirection(0)*jetpack;
-		moveDir[2]+=fallVelocity;
+		moveDir+=getUpDirection()*fallVelocity;
 		
 		/* Calculate the complete movement vector: */
 		move+=moveDir*getCurrentFrameTime();
@@ -395,7 +395,7 @@ void WalkSurfaceNavigationTool::frame(void)
 		if(speed!=Scalar(0)||z>Scalar(0)||jetpack!=Scalar(0))
 			{
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		}
 	}
@@ -507,19 +507,12 @@ void WalkSurfaceNavigationTool::initContext(GLContextData& contextData) const
 		/* Create the HUD display list: */
 		glNewList(dataItem->hudListId,GL_COMPILE);
 		
-		/* Determine the HUD colors: */
-		Color bgColor=getBackgroundColor();
-		Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
 		/* Calculate the HUD layout: */
 		Scalar hudRadius=getDisplaySize()*Scalar(2);
 		Scalar hudTickSize=factory->hudFontSize;
 		
 		/* Draw the azimuth tick marks: */
-		glColor(fgColor);
+		glColor(getForegroundColor());
 		glBegin(GL_LINES);
 		for(int az=0;az<360;az+=10)
 			{

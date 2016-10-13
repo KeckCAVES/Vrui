@@ -1,7 +1,7 @@
 /***********************************************************************
 Node - Base class for nodes, i.e., shared elements of rendering or other
 state.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

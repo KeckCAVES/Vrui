@@ -2,7 +2,7 @@
 GLARBDrawInstanced - OpenGL extension class for the
 GL_ARB_draw_instanced extension.
 Copyright (c) 2010 Rolf Westerteiger
-Fixes copyright (c) 2010-2013 Oliver Kreylos
+Fixes copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -36,8 +36,8 @@ Extension-specific parts of gl.h:
 #define GL_ARB_draw_instanced 1
 
 /* Extension-specific functions: */
-typedef void (GLAPIENTRY * PFNGLDRAWARRAYSINSTANCEDARBPROC) (GLenum, GLint, GLsizei, GLsizei);
-typedef void (GLAPIENTRY * PFNGLDRAWELEMENTSINSTANCEDARBPROC) (GLenum, GLsizei, GLenum, const GLvoid*, GLsizei);
+typedef void (APIENTRY * PFNGLDRAWARRAYSINSTANCEDARBPROC) (GLenum, GLint, GLsizei, GLsizei);
+typedef void (APIENTRY * PFNGLDRAWELEMENTSINSTANCEDARBPROC) (GLenum, GLsizei, GLenum, const GLvoid*, GLsizei);
 
 #endif
 
@@ -50,6 +50,7 @@ class GLARBDrawInstanced:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBDrawInstanced*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLDRAWARRAYSINSTANCEDARBPROC glDrawArraysInstancedARBProc;
 	PFNGLDRAWELEMENTSINSTANCEDARBPROC glDrawElementsInstancedARBProc;
 	

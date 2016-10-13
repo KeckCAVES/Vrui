@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupWindow - Class for main windows with a draggable title bar and an
 optional close button.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -531,6 +531,10 @@ void PopupWindow::pointerMotion(Event& event)
 			{
 			/* Resize the popup window: */
 			resize(exterior);
+			
+			/* Call the resizing callbacks: */
+			ResizeCallbackData cbData(this,resizeBorderMask);
+			resizeCallbacks.call(&cbData);
 			}
 		}
 	}

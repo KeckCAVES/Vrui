@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydraDevice - Class to wrap the low-level Razer Hydra device driver
 in a VRDevice.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -113,7 +113,7 @@ RazerHydraDevice::RazerHydraDevice(VRDevice::Factory* sFactory,VRDeviceManager* 
 	setNumTrackers(2,configFile);
 	
 	/* Open the Razer Hydra device: */
-	hydra=new RazerHydra(usbContext,configFile.retrieveValue<unsigned int>("./deviceIndex",0));
+	hydra=new RazerHydra(configFile.retrieveValue<unsigned int>("./deviceIndex",0));
 	
 	/* Set the position unit: */
 	if(configFile.retrieveValue<bool>("./unitInches",false))

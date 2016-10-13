@@ -1,7 +1,7 @@
 /***********************************************************************
 WidgetManager - Class to manage top-level GLMotif UI components and user
 events.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2016 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/gl.h>
 #include <GL/GLLabel.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GLMotif/WidgetArranger.h>
 #include <GLMotif/Event.h>
 #include <GLMotif/Widget.h>
 #include <GLMotif/WidgetAlgorithms.h>
@@ -188,6 +189,35 @@ WidgetManager::PopupBinding* WidgetManager::getRootBinding(Widget* widget)
 	return pbmIt.isFinished()?0:pbmIt->getDest();
 	}
 
+void WidgetManager::popupPrimaryWidgetAt(Widget* topLevelWidget,const WidgetManager::Transformation& widgetToWorld)
+	{
+	/* Check if the widget is already popped up: */
+	if(!popupBindingMap.isEntry(topLevelWidget))
+		{
+		/* Pop up the widget: */
+		PopupBinding* newBinding=new PopupBinding(topLevelWidget,widgetToWorld,0,firstBinding);
+		if(firstBinding!=0)
+			firstBinding->pred=newBinding;
+		firstBinding=newBinding;
+		popupBindingMap.setEntry(PopupBindingMap::Entry(topLevelWidget,newBinding));
+		
+		{
+		/* Call the pop-up callbacks: */
+		WidgetPopCallbackData cbData(this,true,topLevelWidget,true);
+		widgetPopCallbacks.call(&cbData);
+		}
+		
+		{
+		/* Call the widget move callbacks: */
+		WidgetMoveCallbackData cbData(this,widgetToWorld,newBinding->topLevelWidget,true);
+		widgetMoveCallbacks.call(&cbData);
+		
+		/* Recurse into the primary binding: */
+		moveSecondaryWidgets(newBinding,widgetToWorld);
+		}
+		}
+	}
+
 void WidgetManager::moveSecondaryWidgets(WidgetManager::PopupBinding* parent,const WidgetManager::Transformation& parentTransform)
 	{
 	/* Iterate through the parent's child bindings: */
@@ -206,25 +236,44 @@ void WidgetManager::moveSecondaryWidgets(WidgetManager::PopupBinding* parent,con
 		}
 	}
 
+void WidgetManager::deleteWidgetImmediately(Widget* widget)
+	{
+	/* Release a pointer grab held by the widget: */
+	if(pointerGrabWidget==widget)
+		{
+		hardGrab=false;
+		pointerGrabWidget=0;
+		}
+	
+	/* Release the focus if the widget had it: */
+	if(textFocusWidget==widget)
+		{
+		/* TODO: Move the text focus to the next widget: */
+		textFocusWidget=0;
+		}
+	
+	/* Delete a widget attribute associated with the widget: */
+	WidgetAttributeMap::Iterator waIt=widgetAttributeMap.findEntry(widget);
+	if(!waIt.isFinished())
+		{
+		delete waIt->getDest();
+		widgetAttributeMap.removeEntry(waIt);
+		}
+
+	delete widget;
+	}
+
 void WidgetManager::deleteQueuedWidgets(void)
 	{
 	/* Delete all queued-up widgets: */
 	for(std::vector<Widget*>::iterator dlIt=deletionList.begin();dlIt!=deletionList.end();++dlIt)
-		{
-		/* Release a pointer grab held by the widget: */
-		if(pointerGrabWidget==*dlIt)
-			{
-			hardGrab=false;
-			pointerGrabWidget=0;
-			}
-		
-		delete *dlIt;
-		}
+		deleteWidgetImmediately(*dlIt);
 	deletionList.clear();
 	}
 
 WidgetManager::WidgetManager(void)
-	:styleSheet(0),timerEventScheduler(0),drawOverlayWidgets(false),
+	:styleSheet(0),arranger(0),
+	 timerEventScheduler(0),drawOverlayWidgets(false),
 	 widgetAttributeMap(101),
 	 firstBinding(0),popupBindingMap(31),
 	 time(0.0),
@@ -254,11 +303,20 @@ WidgetManager::~WidgetManager(void)
 	
 	/* Delete the cut & paste buffer: */
 	delete[] textBuffer;
+	
+	/* Delete the widget arranger: */
+	delete arranger;
 	}
 
 void WidgetManager::setStyleSheet(const StyleSheet* newStyleSheet)
 	{
 	styleSheet=newStyleSheet;
+	}
+
+void WidgetManager::setArranger(WidgetArranger* newArranger)
+	{
+	delete arranger;
+	arranger=newArranger;
 	}
 
 void WidgetManager::setTimerEventScheduler(Misc::TimerEventScheduler* newTimerEventScheduler)
@@ -283,33 +341,22 @@ void WidgetManager::unmanageWidget(Widget* widget)
 		}
 	}
 
+void WidgetManager::popupPrimaryWidget(Widget* topLevelWidget)
+	{
+	/* Pop up with a default widget transformation: */
+	popupPrimaryWidgetAt(topLevelWidget,arranger->calcTopLevelTransform(topLevelWidget));
+	}
+
+void WidgetManager::popupPrimaryWidget(Widget* topLevelWidget,const Point& hotspot)
+	{
+	/* Pop up with a hot spot widget transformation: */
+	popupPrimaryWidgetAt(topLevelWidget,arranger->calcTopLevelTransform(topLevelWidget,hotspot));
+	}
+
 void WidgetManager::popupPrimaryWidget(Widget* topLevelWidget,const WidgetManager::Transformation& widgetToWorld)
 	{
-	/* Check if the widget is already popped up: */
-	if(!popupBindingMap.isEntry(topLevelWidget))
-		{
-		/* Pop up the widget: */
-		PopupBinding* newBinding=new PopupBinding(topLevelWidget,widgetToWorld,0,firstBinding);
-		if(firstBinding!=0)
-			firstBinding->pred=newBinding;
-		firstBinding=newBinding;
-		popupBindingMap.setEntry(PopupBindingMap::Entry(topLevelWidget,newBinding));
-		
-		{
-		/* Call the pop-up callbacks: */
-		WidgetPopCallbackData cbData(this,true,topLevelWidget,true);
-		widgetPopCallbacks.call(&cbData);
-		}
-		
-		{
-		/* Call the widget move callbacks: */
-		WidgetMoveCallbackData cbData(this,widgetToWorld,newBinding->topLevelWidget,true);
-		widgetMoveCallbacks.call(&cbData);
-		
-		/* Recurse into the primary binding: */
-		moveSecondaryWidgets(newBinding,widgetToWorld);
-		}
-		}
+	/* Pop up with a full widget transformation: */
+	popupPrimaryWidgetAt(topLevelWidget,arranger->calcTopLevelTransform(topLevelWidget,widgetToWorld));
 	}
 
 void WidgetManager::popupSecondaryWidget(Widget* owner,Widget* topLevelWidget,const Vector& offset)
@@ -491,15 +538,15 @@ void WidgetManager::setPrimaryWidgetTransformation(Widget* widget,const WidgetMa
 	/* Check if the binding exists and is a top-level binding: */
 	if(bPtr!=0&&bPtr->parent==0)
 		{
-		/* Set the binding's widget transformation: */
-		bPtr->widgetToWorld=newWidgetToWorld;
+		/* Adjust and set the binding's widget transformation: */
+		bPtr->widgetToWorld=arranger->calcTopLevelTransform(bPtr->topLevelWidget,newWidgetToWorld);
 		
 		/* Call the widget move callbacks: */
 		WidgetMoveCallbackData cbData(this,newWidgetToWorld,bPtr->topLevelWidget,true);
 		widgetMoveCallbacks.call(&cbData);
 		
 		/* Recurse into the primary binding: */
-		moveSecondaryWidgets(bPtr,newWidgetToWorld);
+		moveSecondaryWidgets(bPtr,bPtr->widgetToWorld);
 		}
 	}
 
@@ -513,7 +560,7 @@ void WidgetManager::deleteWidget(Widget* widget)
 	else
 		{
 		/* Delete the widget immediately: */
-		delete widget;
+		deleteWidgetImmediately(widget);
 		}
 	}
 
@@ -544,37 +591,42 @@ bool WidgetManager::pointerButtonDown(Event& event)
 	else
 		{
 		/* Find a recipient for this event amongst the primary top-level windows: */
-		PopupBinding* foundTopLevel=0;
-		for(PopupBinding* bPtr=firstBinding;bPtr!=0;bPtr=bPtr->succ)
-			if(bPtr->visible&&bPtr->topLevelWidget->findRecipient(event)&&drawOverlayWidgets)
-				{
-				foundTopLevel=bPtr;
-				break;
-				}
-		
-		if(foundTopLevel!=0&&foundTopLevel!=firstBinding)
+		if(drawOverlayWidgets)
 			{
-			/* Move the found top level widget to the front of the stacking order: */
-			foundTopLevel->pred->succ=foundTopLevel->succ;
-			if(foundTopLevel->succ!=0)
-				foundTopLevel->succ->pred=foundTopLevel->pred;
-			foundTopLevel->pred=0;
-			foundTopLevel->succ=firstBinding;
-			foundTopLevel->succ->pred=foundTopLevel;
-			firstBinding=foundTopLevel;
+			/* Find the first visible top-level widget in the stacking order that is hit by the event: */
+			PopupBinding* bPtr;
+			for(bPtr=firstBinding;bPtr!=0&&!(bPtr->visible&&bPtr->topLevelWidget->findRecipient(event));bPtr=bPtr->succ)
+				;
+			
+			if(bPtr!=0&&bPtr!=firstBinding)
+				{
+				/* Move the found top level widget to the front of the stacking order: */
+				bPtr->pred->succ=bPtr->succ;
+				if(bPtr->succ!=0)
+					bPtr->succ->pred=bPtr->pred;
+				bPtr->pred=0;
+				bPtr->succ=firstBinding;
+				firstBinding->pred=bPtr;
+				firstBinding=bPtr;
+				}
+			}
+		else
+			{
+			/* Ask each visible top-level widget to inspect the event to find the closest hit: */
+			for(PopupBinding* bPtr=firstBinding;bPtr!=0;bPtr=bPtr->succ)
+				if(bPtr->visible)
+					bPtr->topLevelWidget->findRecipient(event);
 			}
 		}
 	
 	if(event.getTargetWidget()!=0)
 		{
-		if(!hardGrab)
-			{
-			/* Initiate a "soft" pointer grab: */
+		/* Initiate a "soft" pointer grab if there is no grab active: */
+		if(pointerGrabWidget==0)
 			pointerGrabWidget=event.getTargetWidget();
-			}
 		
-		/* Pass the event to the found target: */
-		event.getTargetWidget()->pointerButtonDown(event);
+		/* Pass the event to the grabbing widget (either the found target widget, or a hard grabber): */
+		pointerGrabWidget->pointerButtonDown(event);
 		
 		result=true;
 		}
@@ -596,11 +648,11 @@ bool WidgetManager::pointerButtonUp(Event& event)
 		/* Pass the event to the grabbing widget: */
 		pointerGrabWidget->pointerButtonUp(event);
 		
-		/* Release any "soft" grabs: */
+		/* Release a "soft" grab initiated by a pointerButtonDown event: */
 		if(!hardGrab)
 			pointerGrabWidget=0;
 		
-		result=pointerGrabWidget!=0;
+		result=true;
 		}
 	
 	return result;

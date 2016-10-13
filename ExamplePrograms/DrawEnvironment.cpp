@@ -1,7 +1,7 @@
 /***********************************************************************
 DrawEnvironment - Simple application to visualize the configuration of a
 Vrui environment.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -29,9 +29,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLModels.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <GLMotif/Button.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/PopupMenu.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
@@ -39,13 +36,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 class DrawEnvironment:public Vrui::Application
 	{
-	/* Elements: */
-	private:
-	GLMotif::PopupMenu* mainMenu; // The program's main menu
-	
 	/* Private methods: */
-	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
-	void resetNavigationCallback(Misc::CallbackData* cbData);
 	void drawArrow(const Vrui::Point& from,const Vrui::Point& to,Vrui::Scalar radius) const; // Draws an arrow between two points
 	
 	/* Constructors and destructors: */
@@ -60,33 +51,6 @@ class DrawEnvironment:public Vrui::Application
 /********************************
 Methods of class DrawEnvironment:
 ********************************/
-
-GLMotif::PopupMenu* DrawEnvironment::createMainMenu(void)
-	{
-	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Draw Environment");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button: */
-	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
-	
-	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&DrawEnvironment::resetNavigationCallback);
-	
-	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
-	}
-
-void DrawEnvironment::resetNavigationCallback(Misc::CallbackData* cbData)
-	{
-	/* Go back to physical space: */
-	Vrui::setNavigationTransformation(Vrui::NavTransform::identity);
-	}
 
 void DrawEnvironment::drawArrow(const Vrui::Point& from,const Vrui::Point& to,Vrui::Scalar radius) const
 	{
@@ -104,23 +68,12 @@ void DrawEnvironment::drawArrow(const Vrui::Point& from,const Vrui::Point& to,Vr
 	}
 
 DrawEnvironment::DrawEnvironment(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
-	 mainMenu(0)
+	:Vrui::Application(argc,argv)
 	{
-	/* Create the user interface: */
-	mainMenu=createMainMenu();
-	
-	/* Install the main menu: */
-	Vrui::setMainMenu(mainMenu);
-	
-	/* Set the navigation transformation: */
-	resetNavigationCallback(0);
 	}
 
 DrawEnvironment::~DrawEnvironment(void)
 	{
-	/* Destroy the user interface: */
-	delete mainMenu;
 	}
 
 void DrawEnvironment::display(GLContextData& contextData) const

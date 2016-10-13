@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2016 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -30,16 +30,17 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/Timer.h>
 #include <Cluster/MulticastPipe.h>
 #include <Math/Math.h>
+#include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/Button.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/CoordinateManager.h>
 #include <Vrui/ClusterSupport.h>
 
 /*******************************************
@@ -116,20 +117,14 @@ Methods of class ClusterJello:
 
 GLMotif::PopupMenu* ClusterJello::createMainMenu(void)
 	{
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Virtual Jell-O");
-	
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
-	centerDisplayButton->getSelectCallbacks().add(this,&ClusterJello::centerDisplayCallback);
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Virtual Jell-O");
 	
 	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&ClusterJello::showSettingsDialogCallback);
 	
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
+	mainMenu->manageMenu();
+	return mainMenu;
 	}
 
 GLMotif::PopupWindow* ClusterJello::createSettingsDialog(void)
@@ -330,10 +325,7 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 	renderer=new JelloRenderer(proxyCrystal.getLockedValue());
 	
 	/* Determine a good color to draw the domain box: */
-	GLColor<GLfloat,3> domainBoxColor;
-	for(int i=0;i<3;++i)
-		domainBoxColor[i]=1.0f-Vrui::getBackgroundColor()[i];
-	renderer->setDomainBoxColor(domainBoxColor);
+	renderer->setDomainBoxColor(Vrui::getForegroundColor());
 	
 	if(Vrui::isMaster())
 		{
@@ -366,8 +358,8 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 	Vrui::setMainMenu(mainMenu);
 	settingsDialog=createSettingsDialog();
 	
-	/* Initialize the navigation transformation: */
-	centerDisplayCallback(0);
+	/* Tell Vrui that navigation space is measured in inches: */
+	Vrui::getCoordinateManager()->setUnit(Geometry::LinearUnit(Geometry::LinearUnit::INCH,1.0));
 	}
 
 ClusterJello::~ClusterJello(void)
@@ -457,9 +449,14 @@ void ClusterJello::display(GLContextData& contextData) const
 	renderer->glRenderAction(contextData);
 	}
 
-void ClusterJello::centerDisplayCallback(Misc::CallbackData* cbData)
+void ClusterJello::resetNavigation(void)
 	{
-	Vrui::setNavigationTransformation(Vrui::NavTransform::identity);
+	/* Set up navigation transformation to transform local physical coordinates to canonical Jell-O space: */
+	Vrui::Point floorDisplayCenter=Vrui::getFloorPlane().project(Vrui::getDisplayCenter());
+	Vrui::Vector floorForward=Geometry::normalize(Vrui::getFloorPlane().project(Vrui::getForwardDirection()));
+	Vrui::Vector floorRight=Geometry::normalize(Geometry::cross(floorForward,Vrui::getFloorPlane().getNormal()));
+	Vrui::Rotation rot=Vrui::Rotation::fromBaseVectors(floorRight,floorForward);
+	Vrui::setNavigationTransformation(Vrui::NavTransform(floorDisplayCenter-Vrui::Point::origin,rot,Vrui::getInchFactor()));
 	}
 
 void ClusterJello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)

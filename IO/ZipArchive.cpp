@@ -2,7 +2,7 @@
 ZipArchive - Class to represent ZIP archive files, with functionality to
 traverse contained directory hierarchies and extract files using a File
 interface.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -27,6 +27,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <zlib.h>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <Misc/SizedTypes.h>
 #include <Misc/ThrowStdErr.h>
 #include <IO/StandardFile.h>
 #include <IO/FixedMemoryFile.h>
@@ -39,7 +41,11 @@ namespace {
 Helper classes:
 **************/
 
-class ZipArchiveStreamingFile:public File // Class to read ZIP archive entries in a streaming fashion
+/********************************************************
+Class to read ZIP archive entries in a streaming fashion:
+********************************************************/
+
+class ZipArchiveStreamingFile:public File
 	{
 	/* Embedded classes: */
 	public:
@@ -59,6 +65,7 @@ class ZipArchiveStreamingFile:public File // Class to read ZIP archive entries i
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:
@@ -107,12 +114,12 @@ size_t ZipArchiveStreamingFile::readData(File::Byte* buffer,size_t bufferSize)
 				{
 				/* Clean out the decompressor and set the eof flag: */
 				if(inflateEnd(stream)!=Z_OK)
-					Misc::throwStdErr("IO::ZipArchiveStreamingFile: Data corruption detected after decompressing");
+					throw Error("IO::ZipArchiveStreamingFile: Data corruption detected after decompressing");
 				eof=true;
 				break;
 				}
 			else if(result!=Z_OK)
-				Misc::throwStdErr("IO::ZipArchiveStreamingFile: Internal zlib error while decompressing");
+				throw Error("IO::ZipArchiveStreamingFile: Internal zlib error while decompressing");
 			}
 		while(stream->avail_out==bufferSize);
 		
@@ -136,7 +143,14 @@ size_t ZipArchiveStreamingFile::readData(File::Byte* buffer,size_t bufferSize)
 
 void ZipArchiveStreamingFile::writeData(const File::Byte* buffer,size_t bufferSize)
 	{
-	/* Writing is not supported; ignore silently */
+	/* Writing is not supported: */
+	throw Error("IO::ZipArchiveStreamingFile: Writing to ZIP archives not supported");
+	}
+
+size_t ZipArchiveStreamingFile::writeDataUpTo(const File::Byte* buffer,size_t bufferSize)
+	{
+	/* Writing is not supported: */
+	throw Error("IO::ZipArchiveStreamingFile: Writing to ZIP archives not supported");
 	}
 
 ZipArchiveStreamingFile::ZipArchiveStreamingFile(SeekableFilePtr sArchive,unsigned int sCompressionMethod,SeekableFile::Offset sNextReadPos,size_t sCompressedSize)
@@ -169,7 +183,7 @@ ZipArchiveStreamingFile::ZipArchiveStreamingFile(SeekableFilePtr sArchive,unsign
 			{
 			delete[] compressedBuffer;
 			delete stream;
-			Misc::throwStdErr("IO::ZipArchiveStreamingFile: Internal zlib error while initializing decompression");
+			throw OpenError("IO::ZipArchiveStreamingFile: Internal zlib error while initializing decompression");
 			}
 		}
 	}
@@ -180,36 +194,31 @@ ZipArchiveStreamingFile::~ZipArchiveStreamingFile(void)
 	delete stream;
 	}
 
-class ZipArchiveDirectory:public Directory // Class to represent directories inside a ZIP archive using an IO::Directory abstraction
+}
+
+/**************************************************************************************
+Class to represent directories inside a ZIP archive using an IO::Directory abstraction:
+**************************************************************************************/
+
+class ZipArchiveDirectory:public Directory
 	{
 	/* Embedded classes: */
 	private:
-	struct DirectoryEntry // Structure for directory entries
-		{
-		/* Elements: */
-		public:
-		bool isFile; // Flag whether the entry is a file or a directory
-		ZipArchive::FileID id; // File ID of the directory entry
-		std::string name; // Name of the file or subdirectory inside this directory
-		
-		/* Constructors and destructors: */
-		DirectoryEntry(bool sIsFile,const ZipArchive::FileID& sId,const std::string& sName)
-			:isFile(sIsFile),
-			 id(sId),
-			 name(sName)
-			{
-			}
-		};
+	typedef ZipArchive::Offset Offset;
 	
 	/* Elements: */
 	ZipArchivePtr archive; // The ZIP archive from which this directory was extracted
-	std::string pathName; // Path name of this directory inside the ZIP archive
-	std::vector<DirectoryEntry> entries; // List of entries in this directory
-	std::vector<DirectoryEntry>::iterator currentEntry; // Iterator to the current directory entry
+	ZipArchive::Directory* directory; // Pointer to this directory's node in the ZIP archive's directory tree
+	std::vector<ZipArchive::Directory::Entry>::iterator currentEntry; // Iterator to the currently enumerated directory entry
 	
 	/* Constructors and destructors: */
 	public:
-	ZipArchiveDirectory(ZipArchivePtr sArchive,const std::string& sPathName);
+	ZipArchiveDirectory(ZipArchivePtr sArchive,ZipArchive::Directory* sDirectory)
+		:archive(sArchive),
+		 directory(sDirectory),
+		 currentEntry(directory->entries.end())
+		{
+		}
 	
 	/* Methods from Directory: */
 	virtual std::string getName(void) const;
@@ -221,6 +230,7 @@ class ZipArchiveDirectory:public Directory // Class to represent directories ins
 	virtual bool readNextEntry(void);
 	virtual const char* getEntryName(void) const;
 	virtual Misc::PathType getEntryType(void) const;
+	virtual Misc::PathType getPathType(const char* relativePath) const;
 	virtual FilePtr openFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly) const;
 	virtual DirectoryPtr openDirectory(const char* directoryName) const;
 	};
@@ -229,164 +239,440 @@ class ZipArchiveDirectory:public Directory // Class to represent directories ins
 Methods of class ZipArchiveDirectory:
 ************************************/
 
-ZipArchiveDirectory::ZipArchiveDirectory(ZipArchivePtr sArchive,const std::string& sPathName)
-	:archive(sArchive)
-	{
-	/* Prepend an initial slash to the path name if there is none: */
-	if(sPathName.empty()||sPathName[0]!='/')
-		pathName.push_back('/');
-	pathName.append(sPathName);
-	
-	/* Normalize the path name: */
-	normalizePath(pathName,1);
-	
-	/* Collect all files/directories from the ZIP archive's central directory that match the directory name: */
-	const char* dn=pathName.c_str();
-	size_t dnLen=pathName.length();
-	for(ZipArchive::DirectoryIterator dIt=archive->readDirectory();dIt.isValid();archive->getNextEntry(dIt))
-		{
-		/* Match the iterator name's prefix against the directory name: */
-		if(strncmp(dn+1,dIt.getFileName(),dnLen-1)==0&&(dnLen==1||dIt.getFileName()[dnLen-1]=='/'))
-			{
-			/* Get the beginning of the entry name: */
-			const char* nameBegin=dIt.getFileName()+(dnLen>1?dnLen:0);
-			
-			if(*nameBegin!='\0')
-				{
-				/* Get the end of the entry name: */
-				const char* nameEnd;
-				for(nameEnd=nameBegin;*nameEnd!='\0'&&*nameEnd!='/';++nameEnd)
-					;
-
-				if(*nameEnd=='\0')
-					{
-					/* Iterator points to a regular file: */
-					entries.push_back(DirectoryEntry(true,dIt,std::string(nameBegin,nameEnd)));
-					}
-				else if(*nameEnd=='/'&&*(nameEnd+1)=='\0')
-					{
-					/* Iterator points to a subdirectory: */
-					entries.push_back(DirectoryEntry(false,dIt,std::string(nameBegin,nameEnd)));
-					}
-				}
-			}
-		}
-	
-	/* Initialize the current entry iterator: */
-	currentEntry=entries.end();
-	}
-
 std::string ZipArchiveDirectory::getName(void) const
 	{
-	return std::string(getLastComponent(pathName,1),pathName.end());
+	/* Check for the special case of the root directory: */
+	if(directory->parent==0)
+		return "/";
+	else
+		{
+		/* Return the name of the directory entry corresponding to this directory in the parent directory: */
+		return directory->parent->entries[directory->parentIndex].name;
+		}
 	}
 
 std::string ZipArchiveDirectory::getPath(void) const
 	{
-	return pathName;
+	/* Get the path of the directory: */
+	std::string path;
+	directory->getPath(path,0);
+	
+	/* Remove the trailing slash if the directory is not the root: */
+	if(directory->parent!=0)
+		path.erase(path.end()-1);
+	
+	return path;
 	}
 
 std::string ZipArchiveDirectory::getPath(const char* relativePath) const
 	{
-	/* Assemble and normalize the absolute path name: */
-	std::string result=pathName;
-	if(result.length()>1)
-		result.push_back('/');
-	result.append(relativePath);
-	normalizePath(result,1);
+	std::string result;
 	
+	/* Check if the given path is absolute: */
+	if(relativePath[0]=='/')
+		{
+		/* Return the relative path: */
+		result=relativePath;
+		}
+	else
+		{
+		/* Concatenate the directory's path and the given relative path: */
+		directory->getPath(result,strlen(relativePath));
+		result.append(relativePath);
+		}
+	
+	/* Normalize and return the result path: */
+	normalizePath(result,1);
 	return result;
 	}
 
 bool ZipArchiveDirectory::hasParent(void) const
 	{
-	return pathName.length()>1;
+	return directory->parent!=0;
 	}
 
 DirectoryPtr ZipArchiveDirectory::getParent(void) const
 	{
 	/* Check for the special case of the root directory: */
-	if(pathName.length()==1)
+	if(directory->parent==0)
 		return 0;
 	else
-		{
-		/* Find the last component in the absolute path name: */
-		std::string::const_iterator lastCompIt=getLastComponent(pathName,1);
-		
-		/* Strip off the last slash unless it's the prefix: */
-		if(lastCompIt-pathName.begin()>1)
-			--lastCompIt;
-		
-		/* Open and return the directory corresponding to the path name prefix before the last slash: */
-		return new ZipArchiveDirectory(archive,std::string(pathName.begin(),lastCompIt));
-		}
+		return new ZipArchiveDirectory(archive,directory->parent);
 	}
 
 void ZipArchiveDirectory::rewind(void)
 	{
-	/* Reset the current entry iterator: */
-	currentEntry=entries.end();
+	/* Reset the current entry iterator to the end of the entries array so that the next call to readNextEntry returns the first entry: */
+	currentEntry=directory->entries.end();
 	}
 
 bool ZipArchiveDirectory::readNextEntry(void)
 	{
 	/* Increment the current entry iterator or wrap it around at the end of the directory: */
-	if(currentEntry!=entries.end())
+	if(currentEntry!=directory->entries.end())
 		++currentEntry;
 	else
-		currentEntry=entries.begin();
+		currentEntry=directory->entries.begin();
 	
-	return currentEntry!=entries.end();
+	return currentEntry!=directory->entries.end();
 	}
 
 const char* ZipArchiveDirectory::getEntryName(void) const
 	{
-	return currentEntry->name.c_str();
+	return currentEntry->name;
 	}
 
 Misc::PathType ZipArchiveDirectory::getEntryType(void) const
 	{
-	if(currentEntry->isFile)
+	if(currentEntry->filePos!=~Offset(0))
 		return Misc::PATHTYPE_FILE;
 	else
 		return Misc::PATHTYPE_DIRECTORY;
 	}
 
+Misc::PathType ZipArchiveDirectory::getPathType(const char* relativePath) const
+	{
+	/* Find the relative path's target in the ZIP archive's directory tree: */
+	std::pair<ZipArchive::Directory*,unsigned int> entry=directory->findPath(relativePath);
+	
+	/* Check for the special case of the root directory: */
+	if(entry.first==0&&entry.second==1)
+		return Misc::PATHTYPE_DIRECTORY;
+	else if(entry.first==0)
+		return Misc::PATHTYPE_DOES_NOT_EXIST;
+	else
+		{
+		/* Check the type of the found directory entry: */
+		if(entry.first->entries[entry.second].filePos==~Offset(0))
+			return Misc::PATHTYPE_DIRECTORY;
+		else
+			return Misc::PATHTYPE_FILE;
+		}
+	}
+
 FilePtr ZipArchiveDirectory::openFile(const char* fileName,File::AccessMode accessMode) const
 	{
-	/* Assemble the fully-qualified file name: */
-	std::string filePath=std::string(pathName.begin()+1,pathName.end());
-	if(!filePath.empty())
-		filePath.push_back('/');
-	filePath.append(fileName);
-	normalizePath(filePath,0);
+	/* Check the requested access mode: */
+	if(accessMode==IO::File::WriteOnly||accessMode==IO::File::ReadWrite)
+		throw IO::File::OpenError(Misc::printStdErrMsg("IO::ZipArchiveDirectory::openFile: Cannot write to file %s",fileName));
 	
-	/* Open the file: */
-	return archive->openFile(archive->findFile(filePath.c_str()));
+	/* Find the file name in the ZIP archive's directory tree: */
+	std::pair<ZipArchive::Directory*,unsigned int> entry=directory->findPath(fileName);
+	
+	/* Check if it exists and is a file: */
+	if(entry.first!=0)
+		{
+		if(entry.first->entries[entry.second].filePos!=~Offset(0))
+			{
+			/* Open and return the file: */
+			ZipArchive::FileID fileId;
+			fileId.filePos=entry.first->entries[entry.second].filePos;
+			fileId.compressedSize=entry.first->entries[entry.second].sizes.compressed;
+			fileId.uncompressedSize=entry.first->entries[entry.second].sizes.uncompressed;
+			return archive->openFile(fileId);
+			}
+		else
+			throw File::OpenError(Misc::printStdErrMsg("IO::ZipArchiveDirectory::openFile: File %s is a directory",fileName));
+		}
+	else if(entry.second==1)
+		throw File::OpenError(Misc::printStdErrMsg("IO::ZipArchiveDirectory::openFile: File %s is a directory",fileName));
+	else
+		throw File::OpenError(Misc::printStdErrMsg("IO::ZipArchiveDirectory::openFile: File %s does not exist",fileName));
 	}
 
 DirectoryPtr ZipArchiveDirectory::openDirectory(const char* directoryName) const
 	{
-	/* Assemble the fully-qualified directory name: */
-	std::string directoryPath=pathName;
-	if(directoryPath.length()>1)
-		directoryPath.push_back('/');
-	directoryPath.append(directoryName);
+	/* Find the directory name in the ZIP archive's directory tree: */
+	std::pair<ZipArchive::Directory*,unsigned int> entry=directory->findPath(directoryName);
 	
-	/* Open the directory: */
-	return new ZipArchiveDirectory(archive,directoryPath);
+	/* Check if the directory exists: */
+	if(entry.first!=0&&entry.first->entries[entry.second].filePos==~Offset(0))
+		{
+		/* Return the found directory: */
+		return new ZipArchiveDirectory(archive,entry.first->entries[entry.second].child);
+		}
+	else if(entry.first==0&&entry.second==1)
+		{
+		/* Return the root directory: */
+		return new ZipArchiveDirectory(archive,&archive->root);
+		}
+	else
+		throw OpenError(directoryName);
 	}
 
-}
+/**************************************
+Methods of class ZipArchive::Directory:
+**************************************/
+
+ZipArchive::Directory::Directory(ZipArchive::Directory* sParent)
+	:parent(sParent)
+	{
+	}
+
+ZipArchive::Directory::~Directory(void)
+	{
+	/* Go through all directory entries to delete entry names and subdirectories: */
+	for(std::vector<Entry>::iterator eIt=entries.begin();eIt!=entries.end();++eIt)
+		{
+		/* Delete the entry's name: */
+		delete[] eIt->name;
+		
+		/* Check if the entry is a subdirectory: */
+		if(eIt->filePos==~Offset(0))
+			{
+			/* Delete the subdirectory: */
+			delete eIt->child;
+			}
+		}
+	}
+
+bool ZipArchive::Directory::addPath(const char* path,const ZipArchive::FileID& fileId)
+	{
+	/* Find the end of the first path component: */
+	const char* nameEnd;
+	for(nameEnd=path;*nameEnd!='\0'&&*nameEnd!='/';++nameEnd)
+		;
+	size_t nameLen=nameEnd-path;
+	
+	/* Check if an entry matching the first path component already exists: */
+	std::vector<Entry>::iterator eIt;
+	for(eIt=entries.begin();eIt!=entries.end()&&(strncmp(eIt->name,path,nameLen)!=0||eIt->name[nameLen]!='\0');++eIt)
+		;
+	if(eIt==entries.end())
+		{
+		/* Create a new directory entry of the given name: */
+		Entry newEntry;
+		newEntry.name=new char[nameLen+1];
+		memcpy(newEntry.name,path,nameLen);
+		newEntry.name[nameLen]='\0';
+		
+		/* Check if the new entry is a file or directory: */
+		if(path[nameLen]=='\0')
+			{
+			/* Create a file entry: */
+			newEntry.filePos=fileId.filePos;
+			newEntry.sizes.compressed=fileId.compressedSize;
+			newEntry.sizes.uncompressed=fileId.uncompressedSize;
+			entries.push_back(newEntry);
+			
+			return true;
+			}
+		else
+			{
+			/* Create a directory entry: */
+			newEntry.filePos=~Offset(0);
+			newEntry.child=new ZipArchive::Directory(this);
+			entries.push_back(newEntry);
+			
+			/* Recursively add the rest of the path to the found subdirectory: */
+			return newEntry.child->addPath(path+nameLen+1,fileId);
+			}
+		}
+	else if(path[nameLen]=='/'&&eIt->filePos==~Offset(0))
+		{
+		/* Recursively add the rest of the path to the found subdirectory: */
+		return eIt->child->addPath(path+nameLen+1,fileId);
+		}
+	else
+		return false;
+	}
+
+void ZipArchive::Directory::finalize(void)
+	{
+	/* Sort the directory entries by name: */
+	std::sort(entries.begin(),entries.end(),Entry::compare);
+	
+	/* Fix the parent directory indices of all subdirectories, and finalize them recursively: */
+	unsigned int numEntries=entries.size();
+	for(unsigned int i=0;i<numEntries;++i)
+		if(entries[i].filePos==~Offset(0))
+			{
+			entries[i].child->parentIndex=i;
+			entries[i].child->finalize();
+			}
+	}
+
+void ZipArchive::Directory::getPath(std::string& path,size_t suffixLen) const
+	{
+	if(parent==0)
+		{
+		/* Create the result string: */
+		++suffixLen;
+		path.clear();
+		path.reserve(suffixLen);
+		path.push_back('/');
+		}
+	else
+		{
+		/* Add the length of this directory's name to the suffix length and recurse into the parent directory: */
+		suffixLen+=strlen(parent->entries[parentIndex].name)+1;
+		parent->getPath(path,suffixLen);
+		
+		/* Append the name of this directory to the path: */
+		path.append(parent->entries[parentIndex].name);
+		path.push_back('/');
+		}
+	}
+
+std::pair<ZipArchive::Directory*,unsigned int> ZipArchive::Directory::findPath(const char* path)
+	{
+	/* Check if the given path is absolute: */
+	Directory* currentDir=this;
+	if(path[0]=='/')
+		{
+		/* Start searching from the root directory: */
+		while(currentDir->parent!=0)
+			currentDir=currentDir->parent;
+		
+		/* Skip the initial slash: */
+		++path;
+		}
+	
+	/* Skip any '/' or "./" at the beginning of the path: */
+	while(path[0]=='/'||(path[0]=='.'&&path[1]=='/'))
+		{
+		if(*path=='.')
+			++path;
+		++path;
+		}
+	
+	/* Traverse through the directory tree to find the file one prefix at a time: */
+	const char* prefixStart=path;
+	while(*prefixStart!='\0')
+		{
+		/* Extract the current prefix: */
+		const char* prefixEnd;
+		for(prefixEnd=prefixStart+1;*prefixEnd!='\0'&&*prefixEnd!='/';++prefixEnd)
+			;
+		size_t prefixLen=prefixEnd-prefixStart;
+		
+		/* Find the beginning of the next prefix: */
+		const char* nextPrefixStart=prefixEnd;
+		while(nextPrefixStart[0]=='/'||(nextPrefixStart[0]=='.'&&nextPrefixStart[1]=='/'))
+			{
+			if(*nextPrefixStart=='.')
+				++nextPrefixStart;
+			++nextPrefixStart;
+			}
+		
+		/* Check for the ".." special case: */
+		if(prefixLen==2&&prefixStart[0]=='.'&&prefixStart[1]=='.')
+			{
+			/* Continue searching in the parent directory: */
+			if(currentDir->parent==0)
+				return std::pair<Directory*,unsigned int>(0,0);
+			currentDir=currentDir->parent;
+			}
+		else if(!currentDir->entries.empty())
+			{
+			/* Find the current prefix in the current directory's entries via binary search with the invariant l->name<=prefix<r->name: */
+			std::vector<Directory::Entry>::const_iterator l=currentDir->entries.begin();
+			std::vector<Directory::Entry>::const_iterator r=currentDir->entries.end();
+			while(r-l>1)
+				{
+				/* Compare the middle element to the current prefix: */
+				std::vector<Directory::Entry>::const_iterator m=l+(r-l)/2;
+				int comp=strncmp(m->name,prefixStart,prefixLen);
+				if(comp==0&&m->name[prefixLen]!='\0')
+					comp=1;
+				if(comp<=0)
+					l=m;
+				else
+					r=m;
+				}
+			if(strncmp(l->name,prefixStart,prefixLen)!=0||l->name[prefixLen]!='\0')
+				return std::pair<Directory*,unsigned int>(0,0);
+			
+			/* Check if the path is completely processed: */
+			if(*nextPrefixStart=='\0')
+				{
+				/* Return the found directory entry: */
+				return std::pair<Directory*,unsigned int>(currentDir,l-currentDir->entries.begin());
+				}
+			else
+				{
+				/* Check if the found entry is a subdirectory: */
+				if(l->filePos==~Offset(0))
+					{
+					/* Continue searching in the subdirectory: */
+					currentDir=l->child;
+					}
+				else
+					return std::pair<Directory*,unsigned int>(0,0);
+				}
+			}
+		else
+			return std::pair<Directory*,unsigned int>(0,0);
+		
+		/* Go to the next prefix: */
+		prefixStart=nextPrefixStart;
+		}
+	
+	/* Return a special code if the relative path was the root directory: */
+	return std::pair<Directory*,unsigned int>(0,1);
+	}
 
 /**********************************************
 Methods of class ZipArchive::DirectoryIterator:
 **********************************************/
 
+void ZipArchive::DirectoryIterator::getEntry(void)
+	{
+	/* Store the name of the current directory entry: */
+	size_t nameLen=strlen(directory->entries[entryIndex].name);
+	if(fileNameBufferSize<pathEnd+nameLen+1)
+		{
+		/* Make room in the file name buffer: */
+		do
+			{
+			fileNameBufferSize*=2;
+			}
+		while(fileNameBufferSize<pathEnd+nameLen+1);
+		char* newFileName=new char[fileNameBufferSize];
+		memcpy(newFileName,fileName,pathEnd);
+		delete[] fileName;
+		fileName=newFileName;
+		}
+	memcpy(fileName+pathEnd,directory->entries[entryIndex].name,nameLen+1);
+	
+	/* Store the current directory entry's file ID: */
+	filePos=directory->entries[entryIndex].filePos;
+	if(filePos!=~Offset(0))
+		{
+		compressedSize=directory->entries[entryIndex].sizes.compressed;
+		uncompressedSize=directory->entries[entryIndex].sizes.uncompressed;
+		}
+	else
+		compressedSize=uncompressedSize=0;
+	}
+
+ZipArchive::DirectoryIterator::DirectoryIterator(const ZipArchive& archive)
+	:directory(&archive.root),entryIndex(0),
+	 fileNameBufferSize(64),fileName(new char[fileNameBufferSize])
+	{
+	/* Put the root directory name into the file name buffer: */
+	fileName[0]='/';
+	fileName[1]='\0';
+	pathEnd=1;
+	
+	/* Check if the iterator is already finished: */
+	if(directory->entries.empty())
+		{
+		/* Invalidate the iterator: */
+		directory=0;
+		}
+	else
+		{
+		/* Get the root directory's first entry: */
+		getEntry();
+		}
+	}
+
 ZipArchive::DirectoryIterator::DirectoryIterator(const ZipArchive::DirectoryIterator& source)
 	:FileID(source),
-	 nextEntryPos(source.nextEntryPos),
-	 fileNameBufferSize(source.fileNameBufferSize),fileName(fileNameBufferSize!=0?new char[fileNameBufferSize]:0)
+	 directory(source.directory),entryIndex(source.entryIndex),
+	 fileNameBufferSize(source.fileNameBufferSize),fileName(fileNameBufferSize!=0?new char[fileNameBufferSize]:0),
+	 pathEnd(source.pathEnd)
 	{
 	if(fileNameBufferSize!=0)
 		memcpy(fileName,source.fileName,fileNameBufferSize);
@@ -397,7 +683,8 @@ ZipArchive::DirectoryIterator& ZipArchive::DirectoryIterator::operator=(const Zi
 	if(this!=&source)
 		{
 		FileID::operator=(source);
-		nextEntryPos=source.nextEntryPos;
+		directory=source.directory;
+		entryIndex=source.entryIndex;
 		if(source.fileNameBufferSize==0)
 			{
 			delete[] fileName;
@@ -412,7 +699,49 @@ ZipArchive::DirectoryIterator& ZipArchive::DirectoryIterator::operator=(const Zi
 			}
 		if(fileNameBufferSize!=0)
 			memcpy(fileName,source.fileName,fileNameBufferSize);
+		pathEnd=source.pathEnd;
 		}
+	return *this;
+	}
+
+ZipArchive::DirectoryIterator& ZipArchive::DirectoryIterator::operator++(void)
+	{
+	/* Bail out if iterator is invalid: */
+	if(directory==0)
+		return *this;
+	
+	/* Check if the current directory entry is a non-empty subdirectory: */
+	if(filePos==~Offset(0)&&!directory->entries[entryIndex].child->entries.empty())
+		{
+		/* Traverse into the subdirectory: */
+		pathEnd+=strlen(directory->entries[entryIndex].name);
+		fileName[pathEnd]='/';
+		++pathEnd;
+		directory=directory->entries[entryIndex].child;
+		entryIndex=0;
+		}
+	else
+		{
+		/* Go to the next entry in the current subdirectory: */
+		++entryIndex;
+		}
+	
+	/* Check if the current directory has been completed: */
+	while(directory!=0&&entryIndex==directory->entries.size())
+		{
+		/* Go back to the parent directory: */
+		if(directory->parent!=0)
+			pathEnd-=strlen(directory->parent->entries[directory->parentIndex].name)+1;
+		else
+			pathEnd=1;
+		entryIndex=directory->parentIndex+1;
+		directory=directory->parent;
+		}
+	
+	/* Get the next directory entry if the iterator is still valid: */
+	if(directory!=0)
+		getEntry();
+	
 	return *this;
 	}
 
@@ -442,7 +771,7 @@ int ZipArchive::initArchive(void)
 	archive->setEndianness(Misc::LittleEndian);
 	
 	/* Check the first local file header's signature, to check if it's a zip file in the first place: */
-	unsigned int signature=archive->read<unsigned int>();
+	unsigned int signature=archive->read<Misc::UInt32>();
 	if(signature!=0x04034b50U)
 		return -1;
 	
@@ -508,32 +837,99 @@ int ZipArchive::initArchive(void)
 	
 	/* Read the end-of-central-directory entry: */
 	archive->setReadPosAbs(endOfCentralDirPos);
-	unsigned int eocdSignature=archive->read<unsigned int>();
+	unsigned int eocdSignature=archive->read<Misc::UInt32>();
 	if(eocdSignature!=0x06054b50U)
 		return -3;
 	
 	/* Skip irrelevant bits: */
-	archive->skip<unsigned short>(4);
+	archive->skip<Misc::UInt16>(4);
 	
 	/* Read the relevant bits: */
-	unsigned int eocdCDSize=archive->read<unsigned int>();
-	unsigned int eocdCDOffset=archive->read<unsigned int>();
-	unsigned short eocdCommentLength=archive->read<unsigned short>();
+	unsigned int eocdCDSize=archive->read<Misc::UInt32>();
+	unsigned int eocdCDOffset=archive->read<Misc::UInt32>();
+	unsigned short eocdCommentLength=archive->read<Misc::UInt16>();
 	
 	/* Remember the directory offset and size: */
-	directoryPos=Offset(eocdCDOffset);
-	directorySize=size_t(eocdCDSize);
+	Offset directoryPos=Offset(eocdCDOffset);
+	size_t directorySize=size_t(eocdCDSize);
 	
 	/* Check again if this was really the end-of-directory marker: */
-	if(directoryPos+Offset(directorySize)!=endOfCentralDirPos||endOfCentralDirPos+Offset(sizeof(unsigned int)*3+sizeof(unsigned short)*5+eocdCommentLength)!=archiveSize)
+	if(directoryPos+Offset(directorySize)!=endOfCentralDirPos||endOfCentralDirPos+Offset(sizeof(Misc::UInt32)*3+sizeof(Misc::UInt16)*5+eocdCommentLength)!=archiveSize)
 		return -3;
+	
+	/*************************************************
+	Read the ZIP archive's entire directory hierarchy:
+	*************************************************/
+	
+	/* Read all central directory entries and add them into the directory tree: */
+	bool directoryOk=true;
+	size_t fileNameBufferSize=256;
+	char* fileNameBuffer=new char[fileNameBufferSize];
+	archive->setReadPosAbs(directoryPos);
+	do
+		{
+		/* Read the next central directory entry header: */
+		unsigned int entryHeader=archive->read<Misc::UInt32>();
+		if(entryHeader==0x05054b50U||entryHeader==0x06054b50U) // Digital signature entry or end-of-central-directory entry
+			break;
+		else if(entryHeader==0x02014b50U) // File entry
+			{
+			/* Read the rest of the header: */
+			FileID newFileId;
+			archive->skip<Misc::UInt16>(6);
+			archive->skip<Misc::UInt32>(1);
+			newFileId.compressedSize=size_t(archive->read<Misc::UInt32>());
+			newFileId.uncompressedSize=size_t(archive->read<Misc::UInt32>());
+			unsigned short fileNameLength=archive->read<Misc::UInt16>();
+			unsigned short extraFieldLength=archive->read<Misc::UInt16>();
+			unsigned short fileCommentLength=archive->read<Misc::UInt16>();
+			archive->skip<Misc::UInt16>(2);
+			archive->skip<Misc::UInt32>(1);
+			newFileId.filePos=Offset(archive->read<Misc::UInt32>());
+			
+			/* Read the file name: */
+			if(fileNameBufferSize<size_t(fileNameLength+1))
+				{
+				delete[] fileNameBuffer;
+				do
+					{
+					fileNameBufferSize*=2;
+					}
+				while(fileNameBufferSize<size_t(fileNameLength+1));
+				fileNameBuffer=new char[fileNameBufferSize];
+				}
+			archive->read(fileNameBuffer,fileNameLength);
+			fileNameBuffer[fileNameLength]='\0';
+			
+			/* Skip extra field and file comment: */
+			archive->skip<char>(extraFieldLength);
+			archive->skip<char>(fileCommentLength);
+			
+			/* Add the new file to the directory tree: */
+			directoryOk=root.addPath(fileNameBuffer,newFileId);
+			}
+		else
+			directoryOk=false;
+		}
+	while(directoryOk);
+	delete[] fileNameBuffer;
+	
+	if(!directoryOk)
+		{
+		/* Signal failure: */
+		return -3;
+		}
+	
+	/* Finalize the directory tree: */
+	root.finalize();
 	
 	/* Signal success: */
 	return 0;
 	}
 
 ZipArchive::ZipArchive(const char* archiveFileName)
-	:archive(new StandardFile(archiveFileName,File::ReadOnly))
+	:archive(new StandardFile(archiveFileName,File::ReadOnly)),
+	 root(0)
 	{
 	/* Initialize the archive and handle errors: */
 	switch(initArchive())
@@ -553,21 +949,22 @@ ZipArchive::ZipArchive(const char* archiveFileName)
 	}
 
 ZipArchive::ZipArchive(SeekableFilePtr sArchive)
-	:archive(sArchive)
+	:archive(sArchive),
+	 root(0)
 	{
 	/* Initialize the archive and handle errors: */
 	switch(initArchive())
 		{
 		case -1:
-			Misc::throwStdErr("IO::ZipArchive: Source file is not a valid ZIP archive");
+			throw std::runtime_error("IO::ZipArchive: Source file is not a valid ZIP archive");
 			break;
 		
 		case -2:
-			Misc::throwStdErr("IO::ZipArchive: Unable to locate central directory in ZIP archive");
+			throw std::runtime_error("IO::ZipArchive: Unable to locate central directory in ZIP archive");
 			break;
 		
 		case -3:
-			Misc::throwStdErr("IO::ZipArchive: Invalid central directory in ZIP archive");
+			throw std::runtime_error("IO::ZipArchive: Invalid central directory in ZIP archive");
 			break;
 		}
 	}
@@ -576,104 +973,41 @@ ZipArchive::~ZipArchive(void)
 	{
 	}
 
-ZipArchive::DirectoryIterator ZipArchive::readDirectory(void)
+ZipArchive::FileID ZipArchive::findFile(const char* fileName) const
 	{
-	/* Create a new directory iterator for the root directory: */
-	DirectoryIterator dIt(directoryPos);
+	/* Find the file name in the directory tree: */
+	std::pair<Directory*,unsigned int> entry=const_cast<Directory*>(&root)->findPath(fileName); // const_cast is OK here because the method doesn't actually change the object
 	
-	/* Read the first proper directory entry: */
-	return getNextEntry(dIt);
-	}
-
-ZipArchive::DirectoryIterator& ZipArchive::getNextEntry(ZipArchive::DirectoryIterator& dIt)
-	{
-	/* Check if the entry is already past the last entry: */
-	if(dIt.nextEntryPos==0)
-		return dIt; // Do nothing
-	
-	/* Read the next entry header: */
-	archive->setReadPosAbs(dIt.nextEntryPos);
-	unsigned int entryHeader=archive->read<unsigned int>();
-	if(entryHeader==0x05054b50U||entryHeader==0x06054b50U) // Digital signature entry or end-of-central-directory entry
+	/* Check if it exists and is a file: */
+	if(entry.first!=0&&entry.first->entries[entry.second].filePos!=~Offset(0))
 		{
-		/* Invalidate and return the iterator: */
-		dIt.filePos=~Offset(0);
-		dIt.nextEntryPos=0;
-		delete[] dIt.fileName;
-		dIt.fileNameBufferSize=0;
-		dIt.fileName=0;
-		return dIt;
+		/* Return the file's ID: */
+		FileID fileId;
+		fileId.filePos=entry.first->entries[entry.second].filePos;
+		fileId.compressedSize=entry.first->entries[entry.second].sizes.compressed;
+		fileId.uncompressedSize=entry.first->entries[entry.second].sizes.uncompressed;
+		return fileId;
 		}
-	else if(entryHeader!=0x02014b50U) // File entry
-		Misc::throwStdErr("IO::ZipArchive::getNextEntry: Bad entry header in central directory");
-	
-	/* Read the header: */
-	archive->skip<unsigned short>(6);
-	archive->skip<unsigned int>(1);
-	unsigned int compressedSize=archive->read<unsigned int>();
-	unsigned int uncompressedSize=archive->read<unsigned int>();
-	unsigned short fileNameLength=archive->read<unsigned short>();
-	unsigned short extraFieldLength=archive->read<unsigned short>();
-	unsigned short fileCommentLength=archive->read<unsigned short>();
-	archive->skip<unsigned short>(2);
-	archive->skip<unsigned int>(1);
-	unsigned int localHeaderOffset=archive->read<unsigned int>();
-	
-	/* Read the file name: */
-	if(dIt.fileNameBufferSize<size_t(fileNameLength+1))
-		{
-		delete[] dIt.fileName;
-		dIt.fileNameBufferSize=((fileNameLength+1)*11)/10+2;
-		dIt.fileName=new char[dIt.fileNameBufferSize];
-		}
-	archive->read(dIt.fileName,fileNameLength);
-	dIt.fileName[fileNameLength]='\0';
-	
-	/* Store file information: */
-	dIt.filePos=Offset(localHeaderOffset);
-	dIt.compressedSize=size_t(compressedSize);
-	dIt.uncompressedSize=size_t(uncompressedSize);
-	
-	/* Skip extra field and file comment: */
-	archive->skip<char>(extraFieldLength);
-	archive->skip<char>(fileCommentLength);
-	
-	/* Store the next entry's offset: */
-	dIt.nextEntryPos=archive->getReadPos();
-	
-	return dIt;
-	}
-
-ZipArchive::FileID ZipArchive::findFile(const char* fileName)
-	{
-	/* Read the archive's central directory: */
-	for(DirectoryIterator dIt=readDirectory();dIt.isValid();getNextEntry(dIt))
-		{
-		/* Check if the file was found: */
-		if(strcmp(dIt.getFileName(),fileName)==0)
-			return dIt;
-		}
-	
-	/* File was not found; throw exception: */
-	throw FileNotFoundError(fileName);
+	else
+		throw FileNotFoundError(fileName);
 	}
 
 FilePtr ZipArchive::openFile(const ZipArchive::FileID& fileId)
 	{
 	/* Read the file's header: */
 	archive->setReadPosAbs(fileId.filePos);
-	if(archive->read<unsigned int>()!=0x04034b50U)
-		Misc::throwStdErr("IO::ZipArchive::openFile: Invalid file header signature");
+	if(archive->read<Misc::UInt32>()!=0x04034b50U)
+		throw File::OpenError("IO::ZipArchive::openFile: Invalid file header signature");
 	
 	/* Read file header information: */
-	archive->skip<unsigned short>(2);
-	unsigned short compressionMethod=archive->read<unsigned short>();
-	archive->skip<unsigned short>(2);
-	archive->skip<unsigned int>(1);
-	unsigned int compressedSize=archive->read<unsigned int>();
-	archive->skip<unsigned int>(1);
-	unsigned short fileNameLength=archive->read<unsigned short>();
-	unsigned short extraFieldLength=archive->read<unsigned short>();
+	archive->skip<Misc::UInt16>(2);
+	unsigned short compressionMethod=archive->read<Misc::UInt16>();
+	archive->skip<Misc::UInt16>(2);
+	archive->skip<Misc::UInt32>(1);
+	unsigned int compressedSize=archive->read<Misc::UInt32>();
+	archive->skip<Misc::UInt32>(1);
+	unsigned short fileNameLength=archive->read<Misc::UInt16>();
+	unsigned short extraFieldLength=archive->read<Misc::UInt16>();
 	
 	/* Skip file name and extra field: */
 	archive->skip<char>(fileNameLength);
@@ -687,18 +1021,18 @@ SeekableFilePtr ZipArchive::openSeekableFile(const ZipArchive::FileID& fileId)
 	{
 	/* Read the file's header: */
 	archive->setReadPosAbs(fileId.filePos);
-	if(archive->read<unsigned int>()!=0x04034b50U)
-		Misc::throwStdErr("IO::ZipArchive::openSeekableFile: Invalid file header signature");
+	if(archive->read<Misc::UInt32>()!=0x04034b50U)
+		throw File::OpenError("IO::ZipArchive::openSeekableFile: Invalid file header signature");
 	
 	/* Read file header information: */
-	archive->skip<unsigned short>(2);
-	unsigned short compressionMethod=archive->read<unsigned short>();
-	archive->skip<unsigned short>(2);
-	archive->skip<unsigned int>(1);
-	unsigned int compressedSize=archive->read<unsigned int>();
-	unsigned int uncompressedSize=archive->read<unsigned int>();
-	unsigned short fileNameLength=archive->read<unsigned short>();
-	unsigned short extraFieldLength=archive->read<unsigned short>();
+	archive->skip<Misc::UInt16>(2);
+	unsigned short compressionMethod=archive->read<Misc::UInt16>();
+	archive->skip<Misc::UInt16>(2);
+	archive->skip<Misc::UInt32>(1);
+	unsigned int compressedSize=archive->read<Misc::UInt32>();
+	unsigned int uncompressedSize=archive->read<Misc::UInt32>();
+	unsigned short fileNameLength=archive->read<Misc::UInt16>();
+	unsigned short extraFieldLength=archive->read<Misc::UInt16>();
 	
 	/* Skip file name and extra field: */
 	archive->skip<char>(fileNameLength);
@@ -726,7 +1060,7 @@ SeekableFilePtr ZipArchive::openSeekableFile(const ZipArchive::FileID& fileId)
 			{
 			delete[] compressed;
 			delete result;
-			Misc::throwStdErr("IO::ZipArchive::openSeekableFile: Internal zlib error");
+			throw File::OpenError("IO::ZipArchive::openSeekableFile: Internal zlib error");
 			}
 		stream.next_in=compressed;
 		stream.avail_in=compressedSize;
@@ -736,23 +1070,43 @@ SeekableFilePtr ZipArchive::openSeekableFile(const ZipArchive::FileID& fileId)
 			{
 			delete[] compressed;
 			delete result;
-			Misc::throwStdErr("IO::ZipArchive::openSeekableFile: Internal zlib error");
+			throw File::OpenError("IO::ZipArchive::openSeekableFile: Internal zlib error");
 			}
 		delete[] compressed;
 		if(inflateEnd(&stream)!=Z_OK)
 			{
 			delete result;
-			Misc::throwStdErr("IO::ZipArchive::openSeekableFile: Internal zlib error");
+			throw File::OpenError("IO::ZipArchive::openSeekableFile: Internal zlib error");
 			}
 		}
 	
 	return result;
 	}
 
-DirectoryPtr ZipArchive::openDirectory(const char* directoryName)
+DirectoryPtr ZipArchive::openRootDirectory(void)
 	{
 	/* Return a new directory object: */
-	return new ZipArchiveDirectory(this,directoryName);
+	return new ZipArchiveDirectory(this,&root);
+	}
+
+DirectoryPtr ZipArchive::openDirectory(const char* directoryName)
+	{
+	/* Find the directory name in the directory tree: */
+	std::pair<Directory*,unsigned int> entry=root.findPath(directoryName);
+	
+	/* Check if the directory exists: */
+	if(entry.first!=0&&entry.first->entries[entry.second].filePos==~Offset(0))
+		{
+		/* Return the found directory: */
+		return new ZipArchiveDirectory(this,entry.first->entries[entry.second].child);
+		}
+	else if(entry.first==0&&entry.second==1)
+		{
+		/* Return the root directory: */
+		return new ZipArchiveDirectory(this,&root);
+		}
+	else
+		throw FileNotFoundError(directoryName);
 	}
 
 }

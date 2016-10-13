@@ -1,7 +1,7 @@
 /***********************************************************************
 V4L2VideoDevice - Wrapper class around video devices as represented by
 the Video for Linux version 2 (V4L2) library.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <vector>
 #include <Misc/FunctionCalls.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -48,10 +49,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Label.h>
-#include <GLMotif/Slider.h>
+#include <GLMotif/TextFieldSlider.h>
 #include <GLMotif/Margin.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/DropdownBox.h>
+#include <Video/ImageExtractorY8.h>
 #include <Video/ImageExtractorY10B.h>
 #include <Video/ImageExtractorYUYV.h>
 #include <Video/ImageExtractorUYVY.h>
@@ -61,6 +63,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #endif
 
 namespace Video {
+
+/******************************************
+Methods of class V4L2VideoDevice::DeviceId:
+******************************************/
+
+VideoDevice* V4L2VideoDevice::DeviceId::createDevice(void) const
+	{
+	return new V4L2VideoDevice(deviceFileName.c_str());
+	}
 
 /********************************
 Methods of class V4L2VideoDevice:
@@ -109,6 +120,86 @@ void V4L2VideoDevice::enumFrameIntervals(VideoDataFormat& format,std::vector<Vid
 		}
 	}
 
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+int getVideoDeviceControl(int videoDeviceFd,unsigned int controlId,int& controlValue)
+	{
+	/* Use old or new control API based on control's class: */
+	if(V4L2_CTRL_ID2CLASS(controlId)==V4L2_CTRL_CLASS_USER)
+		{
+		/* Fill in the control structure: */
+		v4l2_control control;
+		memset(&control,0,sizeof(control));
+		control.id=controlId;
+		
+		/* Get the control and return the result: */
+		int result=ioctl(videoDeviceFd,VIDIOC_G_CTRL,&control);
+		if(result==0)
+			controlValue=control.value;
+		return result;
+		}
+	else
+		{
+		/* Fill in the extended control structure: */
+		v4l2_ext_control control;
+		memset(&control,0,sizeof(control));
+		control.id=controlId;
+		
+		/* Fill in the extended control metadata structure: */
+		v4l2_ext_controls controls;
+		memset(&controls,0,sizeof(controls));
+		controls.ctrl_class=V4L2_CTRL_ID2CLASS(controlId);
+		controls.count=1;
+		controls.controls=&control;
+		
+		/* Get the control and return the result: */
+		int result=ioctl(videoDeviceFd,VIDIOC_G_EXT_CTRLS,&controls);
+		if(result==0)
+			controlValue=control.value;
+		return result;
+		}
+	}
+
+int setVideoDeviceControl(int videoDeviceFd,unsigned int controlId,int controlValue)
+	{
+	/* Use old or new control API based on control's class: */
+	if(V4L2_CTRL_ID2CLASS(controlId)==V4L2_CTRL_CLASS_USER)
+		{
+		/* Fill in the control structure: */
+		v4l2_control control;
+		memset(&control,0,sizeof(control));
+		control.id=controlId;
+		control.value=controlValue;
+		
+		/* Set the control and return the result: */
+		return ioctl(videoDeviceFd,VIDIOC_S_CTRL,&control);
+		}
+	else
+		{
+		/* Fill in the extended control structure: */
+		v4l2_ext_control control;
+		memset(&control,0,sizeof(control));
+		control.id=controlId;
+		control.value=controlValue;
+		
+		/* Fill in the extended control metadata structure: */
+		v4l2_ext_controls controls;
+		memset(&controls,0,sizeof(controls));
+		controls.ctrl_class=V4L2_CTRL_ID2CLASS(controlId);
+		controls.count=1;
+		controls.controls=&control;
+		
+		/* Set the control and return the result: */
+		return ioctl(videoDeviceFd,VIDIOC_S_EXT_CTRLS,&controls);
+		}
+	}
+
+}
+
 void V4L2VideoDevice::setControl(unsigned int controlId,const char* controlTag,const Misc::ConfigurationFileSection& cfg)
 	{
 	/* Query the control's type and value range: */
@@ -119,26 +210,26 @@ void V4L2VideoDevice::setControl(unsigned int controlId,const char* controlTag,c
 		return; // Fail silently; control is just not supported by camera
 	
 	/* Query the control's current value: */
-	v4l2_control control;
-	memset(&control,0,sizeof(v4l2_control));
-	control.id=controlId;
-	if(ioctl(videoFd,VIDIOC_G_CTRL,&control)!=0)
+	int oldControlValue=0;
+	if(getVideoDeviceControl(videoFd,controlId,oldControlValue)!=0)
+		{
 		return;
 		// Misc::throwStdErr("Video::V4L2VideoDevice::setControl: Error while querying control %s",controlTag);
+		}
 	
 	/* Retrieve the desired control value from the configuration file section: */
-	int oldControlValue=control.value;
+	int controlValue;
 	if(queryControl.type==V4L2_CTRL_TYPE_INTEGER)
-		control.value=cfg.retrieveValue<int>(controlTag,control.value);
+		controlValue=cfg.retrieveValue<int>(controlTag,oldControlValue);
 	else if(queryControl.type==V4L2_CTRL_TYPE_BOOLEAN)
-		control.value=cfg.retrieveValue<bool>(controlTag,control.value!=0)?1:0;
+		controlValue=cfg.retrieveValue<bool>(controlTag,oldControlValue!=0)?1:0;
 	else if(queryControl.type==V4L2_CTRL_TYPE_MENU)
 		{
 		/* Query the name of the currently selected menu choice: */
 		v4l2_querymenu queryMenu;
 		memset(&queryMenu,0,sizeof(queryMenu));
 		queryMenu.id=controlId;
-		queryMenu.index=control.value;
+		queryMenu.index=oldControlValue;
 		if(ioctl(videoFd,VIDIOC_QUERYMENU,&queryMenu)!=0)
 			{
 			/* Let's agree to fail silently for now: */
@@ -151,7 +242,7 @@ void V4L2VideoDevice::setControl(unsigned int controlId,const char* controlTag,c
 		
 		/* Find the index of the selected menu choice: */
 		int selectedMenuChoice=-1;
-		for(int index=0;index<=queryControl.maximum;++index)
+		for(int index=queryControl.minimum;index<=queryControl.maximum;++index)
 			{
 			queryMenu.id=controlId;
 			queryMenu.index=index;
@@ -173,7 +264,7 @@ void V4L2VideoDevice::setControl(unsigned int controlId,const char* controlTag,c
 			// Misc::throwStdErr("Video::V4L2VideoDevice::setControl: %s is not a valid choice for menu control %s",menuChoice.c_str(),controlTag);
 			return;
 			}
-		control.value=selectedMenuChoice;
+		controlValue=selectedMenuChoice;
 		}
 	else
 		{
@@ -182,34 +273,33 @@ void V4L2VideoDevice::setControl(unsigned int controlId,const char* controlTag,c
 		return;
 		}
 	
-	if(control.value!=oldControlValue)
+	/* Set the new control value if it is different from the current value: */
+	if(controlValue!=oldControlValue&&setVideoDeviceControl(videoFd,controlId,controlValue)!=0)
 		{
-		/* Set the control's value: */
-		control.id=controlId;
-		if(ioctl(videoFd,VIDIOC_S_CTRL,&control)!=0)
-			{
-			/* Let's agree to fail silently for now: */
-			// Misc::throwStdErr("Video::V4L2VideoDevice::setControl: Error while setting value for control %s",controlTag);
-			return;
-			}
+		/* Let's agree to fail silently for now: */
+		// Misc::throwStdErr("Video::V4L2VideoDevice::setControl: Error while setting value for control %s",controlTag);
+		return;
 		}
 	}
 
-void V4L2VideoDevice::integerControlChangedCallback(Misc::CallbackData* cbData,const unsigned int& controlId)
+void V4L2VideoDevice::integerControlChangedCallback(Misc::CallbackData* cbData)
 	{
 	/* Get the proper callback data type: */
-	GLMotif::Slider::ValueChangedCallbackData* myCbData=dynamic_cast<GLMotif::Slider::ValueChangedCallbackData*>(cbData);
+	GLMotif::TextFieldSlider::ValueChangedCallbackData* myCbData=dynamic_cast<GLMotif::TextFieldSlider::ValueChangedCallbackData*>(cbData);
 	if(myCbData==0)
 		return;
 	
 	/* Change the video device's control value: */
-	v4l2_control control;
-	control.id=controlId;
-	control.value=int(Math::floor(myCbData->value+0.5f));
-	ioctl(videoFd,VIDIOC_S_CTRL,&control);
+	unsigned int controlId=myCbData->slider->getManager()->getWidgetAttribute<unsigned int>(myCbData->slider);
+	int controlValue=int(Math::floor(myCbData->value+0.5f));
+	if(setVideoDeviceControl(videoFd,controlId,controlValue)!=0)
+		{
+		int error=errno;
+		Misc::formattedUserError("V4L2VideoDevice::integerControlChangedCallback: Error %d (%s) while setting control",error,strerror(error));
+		}
 	}
 
-void V4L2VideoDevice::booleanControlChangedCallback(Misc::CallbackData* cbData,const unsigned int& controlId)
+void V4L2VideoDevice::booleanControlChangedCallback(Misc::CallbackData* cbData)
 	{
 	/* Get the proper callback data type: */
 	GLMotif::ToggleButton::ValueChangedCallbackData* myCbData=dynamic_cast<GLMotif::ToggleButton::ValueChangedCallbackData*>(cbData);
@@ -217,13 +307,16 @@ void V4L2VideoDevice::booleanControlChangedCallback(Misc::CallbackData* cbData,c
 		return;
 	
 	/* Change the video device's control value: */
-	v4l2_control control;
-	control.id=controlId;
-	control.value=myCbData->set?1:0;
-	ioctl(videoFd,VIDIOC_S_CTRL,&control);
+	unsigned int controlId=myCbData->toggle->getManager()->getWidgetAttribute<unsigned int>(myCbData->toggle);
+	int controlValue=myCbData->set?1:0;
+	if(setVideoDeviceControl(videoFd,controlId,controlValue)!=0)
+		{
+		int error=errno;
+		Misc::formattedUserError("V4L2VideoDevice::booleanControlChangedCallback: Error %d (%s) while setting control",error,strerror(error));
+		}
 	}
 
-void V4L2VideoDevice::menuControlChangedCallback(Misc::CallbackData* cbData,const unsigned int& controlId)
+void V4L2VideoDevice::menuControlChangedCallback(Misc::CallbackData* cbData)
 	{
 	/* Get the proper callback data type: */
 	GLMotif::DropdownBox::ValueChangedCallbackData* myCbData=dynamic_cast<GLMotif::DropdownBox::ValueChangedCallbackData*>(cbData);
@@ -231,10 +324,15 @@ void V4L2VideoDevice::menuControlChangedCallback(Misc::CallbackData* cbData,cons
 		return;
 	
 	/* Change the video device's control value: */
-	v4l2_control control;
-	control.id=controlId;
-	control.value=myCbData->newSelectedItem;
-	ioctl(videoFd,VIDIOC_S_CTRL,&control);
+	GLMotif::WidgetManager* manager=myCbData->dropdownBox->getManager();
+	unsigned int controlId=manager->getWidgetAttribute<unsigned int>(myCbData->dropdownBox);
+	int controlValue=manager->getWidgetAttribute<int>(myCbData->getItemWidget());
+	
+	if(setVideoDeviceControl(videoFd,controlId,controlValue)!=0)
+		{
+		int error=errno;
+		Misc::formattedUserError("V4L2VideoDevice::menuControlChangedCallback: Error %d (%s) while setting control",error,strerror(error));
+		}
 	}
 
 void* V4L2VideoDevice::streamingThreadMethod(void)
@@ -242,7 +340,7 @@ void* V4L2VideoDevice::streamingThreadMethod(void)
 	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
 	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
-	while(true)
+	while(runStreamingThread)
 		{
 		/* Dequeue the next available frame buffer: */
 		v4l2_buffer buffer;
@@ -260,7 +358,16 @@ void* V4L2VideoDevice::streamingThreadMethod(void)
 				continue;
 				}
 			else
+				{
+				if(runStreamingThread)
+					{
+					/* Send an error message to the user, and then shut down: */
+					int error=errno;
+					Misc::formattedUserError("V4L2VideoDevice::streamingThreadMethod: Shutting down streaming thread due to error %d (%s) while dequeueing video buffer",error,strerror(error));
+					}
+				
 				break;
+				}
 			}
 		
 		/* Find the frame buffer object, and fill in its capture state: */
@@ -274,7 +381,13 @@ void* V4L2VideoDevice::streamingThreadMethod(void)
 		/* Put the frame buffer back into the capture queue: */
 		if(ioctl(videoFd,VIDIOC_QBUF,&buffer)<0)
 			{
-			/* This is a serious problem, so we have to bail out: */
+			if(runStreamingThread)
+				{
+				/* Send an error message to the user, and then shut down: */
+				int error=errno;
+				Misc::formattedUserError("V4L2VideoDevice::streamingThreadMethod: Shutting down streaming thread due to error %d (%s) while enqueueing video buffer",error,strerror(error));
+				}
+			
 			break;
 			}
 		}
@@ -285,7 +398,8 @@ void* V4L2VideoDevice::streamingThreadMethod(void)
 V4L2VideoDevice::V4L2VideoDevice(const char* videoDeviceName)
 	:videoFd(-1),
 	 canRead(false),canStream(false),
-	 frameBuffersMemoryMapped(false),numFrameBuffers(0),frameBuffers(0)
+	 frameBuffersMemoryMapped(false),numFrameBuffers(0),frameBuffers(0),
+	 runStreamingThread(false)
 	{
 	/* Open the video device: */
 	videoFd=open(videoDeviceName,O_RDWR); // Read/write access is required, even for capture only!
@@ -319,7 +433,8 @@ V4L2VideoDevice::~V4L2VideoDevice(void)
 	if(streamingCallback!=0)
 		{
 		/* Stop the background streaming thread: */
-		streamingThread.cancel();
+		runStreamingThread=false;
+		streamingThread.cancel(); // We still have to cancel...
 		streamingThread.join();
 		}
 	
@@ -462,28 +577,162 @@ VideoDataFormat& V4L2VideoDevice::setVideoFormat(VideoDataFormat& newFormat)
 	return newFormat;
 	}
 
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+std::string controlNameToTag(const v4l2_queryctrl& control)
+	{
+	std::string result;
+	const char* cnPtr=reinterpret_cast<const char*>(control.name);
+	result.push_back(tolower(*cnPtr));
+	bool nextUpperCase=false;
+	while(*cnPtr!='\0')
+		{
+		if(*cnPtr>='a'&&*cnPtr<='z')
+			{
+			result.push_back(nextUpperCase?toupper(*cnPtr):*cnPtr);
+			nextUpperCase=false;
+			}
+		else if(*cnPtr>='A'&&*cnPtr<='Z')
+			{
+			result.push_back(nextUpperCase?*cnPtr:tolower(*cnPtr));
+			nextUpperCase=false;
+			}
+		else
+			nextUpperCase=true;
+		
+		++cnPtr;
+		}
+	
+	return result;
+	}
+
+}
+
+void V4L2VideoDevice::saveConfiguration(Misc::ConfigurationFileSection& cfg) const
+	{
+	/* Call the base class method to save frame size, frame rate, and pixel format: */
+	VideoDevice::saveConfiguration(cfg);
+	
+	/* Enumerate all controls exposed by the V4L2 video device: */
+	v4l2_queryctrl queryControl;
+	memset(&queryControl,0,sizeof(v4l2_queryctrl));
+	queryControl.id=V4L2_CTRL_FLAG_NEXT_CTRL;
+	while(ioctl(videoFd,VIDIOC_QUERYCTRL,&queryControl)==0)
+		{
+		/* Query the control's current value: */
+		int controlValue=0;
+		if(getVideoDeviceControl(videoFd,queryControl.id,controlValue)==0)
+			{
+			switch(queryControl.type)
+				{
+				case V4L2_CTRL_TYPE_INTEGER:
+					/* Store an integer control value: */
+					cfg.storeValue<int>(controlNameToTag(queryControl).c_str(),controlValue);
+					break;
+				
+				case V4L2_CTRL_TYPE_BOOLEAN:
+					/* Store a boolean control value: */
+					cfg.storeValue<bool>(controlNameToTag(queryControl).c_str(),controlValue!=0);
+					break;
+				
+				case V4L2_CTRL_TYPE_MENU:
+					{
+					/* Store a menu control value as a menu entry name: */
+					v4l2_querymenu queryMenu;
+					memset(&queryMenu,0,sizeof(queryMenu));
+					queryMenu.id=queryControl.id;
+					queryMenu.index=controlValue;
+					if(ioctl(videoFd,VIDIOC_QUERYMENU,&queryMenu)==0)
+						cfg.storeString(controlNameToTag(queryControl).c_str(),reinterpret_cast<char*>(queryMenu.name));
+					
+					break;
+					}
+				}
+			}
+		
+		/* Query the next control: */
+		queryControl.id|=V4L2_CTRL_FLAG_NEXT_CTRL;
+		}
+	}
+
 void V4L2VideoDevice::configure(const Misc::ConfigurationFileSection& cfg)
 	{
 	/* Call the base class method to select frame size, frame rate, and pixel format: */
 	VideoDevice::configure(cfg);
 	
-	/****************************************
-	Set the video device's standard controls:
-	****************************************/
+	/*********************************************************************
+	To deal with update controls that might lock or unlock other controls
+	when changed, and might therefore lock out previously-made settings,
+	we loop through the control set until there are no more changes.
+	*********************************************************************/
 	
-	setControl(V4L2_CID_BRIGHTNESS,"brightness",cfg);
-	setControl(V4L2_CID_CONTRAST,"contrast",cfg);
-	setControl(V4L2_CID_SATURATION,"saturation",cfg);
-	setControl(V4L2_CID_HUE,"hue",cfg);
-	setControl(V4L2_CID_AUTO_WHITE_BALANCE,"autoWhiteBalance",cfg);
-	setControl(V4L2_CID_GAMMA,"gamma",cfg);
-	setControl(V4L2_CID_EXPOSURE,"exposure",cfg);
-	setControl(V4L2_CID_AUTOGAIN,"autoGain",cfg);
-	setControl(V4L2_CID_GAIN,"gain",cfg);
-	setControl(V4L2_CID_POWER_LINE_FREQUENCY,"powerLineFrequency",cfg);
-	setControl(V4L2_CID_WHITE_BALANCE_TEMPERATURE,"whiteBalanceTemperature",cfg);
-	setControl(V4L2_CID_SHARPNESS,"sharpness",cfg);
-	setControl(V4L2_CID_BACKLIGHT_COMPENSATION,"gamma",cfg);
+	bool anyControlChanged;
+	do
+		{
+		anyControlChanged=false;
+		
+		/* Enumerate all controls exposed by the V4L2 video device: */
+		v4l2_queryctrl queryControl;
+		memset(&queryControl,0,sizeof(v4l2_queryctrl));
+		queryControl.id=V4L2_CTRL_FLAG_NEXT_CTRL;
+		while(ioctl(videoFd,VIDIOC_QUERYCTRL,&queryControl)==0)
+			{
+			/* Query the control's current value: */
+			int controlValue=0;
+			if(getVideoDeviceControl(videoFd,queryControl.id,controlValue)==0)
+				{
+				std::string tag=controlNameToTag(queryControl);
+				if(cfg.hasTag(tag.c_str()))
+					{
+					int newControlValue=controlValue;
+					switch(queryControl.type)
+						{
+						case V4L2_CTRL_TYPE_INTEGER:
+							/* Retrieve an integer control value: */
+							newControlValue=cfg.retrieveValue<int>(tag.c_str());
+							break;
+						
+						case V4L2_CTRL_TYPE_BOOLEAN:
+							/* Retrieve a boolean control value: */
+							newControlValue=cfg.retrieveValue<bool>(tag.c_str())?1:0;
+							break;
+						
+						case V4L2_CTRL_TYPE_MENU:
+							{
+							/* Retrieve a menu control value as a menu entry name: */
+							std::string entryName=cfg.retrieveString(tag.c_str());
+							for(int i=queryControl.minimum;i<=queryControl.maximum;++i)
+								{
+								v4l2_querymenu queryMenu;
+								memset(&queryMenu,0,sizeof(queryMenu));
+								queryMenu.id=queryControl.id;
+								queryMenu.index=i;
+								if(ioctl(videoFd,VIDIOC_QUERYMENU,&queryMenu)==0&&strcasecmp(entryName.c_str(),reinterpret_cast<char*>(queryMenu.name))==0)
+									{
+									newControlValue=i;
+									break;
+									}
+								}
+							
+							break;
+							}
+						}
+					
+					/* Set the new control value if it is different: */
+					if(newControlValue!=controlValue&&setVideoDeviceControl(videoFd,queryControl.id,newControlValue)==0)
+						anyControlChanged=true;
+					}
+				}
+			
+			/* Query the next control: */
+			queryControl.id|=V4L2_CTRL_FLAG_NEXT_CTRL;
+			}
+		}
+	while(anyControlChanged);
 	}
 
 ImageExtractor* V4L2VideoDevice::createImageExtractor(void) const
@@ -492,7 +741,9 @@ ImageExtractor* V4L2VideoDevice::createImageExtractor(void) const
 	VideoDataFormat format=getVideoFormat();
 	
 	/* Create an extractor based on the video format's pixel format: */
-	if(format.isPixelFormat("Y10B"))
+	if(format.isPixelFormat("Y8  ")||format.isPixelFormat("GREY"))
+		return new ImageExtractorY8(format.size);
+	else if(format.isPixelFormat("Y10B"))
 		return new ImageExtractorY10B(format.size);
 	else if(format.isPixelFormat("YUYV"))
 		return new ImageExtractorYUYV(format.size);
@@ -532,71 +783,93 @@ GLMotif::Widget* V4L2VideoDevice::createControlPanel(GLMotif::WidgetManager* wid
 	queryControl.id=V4L2_CTRL_FLAG_NEXT_CTRL;
 	while(ioctl(videoFd,VIDIOC_QUERYCTRL,&queryControl)==0)
 		{
-		/* Create a control row for the current control: */
-		char widgetName[40];
-		
-		/* Create a label naming the control: */
-		snprintf(widgetName,sizeof(widgetName),"Label%u",queryControl.id);
-		new GLMotif::Label(widgetName,controlPanel,reinterpret_cast<char*>(queryControl.name));
-		
 		/* Query the control's current value: */
-		v4l2_control control;
-		memset(&control,0,sizeof(v4l2_control));
-		control.id=queryControl.id;
-		if(ioctl(videoFd,VIDIOC_G_CTRL,&control)!=0)
-			Misc::throwStdErr("V4L2VideoDevice::createControlPanel: Error while querying control value");
-		
-		/* Create a widget to change the control's value: */
-		if(queryControl.type==V4L2_CTRL_TYPE_INTEGER)
+		int controlValue=0;
+		if(getVideoDeviceControl(videoFd,queryControl.id,controlValue)==0)
 			{
-			/* Create a slider: */
-			snprintf(widgetName,sizeof(widgetName),"Slider%u",queryControl.id);
-			GLMotif::Slider* controlSlider=new GLMotif::Slider(widgetName,controlPanel,GLMotif::Slider::HORIZONTAL,ss->fontHeight*10.0f);
-			controlSlider->setValueRange(queryControl.minimum,queryControl.maximum,queryControl.step);
-			controlSlider->setValue(control.value);
-			controlSlider->getValueChangedCallbacks().add(this,&V4L2VideoDevice::integerControlChangedCallback,(unsigned int)queryControl.id);
-			}
-		else if(queryControl.type==V4L2_CTRL_TYPE_BOOLEAN)
-			{
-			/* Create a toggle button inside a margin: */
-			snprintf(widgetName,sizeof(widgetName),"Margin%u",queryControl.id);
-			GLMotif::Margin* controlMargin=new GLMotif::Margin(widgetName,controlPanel,false);
-			controlMargin->setAlignment(GLMotif::Alignment::LEFT);
+			/* Create a control row for the current control: */
+			char widgetName[40];
 			
-			snprintf(widgetName,sizeof(widgetName),"ToggleButton%u",queryControl.id);
-			GLMotif::ToggleButton* controlToggleButton=new GLMotif::ToggleButton(widgetName,controlMargin,"Enabled");
-			controlToggleButton->setBorderWidth(0.0f);
-			controlToggleButton->setHAlignment(GLFont::Left);
-			controlToggleButton->setToggle(control.value!=0);
-			controlToggleButton->getValueChangedCallbacks().add(this,&V4L2VideoDevice::booleanControlChangedCallback,(unsigned int)queryControl.id);
+			/* Create a label naming the control: */
+			snprintf(widgetName,sizeof(widgetName),"Label%u",queryControl.id);
+			new GLMotif::Label(widgetName,controlPanel,reinterpret_cast<char*>(queryControl.name));
 			
-			controlMargin->manageChild();
-			}
-		else if(queryControl.type==V4L2_CTRL_TYPE_MENU)
-			{
-			/* Query the names of all menu choices: */
-			std::vector<std::string> menuChoices;
-			for(int menuItem=0;menuItem<=queryControl.maximum;++menuItem)
+			/* Create a widget to change the control's value: */
+			if(queryControl.type==V4L2_CTRL_TYPE_INTEGER)
 				{
-				v4l2_querymenu queryMenu;
-				memset(&queryMenu,0,sizeof(queryMenu));
-				queryMenu.id=queryControl.id;
-				queryMenu.index=menuItem;
-				if(ioctl(videoFd,VIDIOC_QUERYMENU,&queryMenu)==0)
-					menuChoices.push_back(reinterpret_cast<char*>(queryMenu.name));
+				/* Create a slider: */
+				snprintf(widgetName,sizeof(widgetName),"Slider%u",queryControl.id);
+				GLMotif::TextFieldSlider* controlSlider=new GLMotif::TextFieldSlider(widgetName,controlPanel,6,ss->fontHeight*10.0f);
+				controlSlider->setSliderMapping(GLMotif::TextFieldSlider::LINEAR);
+				controlSlider->setValueType(GLMotif::TextFieldSlider::INT);
+				controlSlider->setValueRange(queryControl.minimum,queryControl.maximum,queryControl.step);
+				controlSlider->setValue(controlValue);
+				controlSlider->getValueChangedCallbacks().add(this,&V4L2VideoDevice::integerControlChangedCallback);
+				
+				/* Associate the control ID with the control widget: */
+				widgetManager->setWidgetAttribute(controlSlider,(unsigned int)queryControl.id);
 				}
-			
-			/* Create a drop-down box inside a margin: */
-			snprintf(widgetName,sizeof(widgetName),"Margin%u",queryControl.id);
-			GLMotif::Margin* controlMargin=new GLMotif::Margin(widgetName,controlPanel,false);
-			controlMargin->setAlignment(GLMotif::Alignment::LEFT);
-			
-			snprintf(widgetName,sizeof(widgetName),"DropdownBox%u",queryControl.id);
-			GLMotif::DropdownBox* controlDropdownBox=new GLMotif::DropdownBox(widgetName,controlMargin,menuChoices);
-			controlDropdownBox->setSelectedItem(control.value);
-			controlDropdownBox->getValueChangedCallbacks().add(this,&V4L2VideoDevice::menuControlChangedCallback,(unsigned int)queryControl.id);
-			
-			controlMargin->manageChild();
+			else if(queryControl.type==V4L2_CTRL_TYPE_BOOLEAN)
+				{
+				/* Create a toggle button inside a margin: */
+				snprintf(widgetName,sizeof(widgetName),"Margin%u",queryControl.id);
+				GLMotif::Margin* controlMargin=new GLMotif::Margin(widgetName,controlPanel,false);
+				controlMargin->setAlignment(GLMotif::Alignment::LEFT);
+				
+				snprintf(widgetName,sizeof(widgetName),"ToggleButton%u",queryControl.id);
+				GLMotif::ToggleButton* controlToggleButton=new GLMotif::ToggleButton(widgetName,controlMargin,"Enabled");
+				controlToggleButton->setBorderWidth(0.0f);
+				controlToggleButton->setHAlignment(GLFont::Left);
+				controlToggleButton->setToggle(controlValue!=0);
+				controlToggleButton->getValueChangedCallbacks().add(this,&V4L2VideoDevice::booleanControlChangedCallback);
+				
+				/* Associate the control ID with the control widget: */
+				widgetManager->setWidgetAttribute(controlToggleButton,(unsigned int)queryControl.id);
+				
+				controlMargin->manageChild();
+				}
+			else if(queryControl.type==V4L2_CTRL_TYPE_MENU)
+				{
+				/* Query the names of all menu choices: */
+				std::vector<int> menuEntryIds;
+				std::vector<std::string> menuChoices;
+				for(int menuItem=queryControl.minimum;menuItem<=queryControl.maximum;++menuItem)
+					{
+					v4l2_querymenu queryMenu;
+					memset(&queryMenu,0,sizeof(queryMenu));
+					queryMenu.id=queryControl.id;
+					queryMenu.index=menuItem;
+					if(ioctl(videoFd,VIDIOC_QUERYMENU,&queryMenu)==0)
+						{
+						menuEntryIds.push_back(menuItem);
+						menuChoices.push_back(reinterpret_cast<char*>(queryMenu.name));
+						}
+					}
+				
+				/* Create a drop-down box inside a margin: */
+				snprintf(widgetName,sizeof(widgetName),"Margin%u",queryControl.id);
+				GLMotif::Margin* controlMargin=new GLMotif::Margin(widgetName,controlPanel,false);
+				controlMargin->setAlignment(GLMotif::Alignment::LEFT);
+				
+				snprintf(widgetName,sizeof(widgetName),"DropdownBox%u",queryControl.id);
+				GLMotif::DropdownBox* controlDropdownBox=new GLMotif::DropdownBox(widgetName,controlMargin,menuChoices);
+				
+				/* Set the currently selected menu item: */
+				for(unsigned int itemIndex=0;itemIndex<menuEntryIds.size();++itemIndex)
+					if(menuEntryIds[itemIndex]==controlValue)
+						controlDropdownBox->setSelectedItem(itemIndex);
+				
+				controlDropdownBox->getValueChangedCallbacks().add(this,&V4L2VideoDevice::menuControlChangedCallback);
+				
+				/* Associate the control ID with the control widget: */
+				widgetManager->setWidgetAttribute(controlDropdownBox,(unsigned int)queryControl.id);
+				
+				/* Associate menu entry IDs with each menu item: */
+				for(unsigned int itemIndex=0;itemIndex<menuEntryIds.size();++itemIndex)
+					widgetManager->setWidgetAttribute(controlDropdownBox->getItemWidget(itemIndex),menuEntryIds[itemIndex]);
+				
+				controlMargin->manageChild();
+				}
 			}
 		
 		/* Query the next control: */
@@ -702,7 +975,15 @@ void V4L2VideoDevice::startStreaming(void)
 	/* Start streaming: */
 	int streamType=V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if(ioctl(videoFd,VIDIOC_STREAMON,&streamType)!=0)
+		{
+		/* Stop streaming as far as the base class is concerned, to leave the device in a clean state: */
+		VideoDevice::stopStreaming();
+		
+		/* At this point it would be nice to remove the enqueued buffers from the device, but there is no such API :( */
+		
+		/* Throw an exception: */
 		Misc::throwStdErr("Video::V4L2VideoDevice::startStreaming: Error starting streaming video capture");
+		}
 	}
 
 void V4L2VideoDevice::startStreaming(VideoDevice::StreamingCallback* newStreamingCallback)
@@ -717,9 +998,18 @@ void V4L2VideoDevice::startStreaming(VideoDevice::StreamingCallback* newStreamin
 	/* Start streaming: */
 	int streamType=V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if(ioctl(videoFd,VIDIOC_STREAMON,&streamType)!=0)
+		{
+		/* Stop streaming as far as the base class is concerned, to leave the device in a clean state: */
+		VideoDevice::stopStreaming();
+		
+		/* At this point it would be nice to remove the enqueued buffers from the device, but there is no such API :( */
+		
+		/* Throw an exception: */
 		Misc::throwStdErr("Video::V4L2VideoDevice::startStreaming: Error starting streaming video capture");
+		}
 	
 	/* Start the background capture thread: */
+	runStreamingThread=true;
 	streamingThread.start(this,&V4L2VideoDevice::streamingThreadMethod);
 	}
 
@@ -776,7 +1066,8 @@ void V4L2VideoDevice::stopStreaming(void)
 	if(streamingCallback!=0)
 		{
 		/* Stop the background streaming thread: */
-		streamingThread.cancel();
+		runStreamingThread=false;
+		streamingThread.cancel(); // We still have to cancel...
 		streamingThread.join();
 		}
 	
@@ -826,7 +1117,12 @@ void V4L2VideoDevice::enumerateDevices(std::vector<VideoDevice::DeviceIdPtr>& de
 		/* Try opening the device file: */
 		int videoFd=open(deviceFileName,O_RDWR); // Read/write access is required, even for capture only!
 		if(videoFd<0)
-			break;
+			{
+			if(errno==ENOENT) // No more video device nodes
+				break;
+			else
+				continue; // Some other error; ignore this device node
+			}
 		
 		/* Check if the device can capture video in streaming mode: */
 		v4l2_capability videoCap;

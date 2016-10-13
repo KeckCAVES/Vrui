@@ -1,7 +1,7 @@
 /***********************************************************************
 MultiDeviceNavigationTool - Class to use multiple 3-DOF devices for full
 navigation (translation, rotation, scaling).
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -33,24 +33,41 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
+/****************************************************************
+Methods of class MultiDeviceNavigationToolFactory::Configuration:
+****************************************************************/
+
+MultiDeviceNavigationToolFactory::Configuration::Configuration(void)
+	:translationFactor(1),
+	 minRotationScalingDistance(getPointPickDistance()),
+	 rotationFactor(1),
+	 scalingFactor(1)
+	{
+	}
+
+void MultiDeviceNavigationToolFactory::Configuration::read(const Misc::ConfigurationFileSection& cfs)
+	{
+	translationFactor=cfs.retrieveValue<Scalar>("./translationFactor",translationFactor);
+	minRotationScalingDistance=cfs.retrieveValue<Scalar>("./minRotationScalingDistance",minRotationScalingDistance);
+	rotationFactor=cfs.retrieveValue<Scalar>("./rotationFactor",rotationFactor);
+	scalingFactor=cfs.retrieveValue<Scalar>("./scalingFactor",scalingFactor);
+	}
+
+void MultiDeviceNavigationToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
+	{
+	cfs.storeValue<Scalar>("./translationFactor",translationFactor);
+	cfs.storeValue<Scalar>("./minRotationScalingDistance",minRotationScalingDistance);
+	cfs.storeValue<Scalar>("./rotationFactor",rotationFactor);
+	cfs.storeValue<Scalar>("./scalingFactor",scalingFactor);
+	}
+
 /*************************************************
 Methods of class MultiDeviceNavigationToolFactory:
 *************************************************/
 
 MultiDeviceNavigationToolFactory::MultiDeviceNavigationToolFactory(ToolManager& toolManager)
-	:ToolFactory("MultiDeviceNavigationTool",toolManager),
-	 translationFactor(1),
-	 minRotationScalingDistance(getInchFactor()),
-	 rotationFactor(1),
-	 scalingFactor(1)
+	:ToolFactory("MultiDeviceNavigationTool",toolManager)
 	{
-	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	translationFactor=cfs.retrieveValue<Scalar>("./translationFactor",translationFactor);
-	minRotationScalingDistance=cfs.retrieveValue<Scalar>("./minRotationScalingDistance",minRotationScalingDistance);
-	rotationFactor=cfs.retrieveValue<Scalar>("./rotationFactor",rotationFactor);
-	scalingFactor=cfs.retrieveValue<Scalar>("./scalingFactor",scalingFactor);
-	
 	/* Initialize tool layout: */
 	layout.setNumButtons(1,true);
 	
@@ -58,6 +75,10 @@ MultiDeviceNavigationToolFactory::MultiDeviceNavigationToolFactory(ToolManager& 
 	ToolFactory* navigationToolFactory=toolManager.loadClass("NavigationTool");
 	navigationToolFactory->addChildClass(this);
 	addParentClass(navigationToolFactory);
+	
+	/* Load class settings: */
+	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
+	configuration.read(cfs);
 	
 	/* Set tool class' factory pointer: */
 	MultiDeviceNavigationTool::factory=this;
@@ -124,6 +145,7 @@ Methods of class MultiDeviceNavigationTool:
 
 MultiDeviceNavigationTool::MultiDeviceNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(factory,inputAssignment),
+	 configuration(MultiDeviceNavigationTool::factory->configuration),
 	 numPressedButtons(0),
 	 lastDeviceButtonStates(new bool[input.getNumButtonSlots()]),
 	 lastDevicePositions(new Point[input.getNumButtonSlots()])
@@ -131,6 +153,18 @@ MultiDeviceNavigationTool::MultiDeviceNavigationTool(const ToolFactory* sFactory
 	/* Initialize old button states: */
 	for(int i=0;i<input.getNumButtonSlots();++i)
 		lastDeviceButtonStates[i]=false;
+	}
+
+void MultiDeviceNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Override private configuration data from given configuration file section: */
+	configuration.read(configFileSection);
+	}
+
+void MultiDeviceNavigationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Write private configuration data to given configuration file section: */
+	configuration.write(configFileSection);
 	}
 
 const ToolFactory* MultiDeviceNavigationTool::getFactory(void) const
@@ -197,7 +231,7 @@ void MultiDeviceNavigationTool::frame(void)
 					Vector currentDist=getButtonDevicePosition(i)-currentCentroid;
 					Scalar currentLen=Geometry::mag(currentDist);
 					
-					if(lastLen>factory->minRotationScalingDistance&&currentLen>factory->minRotationScalingDistance)
+					if(lastLen>configuration.minRotationScalingDistance&&currentLen>configuration.minRotationScalingDistance)
 						{
 						/* Calculate the rotation axis and angle: */
 						Vector rot=lastDist^currentDist;
@@ -222,16 +256,12 @@ void MultiDeviceNavigationTool::frame(void)
 					}
 			
 			/* Navigate: */
-			NavTransform t=NavTransform::translate((currentCentroid-lastCentroid)*factory->translationFactor);
+			NavTransform t=NavTransform::translate((currentCentroid-lastCentroid)*configuration.translationFactor);
 			if(numActiveDevices>0)
 				{
-				/* Lock rotation vector to the navigation coordinate system's up direction: */
-				Vector up=getNavigationTransformation().transform(Vector(0,0,1));
-				rotation=up*((rotation*up)/Geometry::sqr(up));
-				
 				/* Average and scale rotation and scaling: */
-				rotation*=factory->rotationFactor/Scalar(numActiveDevices);
-				scaling=Math::pow(scaling,factory->scalingFactor/Scalar(numActiveDevices));
+				rotation*=configuration.rotationFactor/Scalar(numActiveDevices);
+				scaling=Math::pow(scaling,configuration.scalingFactor/Scalar(numActiveDevices));
 				
 				/* Apply rotation and scaling: */
 				t*=NavTransform::translateFromOriginTo(currentCentroid);

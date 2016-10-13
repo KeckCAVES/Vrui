@@ -1,7 +1,7 @@
 /***********************************************************************
 HttpFile - Class for high-performance reading from remote files using
 the HTTP/1.1 protocol.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string.h>
 #include <string>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/Time.h>
 #include <IO/ValueSource.h>
 #include <Comm/TCPPipe.h>
@@ -60,7 +61,7 @@ size_t parseChunkHeader(Comm::Pipe& pipe)
 	while(digit!='\r')
 		digit=pipe.getChar();
 	if(pipe.getChar()!='\n')
-		Misc::throwStdErr("HttpFile::readData: Malformed HTTP chunk header");
+		throw IO::File::Error("HttpFile::readData: Malformed HTTP chunk header");
 	
 	return chunkSize;
 	}
@@ -85,7 +86,7 @@ size_t HttpFile::readData(IO::File::Byte* buffer,size_t bufferSize)
 			
 			/* Skip the chunk footer: */
 			if(pipe->getChar()!='\r'||pipe->getChar()!='\n')
-				Misc::throwStdErr("Comm::HttpFile: Malformed HTTP chunk footer");
+				throw IO::File::Error("Comm::HttpFile: Malformed HTTP chunk footer");
 			
 			/* Parse the next chunk header: */
 			unreadSize=parseChunkHeader(*pipe);
@@ -283,48 +284,62 @@ HttpFile::HttpFile(const HttpFile::URLParts& urlParts,Comm::PipePtr sPipe)
 
 HttpFile::~HttpFile(void)
 	{
-	/* Skip all unread parts of the HTTP reply body: */
-	if(chunked)
+	try
 		{
-		if(!haveEof)
+		/* Skip all unread parts of the HTTP reply body: */
+		if(chunked)
 			{
-			/* Skip all leftover chunks: */
-			while(true)
+			if(!haveEof)
 				{
-				/* Skip the rest of the current chunk: */
-				pipe->skip<char>(unreadSize);
-				
-				/* Skip the chunk footer: */
-				if(pipe->getChar()!='\r'||pipe->getChar()!='\n')
-					Misc::throwStdErr("Comm::HttpFile: Malformed HTTP chunk footer");
-				
-				/* Parse the next chunk header: */
-				unreadSize=parseChunkHeader(*pipe);
-				if(unreadSize==0)
-					break;
+				/* Skip all leftover chunks: */
+				while(true)
+					{
+					/* Skip the rest of the current chunk: */
+					pipe->skip<char>(unreadSize);
+					
+					/* Skip the chunk footer: */
+					if(pipe->getChar()!='\r'||pipe->getChar()!='\n')
+						throw Error("Comm::HttpFile: Malformed HTTP chunk footer");
+					
+					/* Parse the next chunk header: */
+					unreadSize=parseChunkHeader(*pipe);
+					if(unreadSize==0)
+						break;
+					}
 				}
-			}
-		
-		/* Skip any optional message trailers: */
-		while(pipe->getChar()!='\r')
-			{
-			/* Skip the line: */
+			
+			/* Skip any optional message trailers: */
 			while(pipe->getChar()!='\r')
-				;
+				{
+				/* Skip the line: */
+				while(pipe->getChar()!='\r')
+					;
+				if(pipe->getChar()!='\n')
+					throw Error("Comm::HttpFile: Malformed HTTP body trailer");
+				}
 			if(pipe->getChar()!='\n')
-				Misc::throwStdErr("Comm::HttpFile: Malformed HTTP body trailer");
+				throw Error("Comm::HttpFile: Malformed HTTP body trailer");
 			}
-		if(pipe->getChar()!='\n')
-			Misc::throwStdErr("Comm::HttpFile: Malformed HTTP body trailer");
+		else if(fixedSize)
+			{
+			/* Skip the rest of the fixed-size message body: */
+			pipe->skip<char>(unreadSize);
+			}
 		}
-	else if(fixedSize)
+	catch(std::runtime_error err)
 		{
-		/* Skip the rest of the fixed-size message body: */
-		pipe->skip<char>(unreadSize);
+		/* Print an error message and carry on: */
+		Misc::formattedUserError("Comm::HttpFile: Caught exception \"%s\" while closing file",err.what());
 		}
 	
 	/* Release the read buffer: */
 	setReadBuffer(0,0,false);
+	}
+
+int HttpFile::getFd(void) const
+	{
+	/* Return pipe's file descriptor: */
+	return pipe->getFd();
 	}
 
 size_t HttpFile::getReadBufferSize(void) const

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBFragmentProgram - OpenGL extension class for the
 GL_ARB_fragment_program extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBFragmentProgram:
 *********************************************/
 
 GL_THREAD_LOCAL(GLARBFragmentProgram*) GLARBFragmentProgram::current=0;
+const char* GLARBFragmentProgram::name="GL_ARB_fragment_program";
 
 /*************************************
 Methods of class GLARBFragmentProgram:
@@ -46,7 +47,7 @@ GLARBFragmentProgram::~GLARBFragmentProgram(void)
 
 const char* GLARBFragmentProgram::getExtensionName(void) const
 	{
-	return "GL_ARB_fragment_program";
+	return name;
 	}
 
 void GLARBFragmentProgram::activate(void)
@@ -62,13 +63,13 @@ void GLARBFragmentProgram::deactivate(void)
 bool GLARBFragmentProgram::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_fragment_program");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBFragmentProgram::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_fragment_program"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Initialize the GL_ARB_vertex_program extension first (shares entry points): */
 		GLARBVertexProgram::initExtension();

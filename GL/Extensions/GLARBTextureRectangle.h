@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureRectangle - OpenGL extension class for the
 GL_ARB_texture_rectangle extension.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -47,6 +47,7 @@ class GLARBTextureRectangle:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBTextureRectangle*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

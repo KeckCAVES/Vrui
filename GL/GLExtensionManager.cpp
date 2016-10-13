@@ -1,6 +1,6 @@
 /***********************************************************************
 GLExtensionManager - Class to manage OpenGL extensions.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the OpenGL Support Library (GLSupport).
@@ -29,14 +29,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLX_GLXEXT_PROTOTYPES
 #define GLX_GLXEXT_PROTOTYPES 1
 #endif
-#ifndef GLSUPPORT_HAVE_GLXGETPROCADDRESS
+#include <GL/Config.h>
+#if !GLSUPPORT_CONFIG_HAVE_GLXGETPROCADDRESS
 #include <dlfcn.h>
 #endif
 #include <GL/glx.h>
 #include <GL/Extensions/GLExtension.h>
 
 #if 0
-#ifdef GLSUPPORT_HAVE_GLXGETPROCADDRESS
+#if GLSUPPORT_CONFIG_HAVE_GLXGETPROCADDRESS
 #ifndef GLX_ARB_get_proc_address
 #define GLX_ARB_get_proc_address 1
 typedef void (*__GLXextFuncPtr)(void);
@@ -57,7 +58,7 @@ Methods of class GLExtensionManager:
 
 GLExtensionManager::FunctionPointer GLExtensionManager::getFunctionPtr(const char* functionName)
 	{
-	#ifdef GLSUPPORT_HAVE_GLXGETPROCADDRESS
+	#if GLSUPPORT_CONFIG_HAVE_GLXGETPROCADDRESS
 	return glXGetProcAddressARB(reinterpret_cast<const GLubyte*>(functionName));
 	#else
 	/* Mac OS X's GLX does not support glXGetProcAddress, strangely enough: */

@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,11 +24,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/InputGraphManager.h>
 
+#define DEBUGGING 0
+#if DEBUGGING
 #include <iostream>
+#endif
+
 #include <Misc/SelfDestructArray.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/PrintInteger.h>
 #include <Misc/FileTests.h>
+#include <Misc/PriorityHeap.h>
 #include <Misc/StringHashFunctions.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
@@ -59,6 +65,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/VirtualInputDevice.h>
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/Viewer.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/DeviceForwarder.h>
 #include <Vrui/ToolInputAssignment.h>
 #include <Vrui/Tool.h>
@@ -674,6 +681,10 @@ InputGraphManager::~InputGraphManager(void)
 
 void InputGraphManager::addInputDevice(InputDevice* newDevice)
 	{
+	#if DEBUGGING
+	std::cout<<"IGM: Adding input device "<<newDevice<<" ("<<newDevice->getDeviceName()<<") to input graph"<<std::endl;
+	#endif
+	
 	/* Disable all callbacks for the device: */
 	newDevice->disableCallbacks();
 	
@@ -686,8 +697,40 @@ void InputGraphManager::addInputDevice(InputDevice* newDevice)
 	deviceMap.setEntry(DeviceMap::Entry(newDevice,newGid));
 	}
 
+namespace {
+
+/**************
+Helper classes:
+**************/
+
+struct LevelTool // Structure to sort tools by their graph level
+	{
+	/* Elements: */
+	public:
+	Tool* tool; // Pointer to tool
+	int level; // Index of input graph level containing tool
+	
+	/* Constructors and destructors: */
+	LevelTool(Tool* sTool,int sLevel)
+		:tool(sTool),level(sLevel)
+		{
+		}
+	
+	/* Methods: */
+	static bool lessEqual(const LevelTool& v1,const LevelTool& v2)
+		{
+		return v1.level>=v2.level; // Tool with highest level is the "smallest"
+		}
+	};
+
+}
+
 void InputGraphManager::removeInputDevice(InputDevice* device)
 	{
+	#if DEBUGGING
+	std::cout<<"IGM: Input graph removal process for input device "<<device<<" ("<<device->getDeviceName()<<")"<<std::endl;
+	#endif
+	
 	/* Find the device's entry in the device map: */
 	DeviceMap::Iterator dIt=deviceMap.findEntry(device);
 	
@@ -695,19 +738,36 @@ void InputGraphManager::removeInputDevice(InputDevice* device)
 	GraphInputDevice* gid=dIt->getDest();
 	
 	/* Gather all graph tools assigned to the input device: */
-	Misc::HashTable<Tool*,void> destroyTools(17);
+	Misc::HashTable<Tool*,void> destroyToolSet(17);
+	Misc::PriorityHeap<LevelTool,LevelTool> destroyToolHeap(17);
 	for(int featureIndex=0;featureIndex<gid->device->getNumFeatures();++featureIndex)
 		if(gid->toolSlots[featureIndex].tool!=0)
-			destroyTools.setEntry(Misc::HashTable<Tool*,void>::Entry(gid->toolSlots[featureIndex].tool->tool));
+			{
+			/* Get a pointer to the graph tool: */
+			GraphTool* gt=gid->toolSlots[featureIndex].tool;
+			
+			/* Insert the tool into the destroy set, and into the destroy heap if it wasn't in the set yet: */
+			if(!destroyToolSet.setEntry(Misc::HashTable<Tool*,void>::Entry(gt->tool)))
+				destroyToolHeap.insert(LevelTool(gt->tool,gt->level));
+			}
 	
 	/* Get a pointer to the tool manager: */
 	ToolManager* tm=getToolManager();
 	
-	/* Ask the tool manager to destroy all gathered tools: */
-	for(Misc::HashTable<Tool*,void>::Iterator dtIt=destroyTools.begin();!dtIt.isFinished();++dtIt)
-		tm->destroyTool(dtIt->getSource());
+	/* Ask the tool manager to destroy all gathered tools in order of decreasing graph level: */
+	#if DEBUGGING
+	std::cout<<"IGM: Destroying "<<destroyToolHeap.getNumElements()<<" tools depending on input device "<<device<<std::endl;
+	#endif
+	while(!destroyToolHeap.isEmpty())
+		{
+		tm->destroyTool(destroyToolHeap.getSmallest().tool);
+		destroyToolHeap.removeSmallest();
+		}
 	
 	/* Remove the graph input device from its graph level and from the graph device map: */
+	#if DEBUGGING
+	std::cout<<"IGM: Removing input device "<<device<<" from input graph"<<std::endl;
+	#endif
 	unlinkInputDevice(gid);
 	deviceMap.removeEntry(dIt);
 	
@@ -716,6 +776,10 @@ void InputGraphManager::removeInputDevice(InputDevice* device)
 	
 	/* Shrink the input graph: */
 	shrinkInputGraph();
+	
+	#if DEBUGGING
+	std::cout<<"IGM: Finished input graph removal process for input device "<<device<<std::endl;
+	#endif
 	}
 
 void InputGraphManager::addTool(Tool* newTool)
@@ -784,34 +848,49 @@ void InputGraphManager::removeTool(Tool* tool)
 
 void InputGraphManager::clear(void)
 	{
-	/* Repeat virtual input devices or tools until there are no more: */
-	while(maxGraphLevel>=0)
+	/* Bail out if the input graph is already empty: */
+	if(maxGraphLevel<0)
+		return;
+	
+	#if DEBUGGING
+	std::cout<<"IGM: Clearing input graph"<<std::endl;
+	#endif
+	
+	/* Remove all tools in descending graph level order: */
+	ToolManager* tm=getToolManager();
+	for(int level=maxGraphLevel;level>=0;--level)
+		while(toolLevels[level]!=0)
+			{
+			/* Delete the first tool on the top-most graph level: */
+			#if DEBUGGING
+			std::cout<<"IGM: Destroying tool "<<toolLevels[level]->tool<<" from input graph level "<<level<<std::endl;
+			#endif
+			tm->destroyTool(toolLevels[level]->tool);
+			}
+	
+	/* Remove all ungrabbed input devices from the first (and now only) graph level: */
+	InputDeviceManager* idm=getInputDeviceManager();
+	GraphInputDevice* gidPtr=deviceLevels[0];
+	while(gidPtr!=0)
 		{
-		/* Find the first virtual input device on graph level 0: */
-		InputDevice* device=0;
-		for(GraphInputDevice* gidPtr=deviceLevels[0];gidPtr!=0;gidPtr=gidPtr->levelSucc)
-			if(gidPtr->grabber==0)
-				{
-				device=gidPtr->device;
-				break;
-				}
+		GraphInputDevice* nextPtr=gidPtr->levelSucc;
 		
-		if(device!=0)
+		if(gidPtr->grabber==0)
 			{
 			/* Delete the device: */
-			getInputDeviceManager()->destroyInputDevice(device);
+			#if DEBUGGING
+			std::cout<<"IGM: Destroying input device "<<gidPtr->device<<std::endl;
+			#endif
+			idm->destroyInputDevice(gidPtr->device);
 			}
-		else if(toolLevels[0]!=0)
-			{
-			/* Delete the first tool on graph level 0: */
-			getToolManager()->destroyTool(toolLevels[0]->tool);
-			}
-		else
-			{
-			/* We're clear: */
-			break;
-			}
+		
+		/* Go to the next input device: */
+		gidPtr=nextPtr;
 		}
+	
+	#if DEBUGGING
+	std::cout<<"IGM: Finished clearing input graph"<<std::endl;
+	#endif
 	}
 
 void InputGraphManager::loadInputGraph(const Misc::ConfigurationFileSection& baseSection)
@@ -944,8 +1023,8 @@ void InputGraphManager::loadInputGraph(const Misc::ConfigurationFileSection& bas
 				}
 			catch(std::runtime_error err)
 				{
-				/* Print error message and carry on: */
-				std::cout<<"InputGraphManager::loadInputGraph: Ignoring tool binding section "<<sIt.getName()<<" due to exception "<<err.what()<<std::endl;
+				/* Log error message and carry on: */
+				Misc::formattedUserError("InputGraphManager::loadInputGraph: Ignoring tool binding section %s due to exception %s",sIt.getName().c_str(),err.what());
 				}
 			}
 		else
@@ -1650,7 +1729,7 @@ void InputGraphManager::glRenderDevices(GLContextData& contextData) const
 		glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 		
 		/* Visualize the tool stack: */
-		renderSceneGraph(toolStackNode.getPointer(),calcHUDTransform(toolStackBaseFeature.getDevice()->getPosition()),false,contextData);
+		renderSceneGraph(toolStackNode.getPointer(),getUiManager()->calcUITransform(toolStackBaseFeature.getDevice()->getPosition()),false,contextData);
 		
 		/* Restore OpenGL state: */
 		glPopAttrib();

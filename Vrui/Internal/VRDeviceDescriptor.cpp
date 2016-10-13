@@ -176,7 +176,7 @@ void VRDeviceDescriptor::load(const Misc::ConfigurationFileSection& configFileSe
 	else
 		trackType=TRACK_NONE;
 	rayDirection=configFileSection.retrieveValue<Vector>("./rayDirection",rayDirection);
-	configFileSection.retrieveValue<float>("./rayStart",rayStart);
+	rayStart=configFileSection.retrieveValue<float>("./rayStart",rayStart);
 	if(trackType&TRACK_POS)
 		trackerIndex=configFileSection.retrieveValue<int>("./trackerIndex");
 	

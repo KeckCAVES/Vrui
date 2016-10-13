@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceList - Class representing lists of USB devices resulting from
 device enumeration.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 

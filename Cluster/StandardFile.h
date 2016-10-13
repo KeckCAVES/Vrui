@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Pair of classes for high-performance cluster-transparent
 reading/writing from/to standard operating system files.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -44,6 +44,7 @@ class StandardFileMaster:public IO::SeekableFile,public ClusterPipe // Class to 
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Private methods: */
 	void openFile(const char* fileName,AccessMode accessMode,int flags,int mode); // Opens a file and handles errors
@@ -72,6 +73,7 @@ class StandardFileSlave:public IO::SeekableFile,public ClusterPipe // Class to r
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:

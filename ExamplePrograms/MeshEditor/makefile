@@ -1,7 +1,7 @@
 ########################################################################
 # Makefile for MeshEditor Vrui example program, using Vrui's legacy
 # build system.
-# Copyright (c) 2003-2013 Oliver Kreylos
+# Copyright (c) 2003-2015 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 ########################################################################
 
 # Set the Vrui installation directory:
-VRUIDIR := $(HOME)/Vrui-3.1
+VRUISHAREDIR := $(HOME)/Vrui-4.0/share
 
 # Set up additional flags for the C++ compiler:
 CFLAGS = 
@@ -28,11 +28,11 @@ CFLAGS =
 # Include the Vrui application makefile fragment:
 ifdef DEBUG
   # Build debug version of the applications, using the debug version of Vrui:
-  include $(VRUIDIR)/share/Vrui.debug.makeinclude
+  include $(VRUISHAREDIR)/Vrui.debug.makeinclude
   CFLAGS += -g2 -O0
 else
   # Build release version of the applications, using the release version of Vrui:
-  include $(VRUIDIR)/share/Vrui.makeinclude
+  include $(VRUISHAREDIR)/Vrui.makeinclude
   CFLAGS += -g0 -O2
 endif
 

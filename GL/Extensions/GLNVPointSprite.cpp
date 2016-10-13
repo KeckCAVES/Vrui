@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVPointSprite - OpenGL extension class for the GL_NV_point_sprite
 extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,16 +31,16 @@ Static elements of class GLNVPointSprite:
 ****************************************/
 
 GL_THREAD_LOCAL(GLNVPointSprite*) GLNVPointSprite::current=0;
+const char* GLNVPointSprite::name="GL_NV_point_sprite";
 
 /********************************
 Methods of class GLNVPointSprite:
 ********************************/
 
 GLNVPointSprite::GLNVPointSprite(void)
+	:glPointParameteriNVProc(GLExtensionManager::getFunction<PFNGLPOINTPARAMETERINVPROC>("glPointParameteriNV")),
+	 glPointParameterivNVProc(GLExtensionManager::getFunction<PFNGLPOINTPARAMETERIVNVPROC>("glPointParameterivNV"))
 	{
-	/* Get all function pointers: */
-	glPointParameteriNVProc=GLExtensionManager::getFunction<PFNGLPOINTPARAMETERINVPROC>("glPointParameteriNV");
-	glPointParameterivNVProc=GLExtensionManager::getFunction<PFNGLPOINTPARAMETERIVNVPROC>("glPointParameterivNV");
 	}
 
 GLNVPointSprite::~GLNVPointSprite(void)
@@ -49,7 +49,7 @@ GLNVPointSprite::~GLNVPointSprite(void)
 
 const char* GLNVPointSprite::getExtensionName(void) const
 	{
-	return "GL_NV_point_sprite";
+	return name;
 	}
 
 void GLNVPointSprite::activate(void)
@@ -65,13 +65,13 @@ void GLNVPointSprite::deactivate(void)
 bool GLNVPointSprite::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_NV_point_sprite");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLNVPointSprite::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_NV_point_sprite"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLNVPointSprite* newExtension=new GLNVPointSprite;

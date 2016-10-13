@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferMultisample - OpenGL extension class for the
 GL_EXT_framebuffer_multisample extension.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -52,7 +52,7 @@ class GLEXTFramebufferMultisample:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTFramebufferMultisample*) current; // Pointer to extension object for current OpenGL context
-	
+	static const char* name; // Extension name
 	PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC glRenderbufferStorageMultisampleEXTProc;
 	
 	/* Constructors and destructors: */

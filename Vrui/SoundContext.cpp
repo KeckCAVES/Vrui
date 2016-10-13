@@ -1,7 +1,7 @@
 /***********************************************************************
 SoundContext - Class for OpenAL contexts that are used to map a listener
 to an OpenAL sound device.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -157,8 +157,33 @@ SoundContext::SoundContext(const Misc::ConfigurationFileSection& configFileSecti
 	if(alDevice==0)
 		Misc::throwStdErr("SoundContext::SoundContext: Could not open OpenAL sound device \"%s\"",alDeviceName.c_str());
 	
+	/* Create a list of context attributes: */
+	ALCint alContextAttributes[9];
+	ALCint* attPtr=alContextAttributes;
+	if(configFileSection.hasTag("./mixerFrequency"))
+		{
+		*(attPtr++)=ALC_FREQUENCY;
+		*(attPtr++)=configFileSection.retrieveValue<ALCint>("./mixerFrequency");
+		}
+	if(configFileSection.hasTag("./refreshFrequency"))
+		{
+		*(attPtr++)=ALC_REFRESH;
+		*(attPtr++)=configFileSection.retrieveValue<ALCint>("./refreshFrequency");
+		}
+	if(configFileSection.hasTag("./numMonoSources"))
+		{
+		*(attPtr++)=ALC_MONO_SOURCES;
+		*(attPtr++)=configFileSection.retrieveValue<ALCint>("./numMonoSources");
+		}
+	if(configFileSection.hasTag("./numStereoSources"))
+		{
+		*(attPtr++)=ALC_STEREO_SOURCES;
+		*(attPtr++)=configFileSection.retrieveValue<ALCint>("./numStereoSources");
+		}
+	*(attPtr++)=ALC_INVALID;
+	
 	/* Create an OpenAL context: */
-	alContext=alcCreateContext(alDevice,0);
+	alContext=alcCreateContext(alDevice,alContextAttributes);
 	if(alContext==0)
 		{
 		alcCloseDevice(alDevice);

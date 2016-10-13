@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTGeometryShader4 - OpenGL extension class for the
 GL_EXT_geometry_shader4 extension.
-Copyright (c) 2007-2013 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2014 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTGeometryShader4:
 *********************************************/
 
 GL_THREAD_LOCAL(GLEXTGeometryShader4*) GLEXTGeometryShader4::current=0;
+const char* GLEXTGeometryShader4::name="GL_EXT_geometry_shader4";
 
 /*************************************
 Methods of class GLEXTGeometryShader4:
@@ -50,7 +51,7 @@ GLEXTGeometryShader4::~GLEXTGeometryShader4(void)
 
 const char* GLEXTGeometryShader4::getExtensionName(void) const
 	{
-	return "GL_EXT_geometry_shader4";
+	return name;
 	}
 
 void GLEXTGeometryShader4::activate(void)
@@ -66,13 +67,13 @@ void GLEXTGeometryShader4::deactivate(void)
 bool GLEXTGeometryShader4::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_geometry_shader4");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTGeometryShader4::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_geometry_shader4"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTGeometryShader4* newExtension=new GLEXTGeometryShader4;

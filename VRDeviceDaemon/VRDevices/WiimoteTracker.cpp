@@ -1,7 +1,7 @@
 /***********************************************************************
 WiimoteTracker - Class to use a Nintendo Wii controller and a special
 infrared LED beacon as a 6-DOF tracking device.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -184,7 +184,7 @@ void WiimoteTracker::wiimoteEventCallback(Misc::CallbackData* cbData)
 			if(pixelValids[i])
 				wiiCamera.setPixel(pixelMap[i],pixels[i]);
 		wiiCamera.setTransform(homeTransform);
-		LMCamera::minimize(wiiCamera);
+		wiiCameraMinimizer.minimize(wiiCamera);
 		
 		if(firstEvent)
 			wiipos=wiiCamera.getTransform();
@@ -275,6 +275,7 @@ WiimoteTracker::WiimoteTracker(VRDevice::Factory* sFactory,VRDeviceManager* sDev
 		for(int i=0;i<4;++i)
 			wiiCamera.setTargetPoint(i,targetTransform.transform(targetPoints[i]));
 		wiiCamera.setTransform(homeTransform);
+		wiiCameraMinimizer.maxNumIterations=1000;
 		wiipos=wiiCamera.getTransform();
 		}
 	

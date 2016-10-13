@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorRGB8 - Class to extract images from video frames in RGB8
 format.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -52,7 +52,7 @@ void ImageExtractorRGB8::extractGrey(const FrameBuffer* frame,void* image)
 		for(unsigned int x=0;x<size[0];++x,++gPtr,rPtr+=3)
 			{
 			/* Convert RGB to grey: */
-			*gPtr=(unsigned char)(((unsigned int)rPtr[0]*306U+(unsigned int)rPtr[1]*601U+(unsigned int)rPtr[2]*117U)>>10);
+			*gPtr=(unsigned char)(((unsigned int)rPtr[0]*306U+(unsigned int)rPtr[1]*601U+(unsigned int)rPtr[2]*117U+512U)>>10);
 			}
 		}
 	}
@@ -61,6 +61,24 @@ void ImageExtractorRGB8::extractRGB(const FrameBuffer* frame,void* image)
 	{
 	/* Copy the frame directly to the result image: */
 	memcpy(image,frame->start,size[0]*size[1]*3);
+	}
+
+void ImageExtractorRGB8::extractYpCbCr(const FrameBuffer* frame,void* image)
+	{
+	/* Convert pixels from RGB to Y'CbCr: */
+	const unsigned char* rRowPtr=frame->start;
+	unsigned char* cRowPtr=static_cast<unsigned char*>(image);
+	cRowPtr+=(size[1]-1)*size[0]*3;
+	for(unsigned int y=0;y<size[1];++y,rRowPtr+=size[0]*3,cRowPtr-=size[0]*3)
+		{
+		const unsigned char* rPtr=rRowPtr;
+		unsigned char* cPtr=cRowPtr;
+		for(unsigned int x=0;x<size[0];++x,cPtr+=3,rPtr+=3)
+			{
+			/* Convert the pixel: */
+			Video::rgbToYpcbcr(rPtr,cPtr);
+			}
+		}
 	}
 
 void ImageExtractorRGB8::extractYpCbCr420(const FrameBuffer* frame,void* yp,unsigned int ypStride,void* cb,unsigned int cbStride,void* cr,unsigned int crStride)

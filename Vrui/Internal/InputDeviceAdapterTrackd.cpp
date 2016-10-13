@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterTrackd - Class to connect a trackd tracking daemon to
 a Vrui application.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -331,6 +331,39 @@ void InputDeviceAdapterTrackd::updateInputDevices(void)
 	/* Schedule the next Vrui frame at the update interval if asked to do so: */
 	if(updateInterval!=0.0)
 		Vrui::scheduleUpdate(getApplicationTime()+updateInterval);
+	}
+
+TrackerState InputDeviceAdapterTrackd::peekTrackerState(int deviceIndex)
+	{
+	if(trackerIndexMapping[deviceIndex]>=0)
+		{
+		/* Get device's tracker state from sensor shared memory segment: */
+		SensorData& sd=*sensors[trackerIndexMapping[deviceIndex]];
+		
+		/*****************************************************************
+		Construct device's transformation:
+		*****************************************************************/
+		
+		/* Translation vector is straightforward: */
+		Vector translation=Vector(Scalar(sd.position[0]),Scalar(sd.position[1]),Scalar(sd.position[2]));
+		
+		/* To assemble the orientation, we assume all angles are in degrees, and the order of rotations is as follows: */
+		Rotation rotation=Rotation::rotateZ(Math::rad(Scalar(sd.angles[0])));
+		rotation*=Rotation::rotateX(Math::rad(Scalar(sd.angles[1])));
+		rotation*=Rotation::rotateY(Math::rad(Scalar(sd.angles[2])));
+		
+		/* Calibrate the device's position and orientation from the trackd daemon's space to Vrui's physical space: */
+		OGTransform calibratedTransformation=calibrationTransformation;
+		calibratedTransformation*=OGTransform(translation,rotation,Scalar(1));
+		
+		/* Return the calibrated transformation: */
+		return TrackerState(calibratedTransformation.getTranslation(),calibratedTransformation.getRotation());
+		}
+	else
+		{
+		/* Fall back to base class, which will throw an exception: */
+		return InputDeviceAdapter::peekTrackerState(deviceIndex);
+		}
 	}
 
 }

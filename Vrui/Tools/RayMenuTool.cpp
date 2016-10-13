@@ -1,6 +1,6 @@
 /***********************************************************************
 RayMenuTool - Class for menu selection tools using ray selection.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupMenu.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/MutexMenu.h>
+#include <Vrui/Viewer.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -40,6 +42,7 @@ Methods of class RayMenuToolFactory:
 RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayMenuTool",toolManager),
 	 initialMenuOffset(getInchFactor()*Scalar(6)),
+	 alignMenuWithPointer(true),
 	 interactWithWidgets(false)
 	{
 	/* Initialize tool layout: */
@@ -53,6 +56,7 @@ RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	initialMenuOffset=cfs.retrieveValue<Scalar>("./initialMenuOffset",initialMenuOffset);
+	alignMenuWithPointer=cfs.retrieveValue<bool>("./alignMenuWithPointer",alignMenuWithPointer);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	
 	/* Set tool class' factory pointer: */
@@ -115,10 +119,8 @@ Methods of class RayMenuTool:
 
 RayMenuTool::RayMenuTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:MenuTool(factory,inputAssignment),
-	 GUIInteractor(isUseEyeRay(),getRayOffset(),getButtonDevice(0))
+	 GUIInteractor(false,0,getButtonDevice(0))
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* RayMenuTool::getFactory(void) const
@@ -137,29 +139,44 @@ void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			/* Try activating this tool: */
 			if(GUIInteractor::canActivate()&&activate())
 				{
-				/***************************************************************
-				Pop up the tool's menu at the appropriate position and
-				orientation:
-				***************************************************************/
+				/* Calculate the initial menu position: */
+				Ray menuRay(getRay().getOrigin()+getRay().getDirection()*factory->initialMenuOffset,getRay().getDirection());
+				Point hotSpot=getUiManager()->projectRay(menuRay);
 				
-				if(isUseEyeRay()||interactionDevice->isRayDevice())
+				if(factory->alignMenuWithPointer)
 					{
-					/* Find the intersection point of the interaction ray and a screen: */
-					std::pair<VRScreen*,Scalar> si=findScreen(GUIInteractor::getRay());
-
-					/* Pop up the menu: */
-					if(si.first!=0)
-						popupPrimaryWidget(menu->getPopup(),GUIInteractor::getRay()(si.second),false);
-					else
-						popupPrimaryWidget(menu->getPopup()); // ,GUIInteractor::getRay().getOrigin());
+					/* Calculate a bisecting vector between the viewing direction and the pointing direction: */
+					Vector viewDirection=hotSpot-getMainViewer()->getHeadPosition();
+					viewDirection.normalize();
+					Vector pointDirection=getRay().getDirection();
+					pointDirection.normalize();
+					Vector z=viewDirection+pointDirection;
+					
+					/* Align the widget with the bisecting vector: */
+					Vector x=z^getUpDirection();
+					Vector y=x^z;
+					
+					/* Calculate the widget transformation: */
+					typedef GLMotif::WidgetManager::Transformation Transform;
+					Transform widgetTransform=Transform::translateFromOriginTo(hotSpot);
+					widgetTransform*=Transform::rotate(Transform::Rotation::fromBaseVectors(x,y));
+					
+					/* Align the widget's hot spot with the given hot spot: */
+					GLMotif::Vector widgetHotSpot=menu->getPopup()->calcHotSpot();
+					widgetTransform*=Transform::translate(-Transform::Vector(widgetHotSpot.getXyzw()));
+					
+					widgetTransform.renormalize();
+					
+					/* Pop up the menu with the calculated transformation: */
+					getWidgetManager()->popupPrimaryWidget(menu->getPopup(),widgetTransform);
 					}
 				else
 					{
 					/* Pop up the menu: */
-					popupPrimaryWidget(menu->getPopup(),GUIInteractor::getRay()(factory->initialMenuOffset),false);
+					popupPrimaryWidget(menu->getPopup(),hotSpot,false);
 					}
 				
-				/* Grab the pointer: */
+				/* Explicity grab the pointer in case the initial event misses the menu: */
 				getWidgetManager()->grabPointer(menu->getPopup());
 				
 				/* Force the event on the GUI interactor: */
@@ -178,7 +195,7 @@ void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			/* Check if the tool's menu is popped up: */
 			if(MenuTool::isActive())
 				{
-				/* Release the pointer: */
+				/* Release the pointer grab: */
 				getWidgetManager()->releasePointer(menu->getPopup());
 				
 				/* Pop down the menu: */
@@ -212,20 +229,9 @@ void RayMenuTool::display(GLContextData& contextData) const
 
 Point RayMenuTool::calcHotSpot(void) const
 	{
-	if(isUseEyeRay()||interactionDevice->isRayDevice())
-		{
-		/* Find the intersection point of the interaction ray and a screen: */
-		std::pair<VRScreen*,Scalar> si=findScreen(GUIInteractor::getRay());
-		if(si.first!=0)
-			return GUIInteractor::getRay()(si.second);
-		else
-			return getDisplayCenter();
-		}
-	else
-		{
-		/* Return a position in front of the input device: */
-		return GUIInteractor::getRay()(factory->initialMenuOffset);
-		}
+	/* Calculate the interaction position: */
+	Ray interactionRay(getRay().getOrigin()+getRay().getDirection()*factory->initialMenuOffset,getRay().getDirection());
+	return getUiManager()->projectRay(interactionRay);
 	}
 
 }

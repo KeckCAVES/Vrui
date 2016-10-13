@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <IO/SeekableFile.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthogonalTransformation.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Internal/InputDeviceAdapter.h>
 
@@ -56,6 +57,8 @@ class InputDeviceAdapterPlayback:public InputDeviceAdapter
 	private:
 	IO::SeekableFilePtr inputDeviceDataFile; // File containing the input device data
 	unsigned int fileVersion; // Version of the input device data file
+	bool applyPreTransform; // Flag whether to transform input device data read from the file
+	OGTransform preTransform; // Upright transformation to apply to input device data read from the file
 	int* deviceFeatureBaseIndices; // Array of base indices in feature name array for each input device
 	std::vector<std::string> deviceFeatureNames; // Array of input device feature names
 	MouseCursorFaker* mouseCursorFaker; // Pointer to object used to render a fake mouse cursor
