@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterTrackd - Class to connect a trackd tracking daemon to
 a Vrui application.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -104,10 +104,11 @@ class InputDeviceAdapterTrackd:public InputDeviceAdapterIndexMap
 	InputDeviceAdapterTrackd(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection);
 	virtual ~InputDeviceAdapterTrackd(void);
 	
-	/* Methods: */
+	/* Methods from InputDeviceAdapter: */
 	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
 	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
+	virtual TrackerState peekTrackerState(int deviceIndex);
 	};
 
 }

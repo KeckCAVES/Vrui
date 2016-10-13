@@ -2,7 +2,7 @@
 ScrollTool - Class for tools that can scroll inside certain GLMotif GUI
 widgets. ScrollTool objects are cascadable and prevent valuator events
 if they would fall into the area of interest of scrollable widgets.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -114,12 +114,10 @@ Methods of class ScrollTool:
 
 ScrollTool::ScrollTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:UserInterfaceTool(factory,inputAssignment),
-	 GUIInteractor(isUseEyeRay(),getRayOffset(),getValuatorDevice(0)),
+	 GUIInteractor(false,0,getValuatorDevice(0)),
 	 valuatorDevice(0),
 	 sendingEvents(false)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getValuatorDevice(0);
 	}
 
 void ScrollTool::initialize(void)
@@ -128,7 +126,7 @@ void ScrollTool::initialize(void)
 	valuatorDevice=addVirtualInputDevice("ScrollToolValuatorDevice",0,1);
 	
 	/* Copy the source device's tracking type: */
-	valuatorDevice->setTrackType(interactionDevice->getTrackType());
+	valuatorDevice->setTrackType(getValuatorDevice(0)->getTrackType());
 	
 	/* Disable the virtual device's glyph: */
 	getInputGraphManager()->getInputDeviceGlyph(valuatorDevice).disable();
@@ -137,8 +135,7 @@ void ScrollTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(valuatorDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	valuatorDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	valuatorDevice->setTransformation(interactionDevice->getTransformation());
+	valuatorDevice->copyTrackingState(getValuatorDevice(0));
 	}
 
 void ScrollTool::deinitialize(void)
@@ -170,7 +167,7 @@ void ScrollTool::valuatorCallback(int,InputDevice::ValuatorCallbackData* cbData)
 		if(sendingEvents)
 			{
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		else
 			{
@@ -197,8 +194,7 @@ void ScrollTool::frame(void)
 	GUIInteractor::move();
 	
 	/* Update the virtual input device: */
-	valuatorDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	valuatorDevice->setTransformation(interactionDevice->getTransformation());
+	valuatorDevice->copyTrackingState(getValuatorDevice(0));
 	}
 
 void ScrollTool::display(GLContextData& contextData) const
@@ -236,7 +232,7 @@ InputDevice* ScrollTool::getSourceDevice(const InputDevice* forwardedDevice)
 		Misc::throwStdErr("ScrollTool::getSourceDevice: Given forwarded device is not transformed device");
 	
 	/* Return the designated source device: */
-	return interactionDevice;
+	return getValuatorDevice(0);
 	}
 
 InputDeviceFeatureSet ScrollTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)

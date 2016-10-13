@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeTool - Vrui tool class to snap a virtual input device to
 events in an earthquake data set.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the

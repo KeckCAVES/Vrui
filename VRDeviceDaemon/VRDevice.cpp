@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -140,13 +140,21 @@ void VRDevice::addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice)
 	deviceManager->addVirtualDevice(newDevice);
 	}
 
-void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state)
+void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state,Vrui::VRDeviceState::TimeStamp timeStamp)
 	{
+	/* Apply world calibration to the new tracker state: */
 	Vrui::VRDeviceState::TrackerState calibratedState=state;
 	if(calibrator!=0)
 		calibrator->calibrate(deviceTrackerIndex,calibratedState);
+	
+	/* Calculate new linear velocity affected by rotation around the post-transformed device origin: */
+	calibratedState.linearVelocity+=calibratedState.angularVelocity^(calibratedState.positionOrientation.transform(trackerPostTransformations[deviceTrackerIndex].getTranslation()));
+	
+	/* Apply the tracker post-transformation: */
 	calibratedState.positionOrientation*=trackerPostTransformations[deviceTrackerIndex];
-	deviceManager->setTrackerState(trackerIndices[deviceTrackerIndex],calibratedState);
+	
+	/* Hand the calibrated and post-transformed tracker state to the device manager: */
+	deviceManager->setTrackerState(trackerIndices[deviceTrackerIndex],calibratedState,timeStamp);
 	}
 
 void VRDevice::setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState)
@@ -200,12 +208,13 @@ void VRDevice::deviceThreadMethod(void)
 
 VRDevice::VRDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:factory(sFactory),
+	 deviceManager(sDeviceManager),
 	 numTrackers(0),numButtons(0),numValuators(0),
-	 trackerIndices(0),trackerPostTransformations(0),
+	 trackerPostTransformations(0),
+	 trackerIndices(0),
 	 buttonIndices(0),
 	 valuatorIndices(0),valuatorThresholds(0),valuatorExponents(0),
 	 active(false),
-	 deviceManager(sDeviceManager),
 	 calibrator(0)
 	{
 	/* Check if the device has an attached calibrator: */

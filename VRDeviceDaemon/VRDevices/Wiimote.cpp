@@ -1,7 +1,7 @@
 /***********************************************************************
 Wiimote - Class to communicate with a Nintendo Wii controller via
 bluetooth.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -625,8 +625,7 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 	:controlSocket(-1),dataSocket(-1),
 	 needExtensionCalibration(true),
 	 readContinuously(false),readAccelerometers(false),readIRTracking(false),
-	 ledMask(0x0),
-	 rumble(false),
+	 ledMask(0x0),rumble(false),batteryLevel(-1),
 	 extensionDevice(NONE),
 	 downloadActive(false),downloadDataBuffer(0),
 	 uploadActive(false)
@@ -670,8 +669,13 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 			
 			/* Retrieve the remote device's name to ensure it's a Wiimote: */
 			char remoteDeviceName[256];
-			if(hci_read_remote_name(btSocket,&deviceAddress,sizeof(remoteDeviceName),remoteDeviceName,0)<0||(strcmp("Nintendo RVL-CNT-01",remoteDeviceName)!=0&&strcmp("Nintendo RVL-CNT-01-TR",remoteDeviceName)!=0))
-				Misc::throwStdErr("Wiimote::Wiimote: Device at address %s is not a Wiimote",deviceName);
+			if(hci_read_remote_name(btSocket,&deviceAddress,sizeof(remoteDeviceName),remoteDeviceName,0)>=0)
+				{
+				if(strncmp(remoteDeviceName,"Nintendo RVL-CNT-01",19)!=0)
+					Misc::throwStdErr("Wiimote::Wiimote: Device at address %s is not a Wiimote",deviceName);
+				}
+			else
+				Misc::throwStdErr("Wiimote::Wiimote: Device at address %s not found",deviceName);
 			}
 		else
 			{
@@ -685,22 +689,24 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 				if(numResponses<0)
 					Misc::throwStdErr("Wiimote::Wiimote: Error while scanning for nearby bluetooth devices");
 				
-				/* Search for the first device of the given name: */
-				if(deviceName==0)
-					deviceName="Nintendo RVL-CNT-01";
+				/* Search for the first Wiimote device: */
 				bool deviceFound=false;
 				for(int i=0;i<numResponses&&!deviceFound;++i)
 					{
 					/* Read the remote device's name: */
 					char remoteDeviceName[256];
-					if(hci_read_remote_name(btSocket,&iis[i].bdaddr,sizeof(remoteDeviceName),remoteDeviceName,0)>=0&&strcmp(deviceName,remoteDeviceName)==0)
+					if(hci_read_remote_name(btSocket,&iis[i].bdaddr,sizeof(remoteDeviceName),remoteDeviceName,0)>=0)
 						{
-						deviceAddress=iis[i].bdaddr;
-						deviceFound=true;
+						/* Check if the remote device is some model of Wiimote: */
+						if(strncmp(remoteDeviceName,"Nintendo RVL-CNT-01",19)==0)
+							{
+							deviceAddress=iis[i].bdaddr;
+							deviceFound=true;
+							}
 						}
 					}
 				if(!deviceFound)
-					Misc::throwStdErr("Wiimote::Wiimote: Device \"%s\" not found",deviceName);
+					Misc::throwStdErr("Wiimote::Wiimote: No Wiimote device found");
 				
 				/* Clean up: */
 				delete[] iis;
@@ -727,14 +733,27 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 	
 	/* Connect to the device using the L2CAP protocol: */
 	controlSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
+	if(controlSocket<0)
+		{
+		int error=errno;
+		Misc::throwStdErr("Wiimote::Wiimote: Unable to open control socket to device %s due to error %s",deviceName,strerror(error));
+		}
 	sockaddr_l2 controlSocketAddress;
 	memset(&controlSocketAddress,0,sizeof(sockaddr_l2));
 	controlSocketAddress.l2_family=AF_BLUETOOTH;
 	controlSocketAddress.l2_psm=htobs(0x11);
 	controlSocketAddress.l2_bdaddr=deviceAddress;
 	if(connect(controlSocket,reinterpret_cast<struct sockaddr*>(&controlSocketAddress),sizeof(controlSocketAddress))<0)
-		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to control pipe on device \"%s\"",deviceName);
+		{
+		int error=errno;
+		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect control socket to device %s due to error %s",deviceName,strerror(error));
+		}
 	dataSocket=socket(AF_BLUETOOTH,SOCK_SEQPACKET,BTPROTO_L2CAP);
+	if(dataSocket<0)
+		{
+		int error=errno;
+		Misc::throwStdErr("Wiimote::Wiimote: Unable to open data socket to device %s due to error %s",deviceName,strerror(error));
+		}
 	sockaddr_l2 dataSocketAddress;
 	memset(&dataSocketAddress,0,sizeof(sockaddr_l2));
 	dataSocketAddress.l2_family=AF_BLUETOOTH;
@@ -742,8 +761,9 @@ Wiimote::Wiimote(const char* deviceName,Misc::ConfigurationFile& configFile)
 	dataSocketAddress.l2_bdaddr=deviceAddress;
 	if(connect(dataSocket,reinterpret_cast<struct sockaddr*>(&dataSocketAddress),sizeof(dataSocketAddress))<0)
 		{
+		int error=errno;
 		close(controlSocket);
-		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect to data pipe on device \"%s\"",deviceName);
+		Misc::throwStdErr("Wiimote::Wiimote: Unable to connect data socket to device %s due to error %s",deviceName,strerror(error));
 		}
 	
 	/* Initialize Wiimote state: */

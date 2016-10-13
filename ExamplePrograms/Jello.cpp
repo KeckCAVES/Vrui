@@ -1,7 +1,7 @@
 /***********************************************************************
 Jello - VR program to interact with "virtual Jell-O" using a simplified
 force interaction model based on the Nanotech Construction Kit.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2016 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -25,16 +25,17 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <vector>
 #include <Math/Math.h>
+#include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/Button.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/CoordinateManager.h>
 
 /***********************************
 Methods of class Jello::AtomDragger:
@@ -94,20 +95,14 @@ Methods of class Jello:
 
 GLMotif::PopupMenu* Jello::createMainMenu(void)
 	{
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Virtual Jell-O");
-	
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
-	centerDisplayButton->getSelectCallbacks().add(this,&Jello::centerDisplayCallback);
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Virtual Jell-O");
 	
 	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&Jello::showSettingsDialogCallback);
 	
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
+	mainMenu->manageMenu();
+	return mainMenu;
 	}
 
 GLMotif::PopupWindow* Jello::createSettingsDialog(void)
@@ -163,25 +158,22 @@ Jello::Jello(int& argc,char**& argv)
 	 renderer(crystal),
 	 targetFrameRate(50.0),
 	 numMiniSteps(1),
-	 mainMenu(0),settingsDialog(0)
+	 settingsDialog(0)
 	{
 	/* Target frame rate is only (optional) command line parameter: */
 	if(argc>=2)
 		targetFrameRate=atof(argv[1]);
 	
 	/* Determine a good color to draw the domain box: */
-	GLColor<GLfloat,3> domainBoxColor;
-	for(int i=0;i<3;++i)
-		domainBoxColor[i]=1.0f-Vrui::getBackgroundColor()[i];
-	renderer.setDomainBoxColor(domainBoxColor);
+	renderer.setDomainBoxColor(Vrui::getForegroundColor());
 	
 	/* Create the program's user interface: */
 	mainMenu=createMainMenu();
 	Vrui::setMainMenu(mainMenu);
 	settingsDialog=createSettingsDialog();
 	
-	/* Initialize the navigation transformation: */
-	centerDisplayCallback(0);
+	/* Tell Vrui that navigation space is measured in inches: */
+	Vrui::getCoordinateManager()->setUnit(Geometry::LinearUnit(Geometry::LinearUnit::INCH,1.0));
 	
 	/* Tell Vrui to run in a continuous frame sequence: */
 	Vrui::updateContinuously();
@@ -262,9 +254,14 @@ void Jello::display(GLContextData& contextData) const
 	renderer.glRenderAction(contextData);
 	}
 
-void Jello::centerDisplayCallback(Misc::CallbackData* cbData)
+void Jello::resetNavigation(void)
 	{
-	Vrui::setNavigationTransformation(Vrui::NavTransform::identity);
+	/* Set up navigation transformation to transform local physical coordinates to canonical Jell-O space: */
+	Vrui::Point floorDisplayCenter=Vrui::getFloorPlane().project(Vrui::getDisplayCenter());
+	Vrui::Vector floorForward=Geometry::normalize(Vrui::getFloorPlane().project(Vrui::getForwardDirection()));
+	Vrui::Vector floorRight=Geometry::normalize(Geometry::cross(floorForward,Vrui::getFloorPlane().getNormal()));
+	Vrui::Rotation rot=Vrui::Rotation::fromBaseVectors(floorRight,floorForward);
+	Vrui::setNavigationTransformation(Vrui::NavTransform(floorDisplayCenter-Vrui::Point::origin,rot,Vrui::getInchFactor()));
 	}
 
 void Jello::showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)

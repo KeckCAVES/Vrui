@@ -1,7 +1,7 @@
 /***********************************************************************
 Device - Class representing a USB device and optionally a handle
 resulting from opening the device.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string>
 #include <vector>
 #include <USB/VendorProductId.h>
+#include <USB/Context.h>
 
 /* Forward declarations: */
 struct libusb_device;
@@ -49,6 +50,7 @@ class Device
 	
 	/* Elements: */
 	private:
+	ContextPtr context; // Pointer to the USB library context
 	libusb_device* device; // USB device pointer from the USB library
 	libusb_device_handle* handle; // USB device handle for opened device
 	std::vector<ClaimedInterface> claimedInterfaces; // List of currently claimed interfaces on the device
@@ -56,7 +58,7 @@ class Device
 	/* Constructors and destructors: */
 	public:
 	Device(void) // Creates an invalid USB device
-		:device(0),handle(0)
+		:context(0),device(0),handle(0)
 		{
 		}
 	Device(libusb_device* sDevice); // Creates wrapper around given USB device pointer
@@ -75,9 +77,11 @@ class Device
 		return device;
 		}
 	unsigned int getBusNumber(void) const; // Returns the number of the USB bus to which the device is connected
-	unsigned int getAddress(void) const; // REturns the device's address on the USB bus to which it is connected
+	unsigned int getAddress(void) const; // Returns the device's address on the USB bus to which it is connected
+	int getSpeedClass(void) const; // Returns the device's speed class as an enumerant
 	libusb_device_descriptor getDeviceDescriptor(void); // Returns the device's device descriptor
 	VendorProductId getVendorProductId(void); // Returns the device's USB ID
+	std::string getDescriptorString(unsigned int stringIndex); // Returns the one of the strings indexed by the device's device descriptor
 	std::string getSerialNumber(void); // Returns the device's serial number, or the empty string if none is defined
 	libusb_config_descriptor* getActiveConfigDescriptor(void); // Returns a descriptor for the device's active configuration
 	libusb_config_descriptor* getConfigDescriptorByIndex(unsigned int index); // Returns a descriptor for the device's configuration of the given index
@@ -98,6 +102,8 @@ class Device
 	void writeControl(unsigned int requestType,unsigned int request,unsigned int value,unsigned int index,const unsigned char* data,size_t dataSize,unsigned int timeOut =0); // Writes a control message to the device
 	size_t readControl(unsigned int requestType,unsigned int request,unsigned int value,unsigned int index,unsigned char* data,size_t maxDataSize,unsigned int timeOut =0); // Reads a control message from the device; returns amount of data actually read
 	size_t interruptTransfer(unsigned char endpoint,unsigned char* data,size_t dataSize,unsigned int timeOut =0); // Reads or writes data from/to the device over an interrupt endpoint (direction inferred from endpoint direction); returns amount of data actually transferred (partial reads and writes are possible)
+	size_t bulkTransfer(unsigned char endpoint,unsigned char* data,size_t dataSize,unsigned int timeOut =0); // Reads or writes data from/to the device over a bulk endpoint (direction inferred from endpoint direction); returns amount of data actually transferred (partial reads and writes are possible)
+	size_t getMaxIsoPacketSize(unsigned char endpoint); // Returns the maximum isochronous packet size on the given endpoint
 	void releaseInterface(int interfaceNumber); // Releases the interface of the given number and re-attaches a kernel driver that was detached when the interface was claimed
 	bool reset(void); // Resets device; returns true if the device becomes invalid and needs to be re-discovered
 	void close(void); // Closes the device explicitly

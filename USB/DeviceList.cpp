@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceList - Class representing lists of USB devices resulting from
 device enumeration.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -33,17 +33,18 @@ namespace USB {
 Methods of class DeviceList:
 ***************************/
 
-DeviceList::DeviceList(const Context& context)
-	:numDevices(0),deviceList(0)
+DeviceList::DeviceList(void)
+	:context(Context::acquireContext()),
+	 numDevices(0),deviceList(0)
 	{
 	/* Enumerate devices in the given context: */
-	ssize_t enumerateResult=libusb_get_device_list(context.getContext(),&deviceList);
+	ssize_t enumerateResult=libusb_get_device_list(context->getContext(),&deviceList);
 	if(enumerateResult>=0)
 		numDevices=size_t(enumerateResult);
 	else
 		{
 		deviceList=0;
-		throw std::runtime_error("USB::DeviceList::DeviceList: Error while enumerating USB devices");
+		throw std::runtime_error("USB::DeviceList: Error while enumerating USB devices");
 		}
 	}
 

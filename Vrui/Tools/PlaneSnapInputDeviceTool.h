@@ -1,7 +1,7 @@
 /***********************************************************************
 PlaneSnapInputDeviceTool - Class for tools that snap a virtual input
 device to a plane defined by three points.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

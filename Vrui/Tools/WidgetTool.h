@@ -2,7 +2,7 @@
 WidgetTool - Class for tools that can interact with GLMotif GUI widgets.
 WidgetTool objects are cascadable and preempt button events if they
 would fall into the area of interest of mapped widgets.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

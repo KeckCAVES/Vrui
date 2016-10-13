@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureFloat - OpenGL extension class for the GL_ARB_texture_float
 extension.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBTextureFloat:
 ******************************************/
 
 GL_THREAD_LOCAL(GLARBTextureFloat*) GLARBTextureFloat::current=0;
+const char* GLARBTextureFloat::name="GL_ARB_texture_float";
 
 /**********************************
 Methods of class GLARBTextureFloat:
@@ -46,7 +47,7 @@ GLARBTextureFloat::~GLARBTextureFloat(void)
 
 const char* GLARBTextureFloat::getExtensionName(void) const
 	{
-	return "GL_ARB_texture_float";
+	return name;
 	}
 
 void GLARBTextureFloat::activate(void)
@@ -62,13 +63,13 @@ void GLARBTextureFloat::deactivate(void)
 bool GLARBTextureFloat::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_texture_float");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBTextureFloat::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_texture_float"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBTextureFloat* newExtension=new GLARBTextureFloat;

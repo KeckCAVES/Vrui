@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,9 +23,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/ToolManager.h>
 
-#include <stdio.h>
+#define DEBUGGING 0
+#if DEBUGGING
 #include <iostream>
+#endif
+
+#include <stdio.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -33,12 +38,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Label.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/CascadeButton.h>
-#include <GLMotif/Popup.h>
-#include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/SubMenu.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
+#include <GLMotif/RowColumn.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
@@ -59,8 +61,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/ToolKillZone.h>
 #include <Vrui/Internal/ToolKillZoneBox.h>
 #include <Vrui/Internal/ToolKillZoneFrustum.h>
-
-#define DEBUGGING 0
+#include <Vrui/Internal/Config.h>
 
 namespace {
 
@@ -221,25 +222,17 @@ void ToolManagerToolCreationState::createProgressDialog(void)
 	/* Check if there are still button slots to assign: */
 	if(moreButtons)
 		{
+		/* Create a box asking for more button bindings: */
 		buttonBox=new GLMotif::RowColumn("ButtonBox",progressBox,false);
 		buttonBox->setOrientation(GLMotif::RowColumn::VERTICAL);
 		buttonBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 		
-		/* Check if there are still required button slots to assign: */
+		new GLMotif::Label("Line1",buttonBox,"Please press the button");
 		if(requireButtons)
-			{
-			/* Ask for a required button: */
-			new GLMotif::Label("Line1",buttonBox,"Please press the button");
 			new GLMotif::Label("Line2",buttonBox,"to assign to tool function");
-			new GLMotif::Label("Line3",buttonBox,factory->getButtonFunction(buttonSlotIndex));
-			}
 		else
-			{
-			/* Ask for an optional button: */
-			new GLMotif::Label("Line1",buttonBox,"Please press any additional buttons");
 			new GLMotif::Label("Line2",buttonBox,"to assign to optional tool function");
-			new GLMotif::Label("Line3",buttonBox,factory->getButtonFunction(factory->getLayout().getNumButtons()));
-			}
+		new GLMotif::Label("Line3",buttonBox,factory->getButtonFunction(buttonSlotIndex));
 		
 		buttonBox->manageChild();
 		}
@@ -250,25 +243,17 @@ void ToolManagerToolCreationState::createProgressDialog(void)
 	/* Check if there are still valuator slots to assign: */
 	if(moreValuators)
 		{
+		/* Create a box asking for more valuator bindings: */
 		valuatorBox=new GLMotif::RowColumn("ValuatorBox",progressBox,false);
 		valuatorBox->setOrientation(GLMotif::RowColumn::VERTICAL);
 		valuatorBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 		
-		/* Check if there are still required valuator slots to assign: */
+		new GLMotif::Label("Line1",valuatorBox,"Please move the valuator");
 		if(requireValuators)
-			{
-			/* Ask for a required valuator: */
-			new GLMotif::Label("Line1",valuatorBox,"Please move the valuator");
 			new GLMotif::Label("Line2",valuatorBox,"to assign to tool function");
-			new GLMotif::Label("Line3",valuatorBox,factory->getValuatorFunction(valuatorSlotIndex));
-			}
 		else
-			{
-			/* Ask for an optional valuator: */
-			new GLMotif::Label("Line1",valuatorBox,"Please move any additional valuators");
 			new GLMotif::Label("Line2",valuatorBox,"to assign to optional tool function");
-			new GLMotif::Label("Line3",valuatorBox,factory->getValuatorFunction(factory->getLayout().getNumValuators()));
-			}
+		new GLMotif::Label("Line3",valuatorBox,factory->getValuatorFunction(valuatorSlotIndex));
 		
 		valuatorBox->manageChild();
 		}
@@ -289,21 +274,18 @@ void ToolManagerToolCreationState::updateProgressDialog(void)
 	{
 	/* Check if there are still button slots to assign: */
 	bool requireButtons=buttonSlotIndex<factory->getLayout().getNumButtons();
-	if(requireButtons)
+	if(requireButtons||factory->getLayout().hasOptionalButtons())
 		{
-		/* Ask for a required button: */
+		/* Change the prompt text if this is the first optional button: */
+		if(buttonSlotIndex==factory->getLayout().getNumButtons())
+			{
+			GLMotif::Label* buttonPrompt=static_cast<GLMotif::Label*>(buttonBox->getChild(1));
+			buttonPrompt->setString("to assign to optional tool function");
+			}
+		
+		/* Show the function for the next assigned button: */
 		GLMotif::Label* buttonFunction=static_cast<GLMotif::Label*>(buttonBox->getChild(2));
 		buttonFunction->setString(factory->getButtonFunction(buttonSlotIndex));
-		}
-	else if(factory->getLayout().hasOptionalButtons())
-		{
-		/* Ask for an optional button: */
-		GLMotif::Label* query1=static_cast<GLMotif::Label*>(buttonBox->getChild(0));
-		query1->setString("Please press any additional buttons");
-		GLMotif::Label* query2=static_cast<GLMotif::Label*>(buttonBox->getChild(1));
-		query2->setString("to assign to optional tool function");
-		GLMotif::Label* buttonFunction=static_cast<GLMotif::Label*>(buttonBox->getChild(2));
-		buttonFunction->setString(factory->getButtonFunction(factory->getLayout().getNumButtons()));
 		}
 	else if(buttonBox!=0)
 		{
@@ -316,21 +298,18 @@ void ToolManagerToolCreationState::updateProgressDialog(void)
 	
 	/* Check if there are still valuator slots to assign: */
 	bool requireValuators=valuatorSlotIndex<factory->getLayout().getNumValuators();
-	if(requireValuators)
+	if(requireValuators||factory->getLayout().hasOptionalValuators())
 		{
-		/* Ask for a required valuator: */
+		/* Change the prompt text if this is the first optional valuator: */
+		if(valuatorSlotIndex==factory->getLayout().getNumValuators())
+			{
+			GLMotif::Label* valuatorPrompt=static_cast<GLMotif::Label*>(valuatorBox->getChild(1));
+			valuatorPrompt->setString("to assign to optional tool function");
+			}
+		
+		/* Show the function for the next assigned valuator: */
 		GLMotif::Label* valuatorFunction=static_cast<GLMotif::Label*>(valuatorBox->getChild(2));
 		valuatorFunction->setString(factory->getValuatorFunction(valuatorSlotIndex));
-		}
-	else if(factory->getLayout().hasOptionalValuators())
-		{
-		/* Ask for an optional valuator: */
-		GLMotif::Label* query1=static_cast<GLMotif::Label*>(valuatorBox->getChild(0));
-		query1->setString("Please move any additional valuators");
-		GLMotif::Label* query2=static_cast<GLMotif::Label*>(valuatorBox->getChild(1));
-		query2->setString("to assign to optional tool function");
-		GLMotif::Label* valuatorFunction=static_cast<GLMotif::Label*>(valuatorBox->getChild(2));
-		valuatorFunction->setString(factory->getValuatorFunction(factory->getLayout().getNumValuators()));
 		}
 	else if(valuatorBox!=0)
 		{
@@ -456,13 +435,11 @@ bool ToolManagerToolCreationState::isComplete(void) const
 Methods of class ToolManager:
 ****************************/
 
-GLMotif::Popup* ToolManager::createToolSubmenu(const Plugins::Factory& factory)
+GLMotif::PopupMenu* ToolManager::createToolSubmenu(const Plugins::Factory& factory)
 	{
 	char popupName[256];
-	snprintf(popupName,sizeof(popupName),"%sSubmenuPopup",factory.getClassName());
-	GLMotif::Popup* toolSubmenuPopup=new GLMotif::Popup(popupName,getWidgetManager());
-	
-	GLMotif::SubMenu* toolSubmenu=new GLMotif::SubMenu("ToolSubmenu",toolSubmenuPopup,false);
+	snprintf(popupName,sizeof(popupName),"%sSubmenu",factory.getClassName());
+	GLMotif::PopupMenu* toolSubmenu=new GLMotif::PopupMenu(popupName,getWidgetManager());
 	
 	/* Create entries for all tool subclasses: */
 	for(Plugins::Factory::ClassList::const_iterator chIt=factory.childrenBegin();chIt!=factory.childrenEnd();++chIt)
@@ -487,18 +464,15 @@ GLMotif::Popup* ToolManager::createToolSubmenu(const Plugins::Factory& factory)
 			}
 		}
 	
-	toolSubmenu->manageChild();
-	
-	return toolSubmenuPopup;
+	toolSubmenu->manageMenu();
+	return toolSubmenu;
 	}
 
 GLMotif::PopupMenu* ToolManager::createToolMenu(void)
 	{
 	/* Create menu shell: */
-	GLMotif::PopupMenu* toolSelectionMenuPopup=new GLMotif::PopupMenu("ToolSelectionMenuPopup",getWidgetManager());
-	toolSelectionMenuPopup->setTitle("Tool Selection Menu");
-	
-	GLMotif::Menu* toolSelectionMenu=new GLMotif::Menu("ToolSelectionMenu",toolSelectionMenuPopup,false);
+	GLMotif::PopupMenu* toolSelectionMenu=new GLMotif::PopupMenu("ToolSelectionMenu",getWidgetManager());
+	toolSelectionMenu->setTitle("Tool Selection Menu");
 	
 	/* Create entries for all root tool classes: */
 	for(FactoryIterator fIt=begin();fIt!=end();++fIt)
@@ -522,9 +496,8 @@ GLMotif::PopupMenu* ToolManager::createToolMenu(void)
 			}
 		}
 	
-	toolSelectionMenu->manageChild();
-	
-	return toolSelectionMenuPopup;
+	toolSelectionMenu->manageMenu();
+	return toolSelectionMenu;
 	}
 
 void ToolManager::inputDeviceDestructionCallback(Misc::CallbackData* cbData)
@@ -567,18 +540,12 @@ void ToolManager::toolMenuSelectionCallback(Misc::CallbackData* cbData)
 		if(toolCreationState->firstFeature.isButton()&&layout.getNumButtons()==0&&!layout.hasOptionalButtons())
 			{
 			/* Show an error message: */
-			std::string message="The selected tool class \"";
-			message.append(factory->getName());
-			message.append("\" has no assignable button slots");
-			showErrorMessage("Tool Creation",message.c_str());
+			Misc::formattedUserError("Vrui::ToolManager: The selected tool class \"%s\" has no assignable button slots",factory->getName());
 			}
 		else if(toolCreationState->firstFeature.isValuator()&&layout.getNumValuators()==0&&!layout.hasOptionalValuators())
 			{
 			/* Show an error message: */
-			std::string message="The selected tool class \"";
-			message.append(factory->getName());
-			message.append("\" has no assignable valuator slots");
-			showErrorMessage("Tool Creation",message.c_str());
+			Misc::formattedUserError("Vrui::ToolManager: The selected tool class \"%s\" has no assignable valuator slots",factory->getName());
 			}
 		else
 			{
@@ -597,8 +564,7 @@ void ToolManager::toolCreationDeviceMotionCallback(Misc::CallbackData* cbData)
 	if(toolCreationState!=0&&device==toolCreationState->toolSelectionDevice)
 		{
 		/* Update the tool creation device's state: */
-		toolCreationDevice->setDeviceRay(device->getDeviceRayDirection(),device->getDeviceRayStart());
-		toolCreationDevice->setTransformation(device->getTransformation());
+		toolCreationDevice->copyTrackingState(device);
 		
 		/* Call the tool creation tool's frame method: */
 		toolCreationTool->frame();
@@ -606,7 +572,7 @@ void ToolManager::toolCreationDeviceMotionCallback(Misc::CallbackData* cbData)
 	}
 
 ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& sConfigFileSection)
-	:Plugins::FactoryManager<ToolFactory>(sConfigFileSection.retrieveString("./toolDsoNameTemplate",SYSTOOLDSONAMETEMPLATE)),
+	:Plugins::FactoryManager<ToolFactory>(sConfigFileSection.retrieveString("./toolDsoNameTemplate",VRUI_INTERNAL_CONFIG_TOOLDSONAMETEMPLATE)),
 	 inputGraphManager(sInputDeviceManager->getInputGraphManager()),
 	 inputDeviceManager(sInputDeviceManager),
 	 configFileSection(new Misc::ConfigurationFileSection(sConfigFileSection)),
@@ -660,7 +626,7 @@ ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::Con
 	tia.setButtonSlot(0,toolCreationDevice,0);
 	Tool* tool=toolSelectionMenuFactory->createTool(tia);
 	#if DEBUGGING
-	std::cout<<"Creating tool selection tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
+	std::cout<<"TM: Creating tool selection tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
 	#endif
 	toolCreationTool=dynamic_cast<MenuTool*>(tool);
 	if(toolCreationTool==0)
@@ -717,21 +683,37 @@ ToolManager::~ToolManager(void)
 	for(ToolList::iterator tIt=tools.begin();tIt!=tools.end();++tIt)
 		{
 		#if DEBUGGING
-		std::cout<<"Deleting tool "<<*tIt<<" of class "<<(*tIt)->getFactory()->getName()<<std::endl;
+		std::cout<<"TM: Tool deletion process for "<<*tIt<<" of class "<<(*tIt)->getFactory()->getName()<<std::endl;
 		#endif
 		
 		/* De-initialize the tool: */
+		#if DEBUGGING
+		std::cout<<"TM: De-initializing tool "<<*tIt<<std::endl;
+		#endif
 		(*tIt)->deinitialize();
 		
 		/* Call tool destruction callbacks: */
+		#if DEBUGGING
+		std::cout<<"TM: Calling destruction callbacks for tool "<<*tIt<<std::endl;
+		#endif
 		ToolDestructionCallbackData cbData(*tIt);
 		toolDestructionCallbacks.call(&cbData);
 		
 		/* Remove the tool from the input graph: */
+		#if DEBUGGING
+		std::cout<<"TM: Removing tool "<<*tIt<<" from input graph manager"<<std::endl;
+		#endif
 		inputGraphManager->removeTool(*tIt);
 		
 		/* Delete the tool: */
+		#if DEBUGGING
+		std::cout<<"TM: Deleting tool "<<*tIt<<std::endl;
+		#endif
 		(*tIt)->getFactory()->destroyTool(*tIt);
+		
+		#if DEBUGGING
+		std::cout<<"TM: Finished tool deletion process for "<<*tIt<<std::endl;
+		#endif
 		}
 	
 	/* Destroy the configuration file section: */
@@ -758,15 +740,15 @@ void ToolManager::addClass(ToolFactory* newFactory,ToolManager::BaseClass::Destr
 			}
 		
 		/* Traverse the tool menu, adding cascade buttons for parent classes: */
-		GLMotif::Container* menu=static_cast<GLMotif::Container*>(toolMenuPopup->getFirstChild());
+		GLMotif::PopupMenu* menu=toolMenuPopup;
 		for(std::vector<const ToolFactory*>::reverse_iterator aIt=ancestors.rbegin();aIt!=ancestors.rend();++aIt)
 			{
-			GLMotif::Widget* ancestorWidget=menu->findChild((*aIt)->getClassName());
+			GLMotif::Widget* ancestorWidget=menu->getMenu()->findChild((*aIt)->getClassName());
 			GLMotif::CascadeButton* ancestorCascade=dynamic_cast<GLMotif::CascadeButton*>(ancestorWidget);
 			if(ancestorCascade!=0)
 				{
 				/* Go to the ancestor's tool submenu: */
-				menu=static_cast<GLMotif::Container*>(ancestorCascade->getPopup()->getFirstChild());
+				menu=static_cast<GLMotif::PopupMenu*>(ancestorCascade->getPopup());
 				}
 			else if(ancestorWidget==0)
 				{
@@ -774,12 +756,11 @@ void ToolManager::addClass(ToolFactory* newFactory,ToolManager::BaseClass::Destr
 				GLMotif::CascadeButton* ancestorCascade=new GLMotif::CascadeButton((*aIt)->getClassName(),menu,(*aIt)->getName());
 				
 				char popupName[256];
-				snprintf(popupName,sizeof(popupName),"%sSubmenuPopup",(*aIt)->getClassName());
-				GLMotif::Popup* ancestorPopup=new GLMotif::Popup(popupName,getWidgetManager());
-				GLMotif::SubMenu* ancestorSubmenu=new GLMotif::SubMenu("ToolSubmenu",ancestorPopup,true);
+				snprintf(popupName,sizeof(popupName),"%sSubmenu",(*aIt)->getClassName());
+				GLMotif::PopupMenu* ancestorSubmenu=new GLMotif::PopupMenu(popupName,getWidgetManager());
 				
-				ancestorCascade->setPopup(ancestorPopup);
-				
+				ancestorCascade->setPopup(ancestorSubmenu);
+				ancestorSubmenu->manageMenu();
 				menu=ancestorSubmenu;
 				}
 			else
@@ -789,6 +770,7 @@ void ToolManager::addClass(ToolFactory* newFactory,ToolManager::BaseClass::Destr
 		/* Create a button for the new tool factory: */
 		GLMotif::Button* toolButton=new GLMotif::Button(newFactory->getClassName(),menu,newFactory->getName());
 		toolButton->getSelectCallbacks().add(this,&ToolManager::toolMenuSelectionCallback);
+		menu->manageMenu();
 		}
 	}
 
@@ -908,27 +890,6 @@ void ToolManager::loadDefaultTools(void)
 	/* Read all tool bindings from the given section: */
 	Misc::ConfigurationFileSection defaultToolSection=configFileSection->getSection(defaultToolSectionName.c_str());
 	inputGraphManager->loadInputGraph(defaultToolSection);
-	
-	#if 0
-	
-	/* Configure initial tool assignment: */
-	typedef std::vector<std::string> StringList;
-	StringList toolNames=configFileSection->retrieveValue<StringList>("./toolNames");
-	for(StringList::const_iterator tnIt=toolNames.begin();tnIt!=toolNames.end();++tnIt)
-		{
-		try
-			{
-			/* Load the tool binding: */
-			loadToolBinding(tnIt->c_str());
-			}
-		catch(std::runtime_error err)
-			{
-			/* Print a warning message and carry on: */
-			std::cout<<"ToolManager::loadDefaultTools: Ignoring tool binding "<<*tnIt<<" due to exception "<<err.what()<<std::endl;
-			}
-		}
-	
-	#endif
 	}
 
 void ToolManager::startToolCreation(const InputDeviceFeature& feature)
@@ -945,8 +906,7 @@ void ToolManager::startToolCreation(const InputDeviceFeature& feature)
 	/* Let the tool creation device shadow the root device: */
 	rootDevice->getTrackingCallbacks().add(this,&ToolManager::toolCreationDeviceMotionCallback);
 	toolCreationDevice->setTrackType(rootDevice->getTrackType());
-	toolCreationDevice->setDeviceRay(rootDevice->getDeviceRayDirection(),rootDevice->getDeviceRayStart());
-	toolCreationDevice->setTransformation(rootDevice->getTransformation());
+	toolCreationDevice->copyTrackingState(rootDevice);
 	
 	/* Press the tool creation tool's button, which will pop up the tool selection menu: */
 	toolCreationDevice->setButtonState(0,true);
@@ -1031,7 +991,7 @@ Tool* ToolManager::createTool(ToolFactory* factory,const ToolInputAssignment& ti
 	/* Create tool of given class: */
 	Tool* newTool=factory->createTool(tia);
 	#if DEBUGGING
-	std::cout<<"Created tool "<<newTool<<" of class "<<newTool->getFactory()->getName()<<std::endl;
+	std::cout<<"TM: Created tool "<<newTool<<" of class "<<newTool->getFactory()->getName()<<std::endl;
 	#endif
 	int state=0;
 	try
@@ -1110,13 +1070,19 @@ void ToolManager::destroyTool(Tool* tool,bool destroyImmediately)
 	if(destroyImmediately)
 		{
 		#if DEBUGGING
-		std::cout<<"Deleting tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
+		std::cout<<"TM: Deletion process for tool "<<tool<<" of class "<<tool->getFactory()->getName()<<std::endl;
 		#endif
 		
 		/* De-initialize the tool: */
+		#if DEBUGGING
+		std::cout<<"TM: De-initializing tool "<<tool<<std::endl;
+		#endif
 		tool->deinitialize();
 		
 		/* Call tool destruction callbacks: */
+		#if DEBUGGING
+		std::cout<<"TM: Calling destruction callbacks for tool "<<tool<<std::endl;
+		#endif
 		ToolDestructionCallbackData cbData(tool);
 		toolDestructionCallbacks.call(&cbData);
 		
@@ -1129,10 +1095,20 @@ void ToolManager::destroyTool(Tool* tool,bool destroyImmediately)
 				}
 		
 		/* Remove tool from input graph: */
+		#if DEBUGGING
+		std::cout<<"TM: Removing tool "<<tool<<" from input graph"<<std::endl;
+		#endif
 		inputGraphManager->removeTool(tool);
 		
 		/* Destroy the tool: */
+		#if DEBUGGING
+		std::cout<<"TM: Deleting tool "<<tool<<std::endl;
+		#endif
 		tool->getFactory()->destroyTool(tool);
+		
+		#if DEBUGGING
+		std::cout<<"TM: Finished deletion process for tool "<<tool<<std::endl;
+		#endif
 		}
 	else
 		{
@@ -1155,7 +1131,7 @@ void ToolManager::update(void)
 			case ToolManagementQueueItem::CREATE_TOOL:
 				{
 				#if DEBUGGING
-				std::cout<<"Creating new tool of class "<<tmqIt->createToolFactory->getName()<<std::endl;
+				std::cout<<"TM: Creating new tool of class "<<tmqIt->createToolFactory->getName()<<std::endl;
 				#endif
 				
 				/* Create the new tool: */
@@ -1171,7 +1147,7 @@ void ToolManager::update(void)
 				if(tmqIt->tool!=0)
 					{
 					#if DEBUGGING
-					std::cout<<"Destroying tool "<<tmqIt->tool<<" of class "<<tmqIt->tool->getFactory()->getName()<<std::endl;
+					std::cout<<"TM: Destroying tool "<<tmqIt->tool<<" of class "<<tmqIt->tool->getFactory()->getName()<<std::endl;
 					#endif
 					
 					/* Destroy the tool: */

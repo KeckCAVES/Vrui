@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -39,6 +39,7 @@ class GLContextData;
 namespace Vrui {
 class InputDeviceFeature;
 class InputGraphManager;
+class TextEventDispatcher;
 class InputDeviceAdapter;
 }
 
@@ -105,6 +106,7 @@ class InputDeviceManager
 	/* Elements: */
 	private:
 	InputGraphManager* inputGraphManager; // Pointer to the input graph manager
+	TextEventDispatcher* textEventDispatcher; // Pointer to object dispatching GLMotif text and text control events
 	int numInputDeviceAdapters; // Number of input device adapters managed by the input device manager
 	InputDeviceAdapter** inputDeviceAdapters; // Array of pointers to managed input device adapters
 	InputDevices inputDevices; // List of all created input devices
@@ -114,7 +116,7 @@ class InputDeviceManager
 	
 	/* Constructors and destructors: */
 	public:
-	InputDeviceManager(InputGraphManager* sInputGraphManager);
+	InputDeviceManager(InputGraphManager* sInputGraphManager,TextEventDispatcher* sTextEventDispatcher);
 	private:
 	InputDeviceManager(const InputDeviceManager& source); // Prohibit copy constructor
 	InputDeviceManager& operator=(const InputDeviceManager& source); // Prohibit assignment operator
@@ -132,10 +134,14 @@ class InputDeviceManager
 		{
 		return inputDeviceAdapters[inputDeviceAdapterIndex];
 		}
-	InputDeviceAdapter* findInputDeviceAdapter(InputDevice* device) const; // Returns pointer to the input device adapter owning the given device (or 0)
+	InputDeviceAdapter* findInputDeviceAdapter(const InputDevice* device) const; // Returns pointer to the input device adapter owning the given device (or 0)
 	InputGraphManager* getInputGraphManager(void) const
 		{
 		return inputGraphManager;
+		}
+	TextEventDispatcher* getTextEventDispatcher(void) const
+		{
+		return textEventDispatcher;
 		}
 	InputDevice* createInputDevice(const char* deviceName,int trackType,int numButtons,int numValuators,bool physicalDevice =false);
 	int getNumInputDevices(void) const

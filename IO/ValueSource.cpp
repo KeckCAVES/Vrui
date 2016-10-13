@@ -1,6 +1,6 @@
 /***********************************************************************
 ValueSource - Class to read strings or numbers from files.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -477,13 +477,12 @@ void ValueSource::skipString(void)
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
-		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
+		/* Read and skip the quote character: */
 		int quote=lastChar;
-		cc[quote]&=~QUOTEDSTRING;
 		lastChar=source->getChar();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
-		while(cc[lastChar]&QUOTEDSTRING)
+		while(lastChar!=quote&&cc[lastChar]&QUOTEDSTRING)
 			{
 			/* Skip the next character or escape sequence: */
 			if(lastChar!=escapeChar)
@@ -495,9 +494,6 @@ void ValueSource::skipString(void)
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
 			lastChar=source->getChar();
-		
-		/* Add the quote character to the set of quoted string characters again: */
-		cc[quote]|=QUOTEDSTRING;
 		}
 	else
 		{
@@ -529,13 +525,12 @@ std::string ValueSource::readString(void)
 		}
 	else if(cc[lastChar]&QUOTE)
 		{
-		/* Read the quote character and temporarily remove it from the set of quoted string characters: */
+		/* Remember and skip the quote character: */
 		int quote=lastChar;
-		cc[quote]&=~QUOTEDSTRING;
 		lastChar=source->getChar();
 		
 		/* Read characters until the matching quote, endline, or EOF: */
-		while(cc[lastChar]&QUOTEDSTRING)
+		while(lastChar!=quote&&(cc[lastChar]&QUOTEDSTRING))
 			{
 			/* Read the next character or escape sequence: */
 			if(lastChar!=escapeChar)
@@ -550,9 +545,6 @@ std::string ValueSource::readString(void)
 		/* Read the terminating quote, if there is one: */
 		if(lastChar==quote)
 			lastChar=source->getChar();
-		
-		/* Add the quote character to the set of quoted string characters again: */
-		cc[quote]|=QUOTEDSTRING;
 		}
 	else
 		{

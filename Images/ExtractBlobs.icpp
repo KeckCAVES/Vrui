@@ -1,7 +1,7 @@
 /***********************************************************************
 ExtractBlobs - Function to find 8-connected sets of "foreground" pixels
 in images of arbitrary pixel types.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IMAGES_EXTRACTBLOBS_IMPLEMENTATION
 
 #include <Images/ExtractBlobs.h>
+
+#include <Math/Math.h>
 
 namespace Images {
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 ElevationGridNode - Class for quad-based height fields as renderable
 geometry.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -1280,15 +1280,8 @@ void ElevationGridNode::update(void)
 	/* Check whether the height field should be loaded from a file: */
 	if(heightUrl.getNumValues()>0)
 		{
-		try
-			{
-			/* Load the elevation grid's height values: */
-			loadElevationGrid(*this,multiplexer);
-			}
-		catch(std::runtime_error err)
-			{
-			/* Carry on... */
-			}
+		/* Load the elevation grid's height values: */
+		loadElevationGrid(*this,multiplexer);
 		}
 	
 	/* Check whether the elevation grid is valid: */

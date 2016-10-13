@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -367,9 +367,6 @@ void SoundRecorder::init(const char* audioSource,const SoundDataFormat& sFormat,
 	sampleBufferSize=(size_t(format.framesPerSecond)*250+500)/1000;
 	sampleBuffer=new char[sampleBufferSize*bytesPerFrame];
 	
-	/* Prepare the device for recording: */
-	pcmDevice.prepare();
-	
 	#endif
 	}
 
@@ -448,6 +445,9 @@ void SoundRecorder::start(void)
 	/* Write an empty audio file header if necessary: */
 	if(outputFileFormat==WAV)
 		writeWAVHeader();
+	
+	/* Prepare the device for recording: */
+	pcmDevice.prepare();
 	
 	/* Start the PCM device: */
 	pcmDevice.start();

@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadElevationGrid - Function to load an elevation grid's height values
 from an external file.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <utility>
 #include <string>
+#include <Misc/SizedTypes.h>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
 #include <IO/SeekableFile.h>
@@ -265,6 +266,55 @@ void loadImageGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
 	std::swap(node.height.getValues(),heights);
 	}
 
+template <class ValueParam>
+inline
+void
+loadRawGrid(
+	ElevationGridNode& node,
+	Misc::Endianness endianness,
+	Cluster::Multiplexer* multiplexer)
+	{
+	/* Open the grid file: */
+	IO::FilePtr gridFile=Cluster::openFile(multiplexer,node.heightUrl.getValue(0).c_str());
+	gridFile->setEndianness(endianness);
+	
+	/* Read the grid: */
+	int width=node.xDimension.getValue();
+	int height=node.zDimension.getValue();
+	std::vector<Scalar> heights;
+	heights.reserve(size_t(height)*size_t(width));
+	ValueParam* row=new ValueParam[width];
+	for(int y=0;y<height;++y)
+		{
+		/* Read a row of values in the file format: */
+		gridFile->read(row,width);
+		
+		/* Convert the row values to elevation grid format: */
+		for(int x=0;x<width;++x)
+			heights.push_back(Scalar(row[x]));
+		}
+	delete[] row;
+	
+	/* Install the height field: */
+	std::swap(node.height.getValues(),heights);
+	}
+
+}
+
+namespace {
+
+inline bool startsWith(std::string::const_iterator string,std::string::const_iterator stringEnd,const char* prefix)
+	{
+	while(string!=stringEnd&&*prefix!='\0')
+		{
+		if(*string!=*prefix)
+			return false;
+		++string;
+		++prefix;
+		}
+	return *prefix=='\0';
+	}
+
 }
 
 void loadElevationGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer)
@@ -279,6 +329,52 @@ void loadElevationGrid(ElevationGridNode& node,Cluster::Multiplexer* multiplexer
 		{
 		/* Load an elevation grid in ARC/INFO ASCII GRID format: */
 		loadAGRGrid(node,multiplexer);
+		}
+	else if(node.heightUrlFormat.getNumValues()>=1&&startsWith(node.heightUrlFormat.getValue(0).begin(),node.heightUrlFormat.getValue(0).end(),"RAW "))
+		{
+		std::string::const_iterator sIt=node.heightUrlFormat.getValue(0).begin()+4;
+		std::string::const_iterator sEnd=node.heightUrlFormat.getValue(0).end();
+		std::string format;
+		while(sIt!=sEnd&&!isspace(*sIt))
+			{
+			format.push_back(*sIt);
+			++sIt;
+			}
+		while(sIt!=sEnd&&isspace(*sIt))
+			++sIt;
+		std::string endiannessCode;
+		while(sIt!=sEnd&&!isspace(*sIt))
+			{
+			endiannessCode.push_back(*sIt);
+			++sIt;
+			}
+		Misc::Endianness endianness=Misc::HostEndianness;
+		if(endiannessCode=="LE")
+			endianness=Misc::LittleEndian;
+		else if(endiannessCode=="BE")
+			endianness=Misc::BigEndian;
+		else if(!endiannessCode.empty())
+			Misc::throwStdErr("SceneGraph::loadElevationGrid: Unknown endianness %s",endiannessCode.c_str());
+		
+		/* Load an elevation grid in raw format, containing values of the requested type: */
+		if(format=="UINT8")
+			loadRawGrid<Misc::UInt8>(node,endianness,multiplexer);
+		else if(format=="SINT8")
+			loadRawGrid<Misc::SInt8>(node,endianness,multiplexer);
+		else if(format=="UINT16")
+			loadRawGrid<Misc::UInt16>(node,endianness,multiplexer);
+		else if(format=="SINT16")
+			loadRawGrid<Misc::SInt16>(node,endianness,multiplexer);
+		else if(format=="UINT32")
+			loadRawGrid<Misc::UInt32>(node,endianness,multiplexer);
+		else if(format=="SINT32")
+			loadRawGrid<Misc::SInt32>(node,endianness,multiplexer);
+		else if(format=="FLOAT32")
+			loadRawGrid<Misc::Float32>(node,endianness,multiplexer);
+		else if(format=="FLOAT64")
+			loadRawGrid<Misc::Float64>(node,endianness,multiplexer);
+		else
+			Misc::throwStdErr("SceneGraph::loadElevationGrid: Unknown raw data type %s",format.c_str());
 		}
 	else
 		{

@@ -1,6 +1,6 @@
 /***********************************************************************
 GLExtensionManager - Class to manage OpenGL extensions.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 Mac OS X adaptation copyright (c) 2006 Braden Pellett
 
 This file is part of the OpenGL Support Library (GLSupport).

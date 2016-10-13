@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -55,6 +55,7 @@ class StandardDirectory:public Directory
 	virtual bool readNextEntry(void);
 	virtual const char* getEntryName(void) const;
 	virtual Misc::PathType getEntryType(void) const;
+	virtual Misc::PathType getPathType(const char* relativePath) const;
 	virtual FilePtr openFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly) const;
 	virtual DirectoryPtr openDirectory(const char* directoryName) const;
 	};

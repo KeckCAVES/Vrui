@@ -2,7 +2,7 @@
 HelicopterNavigationTool - Class for navigation tools using a simplified
 helicopter flight model, a la Enemy Territory: Quake Wars' Anansi. Yeah,
 I like that -- wanna fight about it?
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

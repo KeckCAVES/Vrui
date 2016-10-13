@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -38,6 +38,7 @@ class ConfigurationFile;
 }
 namespace Vrui {
 class VRDeviceDescriptor;
+class HMDConfiguration;
 }
 class VRDevice;
 class VRCalibrator;
@@ -69,6 +70,9 @@ class VRDeviceManager
 	
 	typedef VRFactoryManager<VRCalibrator> CalibratorFactoryManager;
 	
+	typedef void (*TrackerUpdateCompleteCallback)(VRDeviceManager* manager,void* userData); // Callback called when all trackers have updated
+	typedef void (*HMDConfigurationUpdatedCallback)(VRDeviceManager* manager,const Vrui::HMDConfiguration* hmdConfiguration,void* userData); // Callback called when an HMD configuration has changed
+	
 	/* Elements: */
 	private:
 	DeviceFactoryManager deviceFactories; // Factory manager to load VR device classes
@@ -85,10 +89,16 @@ class VRDeviceManager
 	Threads::Mutex stateMutex; // Mutex serializing access to all state elements
 	Vrui::VRDeviceState state; // Current state of all managed devices
 	std::vector<Vrui::VRDeviceDescriptor*> virtualDevices; // List of virtual devices combining selected trackers, buttons, and valuators
+	Threads::Mutex hmdConfigurationMutex; // Mutex serializing access to the list of HMD configurations
+	std::vector<Vrui::HMDConfiguration*> hmdConfigurations; // List of HMD configurations
+	HMDConfigurationUpdatedCallback hmdConfigurationUpdatedCallback; // Callback called when an HMD configuration has been updated
+	void* hmdConfigurationUpdatedCallbackData; // Data passed with HMD configuration updated callback
 	unsigned int fullTrackerReportMask; // Bitmask containing 1-bits for all used logical tracker indices
 	unsigned int trackerReportMask; // Bitmask of logical tracker indices that have reported state
 	bool trackerUpdateNotificationEnabled; // Flag if update notification is enabled
 	Threads::MutexCond* trackerUpdateCompleteCond; // Condition variable to notify client threads that all tracker states has been updated
+	TrackerUpdateCompleteCallback trackerUpdateCompleteCallback; // Callback called when all tracker states have been updated
+	void* trackerUpdateCompleteCallbackData; // Data passed with tracker update complete callback
 	
 	/* Constructors and destructors: */
 	public:
@@ -113,12 +123,14 @@ class VRDeviceManager
 	int addValuator(const char* name =0); // Adds a new valuator to the manager's namespace; returns valuator index
 	VRCalibrator* createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile); // Loads calibrator of given type from current section in configuration file
 	void addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice); // Adds a virtual device; is adopted by device manager
+	Vrui::HMDConfiguration* addHmdConfiguration(void); // Adds a new HMD configuration
 	
 	/* Methods to communicate with device driver modules during operation: */
-	void setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState); // Updates state of single tracker
+	void setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState,Vrui::VRDeviceState::TimeStamp newTimeStamp); // Updates state of single tracker
 	void setButtonState(int buttonIndex,Vrui::VRDeviceState::ButtonState newButtonState); // Updates state of single button
 	void setValuatorState(int valuatorIndex,Vrui::VRDeviceState::ValuatorState newValuatorState); // Updates state of single valuator
 	void updateState(void); // Tells device manager that the current state should be considered "complete"
+	void updateHmdConfiguration(const Vrui::HMDConfiguration* hmdConfiguration); // Tells device manager that the given HMD configuration was updated; must be called with HMD configurations locked
 	
 	/* Methods to communicate with device server: */
 	int getNumVirtualDevices(void) const // Returns the number of managed virtual input devices
@@ -141,8 +153,26 @@ class VRDeviceManager
 		{
 		return state;
 		};
+	unsigned int getNumHmdConfigurations(void) const // Returns the number of HMD configurations
+		{
+		return hmdConfigurations.size();
+		}
+	void lockHmdConfigurations(void) // Locks current HMD configurations
+		{
+		hmdConfigurationMutex.lock();
+		};
+	void unlockHmdConfigurations(void) // Unlocks current HMD configurations
+		{
+		hmdConfigurationMutex.unlock();
+		};
+	Vrui::HMDConfiguration& getHmdConfiguration(unsigned int index) // Returns current HMD configuration of given index (HMD configurations must be locked while being used)
+		{
+		return *hmdConfigurations[index];
+		};
 	void enableTrackerUpdateNotification(Threads::MutexCond* sTrackerUpdateCompleteCond); // Sets a condition variable to be signalled when all trackers have updated
+	void enableTrackerUpdateNotification(TrackerUpdateCompleteCallback newTrackerUpdateCompleteCallback,void* newTrackerUpdateCompleteCallbackData); // Sets a callback to be called when all trackers have updated; callback is called with device states locked
 	void disableTrackerUpdateNotification(void); // Disables tracker update notification
+	void setHmdConfigurationUpdatedCallback(HMDConfigurationUpdatedCallback newHmdConfigurationUpdatedCallback,void* newHmdConfigurationUpdatedCallbackData); // Sets a callback to be called when an HMD configuration is updated
 	void start(void); // Starts device processing
 	void stop(void); // Stops device processing
 	};

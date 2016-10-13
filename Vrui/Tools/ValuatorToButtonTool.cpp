@@ -134,7 +134,7 @@ void ValuatorToButtonTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(transformedDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	transformedDevice->setTransformation(sourceDevice->getTransformation());
+	resetDevice();
 	}
 
 const ToolFactory* ValuatorToButtonTool::getFactory(void) const

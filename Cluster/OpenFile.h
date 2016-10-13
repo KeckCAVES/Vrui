@@ -2,7 +2,7 @@
 OpenFile - Convenience function to open files of several types using the
 IO::File abstraction and distribute among a cluster via a multicast
 pipe.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 

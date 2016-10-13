@@ -1,7 +1,7 @@
 /***********************************************************************
 ALSAPCMDevice - Simple wrapper class around PCM devices as represented
 by the Advanced Linux Sound Architecture (ALSA) library.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -70,7 +70,7 @@ class ALSAPCMDevice
 		};
 	
 	/* Elements: */
-	private:
+	public: // Just temporary! I SWEAR!!! private:
 	snd_pcm_t* pcmDevice; // Handle to the ALSA PCM device
 	snd_pcm_hw_params_t* pcmHwParams; // Hardware parameter context for the PCM device; used to accumulate settings until prepare() is called
 	
@@ -83,8 +83,12 @@ class ALSAPCMDevice
 	snd_async_handler_t* registerAsyncHandler(snd_async_callback_t callback,void* privateData); // Registers an asynchronous callback with the PCM device
 	void setSoundDataFormat(const SoundDataFormat& format); // Sets the PCM device's sample format
 	void setBufferSize(size_t numBufferFrames,size_t numPeriodFrames); // Sets the device's buffer and period sizes
-	void setStartThreshold(size_t numStartFrames); // Sets automatic PCM start threshold for playback and capture devices
+	size_t getBufferSize(void) const; // Returns the actual buffer size selected by the device
+	size_t getPeriodSize(void) const; // Returns the actual period size selected by the device
 	void prepare(void); // Applies cached hardware parameters to PCM device and prepares it for recording / playback
+	void setStartThreshold(size_t numStartFrames); // Sets automatic PCM start threshold for playback and capture devices
+	void link(ALSAPCMDevice& other); // Links this PCM with another such that status changes and frame clocks are synchronized; throws exception if devices cannot be linked due to being on different hardware
+	void unlink(void); // Unlinks this PCM from any other PCMs to which it was linked
 	void start(void); // Starts recording or playback on the PCM device
 	bool wait(int timeout) // Waits for the PCM device to get ready for I/O; timeout is in milliseconds; negative values wait forever; returns true if device is ready
 		{

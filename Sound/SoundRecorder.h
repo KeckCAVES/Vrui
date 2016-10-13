@@ -2,7 +2,7 @@
 SoundRecorder - Simple class to record sound from a capture device to a
 sound file on the local file system. Uses ALSA under Linux, and the Core
 Audio frameworks under Mac OS X.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 

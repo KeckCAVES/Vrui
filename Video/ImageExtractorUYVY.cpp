@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorUYVY - Class to extract images from raw video frames
 encoded in YpCbCr 4:2:2 format with reversed byte order.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -83,6 +83,31 @@ void ImageExtractorUYVY::extractRGB(const FrameBuffer* frame,void* image)
 			/* Convert second pixel: */
 			ypcbcr[0]=rPtr[3];
 			Video::ypcbcrToRgb(ypcbcr,cPtr+3);
+			}
+		}
+	}
+
+void ImageExtractorUYVY::extractYpCbCr(const FrameBuffer* frame,void* image)
+	{
+	/* Unpack the frame from 4:2:2 downsampling to full format: */
+	const unsigned char* rRowPtr=frame->start;
+	unsigned char* cRowPtr=static_cast<unsigned char*>(image);
+	cRowPtr+=(size[1]-1)*size[0]*3;
+	for(unsigned int y=0;y<size[1];++y,rRowPtr+=size[0]*2,cRowPtr-=size[0]*3)
+		{
+		const unsigned char* rPtr=rRowPtr;
+		unsigned char* cPtr=cRowPtr;
+		for(unsigned int x=0;x<size[0];x+=2,cPtr+=2*3,rPtr+=4)
+			{
+			/* Unpack first pixel: */
+			cPtr[0]=rPtr[1];
+			cPtr[1]=rPtr[0];
+			cPtr[2]=rPtr[2];
+			
+			/* Unpack second pixel: */
+			cPtr[3+0]=rPtr[3];
+			cPtr[3+1]=rPtr[0];
+			cPtr[3+2]=rPtr[2];
 			}
 		}
 	}

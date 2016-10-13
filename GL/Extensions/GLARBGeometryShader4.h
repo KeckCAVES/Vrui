@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBGeometryShader4 - OpenGL extension class for the
 GL_ARB_geometry_shader4 extension.
-Copyright (c) 2007-2013 Tony Bernardin, Oliver Kreylos
+Copyright (c) 2007-2014 Tony Bernardin, Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -82,6 +82,7 @@ class GLARBGeometryShader4:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBGeometryShader4*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLPROGRAMPARAMETERIARBPROC glProgramParameteriARBProc;
 	PFNGLFRAMEBUFFERTEXTUREARBPROC glFramebufferTextureARBProc;
 	PFNGLFRAMEBUFFERTEXTURELAYERARBPROC glFramebufferTextureLayerARBProc;

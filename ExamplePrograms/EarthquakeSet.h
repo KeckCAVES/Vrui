@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeSet - Class to represent and render sets of earthquakes with
 3D locations, magnitude and event time.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -27,6 +27,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Math/Interval.h>
 #include <Geometry/Point.h>
 #include <Geometry/Ray.h>
+#include <Geometry/ArrayKdTree.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #include <GL/GLColorMap.h>
@@ -51,16 +52,17 @@ class EarthquakeSet:public GLObject
 	typedef Geometry::Point<float,3> Point; // Type for points
 	typedef Geometry::Ray<float,3> Ray; // Type for rays
 	
-	struct Event // Structure for events (earthquakes)
+	struct Event:public Point // Structure for events (earthquakes) in Cartesian coordinates
 		{
 		/* Elements: */
 		public:
-		Point position; // 3D earthquake position in Cartesian coordinates
 		double time; // Earthquake time in seconds since the epoch (UTC)
 		float magnitude; // Earthquake magnitude
 		};
 	
 	private:
+	typedef Geometry::ArrayKdTree<Event> EventTree; // Type for kd-trees containing earthquake events
+	
 	struct DataItem:public GLObject::DataItem
 		{
 		/* Elements: */
@@ -89,8 +91,7 @@ class EarthquakeSet:public GLObject
 	
 	/* Elements: */
 	GLColorMap colorMap; // A color map for event magnitudes
-	std::vector<Event> events; // Vector of earthquakes
-	int* treePointIndices; // Array of event indices in kd-tree order
+	EventTree events; // Kd-tree containing earthquake events
 	bool layeredRendering; // Flag whether layered rendering is requested
 	Point earthCenter; // Position of earth's center point for layered rendering
 	float pointRadius; // Point radius in model space
@@ -98,8 +99,8 @@ class EarthquakeSet:public GLObject
 	double currentTime; // Current event time during animation
 	
 	/* Private methods: */
-	void loadANSSFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor); // Loads an earthquake event file in ANSS readable database snapshot format
-	void loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor); // Loads an earthquake event file in space- or comma-separated format
+	void loadANSSFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,std::vector<Event>& eventList); // Loads an earthquake event file in ANSS readable database snapshot format into the given event list
+	void loadCSVFile(IO::FilePtr earthquakeFile,const Geometry::Geoid<double>& referenceEllipsoid,const Geometry::Vector<double,3>& offset,double scaleFactor,std::vector<Event>& eventList); // Loads an earthquake event file in space- or comma-separated format into the given event list
 	#if EARTHQUAKESET_EXPLICIT_RECURSION
 	void drawBackToFront(const Point& eyePos,GLuint* indexBuffer) const; // Creates an index buffer for the earthquake set in back-to-front order for the given eye position
 	#else

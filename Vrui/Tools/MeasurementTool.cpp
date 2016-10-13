@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasurementTool - Tool to measure positions, distances and angles in
 physical or navigational coordinates.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <stdio.h>
 #include <vector>
+#include <Misc/MessageLogger.h>
 #include <Misc/File.h>
 #include <Misc/CreateNumberedFileName.h>
 #include <Misc/StandardValueCoders.h>
@@ -807,16 +808,16 @@ void MeasurementTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData
 			/* Ensure the measurement file is open: */
 			if(factory->measurementFile==0)
 				{
+				char numberedFileName[1024];
 				try
 					{
 					/* Create a uniquely named file based on the base name: */
-					char numberedFileName[1024];
 					factory->measurementFile=new Misc::File(Misc::createNumberedFileName(factory->measurementFileName.c_str(),4,numberedFileName),"wt");
 					}
 				catch(Misc::File::OpenError)
 					{
 					/* Just don't open the file, then! */
-					showErrorMessage("Measurement Tool","Could not create measurement file; measurements will not be saved");
+					Misc::formattedUserWarning("Vrui::MeasurementTool: Could not create measurement file \"%s\"; measurements will not be saved",numberedFileName);
 					}
 				}
 			
@@ -918,13 +919,6 @@ void MeasurementTool::display(GLContextData& contextData) const
 	/* Calculate the marker size: */
 	Scalar markerSize=factory->markerSize;
 	
-	/* Determine the marker color: */
-	Color bgColor=getBackgroundColor();
-	Color fgColor;
-	for(int i=0;i<3;++i)
-		fgColor[i]=1.0f-bgColor[i];
-	fgColor[3]=bgColor[3];
-	
 	/* Transform all marker positions to physical coordinates: */
 	Point physPoints[3];
 	for(int i=0;i<3;++i)
@@ -947,7 +941,7 @@ void MeasurementTool::display(GLContextData& contextData) const
 	
 	/* Draw a halo around the measurement markers and lines: */
 	glLineWidth(3.0f);
-	glColor(bgColor);
+	glColor(getBackgroundColor());
 	glBegin(GL_LINES);
 	
 	/* Mark all measurement points: */
@@ -974,7 +968,7 @@ void MeasurementTool::display(GLContextData& contextData) const
 	
 	/* Draw the markers and measurement lines themselves: */
 	glLineWidth(1.0f);
-	glColor(fgColor);
+	glColor(getForegroundColor());
 	glBegin(GL_LINES);
 	
 	/* Mark all measurement points: */

@@ -58,6 +58,8 @@ The rest of this document lists and explains all tag/value pairs that exist with
 			
 			<LI><A HREF="#oculusriftsettings">Oculus Rift Settings</A></LI>
 			
+			<LI><A HREF="#openvrhostsettings">OpenVR Host Settings</A></LI>
+			
 			<LI><A HREF="#pctrackersettings">PC Tracker Settings</A></LI>
 			
 			<LI><A HREF="#pcwandsettings">PC Wand Settings</A></LI>
@@ -199,6 +201,9 @@ Defines the type of the device driver plug-in module created by the section. The
 
 <DT>OculusRift</DT>
 <DD>Driver to read orientational tracking data from the built-in inertial tracking unit in the Oculus Rift head-mounted display. Rest of the section contains <A HREF="#oculusriftsettings">Oculus Rift settings</A>.</DD>
+
+<DT>OpenVRHost</DT>
+<DD>Driver to retrieve 6-DOF tracking data from an OpenVR-compatible driver module, specifically Valve's Lighthouse driver for the HTC Vive. Rest of the section contains <A HREF="#openvrhostsettings">OpenVR Host settings</A>.</DD>
 
 <DT>PCTracker</DT>
 <DD>Driver for PCTracker tracking systems, originally shipped with ImmersaDesks, connected to the computer running VRDeviceDaemon via serial ports. Rest of the section contains <A HREF="#pctrackersettings">PC Tracker settings</A>.</DD>
@@ -799,6 +804,64 @@ This driver module represents the built-in inertial orientational tracker of an 
 </TR>
 </TABLE>
 
+<H3><A NAME="openvrhostsettings">OpenVR Host Settings</A></H3>
+
+This driver module receives 6-DOF tracking data from an OpenVR-compatible driver module, specifically Valve's Lighthouse driver for the HTC Vive.<P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>steamRootDir</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Root directory of the Steam run-time. Defaults to $HOME/.steam/steam.</TD>
+</TR>
+
+<TR>
+<TD>openvrDriverName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the OpenVR driver module to load. Defaults to lighthouse, Valve's Lighthouse tracking driver for the HTC Vive.</TD>
+</TR>
+
+<TR>
+<TD>openvrDriverRootDir</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Root directory of the selected OpenVR driver module. Defaults to SteamVR's standard directory layout.</TD>
+</TR>
+
+<TR>
+<TD>openvrDriverDsoName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the dynamic shared object containing the selected OpenVR driver module. Defaults to SteamVR's standard naming scheme.</TD>
+</TR>
+
+<TR>
+<TD>openvrFactoryFunctionName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the factory function inside the OpenVR driver dynamic shared object. Defaults to HmdDriverFactory.</TD>
+</TR>
+
+<TR>
+<TD>openvrDriverConfigDir</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Configuration directory of the selected OpenVR driver. Defaults to SteamVR's standard directory layout.</TD>
+</TR>
+
+<TR>
+<TD>distortionMeshSize</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#integer">integers</A></TD>
+<TD>Size of the distortion mesh, in u and v, to generate from the device driver's configuration parameters.</TD>
+</TR>
+
+<TR>
+<TD>maxNumControllers</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Maximum number of controllers that can be connected at any time.</TD>
+</TR>
+
+<TR>
+<TD>hmdName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name for the virtual input device representing the head-mounted display. Defaults to HMD.</TD>
+</TR>
+
+<TR>
+<TD>controllerNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Printf-style name template for the virtual input devices representing the controllers. The template must contain exactly one unsigned integer conversion specifier, of the form %[0-9]*u. Defaults to Controller%u.</TD>
+</TR>
+</TABLE>
+
 <H3><A NAME="pctrackersettings">PC Tracker Settings</A></H3>
 
 This driver module reads tracking data exposed through the custom tracking data server used in original ImmersaDesks. If you still have one of those, and it's still working, good for you. Works together with the <A HREF="#pcwandsettings">PC Wand</A> module.<P>
@@ -1184,6 +1247,21 @@ This driver module receives tracker, button, and valuator data from a (remote) V
 <DD>Calibrator which applies a non-linear grid-based calibration to raw tracker positions and orientations, giving it the ability to &quot;straighten out&quot; the warped tracking fields typically produced by electro-magnetic tracking systems. The rest of the section contains <A HREF="#gridcalibratorsettings">grid calibrator settings</A>.</DD>
 </DL>
 </TD>
+</TR>
+
+<TR>
+<TD>calibratePositions</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable or disable calibration of tracker positions. Default value is true.</TD>
+</TR>
+
+<TR>
+<TD>calibrateOrientations</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable or disable calibration of tracker orientations. Default value is true.</TD>
+</TR>
+
+<TR>
+<TD>calibrateVelocities</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable or disable calibration of tracker linear and angular velocities. Default value is true.</TD>
 </TR>
 
 </TABLE>

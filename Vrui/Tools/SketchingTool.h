@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,17 +28,22 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/Point.h>
 #include <GL/gl.h>
 #include <GL/GLColor.h>
+#include <GLMotif/RadioBox.h>
 #include <GLMotif/NewButton.h>
-#include <GLMotif/Slider.h>
-#include <Vrui/FileSelectionHelper.h>
+#include <GLMotif/TextFieldSlider.h>
+#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/UtilityTool.h>
 
 /* Forward declarations: */
+namespace IO {
+class ValueSource;
+class OStream;
+}
 namespace GLMotif {
 class PopupWindow;
 class RowColumn;
-class TextField;
+class FileSelectionHelper;
 }
 
 namespace Vrui {
@@ -51,8 +56,9 @@ class SketchingToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	Scalar detailSize; // Minimal length of line segments in curves
-	std::string curveFileName; // Name of file into which curve data is saved
+	Scalar detailSize; // Minimal length of line segments in curves in physical coordinate units
+	std::string curvesFileName; // Default name for curve files
+	GLMotif::FileSelectionHelper* curvesSelectionHelper; // Helper object to load and save curve files
 	
 	/* Constructors and destructors: */
 	public:
@@ -64,6 +70,9 @@ class SketchingToolFactory:public ToolFactory
 	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
+	
+	/* New methods: */
+	GLMotif::FileSelectionHelper* getCurvesSelectionHelper(void); // Returns pointer to a file selection helper for curve files
 	};
 
 class SketchingTool:public UtilityTool
@@ -72,12 +81,28 @@ class SketchingTool:public UtilityTool
 	
 	/* Embedded classes: */
 	private:
-	struct Curve // Structure to represent single-stroke curves
+	typedef GLColor<GLubyte,4> Color; // Type for colors
+	
+	struct SketchObject // Base class for sketching objects
+		{
+		/* Elements: */
+		public:
+		GLfloat lineWidth; // Curve's cosmetic line width
+		Color color; // Curve's color
+		
+		/* Constructors and destructors: */
+		virtual ~SketchObject(void);
+		
+		/* Methods: */
+		virtual void write(IO::OStream& os) const; // Writes object state to file
+		virtual void read(IO::ValueSource& vs); // Reads object state from file
+		virtual void glRenderAction(GLContextData& contextData) const =0; // Method to render the sketching object into the current OpenGL context
+		};
+	
+	struct Curve:public SketchObject // Structure to represent single-stroke curves
 		{
 		/* Embedded classes: */
 		public:
-		typedef GLColor<GLubyte,4> Color; // Type for colors
-		
 		struct ControlPoint // Structure for curve control points
 			{
 			/* Elements: */
@@ -87,25 +112,40 @@ class SketchingTool:public UtilityTool
 			};
 		
 		/* Elements: */
-		GLfloat lineWidth; // Curve's cosmetic line width
-		Color color; // Curve's color
 		std::vector<ControlPoint> controlPoints; // The curve's control points
+		
+		/* Methods from SketchObject: */
+		virtual void write(IO::OStream& os) const;
+		virtual void read(IO::ValueSource& vs);
+		virtual void glRenderAction(GLContextData& contextData) const;
+		};
+	
+	struct Polyline:public SketchObject // Structure to represent polylines
+		{
+		/* Elements: */
+		public:
+		std::vector<Point> vertices; // The polyline's vertices
+		
+		/* Methods from SketchObject: */
+		virtual void write(IO::OStream& os) const;
+		virtual void read(IO::ValueSource& vs);
+		virtual void glRenderAction(GLContextData& contextData) const;
 		};
 	
 	/* Elements: */
 	static SketchingToolFactory* factory; // Pointer to the factory object for this class
-	static const Curve::Color curveColors[8]; // Standard line color palette
+	static const Color colors[8]; // Standard line color palette
 	GLMotif::PopupWindow* controlDialogPopup;
-	GLMotif::TextField* lineWidthValue;
 	GLMotif::RowColumn* colorBox;
-	std::vector<Curve*> curves; // The list of existing curves
-	GLfloat newLineWidth; // Line width for new curves
-	Curve::Color newColor; // Color for new curves
-	bool active; // Flag whether the tool is currently creating a curve
+	std::vector<SketchObject*> sketchObjects; // The list of existing sketching objects
+	int newSketchObjectType; // Type of sketch objects to be created
+	GLfloat newLineWidth; // Line width for new sketch objects
+	Color newColor; // Color for new sketch objects
+	bool active; // Flag whether the tool is currently creating a sketching object
 	Curve* currentCurve; // Pointer to the currently created curve
-	Point lastPoint; // The last point appended to the curve
+	Polyline* currentPolyline; // Pointer to the currently created polyline
+	Point lastPoint; // The last point appended to the current sketching object
 	Point currentPoint; // The current dragging position
-	FileSelectionHelper curvesSelectionHelper; // Helper object to load and save curve files
 	
 	/* Constructors and destructors: */
 	public:
@@ -122,7 +162,8 @@ class SketchingTool:public UtilityTool
 	virtual void display(GLContextData& contextData) const;
 	
 	/* New methods: */
-	void lineWidthSliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
+	void sketchObjectTypeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
+	void lineWidthSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
 	void colorButtonSelectCallback(GLMotif::NewButton::SelectCallbackData* cbData);
 	void saveCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);

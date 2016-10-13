@@ -24,7 +24,12 @@ This document defines all value types used in Vrui configuration files.<P>
 
 <TR>
 <TD><A NAME="keyname">key name</A></TD>
-<TD>Name of a key on the keyboard, expressed as a literal. Labeled keys have their own names, and the following "special" key names are recognized: <B>Space</B>, <B>Tab</B>, <B>Return</B>, <B>Backspace</B>, <B>Left</B>, <B>Up</B>, <B>Right</B>, <B>Down</B>, <B>PageUp</B>, <B>PageDown</B>, <B>Home</B>, <B>End</B>, <B>Insert</B>, <B>Delete</B>, <B>Num0</B>, <B>Num1</B>, <B>Num2</B>, <B>Num3</B>, <B>Num4</B>, <B>Num5</B>, <B>Num6</B>, <B>Num7</B>, <B>Num8</B>, <B>Num9</B>, <B>Num/</B>, <B>Num*</B>, <B>Num-</B>, <B>Num+</B>, <B>NumEnter</B>, <B>NumSep</B>, <B>LeftShift</B>, <B>RightShift</B>, <B>CapsLock</B>, <B>LeftCtrl</B>, <B>RightCtrl</B>, <B>LeftAlt</B>, <B>RightAlt</B>, <B>LeftMeta</B>, <B>RightMeta</B>, <B>LeftSuper</B>, <B>RightSuper</B>, <B>LeftHyper</B>, <B>RightHyper</B>, <B>F1</B>, <B>F2</B>, <B>F3</B>, <B>F4</B>, <B>F5</B>, <B>F6</B>, <B>F7</B>, <B>F8</B>, <B>F9</B>, <B>F10</B>, <B>F11</B>, <B>F12</B>.</TD>
+<TD>Name of a key on the keyboard, expressed as a literal. Labeled keys have their own names, and the following "special" key names are recognized: <B>Space</B>, <B>Tab</B>, <B>Return</B>, <B>Backspace</B>, <B>Left</B>, <B>Up</B>, <B>Right</B>, <B>Down</B>, <B>PageUp</B>, <B>PageDown</B>, <B>Home</B>, <B>End</B>, <B>Insert</B>, <B>Delete</B>, <B>Num0</B>, <B>Num1</B>, <B>Num2</B>, <B>Num3</B>, <B>Num4</B>, <B>Num5</B>, <B>Num6</B>, <B>Num7</B>, <B>Num8</B>, <B>Num9</B>, <B>Num/</B>, <B>Num*</B>, <B>Num-</B>, <B>Num+</B>, <B>NumEnter</B>, <B>NumSep</B>, <B>LeftShift</B>, <B>RightShift</B>, <B>CapsLock</B>, <B>LeftCtrl</B>, <B>RightCtrl</B>, <B>LeftAlt</B>, <B>RightAlt</B>, <B>LeftMeta</B>, <B>RightMeta</B>, <B>LeftSuper</B>, <B>RightSuper</B>, <B>LeftHyper</B>, <B>RightHyper</B>, <B>F1</B>, <B>F2</B>, <B>F3</B>, <B>F4</B>, <B>F5</B>, <B>F6</B>, <B>F7</B>, <B>F8</B>, <B>F9</B>, <B>F10</B>, <B>F11</B>, <B>F12</B>, <B>Esc</B>, <B>Print</B>, <B>ScrollLock</B>, <B>Pause</B>, <B>Menu</B>.</TD>
+</TR>
+
+<TR>
+<TD><A NAME="qualifiedkeyname">qualified key name</A></TD>
+<TD>Name identifying a combination of a keyboard key and a set of currently pressed modifier keys, expressed as a sequence of any number of modifier key names followed by a non-modifier key name, separated by plus signs (<B>+</B>). Supported modifier key names are <B>Shift</B>, <B>Ctrl</B>, <B>Alt</B>, <B>Meta</B>, <B>Super</B>, <B>Hyper</B>.</TD>
 </TR>
 
 <TR>
@@ -165,8 +170,8 @@ Type of a 3D icon, encoded as a literal. Available values:
 </TR>
 
 <TR>
-<TD><A NAME="screenprotector">screen protector</A></TD>
-<TD>Description of a sphere around an input device that triggers a visual alarm when touching a protected display screen. Encoded as a set of parentheses containing a <A HREF="#string">string</A> (the name of an input device), followed by a comma and a <A HREF="#point">point</A> (the center of the sphere in the device's coordinate system), followed by a comma and a <A HREF="#number">number</A> (the radius of the sphere).</TD>
+<TD><A NAME="screenprotectordevice">screen protector device</A></TD>
+<TD>Description of a sphere around an input device that triggers a visual alarm when approaching the configured boundaries of the environment. Encoded as a set of parentheses containing a <A HREF="#string">string</A> (the name of an input device), followed by a comma and a <A HREF="#point">point</A> (the center of the sphere in the device's coordinate system), followed by a comma and a <A HREF="#number">number</A> (the radius of the sphere).</TD>
 </TR>
 
 <TR>
@@ -175,8 +180,13 @@ Type of a 3D icon, encoded as a literal. Available values:
 </TR>
 
 <TR>
+<TD><A NAME="windowsize">window size</A></TD>
+<TD>The size of a display window in pixel units, encoded as a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A>.</TD>
+</TR>
+
+<TR>
 <TD><A NAME="windowposition">window position</A></TD>
-<TD>The position and size of a display window, encoded as a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window position in pixels), followed by a comma and a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window size in pixels).</TD>
+<TD>The position and size of a display window in pixel units, encoded as a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window position), followed by a comma and a <A HREF="#list">list</A> of exactly two <A HREF="#integer">integers</A> (window size).</TD>
 </TR>
 
 <TR>

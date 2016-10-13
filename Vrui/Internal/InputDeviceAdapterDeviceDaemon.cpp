@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,10 +26,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <stdio.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/FunctionCalls.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Realtime/Time.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/GlyphRenderer.h>
@@ -37,6 +39,23 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDeviceManager.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/Internal/VRDeviceDescriptor.h>
+#include <Vrui/Internal/HMDConfiguration.h>
+
+// #define MEASURE_LATENCY
+// #define SAVE_TRACKERSTATES
+
+#ifdef MEASURE_LATENCY
+#include <Realtime/Time.h>
+Realtime::TimePointMonotonic lastUpdate;
+#endif
+
+#ifdef SAVE_TRACKERSTATES
+#include <IO/File.h>
+#include <IO/OpenFile.h>
+#include <Geometry/GeometryMarshallers.h>
+IO::FilePtr realFile;
+IO::FilePtr predictedFile;
+#endif
 
 namespace Vrui {
 
@@ -46,6 +65,17 @@ Methods of class InputDeviceAdapterDeviceDaemon:
 
 void InputDeviceAdapterDeviceDaemon::packetNotificationCallback(VRDeviceClient* client)
 	{
+	#ifdef MEASURE_LATENCY
+	Realtime::TimePointMonotonic now;
+	VRDeviceState::TimeStamp nowTs=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+	printf("Packet interval: %f ms, arrival latency: %f ms\n",double(lastUpdate.setAndDiff())*1000.0,double(nowTs-client->getState().getTrackerTimeStamp(0))/1000.0);
+	#endif
+	
+	#ifdef SAVE_TRACKERSTATES
+	realFile->write<Misc::UInt32>(client->getState().getTrackerTimeStamp(0));
+	Misc::Marshaller<VRDeviceState::TrackerState::PositionOrientation>::write(client->getState().getTrackerState(0).positionOrientation,*realFile);
+	#endif
+	
 	/* Simply request a new Vrui frame: */
 	requestUpdate();
 	}
@@ -166,17 +196,25 @@ void InputDeviceAdapterDeviceDaemon::createInputDevice(int deviceIndex,const Mis
 
 InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
 	:InputDeviceAdapterIndexMap(sInputDeviceManager),
-	 deviceClient(configFileSection)
+	 deviceClient(configFileSection),
+	 predictMotion(configFileSection.retrieveValue<bool>("./predictMotion",false)),
+	 motionPredictionDelta(configFileSection.retrieveValue<float>("./motionPredictionDelta",0.0f))
 	{
+	#ifdef SAVE_TRACKERSTATES
+	realFile=IO::openFile("RealTrackerData.dat",IO::File::WriteOnly);
+	realFile->setEndianness(Misc::LittleEndian);
+	predictedFile=IO::openFile("PredictedTrackerData.dat",IO::File::WriteOnly);
+	predictedFile->setEndianness(Misc::LittleEndian);
+	#endif
+	
 	/* Initialize input device adapter: */
 	InputDeviceAdapterIndexMap::initializeAdapter(deviceClient.getState().getNumTrackers(),deviceClient.getState().getNumButtons(),deviceClient.getState().getNumValuators(),configFileSection);
 	
 	/* Start VR devices: */
 	deviceClient.activate();
-	deviceClient.startStream(Misc::createFunctionCall(packetNotificationCallback),Misc::createFunctionCall(this,&InputDeviceAdapterDeviceDaemon::errorCallback));
 	
-	/* Wait for first device data packet: */
-	deviceClient.getPacket();
+	/* Start streaming; waits for first packet to arrive: */
+	deviceClient.startStream(Misc::createFunctionCall(packetNotificationCallback),Misc::createFunctionCall(this,&InputDeviceAdapterDeviceDaemon::errorCallback));
 	}
 
 InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
@@ -184,6 +222,11 @@ InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
 	/* Stop VR devices: */
 	deviceClient.stopStream();
 	deviceClient.deactivate();
+	
+	#ifdef SAVE_TRACKERSTATES
+	realFile=0;
+	predictedFile=0;
+	#endif
 	}
 
 std::string InputDeviceAdapterDeviceDaemon::getFeatureName(const InputDeviceFeature& feature) const
@@ -261,42 +304,164 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 	{
 	Threads::Spinlock::Lock errorMessageLock(errorMessageMutex);
 	for(std::vector<std::string>::iterator emIt=errorMessages.begin();emIt!=errorMessages.end();++emIt)
-		showErrorMessage("Vrui::InputDeviceAdapterDeviceDaemon",emIt->c_str());
+		Misc::formattedUserError("Vrui::InputDeviceAdapterDeviceDaemon: %s",emIt->c_str());
 	errorMessages.clear();
 	}
 	
 	/* Update all managed input devices: */
 	deviceClient.lockState();
 	const VRDeviceState& state=deviceClient.getState();
-	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+	
+	#ifdef MEASURE_LATENCY
+	
+	Realtime::TimePointMonotonic now;
+	VRDeviceState::TimeStamp ts=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+	
+	double staleness=0.0;
+	for(int i=0;i<state.getNumTrackers();++i)
+		staleness+=double(ts-state.getTrackerTimeStamp(i));
+	printf("Tracking data staleness: %f ms\n",staleness*0.001/double(state.getNumTrackers()));
+	
+	#endif
+	
+	if(predictMotion)
 		{
-		/* Get pointer to the input device: */
-		InputDevice* device=inputDevices[deviceIndex];
+		/* Get the current time for input device motion prediction: */
+		Realtime::TimePointMonotonic now;
+		VRDeviceState::TimeStamp nowTs=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
 		
-		/* Don't update tracker-related state for devices that are not tracked: */
-		if(trackerIndexMapping[deviceIndex]>=0)
+		for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
 			{
-			/* Get device's tracker state from VR device client: */
-			const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndexMapping[deviceIndex]);
+			/* Get pointer to the input device: */
+			InputDevice* device=inputDevices[deviceIndex];
 			
-			/* Set device's transformation: */
-			device->setTransformation(TrackerState(ts.positionOrientation));
+			/* Don't update tracker-related state for devices that are not tracked: */
+			if(trackerIndexMapping[deviceIndex]>=0)
+				{
+				/* Get device's tracker state from VR device client: */
+				const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndexMapping[deviceIndex]);
+				
+				/* Motion-predict the device's tracker state from its sampling time to the current time: */
+				typedef VRDeviceState::TrackerState::PositionOrientation PO;
+				
+				float predictionDelta=float(nowTs-state.getTrackerTimeStamp(trackerIndexMapping[deviceIndex]))*1.0e-6f+motionPredictionDelta;
+				
+				PO::Rotation predictRot=PO::Rotation::rotateScaledAxis(ts.angularVelocity*predictionDelta)*ts.positionOrientation.getRotation();
+				predictRot.renormalize();
+				PO::Vector predictTrans=ts.linearVelocity*predictionDelta+ts.positionOrientation.getTranslation();
+				
+				#ifdef SAVE_TRACKERSTATES
+				predictedFile->write<Misc::UInt32>(nowTs+Misc::UInt32(predictionDelta*1.0e6f+0.5f));
+				Misc::Marshaller<PO>::write(PO(predictTrans,predictRot),*predictedFile);
+				#endif
+				
+				/* Set device's transformation: */
+				device->setTransformation(TrackerState(predictTrans,predictRot));
+				
+				/* Set device's linear and angular velocities: */
+				device->setLinearVelocity(Vector(ts.linearVelocity));
+				device->setAngularVelocity(Vector(ts.angularVelocity));
+				}
 			
-			/* Set device's linear and angular velocities: */
-			device->setLinearVelocity(Vector(ts.linearVelocity));
-			device->setAngularVelocity(Vector(ts.angularVelocity));
+			/* Update button states: */
+			for(int i=0;i<device->getNumButtons();++i)
+				device->setButtonState(i,state.getButtonState(buttonIndexMapping[deviceIndex][i]));
+			
+			/* Update valuator states: */
+			for(int i=0;i<device->getNumValuators();++i)
+				device->setValuator(i,state.getValuatorState(valuatorIndexMapping[deviceIndex][i]));
 			}
+		}
+	else
+		{
+		for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+			{
+			/* Get pointer to the input device: */
+			InputDevice* device=inputDevices[deviceIndex];
+			
+			/* Don't update tracker-related state for devices that are not tracked: */
+			if(trackerIndexMapping[deviceIndex]>=0)
+				{
+				/* Get device's tracker state from VR device client: */
+				const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndexMapping[deviceIndex]);
+				
+				/* Set device's transformation: */
+				device->setTransformation(ts.positionOrientation);
+				
+				/* Set device's linear and angular velocities: */
+				device->setLinearVelocity(Vector(ts.linearVelocity));
+				device->setAngularVelocity(Vector(ts.angularVelocity));
+				}
+			
+			/* Update button states: */
+			for(int i=0;i<device->getNumButtons();++i)
+				device->setButtonState(i,state.getButtonState(buttonIndexMapping[deviceIndex][i]));
+			
+			/* Update valuator states: */
+			for(int i=0;i<device->getNumValuators();++i)
+				device->setValuator(i,state.getValuatorState(valuatorIndexMapping[deviceIndex][i]));
+			}
+		}
 		
-		/* Update button states: */
-		for(int i=0;i<device->getNumButtons();++i)
-			device->setButtonState(i,state.getButtonState(buttonIndexMapping[deviceIndex][i]));
+	deviceClient.unlockState();
+	}
+
+TrackerState InputDeviceAdapterDeviceDaemon::peekTrackerState(int deviceIndex)
+	{
+	if(trackerIndexMapping[deviceIndex]>=0)
+		{
+		/* Get device's tracker state from VR device client: */
+		deviceClient.lockState();
+		const VRDeviceState& state=deviceClient.getState();
+		TrackerState result=state.getTrackerState(trackerIndexMapping[deviceIndex]).positionOrientation;
+		deviceClient.unlockState();
 		
-		/* Update valuator states: */
-		for(int i=0;i<device->getNumValuators();++i)
-			device->setValuator(i,state.getValuatorState(valuatorIndexMapping[deviceIndex][i]));
+		return result;
+		}
+	else
+		{
+		/* Fall back to base class, which will throw an exception: */
+		return InputDeviceAdapter::peekTrackerState(deviceIndex);
+		}
+	}
+
+int InputDeviceAdapterDeviceDaemon::findTrackerIndex(const InputDevice* device) const
+	{
+	/* Search through the list of input devices: */
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		if(inputDevices[deviceIndex]==device)
+			return trackerIndexMapping[deviceIndex];
+	
+	/* Didn't find the device: */
+	return -1;
+	}
+
+const HMDConfiguration* InputDeviceAdapterDeviceDaemon::findHmdConfiguration(const InputDevice* device) const
+	{
+	const HMDConfiguration* result=0;
+	
+	/* Find the tracker index associated with the given device: */
+	int trackerIndex=-1;
+	for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
+		if(inputDevices[deviceIndex]==device)
+			trackerIndex=trackerIndexMapping[deviceIndex];
+	
+	/* Check if a tracker was found: */
+	if(trackerIndex>=0)
+		{
+		/* Search through the list of HMD configurations managed by the device client: */
+		unsigned int numHmdConfigurations=deviceClient.getNumHmdConfigurations();
+		deviceClient.lockHmdConfigurations();
+		for(unsigned int i=0;i<numHmdConfigurations;++i)
+			if(deviceClient.getHmdConfiguration(i).getTrackerIndex()==trackerIndex)
+				{
+				/* Return a pointer to the matching HMD configuration: */
+				result=&deviceClient.getHmdConfiguration(i);
+				}
+		deviceClient.unlockHmdConfigurations();
 		}
 	
-	deviceClient.unlockState();
+	return result;
 	}
 
 }

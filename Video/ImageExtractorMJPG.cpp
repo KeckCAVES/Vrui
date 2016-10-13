@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorMJPG - Class to extract images from raw video frames
 encoded in Motion JPEG format.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -258,6 +258,38 @@ void ImageExtractorMJPG::extractRGB(const FrameBuffer* frame,void* image)
 	
 	/* Read the abbreviated image file header: */
 	jpeg_read_header(jpegStruct,true);
+	
+	/* Set the decompressor's output color space to RGB: */
+	jpegStruct->out_color_space=JCS_RGB;
+	
+	/* Prepare the decompressor: */
+	jpeg_start_decompress(jpegStruct);
+	
+	/* Set the image row pointers to flip the image vertically: */
+	for(unsigned int y=0;y<size[1];++y)
+		imageRows[y]=reinterpret_cast<unsigned char*>(image)+(size[1]-1-y)*size[0]*3;
+	
+	/* Decompress the video frame: */
+	unsigned int numLines=0;
+	while(numLines<size[1])
+		numLines+=jpeg_read_scanlines(jpegStruct,reinterpret_cast<JSAMPLE**>(imageRows+numLines),size[1]-numLines);
+	
+	/* Finish decompression: */
+	jpeg_finish_decompress(jpegStruct);
+	jpegStruct->src=0;
+	}
+
+void ImageExtractorMJPG::extractYpCbCr(const FrameBuffer* frame,void* image)
+	{
+	/* Attach a JPEG source to the raw frame: */
+	MJPEGReader mjr(frame);
+	jpegStruct->src=&mjr;
+	
+	/* Read the abbreviated image file header: */
+	jpeg_read_header(jpegStruct,true);
+	
+	/* Set the decompressor's output color space to Y'CbCr: */
+	jpegStruct->out_color_space=JCS_YCbCr;
 	
 	/* Prepare the decompressor: */
 	jpeg_start_decompress(jpegStruct);

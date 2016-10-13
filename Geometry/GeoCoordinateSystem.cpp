@@ -1,7 +1,7 @@
 /***********************************************************************
 GeoCoordinateSystem - Abstract base class for projected, geographic, or
 geocentric coordinate systems used in geodesy.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 

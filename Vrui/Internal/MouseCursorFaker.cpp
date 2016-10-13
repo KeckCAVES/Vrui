@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseCursorFaker - Helper class to render a fake mouse cursor for cases
 where a hardware cursor is not available, or not appropriate.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -99,7 +99,7 @@ void MouseCursorFaker::glRenderActionTransparent(GLContextData& contextData) con
 	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 	
 	/* Calculate the device's ray equation: */
-	Ray deviceRay(device->getPosition(),device->getRayDirection());
+	Ray deviceRay=device->getRay();
 	
 	/* Find the nearest screen intersected by the device ray: */
 	std::pair<VRScreen*,Scalar> fsResult=findScreen(deviceRay);

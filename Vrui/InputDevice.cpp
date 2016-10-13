@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDevice - Class to represent input devices (6-DOF tracker with
 associated buttons and valuators) in virtual reality environments.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -178,6 +178,15 @@ void InputDevice::setTransformation(const TrackerState& newTransformation)
 		}
 	}
 
+void InputDevice::copyTrackingState(const InputDevice* source)
+	{
+	deviceRayDirection=source->deviceRayDirection;
+	deviceRayStart=source->deviceRayStart;
+	transformation=source->transformation;
+	linearVelocity=source->linearVelocity;
+	angularVelocity=source->angularVelocity;
+	}
+
 void InputDevice::clearButtonStates(void)
 	{
 	for(int i=0;i<numButtons;++i)
@@ -251,6 +260,39 @@ void InputDevice::disableCallbacks(void)
 		savedButtonStates[i]=buttonStates[i];
 	for(int i=0;i<numValuators;++i)
 		savedValuatorValues[i]=valuatorValues[i];
+	}
+
+void InputDevice::triggerFeatureCallback(int featureIndex)
+	{
+	/* Check if the given feature is a button or a valuator: */
+	if(featureIndex>=numButtons)
+		{
+		/* Check a valuator: */
+		int valuatorIndex=featureIndex-numButtons;
+		if(savedValuatorValues[valuatorIndex]!=valuatorValues[valuatorIndex])
+			{
+			/* Call the callback: */
+			ValuatorCallbackData cbData(this,valuatorIndex,savedValuatorValues[valuatorIndex],valuatorValues[valuatorIndex]);
+			valuatorCallbacks[valuatorIndex].call(&cbData);
+			
+			/* Update the saved valuator value so the callback won't be called again: */
+			savedValuatorValues[valuatorIndex]=valuatorValues[valuatorIndex];
+			}
+		}
+	else
+		{
+		/* Check a button: */
+		int buttonIndex=featureIndex;
+		if(savedButtonStates[buttonIndex]!=buttonStates[buttonIndex])
+			{
+			/* Call the callback: */
+			ButtonCallbackData cbData(this,buttonIndex,buttonStates[buttonIndex]);
+			buttonCallbacks[buttonIndex].call(&cbData);
+			
+			/* Update the saved button state so the callback won't be called again: */
+			savedButtonStates[buttonIndex]=buttonStates[buttonIndex];
+			}
+		}
 	}
 
 void InputDevice::enableCallbacks(void)

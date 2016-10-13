@@ -1,7 +1,7 @@
 /***********************************************************************
 ButtonInputDeviceTool - Class for tools using buttons (such as keyboard
 keys) to interact with virtual input devices.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -268,7 +268,7 @@ void ButtonInputDeviceTool::frame(void)
 		getGrabbedDevice()->setTransformation(ts);
 		
 		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 

@@ -69,7 +69,7 @@ const char GLLightTracker::accumulateAttenuatedLightTemplate[]=
 		{\n\
 		/* Compute the light direction (works both for directional and point lights): */\n\
 		vec3 lightDirEc=gl_LightSource[<lightIndex>].position.xyz*vertexEc.w-vertexEc.xyz*gl_LightSource[<lightIndex>].position.w;\n\
-		lightDist=length(lightDirEc);\n\
+		float lightDist=length(lightDirEc);\n\
 		lightDirEc=normalize(lightDirEc);\n\
 		\n\
 		/* Calculate the source attenuation factor: */\n\
@@ -144,6 +144,7 @@ const char GLLightTracker::accumulateAttenuatedSpotLightTemplate[]=
 		{\n\
 		/* Compute the light direction (works both for directional and point lights): */\n\
 		vec3 lightDirEc=gl_LightSource[<lightIndex>].position.xyz*vertexEc.w-vertexEc.xyz*gl_LightSource[<lightIndex>].position.w;\n\
+		float lightDist=length(lightDirEc);\n\
 		lightDirEc=normalize(lightDirEc);\n\
 		\n\
 		/* Calculate the spot light angle: */\n\
@@ -159,7 +160,7 @@ const char GLLightTracker::accumulateAttenuatedSpotLightTemplate[]=
 			att*=pow(sl,gl_LightSource[<lightIndex>].spotExponent);\n\
 			\n\
 			/* Calculate per-source ambient light term: */\n\
-			ambientDiffuseAccum+=((gl_LightSource[<lightIndex>].ambient*ambient)*att;\n\
+			ambientDiffuseAccum+=(gl_LightSource[<lightIndex>].ambient*ambient)*att;\n\
 			\n\
 			/* Compute the diffuse lighting angle: */\n\
 			float nl=dot(normalEc,lightDirEc);\n\

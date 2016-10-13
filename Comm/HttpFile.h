@@ -1,7 +1,7 @@
 /***********************************************************************
 HttpFile - Class for high-performance reading from remote files using
 the HTTP/1.1 protocol.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -67,6 +67,7 @@ class HttpFile:public IO::File
 	virtual ~HttpFile(void); // Closes the HTTP file
 	
 	/* Methods from IO::File: */
+	virtual int getFd(void) const;
 	virtual size_t getReadBufferSize(void) const;
 	virtual size_t resizeReadBuffer(size_t newReadBufferSize);
 	

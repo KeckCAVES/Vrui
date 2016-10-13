@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterHID - Linux-specific version of HID input device
 adapter.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,12 +43,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/MathValueCoders.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
-#include <Vrui/Vrui.h>
+#include <Vrui/UIManager.h>
+#include <Vrui/Internal/Config.h>
 
-#ifndef INPUT_H_HAS_STRUCTS
+#if !VRUI_INTERNAL_CONFIG_INPUT_H_HAS_STRUCTS
 
 /*******************************************************************
 Classes to deal with HID devices (should all be defined in input.h):
@@ -287,8 +289,70 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 			}
 		}
 	
-	/* Create new input device as a physical device: */
-	inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),InputDevice::TRACK_NONE,newDevice.numButtons,newDevice.numValuators,true);
+	/* Check if the device is supposed to copy tracking data from another device: */
+	newDevice.trackingDevice=0;
+	if(configFileSection.hasTag("./trackingDeviceName"))
+		{
+		std::string trackingDeviceName=configFileSection.retrieveString("./trackingDeviceName");
+		newDevice.trackingDevice=Vrui::findInputDevice(trackingDeviceName.c_str());
+		if(newDevice.trackingDevice==0)
+			Misc::throwStdErr("InputDeviceAdapterHID::InputDeviceAdapterHID: Tracking device %s not found",trackingDeviceName.c_str());
+		}
+	
+	if(newDevice.trackingDevice!=0)
+		{
+		/* Determine the new device's tracking type: */
+		std::string trackTypeString;
+		switch(newDevice.trackingDevice->getTrackType())
+			{
+			case InputDevice::TRACK_NONE:
+				trackTypeString="None";
+				break;
+			
+			case InputDevice::TRACK_POS:
+				trackTypeString="3D";
+				break;
+			
+			case InputDevice::TRACK_POS|InputDevice::TRACK_DIR:
+				trackTypeString="Ray";
+				break;
+			
+			case InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT:
+				trackTypeString="6D";
+				break;
+			
+			default:
+				trackTypeString="None";
+			}
+		trackTypeString=configFileSection.retrieveString("./trackingDeviceType",trackTypeString);
+		int trackType=InputDevice::TRACK_NONE;
+		if(trackTypeString=="None")
+			trackType=InputDevice::TRACK_NONE;
+		else if(trackTypeString=="3D")
+			trackType=InputDevice::TRACK_POS;
+		else if(trackTypeString=="Ray")
+			trackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR;
+		else if(trackTypeString=="6D")
+			trackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT;
+		else
+			Misc::throwStdErr("InputDeviceAdapterHID::InputDeviceAdapterHID: Unknown tracking type \"%s\"",trackTypeString.c_str());
+		
+		/* Determine whether the new input device should be projected by the UI manager: */
+		newDevice.projectDevice=((newDevice.trackingDevice->getTrackType()^trackType)&InputDevice::TRACK_ORIENT)!=0x0; // Project if the source device is a 6-DOF device, and the HID device is a ray device
+		newDevice.projectDevice=configFileSection.retrieveValue<bool>("./projectDevice",newDevice.projectDevice);
+		
+		/* Create new input device as a physical device locked to the tracking device: */
+		inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),trackType,newDevice.numButtons,newDevice.numValuators,true);
+		inputDevices[deviceIndex]->copyTrackingState(newDevice.trackingDevice);
+		if(newDevice.projectDevice)
+			getUiManager()->projectDevice(newDevice.device);
+		}
+	else
+		{
+		/* Create new input device as a non-tracked physical device: */
+		newDevice.projectDevice=false;
+		inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),InputDevice::TRACK_NONE,newDevice.numButtons,newDevice.numValuators,true);
+		}
 	
 	/* Read the names of all button features: */
 	typedef std::vector<std::string> StringList;
@@ -505,6 +569,14 @@ void InputDeviceAdapterHID::updateInputDevices(void)
 	
 	for(std::vector<Device>::iterator dIt=devices.begin();dIt!=devices.end();++dIt)
 		{
+		if(dIt->trackingDevice!=0)
+			{
+			/* Copy the source device's tracking state: */
+			dIt->device->copyTrackingState(dIt->trackingDevice);
+			if(dIt->projectDevice)
+				getUiManager()->projectDevice(dIt->device);
+			}
+		
 		/* Set the device's button and valuator states: */
 		for(int i=0;i<dIt->numButtons;++i)
 			dIt->device->setButtonState(i,buttonStates[dIt->firstButtonIndex+i]);

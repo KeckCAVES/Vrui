@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBFragmentProgram - OpenGL extension class for the
 GL_ARB_fragment_program extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -59,6 +59,7 @@ class GLARBFragmentProgram:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBFragmentProgram*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

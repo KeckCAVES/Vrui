@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractor - Abstract base class for processors that can extract
 image data in a variety of formats from raw video streams.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -39,9 +39,10 @@ class ImageExtractor
 		}
 	
 	/* Methods: */
-	virtual void extractGrey(const FrameBuffer* frame,void* image) =0; // Extracts an 8-bit greyscale image from the given video buffer
-	virtual void extractRGB(const FrameBuffer* frame,void* image) =0; // Extracts an 8-bit RGB image from the given video buffer
-	virtual void extractYpCbCr420(const FrameBuffer* frame,void* yp,unsigned int ypStride,void* cb,unsigned int cbStride,void* cr,unsigned int crStride) =0; // Extracts a Y'CbCr image using 4:2:0 downsampling from the given video buffer
+	virtual void extractGrey(const FrameBuffer* frame,void* image) =0; // Extracts an 8-bit greyscale image from the given video buffer; image buffer must hold 1 byte per pixel
+	virtual void extractRGB(const FrameBuffer* frame,void* image) =0; // Extracts an 8-bit RGB image from the given video buffer; image buffer must hold 3 bytes per pixel
+	virtual void extractYpCbCr(const FrameBuffer* frame,void* image) =0; // Extracts an 8-bit Y'CbCr image from the given video buffer; image buffer must hold 3 bytes per pixel
+	virtual void extractYpCbCr420(const FrameBuffer* frame,void* yp,unsigned int ypStride,void* cb,unsigned int cbStride,void* cr,unsigned int crStride) =0; // Extracts a Y'CbCr image using 4:2:0 downsampling from the given video buffer; each plane must hold 1 byte per pixel
 	};
 
 }

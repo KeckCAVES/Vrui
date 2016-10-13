@@ -1,7 +1,7 @@
 /***********************************************************************
 DaisyWheelTool - Class for tools to enter text by pointing at characters
 on a dynamic daisy wheel.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -36,6 +36,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/TextControlEvent.h>
 #include <GLMotif/WidgetManager.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -160,9 +161,6 @@ DaisyWheelTool::DaisyWheelTool(const ToolFactory* factory,const ToolInputAssignm
 	 active(false),buttonDown(false),
 	 selectedPetal(0)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
-	
 	/* Initialize the petal labels: */
 	for(int i=0;i<26;++i)
 		{
@@ -222,7 +220,7 @@ void DaisyWheelTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			active=true;
 			
 			/* Store the daisy wheel transformation: */
-			wheelTransform=calcHUDTransform(getInteractionPosition());
+			wheelTransform=getUiManager()->calcUITransform(getButtonDevicePosition(0));
 			
 			/* Initialize the daisy wheel: */
 			petals[selectedPetal].setBackground(GLLabel::Color(0.667f,0.667f,0.667f));
@@ -262,7 +260,7 @@ void DaisyWheelTool::frame(void)
 	if(active)
 		{
 		/* Update the selection ray: */
-		selectionRay=calcInteractionRay();
+		selectionRay=getButtonDeviceRay(0);
 		
 		/* Calculate the intersection point of selection ray and daisy wheel: */
 		Ray wheelRay=selectionRay;

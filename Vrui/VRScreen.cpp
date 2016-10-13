@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -61,7 +61,7 @@ VRScreen::~VRScreen(void)
 void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read the screen's name: */
-	std::string name=configFileSection.retrieveString("./name");
+	std::string name=configFileSection.retrieveString("./name",configFileSection.getName());
 	screenName=new char[name.size()+1];
 	strcpy(screenName,name.c_str());
 	

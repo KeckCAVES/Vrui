@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2016 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -25,10 +25,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdexcept>
 #include <X11/cursorfont.h>
+#include <GL/glx.h>
+#include <GL/GLExtensionManager.h>
 #include <Misc/SizedTypes.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/CallbackData.h>
+#include <Misc/MessageLogger.h>
 
 /**************************
 Methods of class GLWindow:
@@ -36,9 +40,9 @@ Methods of class GLWindow:
 
 void GLWindow::initWindow(const char* windowName,bool decorate)
 	{
-	/* Check if the screen index is valid: */
-	if(screen<0||screen>=ScreenCount(context->getDisplay()))
-		Misc::throwStdErr("GLWindow: Screen %d does not exist on display %s",screen,DisplayString(context->getDisplay()));
+	/* Check if the window's screen matches the context's: */
+	if(screen!=context->getScreen())
+		Misc::throwStdErr("GLWindow: OpenGL contexts cannot be shared between screens %d and %d on display %s",screen,context->getScreen(),context->getDisplayName());
 	
 	/* Get a handle to the root window: */
 	root=RootWindow(context->getDisplay(),screen);
@@ -50,15 +54,16 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 	XSetWindowAttributes swa;
 	swa.colormap=colorMap;
 	swa.border_pixel=0;
+	swa.override_redirect=False;
 	if(fullscreen) // Create a fullscreen window
 		{
 		windowPos.origin[0]=0;
 		windowPos.origin[1]=0;
 		windowPos.size[0]=DisplayWidth(context->getDisplay(),screen);
 		windowPos.size[1]=DisplayHeight(context->getDisplay(),screen);
-		decorate=false;
+		// decorate=false;
+		swa.override_redirect=True;
 		}
-	swa.override_redirect=False;
 	swa.event_mask=PointerMotionMask|ButtonPressMask|ButtonReleaseMask|KeyPressMask|KeyReleaseMask|ExposureMask|StructureNotifyMask;
 	unsigned long attributeMask=CWBorderPixel|CWColormap|CWOverrideRedirect|CWEventMask;
 	window=XCreateWindow(context->getDisplay(),root,
@@ -66,7 +71,7 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 	                     0,context->getDepth(),InputOutput,context->getVisual(),attributeMask,&swa);
 	XSetStandardProperties(context->getDisplay(),window,windowName,windowName,None,0,0,0);
 	
-	if(!decorate)
+	if(!decorate&&!fullscreen)
 		{
 		/*******************************************************************
 		Ask the window manager not to decorate this window:
@@ -96,6 +101,32 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 			/* Set the window manager hint property: */
 			XChangeProperty(context->getDisplay(),window,hintProperty,hintProperty,32,PropModeReplace,reinterpret_cast<unsigned char*>(&hints),5);
 			}
+		else
+			Misc::userError("GLWindow::GLWindow: Unable to disable window decorations");
+		}
+	
+	if(fullscreen)
+		{
+		/* Get relevant window manager protocol atoms: */
+		Atom netwmBypassCompositorAtom=XInternAtom(context->getDisplay(),"_NET_WM_BYPASS_COMPOSITOR",True);
+		if(netwmBypassCompositorAtom!=None)
+			{
+			/* Ask the window manager to let this window bypass the compositor: */
+			XEvent bypassCompositorEvent;
+			memset(&bypassCompositorEvent,0,sizeof(XEvent));
+			bypassCompositorEvent.xclient.type=ClientMessage;
+			bypassCompositorEvent.xclient.serial=0;
+			bypassCompositorEvent.xclient.send_event=True;
+			bypassCompositorEvent.xclient.display=context->getDisplay();
+			bypassCompositorEvent.xclient.window=window;
+			bypassCompositorEvent.xclient.message_type=netwmBypassCompositorAtom;
+			bypassCompositorEvent.xclient.format=32;
+			bypassCompositorEvent.xclient.data.l[0]=1; // Bypass compositor
+			XSendEvent(context->getDisplay(),RootWindow(context->getDisplay(),screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&bypassCompositorEvent);
+			XFlush(context->getDisplay());
+			}
+		else
+			Misc::userError("GLWindow::GLWindow: Unable to bypass desktop compositor");
 		}
 	
 	/* Initiate window manager communication: */
@@ -106,33 +137,72 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 	/* Display the window on the screen: */
 	XMapWindow(context->getDisplay(),window);
 	
-	/*********************************************************************
-	Since modern window managers ignore window positions when opening
-	windows, we now need to move the window to its requested position.
-	Fix suggested by William Sherman.
-	*********************************************************************/
+	/* Flush the X queue in case there are events in the receive queue from opening a previous window: */
+	XFlush(context->getDisplay());
 	
-	if(decorate)
+	/* Process events up until the first Expose event to determine the initial window position and size: */
+	bool receivedConfigureNotify=false;
+	int winX=0,winY=0;
+	while(true)
 		{
-		/* Query the window tree to get the window's parent (the one containing the decorations): */
-		Window win_root,win_parent;
-		Window* win_children;
-		unsigned int win_numChildren;
-		XQueryTree(context->getDisplay(),window,&win_root,&win_parent,&win_children,&win_numChildren);
-
-		/* Query the window's and the parent's geometry to calculate the window's offset inside its parent: */
-		int win_parentX,win_parentY,win_x,win_y;
-		unsigned int win_width,win_height,win_borderWidth,win_depth;
-		XGetGeometry(context->getDisplay(),win_parent,&win_root,&win_parentX,&win_parentY,&win_width,&win_height,&win_borderWidth,&win_depth);
-		XGetGeometry(context->getDisplay(),window,&win_root,&win_x,&win_y,&win_width,&win_height,&win_borderWidth,&win_depth);
-
-		/* Move the window's interior's top-left corner to the requested position: */
-		XMoveWindow(context->getDisplay(),window,windowPos.origin[0]-(win_x-win_parentX),windowPos.origin[1]-(win_y-win_parentY));
+		XEvent event;
+		XWindowEvent(context->getDisplay(),window,ExposureMask|StructureNotifyMask,&event);
+		
+		if(event.type==ConfigureNotify)
+			{
+			/* Retrieve the window position and size: */
+			winX=event.xconfigure.x;
+			winY=event.xconfigure.y;
+			windowPos.size[0]=event.xconfigure.width;
+			windowPos.size[1]=event.xconfigure.height;
+			receivedConfigureNotify=true;
+			}
+		else if(event.type==Expose)
+			{
+			/* Put the event back into the queue: */
+			XPutBackEvent(context->getDisplay(),&event);
+			
+			/* We're done here: */
+			break;
+			}
 		}
-	else
+	
+	if(receivedConfigureNotify)
 		{
-		/* Move the window's top-left corner to the requested position: */
-		XMoveWindow(context->getDisplay(),window,windowPos.origin[0],windowPos.origin[1]);
+		/*********************************************************************
+		Since modern window managers ignore window positions when opening
+		windows, we now need to move the window to its requested position.
+		Fix suggested by William Sherman.
+		*********************************************************************/
+		
+		if(decorate)
+			{
+			/* As it so happens, the initial window position is this window's offset inside its parent, so we can use that to calculate the parent position: */
+			XMoveWindow(context->getDisplay(),window,windowPos.origin[0]-winX,windowPos.origin[1]-winY);
+			}
+		else
+			{
+			/* Move the window's top-left corner to the requested position: */
+			XMoveWindow(context->getDisplay(),window,windowPos.origin[0],windowPos.origin[1]);
+			}
+		
+		/* Wait for the final ConfigureNotify event to determine the final window position and size: */
+		while(true)
+			{
+			XEvent event;
+			XWindowEvent(context->getDisplay(),window,StructureNotifyMask,&event);
+		
+			if(event.type==ConfigureNotify)
+				{
+				/* Retrieve the final window position and size: */
+				windowPos.origin[0]=event.xconfigure.x;
+				windowPos.origin[1]=event.xconfigure.y;
+				windowPos.size[0]=event.xconfigure.width;
+				windowPos.size[1]=event.xconfigure.height;
+				
+				break;
+				}
+			}
 		}
 	
 	if(fullscreen)
@@ -142,56 +212,13 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 		XGrabKeyboard(context->getDisplay(),window,True,GrabModeAsync,GrabModeAsync,CurrentTime);
 		}
 	
-	/* Gobble up the initial rush of X events regarding window creation: */
-	#if 1
-	XEvent event;
-	while(XCheckWindowEvent(context->getDisplay(),window,ExposureMask|StructureNotifyMask,&event))
-		{
-		switch(event.type)
-			{
-			case Expose:
-				/* Put the event back into the queue to let caller handle it: */
-				XPutBackEvent(context->getDisplay(),&event);
-				goto doneWithEvents;
-				break;
-			
-			case ConfigureNotify:
-				/* Retrieve the final window size: */
-				windowPos.origin[0]=event.xconfigure.x;
-				windowPos.origin[1]=event.xconfigure.y;
-				windowPos.size[0]=event.xconfigure.width;
-				windowPos.size[1]=event.xconfigure.height;
-				break;
-			}
-		}
-	doneWithEvents:
-	;
-	#else
-	while(true)
-		{
-		/* Look at the next event: */
-		XEvent event;
-		XPeekEvent(context->getDisplay(),&event);
-		if(event.type==Expose)
-			break; // Leave this event for the caller to process
-		
-		/* Process the next event: */
-		XNextEvent(context->getDisplay(),&event);
-		switch(event.type)
-			{
-			case ConfigureNotify:
-				/* Retrieve the final window position and size: */
-				windowPos.origin[0]=event.xconfigure.x;
-				windowPos.origin[1]=event.xconfigure.y;
-				windowPos.size[0]=event.xconfigure.width;
-				windowPos.size[1]=event.xconfigure.height;
-				break;
-			}
-		}
-	#endif
-	
 	/* Initialize the OpenGL context: */
 	context->init(window);
+	
+	/* Query needed GLX extension entry points: */
+	glXSwapIntervalEXTProc=GLExtensionManager::getFunction<PFNGLXSWAPINTERVALEXTPROC>("glXSwapIntervalEXT");
+	glXWaitVideoSyncSGIProc=GLExtensionManager::getFunction<PFNGLXWAITVIDEOSYNCSGIPROC>("glXWaitVideoSyncSGI");
+	glXDelayBeforeSwapNVProc=GLExtensionManager::getFunction<PFNGLXDELAYBEFORESWAPNVPROC>("glXDelayBeforeSwapNV");
 	}
 
 GLWindow::GLWindow(GLContext* sContext,int sScreen,const char* windowName,const GLWindow::WindowPos& sWindowPos,bool decorate)
@@ -204,19 +231,25 @@ GLWindow::GLWindow(GLContext* sContext,int sScreen,const char* windowName,const 
 	}
 
 GLWindow::GLWindow(const char* displayName,const char* windowName,const GLWindow::WindowPos& sWindowPos,bool decorate,int* visualProperties)
-	:context(new GLContext(displayName,visualProperties)),
+	:context(new GLContext(displayName)),
 	 screen(context->getDefaultScreen()),
 	 windowPos(sWindowPos),fullscreen(windowPos.size[0]==0||windowPos.size[1]==0)
 	{
+	/* Initialize the new OpenGL context: */
+	context->initialize(screen,visualProperties);
+	
 	/* Call common part of window initialization routine: */
 	initWindow(windowName,decorate);
 	}
 
 GLWindow::GLWindow(const char* windowName,const GLWindow::WindowPos& sWindowPos,bool decorate,int* visualProperties)
-	:context(new GLContext(0,visualProperties)),
+	:context(new GLContext(0)),
 	 screen(context->getDefaultScreen()),
 	 windowPos(sWindowPos),fullscreen(windowPos.size[0]==0||windowPos.size[1]==0)
 	{
+	/* Initialize the new OpenGL context: */
+	context->initialize(screen,visualProperties);
+	
 	/* Call common part of window initialization routine: */
 	initWindow(windowName,decorate);
 	}
@@ -272,7 +305,65 @@ double GLWindow::getScreenHeightMM(void) const
 	return double(DisplayHeightMM(context->getDisplay(),screen));
 	}
 
-void GLWindow::makeFullscreen(void)
+void GLWindow::setWindowPos(const GLWindow::WindowPos& newWindowPos)
+	{
+	/* Query the window tree to get the window's parent (the one containing the decorations): */
+	Window win_root,win_parent;
+	Window* win_children;
+	unsigned int win_numChildren;
+	XQueryTree(context->getDisplay(),window,&win_root,&win_parent,&win_children,&win_numChildren);
+	
+	/* Check if the window has decorations: */
+	int deltaX=0;
+	int deltaY=0;
+	if(win_parent!=win_root)
+		{
+		/* Query the window's and the parent's geometry to calculate the window's offset inside its parent: */
+		int win_parentX,win_parentY,win_x,win_y;
+		unsigned int win_width,win_height,win_borderWidth,win_depth;
+		XGetGeometry(context->getDisplay(),win_parent,&win_root,&win_parentX,&win_parentY,&win_width,&win_height,&win_borderWidth,&win_depth);
+		XGetGeometry(context->getDisplay(),window,&win_root,&win_x,&win_y,&win_width,&win_height,&win_borderWidth,&win_depth);
+		deltaX=win_x-win_parentX;
+		deltaY=win_y-win_parentY;
+		}
+	
+	/* Move the window's interior's top-left corner to the requested position: */
+	XMoveResizeWindow(context->getDisplay(),window,newWindowPos.origin[0]-deltaX,newWindowPos.origin[1]-deltaY,newWindowPos.size[0],newWindowPos.size[1]);
+	XFlush(context->getDisplay());
+	
+	/* Clean up: */
+	XFree(win_children);
+	
+	/* Don't update the window size structure yet; this method will cause a ConfigureNotify event which will handle it */
+	}
+
+bool GLWindow::bypassCompositor(void)
+	{
+	/* Get relevant window manager protocol atoms: */
+	Atom netwmBypassCompositorAtom=XInternAtom(context->getDisplay(),"_NET_WM_BYPASS_COMPOSITOR",True);
+	if(netwmBypassCompositorAtom!=None)
+		{
+		/* Ask the window manager to let this window bypass the compositor: */
+		XEvent bypassCompositorEvent;
+		memset(&bypassCompositorEvent,0,sizeof(XEvent));
+		bypassCompositorEvent.xclient.type=ClientMessage;
+		bypassCompositorEvent.xclient.serial=0;
+		bypassCompositorEvent.xclient.send_event=True;
+		bypassCompositorEvent.xclient.display=context->getDisplay();
+		bypassCompositorEvent.xclient.window=window;
+		bypassCompositorEvent.xclient.message_type=netwmBypassCompositorAtom;
+		bypassCompositorEvent.xclient.format=32;
+		bypassCompositorEvent.xclient.data.l[0]=1; // Bypass compositor
+		XSendEvent(context->getDisplay(),RootWindow(context->getDisplay(),screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&bypassCompositorEvent);
+		XFlush(context->getDisplay());
+		
+		return true;
+		}
+	else
+		return false;
+	}
+
+bool GLWindow::makeFullscreen(void)
 	{
 	/*********************************************************************
 	"Sane" version of fullscreen switch: Use the window manager protocol
@@ -297,6 +388,7 @@ void GLWindow::makeFullscreen(void)
 		fullscreenEvent.xclient.data.l[0]=1; // Should be _NET_WM_STATE_ADD, but that doesn't work for some reason
 		fullscreenEvent.xclient.data.l[1]=netwmStateFullscreenAtom;
 		fullscreenEvent.xclient.data.l[2]=0;
+		fullscreenEvent.xclient.data.l[3]=1; // Request source is application
 		XSendEvent(context->getDisplay(),RootWindow(context->getDisplay(),screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&fullscreenEvent);
 		XFlush(context->getDisplay());
 		}
@@ -320,9 +412,12 @@ void GLWindow::makeFullscreen(void)
 	
 	/* Raise the window to the top of the stacking hierarchy: */
 	XRaiseWindow(context->getDisplay(),window);
+	
+	/* Always return true for now, due to hacky method: */
+	return true;
 	}
 
-void GLWindow::toggleFullscreen(void)
+bool GLWindow::toggleFullscreen(void)
 	{
 	/* Get relevant window manager protocol atoms: */
 	Atom netwmStateAtom=XInternAtom(context->getDisplay(),"_NET_WM_STATE",True);
@@ -342,9 +437,41 @@ void GLWindow::toggleFullscreen(void)
 		fullscreenEvent.xclient.data.l[0]=2; // Should be _NET_WM_STATE_TOGGLE, but that doesn't work for some reason
 		fullscreenEvent.xclient.data.l[1]=netwmStateFullscreenAtom;
 		fullscreenEvent.xclient.data.l[2]=0;
+		fullscreenEvent.xclient.data.l[3]=1; // Request source is application
 		XSendEvent(context->getDisplay(),RootWindow(context->getDisplay(),screen),False,SubstructureRedirectMask|SubstructureNotifyMask,&fullscreenEvent);
 		XFlush(context->getDisplay());
+		
+		return true;
 		}
+	else
+		return false;
+	}
+
+bool GLWindow::canVsync(bool frontBufferRendering) const
+	{
+	if(frontBufferRendering)
+		return glXWaitVideoSyncSGIProc!=0&&context->isDirect();
+	else
+		return glXSwapIntervalEXTProc!=0;
+	}
+
+bool GLWindow::canPreVsync(void) const
+	{
+	return glXDelayBeforeSwapNVProc!=0;
+	}
+
+bool GLWindow::setVsyncInterval(int newInterval)
+	{
+	/* Check if the GLX_EXT_swap_control extension is supported: */
+	if(glXSwapIntervalEXTProc!=0)
+		{
+		/* Set the vsync interval: */
+		glXSwapIntervalEXTProc(context->getDisplay(),window,newInterval);
+		
+		return true;
+		}
+	else
+		return false;
 	}
 
 void GLWindow::disableMouseEvents(void)
@@ -355,7 +482,7 @@ void GLWindow::disableMouseEvents(void)
 	
 	/* Disable mouse-related events: */
 	XSetWindowAttributes swa;
-	swa.event_mask=wa.all_event_masks&~(PointerMotionMask|EnterWindowMask|LeaveWindowMask|ButtonPressMask|ButtonReleaseMask);
+	swa.event_mask=wa.your_event_mask&~(PointerMotionMask|EnterWindowMask|LeaveWindowMask|ButtonPressMask|ButtonReleaseMask);
 	XChangeWindowAttributes(context->getDisplay(),window,CWEventMask,&swa);
 	}
 
@@ -372,11 +499,13 @@ void GLWindow::hideCursor(void)
 	XDefineCursor(context->getDisplay(),window,emptyCursor);
 	XFreeCursor(context->getDisplay(),emptyCursor);
 	XFreePixmap(context->getDisplay(),emptyCursorPixmap);
+	XFlush(context->getDisplay());
 	}
 
 void GLWindow::showCursor(void)
 	{
 	XUndefineCursor(context->getDisplay(),window);
+	XFlush(context->getDisplay());
 	}
 
 bool GLWindow::grabPointer(void)
@@ -437,19 +566,40 @@ void GLWindow::redraw(void)
 	XFlush(context->getDisplay());
 	}
 
+void GLWindow::waitForVsync(void)
+	{
+	/* Check if the GLX_SGI_video_sync extension is supported: */
+	if(glXWaitVideoSyncSGIProc!=0)
+		{
+		/* Wait for the next vertical retrace synchronization pulse: */
+		unsigned int count;
+		glXWaitVideoSyncSGIProc(1,0,&count);
+		}
+	}
+
+bool GLWindow::waitForPreVsync(GLfloat delta)
+	{
+	/* Check if the GLX_NV_delay_before_swap extension is supported: */
+	if(glXDelayBeforeSwapNVProc!=0)
+		{
+		/* Wait for a time delta before the next vertical retrace synchronization pulse: */
+		return glXDelayBeforeSwapNVProc(context->getDisplay(),window,delta);
+		}
+	else
+		return false;
+	}
+
 void GLWindow::processEvent(const XEvent& event)
 	{
 	switch(event.type)
 		{
 		case ConfigureNotify:
 			{
-			/* Retrieve the new window size: */
+			/* Retrieve the new window position and size: */
+			windowPos.origin[0]=event.xconfigure.x;
+			windowPos.origin[1]=event.xconfigure.y;
 			windowPos.size[0]=event.xconfigure.width;
 			windowPos.size[1]=event.xconfigure.height;
-			
-			/* Calculate the window's position on the screen: */
-			Window child;
-			XTranslateCoordinates(context->getDisplay(),window,root,0,0,&windowPos.origin[0],&windowPos.origin[1],&child);
 			break;
 			}
 		

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureRectangle - OpenGL extension class for the
 GL_ARB_texture_rectangle extension.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBTextureRectangle:
 **********************************************/
 
 GL_THREAD_LOCAL(GLARBTextureRectangle*) GLARBTextureRectangle::current=0;
+const char* GLARBTextureRectangle::name="GL_ARB_texture_rectangle";
 
 /**************************************
 Methods of class GLARBTextureRectangle:
@@ -46,7 +47,7 @@ GLARBTextureRectangle::~GLARBTextureRectangle(void)
 
 const char* GLARBTextureRectangle::getExtensionName(void) const
 	{
-	return "GL_ARB_texture_rectangle";
+	return name;
 	}
 
 void GLARBTextureRectangle::activate(void)
@@ -62,13 +63,13 @@ void GLARBTextureRectangle::deactivate(void)
 bool GLARBTextureRectangle::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_texture_rectangle");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBTextureRectangle::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_texture_rectangle"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBTextureRectangle* newExtension=new GLARBTextureRectangle;

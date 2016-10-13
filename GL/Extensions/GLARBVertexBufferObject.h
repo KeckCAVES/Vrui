@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexBufferObject - OpenGL extension class for the
 GL_ARB_vertex_buffer_object extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -105,6 +105,7 @@ class GLARBVertexBufferObject:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBVertexBufferObject*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLBINDBUFFERARBPROC glBindBufferARBProc;
 	PFNGLDELETEBUFFERSARBPROC glDeleteBuffersARBProc;
 	PFNGLGENBUFFERSARBPROC glGenBuffersARBProc;

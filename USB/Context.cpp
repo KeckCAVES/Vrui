@@ -1,6 +1,6 @@
 /***********************************************************************
 Context - Class representing libusb library contexts.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -23,8 +23,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <libusb-1.0/libusb.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/Autopointer.h>
 
 namespace USB {
+
+/********************************
+Static elements of class Context:
+********************************/
+
+Context Context::theContext;
 
 /************************
 Methods of class Context:
@@ -44,60 +51,56 @@ void* Context::eventHandlingThreadMethod(void)
 	return 0;
 	}
 
-Context::Context(void)
-	:context(0)
+void Context::ref(void)
 	{
-	/* Initialize the context: */
-	if(libusb_init(&context)!=0)
-		Misc::throwStdErr("USB::Context::Context: Error initializing USB context");
-	}
-
-Context::~Context(void)
-	{
-	if(!eventHandlingThread.isJoined())
-		{
-		/* Stop the event handling thread: */
-		eventHandlingThread.cancel();
-		eventHandlingThread.join();
-		}
+	/* Lock the reference mutex: */
+	Threads::Mutex::Lock refLock(refMutex);
 	
-	/* Destroy the context: */
-	if(context!=0)
-		libusb_exit(context);
-	}
-
-void Context::setDebugLevel(int newDebugLevel)
-	{
-	libusb_set_debug(context,newDebugLevel);
-	}
-
-void Context::startEventHandling(void)
-	{
-	if(eventHandlingThread.isJoined())
+	/* Increment the reference counter and check if it was zero before: */
+	if((refCount++)==0)
 		{
+		/* Initialize the USB context: */
+		if(libusb_init(&context)!=0)
+			Misc::throwStdErr("USB::Context: Error initializing USB context");
+		
 		/* Start the event handling thread: */
 		eventHandlingThread.start(this,&Context::eventHandlingThreadMethod);
 		}
 	}
 
-void Context::stopEventHandling(void)
+void Context::unref(void)
 	{
-	if(!eventHandlingThread.isJoined())
+	/* Lock the reference mutex: */
+	Threads::Mutex::Lock refLock(refMutex);
+	
+	/* Decrement the reference counter and check if it reached zero: */
+	if((--refCount)==0)
 		{
-		/* Stop the event handling thread: */
+		/* Stop the background event processing thread: */
 		eventHandlingThread.cancel();
 		eventHandlingThread.join();
+		
+		/* Shut down the USB context: */
+		libusb_exit(context);
+		context=0;
 		}
 	}
 
-void Context::processEvents(void)
+Context::Context(void)
+	:refCount(0),
+	 context(0)
 	{
-	/* Check if events are already handled in the background: */
-	if(eventHandlingThread.isJoined())
-		{
-		/* Block until the next USB event and handle it: */
-		libusb_handle_events(context);
-		}
+	}
+
+ContextPtr Context::acquireContext(void)
+	{
+	/* Return an autopointer to the singleton USB context object; autopointer's call to ref() will set up context on first call: */
+	return ContextPtr(&theContext);
+	}
+
+void Context::setDebugLevel(int newDebugLevel)
+	{
+	libusb_set_debug(context,newDebugLevel);
 	}
 
 }

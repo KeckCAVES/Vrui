@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVFogDistance - OpenGL extension class for the GL_NV_fog_distance
 extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -30,6 +30,7 @@ Static elements of class GLNVFogDistance:
 ****************************************/
 
 GL_THREAD_LOCAL(GLNVFogDistance*) GLNVFogDistance::current=0;
+const char* GLNVFogDistance::name="GL_NV_fog_distance";
 
 /********************************
 Methods of class GLNVFogDistance:
@@ -45,7 +46,7 @@ GLNVFogDistance::~GLNVFogDistance(void)
 
 const char* GLNVFogDistance::getExtensionName(void) const
 	{
-	return "GL_NV_fog_distance";
+	return name;
 	}
 
 void GLNVFogDistance::activate(void)
@@ -61,13 +62,13 @@ void GLNVFogDistance::deactivate(void)
 bool GLNVFogDistance::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_NV_fog_distance");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLNVFogDistance::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_NV_fog_distance"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLNVFogDistance* newExtension=new GLNVFogDistance;

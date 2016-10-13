@@ -33,6 +33,9 @@ The Basic Video Library provides facilities to capture video streams from a vari
 <DT>ImageExtractorRGB8.h</DT>
 <DD>ImageExtractorRGB8 is an image extractor class for video frames in 8-bit RGB pixel format.</DD>
 
+<DT>ImageExtractorY8.h</DT>
+<DD>ImageExtractorY8 is an image extractor class for video frames in 8-bit greyscale format.</DD>
+
 <DT>ImageExtractorY10B.h</DT>
 <DD>ImageExtractorY10B is an image extractor class for video frames in 10-bit byte-packet Y' greyscale format.</DD>
 
@@ -48,6 +51,9 @@ The Basic Video Library provides facilities to capture video streams from a vari
 <DT>ImageExtractorBA81.h</DT>
 <DD>ImageExtractorBA81 is an image extractor class for video frames in Bayer pattern pixel formats.</DD>
 
+<DT>LensDistortion.h</DT>
+<DD>LensDistortion is a class encapsulating a strong lens distortion correction formula with radial and tangential components; the same formula as used in the OpenCV package.</DD>
+
 <DT>YpCbCr420Texture.h</DT>
 <DD>YpCbCr420Texture is a class to encapsulate management of streaming video in Y'CbCr 4:2:0 pixel format as 2D textures that can be applied to arbitrary geometry.</DD>
 
@@ -59,6 +65,9 @@ The Basic Video Library provides facilities to capture video streams from a vari
 
 <DT>Linux/V4L2VideoDevice.h</DT>
 <DD>V4L2VideoDevice is a class for video devices accessed through the Video4Linux2 API. This class only exists on Linux, and only if V4L2 support was enabled in the Vrui makefile.</DD>
+
+<DT>Linux/OculusRiftDK2VideoDevice.h</DT>
+<DD>OculusRiftDK2VideoDevice is a subclass of Video::V4L2VideoDevice to work around the quirky interface of the Oculus Rift DK2's optical tracking camera. This class only exists on Linux, and only if V4L2 support was enabled in the Vrui makefile.</DD>
 
 <DT>Linux/DC1394VideoDevice.h</DT>
 <DD>DC1394VideoDevice is a class for video devices accessed through the DC1394 FireWire protocol. This class only exists on Linux, and only if DC1394 support was enabled in the Vrui makefile.</DD>

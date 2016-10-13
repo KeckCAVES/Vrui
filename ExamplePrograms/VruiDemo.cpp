@@ -2,7 +2,7 @@
 VruiDemo - "Empty" VR application that displays a simple OpenGL scene in
 a virtual reality environment, showing off some Vrui toolkit
 functionality.
-Copyright (c) 2003-2013 Oliver Kreylos
+Copyright (c) 2003-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -27,9 +27,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLObject.h>
 #include <GL/GLContextData.h>
 #include <GL/GLGeometryWrappers.h>
-#include <GLMotif/Button.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/PopupMenu.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
@@ -68,13 +65,6 @@ class VruiDemo:public Vrui::Application,public GLObject
 	Vrui::Scalar modelAngles[3]; // Euler angles to animate the model in degrees
 	Vrui::Scalar rotationSpeeds[3]; // Rotation speeds around the Euler axes in degrees/s
 	
-	/* Vrui parameters: */
-	GLMotif::PopupMenu* mainMenu; // The program's main menu
-	
-	/* Private methods: */
-	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
-	void resetNavigationCallback(Misc::CallbackData* cbData); // Method to reset the Vrui navigation transformation to its default
-	
 	/* Constructors and destructors: */
 	public:
 	VruiDemo(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
@@ -83,6 +73,7 @@ class VruiDemo:public Vrui::Application,public GLObject
 	/* Methods from Vrui::Application: */
 	virtual void frame(void); // Called exactly once per frame
 	virtual void display(GLContextData& contextData) const; // Called for every eye and every window on every frame
+	virtual void resetNavigation(void);
 	
 	/* Methods from GLObject: */
 	virtual void initContext(GLContextData& contextData) const; // Called once upon creation of each OpenGL context
@@ -92,45 +83,8 @@ class VruiDemo:public Vrui::Application,public GLObject
 Methods of class VruiDemo:
 *************************/
 
-GLMotif::PopupMenu* VruiDemo::createMainMenu(void)
-	{
-	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Vrui Demonstration");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button: */
-	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
-	
-	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&VruiDemo::resetNavigationCallback);
-	
-	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
-	}
-
-void VruiDemo::resetNavigationCallback(Misc::CallbackData* cbData)
-	{
-	/* Reset the Vrui navigation transformation: */
-	Vrui::NavTransform t=Vrui::NavTransform::identity;
-	t*=Vrui::NavTransform::translateFromOriginTo(Vrui::getDisplayCenter());
-	t*=Vrui::NavTransform::scale(Vrui::getInchFactor());
-	Vrui::setNavigationTransformation(t);
-	
-	/*********************************************************************
-	Now the coordinate system's origin is in the middle of the
-	environment, e.g., in the middle of the CAVE, and one coordinate unit
-	is one inch long. The rendered cube will show up exactly 10" big.
-	*********************************************************************/
-	}
-
 VruiDemo::VruiDemo(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
-	 mainMenu(0)
+	:Vrui::Application(argc,argv)
 	{
 	/* Initialize the animation parameters: */
 	for(int i=0;i<3;++i)
@@ -138,21 +92,10 @@ VruiDemo::VruiDemo(int& argc,char**& argv)
 	rotationSpeeds[0]=Vrui::Scalar(9);
 	rotationSpeeds[1]=Vrui::Scalar(-31);
 	rotationSpeeds[2]=Vrui::Scalar(19);
-	
-	/* Create the user interface: */
-	mainMenu=createMainMenu();
-	
-	/* Install the main menu: */
-	Vrui::setMainMenu(mainMenu);
-	
-	/* Set the navigation transformation: */
-	resetNavigationCallback(0);
 	}
 
 VruiDemo::~VruiDemo(void)
 	{
-	/* Destroy the user interface: */
-	delete mainMenu;
 	}
 
 void VruiDemo::frame(void)
@@ -175,7 +118,7 @@ void VruiDemo::frame(void)
 		}
 	
 	/* Request another rendering cycle to show the animation: */
-	Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0); // Aim for 125 FPS
+	Vrui::scheduleUpdate(Vrui::getNextAnimationTime());
 	}
 
 void VruiDemo::display(GLContextData& contextData) const
@@ -227,6 +170,21 @@ void VruiDemo::display(GLContextData& contextData) const
 	
 	/* Restore OpenGL state: */
 	glPopAttrib();
+	}
+
+void VruiDemo::resetNavigation(void)
+	{
+	/* Reset the Vrui navigation transformation: */
+	Vrui::NavTransform t=Vrui::NavTransform::identity;
+	t*=Vrui::NavTransform::translateFromOriginTo(Vrui::getDisplayCenter());
+	t*=Vrui::NavTransform::scale(Vrui::getInchFactor());
+	Vrui::setNavigationTransformation(t);
+	
+	/*********************************************************************
+	Now the coordinate system's origin is in the middle of the
+	environment, e.g., in the middle of the CAVE, and one coordinate unit
+	is one inch long. The rendered cube will show up exactly 10" big.
+	*********************************************************************/
 	}
 
 void VruiDemo::initContext(GLContextData& contextData) const

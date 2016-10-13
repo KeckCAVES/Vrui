@@ -1,6 +1,6 @@
 /***********************************************************************
 Image - Class for widgets displaying image as textures.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -43,6 +43,7 @@ class Image:public Widget,public GLObject
 		unsigned int version; // Version number of image in image texture object
 		GLfloat regionTex[4]; // Texture coordinates to display current image region
 		unsigned int regionVersion; // Version number of displayed image region
+		unsigned int settingsVersion; // Version number of image display settings
 		
 		/* Constructors and destructors: */
 		DataItem(void);
@@ -57,6 +58,9 @@ class Image:public Widget,public GLObject
 	GLfloat region[4]; // Region of the image currently mapped to the widget's interior in pixel units
 	Box imageBox; // Extents of image inside the widget's interior
 	unsigned int regionVersion; // Version number of displayed image region
+	GLenum interpolationMode; // Interpolation mode for image display
+	unsigned int settingsVersion; // Version number of image display settings
+	bool illuminated; // Flag whether the image is illuminated by light sources, or emits its own light
 	
 	/* Constructors and destructors: */
 	public:
@@ -76,6 +80,11 @@ class Image:public Widget,public GLObject
 		{
 		return image;
 		}
+	Images::RGBImage& getImage(void) // Ditto
+		{
+		return image;
+		}
+	void updateImage(void); // Marks the image as outdated after a change from outside the widget
 	const GLfloat* getResolution(void) const // Returns the current image's resolution
 		{
 		return resolution;
@@ -97,6 +106,32 @@ class Image:public Widget,public GLObject
 		return region[2+dimension];
 		}
 	void setRegion(const GLfloat newRegion[4]); // Sets the displayed image region and adapts it to the current widget aspect ratio
+	GLenum getInterpolationMode(void) const // Returns the current interpolation mode for image display
+		{
+		return interpolationMode;
+		}
+	void setInterpolationMode(GLenum newInterpolationMode); // Sets the interpolation mode for image display
+	bool getIlluminated(void) const // Returns true if the image is illuminated by light sources
+		{
+		return illuminated;
+		}
+	void setIlluminated(bool newIlluminated); // Sets the image illumination flag
+	Point widgetToImage(const Point& widgetPoint) const // Converts a point from widget coordinates to image coordinates
+		{
+		Point imagePoint;
+		for(int i=0;i<2;++i)
+			imagePoint[i]=(widgetPoint[i]-getInterior().origin[i])*(region[2+i]-region[0+i])/getInterior().size[i]+region[0+i];
+		imagePoint[2]=widgetPoint[2];
+		return imagePoint;
+		}
+	Point imageToWidget(const Point& imagePoint) const // Converts a point from image coordinates to widget coordinates
+		{
+		Point widgetPoint;
+		for(int i=0;i<2;++i)
+			widgetPoint[i]=(imagePoint[i]-region[0+i])*getInterior().size[i]/(region[2+i]-region[0+i])+getInterior().origin[i];
+		widgetPoint[2]=imagePoint[2];
+		return widgetPoint;
+		}
 	};
 
 }

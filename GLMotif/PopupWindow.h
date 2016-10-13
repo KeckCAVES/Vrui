@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupWindow - Class for main windows with a draggable title bar and an
 optional close button.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -63,6 +63,28 @@ class PopupWindow:public Container
 			}
 		};
 	
+	struct ResizeCallbackData:public CallbackData // Class for window resize events
+		{
+		/* Embedded classes: */
+		public:
+		enum WindowBorders // Enumerated type for window borders
+			{
+			BORDER_LEFT=0x1,BORDER_RIGHT=0x2,BORDER_BOTTOM=0x4,BORDER_TOP=0x8
+			};
+		
+		/* Elements: */
+		public:
+		int borderMask; // Bit mask indicating which window borders are being dragged
+		
+		/* Constructors and destructors: */
+		public:
+		ResizeCallbackData(PopupWindow* sPopupWindow,int sBorderMask)
+			:CallbackData(sPopupWindow),
+			 borderMask(sBorderMask)
+			{
+			}
+		};
+	
 	struct CloseCallbackData:public CallbackData // Class for window close events
 		{
 		/* Constructors and destructors: */
@@ -102,6 +124,7 @@ class PopupWindow:public Container
 	int resizableMask; // Bit mask whether the window can be resized horizontally (0x1) and/or vertically (0x2)
 	GLfloat childBorderWidth; // Width of border around child widget
 	Widget* child; // Single child of the popup window
+	Misc::CallbackList resizeCallbacks; // List of callbacks called when the window is resized
 	Misc::CallbackList closeCallbacks; // List of callbacks called when the window is closed via the close button
 	
 	bool isResizing; // Flag if the window is currently being resized by the user
@@ -178,6 +201,10 @@ class PopupWindow:public Container
 		}
 	static void popDownFunction(Misc::CallbackData* cbData); // Default callback function that simply pops down, but does not delete, the popup window; cbData must be derived form PopupWindow::CallbackData
 	static void deleteFunction(Misc::CallbackData* cbData); // Default callback function that simply deletes the popup window; cbData must be derived from PopupWindow::CallbackData
+	Misc::CallbackList& getResizeCallbacks(void) // Returns list of callbacks called when the window is resized
+		{
+		return resizeCallbacks;
+		}
 	Misc::CallbackList& getCloseCallbacks(void) // Returns list of callbacks called when the close button is pressed
 		{
 		return closeCallbacks;

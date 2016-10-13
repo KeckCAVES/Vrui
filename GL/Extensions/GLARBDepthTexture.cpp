@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBDepthTexture - OpenGL extension class for the GL_ARB_depth_texture
 extension.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBDepthTexture:
 ******************************************/
 
 GL_THREAD_LOCAL(GLARBDepthTexture*) GLARBDepthTexture::current=0;
+const char* GLARBDepthTexture::name="GL_ARB_depth_texture";
 
 /**********************************
 Methods of class GLARBDepthTexture:
@@ -46,7 +47,7 @@ GLARBDepthTexture::~GLARBDepthTexture(void)
 
 const char* GLARBDepthTexture::getExtensionName(void) const
 	{
-	return "GL_ARB_depth_texture";
+	return name;
 	}
 
 void GLARBDepthTexture::activate(void)
@@ -62,13 +63,13 @@ void GLARBDepthTexture::deactivate(void)
 bool GLARBDepthTexture::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_depth_texture");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBDepthTexture::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_depth_texture"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBDepthTexture* newExtension=new GLARBDepthTexture;

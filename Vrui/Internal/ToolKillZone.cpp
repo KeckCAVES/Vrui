@@ -1,6 +1,6 @@
 /***********************************************************************
 ToolKillZone - Base class for "kill zones" for tools and input devices.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -93,6 +93,11 @@ void ToolKillZone::initContext(GLContextData& contextData) const
 	/* Create a new context data item: */
 	DataItem* dataItem=new DataItem;
 	contextData.addDataItem(this,dataItem);
+	}
+
+void ToolKillZone::setRender(bool newRender)
+	{
+	render=newRender;
 	}
 
 void ToolKillZone::glRenderAction(GLContextData& contextData) const

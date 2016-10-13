@@ -1,7 +1,7 @@
 /***********************************************************************
 ComeHitherNavigationTool - Class to navigate by smoothly moving the
 position of a 3D input device to the display center point.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -226,7 +226,7 @@ void ComeHitherNavigationTool::frame(void)
 			setNavigationTransformation(delta);
 			
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		}
 	}

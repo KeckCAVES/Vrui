@@ -1,7 +1,7 @@
 /***********************************************************************
 ScaleBar - Class to draw a scale bar in Vrui applications. Scale bar is
 implemented as a special top-level GLMotif widget for simplicity.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -253,13 +253,9 @@ ScaleBar::ScaleBar(const char* sName,GLMotif::WidgetManager* sManager)
 	/* Set default background and foreground colors: */
 	Color bgColor=Vrui::getBackgroundColor();
 	bgColor[3]=0.0f;
-	Color fgColor;
-	for(int i=0;i<3;++i)
-		fgColor[i]=1.0f-bgColor[i];
-	fgColor[3]=1.0f;
 	setBorderColor(bgColor);
 	setBackgroundColor(bgColor);
-	setForegroundColor(fgColor);
+	setForegroundColor(Vrui::getForegroundColor());
 	
 	/* Create the initial scale bar length label: */
 	if(getCoordinateManager()->getUnit().unit!=Geometry::LinearUnit::UNKNOWN)
@@ -271,10 +267,10 @@ ScaleBar::ScaleBar(const char* sName,GLMotif::WidgetManager* sManager)
 	else
 		lengthLabel=new GLLabel("1",*getUiFont());
 	lengthLabel->setBackground(bgColor);
-	lengthLabel->setForeground(fgColor);
+	lengthLabel->setForeground(Vrui::getForegroundColor());
 	scaleLabel=new GLLabel("1:1",*getUiFont());
 	scaleLabel->setBackground(bgColor);
-	scaleLabel->setForeground(fgColor);
+	scaleLabel->setForeground(Vrui::getForegroundColor());
 	
 	/* Calculate the initial navigation-space scale bar length: */
 	calcSize(getNavigationTransformation());

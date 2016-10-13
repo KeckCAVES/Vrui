@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3FileManager - Class to read files from sets of pk3/pk4 files and
 patch directories.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -73,6 +73,7 @@ class Doom3FileManagerDirectory:public IO::Directory // Class to traverse the di
 	virtual bool readNextEntry(void);
 	virtual const char* getEntryName(void) const;
 	virtual Misc::PathType getEntryType(void) const;
+	virtual Misc::PathType getPathType(const char* relativePath) const;
 	virtual IO::FilePtr openFile(const char* fileName,IO::File::AccessMode accessMode =IO::File::ReadOnly) const;
 	virtual IO::DirectoryPtr openDirectory(const char* directoryName) const;
 	};
@@ -170,6 +171,12 @@ Misc::PathType Doom3FileManagerDirectory::getEntryType(void) const
 		return Misc::PATHTYPE_DOES_NOT_EXIST;
 	}
 
+Misc::PathType Doom3FileManagerDirectory::getPathType(const char* relativePath) const
+	{
+	/* Shunt for now: */
+	throw std::runtime_error("Doom3FileManagerDirectory::getPathType: Not implemented");
+	}
+
 IO::FilePtr Doom3FileManagerDirectory::openFile(const char* fileName,IO::File::AccessMode accessMode) const
 	{
 	if(accessMode==IO::File::WriteOnly||accessMode==IO::File::ReadWrite)
@@ -234,14 +241,14 @@ void Doom3FileManager::addPakFile(IO::FilePtr pakFile)
 	pakFiles.push_back(pak);
 	
 	/* Read the pak archive's directory and add all files to the pak file tree: */
-	PakFile::DirectoryIterator dIt=pak->readDirectory();
-	while(dIt.isValid())
+	for(PakFile::DirectoryIterator dIt(*pak);dIt.isValid();++dIt)
 		{
-		/* Insert the file into the directory structure: */
-		pakFileTree.insertLeaf(dIt.getFileName(),PakFileHandle(pak,dIt));
-		
-		/* Go to the next entry: */
-		pak->getNextEntry(dIt);
+		/* Check if the current entry is a file: */
+		if(!dIt.isDirectory())
+			{
+			/* Insert the file into the directory structure: */
+			pakFileTree.insertLeaf(dIt.getFileName(),PakFileHandle(pak,dIt));
+			}
 		}
 	}
 

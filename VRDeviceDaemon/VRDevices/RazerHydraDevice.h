@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydraDevice - Class to wrap the low-level Razer Hydra device driver
 in a VRDevice.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -26,7 +26,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Misc/Timer.h>
 #include <Threads/Mutex.h>
-#include <USB/Context.h>
 
 #include <VRDeviceDaemon/VRDevice.h>
 
@@ -41,7 +40,6 @@ class RazerHydraDevice:public VRDevice
 	typedef TrackerState::PositionOrientation PositionOrientation; // Type for tracker position/orientation
 	
 	/* Elements: */
-	USB::Context usbContext; // A USB context for the Razer Hydra device
 	RazerHydra* hydra; // Low-level driver for the Razer Hydra device
 	Threads::Mutex deviceValuesMutex; // Mutex to serialize access to the device values
 	bool reportEvents; // Flag if device is started (there is currently no known way to suspend the Razer Hydra device)

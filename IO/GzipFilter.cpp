@@ -1,7 +1,7 @@
 /***********************************************************************
 GzipFilter - Class for read/write access to gzip-compressed files using
 a IO::File abstraction.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2016 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <IO/GzipFilter.h>
 
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 #include <IO/StandardFile.h>
 
 namespace IO {
@@ -65,18 +66,18 @@ size_t GzipFilter::readData(File::Byte* buffer,size_t bufferSize)
 			if(inflateEnd(&stream)!=Z_OK)
 				{
 				if(stream.msg!=0)
-					Misc::throwStdErr("IO::GzipFilter: Error \"%s\" after decompression",stream.msg);
+					throw Error(Misc::printStdErrMsg("IO::GzipFilter: Error \"%s\" after decompression",stream.msg));
 				else
-					Misc::throwStdErr("IO::GzipFilter: Data corruption detected after decompression");
+					throw Error("IO::GzipFilter: Data corruption detected after decompression");
 				}
 			break;
 			}
 		else if(result!=Z_OK)
 			{
 			if(stream.msg!=0)
-				Misc::throwStdErr("IO::GzipFilter: Error \"%s\" while decompressing",stream.msg);
+				throw Error(Misc::printStdErrMsg("IO::GzipFilter: Error \"%s\" while decompressing",stream.msg));
 			else
-				Misc::throwStdErr("IO::GzipFilter: Internal zlib error while decompressing");
+				throw Error("IO::GzipFilter: Internal zlib error while decompressing");
 			}
 		}
 	while(stream.avail_out==bufferSize);
@@ -103,12 +104,50 @@ void GzipFilter::writeData(const File::Byte* buffer,size_t bufferSize)
 		if(deflate(&stream,Z_NO_FLUSH)!=Z_OK)
 			{
 			if(stream.msg!=0)
-				Misc::throwStdErr("IO::GzipFilter: Error \"%s\" while compressing",stream.msg);
+				throw Error(Misc::printStdErrMsg("IO::GzipFilter: Error \"%s\" while compressing",stream.msg));
 			else
-				Misc::throwStdErr("IO::GzipFilter: Internal zlib error while compressing");
+				throw Error("IO::GzipFilter: Internal zlib error while compressing");
 			}
 		gzippedFile->writeInBufferFinish(outputSize-stream.avail_out);
 		}
+	}
+
+size_t GzipFilter::writeDataUpTo(const File::Byte* buffer,size_t bufferSize)
+	{
+	/* Calculate the gzipped file's write buffer fill ratio: */
+	size_t compressedBufferSpace=gzippedFile->getWriteBufferSpace();
+	
+	/* Write to the gzipped file first if its write buffer is at least half full: */
+	bool writeFirst=compressedBufferSpace*2>=gzippedFile->getWriteBufferSize();
+	if(writeFirst)
+		gzippedFile->writeSomeData();
+	
+	/* Set the buffer's content as the compressor's input: */
+	stream.next_in=const_cast<Bytef*>(buffer);
+	stream.avail_in=bufferSize;
+	
+	/* Set the gzipped file's write buffer as the compressor's output: */
+	void* outputBuffer;
+	size_t outputSize=gzippedFile->writeInBufferPrepare(outputBuffer); // This will not trigger a buffer flush, as the buffer cannot be full at this point
+	stream.next_out=static_cast<Bytef*>(outputBuffer);
+	stream.avail_out=outputSize;
+	
+	/* Compress one chunk of data from the input buffer into the gzipped file's write buffer: */
+	if(deflate(&stream,Z_NO_FLUSH)!=Z_OK)
+		{
+		if(stream.msg!=0)
+			throw Error(Misc::printStdErrMsg("IO::GzipFilter: Error \"%s\" while compressing",stream.msg));
+		else
+			throw Error("IO::GzipFilter: Internal zlib error while compressing");
+		}
+	gzippedFile->writeInBufferFinish(outputSize-stream.avail_out);
+	
+	/* Write second if the gzipped file's write buffer was less than half full: */
+	if(!writeFirst)
+		gzippedFile->writeSomeData();
+	
+	/* Return the number of bytes that were read by the compressor: */
+	return bufferSize-stream.avail_in;
 	}
 
 void GzipFilter::init(void)
@@ -117,7 +156,7 @@ void GzipFilter::init(void)
 	bool canRead=gzippedFile->getReadBufferSize()!=0;
 	bool canWrite=gzippedFile->getWriteBufferSize()!=0;
 	if(canRead&&canWrite)
-		Misc::throwStdErr("IO::GzipFilter: Cannot read and write from/to gzipped file simultaneously");
+		throw Error("IO::GzipFilter: Cannot read and write from/to gzipped file simultaneously");
 	else if(canRead)
 		{
 		/* Install an output buffer for uncompressed data: */
@@ -134,7 +173,7 @@ void GzipFilter::init(void)
 			if(stream.msg!=0)
 				throw OpenError(Misc::printStdErrMsg("IO::GzipFilter: Error \"%s\" during initialization",stream.msg));
 			else
-				throw OpenError(Misc::printStdErrMsg("IO::GzipFilter: Internal zlib error during initialization"));
+				throw OpenError("IO::GzipFilter: Internal zlib error during initialization");
 			}
 		
 		/* Read the gzip header to determine if the file really is gzip-compressed: */
@@ -175,7 +214,7 @@ void GzipFilter::init(void)
 			if(stream.msg!=0)
 				throw OpenError(Misc::printStdErrMsg("IO::GzipFilter: Error \"%s\" during initialization",stream.msg));
 			else
-				throw OpenError(Misc::printStdErrMsg("IO::GzipFilter: Internal zlib error during initialization"));
+				throw OpenError("IO::GzipFilter: Internal zlib error during initialization");
 			}
 		}
 	}
@@ -220,10 +259,13 @@ GzipFilter::~GzipFilter(void)
 			result=deflate(&stream,Z_FINISH);
 			if(result!=Z_STREAM_END&&result!=Z_OK)
 				{
+				/* Print an error message and bail out: */
 				if(stream.msg!=0)
-					Misc::throwStdErr("IO::GzipFilter: Error \"%s\" while compressing",stream.msg);
+					Misc::formattedUserError("IO::GzipFilter: Error \"%s\" while compressing",stream.msg);
 				else
-					Misc::throwStdErr("IO::GzipFilter: Internal zlib error while compressing");
+					Misc::userError("IO::GzipFilter: Internal zlib error while compressing");
+				
+				break;
 				}
 			gzippedFile->writeInBufferFinish(outputSize-stream.avail_out);
 			}
@@ -231,6 +273,12 @@ GzipFilter::~GzipFilter(void)
 		/* Clean out the compressor: */
 		deflateEnd(&stream);
 		}
+	}
+
+int GzipFilter::getFd(void) const
+	{
+	/* Return the gzipped file's file descriptor: */
+	return gzippedFile->getFd();
 	}
 
 }

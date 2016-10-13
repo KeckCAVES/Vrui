@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewerConfiguration - Vislet class to configure the settings of a Vrui
 Viewer object from inside a running Vrui application.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VISLETS_VIEWERCONFIGURATION_INCLUDED
 #define VRUI_VISLETS_VIEWERCONFIGURATION_INCLUDED
 
+#include <vector>
 #include <Geometry/Point.h>
+#include <Geometry/LinearUnit.h>
 #include <GLMotif/DropdownBox.h>
 #include <GLMotif/TextFieldSlider.h>
 
@@ -39,6 +41,7 @@ class Button;
 }
 namespace Vrui {
 class Viewer;
+class VRScreen;
 class VisletManager;
 }
 
@@ -51,6 +54,10 @@ class ViewerConfiguration;
 class ViewerConfigurationFactory:public Vrui::VisletFactory
 	{
 	friend class ViewerConfiguration;
+	
+	/* Elements: */
+	private:
+	Geometry::LinearUnit configUnit; // Unit of measurement to use for configuration settings
 	
 	/* Constructors and destructors: */
 	public:
@@ -69,16 +76,19 @@ class ViewerConfiguration:public Vrui::Vislet
 	/* Elements: */
 	private:
 	static ViewerConfigurationFactory* factory; // Pointer to the factory object for this class
+	Scalar unitScale; // Scale factor between configuration units and Vrui units
 	bool firstEnable; // Flag to indicate the first time the vislet is enabled (and ignore it)
 	Viewer* viewer; // The viewer currently selected for configuration
 	Point eyePos[3]; // The current positions of the current viewer's mono, left, and right eyes
 	Scalar eyeDist; // The current viewer's current eye separation distance
+	
 	GLMotif::PopupWindow* dialogWindow; // ViewerConfiguration controls dialog window
 	GLMotif::DropdownBox* viewerMenu; // Drop-down menu to select the viewer to be configured
 	GLMotif::TextFieldSlider* eyePosSliders[3][3]; // Array of sliders controlling the (x, y, z) coordinates of the viewer's mono, left, and right eye positions
 	GLMotif::TextFieldSlider* eyeDistanceSlider; // Slider to directly adjust the viewer's eye distance
 	
 	/* Private methods: */
+	void updateViewer(void);
 	void setViewer(Viewer* newViewer);
 	void viewerMenuCallback(GLMotif::DropdownBox::ValueChangedCallbackData* cbData);
 	void eyePosSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData,const int& sliderIndex);

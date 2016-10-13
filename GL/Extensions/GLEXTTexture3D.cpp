@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTTexture3D - OpenGL extension class for the
 GL_EXT_texture3D extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTTexture3D:
 ***************************************/
 
 GL_THREAD_LOCAL(GLEXTTexture3D*) GLEXTTexture3D::current=0;
+const char* GLEXTTexture3D::name="GL_EXT_texture3D";
 
 /*******************************
 Methods of class GLEXTTexture3D:
@@ -48,7 +49,7 @@ GLEXTTexture3D::~GLEXTTexture3D(void)
 
 const char* GLEXTTexture3D::getExtensionName(void) const
 	{
-	return "GL_EXT_texture3D";
+	return name;
 	}
 
 void GLEXTTexture3D::activate(void)
@@ -64,13 +65,13 @@ void GLEXTTexture3D::deactivate(void)
 bool GLEXTTexture3D::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_texture3D");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTTexture3D::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_texture3D"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTTexture3D* newExtension=new GLEXTTexture3D;

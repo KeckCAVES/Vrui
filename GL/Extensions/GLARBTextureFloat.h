@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureFloat - OpenGL extension class for the GL_ARB_texture_float
 extension.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -63,6 +63,7 @@ class GLARBTextureFloat:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBTextureFloat*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

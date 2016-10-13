@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBTextureCompression - OpenGL extension class for the
 GL_ARB_texture_compression extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBTextureCompression:
 ************************************************/
 
 GL_THREAD_LOCAL(GLARBTextureCompression*) GLARBTextureCompression::current=0;
+const char* GLARBTextureCompression::name="GL_ARB_texture_compression";
 
 /****************************************
 Methods of class GLARBTextureCompression:
@@ -54,7 +55,7 @@ GLARBTextureCompression::~GLARBTextureCompression(void)
 
 const char* GLARBTextureCompression::getExtensionName(void) const
 	{
-	return "GL_ARB_texture_compression";
+	return name;
 	}
 
 void GLARBTextureCompression::activate(void)
@@ -70,13 +71,13 @@ void GLARBTextureCompression::deactivate(void)
 bool GLARBTextureCompression::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_texture_compression");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBTextureCompression::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_texture_compression"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBTextureCompression* newExtension=new GLARBTextureCompression;

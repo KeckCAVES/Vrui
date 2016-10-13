@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisNavigationTool - Class to convert an input device with six
 valuators into a navigation tool.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -33,6 +33,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -298,7 +299,7 @@ void SixAxisNavigationTool::frame(void)
 		setNavigationTransformation(navTransform);
 		
 		/* Request another frame: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 
@@ -311,21 +312,14 @@ void SixAxisNavigationTool::display(GLContextData& contextData) const
 		glDisable(GL_LIGHTING);
 		glDepthFunc(GL_LEQUAL);
 		
-		/* Calculate colors to draw the crosshairs: */
-		Color bgColor=getBackgroundColor();
-		Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
 		/* Go to crosshair space: */
 		glPushMatrix();
-		ONTransform trans=calcHUDTransform(config.followDisplayCenter?getDisplayCenter():config.navigationCenter);
+		ONTransform trans=getUiManager()->calcUITransform(config.followDisplayCenter?getDisplayCenter():config.navigationCenter);
 		glMultMatrix(trans);
 		
 		glLineWidth(3.0f);
 		glBegin(GL_LINES);
-		glColor(bgColor);
+		glColor(getBackgroundColor());
 		glVertex2d(-getDisplaySize(),0.0);
 		glVertex2d(getDisplaySize(),0.0);
 		glVertex2d(0.0,-getDisplaySize());
@@ -334,7 +328,7 @@ void SixAxisNavigationTool::display(GLContextData& contextData) const
 		
 		glLineWidth(1.0f);
 		glBegin(GL_LINES);
-		glColor(fgColor);
+		glColor(getForegroundColor());
 		glVertex2d(-getDisplaySize(),0.0);
 		glVertex2d(getDisplaySize(),0.0);
 		glVertex2d(0.0,-getDisplaySize());

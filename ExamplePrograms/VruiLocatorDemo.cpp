@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiLocatorDemo - VR application showing how to use locator tools in
 Vrui.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -22,9 +22,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <iostream>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
-#include <GLMotif/Button.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/PopupMenu.h>
 #include <Vrui/LocatorTool.h>
 #include <Vrui/LocatorToolAdapter.h>
 #include <Vrui/ToolManager.h>
@@ -58,12 +55,6 @@ class VruiLocatorDemo:public Vrui::Application
 	private:
 	LocatorList locators; // List of all locators
 	
-	/* Vrui parameters: */
-	GLMotif::PopupMenu* mainMenu; // The program's main menu
-	
-	/* Private methods: */
-	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
-	
 	/* Constructors and destructors: */
 	public:
 	VruiLocatorDemo(int& argc,char**& argv); // Initializes the Vrui toolkit and the application
@@ -73,7 +64,7 @@ class VruiLocatorDemo:public Vrui::Application
 	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData); // Called when a new tool is created
 	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData); // Called when a tool is destroyed
 	virtual void display(GLContextData& contextData) const; // Called for every eye and every window on every frame
-	void resetNavigationCallback(Misc::CallbackData* cbData); // Method to reset the Vrui navigation transformation to its default
+	virtual void resetNavigation(void); // Called when user selects "Reset View" from Vrui system menu
 	};
 
 /*****************************************
@@ -116,44 +107,13 @@ void VruiLocatorDemo::Locator::buttonReleaseCallback(Vrui::LocatorTool::ButtonRe
 Methods of class VruiLocatorDemo:
 ********************************/
 
-GLMotif::PopupMenu* VruiLocatorDemo::createMainMenu(void)
-	{
-	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Vrui Demonstration");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button: */
-	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
-	
-	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&VruiLocatorDemo::resetNavigationCallback);
-	
-	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
-	}
-
 VruiLocatorDemo::VruiLocatorDemo(int& argc,char**& argv)
-	:Vrui::Application(argc,argv),
-	 mainMenu(0)
+	:Vrui::Application(argc,argv)
 	{
-	/* Create the user interface: */
-	mainMenu=createMainMenu();
-	
-	/* Install the main menu: */
-	Vrui::setMainMenu(mainMenu);
-	
-	/* Set the navigation transformation: */
-	resetNavigationCallback(0);
 	}
 
 VruiLocatorDemo::~VruiLocatorDemo(void)
 	{
-	delete mainMenu;
 	}
 
 void VruiLocatorDemo::toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData)
@@ -221,7 +181,7 @@ void VruiLocatorDemo::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
-void VruiLocatorDemo::resetNavigationCallback(Misc::CallbackData* cbData)
+void VruiLocatorDemo::resetNavigation(void)
 	{
 	/* Reset the Vrui navigation transformation: */
 	Vrui::NavTransform t=Vrui::NavTransform::identity;

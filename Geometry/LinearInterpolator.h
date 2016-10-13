@@ -1,7 +1,7 @@
 /***********************************************************************
 LinearInterpolator - Generic class to perform linear interpolation of
 geometry data types.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2016 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -147,20 +147,12 @@ class LinearInterpolator<Rotation<ScalarParam,3> > // Interpolator for 3D rotati
 	/* Methods: */
 	static void interpolate(const Interpolant& i0,const Interpolant& i1,Scalar w1,Interpolant& result)
 		{
-		Interpolant delta=invert(i0);
-		delta.leftMultiply(i1);
-		const Scalar* q=delta.getQuaternion();
-		result=i0;
-		if(Math::abs(q[3])<Scalar(1))
-			{
-			Scalar alpha=Math::acos(q[3]);
-			Scalar f=Math::sin(w1*alpha)/Math::sin(alpha);
-			double qn[4];
-			for(int i=0;i<3;++i)
-				qn[i]=q[i]*f;
-			qn[3]=Math::cos(w1*alpha);
-			result*=Interpolant::fromQuaternion(qn);
-			}
+		/* Calculate the axis and angle of the incremental rotation from i0 to i1: */
+		typename Interpolant::Vector w=(i1*invert(i0)).getScaledAxis();
+		
+		/* Scale the rotation angle by the interpolation weight and rotate the initial rotation: */
+		result=Interpolant(w*w1)*i0;
+		result.renormalize();
 		}
 	};
 

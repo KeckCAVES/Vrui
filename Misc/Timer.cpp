@@ -2,7 +2,7 @@
 Timer - Simple class to provide high-resolution timers in a somewhat OS-
 independent fashion. This is the windows-compatible version using
 performance counters.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2016 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -105,38 +105,39 @@ Timer::Timer(void)
 
 void Timer::elapse(void)
 	{
+	/* Get a new time measurement: */
 	struct timeval newMeasured;
 	gettimeofday(&newMeasured,0);
 	
-	elapsedMicrons=newMeasured.tv_usec-lastMeasured.tv_usec;
-	int secondCarry=0;
+	/* Calculate the time difference: */
+	elapsedSeconds=int(newMeasured.tv_sec-lastMeasured.tv_sec);
+	elapsedMicrons=int(newMeasured.tv_usec-lastMeasured.tv_usec);
 	if(elapsedMicrons<0) // Correct for end-of-second wraparound
 		{
+		elapsedSeconds-=1;
 		elapsedMicrons+=1000000;
-		secondCarry=1;
 		}
-	elapsedSeconds=(newMeasured.tv_sec-secondCarry)-lastMeasured.tv_sec;
-	if(elapsedSeconds<0) // Correct for end-of-day wraparound
-		elapsedSeconds+=86400;
+	
+	/* Reset the timer to the new measurement: */
 	lastMeasured=newMeasured;
 	}
 
 double Timer::peekTime(void) const
 	{
+	/* Get a new time measurement: */
 	struct timeval newMeasured;
 	gettimeofday(&newMeasured,0);
 	
-	int passedMicrons=newMeasured.tv_usec-lastMeasured.tv_usec;
-	int secondCarry=0;
+	/* Calculate the time difference: */
+	int passedSeconds=int(newMeasured.tv_sec-lastMeasured.tv_sec);
+	int passedMicrons=int(newMeasured.tv_usec-lastMeasured.tv_usec);
 	if(passedMicrons<0) // Correct for end-of-second wraparound
 		{
+		passedSeconds-=1;
 		passedMicrons+=1000000;
-		secondCarry=1;
 		}
-	int passedSeconds=(newMeasured.tv_sec-secondCarry)-lastMeasured.tv_sec;
-	if(passedSeconds<0) // Correct for end-of-day wraparound
-		passedSeconds+=86400;
 	
+	/* Return the time difference as fractional seconds: */
 	return double(passedSeconds)+double(passedMicrons)/1000000.0;
 	}
 

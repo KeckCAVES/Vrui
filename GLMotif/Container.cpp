@@ -1,7 +1,7 @@
 /***********************************************************************
 Container - Base class for GLMotif UI components that contain other
 components.
-Copyright (c) 2001-2014 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GLMotif/Container.h>
 
 #include <string.h>
-#include <Misc/ThrowStdErr.h>
+#include <stdexcept>
 
 namespace GLMotif {
 
@@ -89,10 +89,7 @@ Widget* Container::findDescendant(const char* descendantPath)
 			return container->findDescendant(slashPtr+1);
 			}
 		else
-			{
-			Misc::throwStdErr("GLMotif::Container::findDescendant: Path component not found");
-			return 0; // Just to make compiler happy
-			}
+			throw std::runtime_error("GLMotif::Container::findDescendant: Path component not found");
 		}
 	else
 		return child;

@@ -1,6 +1,6 @@
 /***********************************************************************
 MathValueCoders - Value coder classes for math objects.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -26,6 +26,13 @@ namespace Misc {
 /******************************************************
 Force instantiation of all standard ValueCoder classes:
 ******************************************************/
+
+template class ValueCoder<Math::Complex<float> >;
+template class ValueCoder<Math::Complex<double> >;
+
+template class ValueCoder<Math::Interval<int> >;
+template class ValueCoder<Math::Interval<float> >;
+template class ValueCoder<Math::Interval<double> >;
 
 template class ValueCoder<Math::BrokenLine<float> >;
 template class ValueCoder<Math::BrokenLine<double> >;

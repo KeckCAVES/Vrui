@@ -1,7 +1,7 @@
 /***********************************************************************
 V4L2VideoDevice - Wrapper class around video devices as represented by
 the Video for Linux version 2 (V4L2) library.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -20,8 +20,8 @@ with the Basic Video Library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
-#ifndef SOUND_LINUX_V4L2VIDEODEVICE_INCLUDED
-#define SOUND_LINUX_V4L2VIDEODEVICE_INCLUDED
+#ifndef VIDEO_LINUX_V4L2VIDEODEVICE_INCLUDED
+#define VIDEO_LINUX_V4L2VIDEODEVICE_INCLUDED
 
 #include <Threads/Thread.h>
 #include <Video/FrameBuffer.h>
@@ -52,6 +52,9 @@ class V4L2VideoDevice:public VideoDevice
 			:VideoDevice::DeviceId(sName)
 			{
 			}
+		
+		/* Methods from VideoDevice::DeviceId: */
+		virtual VideoDevice* createDevice(void) const;
 		};
 	
 	struct V4L2FrameBuffer:public FrameBuffer // Structure to retain state of allocated frame buffers
@@ -69,30 +72,28 @@ class V4L2VideoDevice:public VideoDevice
 		};
 	
 	/* Elements: */
-	private:
+	protected:
 	int videoFd; // File handle of the V4L2 video device
+	private:
 	bool canRead; // Flag if video device supports read() I/O
 	bool canStream; // Flag if video device supports streaming (buffer passing) I/O
 	bool frameBuffersMemoryMapped; // Flag if the frame buffer set is memory-mapped from device space
 	unsigned int numFrameBuffers; // Number of currently allocated frame buffers
 	V4L2FrameBuffer* frameBuffers; // Array of currently allocated frame buffers
+	volatile bool runStreamingThread; // Flag to keep the streaming thread running
 	Threads::Thread streamingThread; // Background streaming capture thread
 	
 	/* Private methods: */
 	void enumFrameIntervals(VideoDataFormat& format,std::vector<VideoDataFormat>& formatList) const; // Appends video data formats for each available frame interval in the given pixel format and frame size to the format list
 	void setControl(unsigned int controlId,const char* controlTag,const Misc::ConfigurationFileSection& cfg); // Sets a video device control according to the given tag in the given configuration file section
-	void integerControlChangedCallback(Misc::CallbackData* cbData,const unsigned int& controlId);
-	void booleanControlChangedCallback(Misc::CallbackData* cbData,const unsigned int& controlId);
-	void menuControlChangedCallback(Misc::CallbackData* cbData,const unsigned int& controlId);
+	void integerControlChangedCallback(Misc::CallbackData* cbData);
+	void booleanControlChangedCallback(Misc::CallbackData* cbData);
+	void menuControlChangedCallback(Misc::CallbackData* cbData);
 	void* streamingThreadMethod(void); // The background streaming capture thread method
 	
 	/* Constructors and destructors: */
 	public:
 	V4L2VideoDevice(const char* videoDeviceName); // Opens the given V4L2 video device (/dev/videoXX) as a video source
-	static V4L2VideoDevice* createDevice(const DeviceId* deviceId) // Creates video device from given device ID
-		{
-		return new V4L2VideoDevice(deviceId->deviceFileName.c_str());
-		}
 	private:
 	V4L2VideoDevice(const V4L2VideoDevice& source); // Prohibit copy constructor
 	V4L2VideoDevice& operator=(const V4L2VideoDevice& source); // Prohibit assignment operator
@@ -103,6 +104,7 @@ class V4L2VideoDevice:public VideoDevice
 	virtual std::vector<VideoDataFormat> getVideoFormatList(void) const;
 	virtual VideoDataFormat getVideoFormat(void) const;
 	virtual VideoDataFormat& setVideoFormat(VideoDataFormat& newFormat);
+	virtual void saveConfiguration(Misc::ConfigurationFileSection& cfg) const;
 	virtual void configure(const Misc::ConfigurationFileSection& cfg);
 	virtual ImageExtractor* createImageExtractor(void) const;
 	virtual GLMotif::Widget* createControlPanel(GLMotif::WidgetManager* widgetManager);

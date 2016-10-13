@@ -1,7 +1,7 @@
 /***********************************************************************
 FdSet - Class to simplify using sets of file descriptors for the select
 and pselect system calls.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2016 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -72,9 +72,19 @@ class FdSet:public fd_set
 		FD_ZERO(this);
 		FD_SET(sFd,this);
 		}
-	private:
-	FdSet(const FdSet& source); // Prohibit copy constructor
-	FdSet& operator=(const FdSet& source); // Prohibit assignment operator
+	FdSet(const FdSet& source) // Copies the source file descriptor set
+		:fd_set(source),
+		 maxFd(source.maxFd)
+		{
+		}
+	FdSet& operator=(const FdSet& source) // Copies the source file descriptor set
+		{
+		/* Copy the low-level fd_set structure and the highest set file descriptor: */
+		fd_set::operator=(source);
+		maxFd=source.maxFd;
+		
+		return *this;
+		}
 	
 	/* Methods: */
 	public:

@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrolledImage - Compound widget containing an image, and a vertical and
 horizontal scroll bar.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -107,6 +107,20 @@ ScrolledImage::ScrolledImage(const char* sName,Container* sParent,const char* sI
 	 verticalScrollBar(new ScrollBar("VerticalScrollBar",this,ScrollBar::VERTICAL,false,false)),
 	 zoomFactor(1.0f)
 	{
+	init(sManageChild);
+	}
+
+ScrolledImage::ScrolledImage(const char* sName,Container* sParent,Image* sImage,bool sManageChild)
+	:Container(sName,sParent,false),
+	 preferredSize(0.0f,0.0f,0.0f),
+	 image(sImage),
+	 horizontalScrollBar(new ScrollBar("HorizontalScrollBar",this,ScrollBar::HORIZONTAL,false,false)),
+	 verticalScrollBar(new ScrollBar("VerticalScrollBar",this,ScrollBar::VERTICAL,false,false)),
+	 zoomFactor(1.0f)
+	{
+	/* Reparent the image widget: */
+	image->reparent(this,false);
+	
 	init(sManageChild);
 	}
 
@@ -346,8 +360,27 @@ void ScrolledImage::setZoomFactor(GLfloat newZoomFactor,const Vector& fixedPoint
 	for(int i=0;i<2;++i)
 		{
 		newSize[i]=image->getInterior().size[i]*image->getResolution(i)/zoomFactor;
-		newRegion[0+i]=fpi[i]-newSize[i]*fpw[i];
-		newRegion[2+i]=fpi[i]+newSize[i]*(1.0f-fpw[i]);
+		GLfloat imageSize=GLfloat(image->getImage().getSize(i));
+		if(newSize[i]>=imageSize)
+			{
+			newRegion[0+i]=-(newSize[i]-imageSize)*0.5;
+			newRegion[2+i]=imageSize+(newSize[i]-imageSize)*0.5;
+			}
+		else
+			{
+			newRegion[0+i]=fpi[i]-newSize[i]*fpw[i];
+			newRegion[2+i]=fpi[i]+newSize[i]*(1.0f-fpw[i]);
+			if(newRegion[0+i]<0.0f)
+				{
+				newRegion[2+i]+=0.0f-newRegion[0+i];
+				newRegion[0+i]=0.0f;
+				}
+			else if(newRegion[2+i]>imageSize)
+				{
+				newRegion[0+i]+=imageSize-newRegion[2+i];
+				newRegion[2+i]=imageSize;
+				}
+			}
 		newPageSize[i]=int(Math::floor(newSize[i]+0.5f));
 		if(newPageSize[i]>int(image->getImage().getSize(i)))
 			newPageSize[i]=int(image->getImage().getSize(i));

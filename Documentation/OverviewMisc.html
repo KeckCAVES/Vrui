@@ -89,6 +89,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>Timer.h</DT>
 <DD>Timer is a class providing a high-resolution wall-clock timer. It returns the amount of time passed between two timer snapshots as a floating-point number in seconds.</DD>
 
+<DT>MessageLogger.h</DT>
+<DD>MessageLogger is a base class for centralized process-wide message logging facilities with environment-appropriate behavior provided by derived classes.</DD>
+
 <DT>FunctionCalls.h</DT>
 <DD>FunctionCalls defines several functor classes representing function calls or method invocations as first-class objects.</DD>
 
@@ -100,6 +103,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>TimerEventScheduler.h</DT>
 <DD>TimerEventScheduler is a helper class to implement application-level timer events in GLMotif and Vrui.</DD>
+
+<DT>VarInt.h</DT>
+<DD>Functions to read/write unsigned 32-bit integers from/to files using a variable number of bytes, to reduce storage for values that are predominantly very small (such as string lengths).</DD>
 
 <DT>Marshaller.h</DT>
 <DD>Marshaller is a generic base class to read or write data structures from or to binary data sources or sinks.</DD>
@@ -131,6 +137,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 <DT>FdSet.h</DT>
 <DD>FdSet is a class representing file descriptor sets, as used by the select() and pselect() system calls. The header file contains wrappers for both functions that do not need the nfds argument.</DD>
 
+<DT>Pipe.h</DT>
+<DD>Pipe is a small RAII wrapper around UNIX unnamed pipes.</DD>
+
 <DT>File.h</DT>
 <DD>File is a class providing a wrapper around the C standard FILE interface that also provides automatic endianness conversion based on the swapEndianness() function declared in Endianness. It ensures correct resource management via construction/destruction, and offers a type-safe interface to read/write binary data from/to files.</DD>
 
@@ -160,6 +169,9 @@ The Misc library contains assorted abstraction classes such as error handling, f
 
 <DT>ConfigurationFile.h</DT>
 <DD>ConfigurationFile is a class to retrieve permanent program state from hierarchical configuration files. Configuration files are human-readable text files comprised of a tree of sections, each section containing tag/value pairs. The ConfigurationFile class allows client code to retrieve tag values either as text, or directly as objects of arbitrary types using the ValueCoder mechanism.</DD>
+
+<DT>Optional.h</DT>
+<DD>Optional is a class to represent optional configuration values in configuration files.</DD>
 
 <DT>FileLocator.h</DT>
 <DD>FileLocator is a class to simplify searching for files in a list of search directories. Search lists can be built explicity, or by deriving standard resource locations from an application's executable name.</DD>

@@ -12,6 +12,12 @@ The Comm library contains classes to simplify communications via serial ports, U
 <H2>Header Files</H2>
 
 <DL>
+<DT>IPv4Address.h</DT>
+<DD>IPv4Address is a wrapper class representing IP addresses (protocol version 4) in network byte order, based on the in_addr libc structure.</DD>
+
+<DT>IPv4SocketAddress.h</DT>
+<DD>IPv4SocketAddress is a wrapper class representing IP socket addresses (protocol version 4) in network byte order, based on the sockaddr_in libc structure.</DD>
+
 <DT>UDPSocket.h</DT>
 <DD>UDPSocket is a class representing a UDP socket. It can create either a listening socket on the local computer, or connect to a listening socket on a remote computer. It supports unreliable sending/receiving of binary data.</DD>
 

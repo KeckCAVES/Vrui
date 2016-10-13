@@ -1,6 +1,6 @@
 /***********************************************************************
 RayMenuTool - Class for menu selection tools using ray selection.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,7 @@ class RayMenuToolFactory:public ToolFactory
 	/* Elements: */
 	private:
 	Scalar initialMenuOffset; // Offset of initial menu position along selection ray
+	bool alignMenuWithPointer; // Flag to align menus with the pointing direction in addition to the viewing direction
 	bool interactWithWidgets; // Flag if the menu tool doubles as a widget interaction tool
 	
 	/* Constructors and destructors: */

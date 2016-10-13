@@ -1,7 +1,7 @@
 /***********************************************************************
 EarthquakeTool - Vrui tool class to snap a virtual input device to
 events in an earthquake data set.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2014 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -129,7 +129,7 @@ void EarthquakeTool::frame(void)
 			if(e!=0)
 				{
 				event=e;
-				maxDistance=Geometry::dist(position,event->position);
+				maxDistance=Geometry::dist(position,*event);
 				}
 			}
 		}
@@ -148,7 +148,7 @@ void EarthquakeTool::frame(void)
 			if(e!=0)
 				{
 				/* Calculate the test event's ray parameter: */
-				Vrui::Scalar rp=((Vrui::Point(e->position)-ray.getOrigin())*ray.getDirection())/rayLength;
+				Vrui::Scalar rp=((Vrui::Point(*e)-ray.getOrigin())*ray.getDirection())/rayLength;
 				if(rayParameter>rp)
 					{
 					event=e;
@@ -168,7 +168,7 @@ void EarthquakeTool::frame(void)
 	if(event!=0)
 		{
 		/* Set the virtual device to the event's position: */
-		Vrui::Point eventPos=Vrui::Point(event->position);
+		Vrui::Point eventPos=Vrui::Point(*event);
 		Vrui::TrackerState ts(Vrui::getNavigationTransformation().transform(eventPos)-Vrui::Point::origin,sourceDevice->getOrientation());
 		transformedDevice->setTransformation(ts);
 		}

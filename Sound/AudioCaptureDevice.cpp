@@ -1,6 +1,6 @@
 /***********************************************************************
 AudioCaptureDevice - Base class for audio capture devices.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 

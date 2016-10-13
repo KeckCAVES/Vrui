@@ -1,7 +1,7 @@
 /***********************************************************************
 FlyNavigationTool - Class encapsulating the behaviour of the old
 infamous Vrui single-handed flying navigation tool.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

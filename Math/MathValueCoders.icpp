@@ -1,6 +1,6 @@
 /***********************************************************************
 MathValueCoders - Value coder classes for math objects.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -25,9 +25,122 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ArrayValueCoders.h>
+#include <Math/Complex.h>
+#include <Math/Interval.h>
 #include <Math/BrokenLine.h>
 
 namespace Misc {
+
+/********************************************************
+Methods of class ValueCoder<Math::Complex<ScalarParam> >:
+********************************************************/
+
+template <class ScalarParam>
+inline
+std::string
+ValueCoder<Math::Complex<ScalarParam> >::encode(
+	const Math::Complex<ScalarParam>& value)
+	{
+	/* Encode the complex number in the form real+imag*i: */
+	bool haveImag=value.getImag()!=ScalarParam(0);
+	bool haveReal=!haveImag||value.getReal()!=ScalarParam(0);
+	
+	std::string result;
+	
+	if(haveReal)
+		result.append(ValueCoder<ScalarParam>::encode(value.getReal()));
+	if(haveReal&&haveImag&&value.getImag()>=ScalarParam(0))
+		result.push_back('+');
+	if(haveImag)
+		{
+		result.append(ValueCoder<ScalarParam>::encode(value.getImag()));
+		result.append("*i");
+		}
+	
+	return result;
+	}
+
+template <class ScalarParam>
+inline
+Math::Complex<ScalarParam>
+ValueCoder<Math::Complex<ScalarParam> >::decode(
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	try
+		{
+		/* Decode the complex number in the form real+imag*i: */
+		ScalarParam real=ValueCoder<ScalarParam>::decode(start,end,&start);
+		ScalarParam imag=ScalarParam(0);
+		if(start!=end&&(*start=='+'||*start=='-'))
+			{
+			/* Decode the imaginary part: */
+			imag=ValueCoder<ScalarParam>::decode(start,end,&start);
+			
+			/* Check for the "*i" suffix: */
+			if(start==end||*start!='*'||start+1==end||start[1]!='i')
+				throw std::runtime_error("Missing \"*i\" suffix");
+			start+=2;
+			}
+		else if(start!=end&&*start=='*'&&start+1!=end&&start[1]=='i')
+			{
+			/* Oops, we read the imaginary part as the real part: */
+			imag=real;
+			real=ScalarParam(0);
+			start+=2;
+			}
+		
+		/* Set the end of decoding pointer: */
+		if(decodeEnd!=0)
+			*decodeEnd=start;
+		
+		/* Return the decoded value: */
+		return Math::Complex<ScalarParam>(real,imag);
+		}
+	catch(std::runtime_error err)
+		{
+		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Math::Complex due to ")+err.what());
+		}
+	}
+
+/*********************************************************
+Methods of class ValueCoder<Math::Interval<ScalarParam> >:
+*********************************************************/
+
+template <class ScalarParam>
+inline
+std::string
+ValueCoder<Math::Interval<ScalarParam> >::encode(
+	const Math::Interval<ScalarParam>& value)
+	{
+	/* Encode the interval as a vector with two elements: */
+	ScalarParam components[2];
+	components[0]=value.getMin();
+	components[1]=value.getMax();
+	return CFixedArrayValueCoder<ScalarParam,2>::encode(components);
+	}
+
+template <class ScalarParam>
+inline
+Math::Interval<ScalarParam>
+ValueCoder<Math::Interval<ScalarParam> >::decode(
+	const char* start,
+	const char* end,
+	const char** decodeEnd)
+	{
+	try
+		{
+		/* Decode the broken line as a vector with two elements: */
+		ScalarParam components[2];
+		CFixedArrayValueCoder<ScalarParam,2>(components).decode(start,end,decodeEnd);
+		return Math::Interval<ScalarParam>(components[0],components[1]);
+		}
+	catch(std::runtime_error err)
+		{
+		throw DecodingError(std::string("Unable to convert ")+std::string(start,end)+std::string(" to Math::Interval due to ")+err.what());
+		}
+	}
 
 /***********************************************************
 Methods of class ValueCoder<Math::BrokenLine<ScalarParam> >:

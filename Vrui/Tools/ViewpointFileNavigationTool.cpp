@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Misc/MessageLogger.h>
+#include <IO/File.h>
 #include <Math/Math.h>
 #include <Math/Matrix.h>
 #include <Geometry/Point.h>
@@ -42,11 +44,41 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
 #include <GLMotif/Label.h>
+#include <GLMotif/FileSelectionHelper.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/OpenFile.h>
 
 namespace Vrui {
+
+/******************************************************************
+Methods of class ViewpointFileNavigationToolFactory::Configuration:
+******************************************************************/
+
+ViewpointFileNavigationToolFactory::Configuration::Configuration(void)
+	:showGui(false),showKeyframes(true),
+	 pauseFileName("ViewpointFileNavigation.pauses"),
+	 autostart(false)
+	{
+	}
+
+void ViewpointFileNavigationToolFactory::Configuration::read(const Misc::ConfigurationFileSection& cfs)
+	{
+	viewpointFileName=cfs.retrieveString("./viewpointFileName",viewpointFileName);
+	showGui=cfs.retrieveValue<bool>("./showGui",showGui);
+	showKeyframes=cfs.retrieveValue<bool>("./showKeyframes",showKeyframes);
+	pauseFileName=cfs.retrieveString("./pauseFileName",pauseFileName);
+	autostart=cfs.retrieveValue<bool>("./autostart",autostart);
+	}
+
+void ViewpointFileNavigationToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
+	{
+	cfs.storeString("./viewpointFileName",viewpointFileName);
+	cfs.retrieveValue<bool>("./showGui",showGui);
+	cfs.retrieveValue<bool>("./showKeyframes",showKeyframes);
+	cfs.storeString("./pauseFileName",pauseFileName);
+	cfs.retrieveValue<bool>("./autostart",autostart);
+	}
 
 /***************************************************
 Methods of class ViewpointFileNavigationToolFactory:
@@ -54,12 +86,7 @@ Methods of class ViewpointFileNavigationToolFactory:
 
 ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManager& toolManager)
 	:ToolFactory("ViewpointFileNavigationTool",toolManager),
-	 viewpointFileName(""),
-	 viewpointSelectionHelper("",".views,.curve",openDirectory(".")),
-	 showGui(true),
-	 showKeyframes(true),
-	 pauseFileName("ViewpointFileNavigation.pauses"),
-	 autostart(false)
+	 viewpointSelectionHelper(0)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -70,12 +97,7 @@ ViewpointFileNavigationToolFactory::ViewpointFileNavigationToolFactory(ToolManag
 	addParentClass(toolFactory);
 	
 	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	viewpointFileName=cfs.retrieveString("./viewpointFileName",viewpointFileName);
-	showGui=cfs.retrieveValue<bool>("./showGui",showGui);
-	showKeyframes=cfs.retrieveValue<bool>("./showKeyframes",showKeyframes);
-	pauseFileName=cfs.retrieveString("./pauseFileName",pauseFileName);
-	autostart=cfs.retrieveValue<bool>("./autostart",autostart);
+	configuration.read(toolManager.getToolClassSection(getClassName()));
 	
 	/* Set tool class' factory pointer: */
 	ViewpointFileNavigationTool::factory=this;
@@ -85,6 +107,8 @@ ViewpointFileNavigationToolFactory::~ViewpointFileNavigationToolFactory(void)
 	{
 	/* Reset tool class' factory pointer: */
 	ViewpointFileNavigationTool::factory=0;
+	
+	delete viewpointSelectionHelper;
 	}
 
 const char* ViewpointFileNavigationToolFactory::getName(void) const
@@ -105,6 +129,15 @@ Tool* ViewpointFileNavigationToolFactory::createTool(const ToolInputAssignment& 
 void ViewpointFileNavigationToolFactory::destroyTool(Tool* tool) const
 	{
 	delete tool;
+	}
+
+GLMotif::FileSelectionHelper* ViewpointFileNavigationToolFactory::getViewpointSelectionHelper(void)
+	{
+	/* Create a new file selection helper if there isn't one yet: */
+	if(viewpointSelectionHelper==0)
+		viewpointSelectionHelper=new GLMotif::FileSelectionHelper(getWidgetManager(),"",".view,.views,.curve",openDirectory("."));
+	
+	return viewpointSelectionHelper;
 	}
 
 extern "C" void resolveViewpointFileNavigationToolDependencies(Plugins::FactoryManager<ToolFactory>& manager)
@@ -199,12 +232,39 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 	{
 	try
 		{
-		/* Open the viewpoint file: */
-		Misc::File viewpointFile(fileName,"rt");
-		
-		if(Misc::hasCaseExtension(fileName,".views"))
+		if(Misc::hasCaseExtension(fileName,".view"))
+			{
+			/* Load a single viewpoint keyframe from the binary view file: */
+			IO::FilePtr viewpointFile=Vrui::openFile(fileName);
+			viewpointFile->setEndianness(Misc::LittleEndian);
+			
+			/* Check the header: */
+			static const char* vruiViewpointFileHeader="Vrui viewpoint file v1.0\n";
+			char header[80];
+			viewpointFile->read(header,strlen(vruiViewpointFileHeader));
+			header[strlen(vruiViewpointFileHeader)]='\0';
+			if(strcmp(header,vruiViewpointFileHeader)==0)
+				{
+				/* Read the viewpoint as a control point: */
+				ControlPoint v;
+				viewpointFile->read<Scalar>(v.center.getComponents(),3);
+				v.size=Math::log(viewpointFile->read<Scalar>()); // Sizes are interpolated logarithmically
+				viewpointFile->read<Scalar>(v.forward.getComponents(),3);
+				viewpointFile->read<Scalar>(v.up.getComponents(),3);
+				
+				viewpoints.push_back(v);
+				}
+			else
+				{
+				/* Display an error message: */
+				Misc::formattedUserError("Curve File Animation: File %s is not a viewpoint file",fileName);
+				}
+			}
+		else if(Misc::hasCaseExtension(fileName,".views"))
 			{
 			/* Load all viewpoint keyframes from the file: */
+			Misc::File viewpointFile(fileName,"rt");
+			
 			Scalar time(0);
 			while(true)
 				{
@@ -307,6 +367,8 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		else if(Misc::hasCaseExtension(fileName,".curve"))
 			{
 			/* Load all spline segments from the file: */
+			Misc::File viewpointFile(fileName,"rt");
+			
 			while(true)
 				{
 				SplineSegment s;
@@ -363,22 +425,13 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		else
 			{
 			/* Display an error message: */
-			std::string message="Curve file ";
-			message.append(fileName);
-			message.append(" has unrecognized extension \"");
-			message.append(Misc::getExtension(fileName));
-			message.push_back('"');
-			showErrorMessage("Curve File Animation",message.c_str());
+			Misc::formattedUserError("Curve File Animation: Curve file %s has unrecognized extension %s",fileName,Misc::getExtension(fileName));
 			}
 		}
 	catch(std::runtime_error err)
 		{
 		/* Display an error message: */
-		std::string message="Could not read curve file ";
-		message.append(fileName);
-		message.append(" due to exception ");
-		message.append(err.what());
-		showErrorMessage("Curve File Animation",message.c_str());
+		Misc::formattedUserError("Curve File Animation: Could not read curve file %s due to exception %s",fileName,err.what());
 		}
 	
 	if(!splines.empty())
@@ -388,17 +441,17 @@ void ViewpointFileNavigationTool::readViewpointFile(const char* fileName)
 		parameter=splines.front().t[0];
 		
 		/* Create playback control dialog if requested: */
-		if(showGui)
+		if(configuration.showGui)
 			createGui();
 		
 		/* Start animating if requested: */
-		if(autostart)
+		if(configuration.autostart)
 			{
 			firstFrame=true;
 			activate();
 			}
 		}
-	else if(!viewpoints.empty()&&activate())
+	else if(!viewpoints.empty()&&configuration.autostart&&activate())
 		{
 		/* Go to the first viewpoint: */
 		const ControlPoint& v=viewpoints[0];
@@ -501,15 +554,10 @@ bool ViewpointFileNavigationTool::navigate(Scalar parameter)
 
 ViewpointFileNavigationTool::ViewpointFileNavigationTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:NavigationTool(sFactory,inputAssignment),
-	 viewpointFileName(factory->viewpointFileName),
-	 showGui(factory->showGui),
-	 showKeyframes(factory->showKeyframes),
-	 pauseFileName(factory->pauseFileName),
-	 autostart(factory->autostart),
+	 configuration(factory->configuration),
 	 controlDialogPopup(0),positionSlider(0),
 	 nextViewpointIndex(0U),
-	 speed(1),firstFrame(false),paused(false),parameter(0),
-	 loadViewpointFileDialog(0)
+	 speed(1),firstFrame(false),paused(false),parameter(0)
 	{
 	}
 
@@ -521,11 +569,13 @@ ViewpointFileNavigationTool::~ViewpointFileNavigationTool(void)
 void ViewpointFileNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Override per-class configuration settings: */
-	viewpointFileName=configFileSection.retrieveString("./viewpointFileName",viewpointFileName);
-	showGui=configFileSection.retrieveValue<bool>("./showGui",showGui);
-	showKeyframes=configFileSection.retrieveValue<bool>("./showKeyframes",showKeyframes);
-	pauseFileName=configFileSection.retrieveString("./pauseFileName",pauseFileName);
-	autostart=configFileSection.retrieveValue<bool>("./autostart",autostart);
+	configuration.read(configFileSection);
+	}
+
+void ViewpointFileNavigationTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Store configuration settings: */
+	configuration.write(configFileSection);
 	}
 
 void ViewpointFileNavigationTool::initialize(void)
@@ -533,7 +583,7 @@ void ViewpointFileNavigationTool::initialize(void)
 	/* Load scheduled pauses if the file exists: */
 	try
 		{
-		Misc::File pauseFile(pauseFileName.c_str(),"rt");
+		Misc::File pauseFile(configuration.pauseFileName.c_str(),"rt");
 		while(true)
 			{
 			double pauseTime;
@@ -548,15 +598,15 @@ void ViewpointFileNavigationTool::initialize(void)
 		}
 	
 	/* Bring up a file selection dialog if there is no pre-configured viewpoint file: */
-	if(viewpointFileName.empty())
+	if(configuration.viewpointFileName.empty())
 		{
 		/* Load a viewpoint file: */
-		factory->viewpointSelectionHelper.loadFile("Load Viewpoint File...",this,&ViewpointFileNavigationTool::loadViewpointFileCallback);
+		factory->getViewpointSelectionHelper()->loadFile("Load Viewpoint File...",this,&ViewpointFileNavigationTool::loadViewpointFileCallback);
 		}
 	else
 		{
 		/* Load the configured viewpoint file: */
-		readViewpointFile(viewpointFileName.c_str());
+		readViewpointFile(configuration.viewpointFileName.c_str());
 		}
 	}
 
@@ -573,32 +623,7 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 	{
 	if(cbData->newButtonState) // Activation button has just been pressed
 		{
-		#if 0
-		/* Set the next saved viewpoint if the tool can be activated: */
-		if(!viewpoints.empty()&&activate())
-			{
-			/* Compute the appropriate navigation transformation from the next viewpoint: */
-			const Viewpoint& v=viewpoints[nextViewpointIndex];
-			NavTransform nav=NavTransform::identity;
-			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
-			nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
-			nav*=NavTransform::scale(getDisplaySize()/Math::exp(v.size)); // Scales are interpolated logarithmically
-			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(v.forward^v.up,v.forward)));
-			nav*=NavTransform::translateToOriginFrom(v.center);
-			
-			/* Set the viewpoint: */
-			setNavigationTransformation(nav);
-			
-			/* Go to the next viewpoint: */
-			++nextViewpointIndex;
-			if(nextViewpointIndex==viewpoints.size())
-				nextViewpointIndex=0U;
-			
-			/* Deactivate the tool: */
-			deactivate();
-			}
-		#else
-		/* Start animating the viewpoint if there are spline segments and the tool can be activated: */
+		/* Start animating the viewpoint if there are spline segments and the tool can be activated, or go to the next viewpoint: */
 		if(!splines.empty())
 			{
 			if(isActive())
@@ -620,7 +645,28 @@ void ViewpointFileNavigationTool::buttonCallback(int,InputDevice::ButtonCallback
 				paused=false;
 				}
 			}
-		#endif
+		else if(!viewpoints.empty()&&activate())
+			{
+			/* Compute the appropriate navigation transformation from the next viewpoint: */
+			const ControlPoint& v=viewpoints[nextViewpointIndex];
+			NavTransform nav=NavTransform::identity;
+			nav*=NavTransform::translateFromOriginTo(getDisplayCenter());
+			nav*=NavTransform::rotate(Rotation::fromBaseVectors(getForwardDirection()^getUpDirection(),getForwardDirection()));
+			nav*=NavTransform::scale(getDisplaySize()/Math::exp(v.size)); // Scales are interpolated logarithmically
+			nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(v.forward^v.up,v.forward)));
+			nav*=NavTransform::translateToOriginFrom(v.center);
+			
+			/* Set the viewpoint: */
+			setNavigationTransformation(nav);
+			
+			/* Go to the next viewpoint: */
+			++nextViewpointIndex;
+			if(nextViewpointIndex==viewpoints.size())
+				nextViewpointIndex=0U;
+			
+			/* Deactivate the tool: */
+			deactivate();
+			}
 		}
 	}
 
@@ -661,7 +707,7 @@ void ViewpointFileNavigationTool::frame(void)
 		else
 			{
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		
 		/* Update the curve parameter and the GUI: */
@@ -673,7 +719,7 @@ void ViewpointFileNavigationTool::frame(void)
 
 void ViewpointFileNavigationTool::display(GLContextData& contextData) const
 	{
-	if(!viewpoints.empty()&&showKeyframes)
+	if(!viewpoints.empty()&&configuration.showKeyframes)
 		{
 		/* Display the next keyframe viewpoint in navigational coordinates: */
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);

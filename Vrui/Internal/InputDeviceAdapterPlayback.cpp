@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,10 +44,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
+#include <Vrui/TextEventDispatcher.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/Internal/MouseCursorFaker.h>
 #include <Vrui/VRWindow.h>
 #include <Vrui/Internal/Vrui.h>
+#include <Vrui/Internal/Config.h>
 #ifdef VRUI_INPUTDEVICEADAPTERPLAYBACK_USE_KINECT
 #include <Vrui/Internal/KinectPlayback.h>
 #endif
@@ -61,6 +63,7 @@ Methods of class InputDeviceAdapterPlayback:
 InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection)
 	:InputDeviceAdapter(sInputDeviceManager),
 	 inputDeviceDataFile(IO::openSeekableFile(configFileSection.retrieveString("./inputDeviceDataFileName").c_str())),
+	 applyPreTransform(false),
 	 mouseCursorFaker(0),
 	 synchronizePlayback(configFileSection.retrieveValue<bool>("./synchronizePlayback",false)),
 	 quitWhenDone(configFileSection.retrieveValue<bool>("./quitWhenDone",false)),
@@ -78,7 +81,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 	{
 	/* Read file header: */
 	inputDeviceDataFile->setEndianness(Misc::LittleEndian);
-	static const char* fileHeader="Vrui Input Device Data File v3.0\n";
+	static const char* fileHeader="Vrui Input Device Data File v4.0\n";
 	char header[34];
 	inputDeviceDataFile->read<char>(header,34);
 	header[33]='\0';
@@ -100,6 +103,11 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		{
 		/* File version with ray direction and velocities: */
 		fileVersion=3;
+		}
+	else if(strcmp(header+29,"4.0\n")==0)
+		{
+		/* File version with text and text control events: */
+		fileVersion=4;
 		}
 	else
 		{
@@ -172,12 +180,22 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 			}
 		}
 	
+	/* Check if the user wants to pre-transform stored device data: */
+	if(configFileSection.hasTag("./preTransform"))
+		{
+		/* Read the pre-transformation: */
+		applyPreTransform=true;
+		preTransform=configFileSection.retrieveValue<OGTransform>("./preTransform");
+		}
+	
 	/* Check if the user wants to use a fake mouse cursor: */
 	int fakeMouseCursorDevice=configFileSection.retrieveValue<int>("./fakeMouseCursorDevice",-1);
 	if(fakeMouseCursorDevice>=0)
 		{
 		/* Read the cursor file name and nominal size: */
-		std::string mouseCursorImageFileName=configFileSection.retrieveString("./mouseCursorImageFileName",DEFAULTMOUSECURSORIMAGEFILENAME);
+		std::string mouseCursorImageFileName=VRUI_INTERNAL_CONFIG_SHAREDIR;
+		mouseCursorImageFileName.append("/Textures/Cursor.Xcur");
+		mouseCursorImageFileName=configFileSection.retrieveString("./mouseCursorImageFileName",mouseCursorImageFileName.c_str());
 		unsigned int mouseCursorNominalSize=configFileSection.retrieveValue<unsigned int>("./mouseCursorNominalSize",24);
 		
 		/* Create the mouse cursor faker: */
@@ -389,20 +407,38 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		/* Update tracker state: */
 		if(inputDevices[device]->getTrackType()!=InputDevice::TRACK_NONE)
 			{
+			/* Data file version 3 and later contain per-time step device ray data: */
 			if(fileVersion>=3)
 				{
+				/* Read device ray data: */
 				Vector deviceRayDir;
 				inputDeviceDataFile->read(deviceRayDir.getComponents(),3);
 				Scalar deviceRayStart=inputDeviceDataFile->read<Scalar>();
 				inputDevices[device]->setDeviceRay(deviceRayDir,deviceRayStart);
 				}
+			
+			/* Read 6-DOF tracker state: */
 			TrackerState::Vector translation;
 			inputDeviceDataFile->read(translation.getComponents(),3);
 			Scalar quat[4];
 			inputDeviceDataFile->read(quat,4);
-			inputDevices[device]->setTransformation(TrackerState(translation,TrackerState::Rotation(quat)));
+			if(applyPreTransform)
+				{
+				/* Apply the pre-transformation and set the device state: */
+				OGTransform t=preTransform;
+				t*=OGTransform(translation,OGTransform::Rotation(quat),Scalar(1));
+				inputDevices[device]->setTransformation(TrackerState(t.getTranslation(),t.getRotation()));
+				}
+			else
+				{
+				/* Set the device state: */
+				inputDevices[device]->setTransformation(TrackerState(translation,TrackerState::Rotation(quat)));
+				}
+			
+			/* Data file version 3 and later contain linear and angular velocities: */
 			if(fileVersion>=3)
 				{
+				/* Read velocity data: */
 				Vector linearVelocity,angularVelocity;
 				inputDeviceDataFile->read(linearVelocity.getComponents(),3);
 				inputDeviceDataFile->read(angularVelocity.getComponents(),3);
@@ -414,6 +450,7 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 		/* Update button states: */
 		if(fileVersion>=3)
 			{
+			/* Extract button data from 8-bit bit masks: */
 			unsigned char buttonBits=0x00U;
 			int numBits=0;
 			for(int i=0;i<inputDevices[device]->getNumButtons();++i)
@@ -430,6 +467,7 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 			}
 		else
 			{
+			/* Read button data as sequence of 32-bit integers (oh my!): */
 			for(int i=0;i<inputDevices[device]->getNumButtons();++i)
 				{
 				int buttonState=inputDeviceDataFile->read<int>();
@@ -443,6 +481,13 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 			double valuatorState=inputDeviceDataFile->read<double>();
 			inputDevices[device]->setValuator(i,valuatorState);
 			}
+		}
+	
+	/* Data file version 4 and later contain text event data: */
+	if(fileVersion>=4)
+		{
+		/* Read and enqueue all text and text control events: */
+		inputDeviceManager->getTextEventDispatcher()->readEventQueues(*inputDeviceDataFile);
 		}
 	
 	/* Read time stamp of next data frame: */

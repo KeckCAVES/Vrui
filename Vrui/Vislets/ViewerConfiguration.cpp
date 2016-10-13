@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewerConfiguration - Vislet class to configure the settings of a Vrui
 Viewer object from inside a running Vrui application.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Vislets/ViewerConfiguration.h>
 
+#include <string>
+#include <Misc/StandardValueCoders.h>
+#include <Misc/CompoundValueCoders.h>
+#include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -36,6 +40,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Label.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Viewer.h>
+#include <Vrui/VRScreen.h>
+#include <Vrui/VRWindow.h>
 #include <Vrui/VisletManager.h>
 
 namespace Vrui {
@@ -56,13 +62,21 @@ ViewerConfigurationFactory::ViewerConfigurationFactory(VisletManager& visletMana
 	addParentClass(visletFactory);
 	#endif
 	
-	/* Set tool class' factory pointer: */
+	/* Load class settings: */
+	Misc::ConfigurationFileSection cfs=visletManager.getVisletClassSection(getClassName());
+	
+	/* Read the configuration unit of measurement: */
+	std::string unitName=cfs.retrieveString("./unitName","inch");
+	Scalar unitFactor=cfs.retrieveValue<Scalar>("./unitFactor",Scalar(1));
+	configUnit=Geometry::LinearUnit(unitName.c_str(),unitFactor);
+	
+	/* Set vislet class' factory pointer: */
 	ViewerConfiguration::factory=this;
 	}
 
 ViewerConfigurationFactory::~ViewerConfigurationFactory(void)
 	{
-	/* Reset tool class' factory pointer: */
+	/* Reset vislet class' factory pointer: */
 	ViewerConfiguration::factory=0;
 	}
 
@@ -101,7 +115,6 @@ extern "C" void destroyViewerConfigurationFactory(VisletFactory* factory)
 	delete factory;
 	}
 
-
 /********************************************
 Static elements of class ViewerConfiguration:
 ********************************************/
@@ -111,6 +124,21 @@ ViewerConfigurationFactory* ViewerConfiguration::factory=0;
 /************************************
 Methods of class ViewerConfiguration:
 ************************************/
+
+void ViewerConfiguration::updateViewer(void)
+	{
+	if(viewer!=0)
+		{
+		/* Update the controlled viewer: */
+		Vector currentViewDirection=viewer->getHeadTransformation().inverseTransform(viewer->getViewDirection());
+		viewer->setEyes(currentViewDirection,eyePos[0],(eyePos[2]-eyePos[1])*Scalar(0.5));
+		
+		/* Notify all VR windows that their viewers might have changed: */
+		int numWindows=getNumWindows();
+		for(int i=0;i<numWindows;++i)
+			getWindow(i)->updateViewerState(viewer);
+		}
+	}
 
 void ViewerConfiguration::setViewer(Viewer* newViewer)
 	{
@@ -137,10 +165,10 @@ void ViewerConfiguration::setViewer(Viewer* newViewer)
 	/* Update the eye position sliders: */
 	for(int eyeIndex=0;eyeIndex<3;++eyeIndex)
 		for(int i=0;i<3;++i)
-			eyePosSliders[eyeIndex][i]->setValue(eyePos[eyeIndex][i]);
+			eyePosSliders[eyeIndex][i]->setValue(eyePos[eyeIndex][i]*unitScale);
 	
 	/* Update the eye distance slider: */
-	eyeDistanceSlider->setValue(eyeDist);
+	eyeDistanceSlider->setValue(eyeDist*unitScale);
 	}
 
 void ViewerConfiguration::viewerMenuCallback(GLMotif::DropdownBox::ValueChangedCallbackData* cbData)
@@ -156,7 +184,7 @@ void ViewerConfiguration::eyePosSliderCallback(GLMotif::TextFieldSlider::ValueCh
 	int component=sliderIndex%3;
 	
 	/* Update the changed eye: */
-	eyePos[eyeIndex][component]=cbData->value;
+	eyePos[eyeIndex][component]=cbData->value/unitScale;
 	
 	/* Update dependent state: */
 	switch(eyeIndex)
@@ -170,7 +198,7 @@ void ViewerConfiguration::eyePosSliderCallback(GLMotif::TextFieldSlider::ValueCh
 			
 			/* Update the GUI: */
 			for(int updateEyeIndex=1;updateEyeIndex<3;++updateEyeIndex)
-				eyePosSliders[updateEyeIndex][component]->setValue(eyePos[updateEyeIndex][component]);
+				eyePosSliders[updateEyeIndex][component]->setValue(eyePos[updateEyeIndex][component]*unitScale);
 			
 			break;
 			}
@@ -182,23 +210,19 @@ void ViewerConfiguration::eyePosSliderCallback(GLMotif::TextFieldSlider::ValueCh
 			eyeDist=Geometry::dist(eyePos[1],eyePos[2]);
 			
 			/* Update the GUI: */
-			eyePosSliders[0][component]->setValue(eyePos[0][component]);
-			eyeDistanceSlider->setValue(eyeDist);
+			eyePosSliders[0][component]->setValue(eyePos[0][component]*unitScale);
+			eyeDistanceSlider->setValue(eyeDist*unitScale);
 			break;
 		}
 	
 	/* Update the controlled viewer: */
-	if(viewer!=0)
-		{
-		Vector currentViewDirection=viewer->getHeadTransformation().inverseTransform(viewer->getViewDirection());
-		viewer->setEyes(currentViewDirection,eyePos[0],(eyePos[2]-eyePos[1])*Scalar(0.5));
-		}
+	updateViewer();
 	}
 
 void ViewerConfiguration::eyeDistanceSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Update the eye distance: */
-	eyeDist=cbData->value;
+	eyeDist=cbData->value/unitScale;
 	
 	/* Re-position the left and right eyes: */
 	Vector eyeOffset=eyePos[2]-eyePos[1];
@@ -210,14 +234,10 @@ void ViewerConfiguration::eyeDistanceSliderCallback(GLMotif::TextFieldSlider::Va
 	/* Update the GUI: */
 	for(int eyeIndex=1;eyeIndex<3;++eyeIndex)
 		for(int i=0;i<3;++i)
-			eyePosSliders[eyeIndex][i]->setValue(eyePos[eyeIndex][i]);
+			eyePosSliders[eyeIndex][i]->setValue(eyePos[eyeIndex][i]*unitScale);
 	
 	/* Update the controlled viewer: */
-	if(viewer!=0)
-		{
-		Vector currentViewDirection=viewer->getHeadTransformation().inverseTransform(viewer->getViewDirection());
-		viewer->setEyes(currentViewDirection,eyePos[0],(eyePos[2]-eyePos[1])*Scalar(0.5));
-		}
+	updateViewer();
 	}
 
 void ViewerConfiguration::buildViewerConfigurationControls(void)
@@ -249,10 +269,10 @@ void ViewerConfiguration::buildViewerConfigurationControls(void)
 	viewerMenu->getValueChangedCallbacks().add(this,&ViewerConfiguration::viewerMenuCallback);
 	
 	/* Calculate an appropriate slider range and granularity: */
-	Scalar sliderRange=Scalar(18)*getInchFactor(); // Slider range is at least 18"
+	Scalar sliderRange=Scalar(18)*factory->configUnit.getInchFactor(); // Slider range is at least 18"
 	Scalar sliderRangeFactor=Math::pow(Scalar(10),Math::floor(Math::log10(sliderRange)));
 	sliderRange=Math::ceil(sliderRange/sliderRangeFactor)*sliderRangeFactor;
-	Scalar sliderStep=Scalar(0.01)*getInchFactor(); // Slider granularity is at most 0.01"
+	Scalar sliderStep=Scalar(0.01)*factory->configUnit.getInchFactor(); // Slider granularity is at most 0.01"
 	int sliderStepDigits=int(Math::floor(Math::log10(sliderStep)));
 	Scalar sliderStepFactor=Math::pow(Scalar(10),Scalar(sliderStepDigits));
 	sliderStep=Math::floor(sliderStep/sliderStepFactor)*sliderStepFactor;
@@ -325,7 +345,8 @@ void ViewerConfiguration::buildViewerConfigurationControls(void)
 	}
 
 ViewerConfiguration::ViewerConfiguration(int numArguments,const char* const arguments[])
-	:firstEnable(true),
+	:unitScale(factory->configUnit.getInchFactor()/getInchFactor()),
+	 firstEnable(true),
 	 viewer(0),
 	 dialogWindow(0)
 	{

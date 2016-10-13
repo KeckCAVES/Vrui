@@ -1,6 +1,6 @@
 /***********************************************************************
 TextField - Class for labels displaying values as text.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -297,8 +297,8 @@ void TextField::pointerButtonUp(Event& event)
 
 void TextField::pointerMotion(Event& event)
 	{
-	/* Bail out if the text field is not editable: */
-	if(!editable)
+	/* Bail out if the text field is not editable or the pointer button is not pressed: */
+	if(!editable||!event.isPressed())
 		return;
 	
 	/* Move the cursor to the selected character: */

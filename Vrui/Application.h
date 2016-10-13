@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -179,6 +179,7 @@ class Application
 	static void frameWrapper(void* userData);
 	static void displayWrapper(GLContextData& contextData,void* userData);
 	static void soundWrapper(ALContextData& contextData,void* userData);
+	static void resetNavigationWrapper(void* userData);
 	char* createEventToolClassName(void);
 	
 	/* Protected methods: */
@@ -202,12 +203,30 @@ class Application
 	virtual void frame(void); // Synchronization method called exactly once per frame
 	virtual void display(GLContextData& contextData) const; // Rendering method called at least once per window per frame, potentially concurrently from background thread(s)
 	virtual void sound(ALContextData& contextData) const; // Sound rendering method called at least once per sound context per frame, potentially concurrently from background thread(s)
+	virtual void resetNavigation(void); // Called when the system menu's "Reset View" button is pressed
 	virtual void eventToolCreationCallback(EventID eventId,ToolManager::ToolCreationCallbackData* cbData); // Called when the tool manager creates a new event tool
 	virtual void eventToolDestructionCallback(EventID eventId,ToolManager::ToolDestructionCallbackData* cbData); // Called when the tool manager destroys an event tool
 	virtual void eventCallback(EventID eventId,InputDevice::ButtonCallbackData* cbData); // Default callback method for simple event tools
 	};
 
 }
+
+#ifdef DEBUG
+
+/***********************************************************************
+Define a macro to create an application object of arbitrary type, run
+it, but don't catch any exceptions in order to collect core dumps:
+***********************************************************************/
+
+#define VRUI_APPLICATION_RUN(AppClass) \
+	int main(int argc,char* argv[]) \
+		{ \
+		AppClass app(argc,argv); \
+		app.run(); \
+		return 0; \
+		}
+
+#else
 
 /***********************************************************************
 Define a macro to create an application object of arbitrary type, run
@@ -234,6 +253,8 @@ it, and catch any exceptions:
 			} \
 		return 0; \
 		}
+
+#endif
 
 #ifndef VRUI_APPLICATION_IMPLEMENTATION
 #include <Vrui/Application.icpp>

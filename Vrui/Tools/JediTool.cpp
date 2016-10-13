@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,6 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
+#include <Vrui/Internal/Config.h>
 
 namespace Vrui {
 
@@ -46,7 +47,7 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	 lightsaberLength(Scalar(48)*getInchFactor()),
 	 lightsaberWidth(Scalar(6)*getInchFactor()),
 	 baseOffset(Scalar(3)*getInchFactor()),
-	 lightsaberImageFileName(DEFAULTLIGHTSABERIMAGEFILENAME)
+	 lightsaberImageFileName(std::string(VRUI_INTERNAL_CONFIG_SHAREDIR)+"/Textures/Lightsaber.png")
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -174,7 +175,7 @@ void JediTool::frame(void)
 			length*=activeTime/1.5;
 			
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		}
 	}

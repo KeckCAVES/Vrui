@@ -1,7 +1,7 @@
 /***********************************************************************
 Vrui - Public kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -41,10 +41,10 @@ class Multiplexer;
 class MulticastPipe;
 }
 class GLContextData;
-class GLMaterial;
+struct GLMaterial;
 class GLFont;
 namespace GLMotif {
-class StyleSheet;
+struct StyleSheet;
 class Widget;
 class WidgetManager;
 class PopupMenu;
@@ -57,6 +57,7 @@ class InputDevice;
 class VirtualInputDevice;
 class InputGraphManager;
 class InputDeviceManager;
+class TextEventDispatcher;
 class MutexMenu;
 class LightsourceManager;
 class ClipPlaneManager;
@@ -70,6 +71,7 @@ class SoundContext;
 class CoordinateManager;
 class Tool;
 class ToolManager;
+class UIManager;
 class VisletManager;
 class DisplayState;
 }
@@ -99,6 +101,8 @@ struct NavigationTransformationChangedCallbackData:public Misc::CallbackData // 
 		}
 	};
 
+typedef bool (*FrameCallback)(void* userData); // Function type for frame callbacks
+
 /***********************************************************************
 Vrui functions called from inside an application's main function. These
 functions are deprecated; applications should use the Vrui::Application
@@ -119,6 +123,10 @@ void setDisplayFunction(DisplayFunctionType displayFunction,void* userData);
 /* Sets the function that renders the application's current sound state: */
 typedef void (*SoundFunctionType)(ALContextData& contextData,void* userData);
 void setSoundFunction(SoundFunctionType soundFunction,void* userData);
+
+/* Sets the function that resets the navigation transformation to the default: */
+typedef void (*ResetNavigationFunctionType)(void* userData);
+void setResetNavigationFunction(ResetNavigationFunctionType resetNavigationFunction,void* userData);
 
 /* Initializes the graphics and sound subsystems and starts the toolkit's main loop: */
 void mainLoop(void);
@@ -205,7 +213,9 @@ Scalar getFrontplaneDist(void); // Returns the distance of the OpenGL front plan
 void setBackplaneDist(Scalar newBackplaneDist); // Sets the distance of the OpenGL back plane in physical units
 Scalar getBackplaneDist(void); // Returns the distance of the OpenGL back plane in physical units
 void setBackgroundColor(const Color& newBackgroundColor); // Sets the OpenGL background color
+void setForegroundColor(const Color& newBackgroundColor); // Sets a foreground color contrasting with the OpenGL background color
 const Color& getBackgroundColor(void); // Returns the OpenGL background color
+const Color& getForegroundColor(void); // Returns a color that contrasts well with the OpenGL background color, for HUD line drawings and such
 
 /* Manage primary widgets and popup menus: */
 GLFont* loadFont(const char* fontName); // Load and return a pointer to the font of the given name
@@ -221,11 +231,9 @@ const GLMaterial& getWidgetMaterial(void); // Returns the material property for 
 void setMainMenu(GLMotif::PopupMenu* newMainMenu); // Sets the application's main menu (associated to all menu tools)
 MutexMenu* getMainMenu(void); // Returns pointer to the application's main menu
 Misc::TimerEventScheduler* getTimerEventScheduler(void); // Returns pointer to the scheduler for application timer events
+TextEventDispatcher* getTextEventDispatcher(void); // Returns pointer to the GLMotif text event dispatcher
 GLMotif::WidgetManager* getWidgetManager(void); // Returns pointer to the UI component manager
-const ONTransform& getUiPlane(void); // Returns a plane to create / interact with UI components
-Point calcUiPoint(const Ray& ray); // Returns a position to create / interact with UI components for the given input device
-ONTransform calcUiTransform(const Ray& ray); // Returns a transformation to create / interact with UI components for the given input device
-ONTransform calcHUDTransform(const Point& hotSpot); // Returns a transformation for showing a HUD or GUI element at the given hot spot
+UIManager* getUiManager(void); // Returns pointer to the UI manager and widget arranger
 void popupPrimaryWidget(GLMotif::Widget* topLevel); // Shows a top-level UI component at a default position in the environment
 void popupPrimaryWidget(GLMotif::Widget* topLevel,const Point& hotSpot,bool navigational =true); // Shows a top-level UI component at the given position in physical or navigational coordinates
 void popupPrimaryScreenWidget(GLMotif::Widget* topLevel,Scalar x,Scalar y); // Shows a top-level UI component aligned to the given screen in the environment
@@ -267,12 +275,18 @@ Misc::Time getTimeOfDay(void); // Returns the system's wall clock time; requires
 double getApplicationTime(void); // Returns the time since the application was started in seconds; is identical throughout a Vrui frame and across a cluster
 double getFrameTime(void); // Returns the duration of the last frame in seconds
 double getCurrentFrameTime(void); // Returns the current average time between frames (1/framerate) in seconds
+double getNextAnimationTime(void); // Returns the application time at which the next frame in a general animation should be scheduled
+void addFrameCallback(FrameCallback newFrameCallback,void* newFrameCallbackUserData); // Adds a callback that is called once on every frame; can be called from background threads; callback is removed again if it returns true; can be called from background threads
 
 /* Rendering management: */
 void updateContinuously(void); // Tells Vrui to continuously update its state (must be called before mainLoop)
 void requestUpdate(void); // Tells Vrui to update its internal state and redraw the VR windows; can be called from any thread
 void scheduleUpdate(double nextFrameTime); // Asks Vrui to update its internal state and redraw the VR windows at the given application time; must be called from main thread
 const DisplayState& getDisplayState(GLContextData& contextData); // Returns the Vrui display state valid for the current display method call
+
+/* Desktop environment and session management: */
+void inhibitScreenSaver(void); // Requests to inhibit the desktop environment's screen saver to avoid screen blanking or low-power states while this VR application is running: */
+void uninhibitScreenSaver(void); // Releases any screen saver inhibition
 
 }
 

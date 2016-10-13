@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydra - Class to represent a Razer / Sixense Hydra dual-sensor
 desktop 6-DOF tracking device.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -34,9 +34,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 namespace Misc {
 template <class ParameterParam>
 class FunctionCall;
-}
-namespace USB {
-class Context;
 }
 
 class RazerHydra
@@ -83,7 +80,7 @@ class RazerHydra
 	
 	/* Constructors and destructors: */
 	public:
-	RazerHydra(USB::Context& usbContext,unsigned int index =0); // Connects to the index-th Razer Hydra device in the given USB context
+	RazerHydra(unsigned int index =0); // Connects to the index-th Razer Hydra device connected to the host's USB subsystem
 	private:
 	RazerHydra(const RazerHydra& source); // Prohibit copy constructor
 	RazerHydra& operator=(const RazerHydra& source); // Prohibit assignment operator

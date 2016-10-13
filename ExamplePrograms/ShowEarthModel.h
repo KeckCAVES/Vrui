@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -42,7 +42,6 @@ class CallbackData;
 }
 class GLPolylineTube;
 namespace GLMotif {
-class Popup;
 class PopupMenu;
 class PopupWindow;
 class TextField;
@@ -143,7 +142,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	GLMotif::ToggleButton* playToggle; // Toggle button for automatic playback
 	
 	/* Private methods: */
-	GLMotif::Popup* createRenderTogglesMenu(void); // Creates the "Rendering Modes" submenu
+	GLMotif::PopupMenu* createRenderTogglesMenu(void); // Creates the "Rendering Modes" submenu
 	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
 	GLMotif::PopupWindow* createRenderDialog(void); // Creates the rendering settings dialog
 	void updateCurrentTime(void); // Updates the current time text field
@@ -160,12 +159,12 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	void alignSurfaceFrame(Vrui::SurfaceNavigationTool::AlignmentData& alignmentData);
 	void menuToggleSelectCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void renderDialogCloseCallback(Misc::CallbackData* cbData);
 	void animationDialogCloseCallback(Misc::CallbackData* cbData);
 	void sliderCallback(GLMotif::Slider::ValueChangedCallbackData* cbData);
-	void centerDisplayCallback(Misc::CallbackData* cbData);
 	void setEventTime(double newEventTime);
 	};
 

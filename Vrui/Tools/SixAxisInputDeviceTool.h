@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisInputDeviceTool - Class for tools using six valuators for
 translational and rotational axes to control virtual input devices.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

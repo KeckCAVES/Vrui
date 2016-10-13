@@ -1,6 +1,6 @@
 /***********************************************************************
 Interval - Class for closed intervals of arbitrary scalar types.
-Copyright (c) 2003-2010 Oliver Kreylos
+Copyright (c) 2003-2016 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -28,9 +28,12 @@ Force instantiation of all standard Interval classes and functions:
 ******************************************************************/
 
 template class Interval<int>;
+template Interval<int> intersect(const Interval<int>&,const Interval<int>&);
 
 template class Interval<float>;
+template Interval<float> intersect(const Interval<float>&,const Interval<float>&);
 
 template class Interval<double>;
+template Interval<double> intersect(const Interval<double>&,const Interval<double>&);
 
 }

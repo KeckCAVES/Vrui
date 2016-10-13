@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -44,6 +44,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 /* Forward declarations: */
 namespace GLMotif {
+class PopupMenu;
 class PopupWindow;
 }
 class NaturalPointClient;
@@ -125,6 +126,7 @@ class MeasureEnvironment:public Vrui::Application
 	TotalStation::Scalar initialPrismOffset;
 	NaturalPointClient* naturalPointClient;
 	bool naturalPointFlipZ;
+	int naturalPointNumSamples;
 	OGTransform pointTransform; // Transformation applied to all incoming points
 	Threads::Thread pointCollectorThread;
 	mutable Threads::Mutex measuringMutex;
@@ -133,11 +135,15 @@ class MeasureEnvironment:public Vrui::Application
 	PointList floorPoints;
 	int screenPixelSize[2];
 	int gridSize;
+	int numScreenPoints[2];
+	PointList templateScreenPoints;
 	PointList screenPoints;
 	PointList ballPoints;
 	PointList trackerPoints;
+	std::vector<Scalar> trackerStdDevs;
 	bool measurementsDirty; // Flag if there are unsaved measurement changes
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
+	GLMotif::PopupWindow* samplingTrackerDialog; // A dialog window indicating that the NaturalPoint tracker is being sampled
 	
 	/* Private methods: */
 	static PTransform calcNormalization(const PointList& points);
@@ -145,11 +151,10 @@ class MeasureEnvironment:public Vrui::Application
 	void* pointCollectorThreadMethod(void);
 	void loadMeasurementFile(IO::Directory& directory,const char* fileName);
 	void saveMeasurementFile(const char* fileName);
-	void loadOptitrackSampleFile(IO::Directory& directory,const char* fileName,bool flipZ);
 	
 	/* Constructors and destructors: */
 	public:
-	MeasureEnvironment(int& argc,char**& argv,char**& appDefaults);
+	MeasureEnvironment(int& argc,char**& argv);
 	~MeasureEnvironment(void);
 	
 	/* Methods: */
@@ -165,8 +170,6 @@ class MeasureEnvironment:public Vrui::Application
 	void changeMeasuringModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
 	void loadMeasurementFileCallback(Misc::CallbackData* cbData);
 	void loadMeasurementFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
-	void loadOptitrackSampleFileCallback(Misc::CallbackData* cbData);
-	void loadOptitrackSampleFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveMeasurementFileCallback(Misc::CallbackData* cbData);
 	void createTransformationCallback(Misc::CallbackData* cbData);
 	void fitScreenTransformationCallback(Misc::CallbackData* cbData);

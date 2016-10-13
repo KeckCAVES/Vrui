@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferObject - OpenGL extension class for the
 GL_EXT_framebuffer_object extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/Extensions/GLEXTFramebufferObject.h>
 
+#include <string>
+#include <stdexcept>
 #include <GL/gl.h>
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
@@ -31,6 +33,7 @@ Static elements of class GLEXTFramebufferObject:
 ***********************************************/
 
 GL_THREAD_LOCAL(GLEXTFramebufferObject*) GLEXTFramebufferObject::current=0;
+const char* GLEXTFramebufferObject::name="GL_EXT_framebuffer_object";
 
 /***************************************
 Methods of class GLEXTFramebufferObject:
@@ -64,7 +67,7 @@ GLEXTFramebufferObject::~GLEXTFramebufferObject(void)
 
 const char* GLEXTFramebufferObject::getExtensionName(void) const
 	{
-	return "GL_EXT_framebuffer_object";
+	return name;
 	}
 
 void GLEXTFramebufferObject::activate(void)
@@ -80,13 +83,13 @@ void GLEXTFramebufferObject::deactivate(void)
 bool GLEXTFramebufferObject::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_framebuffer_object");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTFramebufferObject::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_framebuffer_object"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTFramebufferObject* newExtension=new GLEXTFramebufferObject;
@@ -96,43 +99,67 @@ void GLEXTFramebufferObject::initExtension(void)
 		}
 	}
 
-void glPrintFramebufferStatusEXT(std::ostream& stream,const char* tag)
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+std::string glComposeFramebufferStatusErrorEXT(GLenum status,const char* tag)
 	{
-	GLenum status=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	std::string result(tag);
 	switch(status)
 		{
 		case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
-			stream<<tag<<" frame buffer has an incomplete attachment"<<std::endl;
+			result.append(" frame buffer has an incomplete attachment");
 			break;
 		
 		case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
-			stream<<tag<<" frame buffer has no attachments"<<std::endl;
+			result.append(" frame buffer has no attachments");
 			break;
 		
 		case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
-			stream<<tag<<" frame buffer has attachments with mismatching sizes"<<std::endl;
+			result.append(" frame buffer has attachments with mismatching sizes");
 			break;
 		
 		case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
-			stream<<tag<<" frame buffer has an attachment with an invalid format"<<std::endl;
+			result.append(" frame buffer has an attachment with an invalid format");
 			break;
 		
 		case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
-			stream<<tag<<" frame buffer is missing a draw buffer attachment"<<std::endl;
+			result.append(" frame buffer is missing a draw buffer attachment");
 			break;
 		
 		case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
-			stream<<tag<<" frame buffer is missing a read buffer attachment"<<std::endl;
+			result.append(" frame buffer is missing a read buffer attachment");
 			break;
 		
 		case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-			stream<<tag<<" frame buffer configuration is unsupported by local OpenGL"<<std::endl;
+			result.append(" frame buffer configuration is unsupported by local OpenGL");
 			break;
 		
 		case GL_FRAMEBUFFER_COMPLETE_EXT:
+			result.append(" frame buffer is complete");
 			break;
 		
 		default:
-			stream<<tag<<" frame buffer is incomplete for unknown reasons"<<std::endl;
+			result.append(" frame buffer is incomplete for unknown reasons");
 		}
+	return result;
+	}
+
+}
+
+void glPrintFramebufferStatusEXT(std::ostream& stream,const char* tag)
+	{
+	GLenum status=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	if(status!=GL_FRAMEBUFFER_COMPLETE_EXT)
+		stream<<glComposeFramebufferStatusErrorEXT(status,tag)<<std::endl;
+	}
+
+void glThrowFramebufferStatusExceptionEXT(const char* tag)
+	{
+	GLenum status=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	if(status!=GL_FRAMEBUFFER_COMPLETE_EXT)
+		throw std::runtime_error(glComposeFramebufferStatusErrorEXT(status,tag));
 	}

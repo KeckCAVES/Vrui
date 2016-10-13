@@ -2,7 +2,7 @@
 PanelMenuTool - Class for menu tools that attach the program's main menu
 to an input device and allow any widget interaction tool to select items
 from it.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -116,8 +116,6 @@ PanelMenuTool::PanelMenuTool(const ToolFactory* factory,const ToolInputAssignmen
 	:MenuTool(factory,inputAssignment),
 	 buttonDevice(0)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 PanelMenuTool::~PanelMenuTool(void)
@@ -134,11 +132,11 @@ PanelMenuTool::~PanelMenuTool(void)
 
 void PanelMenuTool::initialize(void)
 	{
-	/* Create a virtual input device to shadow the zoom button: */
+	/* Create a virtual input device to shadow the tool button: */
 	buttonDevice=addVirtualInputDevice("PanelMenuToolButtonDevice",1,0);
 	
 	/* Copy the source device's tracking type: */
-	buttonDevice->setTrackType(interactionDevice->getTrackType());
+	buttonDevice->setTrackType(getButtonDevice(0)->getTrackType());
 	
 	/* Disable the virtual device's glyph: */
 	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
@@ -147,8 +145,7 @@ void PanelMenuTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	buttonDevice->setTransformation(interactionDevice->getTransformation());
+	buttonDevice->copyTrackingState(getButtonDevice(0));
 	}
 
 void PanelMenuTool::deinitialize(void)
@@ -186,8 +183,7 @@ void PanelMenuTool::frame(void)
 		}
 	
 	/* Update the virtual input device's position: */
-	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	buttonDevice->setTransformation(interactionDevice->getTransformation());
+	buttonDevice->copyTrackingState(getButtonDevice(0));
 	}
 
 void PanelMenuTool::setMenu(MutexMenu* newMenu)
@@ -234,7 +230,7 @@ InputDevice* PanelMenuTool::getSourceDevice(const InputDevice* forwardedDevice)
 		Misc::throwStdErr("PanelMenuTool::getSourceDevice: Given forwarded device is not transformed device");
 	
 	/* Return the designated source device: */
-	return interactionDevice;
+	return getButtonDevice(0);
 	}
 
 InputDeviceFeatureSet PanelMenuTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)

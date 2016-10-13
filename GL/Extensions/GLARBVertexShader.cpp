@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexShader - OpenGL extension class for the GL_ARB_vertex_shader
 extension.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -32,6 +32,7 @@ Static elements of class GLARBVertexShader:
 ******************************************/
 
 GL_THREAD_LOCAL(GLARBVertexShader*) GLARBVertexShader::current=0;
+const char* GLARBVertexShader::name="GL_ARB_vertex_shader";
 
 /**********************************
 Methods of class GLARBVertexShader:
@@ -50,7 +51,7 @@ GLARBVertexShader::~GLARBVertexShader(void)
 
 const char* GLARBVertexShader::getExtensionName(void) const
 	{
-	return "GL_ARB_vertex_shader";
+	return name;
 	}
 
 void GLARBVertexShader::activate(void)
@@ -66,13 +67,13 @@ void GLARBVertexShader::deactivate(void)
 bool GLARBVertexShader::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_vertex_shader");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBVertexShader::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_vertex_shader"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Initialize the GL_ARB_vertex_program extension first (shares entry points): */
 		GLARBVertexProgram::initExtension();

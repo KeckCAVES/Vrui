@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <unistd.h>
 #include <sys/mman.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/MessageLogger.h>
 
 namespace IO {
 
@@ -152,7 +153,7 @@ MemMappedFile::~MemMappedFile(void)
 		{
 		/* Unmap the file: */
 		if(munmap(memBase,memSize)<0)
-			throw Error(Misc::printStdErrMsg("IO::MemMappedFile: Fatal error while unmapping memory"));
+			Misc::userError("IO::MemMappedFile: Fatal error while unmapping memory");
 		}
 	}
 

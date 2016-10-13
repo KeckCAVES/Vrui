@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -36,8 +36,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <VRDeviceDaemon/VRDeviceManager.h>
 #include <VRDeviceDaemon/VRDeviceServer.h>
 
-bool shutdown;
-Threads::MutexCond shutdownCond;
+VRDeviceServer* deviceServer=0;
+bool shutdown=false;
 
 void signalHandler(int signalId)
 	{
@@ -45,23 +45,20 @@ void signalHandler(int signalId)
 		{
 		case SIGHUP:
 			/* Restart server: */
-			{
-			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=false;
-			shutdownCond.broadcast();
-			}
+			deviceServer->stop();
+			
 			break;
 		
 		case SIGINT:
 		case SIGTERM:
 			/* Shut down server: */
-			{
-			Threads::MutexCond::Lock shutdownLock(shutdownCond);
 			shutdown=true;
-			shutdownCond.broadcast();
-			}
+			deviceServer->stop();
+			
 			break;
 		}
+	
 	return;
 	}
 
@@ -69,13 +66,16 @@ int main(int argc,char* argv[])
 	{
 	/* Parse command line: */
 	bool daemonize=false;
-	const char* configFileName=SYSVRDEVICEDAEMONCONFIGFILENAME;
+	const char* configFileName=VRDEVICEDAEMON_CONFIG_CONFIGFILENAME;
 	const char* rootSectionName=0;
+	bool printHelp=false;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
 			{
-			if(strcasecmp(argv[i]+1,"D")==0)
+			if(strcasecmp(argv[i]+1,"h")==0)
+				printHelp=true;
+			else if(strcasecmp(argv[i]+1,"D")==0)
 				daemonize=true;
 			else if(strcasecmp(argv[i]+1,"rootSection")==0)
 				{
@@ -86,6 +86,19 @@ int main(int argc,char* argv[])
 			}
 		else
 			configFileName=argv[i];
+		}
+	
+	if(printHelp)
+		{
+		std::cout<<"Usage: "<<argv[0]<<" [-h] [-D] [-rootSection <root section name>] [<configuration file name>]"<<std::endl;
+		std::cout<<"\t-h Print this help text"<<std::endl;
+		std::cout<<"\t-D Daemonize the VR device daemon"<<std::endl;
+		std::cout<<"\t-rootSection <root section name>"<<std::endl;
+		std::cout<<"\t\tSelects the root configuration file section from which to load configuration data"<<std::endl;
+		std::cout<<"\t<configuration file name>"<<std::endl;
+		std::cout<<"\t\tName of the configuration file from which to load configuration data"<<std::endl;
+		
+		return 0;
 		}
 	
 	if(daemonize)
@@ -222,7 +235,6 @@ int main(int argc,char* argv[])
 		#ifdef VERBOSE
 		std::cout<<"VRDeviceDaemon: Initializing device server"<<std::endl<<std::flush;
 		#endif
-		VRDeviceServer* deviceServer=0;
 		configFile->setCurrentSection("./DeviceServer");
 		try
 			{
@@ -240,11 +252,8 @@ int main(int argc,char* argv[])
 		/* Go back to root section: */
 		configFile->setCurrentSection("..");
 		
-		/* Create shutdown condition variable: */
-		shutdown=false;
-		
-		/* Wait for restart or shutdown: */
-		shutdownCond.wait();
+		/* Run the server's main loop: */
+		deviceServer->run();
 		
 		/* Clean up: */
 		delete deviceServer;
@@ -280,5 +289,6 @@ int main(int argc,char* argv[])
 		// unlink("/var/log/DeviceDaemon.log");
 		}
 	#endif
+	
 	return 0;
 	}

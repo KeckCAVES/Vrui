@@ -1,6 +1,6 @@
 /***********************************************************************
 ValueSource - Class to read strings or numbers from files.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -115,8 +115,8 @@ class ValueSource
 		return result;
 		}
 	std::string readLine(void); // Reads characters until the end of the current line, and skips the newline character
-	unsigned int matchString(const char* string); // Tries to match the given string against characters from the current position; ignores character classes and does not skip whitespace; returns position of first mismatch (or length of string)
-	bool isString(const char* string) // Tries to match the given string against characters from the current position; returns true if exact match; stops reading before first mismatch
+	unsigned int matchString(const char* string); // Tries to match the given string against characters from the current position; ignores character classes and does not skip whitespace; returns position of first mismatch (or length of string); stops reading before first mismatch
+	bool isString(const char* string) // Tries to match the given string against characters from the current position; returns true if exact match
 		{
 		/* Check if the string was completely matched: */
 		bool result=string[matchString(string)]=='\0';

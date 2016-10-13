@@ -1,7 +1,7 @@
 /***********************************************************************
 TheoraMovieSaver - Helper class to save movies as Theora video streams
 packed into an Ogg container.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_THEORAMOVIESAVER_INCLUDED
 #define VRUI_INTERNAL_THEORAMOVIESAVER_INCLUDED
 
+#include <deque>
+#include <Threads/MutexCond.h>
+#include <Threads/Thread.h>
 #include <IO/File.h>
 #include <Video/OggStream.h>
 #include <Video/TheoraFrame.h>
@@ -47,6 +50,10 @@ class TheoraMovieSaver:public MovieSaver
 	int theoraQuality; // Target quality for Theora encoder in VBR mode
 	int theoraGopSize; // Distance between keyframes in the Theora video stream
 	int theoraFrameRate; // Integer frame rate
+	Threads::MutexCond captureCond; // Condition variable to signal that a new frame has been captured and added to the queue
+	std::deque<FrameBuffer> capturedFrames; // Queue of frame buffers selected for writing
+	Threads::Thread frameSavingThread; // Thread to write captured frames to disk; in separate thread to avoid latency issues
+	volatile bool done; // Flag whether all frames have been captured
 	Video::ImageExtractor* imageExtractor; // Extractor to convert RGB images to Y'CbCr 4:2:0 images
 	Video::TheoraEncoder theoraEncoder; // Theora encoder object
 	Video::TheoraFrame theoraFrame; // Frame buffer for frames in Y'CbCr 4:2:0 pixel format
@@ -54,6 +61,10 @@ class TheoraMovieSaver:public MovieSaver
 	/* Protected methods from MovieSaver: */
 	protected:
 	virtual void frameWritingThreadMethod(void);
+	
+	/* Private methods: */
+	private:
+	void* frameSavingThreadMethod(void); // Thread method to compress captured frames into the movie file
 	
 	/* Constructors and destructors: */
 	public:

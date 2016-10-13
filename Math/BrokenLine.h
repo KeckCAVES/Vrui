@@ -2,7 +2,7 @@
 BrokenLine - Class to represent constant piecewise linear functions to
 map from a source value range with a dead zone in the center to the
 interval [-1, +1].
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -75,22 +75,46 @@ class BrokenLine
 	/* Methods: */
 	Scalar map(Scalar source) const // Maps a source value to the destination range
 		{
-		if(source<deadMin)
+		if(min<max)
 			{
-			if(source>min)
-				return -(source-deadMin)/(min-deadMin);
+			/* Map to line from -1 to +1: */
+			if(source<deadMin)
+				{
+				if(source>min)
+					return -(source-deadMin)/(min-deadMin);
+				else
+					return -1.0;
+				}
+			else if(source>deadMax)
+				{
+				if(source<max)
+					return (source-deadMax)/(max-deadMax);
+				else
+					return 1.0;
+				}
 			else
-				return -1.0;
-			}
-		else if(source>deadMax)
-			{
-			if(source<max)
-				return (source-deadMax)/(max-deadMax);
-			else
-				return 1.0;
+				return 0.0;
 			}
 		else
-			return 0.0;
+			{
+			/* Map to line from +1 to -1: */
+			if(source>deadMin)
+				{
+				if(source<min)
+					return -(source-deadMin)/(min-deadMin);
+				else
+					return -1.0;
+				}
+			else if(source<deadMax)
+				{
+				if(source>max)
+					return (source-deadMax)/(max-deadMax);
+				else
+					return 1.0;
+				}
+			else
+				return 0.0;
+			}
 		}
 	};
 

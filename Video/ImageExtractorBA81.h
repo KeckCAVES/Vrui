@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorBA81 - Class to extract images from raw video frames
 encoded using an eight-bit Bayer pattern.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -49,6 +49,7 @@ class ImageExtractorBA81:public ImageExtractor
 	public:
 	virtual void extractGrey(const FrameBuffer* frame,void* image);
 	virtual void extractRGB(const FrameBuffer* frame,void* image);
+	virtual void extractYpCbCr(const FrameBuffer* frame,void* image);
 	virtual void extractYpCbCr420(const FrameBuffer* frame,void* yp,unsigned int ypStride,void* cb,unsigned int cbStride,void* cr,unsigned int crStride);
 	};
 

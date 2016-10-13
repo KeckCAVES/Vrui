@@ -1,7 +1,7 @@
 /***********************************************************************
 ForceJumpNavigationTool - Class to navigate by jumping from the viewer's
 current position to the position of an input device.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

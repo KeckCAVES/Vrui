@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceClient - Class encapsulating the VR device protocol's client
 side.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -40,6 +40,7 @@ class ConfigurationFileSection;
 }
 namespace Vrui {
 class VRDeviceDescriptor;
+class HMDConfiguration;
 }
 
 namespace Vrui {
@@ -63,15 +64,21 @@ class VRDeviceClient
 		};
 	
 	typedef Misc::FunctionCall<VRDeviceClient*> Callback; // Type for callback functions
+	typedef Misc::FunctionCall<const HMDConfiguration&> HMDConfigurationUpdatedCallback; // Type for callback functions called from background thread when an HMD configuration is updated; configurations are locked inside call
 	typedef Misc::FunctionCall<const ProtocolError&> ErrorCallback; // Type for error callback functions called from background thread to signal errors in streaming mode
 	
 	/* Elements: */
 	private:
 	VRDevicePipe pipe; // Pipe connected to device server
 	unsigned int serverProtocolVersionNumber; // Version number of server protocol
+	bool serverHasTimeStamps; // Flag whether the connected device server sends tracker state time stamps
 	std::vector<VRDeviceDescriptor*> virtualDevices; // List of virtual input devices managed by the server
-	Threads::Mutex stateMutex; // Mutex to serialize access to current state
+	mutable Threads::Mutex stateMutex; // Mutex to serialize access to current state
 	VRDeviceState state; // Shadow of server's current state
+	unsigned int numHmdConfigurations; // Number of HMD configurations maintained by the server
+	mutable Threads::Mutex hmdConfigurationMutex; // Mutex to serialize access to the HMD configurations
+	HMDConfiguration* hmdConfigurations; // Array of HMD configurations maintained by the server
+	HMDConfigurationUpdatedCallback** hmdConfigurationUpdatedCallbacks; // Callbacks called when an HMD configuration has been updated
 	bool active; // Flag if client is active
 	bool streaming; // Flag if client is in streaming mode
 	volatile bool connectionDead; // Flag whether the connection to the server was interrupted while in streaming mode
@@ -99,11 +106,11 @@ class VRDeviceClient
 		{
 		return *(virtualDevices[deviceIndex]);
 		}
-	void lockState(void) // Locks current server state
+	void lockState(void) const // Locks current server state
 		{
 		stateMutex.lock();
 		}
-	void unlockState(void) // Unlocks current server state
+	void unlockState(void) const // Unlocks current server state
 		{
 		stateMutex.unlock();
 		}
@@ -111,9 +118,23 @@ class VRDeviceClient
 		{
 		return state;
 		}
+	unsigned int getNumHmdConfigurations(void) const // Returns the number of HMD configurations maintained by the server
+		{
+		return numHmdConfigurations;
+		}
+	void lockHmdConfigurations(void) const // Locks HMD configurations
+		{
+		hmdConfigurationMutex.lock();
+		}
+	void unlockHmdConfigurations(void) const // Unlocks HMD configurations
+		{
+		hmdConfigurationMutex.unlock();
+		}
+	const HMDConfiguration& getHmdConfiguration(unsigned int index) const; // Returns the requested HMD configuration (HMD configurations must be locked while being used)
 	void activate(void); // Prepares the server for sending state packets
 	void deactivate(void); // Deactivates server
 	void getPacket(void); // Requests state packet from server; blocks until arrival
+	void setHmdConfigurationUpdatedCallback(unsigned int trackerIndex,HMDConfigurationUpdatedCallback* newHmdConfigurationUpdatedCallback); // Installs given callback function for the given tracker index (device client adopts function object)
 	void startStream(Callback* newPacketNotificationCallback,ErrorCallback* newErrorCallback =0); // Installs given callback functions (device client adopts function objects) and starts streaming mode
 	void stopStream(void); // Stops streaming mode
 	};

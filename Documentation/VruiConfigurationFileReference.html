@@ -7,7 +7,7 @@
 
 <H1>Vrui Configuration File Settings Reference</H1>
 
-Vrui's main configuration file, Vrui.cfg, is a hierarchical collection of sections containing tag/value pairs not unlike the Windows registry. The main difference is that Vrui configuration files are plain text, and that they contain strongly typed values from a rich set of types (see <A HREF="VruiCFGTypes.html">Vrui Configuration File Settings Value Type Reference</A>). The outermost section in Vrui.cfg is always called &quot;Vrui,&quot; and inside that section are any number of <EM>root sections</EM> defining the configurations of separate complete Vrui environments. These root sections are typically named by the host name of the computer running the respective environment, such that the Vrui run-time can automatically configure itself to the environment in which it is run at any given time.<P>
+<P>Vrui's main configuration file, Vrui.cfg, is a hierarchical collection of sections containing tag/value pairs not unlike the Windows registry. The main difference is that Vrui configuration files are plain text, and that they contain strongly typed values from a rich set of types (see <A HREF="VruiCFGTypes.html">Vrui Configuration File Settings Value Type Reference</A>). The outermost section in Vrui.cfg is always called &quot;Vrui,&quot; and inside that section are any number of <EM>root sections</EM> defining the configurations of separate complete Vrui environments. These root sections are typically named by the host name of the computer running the respective environment, such that the Vrui run-time can automatically configure itself to the environment in which it is run at any given time.</P>
 
 The rest of this document lists and explains all tag/value pairs that exist within the following section types:
 <UL>
@@ -16,6 +16,8 @@ The rest of this document lists and explains all tag/value pairs that exist with
 	<LI><A HREF="#inputdeviceadaptersections">Input Device Adapter Sections</A>
 		<UL>
 		<LI><A HREF="#inputdeviceadaptermousesettings">Mouse Input Device Adapter Settings</A></LI>
+
+		<LI><A HREF="#inputdeviceadaptermultitouchsettings">Multitouch Input Device Adapter Settings</A></LI>
 
 		<LI><A HREF="#inputdeviceadapterdevicedaemonsettings">DeviceDaemon Input Device Adapter Settings</A>
 			<UL>
@@ -37,6 +39,14 @@ The rest of this document lists and explains all tag/value pairs that exist with
 			</UL>
 		</LI>
 
+		<LI><A HREF="#inputdeviceadapterovrdsettings">OVRD Input Device Adapter Settings</A></LI>
+		
+		<LI><A HREF="#inputdeviceadapterdummysettings">Dummy Input Device Adapter Settings</A>
+			<UL>
+			<LI><A HREF="#dummyinputdevicesections">Dummy Input Device Sections</A></LI>
+			</UL>
+		</LI>
+
 		<LI><A HREF="#inputdeviceadapterplaybacksettings">Playback Input Device Adapter Settings</A></LI>
 		</UL>
 	</LI>
@@ -47,11 +57,35 @@ The rest of this document lists and explains all tag/value pairs that exist with
 
 	<LI><A HREF="#screensections">Screen Sections</A></LI>
 
-	<LI><A HREF="#windowsections">Window Sections</A></LI>
-
 	<LI><A HREF="#listenersections">Listener Sections</A></LI>
 
+	<LI><A HREF="#windowsections">Window Sections</A>
+		<UL>
+		<LI><A HREF="#lenscorrectionconfigurationsection">Lens Correction Configuration Section</A>
+			<UL>
+				<LI><A HREF="#lensdistortionfunctionsections">Lens Distortion Function Sections</A>
+					<UL>
+					<LI><A HREF="#polynomiallensdistortionfunctionsettings">Polynomial Lens Distortion Function Settings</A></LI>
+					
+					<LI><A HREF="#reciprocalpolynomiallensdistortionfunctionsettings">Reciprocal Polynomial Lens Distortion Function Settings</A></LI>
+					
+					<LI><A HREF="#catmullromsplinelensdistortionfunctionsettings">Catmull-Rom Spline Lens Distortion Function Settings</A></LI>
+					</UL>
+				</LI>
+			</UL>
+		</LI>
+		</UL>
+	</LI>
+
 	<LI><A HREF="#soundcontextsection">Sound Context Section</A></LI>
+
+	<LI><A HREF="#uimanagersection">UI Manager Section</A>
+		<UL>
+		<LI><A HREF="#uimanagerplanarsettings">Planar UI Manager Settings</A></LI>
+		
+		<LI><A HREF="#uimanagersphericalsettings">Spherical UI Manager Settings</A></LI>
+		</UL>
+	</LI>
 
 	<LI><A HREF="#toolmanagersection">Tool Manager Section</A>
 		<UL>
@@ -151,6 +185,11 @@ The rest of this document lists and explains all tag/value pairs that exist with
 </TR>
 
 <TR>
+<TD>inhibitScreenSaver</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Requests inhibition of the desktop environment's screen saver to avoid screen blanking or low-power states while a VR application is running.</EM></TD>
+</TR>
+
+<TR>
 <TD>inchScale</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Defines the physical coordinate unit used to describe the Vrui environment by specifying the length of an inch in physical units. For example, if the used physical units are meters, <EM>inchScale</EM> is set to 0.0254.</TD>
 </TR>
@@ -237,8 +276,23 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TR>
 
 <TR>
-<TD>screenProtectors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#screenprotector">screen protectors</A></TD>
-<TD>A list of input devices and associated sphere centers and radii (in device coordinates) to warn users of moving too close to one or more of the environment's configured screens. Screen protection can be enabled on a per-window basis through each window's <EM>protectScreens</EM> setting.</TD>
+<TD><A NAME="screenprotectorareas">screenProtectorAreas</A></TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#point">points</A></TD>
+<TD>A list of polygons, each defined by a list of vertices, defining the environment's accessible boundaries. If this tag is not present, the environment's boundaries will be defined by the set of <A HREF="#screensections">screens</A> that have the <A HREF="#protectscreen">protectScreen</A> flag set.</TD>
+</TR>
+
+<TR>
+<TD>screenProtectorDevices</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#screenprotectordevice">screen protector devices</A></TD>
+<TD>A list of input devices and associated sphere centers and radii (in device coordinates) to warn users of moving too close to the environment's configured boundaries.</TD>
+</TR>
+
+<TR>
+<TD>screenProtectorGridSize</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Spacing between grid lines when drawing screen protectors in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>screenProtectorGridColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Color with which to draw screen protector grids.</TD>
 </TR>
 
 <TR>
@@ -272,6 +326,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TR>
 
 <TR>
+<TD><A NAME="foregroundColor">foregroundColor</A></TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
+<TD>Defines a color that contrasts well with the selected <A HREF="#backgroundColor">backgroundColor</A>, to be used by Vrui components and applications to render HUD elements and such. Defaults to the complementary color of the selected background color.</TD>
+</TR>
+
+<TR>
 <TD>ambientLightColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD>
 <TD>Defines the ambient color component used in the OpenGL lighting equation. This is the light color used when no other lights are present. It should be kept at fairly low values not to wash out display contrast.</TD>
 </TR>
@@ -284,11 +343,6 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>drawOverlayWidgets</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Switches whether 3D user interface widgets are drawn in an overlay layer above all other 3D graphics. If disabled (the default), 3D widgets are integrated with other 3D graphics and drawn at the proper depth. If enabled, widgets are still drawn at proper depth, but appear to float above other graphics. This makes the user interface more desktop-like and works well in non-stereo mode, but can cause severe eye strain in stereo modes on the desktop and especially in immersive environments.</TD>
-</TR>
-
-<TR>
-<TD>popWidgetsOnScreen</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>If set to true, widgets popped up by Vrui applications will always be aligned with the main screen's plane, unless the application specifies a full widget transformation. This helps with keeping the illusion of a 2D user interface in desktop environments. This flag should not be enabled for immersive environments.</TD>
 </TR>
 
 <TR>
@@ -367,13 +421,23 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TR>
 
 <TR>
-<TD>pointPickDistance</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD><A NAME="pointPickDistance">pointPickDistance</A></TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Maximum &quot;fudge&quot; distance for a point-based 3D pick request.</TD>
 </TR>
 
 <TR>
 <TD>rayPickAngle</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
 <TD>Maximum &quot;fudge&quot; angle in degrees for a ray-based 3D pick request.</TD>
+</TR>
+
+<TR>
+<TD>animationFrameInterval</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Suggested frame time interval for general-purpose animations.</TD>
+</TR>
+
+<TR>
+<TD>uiManager</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of <A HREF="#uimanagersection">UI manager section</A>. The UI manager is responsible for arranging 2.5D UI components in physical space.</TD>
 </TR>
 
 <TR>
@@ -398,6 +462,8 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <DL>
 <DT>Mouse</DT><DD>Adapter for the window system's mouse and keyboard devices. Rest of the section contains <A HREF="#inputdeviceadaptermousesettings">mouse input device adapter settings</A>.</DD>
 
+<DT>Multitouch</DT><DD>Adapter for direct-mode multi-touch capable screens. Rest of the section contains <A HREF="#inputdeviceadaptermultitouchsettings">multitouch input device adapter settings</A>.</DD>
+
 <DT>DeviceDaemon</DT><DD>Adapter to receive input from Vrui's own stand-alone device driver daemon. Rest of the section contains <A HREF="#inputdeviceadapterdevicedaemonsettings">DeviceDaemon input device adapter settings</A>.</DD>
 
 <DT>Trackd</DT><DD>Adapter to receive input from an external trackd daemon (part of the CAVElib library). Rest of the section contains <A HREF="#inputdeviceadaptertrackdsettings">Trackd input device adapter settings</A>.</DD>
@@ -405,6 +471,10 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <DT>VisBox</DT><DD>Adapter to receive input from the proprietary head tracker used in <A HREF="http://www.visbox.com">VisBox</A> systems. Rest of the section contains <A HREF="#inputdeviceadaptervisboxsettings">VisBox input device adapter settings</A>.</DD>
 
 <DT>HID</DT><DD>Adapter to receive input from human interface devices (HIDs) provided by the operating system's input layer. Rest of the section contains <A HREF="#inputdeviceadapterhidsettings">HID input device adapter settings</A>.</DD>
+
+<DT>OVRD</DT><DD>Adapter to receive input from Oculus Rift HMDs provided by Oculus VR's ovrd tracking daemon. Rest of the section contains <A HREF="#inputdeviceadapterovrdsettings">OVRD input device adapter settings</A>.</DD>
+
+<DT>Dummy</DT><DD>Adapter to create static &quot;dummy&quot; input devices for debugging/development purposes. Rest of the section contains <A HREF="#inputdeviceadapterdummysettings">Dummy input device adapter settings</A></DD>
 
 <DT>Playback</DT><DD>Adaper to read back input device data saved in a previous session, using the saveInputDeviceData and inputDeviceDataFileName root section settings (for debugging or to record screenshot movies of VR interactions after the fact). Rest of the section contains <A HREF="#inputdeviceadapterplaybacksettings">playback input device adapter settings</A>.</DD>
 </DL>
@@ -434,13 +504,39 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TR>
 
 <TR>
-<TD>keyboardModeToggleKey</TD><TD><A HREF="VruiCFGTypes.html#keyname">key name</A></TD>
+<TD>modifiersAsButtons</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to forward the states of modifier keys as special buttons not associated with any button plane.</TD>
+</TR>
+
+<TR>
+<TD>keyboardModeToggleKey</TD><TD><A HREF="VruiCFGTypes.html#qualifiedkeyname">qualified key name</A></TD>
 <TD>The name of the key used to toggle the keyboard between <EM>input device mode</EM>, where selected button keys and modifier keys control the buttons of a virtual input device, and <EM>keyboard mode</EM>, where the keyboard can be used to enter and edit text as usual. This setting defaults to F1.</TD>
+</TR>
+
+<TR>
+<TD>grabPointer</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>If true, a Vrui application attempts to grab the mouse pointer while any mouse buttons or keys or modifier keys are pressed. Defaults to true.</TD>
 </TR>
 
 <TR>
 <TD>fakeMouseCursor</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Enables a texture-based mouse cursor to be rendered at the position of the mouse input device controlled by the input device adapter. This is useful in situations where the hardware mouse cursor is not available, or is inappropriate, such as in mouse-controlled cluster environments. This setting defaults to false.</TD>
+</TR>
+
+<TR>
+<TD>mouseIdleTimeout</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Marks the mouse as idle after the given time in seconds has elapsed and hides the mouse cursor.</TD>
+</TR>
+</TABLE>
+
+<H3><A NAME="inputdeviceadaptermultitouchsettings">Multitouch Input Device Adapter Settings</A></H3>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>maxNumDevices</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Maximum supported number of parallel touch events.</TD>
 </TR>
 </TABLE>
 
@@ -460,6 +556,16 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TR>
 
 <TR>
+<TD>predictMotion</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable motion prediction, both to estimate current states of recent device tracking state updates, and predict state at the next vertical sync.</TD>
+</TR>
+
+<TR>
+<TD>motionPredictionDelta</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Amount of motion prediction to apply to positions and orientations of all tracked devices, in seconds.</TD>
+</TR>
+
+<TR>
 <TD>inputDeviceNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#devicedaemoninputdevicesections">DeviceDaemon input device sections</A>. Each section defines a single input device, i.e., a collection of an (optional) tracker and a set of buttons and valuators (analog axes).</TD>
 </TR>
@@ -467,12 +573,12 @@ The floor plane is used by some navigation tools or applications to lock the vir
 
 <H4><A NAME="devicedaemoninputdevicesections">DeviceDaemon Input Device Sections</A></H4>
 
-If the name of an input device configuration file section matches the name of a virtual input device defined by the connected VR device daemon, all settings except deviceGlyphType and deviceGlyphMaterial are ignored, and their values are instead taken from the virtual input device descriptor received from the VR device daemon.<P>
+<P>If the name of an input device configuration file section matches the name of a virtual input device defined by the connected VR device daemon, all settings except deviceGlyphType and deviceGlyphMaterial are ignored, and their values are instead taken from the virtual input device descriptor received from the VR device daemon.</P>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>
 <TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
 </TR>
 
 <TR>
@@ -597,7 +703,7 @@ If the name of an input device configuration file section matches the name of a 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>
 <TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
 </TR>
 
 <TR>
@@ -693,12 +799,17 @@ If the name of an input device configuration file section matches the name of a 
 
 <TR>
 <TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
 </TR>
 
 <TR>
 <TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayStart</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>The ray parameter from which on a device ray is considered valid for intersection tests, in physical coordinate units. Positive value move the ray start along the ray direction.</TD>
 </TR>
 
 <TR>
@@ -729,7 +840,7 @@ If the name of an input device configuration file section matches the name of a 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR>
 <TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>The name of the input device used by Vrui itself and visible to Vrui applications.</TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
 </TR>
 
 <TR>
@@ -743,8 +854,154 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
+<TD>trackingDeviceName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>The name of another input device to which to lock this device's tracking state.</TD>
+</TR>
+
+<TR>
+<TD>trackingDeviceType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
+<TD>If a tracking input device is specified, this setting overrides the tracking type of that device.
+<DL>
+<DT>None</DT><DD>The input device does not have a tracker; it only contains buttons and/or valuators.</DD>
+
+<DT>3D</DT><DD>The input device has a tracker that reports 3D position only, but no orientation.</DD>
+
+<DT>Ray</DT><DD>The input device has a tracker that reports 3D position and a single direction vector, but no full orientation.</DD>
+
+<DT>6D</DT><DD>The input device has a tracker that reports both 3D position and full 3D orientation.</DD>
+</DL>
+</TD>
+</TR>
+
+<TR>
+<TD>projectDevice</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
+<TD>Flag selecting whether this device is projected by the UI manager.</TD>
+</TR>
+
+<TR>
 <TD>axis&lt;index&gt;Setting</TD><TD><A HREF="VruiCFGTypes.html#axissetting">axis value mapper</A></TD>
 <TD>Defines the value mapping for one of the device's absolute or relative analog axes, numbered starting from 0 in the order they are enumerated by the device. Allows to fine-tune the behavior of each device axis individually.</TD>
+</TR>
+
+<TR>
+<TD>buttonNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all buttons on the device. If no names or too few names are given, unnamed buttons are given a &quot;Button&lt;index&gt;&quot; default name.</TD>
+</TR>
+
+<TR>
+<TD>valuatorNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>Specifies names for all valuators on the device. If no names or too few names are given, unnamed valuators are given a &quot;Valuator&lt;index&gt;&quot; default name.</TD>
+</TR>
+</TABLE>
+
+<H3><A NAME="inputdeviceadapterovrdsettings">OVRD Input Device Adapter Settings</A></H3>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>cameraTransform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
+<TD>Transformation from Oculus Rift tracking camera space to Vrui physical space.</TD>
+</TR>
+
+<TR>
+<TD>postTransform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
+<TD>Adjustment transformation in HMD's coordinate system.</TD>
+</TR>
+
+<TR>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications. Defaults to &quot;OculusRift&quot;.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayStart</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>The ray parameter from which on a device ray is considered valid for intersection tests, in physical coordinate units. Positive value move the ray start along the ray direction.</TD>
+</TR>
+
+<TR>
+<TD>deviceGlyphType</TD><TD><A HREF="VruiCFGTypes.html#glyphtype">glyph type</A></TD>
+<TD>Type of glyph used to draw a 3D representation of the input device in the Vrui display environment.</TD>
+</TR>
+
+<TR>
+<TD>deviceGlyphMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
+<TD>Material properties to render the device glyph.</TD>
+</TR>
+</TABLE>
+
+<H3><A NAME="inputdeviceadapterdummysettings">Dummy Input Device Adapter Settings</A></H3>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>inputDeviceNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>List of names of <A HREF="#devicedaemoninputdevicesections">DeviceDaemon input device sections</A>. Each section defines a single input device, i.e., a collection of an (optional) tracker and a set of buttons and valuators (analog axes).</TD>
+</TR>
+</TABLE>
+
+<H4><A NAME="dummyinputdevicesections">Dummy Input Device Sections</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>The name of the input device used by Vrui itself and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
+</TR>
+
+<TR>
+<TD>trackType</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
+<TD>
+<DL>
+<DT>None</DT><DD>The input device does not have a tracker; it only contains buttons and/or valuators.</DD>
+
+<DT>3D</DT><DD>The input device has a tracker that reports 3D position only, but no orientation.</DD>
+
+<DT>Ray</DT><DD>The input device has a tracker that reports 3D position and a single direction vector, but no full orientation.</DD>
+
+<DT>6D</DT><DD>The input device has a tracker that reports both 3D position and full 3D orientation.</DD>
+</DL>
+</TD>
+</TR>
+
+<TR>
+<TD>transform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
+<TD>Constant position and orientation of the input device in physical space.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>The direction of a ray in local device coordinates that is used for ray-based interactions such as menu selection.</TD>
+</TR>
+
+<TR>
+<TD>deviceRayStart</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>The ray parameter from which on a device ray is considered valid for intersection tests, in physical coordinate units. Positive value move the ray start along the ray direction.</TD>
+</TR>
+
+<TR>
+<TD>deviceGlyphType</TD><TD><A HREF="VruiCFGTypes.html#glyphtype">glyph type</A></TD>
+<TD>Type of glyph used to draw a 3D representation of the input device in the Vrui display environment.</TD>
+</TR>
+
+<TR>
+<TD>deviceGlyphMaterial</TD><TD><A HREF="VruiCFGTypes.html#material">material</A></TD>
+<TD>Material properties to render the device glyph.</TD>
+</TR>
+
+<TR>
+<TD>numButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of buttons on the input device.</TD>
+</TR>
+
+<TR>
+<TD>numValuators</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of valuators (analog axes) on the input device.</TD>
 </TR>
 
 <TR>
@@ -766,6 +1023,11 @@ If the name of an input device configuration file section matches the name of a 
 <TR>
 <TD>inputDeviceDataFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the input file from which to read input device data. The file must have been created by saving input device data from a previous run of the same Vrui application, in the exact same environment; otherwise, results are undefined.</TD>
+</TR>
+
+<TR>
+<TD>preTransform</TD><TD><A HREF="VruiCFGTypes.html#orthogonaltransformation">orthogonal transformation</A></TD>
+<TD>Optional transformation applied from the left to stored input device tracking data.</TD>
 </TR>
 
 <TR>
@@ -887,7 +1149,7 @@ If the name of an input device configuration file section matches the name of a 
 
 <TR>
 <TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Name of the viewer used by Vrui itself, and visible to Vrui applications.</TD>
+<TD>Name of the viewer used by Vrui itself, and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
 </TR>
 
 <TR>
@@ -908,6 +1170,11 @@ If the name of an input device configuration file section matches the name of a 
 <TR>
 <TD>viewDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
 <TD>Defines a general viewing direction in local viewer coordinates.</TD>
+</TR>
+
+<TR>
+<TD>upDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>Defines an upwards-pointing direction in local viewer coordinates.</TD>
 </TR>
 
 <TR>
@@ -963,7 +1230,7 @@ If the name of an input device configuration file section matches the name of a 
 
 <TR>
 <TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Name of the screen used by Vrui itself, and visible to Vrui applications.</TD>
+<TD>Name of the screen used by Vrui itself, and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
 </TR>
 
 <TR>
@@ -1040,6 +1307,57 @@ If the name of an input device configuration file section matches the name of a 
 <TD>intersect</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether the screen is considered for intersection tests in screen-based UI methods.</TD>
 </TR>
+
+<TR>
+<TD><A NAME="protectscreen">protectScreen</A></TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether this screen's display area will be included in the definition of the environment's boundaries (also see <A HREF="#screenprotectorareas">screenProtectorAreas</A> tag).</TD>
+</TR>
+</TABLE>
+
+<H2><A NAME="listenersections">Listener Sections</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the listener used by Vrui itself, and visible to Vrui applications. Defaults to the name of the configuration file section.</TD>
+</TR>
+
+<TR>
+<TD>headTracked</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether the listener is attached to an input device or at a fixed position in physical space.</TD>
+</TR>
+
+<TR>
+<TD>headDevice</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>If the <EM>headTracked</EM> flag is true, the name of the input device to which the listener is attached.</TD>
+</TR>
+
+<TR>
+<TD>headDeviceTransformation</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
+<TD>The transformation from local listener space into physical space (if <EM>headTracked</EM> is false) or local input device space (if <EM>headTracked</EM> is true).</TD>
+</TR>
+
+<TR>
+<TD>headPosition</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>Defines the listener's head position in the listener's local space.</TD>
+</TR>
+
+<TR>
+<TD>listenDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>Defines a forward-pointing vector in the listener's local space.</TD>
+</TR>
+
+<TR>
+<TD>upDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>Defines an up-pointing vector in the listener's local space.</TD>
+</TR>
+
+<TR>
+<TD>gain</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Overall gain factor for this listener in all sound contexts.</TD>
+</TR>
 </TABLE>
 
 <H2><A NAME="windowsections">Window Sections</A></H2>
@@ -1068,11 +1386,6 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
-<TD>protectScreens</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>Flag whether to protect the screens associated with this window from monitored input devices (to prevent users from walking into screens).</TD>
-</TR>
-
-<TR>
 <TD>display</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the X11 display to use for this window; defaults to the local display defined by the DISPLAY environment variable.</TD>
 </TR>
@@ -1083,8 +1396,18 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
+<TD>outputName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of an output, i.e., a video signal connector or connected monitor, on the graphics adapter associated with the window's X display, on which the window should be placed, and inside whose pixel area the window is panned if panningViewport is true.</TD>
+</TR>
+
+<TR>
 <TD>groupId</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>ID of the window group to which this window belongs. Windows inside the same group share OpenGL contexts and OpenGL data and a rendered in sequence; separate groups are rendered in parallel from individual threads. Group IDs are local to each node in a Vrui cluster.</TD>
+</TR>
+
+<TR>
+<TD>windowSize</TD><TD><A HREF="VruiCFGTypes.html#windowsize">window size</A></TD>
+<TD>Initial size of the window's interior on the display in pixel units. This is only a request to the window manager, which might disallow certain placements.</TD>
 </TR>
 
 <TR>
@@ -1098,8 +1421,33 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
+<TD>bypassCompositor</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to bypass desktop compositing for this window, to reduce rendering latency. This is only a request to the window manager, and might not be granted.</TD>
+</TR>
+
+<TR>
 <TD>windowFullscreen</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>Flag whether to initially maximize the window (removing all window decoration and screen borders).</TD>
+</TR>
+
+<TR>
+<TD>useBackBuffer</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to force double-buffered rendering in this window, even if the window type and other settings would allow front-buffer rendering.</TD>
+</TR>
+
+<TR>
+<TD>vsync</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to enable vertical retrace synchronization on this window, for tear-free rendering and smooth frame rates at the cost of increased latency.</TD>
+</TR>
+
+<TR>
+<TD>lowLatency</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to reduce display latency if vsync is enabled, at the cost of the CPU busy-waiting for the vertical retrace period.</TD>
+</TR>
+
+<TR>
+<TD>preSwapDelay</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>If front-buffer rendering, number of milliseconds before the vertical retrace signal to start the final lens distortion correction rendering pass for tear-free and smooth rendering. Requires the optional GLX_NV_delay_before_swap OpenGL extension.</TD>
 </TR>
 
 <TR>
@@ -1139,6 +1487,21 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
+<TD>multisamplingLevel</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Level of OpenGL multisampling to use for the window. Support for this feature, and the available level numbers, are dependent on the model of installed graphics card.</TD>
+</TR>
+
+<TR>
+<TD>lensCorrectorName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of the <A HREF="#lenscorrectionconfigurationsection">lens correction configuration section</A> for this window, defining parameters for lens distortion correction as required for commodity head-mounted displays.</TD>
+</TR>
+
+<TR>
+<TD>mouseScreenName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Name of a screen used to project the mouse cursor position into 3D space. If not specified, this defaults to the screen associated with the viewport of the window currently containing the mouse cursor. Using a mouse screen helps improve mouse interaction specifically on split-viewport stereo windows.</TD>
+</TR>
+
+<TR>
 <TD>autoScreenSize</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
 <TD>If set to true, instructs the window to query the physical size of its associated X11 screen, and override the configured size of its associated VR screen with the found values. If the X11 server is configured correctly, this will result in accurate physical units in the display window for any connected monitor.</TD>
 </TR>
@@ -1164,38 +1527,33 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 
 <TR>
-<TD>lensCorrection</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>Master switch to enable post-rendering radial lens distortion correction for this window. Requires the left and right viewports for split-viewport stereo windows to have identical sizes.</TD>
-</TR>
-
-<TR>
-<TD>lcPoly<BR>leftLcPoly<BR>rightLcPoly</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
-<TD>Specifies coefficients of a radial polynomial for both screens, or for the left and right screen individually. Polynomial degree is determined automatically from the number of coefficients. The left and right polynomials must have the same degrees.</TD>
-</TR>
-
-<TR>
-<TD>lcCenter<BR>leftLcCenter<BR>rightLcCenter</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
-<TD>Specifies the center point of radial lens distortion correction for both screens, or for the left and right screen individually, in viewport-relative coordinates in the range [0, 1]&nbsp;x [0, 1].</TD>
-</TR>
-
-<TR>
-<TD>lcPreScales<BR>leftLcPreScales<BR>rightLcPreScales</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
-<TD>Specifies the scaling factors from viewport-relative coordinates to undistortion coordinates, to which the undistortion polynomial is applied. Calculated by default on screen sizes such that distortion is circular.</TD>
-</TR>
-
-<TR>
-<TD>lcOverscan<BR>leftLcOverscan<BR>rightLcOverscan</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly four <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
-<TD>Viewport-relative expansion of the pre-distorted view frustum, in order left, right, bottom, top. Zero values for all components disable overscan. When different for the left/right viewports, the total overscan ratios (1+left+right, 1+bottom+top) are assumed to be identical for both viewports.</TD>
-</TR>
-
-<TR>
-<TD>lcCubic</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>Flag to enable bicubic sampling for post-rendering radial lens distortion correction.</TD>
-</TR>
-
-<TR>
 <TD>toolKillZonePos</TD><TD><A HREF="VruiCFGTypes.html#windowpoint">window point</A></TD>
 <TD>Setting to override the position of the tool kill zone when moving/resizing panning-viewport windows. By default, the position of the tool kill zone is given in physical coordinates and does not move with the window. If this tag is set, the tool kill zone will always stay at the given relative window coordinates. Relative window coordinates map (0, 0) to the lower-left window corner and (1, 1) to the top-right window corner.</TD>
+</TR>
+
+<TR>
+<TD>exitKey</TD><TD><A HREF="VruiCFGTypes.html#qualifiedkeyname">qualified key name</A></TD>
+<TD>Key that terminates the Vrui application without confirmation. Defaults to Esc.</TD>
+</TR>
+
+<TR>
+<TD>homeKey</TD><TD><A HREF="VruiCFGTypes.html#qualifiedkeyname">qualified key name</A></TD>
+<TD>Key that resets the navigation transformation to the application-defined default. Defaults to Super+Home.</TD>
+</TR>
+
+<TR>
+<TD>screenshotKey</TD><TD><A HREF="VruiCFGTypes.html#qualifiedkeyname">qualified key name</A></TD>
+<TD>Key to request a screenshot from this Vrui window. Defaults to Super+Print.</TD>
+</TR>
+
+<TR>
+<TD>fullscreenToggleKey</TD><TD><A HREF="VruiCFGTypes.html#qualifiedkeyname">qualified key name</A></TD>
+<TD>Key to toggle the Vrui window between windowed and fullscreen mode. Defaults to F11.</TD>
+</TR>
+
+<TR>
+<TD>burnModeToggleKey</TD><TD><A HREF="VruiCFGTypes.html#qualifiedkeyname">qualified key name</A></TD>
+<TD>Key to switch the Vrui window into and out of &quot;burn mode,&quot; in which frames are generated and rendered as quickly as possible to calculate the performance of the Vrui application. Defaults to Super+ScrollLock.</TD>
 </TR>
 
 <TR>
@@ -1265,17 +1623,12 @@ If the name of an input device configuration file section matches the name of a 
 
 <TR>
 <TD>showFps</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>Flag to display the current (filtered) Vrui frame rate in the window.</TD>
+<TD>Flag to display the current (filtered) Vrui frame rate in the window. Frame rates are only displayed while the Vrui application is in &quot;burn mode.&quot;</TD>
 </TR>
 
 <TR>
 <TD>showFpsFontName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the font used to display the current frame rate in the window. Vrui uses its own texture-based fonts which are installed in the share/GLFonts directory.</TD>
-</TR>
-
-<TR>
-<TD>multisamplingLevel</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
-<TD>Level of OpenGL multisampling to use for the window. Support for this feature, and the available level numbers, are dependent on the model of installed graphics card.</TD>
 </TR>
 
 <TR>
@@ -1294,49 +1647,149 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 </TABLE>
 
-<H2><A NAME="listenersections">Listener Sections</A></H2>
+<H3><A NAME="lenscorrectionconfigurationsection">Lens Correction Configuration Section</A></H3>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
 
 <TR>
-<TD>name</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Name of the listener used by Vrui itself, and visible to Vrui applications.</TD>
+<TD>lensCenterDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Distance between the centers of the left and right lenses, in physical coordinate units. Used to generate default lens center positions. Default value is 2.5".</TD>
 </TR>
 
 <TR>
-<TD>headTracked</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
-<TD>Flag whether the listener is attached to an input device or at a fixed position in physical space.</TD>
+<TD>lensScreenDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Distance from screen surface to the surface of the left and right lenses, in physical coordinate units. Used to generate default lens center positions. Default value is the smaller of the widths of the window's left and right screens.</TD>
 </TR>
 
 <TR>
-<TD>headDevice</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>If the <EM>headTracked</EM> flag is true, the name of the input device to which the listener is attached.</TD>
+<TD>lensFocalLength</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Focal length of both lenses in Vrui physical units. Default value is 2.5".</TD>
 </TR>
 
 <TR>
-<TD>headDeviceTransformation</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD>
-<TD>The transformation from local listener space into physical space (if <EM>headTracked</EM> is false) or local input device space (if <EM>headTracked</EM> is true).</TD>
+<TD>lensProjectionDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Distance from projected virtual screen surface to the surface of the left and right lenses, in physical coordinate units.</TD>
 </TR>
 
 <TR>
-<TD>headPosition</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
-<TD>Defines the listener's head position in the listener's local space.</TD>
+<TD>leftLensCenter<BR>rightLensCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
+<TD>3D positions of the left/right lenses' centers, in screen coordinates of the window's left/right screens, respectively. Default values are based on lensCenterDist, lensScreenDist, and the vertical center points of the windows left/right screens, respectively.</TD>
 </TR>
 
 <TR>
-<TD>listenDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
-<TD>Defines a forward-pointing vector in the listener's local space.</TD>
+<TD>leftLensFocalLength<BR>rightLensFocalLength</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
+<TD>Focal lengths of the left and right lenses, respectively.</TD>
 </TR>
 
 <TR>
-<TD>upDirection</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
-<TD>Defines an up-pointing vector in the listener's local space.</TD>
+<TD>leftLensProjectionDist<BR>rightLensProjectionDist</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Projection distances for the virtual left and right screens, respectively. Used to automatically create virtual screens based on window's real screens.</TD>
 </TR>
 
 <TR>
-<TD>gain</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
-<TD>Overall gain factor for this listener in all sound contexts.</TD>
+<TD>leftFormulaNames<BR>rightFormulaNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly three <A HREF="VruiCFGTypes.html#string">strings</A></TD>
+<TD>List of names of <A HREF="#distortionfunctionsections">distortion function sections</A> for the left/right lenses, respectively, in the order green-channel distortion function, red-channel distortion modulation function, red-channel distortion modulation function.</TD>
+</TR>
+
+<TR>
+<TD>leftOverscan<BR>rightOverscan</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly four <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>List of left, right, bottom, and top overscan factors for the left/right lenses, respectively, accounting for increased FOV due to lens magnification. Default values are (0.0, 0.0, 0.0, 0.0) for no overscan.</TD>
+</TR>
+
+<TR>
+<TD>projectScreens</TD><TD><A HREF="VruiCFGTypes.html#boolean"></A>boolean</TD>
+<TD>Flag whether to override the window's specified left and right screens with virtual versions projected by the left and right lenses, respectively.</TD>
+</TR>
+
+<TR>
+<TD>superSampling</TD><TD><A HREF="VruiCFGTypes.html#number"></A>number</TD>
+<TD>Magnification factor for the pre-distortion render buffer for super-sampling antialiasing. Defaults to 1.0 for no super-sampling.</TD>
+</TR>
+
+<TR>
+<TD>warpMeshSize</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#integer">integers</A></TD>
+<TD>List of integers not smaller than one defining the number of columns and rows in the lens correction warp mesh, respectively. Default value is (64, 64).</TD>
+</TR>
+
+<TR>
+<TD>warpCubicLookup</TD><TD><A HREF="VruiCFGTypes.html#boolean"></A>boolean</TD>
+<TD>Flag whether to use cubic interpolation when re-sampling a pre-distortion render image into the final window during lens distortion correction. Defaults to false.</TD>
+</TR>
+
+<TR>
+<TD>displayRotation</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Rotation angle for the display rendered into by the lens corrector, in degrees in 90 degree increments. When using display correction, the window size gives the true (unrotated) size and position of the window, and the screen positions, dimensions, and orientations are unrotated in physical or HMD device space.</TD>
+</TR>
+
+<TR>
+<TD>oledCorrectionFactors</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#number">numbers</A></A></TD>
+<TD>&quot;Overdrive&quot; correction factors to account for OLED pixels' non-instantaneous switch times. The first number is the overdrive factor applied to pixels of increasing brightness, the second is the factor applied to pixels of decreasing brightness. Default value is (0.0, 0.0) for no overdrive correction.</TD>
+</TR>
+
+<TR>
+<TD>fixContrast</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to enable or disable automatic contrast reduction when OLED overdrive correction is enabled. Default value is true.</TD>
+</TR>
+</TABLE>
+
+<H4><A NAME="lensdistortionfunctionsections">Lens Distortion Function Sections</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>type</TD><TD><A HREF="VruiCFGTypes.html#"enumerant></A>enumerant</TD>
+<TD>
+<DL>
+<DT>Polynomial</DT>
+<DD>Simple polynomial distortion formula of arbitrary degree. Rest of the section contains <A HREF="#polynomiallensdistortionfunctionsettings">polynomial lens distortion function settings</A>.</DD>
+
+<DT>ReciprocalPolynomial</DT>
+<DD>Reciprocal polynomial distortion formula of arbitrary degree. Rest of the section contains <A HREF="#reciprocalpolynomiallensdistortionfunctionsettings">reciprocal polynomial lens distortion function settings</A>.</DD>
+
+<DT>CatmullRomSpline</DT>
+<DD>Catmull-Rom spline distortion formula with arbitrary number of control points and a linear scaling factor. Rest of the section contains <A HREF="#catmullromsplinelensdistortionfunctionsettings">Catmull-Rom spline lens distortion function settings</A>.</DD>
+</DL>
+</TD>
+</TR>
+</TABLE>
+
+<H4><A NAME="polynomiallensdistortionfunctionsettings">Polynomial Lens Distortion Function Settings</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>coefficients</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>List of coefficients for the polynomial function f(x)=c[0] + x*(c[1] + x*(c[2] + ...)). A value of 1.0 is implicitly added to the first coefficient.</TD>
+</TR>
+</TABLE>
+
+<H4><A NAME="reciprocalpolynomiallensdistortionfunctionsettings">Reciprocal Polynomial Lens Distortion Function Settings</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>coefficients</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>List of coefficients for the reciprocal polynomial function f(x)=1.0 / (c[0] + x*(c[1] + x*(c[2] + ...))). A value of 1.0 is implicitly added to the first coefficient.</TD>
+</TR>
+</TABLE>
+
+<H4><A NAME="catmullromsplinelensdistortionfunctionsettings">Catmull-Rom Spline Lens Distortion Function Settings</A></H4>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>r2Max</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum squared radius expected by the Catmull-Rom spline.</TD>
+</TR>
+
+<TR>
+<TD>coefficients</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#number">numbers</A></TD>
+<TD>List of coefficients, aka control point values, for the Catmull-Rom spline. Control points are spaced uniformly in the [0, r2Max] interval.</TD>
 </TR>
 </TABLE>
 
@@ -1353,6 +1806,26 @@ If the name of an input device configuration file section matches the name of a 
 <TR>
 <TD>deviceName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Name of the OpenAL sound device used by this sound context.</TD>
+</TR>
+
+<TR>
+<TD>mixerFrequency</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Frequency for the main channel mixer in Hz.</TD>
+</TR>
+
+<TR>
+<TD>refreshFrequency</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Refresh frequency for the main channel mixer in Hz.</TD>
+</TR>
+
+<TR>
+<TD>numMonoSources</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Hints to the main channel mixer how many mono audio sources to expect.</TD>
+</TR>
+
+<TR>
+<TD>numStereoSources</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Hints to the main channel mixer how many stereo audio sources to expect.</TD>
 </TR>
 
 <TR>
@@ -1393,6 +1866,75 @@ If the name of an input device configuration file section matches the name of a 
 </TR>
 </TABLE>
 
+<H2><A NAME="uimanagersection">UI Manager Section</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>type</TD><TD><A HREF="VruiCFGTypes.html#enumerant">enumerant</A></TD>
+<TD>
+<DL>
+<DT>Free</DT>
+<DD>UI manager to freely lay out UI components in 3D space.</DD>
+
+<DT>Planar</DT>
+<DD>UI manager to lay out UI components on an arbitrary 3D plane. Rest of the section contains <A HREF="#uimanagerplanarsettings">planar UI manager settings</A>.</DD>
+
+<DT>Spherical</DT>
+<DD>UI manager to lay out UI components on an arbitrary 3D sphere. Rest of the section contains <A HREF="#uimanagersphericalsettings">spherical UI manager settings</A>.</DD>
+</DL>
+</TD>
+</TR>
+</TABLE></P>
+
+<H3><A NAME="uimanagerplanarsettings">Planar UI Manager Settings</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>plane</TD><TD><A HREF="VruiCFGTypes.html#plane">plane</A></TD>
+<TD>Equation of the 3D plane in physical space to which all UI components are constrained.</TD>
+</TR>
+
+<TR>
+<TD>up</TD><TD><A HREF="VruiCFGTypes.html#vector">vector</A></TD>
+<TD>&quot;Up&quot; direction for UI component in physical space.</TD>
+</TR>
+
+<TR>
+<TD>constrainMovement</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
+<TD>Flag whether user-requested movement of UI components will be restricted to the 3D UI plane.</TD>
+</TR>
+</TABLE></P>
+
+<H3><A NAME="uimanagersphericalsettings">Spherical UI Manager Settings</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>sphereCenter</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
+<TD>Center point of the 3D sphere in physical space to which all UI components are constrained.</TD>
+</TR>
+
+<TR>
+<TD>sphereRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Radius of the 3D sphere in physical coordinate units to which all UI components are constrained.</TD>
+</TR>
+
+<TR>
+<TD>alignSecant</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
+<TD>Flag whether UI components will be positioned secant to the 3D UI sphere, i.e., sticking halfway out, as opposed to tangential, where a UI component's hot spot touches the sphere.</TD>
+</TR>
+
+<TR>
+<TD>constrainMovement</TD><TD><A HREF="VruiCFGTypes.html#bool">bool</A></TD>
+<TD>Flag whether user-requested movement of UI components will be restricted to the 3D UI sphere.</TD>
+</TR>
+</TABLE></P>
+
 <H2><A NAME="toolmanagersection">Tool Manager Section</A></H2>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -1410,9 +1952,9 @@ If the name of an input device configuration file section matches the name of a 
 
 <TR>
 <TD>toolClassNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
-<TD>List of names of tool classes recognized by the tool manager (and offered to users via the Tools menu). Tool classes are instantiated in order of appearance in the list; tool classes that depend on other tool classes must be listed after their dependencies.<P>
+<TD><P>List of names of tool classes recognized by the tool manager (and offered to users via the Tools menu). Tool classes are instantiated in order of appearance in the list; tool classes that depend on other tool classes must be listed after their dependencies.</P>
 
-Each tool class can read configuration settings from its own subsection inside the tool manager section, named by the tool class' internal class name. For a list of all core Vrui tool classes, their internal class names, and their configuration file settings, see the <A HREF="VruiToolConfigurationFileReference.html">Vrui Tool Class Configuration File Settings Reference</A>.</TD>
+<P>Each tool class can read configuration settings from its own subsection inside the tool manager section, named by the tool class' internal class name. For a list of all core Vrui tool classes, their internal class names, and their configuration file settings, see the <A HREF="VruiToolConfigurationFileReference.html">Vrui Tool Class Configuration File Settings Reference</A>.</P></TD>
 </TR>
 
 <TR>
@@ -1519,9 +2061,9 @@ This section lists all tools that are to be bound to input device features on ap
 <TD>bindings</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#featureassignment">feature assignments</A></TD>
 <TD>A list of button or valuator features to assign to the tool's button or valuator slots, respectively, in list order. The number of button and valuator slots required by each tool class, and the semantics of each slot, are listed in the <A HREF="VruiToolConfigurationFileReference.html">Vrui Tool Configuration File Settings Reference</A>.</TD>
 </TR>
-</TABLE><P>
+</TABLE>
 
-In addition to the above tag/value pairs, tool binding sections can contain any subset of the configuration tag/value pairs understood by the tool class used in the binding. Tool class setting tag/value pairs provided in a tool binding section override the values of the same configuration tags given in that tool class' configuration section.
+<P>In addition to the above tag/value pairs, tool binding sections can contain any subset of the configuration tag/value pairs understood by the tool class used in the binding. Tool class setting tag/value pairs provided in a tool binding section override the values of the same configuration tags given in that tool class' configuration section.</P>
 
 <H2><A NAME="visletmanagersection">Vislet Manager Section</A></H2>
 
@@ -1541,7 +2083,7 @@ In addition to the above tag/value pairs, tool binding sections can contain any 
 
 <H3><A NAME="visletclassconfigurationsections">Vislet Class Configuration Sections</A></H3>
 
-Any subsections under the <A HREF="#visletmanagersection">Vislet Manager Section</A> whose names are equal to the class names of vislet classes contain configuration settings for their respective vislet classes.
+<P>Any subsections under the <A HREF="#visletmanagersection">Vislet Manager Section</A> whose names are equal to the class names of vislet classes contain configuration settings for their respective vislet classes.</P>
 
 </BODY>
 </HTML>

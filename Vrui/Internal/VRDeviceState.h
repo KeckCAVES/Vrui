@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceState - Class to represent the current state of a single or
 multiple VR devices.
-Copyright (c) 2002-2011 Oliver Kreylos
+Copyright (c) 2002-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_INTERNAL_VRDEVICESTATE_INCLUDED
 #define VRUI_INTERNAL_VRDEVICESTATE_INCLUDED
 
+#include <Misc/SizedTypes.h>
 #include <Misc/ArrayMarshallers.h>
 #include <IO/File.h>
 #include <Geometry/OrthonormalTransformation.h>
@@ -45,17 +46,19 @@ class VRDeviceState
 		
 		/* Elements: */
 		PositionOrientation positionOrientation; // Current tracker position/orientation
-		LinearVelocity linearVelocity; // Current linear velocity in units/s
-		AngularVelocity angularVelocity; // Current angular velocity in radians/s
+		LinearVelocity linearVelocity; // Current linear velocity in units/s in physical space
+		AngularVelocity angularVelocity; // Current angular velocity in radians/s in physical space
 		};
 	
 	typedef bool ButtonState; // Type for button states
 	typedef float ValuatorState; // Type for valuator states
+	typedef Misc::UInt32 TimeStamp; // Type for device state time stamps in microseconds
 	
 	/* Elements: */
 	private:
 	int numTrackers; // Number of represented trackers
 	TrackerState* trackerStates; // Array of current tracker states
+	TimeStamp* trackerTimeStamps; // Time stamps of current tracker states
 	int numButtons; // Number of represented buttons
 	ButtonState* buttonStates; // Array of current button states
 	int numValuators; // Number of represented valuators
@@ -69,6 +72,7 @@ class VRDeviceState
 			trackerStates[i].positionOrientation=TrackerState::PositionOrientation::identity;
 			trackerStates[i].linearVelocity=TrackerState::LinearVelocity::zero;
 			trackerStates[i].angularVelocity=TrackerState::AngularVelocity::zero;
+			trackerTimeStamps[i]=0U;
 			}
 		for(int i=0;i<numButtons;++i)
 			buttonStates[i]=false;
@@ -79,13 +83,13 @@ class VRDeviceState
 	/* Constructors and destructors: */
 	public:
 	VRDeviceState(void) // Creates empty device state
-		:numTrackers(0),trackerStates(0),
+		:numTrackers(0),trackerStates(0),trackerTimeStamps(0),
 		 numButtons(0),buttonStates(0),
 		 numValuators(0),valuatorStates(0)
 		{
 		}
 	VRDeviceState(int sNumTrackers,int sNumButtons,int sNumValuators) // Creates device state of given layout
-		:numTrackers(sNumTrackers),trackerStates(new TrackerState[numTrackers]),
+		:numTrackers(sNumTrackers),trackerStates(new TrackerState[numTrackers]),trackerTimeStamps(new TimeStamp[numTrackers]),
 		 numButtons(sNumButtons),buttonStates(new ButtonState[numButtons]),
 		 numValuators(sNumValuators),valuatorStates(new ValuatorState[numValuators])
 		{
@@ -95,6 +99,7 @@ class VRDeviceState
 	~VRDeviceState(void)
 		{
 		delete[] trackerStates;
+		delete[] trackerTimeStamps;
 		delete[] buttonStates;
 		delete[] valuatorStates;
 		}
@@ -106,8 +111,10 @@ class VRDeviceState
 		if(numTrackers!=newNumTrackers)
 			{
 			delete[] trackerStates;
+			delete[] trackerTimeStamps;
 			numTrackers=newNumTrackers;
 			trackerStates=new TrackerState[numTrackers];
+			trackerTimeStamps=new TimeStamp[numTrackers];
 			}
 		if(numButtons!=newNumButtons)
 			{
@@ -145,6 +152,14 @@ class VRDeviceState
 		{
 		trackerStates[trackerIndex]=newTrackerState;
 		}
+	TimeStamp getTrackerTimeStamp(int trackerIndex) const // Returns time stamp of current state of the given tracker
+		{
+		return trackerTimeStamps[trackerIndex];
+		}
+	void setTrackerTimeStamp(int trackerIndex,TimeStamp newTrackerTimeStamp) const // Updates time stamp of current state of the given tracker
+		{
+		trackerTimeStamps[trackerIndex]=newTrackerTimeStamp;
+		}
 	ButtonState getButtonState(int buttonIndex) const // Returns state of single button
 		{
 		return buttonStates[buttonIndex];
@@ -168,6 +183,14 @@ class VRDeviceState
 	TrackerState* getTrackerStates(void) // Ditto
 		{
 		return trackerStates;
+		}
+	const TimeStamp* getTrackerTimeStamps(void) const // Returns array of tracker state time stamps
+		{
+		return trackerTimeStamps;
+		}
+	TimeStamp* getTrackerTimeStamps(void) // Ditto
+		{
+		return trackerTimeStamps;
 		}
 	const ButtonState* getButtonStates(void) const // Returns array of button states
 		{
@@ -198,15 +221,19 @@ class VRDeviceState
 		int newNumValuators=source.read<int>();
 		setLayout(newNumTrackers,newNumButtons,newNumValuators);
 		}
-	void write(IO::File& sink) const // Writes device state to given data sink
+	void write(IO::File& sink,bool writeTimeStamps) const // Writes device state to given data sink
 		{
 		Misc::FixedArrayMarshaller<TrackerState>::write(trackerStates,numTrackers,sink);
+		if(writeTimeStamps)
+			Misc::FixedArrayMarshaller<TimeStamp>::write(trackerTimeStamps,numTrackers,sink);
 		Misc::FixedArrayMarshaller<ButtonState>::write(buttonStates,numButtons,sink);
 		Misc::FixedArrayMarshaller<ValuatorState>::write(valuatorStates,numValuators,sink);
 		}
-	void read(IO::File& source) const // Reads device state from given data source
+	void read(IO::File& source,bool readTimeStamps) const // Reads device state from given data source
 		{
 		Misc::FixedArrayMarshaller<TrackerState>::read(trackerStates,numTrackers,source);
+		if(readTimeStamps)
+			Misc::FixedArrayMarshaller<TimeStamp>::read(trackerTimeStamps,numTrackers,source);
 		Misc::FixedArrayMarshaller<ButtonState>::read(buttonStates,numButtons,source);
 		Misc::FixedArrayMarshaller<ValuatorState>::read(valuatorStates,numValuators,source);
 		}

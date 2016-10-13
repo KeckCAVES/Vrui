@@ -1,6 +1,6 @@
 /***********************************************************************
 Label - Class for (text) labels.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -35,6 +35,8 @@ class Label:public Widget
 	protected:
 	GLfloat marginWidth; // Width of margin around label string
 	GLfloat leftInset,rightInset; // Additional inset spacing to the left and the right of the label
+	GLfloat minSize[2]; // Minimum interior size for label widget
+	Color enabledForegroundColor; // Label's foreground color when enabled
 	GLLabel label; // The label string
 	GLFont::HAlignment hAlignment; // Horizontal alignment of label string in widget
 	GLFont::VAlignment vAlignment; // Vertical alignment of label string in widget
@@ -42,6 +44,7 @@ class Label:public Widget
 	/* Protected methods: */
 	void positionLabel(void); // Positions the label inside the widget
 	void setInsets(GLfloat newLeftInset,GLfloat newRightInset); // Sets the inset values
+	void updateColors(void); // Updates the widget's and label's foreground colors
 	
 	/* Constructors and destructors: */
 	public:
@@ -55,13 +58,27 @@ class Label:public Widget
 	virtual void setBackgroundColor(const Color& newBackgroundColor);
 	virtual void setForegroundColor(const Color& newForegroundColor);
 	virtual void draw(GLContextData& contextData) const;
+	virtual void setEnabled(bool newEnabled);
 	
 	/* New methods: */
 	GLfloat getMarginWidth(void) const // Returns the label's margin width
 		{
 		return marginWidth;
 		}
+	const GLfloat* getMinSize(void) const // Returns the minimum size of the label's interior
+		{
+		return minSize;
+		}
+	GLfloat getMinWidth(void) const // Returns the minimum width of the label's interior
+		{
+		return minSize[0];
+		}
+	GLfloat getMinHeight(void) const // Returns the minimum height of the label's interior
+		{
+		return minSize[1];
+		}
 	void setMarginWidth(GLfloat newMarginWidth); // Changes the margin width
+	void setMinSize(GLfloat newMinWidth,GLfloat newMinHeight); // Changes the minimum size of the label's interior
 	void setHAlignment(GLFont::HAlignment newHAlignment); // Changes the horizontal alignment
 	void setVAlignment(GLFont::VAlignment newVAlignment); // Changes the vertical alignment
 	const GLLabel& getLabel(void) const // Returns the label object

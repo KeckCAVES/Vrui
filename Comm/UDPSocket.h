@@ -1,6 +1,6 @@
 /***********************************************************************
 UDPSocket - Wrapper class for UDP sockets ensuring exception safety.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -25,6 +25,12 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <stdexcept>
+#include <Comm/IPv4SocketAddress.h>
+
+/* Forward declarations: */
+namespace Misc {
+class Time;
+}
 
 namespace Comm {
 
@@ -60,6 +66,7 @@ class UDPSocket
 	public:
 	UDPSocket(int localPortId,int backlog); // Creates an unconnected socket on the local host; if portId is negative, random free port is assigned
 	UDPSocket(int localPortId,std::string hostname,int hostPortId); // Creates a socket connected to a remote host; if localPortId is negative, random free port is assigned
+	UDPSocket(int localPortId,const IPv4SocketAddress& hostAddress); // Ditto, using an IP v4 socket address
 	UDPSocket(const UDPSocket& source); // Copy constructor
 	~UDPSocket(void); // Closes a socket
 	
@@ -71,11 +78,15 @@ class UDPSocket
 	UDPSocket& operator=(const UDPSocket& source); // Assignment operator
 	int getPortId(void) const; // Returns port ID assigned to a socket
 	void connect(std::string hostname,int hostPortId); // Connects the socket to a remote host; throws exception (but does not close socket) on failure
+	void connect(const IPv4SocketAddress& hostAddress); // Ditto, using an IP v4 socket address
 	void accept(void); // Waits for a (short) incoming message on an unconnected socket and connects to the sender of the message; discards message
 	
 	/* I/O methods: */
-	void sendMessage(const void* messageBuffer,size_t messageSize); // Sends a message on a connected socket
+	bool waitForMessage(const Misc::Time& timeout) const; // Waits for an incoming message until the given timeout interval has passed; returns true if data is ready for reading
+	size_t receiveMessage(void* messageBuffer,size_t messageBufferSize,IPv4SocketAddress& senderAddress); // Receives a message on an unconnected socket; updates sender socket address and returns size of received message
 	size_t receiveMessage(void* messageBuffer,size_t messageBufferSize); // Receives a message; returns size of received message
+	void sendMessage(const void* messageBuffer,size_t messageSize,const IPv4SocketAddress& recipientAddress); // Sends message on an unconnected socket
+	void sendMessage(const void* messageBuffer,size_t messageSize); // Sends a message on a connected socket
 	};
 
 }

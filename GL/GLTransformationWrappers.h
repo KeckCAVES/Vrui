@@ -114,6 +114,19 @@ inline Geometry::ProjectiveTransformation<ScalarParam,3> glGetTextureMatrix(void
 	return glGetMatrix<ScalarParam>(GLMatrixEnums::TEXTURE);
 	}
 
+/***************************************
+GLSL uniform variable wrapper functions:
+***************************************/
+
+template <class ScalarParam>
+void glUniformARB(GLint location,const Geometry::OrthonormalTransformation<ScalarParam,3>& t);
+template <class ScalarParam>
+void glUniformARB(GLint location,const Geometry::OrthogonalTransformation<ScalarParam,3>& t);
+template <class ScalarParam>
+void glUniformARB(GLint location,const Geometry::AffineTransformation<ScalarParam,3>& t);
+template <class ScalarParam>
+void glUniformARB(GLint location,const Geometry::ProjectiveTransformation<ScalarParam,3>& t);
+
 #if defined(GLGEOMETRY_NONSTANDARD_TEMPLATES) && !defined(GLTRANSFORMATIONWRAPPERS_IMPLEMENTATION)
 #include <GL/GLTransformationWrappers.icpp>
 #endif

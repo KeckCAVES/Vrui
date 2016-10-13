@@ -2,7 +2,7 @@
 MouseTool - Class to map regular 2D mice into VR environments by
 representing them as virtual input devices sliding along the screen
 planes.
-Copyright (c) 2005-2010 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

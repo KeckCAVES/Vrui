@@ -1,7 +1,7 @@
 /***********************************************************************
 OculusRift - Class to represent the Oculus Rift HMD's built-in
 orientation tracker.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,13 +24,16 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <VRDeviceDaemon/VRDevices/OculusRift.h>
 
 #include <iostream>
+#include <iomanip>
 #include <Geometry/OutputOperators.h>
 #include <utility>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Timer.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <IO/File.h>
 #include <IO/FixedMemoryFile.h>
+#include <IO/OpenFile.h>
 #include <libusb-1.0/libusb.h>
 #include <USB/DeviceList.h>
 #include <Math/Math.h>
@@ -211,6 +214,7 @@ struct SensorData // Structure to retrieve raw sensor measurements from the Ocul
 	private:
 	IO::FixedMemoryFile pktBuffer; // Buffer to unpack sensor data messages
 	public:
+	Vrui::VRDeviceState::TimeStamp arrivalTimeStamp; // Time stamp for this sample's arrival from USB
 	unsigned int numSamples; // Number of samples in this packet (can be more than three, but only three are contained)
 	Misc::UInt16 timeStamp; // Rolling index of first sample in this packet, to detect data loss
 	unsigned int temperature; // Raw sensor temperature
@@ -279,6 +283,10 @@ struct SensorData // Structure to retrieve raw sensor measurements from the Ocul
 		size_t readSize=device.interruptTransfer(0x81U,static_cast<unsigned char*>(pktBuffer.getMemory()),size_t(pktBuffer.getSize()));
 		if(readSize==62U)
 			{
+			/* Create an arrival-time time stamp: */
+			Realtime::TimePointMonotonic now;
+			arrivalTimeStamp=Vrui::VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+			
 			/* Unpack the message: */
 			pktBuffer.setReadPosAbs(0);
 			if(pktBuffer.read<Misc::UInt8>()==0x01U)
@@ -329,13 +337,62 @@ void OculusRift::deviceThreadMethod(void)
 	Misc::Timer sampleTimer;
 	double nextKeepAliveTime=keepAliveInterval;
 	
-	/* Start with fast drift correction to quickly initialize the device's orientation; then back off: */
-	Scalar dcw=driftCorrectionWeight*Scalar(100);
-	int numFastSamples=1000; // Go back to slow drift correction after 1000 samples (1 second)
+	/* Collect ten initial samples to create an initial reference frame based on gravity and optionally magnetic north: */
+	Vector mag=Vector::zero;
+	Vector accel=Vector::zero;
+	SensorData sensorData;
+	for(int sample=0;sample<10;++sample)
+		{
+		/* Read a sensor message from the device and create a time stamp: */
+		sensorData.get(oculus);
+		
+		/* Transform magnetic flux density from magnetometer frame to HMD frame: */
+		Vector magSample;
+		for(int i=0;i<3;++i)
+			magSample[i]=magCorrect(i,0)*Scalar(sensorData.mag[0])
+			            +magCorrect(i,1)*Scalar(sensorData.mag[1])
+			            +magCorrect(i,2)*Scalar(sensorData.mag[2])
+			            +magCorrect(i,3);
+		
+		/* Accumulate magnetometer sample: */
+		mag+=magSample;
+		
+		/* Process all accelerometer samples: */
+		unsigned int numSamples=sensorData.numSamples;
+		if(numSamples>3)
+			numSamples=3;
+		for(unsigned int s=0;s<numSamples;++s)
+			{
+			/* Convert raw linear accelerometer measurements from accelerometer frame to HMD frame and m/s^2: */
+			Vector accelSample;
+			for(int i=0;i<3;++i)
+				accelSample[i]=accelCorrect(i,0)*Scalar(sensorData.samples[s].accel[0])
+				              +accelCorrect(i,1)*Scalar(sensorData.samples[s].accel[1])
+				              +accelCorrect(i,2)*Scalar(sensorData.samples[s].accel[2])
+				              +accelCorrect(i,3);
+			
+			/* Accumulate accelerometer sample: */
+			accel+=accelSample;
+			}
+		}
+	
+	/* Create the initial HMD orientation: */
+	if(useMagnetometer)
+		{
+		/* Align acceleration vector with +Y and magnetic flux density vector with +X: */
+		mag.orthogonalize(accel);
+		currentOrientation=Rotation::fromBaseVectors(mag,accel);
+		}
+	else
+		{
+		/* Align acceleration vector with +Y: */
+		Vector x(1,0,0);
+		x.orthogonalize(accel);
+		currentOrientation=Rotation::fromBaseVectors(x,accel);
+		}
 	
 	/* Receive and process sensor data until interrupted: */
 	unsigned int numProcessedSamples=0U;
-	SensorData sensorData;
 	while(keepRunning)
 		{
 		/* Check if the sensor needs waking up: */
@@ -349,7 +406,7 @@ void OculusRift::deviceThreadMethod(void)
 			nextKeepAliveTime=now+keepAliveInterval;
 			}
 		
-		/* Read a sensor message from the device: */
+		/* Read a sensor message from the device and create a time stamp: */
 		sensorData.get(oculus);
 		
 		/*******************************************************************
@@ -390,41 +447,38 @@ void OculusRift::deviceThreadMethod(void)
 			/* Integrate the angular velocity into the current rotation using a fixed 1ms time step: */
 			currentOrientation*=Rotation::rotateScaledAxis(currentAngularVelocity*Scalar(0.001));
 			
-			if(useMagnetometer)
+			/* Only perform drift correction if the acceleration vector's magnitude is close to gravity: */
+			// Scalar accelLen2=accel.sqr();
+			// if(accelLen2>=Math::sqr(9.75)&&accelLen2<=Math::sqr(9.85))
 				{
-				/* Transform linear acceleration and magnetic flux density vectors from HMD frame to current global frame: */
-				Vector gAccel=currentOrientation.transform(accel);
-				Vector gMag=currentOrientation.transform(mag);
-				
-				/* Build a coordinate frame in global space: */
-				gMag.orthogonalize(gAccel);
-				Rotation globalFrame=Rotation::fromBaseVectors(gMag,gAccel);
-				
-				/* Nudge the current global frame towards the desired global frame, where x points north and y points up: */
-				globalFrame.doInvert();
-				Vector globalRotation=globalFrame.getScaledAxis();
-				currentOrientation.leftMultiply(Rotation::rotateScaledAxis(globalRotation*dcw));
-				}
-			else
-				{
-				/* Transform linear acceleration from HMD frame to current global frame: */
-				Vector gAccel=currentOrientation.transform(accel);
-				
-				/* Rotate the current orientation's Y axis towards the true vertical: */
-				Rotation globalOffset=Rotation::rotateFromTo(gAccel,Vector(0,1,0));
-				Vector globalRotation=globalOffset.getScaledAxis();
-				currentOrientation.leftMultiply(Rotation::rotateScaledAxis(globalRotation*dcw));
+				if(useMagnetometer)
+					{
+					/* Transform linear acceleration and magnetic flux density vectors from HMD frame to current global frame: */
+					Vector gAccel=currentOrientation.transform(accel);
+					Vector gMag=currentOrientation.transform(mag);
+					
+					/* Build a coordinate frame in global space: */
+					gMag.orthogonalize(gAccel);
+					Rotation globalFrame=Rotation::fromBaseVectors(gMag,gAccel);
+					
+					/* Nudge the current global frame towards the desired global frame, where x points north and y points up: */
+					globalFrame.doInvert();
+					Vector globalRotation=globalFrame.getScaledAxis();
+					currentOrientation.leftMultiply(Rotation::rotateScaledAxis(globalRotation*driftCorrectionWeight));
+					}
+				else
+					{
+					/* Transform linear acceleration from HMD frame to current global frame: */
+					Vector gAccel=currentOrientation.transform(accel);
+					
+					/* Rotate the current orientation's Y axis towards the true vertical: */
+					Rotation globalOffset=Rotation::rotateFromTo(gAccel,Vector(0,1,0));
+					Vector globalRotation=globalOffset.getScaledAxis();
+					currentOrientation.leftMultiply(Rotation::rotateScaledAxis(globalRotation*driftCorrectionWeight));
+					}
 				}
 			}
 		currentOrientation.renormalize();
-		
-		if(numFastSamples>0)
-			{
-			/* Count back until it's time to return to slow drift correction: */
-			numFastSamples-=numSamples;
-			if(numFastSamples<=0)
-				dcw=driftCorrectionWeight;
-			}
 		
 		/* Check if it is time to send new tracker data to the device manager: */
 		numProcessedSamples+=numSamples;
@@ -435,22 +489,37 @@ void OculusRift::deviceThreadMethod(void)
 				/* Turn the current orientation into a tracker state: */
 				TrackerState ts;
 				PositionOrientation::Rotation r=currentOrientation;
+				ts.linearVelocity=r.transform(TrackerState::LinearVelocity((neckPivot-Point::origin)^currentAngularVelocity));
+				ts.angularVelocity=r.transform(TrackerState::AngularVelocity(currentAngularVelocity));
 				if(motionPredictionDelta!=Scalar(0))
 					r*=Rotation::rotateScaledAxis(currentAngularVelocity*motionPredictionDelta);
 				ts.positionOrientation=PositionOrientation::rotateAround(neckPivot,r);
-				ts.linearVelocity=TrackerState::LinearVelocity::zero;
-				ts.angularVelocity=TrackerState::AngularVelocity(currentAngularVelocity);
 				
 				/* Send the tracker state to the device manager: */
-				setTrackerState(0,ts);
+				setTrackerState(0,ts,sensorData.arrivalTimeStamp);
 				}
 			numProcessedSamples-=updateRate;
 			}
 		}
 	}
 
+namespace {
+
+class OculusRiftDeviceMatcher // Helper class to match all supported models of Oculus Rift devices
+	{
+	/* Methods: */
+	public:
+	bool operator()(const libusb_device_descriptor& descriptor) const
+		{
+		return descriptor.idVendor==0x2833U&&(descriptor.idProduct==0x0001U||descriptor.idProduct==0x0021U);
+		}
+	};
+
+}
+
 OculusRift::OculusRift(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
+	 deviceModel(UNKNOWN),
 	 accelCorrect(1),magCorrect(1),
 	 neckPivot(0.0,-6.0,8.0),
 	 driftCorrectionWeight(0.0001),useMagnetometer(true),
@@ -469,11 +538,62 @@ OculusRift::OculusRift(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	
 	/* Open the requested connected Oculus Rift device: */
 	{
-	USB::DeviceList deviceList(usbContext);
-	int oculusIndex=configFile.retrieveValue<int>("./deviceIndex",0);
-	oculus=deviceList.getDevice(0x2833U,0x0001U,oculusIndex);
-	if(!oculus.isValid())
-		Misc::throwStdErr("OculusRift::OculusRift: Oculus Rift device %d not found",oculusIndex);
+	USB::DeviceList deviceList;
+	if(configFile.hasTag("./deviceSerialNumber"))
+		{
+		/* Open an Oculus Rift device by serial number: */
+		std::string serialNumber=configFile.retrieveString("./deviceSerialNumber");
+		size_t numOculusDevices=deviceList.getNumDevices(OculusRiftDeviceMatcher());
+		for(size_t i=0;i<numOculusDevices;++i)
+			{
+			USB::Device tempOculus=deviceList.getDevice(OculusRiftDeviceMatcher(),i);
+			if(tempOculus.getSerialNumber()==serialNumber)
+				{
+				oculus=tempOculus;
+				break;
+				}
+			}
+		if(!oculus.isValid())
+			Misc::throwStdErr("OculusRift::OculusRift: Oculus Rift device with serial number %s not found",serialNumber.c_str());
+		
+		/* Determine the device model: */
+		switch(oculus.getVendorProductId().productId)
+			{
+			case 0x0001U:
+				deviceModel=DK1;
+				break;
+			
+			case 0x0021U:
+				deviceModel=DK2;
+				break;
+			
+			default:
+				Misc::throwStdErr("OculusRift::OculusRift: Oculus Rift device with serial number %s has unsupported product ID %u",serialNumber.c_str(),oculus.getVendorProductId().productId);
+			}
+		}
+	else
+		{
+		/* Open an Oculus Rift device by enumeration index: */
+		int oculusIndex=configFile.retrieveValue<int>("./deviceIndex",0);
+		oculus=deviceList.getDevice(OculusRiftDeviceMatcher(),oculusIndex);
+		if(!oculus.isValid())
+			Misc::throwStdErr("OculusRift::OculusRift: Oculus Rift device %d not found",oculusIndex);
+		
+		/* Determine the device model: */
+		switch(oculus.getVendorProductId().productId)
+			{
+			case 0x0001U:
+				deviceModel=DK1;
+				break;
+			
+			case 0x0021U:
+				deviceModel=DK2;
+				break;
+			
+			default:
+				Misc::throwStdErr("OculusRift::OculusRift: Oculus Rift device %d has unsupported product ID %u",oculusIndex,oculus.getVendorProductId().productId);
+			}
+		}
 	}
 	
 	/* Open the device and claim the first (and only) interface: */
@@ -482,17 +602,63 @@ OculusRift::OculusRift(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	// oculus.setConfiguration(1);
 	oculus.claimInterface(0,true); // Disconnect the kernel's generic HID driver
 	
-	/* Read the accelerometer and magnetometer correction matrices: */
-	accelCorrect=configFile.retrieveValue<Correction>("./accelCorrection",accelCorrect);
-	magCorrect=configFile.retrieveValue<Correction>("./magCorrection",magCorrect);
+	#ifdef VERBOSE
+	std::cout<<"OculusRift: Connected to Oculus Rift ";
+	switch(deviceModel)
+		{
+		case DK1:
+			std::cout<<"DK1";
+			break;
+		
+		case DK2:
+			std::cout<<"DK2";
+			break;
+		
+		default:
+			std::cout<<"(unkown)";
+		}
+	std::cout<<" with serial number "<<oculus.getSerialNumber()<<std::endl;
+	#endif
 	
-	/* Scale the correction matrices to convert from raw integer to floating-point measurements: */
-	accelCorrect*=Scalar(0.0001);
-	magCorrect*=Scalar(0.0001);
-	
-	/* Flip the last two rows of the magnetometer correction matrix to transform to HMD frame: */
-	for(int j=0;j<4;++j)
-		std::swap(magCorrect(1,j),magCorrect(2,j));
+	/* Check if there is a binary calibration data file for the opened Oculus Rift device: */
+	try
+		{
+		/* Assemble the calibration file name based on the device's serial number: */
+		std::string calibFileName=VRDEVICEDAEMON_CONFIG_CONFIGDIR;
+		calibFileName.append("/OculusRift-");
+		calibFileName.append(oculus.getSerialNumber());
+		calibFileName.append(".calib");
+		
+		/* Read the binary calibration data file: */
+		IO::FilePtr calibFile=IO::openFile(calibFileName.c_str());
+		#ifdef VERBOSE
+		std::cout<<"OculusRift: Loading calibration data from "<<calibFileName<<std::endl;
+		#endif
+		calibFile->setEndianness(Misc::LittleEndian);
+		for(int i=0;i<3;++i)
+			for(int j=0;j<4;++j)
+				accelCorrect(i,j)=Scalar(calibFile->read<Misc::Float64>());
+		for(int i=0;i<3;++i)
+			for(int j=0;j<4;++j)
+				magCorrect(i,j)=Scalar(calibFile->read<Misc::Float64>());
+		}
+	catch(std::runtime_error)
+		{
+		/* Read the accelerometer and magnetometer correction matrices: */
+		accelCorrect=configFile.retrieveValue<Correction>("./accelCorrection",accelCorrect);
+		magCorrect=configFile.retrieveValue<Correction>("./magCorrection",magCorrect);
+		
+		/* Scale the correction matrices to convert from raw integer to floating-point measurements: */
+		accelCorrect*=Scalar(0.0001);
+		magCorrect*=Scalar(0.0001);
+		
+		if(deviceModel==DK1)
+			{
+			/* Flip the last two rows of the magnetometer correction matrix to transform to HMD frame: */
+			for(int j=0;j<4;++j)
+				std::swap(magCorrect(1,j),magCorrect(2,j));
+			}
+		}
 	
 	neckPivot=configFile.retrieveValue<Point>("./neckPivot",neckPivot);
 	driftCorrectionWeight=configFile.retrieveValue<Scalar>("./driftCorrectionWeight",driftCorrectionWeight);

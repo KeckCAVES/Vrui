@@ -1,6 +1,6 @@
 /***********************************************************************
 Image - Class for widgets displaying image as textures.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2014 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -37,7 +37,7 @@ Methods of class Image::DataItem:
 Image::DataItem::DataItem(void)
 	:npotdtSupported(GLARBTextureNonPowerOfTwo::isSupported()),
 	 textureObjectId(0),version(0),
-	 regionVersion(0)
+	 regionVersion(0),settingsVersion(0)
 	{
 	if(npotdtSupported)
 		GLARBTextureNonPowerOfTwo::initExtension();
@@ -57,7 +57,9 @@ Methods of class Image:
 Image::Image(const char* sName,Container* sParent,const Images::RGBImage& sImage,const GLfloat sResolution[2],bool sManageChild)
 	:Widget(sName,sParent,false),
 	 image(sImage),version(1),
-	 regionVersion(1)
+	 regionVersion(1),
+	 interpolationMode(GL_NEAREST),settingsVersion(1),
+	 illuminated(false)
 	{
 	/* Copy the image resolution: */
 	for(int i=0;i<2;++i)
@@ -77,7 +79,9 @@ Image::Image(const char* sName,Container* sParent,const Images::RGBImage& sImage
 Image::Image(const char* sName,Container* sParent,const char* imageFileName,const GLfloat sResolution[2],bool sManageChild)
 	:Widget(sName,sParent,false),
 	 version(1),
-	 regionVersion(1)
+	 regionVersion(1),
+	 interpolationMode(GL_NEAREST),settingsVersion(1),
+	 illuminated(false)
 	{
 	/* Load the image file: */
 	image=Images::readImageFile(imageFileName);
@@ -102,7 +106,12 @@ Vector Image::calcNaturalSize(void) const
 	/* Calculate the widget's natural interior size based on the image resolution and display region: */
 	Vector size;
 	for(int i=0;i<2;++i)
-		size[i]=(region[2+i]-region[i])/resolution[i];
+		{
+		GLfloat regionSize=region[2+i]-region[i];
+		if(regionSize>GLfloat(image.getSize(i)))
+			regionSize=GLfloat(image.getSize(i));
+		size[i]=regionSize/resolution[i];
+		}
 	size[2]=0.0f;
 	
 	/* Return the widget's exterior size: */
@@ -145,7 +154,13 @@ void Image::draw(GLContextData& contextData) const
 	/* Set up OpenGL state: */
 	glPushAttrib(GL_ENABLE_BIT);
 	glEnable(GL_TEXTURE_2D);
-	glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
+	if(illuminated)
+		{
+		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
+		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
+		}
+	else
+		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 	
 	/* Bind the texture object: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
@@ -196,6 +211,17 @@ void Image::draw(GLContextData& contextData) const
 		dataItem->regionVersion=regionVersion;
 		}
 	
+	/* Check if the texture display mode is outdated: */
+	if(dataItem->settingsVersion!=settingsVersion)
+		{
+		/* Set the texture interpolation mode: */
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,interpolationMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,interpolationMode);
+		
+		/* Mark the texture display mode as up-to-date: */
+		dataItem->settingsVersion=settingsVersion;
+		}
+	
 	/* Draw the image: */
 	glBegin(GL_QUADS);
 	glTexCoord2f(dataItem->regionTex[0],dataItem->regionTex[1]);
@@ -212,6 +238,8 @@ void Image::draw(GLContextData& contextData) const
 	glBindTexture(GL_TEXTURE_2D,0);
 	
 	/* Restore OpenGL state: */
+	if(illuminated)
+		glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SINGLE_COLOR);
 	glPopAttrib();
 	}
 
@@ -229,11 +257,14 @@ void Image::initContext(GLContextData& contextData) const
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 	
 	/* Protect the texture object: */
 	glBindTexture(GL_TEXTURE_2D,0);
+	}
+
+void Image::updateImage(void)
+	{
+	++version;
 	}
 
 void Image::setRegion(const GLfloat newRegion[4])
@@ -242,28 +273,30 @@ void Image::setRegion(const GLfloat newRegion[4])
 	for(int i=0;i<4;++i)
 		region[i]=newRegion[i];
 	
-	/* Compare the new region's aspect ratio to the widget's interior's aspect ratio: */
+	/* Calculate the image box: */
+	imageBox=getInterior();
+	
+	/* Adjust the image box to fill the widget's interior at constant aspect ratio: */
 	GLfloat ww=getInterior().size[0];
 	GLfloat wh=getInterior().size[1];
 	GLfloat rw=(region[2]-region[0])/resolution[0];
 	GLfloat rh=(region[3]-region[1])/resolution[1];
 	if(ww*rh>rw*wh) // Interior is wider than region
 		{
-		/* Widen the region to match the interior: */
-		GLfloat delta=(rh*ww/wh-rw)*resolution[0]*0.5f;
-		region[0]-=delta;
-		region[2]+=delta;
+		/* Shrink the image box horizontally: */
+		GLfloat delta=(ww-rw*wh/rh);
+		imageBox.origin[0]+=delta*0.5f;
+		imageBox.size[0]-=delta;
 		}
 	else // Interior is narrower than region
 		{
-		/* Heighten the region to match the interior: */
-		GLfloat delta=(rw*wh/ww-rh)*resolution[1]*0.5f;
-		region[1]-=delta;
-		region[3]+=delta;
+		/* Shrink the image box vertically: */
+		GLfloat delta=(wh-rh*ww/rw);
+		imageBox.origin[1]+=delta*0.5f;
+		imageBox.size[1]-=delta;
 		}
 	
-	/* Calculate the image box: */
-	imageBox=getInterior();
+	/* Adjust the image box to account for regions larger than the image: */
 	if(region[0]<0.0f)
 		{
 		GLfloat delta=(0.0f-region[0])/(region[2]-region[0])*ww;
@@ -289,6 +322,17 @@ void Image::setRegion(const GLfloat newRegion[4])
 	
 	/* Invalidate the cached region: */
 	++regionVersion;
+	}
+
+void Image::setInterpolationMode(GLenum newInterpolationMode)
+	{
+	interpolationMode=newInterpolationMode;
+	++settingsVersion;
+	}
+
+void Image::setIlluminated(bool newIlluminated)
+	{
+	illuminated=newIlluminated;
 	}
 
 }

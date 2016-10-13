@@ -90,7 +90,7 @@ Interval<ScalarParam> intersect(const Interval<ScalarParam>& i1,const Interval<S
 	{
 	/* Calculate result interval's borders: */
 	ScalarParam min=i1.min;
-	if(min>i2.min)
+	if(min<i2.min)
 		min=i2.min;
 	ScalarParam max=i1.max;
 	if(max>i2.max)
@@ -98,7 +98,7 @@ Interval<ScalarParam> intersect(const Interval<ScalarParam>& i1,const Interval<S
 	
 	/* Check if result interval is emtpy: */
 	if(min>max)
-		return Interval<ScalarParam>::emtpy;
+		return Interval<ScalarParam>::empty;
 	
 	/* Return result: */
 	return Interval<ScalarParam>(min,max);

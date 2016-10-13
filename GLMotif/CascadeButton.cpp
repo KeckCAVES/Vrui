@@ -1,7 +1,7 @@
 /***********************************************************************
 CascadeButton - Class for buttons that pop up secondary top-level
 GLMotif UI components.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -67,13 +67,11 @@ void CascadeButton::setArmed(bool newArmed)
 		getManager()->popupSecondaryWidget(this,popup,offset);
 		isPopped=true;
 		
-		/* Calculate the extended "hit box" around the popup: */
-		popupHitBox=popup->getExterior();
-		ZRange popupZRange=popup->getZRange();
-		popupHitBox.origin[2]=popupZRange.first;
-		popupHitBox.size[2]=popupZRange.second-popupZRange.first;
-		popupHitBox.doOffset(offset);
-		popupHitBox.doOutset(Vector(popupExtrudeSize,popupExtrudeSize,popupExtrudeSize));
+		/* Calculate the bottom-left and top-left corners of the popup: */
+		Point::Vector off(offset.getXyzw());
+		popupBottom=Point(popup->getExterior().getCorner(0).getXyzw())+off;
+		popupTop=Point(popup->getExterior().getCorner(2).getXyzw())+off;
+		popupBottom[2]=popupTop[2]=Scalar(Math::mid(getZRange().first,getZRange().second));
 		}
 	else if(!isArmed&&isPopped)
 		{
@@ -92,7 +90,7 @@ void CascadeButton::drawDecoration(GLContextData& contextData) const
 CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sLabel,const GLFont* sFont,bool sManageChild)
 	:DecoratedButton(sName,sParent,sLabel,sFont,false),
 	 popup(0),isPopped(false),
-	 foundChild(0),armedChild(0),
+	 foundWidget(0),
 	 arrow(GlyphGadget::FANCY_ARROW_RIGHT,GlyphGadget::IN,0.0f)
 	{
 	/* Get the style sheet: */
@@ -102,7 +100,6 @@ CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sL
 	arrow.setGlyphSize(ss->size*0.25f);
 	arrow.setBevelSize(ss->size*0.25f);
 	arrow.setGlyphColor(backgroundColor);
-	popupExtrudeSize=ss->size*4.0f;
 	
 	/* Set the decoration position and size: */
 	setDecorationPosition(DecoratedButton::DECORATION_RIGHT);
@@ -117,7 +114,7 @@ CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sL
 CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sLabel,bool sManageChild)
 	:DecoratedButton(sName,sParent,sLabel,false),
 	 popup(0),isPopped(false),
-	 foundChild(0),armedChild(0),
+	 foundWidget(0),
 	 arrow(GlyphGadget::FANCY_ARROW_RIGHT,GlyphGadget::IN,0.0f)
 	{
 	/* Get the style sheet: */
@@ -127,7 +124,6 @@ CascadeButton::CascadeButton(const char* sName,Container* sParent,const char* sL
 	arrow.setGlyphSize(ss->size*0.25f);
 	arrow.setBevelSize(ss->size*0.25f);
 	arrow.setGlyphColor(backgroundColor);
-	popupExtrudeSize=ss->size*4.0f;
 	
 	/* Set the decoration position and size: */
 	setDecorationPosition(DecoratedButton::DECORATION_RIGHT);
@@ -175,61 +171,68 @@ void CascadeButton::setBackgroundColor(const Color& newBackgroundColor)
 
 bool CascadeButton::findRecipient(Event& event)
 	{
-	bool result=false;
+	foundWidget=0;
+	
+	/* Reject events if the widget is disabled: */
+	if(!isEnabled())
+		return false;
+	
+	/* Find a recipient inside the popup first, if it's popped up: */
+	if(isPopped&&popup->findRecipient(event))
+		{
+		/* Replace the found widget with ourselves to intercept future events: */
+		foundWidget=event.overrideTargetWidget(this);
+		return true;
+		}
 	
 	/* Find the event's point in our coordinate system: */
 	Event::WidgetPoint wp=event.calcWidgetPoint(this);
+	foundPos=wp.getPoint();
 	
 	/* If the point is inside our bounding box, put us down as recipient: */
-	if(isInside(wp.getPoint()))
-		result=event.setTargetWidget(this,wp);
+	if(isInside(foundPos))
+		return event.setTargetWidget(this,wp);
 	
-	/* If the popup is popped up, redirect the question: */
-	foundChild=0;
-	if(isPopped)
+	/* If the popup is popped up, check if the pointer is moving towards it: */
+	if(isPopped&&foundPos[0]>=lastEventPos[0])
 		{
-		bool popupResult=popup->findRecipient(event);
-		if(popupResult)
-			{
-			foundChild=event.getTargetWidget();
-			event.overrideTargetWidget(this);
-			result=true;
-			}
-		else if(popupHitBox.isInside(Vector(wp.getPoint().getComponents())))
-			result|=event.setTargetWidget(this,wp);
+		/* Calculate a plane orthogonal to the widget's plane containing the pointer's last movement line: */
+		Point::Vector dir=foundPos-lastEventPos;
+		Point::Vector normal(dir[1],dir[0],0); // 2D cross product
+		Scalar o=foundPos*normal;
+		
+		/* The pointer is moving towards the popup if the top and bottom popup points are on different sides of the plane: */
+		if((popupBottom*normal-o)*(popupTop*normal-o)<=Scalar(0))
+			return event.setTargetWidget(this,wp);
 		}
 	
-	return result;
+	return false;
 	}
 
 void CascadeButton::pointerButtonDown(Event& event)
 	{
-	/* "Repair" the incoming event: */
-	event.overrideTargetWidget(foundChild);
-	
 	/* Arm the button: */
 	setArmed(true);
 	
-	/* Find a potential event recipient in the popup: */
-	if(popup->findRecipient(event))
+	if(isPopped)
 		{
-		armedChild=event.getTargetWidget();
-		armedChild->pointerButtonDown(event);
+		/* Repair the event and forward it to the popup: */
+		event.overrideTargetWidget(foundWidget);
+		popup->pointerButtonDown(event);
+		
+		lastEventPos=foundPos;
 		}
-	else
-		armedChild=0;
 	}
 
 void CascadeButton::pointerButtonUp(Event& event)
 	{
-	/* "Repair" the incoming event: */
-	event.overrideTargetWidget(foundChild);
-	
-	/* Disarm the armed child: */
-	if(armedChild!=0)
+	if(isPopped)
 		{
-		armedChild->pointerButtonUp(event);
-		armedChild=0;
+		/* Repair the event and forward it to the popup: */
+		event.overrideTargetWidget(foundWidget);
+		popup->pointerButtonUp(event);
+		
+		lastEventPos=foundPos;
 		}
 	
 	setArmed(false);
@@ -237,20 +240,14 @@ void CascadeButton::pointerButtonUp(Event& event)
 
 void CascadeButton::pointerMotion(Event& event)
 	{
-	/* "Repair" the incoming event: */
-	event.overrideTargetWidget(foundChild);
-	
-	/* Arm/disarm children as we go by sending fake button events: */
-	if(foundChild!=armedChild)
+	if(isPopped)
 		{
-		if(armedChild!=0)
-			armedChild->pointerButtonUp(event);
-		armedChild=foundChild;
-		if(armedChild!=0)
-			armedChild->pointerButtonDown(event);
+		/* Repair the event and forward it to the popup: */
+		event.overrideTargetWidget(foundWidget);
+		popup->pointerMotion(event);
+		
+		lastEventPos=foundPos;
 		}
-	else if(armedChild!=0)
-		armedChild->pointerMotion(event);
 	}
 
 void CascadeButton::setPopup(Popup* newPopup)
@@ -282,11 +279,6 @@ void CascadeButton::setArrowSize(GLfloat newArrowSize)
 	/* Set the decoration width: */
 	GLfloat width=arrow.getPreferredBoxSize();
 	setDecorationSize(Vector(width,width,0.0f));
-	}
-
-void CascadeButton::setPopupExtrudeSize(GLfloat newPopupExtrudeSize)
-	{
-	popupExtrudeSize=newPopupExtrudeSize;
 	}
 
 }

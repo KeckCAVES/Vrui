@@ -1,7 +1,7 @@
 /***********************************************************************
 DC1394VideoDevice - Wrapper class around video devices as represented by
 the dc1394 IEEE 1394 (Firewire) DCAM video library.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -56,6 +56,9 @@ class DC1394VideoDevice:public VideoDevice
 			:VideoDevice::DeviceId(sName)
 			{
 			}
+		
+		/* Methods from VideoDevice::DeviceId: */
+		virtual VideoDevice* createDevice(void) const;
 		};
 	
 	struct DC1394FrameBuffer:public FrameBuffer
@@ -95,10 +98,6 @@ class DC1394VideoDevice:public VideoDevice
 	/* Constructors and destructors: */
 	public:
 	DC1394VideoDevice(uint64_t guid,unsigned int unitIndex =0); // Opens the DC1394 video device of the given GUID and unit index as a video source; uses first device if guid is zero
-	static DC1394VideoDevice* createDevice(const DeviceId* deviceId) // Creates video device from given device ID
-		{
-		return new DC1394VideoDevice(deviceId->guid,deviceId->unitIndex);
-		}
 	private:
 	DC1394VideoDevice(const DC1394VideoDevice& source); // Prohibit copy constructor
 	DC1394VideoDevice& operator=(const DC1394VideoDevice& source); // Prohibit assignment operator
@@ -109,6 +108,7 @@ class DC1394VideoDevice:public VideoDevice
 	virtual std::vector<VideoDataFormat> getVideoFormatList(void) const;
 	virtual VideoDataFormat getVideoFormat(void) const;
 	virtual VideoDataFormat& setVideoFormat(VideoDataFormat& newFormat);
+	virtual void saveConfiguration(Misc::ConfigurationFileSection& cfg) const;
 	virtual void configure(const Misc::ConfigurationFileSection& cfg);
 	virtual ImageExtractor* createImageExtractor(void) const;
 	virtual GLMotif::Widget* createControlPanel(GLMotif::WidgetManager* widgetManager);

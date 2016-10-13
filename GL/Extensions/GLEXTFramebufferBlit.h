@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferBlit - OpenGL extension class for the
 GL_EXT_framebuffer_blit extension.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -53,7 +53,7 @@ class GLEXTFramebufferBlit:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTFramebufferBlit*) current; // Pointer to extension object for current OpenGL context
-	
+	static const char* name; // Extension name
 	PFNGLBLITFRAMEBUFFEREXTPROC glBlitFramebufferEXTProc;
 	
 	/* Constructors and destructors: */

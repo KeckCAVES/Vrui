@@ -2,7 +2,7 @@
 FiveAxisSurfaceNavigationTool - Class for navigation tools that use a
 six-axis spaceball or similar input device to move along an application-
 defined surface.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 HIDDevice - VR device driver class for generic input devices supported
 by the Linux HID event interface. Reports buttons and absolute axes.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -31,8 +31,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/input.h>
+#include <VRDeviceDaemon/Config.h>
 
-#ifndef INPUT_H_HAS_STRUCTS
+#if !VRDEVICEDAEMON_CONFIG_INPUT_H_HAS_STRUCTS
 
 /*******************************************************************
 Classes to deal with HID devices (should all be defined in input.h):

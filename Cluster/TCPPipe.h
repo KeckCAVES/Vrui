@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Pair of classes for high-performance cluster-transparent
 reading/writing from/to TCP sockets.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -37,6 +37,7 @@ class TCPPipeMaster:public Comm::NetPipe,public ClusterPipe // Class to represen
 	/* Protected methods from IO::File: */
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:
@@ -70,6 +71,7 @@ class TCPPipeSlave:public Comm::NetPipe,public ClusterPipe // Class to represent
 	/* Protected methods from IO::File: */
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:

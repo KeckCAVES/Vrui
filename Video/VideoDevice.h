@@ -1,6 +1,6 @@
 /***********************************************************************
 VideoDevice - Base class for video capture devices.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -24,8 +24,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <vector>
-#include <Misc/RefCounted.h>
 #include <Misc/Autopointer.h>
+#include <Threads/RefCounted.h>
 #include <Video/VideoDataFormat.h>
 
 /* Forward declarations: */
@@ -49,7 +49,7 @@ class VideoDevice
 	{
 	/* Embedded classes: */
 	public:
-	class DeviceId:public Misc::RefCounted // Class to uniquely identify video devices across different device classes
+	class DeviceId:public Threads::RefCounted // Class to uniquely identify video devices across different device classes
 		{
 		/* Elements: */
 		protected:
@@ -70,12 +70,25 @@ class VideoDevice
 			{
 			return name;
 			}
+		virtual VideoDevice* createDevice(void) const =0; // Creates a video device based on this device ID
 		};
 	
 	typedef Misc::Autopointer<DeviceId> DeviceIdPtr; // Type for smart pointers to device ID objects
+	typedef void (*EnumerateVideoDevicesFunc)(std::vector<DeviceIdPtr>& devices); // Type for functions to enumerate connected video devices of a certain class
 	typedef Misc::FunctionCall<const FrameBuffer*> StreamingCallback; // Function call type for streaming capture callback
 	
+	private:
+	struct DeviceClass // Structure to represent additional video device classes
+		{
+		/* Elements: */
+		public:
+		EnumerateVideoDevicesFunc enumerateVideoDevices; // The video device enumeration function for the represented device class
+		DeviceClass* succ; // Pointer to the next device class in the list
+		};
+	
 	/* Elements: */
+	private:
+	static DeviceClass* deviceClasses; // List of additional registered video device classes
 	protected:
 	StreamingCallback* streamingCallback; // Function called when a frame buffer becomes ready in streaming capture mode
 	
@@ -85,6 +98,8 @@ class VideoDevice
 	virtual ~VideoDevice(void); // Closes the video device
 	
 	/* Device enumeration and creation methods: */
+	static void registerDeviceClass(EnumerateVideoDevicesFunc enumerateVideoDevices); // Registers a new device class for the given enumeration function
+	static void unregisterDeviceClass(EnumerateVideoDevicesFunc enumerateVideoDevices); // Unregisters the device class with the given enumeration function
 	static std::vector<DeviceIdPtr> getVideoDevices(void); // Returns a list of device IDs for all video devices currently available on the system
 	static VideoDevice* createVideoDevice(DeviceIdPtr deviceId); // Creates a video device for the given device ID
 	
@@ -92,6 +107,7 @@ class VideoDevice
 	virtual std::vector<VideoDataFormat> getVideoFormatList(void) const =0; // Returns a list of video formats supported by the device
 	virtual VideoDataFormat getVideoFormat(void) const =0; // Returns the video device's current video format
 	virtual VideoDataFormat& setVideoFormat(VideoDataFormat& newFormat) =0; // Sets the video device's video format to the most closely matching format; changes the given format structure to the actually set format
+	virtual void saveConfiguration(Misc::ConfigurationFileSection& cfg) const; // Writes the video device's current configuration to the given configuration file section
 	virtual void configure(const Misc::ConfigurationFileSection& cfg); // Configures the video device from the given configuration file section
 	virtual ImageExtractor* createImageExtractor(void) const =0; // Creates an image extractor for the video source's current video format
 	virtual GLMotif::Widget* createControlPanel(GLMotif::WidgetManager* widgetManager) =0; // Creates a GLMotif control panel to adjust all exposed video device controls
