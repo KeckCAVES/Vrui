@@ -1,7 +1,7 @@
 /***********************************************************************
 DaisyWheelTool - Class for tools to enter text by pointing at characters
 on a dynamic daisy wheel.
-Copyright (c) 2008-2010 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

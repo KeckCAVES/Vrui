@@ -42,6 +42,7 @@ class SharedJelloServer:private SharedJelloProtocol
 	typedef JelloCrystal::AtomID AtomID;
 	public:
 	typedef JelloCrystal::Index Index; // Index type for the atom array
+	typedef JelloCrystal::Box Box; // Type for the simulation domain of the Jell-O crystal
 	
 	private:
 	struct ClientState // Structure to hold the input device state of a connected client
@@ -134,7 +135,7 @@ class SharedJelloServer:private SharedJelloProtocol
 	
 	/* Constructors and destructors: */
 	public:
-	SharedJelloServer(const Index& numAtoms,int listenPortID); // Creates a shared Jell-O server with the given crystal size and listen port ID (assigns dynamic port if port ID is negative)
+	SharedJelloServer(const Index& numAtoms,const Box& domain,int listenPortID); // Creates a shared Jell-O server with the given crystal size and listen port ID (assigns dynamic port if port ID is negative)
 	~SharedJelloServer(void); // Destroys the shared Jell-O server
 	
 	/* Methods: */

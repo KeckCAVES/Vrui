@@ -2,7 +2,7 @@
 VruiSceneGraphDemo - Demonstration program for the Vrui scene graph
 architecture; shows how to construct a scene graph programmatically, or
 load one from one or more VRML 2.0 / 97 files.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -27,7 +27,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Geometry/Point.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GLMotif/PopupMenu.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/ToggleButton.h>
 #include <SceneGraph/GroupNode.h>
 #include <SceneGraph/TransformNode.h>
@@ -52,7 +51,7 @@ class VruiSceneGraphDemo:public Vrui::Application
 	private:
 	SGList sceneGraphs; // List of root nodes of all loaded scene graphs
 	std::vector<bool> sceneGraphEnableds; // List of enable flags for each loaded scene graph
-	GLMotif::PopupMenu* mainMenuPopup;
+	GLMotif::PopupMenu* mainMenu;
 	
 	/* Private methods: */
 	void sceneGraphToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const unsigned int& index);
@@ -64,6 +63,7 @@ class VruiSceneGraphDemo:public Vrui::Application
 	
 	/* Methods: */
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	};
 
 /***********************************
@@ -78,7 +78,7 @@ void VruiSceneGraphDemo::sceneGraphToggleCallback(GLMotif::ToggleButton::ValueCh
 
 VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
 	:Vrui::Application(argc,argv),
-	 mainMenuPopup(0)
+	 mainMenu(0)
 	{
 	/* Collect a list of scene graph names to build a menu later: */
 	std::vector<std::string> sceneGraphNames;
@@ -169,12 +169,9 @@ VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
 		sceneGraphNames.push_back("Box");
 		}
 	
-	/* Create a popup shell to hold the main menu: */
-	mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Scene Graph Viewer");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
+	/* Create the main menu shell: */
+	mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Scene Graph Viewer");
 	
 	/* Add a toggle button for each scene graph: */
 	unsigned int numSceneGraphs=sceneGraphs.size();
@@ -187,19 +184,14 @@ VruiSceneGraphDemo::VruiSceneGraphDemo(int& argc,char**& argv)
 		sceneGraphToggle->getValueChangedCallbacks().add(this,&VruiSceneGraphDemo::sceneGraphToggleCallback,i);
 		}
 	
-	mainMenu->manageChild();
-	Vrui::setMainMenu(mainMenuPopup);
-	
-	/* Set the navigation transformation: */
-	SceneGraph::Box bbox=SceneGraph::Box::empty;
-	for(unsigned int i=0;i<numSceneGraphs;++i)
-		bbox.addBox(sceneGraphs[i]->calcBoundingBox());
-	Vrui::setNavigationTransformation(Geometry::mid(bbox.min,bbox.max),Geometry::dist(bbox.min,bbox.max));
+	/* Finish and install the main menu: */
+	mainMenu->manageMenu();
+	Vrui::setMainMenu(mainMenu);
 	}
 
 VruiSceneGraphDemo::~VruiSceneGraphDemo(void)
 	{
-	delete mainMenuPopup;
+	delete mainMenu;
 	}
 
 void VruiSceneGraphDemo::display(GLContextData& contextData) const
@@ -215,6 +207,16 @@ void VruiSceneGraphDemo::display(GLContextData& contextData) const
 	
 	/* Restore OpenGL state: */
 	glPopAttrib();
+	}
+
+void VruiSceneGraphDemo::resetNavigation(void)
+	{
+	/* Set the navigation transformation: */
+	SceneGraph::Box bbox=SceneGraph::Box::empty;
+	unsigned int numSceneGraphs=sceneGraphs.size();
+	for(unsigned int i=0;i<numSceneGraphs;++i)
+		bbox.addBox(sceneGraphs[i]->calcBoundingBox());
+	Vrui::setNavigationTransformation(Geometry::mid(bbox.min,bbox.max),Geometry::dist(bbox.min,bbox.max));
 	}
 
 VRUI_APPLICATION_RUN(VruiSceneGraphDemo)

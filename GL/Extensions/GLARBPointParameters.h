@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBPointParameters - OpenGL extension class for the
 GL_ARB_point_parameters extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -65,6 +65,7 @@ class GLARBPointParameters:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBPointParameters*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	#if GLEXTENSIONS_GLARBPOINTPARAMETERS_EXPORT_INTPROCS
 	PFNGLPOINTPARAMETERIARBPROC glPointParameteriARBProc;
 	PFNGLPOINTPARAMETERIVARBPROC glPointParameterivARBProc;

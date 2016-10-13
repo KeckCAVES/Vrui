@@ -1,7 +1,7 @@
 /***********************************************************************
 DropdownBox - Class for labels that show one string out of a list of
 strings and allow changing the selection by choosing from a pop-up list.
-Copyright (c) 2006-2012 Oliver Kreylos
+Copyright (c) 2006-2016 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -385,7 +385,7 @@ void DropdownBox::pointerMotion(Event& event)
 	event.overrideTargetWidget(foundChild);
 	
 	/* Arm/disarm children as we go by sending fake button events: */
-	if(foundChild!=armedChild)
+	if(event.isPressed()&&foundChild!=armedChild)
 		{
 		if(armedChild!=0)
 			armedChild->pointerButtonUp(event);
@@ -476,7 +476,7 @@ void DropdownBox::clearItems(void)
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
 	}
 
-void DropdownBox::addItem(const char* newItem)
+Widget* DropdownBox::addItem(const char* newItem)
 	{
 	/* Get the style sheet: */
 	// const GLMotif::StyleSheet& ss=*getManager()->getStyleSheet();
@@ -496,6 +496,9 @@ void DropdownBox::addItem(const char* newItem)
 		parent->requestResize(this,calcNaturalSize());
 	else
 		resize(Box(Vector(0.0f,0.0f,0.0f),calcNaturalSize()));
+	
+	/* Return the new item widget: */
+	return button;
 	}
 
 void DropdownBox::setSelectedItem(int newSelectedItem)

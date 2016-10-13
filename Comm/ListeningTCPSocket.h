@@ -1,7 +1,7 @@
 /***********************************************************************
 ListeningTCPSocket - Class for TCP half-sockets that can accept incoming
 connections.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -26,17 +26,29 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 
+/* Forward declarations: */
+namespace Misc {
+class Time;
+}
+
 namespace Comm {
 
 class ListeningTCPSocket
 	{
+	/* Embedded classes: */
+	public:
+	enum AddressFamily // Enumerated type for IP address families
+		{
+		Any,IPv4,IPv6
+		};
+	
 	/* Elements: */
 	private:
 	int fd; // File descriptor of the listening half-socket
 	
 	/* Constructors and destructors: */
 	public:
-	ListeningTCPSocket(int portId,int backlog); // Creates a listening socket on any address and the given port ID, or on a randomly-assigned port ID if portId is negative
+	ListeningTCPSocket(int portId,int backlog,AddressFamily addressFamily =Any); // Creates a listening socket on any address and the given port ID, or on a randomly-assigned port ID if portId is negative
 	private:
 	ListeningTCPSocket(const ListeningTCPSocket& source); // Prohibit copy constructor
 	ListeningTCPSocket& operator=(const ListeningTCPSocket& source); // Prohibit assignment operator
@@ -51,6 +63,7 @@ class ListeningTCPSocket
 	int getPortId(void) const; // Returns port ID assigned to this half-socket
 	std::string getAddress(void) const; // Returns interface address assigned to this half-socket in dotted notation
 	std::string getInterfaceName(bool throwException =true) const; // Returns interface host name of this half-socket; throws exception if host name cannot be resolved and flag is true
+	bool waitForConnection(const Misc::Time& timeout) const; // Waits for an incoming connection until timeout; returns true if a connection is waiting to be accepted
 	};
 
 }

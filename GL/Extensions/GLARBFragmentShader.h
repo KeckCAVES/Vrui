@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBFragmentShader - OpenGL extension class for the
 GL_ARB_fragment_shader extension.
-Copyright (c) 2007-2012 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -55,6 +55,7 @@ class GLARBFragmentShader:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBFragmentShader*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

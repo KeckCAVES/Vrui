@@ -1,6 +1,6 @@
 /***********************************************************************
 GLARBShadow - OpenGL extension class for the GL_ARB_shadow extension.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -45,6 +45,7 @@ class GLARBShadow:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBShadow*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	
 	/* Constructors and destructors: */
 	private:

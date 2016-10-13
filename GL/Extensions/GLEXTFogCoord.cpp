@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFogCoord - OpenGL extension class for the GL_EXT_fog_coord
 extension.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTFogCoord:
 **************************************/
 
 GL_THREAD_LOCAL(GLEXTFogCoord*) GLEXTFogCoord::current=0;
+const char* GLEXTFogCoord::name="GL_EXT_fog_coord";
 
 /******************************
 Methods of class GLEXTFogCoord:
@@ -51,7 +52,7 @@ GLEXTFogCoord::~GLEXTFogCoord(void)
 
 const char* GLEXTFogCoord::getExtensionName(void) const
 	{
-	return "GL_EXT_fog_coord";
+	return name;
 	}
 
 void GLEXTFogCoord::activate(void)
@@ -67,13 +68,13 @@ void GLEXTFogCoord::deactivate(void)
 bool GLEXTFogCoord::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_fog_coord");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTFogCoord::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_fog_coord"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTFogCoord* newExtension=new GLEXTFogCoord;

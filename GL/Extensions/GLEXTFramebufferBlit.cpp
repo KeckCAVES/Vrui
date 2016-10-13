@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferBlit - OpenGL extension class for the
 GL_EXT_framebuffer_blit extension.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLEXTFramebufferBlit:
 *********************************************/
 
 GL_THREAD_LOCAL(GLEXTFramebufferBlit*) GLEXTFramebufferBlit::current=0;
+const char* GLEXTFramebufferBlit::name="GL_EXT_framebuffer_blit";
 
 /*************************************
 Methods of class GLEXTFramebufferBlit:
@@ -48,7 +49,7 @@ GLEXTFramebufferBlit::~GLEXTFramebufferBlit(void)
 
 const char* GLEXTFramebufferBlit::getExtensionName(void) const
 	{
-	return "GL_EXT_framebuffer_blit";
+	return name;
 	}
 
 void GLEXTFramebufferBlit::activate(void)
@@ -64,13 +65,13 @@ void GLEXTFramebufferBlit::deactivate(void)
 bool GLEXTFramebufferBlit::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_framebuffer_blit");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTFramebufferBlit::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_framebuffer_blit"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTFramebufferBlit* newExtension=new GLEXTFramebufferBlit;

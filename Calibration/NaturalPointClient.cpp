@@ -1,7 +1,7 @@
 /***********************************************************************
 Client to read tracking data from a NaturalPoint OptiTrack tracking
 system.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -32,7 +32,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <netdb.h>
 #include <string>
 #include <iostream>
+#include <Misc/SizedTypes.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/FunctionCalls.h>
 
 namespace {
 
@@ -61,12 +63,97 @@ std::string readString(PacketBuffer& packet)
 Methods of class NaturalPointClient:
 ***********************************/
 
+void NaturalPointClient::readRigidBody(PacketBuffer& packet,NaturalPointClient::RigidBody& rigidBody,bool readValidFlag) const
+	{
+	/* Read the body ID and position/orientation: */
+	rigidBody.id=packet.read<Misc::SInt32>();
+	for(int j=0;j<3;++j)
+		rigidBody.position[j]=Scalar(packet.read<Misc::Float32>());
+	Misc::Float32 quat[4];
+	packet.read(quat,4);
+	rigidBody.orientation=Rotation::fromQuaternion(quat);
+	
+	/* Read the body's associated markers: */
+	int numBodyMarkers=packet.read<Misc::SInt32>();
+	std::vector<Point>::iterator mIt=rigidBody.markers.begin();
+	for(int j=0;j<numBodyMarkers;++j,++mIt)
+		{
+		/* Check if all allocated markers have been used: */
+		if(mIt==rigidBody.markers.end())
+			{
+			/* Extend the marker array: */
+			rigidBody.markers.push_back(Point());
+			mIt=rigidBody.markers.end()-1;
+			}
+		
+		/* Read the marker position: */
+		for(int j=0;j<3;++j)
+			(*mIt)[j]=Scalar(packet.read<Misc::Float32>());
+		}
+	
+	/* Erase all unused markers: */
+	rigidBody.markers.erase(mIt,rigidBody.markers.end());
+	
+	if(protocolVersion[0]>=2)
+		{
+		/* Read marker IDs: */
+		std::vector<int>::iterator midIt=rigidBody.markerIds.begin();
+		for(int j=0;j<numBodyMarkers;++j,++midIt)
+			{
+			/* Check if all allocated marker IDs have been used: */
+			if(midIt==rigidBody.markerIds.end())
+				{
+				/* Extend the marker ID array: */
+				rigidBody.markerIds.push_back(0);
+				midIt=rigidBody.markerIds.end()-1;
+				}
+			
+			/* Read the marker ID: */
+			*midIt=packet.read<Misc::SInt32>();
+			}
+		
+		/* Erase all unused marker IDs: */
+		rigidBody.markerIds.erase(midIt,rigidBody.markerIds.end());
+		
+		/* Read marker sizes: */
+		std::vector<Scalar>::iterator msIt=rigidBody.markerSizes.begin();
+		for(int j=0;j<numBodyMarkers;++j,++msIt)
+			{
+			/* Check if all allocated marker sizes have been used: */
+			if(msIt==rigidBody.markerSizes.end())
+				{
+				/* Extend the marker size array: */
+				rigidBody.markerSizes.push_back(0);
+				msIt=rigidBody.markerSizes.end()-1;
+				}
+			
+			/* Read the marker size: */
+			*msIt=Scalar(packet.read<Misc::Float32>());
+			}
+		
+		/* Erase all unused marker sizes: */
+		rigidBody.markerSizes.erase(msIt,rigidBody.markerSizes.end());
+		
+		/* Read mean marker error: */
+		rigidBody.meanMarkerError=Scalar(packet.read<Misc::Float32>());
+		
+		if(readValidFlag&&(protocolVersion[0]>2||(protocolVersion[0]==2&&protocolVersion[1]>=6)))
+			{
+			/* Read rigid body flags: */
+			unsigned int rigidBodyFlags=packet.read<Misc::UInt16>();
+			rigidBody.valid=(rigidBodyFlags&0x01U)!=0;
+			}
+		else
+			rigidBody.valid=true;
+		}
+	}
+
 void NaturalPointClient::handlePacket(PacketBuffer& packet)
 	{
 	/* Parse the packet: */
 	packet.rewind();
-	unsigned int messageId=packet.read<unsigned short>();
-	packet.read<unsigned short>();
+	unsigned int messageId=packet.read<Misc::UInt16>();
+	packet.read<Misc::UInt16>(); // This is packet payload size in bytes
 	switch(messageId)
 		{
 		case NAT_PINGRESPONSE:
@@ -78,14 +165,14 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 			serverName=appName;
 			
 			/* Read the server's application version number: */
-			unsigned char appVersion[4];
-			packet.read<unsigned char>(appVersion,4);
+			Misc::UInt8 appVersion[4];
+			packet.read(appVersion,4);
 			for(int i=0;i<4;++i)
 				serverVersion[i]=int(appVersion[i]);
 			
 			/* Read the protocol version: */
-			unsigned char protVersion[4];
-			packet.read<unsigned char>(protVersion,4);
+			Misc::UInt8 protVersion[4];
+			packet.read(protVersion,4);
 			for(int i=0;i<4;++i)
 				protocolVersion[i]=int(protVersion[i]);
 			
@@ -104,10 +191,10 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 				nextModelDef->skeletons.clear();
 				
 				/* Read number of data sets: */
-				int numDataSets=packet.read<int>();
+				int numDataSets=packet.read<Misc::SInt32>();
 				for(int dataSet=0;dataSet<numDataSets;++dataSet)
 					{
-					int dataSetType=packet.read<int>();
+					int dataSetType=packet.read<Misc::SInt32>();
 					switch(dataSetType)
 						{
 						case 0: // Marker set
@@ -118,7 +205,7 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 							ms.name=readString(packet);
 							
 							/* Read all markers: */
-							int numMarkers=packet.read<int>();
+							int numMarkers=packet.read<Misc::SInt32>();
 							for(int i=0;i<numMarkers;++i)
 								{
 								/* Read the marker's name: */
@@ -141,9 +228,10 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 								}
 							
 							/* Read the rigid body's ID, parent ID, and parent offset: */
-							rb.id=packet.read<int>();
-							rb.parentId=packet.read<int>();
-							packet.read<Scalar>(rb.offset.getComponents(),3);
+							rb.id=packet.read<Misc::SInt32>();
+							rb.parentId=packet.read<Misc::SInt32>();
+							for(int j=0;j<3;++j)
+								rb.offset[j]=Scalar(packet.read<Misc::Float32>());
 							
 							/* Store the rigid body: */
 							nextModelDef->rigidBodies.push_back(rb);
@@ -158,10 +246,10 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 							s.name=readString(packet);
 							
 							/* Read the skeleton's ID: */
-							s.id=packet.read<int>();
+							s.id=packet.read<Misc::SInt32>();
 							
 							/* Read all rigid bodies: */
-							int numRigidBodies=packet.read<int>();
+							int numRigidBodies=packet.read<Misc::SInt32>();
 							for(int i=0;i<numRigidBodies;++i)
 								{
 								RigidBodyDef rb;
@@ -173,9 +261,10 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 									}
 								
 								/* Read the rigid body's ID, parent ID, and parent offset: */
-								rb.id=packet.read<int>();
-								rb.parentId=packet.read<int>();
-								packet.read<Scalar>(rb.offset.getComponents(),3);
+								rb.id=packet.read<Misc::SInt32>();
+								rb.parentId=packet.read<Misc::SInt32>();
+								for(int j=0;j<3;++j)
+									rb.offset[j]=Scalar(packet.read<Misc::Float32>());
 								
 								/* Store the rigid body: */
 								s.rigidBodies.push_back(rb);
@@ -202,10 +291,10 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 			Frame& frame=frames.startNewValue();
 			
 			/* Read the frame number: */
-			frame.number=packet.read<int>();
+			frame.number=packet.read<Misc::SInt32>();
 			
 			/* Read all marker sets: */
-			int numMarkerSets=packet.read<int>();
+			int numMarkerSets=packet.read<Misc::SInt32>();
 			std::vector<MarkerSet>::iterator msIt=frame.markerSets.begin();
 			for(int markerSet=0;markerSet<numMarkerSets;++markerSet,++msIt)
 				{
@@ -221,7 +310,7 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 				msIt->name=readString(packet);
 				
 				/* Read all markers in the set: */
-				int numMarkers=packet.read<int>();
+				int numMarkers=packet.read<Misc::SInt32>();
 				std::vector<Point>::iterator mIt=msIt->markers.begin();
 				for(int i=0;i<numMarkers;++i,++mIt)
 					{
@@ -234,7 +323,8 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 						}
 					
 					/* Read the marker's position: */
-					packet.read<Scalar>(mIt->getComponents(),3);
+					for(int j=0;j<3;++j)
+						(*mIt)[j]=Scalar(packet.read<Misc::Float32>());
 					}
 				
 				/* Delete all unused markers: */
@@ -245,7 +335,7 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 			frame.markerSets.erase(msIt,frame.markerSets.end());
 			
 			/* Read all unidentified markers: */
-			int numOtherMarkers=packet.read<int>();
+			int numOtherMarkers=packet.read<Misc::SInt32>();
 			std::vector<Point>::iterator omIt=frame.otherMarkers.begin();
 			for(int i=0;i<numOtherMarkers;++i,++omIt)
 				{
@@ -258,14 +348,15 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 					}
 				
 				/* Read the marker's position: */
-				packet.read<Scalar>(omIt->getComponents(),3);
+				for(int j=0;j<3;++j)
+					(*omIt)[j]=Scalar(packet.read<Misc::Float32>());
 				}
 			
 			/* Delete all unused unidentified markers: */
 			frame.otherMarkers.erase(omIt,frame.otherMarkers.end());
 			
 			/* Read all rigid bodies: */
-			int numRigidBodies=packet.read<int>();
+			int numRigidBodies=packet.read<Misc::SInt32>();
 			std::vector<RigidBody>::iterator rbIt=frame.rigidBodies.begin();
 			for(int i=0;i<numRigidBodies;++i,++rbIt)
 				{
@@ -277,125 +368,32 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 					rbIt=frame.rigidBodies.end()-1;
 					}
 				
-				/* Read the body ID and position/orientation: */
-				rbIt->id=packet.read<int>();
-				packet.read<Scalar>(rbIt->position.getComponents(),3);
-				Scalar quat[4];
-				packet.read<Scalar>(quat,4);
-				rbIt->orientation=Rotation::fromQuaternion(quat);
-				
-				/* Read the body's associated markers: */
-				int numBodyMarkers=packet.read<int>();
-				std::vector<Point>::iterator mIt=rbIt->markers.begin();
-				for(int j=0;j<numBodyMarkers;++j,++mIt)
-					{
-					/* Check if all allocated markers have been used: */
-					if(mIt==rbIt->markers.end())
-						{
-						/* Extend the marker array: */
-						rbIt->markers.push_back(Point());
-						mIt=rbIt->markers.end()-1;
-						}
-					
-					/* Read the marker position: */
-					packet.read<Scalar>(mIt->getComponents(),3);
-					}
-				
-				/* Erase all unused markers: */
-				rbIt->markers.erase(mIt,rbIt->markers.end());
-				
-				if(protocolVersion[0]>=2)
-					{
-					/* Read marker IDs: */
-					std::vector<int>::iterator midIt=rbIt->markerIds.begin();
-					for(int j=0;j<numBodyMarkers;++j,++midIt)
-						{
-						/* Check if all allocated marker IDs have been used: */
-						if(midIt==rbIt->markerIds.end())
-							{
-							/* Extend the marker ID array: */
-							rbIt->markerIds.push_back(0);
-							midIt=rbIt->markerIds.end()-1;
-							}
-						
-						/* Read the marker ID: */
-						*midIt=packet.read<int>();
-						}
-					
-					/* Erase all unused marker IDs: */
-					rbIt->markerIds.erase(midIt,rbIt->markerIds.end());
-					
-					/* Read marker sizes: */
-					std::vector<Scalar>::iterator msIt=rbIt->markerSizes.begin();
-					for(int j=0;j<numBodyMarkers;++j,++msIt)
-						{
-						/* Check if all allocated marker sizes have been used: */
-						if(msIt==rbIt->markerSizes.end())
-							{
-							/* Extend the marker size array: */
-							rbIt->markerSizes.push_back(0);
-							msIt=rbIt->markerSizes.end()-1;
-							}
-						
-						/* Read the marker size: */
-						*msIt=packet.read<Scalar>();
-						}
-					
-					/* Erase all unused marker sizes: */
-					rbIt->markerSizes.erase(msIt,rbIt->markerSizes.end());
-					
-					/* Read mean marker error: */
-					rbIt->meanMarkerError=packet.read<Scalar>();
-					}
+				/* Read the rigid body: */
+				readRigidBody(packet,*rbIt,true);
 				}
 			
 			/* Delete all unused rigid bodies: */
 			frame.rigidBodies.erase(rbIt,frame.rigidBodies.end());
 			
-			if(protocolVersion[0]>2||(protocolVersion[0]==2&&protocolVersion[1]>0))
+			if(protocolVersion[0]>2||(protocolVersion[0]==2&&protocolVersion[1]>=1))
 				{
 				frame.skeletons.clear();
 				
 				/* Read all skeletons: */
-				int numSkeletons=packet.read<int>();
+				int numSkeletons=packet.read<Misc::SInt32>();
 				for(int i=0;i<numSkeletons;++i)
 					{
 					Skeleton s;
-					s.id=packet.read<int>();
-					int numSkeletonRigidBodies=packet.read<int>();
+					s.id=packet.read<Misc::SInt32>();
+					int numSkeletonRigidBodies=packet.read<Misc::SInt32>();
 					for(int j=0;j<numSkeletonRigidBodies;++j)
 						{
-						RigidBody rb;
-						
-						/* Read the body ID and position/orientation: */
-						rb.id=packet.read<int>();
-						packet.read<Scalar>(rb.position.getComponents(),3);
-						Scalar quat[4];
-						packet.read<Scalar>(quat,4);
-						rb.orientation=Rotation::fromQuaternion(quat);
-						
-						/* Read the body's associated markers: */
-						int numBodyMarkers=packet.read<int>();
-						for(int k=0;k<numBodyMarkers;++k)
-							{
-							Point marker;
-							packet.read<Scalar>(marker.getComponents(),3);
-							rb.markers.push_back(marker);
-							}
-						
-						/* Read marker IDs: */
-						for(int k=0;k<numBodyMarkers;++k)
-							rb.markerIds.push_back(packet.read<int>());
-						
-						/* Read marker sizes: */
-						for(int k=0;k<numBodyMarkers;++k)
-							rb.markerSizes.push_back(packet.read<Scalar>());
-						
-						/* Read mean marker error: */
-						rb.meanMarkerError=packet.read<Scalar>();
+						/* Read the rigid body: */
+						RigidBody rigidBody;
+						readRigidBody(packet,rigidBody,false);
 						
 						/* Store the rigid body: */
-						s.rigidBodies.push_back(rb);
+						s.rigidBodies.push_back(rigidBody);
 						}
 					
 					/* Store the skeleton: */
@@ -403,11 +401,76 @@ void NaturalPointClient::handlePacket(PacketBuffer& packet)
 					}
 				}
 			
-			/* Read latency: */
-			frame.latency=packet.read<int>();
+			if(protocolVersion[0]>2||(protocolVersion[0]==2&&protocolVersion[1]>=3))
+				{
+				frame.labeledMarkers.clear();
+				
+				/* Read all labeled markers: */
+				int numLabeledMarkers=packet.read<Misc::SInt32>();
+				std::vector<LabeledMarker>::iterator lmIt=frame.labeledMarkers.begin();
+				for(int i=0;i<numLabeledMarkers;++i,++lmIt)
+					{
+					/* Check if all allocated labeled markers have been used: */
+					if(lmIt==frame.labeledMarkers.end())
+						{
+						/* Extend the labeled marker array: */
+						frame.labeledMarkers.push_back(LabeledMarker());
+						lmIt=frame.labeledMarkers.end()-1;
+						}
+					
+					/* Read the marker's ID: */
+					lmIt->id=packet.read<Misc::SInt32>();
+					
+					/* Read the marker's position: */
+					for(int j=0;j<3;++j)
+						lmIt->position[j]=Scalar(packet.read<Misc::Float32>());
+					
+					if(protocolVersion[0]>2||(protocolVersion[0]==2&&protocolVersion[1]>=6))
+						{
+						/* Read the marker's flags: */
+						unsigned int markerFlags=packet.read<Misc::UInt16>();
+						lmIt->occluded=(markerFlags&0x01U)!=0;
+						lmIt->pointCloudSolved=(markerFlags&0x02U)!=0;
+						lmIt->modelSolved=(markerFlags&0x04U)!=0;
+						}
+					else
+						{
+						lmIt->occluded=false;
+						lmIt->pointCloudSolved=false;
+						lmIt->modelSolved=false;
+						}
+					}
+				
+				/* Delete all unused labeled markers: */
+				frame.labeledMarkers.erase(lmIt,frame.labeledMarkers.end());
+				}
+			
+			/* Read frame processing latency: */
+			frame.latency=Scalar(packet.read<Misc::Float32>());
+			
+			/* Read frame time code: */
+			for(int i=0;i<2;++i)
+				frame.timeCode[i]=packet.read<Misc::UInt32>();
+			
+			/* Read packet timestamp: */
+			if(protocolVersion[0]>2||(protocolVersion[0]==2&&protocolVersion[1]>=7))
+				frame.timeStamp=packet.read<Misc::Float64>();
+			else
+				frame.timeStamp=packet.read<Misc::Float32>();
+			
+			/* Read frame flags: */
+			unsigned int frameFlags=packet.read<Misc::UInt16>();
+			frame.recording=(frameFlags&0x01U)!=0;
+			frame.trackedModelsChanged=(frameFlags&0x02U)!=0;
 			
 			/* Read end-of-data tag: */
-			packet.read<int>();
+			packet.read<Misc::SInt32>();
+			
+			if(frameCallback!=0)
+				{
+				/* Call the frame callback: */
+				(*frameCallback)(frame);
+				}
 			
 			/* Notify anyone waiting for a frame: */
 			frames.postNewValue();
@@ -462,6 +525,7 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 	:commandSocket(-1,serverHostName,commandPort),commandBuffer(1024,PacketBuffer::LittleEndian),
 	 commandReplyBuffer(65536,PacketBuffer::LittleEndian),
 	 dataSocketFd(0),dataBuffer(65536,PacketBuffer::LittleEndian),
+	 frameCallback(0),
 	 nextModelDef(0)
 	{
 	/* Create the data multicast UDP socket: */
@@ -480,16 +544,6 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 		Misc::throwStdErr("NaturalPointClient: Unable to bind data socket to port %d",dataPort);
 		}
 	
-	/* Lookup server's IP address: */
-	struct hostent* serverEntry=gethostbyname(serverHostName);
-	if(serverEntry==0)
-		{
-		close(dataSocketFd);
-		Misc::throwStdErr("NaturalPointClient: Unable to resolve server %s",serverHostName);
-		}
-	struct in_addr serverAddress;
-	serverAddress.s_addr=ntohl(((struct in_addr*)serverEntry->h_addr_list[0])->s_addr);
-	
 	/* Lookup data multicast group's IP address: */
 	struct hostent* dataEntry=gethostbyname(dataMulticastGroup);
 	if(dataEntry==0)
@@ -501,6 +555,17 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 	dataMulticastAddress.s_addr=ntohl(((struct in_addr*)dataEntry->h_addr_list[0])->s_addr);
 	
 	#if 0
+	
+	/* Lookup server's IP address: */
+	struct hostent* serverEntry=gethostbyname(serverHostName);
+	if(serverEntry==0)
+		{
+		close(dataSocketFd);
+		Misc::throwStdErr("NaturalPointClient: Unable to resolve server %s",serverHostName);
+		}
+	struct in_addr serverAddress;
+	serverAddress.s_addr=ntohl(((struct in_addr*)serverEntry->h_addr_list[0])->s_addr);
+	
 	/* Connect the data socket to the server's multicast socket: */
 	struct sockaddr_in dataServerAddress;
 	dataServerAddress.sin_family=AF_INET;
@@ -520,6 +585,7 @@ NaturalPointClient::NaturalPointClient(const char* serverHostName,int commandPor
 		close(dataSocketFd);
 		Misc::throwStdErr("NaturalPointClient: Unable to query data socket's local address");
 		}
+	
 	#endif
 	
 	/* Enable broadcast handling for the data socket: */
@@ -580,6 +646,8 @@ NaturalPointClient::~NaturalPointClient(void)
 	dataHandlingThread.cancel();
 	dataHandlingThread.join();
 	close(dataSocketFd);
+	
+	delete frameCallback;
 	}
 
 NaturalPointClient::ModelDef& NaturalPointClient::queryModelDef(NaturalPointClient::ModelDef& modelDef)
@@ -598,6 +666,12 @@ NaturalPointClient::ModelDef& NaturalPointClient::queryModelDef(NaturalPointClie
 	
 	/* Return the changed structure: */
 	return modelDef;
+	}
+
+void NaturalPointClient::setFrameCallback(NaturalPointClient::FrameCallback* newFrameCallback)
+	{
+	delete frameCallback;
+	frameCallback=newFrameCallback;
 	}
 
 const NaturalPointClient::Frame& NaturalPointClient::requestFrame(void)

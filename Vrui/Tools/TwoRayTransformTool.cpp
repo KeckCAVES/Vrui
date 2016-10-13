@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoRayTransformTool - Class to select 3D positions using ray-based input
 devices by intersecting two rays from two different starting points.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -187,7 +187,7 @@ void TwoRayTransformTool::frame(void)
 	if(active)
 		{
 		/* Calculate the device's ray equation in navigational coordinates: */
-		rays[numRays]=Ray(sourceDevice->getPosition(),sourceDevice->getRayDirection());
+		rays[numRays]=sourceDevice->getRay();
 		rays[numRays].transform(getInverseNavigationTransformation());
 		
 		/* Check if there are two rays (one final and one intermediate): */
@@ -211,7 +211,7 @@ void TwoRayTransformTool::frame(void)
 	if(numRays>=(active?1:2))
 		{
 		/* Set the transformed device's position and orientation: */
-		transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),-getInchFactor());
+		transformedDevice->setDeviceRay(sourceDevice->getDeviceRayDirection(),Scalar(0));
 		transformedDevice->setTransformation(ONTransform(getNavigationTransformation().transform(intersection)-Point::origin,sourceDevice->getTransformation().getRotation()));
 		}
 	}

@@ -1,7 +1,7 @@
 /***********************************************************************
 Device - Class representing a USB device and optionally a handle
 resulting from opening the device.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -33,7 +33,8 @@ Methods of class Device:
 ***********************/
 
 Device::Device(libusb_device* sDevice)
-	:device(sDevice),handle(0)
+	:context(Context::acquireContext()),
+	 device(sDevice),handle(0)
 	{
 	/* Reference the device: */
 	if(device!=0)
@@ -41,7 +42,8 @@ Device::Device(libusb_device* sDevice)
 	}
 
 Device::Device(const Device& source)
-	:device(source.device),handle(0)
+	:context(source.context),
+	 device(source.device),handle(0)
 	{
 	/* Reference the device: */
 	if(device!=0)
@@ -57,6 +59,7 @@ Device& Device::operator=(libusb_device* sDevice)
 			close();
 		if(device!=0)
 			libusb_unref_device(device);
+		context=0;
 		
 		/* Copy the device pointer and reset the handle: */
 		device=sDevice;
@@ -64,7 +67,10 @@ Device& Device::operator=(libusb_device* sDevice)
 		
 		/* Reference the device: */
 		if(device!=0)
+			{
+			context=Context::acquireContext();
 			libusb_ref_device(device);
+			}
 		}
 	return *this;
 	}
@@ -78,6 +84,7 @@ Device& Device::operator=(const Device& source)
 			close();
 		if(device!=0)
 			libusb_unref_device(device);
+		context=0;
 		
 		/* Copy the device pointer and reset the handle: */
 		device=source.device;
@@ -85,7 +92,10 @@ Device& Device::operator=(const Device& source)
 		
 		/* Reference the device: */
 		if(device!=0)
+			{
+			context=Context::acquireContext();
 			libusb_ref_device(device);
+			}
 		}
 	return *this;
 	}
@@ -109,6 +119,11 @@ unsigned int Device::getAddress(void) const
 	return libusb_get_device_address(device);
 	}
 
+int Device::getSpeedClass(void) const
+	{
+	return libusb_get_device_speed(device);
+	}
+
 libusb_device_descriptor Device::getDeviceDescriptor(void)
 	{
 	libusb_device_descriptor result;
@@ -124,6 +139,33 @@ VendorProductId Device::getVendorProductId(void)
 		return VendorProductId(dd.idVendor,dd.idProduct);
 	else
 		throw std::runtime_error("USB::Device::getDeviceDescriptor: Error while querying device descriptor");
+	}
+
+std::string Device::getDescriptorString(unsigned int stringIndex)
+	{
+	/* Temporarily open the device if it is not open already: */
+	bool tempOpen=handle==0;
+	if(tempOpen)
+		open();
+	
+	/* Retrieve the descriptor string: */
+	unsigned char stringBuffer[256];
+	int stringLength=libusb_get_string_descriptor_ascii(handle,stringIndex,stringBuffer,sizeof(stringBuffer));
+	if(stringLength<0)
+		{
+		/* Close the device again if it wasn't open to begin with: */
+		if(tempOpen)
+			close();
+		
+		throw std::runtime_error("USB::Device::getDescriptorString: Error while querying descriptor string");
+		}
+	
+	/* Close the device again if it wasn't open to begin with: */
+	if(tempOpen)
+		close();
+	
+	/* Return the descriptor string: */
+	return std::string(stringBuffer,stringBuffer+stringLength);
 	}
 
 std::string Device::getSerialNumber(void)
@@ -434,11 +476,42 @@ size_t Device::interruptTransfer(unsigned char endpoint,unsigned char* data,size
 				throw std::runtime_error("USB::Device::interruptTransfer: Device has been disconnected");
 			
 			default:
-				Misc::throwStdErr("USB::Device::readControl: Error during interrupt transfer on endpoint %u",(unsigned int)endpoint);
+				Misc::throwStdErr("USB::Device::interruptTransfer: Error %d during interrupt transfer on endpoint %u",transferResult,(unsigned int)endpoint);
 			}
 		}
 	
 	return size_t(transferred);
+	}
+
+size_t Device::bulkTransfer(unsigned char endpoint,unsigned char* data,size_t dataSize,unsigned int timeOut)
+	{
+	/* Issue the request: */
+	int transferred=0;
+	int transferResult=libusb_bulk_transfer(handle,endpoint,data,int(dataSize),&transferred,timeOut);
+	if(transferResult<0&&transferResult!=LIBUSB_ERROR_TIMEOUT)
+		{
+		switch(transferResult)
+			{
+			case LIBUSB_ERROR_PIPE:
+				Misc::throwStdErr("USB::Device::bulkTransfer: Endpoint %u is halted",(unsigned int)endpoint);
+			
+			case LIBUSB_ERROR_OVERFLOW:
+				Misc::throwStdErr("USB::Device::bulkTransfer: Overflow on endpoint %u",(unsigned int)endpoint);
+			
+			case LIBUSB_ERROR_NO_DEVICE:
+				throw std::runtime_error("USB::Device::bulkTransfer: Device has been disconnected");
+			
+			default:
+				Misc::throwStdErr("USB::Device::bulkTransfer: Error %d during bulk transfer on endpoint %u",transferResult,(unsigned int)endpoint);
+			}
+		}
+	
+	return size_t(transferred);
+	}
+
+size_t Device::getMaxIsoPacketSize(unsigned char endpoint)
+	{
+	return libusb_get_max_iso_packet_size(device,endpoint);
 	}
 
 void Device::releaseInterface(int interfaceNumber)

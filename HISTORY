@@ -3940,3 +3940,1038 @@ Vrui-3.1-004:
   - Updated derived classes accordingly.
 - Added Geometry/LevenbergMarquardtMinimizer.
 - Added Math/SimplexMinimizer.
+
+Vrui-4.0-001:
+- Removed some redundant matrix operations from lens correction shader.
+- Refactored generic Vrui::GenericToolFactory class by splitting out
+  code not dependent on template parameter.
+- API change: Changed modal tool binding dialog to ask tool classes for
+  proper function names for optional feature slots, instead of asking
+  for name of first slot following required slots. Custom tool factory
+  classes need to be checked for proper behavior.
+  - Fixed slot function name handling in Vrui::GenericToolFactory
+    classes.
+- Split key name translation code from Vrui::InputDeviceAdapterMouse
+  into new Vrui::KeyMapper class.
+- Added option to represent modifier keys as special button keys to
+  Vrui::InputDeviceAdapterMouse via modifiersAsButtons setting.
+- keyboardModeToggleKey setting in InputDeviceAdapterMouse sections is
+  now a qualified key name, i.e., combination of key name and modifier
+  states.
+- Moved window key parsing in Vrui::VRWindow to Vrui::KeyMapper class.
+- Made window control keys in Vrui::VRWindow configurable via exitKey,
+  screenshotKey, burnModeKey qualified key name settings.
+- Added option for a global per-user Vrui configuration file to
+  Vrui.Workbench.cpp, to better support system-wide Vrui installations.
+  Uses HOME environment variable during run-time initialization to find
+  configuration file.
+- -mergeConfig Vrui option automatically appends .cfg extension, and
+  merges given configuration files found in the system-wide and per-user
+  global configuration directories, and then the fully-qualified file
+  name as given.
+- In GL/GLExtensionManager.cpp, renamed #define variable to
+  GLSUPPORT_CONFIG_HAVE_GLXGETPROCADDRESS and moved from compiler
+  command line to GL/Config.h.
+- In GL/GLFont.cpp, renamed #define variable to
+  GLSUPPORT_CONFIG_GL_FONT_DIR and moved from compiler command line to
+  GL/Config.h.
+- In SceneGraph/Internal/Doom3MaterialManager.cpp, renamed #define
+  variable to SCENEGRAPH_CONFIG_DOOM3MATERIALMANAGER_SHADERDIR and moved
+  from compiler command line to SceneGraph/Internal/Config.h.
+- Created Vrui/Internal/Config.h file to provide configuration options
+  to Vrui sources instead of using the compiler command line. Removed
+  compiler command line definitions from:
+  - Vrui/ToolManager.cpp
+  - Vrui/VisletManager.cpp
+  - Vrui/Internal/InputDeviceAdapterPlayback.cpp
+  - Vrui/Internal/Linux/InputDeviceAdapterHID.cpp
+  - Vrui/Internal/Vrui.General.cpp
+  - Vrui/Internal/Vrui.Workbench.cpp
+  - Vrui/Tools/JediTool.cpp
+- Created VRDeviceDaemon/Config.h file to provide configuration options
+  to VRDeviceDaemon sources instead of using the compiler command line.
+  Removed compiler command line definitions from:
+  - VRDeviceDaemon/VRFactory.icpp
+  - VRDeviceDaemon/VRDeviceManager.cpp
+  - VRDeviceDaemon/VRDeviceDaemon.cpp
+- Changed installation path logic in makefile to install headers and
+  libraries under named subdirectories of include and lib, respectively,
+  when installing to a system location.
+- Changed configuration logic in Vrui makefile to auto-set Vrui paths in
+  template makefile in BuildRoot and makefiles in ExamplePrograms.
+- Added mode for rendering checkerboard patterns to XBackground utility;
+  can be used for camera calibration.
+- Combined VRDEVICES_INPUT_H_HAS_STRUCTS and
+  HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS makefile variables into
+  LINUX_INPUT_H_HAS_STRUCTS.
+- Added #include <VRDeviceDaemon/Config.h> to
+  VRDeviceDaemon/VRDevices/Linux/HIDDevice.cpp and fixed #define name.
+- Changed makefile to execute configuration step only on first make, or
+  when explicitly requested by "make config".
+- Added separate handling for modifier key masks and Alt as modifier or
+  button key on Linux and Mac OS X to Vrui/Internal/KeyMapper.cpp.
+- Added valuator-based rotation and per-tool configuration to
+  Vrui::ValuatorWalkSurfaceNavigationTool.
+- Added OpenGL extension class for GL_ARB_debug_output.
+- Minor error checking and connection management improvements in Wiimote
+  VR device driver module.
+- Added split method to Geometry::Polygon class.
+- Fixed maximum number of vertices in temporary arrays during clipping
+  and splitting in Geometry::Polygon.
+- Added class Geometry::Paraboloid to perform ray intersection tests on
+  upright circular paraboloids in n-dimensional affine space.
+- Added a catch for unreadable video device controls to
+  Video::V4L2VideoDevice::createControlDialog.
+- Fixed a mistake in the comment for Geometry::SplineCurve's UNIFORM
+  knot vector type.
+- Fixed aliasing detection bug in Images::Image assignment operator.
+- Added invalidate method to Images::Image.
+- Changes to GLMotif::Image widget:
+  - Added non-const getImage method and updateImage method.
+  - Added methods to get/set interpolation mode (GL_NEAREST or
+    GL_LINEAR).
+  - Added method to enable/disable illumination.
+  - Added methods to convert between image and widget coordinate spaces.
+- Fixed scrolling and zooming behavior in GLMotif::ScrolledImage; now
+  actually works as intended.
+- Added reparent method to GLMotif::Widget.
+- Added new constructor for GLMotif::ScrolledImage that takes an already
+  existing widget derived from GLMotif::Image, and reparents it to the
+  scrolled image shell.
+- Fixed visibility of elements of GLMotif::Event.
+- Behavior change to GLMotif event model: widgets now receive pointer
+  motion events even when the pointer button is not pressed. This was
+  always possible, but never happened because Vrui GUI tools did not
+  send such events.
+  - Added isPressed method to GLMotif::Event.
+  - Fixed pointerMotion methods in several widget classes to work
+    properly with non-pressed motion events:
+    - Button, CascadeButton, DropdownBox, TextField, and PopupMenu.
+- Change to text entry focus handling in GLMotif::WidgetManager:
+  - Deleted widgets are automatically de-focused
+  - Added hasFocus method.
+  - Focus element in GLMotif::TextField no longer needed, but still
+    there.
+- Added SampleTrackerField to Vrui calibration utilities.
+- Added new VR device calibrator class based on a forward grid look-up,
+  to work with the grid sampling method used in SampleTrackerField.
+- Added check to ensure that vislet enable toggle button state matches
+  vislet's actual enable state in Vrui::VisletManager.
+- Fixed OpenGL context state initialization sequence problem in
+  Vrui::ValuatorWalkSurfaceNavigationTool.
+- Fixed bug when assigning Vrui windows to window groups based on
+  display name in Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed major bug in OpenGL context sharing; when calling
+  registerContext multiple times for the same context, the same
+  DisplayState object has to be returned.
+- Moved pcm.prepare from Sound::SoundRecorder's constructor to the start
+  method; apparently pulseaudio starts recording when prepare is called,
+  not when record is called.
+- Added Misc/VarInt.h, defining read/write functions for variable-sized
+  unsigned integers.
+- Added class Vrui::TextEventDispatcher to centralize management of
+  GLMotif text and text control events and make them work reliably
+  across a cluster, and between a saved and restored session.
+- Added getTextEventDispatcher function to Vrui kernel interface in
+  Vrui/Vrui.h.
+- Added textEventDispatcher element to class VruiState in
+  Vrui/Internal/Vrui.h.
+- Added handling of text event dispatcher to Vrui initialization and
+  update functions in Vrui/Internal/Vrui.General.cpp.
+- Added text event handling to Vrui::InputDeviceDataSaver, changing the
+  file format to version 4.0.
+- Added pointer to text event dispatcher to Vrui::InputDeviceManager to
+  give access to input device adapters that generate text events.
+- Added text event handling to Vrui::InputDeviceAdapterPlayback.
+- Replaced text event handling in Vrui::InputDeviceAdapterMouse with
+  Vrui::TextEventDispatcher.
+- Added resize callbacks to GLMotif::PopupWindow; are called after
+  window layout has already been updated.
+- Added getPathType method to IO::Directory to quickly check whether a
+  directory-relative path exists, and what file system object type it
+  is.
+  - Implemented getPathType method in IO::StandardDirectory.
+  - Implemented getPathType method in Cluster::StandardDirectory.
+    - Needed to make pipe element of Cluster::StandardDirectory mutable.
+- Rewrote major portions of IO::ZipArchive to make getPathType method
+  efficient by caching a ZIP archive's directory tree in memory.
+  - API change: IO::ZipArchive::DirectoryIterator class and related
+    methods in IO::ZipArchive changed significantly.
+    - Iteration now returns directories (except the root directory)
+      themselves; added isDirectory method to check for iterator type.
+- Punted on getPathType method in Doom3FileManagerDirectory in
+  SceneGraph/Internal/Doom3FileManager because the whole thing is going
+  to get changed anyway.
+- Mopped up some leftover problems from change in input device ray model
+  in several support or tool classes:
+  - Vrui::GUIInteractor
+  - Vrui::TwoRayTransformTool
+  - Vrui::UserInterfaceTool
+  - Vrui::ToolKillZoneBox
+  - Vrui::MouseCursorFaker
+- Mopped up some leftover problems from change to widget positioning
+  method in several support or tool classes:
+  - Vrui::RayMenuTool
+  - Vrui::RayScreenMenuTool
+- Added per-tool configuration to Vrui::UserInterfaceTool.
+- Put a hack into Vrui::calcHUDTransform method to align the transform
+  with the UI plane if the hot spot is already on the UI plane.
+- Added discrete azimuth increment to Vrui::FPSNavigationTool following
+  a suggestion by the good folks at Cloudhead Games.
+- Additions to Vrui::ValuatorWalkSurfaceNavigationTool:
+  - Added valuatorViewFollowFactor, a weight factor between moving
+    relative to the fixed forward direction or current view direction
+    when using the move valuators.
+  - Added valuatorSnapRotate, a flag to rotate instantaneously when
+    using the rotation valuator.
+  - Added valuator forwarding for all bound valuators when tool is not
+    active.
+- Added Vrui::DeviceForwarderCreator, a helper class to assist device-
+  forwarding tools in creating their forwarding virtual input devices,
+  and associate input button slots with forwarded device features.
+- Added enabled flag and isEnabled and setEnabled methods to
+  GLMotif::Widget; findRecipient method returns false if widget is
+  disabled.
+- Changed GLMotif::Label to dim foreground color in disabled state.
+- Changed GLMotif::Button and GLMotif::CascadeButton to ignore events
+  when disabled.
+- Changed Vrui/Internal/Vrui.h and Vrui/Internal/Vrui.General.cpp to
+  disable the "Dialogs" cascade button in the system menu when there are
+  no dialogs.
+- Added projection matrix to Vrui::DisplayState object and changed
+  Vrui::VRWindow::render() method to upload explicit projection matrix.
+- Added GLTextureObject, a helper class to simplify managing single
+  texture objects.
+- Added setEntries() method for piecewise linear color function to
+  GLColorMap.
+- Added overloaded versions of glUniformMatrix4fv API call for Geometry
+  library transformation types to GL/GLTransformationWrappers.
+- Fixed typos in GLLightTracker's attenuated light accumulation vertex
+  shader source templates.
+- Refactored configuration management in Vrui::MultiShiftButtonTool and
+  added configuration option initialPlane to select the initially active
+  button/valuator plane.
+- Added Misc::Optional, class representing optional values in
+  configuration files.
+- Added per-tool configuration management and option to draw the current
+  interaction point and use a non-bound device for interaction (to
+  support gaze-directed writing) to Vrui::QuikWriteTool.
+- Added Oculus Rift-specific handling of interpupillary distance
+  adjustment to Vrui::ViewerConfiguration vislet.
+- Added FileSelection.cpp, a demonstration of file selection and file
+  I/O, to Vrui example progams.
+- Added Animation.cpp, a demonstration program for multi-threaded
+  animation and retained-mode rendering.
+- Added minSize elements and getMinSize/setMinSize methods to
+  GLMotif::Label to specify lower bounds for labels' interiors.
+- Added new transform tool class ThumbstickTransformTool for an
+  experiment with thumbstick-based Quikwrite.
+- Added optional OpenAL context creation attributes to
+  Vrui::SoundContext: mixerFrequency, refreshFrequency, synchronous,
+  numMonoSources, numStereoSources.
+- Removed some Vrui configuration settings from Vrui/Internal/Config.h
+  again because they were dependent on debug vs release mode.
+- Changed Oculus Rift VRDeviceDaemon module to load calibration data
+  from binary file identified by device's serial number.
+- Changed OculusCalibrator utility to improve calibration matrices and
+  automatically write calibration data to binary calibration file.
+- Added getSpeedClass and getDescriptorString methods to USB::Device.
+- Added bulkTransfer method to USB::Device.
+- Changed forward declaration of GLMotif::StyleSheet from class to
+  struct in several header files.
+- Added ability to load single-viewpoint .view files in
+  Vrui::ViewpointFileNavigationTool and refactored configuration
+  management.
+- Fixed argument type in convenience creator for single-argument C-style
+  function calls in Misc/FunctionCalls.h.
+- Fixed type in forward declaration of GLMaterial in Vrui/Vrui.h.
+- Added getRoot method to GLWindow class to retrieve the X screen's root
+  window.
+- Added setWindowPos method to GLWindow, but window manager still gets
+  its fingers in there.
+- Added bypassCompositor method to GLWindow to try and reduce latency.
+- Added output names to Vrui window configuration file sections, to send
+  windows to named displays (by connector or monitor name) in multi-
+  display environments. Almost plug&play.
+  - New configuration tag outputName.
+  - New configuration tag windowSize, to let Vrui choose window
+    position.
+- Added bypassCompositor tag to Vrui window configuration file sections.
+- Improved Vrui desktop mode in multi-display environments by using the
+  main display, or the display named in outputName, as the panning
+  domain by default. Having multiple displays form a continuous screen
+  now requires custom configuration.
+- Added libXrandr as an optional library to Vrui dependencies, to
+  support named displays.
+- Fixed bug for negative indices in
+  GLMotif::RadioBox::setSelectedToggle(int).
+- Added copyTrackingState method to Vrui::InputDevice.
+- Added option to follow a tracked device to per-device settings in
+  Vrui::InputDeviceAdapterHID, selected by trackingDeviceName tag.
+- Added bindAttribLocation and getAttribLocation methods to GLShader.
+- Added preliminary Vrui::LensCorrector class to start refactoring the
+  Vrui::VRWindow class and support newer lens distortion algorithms.
+- Added preliminary support for forced vsync to GLWindow, via new
+  methods canVsync, setVsyncInterval, and waitForVsync.
+- Minor optimizations to OpenGL call sequence in Vrui::VRWindow and
+  Vrui/Internal/Vrui.General.cpp.
+- Added Realtime/Time.h, defining several classes to deal with
+  nanosecond-resolution POSIX clocks.
+- Added Realtime::Timer, a class for high-resolution timing and sleeping
+  using a nanosecond-resolution monotonic system clock.
+- Moved Realtime library towards bottom of library stack, just above
+  Misc library, to allow inclusion in USB and RawHID libraries in the
+  future.
+- Added convenience functions to print error messages or throw
+  exceptions about incomplete frame buffer objects to
+  GL/Extensions/GLEXTFramebufferObject.h.
+- Added experimental support for tracking data time stamps to
+  VRDeviceDaemon protocol, upping protocol version to 3.
+- Realtime library is now a dependency of Vrui library.
+- Added option to print device data latency histograms to DeviceTest
+  utility.
+- Added clarification to Vrui::VRDeviceState that linear and angular
+  velocities are defined in physical space, not device-local space.
+- Fixed linear and angular velocities in Oculus Rift tracking driver;
+  transformed from device-local to physical space.
+- Added motion prediction for tracked devices to
+  Vrui::InputDeviceAdapterDeviceDaemon.
+- Added extension class GLARBInstancedArrays for GL_ARB_instanced_arrays
+  extension.
+- Added isDirect method to GLContext.
+- Added extension class GLARBTextureMultisample for
+  GL_ARB_texture_multisample extension.
+- Cleaned up redundant uses of extension name strings in OpenGL
+  extension classes.
+- Added support for front buffer rendering to Vrui::VRWindow and did
+  some minor clean-up.
+- First version of Vrui::LensCorrector class ready:
+  - Fully configurable for DK1, DK2, DK2 in rotated mode.
+    - See Vrui Configuration File Reference for configuration options.
+  - Lens distortion and chromatic aberration correction.
+  - Support for OLED response time correction ("black smear" fix).
+- Added new class Math::Histogram to create histograms of values of
+  arbitrary scalar types.
+- Added missing #include <Math/Math.h> to Images/ExtractBlobs.icpp and
+  added MYMATH as dependency to MYIMAGES.
+- Redid the internal API of Video::VideoDevice and derived classes to
+  support dynamic registration of custom video device classes.
+- Improved device enumeration code in Video::V4L2VideoDevice by only
+  stopping when no more device nodes exist, not on other errors.
+- Changed videoFd element in Video::V4L2VideoDevice to protected to
+  allow deriving the class for quirky devices.
+- Added Video::OculusRiftDK2VideoDevice as a subclass of
+  Video::V4L2VideoDevice to support the tracking camera's quirky
+  interface.
+- Added fudge value to detect rank-deficient systems to
+  Math::Matrix::solveLinearEquations.
+- Added missing include files in USB/TransferBuffer.h and
+  USB/TransferBuffer.cpp.
+- Added initial version of RawHID library to Vrui installation.
+- Added code to properly initialize HMD orientation to OculusRift
+  VRDeviceDaemon module; removed previous fast-start code.
+- Changed several Vrui classes so that object names read from
+  configuration files now default to the name of the configuration file
+  section containing them.
+- Added get() method to Threads::Atomic.
+- Re-implemented Threads::TripleBuffer using working lock-free
+  synchronization method based on CAS loops.
+- Behavior change: Threads::TripleBuffer::postNewValue() method no
+  longer idempotent.
+- Added texSubImage2D method to Images::Image and Images::RGBImage.
+- Removed some conditional-dependent code in
+  VRDeviceDaemon/NaturalPointClient.cpp inside conditional.
+- Added MYREALTIME package to VRDeviceDaemon dependencies.
+- Added Vrui::FileSelectionHelper::saveFile method with explicitly
+  provided initial file name.
+- Added optional preTransform configuration file setting to
+  Vrui::InputDeviceAdapterPlayback to transform stored input device data
+  using a global orthogonal transformation.
+- Fixed behavior of "Save Curve File..." in viewpoint curve editor for
+  cluster-based systems.
+- Added a file defining an empty cursor (EmptyCursor.Xcur) to
+  share/Textures directory to simplify disabling the mouse cursor for
+  Vrui applications.
+- Fixed bug in Misc::ConfigurationFile::readFromPipe: did not reset base
+  section pointer.
+- Added methods to and fixed bugs in Sound::ALSAPCMDevice.
+- Added waitForConnection method to Comm::ListeningTCPSocket.
+- Added IPv4Address and IPv4SocketAddress to Comm library.
+- Added sendMessage and receiveMessage methods with recipient/sender
+  addresses to Comm::UDPSocket.
+- Added waitForMessage method to Comm::UDPSocket.
+- Added setReadDataSize method to IO::FixedMemoryFile and adapted
+  getSize method and added getMemorySize method to work with variable-
+  size files; added clear method to write anew into an existing buffer.
+- Added optional flag to open serial ports in non-blocking mode to
+  Comm::SerialPort, to work around devices that don't provide a carrier
+  signal. Call setPortSettings(Comm::SerialPort::Blocking) afterwards to
+  go back to blocking read/write behavior.
+- Added new class Math::VarianceAccumulator.
+- Reimplemented Threads::RefCounted and Threads::RefCountedArray using
+  Threads::Atomic.
+- API change in USB library: Changed USB::Context to reference-counted
+  singleton to automate handling of USB library contexts and event
+  dispatch.
+  - Major change is that applications or indirect clients of the USB
+    library no longer need to use USB::Context objects.
+  - Adapted all USB library clients to new API.
+- Removed vruiTerminate function in Vrui.Workbench.cpp; wasn't used.
+- Added constructor for pre-existing memory block to
+  IO::FixedMemoryFile; the object will adopt the block and delete[] it
+  when destroyed.
+- Added IO::OStream, a wrapper class to layer a std::ostream abstraction
+  over an IO::File object.
+- Added option to disable grabbing the mouse pointer to
+  Vrui::InputDeviceAdapterMouse.
+- Added a background refresh thread for fake streaming updates to
+  Video::ImageSequenceVideoDevice.
+- Added support for raw files with varying data types and endianness to
+  SceneGraph::loadElevationGridNode.
+- SceneGraph::ElevationGridNode no longer silently ignores problems
+  reading an external height file.
+- Reworked Vrui::SketchingTool for better error handling and ability to
+  create multiple sketch object types; right now, curves and polylines.
+- Added getMaxIsoPacketSize method to USB::Device.
+- Removed USB/TransferBuffer.* and added TransferPool class to USB
+  library.
+- Added getCurrent / setCurrent methods to IO::Directory to maintain
+  library-wide current directory of arbitrary subtypes.
+- Added code to set current directory of IO sublibrary to Vrui
+  initialization.
+- Added Misc::MessageLogger, a base class for centralized process-wide
+  message loggers with environment-appropriate behavior.
+- API change: Changed glPrintError in GL/GLPrintError.h to log to the
+  global Misc::MessageLogger instead to a std::ostream.
+  - Adapted Vrui::VRWindow::draw method.
+- Changed several Vrui classes to use Misc::MessageLogger instead of
+  printing to std::cout / std::cerr.
+- Removed obsolete and #if 0-ed out code from
+  Vrui::ToolManager::loadDefaultTools.
+- Added USB_CONFIG_HAVE_STRERROR to USB/Config.h
+- Added GLMotif::WidgetArranger, an abstract base class for widget
+  positioning engines.
+  - Added GLMotif::WindowWidgetArranger, a concrete arranger class for
+    rectangular windows in the (x, y) plane.
+- Added WidgetArranger pointer to GLMotif::WidgetManager, and added
+  multiple versions of popupPrimaryWidget method using the arranger
+  object.
+- Added OpenGL extension classes for GL_ARB_vertex_array_object and
+  GL_EXT_gpu_shader4. As per specification, functions and constants
+  in GL_ARB_vertex_array_object do not have the ARB suffix.
+- Added "Reset View" button to Vrui system menu. Works by calling a
+  callback function, exposed by default as a virtual resetNavigation
+  method in the Vrui::Application class.
+- Fixed error recovery bug when reading/skipping quoted strings in
+  IO::ValueSource.
+- Fixed some minor directory traversal bugs in IO::ZipArchive.
+- Added XInput2 extension package to Packages.System.
+- Added Video::ImageExtractorY8 for 8-bit greyscale video.
+- Added Y8 and GREY pixel formats to Video::V4L2VideoDevice.
+- Added kernel bug fix check to Video::OculusRiftDK2VideoDevice.
+- Added cluster pipe flushes to load/save callbacks in Vrui filming
+  support vislet.
+- Added auto and load options to Filming vislet's command line.
+- Added VRWindow pointer to Vrui::InputDeviceAdapterMouse::resetKeys'
+  signature to update current window.
+- Added getUiManager() to Vrui core API.
+- Configuration change: added uiManager tag to Vrui root section,
+  pointing to section with UI manager configuration.
+- Configuration change: added fullscreenToggleKey setting to Window
+  sections.
+- Changed how mouse-like 2D input devices are transformed into 3D input
+  devices:
+  - Changed signature of Vrui::InputDeviceAdapterMouse::setMousePosition
+    to take two int parameters for x and y.
+  - Removed windowMousePos state from Vrui::VRWindow.
+  - Simplified Vrui::VRWindow::updateMouseDevice and added code to let
+    the UI manager modify the mouse device position.
+- Added mutual exclusion of active GUI interactors to Vrui::UIManager
+  and removed it from Vrui::GUIInteractor.
+- Changed Vrui::GUIInteractor to work with Vrui::UIManager.
+- Removed GUI interaction state from core Vrui state.
+- Added Vrui::UIManagerPlanar to lock UI components to an arbitrary
+  plane.
+- Removed popWidgetsOnScreen and widgetPlane elements from core Vrui
+  state.
+- API change: Removed getUiPlane, calcUiPoint, calcUiTransform, and
+  calcHUDTransform functions from Vrui kernel API. Now handled by
+  UIManager.
+  - Adapted MouseNavigationTool, FiveAxisSurfaceNavigationTool,
+    SixAxisNavigationTool, RevolverTool, RayMenuTool, QuikWriteTool.
+- Removed eye ray option from Vrui::RayMenuTool, Vrui::WidgetTool, and
+  Vrui::QuikWriteTool; can be achieved by stacking on top of an
+  EyeRayTransformTool.
+- Removed Vrui::RayScreenMenuTool.
+- API change: Removed isUseEyeRay, getRayOffset, getInteractionPosition,
+  calcInteractionRay, calcRayPoint, and calcRayTransform from
+  Vrui::UserInterfaceTool. Had been replaced by methods in
+  Vrui::GUIInteractor a long time ago.
+  - Also removed interactionDevice element; now superfluous.
+  - Adapted PanelMenuTool, SixDofInputDeviceTool, RayInputDeviceTool,
+    SixAxisInputDeviceTool, PlaneSnapInputDeviceTool, WidgetTool,
+    ScrollTool, DaisyWheelTool, QuikWriteTool
+- Removed dependence on main viewer from RayInputDeviceTool; now uses
+  ray direction as local interaction plane normal.
+- Simplified getButtonDeviceRay and getValuatorDeviceRay methods in
+  Vrui::Tool.
+- Fixed uninitialized dragPlaneNormal bug in vertex dragging in
+  Vrui::BoxRayDragger.
+- Used new InputDevice::copyTrackingState method in Vrui::TransformTool.
+- Minor simplification to Vrui::ButtonToValuatorTool.
+- Removed superfluous #include <string> from Comm/IPv4SocketAddress.h.
+- Made Comm::TCPPipe and Comm::ListeningTCPSocket IP address format-
+  agnostic.
+  - Added optional address family parameter to Comm::ListeningTCPSocket
+    constructor.
+- Removed some superfluous #includes from Vrui/Vrui.General.cpp.
+- Added input device adapter for Oculus Rift HMDs using Oculus VR's
+  tracking daemon.
+- Added automatic screen projection to Vrui::LensProjector. New
+  configuration tags: lensProjectionDist, leftLensProjectionDist,
+  rightLensProjectionDist, projectScreens.
+- Added VRWindow::updateViewerState to notify a window that a viewer
+  has changed layout; used to update lens correction parameters.
+  - Added Vrui::LensCorrector::updateViewerState.
+  - Added call to updateViewerState to ViewerConfiguration vislet.
+- Removed broken Oculus Rift-specific code from ViewerConfiguration
+  vislet; lens shift is now handled by LensCorrector class.
+- Added "Dummy" input device adapter to create non-moving input devices
+  for debugging/development purposes.
+- Replaced manual device tracking state copy with copyTrackingState call
+  in Vrui::ToolManager's tool creation motion callback.
+- Added display rotation to Vrui::LensCorrector via the displayRotation
+  tag.
+- Changed the dollying direction in Vrui::MouseNavigationTool to device
+  ray direction to work better in multi-viewer setups.
+- Removed ability to interact with GUI widgets from
+  Vrui::MouseNavigationTool; can be achieved by layering a widget tool
+  underneath the mouse navigation tool. Removed interactWithWidgets
+  configuration option.
+- Rewrote Vrui::MouseDialogNavigationTool based on
+  Vrui::MouseNavigationTool.
+  - Removed interactWithWidgets configurations setting.
+- Rewrote Vrui::MouseSurfaceNavigationTool based on
+  Vrui::MouseNavigationTool.
+  - Removed interactWithWidgets configurations setting.
+  - Renamed screenScalingDirection setting to scalingDirection.
+  - Added configuration setting compassPos to position the virtual
+    compass.
+- Added animationFrameInterval state to Vrui state and function
+  Vrui::getNextAnimationFrameTime() to Vrui kernel.
+  - Removed hard-coded animation time intervals from all Vrui components
+    and applications.
+- Added -f command line option for fullscreen on startup, -d option to
+  disable window decorations, window position initialization, and full-
+  screen toggle key (F11) to XBackground.
+- Added XInput2 X11 protocol extension (for multitouch screens) to system
+  packages and internal Vrui configuration header.
+- Added support for multitouch screens to Vrui's input device
+  architecture:
+  - Added Vrui::InputDeviceAdapterMultitouch to convert from X11
+    multitouch events to multiple screen-based Vrui input devices.
+  - Added initialization of XInput2 extension to Vrui::VRWindow.
+  - Added event handling for XInput2 multitouch events to
+    Vrui::VRWindow::processEvent.
+  - API change: Changed name and interface of
+    Vrui::VRWindow::updateMouseDevice to updateScreenDevice, and
+    windowPos from int to Scalar.
+    - Updated Vrui::InputDeviceAdapterMouse accordingly.
+  - Added multitouch adapter creation to Vrui::InputDeviceManager.
+  - Changed event mask source in GLWindow::disableMouseEvents().
+  - Fixed isEventForWindow method in GLWindow to account for
+    XGenericEventCookies.
+  - Added Vrui::MultitouchFirstPersonNavigationTool for 1:1 scale walk-
+    through navigation using multitouch screens.
+- Replaced cout output in Vrui::InputDeviceManager with MessageLogger
+  calls.
+- Changed Vrui::MultiDeviceNavigationTool to new configuration method.
+- Removed remnant code from Vrui::MultiDeviceNavigationTool that locked
+  the rotation axis to the "up" direction in navigational space.
+- Added peekApplicationTime function to internal Vrui kernel API to
+  allow input device adapters to estimate the time stamp of the next
+  Vrui frame.
+- Changed RayInputDeviceTool to set grabbed device's selection ray to
+  grabbing device's.
+- Changed RayInputDeviceTool's default rotation factor to displaySize/4.
+- Added setForegroundColor / getForegroundColor functions to Vrui kernel
+  API, and foregroundColor configuration option to root configuration
+  section.
+- Changed Vrui::ScaleBar, Vrui::SixAxisNavigationTool,
+  Vrui::PlaneSnapInputDeviceTool, Vrui::MeasurementTool,
+  Vrui::MouseSurfaceNavigationTool, Vrui::MouseDialogNavigationTool,
+  Vrui::FiveAxisNavigationTool, Vrui::MouseNavigationTool,
+  Vrui::AnnotationTool, Vrui::ValuatorWalkSurfaceNavigationTool,
+  Vrui::WalkSurfaceNavigationTool, Vrui::ScreenLocatorTool,
+  Vrui::MouseTool, Vrui::QuikWriteTool, and Vrui::VRWindow to use
+  Vrui::getForegroundColor().
+- Added VisionTest to example programs; renders a standard test chart
+  to measure the user's visual acuity through a VR display.
+- Added Vrui::resetNavigationFunction to Vrui internal API.
+- Added home key to Vrui::VRWindow as shortcut to reset the navigation
+  transformation via an application-provided callback.
+  - Added tag "homeKey" to VRWindow configuration section.
+- Changed default position and orientation of Vrui::Viewer's head light
+  to configured mono eye position and view direction, respectively.
+- Added [min, max] frame time range to display when exiting burn mode.
+- Added configuration option for cubic sampling during lens distortion
+  correction to Vrui::LensCorrector.
+- Fixed lens correction and FoV calculations based on closer examination
+  of Oculus SDK. Seems to basically work now, minus potential issue in
+  chromatic aberration correction.
+- Moved FileSelectionHelper class from Vrui namespace into GLMotif
+  namespace to make it available to lower-level libraries.
+- Changed all uses of Vrui::FileSelectionHelper in Vrui library to
+  GLMotif::FileSelectionHelper.
+  - Did some minor improvement to Vrui tool classes using file selection
+    helpers by making such on-demand singleton objects.
+- Changed output operation for Geometry::Rotation to normalize rotation
+  angle to the [0, +pi] range.
+- Added more convenience methods to Misc::MessageLogger and simplified
+  all uses within Vrui libraries.
+- Added Vrui-specific child class of Misc::MessageLogger to send "user"
+  messages to dialog windows.
+- Improved error handling in VruiState::loadViewpointFile.
+- Added Video::LensDistortion, a class encapsulating the lens distortion
+  correction formula also used in OpenCV.
+  - MYVIDEO package now depends on MYGEOMETRY package.
+- Added dollyCenter and scaleCenter settings to
+  Vrui::MouseNavigationTool and Vrui::MouseDialogNavigationTool to
+  select center point of dollying and scaling operations.
+- Fixed template bug (3 instead of dimensionParam) in
+  Geometry::PCACalculator. Fortunately class was only defined up to 3.
+- Added rounding to RGB-greyscale color conversion in
+  Video::ImageExtractorRGB8.
+- Fixed unescaped % conversion tags in error messages in
+  Video::ImageSequenceVideoDevice.
+- Changed camera name exported by custom Rift DK2 camera driver to
+  "Oculus Rift DK2 Tracking Camera" to avoid confusion with kernel
+  driver.
+- Cleaned up memory leaks in exception handling for rank-deficient
+  matrices in Math::Matrix.
+- Modifications to Images::Image:
+  - Made reference counting thread-safe; added Threads library to
+    dependencies of Images library.
+  - Added replacePixels and replacePixelRow methods that do not copy
+    from a previously shared image representation.
+- Added background image buffering to Vrui::TheoraMovieSaver to ensure
+  smooth recording even at larger (1280x720@30Hz) window sizes.
+- Took out code preventing window size changes in non-panned mode from
+  Vrui::VRWindow.
+- Improved behavior of panning VR windows.
+- Automatically set Vrui install paths in makefiles included in Vrui
+  package.
+- Made evil "blinders" hack in Vrui/Internal/Vrui.General.cpp semi-
+  official.
+- Use GLClipPlaneTracker::pause to disable clip planes at end of
+  VruiState::display in Vrui/Internal/Vrui.General.cpp.
+- Added vislet class FrameRateViewer to draw a live frame time graph,
+  currently pretty ugly.
+- Changed initialization sequence of GLContext class to support display
+  autodetection across multiple X screens. Updated GLWindow, VRWindow,
+  and Vrui.Workbench.cpp accordingly.
+- Fixed frame time interval calculation during burn mode.
+- Changed Vrui::getOutputConfiguration to search across all screens
+  attached to the X display.
+- Changed window initialization sequence in Vrui.Workbench.cpp for
+  better support of multiple X screens.
+- Added explicit tracking type specification and UI manager projection
+  flag to Vrui::InputDeviceAdapterHID to support ray-based interaction
+  on 6-DOF source devices such as head trackers.
+- Added virtual projectRay method to Vrui::UIManager.
+- Changed hotspot calculation in Vrui::RayMenuTool to work better with
+  different UI layout policies.
+- Fixed shutdown core dump in cluster environments by adding explicit
+  release of cluster-based current directory to VruiState::~VruiState.
+- Added getRender/setRender methods to Vrui::ToolKillZone.
+- Added toggle button to show/hide tool kill zone to input device
+  submenu in Vrui's system menu.
+- Minor improvements to Vrui::UIManagerPlanar.
+- Added Vrui::UIManagerSpherical.
+- Moved widget manager and UI manager up in Vrui initialization sequence
+  to make them available for input device adapter initialization.
+- Added uninstallation target to Vrui makefile.
+  - Added support scripts CleanDir.sh and CleanDirIfEqual.sh to Vrui
+	  build system.
+- Changed default installation directory for Vrui to /usr/local, now
+  that there is a working "make uninstall", and edited README.
+- Rebased all reference-counted classes from Misc::RefCounted to
+  Threads::RefCounted.
+- Added readSomeData and writeSomeData methods to IO::File to support
+  non-blocking file I/O.
+  - Added new protected virtual method writeDataUpTo to IO::File.
+  - Implemented new virtual method in all derived classes.
+- Cleaned up error handling in classes derived from IO::File; all thrown
+  errors are now derived from IO::File::Error.
+- Added some new options, selectable colors, and help text to
+  XBackground.
+- Simplified Vrui::VRWindow::updateScreenDevice.
+- Changed Math::BrokenLine to negate mapping result if min>max.
+- Added Vrui::ScreenMouseTool, a tool class to create a virtual mouse
+  device that moves inside a screen controlled by two valuators.
+- Fixed bug that caused crashes when tearing down input graphs with
+  tools binding to input devices from multiple levels.
+- Added triggerFeatureCallback method to Vrui::InputDevice to implement
+  input graph priority updates.
+- Removed #include <iostream> from Vrui/Internal/Vrui.General.cpp.
+- Vrui::init prints error if configuration file requested via
+  -mergeConfig is not found in any location.
+- Added more output to Vrui's verbose mode:
+  - Exposed vruiVerbose variable in Vrui/Internal/Vrui.h.
+  - Vrui::getOutputConfiguration prints list of output names if one is
+    requested, and prints error if none matches request.
+  - Vrui::VRWindow prints initial window position and size, panning
+    domain, and screen size.
+- Fixed window initialization code in GLWindow; position detection
+  finally works reliably.
+- Added custom message dialogs and re-routing of user messages to
+  console during Vrui start-up to Vrui::MessageLogger and
+  Vrui/Internal/Vrui.General.cpp.
+- Made Misc::MessageLogger convenience method namespace-global.
+- Replaced calls to Vrui::showErrorMessage inside Vrui with
+  Misc::MessageLogger equivalents.
+- Re-routed input graph loading errors from console to user in
+  Vrui::InputGraphManager.
+- Clean-up of event passing in GLMotif to improve pop-up menu behavior:
+  - GLMotif::Event::overrideTargetWidget now returns previous target
+    widget.
+  - Added clarifying comments to GLMotif/Widget.h.
+  - Cleaned up event handling in GLMotif::WidgetManager.
+    - All events go to grabbing widget, not target widget.
+    - All button event handling methods return true if the event was
+      handled by someone.
+  - Simplified exception handling in GLMotif::Container.
+  - Completely redid event handling in GLMotif::PopupMenu,
+    GLMotif::Menu, and GLMotif::CascadeButton. Sub-menu interaction now
+    works a lot better.
+  - GLMotif::Menu and GLMotif::SubMenu are now obsolete and deprecated.
+    Menus and sub-menus are constructed identically, as RowColumn-
+    derived containers inside a PopupMenu shell.
+  - Added convenience features to GLMotif::PopupMenu to automatically
+    manage the menu root container. Widgets directly added to a
+    PopupMenu are automatically redirected to the root menu.
+    - Added important methods of GLMotif::Menu API to
+      GLMotif::PopupMenu.
+  - Removed GLMotif::Menu and GLMotif::SubMenu from Vrui sources and
+    applications.
+- Added ability to add non-toggle button children to GLMotif::RadioBox,
+  which will be ignored during event processing.
+- Added inheritance of layout parameters from parent to
+  GLMotif::RowColumn to simplify creating nested layouts.
+- Added Math/Algorithms.h as a place for common numerical algorithms.
+  - Added algorithm to solve cubic equations.
+- Now distributing vruiVerbose flag across cluster.
+- Fixed window initialization code in GLWindow when no window manager is
+  present.
+- Fixed interpolation code for 3D rotations in
+  Geometry::LinearInterpolator.
+- Added copy constructor and assignment operator to Misc::FdSet.
+- Created initial (experimental) version of centralized run-loop-like
+  object in Threads::EventDispatcher.
+- More detailed error messages in Comm::TCPSocket constructor.
+
+Vrui-4.1-001:
+- Improved documentation in USB/Context.h.
+- Reworked internal udev abstraction classes used in raw HID management.
+- Added Math::Complex to Math library to represent complex numbers based
+  on arbitrary scalar types.
+- Fixed bug in tool menu creation for abstract tool classes in
+  Vrui::ToolManager.
+- Improvements to generic math library:
+  - Added typedefs FieldScalar and PrecisionScalar to Math::Constants to
+    identify an embedding field type and an embedding type for high-
+    precision calculations such as matrix inversions.
+  - Added specialization of Math::Constants class for Math::Complex.
+  - Added Math::Complex to Misc::Marshaller and Misc::ValueCoder
+    specializations.
+- Fixed GLMotif::ListBox::getSelectionChangedCallbacks(), which returned
+  wrong callback list. Found by David Lonie.
+- Fixed menu creation bug in Vrui::VisletManager.
+- Added new class Images::TextureSet to simplify handling of OpenGL
+  texture images.
+- Added class GLEXTTextureArray for GL_EXT_texture_array OpenGL
+  extension.
+- Expanded GLScalarLimits functionality:
+  - Added OpenGL scalar type constants.
+  - Added AccumulatorScalar typedef.
+  - Added static fromAccumulator() method.
+- API change: major changes to Images::Image class hierarchy.
+  - Updated Images::RGBAImage to newest Images::Image API.
+  - Added texSubImage3D to Images::Image and glTexSubImage3D to
+    Images::RGBImage and Images::RGBAImage to support 3D textures or 2D
+    texture arrays.
+  - Added new non-templatized base class Images::BaseImage taking care
+    of memory management and OpenGL interaction.
+  - Moved most functionality of Images::Image and Images::RGBImage and
+    Images::RGBAImage into Images::BaseImage.
+  - Removed pixel type conversion copy constructors and assignment
+    operators for being fundamentally unsafe.
+- Added conversion function to Y'CbCr color space to all ImageExtractor
+  classes in Video library.
+- Added userData pointer to callbacks in Threads::EventDispatcher.
+- Replaced use of atomic reference counter in USB::Context with a mutex,
+  as atomic ref count could not prevent creation race condition.
+- Added getPropertyValue() method to RawHID::UdevDevice.
+- Added class RawHID::DeviceMonitor to monitor hot-plug events on raw
+  HID devices.
+- Added a detailed constructor to RawHID::Device to enable creating a
+  Device directly from a DeviceMonitor's AddEvent callback structure.
+- Added device node file name to RawHID::Device's state to simplify
+  writing hot-plug event handlers.
+- Added Threads library to dependencies of RawHID library in
+  BuildRoot/Packages.
+- Added reader interface to IO::VariableMemoryFile to allow reading back
+  previously-written data up to the most recent flush().
+- Added class Misc::Pipe as a thin RAII wrapper around UNIX unnamed
+  pipes.
+- Fixed documentation bug in IO::ValueSource: matchString stops reading
+  before first mismatch; isString reads an entire string from the
+  source.
+- Added missing function instantiations of Math::Interval<>::intersect
+  and fixed typo in said function.
+- Changed GLMotif::WidgetManager such that any attributes associated
+  with a widget are deleted at the time the widget is deleted.
+- Added value range check to GLMotif::Slider.
+- Used widget attributes to associate control IDs and menu entry IDs
+  with control widgets in Video::V4L2VideoDevice's control panel.
+  - Replaced regular GLMotif::Sliders with GLMotif::TextFieldSliders in
+    integer video device controls.
+  - Fixed use of regular vs. extended controls depending on control
+    class.
+- Added error message logging to Video::V4L2VideoDevice's background
+  streaming thread.
+- Improved error handling in Video::V4L2VideoDevice; can now recover
+  from streaming failures.
+- Added saveConfiguration() method to Video::VideoDevice interface.
+- Added getVersionNumber and getSerialNumber methods to
+  Video::OculusRiftDK2VideoDevice.
+- Fixed frame rate bug in Video::OculusRiftDK2VideoDevice video format
+  enumerator; set counter twice instead of denominator.
+- Now returning newly-created widget in GLMotif::DropdownBox::addItem().
+- Added setImage method to Images::TextureSet::Texture.
+- Simplified time difference calculations in Misc::Timer.
+- Added implementation of setEnabled() method to
+  GLMotif::TextFieldSlider.
+- Added X11 error handlers to Vrui.Workbench.cpp.
+- Fixed early event handling to detect initial window size in
+  GLWindow in case of multiple windows sharing an OpenGL context.
+- Moved vsync setup in Vrui::VRWindow after glXMakeCurrent to fix
+  initialization bug when sharing an OpenGL context.
+- Added value coder class for Math::Interval in Math/MathValueCoders.h.
+- Added copy constructor to GLObject.
+- Fixed Vrui::DisplayState window pointer to point to correct window
+  during all rendering passes when sharing OpenGL contexts.
+- Fixed handling of optional libudev library in build system.
+
+Vrui-4.1-002:
+- Added Vrui::WiggleScreenshotTool class to create wiggle stereograms.
+- Changed alignment of labels in Vrui::AnnotationTool; will probably
+  revert.
+- Added device driver module OpenVRHost to retrieve tracking data from
+  OpenVR-compatible tracking drivers, such as Valve's Lighthouse driver.
+- Added usage help text to VRDeviceDaemon; triggered by -h command line
+  option.
+- Added option to save HMD configuration to binary file to OpenVRHost
+  driver plug-in.
+- Added option to load HMD configuration from binary file to
+  Vrui::LensCorrector, overriding previous method of setting up lens
+  correction.
+- Disabled glFinish() call in Vrui::VRWindow::swapBuffers, as it pegs
+  CPU utilization at 100%. Watching for side effects such as increased
+  latency.
+  - Disabling glFinish() does indeed increase latency, as OpenGL will
+    return immediately from glXSwapBuffers and queue subsequent
+    rendering calls for later frames.
+  - Added lowLatency flag to VRWindow configuration to select use of
+    glFinish(), as low CPU usage is better than low latency for desktop
+    environments.
+- Simplified calculation of frustum boundaries in
+  Vrui::LensCorrector::adjustProjection.
+- Added setIPD method to Vrui::Viewer.
+- Added facility to inhibit a desktop environment's screen saver from a
+  configuration file or inside a Vrui application:
+  - Added abstract base class ScreenSaverInhibitor.
+  - Added ScreenSaverInhibitorDBus using freedesktop's standard screen
+    saver DBus interface
+  - Added screenSaverInhibitor element to Vrui state.
+  - Added inhibitScreenSaver() and uninhibitScreenSaver() functions to Vrui
+    kernel API.
+  - Removed old, non-working screen saver inhibition code from
+    Vrui/Internal/Vrui.Workbench.cpp.
+- Added main flag predictMotion to enable motion prediction in
+  Vrui::InputDeviceAdapterDeviceDaemon, and renamed motionPrediction
+  configuration tag to motionPredictionDelta.
+- Added system-wide and per-user per-application configuration files
+  named by application name to Vrui initialization sequence.
+- Fixed falling direction in surface-aligned walking navigation tools.
+- Added verbose Vrui output when front-buffer rendering is selected to
+  Vrui::VRWindow.
+- Added verbose Vrui output of render target size to
+  Vrui::LensCorrector.
+- Added better popup menu alignment method to Vrui::RayMenuTool;
+  configurable via alignMenuWithPointer tag and enabled by default.
+- Added missing XFlush() calls after X protocol messages in
+  GLWindow::hideCursor and GLWindow::showCursor.
+- Added mouse idle detection with configurable time-out to
+  Vrui::InputDeviceAdapterMouse.
+- Added a bunch of options to VruiCalibrator example program to make it
+  more useful for HMD calibration checks. See source code for now.
+- Added configuration section for HTC Vive.
+- Added patch configuration files to fake the presence of an Oculus Rift
+  DK2 or an HTC Vive.
+- Added patch configuration file to add a control window to head-mounted
+  displays.
+
+Vrui-4.2-001:
+- Added initial version of TrackingTest to Vrui utilities.
+- Made CAVERenderer vislet compatible with non-standard environment
+  layouts.
+- Added deviceUpDirection element and getUpDirection() method to
+  Vrui::Viewer.
+- Added getDeviceViewDirection() and getDeviceUpDirection() methods to
+  Vrui::Viewer.
+- Changed location of per-application configuration files to
+  Applications subdirectory inside Vrui configuration file directories.
+- Moved first call to application's resetNavigation method in
+  Vrui.Workbench.cpp after window initialization so that application has
+  last word over navigation caused by panning window resizes.
+- Generalized implementation of screen protectors to support arbitrary
+  shapes.
+  - Removed protectScreens flag and configuration tag from
+    Vrui::VRWindow.
+  - Removed protector penetration checking and grid rendering code from
+    Vrui::VRWindow.
+  - Added new class Vrui::ScreenProtectorArea.
+  - Added protectScreen tag to screen configuration sections.
+  - Added screenProtectorAreas tag to Vrui root configuration section.
+  - Renamed screenProtectors tag in Vrui root configuration section to
+    screenProtectorDevices.
+  - Added screenProtectorGridColor and screenProtectorGridSpacing tags
+    to Vrui root configuration section.
+  - Added penetration testing to Vrui::VruiState::update method.
+  - Added protector grid rendering to Vrui::VruiState::display method.
+  - Added display list to hold screen protector grid renderings to
+    Vrui::VruiState::DisplayMapper::DataItem.
+- Added frameInterval element to Vrui::OutputConfiguration structure in
+  Vrui/Internal/GetOutputConfiguration.h.
+- Temporarily added extra verbose output to
+  Vrui::getOutputConfiguration().
+- Added openvr_driver.h from OpenVR SDK as contributed source to
+  simplify building OpenVRHost VRDeviceDaemon module.
+  - Changed OPENVR_BASEDIR in makefile to embedded directory, therefore
+    enabling OpenVR support by default.
+- Added success indicators to several GLWindow methods that rely on
+  optional window manager/GLX features, or error output via
+  Misc::MessageLogger where infeasible.
+  - Added logging of said results in Vrui verbose mode.
+- Added support for GLX_NV_delay_before_swap OpenGL extension to
+  GLWindow.
+  - Added new methods canPreVsync() and waitForPreVsync() to GLWindow.
+- Added preSwapDelay tag to Vrui::VRWindow for pre-vsync lens distortion
+  correction in front-buffer rendering mode.
+- Complete overhaul of VRDeviceDaemon internal architecture, replacing
+  multithreaded I/O with event-driven I/O based on the evolving
+  Threads::EventDispatcher prototype.
+  - Added callbacks as update notification option to VRDeviceManager.
+  - Overhaul fixes hang issue when devices never send updates.
+- Renamed classes and methods in Threads::EventDispatcher in preparation
+  for additional event types.
+- Fixed bug in Vrui::InputDeviceAdapterDeviceDaemon: don't call
+  getPacket() after startStream(); startStream already waits for packet.
+  - Applied same change to DeviceTest utility.
+- Made trackerPostTransformations array in VRDevice class protected to
+  save some transformation work in the OpenVRHost driver module.
+- Fixed tracker calibration code in VRDevice to adjust linear velocity
+  based on current angular velocity and post-transformation origin point
+  translations.
+- Removed redundant state updates from VRDeviceManager::updateState
+  method.
+- Improved OpenVRHost device driver module:
+  - Streamlined state updates by always updating at head tracker rate.
+  - Automatically create virtual devices for HMD and all configured
+    controllers.
+  - Reduce transformation work by offloading local tracker
+    transformations to VRDevice post-tracker transformations.
+- Fixed initialization of VRDeviceServer::listenSocket.
+- Added configuration options for OpenVR and SteamVR to Vrui makefile.
+  - Added RunViveTracker.sh script to run VRDeviceDaemon in an
+    environment set up to load the OpenVRHost device driver module (due
+    to weird OpenVR dynamic linking requirements).
+- Changed multiple classes to catch all exceptions potentially thrown in
+  destructors, as that is not allowed.
+  - Comm::TCPPipe.
+- Added new Vrui environment setup utility, RoomSetup.
+- Added patchFile method to Misc::ConfigurationFile, to replace the
+  value of a fully-qualified tag with minimal changes to the overall
+  file, i.e., retaining tag/section order, comments, and white space.
+- Fixed several bugs in per-user configuration file handling in
+  Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed a bug in IO::File::readSomeData; didn't reset read buffer
+  pointers on empty buffer before reading.
+- Put workaround for buffered read problem into VRDeviceServer: process
+  commands in callback until read buffer is empty.
+- Changing Vrui's input device handling architecture to support
+  reprojection for perceived latency reduction in head-mounted displays.
+  - Changed parameter of
+    Vrui::InputDeviceManager::findInputDeviceAdapter to const
+    InputDevice*.
+  - Added findInputDevice method to Vrui::InputDeviceAdapter.
+  - Added peekTrackerState method to Vrui::InputDeviceAdapter to read
+    up-to-date tracking data at any point during a frame.
+    - Added implementations of said method to
+      Vrui::InputDeviceAdapterDeviceDaemon,
+      Vrui::InputDeviceAdapterTrackd, Vrui::InputDeviceAdapterVisbox,
+      and Vrui::InputDeviceAdapterOVRD.
+  - Added getHeadDevice method to Vrui::Viewer.
+  - Added peekHeadTransformation method to Vrui::Viewer.
+  - Added initial implementation of reprojection to Vrui::LensCorrector,
+    but results are not good.
+- Fixed makefile:
+  - Fixed name of uninstall rule.
+  - Added installudevrules and uninstalludevrules rules.
+    - Added UDEVRULEDIR variable to put udev rules into
+      /usr/lib/udev/rules.d for system installations.
+  - Improved automatic detection of SteamVR directory structure.
+- Added configuration options for OpenVRHost device driver module to
+  VRDeviceDaemon/Config.h.
+- Added streaming of HMD configuration structures from a VRDeviceDaemon
+  to VRDeviceClients to support dynamic configuration changes such as
+  hardware IPD dials, eye relief adjustments, or real-time pupil
+  tracking.
+  - Created new internal class Vrui::HMDConfiguration.
+  - Bumped version number of VRDeviceProtocol to 4.
+    - Added new message ID HMDCONFIG_UPDATE where three LSBs identify
+      which component of a configuration has changed.
+    - Changed parameter of VRDevicePipe::writeMessage from MessageId to
+      MessageIdType
+    - HMDCONFIG_UPDATE messages are sent from server to client in
+      streaming mode.
+  - Added array of HMD configurations and configuration change callbacks
+    to Vrui::VRDeviceClient.
+  - Made state and HMD configuration locking methods in
+    Vrui::VRDeviceClient const.
+  - Expanded interface of Vrui::InputDeviceAdapterDeviceDaemon:
+    - Added getDeviceClient method.
+    - Added findTrackerIndex method.
+    - Added findHmdConfiguration method to retrieve an HMD configuration
+      associated with an input device.
+  - Added frame callbacks and addFrameCallback function to Vrui kernel
+    API.
+  - Enabled dynamic HMD configuration changes in Vrui::LensCorrector,
+    including visual feedback during changes via a dialog box.
+    - Added code to move the screens representing an HMD to Vrui to
+      properly support applications that use viewers and screens as a
+      basis for frustum culling.
+  - Added listing of HMD configurations and configuration change
+    tracking to DeviceTest utility.
+  - Moved deviceManager element in VRDevice to protected section.
+  - Added HMD configuration management to VRDeviceManager.
+  - Added HMD configuration streaming to VRDeviceServer.
+  - Changed HMD configuration handling in OpenVRHost from file export to
+    VRDeviceManager/VRDeviceServer-based streaming.
+- Fixed frame time calculation in Vrui::VRWindow when in burn mode.
+- Created LatencyTester vislet to measure the frame-to-photon latency of
+  any Vrui application using the latency tester Oculus shipped with the
+  Rift DK1.
+- Added overloaded versions of glUniformARB for GLColor types to
+  GL/GLColorTemplates.h.

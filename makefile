@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2015 Oliver Kreylos
+# Copyright (c) 1998-2016 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -29,7 +29,7 @@
 # installation directory.
 ########################################################################
 
-INSTALLDIR := $(HOME)/Vrui-3.1
+INSTALLDIR := /usr/local
 
 ########################################################################
 # Please do not change the following lines
@@ -60,7 +60,10 @@ include $(VRUI_MAKEDIR)/Packages.System
 # of these optional libraries can be disabled manually by uncommenting
 # any of the following lines.
 
+# SYSTEM_HAVE_LIBUDEV = 0
 # SYSTEM_HAVE_LIBUSB1 = 0
+# SYSTEM_HAVE_BLUETOOTH = 0
+# SYSTEM_HAVE_LIBUDEV = 0
 # SYSTEM_HAVE_LIBPNG = 0
 # SYSTEM_HAVE_LIBJPEG = 0
 # SYSTEM_HAVE_LIBTIFF = 0
@@ -70,7 +73,8 @@ include $(VRUI_MAKEDIR)/Packages.System
 # SYSTEM_HAVE_V4L2 = 0
 # SYSTEM_HAVE_DC1394 = 0
 # SYSTEM_HAVE_THEORA = 0
-# SYSTEM_HAVE_BLUETOOTH = 0
+# SYSTEM_HAVE_XRANDR = 0
+# SYSTEM_HAVE_XINPUT2 = 0
 
 # The build system attempts to auto-detect optional features in system
 # libraries. If autodetection fails and the build process generates
@@ -78,8 +82,32 @@ include $(VRUI_MAKEDIR)/Packages.System
 # optional features can be disabled manually by uncommenting any of the
 # following lines:
 
-# Presense of libusb_get_parent in libusb.h:
-# LIBUSB1_HAS_TOPOLOGY_CALLS 0
+# Presense of libusb_get_parent and libusb_strerror in libusb.h:
+# LIBUSB1_HAS_TOPOLOGY_CALLS = 0
+# LIBUSB1_HAS_STRERROR = 0
+
+########################################################################
+# Select support for HTC Vive via the OpenVR API
+########################################################################
+
+# Root directory of the OpenVR SDK
+# (The single required header file, openvr_driver.h, is now included in
+# Vrui package as contributed source.)
+OPENVR_BASEDIR = $(PWD)/Contributed/OpenVR
+
+ifneq ($(strip $(OPENVR_BASEDIR)),)
+  SYSTEM_HAVE_OPENVR = 1
+  
+  # Root directory of the SteamVR run-time. The following attempts to
+  # find SteamVR inside the installing user's home directory:
+  STEAMVRDIR = $(shell find $(HOME) -name SteamVR)
+  
+  # If the above fails, or SteamVR's run-time is installed outside the
+  # installing user's home directory, enter the correct path here:
+  # STEAMVRDIR = 
+else
+  SYSTEM_HAVE_OPENVR = 0
+endif
 
 ########################################################################
 # Please do not change the following line
@@ -113,6 +141,13 @@ USE_RPATH = 1
 # BuildRoot/SystemDefinitions needs to be set to 0.
 GLSUPPORT_USE_TLS = 0
 
+# Set this to 1 if the Linux input.h header file has the required
+# structure definitions (usually on newer Linux versions). If this is
+# set wrongly, Vrui/Internal/Linux/InputDeviceAdapterHID.cpp and
+# VRDeviceDaemon/VRDevices/HIDDevice.cpp will generate compiler errors.
+# This setting is ignored on MacOS X.
+LINUX_INPUT_H_HAS_STRUCTS = 1
+
 # Set this to 1 if the VRWindow class shall be compiled with support for
 # swap locks and swap groups (NVidia extension). This is only necessary
 # in very rare cases; if you don't already know you need it, leave this
@@ -125,12 +160,6 @@ VRUI_VRWINDOW_USE_SWAPGROUPS = 0
 # layer. If this is set to 1 and the input abstraction is not supported,
 # Joystick.cpp will generate compiler errors.
 VRDEVICES_USE_INPUT_ABSTRACTION = 0
-
-# Set this to 1 if the Linux input.h header file has the required
-# structure definitions (usually on newer Linux versions). If this is
-# set wrongly, HIDDevice.cpp will generate compiler errors.
-# This setting is ignored on MacOS X.
-VRDEVICES_INPUT_H_HAS_STRUCTS = 1
 
 # Set this to 1 if the Vrui VR device driver shall support Nintendo Wii
 # controllers using the bluez user-level Bluetooth library. This
@@ -146,9 +175,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 3001004
-MAJORLIBVERSION = 3
-MINORLIBVERSION = 1
+VRUI_VERSION = 4002001
+MAJORLIBVERSION = 4
+MINORLIBVERSION = 2
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -163,7 +192,11 @@ LIBDESTDIR := $(VRUI_PACKAGEROOT)/$(MYLIBEXT)
 VRUI_INCLUDEDIR = $(VRUI_PACKAGEROOT)
 VRUI_LIBDIR = $(VRUI_PACKAGEROOT)/$(MYLIBEXT)
 
-# Directories for installation components
+########################################################################
+# Create the full set of installation paths, with defaults for common
+# setups
+########################################################################
+
 ifdef SYSTEMINSTALL
   HEADERINSTALLDIR = $(INSTALLDIR)/usr/$(INCLUDEEXT)/$(VRUI_NAME)
   ifdef DEBUG
@@ -177,6 +210,7 @@ ifdef SYSTEMINSTALL
   SHAREINSTALLDIR = $(INSTALLDIR)/usr/share/$(VRUI_NAME)
   PKGCONFIGINSTALLDIR = $(INSTALLDIR)/usr/$(LIBEXT)/pkgconfig
   DOCINSTALLDIR = $(INSTALLDIR)/usr/share/doc/$(VRUI_NAME)
+  UDEVRULEDIR = /usr/lib/udev/rules.d
   INSTALLROOT = /usr
 else
   ifeq ($(findstring $(VRUI_NAME),$(INSTALLDIR)),$(VRUI_NAME))
@@ -184,18 +218,19 @@ else
   else
     INSTALLSHIM = /$(VRUI_NAME)
   endif
-  HEADERINSTALLDIR = $(INSTALLDIR)/$(INCLUDEEXT)
+  HEADERINSTALLDIR = $(INSTALLDIR)/$(INCLUDEEXT)$(INSTALLSHIM)
   ifdef DEBUG
-    LIBINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)/debug
+    LIBINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)$(INSTALLSHIM)/debug
     EXECUTABLEINSTALLDIR = $(INSTALLDIR)/$(BINEXT)/debug
   else
-    LIBINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)
+    LIBINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)$(INSTALLSHIM)
     EXECUTABLEINSTALLDIR = $(INSTALLDIR)/$(BINEXT)
   endif
   ETCINSTALLDIR = $(INSTALLDIR)/etc$(INSTALLSHIM)
   SHAREINSTALLDIR = $(INSTALLDIR)/share$(INSTALLSHIM)
   PKGCONFIGINSTALLDIR = $(INSTALLDIR)/$(LIBEXT)/pkgconfig
   DOCINSTALLDIR = $(INSTALLDIR)/share/doc$(INSTALLSHIM)
+  UDEVRULEDIR = /etc/udev/rules.d
   INSTALLROOT = $(INSTALLDIR)
 endif
 PLUGININSTALLDIR = $(LIBINSTALLDIR)
@@ -203,6 +238,20 @@ ifdef DEBUG
   MAKEINSTALLDIR = $(SHAREINSTALLDIR)/make/debug
 else
   MAKEINSTALLDIR = $(SHAREINSTALLDIR)/make
+endif
+
+# Specify the location of the per-user global configuration file:
+ifeq ($(findstring $(HOME),$(INSTALLDIR)),$(HOME))
+# Vrui is installed in user's home directory, no need for per-user config file
+  VRUI_READUSERCONFIGFILE = 0
+else
+# Vrui is installed outside user's home directory
+  VRUI_READUSERCONFIGFILE = 1
+endif
+ifeq ($(HOST_OS),Darwin)
+  VRUI_USERCONFIGDIR = Library/Preferences/$(VRUI_NAME)
+else
+  VRUI_USERCONFIGDIR = .config/$(VRUI_NAME)
 endif
 
 ########################################################################
@@ -238,13 +287,16 @@ EXECUTABLES =
 #
 
 LIBRARY_NAMES    = libMisc \
+                   libRealtime \
                    libThreads
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
   LIBRARY_NAMES += libUSB
 endif
+ifneq ($(SYSTEM_HAVE_LIBUDEV),0)
+  LIBRARY_NAMES += libRawHID
+endif
 LIBRARY_NAMES   += libIO \
                    libPlugins \
-                   libRealtime \
                    libComm \
                    libCluster \
                    libMath \
@@ -302,7 +354,8 @@ VRDEVICES_IGNORE_SOURCES = VRDeviceDaemon/VRDevices/Joystick.cpp \
                            VRDeviceDaemon/VRDevices/WiimoteTracker.cpp \
                            VRDeviceDaemon/VRDevices/RazerHydra.cpp \
                            VRDeviceDaemon/VRDevices/RazerHydraDevice.cpp \
-                           VRDeviceDaemon/VRDevices/OculusRift.cpp
+                           VRDeviceDaemon/VRDevices/OculusRift.cpp \
+                           VRDeviceDaemon/VRDevices/OpenVRHost.cpp
 
 VRDEVICES_SOURCES = $(filter-out $(VRDEVICES_IGNORE_SOURCES),$(wildcard VRDeviceDaemon/VRDevices/*.cpp))
 ifneq ($(VRDEVICES_USE_INPUT_ABSTRACTION),0)
@@ -314,6 +367,9 @@ endif
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
   VRDEVICES_SOURCES += VRDeviceDaemon/VRDevices/RazerHydraDevice.cpp \
                        VRDeviceDaemon/VRDevices/OculusRift.cpp
+endif
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+  VRDEVICES_SOURCES += VRDeviceDaemon/VRDevices/OpenVRHost.cpp
 endif
 
 VRDEVICESDIREXT = VRDevices
@@ -333,10 +389,25 @@ VRCALIBRATORS = $(VRCALIBRATORS_SOURCES:VRDeviceDaemon/VRCalibrators/%.cpp=$(VRC
 PLUGINS += $(VRCALIBRATORS)
 
 #
-# The Vrui device driver test program:
+# A helper script to run the OpenVRHost device driver module:
 #
 
-EXECUTABLES += $(EXEDIR)/DeviceTest
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+  EXECUTABLES += $(EXEDIR)/RunViveTracker.sh
+endif
+
+#
+# The Vrui device driver test programs (textual and visual):
+#
+
+EXECUTABLES += $(EXEDIR)/DeviceTest \
+               $(EXEDIR)/TrackingTest
+
+#
+# The Vrui environment setup program:
+#
+
+EXECUTABLES += $(EXEDIR)/RoomSetup
 
 #
 # The Vrui eye calibration program:
@@ -357,7 +428,8 @@ EXECUTABLES += $(EXEDIR)/PrintInputDeviceDataFile
 EXECUTABLES += $(EXEDIR)/XBackground \
                $(EXEDIR)/MeasureEnvironment \
                $(EXEDIR)/ScreenCalibrator \
-               $(EXEDIR)/AlignTrackingMarkers
+               $(EXEDIR)/AlignTrackingMarkers \
+               $(EXEDIR)/SampleTrackerField
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
   EXECUTABLES += $(EXEDIR)/OculusCalibrator
 endif
@@ -375,11 +447,14 @@ MAKECONFIGFILE = BuildRoot/Configuration.Vrui
 # Set the name of the pkg-config meta data file:
 PKGCONFIGFILE = Share/Vrui.pc
 
+# Set the name of the template makefile:
+TEMPLATEMAKEFILE = BuildRoot/makefile
+
 # Remember the names of all generated files for "make clean":
-ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS) $(MAKEFILEFRAGMENT) $(MAKECONFIGFILE) $(PKGCONFIGFILE)
+ALL = $(LIBRARIES) $(EXECUTABLES) $(PLUGINS)
 
 .PHONY: all
-all: config $(ALL)
+all: $(ALL)
 
 # Build all libraries before any plug-ins or executables:
 $(PLUGINS): | $(LIBRARIES)
@@ -389,29 +464,33 @@ $(EXECUTABLES): | $(LIBRARIES)
 # Pseudo-target to print configuration options and configure libraries
 ########################################################################
 
-.PHONY: config
-config: Configure-End
+.PHONY: config config-invalidate
+config: config-invalidate $(DEPDIR)/config
 
-.PHONY: Configure-Begin
-Configure-Begin:
+config-invalidate:
+	@touch $(DEPDIR)/Configure-Begin
+
+$(DEPDIR)/Configure-Begin:
+	@mkdir -p $(DEPDIR)
 	@echo "---- Vrui configuration options: ----"
 ifneq ($(USE_RPATH),0)
 	@echo "Run-time library search paths enabled"
 else
 	@echo "Run-time library search paths disabled"
 endif
+	@touch $(DEPDIR)/Configure-Begin
 
-.PHONY: Configure-Install
-Configure-Install: Configure-Threads \
-                   Configure-USB \
-                   Configure-Realtime \
-                   Configure-GLSupport \
-                   Configure-Images \
-                   Configure-Sound \
-                   Configure-ALSupport \
-                   Configure-Video \
-                   Configure-Vrui \
-                   Configure-VRDeviceDaemon
+$(DEPDIR)/Configure-Install: $(DEPDIR)/Configure-Realtime \
+                             $(DEPDIR)/Configure-Threads \
+                             $(DEPDIR)/Configure-USB \
+                             $(DEPDIR)/Configure-GLSupport \
+                             $(DEPDIR)/Configure-Images \
+                             $(DEPDIR)/Configure-Sound \
+                             $(DEPDIR)/Configure-ALSupport \
+                             $(DEPDIR)/Configure-Video \
+                             $(DEPDIR)/Configure-SceneGraph \
+                             $(DEPDIR)/Configure-Vrui \
+                             $(DEPDIR)/Configure-VRDeviceDaemon
 	@echo "---- Vrui installation configuration ----"
 ifdef SYSTEMINSTALL
 	@echo "System-level installation requested"
@@ -427,10 +506,18 @@ endif
 	@echo "Build system installation directory       : $(MAKEINSTALLDIR)"
 	@echo "pkg-config metafile installation directory: $(PKGCONFIGINSTALLDIR)"
 	@echo "Documentation installation directory      : $(DOCINSTALLDIR)"
+	@$(call CONFIG_SETMAKEVAR,BuildRoot/makefile,VRUI_MAKEDIR,$(MAKEINSTALLDIR))
+	@$(call CONFIG_SETMAKEVAR,ExamplePrograms/makefile,VRUI_MAKEDIR,$(MAKEINSTALLDIR))
+	@$(call CONFIG_SETMAKEVAR,ExamplePrograms/MeshEditor/makefile,VRUISHAREDIR,$(SHAREINSTALLDIR))
+	@$(call CONFIG_SETMAKEVAR,ExamplePrograms/VRMLViewer/makefile,VRUI_MAKEDIR,$(MAKEINSTALLDIR))
+	@touch $(DEPDIR)/Configure-Install
 
-.PHONY: Configure-End
-Configure-End: Configure-Install
+$(DEPDIR)/Configure-End: $(DEPDIR)/Configure-Install
 	@echo "---- End of Vrui configuration options ----"
+	@touch $(DEPDIR)/Configure-End
+
+$(DEPDIR)/config: $(DEPDIR)/Configure-Makefiles
+	@touch $(DEPDIR)/config
 
 ########################################################################
 # Specify other actions to be performed on a `make clean'
@@ -440,10 +527,12 @@ Configure-End: Configure-Install
 extraclean:
 	-rm -f $(LIBRARY_NAMES:%=$(LIBDESTDIR)/$(call DSONAME,%))
 	-rm -f $(LIBRARY_NAMES:%=$(LIBDESTDIR)/$(call LINKDSONAME,%))
+	-rm -f $(MAKEFILEFRAGMENT) $(MAKECONFIGFILE) $(PKGCONFIGFILE)
 
 .PHONY: extrasqueakyclean
 extrasqueakyclean:
 	-rm -f $(ALL)
+	-rm -f $(MAKEFILEFRAGMENT) $(MAKECONFIGFILE) $(PKGCONFIGFILE)
 	-rm -rf $(VRUI_PACKAGEROOT)/$(LIBEXT)
 	-rm -f Share/Vrui.makeinclude Share/Vrui.debug.makeinclude
 
@@ -463,7 +552,7 @@ MISC_HEADERS = $(wildcard Misc/*.h) \
 
 MISC_SOURCES = $(wildcard Misc/*.cpp)
 
-$(MISC_SOURCES): config
+$(MISC_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libMisc): PACKAGES += $(MYMISC_DEPENDS)
 $(call LIBRARYNAME,libMisc): EXTRACINCLUDEFLAGS += $(MYMISC_INCLUDE)
@@ -473,11 +562,43 @@ $(call LIBRARYNAME,libMisc): $(MISC_SOURCES:%.cpp=$(OBJDIR)/%.o)
 libMisc: $(call LIBRARYNAME,libMisc)
 
 #
+# The Realtime Processing Library (Realtime):
+#
+
+$(DEPDIR)/Configure-Realtime: $(DEPDIR)/Configure-Begin
+ifneq ($(SYSTEM_HAVE_RT),0)
+	@echo Realtime library uses POSIX clocks
+	@echo Realtime library uses POSIX timers
+else
+	@echo Realtime library uses UNIX clocks
+	@echo Realtime library uses wallclock time
+endif
+	@cp Realtime/Config.h Realtime/Config.h.temp
+	@$(call CONFIG_SETVAR,Realtime/Config.h.temp,REALTIME_CONFIG_HAVE_POSIX_CLOCKS,$(SYSTEM_HAVE_RT))
+	@$(call CONFIG_SETVAR,Realtime/Config.h.temp,REALTIME_CONFIG_HAVE_POSIX_TIMERS,$(SYSTEM_HAVE_RT))
+	@if ! diff Realtime/Config.h.temp Realtime/Config.h > /dev/null ; then cp Realtime/Config.h.temp Realtime/Config.h ; fi
+	@rm Realtime/Config.h.temp
+	@touch $(DEPDIR)/Configure-Realtime
+
+REALTIME_HEADERS = $(wildcard Realtime/*.h) \
+                   $(wildcard Realtime/*.icpp)
+
+REALTIME_SOURCES = $(wildcard Realtime/*.cpp)
+
+$(REALTIME_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
+
+$(call LIBRARYNAME,libRealtime): PACKAGES += $(MYREALTIME_DEPENDS)
+$(call LIBRARYNAME,libRealtime): EXTRACINCLUDEFLAGS += $(MYREALTIME_INCLUDE)
+$(call LIBRARYNAME,libRealtime): | $(call DEPENDENCIES,MYREALTIME)
+$(call LIBRARYNAME,libRealtime): $(REALTIME_SOURCES:%.cpp=$(OBJDIR)/%.o)
+.PHONY: libRealtime
+libRealtime: $(call LIBRARYNAME,libRealtime)
+
+#
 # The Portable Threading Library (Threads)
 #
 
-.PHONY: Configure-Threads
-Configure-Threads: Configure-Begin
+$(DEPDIR)/Configure-Threads: $(DEPDIR)/Configure-Realtime
 ifneq ($(SYSTEM_HAVE_TLS),0)
 	@echo Threads library has built-in thread-local storage
 else
@@ -505,14 +626,14 @@ endif
 	@$(call CONFIG_SETVAR,Threads/Config.h.temp,THREADS_CONFIG_CAN_CANCEL,$(SYSTEM_CAN_CANCEL_THREADS))
 	@if ! diff Threads/Config.h.temp Threads/Config.h > /dev/null ; then cp Threads/Config.h.temp Threads/Config.h ; fi
 	@rm Threads/Config.h.temp
-Threads/Config.h: Configure-Threads
+	@touch $(DEPDIR)/Configure-Threads
 
 THREADS_HEADERS = $(wildcard Threads/*.h) \
                   $(wildcard Threads/*.icpp)
 
 THREADS_SOURCES = $(wildcard Threads/*.cpp)
 
-$(THREADS_SOURCES): config
+$(THREADS_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libThreads): PACKAGES += $(MYTHREADS_DEPENDS)
 $(call LIBRARYNAME,libThreads): EXTRACINCLUDEFLAGS += $(MYTHREADS_INCLUDE)
@@ -525,8 +646,7 @@ libThreads: $(call LIBRARYNAME,libThreads)
 # The USB Support Library (USB)
 #
 
-.PHONY: Configure-USB
-Configure-USB: Configure-Begin
+$(DEPDIR)/Configure-USB: $(DEPDIR)/Configure-Threads
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
 	@echo Libusb library version 1.0 exists on host system
   ifneq ($(LIBUSB1_HAS_TOPOLOGY_CALLS),0)
@@ -534,22 +654,28 @@ ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
   else
 	@echo Libusb library does not support bus topology queries
   endif
+  ifneq ($(LIBUSB1_HAS_STRERROR),0)
+	@echo Libusb library has libusb_strerror function
+  else
+	@echo Libusb library does not have libusb_strerror function
+  endif
 else
 	@echo Libusb library version 1.0 does not exist on host system
 endif
 	@cp USB/Config.h USB/Config.h.temp
 	@$(call CONFIG_SETVAR,USB/Config.h.temp,USB_CONFIG_HAVE_LIBUSB1,$(SYSTEM_HAVE_LIBUSB1))
 	@$(call CONFIG_SETVAR,USB/Config.h.temp,USB_CONFIG_HAVE_TOPOLOGY_CALLS,$(LIBUSB1_HAS_TOPOLOGY_CALLS))
+	@$(call CONFIG_SETVAR,USB/Config.h.temp,USB_CONFIG_HAVE_STRERROR,$(LIBUSB1_HAS_STRERROR))
 	@if ! diff USB/Config.h.temp USB/Config.h > /dev/null ; then cp USB/Config.h.temp USB/Config.h ; fi
 	@rm USB/Config.h.temp
-USB/Config.h: Configure-USB
+	@touch $(DEPDIR)/Configure-USB
 
 USB_HEADERS = $(wildcard USB/*.h) \
               $(wildcard USB/*.icpp)
 
 USB_SOURCES = $(wildcard USB/*.cpp)
 
-$(USB_SOURCES): config
+$(USB_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libUSB): PACKAGES += $(MYUSB_DEPENDS)
 $(call LIBRARYNAME,libUSB): EXTRACINCLUDEFLAGS += $(MYUSB_INCLUDE)
@@ -557,6 +683,34 @@ $(call LIBRARYNAME,libUSB): | $(call DEPENDENCIES,MYUSB)
 $(call LIBRARYNAME,libUSB): $(USB_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libUSB
 libUSB: $(call LIBRARYNAME,libUSB)
+
+#
+# The Raw HID Support Library (RawHID):
+#
+
+$(DEPDIR)/Configure-RawHID: $(DEPDIR)/Configure-USB
+ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
+	@echo Libudev library exists on host system
+	@echo RawHID library enabled
+else
+	@echo Libudev library does not exist on host system
+	@echo RawHID library disabled
+endif
+
+RAWHID_HEADERS = $(wildcard RawHID/*.h) \
+                 $(wildcard RawHID/*.icpp)
+
+RAWHID_SOURCES = $(wildcard RawHID/*.cpp) \
+                 $(wildcard RawHID/Internal/*.cpp)
+
+$(RAWHID_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
+
+$(call LIBRARYNAME,libRawHID): PACKAGES += $(MYRAWHID_DEPENDS)
+$(call LIBRARYNAME,libRawHID): EXTRACINCLUDEFLAGS += $(MYRAWHID_INCLUDE)
+$(call LIBRARYNAME,libRawHID): | $(call DEPENDENCIES,MYRAWHID)
+$(call LIBRARYNAME,libRawHID): $(RAWHID_SOURCES:%.cpp=$(OBJDIR)/%.o)
+.PHONY: libRawHID
+libRawHID: $(call LIBRARYNAME,libRawHID)
 
 #
 # The I/O Support Library (IO)
@@ -567,7 +721,7 @@ IO_HEADERS = $(wildcard IO/*.h) \
 
 IO_SOURCES = $(wildcard IO/*.cpp)
 
-$(IO_SOURCES): config
+$(IO_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libIO): PACKAGES += $(MYIO_DEPENDS)
 $(call LIBRARYNAME,libIO): EXTRACINCLUDEFLAGS += $(MYIO_INCLUDE)
@@ -585,7 +739,7 @@ PLUGINS_HEADERS = $(wildcard Plugins/*.h) \
 
 PLUGINS_SOURCES = $(wildcard Plugins/*.cpp)
 
-$(PLUGINS_SOURCES): config
+$(PLUGINS_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libPlugins): PACKAGES += $(MYPLUGINS_DEPENDS)
 $(call LIBRARYNAME,libPlugins): EXTRACINCLUDEFLAGS += $(MYPLUGINS_INCLUDE)
@@ -593,37 +747,6 @@ $(call LIBRARYNAME,libPlugins): | $(call DEPENDENCIES,MYPLUGINS)
 $(call LIBRARYNAME,libPlugins): $(PLUGINS_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: libPlugins
 libPlugins: $(call LIBRARYNAME,libPlugins)
-
-#
-# The Realtime Processing Library (Realtime):
-#
-
-.PHONY: Configure-Realtime
-Configure-Realtime: Configure-Begin
-ifneq ($(SYSTEM_HAVE_RT),0)
-	@echo Realtime library uses timers
-else
-	@echo Realtime library uses wallclock time
-endif
-	@cp Realtime/Config.h Realtime/Config.h.temp
-	@$(call CONFIG_SETVAR,Realtime/Config.h.temp,REALTIME_CONFIG_HAVE_POSIX_TIMERS,$(SYSTEM_HAVE_RT))
-	@if ! diff Realtime/Config.h.temp Realtime/Config.h > /dev/null ; then cp Realtime/Config.h.temp Realtime/Config.h ; fi
-	@rm Realtime/Config.h.temp
-Realtime/Config.h: Configure-Realtime
-
-REALTIME_HEADERS = $(wildcard Realtime/*.h) \
-                   $(wildcard Realtime/*.icpp)
-
-REALTIME_SOURCES = $(wildcard Realtime/*.cpp)
-
-$(REALTIME_SOURCES): config
-
-$(call LIBRARYNAME,libRealtime): PACKAGES += $(MYREALTIME_DEPENDS)
-$(call LIBRARYNAME,libRealtime): EXTRACINCLUDEFLAGS += $(MYREALTIME_INCLUDE)
-$(call LIBRARYNAME,libRealtime): | $(call DEPENDENCIES,MYREALTIME)
-$(call LIBRARYNAME,libRealtime): $(REALTIME_SOURCES:%.cpp=$(OBJDIR)/%.o)
-.PHONY: libRealtime
-libRealtime: $(call LIBRARYNAME,libRealtime)
 
 #
 # The Portable Communications Library (Comm)
@@ -634,7 +757,7 @@ COMM_HEADERS = $(wildcard Comm/*.h) \
 
 COMM_SOURCES = $(wildcard Comm/*.cpp)
 
-$(COMM_SOURCES): config
+$(COMM_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libComm): PACKAGES += $(MYCOMM_DEPENDS)
 $(call LIBRARYNAME,libComm): EXTRACINCLUDEFLAGS += $(MYCOMM_INCLUDE)
@@ -652,7 +775,7 @@ CLUSTER_HEADERS = $(wildcard Cluster/*.h) \
 
 CLUSTER_SOURCES = $(wildcard Cluster/*.cpp)
 
-$(CLUSTER_SOURCES): config
+$(CLUSTER_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libCluster): PACKAGES += $(MYCLUSTER_DEPENDS)
 $(call LIBRARYNAME,libCluster): EXTRACINCLUDEFLAGS += $(MYCLUSTER_INCLUDE)
@@ -670,7 +793,7 @@ MATH_HEADERS = $(wildcard Math/*.h) \
 
 MATH_SOURCES = $(wildcard Math/*.cpp)
 
-$(MATH_SOURCES): config
+$(MATH_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libMath): PACKAGES += $(MYMATH_DEPENDS)
 $(call LIBRARYNAME,libMath): EXTRACINCLUDEFLAGS += $(MYMATH_INCLUDE)
@@ -688,7 +811,7 @@ GEOMETRY_HEADERS = $(wildcard Geometry/*.h) \
 
 GEOMETRY_SOURCES = $(wildcard Geometry/*.cpp)
 
-$(GEOMETRY_SOURCES): config
+$(GEOMETRY_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libGeometry): PACKAGES += $(MYGEOMETRY_DEPENDS)
 $(call LIBRARYNAME,libGeometry): EXTRACINCLUDEFLAGS += $(MYGEOMETRY_INCLUDE)
@@ -757,7 +880,7 @@ GLWRAPPERS_SOURCES = GL/GLScalarLimits.cpp \
                      GL/GLLight.cpp \
                      GL/GLMaterial.cpp
 
-$(GLWRAPPERS_SOURCES): config
+$(GLWRAPPERS_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libGLWrappers): PACKAGES += $(MYGLWRAPPERS_DEPENDS)
 $(call LIBRARYNAME,libGLWrappers): EXTRACINCLUDEFLAGS += $(MYGLWRAPPERS_INCLUDE)
@@ -771,8 +894,7 @@ libGLWrappers: $(call LIBRARYNAME,libGLWrappers)
 # The OpenGL Support Library (GLSupport)
 #
 
-.PHONY: Configure-GLSupport
-Configure-GLSupport: Configure-Begin
+$(DEPDIR)/Configure-GLSupport: $(DEPDIR)/Configure-RawHID
 ifneq ($(GLSUPPORT_USE_TLS),0)
   ifneq ($(SYSTEM_HAVE_TLS),0)
 	@echo "Multithreaded rendering enabled via TLS"
@@ -782,12 +904,15 @@ ifneq ($(GLSUPPORT_USE_TLS),0)
 else
 	@echo "Multithreaded rendering disabled"
 endif
+	@echo "Default GL font directory:" $(SHAREINSTALLDIR)/GLFonts
 	@cp GL/Config.h GL/Config.h.temp
+	@$(call CONFIG_SETVAR,GL/Config.h.temp,GLSUPPORT_CONFIG_HAVE_GLXGETPROCADDRESS,$(SYSTEM_HAVE_GLXGETPROCADDRESS))
 	@$(call CONFIG_SETVAR,GL/Config.h.temp,GLSUPPORT_CONFIG_USE_TLS,$(GLSUPPORT_USE_TLS))
 	@$(call CONFIG_SETVAR,GL/Config.h.temp,GLSUPPORT_CONFIG_HAVE_BUILTIN_TLS,$(SYSTEM_HAVE_TLS))
+	@$(call CONFIG_SETSTRINGVAR,GL/Config.h.temp,GLSUPPORT_CONFIG_GL_FONT_DIR,$(SHAREINSTALLDIR)/GLFonts)
 	@if ! diff GL/Config.h.temp GL/Config.h > /dev/null ; then cp GL/Config.h.temp GL/Config.h ; fi
 	@rm GL/Config.h.temp
-GL/Config.h: Configure-GLSupport
+	@touch $(DEPDIR)/Configure-GLSupport
 
 GLSUPPORT_HEADERS = GL/Config.h \
                     GL/GLPrintError.h \
@@ -800,6 +925,7 @@ GLSUPPORT_HEADERS = GL/Config.h \
                     GL/GLContextData.h \
                     GL/GLExtensions.h \
                     GL/GLExtensionManager.h \
+                    GL/GLTextureObject.h \
                     GL/GLShader.h \
                     GL/GLGeometryShader.h \
                     GL/GLAutomaticShader.h \
@@ -826,6 +952,7 @@ GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
                     GL/GLExtensions.cpp \
                     GL/GLExtensionManager.cpp \
 		    $(wildcard GL/Extensions/*.cpp) \
+                    GL/GLTextureObject.cpp \
                     GL/GLShader.cpp \
                     GL/GLGeometryShader.cpp \
                     GL/GLAutomaticShader.cpp \
@@ -838,12 +965,7 @@ GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
                     GL/GLLineIlluminator.cpp \
                     GL/GLModels.cpp
 
-ifneq ($(SYSTEM_HAVE_GLXGETPROCADDRESS), 0)
-  $(OBJDIR)/GL/GLExtensionManager.o: CFLAGS += -DGLSUPPORT_HAVE_GLXGETPROCADDRESS
-endif
-$(OBJDIR)/GL/GLFont.o: CFLAGS += -DSYSGLFONTDIR='"$(SHAREINSTALLDIR)/GLFonts"'
-
-$(GLSUPPORT_SOURCES): config
+$(GLSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libGLSupport): PACKAGES += $(MYGLSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libGLSupport): EXTRACINCLUDEFLAGS += $(MYGLSUPPORT_INCLUDE)
@@ -863,7 +985,7 @@ GLXSUPPORT_HEADERS = GL/GLContext.h \
 GLXSUPPORT_SOURCES = GL/GLContext.cpp \
                      GL/GLWindow.cpp
 
-$(GLXSUPPORT_SOURCES): config
+$(GLXSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libGLXSupport): PACKAGES += $(MYGLXSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libGLXSupport): EXTRACINCLUDEFLAGS += $(MYGLXSUPPORT_INCLUDE)
@@ -888,7 +1010,7 @@ GLGEOMETRY_SOURCES = GL/GLGeometryVertex.cpp \
                      GL/GLFrustum.cpp \
                      GL/GLPolylineTube.cpp
 
-$(GLGEOMETRY_SOURCES): config
+$(GLGEOMETRY_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libGLGeometry): PACKAGES += $(MYGLGEOMETRY_DEPENDS)
 $(call LIBRARYNAME,libGLGeometry): EXTRACINCLUDEFLAGS += $(MYGLGEOMETRY_INCLUDE)
@@ -901,8 +1023,7 @@ libGLGeometry: $(call LIBRARYNAME,libGLGeometry)
 # The Image Handling Library (Images)
 #
 
-.PHONY: Configure-Images
-Configure-Images: Configure-Begin
+$(DEPDIR)/Configure-Images: $(DEPDIR)/Configure-GLSupport
 ifneq ($(SYSTEM_HAVE_LIBPNG),0)
 	@echo "PNG image file format enabled"
 else
@@ -924,14 +1045,14 @@ endif
 	@$(call CONFIG_SETVAR,Images/Config.h.temp,IMAGES_CONFIG_HAVE_TIFF,$(SYSTEM_HAVE_LIBTIFF))
 	@if ! diff Images/Config.h.temp Images/Config.h > /dev/null ; then cp Images/Config.h.temp Images/Config.h ; fi
 	@rm Images/Config.h.temp
-Images/Config.h: Configure-Images
+	@touch $(DEPDIR)/Configure-Images
 
 IMAGES_HEADERS = $(wildcard Images/*.h) \
                  $(wildcard Images/*.icpp)
 
 IMAGES_SOURCES = $(wildcard Images/*.cpp)
 
-$(IMAGES_SOURCES): config
+$(IMAGES_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libImages): PACKAGES += $(MYIMAGES_DEPENDS)
 $(call LIBRARYNAME,libImages): EXTRACINCLUDEFLAGS += $(MYIMAGES_INCLUDE)
@@ -949,7 +1070,7 @@ GLMOTIF_HEADERS = $(wildcard GLMotif/*.h) \
 
 GLMOTIF_SOURCES = $(wildcard GLMotif/*.cpp)
 
-$(GLMOTIF_SOURCES): config
+$(GLMOTIF_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libGLMotif): PACKAGES += $(MYGLMOTIF_DEPENDS)
 $(call LIBRARYNAME,libGLMotif): EXTRACINCLUDEFLAGS += $(MYGLMOTIF_INCLUDE)
@@ -962,8 +1083,7 @@ libGLMotif: $(call LIBRARYNAME,libGLMotif)
 # The basic sound library (Sound)
 #
 
-.PHONY: Configure-Sound
-Configure-Sound: Configure-Begin
+$(DEPDIR)/Configure-Sound: $(DEPDIR)/Configure-Images
 ifneq ($(SYSTEM_HAVE_ALSA),0)
 	@echo "ALSA sound device support enabled"
 else
@@ -979,7 +1099,7 @@ endif
 	@$(call CONFIG_SETVAR,Sound/Config.h.temp,SOUND_CONFIG_HAVE_SPEEX,$(SYSTEM_HAVE_SPEEX))
 	@if ! diff Sound/Config.h.temp Sound/Config.h > /dev/null ; then cp Sound/Config.h.temp Sound/Config.h ; fi
 	@rm Sound/Config.h.temp
-Sound/Config.h: Configure-Sound
+	@touch $(DEPDIR)/Configure-Sound
 
 SOUND_HEADERS = $(wildcard Sound/*.h) \
                 $(wildcard Sound/*.icpp)
@@ -1007,7 +1127,7 @@ ifeq ($(SYSTEM),LINUX)
   endif
 endif
 
-$(SOUND_SOURCES): config
+$(SOUND_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libSound): PACKAGES += $(MYSOUND_DEPENDS)
 $(call LIBRARYNAME,libSound): EXTRACINCLUDEFLAGS += $(MYSOUND_INCLUDE)
@@ -1020,8 +1140,7 @@ libSound: $(call LIBRARYNAME,libSound)
 # The basic video library (Video)
 #
 
-.PHONY: Configure-Video
-Configure-Video: Configure-Begin
+$(DEPDIR)/Configure-Video: $(DEPDIR)/Configure-Sound
 ifneq ($(SYSTEM_HAVE_V4L2),0)
 	@echo "Video4Linux2 video device support enabled"
 else
@@ -1043,7 +1162,7 @@ endif
 	@$(call CONFIG_SETVAR,Video/Config.h.temp,VIDEO_CONFIG_HAVE_THEORA,$(SYSTEM_HAVE_THEORA))
 	@if ! diff Video/Config.h.temp Video/Config.h > /dev/null ; then cp Video/Config.h.temp Video/Config.h ; fi
 	@rm Video/Config.h.temp
-Video/Config.h: Configure-Video
+	@touch $(DEPDIR)/Configure-Video
 
 VIDEO_HEADERS = Video/Config.h \
                 Video/VideoDataFormat.h \
@@ -1052,6 +1171,7 @@ VIDEO_HEADERS = Video/Config.h \
                 Video/VideoDevice.h \
                 Video/Colorspaces.h \
                 Video/ImageExtractorRGB8.h \
+                Video/ImageExtractorY8.h \
                 Video/ImageExtractorY10B.h \
                 Video/ImageExtractorYUYV.h \
                 Video/ImageExtractorUYVY.h \
@@ -1066,7 +1186,8 @@ endif
 ifeq ($(SYSTEM),LINUX)
   VIDEO_LINUX_HEADERS = 
   ifneq ($(SYSTEM_HAVE_V4L2),0)
-    VIDEO_LINUX_HEADERS += Video/Linux/V4L2VideoDevice.h
+    VIDEO_LINUX_HEADERS += Video/Linux/V4L2VideoDevice.h \
+                           Video/Linux/OculusRiftDK2VideoDevice.h
   endif
   ifneq ($(SYSTEM_HAVE_DC1394),0)
     VIDEO_LINUX_HEADERS += Video/Linux/DC1394VideoDevice.h
@@ -1087,6 +1208,7 @@ endif
 VIDEO_SOURCES = Video/VideoDataFormat.cpp \
                 Video/VideoDevice.cpp \
                 Video/ImageExtractorRGB8.cpp \
+                Video/ImageExtractorY8.cpp \
                 Video/ImageExtractorY10B.cpp \
                 Video/ImageExtractorYUYV.cpp \
                 Video/ImageExtractorUYVY.cpp \
@@ -1098,7 +1220,8 @@ ifneq ($(SYSTEM_HAVE_LIBJPEG),0)
   VIDEO_SOURCES += Video/ImageExtractorMJPG.cpp
 endif
 ifneq ($(SYSTEM_HAVE_V4L2),0)
-  VIDEO_SOURCES += Video/Linux/V4L2VideoDevice.cpp
+  VIDEO_SOURCES += Video/Linux/V4L2VideoDevice.cpp \
+                   Video/Linux/OculusRiftDK2VideoDevice.cpp
 endif
 ifneq ($(SYSTEM_HAVE_DC1394),0)
   VIDEO_SOURCES += Video/Linux/DC1394VideoDevice.cpp
@@ -1114,7 +1237,7 @@ ifneq ($(SYSTEM_HAVE_THEORA),0)
                    Video/TheoraDecoder.cpp
 endif
 
-$(VIDEO_SOURCES): config
+$(VIDEO_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libVideo): PACKAGES += $(MYVIDEO_DEPENDS)
 $(call LIBRARYNAME,libVideo): EXTRACINCLUDEFLAGS += $(MYVIDEO_INCLUDE)
@@ -1127,8 +1250,7 @@ libVideo: $(call LIBRARYNAME,libVideo)
 # The OpenAL Support Library (ALSupport)
 #
 
-.PHONY: Configure-ALSupport
-Configure-ALSupport: Configure-Begin
+$(DEPDIR)/Configure-ALSupport: $(DEPDIR)/Configure-Video
 ifneq ($(SYSTEM_HAVE_OPENAL),0)
 	@echo "Spatial sound using OpenAL enabled"
 else
@@ -1138,7 +1260,7 @@ endif
 	@$(call CONFIG_SETVAR,AL/Config.h.temp,ALSUPPORT_CONFIG_HAVE_OPENAL,$(SYSTEM_HAVE_OPENAL))
 	@if ! diff AL/Config.h.temp AL/Config.h > /dev/null ; then cp AL/Config.h.temp AL/Config.h ; fi
 	@rm AL/Config.h.temp
-AL/Config.h: Configure-ALSupport
+	@touch $(DEPDIR)/Configure-ALSupport
 
 ALSUPPORT_HEADERS = $(wildcard AL/*.h) \
                     $(wildcard AL/*.icpp)
@@ -1146,7 +1268,7 @@ ALSUPPORT_HEADERS = $(wildcard AL/*.h) \
 ALSUPPORT_SOURCES = $(wildcard AL/*.cpp) \
                     $(wildcard AL/Internal/*.cpp)
 
-$(ALSUPPORT_SOURCES): config
+$(ALSUPPORT_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libALSupport): PACKAGES += $(MYALSUPPORT_DEPENDS)
 $(call LIBRARYNAME,libALSupport): EXTRACINCLUDEFLAGS += $(MYALSUPPORT_INCLUDE)
@@ -1159,15 +1281,20 @@ libALSupport: $(call LIBRARYNAME,libALSupport)
 # The Scene Graph Rendering Library (SceneGraph)
 #
 
+$(DEPDIR)/Configure-SceneGraph: $(DEPDIR)/Configure-ALSupport
+	@cp SceneGraph/Internal/Config.h SceneGraph/Internal/Config.h.temp
+	@$(call CONFIG_SETSTRINGVAR,SceneGraph/Internal/Config.h.temp,SCENEGRAPH_CONFIG_DOOM3MATERIALMANAGER_SHADERDIR,$(SHAREINSTALLDIR)/Shaders/SceneGraph)
+	@if ! diff SceneGraph/Internal/Config.h.temp SceneGraph/Internal/Config.h > /dev/null ; then cp SceneGraph/Internal/Config.h.temp SceneGraph/Internal/Config.h ; fi
+	@rm SceneGraph/Internal/Config.h.temp
+	@touch $(DEPDIR)/Configure-SceneGraph
+
 SCENEGRAPH_HEADERS = $(wildcard SceneGraph/*.h) \
                      $(wildcard SceneGraph/*.icpp)
 
 SCENEGRAPH_SOURCES = $(wildcard SceneGraph/*.cpp) \
                      $(wildcard SceneGraph/Internal/*.cpp)
 
-$(OBJDIR)/SceneGraph/Internal/Doom3MaterialManager.o: CFLAGS += -DSCENEGRAPH_DOOM3MATERIALMANAGER_SHADERDIR='"$(SHAREINSTALLDIR)/Shaders/SceneGraph"'
-
-$(SCENEGRAPH_SOURCES): config
+$(SCENEGRAPH_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(call LIBRARYNAME,libSceneGraph): PACKAGES += $(MYSCENEGRAPH_DEPENDS)
 $(call LIBRARYNAME,libSceneGraph): EXTRACINCLUDEFLAGS += $(MYSCENEGRAPH_INCLUDE)
@@ -1180,12 +1307,16 @@ libSceneGraph: $(call LIBRARYNAME,libSceneGraph)
 # The Vrui Virtual Reality User Interface Library (Vrui)
 #
 
-.PHONY: Configure-Vrui
-Configure-Vrui: Configure-Begin
+$(DEPDIR)/Configure-Vrui: $(DEPDIR)/Configure-SceneGraph
 ifneq ($(VRUI_VRWINDOW_USE_SWAPGROUPS),0)
 	@echo "Swapgroup support for Vrui windows enabled"
 else
 	@echo "Swapgroup support for Vrui windows disabled"
+endif
+ifneq ($(SYSTEM_HAVE_LIBDBUS),0)
+	@echo "Support for screen saver inhibition via DBus enabled"
+else
+	@echo "Support for screen saver inhibition via DBus disabled"
 endif
 ifneq ($(SYSTEM_HAVE_LIBPNG),0)
 	@echo "Vrui will save screenshots in PNG format"
@@ -1202,6 +1333,38 @@ ifneq ($(SYSTEM_HAVE_THEORA),0)
 else
 	@echo "Support to save screen captures in Ogg/Theora format disabled"
 endif
+ifneq ($(SYSTEM_HAVE_XINPUT2),0)
+	@echo "Support for multitouch screens enabled"
+else
+	@echo "Support for multitouch screens disabled (missing XINPUT2 library)"
+endif
+ifneq ($(SYSTEM_HAVE_XRANDR),0)
+	@echo "Support for named video outputs enabled"
+else
+	@echo "Support for named video outputs disabled (missing XRANDR library)"
+endif
+ifneq ($(VRUI_READUSERCONFIGFILE),0)
+	@echo "Using global per-user configuration file" $(VRUI_USERCONFIGDIR)/Vrui.cfg
+else
+	@echo "Global per-user configuration disabled"
+endif
+	@cp Vrui/Internal/Config.h Vrui/Internal/Config.h.temp
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_HAVE_XRANDR,$(SYSTEM_HAVE_XRANDR))
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_HAVE_XINPUT2,$(SYSTEM_HAVE_XINPUT2))
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_HAVE_LIBDBUS,$(SYSTEM_HAVE_LIBDBUS))
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_VRWINDOW_USE_SWAPGROUPS,$(VRUI_VRWINDOW_USE_SWAPGROUPS))
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_INPUT_H_HAS_STRUCTS,$(LINUX_INPUT_H_HAS_STRUCTS))
+	@$(call CONFIG_SETSTRINGVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_CONFIGFILENAME,Vrui)
+	@$(call CONFIG_SETSTRINGVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX,.cfg)
+	@$(call CONFIG_SETSTRINGVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_SYSCONFIGDIR,$(ETCINSTALLDIR))
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_HAVE_USERCONFIGFILE,$(VRUI_READUSERCONFIGFILE))
+	@$(call CONFIG_SETSTRINGVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_USERCONFIGDIR,$(VRUI_USERCONFIGDIR))
+	@$(call CONFIG_SETVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_VERSION,$(VRUI_VERSION))
+	@$(call CONFIG_SETSTRINGVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_ETCDIR,$(ETCINSTALLDIR))
+	@$(call CONFIG_SETSTRINGVAR,Vrui/Internal/Config.h.temp,VRUI_INTERNAL_CONFIG_SHAREDIR,$(SHAREINSTALLDIR))
+	@if ! diff Vrui/Internal/Config.h.temp Vrui/Internal/Config.h > /dev/null ; then cp Vrui/Internal/Config.h.temp Vrui/Internal/Config.h ; fi
+	@rm Vrui/Internal/Config.h.temp
+	@touch $(DEPDIR)/Configure-Vrui
 
 VRUI_HEADERS = $(wildcard Vrui/*.h) \
                $(wildcard Vrui/*.icpp)
@@ -1210,36 +1373,27 @@ VRUI_HEADERS = $(wildcard Vrui/*.h) \
 VRUI_IGNORE_SOURCES = Vrui/Internal/InputDeviceDock.cpp \
                       Vrui/Internal/TheoraMovieSaver.cpp \
                       Vrui/Internal/KinectRecorder.cpp \
-                      Vrui/Internal/KinectPlayback.cpp
+                      Vrui/Internal/KinectPlayback.cpp \
+                      Vrui/Internal/Linux/ScreenSaverInhibitorDBus.cpp
 
-VRUI_SOURCES = $(wildcard Vrui/*.cpp) \
-               $(filter-out $(VRUI_IGNORE_SOURCES),$(wildcard Vrui/Internal/*.cpp)) \
-               $(wildcard Vrui/Internal/$(OSSPECFILEINSERT)/*.cpp)
+VRUI_SOURCES = $(filter-out $(VRUI_IGNORE_SOURCES),$(wildcard Vrui/*.cpp) \
+                                                   $(wildcard Vrui/Internal/*.cpp) \
+                                                   $(wildcard Vrui/Internal/$(OSSPECFILEINSERT)/*.cpp))
 ifneq ($(SYSTEM_HAVE_THEORA),0)
   VRUI_SOURCES += Vrui/Internal/TheoraMovieSaver.cpp
 endif
-
-ifneq ($(HIDDEVICE_CPP_INPUT_H_HAS_STRUCTS),0)
-  $(OBJDIR)/Vrui/Internal/Linux/InputDeviceAdapterHID.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
+ifneq ($(SYSTEM_HAVE_LIBDBUS),0)
+  VRUI_SOURCES += Vrui/Internal/Linux/ScreenSaverInhibitorDBus.cpp
 endif
-$(OBJDIR)/Vrui/Internal/InputDeviceAdapterPlayback.o: CFLAGS += -DDEFAULTMOUSECURSORIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-$(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DSYSTOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
-$(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DSYSVISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
-$(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DAUTOSTEREODIRECTORY='"$(SHAREINSTALLDIR)/Textures"'
-ifneq ($(VRUI_VRWINDOW_USE_SWAPGROUPS),0)
-  $(OBJDIR)/Vrui/VRWindow.o: CFLAGS += -DVRWINDOW_USE_SWAPGROUPS
-endif
-$(OBJDIR)/Vrui/Internal/Vrui.General.o: CFLAGS += -DDEFAULTGLYPHRENDERERCURSORFILENAME='"$(SHAREINSTALLDIR)/Textures/Cursor.Xcur"'
-$(OBJDIR)/Vrui/Internal/Vrui.Workbench.o: CFLAGS += -DSYSVRUICONFIGFILE='"$(ETCINSTALLDIR)/Vrui.cfg"' \
-                                                    -DVRUIDEFAULTROOTSECTIONNAME='"Desktop"' \
-                                                    -DVRUIVERSION=$(VRUI_VERSION) \
-                                                    -DVRUILIBDIR='"$(LIBINSTALLDIR)"' \
-                                                    -DVRUIEXECUTABLEDIR='"$(EXECUTABLEINSTALLDIR)"' \
-                                                    -DVRUIPLUGINDIR='"$(PLUGININSTALLDIR)"' \
-                                                    -DVRUIETCDIR='"$(ETCINSTALLDIR)"' \
-                                                    -DVRUISHAREDIR='"$(SHAREINSTALLDIR)"'
 
-$(VRUI_SOURCES): config
+$(VRUI_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
+
+# Configuration settings for Vrui sources:
+$(OBJDIR)/Vrui/ToolManager.o: CFLAGS += -DVRUI_INTERNAL_CONFIG_TOOLDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRTOOLSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
+$(OBJDIR)/Vrui/VisletManager.o: CFLAGS += -DVRUI_INTERNAL_CONFIG_VISLETDSONAMETEMPLATE='"$(PLUGININSTALLDIR)/$(VRVISLETSDIREXT)/lib%s.$(PLUGINFILEEXT)"'
+$(OBJDIR)/Vrui/Internal/Vrui.Workbench.o: CFLAGS += -DVRUI_INTERNAL_CONFIG_LIBDIR='"$(LIBINSTALLDIR)"' \
+                                                    -DVRUI_INTERNAL_CONFIG_EXECUTABLEDIR='"$(EXECUTABLEINSTALLDIR)"' \
+                                                    -DVRUI_INTERNAL_CONFIG_PLUGINDIR='"$(PLUGININSTALLDIR)"'
 
 $(call LIBRARYNAME,libVrui): PACKAGES += $(MYVRUI_DEPENDS)
 $(call LIBRARYNAME,libVrui): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
@@ -1274,10 +1428,7 @@ else
 	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
-# Vrui tool settings:
-$(OBJDIR)/Vrui/Tools/JediTool.o: CFLAGS += -DDEFAULTLIGHTSABERIMAGEFILENAME='"$(SHAREINSTALLDIR)/Textures/Lightsaber.png"'
-
-$(VRTOOLS_SOURCES): config
+$(VRTOOLS_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 # Mark all VR tool object files as intermediate:
 .SECONDARY: $(VRTOOLS_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1313,8 +1464,9 @@ endif
 
 # Dependencies between Vrui vislets:
 $(VRVISLETSDIR)/libSceneGraphViewer.$(PLUGINFILEEXT): PACKAGES += MYSCENEGRAPH
+$(VRVISLETSDIR)/libLatencyTester.$(PLUGINFILEEXT): PACKAGES += MYRAWHID
 
-$(VRVISLETS_SOURCES): config
+$(VRVISLETS_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 # Mark all vislet object files as intermediate:
 .SECONDARY: $(VRVISLETS_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1326,11 +1478,10 @@ VRVislets: $(VRVISLETS)
 # The VR device driver daemon:
 #
 
-.PHONY: Configure-VRDeviceDaemon
-Configure-VRDeviceDaemon: Configure-Begin
+$(DEPDIR)/Configure-VRDeviceDaemon: $(DEPDIR)/Configure-Vrui
 ifneq ($(VRDEVICES_USE_INPUT_ABSTRACTION),0)
 	@echo "Event device support for joysticks enabled"
-  ifneq ($(VRDEVICES_INPUT_H_HAS_STRUCTS),0)
+  ifneq ($(LINUX_INPUT_H_HAS_STRUCTS),0)
 	@echo "input.h contains event structure definitions"
   else
 	@echo "input.h does not contain event structure definitions"
@@ -1348,24 +1499,41 @@ ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
 else
 	@echo "USB support (for Razer Hydra and Oculus Rift tracker) disabled"
 endif
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+	@echo "OpenVR SDK exists on host system; support for HTC Vive enabled"
+	@echo "SteamVR run-time root directory: $(STEAMVRDIR)"
+else
+	@echo "OpenVR SDK does not exist on host system; support for HTC Vive disabled"
+endif
+	@cp VRDeviceDaemon/Config.h VRDeviceDaemon/Config.h.temp
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_VRDEVICESDIR,$(PLUGININSTALLDIR)/$(VRDEVICESDIREXT))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_VRCALIBRATORSDIR,$(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_DSONAMETEMPLATE,lib%s.$(PLUGINFILEEXT))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_CONFIGFILENAME,$(ETCINSTALLDIR)/VRDevices.cfg)
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_CONFIGDIR,$(ETCINSTALLDIR)/VRDeviceDaemon)
+	@$(call CONFIG_SETVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_INPUT_H_HAS_STRUCTS,$(LINUX_INPUT_H_HAS_STRUCTS))
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR,$(subst $(HOME),$$HOME,$(realpath $(STEAMVRDIR)/../../..)))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR,$(subst $(realpath $(STEAMVRDIR)/../../..)/,,$(realpath $(STEAMVRDIR))))
+endif	
+	@if ! diff VRDeviceDaemon/Config.h.temp VRDeviceDaemon/Config.h > /dev/null ; then cp VRDeviceDaemon/Config.h.temp VRDeviceDaemon/Config.h ; fi
+	@rm VRDeviceDaemon/Config.h.temp
+	@touch $(DEPDIR)/Configure-VRDeviceDaemon
 
 VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRDevice.cpp \
                          VRDeviceDaemon/VRCalibrator.cpp \
                          VRDeviceDaemon/VRDeviceManager.cpp \
                          Vrui/Internal/VRDeviceDescriptor.cpp \
+                         Vrui/Internal/HMDConfiguration.cpp \
                          Vrui/Internal/VRDevicePipe.cpp \
                          VRDeviceDaemon/VRDeviceServer.cpp \
                          VRDeviceDaemon/VRDeviceDaemon.cpp
 
-$(OBJDIR)/VRDeviceDaemon/VRDeviceManager.o: CFLAGS += -DSYSVRDEVICEDIRECTORY='"$(PLUGININSTALLDIR)/$(VRDEVICESDIREXT)"' \
-                                                      -DSYSVRCALIBRATORDIRECTORY='"$(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT)"'
-$(OBJDIR)/VRDeviceDaemon/VRDeviceDaemon.o: CFLAGS += -DSYSVRDEVICEDAEMONCONFIGFILENAME='"$(ETCINSTALLDIR)/VRDevices.cfg"'
-
-$(VRDEVICEDAEMON_SOURCES): config
+$(VRDEVICEDAEMON_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 $(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYIO MYTHREADS MYMISC DL
 $(EXEDIR)/VRDeviceDaemon: EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
-$(EXEDIR)/VRDeviceDaemon: CFLAGS += -DVERBOSE -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
+$(EXEDIR)/VRDeviceDaemon: CFLAGS += -DVERBOSE
 $(EXEDIR)/VRDeviceDaemon: LINKFLAGS += $(PLUGINHOSTLINKFLAGS)
 $(EXEDIR)/VRDeviceDaemon: $(VRDEVICEDAEMON_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: VRDeviceDaemon
@@ -1374,10 +1542,6 @@ VRDeviceDaemon: $(EXEDIR)/VRDeviceDaemon
 #
 # The VR device driver plug-ins:
 #
-
-ifneq ($(VRDEVICES_INPUT_H_HAS_STRUCTS),0)
-  $(OBJDIR)/VRDeviceDaemon/VRDevices/HIDDevice.o: CFLAGS += -DINPUT_H_HAS_STRUCTS
-endif
 
 ifeq ($(SYSTEM),DARWIN)
   $(VRDEVICESDIR)/libHIDDevice.$(PLUGINFILEEXT): PLUGINDEPENDENCIES += -framework System -framework IOKit -framework CoreFoundation
@@ -1408,10 +1572,12 @@ ifneq ($(SYSTEM_HAVE_RPATH),0)
   endif
 endif
 
+$(VRDEVICESDIR)/libOpenVRHost.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += -I$(OPENVR_BASEDIR)/headers
+
 # Implicit rule for creating plugins:
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
-$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DVERBOSE -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
+$(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DVERBOSE
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 $(VRDEVICESDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRDevices/%.o
 	@mkdir -p $(VRDEVICESDIR)
@@ -1422,8 +1588,8 @@ else
 	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
-$(VRDEVICES_SOURCES): config
-VRDeviceDaemon/VRDevices/VRPNConnection.cpp VRDeviceDaemon/VRDevices/Wiimote.cpp VRDeviceDaemon/VRDevices/RazerHydra.cpp: config
+$(VRDEVICES_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
+$(OBJDIR)/VRDeviceDaemon/VRDevices/VRPNConnection.o $(OBJDIR)/VRDeviceDaemon/VRDevices/Wiimote.o $(OBJDIR)/VRDeviceDaemon/VRDevices/RazerHydra.o: | $(DEPDIR)/config
 
 # Mark all VR device driver object files as intermediate:
 .SECONDARY: $(VRDEVICES_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1435,7 +1601,7 @@ VRDeviceDaemon/VRDevices/VRPNConnection.cpp VRDeviceDaemon/VRDevices/Wiimote.cpp
 # Implicit rule for creating plugins:
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): PACKAGES += MYGEOMETRY MYCOMM MYTHREADS MYMISC
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
-$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS) -DSYSDSONAMETEMPLATE='"lib%s.$(PLUGINFILEEXT)"'
+$(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): CFLAGS += $(CPLUGINFLAGS)
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): PLUGINDEPENDENCIES = 
 $(VRCALIBRATORSDIR)/lib%.$(PLUGINFILEEXT): $(OBJDIR)/VRDeviceDaemon/VRCalibrators/%.o
 	@mkdir -p $(VRCALIBRATORSDIR)
@@ -1446,7 +1612,7 @@ else
 	@$(CCOMP) $(PLUGINLINKFLAGS) -o $@ $(filter %.o,$^) $(PLUGINDEPENDENCIES)
 endif
 
-$(VRCALIBRATORS_SOURCES): config
+$(VRCALIBRATORS_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
 # Mark all VR calibrator object files as intermediate:
 .SECONDARY: $(VRCALIBRATORS_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1455,21 +1621,54 @@ $(VRCALIBRATORS_SOURCES): config
 VRCalibrators: $(VRCALIBRATORS)
 
 #
-# The VR Device Daemon Test program:
+# The OpenVRHost device driver module helper script:
 #
 
-Vrui/Utilities/DeviceTest.cpp: config
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+$(EXEDIR)/RunViveTracker.sh:
+	@echo Creating helper script to run OpenVRHost tracking device driver...
+	@cp Share/RunViveTracker.sh $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(realpath $(STEAMVRDIR)/../../..))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@STEAMVRDIR=.*@STEAMVRDIR=$(subst $(realpath $(STEAMVRDIR)/../../..),$$STEAMDIR,$(STEAMVRDIR))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@VRUIBINDIR=.*@VRUIBINDIR=$(EXECUTABLEINSTALLDIR)@' $(EXEDIR)/RunViveTracker.sh
+	@chmod a+x $(EXEDIR)/RunViveTracker.sh
+endif
+
+#
+# Vrui and calibration utilities:
+#
+
+UTILITIES_SOURCES = $(wildcard Vrui/Utilities/*.cpp) \
+                    $(wildcard Calibration/*.cpp) \
+
+$(UTILITIES_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
+
+#
+# The VR Device Daemon Test programs:
+#
 
 $(EXEDIR)/DeviceTest: PACKAGES += MYVRUI
 $(EXEDIR)/DeviceTest: $(OBJDIR)/Vrui/Utilities/DeviceTest.o
 .PHONY: DeviceTest
 DeviceTest: $(EXEDIR)/DeviceTest
 
+$(EXEDIR)/TrackingTest: PACKAGES += MYVRUI
+$(EXEDIR)/TrackingTest: $(OBJDIR)/Vrui/Utilities/TrackingTest.o
+.PHONY: TrackingTest
+TrackingTest: $(EXEDIR)/TrackingTest
+
+#
+# The Vrui environment setup program:
+#
+
+$(EXEDIR)/RoomSetup: PACKAGES += MYVRUI
+$(EXEDIR)/RoomSetup: $(OBJDIR)/Vrui/Utilities/RoomSetup.o
+.PHONY: RoomSetup
+RoomSetup: $(EXEDIR)/RoomSetup
+
 #
 # The Vrui eye calibration program:
 #
-
-Vrui/Utilities/EyeCalibrator.cpp: config
 
 $(EXEDIR)/EyeCalibrator: PACKAGES += MYVRUI
 $(EXEDIR)/EyeCalibrator: $(OBJDIR)/Vrui/Utilities/EyeCalibrator.o
@@ -1480,8 +1679,6 @@ EyeCalibrator: $(EXEDIR)/EyeCalibrator
 # The Vrui input device data file printer:
 #
 
-Vrui/Utilities/PrintInputDeviceDataFile.cpp: config
-
 $(EXEDIR)/PrintInputDeviceDataFile: PACKAGES += MYVRUI
 $(EXEDIR)/PrintInputDeviceDataFile: $(OBJDIR)/Vrui/Utilities/PrintInputDeviceDataFile.o
 .PHONY: PrintInputDeviceDataFile
@@ -1490,8 +1687,6 @@ PrintInputDeviceDataFile: $(EXEDIR)/PrintInputDeviceDataFile
 #
 # The calibration pattern generator:
 #
-
-Calibration/XBackground.cpp: config
 
 $(EXEDIR)/XBackground: PACKAGES += X11
 $(EXEDIR)/XBackground: EXTRACINCLUDEFLAGS += -ICalibration
@@ -1507,8 +1702,6 @@ MEASUREENVIRONMENT_SOURCES = Calibration/TotalStation.cpp \
                              Calibration/NaturalPointClient.cpp \
                              Calibration/MeasureEnvironment.cpp
 
-$(MEASUREENVIRONMENT_SOURCES): config
-
 $(EXEDIR)/MeasureEnvironment: PACKAGES += MYVRUI
 $(EXEDIR)/MeasureEnvironment: EXTRACINCLUDEFLAGS += -ICalibration
 $(EXEDIR)/MeasureEnvironment: $(MEASUREENVIRONMENT_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1519,11 +1712,10 @@ MeasureEnvironment: $(EXEDIR)/MeasureEnvironment
 # The calibration transformation calculator:
 #
 
-Calibration/ScreenCalibrator.cpp: config
-
 $(EXEDIR)/ScreenCalibrator: PACKAGES += MYVRUI
 $(EXEDIR)/ScreenCalibrator: EXTRACINCLUDEFLAGS += -ICalibration
-$(EXEDIR)/ScreenCalibrator: $(OBJDIR)/Calibration/ScreenCalibrator.o
+$(EXEDIR)/ScreenCalibrator: $(OBJDIR)/Calibration/OGTransformCalculator.o \
+                            $(OBJDIR)/Calibration/ScreenCalibrator.o
 .PHONY: ScreenCalibrator
 ScreenCalibrator: $(EXEDIR)/ScreenCalibrator
 
@@ -1535,8 +1727,6 @@ ALIGNTRACKINGMARKERS_SOURCES = Calibration/ReadOptiTrackMarkerFile.cpp \
                                Calibration/NaturalPointClient.cpp \
                                Calibration/AlignTrackingMarkers.cpp
 
-$(ALIGNTRACKINGMARKERS_SOURCES): config
-
 $(EXEDIR)/AlignTrackingMarkers: PACKAGES += MYVRUI
 $(EXEDIR)/AlignTrackingMarkers: EXTRACINCLUDEFLAGS += -ICalibration
 $(EXEDIR)/AlignTrackingMarkers: $(ALIGNTRACKINGMARKERS_SOURCES:%.cpp=$(OBJDIR)/%.o)
@@ -1544,10 +1734,18 @@ $(EXEDIR)/AlignTrackingMarkers: $(ALIGNTRACKINGMARKERS_SOURCES:%.cpp=$(OBJDIR)/%
 AlignTrackingMarkers: $(EXEDIR)/AlignTrackingMarkers
 
 #
-# The Oculus Rift tracker calibrator:
+# The tracker field sampling utility:
 #
 
-Calibration/OculusCalibrator.cpp: config
+$(EXEDIR)/SampleTrackerField: PACKAGES += MYVRUI
+$(EXEDIR)/SampleTrackerField: EXTRACINCLUDEFLAGS += -ICalibration
+$(EXEDIR)/SampleTrackerField: $(OBJDIR)/Calibration/SampleTrackerField.o
+.PHONY: SampleTrackerField
+SampleTrackerField: $(EXEDIR)/SampleTrackerField
+
+#
+# The Oculus Rift tracker calibrator:
+#
 
 $(EXEDIR)/OculusCalibrator: PACKAGES += MYVRUI MYUSB
 $(EXEDIR)/OculusCalibrator: EXTRACINCLUDEFLAGS += -ICalibration
@@ -1559,6 +1757,15 @@ OculusCalibrator: $(EXEDIR)/OculusCalibrator
 # Specify installation rules for header files, libraries, executables,
 # configuration files, and shared files.
 ########################################################################
+
+$(DEPDIR)/Configure-Makefiles: $(MAKEFILEFRAGMENT) \
+                               $(MAKECONFIGFILE) \
+                               $(PKGCONFIGFILE) \
+                               $(TEMPLATEMAKEFILE) \
+                               ExamplePrograms/makefile \
+                               ExamplePrograms/MeshEditor/makefile \
+                               ExamplePrograms/VRMLViewer/makefile
+	@touch $(DEPDIR)/Configure-Makefiles
 
 SYSTEMPACKAGES = $(sort $(patsubst MY%,,$(PACKAGES_RECEXPAND)))
 VRUIAPP_INCLUDEDIRS = -I$$(VRUI_INCLUDEDIR)
@@ -1578,7 +1785,7 @@ endif
 
 # Pseudo-target to dump Vrui compiler and linker flags to a makefile fragment
 $(MAKEFILEFRAGMENT): PACKAGES = MYVRUI
-$(MAKEFILEFRAGMENT): config
+$(MAKEFILEFRAGMENT): $(DEPDIR)/Configure-End
 	@echo Creating application makefile fragment...
 	@echo '# Makefile fragment for Vrui applications' > $(MAKEFILEFRAGMENT)
 	@echo '# Autogenerated by Vrui installation on $(shell date)' >> $(MAKEFILEFRAGMENT)
@@ -1598,7 +1805,7 @@ ifeq ($(SYSTEM),DARWIN)
 endif
 
 # Pseudo-target to dump Vrui configuration settings
-$(MAKECONFIGFILE): config
+$(MAKECONFIGFILE): $(DEPDIR)/Configure-End
 	@echo Creating configuration makefile fragment...
 	@echo '# Makefile fragment for Vrui configuration options' > $(MAKECONFIGFILE)
 	@echo '# Autogenerated by Vrui installation on $(shell date)' >> $(MAKECONFIGFILE)
@@ -1617,9 +1824,9 @@ $(MAKECONFIGFILE): config
 	@echo 'SYSTEM_HAVE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)' >> $(MAKECONFIGFILE)
 	@echo 'USE_RPATH = $(USE_RPATH)' >> $(MAKECONFIGFILE)
 	@echo 'GLSUPPORT_USE_TLS = $(GLSUPPORT_USE_TLS)' >> $(MAKECONFIGFILE)
+	@echo 'LINUX_INPUT_H_HAS_STRUCTS = $(LINUX_INPUT_H_HAS_STRUCTS)' >> $(MAKECONFIGFILE)
 	@echo 'VRUI_VRWINDOW_USE_SWAPGROUPS = $(VRUI_VRWINDOW_USE_SWAPGROUPS)' >> $(MAKECONFIGFILE)
 	@echo 'VRDEVICES_USE_INPUT_ABSTRACTION = $(VRDEVICES_USE_INPUT_ABSTRACTION)' >> $(MAKECONFIGFILE)
-	@echo 'VRDEVICES_INPUT_H_HAS_STRUCTS = $(VRDEVICES_INPUT_H_HAS_STRUCTS)' >> $(MAKECONFIGFILE)
 	@echo 'VRDEVICES_USE_BLUETOOTH = $(VRDEVICES_USE_BLUETOOTH)' >> $(MAKECONFIGFILE)
 	@echo >> $(MAKECONFIGFILE)
 	@echo '# Version information:'>> $(MAKECONFIGFILE)
@@ -1651,7 +1858,7 @@ ROGUE_LIBS = $(foreach PACKAGENAME,$(ROGUE_SYSTEMPACKAGES),$($(PACKAGENAME)LIBS)
 
 # Pseudo-target to create a metadata file for pkg-config
 $(PKGCONFIGFILE): PACKAGES = MYVRUI
-$(PKGCONFIGFILE): config
+$(PKGCONFIGFILE): $(DEPDIR)/Configure-End
 	@echo Creating pkg-config meta data file...
 	@echo 'prefix=$(INSTALLDIR)' > $(PKGCONFIGFILE)
 	@echo 'exec_prefix=$${prefix}' >> $(PKGCONFIGFILE)
@@ -1673,21 +1880,57 @@ else
 endif	
 	@echo 'Cflags: -I$${includedir} $(ROGUE_INCLUDEDIRS) $(strip $(VRUIAPP_CFLAGS))' >> $(PKGCONFIGFILE)
 
+# Pseudo-target to configure the template makefile
+$(TEMPLATEMAKEFILE): $(DEPDIR)/Configure-End
+	@echo Configuring template makefile...
+	@cp $(TEMPLATEMAKEFILE) $(TEMPLATEMAKEFILE).temp
+	@sed -i -e 's@^VRUI_MAKEDIR := .*@VRUI_MAKEDIR := $(MAKEINSTALLDIR)@' $(TEMPLATEMAKEFILE).temp
+	@if ! diff $(TEMPLATEMAKEFILE).temp $(TEMPLATEMAKEFILE) > /dev/null ; then cp $(TEMPLATEMAKEFILE).temp $(TEMPLATEMAKEFILE) ; fi
+	@rm $(TEMPLATEMAKEFILE).temp
+
+# Pseudo-target to configure the ExamplePrograms makefile
+ExamplePrograms/makefile: $(DEPDIR)/Configure-End
+	@echo Configuring makefile in ExamplePrograms...
+	@cp ExamplePrograms/makefile ExamplePrograms/makefile.temp
+	@sed -i -e 's@^VRUI_MAKEDIR := .*@VRUI_MAKEDIR := $(MAKEINSTALLDIR)@' ExamplePrograms/makefile.temp
+	@if ! diff ExamplePrograms/makefile.temp ExamplePrograms/makefile > /dev/null ; then cp ExamplePrograms/makefile.temp ExamplePrograms/makefile ; fi
+	@rm ExamplePrograms/makefile.temp
+
+# Pseudo-target to configure the ExamplePrograms/MeshEditor makefile
+ExamplePrograms/MeshEditor/makefile: $(DEPDIR)/Configure-End
+	@echo Configuring makefile in ExamplePrograms/MeshEditor...
+	@cp ExamplePrograms/MeshEditor/makefile ExamplePrograms/MeshEditor/makefile.temp
+	@sed -i -e 's@^VRUISHAREDIR := .*@VRUISHAREDIR := $(SHAREINSTALLDIR)@' ExamplePrograms/MeshEditor/makefile.temp
+	@if ! diff ExamplePrograms/MeshEditor/makefile.temp ExamplePrograms/MeshEditor/makefile > /dev/null ; then cp ExamplePrograms/MeshEditor/makefile.temp ExamplePrograms/MeshEditor/makefile ; fi
+	@rm ExamplePrograms/MeshEditor/makefile.temp
+
+# Pseudo-target to configure the ExamplePrograms/VRMLViewer makefile
+ExamplePrograms/VRMLViewer/makefile: $(DEPDIR)/Configure-End
+	@echo Configuring makefile in ExamplePrograms/VRMLViewer...
+	@cp ExamplePrograms/VRMLViewer/makefile ExamplePrograms/VRMLViewer/makefile.temp
+	@sed -i -e 's@^VRUI_MAKEDIR := .*@VRUI_MAKEDIR := $(MAKEINSTALLDIR)@' ExamplePrograms/VRMLViewer/makefile.temp
+	@if ! diff ExamplePrograms/VRMLViewer/makefile.temp ExamplePrograms/VRMLViewer/makefile > /dev/null ; then cp ExamplePrograms/VRMLViewer/makefile.temp ExamplePrograms/VRMLViewer/makefile ; fi
+	@rm ExamplePrograms/VRMLViewer/makefile.temp
+	
 install:
 # Install all header files in HEADERINSTALLDIR:
 	@echo Installing header files in $(HEADERINSTALLDIR)...
 	@install -d $(HEADERINSTALLDIR)/Misc
 	@install -m u=rw,go=r $(MISC_HEADERS) $(HEADERINSTALLDIR)/Misc
+	@install -d $(HEADERINSTALLDIR)/Realtime
+	@install -m u=rw,go=r $(REALTIME_HEADERS) $(HEADERINSTALLDIR)/Realtime
 	@install -d $(HEADERINSTALLDIR)/Threads
 	@install -m u=rw,go=r $(THREADS_HEADERS) $(HEADERINSTALLDIR)/Threads
+ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
 	@install -d $(HEADERINSTALLDIR)/USB
 	@install -m u=rw,go=r $(USB_HEADERS) $(HEADERINSTALLDIR)/USB
+endif
+	@install -d $(HEADERINSTALLDIR)/RawHID
+	@install -m u=rw,go=r $(RAWHID_HEADERS) $(HEADERINSTALLDIR)/RawHID
 	@install -d $(HEADERINSTALLDIR)/IO
 	@install -m u=rw,go=r $(IO_HEADERS) $(HEADERINSTALLDIR)/IO
 	@install -d $(HEADERINSTALLDIR)/Plugins
 	@install -m u=rw,go=r $(PLUGINS_HEADERS) $(HEADERINSTALLDIR)/Plugins
-	@install -d $(HEADERINSTALLDIR)/Realtime
-	@install -m u=rw,go=r $(REALTIME_HEADERS) $(HEADERINSTALLDIR)/Realtime
 	@install -d $(HEADERINSTALLDIR)/Comm
 	@install -m u=rw,go=r $(COMM_HEADERS) $(HEADERINSTALLDIR)/Comm
 	@install -d $(HEADERINSTALLDIR)/Cluster
@@ -1744,6 +1987,7 @@ endif
 	@install -d $(EXECUTABLEINSTALLDIR)
 	@install $(EXECUTABLES) $(EXECUTABLEINSTALLDIR)
 ifeq ($(SYSTEM),DARWIN)
+# Install a Mac OS X helper script:
 	@cp Share/MacOSX/runwithx Share/MacOSX/runwithx.tmp
 	@sed -i -e "s:_VRUIETCDIR_:$(ETCINSTALLDIR):" Share/MacOSX/runwithx.tmp
 	@sed -i -e "s:_VRUIBINDIR_:$(EXECUTABLEINSTALLDIR):" Share/MacOSX/runwithx.tmp
@@ -1785,7 +2029,7 @@ endif
 	@echo Installing build system in $(MAKEINSTALLDIR)...
 	@install -d $(MAKEINSTALLDIR)
 	@install -m u=rw,go=r BuildRoot/* $(MAKEINSTALLDIR)
-	@chmod a+x $(MAKEINSTALLDIR)/FindLibrary.sh
+	@chmod a+x $(MAKEINSTALLDIR)/*.sh
 # Install pkg-config metafile in PKGCONFIGINSTALLDIR:
 	@echo Installing pkg-config metafile in $(PKGCONFIGINSTALLDIR)...
 	@install -d $(PKGCONFIGINSTALLDIR)
@@ -1794,3 +2038,86 @@ endif
 	@echo Installing documentation in $(DOCINSTALLDIR)...
 	@install -d $(DOCINSTALLDIR)
 	@install -m u=rw,go=r Documentation/* $(DOCINSTALLDIR)
+
+installudevrules:
+# Copy device udev rule into rules directory:
+	@echo Installing udev rules into $(UDEVRULEDIR)...
+	@install -m u=rw,go=r Share/69-3d-inputdevices-acl.rules $(UDEVRULEDIR)/69-Vrui-devices.rules
+
+uninstall:
+# Remove documentation from DOCINSTALLDIR:
+	@echo Removing documentation from $(DOCINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(DOCINSTALLDIR) $(wildcard Documentation/*)
+# Remove pkg-config metafile from PKGCONFIGINSTALLDIR:
+	@echo Removing pkg-config metafile from $(PKGCONFIGINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(PKGCONFIGINSTALLDIR) $(PKGCONFIGFILE)
+# Remove full build system from MAKEINSTALLDIR:
+	@echo Removing build system from $(MAKEINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDirIfEqual.sh $(MAKEINSTALLDIR) BuildRoot $(wildcard BuildRoot/*)
+# Remove makefile fragment from SHAREINSTALLDIR:
+	@echo Removing application makefile fragment from $(SHAREINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(SHAREINSTALLDIR) $(MAKEFILEFRAGMENT)
+# Remove all shared files from SHAREINSTALLDIR:
+	@echo Removing shared files from $(SHAREINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDirIfEqual.sh $(SHAREINSTALLDIR)/GLFonts Share/GLFonts $(wildcard Share/GLFonts/*)
+	@$(VRUI_MAKEDIR)/CleanDirIfEqual.sh $(SHAREINSTALLDIR)/Textures Share/Textures $(wildcard Share/Textures/*)
+	@$(VRUI_MAKEDIR)/CleanDirIfEqual.sh $(SHAREINSTALLDIR)/Shaders/SceneGraph Share/Shaders/SceneGraph $(wildcard Share/Shaders/SceneGraph/*)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(SHAREINSTALLDIR)/Shaders
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(SHAREINSTALLDIR)
+# Remove all configuration files from ETCINSTALLDIR:
+	@echo Removing configuration files from $(ETCINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDirIfEqual.sh $(ETCINSTALLDIR) Share $(wildcard Share/*.cfg)
+ifeq ($(SYSTEM),DARWIN)
+	@$(VRUI_MAKEDIR)/CleanDirIfEqual.sh $(ETCINSTALLDIR) Share/MacOSX Vrui.xinitrc
+endif
+# Remove all plug-ins from PLUGININSTALLDIR:
+	@echo Removing plug-ins from $(PLUGININSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(PLUGININSTALLDIR)/$(VRTOOLSDIREXT) $(VRTOOLS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(PLUGININSTALLDIR)/$(VRVISLETSDIREXT) $(VRVISLETS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(PLUGININSTALLDIR)/$(VRDEVICESDIREXT) $(VRDEVICES)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(PLUGININSTALLDIR)/$(VRCALIBRATORSDIREXT) $(VRCALIBRATORS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(PLUGININSTALLDIR)
+# Remove all binaries from EXECUTABLEINSTALLDIR:
+	@echo Removing executables from $(EXECUTABLEINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(EXECUTABLEINSTALLDIR) $(EXECUTABLES)
+ifeq ($(SYSTEM),DARWIN)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(EXECUTABLEINSTALLDIR) runwithx
+endif
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(EXECUTABLEINSTALLDIR) RunViveTracker.sh
+endif
+# Remove all library files from LIBINSTALLDIR:
+	@echo Removing library files from $(LIBINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(LIBINSTALLDIR) $(foreach LIBNAME,$(LIBRARY_NAMES),$(call LINKDSONAME,$(LIBNAME)) $(call DSONAME,$(LIBNAME)) $(call FULLDSONAME,$(LIBNAME)))
+# Remove all header files from HEADERINSTALLDIR:
+	@echo Removing header files from $(HEADERINSTALLDIR)...
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Misc $(MISC_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Realtime $(REALTIME_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Threads $(THREADS_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/USB $(USB_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/RawHID $(RAWHID_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/IO $(IO_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Plugins $(PLUGINS_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Comm $(COMM_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Cluster $(CLUSTER_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Math $(MATH_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Geometry $(GEOMETRY_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/GL/Extensions $(GLSUPPORTEXTENSION_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/GL $(GLWRAPPERS_HEADERS) $(GLSUPPORT_HEADERS) $(GLXSUPPORT_HEADERS) $(GLGEOMETRY_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Images $(IMAGES_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/GLMotif $(GLMOTIF_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Sound/Linux $(SOUND_LINUX_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Sound $(SOUND_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Video/Linux $(VIDEO_LINUX_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Video $(VIDEO_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/AL $(ALSUPPORT_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/SceneGraph $(SCENEGRAPH_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)/Vrui $(VRUI_HEADERS)
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(HEADERINSTALLDIR)
+# Remove the installation directory:
+	@$(VRUI_MAKEDIR)/CleanDir.sh $(INSTALLDIR)
+
+uninstalludevrules:
+# Remove device udev rule from rules directory:
+	@echo Removing udev rules from $(UDEVRULEDIR)...
+	@rm $(UDEVRULEDIR)/69-Vrui-devices.rules

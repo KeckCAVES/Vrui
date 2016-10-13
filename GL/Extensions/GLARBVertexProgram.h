@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexProgram - OpenGL extension class for the
 GL_ARB_vertex_program extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -250,6 +250,7 @@ class GLARBVertexProgram:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLARBVertexProgram*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLVERTEXATTRIB1SARBPROC glVertexAttrib1sARBProc;
 	PFNGLVERTEXATTRIB1FARBPROC glVertexAttrib1fARBProc;
 	PFNGLVERTEXATTRIB1DARBPROC glVertexAttrib1dARBProc;

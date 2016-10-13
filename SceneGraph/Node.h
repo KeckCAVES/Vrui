@@ -1,7 +1,7 @@
 /***********************************************************************
 Node - Base class for nodes, i.e., shared elements of rendering or other
 state.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -24,8 +24,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define SCENEGRAPH_NODE_INCLUDED
 
 #include <stdexcept>
-#include <Misc/RefCounted.h>
 #include <Misc/Autopointer.h>
+#include <Threads/RefCounted.h>
 
 /* Forward declarations: */
 namespace SceneGraph {
@@ -36,7 +36,7 @@ class VRMLFile;
 
 namespace SceneGraph {
 
-class Node:public Misc::RefCounted
+class Node:public Threads::RefCounted
 	{
 	/* Embedded classes: */
 	public:

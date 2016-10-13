@@ -1,6 +1,6 @@
 ========================================================================
-README for Vrui version 3.1, build 004
-Copyright (c) 1998-2015 Oliver Kreylos
+README for Vrui version 4.1, build 003
+Copyright (c) 1998-2016 Oliver Kreylos
 ========================================================================
 
 Overview
@@ -24,8 +24,8 @@ Requirements
 On all operating systems, Vrui is based on the X Window System (X11) and
 OpenGL. On Mac OS X, X11 is an optional component and can be installed
 from the installation media. To build Vrui from source on Mac OS X, it
-may be necessary to install the optional xcode component from the
-installation media. On Linux, we strongly recommend installing
+is necessary to install the optional X11/Xquartz and xcode components
+from the installation media. On Linux, we strongly recommend installing
 appropriate vendor-supplied OpenGL drivers (such as those released by
 Nvidia or ATI/AMD) for optimal 3D graphics performance.
 
@@ -36,6 +36,38 @@ sound. On Mac OS X, libpng, libjpeg, and libtiff need to be downloaded
 from their respective repositories and built from source. On Linux,
 OpenAL might not be installed by default and needs to be installed via
 the distribution's package manager.
+
+The full list of libraries used by Vrui on Linux:
+-------------------------------------------------
+
+Required:
+* zlib         (zlib compression/decompression library)
+* GL           (OpenGL 3D graphics library)
+* GLU          (OpenGL utility package)
+
+Recommended:
+* libudev      (udev event notification library)
+* libdbus      (Desktop Bus IPC library)
+* libusb1      (user-space USB library version 1.x)
+* libpng       (library to read/write PNG images)
+* libjpeg      (library to read/write JPEG images)
+* libtiff      (library to read/write TIFF images)
+* alsa-lib     (low-level sound library)
+* openal-soft  (OpenAL 3D audio library)
+* libv4l       (Video4Linux2, user-space video capture library)
+
+Optional:
+* bluez-libs   (user-space bluetooth library to talk to Wiimote
+                devices)
+* libdc1394    (FireWire video capture library)
+* libXrandr    (X11 RANDR extension library to auto-detect display
+                devices)
+* libXi        (X11 Input2 extension library to support multitouch
+                devices)
+* speex        (low-latency audio compression library)
+* libogg       (Ogg audio/video container library)
+* libtheora    (Theora video compression library)
+* xine-lib     (Xine multimedia framework, for VR video player)
 
 Quick Installation Guide for the Impatient
 ==========================================
@@ -49,7 +81,7 @@ Quick Installation Guide for the Impatient
    > cd ~/src
 
 2. Download and unpack the Vrui tarball:
-   > curl <download path>/Vrui-<version>-<build>.tar.gz | tar xfz -
+   > wget -O - <download path>/Vrui-<version>-<build>.tar.gz | tar xfz -
 
 3. Change into Vrui base directory:
    > cd Vrui-<version>-<build>
@@ -59,8 +91,8 @@ Quick Installation Guide for the Impatient
    or, for multi-processor machines
    > make -j<number of CPUs>
 
-5. Install Vrui into Vrui-<version> in home directory:
-   > make install
+5. Install Vrui into /usr/local
+   > sudo make install
 
 6. If there are error messages during the build, read below.
 
@@ -79,7 +111,7 @@ Building and Running Vrui Example Applications
    > ./bin/ShowEarthModel
 
 5. Read about Vrui's default user interface in HTML documentation in
-   ~/Vrui-<version>/share/doc.
+   /usr/local/share/doc/Vrui-<version>
 
 Detailed Installation notes
 ===========================
@@ -94,9 +126,9 @@ specific needs.
 
 The one makefile setting that might need to be adjusted is the Vrui
 installation path at the very beginning of the makefile. By default,
-Vrui installs itself into ~/Vrui-<version>. This can be changed either
-by editing the makefile, or, better, by passing the installation
-directory on make's command line:
+Vrui installs itself into /usr/local hierarchy. This can be changed
+either by editing the makefile, or, better, by passing the desired 
+nstallation directory on make's command line:
 
 > make INSTALLDIR=<path>
 
@@ -105,7 +137,7 @@ which it is built. A typical installation would download the source
 tarball into a special "source" directory, say ~/src, and extract it
 from there, resulting in the sources being in
 ~/src/Vrui-<version>-<build>. Then Vrui can be installed in
-~/Vrui-<version> (the default) without any problems. After installation,
+/usr/local (the default) without any problems. After installation,
 the source tarball and the ~/src/Vrui-<version>-<build> directory can in
 principle be deleted.
 
@@ -114,47 +146,88 @@ Here is a diagram of the directory structure described above:
 ~ (home directory)
   |
   +- src (unpack Vrui tarball from in here)
-  | |
-  | +- Vrui-<version>-<build> (package root directory, run "make" in
-  |   | here)
-  |   |
-  |   +- COPYING, VERSION, HISTORY, README
-  |   |
-  |   +- makefile
-  |   |
-  |   +- BuildRoot (Vrui's build system)
-  |   |
-  |   +- <Vrui component directories>
-  |   |
-  |   +- ExamplePrograms (Vrui example program source
-  |   |  codes)
-  |   |
-  |   +- d (dependency files, created by "make")
-  |   |
-  |   +- o (object files, created by "make")
-  |   |
-  |   +- lib / lib64 (library files and plug-ins,
-  |   |  created by "make")
-  |   |
-  |   +- bin (executable files, created by "make")
+    |
+    +- Vrui-<version>-<build> (package root directory, run "make" in
+      | here)
+      |
+      +- COPYING, VERSION, HISTORY, README
+      |
+      +- makefile
+      |
+      +- BuildRoot (Vrui's build system)
+      |
+      +- <Vrui component directories>
+      |
+      +- ExamplePrograms (Vrui example program source
+      |  codes)
+      |
+      +- d (dependency files, created by "make")
+      |
+      +- o (object files, created by "make")
+      |
+      +- lib / lib64 (library files and plug-ins,
+      |  created by "make")
+      |
+      +- bin (executable files, created by "make")
+
+/usr/local
   |
-  +- Vrui-<version> (created by "make install")
+  +- include (system include directory)
+  | |
+  | +- Vrui-<version> (Vrui development header files, created by
+  |   |                "make install")
+  |   |
+  |   +- Misc, Realtime, Threads, ..., Vrui
+  |     |
+  |     +- header files
+  |
+  +- lib / lib64 (system library directory)
+  | |
+  | +- pkgconfig (system package configuration directory)
+  | | |
+  | | +- Vrui.pc
+  | |
+  | +- Vrui-<version> (Vrui library files and plug-ins, created by
+  |   |                "make install")
+  |   |
+  |   +- VRTools, VRVislets, VRDevices, VRCalibrators
+  |   | |
+  |   | +- plug-in *.so files
+  |   |
+  |   +- libMisc.*.so*, libRealtime.*.so*, ...
+  |
+  +- bin (system executable directory)
+  | |
+  | +- AlignTrackingMarkers, DeviceTest, ...
+  |
+  +- etc (system configuration directory)
+  | |
+  | +- Vrui-<version> (Vrui configuration files, created by
+  |   |                "make install")
+  |   |
+  |   +- Vrui.cfg, VRDevices.cfg, ...
+  |
+  +- share (system resource directory)
     |
-    +- include (Vrui development header files)
+    +- Vrui-<version> (Vrui shared files, created by "make install")
+    | |
+    | +- Vrui.makeinclude (makefile fragment, deprecated)
+    | |
+    | +- make (Whytools build system)
+    | | |
+    | | +- SystemDefinitions, BasicMakefile, ...
+    | | |
+    | | +- template makefile for Vrui application development
+    | |
+    | +- GLFonts, Shaders, Textures
+    |   |
+    |   +- fonts, shader source files, and textures
     |
-    +- lib / lib64 (library files and plug-ins)
-    |
-    +- bin (Vrui driver and utility programs)
-    |
-    +- etc (Vrui configuration files)
-    |
-    +- share (font definitions, texture images, etc.)
-      |
-      +- GLFonts, Shaders, Textures
-      |
-      +- make (Vrui's build system)
-      |
-      +- doc (HTML documentation)
+    +- doc (system documentation directory, possibly created by
+      |     "make install")
+      +- Vrui-<version> (Vrui documentation, created by "make install")
+        |
+        +- index.html, ...
 
 Root Installation Directory
 ---------------------------
@@ -169,13 +242,6 @@ the usual subdirectories under the root installation directory:
 - bin: Contains executables
 - etc: Contains configuration files
 - share: Contains resource files (texture fonts etc.)
-
-If the root installation directory is set to /usr/local, Vrui will drop
-right into an existing Linux installation. However, to simplify removing
-a Vrui installation (there is no make uninstall yet), it is recommended
-to install Vrui in its private root directory, such as
-/usr/local/Vrui-<version>. If installed this way, it can be cleanly
-uninstalled by simply removing the root installation directory.
 
 If the root installation directory is set to /usr, Vrui will almost (but
 not quite) follow the UNIX installation conventions. Concretely,

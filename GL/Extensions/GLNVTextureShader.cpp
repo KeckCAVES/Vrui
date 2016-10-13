@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVTextureShader - OpenGL extension class for the
 GL_NV_texture_shader extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLNVTextureShader:
 ******************************************/
 
 GL_THREAD_LOCAL(GLNVTextureShader*) GLNVTextureShader::current=0;
+const char* GLNVTextureShader::name="GL_NV_texture_shader";
 
 /**********************************
 Methods of class GLNVTextureShader:
@@ -47,7 +48,7 @@ GLNVTextureShader::~GLNVTextureShader(void)
 
 const char* GLNVTextureShader::getExtensionName(void) const
 	{
-	return "GL_NV_texture_shader";
+	return name;
 	}
 
 void GLNVTextureShader::activate(void)
@@ -63,13 +64,13 @@ void GLNVTextureShader::deactivate(void)
 bool GLNVTextureShader::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_NV_texture_shader");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLNVTextureShader::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_NV_texture_shader"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLNVTextureShader* newExtension=new GLNVTextureShader;

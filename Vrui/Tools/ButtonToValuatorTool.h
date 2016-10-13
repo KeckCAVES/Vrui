@@ -1,7 +1,7 @@
 /***********************************************************************
 ButtonToValuatorTool - Class to convert a single button or two buttons
 into a two- or three-state valuator, respectively.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

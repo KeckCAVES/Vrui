@@ -1,7 +1,7 @@
 /***********************************************************************
 File - Base class for high-performance buffered binary read/write access
 to file-like objects.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -158,6 +158,12 @@ size_t File::readData(File::Byte* buffer,size_t bufferSize)
 	}
 
 void File::writeData(const File::Byte* buffer,size_t bufferSize)
+	{
+	/* Throw write error: */
+	throw WriteError(bufferSize);
+	}
+
+size_t File::writeDataUpTo(const File::Byte* buffer,size_t bufferSize)
 	{
 	/* Throw write error: */
 	throw WriteError(bufferSize);
@@ -411,6 +417,67 @@ void File::resizeWriteBuffer(size_t newWriteBufferSize)
 	writeBuffer=new Byte[writeBufferSize];
 	writeBufferEnd=writeBuffer+writeBufferSize;
 	writePtr=writeBuffer;
+	}
+
+size_t File::readSomeData(void)
+	{
+	/* Calculate size of unread data currently in buffer and bail out if buffer is already full: */
+	size_t unreadDataSize=readDataEnd-readPtr;
+	if(unreadDataSize==readBufferSize)
+		return unreadDataSize;
+	
+	/* Move unread data to the beginning of the read buffer if that opens a lot of space: */
+	if(unreadDataSize>0)
+		{
+		/* Only move when there's more room in the front than in the back: */
+		size_t roomFront=readPtr-readBuffer;
+		size_t roomEnd=(readBuffer+readBufferSize)-readDataEnd;
+		if(roomFront>roomEnd)
+			{
+			/* Move unread data to beginning of read buffer (needs to use memmove as data blocks might overlap): */
+			memmove(readBuffer,readPtr,unreadDataSize);
+			
+			/* Update the read buffer pointers: */
+			readPtr=readBuffer;
+			readDataEnd=readBuffer+unreadDataSize;
+			}
+		}
+	else
+		{
+		/* Buffer is empty; reset pointers: */
+		readPtr=readBuffer;
+		readDataEnd=readBuffer;
+		}
+	
+	/* Read more data: */
+	size_t readSize=readData(readDataEnd,readBufferSize-unreadDataSize);
+	
+	/* Update the read buffer pointers and check for end-of-file: */
+	readDataEnd+=readSize;
+	haveEof=readSize==0;
+	
+	/* Return new amount of unread data in read buffer: */
+	return unreadDataSize+readSize;
+	}
+
+size_t File::writeSomeData(void)
+	{
+	/* Calculate available space in buffer and bail out if buffer is already empty: */
+	size_t bufferSpace=writeBufferEnd-writePtr;
+	if(bufferSpace==writeBufferSize)
+		return bufferSpace;
+	
+	/* Write some data from the beginning of the buffer: */
+	size_t writeSize=writeDataUpTo(writeBuffer,writePtr-writeBuffer);
+	
+	/* Move the remaining unwritten data to the beginning of the write buffer: */
+	memmove(writeBuffer,writeBuffer+writeSize,writePtr-(writeBuffer+writeSize));
+	
+	/* Update the write buffer pointers: */
+	writePtr-=writeSize;
+	
+	/* Return the new amount of free space in the buffer: */
+	return bufferSpace+writeSize;
 	}
 
 void File::setEndianness(Misc::Endianness newEndianness)

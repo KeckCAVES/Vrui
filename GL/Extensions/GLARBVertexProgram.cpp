@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexProgram - OpenGL extension class for the
 GL_ARB_vertex_program extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBVertexProgram:
 *******************************************/
 
 GL_THREAD_LOCAL(GLARBVertexProgram*) GLARBVertexProgram::current=0;
+const char* GLARBVertexProgram::name="GL_ARB_vertex_program";
 
 /***********************************
 Methods of class GLARBVertexProgram:
@@ -108,7 +109,7 @@ GLARBVertexProgram::~GLARBVertexProgram(void)
 
 const char* GLARBVertexProgram::getExtensionName(void) const
 	{
-	return "GL_ARB_vertex_program";
+	return name;
 	}
 
 void GLARBVertexProgram::activate(void)
@@ -124,13 +125,13 @@ void GLARBVertexProgram::deactivate(void)
 bool GLARBVertexProgram::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_vertex_program");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBVertexProgram::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_vertex_program"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBVertexProgram* newExtension=new GLARBVertexProgram;

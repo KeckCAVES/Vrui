@@ -27,6 +27,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/Viewer.h>
 
 class VruiEventToolDemo:public Vrui::Application
 	{

@@ -1,6 +1,6 @@
 /***********************************************************************
 Slider - Class for horizontal or vertical sliders.
-Copyright (c) 2001-2012 Oliver Kreylos
+Copyright (c) 2001-2016 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -972,7 +972,12 @@ void Slider::removeNotch(GLfloat notchValue)
 void Slider::setValue(GLfloat newValue)
 	{
 	/* Update the value and reposition the slider: */
-	value=newValue;
+	if(newValue<=valueMin)
+		value=valueMin;
+	else if(newValue>=valueMax)
+		value=valueMax;
+	else
+		value=newValue;
 	positionSlider();
 	
 	/* Update the visual representation: */

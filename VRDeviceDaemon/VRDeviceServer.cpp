@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -25,417 +25,507 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <stdio.h>
 #include <stdexcept>
+#include <Misc/PrintInteger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Vrui/Internal/VRDeviceDescriptor.h>
+#include <Vrui/Internal/HMDConfiguration.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
+
+namespace {
+
+/**************
+Helper classes:
+**************/
+
+enum State
+	{
+	START,CONNECTED,ACTIVE,STREAMING
+	};
+
+}
+
+/********************************************
+Methods of class VRDeviceServer::ClientState:
+********************************************/
+
+VRDeviceServer::ClientState::ClientState(VRDeviceServer* sServer,Comm::ListeningTCPSocket& listenSocket)
+	:server(sServer),
+	 pipe(listenSocket),
+	 state(START),protocolVersion(Vrui::VRDevicePipe::protocolVersionNumber),clientExpectsTimeStamps(true),
+	 active(false),streaming(false)
+	{
+	#ifdef VERBOSE
+	/* Assemble the client name: */
+	clientName=pipe.getPeerHostName();
+	clientName.push_back(':');
+	char portId[10];
+	clientName.append(Misc::print(pipe.getPeerPortId(),portId+sizeof(portId)-1));
+	#endif
+	}
 
 /*******************************
 Methods of class VRDeviceServer:
 *******************************/
 
-void* VRDeviceServer::listenThreadMethod(void)
+bool VRDeviceServer::newConnectionCallback(Threads::EventDispatcher::ListenerKey eventKey,int eventType,void* userData)
 	{
-	/* Enable immediate cancellation of this thread: */
-	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	VRDeviceServer* thisPtr=static_cast<VRDeviceServer*>(userData);
 	
-	while(true)
-		{
-		/* Wait for the next incoming connection: */
-		#ifdef VERBOSE
-		printf("VRDeviceServer: Waiting for client connection\n");
-		fflush(stdout);
-		#endif
-		ClientData* newClient=new ClientData(listenSocket);
-		
-		/* Connect the new client: */
-		#ifdef VERBOSE
-		printf("VRDeviceServer: Connecting new client from %s, port %d\n",newClient->pipe.getPeerHostName().c_str(),newClient->pipe.getPeerPortId());
-		fflush(stdout);
-		#endif
-		{
-		Threads::Mutex::Lock clientListLock(clientListMutex);
-		clientList.push_back(newClient);
-		newClient->communicationThread.start(this,&VRDeviceServer::clientCommunicationThreadMethod,newClient);
-		}
-		}
+	// DEBUGGING
+	printf("Creating new client state..."); fflush(stdout);
 	
-	return 0;
+	/* Create a new client state object and add it to the list: */
+	ClientState* newClient=new ClientState(thisPtr,thisPtr->listenSocket);
+	
+	// DEBUGGING
+	printf(" done\n");
+	
+	#ifdef VERBOSE
+	printf("VRDeviceServer: Connecting new client %s\n",newClient->clientName.c_str());
+	fflush(stdout);
+	#endif
+	
+	// DEBUGGING
+	printf("Adding new client state to list\n");
+	
+	thisPtr->clientStates.push_back(newClient);
+	
+	// DEBUGGING
+	printf("Adding listener for client's socket\n");
+	
+	/* Add an event listener for incoming messages from the client: */
+	newClient->listenerKey=thisPtr->dispatcher.addIOEventListener(newClient->pipe.getFd(),Threads::EventDispatcher::Read,thisPtr->clientMessageCallback,newClient);
+	
+	// DEBUGGING
+	printf("Client connected\n");
+	
+	return false;
 	}
 
-void* VRDeviceServer::clientCommunicationThreadMethod(VRDeviceServer::ClientData* clientData)
+void VRDeviceServer::disconnectClient(VRDeviceServer::ClientState* client,bool removeListener,bool removeFromList)
 	{
-	/* Enable immediate cancellation of this thread: */
-	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
-	
-	Vrui::VRDevicePipe& pipe=clientData->pipe;
-	
-	enum State
+	if(removeListener)
 		{
-		START,CONNECTED,ACTIVE,STREAMING,FINISH
-		};
+		/* Stop listening on the client's pipe: */
+		dispatcher.removeIOEventListener(client->listenerKey);
+		}
+	
+	/* Check if the client is still streaming or active: */
+	if(client->streaming)
+		--numStreamingClients;
+	if(client->active)
+		{
+		--numActiveClients;
+		
+		/* Stop VR devices if there are no more active clients: */
+		if(numActiveClients==0)
+			deviceManager->stop();
+		}
+	
+	/* Disconnect the client: */
+	delete client;
+	
+	if(removeFromList)
+		{
+		/* Remove the dead client from the list: */
+		for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
+			if(*csIt==client)
+				{
+				/* Remove it and stop searching: */
+				*csIt=clientStates.back();
+				clientStates.pop_back();
+				break;
+				}
+		}
+	}
+
+bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey eventKey,int eventType,void* userData)
+	{
+	ClientState* client=static_cast<ClientState*>(userData);
+	VRDeviceServer* thisPtr=client->server;
+	
+	bool result=false;
 	
 	try
 		{
-		/* Execute client communication protocol state machine: */
-		State state=START; // Current client state
-		while(state!=FINISH)
+		/* Read some data from the socket into the socket's read buffer and check if client hung up: */
+		if(client->pipe.readSomeData()==0)
+			throw std::runtime_error("Client terminated connection");
+		
+		/* Process messages as long as there is data in the read buffer: */
+		while(!result&&client->pipe.canReadImmediately())
 			{
-			/* Read the next message from the client: */
-			Vrui::VRDevicePipe::MessageIdType message=pipe.readMessage();
+			// DEBUGGING
+			printf("Reading message..."); fflush(stdout);
 			
-			/* Handle the message based on the current state: */
-			switch(state)
+			/* Read the next message from the client: */
+			Vrui::VRDevicePipe::MessageIdType message=client->pipe.readMessage();
+			
+			// DEBUGGING
+			printf(" done, %u\n",(unsigned int)message);
+			
+			/* Run the client state machine: */
+			switch(client->state)
 				{
 				case START:
-					switch(message)
+					if(message==Vrui::VRDevicePipe::CONNECT_REQUEST)
 						{
-						case Vrui::VRDevicePipe::CONNECT_REQUEST:
-							{
-							/* Read client's protocol version number: */
-							clientData->protocolVersion=pipe.read<unsigned int>();
-							
-							/* Lock the pipe for writing: */
-							Threads::Mutex::Lock pipeLock(clientData->pipeMutex);
-							
-							/* Send connect reply message: */
-							pipe.writeMessage(Vrui::VRDevicePipe::CONNECT_REPLY);
-							if(clientData->protocolVersion>Vrui::VRDevicePipe::protocolVersionNumber)
-								clientData->protocolVersion=Vrui::VRDevicePipe::protocolVersionNumber;
-							pipe.write<unsigned int>(clientData->protocolVersion);
-							
-							/* Send server layout: */
-							deviceManager->getState().writeLayout(pipe);
-							
-							if(clientData->protocolVersion>=2U)
-								{
-								/* Send the layout of all virtual devices: */
-								pipe.write<int>(deviceManager->getNumVirtualDevices());
-								for(int deviceIndex=0;deviceIndex<deviceManager->getNumVirtualDevices();++deviceIndex)
-									deviceManager->getVirtualDevice(deviceIndex).write(pipe);
-								}
-							
-							pipe.flush();
-							}
-							
-							/* Go to connected state: */
-							state=CONNECTED;
-							break;
+						// DEBUGGING
+						printf("Reading protocol version..."); fflush(stdout);
 						
-						default:
-							state=FINISH;
+						/* Read client's protocol version number: */
+						client->protocolVersion=client->pipe.read<Misc::UInt32>();
+						
+						// DEBUGGING
+						printf(" done, %u\n",client->protocolVersion);
+						
+						// DEBUGGING
+						printf("Sending connect reply..."); fflush(stdout);
+						
+						/* Send connect reply message: */
+						client->pipe.writeMessage(Vrui::VRDevicePipe::CONNECT_REPLY);
+						if(client->protocolVersion>Vrui::VRDevicePipe::protocolVersionNumber)
+							client->protocolVersion=Vrui::VRDevicePipe::protocolVersionNumber;
+						client->pipe.write<Misc::UInt32>(client->protocolVersion);
+						
+						/* Send server layout: */
+						thisPtr->deviceManager->getState().writeLayout(client->pipe);
+						
+						/* Check if the client expects virtual device descriptors: */
+						if(client->protocolVersion>=2U)
+							{
+							/* Send the layout of all virtual devices: */
+							client->pipe.write<Misc::SInt32>(thisPtr->deviceManager->getNumVirtualDevices());
+							for(int deviceIndex=0;deviceIndex<thisPtr->deviceManager->getNumVirtualDevices();++deviceIndex)
+								thisPtr->deviceManager->getVirtualDevice(deviceIndex).write(client->pipe);
+							}
+						
+						/* Check if the client expects tracker state time stamps: */
+						client->clientExpectsTimeStamps=client->protocolVersion>=3U;
+						
+						/* Check if the client expects HMD configurations: */
+						if(client->protocolVersion>=4U)
+							{
+							/* Send all current HMD configurations to the new client: */
+							client->pipe.write<Misc::UInt32>(thisPtr->deviceManager->getNumHmdConfigurations());
+							thisPtr->deviceManager->lockHmdConfigurations();
+							for(unsigned int i=0;i<thisPtr->numHmdConfigurations;++i)
+								{
+								/* Send the full configuration to the client: */
+								thisPtr->hmdConfigurationVersions[i].hmdConfiguration->write(0U,0U,0U,client->pipe);
+								}
+							thisPtr->deviceManager->unlockHmdConfigurations();
+							}
+						
+						/* Finish the reply message: */
+						client->pipe.flush();
+						
+						// DEBUGGING
+						printf(" done\n");
+						
+						/* Go to connected state: */
+						client->state=CONNECTED;
 						}
+					else
+						throw std::runtime_error("Protocol error in START state");
 					break;
 				
 				case CONNECTED:
-					switch(message)
+					if(message==Vrui::VRDevicePipe::ACTIVATE_REQUEST)
 						{
-						case Vrui::VRDevicePipe::ACTIVATE_REQUEST:
-							{
-							/* Lock the client list: */
-							Threads::Mutex::Lock clientListLock(clientListMutex);
-							
-							/* Start VR devices if this is the first active client: */
-							if(numActiveClients==0)
-								deviceManager->start();
-							
-							/* Activate the client: */
-							clientData->active=true;
-							++numActiveClients;
-							}
-							
-							/* Go to active state: */
-							state=ACTIVE;
-							break;
+						/* Start VR devices if this is the first active client: */
+						if(thisPtr->numActiveClients==0)
+							thisPtr->deviceManager->start();
+						++thisPtr->numActiveClients;
 						
-						default:
-							state=FINISH;
+						/* Go to active state: */
+						client->active=true;
+						client->state=ACTIVE;
 						}
+					else if(message==Vrui::VRDevicePipe::DISCONNECT_REQUEST)
+						{
+						/* Cleanly disconnect this client: */
+						#ifdef VERBOSE
+						printf("VRDeviceServer: Disconnecting client %s\n",client->clientName.c_str());
+						fflush(stdout);
+						#endif
+						thisPtr->disconnectClient(client,false,true);
+						result=true;
+						}
+					else
+						throw std::runtime_error("Protocol error in CONNECTED state");
 					break;
 				
 				case ACTIVE:
-					switch(message)
+					if(message==Vrui::VRDevicePipe::PACKET_REQUEST||message==Vrui::VRDevicePipe::STARTSTREAM_REQUEST)
 						{
-						case Vrui::VRDevicePipe::PACKET_REQUEST:
-						case Vrui::VRDevicePipe::STARTSTREAM_REQUEST:
-							deviceManager->lockState();
-							try
-								{
-								/* Lock the pipe for writing: */
-								Threads::Mutex::Lock pipeLock(clientData->pipeMutex);
-								
-								if(message==Vrui::VRDevicePipe::STARTSTREAM_REQUEST)
-									{
-									/* Enable streaming: */
-									clientData->streaming=true;
-									}
-								
-								/* Send packet reply message: */
-								pipe.writeMessage(Vrui::VRDevicePipe::PACKET_REPLY);
-								
-								/* Send server state: */
-								deviceManager->getState().write(pipe);
-								pipe.flush();
-								}
-							catch(...)
-								{
-								/* Unlock the device manager's state and throw the exception again: */
-								deviceManager->unlockState();
-								throw;
-								}
-							deviceManager->unlockState();
-							
-							if(message==Vrui::VRDevicePipe::STARTSTREAM_REQUEST)
-								state=STREAMING;
-							
-							break;
+						// DEBUGGING
+						printf("Sending packet reply..."); fflush(stdout);
 						
-						case Vrui::VRDevicePipe::DEACTIVATE_REQUEST:
+						/* Send the current server state to the client: */
+						client->pipe.writeMessage(Vrui::VRDevicePipe::PACKET_REPLY);
+						try
 							{
-							/* Lock the client list: */
-							Threads::Mutex::Lock clientListLock(clientListMutex);
-							
-							/* Deactivate client: */
-							clientData->active=false;
-							--numActiveClients;
-							
-							/* Stop VR devices if this was the last active client: */
-							if(numActiveClients==0)
-								deviceManager->stop();
+							/* Send server state: */
+							thisPtr->deviceManager->lockState();
+							thisPtr->deviceManager->getState().write(client->pipe,client->clientExpectsTimeStamps);
+							thisPtr->deviceManager->unlockState();
 							}
-							
-							/* Go to connected state: */
-							state=CONNECTED;
-							break;
+						catch(...)
+							{
+							/* Unlock the device manager's state and throw the exception again: */
+							thisPtr->deviceManager->unlockState();
+							throw;
+							}
 						
-						default:
-							state=FINISH;
+						/* Finish the reply message: */
+						client->pipe.flush();
+						
+						// DEBUGGING
+						printf(" done\n");
+						
+						if(message==Vrui::VRDevicePipe::STARTSTREAM_REQUEST)
+							{
+							/* Increase the number of streaming clients: */
+							++thisPtr->numStreamingClients;
+							
+							/* Go to streaming state: */
+							client->streaming=true;
+							client->state=STREAMING;
+							}
 						}
+					else if(message==Vrui::VRDevicePipe::DEACTIVATE_REQUEST)
+						{
+						/* Stop VR devices if this was the last active clients: */
+						--thisPtr->numActiveClients;
+						if(thisPtr->numActiveClients==0)
+							thisPtr->deviceManager->stop();
+						
+						/* Go to connected state: */
+						client->active=false;
+						client->state=CONNECTED;
+						}
+					else
+						throw std::runtime_error("Protocol error in ACTIVE state");
 					break;
 				
 				case STREAMING:
-					switch(message)
+					if(message==Vrui::VRDevicePipe::STOPSTREAM_REQUEST)
 						{
-						case Vrui::VRDevicePipe::PACKET_REQUEST:
-							/* Ignore message: */
-							break;
+						/* Send stopstream reply message: */
+						client->pipe.writeMessage(Vrui::VRDevicePipe::STOPSTREAM_REPLY);
+						client->pipe.flush();
 						
-						case Vrui::VRDevicePipe::STOPSTREAM_REQUEST:
-							{
-							/* Lock the pipe for writing: */
-							Threads::Mutex::Lock pipeLock(clientData->pipeMutex);
-							
-							/* Disable streaming: */
-							clientData->streaming=false;
-							
-							/* Send stopstream reply message: */
-							pipe.writeMessage(Vrui::VRDevicePipe::STOPSTREAM_REPLY);
-							pipe.flush();
-							}
-							
-							/* Go to active state: */
-							state=ACTIVE;
-							break;
+						/* Decrease the number of streaming clients: */
+						--thisPtr->numStreamingClients;
 						
-						default:
-							state=FINISH;
+						/* Go to active state: */
+						client->streaming=false;
+						client->state=ACTIVE;
 						}
+					else if(message!=Vrui::VRDevicePipe::PACKET_REQUEST)
+						throw std::runtime_error("Protocol error in STREAMING state");
 					break;
-				
-				default:
-					/* Just to make g++ happy... */
-					;
 				}
 			}
 		}
 	catch(std::runtime_error err)
 		{
-		/* Print error message to stderr, but ignore exception otherwise: */
-		fprintf(stderr,"VRDeviceServer: Terminating client connection due to exception\n  %s\n",err.what());
-		fflush(stderr);
+		#ifdef VERBOSE
+		printf("VRDeviceServer: Disconnecting client %s due to exception \"%s\"\n",client->clientName.c_str(),err.what());
+		fflush(stdout);
+		#endif
+		thisPtr->disconnectClient(client,false,true);
+		result=true;
 		}
 	
-	/* Cleanly deactivate client: */
-	{
-	Threads::Mutex::Lock clientListLock(clientListMutex);
-	if(clientData->streaming)
-		{
-		/* Leave streaming mode: */
-		clientData->streaming=false;
-		}
-	if(clientData->active)
-		{
-		/* Deactivate client: */
-		clientData->active=false;
-		--numActiveClients;
-		
-		/* Stop VR devices if this was the last active client: */
-		if(numActiveClients==0)
-			deviceManager->stop();
-		}
-	
-	/* Remove client from list: */
-	ClientList::iterator clIt;
-	for(clIt=clientList.begin();clIt!=clientList.end()&&*clIt!=clientData;++clIt)
-		;
-	clientList.erase(clIt);
-	
-	/* Disconnect client: */
-	delete clientData;
-	}
-	
-	/* Terminate: */
-	#ifdef VERBOSE
-	printf("VRDeviceServer: Disconnected client\n");
-	fflush(stdout);
-	#endif
-	
-	return 0;
+	return result;
 	}
 
-void* VRDeviceServer::streamingThreadMethod(void)
+void VRDeviceServer::trackerUpdateNotificationCallback(VRDeviceManager* manager,void* userData)
 	{
-	/* Enable immediate cancellation of this thread: */
-	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
-	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
+	VRDeviceServer* thisPtr=static_cast<VRDeviceServer*>(userData);
 	
-	while(true)
+	/* Update the version number of the device manager's tracking state and wake up the run loop: */
+	++thisPtr->managerTrackerStateVersion;
+	thisPtr->dispatcher.interrupt();
+	}
+
+void VRDeviceServer::hmdConfigurationUpdatedCallback(VRDeviceManager* manager,const Vrui::HMDConfiguration* hmdConfiguration,void* userData)
+	{
+	VRDeviceServer* thisPtr=static_cast<VRDeviceServer*>(userData);
+	
+	/* Update the version number of the device manager's HMD configuration state and wake up the run loop: */
+	++thisPtr->managerHmdConfigurationVersion;
+	thisPtr->dispatcher.interrupt();
+	}
+
+bool VRDeviceServer::writeServerState(VRDeviceServer::ClientState* client)
+	{
+	/* Send state to client: */
+	try
 		{
-		/* Wait for the next update notification from the device manager: */
-		trackerUpdateCompleteCond.wait();
+		/* Send packet reply message: */
+		client->pipe.writeMessage(Vrui::VRDevicePipe::PACKET_REPLY);
 		
-		/* Lock client list: */
-		{
-		Threads::Mutex::Lock clientListLock(clientListMutex);
-		
-		/* Lock the device manager's current state: */
-		deviceManager->lockState();
-		
-		/* Iterate through all clients in streaming mode: */
-		std::vector<ClientList::iterator> deadClients;
-		for(ClientList::iterator clIt=clientList.begin();clIt!=clientList.end();++clIt)
-			{
-			/* Lock the client's pipe: */
-			Threads::Mutex::Lock clientPipeLock((*clIt)->pipeMutex);
-			
-			if((*clIt)->streaming)
-				{
-				try
-					{
-					/* Send packet reply message: */
-					(*clIt)->pipe.writeMessage(Vrui::VRDevicePipe::PACKET_REPLY);
-					
-					/* Send server state: */
-					deviceManager->getState().write((*clIt)->pipe);
-					(*clIt)->pipe.flush();
-					}
-				catch(std::runtime_error err)
-					{
-					/* Print error message to stderr and mark client for termination: */
-					fprintf(stderr,"VRDeviceServer: Terminating client connection due to exception\n  %s\n",err.what());
-					fflush(stderr);
-					deadClients.push_back(clIt);
-					}
-				catch(...)
-					{
-					/* Print error message to stderr and mark client for termination: */
-					fprintf(stderr,"VRDeviceServer: Terminating client connection due to spurious exception\n");
-					fflush(stderr);
-					deadClients.push_back(clIt);
-					
-					/* Re-throw exception to let the thread cancel: */
-					throw;
-					}
-				}
-			}
-		
-		/* Unlock the device manager's state: */
-		deviceManager->unlockState();
-		
-		/* Disconnect all dead clients: */
-		for(std::vector<ClientList::iterator>::iterator dcIt=deadClients.begin();dcIt!=deadClients.end();++dcIt)
-			{
-			/* Stop client communication thread: */
-			(**dcIt)->communicationThread.cancel();
-			(**dcIt)->communicationThread.join();
-			
-			/* Cleanly deactivate client: */
-			if((**dcIt)->streaming)
-				{
-				/* Leave streaming mode: */
-				(**dcIt)->streaming=false;
-				}
-			if((**dcIt)->active)
-				{
-				/* Deactivate client: */
-				(**dcIt)->active=false;
-				--numActiveClients;
-				
-				/* Stop VR devices if this was the last active client: */
-				if(numActiveClients==0)
-					deviceManager->stop();
-				}
-			delete **dcIt;
-			
-			/* Remove client from list: */
-			clientList.erase(*dcIt);
-			}
+		/* Send server state: */
+		deviceManager->getState().write(client->pipe,client->clientExpectsTimeStamps);
+		client->pipe.flush();
 		}
+	catch(std::runtime_error err)
+		{
+		/* Print error message to stderr and mark client for termination: */
+		fprintf(stderr,"VRDeviceServer: Terminating client connection %s due to exception %s\n",client->clientName.c_str(),err.what());
+		fflush(stderr);
+		
+		return false;
 		}
 	
-	return 0;
+	return true;
+	}
+
+bool VRDeviceServer::writeHmdConfiguration(VRDeviceServer::ClientState* client,VRDeviceServer::HMDConfigurationVersions& hmdConfigurationVersions)
+	{
+	try
+		{
+		/* Send HMD configuration to client: */
+		hmdConfigurationVersions.hmdConfiguration->write(hmdConfigurationVersions.eyePosVersion,hmdConfigurationVersions.eyeVersion,hmdConfigurationVersions.distortionMeshVersion,client->pipe);
+		client->pipe.flush();
+		}
+	catch(std::runtime_error err)
+		{
+		/* Print error message to stderr and mark client for termination: */
+		fprintf(stderr,"VRDeviceServer: Terminating client connection %s due to exception %s\n",client->clientName.c_str(),err.what());
+		fflush(stderr);
+		
+		return false;
+		}
+	
+	return true;
 	}
 
 VRDeviceServer::VRDeviceServer(VRDeviceManager* sDeviceManager,const Misc::ConfigurationFile& configFile)
 	:deviceManager(sDeviceManager),
-	 listenSocket(configFile.retrieveValue<int>("./serverPort"),-1),
-	 numActiveClients(0)
+	 listenSocket(configFile.retrieveValue<int>("./serverPort",-1),5),
+	 numActiveClients(0),numStreamingClients(0),
+	 managerTrackerStateVersion(0U),streamingTrackerStateVersion(0U),
+	 managerHmdConfigurationVersion(0U),streamingHmdConfigurationVersion(0U),
+	 numHmdConfigurations(deviceManager->getNumHmdConfigurations()),hmdConfigurationVersions(0)
 	{
-	/* Enable tracker update notification: */
-	deviceManager->enableTrackerUpdateNotification(&trackerUpdateCompleteCond);
+	/* Add an event listener for incoming connections on the listening socket: */
+	dispatcher.addIOEventListener(listenSocket.getFd(),Threads::EventDispatcher::Read,newConnectionCallback,this);
 	
-	/* Start connection initiating thread: */
-	listenThread.start(this,&VRDeviceServer::listenThreadMethod);
-	
-	/* Start streaming thread: */
-	streamingThread.start(this,&VRDeviceServer::streamingThreadMethod);
+	/* Initialize the array of HMD configuration version numbers: */
+	hmdConfigurationVersions=new HMDConfigurationVersions[numHmdConfigurations];
+	for(unsigned int i=0;i<deviceManager->getNumHmdConfigurations();++i)
+		hmdConfigurationVersions[i].hmdConfiguration=&deviceManager->getHmdConfiguration(i);
 	}
 
 VRDeviceServer::~VRDeviceServer(void)
 	{
-	/* Lock client list: */
-	{
-	Threads::Mutex::Lock clientListLock(clientListMutex);
-	
-	/* Stop streaming thread: */
-	streamingThread.cancel();
-	streamingThread.join();
-	
-	/* Stop connection initiating thread: */
-	listenThread.cancel();
-	listenThread.join();
-	
-	/* Disconnect all clients: */
-	deviceManager->lockState();
-	for(ClientList::iterator clIt=clientList.begin();clIt!=clientList.end();++clIt)
-		{
-		/* Stop client communication thread: */
-		(*clIt)->communicationThread.cancel();
-		(*clIt)->communicationThread.join();
-		
-		/* Delete client data object (closing TCP socket): */
-		delete *clIt;
-		}
-	deviceManager->unlockState();
-	
-	/* Stop VR devices: */
+	/* Stop VR devices if there are still active clients: */
 	if(numActiveClients>0)
 		deviceManager->stop();
-	}
 	
-	/* Disable tracker update notification: */
+	/* Forcefully disconnect all clients: */
+	for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
+		delete *csIt;
+	
+	/* Clean up: */
+	delete[] hmdConfigurationVersions;
+	}
+
+void VRDeviceServer::run(void)
+	{
+	#ifdef VERBOSE
+	printf("VRDeviceServer: Listening for incoming connections on TCP port %d\n",listenSocket.getPortId());
+	fflush(stdout);
+	#endif
+	
+	/* Enable tracker update and HMD configuration change notifications: */
+	deviceManager->enableTrackerUpdateNotification(trackerUpdateNotificationCallback,this);
+	deviceManager->setHmdConfigurationUpdatedCallback(hmdConfigurationUpdatedCallback,this);
+	
+	/* Run the main loop and dispatch events until stopped: */
+	while(dispatcher.dispatchNextEvent())
+		{
+		/* Check if a streaming update needs to be sent: */
+		if(numStreamingClients>0&&streamingTrackerStateVersion!=managerTrackerStateVersion)
+			{
+			/* Lock the current server state: */
+			deviceManager->lockState();
+			
+			/* Send a state update to all clients in streaming mode: */
+			for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
+				if((*csIt)->streaming)
+					{
+					/* Write the server state to the client and check for errors: */
+					if(!writeServerState(*csIt))
+						{
+						/* Disconnect the client: */
+						disconnectClient(*csIt,true,false);
+						
+						/* Remove the dead client from the list: */
+						delete *csIt;
+						*csIt=clientStates.back();
+						clientStates.pop_back();
+						--csIt;
+						}
+					}
+			
+			/* Unlock the current server state: */
+			deviceManager->unlockState();
+			
+			/* Mark streaming state as up-to-date: */
+			streamingTrackerStateVersion=managerTrackerStateVersion;
+			}
+		
+		/* Check if any HMD configuration updates need to be sent: */
+		if(streamingHmdConfigurationVersion!=managerHmdConfigurationVersion)
+			{
+			deviceManager->lockHmdConfigurations();
+			
+			for(unsigned int i=0;i<numHmdConfigurations;++i)
+				{
+				/* Check if this HMD configuration has been updated: */
+				Vrui::HMDConfiguration& hc=*hmdConfigurationVersions[i].hmdConfiguration;
+				if(hmdConfigurationVersions[i].eyePosVersion!=hc.getEyePosVersion()||hmdConfigurationVersions[i].eyeVersion!=hc.getEyeVersion()||hmdConfigurationVersions[i].distortionMeshVersion!=hc.getDistortionMeshVersion())
+					{
+					printf("VRDeviceServer: Sending updated HMD configuration %u to clients...",i); fflush(stdout);
+					
+					/* Send the new HMD configuration to all clients that are streaming and can handle it: */
+					for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
+						if((*csIt)->streaming&&(*csIt)->protocolVersion>=4U)
+							{
+							/* Write the HMD configuration to the client and check for errors: */
+							if(!writeHmdConfiguration(*csIt,hmdConfigurationVersions[i]))
+								{
+								/* Disconnect the client: */
+								disconnectClient(*csIt,true,false);
+								
+								/* Remove the dead client from the list: */
+								delete *csIt;
+								*csIt=clientStates.back();
+								clientStates.pop_back();
+								--csIt;
+								}
+							}
+					
+					/* Mark the HMD configuration as up-to-date: */
+					hmdConfigurationVersions[i].eyePosVersion=hc.getEyePosVersion();
+					hmdConfigurationVersions[i].eyeVersion=hc.getEyeVersion();
+					hmdConfigurationVersions[i].distortionMeshVersion=hc.getDistortionMeshVersion();
+					
+					printf(" done\n");
+					}
+				}
+			
+			deviceManager->unlockHmdConfigurations();
+			}
+		}
+	
+	/* Disable tracker update notifications: */
 	deviceManager->disableTrackerUpdateNotification();
 	}

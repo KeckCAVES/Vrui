@@ -2,7 +2,7 @@
 VruiAppTemplate - Template to write a very simple Vrui application
 displaying an OpenGL scene in immediate mode, with a basic menu system
 to control the application and set rendering parameters.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -21,13 +21,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
-#include <GLMotif/Button.h>
-#include <GLMotif/CascadeButton.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/SubMenu.h>
-#include <GLMotif/Popup.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/RadioBox.h>
+#include <GLMotif/Button.h>
+#include <GLMotif/CascadeButton.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 
@@ -40,9 +37,8 @@ class VruiAppTemplate:public Vrui::Application
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
 	
 	/* Private methods: */
-	GLMotif::Popup* createRenderingModesMenu(void); // Creates the rendering modes submenu
+	GLMotif::PopupMenu* createRenderingModesMenu(void); // Creates the rendering modes submenu
 	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
-	void resetNavigationCallback(Misc::CallbackData* cbData); // Method to reset the Vrui navigation transformation to its default
 	void renderingModesMenuCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData); // Method called when the user makes a selection from the rendering modes submenu
 	
 	/* Constructors and destructors: */
@@ -53,19 +49,17 @@ class VruiAppTemplate:public Vrui::Application
 	/* Methods: */
 	virtual void frame(void); // Called exactly once per frame
 	virtual void display(GLContextData& contextData) const; // Called for every eye and every window on every frame
+	virtual void resetNavigation(void);
 	};
 
 /********************************
 Methods of class VruiAppTemplate:
 ********************************/
 
-GLMotif::Popup* VruiAppTemplate::createRenderingModesMenu(void)
+GLMotif::PopupMenu* VruiAppTemplate::createRenderingModesMenu(void)
 	{
 	/* Create the submenu's top-level shell: */
-	GLMotif::Popup* renderingModesMenuPopup=new GLMotif::Popup("RenderingModesMenuPopup",Vrui::getWidgetManager());
-	
-	/* Create the array of render toggle buttons inside the top-level shell: */
-	GLMotif::SubMenu* renderingModesMenu=new GLMotif::SubMenu("RenderingModesMenu",renderingModesMenuPopup,false);
+	GLMotif::PopupMenu* renderingModesMenu=new GLMotif::PopupMenu("RenderingModesMenu",Vrui::getWidgetManager());
 	
 	/* Create a radio box of rendering modes: */
 	GLMotif::RadioBox* renderingModes=new GLMotif::RadioBox("RenderingModes",renderingModesMenu,false);
@@ -89,26 +83,15 @@ GLMotif::Popup* VruiAppTemplate::createRenderingModesMenu(void)
 	renderingModes->manageChild();
 	
 	/* Finish building the rendering modes menu: */
-	renderingModesMenu->manageChild();
-	
-	/* Return the created top-level shell: */
-	return renderingModesMenuPopup;
+	renderingModesMenu->manageMenu();
+	return renderingModesMenu;
 	}
 
 GLMotif::PopupMenu* VruiAppTemplate::createMainMenu(void)
 	{
-	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Vrui App Template");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button: */
-	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
-	
-	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&VruiAppTemplate::resetNavigationCallback);
+	/* Create the main menu shell: */
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Vrui App Template");
 	
 	/*********************************************************************
 	Enable the following code to create a submenu to change rendering
@@ -125,30 +108,7 @@ GLMotif::PopupMenu* VruiAppTemplate::createMainMenu(void)
 	
 	/* Finish building the main menu: */
 	mainMenu->manageChild();
-	
-	return mainMenuPopup;
-	}
-
-void VruiAppTemplate::resetNavigationCallback(Misc::CallbackData* cbData)
-	{
-	/*********************************************************************
-	The following code specifies the center of the OpenGL scene, the
-	overall size of the OpenGL scene, and the "up" direction of the OpenGL
-	scene, all in the same model coordinate system used in the display()
-	method.
-	*********************************************************************/
-	
-	/* Center point is the origin: */
-	Vrui::Point center(0,0,0);
-	
-	/* Scene size is one model coordinate unit: */
-	Vrui::Scalar size=2;
-	
-	/* Y axis points up: */
-	Vrui::Vector up(0,1,0);
-	
-	/* Reset the Vrui navigation transformation: */
-	Vrui::setNavigationTransformation(center,size,up);
+	return mainMenu;
 	}
 
 void VruiAppTemplate::renderingModesMenuCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
@@ -168,9 +128,6 @@ VruiAppTemplate::VruiAppTemplate(int& argc,char**& argv)
 	
 	/* Install the main menu: */
 	Vrui::setMainMenu(mainMenu);
-	
-	/* Initialize the navigation transformation: */
-	resetNavigationCallback(0);
 	}
 
 VruiAppTemplate::~VruiAppTemplate(void)
@@ -254,6 +211,28 @@ void VruiAppTemplate::display(GLContextData& contextData) const
 	
 	/* Restore OpenGL state: */
 	glPopAttrib();
+	}
+
+void VruiAppTemplate::resetNavigation(void)
+	{
+	/*********************************************************************
+	The following code specifies the center of the OpenGL scene, the
+	overall size of the OpenGL scene, and the "up" direction of the OpenGL
+	scene, all in the same model coordinate system used in the display()
+	method.
+	*********************************************************************/
+	
+	/* Center point is the origin: */
+	Vrui::Point center(0,0,0);
+	
+	/* Scene size is one model coordinate unit: */
+	Vrui::Scalar size=2;
+	
+	/* Y axis points up: */
+	Vrui::Vector up(0,1,0);
+	
+	/* Reset the Vrui navigation transformation: */
+	Vrui::setNavigationTransformation(center,size,up);
 	}
 
 /* Create and execute an application object: */

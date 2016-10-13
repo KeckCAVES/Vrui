@@ -1,7 +1,7 @@
 /***********************************************************************
 OculusRift - Class represent the Oculus Rift HMD's built-in orientation
 tracker.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -25,7 +25,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define OCULUSRIFT_INCLUDED
 
 #include <Misc/SizedTypes.h>
-#include <USB/Context.h>
 #include <USB/Device.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -38,6 +37,10 @@ class OculusRift:public VRDevice
 	{
 	/* Embedded classes: */
 	private:
+	enum DeviceModel // Enumerated type for different Oculus Rift models
+		{
+		UNKNOWN,DK1,DK2
+		};
 	typedef float Scalar;
 	typedef Geometry::Point<Scalar,3> Point;
 	typedef Geometry::Vector<Scalar,3> Vector;
@@ -48,8 +51,8 @@ class OculusRift:public VRDevice
 	
 	/* Elements: */
 	private:
-	USB::Context usbContext; // A USB context for the Oculus Rift device
 	USB::Device oculus; // The Oculus Rift device
+	DeviceModel deviceModel; // Model of the connected Oculus Rift device
 	Correction accelCorrect; // Correction transformation to rectify the three-axis accelerometer
 	Correction magCorrect; // Correction transformation to rectify the three-axis magnetometer ("hard" and "soft iron" correction)
 	Point neckPivot; // Position of rotation pivot point in HMD-relative coordinates

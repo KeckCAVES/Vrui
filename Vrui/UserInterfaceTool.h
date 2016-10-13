@@ -1,7 +1,7 @@
 /***********************************************************************
 UserInterfaceTool - Base class for tools related to user interfaces
 (interaction with dialog boxes, context menus, virtual input devices).
-Copyright (c) 2008-2012 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -39,13 +39,26 @@ class UserInterfaceToolFactory:public ToolFactory
 	{
 	friend class UserInterfaceTool;
 	
-	/* Elements: */
+	/* Embedded classes: */
 	private:
-	bool useEyeRay; // Flag whether to use an eyeline from the main viewer or the device's ray direction for ray-based interaction
-	Scalar rayOffset; // Amount by which to shift the selection ray backwards to simplify interaction
-	bool drawRay; // Flag whether to draw the interaction ray
-	GLColor<GLfloat,4> rayColor; // Color to draw the ray
-	GLfloat rayWidth; // Cosmetic line width to draw the ray
+	struct Configuration // Structure containing tool settings
+		{
+		/* Elements: */
+		public:
+		bool drawRay; // Flag whether to draw the interaction ray
+		GLColor<GLfloat,4> rayColor; // Color to draw the ray
+		GLfloat rayWidth; // Cosmetic line width to draw the ray
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		
+		/* Methods: */
+		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
+		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
+		};
+	
+	/* Elements: */
+	Configuration configuration; // Default configuration for all tools
 	
 	/* Constructors and destructors: */
 	public:
@@ -63,41 +76,30 @@ class UserInterfaceTool:public Tool
 	/* Elements: */
 	private:
 	static UserInterfaceToolFactory* factory; // Pointer to the factory object for this class
-	protected:
-	InputDevice* interactionDevice; // Pointer to the input device used for user interface interaction
+	UserInterfaceToolFactory::Configuration configuration; // Private configuration of this tool
 	
 	/* Protected methods: */
 	protected:
-	bool isUseEyeRay(void) const // Returns true if input devices use eyelines for ray-based interaction
-		{
-		return factory->useEyeRay;
-		}
-	Scalar getRayOffset(void) const // Returns the ray origin offset for ray-based interaction
-		{
-		return factory->rayOffset;
-		}
-	Point getInteractionPosition(void) const // Returns a position for point-based interaction
-		{
-		return interactionDevice->getPosition();
-		}
-	Ray calcInteractionRay(void) const; // Returns a ray for ray-based interaction
-	ONTransform calcScreenTransform(const Ray& ray) const; // Returns a screen-aligned transformation where the given ray intersects a screen
 	bool isDrawRay(void) const // Returns true if the interaction ray is to be drawn
 		{
-		return factory->drawRay;
+		return configuration.drawRay;
 		}
 	const GLColor<GLfloat,4>& getRayColor(void) const // Returns the color with which to draw the interaction ray
 		{
-		return factory->rayColor;
+		return configuration.rayColor;
 		}
 	GLfloat getRayWidth(void) const // Returns the cosmetic line width with which to draw the interaction ray
 		{
-		return factory->rayWidth;
+		return configuration.rayWidth;
 		}
 	
 	/* Constructors and destructors: */
 	public:
 	UserInterfaceTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	
+	/* Methods from Tool: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	};
 
 }

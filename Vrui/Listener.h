@@ -1,6 +1,6 @@
 /***********************************************************************
 Listener - Class for listeners/ sound observers in VR environments.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

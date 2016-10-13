@@ -2,7 +2,7 @@
 FiveAxisSurfaceNavigationTool - Class for navigation tools that use a
 six-axis spaceball or similar input device to move along an application-
 defined surface.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,6 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -356,7 +357,7 @@ void FiveAxisSurfaceNavigationTool::frame(void)
 		realignSurfaceFrame(newSurfaceFrame);
 		
 		/* Schedule an update: */
-		scheduleUpdate(getApplicationTime()+1.0/125.0);
+		scheduleUpdate(getNextAnimationTime());
 		}
 	}
 
@@ -369,23 +370,16 @@ void FiveAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 		glDisable(GL_LIGHTING);
 		glDepthFunc(GL_LEQUAL);
 		
-		/* Determine the crosshair and compass colors: */
-		Color bgColor=getBackgroundColor();
-		Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
 		/* Go to crosshair and compass space: */
 		glPushMatrix();
-		ONTransform trans=calcHUDTransform(getDisplayCenter());
+		ONTransform trans=getUiManager()->calcUITransform(getDisplayCenter());
 		glMultMatrix(trans);
 		
 		if(config.showScreenCenter&&isActive())
 			{
 			glLineWidth(3.0f);
 			glBegin(GL_LINES);
-			glColor(bgColor);
+			glColor(getBackgroundColor());
 			glVertex2d(-getDisplaySize(),0.0);
 			glVertex2d(getDisplaySize(),0.0);
 			glVertex2d(0.0,-getDisplaySize());
@@ -394,7 +388,7 @@ void FiveAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 			
 			glLineWidth(1.0f);
 			glBegin(GL_LINES);
-			glColor(fgColor);
+			glColor(getForegroundColor());
 			glVertex2d(-getDisplaySize(),0.0);
 			glVertex2d(getDisplaySize(),0.0);
 			glVertex2d(0.0,-getDisplaySize());
@@ -413,12 +407,12 @@ void FiveAxisSurfaceNavigationTool::display(GLContextData& contextData) const
 			
 			/* Draw the compass rose's background: */
 			glLineWidth(3.0f);
-			glColor(bgColor);
+			glColor(getBackgroundColor());
 			glCallList(dataItem->compassDisplayList);
 			
 			/* Draw the compass rose's foreground: */
 			glLineWidth(1.0f);
-			glColor(fgColor);
+			glColor(getForegroundColor());
 			glCallList(dataItem->compassDisplayList);
 			}
 		

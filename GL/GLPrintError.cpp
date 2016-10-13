@@ -1,7 +1,7 @@
 /***********************************************************************
 GLPrintError - Helper function to print a plain-text OpenGL error
 message.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -22,7 +22,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/GLPrintError.h>
 
+#include <string>
+#include <Misc/PrintInteger.h>
+#include <Misc/MessageLogger.h>
 #include <GL/gl.h>
+#include <GL/Extensions/GLEXTFramebufferObject.h>
 
 namespace {
 
@@ -30,67 +34,77 @@ namespace {
 Helper functions:
 ****************/
 
-void glPrintErrorMsg(std::ostream& os,GLenum error)
+void glAppendErrorMsg(std::string& message,GLenum error)
 	{
 	switch(error)
 		{
 		case 0:
-			os<<"Internal error in glGetError()";
+			message.append("Internal error in glGetError()");
 			break;
 		
 		case GL_INVALID_ENUM:
-			os<<"Invalid enum";
+			message.append("Invalid enum");
 			break;
 		
 		case GL_INVALID_VALUE:
-			os<<"Invalid value";
+			message.append("Invalid value");
 			break;
 		
 		case GL_INVALID_OPERATION:
-			os<<"Invalid operation";
+			message.append("Invalid operation");
 			break;
 		
 		case GL_STACK_OVERFLOW:
-			os<<"Stack overflow";
+			message.append("Stack overflow");
 			break;
 		
 		case GL_STACK_UNDERFLOW:
-			os<<"Stack underflow";
+			message.append("Stack underflow");
 			break;
 		
 		case GL_OUT_OF_MEMORY:
-			os<<"Out of memory";
+			message.append("Out of memory");
 			break;
 		
 		case GL_TABLE_TOO_LARGE:
-			os<<"Table too large";
+			message.append("Table too large");
+			break;
+		
+		case GL_INVALID_FRAMEBUFFER_OPERATION_EXT:
+			message.append("Invalid framebuffer operation");
 			break;
 		
 		default:
-			os<<"Unknown error "<<error;
+			{
+			message.append("Unknown error ");
+			char buffer[10];
+			message.append(Misc::print(error,buffer+sizeof(buffer)-1));
+			}
 		}
 	}
 
 }
 
-void glPrintError(std::ostream& os)
+void glPrintError(void)
 	{
 	GLenum error;
 	while((error=glGetError())!=GL_NO_ERROR)
 		{
-		os<<"GL error: ";
-		glPrintErrorMsg(os,error);
-		os<<std::endl;
+		std::string message="glPrintError: ";
+		glAppendErrorMsg(message,error);
+		Misc::logError(message.c_str());
 		}
 	}
 
-void glPrintError(std::ostream& os,const char* messageTag)
+void glPrintError(const char* messageTag)
 	{
 	GLenum error;
 	while((error=glGetError())!=GL_NO_ERROR)
 		{
-		os<<messageTag<<' ';
-		glPrintErrorMsg(os,error);
-		os<<std::endl;
+		std::string message="glPrintError: ";
+		message.append(messageTag);
+		message.push_back(' ');
+		glAppendErrorMsg(message,error);
+		Misc::logError(message.c_str());
 		}
 	}

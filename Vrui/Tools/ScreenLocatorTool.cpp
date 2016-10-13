@@ -1,7 +1,7 @@
 /***********************************************************************
 ScreenLocator - Simple locator class to use in simulated VR
 environments.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -178,24 +178,24 @@ void ScreenLocatorTool::display(GLContextData&) const
 		glPushMatrix();
 		glMultMatrix(currentTransformation);
 		glLineWidth(3.0f);
-		Color lineCol=getBackgroundColor();
-		glColor(lineCol);
+		
+		glColor(getBackgroundColor());
 		glBegin(GL_LINES);
 		glVertex(-factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex( factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex(Scalar(0),Scalar(0),-factory->crosshairSize);
 		glVertex(Scalar(0),Scalar(0), factory->crosshairSize);
 		glEnd();
+		
 		glLineWidth(1.0f);
-		for(int i=0;i<3;++i)
-			lineCol[i]=1.0f-lineCol[i];
-		glColor(lineCol);
+		glColor(getForegroundColor());
 		glBegin(GL_LINES);
 		glVertex(-factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex( factory->crosshairSize,Scalar(0),Scalar(0));
 		glVertex(Scalar(0),Scalar(0),-factory->crosshairSize);
 		glVertex(Scalar(0),Scalar(0), factory->crosshairSize);
 		glEnd();
+		
 		glPopMatrix();
 		glPopAttrib();
 		}

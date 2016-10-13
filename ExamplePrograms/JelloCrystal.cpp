@@ -2,7 +2,7 @@
 JelloCrystal - Class to simulate the behavior of crystals of Jell-O
 atoms using a real-time ODE solver based on a fourth-order Runge-Kutta-
 Nystrom method.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -21,12 +21,12 @@ with Virtual Jell-O; if not, write to the Free Software Foundation,
 Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include "JelloCrystal.h"
+
 #include <Math/Math.h>
 #include <Math/Random.h>
 #include <Math/Constants.h>
 #include <Geometry/Sphere.h>
-
-#include "JelloCrystal.h"
 
 /*****************************
 Methods of class JelloCrystal:
@@ -50,6 +50,20 @@ JelloCrystal::JelloCrystal(const JelloCrystal::Index& numAtoms)
 	 gravity(20.0),
 	 crystal(numAtoms),
 	 domain(Point(-60.0,-36.0,0.0),Point(60.0,60.0,96.0)),
+	 atomStates(0)
+	{
+	/* Initialize the Jell-O crystal: */
+	JelloAtom::initClass();
+	JelloAtom::setMass(atomMass);
+	setNumAtoms(numAtoms);
+	}
+
+JelloCrystal::JelloCrystal(const JelloCrystal::Index& numAtoms,const JelloCrystal::Box& sDomain)
+	:atomMass(1.0),
+	 attenuation(0.5),
+	 gravity(20.0),
+	 crystal(numAtoms),
+	 domain(sDomain),
 	 atomStates(0)
 	{
 	/* Initialize the Jell-O crystal: */
@@ -105,6 +119,7 @@ void JelloCrystal::setNumAtoms(const JelloCrystal::Index& newNumAtoms)
 		}
 	
 	/* Initialize the simulation state: */
+	delete[] atomStates;
 	atomStates=new AtomState[crystal.getNumElements()];
 	}
 
@@ -122,6 +137,15 @@ void JelloCrystal::setAttenuation(JelloCrystal::Scalar newAttenuation)
 void JelloCrystal::setGravity(JelloCrystal::Scalar newGravity)
 	{
 	gravity=newGravity;
+	}
+
+void JelloCrystal::setDomain(const JelloCrystal::Box& newDomain)
+	{
+	/* Set the new domain: */
+	domain=newDomain;
+	
+	/* Re-initialize the atoms: */
+	setNumAtoms(crystal.getSize());
 	}
 
 JelloCrystal::AtomID JelloCrystal::pickAtom(const JelloCrystal::Point& p) const

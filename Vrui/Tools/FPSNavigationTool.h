@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -63,6 +63,7 @@ class FPSNavigationToolFactory:public ToolFactory
 		Scalar jumpVelocity; // Instantaneous vertical velocity when jumping in physical space units per second
 		Scalar probeSize; // Size of probe to use when aligning surface frames in physical space units
 		Scalar maxClimb; // Maximum amount of climb per frame in physical space units
+		Scalar azimuthStep; // Discrete increment step in azimuth angle to fight motion sickness for HMD users
 		bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during movement
 		bool levelOnExit; // Flag whether to reset the elevation angle to zero upon deactivating the tool
 		bool drawHud; // Flag whether to draw the navigation heads-up display
@@ -112,7 +113,9 @@ class FPSNavigationTool:public SurfaceNavigationTool,public DeviceForwarder
 	Scalar headHeight; // Height of viewer's head above the foot point
 	NavTransform surfaceFrame; // Current local coordinate frame aligned to the surface in navigation coordinates
 	Scalar azimuth; // Current azimuth of viewer position relative to local coordinate frame
+	Scalar ratchetedAzimuth; // Current azimuth of viewer position as applied to navigation matrix, locked to multiples of ratchet amount
 	Scalar elevation; // Current elevation of viewer position relative to local coordinate frame
+	Vector controlVelocity; // Movement velocity prescribed by controls in frame coordinates
 	Vector moveVelocity; // Current movement velocity in frame coordinates
 	bool jump; // Flag whether the user requested a jump
 	

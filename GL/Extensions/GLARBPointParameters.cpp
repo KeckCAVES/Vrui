@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBPointParameters - OpenGL extension class for the
 GL_ARB_point_parameters extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBPointParameters:
 *********************************************/
 
 GL_THREAD_LOCAL(GLARBPointParameters*) GLARBPointParameters::current=0;
+const char* GLARBPointParameters::name="GL_ARB_point_parameters";
 
 /*************************************
 Methods of class GLARBPointParameters:
@@ -53,7 +54,7 @@ GLARBPointParameters::~GLARBPointParameters(void)
 
 const char* GLARBPointParameters::getExtensionName(void) const
 	{
-	return "GL_ARB_point_parameters";
+	return name;
 	}
 
 void GLARBPointParameters::activate(void)
@@ -69,13 +70,13 @@ void GLARBPointParameters::deactivate(void)
 bool GLARBPointParameters::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_point_parameters");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBPointParameters::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_point_parameters"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBPointParameters* newExtension=new GLARBPointParameters;

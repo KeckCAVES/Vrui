@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for the Vrui example programs.
-# Copyright (c) 2003-2013 Oliver Kreylos
+# Copyright (c) 2003-2016 Oliver Kreylos
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # matches the default Vrui installation; if Vrui's installation
 # directory was changed during Vrui's installation, the directory below
 # must be adapted.
-VRUI_MAKEDIR := $(HOME)/Vrui-3.1/share/make
+VRUI_MAKEDIR := /usr/local/share/Vrui-4.1/make
 ifdef DEBUG
   VRUI_MAKEDIR := $(VRUI_MAKEDIR)/debug
 endif
@@ -59,6 +59,20 @@ RESOURCEINSTALLDIR = $(INSTALLDIR)/$(RESOURCEDIR)
 # (Supported packages can be found in $(VRUI_MAKEDIR)/Packages.*)
 ########################################################################
 
+# Attempt to auto-detect the presence of the xine multimedia framework
+# to build a Vrui-based video player:
+XINE_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh xine.h libxine.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+XINE_DEPENDS = 
+XINE_INCLUDE = -I$(XINE_BASEDIR)/$(INCLUDEEXT)
+XINE_LIBDIR  = -L$(XINE_BASEDIR)/$(LIBEXT)
+XINE_LIBS    = -lxine
+
+ifneq ($(strip $(XINE_BASEDIR)),)
+  SYSTEM_HAVE_XINE = 1
+else
+  SYSTEM_HAVE_XINE = 0
+endif
+
 PACKAGES = MYVRUI
 
 ########################################################################
@@ -75,20 +89,26 @@ ALL = $(EXEDIR)/VruiDemo \
       $(EXEDIR)/VruiLocatorDemo \
       $(EXEDIR)/VruiEventToolDemo \
       $(EXEDIR)/VruiCustomToolDemo \
+      $(EXEDIR)/FileSelection \
       $(EXEDIR)/VruiCalibrator \
       $(EXEDIR)/DrawEnvironment \
       $(EXEDIR)/PrecisionTest \
+      $(EXEDIR)/VisionTest \
       $(EXEDIR)/VruiSceneGraphDemo \
       $(EXEDIR)/VruiSoundTest \
       $(EXEDIR)/ImageViewer \
       $(EXEDIR)/ImageSequenceViewer \
       $(EXEDIR)/VideoViewer \
+      $(EXEDIR)/Animation \
       $(EXEDIR)/ShowEarthModel \
       $(EXEDIR)/Jello \
       $(EXEDIR)/ClusterJello \
       $(EXEDIR)/SharedJelloServer \
       $(EXEDIR)/SharedJello \
       $(EXEDIR)/VirtualClay
+ifneq ($(SYSTEM_HAVE_XINE),0)
+  ALL += $(EXEDIR)/VruiXine
+endif
 
 .PHONY: all
 all: $(ALL)
@@ -128,11 +148,15 @@ $(EXEDIR)/VruiEventToolDemo: $(OBJDIR)/VruiEventToolDemo.o
 
 $(EXEDIR)/VruiCustomToolDemo: $(OBJDIR)/VruiCustomToolDemo.o
 
+$(EXEDIR)/FileSelection: $(OBJDIR)/FileSelection.o
+
 $(EXEDIR)/VruiCalibrator: $(OBJDIR)/VruiCalibrator.o
 
 $(EXEDIR)/DrawEnvironment: $(OBJDIR)/DrawEnvironment.o
 
 $(EXEDIR)/PrecisionTest: $(OBJDIR)/PrecisionTest.o
+
+$(EXEDIR)/VisionTest: $(OBJDIR)/VisionTest.o
 
 $(EXEDIR)/VruiSceneGraphDemo: $(OBJDIR)/VruiSceneGraphDemo.o
 
@@ -143,6 +167,8 @@ $(EXEDIR)/ImageViewer: $(OBJDIR)/ImageViewer.o
 $(EXEDIR)/ImageSequenceViewer: $(OBJDIR)/ImageSequenceViewer.o
 
 $(EXEDIR)/VideoViewer: $(OBJDIR)/VideoViewer.o
+
+$(EXEDIR)/Animation: $(OBJDIR)/Animation.o
 
 #
 # ShowEarthModel, a viewer for earthquake catalogs and other assorted
@@ -196,6 +222,13 @@ $(EXEDIR)/SharedJello: $(OBJDIR)/JelloAtom.o \
 
 $(EXEDIR)/VirtualClay: $(OBJDIR)/EditableGrid.o \
                        $(OBJDIR)/GridEditor.o
+
+#
+# A VR video viewer based on the xine multimedia framework:
+#
+
+$(EXEDIR)/VruiXine: PACKAGES += XINE
+$(EXEDIR)/VruiXine: $(OBJDIR)/VruiXine.o
 
 # Rule to install the example programs in a destination directory
 install: $(ALL)

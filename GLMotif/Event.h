@@ -1,7 +1,7 @@
 /***********************************************************************
 Event - Class to provide widgets with information they need to handle
 events.
-Copyright (c) 2001-2005 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -67,6 +67,7 @@ class Event
 		};
 	
 	/* Elements: */
+	private:
 	WorldLocationType worldLocationType; // Type of world location in this event
 	Point worldLocationPoint; // World location specified as a point
 	Ray worldLocationRay; // World location specified as a ray
@@ -91,6 +92,10 @@ class Event
 		worldLocationType=RAY;
 		worldLocationRay=newWorldLocationRay;
 		}
+	bool isPressed(void) const // Returns true if the pointer button was pressed right before the event occurred
+		{
+		return buttonState;
+		}
 	const Widget* getTargetWidget(void) const // Returns the target widget
 		{
 		return targetWidget;
@@ -105,9 +110,11 @@ class Event
 		}
 	bool setTargetWidget(Widget* newTargetWidget); // Sets the event's target widget; returns true if the setting was successful
 	bool setTargetWidget(Widget* newTargetWidget,const WidgetPoint& newWidgetPoint); // Ditto, if the widget point is already known
-	void overrideTargetWidget(Widget* newTargetWidget) // Overrides the target widget without changing the widget point
+	Widget* overrideTargetWidget(Widget* newTargetWidget) // Overrides the target widget without changing the widget point; returns previous target widget
 		{
+		Widget* result=targetWidget;
 		targetWidget=newTargetWidget;
+		return result;
 		}
 	WidgetPoint calcWidgetPoint(const Widget* widget) const; // Returns event point in widget's coordinate system
 	};

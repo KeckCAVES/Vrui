@@ -1,7 +1,7 @@
 /***********************************************************************
 RazerHydra - Class to represent a Razer / Sixense Hydra dual-sensor
 desktop 6-DOF tracking device.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -244,7 +244,7 @@ void* RazerHydra::streamingThreadMethod(void)
 	return 0;
 	}
 
-RazerHydra::RazerHydra(USB::Context& usbContext,unsigned int index)
+RazerHydra::RazerHydra(unsigned int index)
 	:wasInGamepadMode(false),
 	 positionConversionFactor(1),
 	 packetBuffer(64), // 64 is maximum packet size advertised in USB device descriptor; actual packets are 52 bytes
@@ -255,7 +255,7 @@ RazerHydra::RazerHydra(USB::Context& usbContext,unsigned int index)
 	{
 	{
 	/* Get the list of all USB devices: */
-	USB::DeviceList deviceList(usbContext);
+	USB::DeviceList deviceList;
 	
 	/* Get the index-th device with the Razer Hydra's vendor/product ID: */
 	device=deviceList.getDevice(0x1532U,0x0300U,index);

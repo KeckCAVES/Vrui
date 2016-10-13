@@ -2,7 +2,7 @@
 WidgetTool - Class for tools that can interact with GLMotif GUI widgets.
 WidgetTool objects are cascadable and preempt button events if they
 would fall into the area of interest of mapped widgets.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -112,11 +112,9 @@ Methods of class WidgetTool:
 
 WidgetTool::WidgetTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:UserInterfaceTool(factory,inputAssignment),
-	 GUIInteractor(isUseEyeRay(),getRayOffset(),getButtonDevice(0)),
+	 GUIInteractor(false,0,getButtonDevice(0)),
 	 buttonDevice(0)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 void WidgetTool::initialize(void)
@@ -125,7 +123,7 @@ void WidgetTool::initialize(void)
 	buttonDevice=addVirtualInputDevice("WidgetToolButtonDevice",1,0);
 	
 	/* Copy the source device's tracking type: */
-	buttonDevice->setTrackType(interactionDevice->getTrackType());
+	buttonDevice->setTrackType(getButtonDevice(0)->getTrackType());
 	
 	/* Disable the virtual device's glyph: */
 	getInputGraphManager()->getInputDeviceGlyph(buttonDevice).disable();
@@ -134,8 +132,7 @@ void WidgetTool::initialize(void)
 	getInputGraphManager()->grabInputDevice(buttonDevice,this);
 	
 	/* Initialize the virtual input device's position: */
-	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	buttonDevice->setTransformation(interactionDevice->getTransformation());
+	buttonDevice->copyTrackingState(getButtonDevice(0));
 	}
 
 void WidgetTool::deinitialize(void)
@@ -188,8 +185,7 @@ void WidgetTool::frame(void)
 	GUIInteractor::move();
 	
 	/* Update the virtual input device: */
-	buttonDevice->setDeviceRay(interactionDevice->getDeviceRayDirection(),interactionDevice->getDeviceRayStart());
-	buttonDevice->setTransformation(interactionDevice->getTransformation());
+	buttonDevice->copyTrackingState(getButtonDevice(0));
 	}
 
 void WidgetTool::display(GLContextData& contextData) const
@@ -227,7 +223,7 @@ InputDevice* WidgetTool::getSourceDevice(const InputDevice* forwardedDevice)
 		Misc::throwStdErr("WidgetTool::getSourceDevice: Given forwarded device is not transformed device");
 	
 	/* Return the designated source device: */
-	return interactionDevice;
+	return getButtonDevice(0);
 	}
 
 InputDeviceFeatureSet WidgetTool::getForwardedFeatures(const InputDeviceFeature& sourceFeature)

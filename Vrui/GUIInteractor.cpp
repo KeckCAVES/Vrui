@@ -1,7 +1,7 @@
 /***********************************************************************
 GUIInteractor - Helper class to implement tool classes that interact
 with graphical user interface elements.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,15 +35,10 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputDevice.h>
 #include <Vrui/VRScreen.h>
 #include <Vrui/Viewer.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/Internal/Vrui.h>
 
 namespace Vrui {
-
-/**************************************
-Static elements of class GUIInteractor:
-**************************************/
-
-GUIInteractor* GUIInteractor::activeInteractor=0;
 
 /******************************
 Methods of class GUIInteractor:
@@ -57,6 +52,8 @@ GUIInteractor::GUIInteractor(bool sUseEyeRays,Scalar sRayOffset,InputDevice* sDe
 
 GUIInteractor::~GUIInteractor(void)
 	{
+	/* Deregister this GUI interactor with the UI manager: */
+	getUiManager()->destroyGuiInteractor(this);
 	}
 
 void GUIInteractor::updateRay(void)
@@ -66,55 +63,35 @@ void GUIInteractor::updateRay(void)
 		/* Shoot a ray from the main viewer: */
 		Point start=getMainViewer()->getHeadPosition();
 		ray=Ray(start,device->getPosition()-start);
-		ray.normalizeDirection();
 		}
 	else
 		{
 		/* Use the device's ray direction: */
-		ray=Ray(device->getPosition(),device->getRayDirection());
-		ray.normalizeDirection();
-		
-		/* Offset the ray start point backwards: */
-		ray.setOrigin(ray(-rayOffset));
+		ray=device->getRay();
 		}
+	
+	/* Make the ray unit length: */
+	ray.normalizeDirection();
 	}
 
 NavTrackerState GUIInteractor::calcInteractionTransform(void) const
 	{
-	NavTrackerState result;
-	
-	if(device->isRayDevice())
-		{
-		/*******************************************************************
-		Calculate a transformation aligned with the interaction plane:
-		*******************************************************************/
-		
-		/* Intersect the ray with the widget plane: */
-		Point planeCenter=getUiPlane().getOrigin();
-		Vector planeNormal=getUiPlane().getDirection(2);
-		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
-		
-		/* Move the widget plane transformation to the intersection point: */
-		result=NavTrackerState(getUiPlane());
-		result.getTranslation()=ray(lambda)-Point::origin;
-		}
-	else
-		{
-		/*******************************************************************
-		Use the device's transformation directly:
-		*******************************************************************/
-		
-		result=device->getTransformation();
-		}
-	
-	return result;
+	/* Use the device's transformation directly: */
+	return device->getTransformation();
+	}
+
+bool GUIInteractor::canActivate(void) const
+	{
+	return interacting||getUiManager()->canActivateGuiInteractor(this);
 	}
 
 bool GUIInteractor::buttonDown(bool force)
 	{
-	/* Ensure that no other GUI interactor is currently active: */
-	if(activeInteractor==0||activeInteractor==this)
+	/* Try activating this GUI interactor: */
+	if(getUiManager()->activateGuiInteractor(this))
 		{
+		interacting=true;
+		
 		/* Create a GLMotif event: */
 		GLMotif::Event event(ray,false);
 		
@@ -134,16 +111,12 @@ bool GUIInteractor::buttonDown(bool force)
 				draggingTransform*=NavTrackerState(initialWidget);
 				draggingTransform.renormalize();
 				}
-
-			/* Go into interaction mode: */
-			interacting=true;
 			}
-		
-		if(interacting&&activeInteractor==0)
+		else
 			{
-			/* Activate this interactor: */
-			activeInteractor=this;
-			setMostRecentGUIInteractor(this);
+			/* No event sent; deactivate this GUI interactor again: */
+			getUiManager()->deactivateGuiInteractor(this);
+			interacting=false;
 			}
 		}
 	
@@ -159,52 +132,56 @@ void GUIInteractor::buttonUp(void)
 		getWidgetManager()->pointerButtonUp(event);
 		
 		/* Deactivate the interactor: */
+		getUiManager()->deactivateGuiInteractor(this);
 		interacting=false;
 		draggedWidget=0;
-		activeInteractor=0;
 		}
 	}
 
 void GUIInteractor::move(void)
 	{
-	if(activeInteractor==0||activeInteractor==this)
+	if(interacting||getUiManager()->canActivateGuiInteractor(this))
 		{
 		/* Check if the interactor is pointing at a widget: */
 		pointing=getWidgetManager()->findPrimaryWidget(ray)!=0;
 		
-		/* Check if the interactor is interacting with a widget: */
-		if(interacting)
+		/* Check if the interactor is dragging a top-level widget: */
+		if(interacting&&draggedWidget!=0)
 			{
-			/* Check if the interactor is dragging a top-level widget: */
-			if(draggedWidget!=0)
-				{
-				/* Calculate the new dragging transformation: */
-				NavTrackerState newTransform=calcInteractionTransform();
-				newTransform*=draggingTransform;
-				newTransform.renormalize();
-				getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,newTransform);
-				}
-			
+			/* Calculate the new dragging transformation: */
+			NavTrackerState newTransform=calcInteractionTransform();
+			newTransform*=draggingTransform;
+			newTransform.renormalize();
+			getWidgetManager()->setPrimaryWidgetTransformation(draggedWidget,newTransform);
+			}
+		
+		if(pointing||interacting)
+			{
 			/* Deliver the event: */
-			GLMotif::Event event(ray,true);
+			GLMotif::Event event(ray,interacting);
 			getWidgetManager()->pointerMotion(event);
 			}
+		}
+	else
+		{
+		/* Stop pointing if another GUI interactor is active: */
+		pointing=false;
 		}
 	}
 
 bool GUIInteractor::textControl(const GLMotif::TextControlEvent& textControlEvent)
 	{
-	/* Ensure that no other GUI interactor is currently active: */
-	if(activeInteractor==0)
+	/* Try activating this GUI interactor: */
+	if(getUiManager()->activateGuiInteractor(this))
 		{
-		/* Create a GLMotif event: */
+		/* Send a GLMotif event and a text control event to the widget manager: */
 		GLMotif::Event event(ray,false);
+		bool result=getWidgetManager()->textControl(event,textControlEvent);
 		
-		/* Mark this as the most recently active interactor: */
-		setMostRecentGUIInteractor(this);
+		/* Deactivate the GUI interactor again: */
+		getUiManager()->deactivateGuiInteractor(this);
 		
-		/* Send the events to the widget manager: */
-		return getWidgetManager()->textControl(event,textControlEvent);
+		return result;
 		}
 	else
 		return false;
@@ -234,23 +211,8 @@ void GUIInteractor::glRenderAction(GLfloat rayWidth,const GLColor<GLfloat,4>& ra
 
 Point GUIInteractor::calcHotSpot(void) const
 	{
-	if(device->isRayDevice())
-		{
-		/*******************************************************************
-		Calculate a transformation aligned with the interaction plane:
-		*******************************************************************/
-		
-		/* Intersect the ray with the widget plane: */
-		Point planeCenter=getUiPlane().getOrigin();
-		Vector planeNormal=getUiPlane().getDirection(2);
-		Scalar lambda=((planeCenter-ray.getOrigin())*planeNormal)/(ray.getDirection()*planeNormal);
-		return ray(lambda);
-		}
-	else
-		{
-		/* Return the device's position: */
-		return device->getPosition();
-		}
+	/* Project the interaction ray into the UI manager's interaction surface: */
+	return getUiManager()->projectRay(ray);
 	}
 
 }

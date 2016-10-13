@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2014 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/StandardMarshallers.h>
 #include <Misc/GetCurrentDirectory.h>
+#include <Misc/FileTests.h>
 #include <IO/StandardDirectory.h>
 #include <Cluster/OpenFile.h>
 
@@ -296,6 +297,35 @@ const char* StandardDirectoryMaster::getEntryName(void) const
 	return entry->d_name;
 	}
 
+Misc::PathType StandardDirectoryMaster::getPathType(const char* relativePath) const
+	{
+	Misc::PathType result;
+	
+	/* Check if the given path is absolute: */
+	if(relativePath[0]=='/')
+		{
+		/* Use the given absolute path directly: */
+		result=Misc::getPathType(relativePath);
+		}
+	else
+		{
+		/* Assemble the absolute path name: */
+		std::string absolutePath=pathName;
+		if(absolutePath.length()>1)
+			absolutePath.push_back('/');
+		absolutePath.append(relativePath);
+		
+		/* Use the assembled absolute path: */
+		result=Misc::getPathType(absolutePath.c_str());
+		}
+	
+	/* Send the path type to the slaves: */
+	pipe.write<int>(int(result));
+	pipe.flush();
+	
+	return result;
+	}
+
 /***************************************
 Methods of class StandardDirectorySlave:
 ***************************************/
@@ -337,7 +367,7 @@ bool StandardDirectorySlave::readNextEntry(void)
 		entryName=Misc::Marshaller<std::string>::read(pipe);
 		
 		/* Read the entry type: */
-		entryType=(Misc::PathType)pipe.read<int>();
+		entryType=Misc::PathType(pipe.read<int>());
 		}
 	
 	return haveEntry;
@@ -346,6 +376,12 @@ bool StandardDirectorySlave::readNextEntry(void)
 const char* StandardDirectorySlave::getEntryName(void) const
 	{
 	return entryName.c_str();
+	}
+
+Misc::PathType StandardDirectorySlave::getPathType(const char* relativePath) const
+	{
+	/* Read the path type from the master: */
+	return Misc::PathType(pipe.read<int>());
 	}
 
 }

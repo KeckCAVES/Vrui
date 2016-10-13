@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardFile - Class for high-performance reading/writing from/to
 standard operating system files.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <IO/StandardFile.h>
 
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -58,7 +59,8 @@ size_t StandardFile::readData(File::Byte* buffer,size_t bufferSize)
 	if(readResult<0)
 		{
 		/* Unknown error; probably a bad thing: */
-		throw Error(Misc::printStdErrMsg("IO::StandardFile: Fatal error %d while reading from file",int(errno)));
+		int error=errno;
+		throw Error(Misc::printStdErrMsg("IO::StandardFile: Fatal error %d (%s) while reading from file",error,strerror(error)));
 		}
 	
 	/* Advance the read pointer: */
@@ -92,20 +94,55 @@ void StandardFile::writeData(const File::Byte* buffer,size_t bufferSize)
 			writePos+=writeResult;
 			filePos=writePos;
 			}
-		else if(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR))
-			{
-			/* Do nothing */
-			}
 		else if(writeResult==0)
 			{
 			/* Sink has reached end-of-file: */
 			throw WriteError(bufferSize);
 			}
-		else
+		else if(errno!=EAGAIN&&errno!=EWOULDBLOCK&&errno!=EINTR)
 			{
 			/* Unknown error; probably a bad thing: */
-			throw Error(Misc::printStdErrMsg("IO::StandardFile: Fatal error %d while writing to file",int(errno)));
+			int error=errno;
+			throw Error(Misc::printStdErrMsg("IO::StandardFile: Fatal error %d (%s) while writing to file",error,strerror(error)));
 			}
+		}
+	}
+
+size_t StandardFile::writeDataUpTo(const File::Byte* buffer,size_t bufferSize)
+	{
+	/* Check if file needs to be repositioned: */
+	if(filePos!=writePos)
+		if(lseek64(fd,writePos,SEEK_SET)<0)
+			throw SeekError(writePos);
+	
+	/* Invalidate the read buffer to prevent reading stale data: */
+	flushReadBuffer();
+	
+	/* Write data from the given buffer: */
+	ssize_t writeResult;
+	do
+		{
+		writeResult=::write(fd,buffer,bufferSize);
+		}
+	while(writeResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
+	if(writeResult>0)
+		{
+		/* Advance the write pointer: */
+		writePos+=writeResult;
+		filePos=writePos;
+		
+		return size_t(writeResult);
+		}
+	else if(writeResult==0)
+		{
+		/* Sink has reached end-of-file: */
+		throw WriteError(bufferSize);
+		}
+	else
+		{
+		/* Unknown error; probably a bad thing: */
+		int error=errno;
+		throw Error(Misc::printStdErrMsg("IO::StandardFile: Fatal error %d (%s) while writing to file",error,strerror(error)));
 		}
 	}
 
@@ -140,8 +177,8 @@ void StandardFile::openFile(const char* fileName,File::AccessMode accessMode,int
 	/* Check for errors and throw an exception: */
 	if(fd<0)
 		{
-		int errorCode=errno;
-		throw OpenError(Misc::printStdErrMsg("IO::StandardFile: Unable to open file %s for %s due to error %d",fileName,getAccessModeName(accessMode),errorCode));
+		int error=errno;
+		throw OpenError(Misc::printStdErrMsg("IO::StandardFile: Unable to open file %s for %s due to error %d (%s)",fileName,getAccessModeName(accessMode),error,strerror(error)));
 		}
 	}
 
@@ -194,7 +231,10 @@ SeekableFile::Offset StandardFile::getSize(void) const
 	/* Get the file's total size: */
 	struct stat statBuffer;
 	if(fstat(fd,&statBuffer)<0)
-		throw Error(Misc::printStdErrMsg("IO::StandardFile: Error while determining file size"));
+		{
+		int error=errno;
+		throw Error(Misc::printStdErrMsg("IO::StandardFile: Error %d (%s) while determining file size",error,strerror(error)));
+		}
 	
 	/* Return the file size: */
 	return statBuffer.st_size;

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLARBVertexBufferObject - OpenGL extension class for the
 GL_ARB_vertex_buffer_object extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLARBVertexBufferObject:
 ************************************************/
 
 GL_THREAD_LOCAL(GLARBVertexBufferObject*) GLARBVertexBufferObject::current=0;
+const char* GLARBVertexBufferObject::name="GL_ARB_vertex_buffer_object";
 
 /****************************************
 Methods of class GLARBVertexBufferObject:
@@ -57,7 +58,7 @@ GLARBVertexBufferObject::~GLARBVertexBufferObject(void)
 
 const char* GLARBVertexBufferObject::getExtensionName(void) const
 	{
-	return "GL_ARB_vertex_buffer_object";
+	return name;
 	}
 
 void GLARBVertexBufferObject::activate(void)
@@ -73,13 +74,13 @@ void GLARBVertexBufferObject::deactivate(void)
 bool GLARBVertexBufferObject::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_vertex_buffer_object");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBVertexBufferObject::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_vertex_buffer_object"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBVertexBufferObject* newExtension=new GLARBVertexBufferObject;

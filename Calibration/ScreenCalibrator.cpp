@@ -44,6 +44,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/PointPicker.h>
 #include <Geometry/RayPicker.h>
 #include <Geometry/OutputOperators.h>
+#include <Geometry/LevenbergMarquardtMinimizer.h>
 #include <GL/gl.h>
 #include <GL/GLGeometryWrappers.h>
 #include <Vrui/Vrui.h>
@@ -54,10 +55,10 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/GenericToolFactory.h>
 #include <Vrui/Application.h>
 
-#include "ONTransformFitter.h"
+#include "OGTransformCalculator.h"
+#include "OGTransformFitter.h"
 #include "ScreenTransformFitter.h"
 #include "PTransformFitter.h"
-#include "LevenbergMarquardtMinimizer.h"
 
 namespace {
 
@@ -142,6 +143,7 @@ class ScreenCalibrator:public Vrui::Application
 	typedef Geometry::Vector<Scalar,3> Vector;
 	typedef Geometry::Ray<Scalar,3> Ray;
 	typedef Geometry::OrthonormalTransformation<Scalar,3> ONTransform;
+	typedef Geometry::OrthogonalTransformation<Scalar,3> OGTransform;
 	typedef Geometry::ProjectiveTransformation<Scalar,3> PTransform;
 	typedef std::vector<Point> PointList;
 	typedef size_t PickResult;
@@ -474,6 +476,7 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	double floorEv[3];
 	floorPca.calcEigenvalues(floorEv);
 	Geometry::PCACalculator<3>::Vector floorNormal=floorPca.calcEigenvector(floorEv[2]);
+	std::cout<<"Floor plane fitting residual: "<<floorEv[2]<<std::endl;
 	
 	/* Fit a plane to the screen points: */
 	Geometry::PCACalculator<3> screenPca;
@@ -484,6 +487,8 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	double screenEv[3];
 	screenPca.calcEigenvalues(screenEv);
 	Geometry::PCACalculator<3>::Vector screenNormal=screenPca.calcEigenvector(screenEv[2]);
+	std::cout<<"Screen plane fitting residual: "<<screenEv[2]<<std::endl;
+	std::cout<<std::endl;
 	
 	/* Flip the floor normal such that it points towards the screen points: */
 	if((screenCentroid-floorCentroid)*floorNormal<Scalar(0))
@@ -532,31 +537,53 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 		x and y) from theoretical  screen points to surveyed screen points:
 		*********************************************************************/
 		
+		/* Estimate the screen's width and height based on the surveyed screen points: */
+		int numScreenPoints[2];
+		for(int i=0;i<2;++i)
+			numScreenPoints[i]=(screenPixelSize[i]-1)/screenSquareSize+1;
+		if(screenPoints.size()!=size_t(numScreenPoints[0]*numScreenPoints[1]))
+			Misc::throwStdErr("Wrong number of screen points, got %d instead of %d",int(screenPoints.size()),numScreenPoints[0]*numScreenPoints[1]);
+		double screenWidthSum=0.0;
+		for(int y=0;y<numScreenPoints[1];++y)
+			screenWidthSum+=Geometry::dist(screenPoints[y*numScreenPoints[0]],screenPoints[y*numScreenPoints[0]+numScreenPoints[0]-1]);
+		double screenWidth=screenWidthSum*double(screenPixelSize[0])/double((numScreenPoints[0]-1)*screenSquareSize*numScreenPoints[1]);
+		double screenHeightSum=0.0;
+		for(int x=0;x<numScreenPoints[0];++x)
+			screenHeightSum+=Geometry::dist(screenPoints[x],screenPoints[(numScreenPoints[1]-1)*numScreenPoints[0]+x]);
+		double screenHeight=screenHeightSum*double(screenPixelSize[1])/double((numScreenPoints[1]-1)*screenSquareSize*numScreenPoints[0]);
+		std::cout<<"Estimated screen size: "<<screenWidth<<" x "<<screenHeight<<std::endl;
+		
 		/* Create a list of theoretical screen points: */
-		PointList screen;
 		int screenPixelOffset[2];
 		for(int i=0;i<2;++i)
 			screenPixelOffset[i]=((screenPixelSize[i]-1)%screenSquareSize)/2;
+		PointList screen;
 		for(int y=screenPixelOffset[1];y<screenPixelSize[1];y+=screenSquareSize)
 			for(int x=screenPixelOffset[0];x<screenPixelSize[0];x+=screenSquareSize)
 				screen.push_back(Point((Scalar(x)+Scalar(0.5))/Scalar(screenPixelSize[0]),Scalar(1)-(Scalar(y)+Scalar(0.5))/Scalar(screenPixelSize[1]),0));
 		if(screen.size()!=screenPoints.size())
 			Misc::throwStdErr("Wrong number of screen points, got %d instead of %d",int(screenPoints.size()),int(screen.size()));
 		
-		/* Find the best-fitting projective transformation for the measured screen points: */
-		PTransformFitter ptf(screen.size(),&screen[0],&screenPoints[0]);
-		PTransformFitter::Scalar screenResult2=LevenbergMarquardtMinimizer<PTransformFitter>::minimize(ptf);
-		std::cout<<"Projective transformation fitting final distance: "<<screenResult2<<std::endl;
-		pScreenTransform=ptf.getTransform();
-		
-		/* Print the screen transformation matrix: */
-		std::cout<<"Projective transformation matrix:"<<std::endl;
-		std::cout<<std::setprecision(6)<<pScreenTransform<<std::endl;
+		/* Calculate an orthogonal pre-alignment transformation for the measured screen points to kickstart non-linear optimization: */
+		PointList scaledScreen;
+		for(PointList::iterator sIt=screen.begin();sIt!=screen.end();++sIt)
+			scaledScreen.push_back(Point((*sIt)[0]*screenWidth,(*sIt)[1]*screenHeight,0));
+		std::pair<Geometry::OrthogonalTransformation<double,3>,double> screenInitialFit=calculateOGTransform(scaledScreen,screenPoints);
+		std::cout<<"Screen pre-alignment RMS residual: "<<screenInitialFit.second<<std::endl;
+		std::cout<<"Screen pre-alignment transformation: "<<screenInitialFit.first<<std::endl;
+		std::cout<<std::endl;
 		
 		/* Find the best-fitting screen transformation for the measured screen points: */
 		ScreenTransformFitter stf(screen.size(),&screen[0],&screenPoints[0]);
-		ScreenTransformFitter::Scalar screenResult1=LevenbergMarquardtMinimizer<ScreenTransformFitter>::minimize(stf);
-		std::cout<<"Screen transformation fitting final distance: "<<screenResult1<<std::endl;
+		
+		stf.setTransform(ScreenTransformFitter::Transform(screenInitialFit.first.getTranslation(),screenInitialFit.first.getRotation()));
+		stf.setSize(0,screenWidth);
+		stf.setSize(1,screenHeight);
+		
+		Geometry::LevenbergMarquardtMinimizer<ScreenTransformFitter> stMinimizer;
+		stMinimizer.maxNumIterations=100000;
+		ScreenTransformFitter::Scalar screenResult1=stMinimizer.minimize(stf);
+		std::cout<<"Screen transformation RMS residual: "<<Math::sqrt(screenResult1/double(screen.size()))<<std::endl;
 		screenTransform=stf.getTransform();
 		screenSize[0]=stf.getSize(0);
 		screenSize[1]=stf.getSize(1);
@@ -564,6 +591,23 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 		std::cout<<"Optimal screen origin: "<<screenTransform.getOrigin()<<std::endl;
 		std::cout<<"Optimal horizontal screen axis: "<<screenTransform.getDirection(0)<<std::endl;
 		std::cout<<"Optimal vertical screen axis: "<<screenTransform.getDirection(1)<<std::endl;
+		std::cout<<std::endl;
+		
+		/* Find the best-fitting projective transformation for the measured screen points: */
+		PTransformFitter ptf(screen.size(),&screen[0],&screenPoints[0]);
+		
+		ptf.setTransform(PTransformFitter::Transform(screenTransform)*PTransformFitter::Transform::scale(PTransformFitter::Transform::Scale(screenSize[0],screenSize[1],1.0)));
+		
+		Geometry::LevenbergMarquardtMinimizer<PTransformFitter> pMinimizer;
+		pMinimizer.maxNumIterations=100000;
+		PTransformFitter::Scalar screenResult2=pMinimizer.minimize(ptf);
+		std::cout<<"Projective transformation RMS residual: "<<Math::sqrt(screenResult2/double(screen.size()))<<std::endl;
+		pScreenTransform=ptf.getTransform();
+		
+		/* Print the screen transformation matrix: */
+		std::cout<<"Projective transformation matrix:"<<std::endl;
+		std::cout<<std::setprecision(6)<<pScreenTransform<<std::endl;
+		std::cout<<std::endl;
 		
 		/*********************************************************************
 		Calculate a homography matrix from the optimal screen transformation
@@ -597,6 +641,7 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 		std::cout<<"Homography matrix for projective transform: "<<pHom<<std::endl;
 		std::cout<<"Homography matrix for screen transform: "<<sHom<<std::endl;
 		std::cout<<"Screen correction homography matrix: "<<hom<<std::endl;
+		std::cout<<std::endl;
 		#endif
 		
 		#if 0
@@ -619,11 +664,12 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 		std::cout<<hom3.transform(Geometry::HVector<double,3>( 1.0,-1.0, 1.0,1.0)).toPoint()<<std::endl;
 		std::cout<<hom3.transform(Geometry::HVector<double,3>(-1.0, 1.0, 1.0,1.0)).toPoint()<<std::endl;
 		std::cout<<hom3.transform(Geometry::HVector<double,3>( 1.0, 1.0, 1.0,1.0)).toPoint()<<std::endl;
+		std::cout<<std::endl;
 		
 		#endif
 		
 		/* Print a configuration file section for the screen: */
-		std::cout<<std::endl<<"Configuration settings for screen:"<<std::endl;
+		std::cout<<"Configuration settings for screen:"<<std::endl;
 		std::cout<<"origin "<<screenTransform.getTranslation()*unitScale<<std::endl;
 		std::cout<<"horizontalAxis "<<screenTransform.getDirection(0)<<std::endl;
 		std::cout<<"width "<<screenSize[0]*unitScale<<std::endl;
@@ -651,41 +697,39 @@ ScreenCalibrator::ScreenCalibrator(int& argc,char**& argv,char**& appDefaults)
 	if(optitrackFileName!=0&&totalstationFileName!=0)
 		{
 		/*********************************************************************
-		Calculate the optimal orthonormal transformation from tracking system
+		Calculate the optimal orthogonal transformation from tracking system
 		coordinates to the normalized coordinate system by aligning ball
 		positions observed by the tracking system with ball positions measured
 		using the total station:
 		*********************************************************************/
 		
 		/* Find an orthonormal transformation to align the tracking points with the ball points: */
-		size_t numPoints=trackingPoints.size();
-		if(numPoints>ballPoints.size())
-			numPoints=ballPoints.size();
+		std::pair<Geometry::OrthogonalTransformation<double,3>,double> trackingInitialFit=calculateOGTransform(trackingPoints,ballPoints);
+		std::cout<<"Tracking pre-alignment RMS residual: "<<trackingInitialFit.second<<std::endl;
+		std::cout<<"Tracking pre-alignment transformation: "<<trackingInitialFit.first<<std::endl;
+		std::cout<<std::endl;
 		
-		/* Calculate the centroid of the tracking points: */
-		Point::AffineCombiner tpCc;
-		for(size_t i=0;i<numPoints;++i)
-			tpCc.addPoint(trackingPoints[i]);
-		Vector tpTranslation=tpCc.getPoint()-Point::origin;
-		for(size_t i=0;i<numPoints;++i)
-			trackingPoints[i]-=tpTranslation;
-		ONTransformFitter ontf(numPoints,&trackingPoints[0],&ballPoints[0]);
-		//ontf.setTransform(ONTransformFitter::Transform::rotate(ONTransformFitter::Transform::Rotation::rotateX(Math::rad(Scalar(90)))));
-		ONTransformFitter::Scalar result=LevenbergMarquardtMinimizer<ONTransformFitter>::minimize(ontf);
-		ONTransform tsCal=ontf.getTransform();
-		tsCal*=ONTransform::translate(-tpTranslation);
+		size_t numPoints=Math::min(trackingPoints.size(),ballPoints.size());
+		OGTransformFitter ogtf(numPoints,&trackingPoints[0],&ballPoints[0]);
+		ogtf.setTransform(OGTransformFitter::Transform(trackingInitialFit.first));
 		
-		std::cout<<"Final distance: "<<result<<std::endl;
+		Geometry::LevenbergMarquardtMinimizer<OGTransformFitter> ogMinimizer;
+		ogMinimizer.maxNumIterations=100000;
+		OGTransformFitter::Scalar result=ogMinimizer.minimize(ogtf);
+		OGTransform tsCal=ogtf.getTransform();
+		
+		std::cout<<"Tracking system calibration RMS residual: "<<Math::sqrt(result/double(numPoints))<<std::endl;
 		std::cout<<"Tracking system calibration transformation: "<<tsCal<<std::endl;
+		std::cout<<std::endl;
 		
 		std::cout<<"Configuration settings for tracking calibrator: "<<std::endl;
 		std::cout<<"transformation translate "<<tsCal.getTranslation()*unitScale<<" \\"<<std::endl;
-		std::cout<<"               * scale "<<unitScale<<" \\"<<std::endl;
+		std::cout<<"               * scale "<<unitScale*tsCal.getScaling()<<" \\"<<std::endl;
 		std::cout<<"               * rotate "<<tsCal.getRotation().getAxis()<<", "<<Math::deg(tsCal.getRotation().getAngle())<<std::endl;
 		
 		/* Transform the tracking points with the result transformation: */
 		for(PointList::iterator tpIt=trackingPoints.begin();tpIt!=trackingPoints.end();++tpIt)
-			*tpIt=tsCal.transform(*tpIt+tpTranslation);
+			*tpIt=tsCal.transform(*tpIt);
 		}
 	
 	/* Initialize the navigation transformation: */

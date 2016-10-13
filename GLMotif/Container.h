@@ -1,7 +1,7 @@
 /***********************************************************************
 Container - Base class for GLMotif UI components that contain other
 components.
-Copyright (c) 2001-2014 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 

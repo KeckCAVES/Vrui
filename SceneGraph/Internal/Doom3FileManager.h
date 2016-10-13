@@ -1,7 +1,7 @@
 /***********************************************************************
 Doom3FileManager - Class to read files from sets of pk3/pk4 files and
 patch directories.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

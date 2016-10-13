@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterVisBox - Class to connect the VisBox head tracking
 daemon to a Vrui application.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -106,6 +106,24 @@ void InputDeviceAdapterVisBox::updateInputDevices(void)
 	rotation*=Rotation::rotateY(Math::rad(xyzhpr[5]));
 	
 	inputDevices[0]->setTransformation(TrackerState(translation,rotation));
+	}
+
+TrackerState InputDeviceAdapterVisBox::peekTrackerState(int deviceIndex)
+	{
+	/*********************************************************************
+	Convert the most recent xyzhpr values from the shared memory segment
+	into a tracker state:
+	*********************************************************************/
+	
+	/* Translation vector is straightforward: */
+	Vector translation=Vector(Scalar(xyzhpr[0]),Scalar(xyzhpr[1]),Scalar(xyzhpr[2]));
+	
+	/* To assemble the orientation, we assume all angles are in degrees, and the order of rotations is as follows: */
+	Rotation rotation=Rotation::rotateZ(Math::rad(xyzhpr[3]));
+	rotation*=Rotation::rotateX(Math::rad(xyzhpr[4]));
+	rotation*=Rotation::rotateY(Math::rad(xyzhpr[5]));
+	
+	return TrackerState(translation,rotation);
 	}
 
 }

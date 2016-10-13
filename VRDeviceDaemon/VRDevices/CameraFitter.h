@@ -2,7 +2,7 @@
 CameraFitter - Functor plug-in to fit the extrinsic parameters of a
 camera to a set of observed point projections using a Levenberg-
 Marquardt algorithm.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -81,11 +81,11 @@ class CameraFitter
 	void setTargetPoint(int index,const Point& newPoint) // Sets the world position of a target point
 		{
 		points[index]=newPoint;
-		};
+		}
 	void setTransform(const Transform& newTransform) // Sets the extrinsic camera parameters
 		{
 		transform=newTransform;
-		};
+		}
 	Pixel project(const Point& point) const // Returns CCD pixel coordinates of point in world coordinates
 		{
 		/* Transform the point into camera coordinates: */
@@ -216,6 +216,7 @@ class CameraFitter
 		}
 	void normalize(void) // Normalizes the current estimate
 		{
+		/* Nothing to do; Transform constructor automatically normalizes quaternion */
 		}
 	const Transform& getTransform(void) const // Returns the camera's transformation
 		{

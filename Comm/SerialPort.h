@@ -1,7 +1,7 @@
 /***********************************************************************
 SerialPort - Class for high-performance reading/writing from/to serial
 ports.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -50,10 +50,11 @@ class SerialPort:public Comm::Pipe
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Constructors and destructors: */
 	public:
-	SerialPort(const char* deviceName); // Opens the given serial port device file with "DontCare" endianness setting
+	SerialPort(const char* deviceName,bool nonBlocking =false); // Opens the given serial port device file with "DontCare" endianness setting
 	virtual ~SerialPort(void);
 	
 	/* Methods from IO::File: */

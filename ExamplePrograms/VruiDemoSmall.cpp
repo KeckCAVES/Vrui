@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiDemoSmall - Extremely simple Vrui application to demonstrate the
 small amount of code overhead introduced by the Vrui toolkit.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -32,6 +32,7 @@ class VruiDemoSmall:public Vrui::Application
 	
 	/* Methods from Vrui::Application: */
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	};
 
 /******************************
@@ -41,8 +42,6 @@ Methods of class VruiDemoSmall:
 VruiDemoSmall::VruiDemoSmall(int& argc,char**& argv)
 	:Vrui::Application(argc,argv)
 	{
-	/* Set the navigation transformation to show the entire scene: */
-	Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(12));
 	}
 
 void VruiDemoSmall::display(GLContextData& contextData) const
@@ -59,6 +58,12 @@ void VruiDemoSmall::display(GLContextData& contextData) const
 	glDrawSphereIcosahedron(4.5f,6);
 	
 	glPopMatrix();
+	}
+
+void VruiDemoSmall::resetNavigation(void)
+	{
+	/* Set the navigation transformation to show the entire scene: */
+	Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(12));
 	}
 
 /* Create and execute an application object: */

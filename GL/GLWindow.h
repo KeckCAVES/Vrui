@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2016 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -26,6 +26,38 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/CallbackList.h>
 #include <X11/X.h>
 #include <GL/GLContext.h>
+
+/************************************
+Needed declarations from GL/glxext.h:
+************************************/
+
+#ifndef GLX_SGI_video_sync
+#define GLX_SGI_video_sync 1
+typedef int (*PFNGLXGETVIDEOSYNCSGIPROC)(unsigned int* count);
+typedef int (*PFNGLXWAITVIDEOSYNCSGIPROC)(int divisor,int remainder,unsigned int* count);
+#ifdef GLX_GLXEXT_PROTOTYPES
+int glXGetVideoSyncSGI(unsigned int* count);
+int glXWaitVideoSyncSGI(int divisor,int remainder,unsigned int* count);
+#endif
+#endif
+
+#ifndef GLX_EXT_swap_control
+#define GLX_EXT_swap_control 1
+#define GLX_SWAP_INTERVAL_EXT 0x20F1
+#define GLX_MAX_SWAP_INTERVAL_EXT 0x20F2
+typedef void (*PFNGLXSWAPINTERVALEXTPROC)(Display* dpy,GLXDrawable drawable,int interval);
+#ifdef GLX_GLXEXT_PROTOTYPES
+void glXSwapIntervalEXT(Display* dpy,GLXDrawable drawable,int interval);
+#endif
+#endif
+
+#ifndef GLX_NV_delay_before_swap
+#define GLX_NV_delay_before_swap 1
+typedef Bool (*PFNGLXDELAYBEFORESWAPNVPROC)(Display* dpy,GLXDrawable drawable,GLfloat seconds);
+#ifdef GLX_GLXEXT_PROTOTYPES
+Bool glXDelayBeforeSwapNV(Display* dpy,GLXDrawable drawable,GLfloat seconds);
+#endif
+#endif
 
 class GLWindow
 	{
@@ -92,6 +124,12 @@ class GLWindow
 	Colormap colorMap; // Colormap used in window
 	Window window; // X window handle
 	Atom wmProtocolsAtom,wmDeleteWindowAtom; // Atoms needed for window manager communication
+	
+	/* Entry points for required/optional GLX extensions: */
+	PFNGLXSWAPINTERVALEXTPROC glXSwapIntervalEXTProc; // Selects vertical retrace synchronization interval
+	PFNGLXWAITVIDEOSYNCSGIPROC glXWaitVideoSyncSGIProc; // Waits for next vertical retrace synchronization pulse
+	PFNGLXDELAYBEFORESWAPNVPROC glXDelayBeforeSwapNVProc; // Waits for a specified time *before* next vertical retrace synchronization pulse
+	
 	WindowPos windowPos; // Current position and size of output window
 	bool fullscreen; // Flag if the window occupies the full screen (and has no decoration)
 	Misc::CallbackList closeCallbacks; // List of callbacks to be called when the user attempts to close the window
@@ -129,6 +167,10 @@ class GLWindow
 		{
 		return screen;
 		}
+	Window getRoot(void) const
+		{
+		return root;
+		}
 	Window getWindow(void) const
 		{
 		return window;
@@ -160,8 +202,13 @@ class GLWindow
 		{
 		return closeCallbacks;
 		}
-	void makeFullscreen(void); // Turns the window into a "fake" fullscreen window by making it slightly larger than the root window
-	void toggleFullscreen(void); // Attempts to toggle the window's fullscreen state by communicating with the window manager
+	void setWindowPos(const WindowPos& newWindowPos); // Sets the window's position and size
+	bool bypassCompositor(void); // Asks the window manager to disable compositing for this window to (hopefully) reduce latency; returns true if the request was made successfully (does not guarantee request was granted)
+	bool makeFullscreen(void); // Asks the window manager to switch the window to fullscreen mode; returns true if request was made successfully
+	bool toggleFullscreen(void); // Attempts to toggle the window's fullscreen state by communicating with the window manager; returns true if request was made successfully
+	bool canVsync(bool frontBufferRendering) const; // Returns true if the local GLX has the capability to sync with vertical retrace in front- or backbuffer rendering mode
+	bool canPreVsync(void) const; // Returns true if the local GLX has the capability to sync to a time delta before vertical retrace
+	bool setVsyncInterval(int newInterval); // Sets the vertical retrace synchronization for buffer swaps; 0 disables synchronization
 	void disableMouseEvents(void); // Tells the window to ignore mouse events (pointer motion, button click and release) from that point on
 	void hideCursor(void); // Hides the cursor while inside the window
 	void showCursor(void); // Resets the cursor to the one used by the parent window
@@ -177,6 +224,8 @@ class GLWindow
 		{
 		context->swapBuffers(window);
 		}
+	void waitForVsync(void); // Waits for the next vertical synchronization pulse
+	bool waitForPreVsync(GLfloat delta); // Waits for the specified time before the next vertical synchronization pulse; returns true if the call had to wait
 	bool pendingEvents(void) // Returns true if there are pending events on this window's X display connection
 		{
 		return XPending(context->getDisplay());
@@ -191,7 +240,7 @@ class GLWindow
 		}
 	bool isEventForWindow(const XEvent& event) const // Returns true if the given event is intended for this window
 		{
-		return event.xany.window==window;
+		return event.xany.type==GenericEvent||event.xany.window==window;
 		}
 	void processEvent(const XEvent& event); // Sends an X event to the window for processing
 	};

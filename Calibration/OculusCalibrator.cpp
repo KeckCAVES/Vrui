@@ -2,7 +2,7 @@
 OculusCalibrator - Simple utility to retrieve calibration data from an Oculus
 Rift head-mounted display, and visualize the 3-DOF and inertial 6-DOF
 tracking driver's results.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -35,7 +35,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <IO/SeekableFile.h>
 #include <IO/FixedMemoryFile.h>
 #include <libusb-1.0/libusb.h>
-#include <USB/Context.h>
 #include <USB/DeviceList.h>
 #include <USB/Device.h>
 #include <Math/Math.h>
@@ -52,6 +51,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryWrappers.h>
 #include <Vrui/Application.h>
 #include <Vrui/OpenFile.h>
+
+#include "../VRDeviceDaemon/Config.h"
 
 /**************************************************************
 Helper structures to communicate with the Oculus Rift over USB:
@@ -476,6 +477,7 @@ class Tracker
 	volatile bool recordRawMeasurements; // Flag whether raw accelerometer and magnetometer measurements are collected
 	Misc::ChunkedArray<Vector> rawAccels; // List of raw accelerometer measurements for calibration
 	Misc::ChunkedArray<Vector> rawMags; // List of raw magnetometer measurements for calibration
+	volatile bool rawMeasurementsDirty; // Flag whether there are raw measurements that have not yet been used for calibration
 	#endif
 	
 	#if FITRAWMEASUREMENTS
@@ -609,18 +611,25 @@ class Tracker
 		 nextTimeStamp(0U)
 		 #if FITRAWMEASUREMENTS
 		,currentRawAccel(Vector::zero),currentRawMag(Vector::zero),
-		 recordRawMeasurements(false)
+		 recordRawMeasurements(false),rawMeasurementsDirty(false)
 		 #endif
 		{
 		for(int i=0;i<3;++i)
 			lastSample.accel[i]=0;
 		for(int i=0;i<3;++i)
 			lastSample.gyro[i]=0;
-		
+		}
+	~Tracker(void)
+		{
+		}
+	
+	/* Methods: */
+	void loadCalibration(const std::string& calibFileName)
+		{
 		try
 			{
 			/* Load the accelerometer and magnetometer calibration matrices: */
-			IO::FilePtr calibFile=IO::openFile("OculusRiftCalibration.dat");
+			IO::FilePtr calibFile=IO::openFile(calibFileName.c_str());
 			calibFile->setEndianness(Misc::LittleEndian);
 			for(int i=0;i<3;++i)
 				for(int j=0;j<4;++j)
@@ -632,13 +641,15 @@ class Tracker
 		catch(std::runtime_error err)
 			{
 			/* Create a default calibration: */
-			std::cerr<<"Error "<<err.what()<<" while loading calibration file; generating default calibration"<<std::endl;
+			std::cerr<<"Error "<<err.what()<<" while loading calibration file "<<calibFileName<<"; generating default calibration"<<std::endl;
 			for(int i=0;i<3;++i)
 				for(int j=0;j<4;++j)
 					accelCalib[i][j]=i==j?Scalar(0.0001):Scalar(0);
 			for(int i=0;i<3;++i)
 				for(int j=0;j<4;++j)
 					magCalib[i][j]=i==j?Scalar(0.0001):Scalar(0);
+			for(int j=0;j<4;++j)
+				std::swap(magCalib[1][j],magCalib[2][j]);
 			}
 		
 		#if 0
@@ -668,64 +679,6 @@ class Tracker
 		
 		#endif
 		}
-	~Tracker(void)
-		{
-		#if FITRAWMEASUREMENTS
-		
-		if(!rawAccels.empty()&&!rawMags.empty())
-			{
-			/* Fit a quadric to the raw accelerometer and magnetometer measurements: */
-			std::cout<<"Accelerometer calibration:"<<std::endl;
-			Math::Matrix accelCalib=fitQuadric(rawAccels);
-			std::cout<<"accelCorrection (";
-			for(int j=0;j<4;++j)
-				{
-				if(j>0)
-					std::cout<<", ";
-				std::cout<<"("<<accelCalib(0,j);
-				for(int i=1;i<3;++i)
-					std::cout<<", "<<accelCalib(i,j);
-				std::cout<<")";
-				}
-			std::cout<<")"<<std::endl;
-			std::cout<<std::endl<<"Magnetometer calibration:"<<std::endl;
-			Math::Matrix magCalib=fitQuadric(rawMags);
-			std::cout<<"magCorrection (";
-			for(int j=0;j<4;++j)
-				{
-				if(j>0)
-					std::cout<<", ";
-				std::cout<<"("<<magCalib(0,j);
-				for(int i=1;i<3;++i)
-					std::cout<<", "<<magCalib(i,j);
-				std::cout<<")";
-				}
-			std::cout<<")"<<std::endl;
-			
-			#if 1
-			
-			/* Write the calibration matrices to a calibration file: */
-			IO::FilePtr calibFile=IO::openFile("OculusRiftCalibration.dat",IO::File::WriteOnly);
-			calibFile->setEndianness(Misc::LittleEndian);
-			for(int i=0;i<3;++i)
-				for(int j=0;j<4;++j)
-					calibFile->write<Misc::Float64>(accelCalib(i,j)/10000.0);
-			
-			/* Flip the magnetometer's y and z components: */
-			for(int j=0;j<4;++j)
-				calibFile->write<Misc::Float64>(magCalib(0,j)/10000.0);
-			for(int j=0;j<4;++j)
-				calibFile->write<Misc::Float64>(magCalib(1,j)/10000.0);
-			for(int j=0;j<4;++j)
-				calibFile->write<Misc::Float64>(magCalib(2,j)/10000.0);
-			
-			#endif
-			}
-		
-		#endif
-		}
-	
-	/* Methods: */
 	void setDriftCorrectionWeight(Scalar newDriftCorrectionWeight)
 		{
 		driftCorrectionWeight=newDriftCorrectionWeight;
@@ -750,7 +703,6 @@ class Tracker
 		Vector mag;
 		for(int i=0;i<3;++i)
 			mag[i]=magCalib[i][0]*Scalar(sensorData.mag[0])+magCalib[i][1]*Scalar(sensorData.mag[1])+magCalib[i][2]*Scalar(sensorData.mag[2])+magCalib[i][3];
-		std::swap(mag[1],mag[2]);
 		#if FITRAWMEASUREMENTS
 		currentRawMag=Vector(sensorData.mag[0],sensorData.mag[1],sensorData.mag[2]);
 		if(recordRawMeasurements)
@@ -820,6 +772,11 @@ class Tracker
 		nextTimeStamp=sensorData.timeStamp+sensorData.numSamples;
 		if(sensorData.numSamples!=0U)
 			lastSample=sensorData.samples[sensorData.numSamples-1];
+		
+		#if FITRAWMEASUREMENTS
+		if(recordRawMeasurements)
+			rawMeasurementsDirty=true;
+		#endif
 		}
 	void resetPosition(void)
 		{
@@ -875,6 +832,8 @@ class Tracker
 		glVertex(Point::origin+currentRawAccel);
 		glEnd();
 		
+		glScaled(10.0,10.0,10.0);
+		
 		/* Render all magnetometer measurements: */
 		glColor3f(0.0f,1.0f,0.0f);
 		rawMags.forEachChunk(rrf);
@@ -886,6 +845,107 @@ class Tracker
 		
 		glPopClientAttrib();
 		glPopAttrib();
+		}
+	bool isDirty(void) const
+		{
+		return rawMeasurementsDirty;
+		}
+	void updateCalibration(const std::string& calibFileName)
+		{
+		rawMeasurementsDirty=false;
+		
+		if(!rawAccels.empty()&&!rawMags.empty())
+			{
+			/* Fit a quadric to the raw accelerometer and magnetometer measurements: */
+			std::cout<<"Accelerometer calibration:"<<std::endl;
+			Math::Matrix accelCal=fitQuadric(rawAccels);
+			
+			/* Align the calibrated Y axis with the (0, 1, 0) vector: */
+			Geometry::Vector<double,3> yAxis;
+			for(int i=0;i<3;++i)
+				yAxis[i]=accelCal(i,1);
+			Geometry::Rotation<double,3> rot=Geometry::Rotation<double,3>::rotateFromTo(yAxis,Geometry::Vector<double,3>(0,1,0));
+			
+			/* Align the calibrated X axis with the z=0 plane: */
+			Geometry::Vector<double,3> xAxis;
+			for(int i=0;i<3;++i)
+				xAxis[i]=accelCal(i,0);
+			xAxis=rot.transform(xAxis);
+			double xAngle=Math::atan2(xAxis[2],xAxis[0]);
+			rot.leftMultiply(Geometry::Rotation<double,3>::rotateY(xAngle));
+			rot.renormalize();
+			Geometry::Matrix<double,3,3> rotMatTemp;
+			rot.writeMatrix(rotMatTemp);
+			Math::Matrix rotMat(3,3);
+			for(int i=0;i<3;++i)
+				for(int j=0;j<3;++j)
+					rotMat(i,j)=rotMatTemp(i,j);
+			accelCal=rotMat*accelCal;
+			
+			std::cout<<"accelCorrection (";
+			for(int j=0;j<4;++j)
+				{
+				if(j>0)
+					std::cout<<", ";
+				std::cout<<"("<<accelCal(0,j);
+				for(int i=1;i<3;++i)
+					std::cout<<", "<<accelCal(i,j);
+				std::cout<<")";
+				}
+			std::cout<<")"<<std::endl;
+			std::cout<<std::endl<<"Magnetometer calibration:"<<std::endl;
+			Math::Matrix magCal=fitQuadric(rawMags);
+			std::cout<<"magCorrection (";
+			for(int j=0;j<4;++j)
+				{
+				if(j>0)
+					std::cout<<", ";
+				std::cout<<"("<<magCal(0,j);
+				for(int i=1;i<3;++i)
+					std::cout<<", "<<magCal(i,j);
+				std::cout<<")";
+				}
+			std::cout<<")"<<std::endl;
+			
+			/* Normalize the calibration matrices: */
+			for(int i=0;i<3;++i)
+				for(int j=0;j<4;++j)
+					accelCal(i,j)*=0.0001;
+			for(int i=0;i<3;++i)
+				for(int j=0;j<4;++j)
+					magCal(i,j)*=0.0001;
+			
+			/* Flip the last two rows of the magnetometer calibration matrix to align with HMD frame: */
+			for(int j=0;j<4;++j)
+				std::swap(magCal(1,j),magCal(2,j));
+			
+			/* Update the current tracker calibration matrices: */
+			for(int i=0;i<3;++i)
+				for(int j=0;j<4;++j)
+					accelCalib[i][j]=Scalar(accelCal(i,j));
+			for(int i=0;i<3;++i)
+				for(int j=0;j<4;++j)
+					magCalib[i][j]=Scalar(magCal(i,j));
+			
+			try
+				{
+				std::cout<<"Saving calibration data to file "<<calibFileName<<std::endl;
+				
+				/* Write the calibration matrices to a binary calibration file: */
+				IO::FilePtr calibFile=IO::openFile(calibFileName.c_str(),IO::File::WriteOnly);
+				calibFile->setEndianness(Misc::LittleEndian);
+				for(int i=0;i<3;++i)
+					for(int j=0;j<4;++j)
+						calibFile->write<Misc::Float64>(accelCal(i,j));
+				for(int i=0;i<3;++i)
+					for(int j=0;j<4;++j)
+						calibFile->write<Misc::Float64>(magCal(i,j));
+				}
+			catch(std::runtime_error err)
+				{
+				std::cerr<<"Error "<<err.what()<<" while writing calibration data to calibration file "<<calibFileName<<std::endl;
+				}
+			}
 		}
 	#endif
 	};
@@ -923,7 +983,6 @@ class OculusCalibrator:public Vrui::Application
 	
 	/* Elements: */
 	private:
-	USB::Context usbContext;
 	USB::Device oculus;
 	Tracker tracker;
 	Threads::Thread trackingThread;
@@ -1042,7 +1101,7 @@ OculusCalibrator::OculusCalibrator(int& argc,char**& argv)
 	
 	/* Open one of the connected Oculus Rift devices: */
 	{
-	USB::DeviceList deviceList(usbContext);
+	USB::DeviceList deviceList;
 	oculus=deviceList.getDevice(0x2833U,0x0001U,oculusIndex);
 	if(!oculus.isValid())
 		Misc::throwStdErr("Oculus Rift device with index %d not found",oculusIndex);
@@ -1053,6 +1112,14 @@ OculusCalibrator::OculusCalibrator(int& argc,char**& argv)
 	// oculus.reset();
 	// oculus.setConfiguration(1);
 	oculus.claimInterface(0,true); // Disconnect the kernel's generic HID driver
+	std::cout<<"Connected to Oculus Rift with serial number "<<oculus.getSerialNumber()<<std::endl;
+	
+	/* Load calibration data for the connected Oculus Rift: */
+	std::string calibFileName=VRDEVICEDAEMON_CONFIG_CONFIGDIR;
+	calibFileName.append("/OculusRift-");
+	calibFileName.append(oculus.getSerialNumber());
+	calibFileName.append(".calib");
+	tracker.loadCalibration(calibFileName);
 	
 	/* Determine the conversion factor from meters to Vrui's physical coordinate unit: */
 	double unitScale=Vrui::getMeterFactor();
@@ -1140,11 +1207,12 @@ OculusCalibrator::OculusCalibrator(int& argc,char**& argv)
 	#if FITRAWMEASUREMENTS
 	addEventTool("Show Raw Measurements",0,0);
 	addEventTool("Start/Stop Recording",0,1);
+	addEventTool("Update Calibration",0,2);
 	#endif
-	addEventTool("Show Tracking",0,2);
-	addEventTool("Lock Position",0,3);
-	addEventTool("Reset Position",0,4);
-	addEventTool("Print Yaw Angle",0,5);
+	addEventTool("Show Tracking",0,3);
+	addEventTool("Lock Position",0,4);
+	addEventTool("Reset Position",0,5);
+	addEventTool("Print Yaw Angle",0,6);
 	
 	Vrui::setNavigationTransformation(Vrui::Point(0,0,0),Vrui::Scalar(15),Vrui::Vector(0,1,0));
 	}
@@ -1154,6 +1222,17 @@ OculusCalibrator::~OculusCalibrator(void)
 	/* Shut down the tracking thread: */
 	receiveSamples=false;
 	trackingThread.join();
+	
+	#if FITRAWMEASUREMENTS
+	if(tracker.isDirty())
+		{
+		std::string calibFileName=VRDEVICEDAEMON_CONFIG_CONFIGDIR;
+		calibFileName.append("/OculusRift-");
+		calibFileName.append(oculus.getSerialNumber());
+		calibFileName.append(".calib");
+		tracker.updateCalibration(calibFileName);
+		}
+	#endif
 	
 	/* Close the Oculus device: */
 	oculus.close();
@@ -1307,21 +1386,30 @@ void OculusCalibrator::eventCallback(EventID eventId,Vrui::InputDevice::ButtonCa
 			case 1:
 				tracker.setRecordRawMeasurements(true);
 				break;
-			#endif
 			
 			case 2:
+				{
+				std::string calibFileName=VRDEVICEDAEMON_CONFIG_CONFIGDIR;
+				calibFileName.append("/OculusRift-");
+				calibFileName.append(oculus.getSerialNumber());
+				calibFileName.append(".calib");
+				tracker.updateCalibration(calibFileName);
+				}
+			#endif
+			
+			case 3:
 				showTracker=!showTracker;
 				break;
 			
-			case 3:
+			case 4:
 				lockPosition=!lockPosition;
 				break;
 			
-			case 4:
+			case 5:
 				tracker.resetPosition();
 				break;
 			
-			case 5:
+			case 6:
 				{
 				Tracker::Vector xAxis=orientations.getLockedValue().orientation.getDirection(0);
 				std::cout<<xAxis<<std::endl;

@@ -1,6 +1,6 @@
 /***********************************************************************
 TCPSocket - Wrapper class for TCP sockets ensuring exception safety.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -20,6 +20,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
@@ -107,9 +108,10 @@ TCPSocket::TCPSocket(std::string hostname,int portId)
 	hostAddress.sin_addr.s_addr=htonl(hostNetAddress.s_addr);
 	if(::connect(socketFd,(const struct sockaddr*)&hostAddress,sizeof(struct sockaddr_in))==-1)
 		{
+		int error=errno;
 		close(socketFd);
 		socketFd=-1;
-		Misc::throwStdErr("TCPSocket: Unable to connect to host %s on port %d",hostname.c_str(),portId);
+		Misc::throwStdErr("TCPSocket: Unable to connect to host %s on port %d due to error %d (%s)",hostname.c_str(),portId,error,strerror(error));
 		}
 	}
 

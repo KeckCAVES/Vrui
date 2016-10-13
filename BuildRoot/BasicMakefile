@@ -26,8 +26,14 @@
 # Commands to configure library option files
 #
 
-# sed command to set the value of a variable in a configuration header:
-CONFIG_SETVAR = sed -i -e "s/$(2) [0-9]*/$(2) $(3)/" $1
+# sed command to set the value of a numeric variable in a configuration header:
+CONFIG_SETVAR = sed -i -e 's@\#define $(2) [0-9]*@\#define $(2) $(3)@' $1
+
+# sed command to set the value of a string variable in a configuration header:
+CONFIG_SETSTRINGVAR = sed -i -e 's@\#define $(2) "[^"]*"@\#define $(2) "$(3)"@' $1
+
+# sed command to set the value of a variable in a makefile:
+CONFIG_SETMAKEVAR = sed -i -e 's@^$(2) \(:\?=\) .*@$(2) := $(3)@' $1
 
 #
 # Definitions and commands/rules to compile C/C++ source files

@@ -1,7 +1,7 @@
 /***********************************************************************
 NewButton - New base class for GLMotif UI components reacting to push
 events, implemented as container widgets with a single child.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -158,6 +158,10 @@ ZRange NewButton::calcZRange(void) const
 	
 bool NewButton::findRecipient(Event& event)
 	{
+	/* Ignore events if the button is disabled: */
+	if(!isEnabled())
+		return false;
+	
 	/* Check ourselves: */
 	Event::WidgetPoint wp=event.calcWidgetPoint(this);
 	if(isInside(wp.getPoint()))
@@ -184,6 +188,9 @@ void NewButton::pointerButtonUp(Event& event)
 
 void NewButton::pointerMotion(Event& event)
 	{
+	if(!event.isPressed())
+		return;
+	
 	/* Check if the new pointer position is still inside the button: */
 	if(event.getTargetWidget()==this)
 		{

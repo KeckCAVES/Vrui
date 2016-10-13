@@ -3,7 +3,7 @@ SharedJello - VR program to interact with "virtual Jell-O" in a
 collaborative VR environment using a client/server approach and a
 simplified force interaction model based on the Nanotech Construction
 Kit.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2016 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -30,18 +30,19 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/ThrowStdErr.h>
 #include <Cluster/OpenPipe.h>
 #include <Geometry/Plane.h>
+#include <Geometry/LinearUnit.h>
 #include <GL/gl.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/ToggleButton.h>
-#include <Vrui/DraggingTool.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/CoordinateManager.h>
+#include <Vrui/DraggingTool.h>
 
 /*****************************************
 Methods of class SharedJello::AtomDragger:
@@ -91,20 +92,14 @@ Methods of class SharedJello:
 
 GLMotif::PopupMenu* SharedJello::createMainMenu(void)
 	{
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Collaborative Virtual Jell-O");
-	
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
-	centerDisplayButton->getSelectCallbacks().add(this,&SharedJello::centerDisplayCallback);
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Collaborative Virtual Jell-O");
 	
 	showSettingsDialogToggle=new GLMotif::ToggleButton("ShowSettingsDialogToggle",mainMenu,"Show Settings Dialog");
 	showSettingsDialogToggle->getValueChangedCallbacks().add(this,&SharedJello::showSettingsDialogCallback);
 	
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
+	mainMenu->manageMenu();
+	return mainMenu;
 	}
 
 void SharedJello::updateSettingsDialog(void)
@@ -251,7 +246,7 @@ SharedJello::SharedJello(int& argc,char**& argv)
 	 newParameterVersion(1),parameterVersion(1),
 	 lockedIndex(0),mostRecentIndex(1),
 	 nextDraggerID(0),
-	 mainMenu(0),settingsDialog(0)
+	 settingsDialog(0)
 	{
 	/* Parse the command line: */
 	const char* serverHostName=0;
@@ -325,22 +320,17 @@ SharedJello::SharedJello(int& argc,char**& argv)
 	
 	/* Create triple buffer of Jell-O crystals: */
 	for(int i=0;i<3;++i)
-		crystals[i]=new JelloCrystal(numAtoms);
+		crystals[i]=new JelloCrystal(numAtoms,domain);
 	
 	/* Read the first crystal state: */
 	crystals[mostRecentIndex]->readAtomStates(*pipe);
-	
-	/* Calculate the domain box color: */
-	GLColor<GLfloat,3> domainBoxColor;
-	for(int i=0;i<3;++i)
-		domainBoxColor[i]=1.0f-Vrui::getBackgroundColor()[i];
 	
 	/* Create the triple buffer of Jell-O renderers: */
 	for(int i=0;i<3;++i)
 		{
 		renderers[i]=new JelloRenderer(*crystals[i]);
 		renderers[i]->setRenderDomainBox(renderDomainBox);
-		renderers[i]->setDomainBoxColor(domainBoxColor);
+		renderers[i]->setDomainBoxColor(Vrui::getForegroundColor());
 		}
 	renderers[mostRecentIndex]->update();
 	
@@ -352,8 +342,8 @@ SharedJello::SharedJello(int& argc,char**& argv)
 	Vrui::setMainMenu(mainMenu);
 	settingsDialog=createSettingsDialog();
 	
-	/* Initialize the navigation transformation: */
-	centerDisplayCallback(0);
+	/* Tell Vrui that navigation space is measured in inches: */
+	Vrui::getCoordinateManager()->setUnit(Geometry::LinearUnit(Geometry::LinearUnit::INCH,1.0));
 	}
 
 SharedJello::~SharedJello(void)
@@ -470,7 +460,7 @@ void SharedJello::display(GLContextData& contextData) const
 	renderers[lockedIndex]->glRenderAction(contextData);
 	}
 
-void SharedJello::centerDisplayCallback(Misc::CallbackData* cbData)
+void SharedJello::resetNavigation(void)
 	{
 	/* Set up navigation transformation to transform local physical coordinates to canonical shared Jell-O space: */
 	Vrui::Point floorDisplayCenter=Vrui::getFloorPlane().project(Vrui::getDisplayCenter());

@@ -1,7 +1,7 @@
 /***********************************************************************
 ALSAPCMDevice - Simple wrapper class around PCM devices as represented
 by the Advanced Linux Sound Architecture (ALSA) library.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -129,6 +129,33 @@ void ALSAPCMDevice::setBufferSize(size_t numBufferFrames,size_t numPeriodFrames)
 		Misc::throwStdErr("ALSAPCMDevice::setBufferSize: Error %s while setting PCM device's period size",snd_strerror(error));
 	}
 
+size_t ALSAPCMDevice::getBufferSize(void) const
+	{
+	if(pcmHwParams==0)
+		Misc::throwStdErr("ALSAPCMDevice::getBufferSize: prepare() was already called");
+	
+	int error;
+	snd_pcm_uframes_t bufferSize;
+	if((error=snd_pcm_hw_params_get_buffer_size(pcmHwParams,&bufferSize))<0)
+		Misc::throwStdErr("ALSAPCMDevice::getBufferSize: Error %s while querying PCM device's buffer size",snd_strerror(error));
+	
+	return size_t(bufferSize);
+	}
+
+size_t ALSAPCMDevice::getPeriodSize(void) const
+	{
+	if(pcmHwParams==0)
+		Misc::throwStdErr("ALSAPCMDevice::getPeriodSize: prepare() was already called");
+	
+	int error;
+	snd_pcm_uframes_t periodSize;
+	int dir;
+	if((error=snd_pcm_hw_params_get_period_size(pcmHwParams,&periodSize,&dir))<0)
+		Misc::throwStdErr("ALSAPCMDevice::getPeriodSize: Error %s while querying PCM device's period size",snd_strerror(error));
+	
+	return size_t(periodSize);
+	}
+
 void ALSAPCMDevice::setStartThreshold(size_t numStartFrames)
 	{
 	int error;
@@ -173,10 +200,25 @@ void ALSAPCMDevice::prepare(void)
 		/* Clean up: */
 		snd_pcm_hw_params_free(pcmHwParams);
 		pcmHwParams=0;
+		
+		/* snd_pcm_hw_params() automatically calls snd_pcm_prepare() */
 		}
-	
-	if((error=snd_pcm_prepare(pcmDevice))<0)
+	else if((error=snd_pcm_prepare(pcmDevice))<0)
 		Misc::throwStdErr("ALSAPCMDevice::prepare: Error %s while preparing device",snd_strerror(error));
+	}
+
+void ALSAPCMDevice::link(ALSAPCMDevice& other)
+	{
+	int error;
+	if((error=snd_pcm_link(pcmDevice,other.pcmDevice))<0)
+		Misc::throwStdErr("ALSAPCMDevice::link: Error %s",snd_strerror(error));
+	}
+
+void ALSAPCMDevice::unlink(void)
+	{
+	int error;
+	if((error=snd_pcm_unlink(pcmDevice))<0)
+		Misc::throwStdErr("ALSAPCMDevice::unlink: Error %s",snd_strerror(error));
 	}
 
 void ALSAPCMDevice::start(void)

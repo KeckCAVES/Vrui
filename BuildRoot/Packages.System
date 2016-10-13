@@ -72,6 +72,36 @@ ZLIB_INCLUDE =
 ZLIB_LIBDIR  = 
 ZLIB_LIBS    = -lz
 
+# The device event library
+UDEV_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libudev.h libudev.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+UDEV_DEPENDS = 
+UDEV_INCLUDE = -I$(LIBUDEV_BASEDIR)/$(INCLUDEEXT)
+UDEV_LIBDIR  = -L$(LIBUDEV_BASEDIR)/$(LIBEXT)
+UDEV_LIBS    = -ludev
+
+# The user-level USB library, version 1.0
+LIBUSB1_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libusb-1.0/libusb.h libusb-1.0.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+LIBUSB1_DEPENDS = 
+LIBUSB1_INCLUDE = -I$(LIBUSB1_BASEDIR)/$(INCLUDEEXT)
+LIBUSB1_LIBDIR  = -L$(LIBUSB1_BASEDIR)/$(LIBEXT)
+LIBUSB1_LIBS    = -lusb-1.0
+LIBUSB1_HAS_TOPOLOGY_CALLS = $(shell $(VRUI_MAKEDIR)/FindInHeader.sh $(LIBUSB1_BASEDIR)/$(INCLUDEEXT)/libusb-1.0/libusb.h libusb_get_parent)
+LIBUSB1_HAS_STRERROR = $(shell $(VRUI_MAKEDIR)/FindInHeader.sh $(LIBUSB1_BASEDIR)/$(INCLUDEEXT)/libusb-1.0/libusb.h libusb_strerror)
+
+# The user-level Bluetooth library
+BLUETOOTH_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh bluetooth/bluetooth.h libbluetooth.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+BLUETOOTH_DEPENDS = 
+BLUETOOTH_INCLUDE = -I$(BLUETOOTH_BASEDIR)/$(INCLUDEEXT)
+BLUETOOTH_LIBDIR  = -L$(BLUETOOTH_BASEDIR)/$(LIBEXT)
+BLUETOOTH_LIBS    = -lbluetooth
+
+# The Desktop Bus (DBus) IPC library
+LIBDBUS_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh dbus-1.0/dbus/dbus.h libdbus-1.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+LIBDBUS_DEPENDS = 
+LIBDBUS_INCLUDE = -I$(LIBDBUS_BASEDIR)/$(INCLUDEEXT)/dbus-1.0 -I$(LIBDBUS_BASEDIR)/$(LIBEXT)/dbus-1.0/$(INCLUDEEXT)
+LIBDBUS_LIBDIR  = 
+LIBDBUS_LIBS    = -ldbus-1
+
 # The PNG image package
 PNG_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh png.h libpng.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
 PNG_DEPENDS = 
@@ -149,27 +179,26 @@ THEORA_INCLUDE = -I$(THEORA_BASEDIR)/$(INCLUDEEXT)
 THEORA_LIBDIR  = -L$(THEORA_BASEDIR)/$(LIBEXT)
 THEORA_LIBS    = -ltheoraenc -ltheoradec
 
-# The user-level USB library, version 1.0
-LIBUSB1_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libusb-1.0/libusb.h libusb-1.0.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
-LIBUSB1_DEPENDS = 
-LIBUSB1_INCLUDE = -I$(LIBUSB1_BASEDIR)/$(INCLUDEEXT)
-LIBUSB1_LIBDIR  = -L$(LIBUSB1_BASEDIR)/$(LIBEXT)
-LIBUSB1_LIBS    = -lusb-1.0
-LIBUSB1_HAS_TOPOLOGY_CALLS = $(shell $(VRUI_MAKEDIR)/FindInHeader.sh $(LIBUSB1_BASEDIR)/$(INCLUDEEXT)/libusb-1.0/libusb.h libusb_get_parent)
-
-# The user-level Bluetooth library
-BLUETOOTH_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh bluetooth/bluetooth.h libbluetooth.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
-BLUETOOTH_DEPENDS = 
-BLUETOOTH_INCLUDE = -I$(BLUETOOTH_BASEDIR)/$(INCLUDEEXT)
-BLUETOOTH_LIBDIR  = -L$(BLUETOOTH_BASEDIR)/$(LIBEXT)
-BLUETOOTH_LIBS    = -lbluetooth
-
 # The basic X11 package without any toolkits/widget sets
-X11_BASEDIR = /usr/X11R6
+X11_BASEDIR = /usr
 X11_DEPENDS = 
-X11_INCLUDE = -I$(X11_BASEDIR)/$(INCLUDEEXT)
-X11_LIBDIR  = -L$(X11_BASEDIR)/$(LIBEXT)
+X11_INCLUDE = 
+X11_LIBDIR  = -L$(SYSTEM_X11_LIBDIR)
 X11_LIBS    = -lX11
+
+# The XInput2 extension package
+XINPUT2_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh X11/extensions/XInput2.h libXi.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+XINPUT2_DEPENDS = X11
+XINPUT2_INCLUDE = -I$(XINPUT2_BASEDIR)/$(INCLUDEEXT)
+XINPUT2_LIBDIR  = -L$(XINPUT2_BASEDIR)/$(LIBEXT)
+XINPUT2_LIBS    = -lXi
+
+# The XRANDR X11 extension package
+XRANDR_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh X11/extensions/Xrandr.h libXrandr.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+XRANDR_DEPENDS = X11
+XRANDR_INCLUDE = -I$(XRANDR_BASEDIR)/$(INCLUDEEXT)
+XRANDR_LIBDIR  = -L$(XRANDR_BASEDIR)/$(LIBEXT)
+XRANDR_LIBS    = -lXrandr
 
 # The basic OpenGL package without window system bindings and add-on packages
 ifneq ($(SYSTEM_GL_WITH_X11),0)
@@ -217,10 +246,28 @@ endif
 # Auto-detect the availability of optional system packages:
 #
 
+ifneq ($(strip $(LIBUDEV_BASEDIR)),)
+  SYSTEM_HAVE_LIBUDEV = 1
+else
+  SYSTEM_HAVE_LIBUDEV = 0
+endif
+
 ifneq ($(strip $(LIBUSB1_BASEDIR)),)
   SYSTEM_HAVE_LIBUSB1 = 1
 else
   SYSTEM_HAVE_LIBUSB1 = 0
+endif
+
+ifneq ($(strip $(BLUETOOTH_BASEDIR)),)
+  SYSTEM_HAVE_BLUETOOTH = 1
+else
+  SYSTEM_HAVE_BLUETOOTH = 0
+endif
+
+ifneq ($(strip $(LIBDBUS_BASEDIR)),)
+  SYSTEM_HAVE_LIBDBUS = 1
+else
+  SYSTEM_HAVE_LIBDBUS = 0
 endif
 
 ifneq ($(strip $(PNG_BASEDIR)),)
@@ -281,8 +328,14 @@ else
   SYSTEM_HAVE_THEORA = 0
 endif
 
-ifneq ($(strip $(BLUETOOTH_BASEDIR)),)
-  SYSTEM_HAVE_BLUETOOTH = 1
+ifneq ($(strip $(XINPUT2_BASEDIR)),)
+  SYSTEM_HAVE_XINPUT2 = 1
 else
-  SYSTEM_HAVE_BLUETOOTH = 0
+  SYSTEM_HAVE_XINPUT2 = 0
+endif
+
+ifneq ($(strip $(XRANDR_BASEDIR)),)
+  SYSTEM_HAVE_XRANDR = 1
+else
+  SYSTEM_HAVE_XRANDR = 0
 endif

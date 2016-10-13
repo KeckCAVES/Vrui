@@ -2,7 +2,7 @@
 GLShader - Simple class to encapsulate vertex and fragment programs
 written in the OpenGL Shading Language; assumes that vertex and fragment
 shader objects are not shared between shader programs.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -172,6 +172,15 @@ void GLShader::compileFragmentShaderFromString(const char* shaderSource)
 		}
 	}
 
+void GLShader::bindAttribLocation(GLuint index,const char* attributeName)
+	{
+	if(programObject!=0)
+		Misc::throwStdErr("GLShader::bindAttribLocation: Attempt to bind attribute location after linking");
+	
+	/* Bind the attribute location: */
+	glBindAttribLocationARB(programObject,index,attributeName);
+	}
+
 void GLShader::linkShader(void)
 	{
 	if(programObject!=0)
@@ -233,10 +242,19 @@ void GLShader::reset(void)
 	fragmentShaderObjects.clear();
 	}
 
+int GLShader::getAttribLocation(const char* attributeName) const
+	{
+	if(programObject==0)
+		Misc::throwStdErr("GLShader::getAttribLocation: Attempt to use shader program before linking");
+	
+	/* Return the uniform variable index: */
+	return glGetAttribLocationARB(programObject,attributeName);
+	}
+
 int GLShader::getUniformLocation(const char* uniformName) const
 	{
 	if(programObject==0)
-		Misc::throwStdErr("GLShader::useProgram: Attempt to use shader program before linking");
+		Misc::throwStdErr("GLShader::getUniformLocation: Attempt to use shader program before linking");
 	
 	/* Return the uniform variable index: */
 	return glGetUniformLocationARB(programObject,uniformName);

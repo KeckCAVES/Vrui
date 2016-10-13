@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveEditorTool - Tool to create and edit 3D curves (represented as
 splines in hermite form).
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,7 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
-#include <Vrui/FileSelectionHelper.h>
+#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/UtilityTool.h>
 
@@ -41,6 +41,7 @@ class Matrix;
 namespace GLMotif {
 class PopupWindow;
 class TextField;
+class FileSelectionHelper;
 }
 
 namespace Vrui {
@@ -53,10 +54,11 @@ class CurveEditorToolFactory:public ToolFactory
 	
 	/* Elements: */
 	private:
-	std::string curveFileName; // Name of file into which curve data is saved
+	std::string curveFileName; // Default name for curve files
 	Scalar vertexRadius; // Radius of vertex glyphs
 	Scalar handleRadius; // Radius of vertex tangent handle glyphs
 	Scalar curveRadius; // Radius of cylindrical tube around curve
+	GLMotif::FileSelectionHelper* curveSelectionHelper; // Helper object to load and save curve files
 	
 	/* Constructors and destructors: */
 	public:
@@ -68,6 +70,9 @@ class CurveEditorToolFactory:public ToolFactory
 	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
+	
+	/* New methods: */
+	GLMotif::FileSelectionHelper* getCurveSelectionHelper(void); // Returns pointer to a file selection helper for curve files
 	};
 
 class CurveEditorTool:public UtilityTool
@@ -168,7 +173,6 @@ class CurveEditorTool:public UtilityTool
 	bool scrub; // Flag whether the view should follow the current curve point
 	bool play; // Flag whether the curve point should move automatically with time
 	double playStartTime; // Time offset for automatic curve movement
-	FileSelectionHelper curveSelectionHelper; // Helper object to load/save curve files
 	
 	/* Editing operation state: */
 	EditingMode editingMode; // Current editing mode

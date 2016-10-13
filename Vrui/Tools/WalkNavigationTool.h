@@ -1,7 +1,7 @@
 /***********************************************************************
 WalkNavigationTool - Class to navigate in a VR environment by walking
 around a fixed center position.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

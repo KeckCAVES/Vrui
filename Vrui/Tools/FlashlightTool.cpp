@@ -1,7 +1,7 @@
 /***********************************************************************
 FlashlightTool - Class for tools that add an additional light source
 into an environment when activated.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2014 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,31 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 namespace Vrui {
 
+/*****************************************************
+Methods of class FlashlightToolFactory::Configuration:
+*****************************************************/
+
+FlashlightToolFactory::Configuration::Configuration(void)
+	{
+	/* Create a default flashlight source: */
+	light.spotCutoff=90.0f;
+	light.spotExponent=50.0f;
+	}
+
+void FlashlightToolFactory::Configuration::read(const Misc::ConfigurationFileSection& cfs)
+	{
+	light.diffuse=light.specular=cfs.retrieveValue<GLLight::Color>("./lightColor",light.diffuse);
+	light.spotCutoff=cfs.retrieveValue<GLfloat>("./lightSpotCutoff",light.spotCutoff);
+	light.spotExponent=cfs.retrieveValue<GLfloat>("./lightSpotExponent",light.spotExponent);
+	}
+
+void FlashlightToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
+	{
+	cfs.storeValue<GLLight::Color>("./lightColor",light.diffuse);
+	cfs.storeValue<GLfloat>("./lightSpotCutoff",light.spotCutoff);
+	cfs.storeValue<GLfloat>("./lightSpotExponent",light.spotExponent);
+	}
+
 /**************************************
 Methods of class FlashlightToolFactory:
 **************************************/
@@ -53,12 +78,7 @@ FlashlightToolFactory::FlashlightToolFactory(ToolManager& toolManager)
 	addParentClass(toolFactory);
 	
 	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	GLLight::Color lightColor=cfs.retrieveValue<GLLight::Color>("./lightColor",GLLight::Color(1.0f,1.0f,1.0f));
-	light.diffuse=lightColor;
-	light.specular=lightColor;
-	light.spotCutoff=cfs.retrieveValue<GLfloat>("./lightSpotCutoff",90.0f);
-	light.spotExponent=cfs.retrieveValue<GLfloat>("./lightSpotExponent",50.0f);
+	configuration.read(toolManager.getToolClassSection(getClassName()));
 	
 	/* Set tool class' factory pointer: */
 	FlashlightTool::factory=this;
@@ -120,17 +140,39 @@ Methods of class FlashlightTool:
 
 FlashlightTool::FlashlightTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:PointingTool(sFactory,inputAssignment),
+	 configuration(factory->configuration),
 	 lightsource(0),active(false)
 	{
-	/* Create a light source: */
-	lightsource=getLightsourceManager()->createLightsource(true,factory->light);
-	lightsource->disable();
 	}
 
 FlashlightTool::~FlashlightTool(void)
 	{
+	}
+
+void FlashlightTool::configure(const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Override private configuration data from given configuration file section: */
+	configuration.read(configFileSection);
+	}
+
+void FlashlightTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Write private configuration data to given configuration file section: */
+	configuration.write(configFileSection);
+	}
+
+void FlashlightTool::initialize(void)
+	{
+	/* Create a light source: */
+	lightsource=getLightsourceManager()->createLightsource(true,configuration.light);
+	lightsource->disable();
+	}
+
+void FlashlightTool::deinitialize(void)
+	{
 	/* Destroy the light source: */
 	getLightsourceManager()->destroyLightsource(lightsource);
+	lightsource=0;
 	}
 
 const ToolFactory* FlashlightTool::getFactory(void) const

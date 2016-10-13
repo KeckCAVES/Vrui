@@ -2,7 +2,7 @@
 ZipArchive - Class to represent ZIP archive files, with functionality to
 traverse contained directory hierarchies and extract files using a File
 interface.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -24,15 +24,24 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef IO_ZIPARCHIVE_INCLUDED
 #define IO_ZIPARCHIVE_INCLUDED
 
+#include <string.h>
+#include <utility>
+#include <vector>
 #include <stdexcept>
-#include <Misc/RefCounted.h>
+#include <Misc/Autopointer.h>
+#include <Threads/RefCounted.h>
 #include <IO/File.h>
 #include <IO/SeekableFile.h>
 #include <IO/Directory.h>
 
+/* Forward declarations: */
+namespace IO {
+class ZipArchiveDirectory;
+}
+
 namespace IO {
 
-class ZipArchive:public Misc::RefCounted
+class ZipArchive:public Threads::RefCounted
 	{
 	/* Embedded classes: */
 	public:
@@ -50,9 +59,59 @@ class ZipArchive:public Misc::RefCounted
 		virtual ~FileNotFoundError(void) throw();
 		};
 	
+	class FileID;
+	
+	private:
+	struct Directory // Structure to represent interior nodes in the ZIP archive's directory tree
+		{
+		friend class ZipArchiveDirectory;
+		
+		/* Embedded classes: */
+		public:
+		struct Entry // Structure to represent directory entries (files or subdirectories)
+			{
+			/* Elements: */
+			public:
+			char* name; // Pointer to the entry's name
+			Offset filePos; // Starting position of local file header inside ZIP archive; ~0x0 identifies a directory
+			union
+				{
+				struct
+					{
+					size_t compressed,uncompressed; // Size of file; 0 for a directory
+					} sizes;
+				Directory* child; // Pointer to structure representing subdirectory
+				};
+			
+			/* Methods: */
+			static bool compare(const Entry& e1,const Entry& e2)
+				{
+				return strcmp(e1.name,e2.name)<0;
+				}
+			};
+		
+		/* Elements: */
+		Directory* parent; // Pointer to parent directory; NULL for ZIP archive's root directory
+		unsigned int parentIndex; // Index of this directory in the parent's entry array
+		std::vector<Entry> entries; // List of directory entries; sorted after directory creation is complete
+		
+		/* Constructors and destructors: */
+		Directory(Directory* sParent); // Creates an empty directory node with the given parent directory
+		~Directory(void); // Destroys the directory and its subdirectories
+
+		/* Methods: */
+		bool addPath(const char* path,const FileID& fileId); // Adds the file or directory of the given directory-relative path to this directory; returns true if path was added successfully
+		void finalize(void); // Finalizes this directory and all its subdirectories by sorting entries by name and fixing subdirectory back-pointers
+		void getPath(std::string& path,size_t suffixLen) const; // Returns the absolute path name of this directory terminated with a '/'; reserves enough space to append a suffix of the given length
+		std::pair<Directory*,unsigned int> findPath(const char* path); // Returns a pointer to a directory and an index into that directory's entry array corresponding to the given relative path; returns (0, 0) if path does not exist
+		};
+	
+	public:
 	class FileID // Class to identify files in a ZIP archive
 		{
+		friend class ZipArchiveDirectory;
 		friend class ZipArchive;
+		friend struct Directory;
 		
 		/* Elements: */
 		private:
@@ -89,24 +148,23 @@ class ZipArchive:public Misc::RefCounted
 		
 		/* Elements: */
 		private:
-		Offset nextEntryPos; // Archive position of next directory entry
+		const Directory* directory; // Pointer to current directory
+		unsigned int entryIndex; // Index of current directory entry
 		size_t fileNameBufferSize; // Allocated size for file name
 		char* fileName; // File name of current directory entry
+		size_t pathEnd; // First character of entry component of file name
+		
+		/* Private methods: */
+		void getEntry(void); // Retrieves the name and file ID of the currently referenced directory entry
 		
 		/* Constructors and destructors: */
 		public:
 		DirectoryIterator(void) // Creates an invalid directory entry
-			:nextEntryPos(0),
-			 fileNameBufferSize(0),fileName(0)
+			:directory(0),entryIndex(0),
+			 fileNameBufferSize(0),fileName(0),pathEnd(0)
 			{
 			};
-		private:
-		DirectoryIterator(Offset sNextEntryPos) // Creates a directory iterator for the given next entry position
-			:nextEntryPos(sNextEntryPos),
-			 fileNameBufferSize(0),fileName(0)
-			{
-			}
-		public:
+		DirectoryIterator(const ZipArchive& archive); // Creates an iterator for the root directory of the given ZIP archive
 		DirectoryIterator(const DirectoryIterator& source);
 		DirectoryIterator& operator=(const DirectoryIterator& source);
 		~DirectoryIterator(void)
@@ -114,19 +172,30 @@ class ZipArchive:public Misc::RefCounted
 			delete[] fileName;
 			}
 		
-		/* Elements: */
+		/* Methods: */
 		public:
+		bool isValid(void) const // Returns true if the iterator points to a valid directory entry
+			{
+			return directory!=0;
+			}
 		const char* getFileName(void) const // Returns file name as NUL-terminated string
 			{
 			return fileName;
 			};
+		bool isDirectory(void) const // Returns true if the current directory entry is a subdirectory
+			{
+			return filePos==~Offset(0);
+			}
+		DirectoryIterator& operator++(void); // Increments the directory iterator to the next directory entry in depth-first order
 		};
+	
+	friend class DirectoryIterator;
+	friend class ZipArchiveDirectory;
 	
 	/* Elements: */
 	private:
 	SeekableFilePtr archive; // File object to access the ZIP archive
-	Offset directoryPos; // Position of ZIP archive's root directory
-	size_t directorySize; // Total size of root directory
+	Directory root; // The ZIP archive's root directory
 	
 	/* Private methods: */
 	int initArchive(void); // Initializes the ZIP archive file structures; returns error code
@@ -138,11 +207,10 @@ class ZipArchive:public Misc::RefCounted
 	~ZipArchive(void); // Closes the ZIP archive
 	
 	/* Methods: */
-	DirectoryIterator readDirectory(void); // Returns a new directory iterator
-	DirectoryIterator& getNextEntry(DirectoryIterator& dIt); // Advances the directory iterator to the next entry
-	FileID findFile(const char* fileName); // Returns a file identifier for a file of the given name; throws exception if file does not exist
+	FileID findFile(const char* fileName) const; // Returns a file identifier for a file of the given name; throws exception if file does not exist
 	FilePtr openFile(const FileID& fileId); // Returns a file for streaming reading
 	SeekableFilePtr openSeekableFile(const FileID& fileId); // Returns a file for seekable reading
+	DirectoryPtr openRootDirectory(void); // Returns a directory object representing the root directory
 	DirectoryPtr openDirectory(const char* directoryName); // Returns a directory object representing the given directory name
 	};
 

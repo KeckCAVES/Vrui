@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2016 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -176,12 +176,14 @@ class ClusterJello:public Vrui::Application
 	ClusterJello(int& argc,char**& argv);
 	virtual ~ClusterJello(void);
 	
-	/* Methods: */
+	/* Methods from Vrui::Application: */
 	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
 	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	void centerDisplayCallback(Misc::CallbackData* cbData);
+	virtual void resetNavigation(void);
+	
+	/* New methods: */
 	void showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
 	void viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);

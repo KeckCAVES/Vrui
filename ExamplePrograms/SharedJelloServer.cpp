@@ -1,7 +1,7 @@
 /***********************************************************************
 SharedJelloServer - Dedicated server program to allow multiple clients
 to collaboratively smack around a Jell-O crystal.
-Copyright (c) 2007-2011 Oliver Kreylos
+Copyright (c) 2007-2014 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -216,9 +216,9 @@ void* SharedJelloServer::clientCommunicationThreadMethod(SharedJelloServer::Clie
 	return 0;
 	}
 
-SharedJelloServer::SharedJelloServer(const SharedJelloServer::Index& numAtoms,int listenPortID)
+SharedJelloServer::SharedJelloServer(const SharedJelloServer::Index& numAtoms,const SharedJelloServer::Box& domain,int listenPortID)
 	:newParameterVersion(1),
-	 crystal(numAtoms),
+	 crystal(numAtoms,domain),
 	 parameterVersion(1),
 	 listenSocket(listenPortID,0)
 	{
@@ -385,6 +385,7 @@ int main(int argc,char* argv[])
 	{
 	/* Parse the command line: */
 	SharedJelloServer::Index numAtoms(4,4,8);
+	SharedJelloServer::Box domain(SharedJelloServer::Box::Point(-60.0,-36.0,0.0),SharedJelloServer::Box::Point(60.0,60.0,96.0));
 	int listenPortID=-1; // Assign any free port
 	double updateTime=0.02; // Aim for 50 updates/sec
 	for(int i=1;i<argc;++i)
@@ -397,6 +398,15 @@ int main(int argc,char* argv[])
 				++i;
 				for(int j=0;j<3&&i<argc;++j,++i)
 					numAtoms[j]=atoi(argv[i]);
+				}
+			else if(strcasecmp(argv[i]+1,"domain")==0)
+				{
+				/* Read the simulation domain: */
+				++i;
+				for(int j=0;j<3&&i<argc;++j,++i)
+					domain.min[j]=SharedJelloServer::Box::Scalar(atof(argv[i]));
+				for(int j=0;j<3&&i<argc;++j,++i)
+					domain.max[j]=SharedJelloServer::Box::Scalar(atof(argv[i]));
 				}
 			else if(strcasecmp(argv[i]+1,"port")==0)
 				{
@@ -423,7 +433,7 @@ int main(int argc,char* argv[])
 	sigaction(SIGPIPE,&sigPipeAction,0);
 	
 	/* Create a shared Jell-O server: */
-	SharedJelloServer sjs(numAtoms,listenPortID);
+	SharedJelloServer sjs(numAtoms,domain,listenPortID);
 	std::cout<<"SharedJelloServer::main: Created Jell-O server listening on port "<<sjs.getListenPortID()<<std::endl<<std::flush;
 	
 	/* Run the simulation loop full speed: */

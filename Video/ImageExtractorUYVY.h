@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorUYVY - Class to extract images from raw video frames
 encoded in YpCbCr 4:2:2 format with reversed byte order.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -41,6 +41,7 @@ class ImageExtractorUYVY:public ImageExtractor
 	public:
 	virtual void extractGrey(const FrameBuffer* frame,void* image);
 	virtual void extractRGB(const FrameBuffer* frame,void* image);
+	virtual void extractYpCbCr(const FrameBuffer* frame,void* image);
 	virtual void extractYpCbCr420(const FrameBuffer* frame,void* yp,unsigned int ypStride,void* cb,unsigned int cbStride,void* cr,unsigned int crStride);
 	};
 

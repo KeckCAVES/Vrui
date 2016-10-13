@@ -1,6 +1,6 @@
 /***********************************************************************
 AudioCaptureDevice - Base class for audio capture devices.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -24,8 +24,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <string>
 #include <vector>
-#include <Misc/RefCounted.h>
 #include <Misc/Autopointer.h>
+#include <Threads/RefCounted.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -43,7 +43,7 @@ class AudioCaptureDevice
 	{
 	/* Embedded classes: */
 	public:
-	class DeviceId:public Misc::RefCounted // Class to uniquely identify audio capture devices across different device classes
+	class DeviceId:public Threads::RefCounted // Class to uniquely identify audio capture devices across different device classes
 		{
 		/* Elements: */
 		protected:

@@ -2,7 +2,7 @@
 OpenFile - Convenience function to open files of several types using the
 IO::File abstraction and distribute among a cluster via a multicast
 pipe.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -46,7 +46,7 @@ IO::FilePtr openFile(Multiplexer* multiplexer,const char* fileName,IO::File::Acc
 	if(strncmp(fileName,"http://",7)==0)
 		{
 		if(accessMode==IO::File::WriteOnly||accessMode==IO::File::ReadWrite)
-			Misc::throwStdErr("Cluster::openFile: Write access to HTTP files not supported");
+			throw IO::File::OpenError("Cluster::openFile: Write access to HTTP files not supported");
 		
 		if(multiplexer==0)
 			{

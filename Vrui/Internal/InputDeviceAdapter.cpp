@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapter - Base class to convert from diverse "raw" input
 device representations to Vrui's internal input device representation.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,11 +25,13 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string.h>
 #include <stdio.h>
+#include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/GeometryValueCoders.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/GlyphRenderer.h>
@@ -47,7 +49,7 @@ Methods of class InputDeviceAdapter:
 void InputDeviceAdapter::createInputDevice(int deviceIndex,const Misc::ConfigurationFileSection& configFileSection)
 	{
 	/* Read input device name: */
-	std::string name=configFileSection.retrieveString("./name");
+	std::string name=configFileSection.retrieveString("./name",configFileSection.getName());
 	
 	/* Determine input device type: */
 	int trackType=InputDevice::TRACK_NONE;
@@ -158,6 +160,15 @@ int InputDeviceAdapter::getDefaultFeatureIndex(InputDevice* device,const char* f
 	return result;
 	}
 
+int InputDeviceAdapter::findInputDevice(const InputDevice* device) const
+	{
+	/* Look for the given device in the list: */
+	for(int i=0;i<numInputDevices;++i)
+		if(inputDevices[i]==device)
+			return i;
+	return -1;
+	}
+
 std::string InputDeviceAdapter::getFeatureName(const InputDeviceFeature& feature) const
 	{
 	/* Return a default feature name: */
@@ -170,8 +181,15 @@ int InputDeviceAdapter::getFeatureIndex(InputDevice* device,const char* featureN
 	return getDefaultFeatureIndex(device,featureName);
 	}
 
+TrackerState InputDeviceAdapter::peekTrackerState(int deviceIndex)
+	{
+	/* Default implementation throws an exception, for input device adapters (or devices) that don't have a tracker state: */
+	throw std::runtime_error("InputDeviceAdapter::peekTrackerState: requested device does not have tracker states");
+	}
+
 void InputDeviceAdapter::glRenderAction(GLContextData& contextData) const
 	{
 	}
 
 }
+

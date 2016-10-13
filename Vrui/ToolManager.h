@@ -134,7 +134,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	Misc::CallbackList toolDestructionCallbacks; // List of callbacks to be called before a tool will be destroyed
 	
 	/* Private methods: */
-	GLMotif::Popup* createToolSubmenu(const Plugins::Factory& factory); // Returns submenu containing all subclasses of the given class
+	GLMotif::PopupMenu* createToolSubmenu(const Plugins::Factory& factory); // Returns submenu containing all subclasses of the given class
 	GLMotif::PopupMenu* createToolMenu(void); // Returns top level of tool selection menu
 	void inputDeviceDestructionCallback(Misc::CallbackData* cbData); // Callback called when an input device is destroyed
 	void toolMenuSelectionCallback(Misc::CallbackData* cbData); // Callback called when a tool class is selected from the selection menu; continues tool creation process

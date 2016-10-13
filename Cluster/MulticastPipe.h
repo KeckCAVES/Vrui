@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -46,6 +46,7 @@ class MulticastPipe:public IO::File,public ClusterPipe
 	protected:
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
 	virtual void writeData(const Byte* buffer,size_t bufferSize);
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize);
 	
 	/* Protected methods from ClusterPipe: */
 	virtual void flushPipe(void);

@@ -2,7 +2,7 @@
 GLARBDrawInstanced - OpenGL extension class for the
 GL_ARB_draw_instanced extension.
 Copyright (c) 2010 Rolf Westerteiger
-Fixes copyright (c) 2010-2013 Oliver Kreylos
+Fixes copyright (c) 2010-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -32,6 +32,7 @@ Static elements of class GLARBDrawInstanced:
 *******************************************/
 
 GL_THREAD_LOCAL(GLARBDrawInstanced*) GLARBDrawInstanced::current=0;
+const char* GLARBDrawInstanced::name="GL_ARB_draw_instanced";
 
 /***********************************
 Methods of class GLARBDrawInstanced:
@@ -49,7 +50,7 @@ GLARBDrawInstanced::~GLARBDrawInstanced(void)
 
 const char* GLARBDrawInstanced::getExtensionName(void) const
 	{
-	return "GL_ARB_draw_instanced";
+	return name;
 	}
 
 void GLARBDrawInstanced::activate(void)
@@ -65,13 +66,13 @@ void GLARBDrawInstanced::deactivate(void)
 bool GLARBDrawInstanced::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_ARB_draw_instanced");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLARBDrawInstanced::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_ARB_draw_instanced"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLARBDrawInstanced* newExtension=new GLARBDrawInstanced;

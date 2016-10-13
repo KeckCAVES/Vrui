@@ -1,7 +1,7 @@
 /***********************************************************************
 FixedMemoryFile - Class to read/write from/to fixed-size memory blocks
 using a File abstraction.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -38,6 +38,7 @@ class FixedMemoryFile:public SeekableFile
 	/* Constructors and destructors: */
 	public:
 	FixedMemoryFile(size_t sMemSize); // Creates a memory block of the given size
+	FixedMemoryFile(Byte* sMemBlock,size_t MemSize); // Creates a file interface for the given memory block; adopts memory block
 	virtual ~FixedMemoryFile(void);
 	
 	/* Methods from File: */
@@ -56,9 +57,23 @@ class FixedMemoryFile:public SeekableFile
 		{
 		return memBlock;
 		}
+	size_t getMemorySize(void) const // Returns the maximum data size
+		{
+		return memSize;
+		}
+	void setReadDataSize(size_t newWriteSize) // Sets the amount of data that has been written into the memory block via direct memory access
+		{
+		flushReadBuffer();
+		appendReadBufferData(newWriteSize);
+		readPos=newWriteSize;
+		}
 	size_t getWriteSize(void) const // Returns the amount of data that has been written into the memory block
 		{
 		return size_t(getWritePtr());
+		}
+	void clear(void) // Clears any data that has been written into the memory block
+		{
+		setWritePtr(0);
 		}
 	};
 

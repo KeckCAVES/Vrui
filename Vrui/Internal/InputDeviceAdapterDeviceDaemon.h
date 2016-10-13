@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -35,6 +35,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 namespace Misc {
 class ConfigurationFileSection;
 }
+namespace Vrui {
+class HMDConfiguration;
+}
 
 namespace Vrui {
 
@@ -43,6 +46,8 @@ class InputDeviceAdapterDeviceDaemon:public InputDeviceAdapterIndexMap
 	/* Elements: */
 	private:
 	VRDeviceClient deviceClient; // Device client delivering "raw" device state
+	bool predictMotion; // Flag to enable motion prediction based on age of received tracking data and estimated frame presentation time
+	float motionPredictionDelta; // Motion prediction time interval to apply to tracked devices in seconds
 	std::vector<std::string> buttonNames; // Array of button names for all defined input devices
 	std::vector<std::string> valuatorNames; // Array of valuator names for all defined input devices
 	Threads::Spinlock errorMessageMutex; // Mutex protecting the error message log
@@ -65,6 +70,15 @@ class InputDeviceAdapterDeviceDaemon:public InputDeviceAdapterIndexMap
 	virtual std::string getFeatureName(const InputDeviceFeature& feature) const;
 	virtual int getFeatureIndex(InputDevice* device,const char* featureName) const;
 	virtual void updateInputDevices(void);
+	virtual TrackerState peekTrackerState(int deviceIndex);
+	
+	/* New methods: */
+	VRDeviceClient& getDeviceClient(void) // Returns a reference to the VR device client
+		{
+		return deviceClient;
+		}
+	int findTrackerIndex(const InputDevice* device) const; // Returns the index of the tracker associated with the given input device, or -1
+	const HMDConfiguration* findHmdConfiguration(const InputDevice* device) const; // Returns a pointer to an HMD configuration associated with the given input device, or 0
 	};
 
 }

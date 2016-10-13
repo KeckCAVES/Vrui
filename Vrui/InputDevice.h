@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDevice - Class to represent input devices (6-DOF tracker with
 associated buttons and valuators) in virtual reality environments.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -246,6 +246,7 @@ class InputDevice // Class for input devices
 		{
 		angularVelocity=newAngularVelocity;
 		}
+	void copyTrackingState(const InputDevice* source); // Copies the entire tracking (but not button nor valuator) state from the given source device
 	void clearButtonStates(void);
 	void setButtonState(int index,bool newButtonState);
 	void setSingleButtonPressed(int index);
@@ -304,8 +305,9 @@ class InputDevice // Class for input devices
 		}
 	
 	/* Callback enable/disable methods: */
-	void disableCallbacks(void);
-	void enableCallbacks(void);
+	void disableCallbacks(void); // Disables tracking and feature callbacks
+	void triggerFeatureCallback(int featureIndex); // Triggers the callbacks for the feature of the given index if its state has changed since calling disableCallbacks
+	void enableCallbacks(void); // Enables tracking and feature callbacks and calls callbacks for all features whose states have changed since calling disableCallbacks
 	};
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 MeasureEnvironment - Utility for guided surveys of a single-screen
 VR environment using a Total Station.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -33,12 +33,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Math/Math.h>
 #include <Math/Constants.h>
 #include <Math/Matrix.h>
+#include <Math/VarianceAccumulator.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Vector.h>
 #include <Geometry/ProjectiveTransformation.h>
 #include <Geometry/PCACalculator.h>
 #include <Geometry/PointPicker.h>
 #include <Geometry/RayPicker.h>
+#include <Geometry/LevenbergMarquardtMinimizer.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertexTemplates.h>
@@ -46,7 +48,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupMenu.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/Margin.h>
 #include <GLMotif/Label.h>
@@ -60,7 +61,6 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include "NaturalPointClient.h"
 #include "PTransformFitter.h"
-#include "LevenbergMarquardtMinimizer.h"
 
 namespace {
 
@@ -404,10 +404,9 @@ MeasureEnvironment::PTransform MeasureEnvironment::calcNormalization(const Measu
 GLMotif::PopupMenu* MeasureEnvironment::createMainMenu(void)
 	{
 	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Survey Buddy");
-	
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Survey Buddy");
+	mainMenu->createMenu();
 	
 	GLMotif::RadioBox* measuringModes=new GLMotif::RadioBox("MeasuringModes",mainMenu,false);
 	measuringModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
@@ -424,9 +423,6 @@ GLMotif::PopupMenu* MeasureEnvironment::createMainMenu(void)
 	GLMotif::Button* loadMeasurementFileButton=new GLMotif::Button("LoadMeasurementFileButton",mainMenu,"Load Measurement File");
 	loadMeasurementFileButton->getSelectCallbacks().add(this,&MeasureEnvironment::loadMeasurementFileCallback);
 	
-	GLMotif::Button* loadOptitrackSampleFileButton=new GLMotif::Button("LoadOptitrackSampleFileButton",mainMenu,"Load Optitrack Sample File");
-	loadOptitrackSampleFileButton->getSelectCallbacks().add(this,&MeasureEnvironment::loadOptitrackSampleFileCallback);
-	
 	GLMotif::Button* saveMeasurementFileButton=new GLMotif::Button("SaveMeasurementFileButton",mainMenu,"Save Measurement File");
 	saveMeasurementFileButton->getSelectCallbacks().add(this,&MeasureEnvironment::saveMeasurementFileCallback);
 	
@@ -437,8 +433,8 @@ GLMotif::PopupMenu* MeasureEnvironment::createMainMenu(void)
 	fitScreenTransformationButton->getSelectCallbacks().add(this,&MeasureEnvironment::fitScreenTransformationCallback);
 	
 	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	return mainMenuPopup;
+	mainMenu->manageMenu();
+	return mainMenu;
 	}
 
 void* MeasureEnvironment::pointCollectorThreadMethod(void)
@@ -452,49 +448,90 @@ void* MeasureEnvironment::pointCollectorThreadMethod(void)
 		Point p=pointTransform.transform(totalStation->readNextMeasurement());
 		
 		/* Store the point: */
-		{
-		Threads::Mutex::Lock measuringLock(measuringMutex);
 		switch(measuringMode)
 			{
 			case 0:
+				{
+				Threads::Mutex::Lock measuringLock(measuringMutex);
 				floorPoints.push_back(p);
 				measurementsDirty=true;
 				break;
+				}
 			
 			case 1:
+				{
+				Threads::Mutex::Lock measuringLock(measuringMutex);
 				screenPoints.push_back(p);
 				measurementsDirty=true;
 				break;
+				}
 			
 			case 2:
 				{
 				if(naturalPointClient!=0)
 					{
-					/* Request a frame from the NaturalPoint server: */
-					const NaturalPointClient::Frame& frame=naturalPointClient->waitForNextFrame();
-					if(frame.otherMarkers.size()==1)
+					/* Show the progress dialog: */
+					Vrui::popupPrimaryWidget(samplingTrackerDialog);
+					Vrui::requestUpdate();
+					
+					/* Request a number of frames from the NaturalPoint server: */
+					Math::VarianceAccumulator trackerSamplers[3];
+					int sample=0;
+					for(int i=0;sample<naturalPointNumSamples&&i<naturalPointNumSamples*2;++i)
 						{
-						Point tp=frame.otherMarkers[0];
+						/* Wait for the next tracking data frame: */
+						const NaturalPointClient::Frame& frame=naturalPointClient->waitForNextFrame();
+						
+						/* Check if there is only one marker: */
+						if(frame.otherMarkers.size()==1)
+							{
+							/* Accumulate the lone marker: */
+							for(int i=0;i<3;++i)
+								trackerSamplers[i].addSample(frame.otherMarkers[0][i]);
+							++sample;
+							}
+						}
+					
+					/* Hide the progress dialog: */
+					Vrui::popdownPrimaryWidget(samplingTrackerDialog);
+					
+					/* Check if there were enough samples: */
+					if(sample==naturalPointNumSamples)
+						{
+						Threads::Mutex::Lock measuringLock(measuringMutex);
+						
+						/* Extract the sample mean and standard deviation: */
+						Point trackerPoint;
+						Scalar trackerVarianceSum(0);
+						for(int i=0;i<3;++i)
+							{
+							trackerPoint[i]=trackerSamplers[i].calcMean();
+							trackerVarianceSum+=trackerSamplers[i].calcVariance();
+							}
 						if(naturalPointFlipZ)
-							tp[2]=-tp[2];
-						trackerPoints.push_back(pointTransform.transform(tp));
+							trackerPoint[2]=-trackerPoint[2];
+						trackerPoints.push_back(pointTransform.transform(trackerPoint));
+						trackerStdDevs.push_back(Math::sqrt(trackerVarianceSum));
 						ballPoints.push_back(p);
+						measurementsDirty=true;
 						}
 					else
 						{
 						/* Ignore the measurement and show an error message: */
 						char message[256];
-						snprintf(message,sizeof(message),"OptiTrack delivered %u points; ignoring measurement",(unsigned int)(frame.otherMarkers.size()));
+						snprintf(message,sizeof(message),"OptiTrack only delivered %d tracking samples; ignoring measurement",sample);
 						Vrui::showErrorMessage("NaturalPoint Client",message);
 						}
 					}
 				else
+					{
+					Threads::Mutex::Lock measuringLock(measuringMutex);
 					ballPoints.push_back(p);
-				measurementsDirty=true;
+					measurementsDirty=true;
+					}
 				break;
 				}
 			}
-		}
 		
 		Vrui::requestUpdate();
 		}
@@ -537,6 +574,11 @@ void MeasureEnvironment::loadMeasurementFile(IO::Directory& directory,const char
 			screenPoints.push_back(p);
 		else if(tok.isCaseToken("BALLS"))
 			ballPoints.push_back(p);
+		else if(tok.isCaseToken("TRACKER"))
+			{
+			trackerPoints.push_back(p);
+			trackerStdDevs.push_back(Scalar(atof(tok.readNextToken())));
+			}
 		else
 			Misc::throwStdErr("MeasureEnvironment::MeasureEnvironment: Unknown point tag \"%s\" in input file %s",tok.getToken(),fileName);
 		
@@ -561,106 +603,22 @@ void MeasureEnvironment::saveMeasurementFile(const char* fileName)
 		pointFile<<std::setw(12)<<*spIt<<",\"SCREEN\""<<std::endl;
 	for(PointList::const_iterator bpIt=ballPoints.begin();bpIt!=ballPoints.end();++bpIt)
 		pointFile<<std::setw(12)<<*bpIt<<",\"BALLS\""<<std::endl;
-	
-	if(naturalPointClient!=0)
-		{
-		/* Save all Optitrack sample points: */
-		std::ofstream pointFile("TrackingPoints.csv");
-		pointFile.setf(std::ios::fixed);
-		pointFile<<std::setprecision(6);
-		size_t i=0;
-		for(PointList::const_iterator tpIt=trackerPoints.begin();tpIt!=trackerPoints.end();++tpIt)
-			{
-			pointFile<<1<<","<<std::setw(4)<<i*10<<","<<std::setw(12)<<(*tpIt)[0]<<","<<std::setw(12)<<(*tpIt)[1]<<","<<std::setw(12)<<(*tpIt)[2]<<std::endl;
-			++i;
-			}
-		}
+	for(size_t i=0;i<trackerPoints.size();++i)
+		pointFile<<std::setw(12)<<trackerPoints[i]<<", \"TRACKER\", "<<std::setw(12)<<trackerStdDevs[i]<<std::endl;
 	
 	measurementsDirty=false;
 	}
 
-void MeasureEnvironment::loadOptitrackSampleFile(IO::Directory& directory,const char* fileName,bool flipZ)
-	{
-	Threads::Mutex::Lock measuringLock(measuringMutex);
-	
-	/* Open the CSV input file: */
-	IO::TokenSource tok(directory.openFile(fileName));
-	tok.setPunctuation(",\n");
-	tok.setQuotes("\"");
-	tok.skipWs();
-	
-	/* Read all point records from the file: */
-	double lastTimeStamp=Math::Constants<double>::min;
-	Point::AffineCombiner pac;
-	unsigned int numPoints=0;
-	unsigned int line=1;
-	while(!tok.eof())
-		{
-		/* Read a point record: */
-		
-		/* Read the marker index: */
-		int markerIndex=atoi(tok.readNextToken());
-		
-		if(strcmp(tok.readNextToken(),",")!=0)
-			Misc::throwStdErr("readOptitrackSampleFile: missing comma in line %u",line);
-		
-		/* Read the sample timestamp: */
-		double timeStamp=atof(tok.readNextToken());
-		
-		/* Read the point position: */
-		Point p;
-		for(int i=0;i<3;++i)
-			{
-			if(strcmp(tok.readNextToken(),",")!=0)
-				Misc::throwStdErr("readOptitrackSampleFile: missing comma in line %u",line);
-			
-			p[i]=Scalar(atof(tok.readNextToken()));
-			}
-		
-		if(flipZ)
-			{
-			/* Invert the z component to flip to a right-handed coordinate system: */
-			p[2]=-p[2];
-			}
-		
-		if(strcmp(tok.readNextToken(),"\n")!=0)
-			Misc::throwStdErr("readOptitrackSampleFile: overlong point record in line %u",line);
-		
-		/* Check if the point record is valid: */
-		if(markerIndex==1)
-			{
-			/* Check if this record started a new sampling sequence: */
-			if(timeStamp>=lastTimeStamp+5.0&&numPoints>0)
-				{
-				/* Get the current average point position and reset the accumulator: */
-				trackerPoints.push_back(pac.getPoint());
-				pac.reset();
-				numPoints=0;
-				}
-			
-			/* Add the point to the current accumulator: */
-			pac.addPoint(p);
-			++numPoints;
-			
-			lastTimeStamp=timeStamp;
-			}
-		}
-	
-	/* Get the last average point position: */
-	if(numPoints>0)
-		trackerPoints.push_back(pac.getPoint());
-	}
-
-MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefaults)
-	:Vrui::Application(argc,argv,appDefaults),
+MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv)
+	:Vrui::Application(argc,argv),
 	 totalStation(0),basePrismOffset(34.4),initialPrismOffset(0),
-	 naturalPointClient(0),naturalPointFlipZ(false),
+	 naturalPointClient(0),naturalPointFlipZ(false),naturalPointNumSamples(100),
 	 pointTransform(OGTransform::identity),
 	 measuringMode(0),
 	 ballRadius(TotalStation::Scalar(25.4/4.0)),
 	 gridSize(300),
 	 measurementsDirty(false),
-	 mainMenu(0)
+	 mainMenu(0),samplingTrackerDialog(0)
 	{
 	/* Register the point snapper tool class with the Vrui tool manager: */
 	PointSnapperToolFactory* pointSnapperToolFactory=new PointSnapperToolFactory("PointSnapperTool","Snap To Points",Vrui::getToolManager()->loadClass("TransformTool"),*Vrui::getToolManager());
@@ -678,11 +636,11 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	
 	/* Parse the command line: */
 	const char* totalStationDeviceName=0;
+	int totalStationBaudRate=19200;
 	const char* naturalPointServerName=0;
 	int naturalPointCommandPort=1510;
-	const char* naturalPointDataAddress="224.0.0.1";
+	const char* naturalPointMulticastGroup="224.0.0.1";
 	int naturalPointDataPort=1511;
-	int totalStationBaudRate=19200;
 	const char* measurementFileName=0;
 	TotalStation::Scalar totalStationUnitScale=TotalStation::Scalar(1);
 	screenPixelSize[0]=screenPixelSize[1]=-1;
@@ -690,77 +648,90 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 		{
 		if(argv[i][0]=='-')
 			{
+			bool dangling=false;
 			if(strcasecmp(argv[i]+1,"t")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					totalStationDeviceName=argv[i];
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
 			else if(strcasecmp(argv[i]+1,"baudRate")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					totalStationBaudRate=atoi(argv[i]);
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
 			else if(strcasecmp(argv[i]+1,"unitScale")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					totalStationUnitScale=TotalStation::Scalar(atof(argv[i]));
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
 			else if(strcasecmp(argv[i]+1,"prismOffset")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					basePrismOffset=TotalStation::Scalar(atof(argv[i]));
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
 			else if(strcasecmp(argv[i]+1,"ballRadius")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					ballRadius=TotalStation::Scalar(atof(argv[i]));
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
 			else if(strcasecmp(argv[i]+1,"npc")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					naturalPointServerName=argv[i];
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
+				}
+			else if(strcasecmp(argv[i]+1,"commandPort")==0)
+				{
+				++i;
+				if(!(dangling=i>=argc))
+					naturalPointCommandPort=atoi(argv[i]);
+				}
+			else if(strcasecmp(argv[i]+1,"multicastGroup")==0)
+				{
+				++i;
+				if(!(dangling=i>=argc))
+					naturalPointMulticastGroup=argv[i];
+				}
+			else if(strcasecmp(argv[i]+1,"dataPort")==0)
+				{
+				++i;
+				if(!(dangling=i>=argc))
+					naturalPointDataPort=atoi(argv[i]);
 				}
 			else if(strcasecmp(argv[i]+1,"flipZ")==0)
 				naturalPointFlipZ=true;
+			else if(strcasecmp(argv[i]+1,"numSamples")==0)
+				{
+				++i;
+				if(!(dangling=i>=argc))
+					naturalPointNumSamples=atoi(argv[i]);
+				}
 			else if(strcasecmp(argv[i]+1,"screenSize")==0)
 				{
-				if(i+2<argc)
+				i+=2;
+				if(!(dangling=i>=argc))
 					{
 					for(int j=0;j<2;++j)
-						screenPixelSize[j]=atoi(argv[i+1+j]);
+						screenPixelSize[j]=atoi(argv[i-1+j]);
 					}
 				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i]<<std::endl;
-				i+=2;
+					--i;
 				}
 			else if(strcasecmp(argv[i]+1,"gridSize")==0)
 				{
 				++i;
-				if(i<argc)
+				if(!(dangling=i>=argc))
 					gridSize=atoi(argv[i]);
-				else
-					std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 				}
 			else
 				std::cerr<<"MeasureEnvironment: Unrecognized command line switch "<<argv[i]<<std::endl;
+			if(dangling)
+				std::cerr<<"MeasureEnvironment: Ignoring dangling command line switch "<<argv[i-1]<<std::endl;
 			}
 		else if(measurementFileName==0)
 			measurementFileName=argv[i];
@@ -788,8 +759,23 @@ MeasureEnvironment::MeasureEnvironment(int& argc,char**& argv,char**& appDefault
 	if(naturalPointServerName!=0)
 		{
 		/* Connect to the NaturalPoint server: */
-		naturalPointClient=new NaturalPointClient(naturalPointServerName,naturalPointCommandPort,naturalPointDataAddress,naturalPointDataPort);
+		naturalPointClient=new NaturalPointClient(naturalPointServerName,naturalPointCommandPort,naturalPointMulticastGroup,naturalPointDataPort);
+		
+		/* Create the average depth frame dialog window: */
+		GLMotif::PopupWindow* samplingTrackerDialog=new GLMotif::PopupWindow("SamplingTrackerDialogPopup",Vrui::getWidgetManager(),"NaturalPoint Client");
+		
+		new GLMotif::Label("SamplingTrackerLabel",samplingTrackerDialog,"Sampling tracker...");
 		}
+	
+	/* Create a list of template screen calibration points: */
+	for(int i=0;i<2;++i)
+		numScreenPoints[i]=(screenPixelSize[i]-1)/gridSize+1;
+	int screenPixelOffset[2];
+	for(int i=0;i<2;++i)
+		screenPixelOffset[i]=((screenPixelSize[i]-1)%gridSize)/2;
+	for(int y=screenPixelOffset[1];y<screenPixelSize[1];y+=gridSize)
+		for(int x=screenPixelOffset[0];x<screenPixelSize[0];x+=gridSize)
+			templateScreenPoints.push_back(Point((Scalar(x)+Scalar(0.5))/Scalar(screenPixelSize[0]),Scalar(1)-(Scalar(y)+Scalar(0.5))/Scalar(screenPixelSize[1]),0));
 	
 	/* Import a measurement file if one is given: */
 	if(measurementFileName!=0)
@@ -830,6 +816,7 @@ MeasureEnvironment::~MeasureEnvironment(void)
 		saveMeasurementFile("MeasuredPoints.csv");
 		}
 	
+	delete samplingTrackerDialog;
 	delete naturalPointClient;
 	}
 
@@ -989,7 +976,10 @@ void MeasureEnvironment::deletePoint(const MeasureEnvironment::PickResult& pickR
 		{
 		ballPoints.erase(ballPoints.begin()+pr);
 		if(naturalPointClient!=0)
+			{
 			trackerPoints.erase(trackerPoints.begin()+pr);
+			trackerStdDevs.erase(trackerStdDevs.begin()+pr);
+			}
 		measurementsDirty=true;
 		return;
 		}
@@ -1049,26 +1039,6 @@ void MeasureEnvironment::loadMeasurementFileOKCallback(GLMotif::FileSelectionDia
 	{
 	/* Load the selected measurement file: */
 	loadMeasurementFile(*cbData->selectedDirectory,cbData->selectedFileName);
-	
-	/* Destroy the file selection dialog: */
-	cbData->fileSelectionDialog->close();
-	}
-
-void MeasureEnvironment::loadOptitrackSampleFileCallback(Misc::CallbackData* cbData)
-	{
-	/* Open a file selection dialog: */
-	GLMotif::FileSelectionDialog* loadOptitrackSampleFileDialog=new GLMotif::FileSelectionDialog(Vrui::getWidgetManager(),"Load Measurement File...",Vrui::openDirectory("."),".csv");
-	loadOptitrackSampleFileDialog->getOKCallbacks().add(this,&MeasureEnvironment::loadOptitrackSampleFileOKCallback);
-	loadOptitrackSampleFileDialog->deleteOnCancel();
-	
-	/* Show the file selection dialog: */
-	Vrui::popupPrimaryWidget(loadOptitrackSampleFileDialog);
-	}
-
-void MeasureEnvironment::loadOptitrackSampleFileOKCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
-	{
-	/* Load the selected Optitrack sample file: */
-	loadOptitrackSampleFile(*cbData->selectedDirectory,cbData->selectedFileName,naturalPointFlipZ);
 	
 	/* Destroy the file selection dialog: */
 	cbData->fileSelectionDialog->close();
@@ -1218,7 +1188,10 @@ void MeasureEnvironment::fitScreenTransformationCallback(Misc::CallbackData* cbD
 	/* Refine the homography: */
 	PTransformFitter ptf(idealPoints.size(),&idealPoints[0],&screenPoints[0]);
 	ptf.setTransform(pScreenTransform);
-	PTransformFitter::Scalar screenResult2=LevenbergMarquardtMinimizer<PTransformFitter>::minimize(ptf);
+	
+	Geometry::LevenbergMarquardtMinimizer<PTransformFitter> pMinimizer;
+	pMinimizer.maxNumIterations=100000;
+	PTransformFitter::Scalar screenResult2=pMinimizer.minimize(ptf);
 	std::cout<<"Projective transformation fitting final distance: "<<screenResult2<<std::endl;
 	pScreenTransform=ptf.getTransform();
 	
@@ -1240,7 +1213,10 @@ void MeasureEnvironment::fitScreenTransformationCallback(Misc::CallbackData* cbD
 	
 	/* Find the best-fitting screen transformation for the measured screen points: */
 	ScreenTransformFitter stf(screen.size(),&screen[0],&screenPoints[0]);
-	ScreenTransformFitter::Scalar screenResult1=LevenbergMarquardtMinimizer<ScreenTransformFitter>::minimize(stf);
+	
+	Geometry::LevenbergMarquardtMinimizer<ScreenTransformFitter> stMinimizer;
+	stMinimizer.maxNumIterations=100000;
+	ScreenTransformFitter::Scalar screenResult1=stMinimizer.minimize(stf);
 	std::cout<<"Screen transformation fitting final distance: "<<screenResult1<<std::endl;
 	screenTransform=stf.getTransform();
 	screenSize[0]=stf.getSize(0);
@@ -1281,11 +1257,4 @@ void MeasureEnvironment::fitScreenTransformationCallback(Misc::CallbackData* cbD
 	#endif
 	}
 
-int main(int argc,char* argv[])
-	{
-	char** appDefaults=0;
-	MeasureEnvironment app(argc,argv,appDefaults);
-	app.run();
-	
-	return 0;
-	}
+VRUI_APPLICATION_RUN(MeasureEnvironment)

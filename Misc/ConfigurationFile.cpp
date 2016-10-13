@@ -1,7 +1,7 @@
 /***********************************************************************
 ConfigurationFile - Class to handle permanent storage of configuration
 data in human-readable text files.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -24,6 +24,11 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ConfigurationFile.h>
 
 #include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <vector>
 #include <Misc/File.h>
 #include <Misc/StandardValueCoders.h>
 
@@ -744,6 +749,669 @@ void ConfigurationFileBase::saveAs(const char* newFileName)
 	/* Save the root section: */
 	File file(fileName.c_str(),"wt");
 	rootSection->save(file,0);
+	}
+
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+char processEscape(int c)
+	{
+	switch(c)
+		{
+		case 'a':
+			return '\a';
+		
+		case 'b':
+			return '\b';
+		
+		case 'f':
+			return '\f';
+		
+		case 'n':
+			return '\n';
+		
+		case 'r':
+			return '\r';
+		
+		case 't':
+			return '\t';
+		
+		case 'v':
+			return '\v';
+		
+		default:
+			return char(c);
+		}
+	}
+
+/**************
+Helper classes:
+**************/
+
+struct SectionMatch // Structure defining the match of a section with the tag path
+	{
+	/* Elements: */
+	public:
+	std::string name; // The section name
+	const char* matchedPrefix; // Pointer to the first component of the tag path that is not matched by this section, or NULL
+	const char* nextSlash; // Pointer to the next slash or end-of-string in the tag path
+	
+	/* Constructors and destructors: */
+	SectionMatch(const char* sNameBegin,const char* sNameEnd,const char* sMatchedPrefix =0,const char* sNextSlash =0)
+		:name(sNameBegin,sNameEnd),
+		 matchedPrefix(sMatchedPrefix),nextSlash(sNextSlash)
+		{
+		}
+	};
+
+}
+
+void ConfigurationFileBase::patchFile(const char* fileName,const char* tagPath,const char* newValue)
+	{
+	/* Open a temporary output file: */
+	size_t fnLen=strlen(fileName);
+	char* tempFileName=new char[fnLen+6+1];
+	memcpy(tempFileName,fileName,fnLen);
+	for(int i=0;i<6;++i)
+		tempFileName[fnLen+i]='X';
+	tempFileName[fnLen+6]='\0';
+	int tempFd=mkstemp(tempFileName);
+	if(tempFd<0)
+		{
+		int error=errno;
+		throwStdErr("Misc::ConfigurationFile::patchFile: Unable to patch file %s due to error %d (%s)",fileName,error,strerror(error));
+		}
+	
+	try
+		{
+		/* Put a File wrapper around the temporary file: */
+		File tempFile(tempFd,"w+");
+		
+		/* Try opening the given configuration file: */
+		File file(fileName,"rt");
+		
+		/* Parse the given configuration file: */
+		enum State // States of the file parser automaton
+			{
+			LINE, // At beginning of line, reading whitespace
+			TAG,QUOTEDTAG, // Parsing a naked or quoted tag
+			SECTIONWS, // Reading whitespace between the "section" keyword and the section name
+			SECTION,QUOTEDSECTION, // Reading a naked or quoted section name
+			VALUEWS, // Reading whitespace between a tag and its value
+			VALUEWSPLUS, // Read a "+" between a tag and its value
+			VALUEWSPLUSEQUAL, // Read a "+=" between a tag and its value
+			VALUE, // Parsing a value
+			VALUESKIPWS, // Skipping whitespace inside a value due to a line break
+			SKIPVALUE, // Skipping the value of a matched tag
+			COMMENT, // Skipping a comment
+			SKIPLINE // Skipping until the end of the current line
+			} state=LINE;
+		unsigned int lineNumber=1;
+		std::vector<SectionMatch> sections; // Stack of section names
+		const char* matchedPrefix=tagPath; // Pointer to the first character of the tag path not yet matched to the current section path
+		const char* nextSlash; // Pointer to the next slash (or end of string) in the tag path
+		for(nextSlash=matchedPrefix;*nextSlash!='/'&&*nextSlash!='\0';++nextSlash)
+			;
+		sections.push_back(SectionMatch(tagPath,tagPath,matchedPrefix,nextSlash)); // A root section as sentinel
+		char whitespace[1024]; // Whitespace at the beginning of the current line
+		char* wsPtr=whitespace;
+		char tag[1024]; // The currently-parsed tag
+		char* tPtr=tag;
+		char section[1024]; // The currently-parsed section name
+		char* sPtr=section;
+		std::string value; // The currently-parsed value
+		// bool valueContinuation=false; // Flag whether the current value is a list continuation
+		bool escaped=false;
+		int quote=-1;
+		bool copyChars=true;
+		int c;
+		while((c=file.getc())>=0)
+			{
+			switch(state)
+				{
+				case LINE:
+					if(c=='\n')
+						{
+						++lineNumber;
+						wsPtr=whitespace;
+						}
+					else if(c=='#')
+						state=COMMENT;
+					else if(c=='"'||c=='\'')
+						{
+						quote=c;
+						state=QUOTEDTAG;
+						tPtr=tag;
+						}
+					else if(isspace(c))
+						*(wsPtr++)=char(c);
+					else
+						{
+						state=TAG;
+						tPtr=tag;
+						if(c=='\\')
+							escaped=true;
+						else
+							*(tPtr++)=char(c);
+						}
+					break;
+				
+				case TAG:
+					if(escaped)
+						{
+						if(c=='\n')
+							++lineNumber;
+						else
+							*(tPtr++)=processEscape(c);
+						escaped=false;
+						}
+					else if(c=='\\')
+						escaped=true;
+					else if(c=='\n'||isspace(c))
+						{
+						/* Tag is finished; process it: */
+						*tPtr='\0';
+						if(strcasecmp(tag,"section")==0)
+							{
+							if(c=='\n')
+								throw MalformedConfigFileError("Missing section name",lineNumber,fileName);
+							else
+								state=SECTIONWS;
+							}
+						else if(strcasecmp(tag,"endsection")==0)
+							{
+							/* Pop the current section off the stack: */
+							if(sections.size()<=1)
+								throw MalformedConfigFileError("Extra endsection command",lineNumber,fileName);
+							sections.pop_back();
+							if(sections.back().matchedPrefix!=0)
+								{
+								matchedPrefix=sections.back().matchedPrefix;
+								nextSlash=sections.back().nextSlash;
+								}
+							
+							if(c=='\n')
+								{
+								/* Parse the next line: */
+								++lineNumber;
+								state=LINE;
+								wsPtr=whitespace;
+								}
+							else
+								state=SKIPLINE;
+							}
+						else
+							{
+							/* Check if the current section path matches the tag path: */
+							if(sections.back().matchedPrefix!=0&&*nextSlash=='\0')
+								{
+								/* Match the tag against the tag path's suffix: */
+								char* cPtr1;
+								const char* cPtr2;
+								for(cPtr1=tag,cPtr2=matchedPrefix;cPtr1<tPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
+									;
+								if(cPtr1==tPtr&&cPtr2==nextSlash)
+									{
+									/* Output the replacement value to the temporary file: */
+									fputc(' ',tempFile.getFilePtr());
+									for(const char* vPtr=newValue;*vPtr!='\0';++vPtr)
+										{
+										if(*vPtr=='\n')
+											{
+											/* Start a new line and indent it to the tag's indentation: */
+											fputc('\n',tempFile.getFilePtr());
+											for(char* iPtr=whitespace;iPtr!=wsPtr;++iPtr)
+												fputc(*iPtr,tempFile.getFilePtr());
+											
+											}
+										else
+											fputc(*vPtr,tempFile.getFilePtr());
+										}
+									
+									/* Stop copying characters and skip the tag's value: */
+									copyChars=false;
+									state=SKIPVALUE;
+									}
+								else
+									state=VALUEWS;
+								}
+							else
+								state=VALUEWS;
+							}
+						
+						if(c=='\n')
+							{
+							/* Parse the next line: */
+							++lineNumber;
+							copyChars=true;
+							state=LINE;
+							wsPtr=whitespace;
+							}
+						}
+					else
+						*(tPtr++)=char(c);
+					break;
+				
+				case QUOTEDTAG:
+					if(escaped)
+						{
+						if(c=='\n')
+							++lineNumber;
+						else
+							*(tPtr++)=processEscape(c);
+						escaped=false;
+						}
+					else if(c=='\\')
+						escaped=true;
+					else if(c!=quote)
+						*(tPtr++)=char(c);
+					else
+						{
+						/* Tag is finished; process it: */
+						*tPtr='\0';
+						if(strcasecmp(tag,"section")==0)
+							state=SECTIONWS;
+						else if(strcasecmp(tag,"endsection")==0)
+							{
+							/* Pop the current section off the stack: */
+							if(sections.size()<=1)
+								throw MalformedConfigFileError("Extra endsection command",lineNumber,fileName);
+							sections.pop_back();
+							if(sections.back().matchedPrefix!=0)
+								{
+								matchedPrefix=sections.back().matchedPrefix;
+								nextSlash=sections.back().nextSlash;
+								}
+							
+							/* Skip the rest of the line: */
+							state=SKIPLINE;
+							}
+						else
+							{
+							/* Check if the current section path matches the tag path: */
+							if(sections.back().matchedPrefix!=0&&*nextSlash=='\0')
+								{
+								/* Match the tag against the tag path's suffix: */
+								char* cPtr1;
+								const char* cPtr2;
+								for(cPtr1=tag,cPtr2=matchedPrefix;cPtr1<tPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
+									;
+								if(cPtr1==tPtr&&cPtr2==nextSlash)
+									{
+									/* Output the replacement value to the temporary file: */
+									fputc(quote,tempFile.getFilePtr());
+									fputc(' ',tempFile.getFilePtr());
+									for(const char* vPtr=newValue;*vPtr!='\0';++vPtr)
+										{
+										if(*vPtr=='\n')
+											{
+											/* Start a new line and indent it to the tag's indentation: */
+											fputc('\n',tempFile.getFilePtr());
+											for(char* iPtr=whitespace;iPtr!=wsPtr;++iPtr)
+												fputc(*iPtr,tempFile.getFilePtr());
+											
+											}
+										else
+											fputc(*vPtr,tempFile.getFilePtr());
+										}
+									
+									/* Stop copying characters and skip the tag's value: */
+									copyChars=false;
+									state=SKIPVALUE;
+									}
+								else
+									state=VALUEWS;
+								}
+							else
+								state=VALUEWS;
+							}
+						}
+					break;
+				
+				case SECTIONWS:
+					if(c=='\n'||c=='#')
+						throw MalformedConfigFileError("Missing section name",lineNumber,fileName);
+					else if(c=='"'||c=='\'')
+						{
+						quote=c;
+						state=QUOTEDSECTION;
+						sPtr=section;
+						}
+					else if(!isspace(c))
+						{
+						state=SECTION;
+						sPtr=section;
+						if(c=='\\')
+							escaped=true;
+						else
+							*(sPtr++)=char(c);
+						}
+					break;
+				
+				case SECTION:
+					if(escaped)
+						{
+						if(c=='\n')
+							++lineNumber;
+						else
+							*(sPtr++)=processEscape(c);
+						escaped=false;
+						}
+					else if(c=='\\')
+						escaped=true;
+					else if(c=='\n'||c=='#')
+						{
+						/* Section name is finished, remove trailing whitespace and process it: */
+						while(sPtr>section&&isspace(sPtr[-1]))
+							--sPtr;
+						SectionMatch sm(section,sPtr);
+						
+						/* Check if the current section path matches a prefix of the given tag path: */
+						if(sections.back().matchedPrefix!=0&&*nextSlash!='\0')
+							{
+							/* Match this section name against the unmatched suffix of the tag path: */
+							char* cPtr1;
+							const char* cPtr2;
+							for(cPtr1=section,cPtr2=matchedPrefix;cPtr1<sPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
+								;
+							if(cPtr1==sPtr&&cPtr2==nextSlash)
+								{
+								matchedPrefix=nextSlash+1;
+								for(nextSlash=matchedPrefix;*nextSlash!='/'&&*nextSlash!='\0';++nextSlash)
+									;
+								sm.matchedPrefix=matchedPrefix;
+								sm.nextSlash=nextSlash;
+								}
+							}
+						
+						/* Push the section onto the stack: */
+						sections.push_back(sm);
+						
+						if(c=='#')
+							state=COMMENT;
+						else
+							{
+							/* Parse the next line: */
+							++lineNumber;
+							state=LINE;
+							wsPtr=whitespace;
+							}
+						}
+					else
+						*(sPtr++)=char(c);
+					break;
+				
+				case QUOTEDSECTION:
+					if(escaped)
+						{
+						if(c=='\n')
+							++lineNumber;
+						else
+							*(sPtr++)=processEscape(c);
+						escaped=false;
+						}
+					else if(c=='\\')
+						escaped=true;
+					else if(c==quote)
+						{
+						/* Section name is finished, process it: */
+						SectionMatch sm(section,sPtr);
+						
+						/* Check if the current section path matches a prefix of the given tag path: */
+						if(sections.back().matchedPrefix!=0&&*nextSlash!='\0')
+							{
+							/* Match this section name against the unmatched suffix of the tag path: */
+							char* cPtr1;
+							const char* cPtr2;
+							for(cPtr1=section,cPtr2=matchedPrefix;cPtr1<sPtr&&cPtr2<nextSlash&&*cPtr1==*cPtr2;++cPtr1,++cPtr2)
+								;
+							if(cPtr1==sPtr&&cPtr2==nextSlash)
+								{
+								matchedPrefix=nextSlash+1;
+								for(nextSlash=matchedPrefix;*nextSlash!='/'&&*nextSlash!='\0';++nextSlash)
+									;
+								sm.matchedPrefix=matchedPrefix;
+								sm.nextSlash=nextSlash;
+								}
+							}
+						
+						/* Push the section onto the stack: */
+						sections.push_back(sm);
+						
+						/* Skip the rest of the line: */
+						state=SKIPLINE;
+						}
+					else
+						*(sPtr++)=char(c);
+					break;
+				
+				case VALUEWS:
+					if(c=='\n'||c=='#')
+						{
+						/* Value is empty; do nothing */
+						
+						if(c=='#')
+							state=COMMENT;
+						else
+							{
+							/* Parse next line: */
+							++lineNumber;
+							state=LINE;
+							wsPtr=whitespace;
+							}
+						}
+					else if(c=='+')
+						state=VALUEWSPLUS;
+					else if(!isspace(c))
+						{
+						state=VALUE;
+						value.clear();
+						if(c=='\\')
+							escaped=true;
+						else
+							value.push_back(char(c));
+						// valueContinuation=false;
+						}
+					break;
+				
+				case VALUEWSPLUS:
+					if(c=='=')
+						state=VALUEWSPLUSEQUAL;
+					else
+						throw MalformedConfigFileError("Malformed += list continuation",lineNumber,fileName);
+					break;
+				
+				case VALUEWSPLUSEQUAL:
+					if(c=='(')
+						{
+						state=VALUE;
+						value.clear();
+						// valueContinuation=true;
+						}
+					else if(c=='\n'||!isspace(c))
+						throw MalformedConfigFileError("Malformed += list continuation",lineNumber,fileName);
+					break;
+				
+				case VALUE:
+					if(escaped)
+						{
+						if(c=='\n')
+							{
+							++lineNumber;
+							state=VALUESKIPWS;
+							}
+						else
+							{
+							/* Escape sequences other than line breaks are copied verbatim to be parsed by value coders: */
+							value.push_back('\\');
+							value.push_back(char(c));
+							}
+						escaped=false;
+						}
+					else if(c=='\\')
+						escaped=true;
+					else if(c=='"'||c=='\'')
+						{
+						if(quote==c)
+							{
+							/* End a quote: */
+							quote=-1;
+							}
+						else if(quote==-1)
+							{
+							/* Start a quote: */
+							quote=c;
+							}
+						value.push_back(c);
+						}
+					else if(c=='\n'||(c=='#'&&quote==-1))
+						{
+						/* Value is finished */
+						
+						if(c=='#')
+							state=COMMENT;
+						else
+							{
+							/* Parse next line: */
+							++lineNumber;
+							state=LINE;
+							wsPtr=whitespace;
+							}
+						}
+					else
+						value.push_back(c);
+					break;
+				
+				case VALUESKIPWS:
+					if(c=='\\')
+						{
+						state=VALUE;
+						escaped=true;
+						}
+					else if(c=='"'||c=='\'')
+						{
+						if(quote==c)
+							{
+							/* End a quote: */
+							quote=-1;
+							}
+						else if(quote==-1)
+							{
+							/* Start a quote: */
+							quote=c;
+							}
+						state=VALUE;
+						value.push_back(c);
+						}
+					else if(c=='\n'||(c=='#'&&quote==-1))
+						{
+						/* Value is finished */
+						
+						if(c=='#')
+							state=COMMENT;
+						else
+							{
+							/* Parse next line: */
+							++lineNumber;
+							state=LINE;
+							wsPtr=whitespace;
+							}
+						}
+					else if(!isspace(c))
+						{
+						state=VALUE;
+						value.push_back(c);
+						}
+					break;
+				
+				case SKIPVALUE:
+					if(escaped)
+						{
+						if(c=='\n')
+							++lineNumber;
+						escaped=false;
+						}
+					else if(c=='\\')
+						escaped=true;
+					else if(c=='"'||c=='\'')
+						{
+						if(quote==c)
+							{
+							/* End a quote: */
+							quote=-1;
+							}
+						else if(quote==-1)
+							{
+							/* Start a quote: */
+							quote=c;
+							}
+						}
+					else if(c=='\n'||(c=='#'&&quote==-1))
+						{
+						/* Value is skipped: */
+						copyChars=true;
+						
+						if(c=='#')
+							state=COMMENT;
+						else
+							{
+							/* Parse the next line: */
+							++lineNumber;
+							state=LINE;
+							wsPtr=whitespace;
+							}
+						}
+					break;
+				
+				case COMMENT:
+					if(c=='\n')
+						{
+						/* Parse the next line: */
+						++lineNumber;
+						state=LINE;
+						wsPtr=whitespace;
+						}
+					break;
+				
+				case SKIPLINE:
+					if(c=='\n')
+						{
+						/* Parse the next line: */
+						++lineNumber;
+						state=LINE;
+						wsPtr=whitespace;
+						}
+					else if(c=='#')
+						state=COMMENT;
+					else if(!isspace(c))
+						throw MalformedConfigFileError("Dangling bits at line end",lineNumber,fileName);
+					break;
+				}
+			
+			if(copyChars)
+				fputc(c,tempFile.getFilePtr());
+			}
+		}
+	catch(...)
+		{
+		/* Delete the temporary file: */
+		unlink(tempFileName);
+		
+		/* Re-throw the exception: */
+		throw;
+		}
+	
+	/* Atomically replace the original file with the temporary file: */
+	if(rename(tempFileName,fileName)!=0)
+		{
+		/* Delete the temporary file and throw an exception: */
+		int error=errno;
+		unlink(tempFileName);
+		throwStdErr("Misc::ConfigurationFile::patchFile: Unable to patch file %s due to error %d (%s)",fileName,error,strerror(error));
+		}
 	}
 
 /*****************************************

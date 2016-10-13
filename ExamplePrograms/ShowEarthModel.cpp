@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -55,16 +55,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Images/ReadImageFile.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
+#include <GLMotif/PopupMenu.h>
+#include <GLMotif/PopupWindow.h>
+#include <GLMotif/RowColumn.h>
 #include <GLMotif/Blind.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/CascadeButton.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/SubMenu.h>
-#include <GLMotif/Popup.h>
-#include <GLMotif/PopupMenu.h>
-#include <GLMotif/PopupWindow.h>
-#include <GLMotif/RowColumn.h>
 #include <GLMotif/TextField.h>
 #include <SceneGraph/NodeCreator.h>
 #include <SceneGraph/GroupNode.h>
@@ -220,13 +217,10 @@ ShowEarthModel::DataItem::~DataItem(void)
 Methods of class ShowEarthModel:
 *******************************/
 
-GLMotif::Popup* ShowEarthModel::createRenderTogglesMenu(void)
+GLMotif::PopupMenu* ShowEarthModel::createRenderTogglesMenu(void)
 	{
-	/* Create the submenu's top-level shell: */
-	GLMotif::Popup* renderTogglesMenuPopup=new GLMotif::Popup("RenderTogglesMenuPopup",Vrui::getWidgetManager());
-	
-	/* Create the array of render toggle buttons inside the top-level shell: */
-	GLMotif::SubMenu* renderTogglesMenu=new GLMotif::SubMenu("RenderTogglesMenu",renderTogglesMenuPopup,false);
+	/* Create the submenu shell: */
+	GLMotif::PopupMenu* renderTogglesMenu=new GLMotif::PopupMenu("RenderTogglesMenu",Vrui::getWidgetManager());
 	
 	/* Create a toggle button to render the Earth's surface: */
 	GLMotif::ToggleButton* showSurfaceToggle=new GLMotif::ToggleButton("ShowSurfaceToggle",renderTogglesMenu,"Show Surface");
@@ -324,20 +318,17 @@ GLMotif::Popup* ShowEarthModel::createRenderTogglesMenu(void)
 	innerCoreTransparentToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
 	
 	/* Calculate the submenu's proper layout: */
-	renderTogglesMenu->manageChild();
+	renderTogglesMenu->manageMenu();
 	
 	/* Return the created top-level shell: */
-	return renderTogglesMenuPopup;
+	return renderTogglesMenu;
 	}
 
 GLMotif::PopupMenu* ShowEarthModel::createMainMenu(void)
 	{
-	/* Create a top-level shell for the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Interactive Globe");
-	
-	/* Create the actual menu inside the top-level shell: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
+	/* Create the main menu shell: */
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Interactive Globe");
 	
 	/* Create a cascade button to show the "Rendering Modes" submenu: */
 	GLMotif::CascadeButton* renderTogglesCascade=new GLMotif::CascadeButton("RenderTogglesCascade",mainMenu,"Rendering Modes");
@@ -353,10 +344,6 @@ GLMotif::PopupMenu* ShowEarthModel::createMainMenu(void)
 	lockToSphereToggle->setToggle(lockToSphere);
 	lockToSphereToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
 	
-	/* Create a button to reset the navigation coordinates to the default (showing the entire Earth): */
-	GLMotif::Button* centerDisplayButton=new GLMotif::Button("CenterDisplayButton",mainMenu,"Center Display");
-	centerDisplayButton->getSelectCallbacks().add(this,&ShowEarthModel::centerDisplayCallback);
-	
 	/* Create a toggle button to show the render settings dialog: */
 	showRenderDialogToggle=new GLMotif::ToggleButton("ShowRenderDialogToggle",mainMenu,"Show Render Dialog");
 	showRenderDialogToggle->setToggle(false);
@@ -368,10 +355,10 @@ GLMotif::PopupMenu* ShowEarthModel::createMainMenu(void)
 	showAnimationDialogToggle->getValueChangedCallbacks().add(this,&ShowEarthModel::menuToggleSelectCallback);
 	
 	/* Calculate the main menu's proper layout: */
-	mainMenu->manageChild();
+	mainMenu->manageMenu();
 	
 	/* Return the created top-level shell: */
-	return mainMenuPopup;
+	return mainMenu;
 	}
 
 GLMotif::PopupWindow* ShowEarthModel::createRenderDialog(void)
@@ -809,9 +796,6 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv)
 	renderDialog=createRenderDialog();
 	animationDialog=createAnimationDialog();
 	
-	/* Initialize Vrui navigation transformation: */
-	centerDisplayCallback(0);
-	
 	if(!earthquakeSets.empty())
 		{
 		/* Register the custom tool classes with the Vrui tool manager: */
@@ -928,7 +912,7 @@ void ShowEarthModel::frame(void)
 		userTransform->setRotationAngle(Vrui::Scalar(rotationAngle));
 		
 		/* Request another frame: */
-		Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0);
+		Vrui::scheduleUpdate(Vrui::getNextAnimationTime());
 		}
 	
 	/* Animate the earthquake sets: */
@@ -945,7 +929,7 @@ void ShowEarthModel::frame(void)
 		currentTimeSlider->setValue(currentTime);
 		
 		/* Request another frame: */
-		Vrui::scheduleUpdate(Vrui::getApplicationTime()+1.0/125.0);
+		Vrui::scheduleUpdate(Vrui::getNextAnimationTime());
 		}
 	
 	/* Align the navigation transformation with a sphere of fixed radius: */
@@ -1300,6 +1284,24 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	glPopAttrib();
 	}
 
+void ShowEarthModel::resetNavigation(void)
+	{
+	if(scaleToEnvironment)
+		{
+		/* Center the Earth model in the available display space: */
+		Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(3.0*6.4e3),Vrui::Vector(0,0,1));
+		}
+	else
+		{
+		/* Center the Earth model in the available display space, but do not scale it: */
+		Vrui::NavTransform nav=Vrui::NavTransform::identity;
+		nav*=Vrui::NavTransform::translateFromOriginTo(Vrui::getDisplayCenter());
+		nav*=Vrui::NavTransform::rotate(Vrui::Rotation::rotateFromTo(Vrui::Vector(0,0,1),Vrui::getUpDirection()));
+		nav*=Vrui::NavTransform::scale(Vrui::Scalar(8)*Vrui::getInchFactor()/Vrui::Scalar(6.4e3));
+		Vrui::setNavigationTransformation(nav);
+		}
+	}
+
 void ShowEarthModel::alignSurfaceFrame(Vrui::SurfaceNavigationTool::AlignmentData& alignmentData)
 	{
 	/* Create a geoid: */
@@ -1480,24 +1482,6 @@ void ShowEarthModel::sliderCallback(GLMotif::Slider::ValueChangedCallbackData* c
 		currentTimeSlider->setValueRange(earthquakeTimeRange.getMin()-playSpeed,earthquakeTimeRange.getMax()+playSpeed,playSpeed);
 		
 		updateCurrentTime();
-		}
-	}
-
-void ShowEarthModel::centerDisplayCallback(Misc::CallbackData* cbData)
-	{
-	if(scaleToEnvironment)
-		{
-		/* Center the Earth model in the available display space: */
-		Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(3.0*6.4e3),Vrui::Vector(0,0,1));
-		}
-	else
-		{
-		/* Center the Earth model in the available display space, but do not scale it: */
-		Vrui::NavTransform nav=Vrui::NavTransform::identity;
-		nav*=Vrui::NavTransform::translateFromOriginTo(Vrui::getDisplayCenter());
-		nav*=Vrui::NavTransform::rotate(Vrui::Rotation::rotateFromTo(Vrui::Vector(0,0,1),Vrui::getUpDirection()));
-		nav*=Vrui::NavTransform::scale(Vrui::Scalar(8)*Vrui::getInchFactor()/Vrui::Scalar(6.4e3));
-		Vrui::setNavigationTransformation(nav);
 		}
 	}
 

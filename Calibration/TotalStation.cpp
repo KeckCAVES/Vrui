@@ -1,7 +1,7 @@
 /***********************************************************************
 TotalStation - Class to represent a Leica Total Station survey
 instrument to measure points for coordinate system calibration.
-Copyright (c) 2009-2011 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -386,7 +386,7 @@ TotalStation::Point TotalStation::calcCartesianPoint(const double measurements[3
 	}
 
 TotalStation::TotalStation(const char* devicePortName,int deviceBaudRate)
-	:devicePort(devicePortName),
+	:devicePort(devicePortName,true),
 	 angleUnit(GON),
 	 horizAngleDirection(CLOCKWISE),
 	 distanceUnit(METER),
@@ -395,6 +395,7 @@ TotalStation::TotalStation(const char* devicePortName,int deviceBaudRate)
 	{
 	/* Initialize the device port: */
 	devicePort.ref();
+	devicePort.setPortSettings(Comm::SerialPort::Blocking);
 	devicePort.setSerialSettings(deviceBaudRate,8,Comm::SerialPort::NoParity,1,false);
 	devicePort.setRawMode(1,0);
 	// devicePort.setLineControl(false,false);

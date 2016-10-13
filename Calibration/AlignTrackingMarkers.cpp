@@ -2,7 +2,7 @@
 AlignTrackingMarkers - Utility to define a reasonable coordinate system
 based on tracking marker positions detected by an optical tracking
 system.
-Copyright (c) 2008-2013 Oliver Kreylos
+Copyright (c) 2008-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -47,15 +47,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLModels.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
+#include <GLMotif/PopupMenu.h>
+#include <GLMotif/PopupWindow.h>
 #include <GLMotif/Blind.h>
 #include <GLMotif/Label.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/TextField.h>
 #include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/PopupMenu.h>
-#include <GLMotif/PopupWindow.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/ToolManager.h>
@@ -72,10 +71,10 @@ namespace {
 Helper function to query relative marker positions from a NaturalPoint tracking server:
 **************************************************************************************/
 
-void queryRigidBody(const char* naturalPointServerName,int rigidBodyId,double scale,bool flipZ,std::vector<Geometry::Point<double,3> >& markers)
+void queryRigidBody(const char* naturalPointServerName,int commandPort,const char* multicastGroup,int dataPort,int rigidBodyId,double scale,bool flipZ,std::vector<Geometry::Point<double,3> >& markers)
 	{
 	/* Open a connection to the NaturalPoint server: */
-	NaturalPointClient npc(naturalPointServerName,1510,"224.0.0.1",1511);
+	NaturalPointClient npc(naturalPointServerName,commandPort,multicastGroup,dataPort);
 	
 	std::cout<<"Server name: "<<npc.getServerName()<<std::endl;
 	std::cout<<"Server version: "<<npc.getServerVersion()[0]<<'.'<<npc.getServerVersion()[1]<<'.'<<npc.getServerVersion()[2]<<'.'<<npc.getServerVersion()[3]<<std::endl;
@@ -86,7 +85,7 @@ void queryRigidBody(const char* naturalPointServerName,int rigidBodyId,double sc
 	unsigned int numFrames=0;
 	std::vector<NaturalPointClient::Point> initialMarkers;
 	std::vector<NaturalPointClient::Point::AffineCombiner> markerCombiners;
-	while(numFrames<50)
+	while(numFrames<100)
 		{
 		/* Wait for the next frame from the NaturalPoint engine: */
 		const NaturalPointClient::Frame& frame=npc.waitForNextFrame();
@@ -206,7 +205,7 @@ class AlignTrackingMarkers:public Vrui::Application
 	Scalar lineSize; // Size to draw lines in scaled local tracker coordinates
 	PointList markers; // List of marker positions in scaled local tracker coordinates
 	LineList lines; // List of lines used to define coordinate axes
-	GLMotif::PopupMenu* mainMenuPopup; // The program's main menu
+	GLMotif::PopupMenu* mainMenu; // The program's main menu
 	bool moveOrigin; // Flag whether marker tools will move the transformation's origin
 	
 	/* Private methods: */
@@ -353,20 +352,25 @@ void AlignTrackingMarkers::MarkerTool::frame(void)
 	Vrui::InputDevice* device=getButtonDevice(0);
 	
 	/* Snap the current input device to the existing marker set: */
-	Vrui::NavTrackerState transform=Vrui::getDeviceTransformation(device);
 	if(device->isRayDevice())
 		{
+		/* Get the device's interaction ray in navigational coordinates: */
+		Vrui::Ray deviceRay=getButtonDeviceRay(0);
+		deviceRay.transform(Vrui::getInverseNavigationTransformation());
+		
 		if(dragging)
-			current=application->snap(start,Ray(transform.getOrigin(),transform.transform(device->getDeviceRayDirection())));
+			current=application->snap(start,deviceRay);
 		else
-			current=application->snap(Ray(transform.getOrigin(),transform.transform(device->getDeviceRayDirection())));
+			current=application->snap(deviceRay);
 		}
 	else
 		{
+		/* Get the device's position in navigational coordinates: */
+		Vrui::Point devicePos=Vrui::getInverseNavigationTransformation().transform(getButtonDevicePosition(0));
 		if(dragging)
-			current=application->snap(start,transform.getOrigin());
+			current=application->snap(start,devicePos);
 		else
-			current=application->snap(transform.getOrigin());
+			current=application->snap(devicePos);
 		}
 	
 	/* Update the measurement dialog: */
@@ -417,11 +421,8 @@ Methods of class AlignTrackingMarkers:
 GLMotif::PopupMenu* AlignTrackingMarkers::createMainMenu(void)
 	{
 	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Marker Alignment");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Marker Alignment");
 	
 	/* Create the menu buttons: */
 	GLMotif::Button* removeLastLineButton=new GLMotif::Button("RemoveLastLineButton",mainMenu,"Remove Last Line");
@@ -449,9 +450,8 @@ GLMotif::PopupMenu* AlignTrackingMarkers::createMainMenu(void)
 	moveOriginToggle->getValueChangedCallbacks().add(this,&AlignTrackingMarkers::moveOriginCallback);
 	
 	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
+	mainMenu->manageMenu();
+	return mainMenu;
 	}
 
 AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDefaults)
@@ -459,7 +459,7 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 	 transform(ONTransform::identity),
 	 markerSize(Scalar(Vrui::getInchFactor())*Scalar(0.25)),
 	 lineSize(markerSize/Scalar(3)),
-	 mainMenuPopup(0),
+	 mainMenu(0),
 	 moveOrigin(false)
 	{
 	/* Create and register the marker tool class: */
@@ -472,6 +472,9 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 	const char* fileName=0;
 	const char* bodyName=0;
 	const char* naturalPointServerName=0;
+	int naturalPointCommandPort=1510;
+	const char* naturalPointMulticastGroup="224.0.0.1";
+	int naturalPointDataPort=1511;
 	int naturalPointRigidBodyId=-1;
 	Scalar scale=Scalar(1);
 	bool flipZ=false;
@@ -503,6 +506,21 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 				++i;
 				naturalPointRigidBodyId=atoi(argv[i]);
 				}
+			else if(strcasecmp(argv[i]+1,"npcCP")==0)
+				{
+				++i;
+				naturalPointCommandPort=atoi(argv[i]);
+				}
+			else if(strcasecmp(argv[i]+1,"npcMG")==0)
+				{
+				++i;
+				naturalPointMulticastGroup=argv[i];
+				}
+			else if(strcasecmp(argv[i]+1,"npcDP")==0)
+				{
+				++i;
+				naturalPointDataPort=atoi(argv[i]);
+				}
 			}
 		else if(fileName==0)
 			fileName=argv[i];
@@ -512,7 +530,7 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 	
 	if((fileName==0||bodyName==0)&&(naturalPointServerName==0||naturalPointRigidBodyId==-1))
 		{
-		std::cerr<<"Usage: "<<argv[0]<<" ( <rigid body definition file name> <rigid body name> ) | ( -npc <NaturalPoint server name> <rigid body ID> ) [-scale <unit scale factor>] [-inches] [-flipZ] [-size <marker size>]"<<std::endl;
+		std::cerr<<"Usage: "<<argv[0]<<" ( <rigid body definition file name> <rigid body name> ) | ( -npc <NaturalPoint server name> <rigid body ID> [-npcCP <NaturalPoint command port>] [-ncpMG <NaturalPoint multicast group>] [-npcDP <NaturalPoint data port>] ) [-scale <unit scale factor>] [-inches] [-flipZ] [-size <marker size>]"<<std::endl;
 		Misc::throwStdErr("AlignTrackingMarkers::AlignTrackingMarkers: No file name and rigid body name or NaturalPoint server name and rigid body ID provided");
 		}
 	
@@ -533,12 +551,12 @@ AlignTrackingMarkers::AlignTrackingMarkers(int& argc,char**& argv,char**& appDef
 	else
 		{
 		/* Get a rigid body definition from the NaturalPoint server: */
-		queryRigidBody(naturalPointServerName,naturalPointRigidBodyId,scale,flipZ,markers);
+		queryRigidBody(naturalPointServerName,naturalPointCommandPort,naturalPointMulticastGroup,naturalPointDataPort,naturalPointRigidBodyId,scale,flipZ,markers);
 		}
 	
 	/* Create the main menu: */
-	mainMenuPopup=createMainMenu();
-	Vrui::setMainMenu(mainMenuPopup);
+	mainMenu=createMainMenu();
+	Vrui::setMainMenu(mainMenu);
 	
 	/* Initialize the navigation transformation: */
 	Point::AffineCombiner centroidC;
@@ -562,7 +580,7 @@ AlignTrackingMarkers::~AlignTrackingMarkers(void)
 	std::cout<<"Final transformation: "<<Misc::ValueCoder<ONTransform>::encode(transform)<<std::endl;
 	
 	/* Delete the main menu: */
-	delete mainMenuPopup;
+	delete mainMenu;
 	}
 
 void AlignTrackingMarkers::display(GLContextData& contextData) const

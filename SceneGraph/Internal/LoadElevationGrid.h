@@ -1,7 +1,7 @@
 /***********************************************************************
 LoadElevationGrid - Function to load an elevation grid's height values
 from an external file.
-Copyright (c) 2010-2012 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 

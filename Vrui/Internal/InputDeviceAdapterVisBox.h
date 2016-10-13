@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterVisBox - Class to connect the VisBox head tracking
 daemon to a Vrui application.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -44,8 +44,9 @@ class InputDeviceAdapterVisBox:public InputDeviceAdapter
 	InputDeviceAdapterVisBox(InputDeviceManager* sInputDeviceManager,const Misc::ConfigurationFileSection& configFileSection);
 	virtual ~InputDeviceAdapterVisBox(void);
 	
-	/* Methods: */
+	/* Methods from InputDeviceAdapter: */
 	virtual void updateInputDevices(void);
+	virtual TrackerState peekTrackerState(int deviceIndex);
 	};
 
 }

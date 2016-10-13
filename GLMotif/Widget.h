@@ -1,6 +1,6 @@
 /***********************************************************************
 Widget - Base class for GLMotif UI components.
-Copyright (c) 2001-2010 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 /* Forward declarations: */
 class GLContextData;
 namespace GLMotif {
-class StyleSheet;
+struct StyleSheet;
 class Event;
 class TextEvent;
 class TextControlEvent;
@@ -57,6 +57,7 @@ class Widget
 	BorderType borderType; // Type of border around widget
 	Box interior; // Interior rectangle of widget (excluding border)
 	ZRange zRange; // Z range of the widget with respect to its exterior
+	bool enabled; // Flag if the widget is enabled, i.e., reacts to events
 	protected:
 	Color borderColor; // Color of widget's border
 	Color backgroundColor; // Color of widget's background
@@ -76,7 +77,6 @@ class Widget
 		{
 		return name;
 		}
-	void manageChild(void); // Adds a child to its parent container
 	const Container* getParent(void) const // Returns a widget's parent
 		{
 		return parent;
@@ -85,6 +85,8 @@ class Widget
 		{
 		return parent;
 		}
+	void reparent(Container* newParent,bool manageChild =true); // Changes the parent widget of a widget; overrides basic widget settings with those from new parent
+	void manageChild(void); // Adds a child to its parent container
 	const Widget* getRoot(void) const; // Returns the root of a widget tree (a popup widget)
 	Widget* getRoot(void); // Ditto
 	virtual const WidgetManager* getManager(void) const; // Returns a pointer to the widget manager
@@ -109,6 +111,10 @@ class Widget
 	ZRange getZRange(void) const
 		{
 		return zRange;
+		}
+	bool isEnabled(void) const
+		{
+		return enabled;
 		}
 	const Color& getBorderColor(void) const // Returns widget's border color
 		{
@@ -138,7 +144,8 @@ class Widget
 	/* User interaction events: */
 	bool isInside(const Point& p) const; // Tests whether a point is inside the widget's bounding box
 	Scalar intersectRay(const Ray& ray,Point& intersection) const; // Intersects a ray with a widget's center plane
-	virtual bool findRecipient(Event& event); // Determines which widget is to receive a localized event
+	virtual void setEnabled(bool newEnabled); // Enables or disables the widget
+	virtual bool findRecipient(Event& event); // Determines which widget is to receive a localized event; updates the event object and returns true if a recipient is found
 	virtual void pointerButtonDown(Event& event);
 	virtual void pointerButtonUp(Event& event);
 	virtual void pointerMotion(Event& event);

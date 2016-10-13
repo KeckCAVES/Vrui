@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewpointFileNavigationTool - Class for tools to play back previously
 saved viewpoint data files.
-Copyright (c) 2007-2013 Oliver Kreylos
+Copyright (c) 2007-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,15 +27,19 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <vector>
 #include <GLMotif/TextFieldSlider.h>
-#include <Vrui/FileSelectionHelper.h>
+#include <GLMotif/FileSelectionDialog.h>
 #include <Vrui/NavigationTool.h>
 
 /* Forward declarations: */
+namespace Misc {
+class ConfigurationFileSection;
+}
 namespace Math {
 class Matrix;
 }
 namespace GLMotif {
 class PopupWindow;
+class FileSelectionHelper;
 }
 
 namespace Vrui {
@@ -46,14 +50,29 @@ class ViewpointFileNavigationToolFactory:public ToolFactory
 	{
 	friend class ViewpointFileNavigationTool;
 	
-	/* Elements: */
+	/* Embedded classes: */
 	private:
-	std::string viewpointFileName; // Name of file from which viewpoint data is loaded. Tool will show file selection dialog if empty
-	FileSelectionHelper viewpointSelectionHelper; // Helper object to load viewpoint curves from files
-	bool showGui; // Flag whether to show the playback control GUI
-	bool showKeyframes; // Flag whether to render the current target keyframe during animation
-	std::string pauseFileName; // Name of file from which scheduled pauses are loaded
-	bool autostart; // Flag if new viewpoint file navigation tools start animation immediately
+	struct Configuration // Structure containing tool settings
+		{
+		/* Elements: */
+		public:
+		std::string viewpointFileName; // Name of file from which viewpoint data is loaded. Tool will show file selection dialog if empty
+		bool showGui; // Flag whether to show the playback control GUI
+		bool showKeyframes; // Flag whether to render the current target keyframe during animation
+		std::string pauseFileName; // Name of file from which scheduled pauses are loaded
+		bool autostart; // Flag if new viewpoint file navigation tools start animation immediately
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates a default configuration
+		
+		/* Methods: */
+		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
+		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
+		};
+	
+	/* Elements: */
+	Configuration configuration; // Default configuration for all tools
+	GLMotif::FileSelectionHelper* viewpointSelectionHelper; // Helper object to load viewpoint curves from files
 	
 	/* Constructors and destructors: */
 	public:
@@ -65,6 +84,9 @@ class ViewpointFileNavigationToolFactory:public ToolFactory
 	virtual const char* getButtonFunction(int buttonSlotIndex) const;
 	virtual Tool* createTool(const ToolInputAssignment& inputAssignment) const;
 	virtual void destroyTool(Tool* tool) const;
+	
+	/* New methods: */
+	GLMotif::FileSelectionHelper* getViewpointSelectionHelper(void); // Returns pointer to a file selection helper for viewpoint files
 	};
 
 class ViewpointFileNavigationTool:public NavigationTool
@@ -93,14 +115,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	/* Elements: */
 	private:
 	static ViewpointFileNavigationToolFactory* factory; // Pointer to the factory object for this class
-	
-	/* Private versions of per-class configuration settings: */
-	std::string viewpointFileName;
-	bool showGui;
-	bool showKeyframes;
-	std::string pauseFileName;
-	bool autostart;
-	
+	ViewpointFileNavigationToolFactory::Configuration configuration; // Private configuration of this tool
 	GLMotif::PopupWindow* controlDialogPopup; // Playback control dialog window
 	GLMotif::TextFieldSlider* positionSlider; // Slider to set the playback position
 	std::vector<Scalar> times; // List of viewpoint times read from the viewpoint file
@@ -112,7 +127,6 @@ class ViewpointFileNavigationTool:public NavigationTool
 	bool firstFrame; // Flag if the viewpoint animation has started on the current frame
 	bool paused; // Flag if the viewpoint animation is currently paused
 	Scalar parameter; // Current curve parameter
-	GLMotif::FileSelectionDialog* loadViewpointFileDialog; // Pointer to file selection dialog opened to select viewpoint file
 	
 	/* Private methods: */
 	void positionSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
@@ -131,6 +145,7 @@ class ViewpointFileNavigationTool:public NavigationTool
 	
 	/* Methods from Tool: */
 	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
 	virtual void initialize(void);
 	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;

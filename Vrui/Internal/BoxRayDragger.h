@@ -1,7 +1,7 @@
 /***********************************************************************
 BoxRayDragger - A helper class to encapsulate dragging a wireframe
 box with a ray-based input device.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

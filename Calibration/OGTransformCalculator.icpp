@@ -1,0 +1,104 @@
+/***********************************************************************
+OGTransformCalculator - Helper function to calculate an orthogonal
+transformation (translation + rotation + uniform scaling) that
+transforms one ordered point set into another ordered point set.
+Copyright (c) 2015 Oliver Kreylos
+
+This file is part of the Vrui calibration utility package.
+
+The Vrui calibration utility package is free software; you can
+redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
+
+The Vrui calibration utility package is distributed in the hope that it
+will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Vrui calibration utility package; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define OGTRANSFORMCALCULATOR_IMPLEMENTATION
+
+#include "OGTransformCalculator.h"
+
+#include <Math/Math.h>
+#include <Geometry/AffineCombiner.h>
+#include <Geometry/Vector.h>
+#include <Geometry/Rotation.h>
+
+Geometry::Rotation<double,3> calculateRotation(size_t numPoints,double ip0,const std::vector<Geometry::Point<double,3> >& cPoints0,double ip1,const std::vector<Geometry::Point<double,3> >& cPoints1);
+
+template <class ScalarParam>
+inline
+std::pair<Geometry::OrthogonalTransformation<double,3>,double>
+calculateOGTransform(
+	const std::vector<Geometry::Point<ScalarParam,3> >& points0,
+	const std::vector<Geometry::Point<ScalarParam,3> >& points1)
+	{
+	typedef Geometry::Point<double,3> Point;
+	typedef Geometry::OrthogonalTransformation<double,3> OGTransform;
+	
+	size_t numPoints=Math::min(points0.size(),points1.size());
+	
+	/* Calculate both point sets' centroids: */
+	Point::AffineCombiner cc0;
+	Point::AffineCombiner cc1;
+	for(size_t i=0;i<numPoints;++i)
+		{
+		cc0.addPoint(points0[i]);
+		cc1.addPoint(points1[i]);
+		}
+	Point c0=cc0.getPoint();
+	Point c1=cc1.getPoint();
+	
+	/* Calculate both point sets' inner products: */
+	double ip0=0.0;
+	double ip1=0.0;
+	for(size_t pi=0;pi<numPoints;++pi)
+		{
+		Point::Vector d0=points0[pi]-c0;
+		Point::Vector d1=points1[pi]-c1;
+		ip0+=Math::sqr(d0[0])+Math::sqr(d0[1])+Math::sqr(d0[2]);
+		ip1+=Math::sqr(d1[0])+Math::sqr(d1[1])+Math::sqr(d1[2]);
+		}
+	
+	/* Calculate the normalizing scaling factors: */
+	double scale0=Math::sqrt(ip0);
+	double scale1=Math::sqrt(ip1);
+	
+	/* Move both point sets to their centroids and scale them to uniform size: */
+	OGTransform centroidTransform0=OGTransform::translateToOriginFrom(c0);
+	centroidTransform0.leftMultiply(OGTransform::scale(1.0/scale0));
+	OGTransform centroidTransform1=OGTransform::translateToOriginFrom(c1);
+	centroidTransform1.leftMultiply(OGTransform::scale(1.0/scale1));
+	std::vector<Point> cPoints0;
+	std::vector<Point> cPoints1;
+	for(size_t i=0;i<numPoints;++i)
+		{
+		cPoints0.push_back(centroidTransform0.transform(points0[i]));
+		cPoints1.push_back(centroidTransform1.transform(points1[i]));
+		}
+	
+	/* Call the internal function: */
+	OGTransform::Rotation rotation=calculateRotation(numPoints,ip0,cPoints0,ip1,cPoints1);
+	
+	/* Calculate the final result transformation: */
+	OGTransform transform=Geometry::invert(centroidTransform1);
+	transform*=OGTransform::rotate(rotation);
+	transform*=centroidTransform0;
+	transform.renormalize();
+	
+	/* Calculate the RMS residual: */
+	double rmsd=0.0;
+	for(size_t i=0;i<numPoints;++i)
+		rmsd+=Geometry::sqrDist(transform.transform(Point(points0[i])),Point(points1[i]));
+	
+	/* Return the result transformation and RMS residual: */
+	return std::make_pair(transform,Math::sqrt(rmsd/double(numPoints)));
+	}
+

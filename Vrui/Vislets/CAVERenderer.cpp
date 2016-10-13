@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdlib.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Geometry/Plane.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLVertex.h>
@@ -317,6 +318,20 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 			}
 		}
 	
+	/* Calculate a transformation to align the CAVE model with the local environment: */
+	const Vector& normal=getFloorPlane().getNormal();
+	const Vector& up=getUpDirection();
+	Scalar lambda=(getFloorPlane().getOffset()-getDisplayCenter()*normal)/(up*normal);
+	Point floorDisplayCenter=getDisplayCenter()+up*lambda;
+	caveTransform=OGTransform::translateFromOriginTo(floorDisplayCenter);
+	
+	Vector floorForward=Geometry::normalize(getFloorPlane().project(getForwardDirection()));
+	Vector floorRight=Geometry::normalize(Geometry::cross(floorForward,normal));
+	Rotation rot=Rotation::fromBaseVectors(floorRight,floorForward);
+	caveTransform*=OGTransform::rotate(rot);
+	
+	caveTransform*=OGTransform::scale(getInchFactor());
+	
 	/* Load the texture images: */
 	wallTextureImage=Images::readImageFile(wallTextureFileName.c_str());
 	floorTextureImage=Images::readImageFile(floorTextureFileName.c_str());
@@ -325,11 +340,12 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	GLLight::Color lightColor(0.25f,0.25f,0.25f);
 	for(int i=0;i<4;++i)
 		{
-		GLLight::Position pos(30.0f,30.0f,96.0f,1.0f);
+		Point pos(30,30,96);
 		for(int j=0;j<2;++j)
 			if(i&(0x1<<j))
 				pos[j]=-pos[j];
-		lightsources[i]=getLightsourceManager()->createLightsource(true,GLLight(lightColor,pos));
+		pos=caveTransform.transform(pos);
+		lightsources[i]=getLightsourceManager()->createLightsource(true,GLLight(lightColor,GLLight::Position(float(pos[0]),float(pos[1]),float(pos[2]),1.0f)));
 		}
 	
 	GLObject::init();
@@ -356,7 +372,7 @@ void CAVERenderer::disable(void)
 	lastFrame=getApplicationTime();
 		
 	/* Request another frame: */
-	scheduleUpdate(getApplicationTime()+1.0/125.0);
+	scheduleUpdate(getNextAnimationTime());
 	
 	/* Frame function will disable vislet when animation is done */
 	}
@@ -383,7 +399,7 @@ void CAVERenderer::enable(void)
 	lastFrame=getApplicationTime();
 	
 	/* Request another frame: */
-	scheduleUpdate(getApplicationTime()+1.0/125.0);
+	scheduleUpdate(getNextAnimationTime());
 	}
 
 void CAVERenderer::initContext(GLContextData& contextData) const
@@ -461,7 +477,7 @@ void CAVERenderer::frame(void)
 		else
 			{
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		}
 	}
@@ -479,6 +495,7 @@ void CAVERenderer::display(GLContextData& contextData) const
 	
 	/* Save the modelview matrix: */
 	glPushMatrix();
+	glMultMatrix(caveTransform);
 	
 	/* Render the floor: */
 	glTranslate(-60.0,-36.0,0.0);

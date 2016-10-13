@@ -1,7 +1,7 @@
 /***********************************************************************
 RowColumn - Container class to arrange children on a two-dimensional
 grid.
-Copyright (c) 2001-2014 Oliver Kreylos
+Copyright (c) 2001-2015 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -127,12 +127,21 @@ RowColumn::RowColumn(const char* sName,Container* sParent,bool sManageChild)
 	 numMinorWidgets(1),
 	 nextChildIndex(0)
 	{
-	/* Get the style sheet: */
-	const StyleSheet* ss=getStyleSheet();
-	
-	/* Set the children margin and spacing: */
-	marginWidth=ss->containerMarginWidth;
-	spacing=ss->containerSpacing;
+	/* Check if the parent widget is also a RowColumn: */
+	RowColumn* parentRowColumn=dynamic_cast<RowColumn*>(getParent());
+	if(parentRowColumn!=0)
+		{
+		/* Get layout parameters from parent: */
+		marginWidth=parentRowColumn->getMarginWidth();
+		spacing=parentRowColumn->getSpacing();
+		}
+	else
+		{
+		/* Get layout parameters from the style sheet: */
+		const StyleSheet* ss=getStyleSheet();
+		marginWidth=ss->containerMarginWidth;
+		spacing=ss->containerSpacing;
+		}
 	
 	/* Initialize the number of rows and columns: */
 	columnWeights.push_back(0.0f);

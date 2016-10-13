@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorY10B - Class to extract images from raw video frames
 encoded 10-bit byte-packed greyscale format.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -105,6 +105,35 @@ void ImageExtractorY10B::extractRGB(const FrameBuffer* frame,void* image)
 					y=(unsigned char)(((yps[i]-62U)*256U)/880U);
 				for(int j=0;j<3;++j,++rgbPtr)
 					*rgbPtr=y;
+				}
+			}
+		}
+	}
+
+void ImageExtractorY10B::extractYpCbCr(const FrameBuffer* frame,void* image)
+	{
+	/* Unpack pixel bits and convert the frame's Y' channel to Y'CbCr: */
+	const unsigned char* rRowPtr=frame->start;
+	unsigned char* ypCbCrRowPtr=static_cast<unsigned char*>(image);
+	ypCbCrRowPtr+=(size[1]-1)*size[0]*3;
+	for(unsigned int y=0;y<size[1];++y,rRowPtr+=(size[0]*5)/4,ypCbCrRowPtr-=size[0]*3)
+		{
+		const unsigned char* rPtr=rRowPtr;
+		unsigned char* ypCbCrPtr=ypCbCrRowPtr;
+		for(unsigned int x=0;x<size[0];x+=4,rPtr+=5)
+			{
+			/* Extract the pixel values from a run of four pixels: */
+			unsigned int yps[4];
+			yps[0]=((unsigned int)rPtr[0]<<2)|((unsigned int)rPtr[1]>>6);
+			yps[1]=(((unsigned int)rPtr[1]&0x3fU)<<4)|((unsigned int)rPtr[2]>>4);
+			yps[2]=(((unsigned int)rPtr[2]&0x0fU)<<6)|((unsigned int)rPtr[3]>>2);
+			yps[3]=(((unsigned int)rPtr[3]&0x03U)<<8)|(unsigned int)rPtr[4];
+			
+			/* Extend the four pixel values from Y' to Y'CbCr: */
+			for(int i=0;i<4;++i,ypCbCrPtr+=3)
+				{
+				ypCbCrPtr[0]=(unsigned char)(yps[i]);
+				ypCbCrPtr[2]=ypCbCrPtr[1]=0U;
 				}
 			}
 		}

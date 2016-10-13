@@ -1,6 +1,6 @@
 /***********************************************************************
 Small viewer for movies stored as image sequences.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -37,12 +37,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Images/RGBImage.h>
 #include <Images/GetImageFileSize.h>
 #include <Images/ReadImageFile.h>
-#include <GLMotif/WidgetManager.h>
 #include <GLMotif/StyleSheet.h>
-#include <GLMotif/PopupMenu.h>
+#include <GLMotif/WidgetManager.h>
 #include <GLMotif/PopupWindow.h>
 #include <GLMotif/RowColumn.h>
-#include <GLMotif/Menu.h>
 #include <GLMotif/Button.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/TextFieldSlider.h>
@@ -83,15 +81,12 @@ class ImageSequenceViewer:public Vrui::Application,public GLObject
 	Threads::Thread imageLoaderThread; // Background thread to load images during automatic playback
 	bool playing; // Flag whether the movie is currently playing
 	double frameDueTime; // Time at which the next frame must be displayed during playback
-	GLMotif::PopupMenu* mainMenu; // The program's main menu
 	GLMotif::PopupWindow* playbackDialog; // The playback control dialog
 	GLMotif::TextFieldSlider* frameIndexSlider; // Slider to select image frames
 	
 	/* Private methods: */
 	void* imageLoaderThreadMethod(void); // Method loading image frames in the background during automatic playback
-	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
 	GLMotif::PopupWindow* createPlaybackDialog(void); // Creates the playback control dialog
-	void resetNavigationCallback(Misc::CallbackData* cbData); // Method to reset the Vrui navigation transformation to its default
 	void playToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void frameIndexSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
 	
@@ -103,6 +98,7 @@ class ImageSequenceViewer:public Vrui::Application,public GLObject
 	/* Methods from Vrui::Application: */
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	
 	/* Methods from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;
@@ -162,27 +158,6 @@ void* ImageSequenceViewer::imageLoaderThreadMethod(void)
 	return 0;
 	}
 
-GLMotif::PopupMenu* ImageSequenceViewer::createMainMenu(void)
-	{
-	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Image Viewer");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button: */
-	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
-	
-	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&ImageSequenceViewer::resetNavigationCallback);
-	
-	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
-	}
-
 GLMotif::PopupWindow* ImageSequenceViewer::createPlaybackDialog(void)
 	{
 	/* Create a popup shell to hold the playback control dialog: */
@@ -211,16 +186,6 @@ GLMotif::PopupWindow* ImageSequenceViewer::createPlaybackDialog(void)
 	playbackDialog->manageChild();
 	
 	return playbackDialogPopup;
-	}
-
-void ImageSequenceViewer::resetNavigationCallback(Misc::CallbackData* cbData)
-	{
-	/* Reset the Vrui navigation transformation: */
-	Vrui::Scalar w=Vrui::Scalar(frameSize[0]);
-	Vrui::Scalar h=Vrui::Scalar(frameSize[1]);
-	Vrui::Point center(Math::div2(w),Math::div2(h),Vrui::Scalar(0));
-	Vrui::Scalar size=Math::sqrt(Math::sqr(w)+Math::sqr(h));
-	Vrui::setNavigationTransformation(center,size,Vrui::Vector(0,1,0));
 	}
 
 void ImageSequenceViewer::playToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
@@ -265,7 +230,7 @@ ImageSequenceViewer::ImageSequenceViewer(int& argc,char**& argv)
 	 frameTime(1.0/30.0),
 	 playing(false),
 	 frameDueTime(0.0),currentIndex(-1),imageVersion(0),
-	 mainMenu(0),playbackDialog(0)
+	 playbackDialog(0)
 	{
 	/* Parse the command line: */
 	bool autoPlay=false;
@@ -379,13 +344,8 @@ ImageSequenceViewer::ImageSequenceViewer(int& argc,char**& argv)
 	imageLoaderThread.start(this,&ImageSequenceViewer::imageLoaderThreadMethod);
 	
 	/* Create the user interface: */
-	mainMenu=createMainMenu();
-	Vrui::setMainMenu(mainMenu);
 	playbackDialog=createPlaybackDialog();
 	Vrui::popupPrimaryWidget(playbackDialog);
-	
-	/* Initialize the navigation transformation: */
-	resetNavigationCallback(0);
 	
 	if(autoPlay)
 		{
@@ -402,7 +362,6 @@ ImageSequenceViewer::~ImageSequenceViewer(void)
 	imageLoaderThread.cancel();
 	imageLoaderThread.join();
 	
-	delete mainMenu;
 	delete playbackDialog;
 	}
 
@@ -500,6 +459,16 @@ void ImageSequenceViewer::display(GLContextData& contextData) const
 	
 	/* Restore OpenGL state: */
 	glPopAttrib();
+	}
+
+void ImageSequenceViewer::resetNavigation(void)
+	{
+	/* Reset the Vrui navigation transformation: */
+	Vrui::Scalar w=Vrui::Scalar(frameSize[0]);
+	Vrui::Scalar h=Vrui::Scalar(frameSize[1]);
+	Vrui::Point center(Math::div2(w),Math::div2(h),Vrui::Scalar(0.01));
+	Vrui::Scalar size=Math::sqrt(Math::sqr(w)+Math::sqr(h));
+	Vrui::setNavigationTransformation(center,size,Vrui::Vector(0,1,0));
 	}
 
 void ImageSequenceViewer::initContext(GLContextData& contextData) const

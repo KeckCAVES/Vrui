@@ -1,7 +1,7 @@
 /***********************************************************************
 RGBImage - Specialized image class to represent RGB images with 8-bit
 color depth.
-Copyright (c) 2005-2007 Oliver Kreylos
+Copyright (c) 2005-2016 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -40,54 +40,39 @@ class RGBImage:public Image<GLubyte,3>
 		{
 		}
 	RGBImage(unsigned int sWidth,unsigned int sHeight) // Creates an uninitialized image of the given size
-		:Base(sWidth,sHeight)
+		:Base(sWidth,sHeight,GL_RGB)
+		{
+		}
+	explicit RGBImage(const BaseImage& source) // Copies an existing base image (does not copy image representation); throws exception if base image format does not match pixel type
+		:Base(source)
 		{
 		}
 	RGBImage(const RGBImage& source) // Copies an existing image (does not copy image representation)
 		:Base(source)
 		{
 		}
-	template <class SourceScalarParam,int sourceNumComponentsParam>
-	RGBImage(const Image<SourceScalarParam,sourceNumComponentsParam>& source) // Creates an image from given source image with different number of channels and/or scalar type
-		:Base(source)
+	RGBImage& operator=(const BaseImage& source) // Assigns an existing base image (does not copy image representation); throws exception if base image format does not match pixel type
 		{
+		Base::operator=(source);
+		return *this;
 		}
 	RGBImage& operator=(const RGBImage& source) // Assigns an existing image (does not copy image representation)
 		{
 		Base::operator=(source);
 		return *this;
 		}
-	template <class SourceScalarParam,int sourceNumComponentsParam>
-	RGBImage& operator=(const Image<SourceScalarParam,sourceNumComponentsParam>& source) // Creates an image from given source image with different number of channels and/or scalar type
-		{
-		Base::operator=(source);
-		return *this;
-		}
 	
 	/* Methods: */
-	static RGBImage glReadPixels(GLint x,GLint y,GLsizei width,GLsizei height) // Creates a new image by reading from the frame buffer
+	using Base::glReadPixels;
+	static RGBImage glReadPixels(GLint x,GLint y,GLsizei width,GLsizei height) // Returns a new image created by reading from the frame buffer
 		{
+		/* Create a new image of the requested size: */
 		RGBImage result(width,height);
-		result.readPixels(x,y,GL_RGB,GL_UNSIGNED_BYTE);
+		
+		/* Read from the frame buffer: */
+		result.glReadPixels(x,y);
+		
 		return result;
-		}
-	
-	/****************************************************************************
-	The following methods fail if the image does not have a valid representation!
-	****************************************************************************/
-	
-	RGBImage& glReadPixels(GLint x,GLint y) // Reads the frame buffer contents into the image
-		{
-		readPixels(x,y,GL_RGB,GL_UNSIGNED_BYTE);
-		return *this;
-		}
-	void glDrawPixels(void) const // Writes image to the frame buffer at the current raster position
-		{
-		drawPixels(GL_RGB,GL_UNSIGNED_BYTE);
-		}
-	void glTexImage2D(GLenum target,GLint level,GLint internalFormat,bool padImageSize =false) const // Uploads an image as an OpenGL texture
-		{
-		texImage2D(target,level,internalFormat,GL_RGB,GL_UNSIGNED_BYTE,padImageSize);
 		}
 	};
 

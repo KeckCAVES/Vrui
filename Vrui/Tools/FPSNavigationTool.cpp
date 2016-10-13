@@ -1,7 +1,7 @@
 /***********************************************************************
 FPSNavigationTool - Class encapsulating the navigation behaviour of a
 typical first-person shooter (FPS) game.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -61,6 +61,7 @@ FPSNavigationToolFactory::Configuration::Configuration(void)
 	 jumpVelocity(getMeterFactor()*Scalar(4)),
 	 probeSize(getInchFactor()*Scalar(12)),
 	 maxClimb(getInchFactor()*Scalar(12)),
+	 azimuthStep(0),
 	 fixAzimuth(false),
 	 levelOnExit(false),
 	 drawHud(true),hudColor(0.0f,1.0f,0.0f),
@@ -79,6 +80,7 @@ void FPSNavigationToolFactory::Configuration::load(const Misc::ConfigurationFile
 	jumpVelocity=cfs.retrieveValue<Scalar>("./jumpVelocity",jumpVelocity);
 	probeSize=cfs.retrieveValue<Scalar>("./probeSize",probeSize);
 	maxClimb=cfs.retrieveValue<Scalar>("./maxClimb",maxClimb);
+	azimuthStep=Math::rad(cfs.retrieveValue<Scalar>("./azimuthStep",Math::deg(azimuthStep)));
 	fixAzimuth=cfs.retrieveValue<bool>("./fixAzimuth",fixAzimuth);
 	levelOnExit=cfs.retrieveValue<bool>("./levelOnExit",levelOnExit);
 	drawHud=cfs.retrieveValue<bool>("./drawHud",drawHud);
@@ -97,6 +99,7 @@ void FPSNavigationToolFactory::Configuration::save(Misc::ConfigurationFileSectio
 	cfs.storeValue<Scalar>("./jumpVelocity",jumpVelocity);
 	cfs.storeValue<Scalar>("./probeSize",probeSize);
 	cfs.storeValue<Scalar>("./maxClimb",maxClimb);
+	cfs.storeValue<Scalar>("./azimuthStep",Math::deg(azimuthStep));
 	cfs.storeValue<bool>("./fixAzimuth",fixAzimuth);
 	cfs.storeValue<bool>("./levelOnExit",levelOnExit);
 	cfs.storeValue<bool>("./drawHud",drawHud);
@@ -214,7 +217,20 @@ void FPSNavigationTool::applyNavState(void)
 	/* Compose and apply the navigation transformation: */
 	NavTransform nav=physicalFrame;
 	nav*=NavTransform::rotateAround(Point(0,0,headHeight),Rotation::rotateX(elevation));
-	nav*=NavTransform::rotate(Rotation::rotateZ(azimuth));
+	
+	#if 0
+	Vector up(0,0,config.fallAcceleration);
+	for(int i=0;i<2;++i)
+		if(controlVelocity[i]!=moveVelocity[i])
+			up[i]=Math::copysign(Scalar(4)*getMeterFactor(),controlVelocity[i]-moveVelocity[i]);
+	nav*=NavTransform::rotateAround(Point(0,0,headHeight),Rotation::rotateFromTo(up,Vector(0,0,1)));
+	#endif
+	
+	if(config.azimuthStep>Scalar(0.1))
+		ratchetedAzimuth=Math::floor((azimuth+Math::div2(config.azimuthStep))/config.azimuthStep)*config.azimuthStep;
+	else
+		ratchetedAzimuth=azimuth;
+	nav*=NavTransform::rotate(Rotation::rotateZ(ratchetedAzimuth));
 	nav*=Geometry::invert(surfaceFrame);
 	setNavigationTransformation(nav);
 	}
@@ -246,6 +262,7 @@ void FPSNavigationTool::initNavState(void)
 	align(ad,azimuth,elevation,roll);
 	
 	/* Reset the movement velocity: */
+	controlVelocity=Vector::zero;
 	moveVelocity=Vector::zero;
 	jump=false;
 	
@@ -300,7 +317,6 @@ FPSNavigationTool::FPSNavigationTool(const ToolFactory* factory,const ToolInputA
 
 FPSNavigationTool::~FPSNavigationTool(void)
 	{
-	delete numberRenderer;
 	}
 
 void FPSNavigationTool::configure(const Misc::ConfigurationFileSection& configFileSection)
@@ -351,6 +367,10 @@ void FPSNavigationTool::deinitialize(void)
 	/* Destroy the virtual input device: */
 	getInputDeviceManager()->destroyInputDevice(buttonDevice);
 	buttonDevice=0;
+	
+	/* Destroy the number renderer: */
+	delete numberRenderer;
+	numberRenderer=0;
 	}
 
 const ToolFactory* FPSNavigationTool::getFactory(void) const
@@ -404,30 +424,30 @@ void FPSNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCa
 			{
 			case 1:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[0]-=config.moveSpeeds[0];
+					controlVelocity[0]-=config.moveSpeeds[0];
 				else // Button has just been released
-					moveVelocity[0]+=config.moveSpeeds[0];
+					controlVelocity[0]+=config.moveSpeeds[0];
 				break;
 			
 			case 2:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[0]+=config.moveSpeeds[0];
+					controlVelocity[0]+=config.moveSpeeds[0];
 				else // Button has just been released
-					moveVelocity[0]-=config.moveSpeeds[0];
+					controlVelocity[0]-=config.moveSpeeds[0];
 				break;
 			
 			case 3:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[1]-=config.moveSpeeds[1];
+					controlVelocity[1]-=config.moveSpeeds[1];
 				else // Button has just been released
-					moveVelocity[1]+=config.moveSpeeds[1];
+					controlVelocity[1]+=config.moveSpeeds[1];
 				break;
 			
 			case 4:
 				if(cbData->newButtonState) // Button has just been pressed
-					moveVelocity[1]+=config.moveSpeeds[1];
+					controlVelocity[1]+=config.moveSpeeds[1];
 				else // Button has just been released
-					moveVelocity[1]-=config.moveSpeeds[1];
+					controlVelocity[1]-=config.moveSpeeds[1];
 				break;
 			
 			case 5:
@@ -483,8 +503,24 @@ void FPSNavigationTool::frame(void)
 		headHeight=Geometry::dist(newHeadPos,newFootPos);
 		
 		/* Check for movement: */
-		if(moveVelocity!=Vector::zero||newFootPos!=footPos||jump)
+		if(controlVelocity!=Vector::zero||moveVelocity!=Vector::zero||newFootPos!=footPos||jump)
 			update=true;
+		
+		/* Update the movement velocity based on the control velocity: */
+		#if 0
+		Scalar maxAccel=Scalar(4)*getMeterFactor()*getCurrentFrameTime();
+		for(int i=0;i<2;++i)
+			{
+			Scalar dv=controlVelocity[i]-moveVelocity[i];
+			if(Math::abs(dv)<maxAccel)
+				moveVelocity[i]=controlVelocity[i];
+			else
+				moveVelocity[i]+=Math::copysign(maxAccel,dv);
+			}
+		#else
+		for(int i=0;i<2;++i)
+			moveVelocity[i]=controlVelocity[i];
+		#endif
 		
 		if(update)
 			{
@@ -548,7 +584,7 @@ void FPSNavigationTool::frame(void)
 			if(moveVelocity[0]!=Scalar(0)||moveVelocity[1]!=Scalar(0)||z>Scalar(0))
 				{
 				/* Request another frame: */
-				scheduleUpdate(getApplicationTime()+1.0/125.0);
+				scheduleUpdate(getNextAnimationTime());
 				}
 			}
 		
@@ -567,6 +603,7 @@ void FPSNavigationTool::display(GLContextData& contextData) const
 		{
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
+		glDepthRange(0.0,0.0);
 		glLineWidth(1.0f);
 		glColor(config.hudColor);
 		
@@ -580,6 +617,7 @@ void FPSNavigationTool::display(GLContextData& contextData) const
 		glMultMatrix(physicalFrame);
 		
 		/* Go to the HUD frame: */
+		glRotatef(Math::deg(azimuth-ratchetedAzimuth),0.0f,0.0f,-1.0f);
 		glTranslatef(0.0f,y,float(headHeight));
 		glRotatef(90.0f,1.0f,0.0f,0.0f);
 		
@@ -646,6 +684,7 @@ void FPSNavigationTool::display(GLContextData& contextData) const
 			}
 		
 		glPopMatrix();
+		glDepthRange(0.0,1.0);
 		glPopAttrib();
 		}
 	}

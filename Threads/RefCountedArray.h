@@ -1,7 +1,7 @@
 /***********************************************************************
 RefCountedArray - Generic class for fixed-size arrays with copy-on-write
 sharing and automatic garbage collection. Thread-safe version.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Portable Threading Library (Threads).
 
@@ -23,8 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef THREADS_REFCOUNTEDARRAY_INCLUDED
 #define THREADS_REFCOUNTEDARRAY_INCLUDED
 
-#include <pthread.h>
-#include <Threads/Config.h>
+#include <Threads/Atomic.h>
 
 namespace Threads {
 
@@ -40,52 +39,27 @@ class RefCountedArray
 		{
 		/* Elements: */
 		public:
-		#if !THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-		#if THREADS_CONFIG_HAVE_SPINLOCKS
-		pthread_spinlock_t refCountSpinlock; // Busy-wait mutual exclusion semaphore protecting the reference counter
-		#else
-		pthread_mutex_t refCountSpinlock; // Busy-wait mutual exclusion semaphore protecting the reference counter
-		#endif
-		#endif
-		unsigned int refCount; // Number of RefCountedArray objects currently sharing the array
+		Atomic<unsigned int> refCount; // Number of RefCountedArray objects currently sharing the array
 		size_t size; // Allocated size of the array
 		Element elements[0]; // Beginning of actual array storage
+		
+		/* Constructors and destructors: */
+		Header(size_t sSize) // Creates a header object for the given array size with a single reference
+			:refCount(1),
+			 size(sSize)
+			{
+			}
 		
 		/* Methods: */
 		void ref(void) // Increases the array's reference count
 			{
-			/* Increment the reference counter atomically: */
-			#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-			__sync_add_and_fetch(&refCount,1);
-			#else
-			#if THREADS_CONFIG_HAVE_SPINLOCKS
-			pthread_spin_lock(&refCountSpinlock);
-			++refCount;
-			pthread_spin_unlock(&refCountSpinlock);
-			#else
-			pthread_mutex_lock(&refCountSpinlock);
-			++refCount;
-			pthread_mutex_unlock(&refCountSpinlock);
-			#endif
-			#endif
+			/* Increment the reference counter: */
+			refCount.preAdd(1);
 			}
 		bool unref(void) // Decreases the array's reference count; returns true if array has become orphaned
 			{
-			/* Decrement the reference counter atomically: */
-			#if THREADS_CONFIG_HAVE_BUILTIN_ATOMICS
-			return __sync_sub_and_fetch(&refCount,1)==0;
-			#else
-			#if THREADS_CONFIG_HAVE_SPINLOCKS
-			pthread_spin_lock(&refCountSpinlock);
-			bool result=(--refCount)==0;
-			pthread_spin_unlock(&refCountSpinlock);
-			#else
-			pthread_mutex_lock(&refCountSpinlock);
-			bool result=(--refCount)==0;
-			pthread_mutex_unlock(&refCountSpinlock);
-			#endif
-			return result;
-			#endif
+			/* Decrement the reference counter and check for abandonment: */
+			return refCount.preSub(1)==0;
 			}
 		};
 	

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLNVOcclusionQuery - OpenGL extension class for the
 GL_NV_occlusion_query extension.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -31,6 +31,7 @@ Static elements of class GLNVOcclusionQuery:
 *******************************************/
 
 GL_THREAD_LOCAL(GLNVOcclusionQuery*) GLNVOcclusionQuery::current=0;
+const char* GLNVOcclusionQuery::name="GL_NV_occlusion_query";
 
 /***********************************
 Methods of class GLNVOcclusionQuery:
@@ -53,7 +54,7 @@ GLNVOcclusionQuery::~GLNVOcclusionQuery(void)
 
 const char* GLNVOcclusionQuery::getExtensionName(void) const
 	{
-	return "GL_NV_occlusion_query";
+	return name;
 	}
 
 void GLNVOcclusionQuery::activate(void)
@@ -69,13 +70,13 @@ void GLNVOcclusionQuery::deactivate(void)
 bool GLNVOcclusionQuery::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_NV_occlusion_query");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLNVOcclusionQuery::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_NV_occlusion_query"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLNVOcclusionQuery* newExtension=new GLNVOcclusionQuery;

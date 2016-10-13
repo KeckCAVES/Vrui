@@ -1,6 +1,6 @@
 /***********************************************************************
 RemoteDevice - Class to daisy-chain device servers on remote machines.
-Copyright (c) 2002-2011 Oliver Kreylos
+Copyright (c) 2002-2014 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 

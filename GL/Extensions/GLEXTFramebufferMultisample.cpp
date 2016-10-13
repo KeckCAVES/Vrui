@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTFramebufferMultisample - OpenGL extension class for the
 GL_EXT_framebuffer_multisample extension.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -26,15 +26,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <GL/GLContextData.h>
 #include <GL/GLExtensionManager.h>
 
-/***********************************************
+/****************************************************
 Static elements of class GLEXTFramebufferMultisample:
-***********************************************/
+****************************************************/
 
 GL_THREAD_LOCAL(GLEXTFramebufferMultisample*) GLEXTFramebufferMultisample::current=0;
+const char* GLEXTFramebufferMultisample::name="GL_EXT_framebuffer_multisample";
 
-/***************************************
+/********************************************
 Methods of class GLEXTFramebufferMultisample:
-***************************************/
+********************************************/
 
 GLEXTFramebufferMultisample::GLEXTFramebufferMultisample(void)
 	:glRenderbufferStorageMultisampleEXTProc(GLExtensionManager::getFunction<PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC>("glRenderbufferStorageMultisampleEXT"))
@@ -47,7 +48,7 @@ GLEXTFramebufferMultisample::~GLEXTFramebufferMultisample(void)
 
 const char* GLEXTFramebufferMultisample::getExtensionName(void) const
 	{
-	return "GL_EXT_framebuffer_multisample";
+	return name;
 	}
 
 void GLEXTFramebufferMultisample::activate(void)
@@ -63,13 +64,13 @@ void GLEXTFramebufferMultisample::deactivate(void)
 bool GLEXTFramebufferMultisample::isSupported(void)
 	{
 	/* Ask the current extension manager whether the extension is supported in the current OpenGL context: */
-	return GLExtensionManager::isExtensionSupported("GL_EXT_framebuffer_multisample");
+	return GLExtensionManager::isExtensionSupported(name);
 	}
 
 void GLEXTFramebufferMultisample::initExtension(void)
 	{
 	/* Check if the extension is already initialized: */
-	if(!GLExtensionManager::isExtensionRegistered("GL_EXT_framebuffer_multisample"))
+	if(!GLExtensionManager::isExtensionRegistered(name))
 		{
 		/* Create a new extension object: */
 		GLEXTFramebufferMultisample* newExtension=new GLEXTFramebufferMultisample;

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLContext - Class to encapsulate state relating to a single OpenGL
 context, to facilitate context sharing between windows.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2015 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLCONTEXT_INCLUDED
 #define GLCONTEXT_INCLUDED
 
+#include <string>
 #include <Misc/Autopointer.h>
 #include <Threads/RefCounted.h>
 #include <X11/X.h>
@@ -36,16 +37,18 @@ class GLContext:public Threads::RefCounted
 	{
 	/* Elements: */
 	private:
+	std::string displayName; // The name of the display connection for this context
 	Display* display; // Display connection for this context
-	GLXContext context; // GLX context handle
+	int screen; // Screen for which the GLX context was created
 	Visual* visual; // Pointer to the visual for which the GLX context was created
+	GLXContext context; // GLX context handle
 	int depth; // Bit depth of the visual associated with the GLX context
 	GLExtensionManager* extensionManager; // Pointer to an extension manager for this GLX context
 	GLContextData* contextData; // Pointer to an object associating per-context application state with this GLX context
 	
 	/* Constructors and destructors: */
 	public:
-	GLContext(const char* displayName,int* visualProperties =0); // Creates an OpenGL context for the given display name using the given visual properties (or default properties if null pointer is passed)
+	GLContext(const char* sDisplayName); // Prepares an OpenGL context for the given display name
 	private:
 	GLContext(const GLContext& source); // Prohibit copy constructor
 	GLContext& operator=(const GLContext& source); // Prohibit assignment operator
@@ -53,6 +56,10 @@ class GLContext:public Threads::RefCounted
 	virtual ~GLContext(void); // Destroys the OpenGL context and all associated data
 	
 	/* Methods: */
+	const char* getDisplayName(void) const // Returns the name of the display connection
+		{
+		return displayName.c_str();
+		}
 	Display* getDisplay(void) // Returns the context's display connection
 		{
 		return display;
@@ -60,6 +67,15 @@ class GLContext:public Threads::RefCounted
 	int getDefaultScreen(void) // Returns the context's default screen
 		{
 		return XDefaultScreen(display);
+		}
+	bool isValid(void) const // Returns true if the context has been created
+		{
+		return context!=None;
+		}
+	void initialize(int sScreen,int* visualProperties =0); // Creates an OpenGL context on the given screen using the given visual properties (or default properties if null pointer is passed)
+	int getScreen(void) const // Returns the screen for which the context was created
+		{
+		return screen;
 		}
 	Visual* getVisual(void) // Returns the context's visual
 		{
@@ -69,6 +85,7 @@ class GLContext:public Threads::RefCounted
 		{
 		return depth;
 		}
+	bool isDirect(void) const; // Returns true if the OpenGL context supports direct rendering
 	void init(GLXDrawable drawable); // Creates the context's extension and context data managers; context will be bound to the given drawable
 	void deinit(void); // Destroys the context's extension and context data managers; context must be current on some drawable
 	GLExtensionManager& getExtensionManager(void) // Returns the context's extension manager

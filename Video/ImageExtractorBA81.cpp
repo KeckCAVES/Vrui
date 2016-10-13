@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageExtractorBA81 - Class to extract images from raw video frames
 encoded using an eight-bit Bayer pattern.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -631,6 +631,34 @@ void ImageExtractorBA81::extractRGB(const FrameBuffer* frame,void* image)
 		
 		default:
 			;
+		}
+	}
+
+void ImageExtractorBA81::extractYpCbCr(const FrameBuffer* frame,void* image)
+	{
+	switch(bayerPattern)
+		{
+		case BAYER_RGGB:
+			extractRGBFromRGGB(frame,image);
+			break;
+		
+		case BAYER_BGGR:
+			extractRGBFromBGGR(frame,image);
+			break;
+		
+		default:
+			;
+		}
+	
+	/* Convert the extracted RGB image to YpCbCr: */
+	unsigned char* cPtr=static_cast<unsigned char*>(image);
+	for(unsigned int i=size[1]*size[0];i>0;--i,cPtr+=3)
+		{
+		/* Copy RGB pixel as RGB->Y'CbCr conversion does not work in-place: */
+		unsigned char rgb[3];
+		for(int i=0;i<3;++i)
+			rgb[i]=cPtr[i];
+		Video::rgbToYpcbcr(rgb,cPtr);
 		}
 	}
 

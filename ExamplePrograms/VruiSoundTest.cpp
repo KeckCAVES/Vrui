@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiSoundTest - Small application to illustrate principles of spatial
 audio programming using Vrui's OpenAL interface.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -103,6 +103,7 @@ class VruiSoundTest:public Vrui::Application,public GLObject,public ALObject
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	virtual void sound(ALContextData& contextData) const;
+	virtual void resetNavigation(void);
 	};
 
 /******************************
@@ -119,9 +120,6 @@ VruiSoundTest::VruiSoundTest(int& argc,char**& argv)
 	positions[0]=Vrui::Point(0,0,0);
 	positions[1]=Vrui::Point(5,0,0);
 	positions[2]=Vrui::Point(0,10,0);
-	
-	/* Initialize the navigation transformation: */
-	Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(10),Vrui::Vector(0,0,1));
 	}
 
 VruiSoundTest::~VruiSoundTest(void)
@@ -252,6 +250,12 @@ void VruiSoundTest::sound(ALContextData& contextData) const
 		alSourceRolloffFactor(dataItem->sources[i],1.0);
 		#endif
 		}
+	}
+
+void VruiSoundTest::resetNavigation(void)
+	{
+	/* Initialize the navigation transformation: */
+	Vrui::setNavigationTransformation(Vrui::Point::origin,Vrui::Scalar(10),Vrui::Vector(0,0,1));
 	}
 
 VRUI_APPLICATION_RUN(VruiSoundTest)

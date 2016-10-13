@@ -1,7 +1,7 @@
 /***********************************************************************
 QuikWriteTool - Class for tools to enter text using the stroke-based
 QuikWrite user interface, developed by Ken Perlin.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,6 +24,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_QUIKWRITETOOL_INCLUDED
 #define VRUI_QUIKWRITETOOL_INCLUDED
 
+#include <string>
 #include <Geometry/Plane.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <GL/gl.h>
@@ -40,12 +41,33 @@ class QuikWriteToolFactory:public ToolFactory
 	{
 	friend class QuikWriteTool;
 	
+	/* Embedded classes: */
+	private:
+	struct Configuration // Structure containing tool settings
+		{
+		/* Elements: */
+		public:
+		bool useDevice; // Flag to use an alternate interaction device
+		std::string deviceName; // Name of interaction device; overrides device to which tool is bound
+		Scalar squareSize; // Size of QuikWrite square
+		Scalar initialSquareDist; // Distance from 6DOF input device at which to display the QuikWrite square
+		Color backgroundColor; // Background color for QuikWrite square
+		Color foregroundColor; // Foreground color for QuikWrite square
+		bool drawPoint; // Flag whether to draw the current interaction point
+		Color pointColor; // Color to draw the current interaction point
+		GLfloat pointSize; // Size to draw the current interaction point
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		
+		/* Methods: */
+		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
+		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
+		};
+	
 	/* Elements: */
 	private:
-	Scalar squareSize; // Size of QuikWrite square
-	Scalar initialSquareDist; // Distance from 6DOF input device at which to display the QuikWrite square
-	Color backgroundColor; // Background color for QuikWrite square
-	Color foregroundColor; // Foreground color for QuikWrite square
+	Configuration config; // Default configuration for all tools
 	
 	/* Constructors and destructors: */
 	public:
@@ -89,11 +111,13 @@ class QuikWriteTool:public UserInterfaceTool,public GLObject
 	/* Elements: */
 	private:
 	static QuikWriteToolFactory* factory; // Pointer to the factory object for this class
+	QuikWriteToolFactory::Configuration config; // Private configuration of this tool
 	static const char characters[4][9][9]; // QuikWrite alphabet character tables
 	Point petalPos[32]; // Positions of the petal labels
 	GLLabel petals[32]; // Characters currently associated with the zones of the QuikWrite square
 	
 	/* Transient state: */
+	InputDevice* interactionDevice; // Device used to select characters
 	bool active; // Flag whether the tool is currently active
 	Ray ray; // The current interaction ray while the tool is active
 	ONTransform squareTransform; // Position and orientation of QuikWrite square in physical space while active
@@ -109,6 +133,7 @@ class QuikWriteTool:public UserInterfaceTool,public GLObject
 	int getZone(bool inZone5) const; // Returns the index of the QuikWrite zone currently being pointed at
 	void setAlphabet(Alphabet newAlphabet); // Selects the given alphabet
 	void switchAlphabet(Alphabet newAlphabet); // Switches to the given alphabet
+	void drawRegion(int region) const; // Draws one QuikWrite region as a solid background
 	void drawSquare(void) const; // Draws the QuikWrite square and special symbols
 	
 	/* Constructors and destructors: */
@@ -117,6 +142,9 @@ class QuikWriteTool:public UserInterfaceTool,public GLObject
 	virtual ~QuikWriteTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

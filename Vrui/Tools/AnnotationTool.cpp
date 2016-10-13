@@ -1,6 +1,6 @@
 /***********************************************************************
 AnnotationTool - Tool to interactively annotate 3D models.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Button.h>
 #include <GLMotif/WidgetStateHelper.h>
 #include <Vrui/Viewer.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -275,11 +276,7 @@ void AnnotationTool::Position::draw(GLContextData& contextData) const
 	
 	/* Draw the position labels: */
 	glPushMatrix();
-	glTranslate(physPos-Point::origin);
-	Vector z=getMainViewer()->getHeadPosition()-physPos;
-	Vector x=getUpDirection()^z;
-	Vector y=z^x;
-	glRotate(Rotation::fromBaseVectors(x,y));
+	glMultMatrix(Vrui::getUiManager()->calcUITransform(physPos));
 	
 	for(int i=0;i<3;++i)
 		posLabels[i].draw(contextData);
@@ -291,9 +288,7 @@ AnnotationTool::Position::Position(const GLFont& labelFont)
 	{
 	/* Determine default background and foreground colors: */
 	bgColor=getBackgroundColor();
-	for(int i=0;i<3;++i)
-		fgColor[i]=1.0f-bgColor[i];
-	fgColor[3]=1.0f;
+	fgColor=getForegroundColor();
 	
 	/* Initialize the position labels: */
 	for(int i=0;i<3;++i)
@@ -460,11 +455,7 @@ void AnnotationTool::Distance::draw(GLContextData& contextData) const
 	/* Draw the distance label: */
 	glPushMatrix();
 	Point p=Geometry::mid(physPos[0],physPos[1])+y*factory->markerSize*Scalar(2);
-	glTranslate(p-Point::origin);
-	z=getMainViewer()->getHeadPosition()-p+y*factory->markerSize*Scalar(0.5);
-	y=z^x;
-	x=y^z;
-	glRotate(Rotation::fromBaseVectors(x,y));
+	glMultMatrix(Vrui::getUiManager()->calcUITransform(p));
 	
 	distLabel.draw(contextData);
 	
@@ -475,9 +466,7 @@ AnnotationTool::Distance::Distance(const GLFont& labelFont)
 	{
 	/* Determine default background and foreground colors: */
 	bgColor=getBackgroundColor();
-	for(int i=0;i<3;++i)
-		fgColor[i]=1.0f-bgColor[i];
-	fgColor[3]=1.0f;
+	fgColor=getForegroundColor();
 	
 	/* Initialize the distance label: */
 	distLabel.setFont(labelFont);
@@ -557,8 +546,37 @@ void AnnotationTool::Distance::glRenderAction(GLContextData& contextData) const
 
 void AnnotationTool::Distance::glRenderAction(AnnotationTool::Annotation::CreationState* creationState,AnnotationTool::Annotation::PickResult* pickResult,AnnotationTool::Annotation::DragState* dragState,GLContextData& contextData) const
 	{
-	if(creationState==0||static_cast<CreationState*>(creationState)->numPoints>1)
+	if(creationState==0)
 		{
+		/* Draw the distance: */
+		draw(contextData);
+		}
+	else if(static_cast<CreationState*>(creationState)->numPoints>1)
+		{
+		/* Draw a marker for the initial and current positions: */
+		glDisable(GL_LIGHTING);
+		
+		Point physPos0=getNavigationTransformation().transform(pos[0]);
+		Point physPos1=getNavigationTransformation().transform(pos[1]);
+		
+		glLineWidth(3.0f);
+		glColor(bgColor);
+		drawMarker(physPos0);
+		drawMarker(physPos1);
+		glBegin(GL_LINES);
+		glVertex(physPos0);
+		glVertex(physPos1);
+		glEnd();
+		
+		glLineWidth(1.0f);
+		glColor(fgColor);
+		drawMarker(physPos0);
+		drawMarker(physPos1);
+		glBegin(GL_LINES);
+		glVertex(physPos0);
+		glVertex(physPos1);
+		glEnd();
+		
 		/* Draw the distance: */
 		draw(contextData);
 		}
@@ -716,9 +734,7 @@ AnnotationTool::Angle::Angle(const GLFont& labelFont)
 	{
 	/* Determine default background and foreground colors: */
 	bgColor=getBackgroundColor();
-	for(int i=0;i<3;++i)
-		fgColor[i]=1.0f-bgColor[i];
-	fgColor[3]=1.0f;
+	fgColor=getForegroundColor();
 	
 	/* Initialize the angle label: */
 	angleLabel.setFont(labelFont);

@@ -1,6 +1,6 @@
 /***********************************************************************
 VideoDevice - Base class for video capture devices.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -26,15 +26,26 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FunctionCalls.h>
 #include <Misc/StandardValueCoders.h>
+#include <Misc/ArrayValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#if 0
+#include <Video/ImageSequenceVideoDevice.h>
+#endif
 #if VIDEO_CONFIG_HAVE_V4L2
 #include <Video/Linux/V4L2VideoDevice.h>
+#include <Video/Linux/OculusRiftDK2VideoDevice.h>
 #endif
 #if VIDEO_CONFIG_HAVE_DC1394
 #include <Video/Linux/DC1394VideoDevice.h>
 #endif
 
 namespace Video {
+
+/************************************
+Static elements of class VideoDevice:
+************************************/
+
+VideoDevice::DeviceClass* VideoDevice::deviceClasses=0;
 
 /****************************
 Methods of class VideoDevice:
@@ -50,11 +61,53 @@ VideoDevice::~VideoDevice(void)
 	delete streamingCallback;
 	}
 
+void VideoDevice::registerDeviceClass(VideoDevice::EnumerateVideoDevicesFunc enumerateVideoDevices)
+	{
+	/* Create a new device class entry: */
+	DeviceClass* newClass=new DeviceClass;
+	newClass->enumerateVideoDevices=enumerateVideoDevices;
+	newClass->succ=deviceClasses;
+	
+	/* Register the new class: */
+	deviceClasses=newClass;
+	}
+
+void VideoDevice::unregisterDeviceClass(VideoDevice::EnumerateVideoDevicesFunc enumerateVideoDevices)
+	{
+	/* Find the enumeration function in the list of device classes: */
+	DeviceClass* ptr0=0;
+	for(DeviceClass* ptr1=deviceClasses;ptr1!=0;ptr0=ptr1,ptr1=ptr1->succ)
+		if(ptr1->enumerateVideoDevices==enumerateVideoDevices)
+			{
+			/* Delete the device class entry: */
+			if(ptr0!=0)
+				ptr0->succ=ptr1->succ;
+			else
+				deviceClasses=ptr1->succ;
+			delete ptr1;
+			break;
+			}
+	}
+
 std::vector<VideoDevice::DeviceIdPtr> VideoDevice::getVideoDevices(void)
 	{
 	std::vector<VideoDevice::DeviceIdPtr> result;
 	
+	/* Enumerate all video devices handled by all additional device classes: */
+	for(DeviceClass* dcPtr=deviceClasses;dcPtr!=0;dcPtr=dcPtr->succ)
+		dcPtr->enumerateVideoDevices(result);
+	
+	#if 0
+	
+	/* Enumerate all image sequence video devices in the system (THIS IS A HUGE PROBLEM): */
+	ImageSequenceVideoDevice::enumerateDevices(result);
+	
+	#endif
+	
 	#if VIDEO_CONFIG_HAVE_V4L2
+	
+	/* Enumerate all quirky V4L2 video devices in the system: */
+	OculusRiftDK2VideoDevice::enumerateDevices(result);
 	
 	/* Enumerate all V4L2 video devices in the system: */
 	V4L2VideoDevice::enumerateDevices(result);
@@ -73,109 +126,149 @@ std::vector<VideoDevice::DeviceIdPtr> VideoDevice::getVideoDevices(void)
 
 VideoDevice* VideoDevice::createVideoDevice(VideoDevice::DeviceIdPtr deviceId)
 	{
-	#if VIDEO_CONFIG_HAVE_V4L2
+	/* Let the device ID object handle device creation: */
+	return deviceId->createDevice();
+	}
+
+void VideoDevice::saveConfiguration(Misc::ConfigurationFileSection& cfg) const
+	{
+	/* Get the device's current video format: */
+	VideoDataFormat currentFormat=getVideoFormat();
 	
-	/* Check if the device ID identifies a V4L2 video device: */
-	V4L2VideoDevice::DeviceId* v4l2DeviceId=dynamic_cast<V4L2VideoDevice::DeviceId*>(deviceId.getPointer());
-	if(v4l2DeviceId!=0)
-		return V4L2VideoDevice::createDevice(v4l2DeviceId);
+	/* Save the current frame size: */
+	cfg.storeValueWC("./frameSize",currentFormat.size,Misc::CFixedArrayValueCoder<unsigned int,2>());
 	
-	#endif
+	/* Save the current frame rate: */
+	cfg.storeValue("./frameRate",double(currentFormat.frameIntervalDenominator)/double(currentFormat.frameIntervalCounter));
 	
-	#if VIDEO_CONFIG_HAVE_DC1394
-	
-	/* Check if the device ID identifies a DC1394 video device: */
-	DC1394VideoDevice::DeviceId* dc1394DeviceId=dynamic_cast<DC1394VideoDevice::DeviceId*>(deviceId.getPointer());
-	if(dc1394DeviceId!=0)
-		return DC1394VideoDevice::createDevice(dc1394DeviceId);
-	
-	#endif
-	
-	Misc::throwStdErr("VideoDevice::createVideoDevice: Could not find device matching given device ID");
-	
-	/* Never reached; just to make compiler happy: */
-	return 0;
+	/* Check if the current pixel format is a valid FourCC code: */
+	char fourCCBuffer[5];
+	currentFormat.getFourCC(fourCCBuffer);
+	bool valid=true;
+	for(int i=0;i<4&&valid;++i)
+		valid=fourCCBuffer[i]>=32&&fourCCBuffer[i]<127&&fourCCBuffer[i]!='"';
+	if(valid)
+		{
+		/* Save the current pixel format as a FourCC code: */
+		cfg.storeValue<std::string>("./pixelFormat",fourCCBuffer);
+		}
+	else
+		{
+		/* Save the current pixel format as a hexadecimal number: */
+		char hexBuffer[9];
+		unsigned int pixelFormat=currentFormat.pixelFormat;
+		for(int i=0;i<8;++i,pixelFormat>>=4)
+			{
+			if((pixelFormat&0x0fU)>=10U)
+				hexBuffer[7-i]=(pixelFormat&0x0fU)+'a';
+			else
+				hexBuffer[7-i]=(pixelFormat&0x0fU)+'0';
+			}
+		hexBuffer[8]='\0';
+		cfg.storeString("./pixelFormatHex",hexBuffer);
+		}
 	}
 
 void VideoDevice::configure(const Misc::ConfigurationFileSection& cfg)
 	{
-	/* Get the device's current video format to use as default: */
-	VideoDataFormat currentFormat=getVideoFormat();
+	/* Check which components of the video format are stored in the configuration file section: */
+	unsigned int frameSize[2]={0,0};
+	bool haveFrameSize=false;
+	if(cfg.hasTag("./width")&&cfg.hasTag("./height"))
+		{
+		/* Read the requested frame size as width and height: */
+		frameSize[0]=cfg.retrieveValue<unsigned int>("./width");
+		frameSize[1]=cfg.retrieveValue<unsigned int>("./height");
+		
+		haveFrameSize=true;
+		}
+	if(cfg.hasTag("./frameSize"))
+		{
+		/* Read the requested frame size as a two-element array: */
+		Misc::CFixedArrayValueCoder<unsigned int,2> valueCoder(frameSize);
+		cfg.retrieveValueWC<unsigned int*>("./frameSize",valueCoder);
+		
+		haveFrameSize=true;
+		}
+	
+	double frameRate=0.0;
+	bool haveFrameRate=false;
+	if(cfg.hasTag("./frameRate"))
+		{
+		/* Read the requested frame rate as a double: */
+		frameRate=cfg.retrieveValue<double>("./frameRate");
+		
+		haveFrameRate=true;
+		}
+	
+	unsigned int pixelFormat=0;
+	bool havePixelFormat=false;
+	if(cfg.hasTag("./pixelFormat"))
+		{
+		/* Read a pixel format as a FourCC code: */
+		std::string fourCC=cfg.retrieveValue<std::string>("./pixelFormat");
+		if(fourCC.size()!=4)
+			Misc::throwStdErr("Video::VideoDevice::configure: Invalid pixel format code \"%s\"",fourCC.c_str());
+		
+		/* Convert the FourCC code to a pixel format: */
+		VideoDataFormat temp;
+		temp.setPixelFormat(fourCC.c_str());
+		pixelFormat=temp.pixelFormat;
+		
+		havePixelFormat=true;
+		}
+	if(cfg.hasTag("./pixelFormatHex"))
+		{
+		/* Read a pixel format as a hexadecimal number: */
+		std::string hex=cfg.retrieveString("./pixelFormatHex");
+		if(hex.size()!=8)
+			Misc::throwStdErr("Video::VideoDevice::configure: Invalid hexadecimal pixel format code \"%s\"",hex.c_str());
+		for(int i=0;i<8;++i)
+			{
+			if(hex[i]>='0'&&hex[i]<='9')
+				pixelFormat=(pixelFormat<<4)|(hex[i]-'0');
+			else if(hex[i]>='A'&&hex[i]<='F')
+				pixelFormat=(pixelFormat<<4)|(hex[i]-'A'+10);
+			else if(hex[i]>='a'&&hex[i]<='f')
+				pixelFormat=(pixelFormat<<4)|(hex[i]-'a'+10);
+			else
+				Misc::throwStdErr("Video::VideoDevice::configure: Invalid hexadecimal pixel format code \"%s\"",hex.c_str());
+			}
+		
+		havePixelFormat=true;
+		}
 	
 	/* Get the list of the device's supported video formats: */
 	std::vector<VideoDataFormat> deviceFormats=getVideoFormatList();
 	
-	/* Read the requested frame size: */
-	currentFormat.size[0]=cfg.retrieveValue<unsigned int>("./width",currentFormat.size[0]);
-	currentFormat.size[1]=cfg.retrieveValue<unsigned int>("./height",currentFormat.size[1]);
-	
-	/* Find the best-matching frame size among the supported video formats: */
-	std::vector<VideoDataFormat>::iterator bestSizeMatch=deviceFormats.end();
-	double bestSizeMatchRatio=1.0e10;
+	/* Find the best-matching video format among the device's advertised formats: */
+	std::vector<VideoDataFormat>::iterator bestFormat=deviceFormats.end();
+	double bestMatch=0.0;
 	for(std::vector<VideoDataFormat>::iterator dfIt=deviceFormats.begin();dfIt!=deviceFormats.end();++dfIt)
 		{
-		/* Calculate the format's size mismatch: */
-		double sizeMatchRatio=0.0;
-		for(int i=0;i<2;++i)
+		double match=1.0;
+		if(haveFrameSize)
+			for(int i=0;i<2;++i)
+				match*=dfIt->size[i]>=frameSize[i]?double(frameSize[i])/double(dfIt->size[i]):double(dfIt->size[i])/double(frameSize[i]);
+		if(haveFrameRate)
 			{
-			if(dfIt->size[i]<currentFormat.size[i])
-				sizeMatchRatio+=double(currentFormat.size[i])/double(dfIt->size[i]);
-			else
-				sizeMatchRatio+=double(dfIt->size[i])/double(currentFormat.size[i]);
+			double dfRate=double(dfIt->frameIntervalDenominator)/double(dfIt->frameIntervalCounter);
+			match*=dfRate>=frameRate?frameRate/dfRate:dfRate/frameRate;
 			}
-		if(bestSizeMatchRatio>sizeMatchRatio)
+		if(havePixelFormat&&dfIt->pixelFormat!=pixelFormat)
+			match*=0.75;
+		
+		if(bestMatch<match)
 			{
-			bestSizeMatch=dfIt;
-			bestSizeMatchRatio=sizeMatchRatio;
+			bestFormat=dfIt;
+			bestMatch=match;
 			}
 		}
-	currentFormat.size[0]=bestSizeMatch->size[0];
-	currentFormat.size[1]=bestSizeMatch->size[1];
-	
-	/* Read the requested frame rate: */
-	double frameRate=cfg.retrieveValue<double>("./frameRate",double(currentFormat.frameIntervalDenominator)/double(currentFormat.frameIntervalCounter));
-	
-	/* Find the best-matching frame rate among the supporting video formats: */
-	std::vector<VideoDataFormat>::iterator bestRateMatch=deviceFormats.end();
-	double bestRateMatchRatio=1.0e10;
-	for(std::vector<VideoDataFormat>::iterator dfIt=deviceFormats.begin();dfIt!=deviceFormats.end();++dfIt)
-		if(dfIt->size[0]==currentFormat.size[0]&&dfIt->size[1]==currentFormat.size[1])
-			{
-			/* Calculate the format's frame rate mismatch: */
-			double rate=double(dfIt->frameIntervalDenominator)/double(dfIt->frameIntervalCounter);
-			double rateMatchRatio;
-			if(rate<frameRate)
-				rateMatchRatio=frameRate/rate;
-			else
-				rateMatchRatio=rate/frameRate;
-			if(bestRateMatchRatio>rateMatchRatio)
-				{
-				bestRateMatch=dfIt;
-				bestRateMatchRatio=rateMatchRatio;
-				}
-			}
-	currentFormat.frameIntervalCounter=bestRateMatch->frameIntervalCounter;
-	currentFormat.frameIntervalDenominator=bestRateMatch->frameIntervalDenominator;
-	currentFormat.pixelFormat=bestRateMatch->pixelFormat;
-	
-	/* If the configuration file contains a pixel format tag, see if there is a match among the supporting video formats: */
-	if(cfg.hasTag("./pixelFormat"))
-		{
-		std::string pixelFormat=cfg.retrieveValue<std::string>("./pixelFormat");
-		for(std::vector<VideoDataFormat>::iterator dfIt=deviceFormats.begin();dfIt!=deviceFormats.end();++dfIt)
-			if(dfIt->size[0]==currentFormat.size[0]&&dfIt->size[1]==currentFormat.size[1]&&dfIt->frameIntervalCounter*currentFormat.frameIntervalDenominator==dfIt->frameIntervalDenominator*currentFormat.frameIntervalCounter)
-				{
-				/* Check if the pixel format matches the request: */
-				if(dfIt->isPixelFormat(pixelFormat.c_str()))
-					{
-					currentFormat.pixelFormat=dfIt->pixelFormat;
-					break;
-					}
-				}
-		}
+	if(bestFormat==deviceFormats.end()) // Can only happen if there are no device formats
+		throw std::runtime_error("Video::VideoDevice::configure: No matching video formats found");
 	
 	/* Set the selected video format: */
-	setVideoFormat(currentFormat);
+	setVideoFormat(*bestFormat);
 	}
 
 void VideoDevice::startStreaming(void)

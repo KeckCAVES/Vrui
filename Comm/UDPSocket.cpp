@@ -1,6 +1,6 @@
 /***********************************************************************
 UDPSocket - Wrapper class for UDP sockets ensuring exception safety.
-Copyright (c) 2004-2012 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -29,6 +29,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/Time.h>
+#include <Misc/FdSet.h>
 
 #include <Comm/UDPSocket.h>
 
@@ -97,6 +99,32 @@ UDPSocket::UDPSocket(int localPortId,std::string hostname,int hostPortId)
 		}
 	}
 
+UDPSocket::UDPSocket(int localPortId,const IPv4SocketAddress& hostAddress)
+	{
+	/* Create the socket file descriptor: */
+	socketFd=socket(PF_INET,SOCK_DGRAM,0);
+	if(socketFd<0)
+		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket");
+	
+	/* Bind the socket file descriptor to the local port ID: */
+	struct sockaddr_in mySocketAddress;
+	mySocketAddress.sin_family=AF_INET;
+	mySocketAddress.sin_port=localPortId>=0?htons(localPortId):0;
+	mySocketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
+	if(bind(socketFd,(struct sockaddr*)&mySocketAddress,sizeof(struct sockaddr_in))==-1)
+		{
+		close(socketFd);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d",localPortId);
+		}
+	
+	/* Connect to the remote host: */
+	if(::connect(socketFd,(const struct sockaddr*)(&hostAddress),sizeof(IPv4SocketAddress))==-1)
+		{
+		close(socketFd);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostAddress.getAddress().getHostname().c_str(),hostAddress.getPort());
+		}
+	}
+
 UDPSocket::UDPSocket(const UDPSocket& source)
 	:socketFd(dup(source.socketFd))
 	{
@@ -147,6 +175,16 @@ void UDPSocket::connect(std::string hostname,int hostPortId)
 		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostname.c_str(),hostPortId);
 	}
 
+void UDPSocket::connect(const IPv4SocketAddress& hostAddress)
+	{
+	/* Connect to the remote host: */
+	if(::connect(socketFd,(const struct sockaddr*)&hostAddress,sizeof(IPv4SocketAddress))==-1)
+		{
+		close(socketFd);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostAddress.getAddress().getHostname().c_str(),hostAddress.getPort());
+		}
+	}
+
 void UDPSocket::accept(void)
 	{
 	/* Wait for an incoming message: */
@@ -162,25 +200,37 @@ void UDPSocket::accept(void)
 		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to message sender");
 	}
 
-void UDPSocket::sendMessage(const void* messageBuffer,size_t messageSize)
+bool UDPSocket::waitForMessage(const Misc::Time& timeout) const
 	{
-	ssize_t sendResult;
+	Misc::FdSet readFds(socketFd);
+	return Misc::pselect(&readFds,0,0,&timeout)>=0&&readFds.isSet(socketFd);
+	}
+
+size_t UDPSocket::receiveMessage(void* messageBuffer,size_t messageSize,IPv4SocketAddress& senderAddress)
+	{
+	/* Receive a message: */
+	ssize_t recvResult;
+	socklen_t senderAddressSize;
 	do
 		{
-		sendResult=send(socketFd,messageBuffer,messageSize,0);
+		senderAddressSize=sizeof(IPv4SocketAddress);
+		recvResult=recvfrom(socketFd,messageBuffer,messageSize,0,(struct sockaddr*)&senderAddress,&senderAddressSize);
 		}
-	while(sendResult<0&&errno==EINTR);
-	if(sendResult<0)
+	while(recvResult<0&&(errno==EAGAIN||errno==EWOULDBLOCK||errno==EINTR));
+	
+	/* Handle the result from the recv call: */
+	if(recvResult<0)
 		{
-		/* Consider this a fatal error: */
+		/* Unknown error; probably a bad thing: */
 		int errorCode=errno;
-		Misc::throwStdErr("Comm::UDPSocket: Fatal error %d while sending message",errorCode);
+		Misc::throwStdErr("Comm::UDPSocket: Fatal error %d while receiving message",errorCode);
 		}
-	else if(size_t(sendResult)!=messageSize)
-		{
-		/* Message was truncated during send: */
-		Misc::throwStdErr("Comm::UDPSocket: Truncation from %u to %u while sending message",(unsigned int)messageSize,(unsigned int)sendResult);
-		}
+	
+	/* If the sender address had a mismatching size, null it out: */
+	if(senderAddressSize!=sizeof(IPv4SocketAddress))
+		senderAddress=IPv4SocketAddress();
+	
+	return size_t(recvResult);
 	}
 
 size_t UDPSocket::receiveMessage(void* messageBuffer,size_t messageSize)
@@ -202,6 +252,48 @@ size_t UDPSocket::receiveMessage(void* messageBuffer,size_t messageSize)
 		}
 	
 	return size_t(recvResult);
+	}
+
+void UDPSocket::sendMessage(const void* messageBuffer,size_t messageSize,const IPv4SocketAddress& recipientAddress)
+	{
+	ssize_t sendResult;
+	do
+		{
+		sendResult=sendto(socketFd,messageBuffer,messageSize,0,(const struct sockaddr*)&recipientAddress,sizeof(IPv4SocketAddress));
+		}
+	while(sendResult<0&&errno==EINTR);
+	if(sendResult<0)
+		{
+		/* Consider this a fatal error: */
+		int errorCode=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Fatal error %d while sending message",errorCode);
+		}
+	else if(size_t(sendResult)!=messageSize)
+		{
+		/* Message was truncated during send: */
+		Misc::throwStdErr("Comm::UDPSocket: Truncation from %u to %u while sending message",(unsigned int)messageSize,(unsigned int)sendResult);
+		}
+	}
+
+void UDPSocket::sendMessage(const void* messageBuffer,size_t messageSize)
+	{
+	ssize_t sendResult;
+	do
+		{
+		sendResult=send(socketFd,messageBuffer,messageSize,0);
+		}
+	while(sendResult<0&&errno==EINTR);
+	if(sendResult<0)
+		{
+		/* Consider this a fatal error: */
+		int errorCode=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Fatal error %d while sending message",errorCode);
+		}
+	else if(size_t(sendResult)!=messageSize)
+		{
+		/* Message was truncated during send: */
+		Misc::throwStdErr("Comm::UDPSocket: Truncation from %u to %u while sending message",(unsigned int)messageSize,(unsigned int)sendResult);
+		}
 	}
 
 }

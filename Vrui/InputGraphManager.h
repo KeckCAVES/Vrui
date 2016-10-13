@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

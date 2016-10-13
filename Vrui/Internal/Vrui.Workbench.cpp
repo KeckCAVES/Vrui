@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2015 Oliver Kreylos
+Copyright (c) 2000-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -33,12 +33,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
+#include <Misc/StringHashFunctions.h>
 #include <Misc/HashTable.h>
 #include <Misc/FdSet.h>
 #include <Misc/File.h>
 #include <Misc/Timer.h>
 #include <Misc/StringMarshaller.h>
 #include <Misc/GetCurrentDirectory.h>
+#include <Misc/FileNameExtensions.h>
 #include <Misc/FileTests.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
@@ -76,6 +78,12 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ViewSpecification.h>
 
 #include <Vrui/Internal/Vrui.h>
+#include <Vrui/Internal/Config.h>
+
+#define VRUI_INSTRUMENT_MAINLOOP 0
+#if VRUI_INSTRUMENT_MAINLOOP
+#include <Realtime/Time.h>
+#endif
 
 namespace Vrui {
 
@@ -100,13 +108,18 @@ struct VruiWindowGroup
 	int maxFrameSize[2]; // Maximum current frame buffer size of all windows in the group
 	};
 
+/*****************************
+Private Vrui global variables:
+*****************************/
+
+bool vruiVerbose=false;
+
 namespace {
 
 /***********************************
 Workbench-specific global variables:
 ***********************************/
 
-bool vruiVerbose=false;
 int vruiEventPipe[2]={-1,-1};
 Misc::ConfigurationFile* vruiConfigFile=0;
 char* vruiApplicationName=0;
@@ -136,12 +149,16 @@ volatile bool vruiAsynchronousShutdown=false;
 Workbench-specific private Vrui functions:
 *****************************************/
 
+#if 0
+
 /* Signal handler to shut down Vrui if something goes wrong: */
 void vruiTerminate(int)
 	{
 	/* Request an asynchronous shutdown: */
 	vruiAsynchronousShutdown=true;
 	}
+
+#endif
 
 /* Generic cleanup function called in case of an error: */
 void vruiErrorShutdown(bool signalError)
@@ -243,45 +260,135 @@ void vruiErrorShutdown(bool signalError)
 	close(vruiEventPipe[1]);
 	}
 
-void vruiOpenConfigurationFile(const char* userConfigurationFileName)
+int vruiXErrorHandler(Display* display,XErrorEvent* event)
+	{
+	std::cerr<<"Vrui: Caught X11 protocol error; shutting down"<<std::endl;
+	shutdown();
+	
+	return 0;
+	}
+
+int vruiXIOErrorHandler(Display* display)
+	{
+	std::cerr<<"Vrui: Caught X11 I/O error; shutting down"<<std::endl;
+	shutdown();
+	
+	return 0;
+	}
+
+std::string vruiCreateConfigurationFilePath(const char* directory,const char* configFileName)
+	{
+	/* Prepend the path prefix to the given configuration file name: */
+	std::string result(directory);
+	result.push_back('/');
+	result.append(configFileName);
+	return result;
+	}
+
+bool vruiMergeConfigurationFile(const char* configFileName)
 	{
 	try
 		{
-		/* Open the system-wide configuration file: */
+		/* Merge in the given configuration file: */
 		if(vruiVerbose)
-			std::cout<<"Vrui: Reading system-wide configuration file "<<SYSVRUICONFIGFILE<<std::endl;
-		vruiConfigFile=new Misc::ConfigurationFile(SYSVRUICONFIGFILE);
-		}
-	catch(std::runtime_error error)
-		{
-		/* Bail out: */
-		std::cerr<<"Caught exception "<<error.what()<<" while reading system-wide configuration file"<<std::endl;
-		vruiErrorShutdown(true);
-		}
-	
-	try
-		{
-		/* Merge in the user configuration file: */
-		if(vruiVerbose)
-			std::cout<<"Vrui: Merging user configuration file "<<userConfigurationFileName<<"..."<<std::flush;
-		vruiConfigFile->merge(userConfigurationFileName);
+			std::cout<<"Vrui: Merging configuration file "<<configFileName<<"..."<<std::flush;
+		vruiConfigFile->merge(configFileName);
 		if(vruiVerbose)
 			std::cout<<" Ok"<<std::endl;
+		
+		return true;
 		}
 	catch(Misc::File::OpenError err)
 		{
 		/* Ignore the error and continue */
 		if(vruiVerbose)
 			std::cout<<" does not exist"<<std::endl;
+		
+		return false;
 		}
 	catch(std::runtime_error error)
 		{
 		/* Bail out on errors in user configuration file: */
 		if(vruiVerbose)
 			std::cout<<" error"<<std::endl;
-		std::cerr<<"Caught exception "<<error.what()<<" while reading user configuration file"<<std::endl;
+		std::cerr<<"Caught exception "<<error.what()<<" while merging configuration file "<<configFileName<<std::endl;
+		vruiErrorShutdown(true);
+		
+		return false;
+		}
+	}
+
+void vruiOpenConfigurationFile(const char* userConfigDir,const char* appPath)
+	{
+	/* Create the name of the system-wide configuration file: */
+	std::string systemConfigFileName=VRUI_INTERNAL_CONFIG_SYSCONFIGDIR;
+	systemConfigFileName.push_back('/');
+	systemConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILENAME);
+	systemConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+	try
+		{
+		/* Open the system-wide configuration file: */
+		if(vruiVerbose)
+			std::cout<<"Vrui: Reading system-wide configuration file "<<systemConfigFileName<<std::endl;
+		vruiConfigFile=new Misc::ConfigurationFile(systemConfigFileName.c_str());
+		}
+	catch(std::runtime_error error)
+		{
+		/* Bail out: */
+		std::cerr<<"Caught exception "<<error.what()<<" while reading system-wide configuration file "<<systemConfigFileName<<std::endl;
 		vruiErrorShutdown(true);
 		}
+	
+	/* Merge the global per-user configuration file if given: */
+	if(userConfigDir!=0)
+		{
+		/* Create the name of the per-user configuration file: */
+		std::string userConfigFileName=userConfigDir;
+		userConfigFileName.push_back('/');
+		userConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILENAME);
+		userConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+		
+		/* Merge the per-user configuration file if it exists: */
+		vruiMergeConfigurationFile(userConfigFileName.c_str());
+		}
+	
+	/* Extract the application name: */
+	const char* appName=appPath;
+	for(const char* apPtr=appPath;*apPtr!='\0';++apPtr)
+		if(*apPtr=='/')
+			appName=apPtr+1;
+	
+	/* Merge a system-wide per-application configuration file if it exists: */
+	std::string systemAppConfigFileName=VRUI_INTERNAL_CONFIG_SYSCONFIGDIR;
+	systemAppConfigFileName.push_back('/');
+	systemAppConfigFileName.append(VRUI_INTERNAL_CONFIG_APPCONFIGDIR);
+	systemAppConfigFileName.push_back('/');
+	systemAppConfigFileName.append(appName);
+	systemAppConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+	vruiMergeConfigurationFile(systemAppConfigFileName.c_str());
+	
+	/* Merge the global per-user per-application configuration file if given: */
+	if(userConfigDir!=0)
+		{
+		/* Create the name of the per-user per-application configuration file: */
+		std::string userAppConfigFileName=userConfigDir;
+		userAppConfigFileName.push_back('/');
+		userAppConfigFileName.append(VRUI_INTERNAL_CONFIG_APPCONFIGDIR);
+		userAppConfigFileName.push_back('/');
+		userAppConfigFileName.append(appName);
+		userAppConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+		
+		/* Merge the per-user per-application configuration file if it exists: */
+		vruiMergeConfigurationFile(userAppConfigFileName.c_str());
+		}
+	
+	/* Get the name of the local per-application configuration file: */
+	const char* localConfigFileName=getenv("VRUI_CONFIGFILE");
+	if(localConfigFileName==0||localConfigFileName[0]=='\0')
+		localConfigFileName="./Vrui.cfg";
+	
+	/* Merge in the local per-application configuration file: */
+	vruiMergeConfigurationFile(localConfigFileName);
 	}
 
 void vruiGoToRootSection(const char*& rootSectionName)
@@ -291,7 +398,7 @@ void vruiGoToRootSection(const char*& rootSectionName)
 		/* Fall back to simulator mode if the root section does not exist: */
 		bool rootSectionFound=false;
 		if(rootSectionName==0)
-			rootSectionName=VRUIDEFAULTROOTSECTIONNAME;
+			rootSectionName=VRUI_INTERNAL_CONFIG_DEFAULTROOTSECTION;
 		Misc::ConfigurationFile::SectionIterator rootIt=vruiConfigFile->getRootSection().getSection("/Vrui");
 		for(Misc::ConfigurationFile::SectionIterator sIt=rootIt.beginSubsections();sIt!=rootIt.endSubsections();++sIt)
 			if(sIt.getName()==rootSectionName)
@@ -303,7 +410,7 @@ void vruiGoToRootSection(const char*& rootSectionName)
 			{
 			if(vruiVerbose)
 				std::cout<<"Vrui: Requested root section /Vrui/"<<rootSectionName<<" does not exist"<<std::endl;
-			rootSectionName=VRUIDEFAULTROOTSECTIONNAME;
+			rootSectionName=VRUI_INTERNAL_CONFIG_DEFAULTROOTSECTION;
 			}
 		}
 	catch(...)
@@ -340,12 +447,16 @@ struct VruiWindowGroupCreator // Structure defining a group of windows rendered 
 
 bool vruiCreateWindowGroup(const VruiWindowGroupCreator& group)
 	{
+	GLContextPtr context;
 	VRWindow* firstWindow=0;
 	bool allWindowsOk=true;
 	for(std::vector<VruiWindowGroupCreator::VruiWindow>::const_iterator wIt=group.windows.begin();wIt!=group.windows.end();++wIt)
 		{
 		try
 			{
+			/* Get the window's configuration file section: */
+			const Misc::ConfigurationFileSection& cfs=wIt->windowConfigFileSection;
+			
 			/* Create a unique name for the window: */
 			char windowName[256];
 			if(vruiNumWindows>1)
@@ -353,28 +464,43 @@ bool vruiCreateWindowGroup(const VruiWindowGroupCreator& group)
 			else
 				snprintf(windowName,sizeof(windowName),"%s",vruiApplicationName);
 			
-			if(firstWindow!=0)
+			if(vruiVerbose)
 				{
-				/* Get the window's screen number: */
-				int screen=wIt->windowConfigFileSection.retrieveValue<int>("./screen",firstWindow->getScreen());
-				
-				/* Create the new window: */
-				vruiWindows[wIt->windowIndex]=new VRWindow(&firstWindow->getContext(),screen,windowName,wIt->windowConfigFileSection,vruiState,group.mouseAdapter);
-				}
-			else
-				{
-				/* Create a new OpenGL context: */
-				GLContextPtr context(VRWindow::createContext(vruiState->windowProperties,wIt->windowConfigFileSection));
-				
-				/* Get the window's screen number: */
-				int screen=wIt->windowConfigFileSection.retrieveValue<int>("./screen",context->getDefaultScreen());
-				
-				/* Create the window: */
-				vruiWindows[wIt->windowIndex]=new VRWindow(context.getPointer(),screen,windowName,wIt->windowConfigFileSection,vruiState,group.mouseAdapter);
-				
-				firstWindow=vruiWindows[wIt->windowIndex];
+				if(vruiState->multiplexer!=0)
+					std::cout<<"Vrui (node "<<vruiState->multiplexer->getNodeIndex()<<"): ";
+				else
+					std::cout<<"Vrui: ";
+				std::cout<<"Opening window "<<windowName<<" from configuration section "<<cfs.getName()<<':'<<std::endl;
 				}
 			
+			/* Create a new OpenGL context if this is the first window in the group: */
+			if(context==0)
+				{
+				/* Retrieve the display connection name: */
+				const char* defaultDisplay=getenv("DISPLAY");
+				if(defaultDisplay==0)
+					defaultDisplay="";
+				std::string displayName=cfs.retrieveString("./display",defaultDisplay);
+				
+				/* Create an OpenGL context: */
+				context=new GLContext(displayName.empty()?0:displayName.c_str());
+				}
+			
+			/* Get a default output configuration for the window: */
+			OutputConfiguration outputConfiguration=getOutputConfiguration(context->getDisplay(),cfs.retrieveValue<int>("./screen",-1),cfs.retrieveString("./outputName","").c_str());
+			
+			if(!context->isValid())
+				{
+				/* Initialize the OpenGL context: */
+				VRWindow::initContext(context.getPointer(),outputConfiguration.screen,vruiState->windowProperties,cfs);
+				}
+			
+			/* Create the new window: */
+			vruiWindows[wIt->windowIndex]=new VRWindow(context.getPointer(),outputConfiguration,windowName,wIt->windowConfigFileSection,vruiState,group.mouseAdapter);
+			if(firstWindow==0)
+				firstWindow=vruiWindows[wIt->windowIndex];
+			
+			/* Let Vrui quit when the window is closed: */
 			vruiWindows[wIt->windowIndex]->getCloseCallbacks().add(vruiState,&VruiState::quitCallback);
 			}
 		catch(std::runtime_error err)
@@ -491,6 +617,9 @@ void init(int& argc,char**& argv,char**&)
 			/* Open a multicast pipe: */
 			vruiPipe=new Cluster::MulticastPipe(vruiMultiplexer);
 			
+			/* Read the verbosity flag: */
+			vruiVerbose=vruiPipe->read<char>()!=0;
+			
 			/* Read the entire configuration file and the root section name: */
 			vruiConfigFile=new Misc::ConfigurationFile(*vruiPipe);
 			char* rootSectionName=Misc::readCString(*vruiPipe);
@@ -538,14 +667,14 @@ void init(int& argc,char**& argv,char**&)
 				/* Print information about the Vrui run-time installation: */
 				std::cout<<"Vrui: Run-time version ";
 				char prevFill=std::cout.fill('0');
-				std::cout<<VRUIVERSION/1000000<<'.'<<(VRUIVERSION/1000)%1000<<'-'<<std::setw(3)<<VRUIVERSION%1000;
+				std::cout<<VRUI_INTERNAL_CONFIG_VERSION/1000000<<'.'<<(VRUI_INTERNAL_CONFIG_VERSION/1000)%1000<<'-'<<std::setw(3)<<VRUI_INTERNAL_CONFIG_VERSION%1000;
 				std::cout.fill(prevFill);
 				std::cout<<" installed in:"<<std::endl;
-				std::cout<<"        libraries   : "<<VRUILIBDIR<<std::endl;
-				std::cout<<"        executables : "<<VRUIEXECUTABLEDIR<<std::endl;
-				std::cout<<"        plug-ins    : "<<VRUIPLUGINDIR<<std::endl;
-				std::cout<<"        config files: "<<VRUIETCDIR<<std::endl;
-				std::cout<<"        shared files: "<<VRUISHAREDIR<<std::endl;
+				std::cout<<"        libraries   : "<<VRUI_INTERNAL_CONFIG_LIBDIR<<std::endl;
+				std::cout<<"        executables : "<<VRUI_INTERNAL_CONFIG_EXECUTABLEDIR<<std::endl;
+				std::cout<<"        plug-ins    : "<<VRUI_INTERNAL_CONFIG_PLUGINDIR<<std::endl;
+				std::cout<<"        config files: "<<VRUI_INTERNAL_CONFIG_ETCDIR<<std::endl;
+				std::cout<<"        shared files: "<<VRUI_INTERNAL_CONFIG_SHAREDIR<<std::endl;
 				
 				/* Remove parameter from argument list: */
 				argc-=1;
@@ -609,13 +738,26 @@ void init(int& argc,char**& argv,char**&)
 			fcntl(vruiEventPipe[i],F_SETFL,flags|O_NONBLOCK);
 			}
 		
-		/* Get the user configuration file's name: */
-		const char* userConfigFileName=getenv("VRUI_CONFIGFILE");
-		if(userConfigFileName==0)
-			userConfigFileName="./Vrui.cfg";
+		/* Get the full name of the global per-user configuration file: */
+		const char* userConfigDir=0;
+		
+		#if VRUI_INTERNAL_CONFIG_HAVE_USERCONFIGFILE
+		std::string userConfigDirString;
+		
+		const char* home=getenv("HOME");
+		if(home!=0&&home[0]!='\0')
+			{
+			userConfigDirString=home;
+			userConfigDirString.push_back('/');
+			userConfigDirString.append(VRUI_INTERNAL_CONFIG_USERCONFIGDIR);
+			
+			userConfigDir=userConfigDirString.c_str();
+			}
+		
+		#endif
 		
 		/* Open the global and user configuration files: */
-		vruiOpenConfigurationFile(userConfigFileName);
+		vruiOpenConfigurationFile(userConfigDir,argv[0]);
 		
 		/* Get the root section name: */
 		const char* rootSectionName=getenv("VRUI_ROOTSECTION");
@@ -633,36 +775,34 @@ void init(int& argc,char**& argv,char**&)
 					/* Next parameter is name of another configuration file to merge: */
 					if(i+1<argc)
 						{
-						try
+						/* Assemble the full name of the configuration file to merge: */
+						std::string configFileName=argv[i+1];
+						
+						/* Ensure that the configuration file name has the .cfg suffix: */
+						if(!Misc::hasExtension(argv[i+1],VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX))
+							configFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+						
+						bool foundConfigFile=false;
+						
+						/* Check if the configuration file name is a relative path: */
+						if(argv[i+1][0]!='/')
 							{
-							/* Look for the configuration file in Vrui's configuration directory: */
-							const char* configDirStart=SYSVRUICONFIGFILE;
-							const char* configDirEnd=configDirStart;
-							for(const char* cdPtr=configDirStart;*cdPtr!='\0';++cdPtr)
-								if(*cdPtr=='/')
-									configDirEnd=cdPtr+1;
-							std::string configFileName(configDirStart,configDirEnd);
-							configFileName.append(argv[i+1]);
-							if(!Misc::isFileReadable(configFileName.c_str()))
-								{
-								/* Use the provided file name directly: */
-								configFileName=argv[i+1];
-								}
+							/* Try loading the configuration file from the global systemwide configuration directory: */
+							foundConfigFile=vruiMergeConfigurationFile(vruiCreateConfigurationFilePath(VRUI_INTERNAL_CONFIG_SYSCONFIGDIR,configFileName.c_str()).c_str())||foundConfigFile;
 							
-							/* Merge in the requested configuration file: */
-							if(vruiVerbose)
-								std::cout<<"Vrui: Merging configuration file "<<configFileName<<"..."<<std::flush;
-							vruiConfigFile->merge(configFileName.c_str());
-							if(vruiVerbose)
-								std::cout<<" Ok"<<std::endl;
+							if(userConfigDir!=0)
+								{
+								/* Try loading the configuration file from the global per-user configuration directory: */
+								foundConfigFile=vruiMergeConfigurationFile(vruiCreateConfigurationFilePath(userConfigDir,configFileName.c_str()).c_str())||foundConfigFile;
+								}
 							}
-						catch(std::runtime_error err)
-							{
-							/* Print a warning and carry on: */
-							if(vruiVerbose)
-								std::cout<<" error"<<std::endl;
-							std::cerr<<"Vrui::init: Ignoring -mergeConfig argument due to "<<err.what()<<std::endl;
-							}
+						
+						/* Try loading the configuration file as given: */
+						foundConfigFile=vruiMergeConfigurationFile(configFileName.c_str())||foundConfigFile;
+						
+						/* Check if at least one configuration file was merged: */
+						if(!foundConfigFile)
+							std::cerr<<"Vrui::init: Requested configuration file "<<argv[i+1]<<" not found"<<std::endl;
 						
 						/* Remove parameters from argument list: */
 						argc-=2;
@@ -811,6 +951,9 @@ void init(int& argc,char**& argv,char**&)
 				
 				/* Open a multicast pipe: */
 				vruiPipe=new Cluster::MulticastPipe(vruiMultiplexer);
+				
+				/* Send the verbosity flag: */
+				vruiPipe->write<char>(vruiVerbose?1:0);
 				
 				/* Send the entire Vrui configuration file and the root section name across the pipe: */
 				vruiConfigFile->writeToPipe(*vruiPipe);
@@ -1085,7 +1228,7 @@ void startDisplay(void)
 		}
 	
 	if(vruiVerbose&&vruiState->master)
-		std::cout<<"Vrui: Starting graphics subsystem..."<<std::flush;
+		std::cout<<"Vrui: Starting graphics subsystem..."<<std::endl;
 	
 	/* Find the mouse adapter listed in the input device manager (if there is one): */
 	InputDeviceAdapterMouse* mouseAdapter=0;
@@ -1114,6 +1257,17 @@ void startDisplay(void)
 		vruiWindows=new VRWindow*[vruiNumWindows];
 		for(int i=0;i<vruiNumWindows;++i)
 			vruiWindows[i]=0;
+		
+		/* Initialize X11 if any windows need to be opened: */
+		if(vruiNumWindows>0)
+			{
+			/* Enable thread management in X11 library: */
+			// XInitThreads(); Not necessary; Vrui never makes X calls to the same display concurrently from different threads
+			
+			/* Set error handlers: */
+			XSetErrorHandler(vruiXErrorHandler);
+			XSetIOErrorHandler(vruiXIOErrorHandler);
+			}
 		
 		/* Sort the windows into groups based on their group IDs: */
 		typedef Misc::HashTable<unsigned int,VruiWindowGroupCreator> WindowGroupMap;
@@ -1220,15 +1374,23 @@ void startDisplay(void)
 		
 		if(vruiVerbose)
 			{
-			std::cout<<(allWindowsOk?" Ok":" failed")<<std::endl;
+			if(vruiState->multiplexer!=0)
+				std::cout<<"Vrui (node "<<vruiState->multiplexer->getNodeIndex()<<"): ";
+			else
+				std::cout<<"Vrui: ";
+			std::cout<<"Opened "<<vruiNumWindows<<(vruiNumWindows!=1?" windows":" window");
 			if(vruiNumWindowGroups>1)
 				{
+				std::cout<<" in "<<vruiNumWindowGroups<<" window groups";
 				#if GLSUPPORT_CONFIG_USE_TLS
-				std::cout<<"Vrui: Rendering in parallel to "<<vruiNumWindowGroups<<" window groups"<<std::endl;
+				std::cout<<" (rendering in parallel)";
 				#else
-				std::cout<<"Vrui: Rendering serially to "<<vruiNumWindowGroups<<" window groups"<<std::endl;
+				std::cout<<" (rendering serially)";
 				#endif
 				}
+			std::cout<<std::endl;
+			if(vruiState->master)
+				std::cout<<"Vrui: Graphics subsystem "<<(allWindowsOk?"Ok":"failed")<<std::endl;
 			}
 		if(!allWindowsOk)
 			Misc::throwStdErr("Vrui::startDisplay: Could not create all rendering windows");
@@ -1282,6 +1444,9 @@ void startDisplay(void)
 			StringList windowNames=vruiConfigFile->retrieveValue<StringList>(windowNamesTag);
 			vruiTotalNumWindows+=int(windowNames.size());
 			}
+		
+		if(vruiVerbose&&vruiState->master)
+			std::cout<<"Vrui: Cluster contains "<<vruiTotalNumWindows<<" windows in total"<<std::endl;
 		}
 	else
 		{
@@ -1635,10 +1800,21 @@ void vruiInnerLoopMultiWindow(void)
 
 void vruiInnerLoopSingleWindow(void)
 	{
+	#if VRUI_INSTRUMENT_MAINLOOP
+	Realtime::TimePointMonotonic loopTimer;
+	unsigned int loopIteration=0;
+	#endif
+	
+	
 	bool keepRunning=true;
 	bool firstFrame=true;
 	while(true)
 		{
+		#if VRUI_INSTRUMENT_MAINLOOP
+		Realtime::TimePointMonotonic frameBase;
+		std::cout<<"Loop "<<loopIteration<<": "<<double(frameBase-loopTimer)*1000.0<<"ms";
+		#endif
+		
 		/* Handle all events, blocking if there are none unless in continuous mode: */
 		if(firstFrame||vruiState->updateContinuously)
 			{
@@ -1682,8 +1858,18 @@ void vruiInnerLoopSingleWindow(void)
 		/* Reset the GL thing manager: */
 		GLContextData::resetThingManager();
 		
+		#if VRUI_INSTRUMENT_MAINLOOP
+		Realtime::TimePointMonotonic renderStart;
+		std::cout<<", update time "<<double(renderStart-frameBase)*1000.0<<"ms";
+		#endif
+		
 		/* Update rendering: */
 		vruiWindows[0]->draw();
+		
+		#if VRUI_INSTRUMENT_MAINLOOP
+		Realtime::TimePointMonotonic renderEnd;
+		std::cout<<", render time "<<double(renderEnd-renderStart)*1000.0<<"ms";
+		#endif
 		
 		if(vruiState->multiplexer!=0)
 			{
@@ -1695,7 +1881,17 @@ void vruiInnerLoopSingleWindow(void)
 		/* Swap buffer: */
 		vruiWindows[0]->swapBuffers();
 		
+		#if VRUI_INSTRUMENT_MAINLOOP
+		Realtime::TimePointMonotonic swapTime;
+		std::cout<<", buffer swap time "<<double(swapTime-renderEnd)*1000.0<<"ms"<<std::endl;
+		#endif
+		
 		firstFrame=false;
+		
+		#if VRUI_INSTRUMENT_MAINLOOP
+		loopTimer=frameBase;
+		++loopIteration;
+		#endif
 		}
 	}
 
@@ -1718,6 +1914,10 @@ void mainLoop(void)
 		startSound();
 		}
 	
+	/* Initialize the navigation transformation: */
+	if(vruiState->resetNavigationFunction!=0)
+		(*vruiState->resetNavigationFunction)(vruiState->resetNavigationFunctionData);
+	
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
 		{
@@ -1732,15 +1932,6 @@ void mainLoop(void)
 	if(vruiVerbose&&vruiState->master)
 		std::cout<<"Vrui: Preparing main loop..."<<std::flush;
 	vruiState->prepareMainLoop();
-	
-	#if 0
-	/* Turn off the screen saver: */
-	int screenSaverTimeout,screenSaverInterval;
-	int screenSaverPreferBlanking,screenSaverAllowExposures;
-	XGetScreenSaver(vruiWindow->getDisplay(),&screenSaverTimeout,&screenSaverInterval,&screenSaverPreferBlanking,&screenSaverAllowExposures);
-	XSetScreenSaver(vruiWindow->getDisplay(),0,0,DefaultBlanking,DefaultExposures);
-	XResetScreenSaver(vruiWindow->getDisplay());
-	#endif
 	
 	if(vruiState->master&&vruiNumWindows==0)
 		{
@@ -1829,11 +2020,6 @@ void mainLoop(void)
 	#endif
 	if(vruiVerbose&&vruiState->master&&vruiSoundContexts!=0)
 		std::cout<<" Ok"<<std::endl;
-	
-	#if 0
-	/* Turn the screen saver back on: */
-	XSetScreenSaver(vruiWindow->getDisplay(),screenSaverTimeout,screenSaverInterval,screenSaverPreferBlanking,screenSaverAllowExposures);
-	#endif
 	}
 
 void deinit(void)

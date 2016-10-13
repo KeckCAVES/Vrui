@@ -2,7 +2,7 @@
 MulticastPipe - Class to represent data streams between a single master
 and several slaves, with the bulk of communication from the master to
 all the slaves in parallel.
-Copyright (c) 2005-2012 Oliver Kreylos
+Copyright (c) 2005-2015 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -65,6 +65,23 @@ void MulticastPipe::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	/* Install a fresh cluster packet as the write buffer: */
 	packet=multiplexer->newPacket();
 	setWriteBuffer(Packet::maxPacketSize,reinterpret_cast<Byte*>(packet->packet),false);
+	}
+
+size_t MulticastPipe::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSize)
+	{
+	/* Pass the current packet to the multiplexer: */
+	{
+	Packet* sendPacket=packet;
+	packet=0;
+	sendPacket->packetSize=bufferSize;
+	multiplexer->sendPacket(pipeId,sendPacket);
+	}
+	
+	/* Install a fresh cluster packet as the write buffer: */
+	packet=multiplexer->newPacket();
+	setWriteBuffer(Packet::maxPacketSize,reinterpret_cast<Byte*>(packet->packet),false);
+	
+	return bufferSize;
 	}
 
 void MulticastPipe::flushPipe(void)

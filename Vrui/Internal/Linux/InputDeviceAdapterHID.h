@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterHID - Linux-specific version of HID input device
 adapter.
-Copyright (c) 2009-2012 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -58,6 +58,8 @@ class InputDeviceAdapterHID:public InputDeviceAdapter
 		std::vector<int> absAxisMap; // Vector mapping absolute axis features to device valuator indices
 		std::vector<int> relAxisMap; // Vector mapping relative axis features to device valuator indices
 		std::vector<AxisValueMapper> axisValueMappers; // Vector of axis value mappers converting from raw HID axis values to [-1, 1]
+		Vrui::InputDevice* trackingDevice; // Pointer to Vrui input device from which this device gets its tracking data
+		bool projectDevice; // Flag whether to project the Vrui input device through the UI manager
 		Vrui::InputDevice* device; // Pointer to Vrui input device associated with the HID
 		std::vector<std::string> buttonNames; // Array of button feature names
 		std::vector<std::string> valuatorNames; // Array of valuator feature names

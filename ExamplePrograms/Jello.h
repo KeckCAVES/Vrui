@@ -1,7 +1,7 @@
 /***********************************************************************
 Jello - VR program to interact with "virtual Jell-O" using a simplified
 force interaction model based on the Nanotech Construction Kit.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2016 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -102,12 +102,14 @@ class Jello:public Vrui::Application
 	Jello(int& argc,char**& argv);
 	virtual ~Jello(void);
 	
-	/* Methods: */
+	/* Methods from Vrui::Application: */
 	virtual void toolCreationCallback(Vrui::ToolManager::ToolCreationCallbackData* cbData);
 	virtual void toolDestructionCallback(Vrui::ToolManager::ToolDestructionCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
-	void centerDisplayCallback(Misc::CallbackData* cbData);
+	virtual void resetNavigation(void);
+	
+	/* New methods: */
 	void showSettingsDialogCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
 	void viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);

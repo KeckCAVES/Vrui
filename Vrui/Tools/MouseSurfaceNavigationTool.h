@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,17 +28,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLObject.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/OrthogonalTransformation.h>
-#include <Vrui/GUIInteractor.h>
 #include <Vrui/SurfaceNavigationTool.h>
 
 /* Forward declarations: */
 class GLContextData;
 namespace GLMotif {
 class Widget;
-}
-namespace Vrui {
-class InputDeviceAdapterMouse;
 }
 
 namespace Vrui {
@@ -49,21 +46,36 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	{
 	friend class MouseSurfaceNavigationTool;
 	
-	/* Elements: */
+	/* Embedded classes: */
 	private:
-	Scalar rotateFactor; // Distance the device has to be moved to rotate by one radians
-	Vector screenScalingDirection; // Direction of scaling vector in screen's coordinates
-	Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
-	Scalar wheelScaleFactor; // Scaling factor for one wheel click
-	Scalar throwThreshold; // Distance the device has to be moved on the last step of panning to activate throwing
-	Scalar probeSize; // Size of probe to use when aligning surface frames
-	Scalar maxClimb; // Maximum amount of climb per frame
-	bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
-	bool showCompass; // Flag whether to draw a virtual compass
-	Scalar compassSize; // Size of compass rose
-	Scalar compassThickness; // Thickness of compass rose's ring
-	bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
-	bool interactWithWidgets; // Flag if the mouse navigation tool doubles as a widget tool (this is an evil hack)
+	struct Configuration // Structure containing tool settings
+		{
+		/* Elements: */
+		public:
+		Scalar rotateFactor; // Distance the device has to be moved to rotate by one radians
+		Vector scalingDirection; // Direction of scaling line in physical coordinates
+		Scalar scaleFactor; // Distance the device has to be moved along the scaling line to scale by factor of e
+		Scalar wheelScaleFactor; // Scaling factor for one wheel click
+		Scalar throwThreshold; // Distance the device has to be moved on the last step of panning to activate throwing
+		Scalar probeSize; // Size of probe to use when aligning surface frames
+		Scalar maxClimb; // Maximum amount of climb per frame
+		bool fixAzimuth; // Flag whether to fix the tool's azimuth angle during panning
+		bool showCompass; // Flag whether to draw a virtual compass
+		Point compassPos; // Position of virtual compass in interaction plane coordinates
+		Scalar compassSize; // Size of compass rose
+		Scalar compassThickness; // Thickness of compass rose's ring
+		bool showScreenCenter; // Flag whether to draw the center of the screen during navigation
+		
+		/* Constructors and destructors: */
+		Configuration(void); // Creates default configuration
+		
+		/* Methods: */
+		void read(const Misc::ConfigurationFileSection& cfs); // Overrides configuration from configuration file section
+		void write(Misc::ConfigurationFileSection& cfs) const; // Writes configuration to configuration file section
+		};
+	
+	/* Elements: */
+	Configuration configuration; // Default configuration for all tools
 	
 	/* Constructors and destructors: */
 	public:
@@ -78,7 +90,7 @@ class MouseSurfaceNavigationToolFactory:public ToolFactory
 	virtual void destroyTool(Tool* tool) const;
 	};
 
-class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteractor,public GLObject
+class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GLObject
 	{
 	friend class MouseSurfaceNavigationToolFactory;
 	
@@ -86,7 +98,7 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	private:
 	enum NavigationMode // Enumerated type for states the tool can be in
 		{
-		IDLE,WIDGETING,ROTATING,PANNING,THROWING,SCALING,SCALING_WHEEL
+		IDLE,ROTATING,PANNING,THROWING,SCALING,SCALING_WHEEL
 		};
 	
 	struct DataItem:public GLObject::DataItem
@@ -102,9 +114,12 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	
 	/* Elements: */
 	static MouseSurfaceNavigationToolFactory* factory; // Pointer to the factory object for this class
-	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter owning the input device associated with this tool
+	MouseSurfaceNavigationToolFactory::Configuration configuration; // Private configuration of this tool
+	ONTransform compassTransform; // Position and orientation to display compass rose
 	
 	/* Transient navigation state: */
+	ONTransform interactionPlane; // Local coordinate plane in which navigation interactions happen
+	Point screenCenter; // Center of screen; center of rotation and scaling operations
 	Point currentPos; // Current projected position of mouse input device on screen
 	double lastMoveTime; // Application time at which the projected position last changed
 	Scalar currentValue; // Value of the associated valuator
@@ -116,7 +131,7 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	bool showCompass; // Flag if the virtual compass is currently shown
 	
 	/* Private methods: */
-	Point calcScreenPos(void) const; // Calculates the screen position of the input device
+	Point calcInteractionPos(void) const; // Returns the current device position in the interaction plane
 	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state
 	void initNavState(void); // Initializes the tool's navigation state when it is activated
 	void realignSurfaceFrame(NavTransform& newSurfaceFrame); // Re-aligns the tool's surface frame after a relevant change
@@ -128,6 +143,9 @@ class MouseSurfaceNavigationTool:public SurfaceNavigationTool,public GUIInteract
 	virtual ~MouseSurfaceNavigationTool(void);
 	
 	/* Methods from Tool: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual void initialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void valuatorCallback(int valuatorSlotIndex,InputDevice::ValuatorCallbackData* cbData);

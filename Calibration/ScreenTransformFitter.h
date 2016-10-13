@@ -2,7 +2,7 @@
 ScreenTransformFitter - Functor plug-in to find the best orthonormal
 transformation with independent scaling in x and y direction
 transforming a source point set into a target point set.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -79,7 +79,7 @@ class ScreenTransformFitter
 		{
 		transform=newTransform;
 		};
-	void SetSize(int dim,Scalar newSize) // Sets the current size estimate in the given dimension (width or height)
+	void setSize(int dim,Scalar newSize) // Sets the current size estimate in the given dimension (width or height)
 		{
 		size[dim]=newSize;
 		}

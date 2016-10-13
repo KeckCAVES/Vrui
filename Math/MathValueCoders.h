@@ -1,6 +1,6 @@
 /***********************************************************************
 MathValueCoders - Value coder classes for math objects.
-Copyright (c) 2009-2010 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -27,10 +27,32 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 /* Forward declarations: */
 namespace Math {
 template <class ScalarParam>
+class Complex;
+template <class ScalarParam>
+class Interval;
+template <class ScalarParam>
 class BrokenLine;
 }
 
 namespace Misc {
+
+template <class ScalarParam>
+class ValueCoder<Math::Complex<ScalarParam> >
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const Math::Complex<ScalarParam>& value);
+	static Math::Complex<ScalarParam> decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
+
+template <class ScalarParam>
+class ValueCoder<Math::Interval<ScalarParam> >
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const Math::Interval<ScalarParam>& value);
+	static Math::Interval<ScalarParam> decode(const char* start,const char* end,const char** decodeEnd =0);
+	};
 
 template <class ScalarParam>
 class ValueCoder<Math::BrokenLine<ScalarParam> >

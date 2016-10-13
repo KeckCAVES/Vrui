@@ -2,7 +2,7 @@
 Filming - Vislet class to assist shooting of video inside an immersive
 environment by providing run-time control over viewers and environment
 settings.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -25,6 +25,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #ifndef VRUI_VISLETS_FILMING_INCLUDED
 #define VRUI_VISLETS_FILMING_INCLUDED
 
+#include <string>
 #include <IO/Directory.h>
 #include <Geometry/Point.h>
 #include <Geometry/OrthonormalTransformation.h>
@@ -32,9 +33,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/DropdownBox.h>
 #include <GLMotif/TextFieldSlider.h>
 #include <GLMotif/HSVColorSelector.h>
+#include <GLMotif/FileSelectionDialog.h>
 
 #include <Vrui/Vrui.h>
-#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/Tool.h>
 #include <Vrui/GenericToolFactory.h>
 #include <Vrui/ToolManager.h>
@@ -45,6 +46,7 @@ namespace GLMotif {
 class PopupWindow;
 class RowColumn;
 class Button;
+class FileSelectionHelper;
 }
 namespace Vrui {
 class InputDevice;
@@ -66,6 +68,7 @@ class FilmingFactory:public Vrui::VisletFactory
 	private:
 	Point initialViewerPosition; // Initial position for a non-tracked filming viewer
 	Scalar moveViewerSpeed; // Movement speed of viewer move tools in physical coordinate units per second
+	GLMotif::FileSelectionHelper* settingsSelectionHelper; // Helper object to load and save settings files
 	
 	/* Constructors and destructors: */
 	public:
@@ -75,6 +78,9 @@ class FilmingFactory:public Vrui::VisletFactory
 	/* Methods: */
 	virtual Vislet* createVislet(int numVisletArguments,const char* const visletArguments[]) const;
 	virtual void destroyVislet(Vislet* vislet) const;
+	
+	/* New methods: */
+	GLMotif::FileSelectionHelper* getSettingsSelectionHelper(void); // Returns pointer to a file selection helper for settings files
 	};
 
 class Filming:public Vrui::Vislet
@@ -167,6 +173,8 @@ class Filming:public Vrui::Vislet
 	ONTransform gridTransform; // Position and orientation of the calibration grid
 	MoveGridTool* gridDragger; // Pointer to the grid dragging tool that is currently dragging the grid
 	bool drawDevices; // Flag whether to draw coordinate frames for all physical devices
+	std::string settingsFileName; // Name of a settings file to load upon vislet creation
+	bool autoActivate; // Flag to automatically activate the vislet upon creation
 	GLMotif::PopupWindow* dialogWindow; // Filming controls dialog window
 	GLMotif::DropdownBox* viewerDeviceMenu; // Drop-down menu to select tracking devices for the filming viewer
 	GLMotif::TextFieldSlider* posSliders[3]; // Array of sliders controlling the viewer's fixed position
@@ -175,7 +183,6 @@ class Filming:public Vrui::Vislet
 	GLMotif::HSVColorSelector* backgroundColorSelector; // Color selector to change the background color
 	GLMotif::ToggleButton* drawGridToggle;
 	GLMotif::ToggleButton* drawDevicesToggle;
-	FileSelectionHelper settingsSelectionHelper; // Helper to load and save settings
 	
 	/* Private methods: */
 	void changeViewerMode(void); // Updates the GUI after a viewer mode change
@@ -187,6 +194,7 @@ class Filming:public Vrui::Vislet
 	void drawGridToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void resetGridCallback(Misc::CallbackData* cbData);
 	void drawDevicesToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
+	void loadSettings(const char* settingsFileName);
 	void loadSettingsCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveSettingsCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void buildFilmingControls(void); // Creates the filming controls dialog window

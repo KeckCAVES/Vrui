@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2013 Oliver Kreylos
+Copyright (c) 2002-2016 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -21,10 +21,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <string>
 #include <vector>
-#include <Threads/Thread.h>
-#include <Threads/Mutex.h>
-#include <Threads/MutexCond.h>
+#include <Threads/EventDispatcher.h>
 #include <Comm/ListeningTCPSocket.h>
 #include <Vrui/Internal/VRDevicePipe.h>
 
@@ -32,50 +31,86 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 namespace Misc {
 class ConfigurationFile;
 }
+namespace Vrui {
+class HMDConfiguration;
+}
 class VRDeviceManager;
 
 class VRDeviceServer
 	{
 	/* Embedded classes: */
 	private:
-	class ClientData // Class containing state of connected client
+	struct ClientState // Class containing state of connected client
 		{
 		/* Elements: */
 		public:
-		Threads::Mutex pipeMutex; // Mutex serializing write access to the client pipe
+		VRDeviceServer* server; // Pointer to server object handling this client, to simplify event handling
 		Vrui::VRDevicePipe pipe; // Pipe connected to the client
-		Threads::Thread communicationThread; // Client communication thread
+		#ifdef VERBOSE
+		std::string clientName; // Name of the client, to keep track of connections in verbose mode
+		#endif
+		Threads::EventDispatcher::ListenerKey listenerKey; // Key with which this client is listening for I/O events
+		int state; // Client's current position in the VRDeviceServer protocol state machine
 		unsigned int protocolVersion; // Version of the VR device daemon protocol to use with this client
-		volatile bool active; // Flag if the client is active
-		volatile bool streaming; // Flag if the client is streaming
+		bool clientExpectsTimeStamps; // Flag whether the connected client expects to receive time stamp data
+		bool active; // Flag whether the client is currently active
+		bool streaming; // Flag whether client is currently in streaming mode
 		
 		/* Constructors and destructors: */
-		ClientData(Comm::ListeningTCPSocket& listenSocket) // Accepts next incoming connection on given listening socket and establishes VR device connection
-			:pipe(listenSocket),protocolVersion(0),active(false),streaming(false)
-			{
-			};
+		ClientState(VRDeviceServer* sServer,Comm::ListeningTCPSocket& listenSocket); // Accepts next incoming connection on given listening socket and establishes VR device connection
 		};
 	
-	typedef std::vector<ClientData*> ClientList; // Data type for lists of states of connected clients
+	typedef std::vector<ClientState*> ClientStateList; // Data type for lists of states of connected clients
+	
+	struct HMDConfigurationVersions // Structure to hold version numbers for an HMD configuration
+		{
+		/* Elements: */
+		public:
+		Vrui::HMDConfiguration* hmdConfiguration; // Pointer to the HMD configuration
+		unsigned int eyePosVersion,eyeVersion,distortionMeshVersion; // Version numbers for the three HMD configuration components most recently sent to streaming clients
+		
+		/* Constructors and destructors: */
+		HMDConfigurationVersions(void)
+			:hmdConfiguration(0),
+			 eyePosVersion(0U),eyeVersion(0U),distortionMeshVersion(0U)
+			{
+			}
+		};
+	
+	/* Private methods: */
+	static bool newConnectionCallback(Threads::EventDispatcher::ListenerKey eventKey,int eventType,void* userData); // Callback called when a connection attempt is made at the listening socket
+	void disconnectClient(ClientState* client,bool removeListener,bool removeFromList); // Disconnects the given client due to a communication error; removes listener and/or dead client from list if respective flags are true
+	static bool clientMessageCallback(Threads::EventDispatcher::ListenerKey eventKey,int eventType,void* userData); // Callback called when a message from a client arrives
+	static void trackerUpdateNotificationCallback(VRDeviceManager* manager,void* userData); // Callback called when tracking device states are updated
+	static void hmdConfigurationUpdatedCallback(VRDeviceManager* manager,const Vrui::HMDConfiguration* hmdConfiguration,void* userData); // Callback called when the given HMD configuration has been updated
+	bool writeServerState(ClientState* client); // Writes the device manager's current (locked) state to the given client; returns false on error
+	bool writeHmdConfiguration(ClientState* client,HMDConfigurationVersions& hmdConfigurationVersions); // Writes the given HMD configuration to the given client; returns false on error
 	
 	/* Elements: */
 	private:
 	VRDeviceManager* deviceManager; // Pointer to device manager running in server
+	Threads::EventDispatcher dispatcher; // Event dispatcher to handle communication with multiple clients in parallel
 	Comm::ListeningTCPSocket listenSocket; // Main socket the server listens on for incoming connections
-	Threads::Thread listenThread; // Connection initiating thread
-	Threads::Mutex clientListMutex; // Mutex serializing access to the client list
-	ClientList clientList; // List of currently connected clients
+	ClientStateList clientStates; // List of currently connected clients
 	int numActiveClients; // Number of clients that are currently active
-	Threads::Thread streamingThread; // Thread to stream device states to clients
-	Threads::MutexCond trackerUpdateCompleteCond; // Tracker update notification condition variable
-	
-	/* Private methods: */
-	void* listenThreadMethod(void); // Connection initiating thread method
-	void* clientCommunicationThreadMethod(ClientData* clientData); // Client communication thread method
-	void* streamingThreadMethod(void); // Method to stream device states to all clients who are currently streaming
+	int numStreamingClients; // Number of clients that are currently streaming
+	unsigned int managerTrackerStateVersion; // Version number of tracker states in device manager
+	unsigned int streamingTrackerStateVersion; // Version number of tracker states most recently sent to streaming clients
+	unsigned int managerHmdConfigurationVersion; // Version number of HMD configurations in device manager
+	unsigned int streamingHmdConfigurationVersion; // Version number of HMD configurations most recently sent to streaming clients
+	unsigned int numHmdConfigurations; // Number of HMD configurations in the device manager
+	HMDConfigurationVersions* hmdConfigurationVersions; // Array of HMD configuration version numbers
 	
 	/* Constructors and destructors: */
 	public:
 	VRDeviceServer(VRDeviceManager* sDeviceManager,const Misc::ConfigurationFile& configFile); // Creates server associated with device manager
 	~VRDeviceServer(void);
+	
+	/* Methods: */
+	void run(void); // Runs the server state machine
+	void stop(void) // Stops the server state machine; can be called asynchronously
+		{
+		/* Stop the dispatcher's event handling: */
+		dispatcher.stop();
+		}
 	};

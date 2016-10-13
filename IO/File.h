@@ -1,7 +1,7 @@
 /***********************************************************************
 File - Base class for high-performance buffered binary read/write access
 to file-like objects.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -27,12 +27,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <string.h>
 #include <stdexcept>
 #include <Misc/Endianness.h>
-#include <Misc/RefCounted.h>
 #include <Misc/Autopointer.h>
+#include <Threads/RefCounted.h>
 
 namespace IO {
 
-class File:public Misc::RefCounted
+class File:public Threads::RefCounted
 	{
 	/* Embedded classes: */
 	public:
@@ -151,6 +151,7 @@ class File:public Misc::RefCounted
 	/* Protected low-level methods to be implemented by concrete derived classes; default implementations return EOF or throw error: */
 	virtual size_t readData(Byte* buffer,size_t bufferSize); // Method to read data into the given buffer; must block until at least one byte is read; returns number of bytes read; zero return value signals end-of-source condition
 	virtual void writeData(const Byte* buffer,size_t bufferSize); // Method to write all data contained in the write buffer to a sink; should throw appropriate exception in case of errors
+	virtual size_t writeDataUpTo(const Byte* buffer,size_t bufferSize); // Method to write data from the beginning of the write buffer to a sink; must block until at least one byte is written; returns number of bytes written
 	
 	/* Private methods: */
 	private:
@@ -181,6 +182,8 @@ class File:public Misc::RefCounted
 	virtual size_t getWriteBufferSize(void) const; // Returns the (nominal) size of the write buffer in bytes
 	virtual size_t resizeReadBuffer(size_t newReadBufferSize); // Resizes the read buffer; increases given size if unread data in buffer would not fit into new buffer; returns actual read buffer size
 	virtual void resizeWriteBuffer(size_t newWriteBufferSize); // Flushes and resizes the write buffer
+	size_t readSomeData(void); // Reads at least one additional byte of data from the source into the read buffer; returns amount of unread data in the read buffer
+	size_t writeSomeData(void); // Writes at least one byte of data from the write buffer into the destination; returns amount of free space in the write buffer
 	bool canReadImmediately(void) const // Returns true if there is unread data in the read buffer
 		{
 		return readPtr!=readDataEnd;

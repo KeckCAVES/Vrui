@@ -1,7 +1,7 @@
 /***********************************************************************
 SixAxisInputDeviceTool - Class for tools using six valuators for
 translational and rotational axes to control virtual input devices.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -191,8 +191,6 @@ SixAxisInputDeviceTool::SixAxisInputDeviceTool(const ToolFactory* sFactory,const
 	:InputDeviceTool(sFactory,inputAssignment),
 	 config(factory->config)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 void SixAxisInputDeviceTool::configure(const Misc::ConfigurationFileSection& configFileSection)
@@ -233,11 +231,8 @@ void SixAxisInputDeviceTool::buttonCallback(int buttonSlotIndex,InputDevice::But
 				deactivate();
 				}
 			
-			/* Calculate an interaction ray: */
-			Ray interactionRay=calcInteractionRay();
-			
-			/* Try activating the tool: */
-			activate(interactionRay);
+			/* Pick a virtual input device using ray selection: */
+			activate(getButtonDeviceRay(0));
 			}
 		else if (!config.selectButtonToggle)
 			{
@@ -284,7 +279,7 @@ void SixAxisInputDeviceTool::frame(void)
 		if(translation!=Vector::zero||rotation!=Vector::zero)
 			{
 			/* Request another frame: */
-			scheduleUpdate(getApplicationTime()+1.0/125.0);
+			scheduleUpdate(getNextAnimationTime());
 			}
 		}
 	}

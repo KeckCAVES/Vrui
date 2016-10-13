@@ -1,7 +1,7 @@
 /***********************************************************************
 GLEXTPalettedTexture - OpenGL extension class for the
 GL_EXT_paletted_texture extension.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2014 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -72,6 +72,7 @@ class GLEXTPalettedTexture:public GLExtension
 	/* Elements: */
 	private:
 	static GL_THREAD_LOCAL(GLEXTPalettedTexture*) current; // Pointer to extension object for current OpenGL context
+	static const char* name; // Extension name
 	PFNGLCOLORTABLEEXTPROC glColorTableEXTProc;
 	PFNGLCOLORSUBTABLEEXTPROC glColorSubTableEXTProc;
 	PFNGLGETCOLORTABLEEXTPROC glGetColorTableEXTProc;

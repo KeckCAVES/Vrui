@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageSequenceMovieSaver - Helper class to save movies as sequences of
 image files in formats supported by the Images library.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 

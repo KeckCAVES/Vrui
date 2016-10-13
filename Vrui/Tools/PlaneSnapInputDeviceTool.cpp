@@ -1,7 +1,7 @@
 /***********************************************************************
 PlaneSnapInputDeviceTool - Class for tools that snap a virtual input
 device to a plane defined by three points.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -125,8 +125,6 @@ PlaneSnapInputDeviceTool::PlaneSnapInputDeviceTool(const ToolFactory* sFactory,c
 	:InputDeviceTool(sFactory,inputAssignment),
 	 numSelectedPoints(0),draggingPoint(false)
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
 	}
 
 const ToolFactory* PlaneSnapInputDeviceTool::getFactory(void) const
@@ -139,15 +137,15 @@ void PlaneSnapInputDeviceTool::buttonCallback(int,InputDevice::ButtonCallbackDat
 	if(cbData->newButtonState) // Button has just been pressed
 		{
 		/* Try activating the tool: */
-		if(interactionDevice->isRayDevice())
+		if(getButtonDevice(0)->isRayDevice())
 			{
 			/* Pick a virtual input device using ray selection: */
-			activate(calcInteractionRay());
+			activate(getButtonDeviceRay(0));
 			}
 		else
 			{
 			/* Pick a virtual input device using point selection: */
-			activate(getInteractionPosition());
+			activate(getButtonDevicePosition(0));
 			}
 		
 		/* Check if the tool was activated: */
@@ -192,7 +190,7 @@ void PlaneSnapInputDeviceTool::frame(void)
 	if(draggingPoint)
 		{
 		/* Set the position of the currently dragged point: */
-		selectedPoints[numSelectedPoints-1]=getInverseNavigationTransformation().transform(getInteractionPosition());
+		selectedPoints[numSelectedPoints-1]=getInverseNavigationTransformation().transform(getButtonDevicePosition(0));
 		}
 	}
 
@@ -216,18 +214,10 @@ void PlaneSnapInputDeviceTool::display(GLContextData& contextData) const
 		glLoadIdentity();
 		glMultMatrix(getDisplayState(contextData).modelviewNavigational);
 		
-		/* Determine the marker color: */
-		Color bgColor=getBackgroundColor();
-		Color fgColor;
-		for(int i=0;i<3;++i)
-			fgColor[i]=1.0f-bgColor[i];
-		fgColor[3]=bgColor[3];
-		
-		
 		/* Mark all measurement points: */
 		glLineWidth(3.0f);
 		glBegin(GL_LINES);
-		glColor(bgColor);
+		glColor(getBackgroundColor());
 		for(int i=0;i<numSelectedPoints;++i)
 			{
 			glVertex(selectedPoints[i][0]-markerSize,selectedPoints[i][1],selectedPoints[i][2]);
@@ -240,7 +230,7 @@ void PlaneSnapInputDeviceTool::display(GLContextData& contextData) const
 		glEnd();
 		glLineWidth(1.0f);
 		glBegin(GL_LINES);
-		glColor(fgColor);
+		glColor(getForegroundColor());
 		for(int i=0;i<numSelectedPoints;++i)
 			{
 			glVertex(selectedPoints[i][0]-markerSize,selectedPoints[i][1],selectedPoints[i][2]);

@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2013 Oliver Kreylos
+Copyright (c) 2004-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -47,6 +47,11 @@ void Application::displayWrapper(GLContextData& contextData,void* userData)
 void Application::soundWrapper(ALContextData& contextData,void* userData)
 	{
 	static_cast<Application*>(userData)->sound(contextData);
+	}
+
+void Application::resetNavigationWrapper(void* userData)
+	{
+	static_cast<Application*>(userData)->resetNavigation();
 	}
 
 char* Application::createEventToolClassName(void)
@@ -123,6 +128,7 @@ void Application::run(void)
 	setFrameFunction(frameWrapper,this);
 	setDisplayFunction(displayWrapper,this);
 	setSoundFunction(soundWrapper,this);
+	setResetNavigationFunction(resetNavigationWrapper,this);
 	
 	/* Run the Vrui main loop: */
 	mainLoop();
@@ -170,6 +176,11 @@ void Application::display(GLContextData&) const
 
 void Application::sound(ALContextData&) const
 	{
+	}
+
+void Application::resetNavigation(void)
+	{
+	/* Default implementation must not do anything to preserve legacy application behavior */
 	}
 
 void Application::eventToolCreationCallback(Application::EventID eventId,ToolManager::ToolCreationCallbackData* cbData)

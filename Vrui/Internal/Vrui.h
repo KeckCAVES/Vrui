@@ -1,7 +1,7 @@
 /***********************************************************************
 Internal kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2013 Oliver Kreylos
+Copyright (c) 2000-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -39,10 +39,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLObject.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
-#include <GLMotif/SubMenu.h>
 #include <GLMotif/ToggleButton.h>
+#include <GLMotif/FileSelectionHelper.h>
 #include <Vrui/Vrui.h>
-#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/GlyphRenderer.h>
 #include <Vrui/WindowProperties.h>
 #include <Vrui/DisplayState.h>
@@ -63,6 +62,7 @@ class Container;
 class Popup;
 class PopupMenu;
 class PopupWindow;
+class CascadeButton;
 }
 namespace Vrui {
 class InputDeviceDataSaver;
@@ -70,6 +70,8 @@ class MultipipeDispatcher;
 class ScaleBar;
 class VisletManager;
 class GUIInteractor;
+class ScreenSaverInhibitor;
+class ScreenProtectorArea;
 }
 
 namespace Vrui {
@@ -82,7 +84,7 @@ struct VruiState
 	{
 	/* Embedded classes: */
 	public:
-	struct ScreenProtector // Structure describing an input device that needs to be protected from bumping into a screen
+	struct ScreenProtectorDevice // Structure describing an input device that needs to be protected from bumping into a screen
 		{
 		/* Elements: */
 		public:
@@ -100,16 +102,29 @@ struct VruiState
 			/* Elements: */
 			public:
 			DisplayState displayState; // The display state object
+			GLuint screenProtectorDisplayListId; // ID of display list to render screen protector grids
+			
+			/* Constructors and destructors: */
+			DataItem(void);
+			virtual ~DataItem(void);
 			};
 		
 		/* Methods from GLObject: */
-		void initContext(GLContextData& contextData) const
-			{
-			/* No need to do anything */
-			}
+		virtual void initContext(GLContextData& contextData) const;
+		};
+	
+	struct FrameCallbackSlot // Structure holding a frame callback
+		{
+		/* Elements: */
+		public:
+		FrameCallback callback; // The callback function
+		void* userData; // User-specified argument
 		};
 	
 	/* Elements: */
+	
+	/* Desktop environment management: */
+	ScreenSaverInhibitor* screenSaverInhibitor;
 	
 	/* Multipipe management: */
 	Cluster::Multiplexer* multiplexer;
@@ -135,11 +150,12 @@ struct VruiState
 	Point newInputDevicePosition;
 	VirtualInputDevice* virtualInputDevice;
 	InputGraphManager* inputGraphManager;
-	FileSelectionHelper inputGraphSelectionHelper; // Helper to load and save input graph files
+	GLMotif::FileSelectionHelper inputGraphSelectionHelper; // Helper to load and save input graph files
 	bool loadInputGraph; // Flag whether to replace the current input graph with one loaded from the given file at the next opportune moment
 	std::string inputGraphFileName; // Name of input graph file to load if loadInputGraph is true
 	
 	/* Input device management: */
+	TextEventDispatcher* textEventDispatcher;
 	InputDeviceManager* inputDeviceManager;
 	InputDeviceDataSaver* inputDeviceDataSaver;
 	MultipipeDispatcher* multipipeDispatcher;
@@ -161,8 +177,14 @@ struct VruiState
 	VRScreen* mainScreen;
 	
 	/* Screen protection management: */
-	int numProtectors;
-	ScreenProtector* protectors;
+	int numProtectorAreas;
+	ScreenProtectorArea* protectorAreas;
+	int numProtectorDevices;
+	ScreenProtectorDevice* protectorDevices;
+	bool protectScreens;
+	Scalar renderProtection; // If >0.0, screen protectors need to be drawn during the current frame
+	Color protectorGridColor; // Color to draw screen protectors
+	Scalar protectorGridSpacing; // Spacing between grid lines when drawing screen protectors
 	
 	/* Window management: */
 	WindowProperties windowProperties;
@@ -177,6 +199,7 @@ struct VruiState
 	Scalar frontplaneDist;
 	Scalar backplaneDist;
 	Color backgroundColor;
+	Color foregroundColor;
 	Color ambientLightColor;
 	
 	/* Sound rendering parameters: */
@@ -187,13 +210,13 @@ struct VruiState
 	GLMotif::StyleSheet uiStyleSheet;
 	Misc::TimerEventScheduler* timerEventScheduler; // Scheduler for timer events
 	GLMotif::WidgetManager* widgetManager;
-	bool popWidgetsOnScreen;
-	ONTransform widgetPlane; // Plane to which to lock widgets when popWidgetsOnScreen is true
-	GLMotif::SubMenu* dialogsMenu;
+	UIManager* uiManager;
+	GLMotif::PopupMenu* dialogsMenu;
 	std::vector<GLMotif::PopupWindow*> poppedDialogs;
-	GLMotif::PopupMenu* systemMenuPopup;
+	GLMotif::PopupMenu* systemMenu;
+	GLMotif::CascadeButton* dialogsMenuCascade;
 	MutexMenu* mainMenu;
-	FileSelectionHelper viewSelectionHelper; // Helper to load and save view files
+	GLMotif::FileSelectionHelper viewSelectionHelper; // Helper to load and save view files
 	
 	/* 3D picking management: */
 	Scalar pointPickDistance;
@@ -224,6 +247,8 @@ struct VruiState
 	void* displayFunctionData;
 	SoundFunctionType soundFunction;
 	void* soundFunctionData;
+	ResetNavigationFunctionType resetNavigationFunction;
+	void* resetNavigationFunctionData;
 	
 	/* Time management: */
 	Misc::Timer appTime; // Free-running application timer
@@ -238,13 +263,12 @@ struct VruiState
 	int nextFrameTimeIndex; // Index at which the next frame time is stored in the array
 	double* sortedFrameTimes; // Helper array to calculate median of frame times
 	double currentFrameTime; // Current frame time average
+	double animationFrameInterval; // Suggested frame interval to be used for animations
+	Threads::Mutex frameCallbacksMutex; // Mutex protecting the list of extra frame callbacks
+	std::vector<FrameCallbackSlot> frameCallbacks; // List of extra frame callbacks
 	
 	/* Transient dragging/moving/scaling state: */
 	const Tool* activeNavigationTool;
-	
-	/* Transient popup menu/primary widget interaction state: */
-	GUIInteractor* mostRecentGUIInteractor; // Pointer to the most-recently used GUI interactor, to calculate an appropriate position to pop up dialog windows
-	Point mostRecentHotSpot; // Final hot spot position when the most-recently used GUI interactor is destroyed
 	
 	/* List of created virtual input devices: */
 	std::deque<InputDevice*> createdVirtualInputDevices;
@@ -253,13 +277,12 @@ struct VruiState
 	bool updateContinuously; // Flag if the inner Vrui loop never blocks
 	
 	/* Private methods: */
-	GLMotif::Popup* buildDialogsMenu(void); // Builds the dialogs submenu
-	GLMotif::Popup* buildViewMenu(void); // Builds the view submenu
-	GLMotif::Popup* buildDevicesMenu(void); // Builds the input devices submenu
+	GLMotif::PopupMenu* buildDialogsMenu(void); // Builds the dialogs submenu
+	GLMotif::PopupMenu* buildViewMenu(void); // Builds the view submenu
+	GLMotif::PopupMenu* buildDevicesMenu(void); // Builds the input devices submenu
 	void buildSystemMenu(GLMotif::Container* parent); // Builds the Vrui system menu inside the given container widget
 	void updateNavigationTransformation(const NavTransform& newTransform); // Updates the working version of the navigation transformation
 	void loadViewpointFile(IO::Directory& directory,const char* viewpointFileName); // Overrides the navigation transformation with viewpoint data stored in the given viewpoint file
-	void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData); // Callback method called when a tool is destroyed
 	
 	/* Constructors and destructors: */
 	VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* sPipe); // Initializes basic Vrui state
@@ -282,21 +305,29 @@ struct VruiState
 	void finishMainLoop(void); // Performs first steps of shutdown after mainloop finishes
 	
 	/* System menu callback methods: */
-	void dialogsMenuCallback(GLMotif::SubMenu::EntrySelectCallbackData* cbData);
+	void dialogsMenuCallback(GLMotif::Button::SelectCallbackData* cbData,GLMotif::PopupWindow* const& dialog);
 	void widgetPopCallback(GLMotif::WidgetManager::WidgetPopCallbackData* cbData);
 	void loadViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void resetViewCallback(Misc::CallbackData* cbData);
 	void pushViewCallback(Misc::CallbackData* cbData);
 	void popViewCallback(Misc::CallbackData* cbData);
 	void createInputDeviceCallback(Misc::CallbackData* cbData,const int& numButtons);
 	void destroyInputDeviceCallback(Misc::CallbackData* cbData);
 	void loadInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
+	void showToolKillZoneCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void quitCallback(Misc::CallbackData* cbData);
 	};
 
 extern VruiState* vruiState;
+
+/*****************************
+Private Vrui global variables:
+*****************************/
+
+extern bool vruiVerbose;
 
 /********************************
 Private Vrui function prototypes:
@@ -307,10 +338,11 @@ struct VruiWindowGroup;
 
 extern void setRandomSeed(unsigned int newRandomSeed); // Sets Vrui's random seed; can only be called by InputDeviceAdapterPlayback during its initialization
 extern void vruiDelay(double interval);
+extern double peekApplicationTime(void); // Returns the (approximate) application time that will be used by the next Vrui frame; can only be called by input device adapters during event handling
 extern void synchronize(double nextFrameTime,bool wait); // Gives a precise time value to use for the next frame; delays frame until wall-clock time matches if wait is true; can only be called by InputDeviceAdapterPlayback during playback
+extern void resetNavigation(void); // Calls the application-provided function to reset the navigation transformation
 extern void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize); // Sets the center and size of Vrui's display environment
-extern void setMostRecentGUIInteractor(GUIInteractor* interactor); // Sets the most-recently-used GUI interaction tool
-extern void resizeWindow(VruiWindowGroup* windowGroup,const VRWindow* window,const int newViewportSize[2],const int newFrameSize[2]); // Notifies the run-time environment that a window has changes viewport and/or frame buffer size
+extern void resizeWindow(VruiWindowGroup* windowGroup,const VRWindow* window,const int newViewportSize[2],const int newFrameSize[2]); // Notifies the run-time environment that a window has changed viewport and/or frame buffer size
 extern void getMaxWindowSizes(VruiWindowGroup* windowGroup,int viewportSize[2],int frameSize[2]); // Returns the maximum viewport and frame buffer sizes for the given window group
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 VariableMemoryFile - Class to write to variable-sized in-memory files as
 temporary file storage.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2016 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -51,6 +51,20 @@ size_t VariableMemoryFile::BufferChain::getDataSize(void) const
 Methods of class VariableMemoryFile:
 ***********************************/
 
+size_t VariableMemoryFile::readData(File::Byte* buffer,size_t bufferSize)
+	{
+	/* Get the next buffer from the buffer list: */
+	BufferHeader* nextBuffer=buffer==0?head:reinterpret_cast<BufferHeader*>(buffer)[-1].succ;
+	if(nextBuffer!=0)
+		{
+		/* Install the next buffer as the file's read buffer: */
+		setReadBuffer(nextBuffer->size,reinterpret_cast<Byte*>(nextBuffer+1),false);
+		return nextBuffer->size;
+		}
+	else
+		return 0; // Signal end-of-file
+	}
+
 void VariableMemoryFile::writeData(const File::Byte* buffer,size_t bufferSize)
 	{
 	/* Append the filled current buffer to the buffer list: */
@@ -69,13 +83,15 @@ void VariableMemoryFile::writeData(const File::Byte* buffer,size_t bufferSize)
 	setWriteBuffer(writeBufferSize,reinterpret_cast<Byte*>(current+1),false); // current+1 points to actual data in buffer
 	}
 
-VariableMemoryFile::VariableMemoryFile(size_t sWriteBufferSize)
-	:File(),
-	 writeBufferSize(sWriteBufferSize),
-	 head(0),tail(0),current(0)
+size_t VariableMemoryFile::writeDataUpTo(const File::Byte* buffer,size_t bufferSize)
 	{
-	/* Disable write-through: */
-	canWriteThrough=false;
+	/* Append the filled current buffer to the buffer list: */
+	current->size=bufferSize;
+	if(tail!=0)
+		tail->succ=current;
+	else
+		head=current;
+	tail=current;
 	
 	/* Allocate a new buffer: */
 	Byte* newBuffer=new Byte[writeBufferSize+sizeof(BufferHeader)];
@@ -83,6 +99,25 @@ VariableMemoryFile::VariableMemoryFile(size_t sWriteBufferSize)
 	
 	/* Install the new buffer as the buffered file's write buffer: */
 	setWriteBuffer(writeBufferSize,reinterpret_cast<Byte*>(current+1),false); // current+1 points to actual data in buffer
+	
+	return bufferSize;
+	}
+
+VariableMemoryFile::VariableMemoryFile(size_t sWriteBufferSize)
+	:File(),
+	 writeBufferSize(sWriteBufferSize),
+	 head(0),tail(0),current(0)
+	{
+	/* Allocate a new buffer: */
+	Byte* newBuffer=new Byte[writeBufferSize+sizeof(BufferHeader)];
+	current=new(newBuffer) BufferHeader;
+	
+	/* Disable read-through: */
+	canReadThrough=false;
+	
+	/* Install the new buffer as the buffered file's write buffer: */
+	setWriteBuffer(writeBufferSize,reinterpret_cast<Byte*>(current+1),false); // current+1 points to actual data in buffer
+	canWriteThrough=false;
 	}
 
 VariableMemoryFile::~VariableMemoryFile(void)
@@ -95,7 +130,8 @@ VariableMemoryFile::~VariableMemoryFile(void)
 		head=succ;
 		}
 	
-	/* Uninstall the buffered file's write buffer: */
+	/* Uninstall the buffered file's read and write buffers: */
+	setReadBuffer(0,0,false);
 	setWriteBuffer(0,0,false);
 	
 	/* Delete the current buffer: */
@@ -158,6 +194,9 @@ void VariableMemoryFile::clear(void)
 		head=succ;
 		}
 	tail=0;
+	
+	/* Reset the buffered file's read buffer: */
+	setReadBuffer(0,0,false);
 	
 	/* Install the current buffer as the buffered file's write buffer: */
 	setWriteBuffer(writeBufferSize,reinterpret_cast<Byte*>(current+1),false); // current+1 points to actual data in buffer

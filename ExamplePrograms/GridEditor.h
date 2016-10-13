@@ -1,7 +1,7 @@
 /***********************************************************************
 GridEditor - Vrui application for interactive virtual clay modeling
 using a density grid and interactive isosurface extraction.
-Copyright (c) 2006-2013 Oliver Kreylos
+Copyright (c) 2006-2015 Oliver Kreylos
 
 This file is part of the Virtual Clay Editing Package.
 
@@ -33,10 +33,10 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLObject.h>
 #include <GLMotif/RadioBox.h>
 #include <GLMotif/TextFieldSlider.h>
+#include <GLMotif/FileSelectionHelper.h>
 #include <Vrui/GenericToolFactory.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/Application.h>
-#include <Vrui/FileSelectionHelper.h>
 #include <Vrui/TransparentObject.h>
 
 #include "EditableGrid.h"
@@ -125,12 +125,12 @@ class GridEditor:public Vrui::Application,GLObject
 	/* Elements: */
 	private:
 	EditableGrid* grid; // Editable 3D grid
-	Vrui::FileSelectionHelper exportSurfaceHelper; // Helper object to export surfaces to PLY files
+	GLMotif::FileSelectionHelper saveGridHelper; // Helper object to save grids to .vol files
+	GLMotif::FileSelectionHelper exportSurfaceHelper; // Helper object to export surfaces to PLY files
 	GLMotif::PopupMenu* mainMenu; // The program's main menu
 	
 	/* Private methods: */
-	void centerDisplayCallback(Misc::CallbackData* cbData);
-	void saveGridCallback(Misc::CallbackData* cbData);
+	void saveGridCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void exportSurfaceCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
 	
@@ -141,6 +141,7 @@ class GridEditor:public Vrui::Application,GLObject
 	
 	/* Methods from Vrui::Application: */
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	
 	/* Methods from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;

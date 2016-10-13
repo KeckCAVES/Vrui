@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiCalibrator - Simple program to check the calibration of a VR
 environment.
-Copyright (c) 2005-2013 Oliver Kreylos
+Copyright (c) 2005-2016 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -18,6 +18,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <stdlib.h>
+#include <string.h>
 #include <Math/Math.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <GL/gl.h>
@@ -26,11 +28,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLVertexTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
-#include <GLMotif/Button.h>
-#include <GLMotif/Menu.h>
-#include <GLMotif/PopupMenu.h>
-#include <Vrui/InputDevice.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/InputDevice.h>
+#include <Vrui/Viewer.h>
 #include <Vrui/Application.h>
 
 class VruiCalibrator:public Vrui::Application
@@ -40,10 +40,13 @@ class VruiCalibrator:public Vrui::Application
 	
 	/* Vrui parameters: */
 	GLColor<GLfloat,4> modelColor; // Color to draw the model
-	GLMotif::PopupMenu* mainMenu; // The program's main menu
-	
-	/* Private methods: */
-	GLMotif::PopupMenu* createMainMenu(void); // Creates the program's main menu
+	int ignoreDeviceIndex; // Index of device which is not to be drawn (because it is the head device)
+	bool viewerAlignedGrid; // Flag whether to align the grid with the main viewer's viewing direction to check distortion correction
+	Vrui::Scalar viewerGridDistance; // Distance from main viewer to grid
+	Vrui::Scalar viewerGridFov; // Tangent of half of viewer-aligned grid's field-of-view
+	int numGridSquares; // Number of squares along each edge of the grid
+	bool checkerboard; // Flag to draw a black&white checkerboard instead of a grid
+	float gridLineWidth; // Cosmetic line width of grid lines in pixels
 	
 	/* Constructors and destructors: */
 	public:
@@ -52,56 +55,59 @@ class VruiCalibrator:public Vrui::Application
 	
 	/* Methods: */
 	virtual void display(GLContextData& contextData) const; // Called for every eye and every window on every frame
-	void resetNavigationCallback(Misc::CallbackData* cbData); // Method to reset the Vrui navigation transformation to its default
+	virtual void resetNavigation(void);
 	};
 
-/*************************
+/*******************************
 Methods of class VruiCalibrator:
-*************************/
-
-GLMotif::PopupMenu* VruiCalibrator::createMainMenu(void)
-	{
-	/* Create a popup shell to hold the main menu: */
-	GLMotif::PopupMenu* mainMenuPopup=new GLMotif::PopupMenu("MainMenuPopup",Vrui::getWidgetManager());
-	mainMenuPopup->setTitle("Vrui Demonstration");
-	
-	/* Create the main menu itself: */
-	GLMotif::Menu* mainMenu=new GLMotif::Menu("MainMenu",mainMenuPopup,false);
-	
-	/* Create a button: */
-	GLMotif::Button* resetNavigationButton=new GLMotif::Button("ResetNavigationButton",mainMenu,"Reset Navigation");
-	
-	/* Add a callback to the button: */
-	resetNavigationButton->getSelectCallbacks().add(this,&VruiCalibrator::resetNavigationCallback);
-	
-	/* Finish building the main menu: */
-	mainMenu->manageChild();
-	
-	return mainMenuPopup;
-	}
+*******************************/
 
 VruiCalibrator::VruiCalibrator(int& argc,char**& argv)
 	:Vrui::Application(argc,argv),
-	 mainMenu(0)
+	 modelColor(Vrui::getForegroundColor()),ignoreDeviceIndex(-1),
+	 viewerAlignedGrid(false),viewerGridDistance(Vrui::getInchFactor()*Vrui::Scalar(36)),viewerGridFov(Math::tan(Math::div2(Math::rad(Vrui::Scalar(90.0))))),
+	 numGridSquares(10),checkerboard(false),gridLineWidth(1.0f)
 	{
-	/* Calculate the model color: */
-	for(int i=0;i<3;++i)
-		modelColor[i]=1.0f-Vrui::getBackgroundColor()[i];
-	modelColor[3]=1.0f;
-	
-	/* Create the user interface: */
-	mainMenu=createMainMenu();
-	
-	/* Install the main menu: */
-	Vrui::setMainMenu(mainMenu);
-	
-	/* Set the navigation transformation: */
-	resetNavigationCallback(0);
+	/* Parse the command line: */
+	for(int i=1;i<argc;++i)
+		{
+		if(argv[i][0]=='-')
+			{
+			if(strcasecmp(argv[i]+1,"ignoreDeviceIndex")==0||strcasecmp(argv[i]+1,"idi")==0)
+				{
+				++i;
+				ignoreDeviceIndex=atoi(argv[i]);
+				}
+			else if(strcasecmp(argv[i]+1,"viewerAlignedGrid")==0||strcasecmp(argv[i]+1,"vag")==0)
+				viewerAlignedGrid=true;
+			else if(strcasecmp(argv[i]+1,"viewerGridDistance")==0||strcasecmp(argv[i]+1,"vgd")==0)
+				{
+				++i;
+				viewerGridDistance=Vrui::Scalar(atof(argv[i]));
+				}
+			else if(strcasecmp(argv[i]+1,"viewerGridFov")==0||strcasecmp(argv[i]+1,"vgf")==0)
+				{
+				++i;
+				viewerGridFov=Math::tan(Math::rad(Math::div2(Vrui::Scalar(atof(argv[i])))));
+				}
+			else if(strcasecmp(argv[i]+1,"numGridSquares")==0||strcasecmp(argv[i]+1,"ngs")==0)
+				{
+				++i;
+				numGridSquares=atoi(argv[i]);
+				}
+			else if(strcasecmp(argv[i]+1,"checkerboard")==0||strcasecmp(argv[i]+1,"c")==0)
+				checkerboard=true;
+			else if(strcasecmp(argv[i]+1,"gridLineWidth")==0||strcasecmp(argv[i]+1,"glw")==0)
+				{
+				++i;
+				gridLineWidth=atoi(argv[i]);
+				}
+			}
+		}
 	}
 
 VruiCalibrator::~VruiCalibrator(void)
 	{
-	delete mainMenu;
 	}
 
 void VruiCalibrator::display(GLContextData& contextData) const
@@ -115,7 +121,7 @@ void VruiCalibrator::display(GLContextData& contextData) const
 		glDisable(GL_LIGHTING);
 	GLfloat lineWidth;
 	glGetFloatv(GL_LINE_WIDTH,&lineWidth);
-	glLineWidth(1.0f);
+	glLineWidth(gridLineWidth);
 	
 	/* Draw a 10" wireframe cube in the middle of the environment: */
 	glPushMatrix();
@@ -153,13 +159,27 @@ void VruiCalibrator::display(GLContextData& contextData) const
 	glEnd();
 	glPopMatrix();
 	
-	/* Draw coordinate axes for each input device: */
+	/* Draw coordinate axes and linear/angular velocity vectors for each input device: */
 	int numDevices=Vrui::getNumInputDevices();
 	for(int i=0;i<numDevices;++i)
 		{
 		Vrui::InputDevice* id=Vrui::getInputDevice(i);
-		if(id->is6DOFDevice())
+		if(i!=ignoreDeviceIndex&&id->is6DOFDevice())
 			{
+			Vrui::Point pos=id->getPosition();
+			glBegin(GL_LINES);
+			
+			/* Draw the linear velocity vector: */
+			glColor3f(1.0f,1.0f,0.0f);
+			glVertex(pos);
+			glVertex(pos+id->getLinearVelocity());
+			
+			/* Draw the angular velocity vector: */
+			glColor3f(0.0f,1.0f,1.0f);
+			glVertex(pos);
+			glVertex(pos+id->getAngularVelocity()*Vrui::Scalar(5));
+			glEnd();
+			
 			glPushMatrix();
 			glMultMatrix(id->getTransformation());
 			glScale(inchScale,inchScale,inchScale);
@@ -178,20 +198,77 @@ void VruiCalibrator::display(GLContextData& contextData) const
 			}
 		}
 	
-	/* This only works in the CAVE - draw a grid on the "front wall" to calibrate external cameras: */
-	glBegin(GL_LINES);
-	glColor3f(1.0f,1.0f,0.0f);
-	for(int y=0;y<=8;++y)
+	/* Draw a grid to check calibration and distortion correction: */
+	Vrui::OGTransform ct;
+	if(viewerAlignedGrid)
 		{
-		glVertex(-60.0f,-36.0f,float(y)*12.0f);
-		glVertex(60.0f,-36.0f,float(y)*12.0f);
+		/* Create a transformation from a unit square in the (x, y) plane to a plane perpendicular to the main viewer's viewing direction: */
+		Vrui::ONTransform viewerTrans=Vrui::getMainViewer()->getHeadTransformation();
+		Vrui::Vector viewDir=viewerTrans.inverseTransform(Vrui::getMainViewer()->getViewDirection());
+		Vrui::Vector x=Vrui::Vector::zero;
+		x[Geometry::findOrthogonalAxis(viewDir)]=Vrui::Scalar(1);
+		Vrui::Vector z=x^viewDir;
+		x=viewDir^z;
+		
+		ct=viewerTrans;
+		ct*=Vrui::OGTransform::translate(viewDir*viewerGridDistance);
+		ct*=Vrui::OGTransform::rotate(Vrui::Rotation::fromBaseVectors(x,z));
+		ct*=Vrui::OGTransform::scale(viewerGridDistance*viewerGridFov);
 		}
-	for(int x=0;x<=10;++x)
+	else
 		{
-		glVertex(float(x)*12.0f-60.0f,-36.0f,0.0f);
-		glVertex(float(x)*12.0f-60.0f,-36.0f,96.0f);
+		/* Create a transformation from a unit square in the (x, y) plane to an upright environment-scaled square through the display center: */
+		Vrui::OGTransform ct=Vrui::OGTransform::translateFromOriginTo(Vrui::getDisplayCenter());
+		Vrui::Vector z=Vrui::getUpDirection();
+		Vrui::Vector x=Vrui::getForwardDirection()^z;
+		ct*=Vrui::OGTransform::rotate(Vrui::Rotation::fromBaseVectors(x,z));
+		ct*=Vrui::OGTransform::scale(Vrui::getDisplaySize());
 		}
-	glEnd();
+	
+	/* Go to square coordinates: */
+	glPushMatrix();
+	glMultMatrix(ct);
+	
+	if(checkerboard)
+		{
+		/* Draw a black&white checkerboard: */
+		float ngs=float(numGridSquares);
+		float go=ngs*0.5f;
+		glBegin(GL_QUADS);
+		for(int y=0;y<numGridSquares;++y)
+			for(int x=0;x<numGridSquares;++x)
+				{
+				GLfloat col=(x+y)%2==0?1.0f:0.0f;
+				glColor3f(col,col,col);
+				glVertex(2.0f*(float(x)-go)/ngs,2.0f*(float(y)-go)/ngs);
+				glVertex(2.0f*(float(x+1)-go)/ngs,2.0f*(float(y)-go)/ngs);
+				glVertex(2.0f*(float(x+1)-go)/ngs,2.0f*(float(y+1)-go)/ngs);
+				glVertex(2.0f*(float(x)-go)/ngs,2.0f*(float(y+1)-go)/ngs);
+				}
+		glEnd();
+		}
+	else
+		{
+		/* Draw a grid of lines: */
+		float ngs=float(numGridSquares);
+		float go=ngs*0.5f;
+		glBegin(GL_LINES);
+		glColor(modelColor);
+		for(int y=0;y<=numGridSquares;++y)
+			{
+			glVertex(-1.0f,2.0f*(float(y)-go)/ngs);
+			glVertex(1.0f,2.0f*(float(y)-go)/ngs);
+			}
+		for(int x=0;x<=numGridSquares;++x)
+			{
+			glVertex(2.0f*(float(x)-go)/ngs,-1.0f);
+			glVertex(2.0f*(float(x)-go)/ngs,1.0f);
+			}
+		glEnd();
+		}
+	
+	/* Return to navigational coordinates: */
+	glPopMatrix();
 	
 	/* Restore OpenGL state: */
 	glLineWidth(lineWidth);
@@ -199,12 +276,12 @@ void VruiCalibrator::display(GLContextData& contextData) const
 		glEnable(GL_LIGHTING);
 	}
 
-void VruiCalibrator::resetNavigationCallback(Misc::CallbackData* cbData)
+void VruiCalibrator::resetNavigation(void)
 	{
 	/* Reset the Vrui navigation transformation: */
 	Vrui::NavTransform t=Vrui::NavTransform::identity;
 	t*=Vrui::NavTransform::translateFromOriginTo(Vrui::getDisplayCenter());
-	t*=Vrui::NavTransform::scale(Vrui::getInchFactor());
+	// t*=Vrui::NavTransform::scale(Vrui::getInchFactor());
 	t*=Vrui::NavTransform::translateToOriginFrom(Vrui::getDisplayCenter());
 	Vrui::setNavigationTransformation(t);
 	}

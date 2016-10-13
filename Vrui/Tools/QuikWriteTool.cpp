@@ -1,7 +1,7 @@
 /***********************************************************************
 QuikWriteTool - Class for tools to enter text using the stroke-based
 QuikWrite user interface, developed by Ken Perlin.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2015 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Tools/QuikWriteTool.h>
 
+#include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
@@ -39,19 +40,60 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/TextEvent.h>
 #include <GLMotif/TextControlEvent.h>
 #include <GLMotif/WidgetManager.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
+
+/****************************************************
+Methods of class QuikWriteToolFactory::Configuration:
+****************************************************/
+
+QuikWriteToolFactory::Configuration::Configuration(void)
+	:useDevice(false),
+	 squareSize(getUiFont()->getTextHeight()*Scalar(10)),
+	 initialSquareDist(getInchFactor()*Scalar(3)),
+	 backgroundColor(getBackgroundColor()),
+	 foregroundColor(getForegroundColor()),
+	 drawPoint(false),pointColor(foregroundColor),pointSize(3.0f)
+	{
+	}
+
+void QuikWriteToolFactory::Configuration::read(const Misc::ConfigurationFileSection& cfs)
+	{
+	if(cfs.hasTag("./deviceName"))
+		{
+		useDevice=true;
+		deviceName=cfs.retrieveString("./deviceName");
+		}
+	squareSize=cfs.retrieveValue<Scalar>("./squareSize",squareSize);
+	initialSquareDist=cfs.retrieveValue<Scalar>("./initialSquareDist",initialSquareDist);
+	backgroundColor=cfs.retrieveValue<Color>("./backgroundColor",backgroundColor);
+	foregroundColor=cfs.retrieveValue<Color>("./foregroundColor",foregroundColor);
+	drawPoint=cfs.retrieveValue<bool>("./drawPoint",drawPoint);
+	pointColor=cfs.retrieveValue<Color>("./pointColor",pointColor);
+	pointSize=cfs.retrieveValue<GLfloat>("./pointSize",pointSize);
+	}
+
+void QuikWriteToolFactory::Configuration::write(Misc::ConfigurationFileSection& cfs) const
+	{
+	if(useDevice)
+		cfs.storeString("./deviceName",deviceName);
+	cfs.storeValue<Scalar>("./squareSize",squareSize);
+	cfs.storeValue<Scalar>("./initialSquareDist",initialSquareDist);
+	cfs.storeValue<Color>("./backgroundColor",backgroundColor);
+	cfs.storeValue<Color>("./foregroundColor",foregroundColor);
+	cfs.storeValue<bool>("./drawPoint",drawPoint);
+	cfs.storeValue<Color>("./pointColor",pointColor);
+	cfs.storeValue<GLfloat>("./pointSize",pointSize);
+	}
 
 /*************************************
 Methods of class QuikWriteToolFactory:
 *************************************/
 
 QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
-	:ToolFactory("QuikWriteTool",toolManager),
-	 squareSize(getUiFont()->getTextHeight()*Scalar(10)),
-	 initialSquareDist(getInchFactor()*Scalar(3)),
-	 backgroundColor(getBackgroundColor())
+	:ToolFactory("QuikWriteTool",toolManager)
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -61,17 +103,8 @@ QuikWriteToolFactory::QuikWriteToolFactory(ToolManager& toolManager)
 	toolFactory->addChildClass(this);
 	addParentClass(toolFactory);
 	
-	/* Calculate the foreground color: */
-	for(int i=0;i<3;++i)
-		foregroundColor[i]=Color::Scalar(1)-backgroundColor[i];
-	foregroundColor[3]=Color::Scalar(1);
-	
 	/* Load class settings: */
-	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
-	squareSize=cfs.retrieveValue<Scalar>("./squareSize",squareSize);
-	initialSquareDist=cfs.retrieveValue<Scalar>("./initialSquareDist",initialSquareDist);
-	backgroundColor=cfs.retrieveValue<Color>("./backgroundColor",backgroundColor);
-	foregroundColor=cfs.retrieveValue<Color>("./foregroundColor",foregroundColor);
+	config.read(toolManager.getToolClassSection(getClassName()));
 	
 	/* Set tool class' factory pointer: */
 	QuikWriteTool::factory=this;
@@ -209,11 +242,11 @@ int QuikWriteTool::getZone(bool inZone5) const
 		
 		/* Calculate the index of the zone containing the intersection point: */
 		Scalar d=Math::sqrt(Math::sqr(p[0])+Math::sqr(p[1]));
-		Scalar zone5Size=factory->squareSize/Scalar(4);
+		Scalar zone5Size=config.squareSize/Scalar(4);
 		if(inZone5)
-			zone5Size+=factory->squareSize*Scalar(0.025);
+			zone5Size+=config.squareSize*Scalar(0.025);
 		else
-			zone5Size-=factory->squareSize*Scalar(0.025);
+			zone5Size-=config.squareSize*Scalar(0.025);
 		if(d<=zone5Size)
 			return 5;
 		else
@@ -311,11 +344,87 @@ void QuikWriteTool::switchAlphabet(QuikWriteTool::Alphabet newAlphabet)
 		}
 	}
 
+void QuikWriteTool::drawRegion(int region) const
+	{
+	/* Calculate the square's layout: */
+	Scalar squareSize=config.squareSize/Scalar(2);
+	Scalar restSize=config.squareSize/Scalar(4);
+	Scalar x1=Math::sin(Math::rad(22.5))*restSize;
+	Scalar y1=Math::cos(Math::rad(22.5))*restSize;
+	Scalar x2=Math::tan(Math::rad(22.5))*squareSize;
+	Scalar y2=squareSize;
+	
+	glBegin(GL_POLYGON);
+	switch(region)
+		{
+		case 1:
+			glVertex(-y2,y2);
+			glVertex(-y2,x2);
+			glVertex(-y1,x1);
+			glVertex(-x1,y1);
+			glVertex(-x2,y2);
+			break;
+		
+		case 2:
+			glVertex(x2,y2);
+			glVertex(-x2,y2);
+			glVertex(-x1,y1);
+			glVertex(x1,y1);
+			break;
+		
+		case 3:
+			glVertex(y2,y2);
+			glVertex(x2,y2);
+			glVertex(x1,y1);
+			glVertex(y1,x1);
+			glVertex(y2,x2);
+			break;
+		
+		case 4:
+			glVertex(-y2,x2);
+			glVertex(-y2,-x2);
+			glVertex(-y1,-x1);
+			glVertex(-y1,x1);
+			break;
+		
+		case 6:
+			glVertex(y2,-x2);
+			glVertex(y2,x2);
+			glVertex(y1,x1);
+			glVertex(y1,-x1);
+			break;
+		
+		case 7:
+			glVertex(-y2,-y2);
+			glVertex(-x2,-y2);
+			glVertex(-x1,-y1);
+			glVertex(-y1,-x1);
+			glVertex(-y2,-x2);
+			break;
+		
+		case 8:
+			glVertex(-x2,-y2);
+			glVertex(x2,-y2);
+			glVertex(x1,-y1);
+			glVertex(-x1,-y1);
+			break;
+		
+		case 9:
+			glVertex(y2,-y2);
+			glVertex(y2,-x2);
+			glVertex(y1,-x1);
+			glVertex(x1,-y1);
+			glVertex(x2,-y2);
+			break;
+		}
+	glEnd();
+	}
+
 void QuikWriteTool::drawSquare(void) const
 	{
 	/* Calculate the square's layout: */
-	Scalar squareSize=factory->squareSize/Scalar(2);
-	Scalar restSize=factory->squareSize/Scalar(4);
+	Scalar squareSize=config.squareSize/Scalar(2);
+	Scalar restSize=config.squareSize/Scalar(4);
 	Scalar x1=Math::sin(Math::rad(-22.5))*restSize;
 	Scalar y1=Math::cos(Math::rad(-22.5))*restSize;
 	Scalar x2=Math::tan(Math::rad(-22.5))*squareSize;
@@ -394,18 +503,50 @@ void QuikWriteTool::drawSquare(void) const
 	glEnd();
 	}
 
-QuikWriteTool::QuikWriteTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
+QuikWriteTool::QuikWriteTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:UserInterfaceTool(factory,inputAssignment),
-	 active(false),
+	 config(factory->config),
+	 interactionDevice(0),active(false),
 	 alphabet(UPPERCASE) // Evil hack so that setAlphabet below works
 	{
-	/* Set the interaction device: */
-	interactionDevice=getButtonDevice(0);
+	}
+
+QuikWriteTool::~QuikWriteTool(void)
+	{
+	}
+
+void QuikWriteTool::configure(const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Call the base class method: */
+	UserInterfaceTool::configure(configFileSection);
 	
-	const QuikWriteToolFactory* myFactory=static_cast<const QuikWriteToolFactory*>(factory);
+	/* Override the current configuration: */
+	config.read(configFileSection);
+	}
+
+void QuikWriteTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Call the base class method: */
+	UserInterfaceTool::storeState(configFileSection);
+	
+	/* Store the current configuration: */
+	config.write(configFileSection);
+	}
+
+void QuikWriteTool::initialize(void)
+	{
+	/* Set the interaction device: */
+	if(config.useDevice)
+		{
+		interactionDevice=findInputDevice(config.deviceName.c_str());
+		if(interactionDevice==0)
+			Misc::throwStdErr("QuikWriteTool: Interaction device %s not found",config.deviceName.c_str());
+		}
+	else
+		interactionDevice=getButtonDevice(0);
 	
 	/* Initialize the petal positions: */
-	Scalar squareSize=myFactory->squareSize/Scalar(2);
+	Scalar squareSize=config.squareSize/Scalar(2);
 	for(int i=0;i<8;++i)
 		{
 		Scalar x=-squareSize+(Scalar(i)+Scalar(0.5))*squareSize/Scalar(5);
@@ -431,14 +572,10 @@ QuikWriteTool::QuikWriteTool(const ToolFactory* factory,const ToolInputAssignmen
 	for(int i=0;i<32;++i)
 		{
 		petals[i].setString("",*getUiFont());
-		petals[i].setBackground(GLLabel::Color(myFactory->backgroundColor));
-		petals[i].setForeground(GLLabel::Color(myFactory->foregroundColor));
+		petals[i].setBackground(GLLabel::Color(config.backgroundColor));
+		petals[i].setForeground(GLLabel::Color(config.foregroundColor));
 		}
 	setAlphabet(LOWERCASE);
-	}
-
-QuikWriteTool::~QuikWriteTool(void)
-	{
 	}
 
 const ToolFactory* QuikWriteTool::getFactory(void) const
@@ -455,24 +592,14 @@ void QuikWriteTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			/* Activate the tool: */
 			active=true;
 			
+			/* Calculate the current interaction ray: */
+			ray=interactionDevice->getRay();
+			
 			/* Initialize the QuikWrite square transformation: */
-			ray=calcInteractionRay();
-			Point hotSpot;
-			if(isUseEyeRay()||interactionDevice->isRayDevice())
-				{
-				/* Find the intersection point of the interaction ray and a screen: */
-				std::pair<VRScreen*,Scalar> si=findScreen(ray);
-				if(si.first!=0)
-					hotSpot=ray(si.second);
-				else
-					hotSpot=getDisplayCenter();
-				}
-			else
-				{
-				/* Use a point in front of the input device: */
-				hotSpot=ray(factory->initialSquareDist);
-				}
-			squareTransform=calcHUDTransform(hotSpot);
+			Point hotSpot=interactionDevice->getPosition();
+			if(!interactionDevice->isRayDevice())
+				hotSpot+=ray.getDirection()*config.initialSquareDist;
+			squareTransform=getUiManager()->calcUITransform(hotSpot);
 			squarePlane=Plane(squareTransform.getDirection(2),squareTransform.getOrigin());
 			
 			/* Initialize QuikWrite's state: */
@@ -509,7 +636,7 @@ void QuikWriteTool::frame(void)
 	if(active)
 		{
 		/* Calculate the current interaction ray: */
-		ray=calcInteractionRay();
+		ray=interactionDevice->getRay();
 		
 		/* Get the index of the zone currently pointed at: */
 		int zoneIndex=getZone(strokeState==REST);
@@ -631,28 +758,57 @@ void QuikWriteTool::display(GLContextData& contextData) const
 		DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
 		
 		/* Save and set up OpenGL state: */
-		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+		if(config.drawPoint)
+			glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT|GL_POINT_BIT);
+		else
+			glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_LIGHTING);
 		
-		if(isDrawRay())
+		if(isDrawRay()||config.drawPoint)
 			{
 			/* Get the interaction ray's intersection with the square plane: */
-			Plane::HitResult hr=squarePlane.intersectRay(ray);
+			Plane::HitResult hr;
+			hr=squarePlane.intersectRay(ray);
 			if(hr.isValid())
 				{
-				/* Draw the interaction ray: */
-				glLineWidth(getRayWidth());
-				glBegin(GL_LINES);
-				glColor(getRayColor());
-				glVertex(ray.getOrigin());
-				glVertex(ray(hr.getParameter()));
-				glEnd();
+				if(isDrawRay())
+					{
+					/* Draw the interaction ray: */
+					glLineWidth(getRayWidth());
+					glBegin(GL_LINES);
+					glColor(getRayColor());
+					glVertex(ray.getOrigin());
+					glVertex(ray(hr.getParameter()));
+					glEnd();
+					}
+				
+				if(config.drawPoint)
+					{
+					/* Draw the intersection point: */
+					glPointSize(config.pointSize);
+					glBegin(GL_POINTS);
+					glColor(config.pointColor);
+					glVertex(ray(hr.getParameter()));
+					glEnd();
+					}
 				}
 			}
 		
 		/* Go to square coordinates: */
 		glPushMatrix();
 		glMultMatrix(squareTransform);
+		
+		if(strokeState!=REST)
+			{
+			/* Highlight the major and minor regions: */
+			glColor3f(1.0f,0.5f,0.5f);
+			drawRegion(strokeMajor);
+			if(strokeMinor!=strokeMajor)
+				{
+				glColor3f(0.5f,0.5f,1.0f);
+				drawRegion(strokeMinor);
+				}
+			}
 		
 		/* Draw the square and special symbols: */
 		glCallList(dataItem->squareListId);
@@ -687,12 +843,12 @@ void QuikWriteTool::initContext(GLContextData& contextData) const
 	
 	/* Draw the square's background: */
 	glLineWidth(3.0f);
-	glColor(factory->backgroundColor);
+	glColor(config.backgroundColor);
 	drawSquare();
 	
 	/* Draw the square's foreground: */
 	glLineWidth(1.0f);
-	glColor(factory->foregroundColor);
+	glColor(config.foregroundColor);
 	drawSquare();
 	
 	glEndList();
