@@ -158,14 +158,25 @@ Logging facility:
 
 class MyIDriverLog:public vr::IDriverLog
 	{
-	/* Methods from vr::IDriverLog: */
+	/* Elements: */
+	private:
+	bool printMessages;
+	
+	/* Constructors and destructors: */
 	public:
+	MyIDriverLog(bool sPrintMessages)
+		:printMessages(sPrintMessages)
+		{
+		}
+	
+	/* Methods from vr::IDriverLog: */
 	virtual void Log(const char* pchLogMessage);
 	};
 
 void MyIDriverLog::Log(const char* pchLogMessage)
 	{
-	// std::cout<<"Log message: "<<pchLogMessage<<std::endl;
+	if(printMessages)
+		std::cout<<"OpenVRHost: Log message: "<<pchLogMessage;
 	}
 
 /*************************
@@ -174,21 +185,33 @@ Dummy VR settings manager:
 
 class MyIVRSettings:public vr::IVRSettings
 	{
-	/* Methods from vr::IVRSettings: */
+	/* Elements: */
+	private:
+	Misc::ConfigurationFileSection settingsSection; // Configuration file section containing driver settings
+	
+	/* Constructors and destructors: */
 	public:
+	MyIVRSettings(const Misc::ConfigurationFileSection& sSettingsSection);
+	
+	/* Methods from vr::IVRSettings: */
 	virtual const char* GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError);
 	virtual bool Sync(bool bForce,vr::EVRSettingsError* peError);
-	virtual bool GetBool(const char* pchSection,const char* pchSettingsKey,bool bDefaultValue,vr::EVRSettingsError* peError);
 	virtual void SetBool(const char* pchSection,const char* pchSettingsKey,bool bValue,vr::EVRSettingsError* peError);
-	virtual int32_t GetInt32(const char* pchSection,const char*pchSettingsKey,int32_t nDefaultValue,vr::EVRSettingsError* peError);
 	virtual void SetInt32(const char* pchSection,const char* pchSettingsKey,int32_t nValue,vr::EVRSettingsError* peError);
-	virtual float GetFloat(const char* pchSection,const char* pchSettingsKey,float flDefaultValue,vr::EVRSettingsError* peError);
 	virtual void SetFloat(const char* pchSection,const char* pchSettingsKey,float flValue,vr::EVRSettingsError* peError);
-	virtual void GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,const char* pchDefaultValue,vr::EVRSettingsError* peError);
 	virtual void SetString(const char* pchSection,const char* pchSettingsKey,const char* pchValue,vr::EVRSettingsError* peError);
+	virtual bool GetBool(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError);
+	virtual int32_t GetInt32(const char* pchSection,const char*pchSettingsKey,vr::EVRSettingsError* peError);
+	virtual float GetFloat(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError);
+	virtual void GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,vr::EVRSettingsError* peError);
 	virtual void RemoveSection(const char* pchSection,vr::EVRSettingsError* peError);
 	virtual void RemoveKeyInSection(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError);
 	};
+
+MyIVRSettings::MyIVRSettings(const Misc::ConfigurationFileSection& sSettingsSection)
+	:settingsSection(sSettingsSection)
+	{
+	}
 
 const char* MyIVRSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError)
 	{
@@ -198,17 +221,10 @@ const char* MyIVRSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eEr
 
 bool MyIVRSettings::Sync(bool bForce,vr::EVRSettingsError* peError)
 	{
+	std::cout<<"Sync with "<<bForce<<std::endl;
 	if(peError!=0)
 		*peError=vr::VRSettingsError_None;
 	return false;
-	}
-
-bool MyIVRSettings::GetBool(const char* pchSection,const char* pchSettingsKey,bool bDefaultValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetBool for "<<pchSection<<"/"<<pchSettingsKey<<" with default "<<bDefaultValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return bDefaultValue;
 	}
 
 void MyIVRSettings::SetBool(const char* pchSection,const char* pchSettingsKey,bool bValue,vr::EVRSettingsError* peError)
@@ -218,27 +234,11 @@ void MyIVRSettings::SetBool(const char* pchSection,const char* pchSettingsKey,bo
 		*peError=vr::VRSettingsError_None;
 	}
 
-int32_t MyIVRSettings::GetInt32(const char* pchSection,const char*pchSettingsKey,int32_t nDefaultValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetInt32 for "<<pchSection<<"/"<<pchSettingsKey<<" with default "<<nDefaultValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return nDefaultValue;
-	}
-
 void MyIVRSettings::SetInt32(const char* pchSection,const char* pchSettingsKey,int32_t nValue,vr::EVRSettingsError* peError)
 	{
 	std::cout<<"SetInt32 for "<<pchSection<<"/"<<pchSettingsKey<<" with value "<<nValue<<std::endl;
 	if(peError!=0)
 		*peError=vr::VRSettingsError_None;
-	}
-
-float MyIVRSettings::GetFloat(const char* pchSection,const char* pchSettingsKey,float flDefaultValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetFloat for "<<pchSection<<"/"<<pchSettingsKey<<" with default "<<flDefaultValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return flDefaultValue;
 	}
 
 void MyIVRSettings::SetFloat(const char* pchSection,const char* pchSettingsKey,float flValue,vr::EVRSettingsError* peError)
@@ -248,17 +248,48 @@ void MyIVRSettings::SetFloat(const char* pchSection,const char* pchSettingsKey,f
 		*peError=vr::VRSettingsError_None;
 	}
 
-void MyIVRSettings::GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,const char* pchDefaultValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetString for "<<pchSection<<"/"<<pchSettingsKey<<" with default "<<pchDefaultValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	strcpy(pchValue,pchDefaultValue);
-	}
-
 void MyIVRSettings::SetString(const char* pchSection,const char* pchSettingsKey,const char* pchValue,vr::EVRSettingsError* peError)
 	{
 	std::cout<<"SetString for "<<pchSection<<"/"<<pchSettingsKey<<" with value "<<pchValue<<std::endl;
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+bool MyIVRSettings::GetBool(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	std::cout<<"GetBool for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
+	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
+	bool result=section.retrieveValue<bool>(pchSettingsKey,false);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	return result;
+	}
+
+int32_t MyIVRSettings::GetInt32(const char* pchSection,const char*pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	std::cout<<"GetInt32 for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
+	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
+	int32_t result=section.retrieveValue<int>(pchSettingsKey,0);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	return result;
+	}
+
+float MyIVRSettings::GetFloat(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	std::cout<<"GetFloat for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
+	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
+	float result=section.retrieveValue<float>(pchSettingsKey,0.0f);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	return result;
+	}
+
+void MyIVRSettings::GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,vr::EVRSettingsError* peError)
+	{
+	std::cout<<"GetString for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
+	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
+	strncpy(pchValue,section.retrieveString(pchSettingsKey,"").c_str(),unValueLen);
 	if(peError!=0)
 		*peError=vr::VRSettingsError_None;
 	}
@@ -358,10 +389,7 @@ void OpenVRHost::deviceThreadMethod(void)
 	{
 	while(true)
 		{
-		/* Let the driver process tracking data and call callbacks: */
 		openvrServerInterface->RunFrame();
-		
-		/* Sleep a little while: */
 		usleep(threadWaitTime);
 		}
 	}
@@ -411,7 +439,7 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	openvrDriverDsoName=pathcat(openvrDriverRootDir,openvrDriverDsoName);
 	
 	/* Open the OpenVR device driver dso: */
-	openvrDriverDsoHandle=dlopen(openvrDriverDsoName.c_str(),RTLD_LAZY);
+	openvrDriverDsoHandle=dlopen(openvrDriverDsoName.c_str(),RTLD_NOW);
 	if(openvrDriverDsoHandle==0)
 		Misc::throwStdErr("OpenVRHost: Unable to load OpenVR driver dynamic shared object %s due to error %s",openvrDriverDsoName.c_str(),dlerror());
 	
@@ -444,8 +472,8 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		}
 	
 	/* Create log and settings managers: */
-	openvrLog=new MyIDriverLog;
-	openvrSettings=new MyIVRSettings;
+	openvrLog=new MyIDriverLog(configFile.retrieveValue<bool>("./printLogMessages",false));
+	openvrSettings=new MyIVRSettings(configFile.getSection("Settings"));
 	
 	/* Retrieve the OpenVR device driver configuration directory: */
 	std::string openvrDriverConfigDir="config/";
@@ -535,7 +563,7 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	devices.
 	*********************************************************************/
 	
-	/* Start the device thread already with reduced time slice to let the driver do its thing: */
+	/* Start the device thread already to dispatch connection/disconnection messages: */
 	threadWaitTime=100000U;
 	startDeviceThread();
 	
@@ -584,7 +612,14 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 OpenVRHost::~OpenVRHost(void)
 	{
 	/* Enter stand-by mode: */
+	for(unsigned int i=0;i<numConnectedDevices;++i)
+		{
+		deviceStates[i].driver->Deactivate();
+		deviceStates[i].driver->EnterStandby();
+		}
 	openvrServerInterface->EnterStandby();
+	usleep(100000);
+	openvrServerInterface->Cleanup();
 	
 	/* Stop the device thread: */
 	stopDeviceThread();
@@ -599,7 +634,6 @@ OpenVRHost::~OpenVRHost(void)
 	#endif
 	
 	/* Close the OpenVR device driver dso: */
-	openvrServerInterface->Cleanup();
 	dlclose(openvrDriverDsoHandle);
 	}
 
@@ -858,6 +892,11 @@ bool OpenVRHost::IsExiting(void)
 	{
 	std::cout<<"OpenVRHost: IsExiting called"<<std::endl;
 	return true;
+	}
+
+bool OpenVRHost::ContinueRunFrame(void)
+	{
+	return false;
 	}
 
 /*************************************

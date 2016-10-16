@@ -115,6 +115,7 @@ class OpenVRHost:public VRDevice,public vr::IServerDriverHost
 	virtual void ProximitySensorState(uint32_t unWhichDevice,bool bProximitySensorTriggered);
 	virtual void VendorSpecificEvent(uint32_t unWhichDevice,vr::EVREventType eventType,const vr::VREvent_Data_t& eventData,double eventTimeOffset);
 	virtual bool IsExiting(void);
+	virtual bool ContinueRunFrame(void);
 	};
 
 #endif

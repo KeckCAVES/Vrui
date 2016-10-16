@@ -100,11 +100,18 @@ ifneq ($(strip $(OPENVR_BASEDIR)),)
   
   # Root directory of the SteamVR run-time. The following attempts to
   # find SteamVR inside the installing user's home directory:
-  STEAMVRDIR = $(shell find $(HOME) -name SteamVR)
+  STEAMVRDIR = $(shell find $(HOME) -name SteamVR | grep common/SteamVR)
   
   # If the above fails, or SteamVR's run-time is installed outside the
   # installing user's home directory, enter the correct path here:
   # STEAMVRDIR = 
+  
+  # The following should not need to be changed if STEAMVRDIR is set
+  # correctly.
+  # Root directory containing both Steam and SteamVR run-times:
+  STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
+  # Steam run-time root directory:
+  STEAMRUNTIMEDIR = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
 else
   SYSTEM_HAVE_OPENVR = 0
 endif
@@ -175,7 +182,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4002001
+VRUI_VERSION = 4002002
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 2
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1628,8 +1635,9 @@ ifneq ($(SYSTEM_HAVE_OPENVR),0)
 $(EXEDIR)/RunViveTracker.sh:
 	@echo Creating helper script to run OpenVRHost tracking device driver...
 	@cp Share/RunViveTracker.sh $(EXEDIR)/RunViveTracker.sh
-	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(realpath $(STEAMVRDIR)/../../..))@' $(EXEDIR)/RunViveTracker.sh
-	@sed -i -e 's@STEAMVRDIR=.*@STEAMVRDIR=$(subst $(realpath $(STEAMVRDIR)/../../..),$$STEAMDIR,$(STEAMVRDIR))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(STEAMDIR))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@RUNTIMEDIR=.*@RUNTIMEDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@STEAMVRDIR=.*@STEAMVRDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMVRDIR))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@VRUIBINDIR=.*@VRUIBINDIR=$(EXECUTABLEINSTALLDIR)@' $(EXEDIR)/RunViveTracker.sh
 	@chmod a+x $(EXEDIR)/RunViveTracker.sh
 endif
