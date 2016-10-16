@@ -94,9 +94,9 @@ The same problem applies if Linux is run inside a virtual machine. No virtual ma
 
 <H2><A NAME="Q8">8. Is it difficult to install Vrui?</A></H2>
 
-Not really. Vrui's build system is intended to make &quot;simple&quot; installations simple. By default, Vrui installs itself into a <TT>Vrui-&lt;major&gt;.&lt;minor&gt;</TT> directory directly under the installing user's home directory (e.g., <TT>/home/alice/Vrui-3.2</TT>). The installation will touch no other part of the file system, meaning that Vrui can be uninstalled cleanly simply by deleting the installation directory. The simplest installation procedure is thus ($ indicates commands entered at the terminal prompt):<P>
+Not really. Vrui's build system is intended to make &quot;simple&quot; installations simple. By default, Vrui installs itself into the <TT>/usr/local</TT> directory hierarchy. The simplest installation procedure is thus ($ indicates commands entered at the terminal prompt):<P>
 
-Go to the <A HREF="http://idav.ucdavis.edu/~okreylos/ResDev/Vrui/LinkDownload.html">Vrui download web site</A> and make note of the most recent Vrui release, Vrui-&lt;major&gt;.&lt;minor&gt;-&lt;build&gt;, e.g., Vrui-3.2-001.<P>
+Go to the <A HREF="http://idav.ucdavis.edu/~okreylos/ResDev/Vrui/LinkDownload.html">Vrui download web site</A> and make note of the most recent Vrui release, Vrui-&lt;major&gt;.&lt;minor&gt;-&lt;build&gt;, e.g., Vrui-4.2-001.<P>
 
 Download and unpack the current Vrui source tarball into a <TT>src</TT> directory:
 <PRE>
@@ -108,16 +108,17 @@ $ ls
 Vrui-&lt;major&gt;.&lt;minor&gt;-&lt;build&gt;
 </PRE><P>
 
-This created Vrui's build directory, named by major and minor version number and build number, such as <TT>/home/alice/src/Vrui-3.2-001</TT>. Enter the build directory, and build and install Vrui:
+This created Vrui's build directory, named by major and minor version number and build number, such as <TT>/home/alice/src/Vrui-4.2-001</TT>. Enter the build directory, and build and install Vrui:
 <PRE>
 $ cd Vrui-&lt;major&gt;.&lt;minor&gt;-&lt;build&gt;
 $ make
 ... lots of text...
-$ make install
+$ sudo make install
+(enter administrator user's password)
 ... lots of text...
 </PRE><P>
 
-This created the default Vrui installation directory, <TT>/home/alice/Vrui-&lt;major&gt;.&lt;minor&gt;</TT>, containing all Vrui header and library files, and some utility programs. To build Vrui's example programs and run a test, follow this directly by:
+This created several directories inside <TT>/usr/local</TT> containing all Vrui header and library files, and some utility programs. To build Vrui's example programs and run a test, follow this directly by:
 <PRE>
 $ cd ExamplePrograms
 $ make
@@ -127,9 +128,11 @@ $ ./bin/ShowEarthModel
 
 Most Vrui-based applications are configured to work with the default installation, so building an application is typically as simple as downloading and unpacking the tarball and running &quot;make.&quot;<P>
 
-To install optional system packages for additional Vrui functionality, or to install Vrui in locations where it can be shared by multiple users, see the &quot;quick installation guide&quot; on the <A HREF="http://idav.ucdavis.edu/~okreylos/ResDev/Vrui/LinkDownload.html">Vrui download page</A>.
+To install optional system packages for additional Vrui functionality see the &quot;quick installation guide&quot; on the <A HREF="http://idav.ucdavis.edu/~okreylos/ResDev/Vrui/LinkDownload.html">Vrui download page</A>.
 
 <H2><A NAME="Q9">9. How do I install Vrui in a system location?</A></H2>
+
+<B>Note:</B> This question and answer are mostly obsolete; as of version 4.0, Vrui installs itself under <TT>/usr/local</TT> by default.</P>
 
 Short answer:
 <PRE>
@@ -151,14 +154,14 @@ $ sudo make INSTALLDIR=/usr/local/Vrui-&lt;major&gt;.&lt;minor&gt; install
 [sudo] password for &lt;user&gt;: (enter password)
 ... lots of text...
 </PRE>
-In this case, &quot;make install&quot; has to be run as super-user because it will create a subdirectory in a system directory. This simple installation procedure will create a system-wide installation in <TT>/usr/local/Vrui-&lt;major&gt;.&lt;minor&gt;</TT>, and un-installing Vrui will be as simple as <TT>sudo rm -rf /usr/local/Vrui-&lt;major&gt;.&lt;minor&gt;</TT>, but it will not follow the POSIX conventions of installing software in <TT>/usr/local</TT>. According to POSIX, include files go into <TT>/usr/local/include</TT>, library files into <TT>/usr/local/lib(64)</TT>, executables into <TT>/usr/local/bin</TT>, configuration files into subdirectories of <TT>/usr/local/etc</TT>, shared files into subdirectories of <TT>/usr/local/share</TT>, configuration files for <TT>pkg-config</TT> into <TT>/usr/local/lib(64)/pkgconfig</TT>, and documentation files into subdirectories of <TT>/usr/local/share/doc</TT>. Vrui's build system has a variable for each of these destinations: <TT>HEADERINSTALLDIR</TT>, <TT>LIBINSTALLDIR</TT>, <TT>EXECUTABLEINSTALLDIR</TT>, <TT>ETCINSTALLDIR</TT>, <TT>SHAREINSTALLDIR</TT>, <TT>PKGCONFIGINSTALLDIR</TT>, and <TT>DOCINSTALLDIR</TT>, respectively. For example, to install Vrui-3.2-&lt;build&gt; in a POSIX-compliant fashion:
+In this case, &quot;make install&quot; has to be run as super-user because it will create a subdirectory in a system directory. This simple installation procedure will create a system-wide installation in <TT>/usr/local/Vrui-&lt;major&gt;.&lt;minor&gt;</TT>, and un-installing Vrui will be as simple as <TT>sudo rm -rf /usr/local/Vrui-&lt;major&gt;.&lt;minor&gt;</TT>, but it will not follow the POSIX conventions of installing software in <TT>/usr/local</TT>. According to POSIX, include files go into <TT>/usr/local/include</TT>, library files into <TT>/usr/local/lib(64)</TT>, executables into <TT>/usr/local/bin</TT>, configuration files into subdirectories of <TT>/usr/local/etc</TT>, shared files into subdirectories of <TT>/usr/local/share</TT>, configuration files for <TT>pkg-config</TT> into <TT>/usr/local/lib(64)/pkgconfig</TT>, and documentation files into subdirectories of <TT>/usr/local/share/doc</TT>. Vrui's build system has a variable for each of these destinations: <TT>HEADERINSTALLDIR</TT>, <TT>LIBINSTALLDIR</TT>, <TT>EXECUTABLEINSTALLDIR</TT>, <TT>ETCINSTALLDIR</TT>, <TT>SHAREINSTALLDIR</TT>, <TT>PKGCONFIGINSTALLDIR</TT>, and <TT>DOCINSTALLDIR</TT>, respectively. For example, to install Vrui-4.2-&lt;build&gt; in a POSIX-compliant fashion:
 <PRE>
-$ make HEADERINSTALLDIR=/usr/local/include/Vrui-3.2 LIBINSTALLDIR=/usr/local/lib64/Vrui-3.2 EXECUTABLEINSTALLDIR=/usr/local/bin \
-  ETCINSTALLDIR=/usr/local/etc/Vrui-3.2 SHAREINSTALLDIR=/usr/local/share/Vrui-3.2 PKGCONFIGINSTALLDIR=/usr/local/lib64/pkgconfig \
-  DOCINSTALLDIR=/usr/local/share/doc/Vrui-3.2
-$ sudo make HEADERINSTALLDIR=/usr/local/include/Vrui-3.2 LIBINSTALLDIR=/usr/local/lib64/Vrui-3.2 EXECUTABLEINSTALLDIR=/usr/local/bin \
-  ETCINSTALLDIR=/usr/local/etc/Vrui-3.2 SHAREINSTALLDIR=/usr/local/share/Vrui-3.2 PKGCONFIGINSTALLDIR=/usr/local/lib64/pkgconfig \
-  DOCINSTALLDIR=/usr/local/share/doc/Vrui-3.2 install
+$ make HEADERINSTALLDIR=/usr/local/include/Vrui-4.2 LIBINSTALLDIR=/usr/local/lib64/Vrui-4.2 EXECUTABLEINSTALLDIR=/usr/local/bin \
+  ETCINSTALLDIR=/usr/local/etc/Vrui-4.2 SHAREINSTALLDIR=/usr/local/share/Vrui-4.2 PKGCONFIGINSTALLDIR=/usr/local/lib64/pkgconfig \
+  DOCINSTALLDIR=/usr/local/share/doc/Vrui-4.2
+$ sudo make HEADERINSTALLDIR=/usr/local/include/Vrui-4.2 LIBINSTALLDIR=/usr/local/lib64/Vrui-4.2 EXECUTABLEINSTALLDIR=/usr/local/bin \
+  ETCINSTALLDIR=/usr/local/etc/Vrui-4.2 SHAREINSTALLDIR=/usr/local/share/Vrui-4.2 PKGCONFIGINSTALLDIR=/usr/local/lib64/pkgconfig \
+  DOCINSTALLDIR=/usr/local/share/doc/Vrui-4.2 install
 </PRE>
 Those command lines are quite a mouthful (and it's probably more practical to make these changes directly in Vrui's makefile), but they are appropriate for shell scripting, such as when <A HREF="#CreatingBinaryPackages">creating binary packages</A>. By the way, Vrui's build system prints all installation directories at the beginning of its build output. A quick way to check is to run <TT>make &lt;arguments&gt; config</TT>.<P>
 
@@ -267,7 +270,7 @@ $ mkdir Foo
 $ cd Foo
 $ cp &lt;Vrui share dir&gt;/make/makefile .
 </PRE>
-where <TT>&lt;Vrui share dir&gt;</TT> is the <TT>share</TT> directory underneath Vrui's installation directory, such as <TT>~/Vrui-3.2/share</TT> or <TT>/usr/share/Vrui-3.2</TT> or <TT>/usr/local/share/Vrui-3.2</TT>.
+where <TT>&lt;Vrui share dir&gt;</TT> is the <TT>share</TT> directory underneath Vrui's installation directory, such as <TT>~/Vrui-4.2/share</TT> or <TT>/usr/share/Vrui-4.2</TT> or <TT>/usr/local/share/Vrui-4.2</TT>.
 
 Then edit the makefile as follows:
 <UL>
@@ -325,7 +328,7 @@ Oh, OK. In that case, go into the directory containing your source file, say <TT
 <PRE>
 $ cp &lt;Vrui share dir&gt;/make/makefile .
 </PRE>
-where <TT>&lt;Vrui share dir&gt;</TT> is the <TT>share</TT> directory underneath Vrui's installation directory, such as <TT>~/Vrui-3.2/share</TT> or <TT>/usr/share/Vrui-3.2</TT> or <TT>/usr/local/share/Vrui-3.2</TT>.<P>
+where <TT>&lt;Vrui share dir&gt;</TT> is the <TT>share</TT> directory underneath Vrui's installation directory, such as <TT>~/Vrui-4.2/share</TT> or <TT>/usr/share/Vrui-4.2</TT> or <TT>/usr/local/share/Vrui-4.2</TT>.<P>
 
 Then compile <TT>Foo.cpp</TT> into <TT>./bin/Foo</TT> and execute it:
 <PRE>

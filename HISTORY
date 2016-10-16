@@ -4975,3 +4975,16 @@ Vrui-4.2-001:
   Rift DK1.
 - Added overloaded versions of glUniformARB for GLColor types to
   GL/GLColorTemplates.h.
+
+Vrui-4.2-002:
+- Slightly improved SteamVR autodetection in makefile.
+- SteamVR just updated its internal OpenVR API, so Vive driver no longer
+  works. :( Starting to fix it, but am getting segfaults from
+  driver_lighthouse.so
+  - Fixed it -- added new virtual method bool ContinueRunFrame(void) to
+    the end of vr::IServerDriverHost.
+  - One remaining issue: Lighthouse driver crashes on shutdown before
+    turning off the headset's screens.
+- Added settings for OpenVR drivers used by OpenVRHost device daemon
+  module to VRDevices.cfg.
+- Improved SteamVR auto-detection in Vrui makefile.
