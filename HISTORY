@@ -4988,3 +4988,9 @@ Vrui-4.2-002:
 - Added settings for OpenVR drivers used by OpenVRHost device daemon
   module to VRDevices.cfg.
 - Improved SteamVR auto-detection in Vrui makefile.
+
+Vrui-4.2-003:
+- No longer need quotes around image file names in Vrui::CAVERenderer
+  configuration.
+- Fixed missing path to libSDL2.so packaged with Steam run-time in
+  RunViveTracker.sh and makefile configuration.
