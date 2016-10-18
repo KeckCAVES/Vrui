@@ -110,8 +110,9 @@ ifneq ($(strip $(OPENVR_BASEDIR)),)
   # correctly.
   # Root directory containing both Steam and SteamVR run-times:
   STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
-  # Steam run-time root directory:
-  STEAMRUNTIMEDIR = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
+  # Steam run-time root directories:
+  STEAMRUNTIMEDIR1 = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
+  STEAMRUNTIMEDIR2 = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/usr/lib/x86_64-linux-gnu)
 else
   SYSTEM_HAVE_OPENVR = 0
 endif
@@ -182,7 +183,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4002002
+VRUI_VERSION = 4002003
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 2
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1636,7 +1637,8 @@ $(EXEDIR)/RunViveTracker.sh:
 	@echo Creating helper script to run OpenVRHost tracking device driver...
 	@cp Share/RunViveTracker.sh $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(STEAMDIR))@' $(EXEDIR)/RunViveTracker.sh
-	@sed -i -e 's@RUNTIMEDIR=.*@RUNTIMEDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@RUNTIMEDIR1=.*@RUNTIMEDIR1=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR1))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@RUNTIMEDIR2=.*@RUNTIMEDIR2=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR2))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMVRDIR=.*@STEAMVRDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMVRDIR))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@VRUIBINDIR=.*@VRUIBINDIR=$(EXECUTABLEINSTALLDIR)@' $(EXEDIR)/RunViveTracker.sh
 	@chmod a+x $(EXEDIR)/RunViveTracker.sh
