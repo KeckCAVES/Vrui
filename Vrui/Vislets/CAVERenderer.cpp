@@ -87,8 +87,8 @@ CAVERendererFactory::CAVERendererFactory(VisletManager& visletManager)
 	Misc::ConfigurationFileSection cfs=visletManager.getVisletClassSection(getClassName());
 	surfaceMaterial=cfs.retrieveValue<GLMaterial>("./surfaceMaterial",surfaceMaterial);
 	tilesPerFoot=cfs.retrieveValue<int>("./tilesPerFoot",tilesPerFoot);
-	wallTextureFileName=cfs.retrieveValue<std::string>("./wallTextureFileName",wallTextureFileName);
-	floorTextureFileName=cfs.retrieveValue<std::string>("./floorTextureFileName",floorTextureFileName);
+	wallTextureFileName=cfs.retrieveString("./wallTextureFileName",wallTextureFileName);
+	floorTextureFileName=cfs.retrieveString("./floorTextureFileName",floorTextureFileName);
 	
 	/* Set tool class' factory pointer: */
 	CAVERenderer::factory=this;
