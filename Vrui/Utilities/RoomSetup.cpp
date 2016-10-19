@@ -290,11 +290,23 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 					}
 				
 				/* Create the floor polygon: */
-				std::vector<Vrui::Point> polygon;
-				for(std::vector<Vrui::Point>::iterator bvIt=boundaryVertices.begin();bvIt!=boundaryVertices.end();++bvIt)
-					polygon.push_back(project(*bvIt));
-				screenProtectorAreas.append("                      ");
-				screenProtectorAreas.append(Misc::ValueCoder<std::vector<Vrui::Point> >::encode(polygon));
+				std::vector<Vrui::Point>::iterator bvIt=boundaryVertices.begin();
+				screenProtectorAreas.append("                      (");
+				screenProtectorAreas.append(Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt)));
+				unsigned int pointsInLine=1;
+				for(++bvIt;bvIt!=boundaryVertices.end();++bvIt)
+					{
+					if(pointsInLine==4)
+						{
+						screenProtectorAreas.append(" \\\n                       ");
+						pointsInLine=0;
+						}
+					else
+						screenProtectorAreas.append(", ");
+					screenProtectorAreas.append(Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt)));
+					++pointsInLine;
+					}
+				screenProtectorAreas.push_back(')');
 				}
 			
 			screenProtectorAreas.push_back(')');
@@ -343,13 +355,24 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 					}
 				
 				/* Create the floor polygon: */
-				std::vector<Vrui::Point> polygon;
-				for(std::vector<Vrui::Point>::iterator bvIt=boundaryVertices.begin();bvIt!=boundaryVertices.end();++bvIt)
-					polygon.push_back(project(*bvIt));
-				configFile<<"\t\t                      ";
-				configFile<<Misc::ValueCoder<std::vector<Vrui::Point> >::encode(polygon);
+				configFile<<"\t\t                      (";
+				std::vector<Vrui::Point>::iterator bvIt=boundaryVertices.begin();
+				configFile<<Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt));
+				unsigned int pointsInLine=1;
+				for(++bvIt;bvIt!=boundaryVertices.end();++bvIt)
+					{
+					if(pointsInLine==4)
+						{
+						configFile<<", \\"<<std::endl<<"\t\t                       ";
+						pointsInLine=0;
+						}
+					else
+						configFile<<", ";
+					configFile<<Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt));
+					++pointsInLine;
+					}
 				}
-			configFile<<")"<<std::endl;
+			configFile<<"))"<<std::endl;
 			
 			configFile<<"\tendsection"<<std::endl;
 			configFile<<"endsection"<<std::endl;
