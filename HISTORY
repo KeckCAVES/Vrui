@@ -4994,3 +4994,7 @@ Vrui-4.2-003:
   configuration.
 - Fixed missing path to libSDL2.so packaged with Steam run-time in
   RunViveTracker.sh and makefile configuration.
+
+Vrui-4.2-004:
+- Breaking very long lines in RoomSetup to stay within
+  Misc::ConfigurationFile's line length limit.
