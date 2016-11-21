@@ -73,11 +73,11 @@ ZLIB_LIBDIR  =
 ZLIB_LIBS    = -lz
 
 # The device event library
-UDEV_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libudev.h libudev.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
-UDEV_DEPENDS = 
-UDEV_INCLUDE = -I$(LIBUDEV_BASEDIR)/$(INCLUDEEXT)
-UDEV_LIBDIR  = -L$(LIBUDEV_BASEDIR)/$(LIBEXT)
-UDEV_LIBS    = -ludev
+LIBUDEV_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libudev.h libudev.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
+LIBUDEV_DEPENDS = 
+LIBUDEV_INCLUDE = -I$(LIBUDEV_BASEDIR)/$(INCLUDEEXT)
+LIBUDEV_LIBDIR  = -L$(LIBUDEV_BASEDIR)/$(LIBEXT)
+LIBUDEV_LIBS    = -ludev
 
 # The user-level USB library, version 1.0
 LIBUSB1_BASEDIR = $(shell $(VRUI_MAKEDIR)/FindLibrary.sh libusb-1.0/libusb.h libusb-1.0.$(DSOFILEEXT) $(INCLUDEEXT) $(LIBEXT) $(SYSTEM_PACKAGE_SEARCH_PATHS))
@@ -252,22 +252,16 @@ else
   SYSTEM_HAVE_LIBUDEV = 0
 endif
 
-ifneq ($(strip $(LIBUSB1_BASEDIR)),)
-  SYSTEM_HAVE_LIBUSB1 = 1
-else
-  SYSTEM_HAVE_LIBUSB1 = 0
-endif
-
-ifneq ($(strip $(BLUETOOTH_BASEDIR)),)
-  SYSTEM_HAVE_BLUETOOTH = 1
-else
-  SYSTEM_HAVE_BLUETOOTH = 0
-endif
-
 ifneq ($(strip $(LIBDBUS_BASEDIR)),)
   SYSTEM_HAVE_LIBDBUS = 1
 else
   SYSTEM_HAVE_LIBDBUS = 0
+endif
+
+ifneq ($(strip $(LIBUSB1_BASEDIR)),)
+  SYSTEM_HAVE_LIBUSB1 = 1
+else
+  SYSTEM_HAVE_LIBUSB1 = 0
 endif
 
 ifneq ($(strip $(PNG_BASEDIR)),)
@@ -294,12 +288,6 @@ else
   SYSTEM_HAVE_ALSA = 0
 endif
 
-ifneq ($(strip $(SPEEX_BASEDIR)),)
-  SYSTEM_HAVE_SPEEX = 1
-else
-  SYSTEM_HAVE_SPEEX = 0
-endif
-
 ifeq ($(SYSTEM),DARWIN)
   SYSTEM_HAVE_OPENAL = 1
 else
@@ -316,16 +304,22 @@ else
   SYSTEM_HAVE_V4L2 = 0
 endif
 
+ifneq ($(strip $(BLUETOOTH_BASEDIR)),)
+  SYSTEM_HAVE_BLUETOOTH = 1
+else
+  SYSTEM_HAVE_BLUETOOTH = 0
+endif
+
 ifneq ($(strip $(DC1394_BASEDIR)),)
   SYSTEM_HAVE_DC1394 = 1
 else
   SYSTEM_HAVE_DC1394 = 0
 endif
 
-ifneq ($(strip $(THEORA_BASEDIR)),)
-  SYSTEM_HAVE_THEORA = 1
+ifneq ($(strip $(XRANDR_BASEDIR)),)
+  SYSTEM_HAVE_XRANDR = 1
 else
-  SYSTEM_HAVE_THEORA = 0
+  SYSTEM_HAVE_XRANDR = 0
 endif
 
 ifneq ($(strip $(XINPUT2_BASEDIR)),)
@@ -334,8 +328,14 @@ else
   SYSTEM_HAVE_XINPUT2 = 0
 endif
 
-ifneq ($(strip $(XRANDR_BASEDIR)),)
-  SYSTEM_HAVE_XRANDR = 1
+ifneq ($(strip $(SPEEX_BASEDIR)),)
+  SYSTEM_HAVE_SPEEX = 1
 else
-  SYSTEM_HAVE_XRANDR = 0
+  SYSTEM_HAVE_SPEEX = 0
+endif
+
+ifneq ($(strip $(THEORA_BASEDIR)),)
+  SYSTEM_HAVE_THEORA = 1
+else
+  SYSTEM_HAVE_THEORA = 0
 endif

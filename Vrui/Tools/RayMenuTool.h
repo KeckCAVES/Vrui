@@ -37,7 +37,6 @@ class RayMenuToolFactory:public ToolFactory
 	/* Elements: */
 	private:
 	Scalar initialMenuOffset; // Offset of initial menu position along selection ray
-	bool alignMenuWithPointer; // Flag to align menus with the pointing direction in addition to the viewing direction
 	bool interactWithWidgets; // Flag if the menu tool doubles as a widget interaction tool
 	
 	/* Constructors and destructors: */

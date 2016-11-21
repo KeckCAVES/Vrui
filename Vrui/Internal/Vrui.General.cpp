@@ -329,6 +329,13 @@ GLMotif::PopupMenu* VruiState::buildDevicesMenu(void)
 	showToolKillZoneToggle->setToggle(getToolManager()->getToolKillZone()->getRender());
 	showToolKillZoneToggle->getValueChangedCallbacks().add(this,&VruiState::showToolKillZoneCallback);
 	
+	if(protectScreens)
+		{
+		GLMotif::ToggleButton* protectScreensToggle=new GLMotif::ToggleButton("ProtectScreensToggle",devicesMenu,"Protect Screens");
+		protectScreensToggle->setToggle(true);
+		protectScreensToggle->getValueChangedCallbacks().add(this,&VruiState::protectScreensCallback);
+		}
+	
 	devicesMenu->manageMenu();
 	return devicesMenu;
 	}
@@ -1651,6 +1658,12 @@ void VruiState::showToolKillZoneCallback(GLMotif::ToggleButton::ValueChangedCall
 	{
 	/* Set the tool kill zone's render flag: */
 	getToolManager()->getToolKillZone()->setRender(cbData->set);
+	}
+
+void VruiState::protectScreensCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
+	{
+	/* Toggle screen protection: */
+	protectScreens=cbData->set;
 	}
 
 void VruiState::showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)

@@ -42,6 +42,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/HMDConfiguration.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
+#include <VRDeviceDaemon/VRDevices/OpenVRHost-Config.h>
 
 /***********************************************************************
 A fake implementation of SDL functions used by Valve's lighthouse
