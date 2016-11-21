@@ -4998,3 +4998,40 @@ Vrui-4.2-003:
 Vrui-4.2-004:
 - Breaking very long lines in RoomSetup to stay within
   Misc::ConfigurationFile's line length limit.
+
+Vrui-4.2-005:
+- Split configuration settings for OpenVRHost VRDeviceDaemon module into
+  separate VRDevices/OpenVRHost-Config.h header file for improved build.
+- Added dependency to remake RunViveTracker.sh when Steam paths change.
+- Fixed handling of undefined navigation space units in Vrui::ScaleBar.
+- Added TouchpadButtonsTool to transform a clickable touchpad into a set
+  of buttons.
+- Added -noAlign command line option to make CAVERenderer vislet work in
+  CAVE as it used to.
+- Added toggle button to Device sub-menu of Vrui system menu to
+  temporarily disable screen protectors.
+- Minor fixes to conditional compilation based on system library
+  availability in makefile.
+  - LatencyTester vislet made conditional upon libudev availability.
+- Fixed Vrui/Internal/GetOuputConfiguration.cpp to obey screen index
+  requested by caller.
+- Turned off warpReproject by default and added description to Vrui
+  configuration file reference.
+- Added missing peekTrackerState method to
+  Vrui::InputDeviceAdapterDummy.
+- Fixed patch configuration file for fake HMDs.
+- Moved Vrui::KeyMapper and Vrui::getOutputConfiguration to public Vrui
+  interface as they are included by public Vrui/VRWindow.h.
+- Improved UI hotspot calculation for projected input devices in
+  Vrui::GUIInteractor and Vrui::RayMenuTool.
+- Changed Vrui::RayMenuTool to only offset menu positions for 6-DOF
+  devices.
+- Added interaction direction tracking to Vrui::UIManager.
+- Added alignUiWithPointer setting to Vrui::UIManagerFree to align UI
+  components with the bisector between the viewing direction and the
+  current pointing direction instead of just the viewing direction for
+  improved interaction. Defaults to true.
+  - Removed alignMenuWithPointer setting from Vrui::RayMenuTool.
+- Removed deprecated log routing functionality from RawHid::UdevContext.
+- Fixed broken auto-detection of libudev in BuildRoot/Packages.System.
+  - Renamed UDEV package to LIBUDEV.

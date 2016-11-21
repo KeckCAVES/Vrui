@@ -2,7 +2,7 @@
 UIManager - Base class for managers arranging user interface components,
 mapping user interface devices and tools, and create user-aligned
 displays in physical space.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -36,7 +36,7 @@ Methods of class UIManager:
 UIManager::UIManager(const Misc::ConfigurationFileSection& configFileSection)
 	:activeGuiInteractor(0),
 	 mostRecentGuiInteractor(0),
-	 mostRecentHotSpot(getDisplayCenter())
+	 mostRecentHotSpot(getDisplayCenter()),mostRecentDirection(getForwardDirection())
 	{
 	}
 
@@ -74,6 +74,7 @@ void UIManager::destroyGuiInteractor(GUIInteractor* guiInteractor)
 		{
 		mostRecentGuiInteractor=0;
 		mostRecentHotSpot=guiInteractor->calcHotSpot();
+		mostRecentDirection=guiInteractor->getRay().getDirection();
 		}
 	}
 
@@ -89,6 +90,21 @@ Point UIManager::getHotSpot(void) const
 		{
 		/* Return the most recent hotspot: */
 		return mostRecentHotSpot;
+		}
+	}
+
+Vector UIManager::getDirection(void) const
+	{
+	/* Check if there is a most-recently used GUI interactor: */
+	if(mostRecentGuiInteractor!=0)
+		{
+		/* Return the GUI interactor's current interaction direction: */
+		return mostRecentGuiInteractor->getRay().getDirection();
+		}
+	else
+		{
+		/* Return the most recent interaction direction: */
+		return mostRecentDirection;
 		}
 	}
 

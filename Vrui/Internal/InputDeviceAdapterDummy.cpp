@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterDummy - Class to create "dummy" devices to simulate
 behavior of non-existent devices.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -171,6 +171,20 @@ int InputDeviceAdapterDummy::getFeatureIndex(InputDevice* device,const char* fea
 void InputDeviceAdapterDummy::updateInputDevices(void)
 	{
 	/* Nothing to do! */
+	}
+
+TrackerState InputDeviceAdapterDummy::peekTrackerState(int deviceIndex)
+	{
+	if(deviceIndex>=0)
+		{
+		/* Return the constant tracker state for the requested device: */
+		return inputDevices[deviceIndex]->getTransformation();
+		}
+	else
+		{
+		/* Fall back to base class, which will throw an exception: */
+		return InputDeviceAdapter::peekTrackerState(deviceIndex);
+		}
 	}
 
 }

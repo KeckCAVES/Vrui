@@ -101,6 +101,8 @@ The following lists all core Vrui tool classes, in the same hierarchical order i
 
 <LI><A HREF="#ValuatorToButtonTool">ValuatorToButtonTool</A> &quot;Valuator -> Button&quot;</LI>
 
+<LI><A HREF="#TouchpadButtonsTool">TouchpadButtonsTool</A> &quot;Touchpad -> Buttons&quot;</LI>
+
 <LI><A HREF="#TwoRayTransformTool">TwoRayTransformTool</A> &quot;Dual Ray Intersector&quot;</LI>
 
 <LI><A HREF="#SixAxisTransformTool">SixAxisTransformTool</A> &quot;Six-Axis Device&quot;</LI>
@@ -1875,6 +1877,41 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 </TABLE><P>
 
+<A NAME="TouchpadButtonsTool"><H3>TouchpadButtonsTool</H3></A>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
+
+<TR>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Press the simulated button corresponding to the current touchpad contact.</TD>
+</TR>
+
+<TR>
+<TD>Required Valuators</TD><TD>2</TD>
+<TD>X and Y axis of 2D touchpad coordinate system determining which simulated button is pressed when the touchpad is clicked.</TD>
+</TR>
+</TABLE><P>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>numButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD><TD>4</TD>
+<TD>Number of simulated buttons arranged around the touchpad's perimeter. The first button is always centered around the touchpad's positive Y axis.</TD>
+</TR>
+
+<TR>
+<TD>centerRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>0.5</TD>
+<TD>Radius of the central area around which the simulated buttons are arranged.</TD>
+</TR>
+
+<TR>
+<TD>useCenterButton</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether clicking the touchpad's central area simulates an additional button. If false, touchpad clicks inside the center area will be ignored.</TD>
+</TR>
+</TABLE>
+
 <A NAME="TwoRayTransformTool"><H3>TwoRayTransformTool</H3></A>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
@@ -2225,11 +2262,6 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR>
 <TD>initialMenuOffset</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>6.0"</TD>
 <TD>Distance in physical coordinate units along device's interaction ray from device's position to menu pop-up position.</TD>
-</TR>
-
-<TR>
-<TD>alignMenuWithPointer</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>true</TD>
-<TD>Flag whether pop-up menus are aligned with both the viewing and the pointing direction for easier interaction.</TD>
 </TR>
 
 <TR>

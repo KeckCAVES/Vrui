@@ -317,6 +317,7 @@ struct VruiState
 	void loadInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveInputGraphCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void showToolKillZoneCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
+	void protectScreensCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
 	void quitCallback(Misc::CallbackData* cbData);
 	};

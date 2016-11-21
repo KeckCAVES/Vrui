@@ -1,7 +1,7 @@
 /***********************************************************************
 UIManagerFree - UI manager class that allows arbitrary positions and
 orientations for UI components.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,6 +30,13 @@ namespace Vrui {
 
 class UIManagerFree:public UIManager
 	{
+	/* Elements: */
+	private:
+	bool alignUiWithPointer; // Flag to align UI elements with the current interactor's pointing direction in addition to the viewing direction
+	
+	/* Private methods: */
+	ONTransform alignUITransform(const Point& point) const; // Calculates a UI transformation for the given point
+	
 	/* Constructors and destructors: */
 	public:
 	UIManagerFree(const Misc::ConfigurationFileSection& configFileSection); // Initializes UI manager from the given configuration file section

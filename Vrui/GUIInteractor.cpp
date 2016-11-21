@@ -1,7 +1,7 @@
 /***********************************************************************
 GUIInteractor - Helper class to implement tool classes that interact
 with graphical user interface elements.
-Copyright (c) 2010-2015 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -212,7 +212,7 @@ void GUIInteractor::glRenderAction(GLfloat rayWidth,const GLColor<GLfloat,4>& ra
 Point GUIInteractor::calcHotSpot(void) const
 	{
 	/* Project the interaction ray into the UI manager's interaction surface: */
-	return getUiManager()->projectRay(ray);
+	return getUiManager()->projectRay(Ray(device->getPosition(),ray.getDirection()));
 	}
 
 }

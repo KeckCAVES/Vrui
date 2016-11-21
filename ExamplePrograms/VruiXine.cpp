@@ -27,6 +27,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FileNameExtensions.h>
 #include <Misc/MessageLogger.h>
+#include <Misc/StandardValueCoders.h>
+#include <Misc/ConfigurationFile.h>
 #include <Threads/TripleBuffer.h>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
@@ -145,13 +147,18 @@ class VruiXine:public Vrui::Application,public GLObject
 	xine_audio_port_t* audioOutPort; // Handle to the audio output port
 	xine_stream_t* stream; // Handle to the played multimedia stream
 	xine_event_queue_t* eventQueue; // Handle to the event queue
+	std::string videoFileName; // File name of the currently playing video
 	GLMotif::FileSelectionHelper videoFileSelectionHelper; // Helper object to open video files
 	Threads::TripleBuffer<Frame> videoFrames; // Triple buffer of video frames received from the video output plug-in
 	unsigned int videoFrameVersion; // Version number of currently locked frame
 	Threads::TripleBuffer<OverlaySet> overlaySets; // Triple buffer of overlay sets
 	unsigned int overlaySetVersion; // Version number of currently locked overlay set
 	GLMotif::PopupWindow* streamControlDialog; // Dialog window to control properties of the played video stream
+	GLMotif::RadioBox* stereoModes; // Radio box to select stereo modes
 	GLMotif::RadioBox* stereoLayouts; // Radio box to select stereo sub-frame layouts
+	GLMotif::ToggleButton* stereoSquashedToggle; // Toggle to select squashed stereo
+	GLMotif::ToggleButton* forceMonoToggle; // Toggle to force mono mode on stereo videos
+	GLMotif::TextFieldSlider* stereoSeparationSlider; // Slider to adjust stereo separation in stereo videos
 	GLMotif::TextFieldSlider* cropSliders[4]; // Sliders to adjust video cropping
 	GLMotif::PopupWindow* dvdNavigationDialog; // Dialog window for DVD menu and chapter navigation
 	GLMotif::Slider* volumeSlider; // Slider to adjust audio volume
@@ -178,6 +185,7 @@ class VruiXine:public Vrui::Application,public GLObject
 	unsigned int screenParametersVersion; // Version number of screen parameters, including aspect ratio of current frame
 	int screenMode; // Current screen mode, 0: window, 1: theater, 2: half sphere, 3: full sphere
 	GLMotif::PopupWindow* screenControlDialog; // Dialog window to control the position and size of the virtual video projection screen
+	GLMotif::RadioBox* screenModes; // Radio box to select screen mode
 	
 	/* Private methods: */
 	static void xineEventCallback(void* userData,const xine_event_t* event); // Callback called when a playback event occurs
@@ -185,6 +193,17 @@ class VruiXine:public Vrui::Application,public GLObject
 	static void xineOverlayCallback(void* userData,int numOverlays,raw_overlay_t* overlays); // Callback called from video output plug-in when an overlay needs to be merged into the video stream
 	void xineSendEvent(int eventId); // Sends an event to the xine library
 	void shutdownXine(void); // Cleanly shuts down the xine library
+	void setStereoMode(int newStereoMode);
+	void setStereoLayout(int newStereoLayout);
+	void setStereoSquashed(bool newStereoSquashed);
+	void setForceMono(bool newForceMono);
+	void setStereoSeparation(float newStereoSeparation);
+	void setCropLeft(int newCropLeft);
+	void setCropRight(int newCropRight);
+	void setCropBottom(int newCropBottom);
+	void setCropTop(int newCropTop);
+	void setScreenMode(int newScreenMode);
+	void loadVideo(const char* newVideoFileName); // Loads a video stream from the file of the given name
 	void stereoModesValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData); // Callback called when the stereo mode is changed
 	void stereoLayoutsValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData); // Callback called when the stereo layout is changed
 	void stereoSquashedToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData); // Callback called when the stereo squashed button is toggled
@@ -194,6 +213,7 @@ class VruiXine:public Vrui::Application,public GLObject
 	GLMotif::PopupWindow* createStreamControlDialog(void); // Creates the stream control dialog
 	void dvdNavigationButtonCallback(Misc::CallbackData* cbData,const int& eventId); // Callback called when one of the DVD navigation buttons is pressed
 	void loadVideoFileCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData); // Callback to load a new video file
+	void saveConfigurationCallback(Misc::CallbackData* cbData); // Callback to save the configuration for the current video file
 	void volumeSliderValueChangedCallback(GLMotif::Slider::ValueChangedCallbackData* cbData); // Callback called when the volume slider changes value
 	GLMotif::PopupWindow* createDvdNavigationDialog(void); // Creates the DVD navigation dialog
 	void skipBackCallback(Misc::CallbackData* cbData); // Callback called when the "skip back" button is pressed
@@ -562,10 +582,13 @@ void VruiXine::shutdownXine(void)
 	xine!=0;
 	}
 
-void VruiXine::stereoModesValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
+void VruiXine::setStereoMode(int newStereoMode)
 	{
+	if(stereoMode==newStereoMode)
+		return;
+	
 	/* Change the stereo mode: */
-	stereoMode=cbData->radioBox->getToggleIndex(cbData->newSelectedToggle);
+	stereoMode=newStereoMode;
 	++screenParametersVersion;
 	
 	/* Change the stereo layout radio box based on the new stereo mode: */
@@ -590,36 +613,246 @@ void VruiXine::stereoModesValueChangedCallback(GLMotif::RadioBox::ValueChangedCa
 			static_cast<GLMotif::Label*>(stereoLayouts->getChild(1))->setString("Left Eye Is Top");
 			break;
 		}
+	
+	/* Update the stereo mode radio box: */
+	stereoModes->setSelectedToggle(stereoMode);
+	}
+
+void VruiXine::setStereoLayout(int newStereoLayout)
+	{
+	if(stereoLayout==newStereoLayout)
+		return;
+	
+	/* Change the stereo layout: */
+	stereoLayout=newStereoLayout;
+	
+	/* Update the stereo layout radio box: */
+	stereoLayouts->setSelectedToggle(stereoLayout);
+	}
+
+void VruiXine::setStereoSquashed(bool newStereoSquashed)
+	{
+	if(stereoSquashed==newStereoSquashed)
+		return;
+	
+	/* Change the stereo squashed flag: */
+	stereoSquashed=newStereoSquashed;
+	++screenParametersVersion;
+	
+	/* Update the stereo squashed toggle: */
+	stereoSquashedToggle->setToggle(stereoSquashed);
+	}
+
+void VruiXine::setForceMono(bool newForceMono)
+	{
+	if(forceMono==newForceMono)
+		return;
+	
+	/* Change the force mono flag: */
+	forceMono=newForceMono;
+	
+	/* Update the force mono toggle: */
+	forceMonoToggle->setToggle(forceMono);
+	}
+
+void VruiXine::setStereoSeparation(float newStereoSeparation)
+	{
+	if(stereoSeparation==newStereoSeparation)
+		return;
+	
+	/* Change the stereo separation: */
+	stereoSeparation=newStereoSeparation;
+	
+	/* Update the stereo separation slider: */
+	stereoSeparationSlider->setValue(stereoSeparation);
+	}
+
+void VruiXine::setCropLeft(int newCropLeft)
+	{
+	if(crop[0]==newCropLeft)
+		return;
+	
+	/* Change the left crop: */
+	crop[0]=newCropLeft;
+	frameSize[0]=videoFrames.getLockedValue().size[0]-crop[0]-crop[1];
+	++screenParametersVersion;
+	++videoFrameVersion;
+	
+	/* Update the left crop slider: */
+	cropSliders[0]->setValue(crop[0]);
+	}
+
+void VruiXine::setCropRight(int newCropRight)
+	{
+	if(crop[1]==newCropRight)
+		return;
+	
+	/* Change the right crop: */
+	crop[1]=newCropRight;
+	frameSize[0]=videoFrames.getLockedValue().size[0]-crop[0]-crop[1];
+	++screenParametersVersion;
+	++videoFrameVersion;
+	
+	/* Update the right crop slider: */
+	cropSliders[1]->setValue(crop[1]);
+	}
+
+void VruiXine::setCropBottom(int newCropBottom)
+	{
+	if(crop[2]==newCropBottom)
+		return;
+	
+	/* Change the bottom crop: */
+	crop[2]=newCropBottom;
+	frameSize[1]=videoFrames.getLockedValue().size[1]-crop[2]-crop[3];
+	++screenParametersVersion;
+	++videoFrameVersion;
+	
+	/* Update the bottom crop slider: */
+	cropSliders[2]->setValue(crop[2]);
+	}
+
+void VruiXine::setCropTop(int newCropTop)
+	{
+	if(crop[3]==newCropTop)
+		return;
+	
+	/* Change the top crop: */
+	crop[3]=newCropTop;
+	frameSize[1]=videoFrames.getLockedValue().size[1]-crop[2]-crop[3];
+	++screenParametersVersion;
+	++videoFrameVersion;
+	
+	/* Update the top crop slider: */
+	cropSliders[3]->setValue(crop[3]);
+	}
+
+void VruiXine::setScreenMode(int newScreenMode)
+	{
+	if(screenMode==newScreenMode)
+		return;
+	
+	/* Set the screen mode: */
+	screenMode=newScreenMode;
+	++screenParametersVersion;
+	
+	/* Reset the navigation transformation to the new mode: */
+	resetNavigation();
+	
+	/* Update the UI: */
+	screenModes->setSelectedToggle(screenMode);
+	}
+
+void VruiXine::loadVideo(const char* newVideoFileName)
+	{
+	/* Determine the type of video file: */
+	if(Misc::hasCaseExtension(newVideoFileName,".iso"))
+		{
+		/* Open a DVD image inside an iso file: */
+		std::string mrl="dvd:/";
+		mrl.append(newVideoFileName);
+		if(!xine_open(stream,mrl.c_str())||!xine_play(stream,0,0))
+			{
+			/* Signal an error and bail out: */
+			Misc::formattedUserError("Load Video: Unable to play DVD %s",newVideoFileName);
+			return;
+			}
+		}
+	else
+		{
+		/* Open a video file: */
+		if(!xine_open(stream,newVideoFileName)||!xine_play(stream,0,0))
+			{
+			/* Signal an error and bail out: */
+			Misc::formattedUserError("Load Video: Unable to play video file %s",newVideoFileName);
+			return;
+			}
+		}
+	
+	/* Remember the video file name: */
+	videoFileName=newVideoFileName;
+	
+	/* Check if there is a configuration file of the same base name in the same directory: */
+	const char* extension=0;
+	for(const char* vfnPtr=newVideoFileName;*vfnPtr!='\0';++vfnPtr)
+		if(*vfnPtr=='.')
+			extension=vfnPtr;
+	std::string configFileName=extension!=0?std::string(newVideoFileName,extension):videoFileName;
+	while(!configFileName.empty()&&configFileName[configFileName.size()-1]=='/')
+		configFileName.erase(configFileName.end()-1);
+	configFileName.append(".cfg");
+	try
+		{
+		/* Try opening the configuration file: */
+		Misc::ConfigurationFile cfg(configFileName.c_str());
+		
+		/* Read configuration settings and update the UI accordingly: */
+		setStereoMode(cfg.retrieveValue<int>("./stereoMode",stereoMode));
+		setStereoLayout(cfg.retrieveValue<int>("./stereoLayout",stereoLayout));
+		setStereoSquashed(cfg.retrieveValue<bool>("./stereoSquashed",stereoSquashed));
+		setForceMono(cfg.retrieveValue<bool>("./forceMono",forceMono));
+		setStereoSeparation(cfg.retrieveValue<float>("./stereoSeparation",stereoSeparation));
+		setCropLeft(cfg.retrieveValue<int>("./cropLeft",crop[0]));
+		setCropRight(cfg.retrieveValue<int>("./cropRight",crop[1]));
+		setCropBottom(cfg.retrieveValue<int>("./cropBottom",crop[2]));
+		setCropTop(cfg.retrieveValue<int>("./cropTop",crop[3]));
+		setScreenMode(cfg.retrieveValue<int>("./screenMode",screenMode));
+		}
+	catch(...)
+		{
+		/* Ignore the error */
+		}
+	
+	/* Set the stream's audio volume: */
+	xine_set_param(stream,XINE_PARAM_AUDIO_VOLUME,int(Math::floor(volumeSlider->getValue()+0.5)));
+	}
+
+void VruiXine::stereoModesValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
+	{
+	setStereoMode(cbData->radioBox->getToggleIndex(cbData->newSelectedToggle));
 	}
 
 void VruiXine::stereoLayoutsValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
 	{
-	/* Change the stereo layout: */
-	stereoLayout=cbData->radioBox->getToggleIndex(cbData->newSelectedToggle);
+	setStereoLayout(cbData->radioBox->getToggleIndex(cbData->newSelectedToggle));
 	}
 
 void VruiXine::stereoSquashedToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
 	{
-	stereoSquashed=cbData->set;
-	++screenParametersVersion;
+	setStereoSquashed(cbData->set);
 	}
 
 void VruiXine::forceMonoToggleValueChangedCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
 	{
-	forceMono=cbData->set;
+	setForceMono(cbData->set);
 	}
 
 void VruiXine::stereoSeparationSliderValueChangedCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
 	{
 	/* Adjust the stereo separation: */
-	stereoSeparation=float(cbData->value);
+	setStereoSeparation(float(cbData->value));
 	}
 
 void VruiXine::cropSliderValueChangedCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData,const int& sliderIndex)
 	{
-	/* Adjust the crop value: */
-	crop[sliderIndex]=int(Math::floor(cbData->value+0.5));
-	++screenParametersVersion;
+	switch(sliderIndex)
+		{
+		case 0:
+			setCropLeft(int(Math::floor(cbData->value+0.5)));
+			break;
+		
+		case 1:
+			setCropRight(int(Math::floor(cbData->value+0.5)));
+			break;
+		
+		case 2:
+			setCropBottom(int(Math::floor(cbData->value+0.5)));
+			break;
+		
+		case 3:
+			setCropTop(int(Math::floor(cbData->value+0.5)));
+			break;
+		}
 	}
 
 GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
@@ -636,7 +869,7 @@ GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
 	
 	new GLMotif::Label("StereoModesLabel",streamControlDialog,"Stereo Mode");
 	
-	GLMotif::RadioBox* stereoModes=new GLMotif::RadioBox("StereoModes",streamControlDialog,false);
+	stereoModes=new GLMotif::RadioBox("StereoModes",streamControlDialog,false);
 	stereoModes->setOrientation(GLMotif::RowColumn::HORIZONTAL);
 	stereoModes->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	stereoModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
@@ -681,13 +914,13 @@ GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
 	stereoLayouts->getValueChangedCallbacks().add(this,&VruiXine::stereoLayoutsValueChangedCallback);
 	stereoLayouts->manageChild();
 	
-	GLMotif::ToggleButton* stereoSquashedToggle=new GLMotif::ToggleButton("StereoSquashedToggle",stereoBox,"Squashed Stereo");
+	stereoSquashedToggle=new GLMotif::ToggleButton("StereoSquashedToggle",stereoBox,"Squashed Stereo");
 	stereoSquashedToggle->setBorderWidth(0.0f);
 	stereoSquashedToggle->setToggleType(GLMotif::ToggleButton::TOGGLE_BUTTON);
 	stereoSquashedToggle->setToggle(stereoSquashed);
 	stereoSquashedToggle->getValueChangedCallbacks().add(this,&VruiXine::stereoSquashedToggleValueChangedCallback);
 	
-	GLMotif::ToggleButton* forceMonoToggle=new GLMotif::ToggleButton("ForceMonoToggle",stereoBox,"Force Mono");
+	forceMonoToggle=new GLMotif::ToggleButton("ForceMonoToggle",stereoBox,"Force Mono");
 	forceMonoToggle->setBorderWidth(0.0f);
 	forceMonoToggle->setToggleType(GLMotif::ToggleButton::TOGGLE_BUTTON);
 	forceMonoToggle->setToggle(forceMono);
@@ -697,7 +930,7 @@ GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
 	
 	new GLMotif::Label("StereoSeparatoinLabel",streamControlDialog,"Stereo Separation");
 	
-	GLMotif::TextFieldSlider* stereoSeparationSlider=new GLMotif::TextFieldSlider("StereoSeparationSlider",streamControlDialog,6,ss.fontHeight*10.0f);
+	stereoSeparationSlider=new GLMotif::TextFieldSlider("StereoSeparationSlider",streamControlDialog,6,ss.fontHeight*10.0f);
 	stereoSeparationSlider->setSliderMapping(GLMotif::TextFieldSlider::LINEAR);
 	stereoSeparationSlider->setValueType(GLMotif::TextFieldSlider::FLOAT);
 	stereoSeparationSlider->setValueRange(-0.02,0.02,0.0002);
@@ -743,30 +976,44 @@ void VruiXine::dvdNavigationButtonCallback(Misc::CallbackData* cbData,const int&
 
 void VruiXine::loadVideoFileCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData)
 	{
-	/* Determine the type of video file: */
-	if(Misc::hasCaseExtension(cbData->selectedFileName,".iso"))
+	loadVideo(cbData->getSelectedPath().c_str());
+	}
+
+void VruiXine::saveConfigurationCallback(Misc::CallbackData* cbData)
+	{
+	/* Create a configuration file of the same base name as the video file: */
+	const char* extension=0;
+	for(const char* vfnPtr=videoFileName.c_str();*vfnPtr!='\0';++vfnPtr)
+		if(*vfnPtr=='.')
+			extension=vfnPtr;
+	std::string configFileName=extension!=0?std::string(videoFileName.c_str(),extension):videoFileName;
+	while(!configFileName.empty()&&configFileName[configFileName.size()-1]=='/')
+		configFileName.erase(configFileName.end()-1);
+	configFileName.append(".cfg");
+	try
 		{
-		/* Open a DVD image inside an iso file: */
-		std::string mrl="dvd:/";
-		mrl.append(cbData->getSelectedPath());
-		if(!xine_open(stream,mrl.c_str())||!xine_play(stream,0,0))
-			{
-			/* Signal an error: */
-			Misc::formattedUserError("Unable to play DVD %s",cbData->getSelectedPath().c_str());
-			}
+		/* Try creating the configuration file: */
+		Misc::ConfigurationFile cfg;
+		
+		/* Write configuration settings: */
+		cfg.storeValue<int>("./stereoMode",stereoMode);
+		cfg.storeValue<int>("./stereoLayout",stereoLayout);
+		cfg.storeValue<bool>("./stereoSquashed",stereoSquashed);
+		cfg.storeValue<bool>("./forceMono",forceMono);
+		cfg.storeValue<float>("./stereoSeparation",stereoSeparation);
+		cfg.storeValue<int>("./cropLeft",crop[0]);
+		cfg.storeValue<int>("./cropRight",crop[1]);
+		cfg.storeValue<int>("./cropBottom",crop[2]);
+		cfg.storeValue<int>("./cropTop",crop[3]);
+		cfg.storeValue<int>("./screenMode",screenMode);
+		
+		cfg.saveAs((configFileName.c_str()));
 		}
-	else
+	catch(std::runtime_error err)
 		{
-		/* Open a video file: */
-		if(!xine_open(stream,cbData->getSelectedPath().c_str())||!xine_play(stream,0,0))
-			{
-			/* Signal an error: */
-			Misc::formattedUserError("Unable to play video file %s",cbData->getSelectedPath().c_str());
-			}
+		/* Signal an error: */
+		Misc::formattedUserError("Save Configuration: Unable to save configuration for video file %s due to exception %s",videoFileName.c_str(),err.what());
 		}
-	
-	/* Set the stream's audio volume: */
-	xine_set_param(stream,XINE_PARAM_AUDIO_VOLUME,int(Math::floor(volumeSlider->getValue()+0.5)));
 	}
 
 void VruiXine::volumeSliderValueChangedCallback(GLMotif::Slider::ValueChangedCallbackData* cbData)
@@ -880,13 +1127,23 @@ GLMotif::PopupWindow* VruiXine::createDvdNavigationDialog(void)
 	
 	lowerPanel->manageChild();
 	
-	GLMotif::Margin* ejectMargin=new GLMotif::Margin("EjectMargin",dvdNavigationDialog2,false);
-	ejectMargin->setAlignment(GLMotif::Alignment(GLMotif::Alignment::LEFT,GLMotif::Alignment::VFILL));
+	GLMotif::Margin* fileMargin=new GLMotif::Margin("FileMargin",dvdNavigationDialog2,false);
+	fileMargin->setAlignment(GLMotif::Alignment(GLMotif::Alignment::LEFT,GLMotif::Alignment::VFILL));
 	
-	GLMotif::Button* ejectButton=new GLMotif::Button("EjectButton",ejectMargin,"Eject");
+	GLMotif::RowColumn* fileBox=new GLMotif::RowColumn("FileBox",fileMargin,false);
+	fileBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	fileBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
+	fileBox->setNumMinorWidgets(1);
+	
+	GLMotif::Button* ejectButton=new GLMotif::Button("EjectButton",fileBox,"Eject");
 	videoFileSelectionHelper.addLoadCallback(ejectButton,Misc::createFunctionCall(this,&VruiXine::loadVideoFileCallback));
 	
-	ejectMargin->manageChild();
+	GLMotif::Button* saveConfigButton=new GLMotif::Button("SaveConfigButton",fileBox,"Save Configuration");
+	saveConfigButton->getSelectCallbacks().add(this,&VruiXine::saveConfigurationCallback);
+	
+	fileBox->manageChild();
+	
+	fileMargin->manageChild();
 	
 	dvdNavigationDialog2->manageChild();
 	
@@ -1011,12 +1268,7 @@ GLMotif::PopupWindow* VruiXine::createPlaybackControlDialog(void)
 
 void VruiXine::screenModesValueChangedCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
 	{
-	/* Set the screen mode: */
-	screenMode=cbData->radioBox->getToggleIndex(cbData->newSelectedToggle);
-	++screenParametersVersion;
-	
-	/* Reset the navigation transformation to the new mode: */
-	resetNavigation();
+	setScreenMode(cbData->radioBox->getToggleIndex(cbData->newSelectedToggle));
 	}
 
 void VruiXine::screenDistanceValueChangedCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
@@ -1092,7 +1344,7 @@ GLMotif::PopupWindow* VruiXine::createScreenControlDialog(void)
 	
 	new GLMotif::Blind("Blind1",screenControlDialog);
 	
-	GLMotif::RadioBox* screenModes=new GLMotif::RadioBox("ScreenModes",screenControlDialog,false);
+	screenModes=new GLMotif::RadioBox("ScreenModes",screenControlDialog,false);
 	screenModes->setOrientation(GLMotif::RowColumn::HORIZONTAL);
 	screenModes->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	screenModes->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
@@ -1401,12 +1653,7 @@ VruiXine::VruiXine(int& argc,char**& argv)
 	xine_event_create_listener_thread(eventQueue,xineEventCallback,this);
 	
 	/* Open the stream MRL: */
-	if(!xine_open(stream,mrl)||!xine_play(stream,0,0))
-		{
-		/* Shut down and signal an error: */
-		shutdownXine();
-		Misc::throwStdErr("VruiXine: Error while opening stream MRL %s",mrl);
-		}
+	loadVideo(mrl);
 	
 	if(startPaused)
 		xine_set_param(stream,XINE_PARAM_SPEED,XINE_SPEED_PAUSE);

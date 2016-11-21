@@ -696,7 +696,7 @@ LensCorrector::LensCorrector(VRWindow& sWindow,const WindowProperties& windowPro
 	 ipdDisplayDialog(0),
 	 predistortionMultisamplingLevel(multisamplingLevel),
 	 predistortionStencilBufferSize(windowProperties.stencilBufferSize),
-	 warpReproject(true),warpCubicLookup(false),correctOledResponse(false),fixContrast(true)
+	 warpReproject(false),warpCubicLookup(false),correctOledResponse(false),fixContrast(true)
 	{
 	/* Initialize lens corrector state: */
 	for(int eye=0;eye<2;++eye)

@@ -61,20 +61,20 @@ include $(VRUI_MAKEDIR)/Packages.System
 # any of the following lines.
 
 # SYSTEM_HAVE_LIBUDEV = 0
+# SYSTEM_HAVE_LIBDBUS = 0
 # SYSTEM_HAVE_LIBUSB1 = 0
-# SYSTEM_HAVE_BLUETOOTH = 0
-# SYSTEM_HAVE_LIBUDEV = 0
 # SYSTEM_HAVE_LIBPNG = 0
 # SYSTEM_HAVE_LIBJPEG = 0
 # SYSTEM_HAVE_LIBTIFF = 0
 # SYSTEM_HAVE_ALSA = 0
-# SYSTEM_HAVE_SPEEX = 0
 # SYSTEM_HAVE_OPENAL = 0
 # SYSTEM_HAVE_V4L2 = 0
+# SYSTEM_HAVE_BLUETOOTH = 0
 # SYSTEM_HAVE_DC1394 = 0
-# SYSTEM_HAVE_THEORA = 0
 # SYSTEM_HAVE_XRANDR = 0
 # SYSTEM_HAVE_XINPUT2 = 0
+# SYSTEM_HAVE_SPEEX = 0
+# SYSTEM_HAVE_THEORA = 0
 
 # The build system attempts to auto-detect optional features in system
 # libraries. If autodetection fails and the build process generates
@@ -90,26 +90,29 @@ include $(VRUI_MAKEDIR)/Packages.System
 # Select support for HTC Vive via the OpenVR API
 ########################################################################
 
-# Root directory of the OpenVR SDK
-# (The single required header file, openvr_driver.h, is now included in
-# Vrui package as contributed source.)
-OPENVR_BASEDIR = $(PWD)/Contributed/OpenVR
+# Root directory of the SteamVR run-time. The following attempts to
+# find SteamVR inside the installing user's home directory.
+STEAMVRDIR = $(shell find $(HOME) -name SteamVR | grep common/SteamVR)
 
-ifneq ($(strip $(OPENVR_BASEDIR)),)
+# If the above fails, or SteamVR's run-time is installed outside the
+# installing user's home directory, enter the correct path here, or pass
+# STEAMVRDIR=... on make's command line:
+# STEAMVRDIR = 
+
+ifneq ($(strip $(STEAMVRDIR)),)
+	# Build OpenVRHost VRDeviceDaemon driver module:
   SYSTEM_HAVE_OPENVR = 1
   
-  # Root directory of the SteamVR run-time. The following attempts to
-  # find SteamVR inside the installing user's home directory:
-  STEAMVRDIR = $(shell find $(HOME) -name SteamVR | grep common/SteamVR)
-  
-  # If the above fails, or SteamVR's run-time is installed outside the
-  # installing user's home directory, enter the correct path here:
-  # STEAMVRDIR = 
+  # Root directory of the OpenVR SDK
+  # (The single required header file, openvr_driver.h, is now included in
+  # Vrui package as contributed source.)
+  OPENVR_BASEDIR = $(PWD)/Contributed/OpenVR
   
   # The following should not need to be changed if STEAMVRDIR is set
   # correctly.
   # Root directory containing both Steam and SteamVR run-times:
   STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
+  
   # Steam run-time root directories:
   STEAMRUNTIMEDIR1 = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
   STEAMRUNTIMEDIR2 = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/usr/lib/x86_64-linux-gnu)
@@ -183,7 +186,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4002004
+VRUI_VERSION = 4002005
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 2
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -338,7 +341,13 @@ PLUGINS += $(VRTOOLS)
 # The Vrui vislet plug-in hierarchy:
 #
 
-VRVISLETS_SOURCES = $(wildcard Vrui/Vislets/*.cpp)
+# Don't build the following vislet modules unless explicitly asked later:
+VRVISLETS_IGNORE_SOURCES = Vrui/Vislets/LatencyTester.cpp
+
+VRVISLETS_SOURCES = $(filter-out $(VRVISLETS_IGNORE_SOURCES),$(wildcard Vrui/Vislets/*.cpp))
+ifneq ($(SYSTEM_HAVE_LIBUDEV),0)
+  VRVISLETS_SOURCES += Vrui/Vislets/LatencyTester.cpp
+endif
 
 VRVISLETSDIREXT = VRVislets
 VRVISLETSDIR = $(LIBDESTDIR)/$(VRVISLETSDIREXT)
@@ -697,7 +706,7 @@ libUSB: $(call LIBRARYNAME,libUSB)
 #
 
 $(DEPDIR)/Configure-RawHID: $(DEPDIR)/Configure-USB
-ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
+ifneq ($(SYSTEM_HAVE_LIBUDEV),0)
 	@echo Libudev library exists on host system
 	@echo RawHID library enabled
 else
@@ -1351,6 +1360,11 @@ ifneq ($(SYSTEM_HAVE_XRANDR),0)
 else
 	@echo "Support for named video outputs disabled (missing XRANDR library)"
 endif
+ifneq ($(SYSTEM_HAVE_LIBUDEV),0)
+	@echo "LatencyTester vislet for Oculus DK1 latency tester enabled"
+else
+	@echo "LatencyTester vislet disabled (missing udev library)"
+endif
 ifneq ($(VRUI_READUSERCONFIGFILE),0)
 	@echo "Using global per-user configuration file" $(VRUI_USERCONFIGDIR)/Vrui.cfg
 else
@@ -1508,10 +1522,10 @@ else
 	@echo "USB support (for Razer Hydra and Oculus Rift tracker) disabled"
 endif
 ifneq ($(SYSTEM_HAVE_OPENVR),0)
-	@echo "OpenVR SDK exists on host system; support for HTC Vive enabled"
+	@echo "OpenVR SDK and SteamVR run-time exist on host system; support for HTC Vive enabled"
 	@echo "SteamVR run-time root directory: $(STEAMVRDIR)"
 else
-	@echo "OpenVR SDK does not exist on host system; support for HTC Vive disabled"
+	@echo "OpenVR SDK or SteamVR run-time do not exist on host system; support for HTC Vive disabled"
 endif
 	@cp VRDeviceDaemon/Config.h VRDeviceDaemon/Config.h.temp
 	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_VRDEVICESDIR,$(PLUGININSTALLDIR)/$(VRDEVICESDIREXT))
@@ -1520,12 +1534,15 @@ endif
 	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_CONFIGFILENAME,$(ETCINSTALLDIR)/VRDevices.cfg)
 	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_CONFIGDIR,$(ETCINSTALLDIR)/VRDeviceDaemon)
 	@$(call CONFIG_SETVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_INPUT_H_HAS_STRUCTS,$(LINUX_INPUT_H_HAS_STRUCTS))
-ifneq ($(SYSTEM_HAVE_OPENVR),0)
-	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR,$(subst $(HOME),$$HOME,$(realpath $(STEAMVRDIR)/../../..)))
-	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR,$(subst $(realpath $(STEAMVRDIR)/../../..)/,,$(realpath $(STEAMVRDIR))))
-endif	
 	@if ! diff VRDeviceDaemon/Config.h.temp VRDeviceDaemon/Config.h > /dev/null ; then cp VRDeviceDaemon/Config.h.temp VRDeviceDaemon/Config.h ; fi
 	@rm VRDeviceDaemon/Config.h.temp
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+	@cp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR,$(subst $(HOME),$$HOME,$(realpath $(STEAMVRDIR)/../../..)))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR,$(subst $(realpath $(STEAMVRDIR)/../../..)/,,$(realpath $(STEAMVRDIR))))
+	@if ! diff VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h > /dev/null ; then cp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h ; fi
+	@rm VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp
+endif	
 	@touch $(DEPDIR)/Configure-VRDeviceDaemon
 
 VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRDevice.cpp \
@@ -1633,7 +1650,7 @@ VRCalibrators: $(VRCALIBRATORS)
 #
 
 ifneq ($(SYSTEM_HAVE_OPENVR),0)
-$(EXEDIR)/RunViveTracker.sh:
+$(EXEDIR)/RunViveTracker.sh: VRDeviceDaemon/VRDevices/OpenVRHost-Config.h
 	@echo Creating helper script to run OpenVRHost tracking device driver...
 	@cp Share/RunViveTracker.sh $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(STEAMDIR))@' $(EXEDIR)/RunViveTracker.sh

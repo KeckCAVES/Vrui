@@ -296,6 +296,7 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	/* Parse the command line: */
 	std::string wallTextureFileName=factory->wallTextureFileName;
 	std::string floorTextureFileName=factory->floorTextureFileName;
+	bool alignCave=true;
 	for(int i=0;i<numArguments;++i)
 		{
 		if(arguments[i][0]=='-')
@@ -315,22 +316,29 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 				++i;
 				tilesPerFoot=atoi(arguments[i]);
 				}
+			else if(strcasecmp(arguments[i]+1,"noAlign")==0)
+				alignCave=false;
 			}
 		}
 	
-	/* Calculate a transformation to align the CAVE model with the local environment: */
-	const Vector& normal=getFloorPlane().getNormal();
-	const Vector& up=getUpDirection();
-	Scalar lambda=(getFloorPlane().getOffset()-getDisplayCenter()*normal)/(up*normal);
-	Point floorDisplayCenter=getDisplayCenter()+up*lambda;
-	caveTransform=OGTransform::translateFromOriginTo(floorDisplayCenter);
-	
-	Vector floorForward=Geometry::normalize(getFloorPlane().project(getForwardDirection()));
-	Vector floorRight=Geometry::normalize(Geometry::cross(floorForward,normal));
-	Rotation rot=Rotation::fromBaseVectors(floorRight,floorForward);
-	caveTransform*=OGTransform::rotate(rot);
-	
-	caveTransform*=OGTransform::scale(getInchFactor());
+	if(alignCave)
+		{
+		/* Calculate a transformation to align the CAVE model with the local environment: */
+		const Vector& normal=getFloorPlane().getNormal();
+		const Vector& up=getUpDirection();
+		Scalar lambda=(getFloorPlane().getOffset()-getDisplayCenter()*normal)/(up*normal);
+		Point floorDisplayCenter=getDisplayCenter()+up*lambda;
+		caveTransform=OGTransform::translateFromOriginTo(floorDisplayCenter);
+		
+		Vector floorForward=Geometry::normalize(getFloorPlane().project(getForwardDirection()));
+		Vector floorRight=Geometry::normalize(Geometry::cross(floorForward,normal));
+		Rotation rot=Rotation::fromBaseVectors(floorRight,floorForward);
+		caveTransform*=OGTransform::rotate(rot);
+		
+		caveTransform*=OGTransform::scale(getInchFactor());
+		}
+	else
+		caveTransform=OGTransform::identity;
 	
 	/* Load the texture images: */
 	wallTextureImage=Images::readImageFile(wallTextureFileName.c_str());

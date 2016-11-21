@@ -32,7 +32,4 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #define VRDEVICEDAEMON_CONFIG_INPUT_H_HAS_STRUCTS 1
 
-#define VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR "$HOME/.local/share/Steam"
-#define VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR "SteamApps/common/SteamVR"
-
 #endif

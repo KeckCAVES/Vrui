@@ -24,7 +24,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <libudev.h>
 #include <stdexcept>
-#include <iostream>
 #include <Misc/ThrowStdErr.h>
 #include <RawHID/Internal/UdevDevice.h>
 #include <RawHID/Internal/UdevMonitor.h>
@@ -34,12 +33,6 @@ namespace RawHID {
 /****************************
 Methods of class UdevContext:
 ****************************/
-
-void UdevContext::logFunction(udev* context,int priority,const char* file,int line,const char* fn,const char* format,va_list args)
-	{
-	/* Print to cerr for now: */
-	std::cerr<<"Udev log ["<<priority<<"]: File "<<file<<", line "<<line<<", function "<<fn<<", format "<<format<<std::endl;
-	}
 
 UdevContext::UdevContext(void)
 	:context(0)
@@ -91,11 +84,6 @@ const void* UdevContext::getUserData(void) const
 void* UdevContext::getUserData(void)
 	{
 	return udev_get_userdata(context);
-	}
-
-void UdevContext::installLogFunction(void)
-	{
-	udev_set_log_fn(context,logFunction);
 	}
 
 UdevDevice UdevContext::getDeviceFromSyspath(const char* syspath)
