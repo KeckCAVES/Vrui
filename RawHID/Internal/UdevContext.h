@@ -23,8 +23,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef RAWHID_INTERNAL_UDEVCONTEXT_INCLUDED
 #define RAWHID_INTERNAL_UDEVCONTEXT_INCLUDED
 
-#include <stdarg.h>
-
 /* Forward declarations: */
 struct udev;
 namespace RawHID {
@@ -41,9 +39,6 @@ class UdevContext
 	/* Elements: */
 	private:
 	udev* context; // Pointer to the low-level udev context
-	
-	/* Private methods: */
-	static void logFunction(udev* context,int priority,const char* file,int line,const char* fn,const char* format,va_list args); // Function to re-route udev log messages to a message logger
 	
 	/* Constructors and destructors: */
 	public:
@@ -64,7 +59,6 @@ class UdevContext
 	void setUserData(void* userData); // Stores a pointer to user data in the udev context
 	const void* getUserData(void) const; // Returns previously-stored user data
 	void* getUserData(void); // Ditto
-	void installLogFunction(void); // Reroutes udev log messages to a message logger
 	UdevDevice getDeviceFromSyspath(const char* syspath); // Returns a udev device object for the given path in the sys file system
 	};
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 ScaleBar - Class to draw a scale bar in Vrui applications. Scale bar is
 implemented as a special top-level GLMotif widget for simplicity.
-Copyright (c) 2010-2015 Oliver Kreylos
+Copyright (c) 2010-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -201,7 +201,12 @@ void ScaleBar::calcSize(const NavTransform& newNavigationTransformation)
 		}
 	
 	/* Calculate the scaling factor from navigational space to physical space: */
-	if(unit.isImperial())
+	if(unit.unit==Geometry::LinearUnit::UNKNOWN)
+		{
+		/* Use raw scale factor: */
+		currentScale=navScale;
+		}
+	else if(unit.isImperial())
 		{
 		/* Calculate scale factor through imperial units: */
 		currentScale=unit.getInchFactor()*navScale/getInchFactor();
@@ -433,7 +438,12 @@ void ScaleBar::pointerButtonDown(GLMotif::Event& event)
 		/* Adjust the navigation transformation: */
 		Scalar newNavScale;
 		const Geometry::LinearUnit& unit=getCoordinateManager()->getUnit();
-		if(unit.isImperial())
+		if(unit.unit==Geometry::LinearUnit::UNKNOWN)
+			{
+			/* Use raw scale factor: */
+			newNavScale=newScale;
+			}
+		else if(unit.isImperial())
 			{
 			/* Calculate scale factor through imperial units: */
 			newNavScale=getInchFactor()*newScale/unit.getInchFactor();

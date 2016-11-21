@@ -1,7 +1,7 @@
 /***********************************************************************
 KeyMapper - Helper class to translate between human-readable key names
 and modifier key names and X key symbols and modifier masks.
-Copyright (c) 2014 Oliver Kreylos
+Copyright (c) 2014-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -21,7 +21,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
-#include <Vrui/Internal/KeyMapper.h>
+#include <Vrui/KeyMapper.h>
 
 #include <string.h>
 #include <X11/Xlib.h>

@@ -81,6 +81,8 @@ The rest of this document lists and explains all tag/value pairs that exist with
 
 	<LI><A HREF="#uimanagersection">UI Manager Section</A>
 		<UL>
+		<LI><A HREF="#uimanagerfreesettings">Free UI Manager Settings</A></LI>
+		
 		<LI><A HREF="#uimanagerplanarsettings">Planar UI Manager Settings</A></LI>
 		
 		<LI><A HREF="#uimanagersphericalsettings">Spherical UI Manager Settings</A></LI>
@@ -1689,7 +1691,7 @@ The floor plane is used by some navigation tools or applications to lock the vir
 
 <TR>
 <TD>leftFormulaNames<BR>rightFormulaNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly three <A HREF="VruiCFGTypes.html#string">strings</A></TD>
-<TD>List of names of <A HREF="#distortionfunctionsections">distortion function sections</A> for the left/right lenses, respectively, in the order green-channel distortion function, red-channel distortion modulation function, red-channel distortion modulation function.</TD>
+<TD>List of names of <A HREF="#distortionfunctionsections">distortion function sections</A> for the left/right lenses, respectively, in the order green-channel distortion function, red-channel distortion modulation function, blue-channel distortion modulation function.</TD>
 </TR>
 
 <TR>
@@ -1710,6 +1712,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>warpMeshSize</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#integer">integers</A></TD>
 <TD>List of integers not smaller than one defining the number of columns and rows in the lens correction warp mesh, respectively. Default value is (64, 64).</TD>
+</TR>
+
+<TR>
+<TD>warpReproject</TD><TD><A HREF="VruiCFGTypes.html#boolean"></A>boolean</TD>
+<TD>Flag whether to use reprojection during warp to reduce apparent display latency. Defaults to true.</TD>
 </TR>
 
 <TR>
@@ -1876,7 +1883,7 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TD>
 <DL>
 <DT>Free</DT>
-<DD>UI manager to freely lay out UI components in 3D space.</DD>
+<DD>UI manager to freely lay out UI components in 3D space. Rest of the section contains <A HREF="#uimanagerfreesettings">free UI manager settings</A>.</DD>
 
 <DT>Planar</DT>
 <DD>UI manager to lay out UI components on an arbitrary 3D plane. Rest of the section contains <A HREF="#uimanagerplanarsettings">planar UI manager settings</A>.</DD>
@@ -1887,6 +1894,17 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TD>
 </TR>
 </TABLE></P>
+
+<H3><A NAME="uimanagerfreesettings">Free UI Manager Settings</A></H2>
+
+<TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
+<TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>alignUiWithPointer</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag whether to align UI components facing the current pointing direction in addition to the current viewing direction for improved interaction.</TD>
+</TR>
+</TABLE>
 
 <H3><A NAME="uimanagerplanarsettings">Planar UI Manager Settings</A></H2>
 

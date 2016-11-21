@@ -42,7 +42,6 @@ Methods of class RayMenuToolFactory:
 RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	:ToolFactory("RayMenuTool",toolManager),
 	 initialMenuOffset(getInchFactor()*Scalar(6)),
-	 alignMenuWithPointer(true),
 	 interactWithWidgets(false)
 	{
 	/* Initialize tool layout: */
@@ -56,7 +55,6 @@ RayMenuToolFactory::RayMenuToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	initialMenuOffset=cfs.retrieveValue<Scalar>("./initialMenuOffset",initialMenuOffset);
-	alignMenuWithPointer=cfs.retrieveValue<bool>("./alignMenuWithPointer",alignMenuWithPointer);
 	interactWithWidgets=cfs.retrieveValue<bool>("./interactWithWidgets",interactWithWidgets);
 	
 	/* Set tool class' factory pointer: */
@@ -140,41 +138,16 @@ void RayMenuTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			if(GUIInteractor::canActivate()&&activate())
 				{
 				/* Calculate the initial menu position: */
-				Ray menuRay(getRay().getOrigin()+getRay().getDirection()*factory->initialMenuOffset,getRay().getDirection());
-				Point hotSpot=getUiManager()->projectRay(menuRay);
+				Point rayOrigin=getButtonDevicePosition(0);
+				if(!getButtonDevice(0)->isRayDevice())
+					{
+					/* For 6-DOF devices, offset the menu by some amount: */
+					rayOrigin+=getRay().getDirection()*factory->initialMenuOffset;
+					}
+				Point hotSpot=getUiManager()->projectRay(Ray(rayOrigin,getRay().getDirection()));
 				
-				if(factory->alignMenuWithPointer)
-					{
-					/* Calculate a bisecting vector between the viewing direction and the pointing direction: */
-					Vector viewDirection=hotSpot-getMainViewer()->getHeadPosition();
-					viewDirection.normalize();
-					Vector pointDirection=getRay().getDirection();
-					pointDirection.normalize();
-					Vector z=viewDirection+pointDirection;
-					
-					/* Align the widget with the bisecting vector: */
-					Vector x=z^getUpDirection();
-					Vector y=x^z;
-					
-					/* Calculate the widget transformation: */
-					typedef GLMotif::WidgetManager::Transformation Transform;
-					Transform widgetTransform=Transform::translateFromOriginTo(hotSpot);
-					widgetTransform*=Transform::rotate(Transform::Rotation::fromBaseVectors(x,y));
-					
-					/* Align the widget's hot spot with the given hot spot: */
-					GLMotif::Vector widgetHotSpot=menu->getPopup()->calcHotSpot();
-					widgetTransform*=Transform::translate(-Transform::Vector(widgetHotSpot.getXyzw()));
-					
-					widgetTransform.renormalize();
-					
-					/* Pop up the menu with the calculated transformation: */
-					getWidgetManager()->popupPrimaryWidget(menu->getPopup(),widgetTransform);
-					}
-				else
-					{
-					/* Pop up the menu: */
-					popupPrimaryWidget(menu->getPopup(),hotSpot,false);
-					}
+				/* Pop up the menu: */
+				popupPrimaryWidget(menu->getPopup(),hotSpot,false);
 				
 				/* Explicity grab the pointer in case the initial event misses the menu: */
 				getWidgetManager()->grabPointer(menu->getPopup());
@@ -230,8 +203,13 @@ void RayMenuTool::display(GLContextData& contextData) const
 Point RayMenuTool::calcHotSpot(void) const
 	{
 	/* Calculate the interaction position: */
-	Ray interactionRay(getRay().getOrigin()+getRay().getDirection()*factory->initialMenuOffset,getRay().getDirection());
-	return getUiManager()->projectRay(interactionRay);
+	Point rayOrigin=getButtonDevicePosition(0);
+	if(!getButtonDevice(0)->isRayDevice())
+		{
+		/* For 6-DOF devices, offset the menu by some amount: */
+		rayOrigin+=getRay().getDirection()*factory->initialMenuOffset;
+		}
+	return getUiManager()->projectRay(Ray(rayOrigin,getRay().getDirection()));
 	}
 
 }

@@ -2,7 +2,7 @@
 UIManager - Base class for managers arranging user interface components,
 mapping user interface devices and tools, and create user-aligned
 displays in physical space.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -46,6 +46,7 @@ class UIManager:public GLMotif::WidgetArranger
 	GUIInteractor* activeGuiInteractor; // The currently active GUI interactor
 	GUIInteractor* mostRecentGuiInteractor; // Pointer to the most-recently used GUI interactor, to calculate an appropriate position to pop up dialog windows
 	Point mostRecentHotSpot; // Final hot spot position when the most-recently used GUI interactor is destroyed
+	Vector mostRecentDirection; // Final interaction direction when the most-recently used GUI interactor is destroyed
 	
 	/* Constructors and destructors: */
 	public:
@@ -60,6 +61,7 @@ class UIManager:public GLMotif::WidgetArranger
 	void deactivateGuiInteractor(GUIInteractor* guiInteractor); // Deactivates the given GUI interaction tool; does nothing if it's not active
 	void destroyGuiInteractor(GUIInteractor* guiInteractor); // Called to notify the UI manager of the destruction of a GUI interaction tool
 	Point getHotSpot(void) const; // Returns a hot spot for newly-opened top-level widgets
+	Vector getDirection(void) const; // Returns an interaction direction for newly-opened top-level widgets
 	virtual Point projectRay(const Ray& ray) const =0; // Projects a ray onto the UI surface
 	virtual void projectDevice(InputDevice* device) const =0; // Projects an input device onto the UI surface based on its device ray
 	virtual ONTransform calcUITransform(const Point& point) const =0; // Returns a transformation to align a UI component at the given position

@@ -1,7 +1,7 @@
 /***********************************************************************
 DrawEnvironment - Simple application to visualize the configuration of a
 Vrui environment.
-Copyright (c) 2013-2015 Oliver Kreylos
+Copyright (c) 2013-2016 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -46,6 +46,7 @@ class DrawEnvironment:public Vrui::Application
 	
 	/* Methods from Vrui::Application: */
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	};
 
 /********************************
@@ -240,6 +241,12 @@ void DrawEnvironment::display(GLContextData& contextData) const
 	glDisable(GL_BLEND);
 	
 	glPopAttrib();
+	}
+
+void DrawEnvironment::resetNavigation(void)
+	{
+	/* Reset navigational space to physical space: */
+	Vrui::setNavigationTransformation(Vrui::NavTransform::identity);
 	}
 
 /* Create and execute an application object: */
