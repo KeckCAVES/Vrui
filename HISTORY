@@ -5035,3 +5035,12 @@ Vrui-4.2-005:
 - Removed deprecated log routing functionality from RawHid::UdevContext.
 - Fixed broken auto-detection of libudev in BuildRoot/Packages.System.
   - Renamed UDEV package to LIBUDEV.
+
+Vrui-4.2-006:
+- Improved Vrui's X11 protocol error handler with detailed messages; no
+  longer forcing exit on errors.
+- Added missing OpenVRHost-Config.h to VRDeviceDaemon/VRDevices in
+  release package.
+- Added work-around for displays reporting a zero physical size to
+  Vrui::getOutputConfiguration; uses fixed resolution of 96 dpi to
+  calculate physical size from domain size.

@@ -223,6 +223,17 @@ OutputConfiguration getOutputConfiguration(Display* display,int screen,const cha
 	
 	#endif
 	
+	/* Check the result configuration for sanity: */
+	if(result.sizeMm[0]==0||result.sizeMm[1]==0)
+		{
+		/* Assign a default display size based on a fixed and uniform resolution: */
+		int dpi=96; // Seems to be a reasonable number
+		if(vruiVerbose)
+			std::cout<<"\tSelected output advertises zero physical size; using default resolution of "<<dpi<<" dpi"<<std::endl;
+		for(int i=0;i<2;++i)
+			result.sizeMm[i]=(254*result.domainSize[i]+dpi*5)/(dpi*10);
+		}
+	
 	return result;
 	}
 
