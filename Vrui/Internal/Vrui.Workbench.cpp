@@ -262,14 +262,18 @@ void vruiErrorShutdown(bool signalError)
 
 int vruiXErrorHandler(Display* display,XErrorEvent* event)
 	{
-	std::cerr<<"Vrui: Caught X11 protocol error; shutting down"<<std::endl;
-	shutdown();
+	/* X protocol errors are not considered fatal; log an error message and carry on: */
+	std::cerr<<"Caught X11 protocol error ";
+	char errorString[257];
+	XGetErrorText(display,event->error_code,errorString,sizeof(errorString));
+	std::cerr<<errorString<<", seq# "<<event->serial<<", request "<<int(event->request_code)<<"."<<int(event->minor_code)<<std::endl;
 	
 	return 0;
 	}
 
 int vruiXIOErrorHandler(Display* display)
 	{
+	/* X I/O errors are considered fatal; shut down the Vrui application: */
 	std::cerr<<"Vrui: Caught X11 I/O error; shutting down"<<std::endl;
 	shutdown();
 	

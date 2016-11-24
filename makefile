@@ -186,7 +186,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4002005
+VRUI_VERSION = 4002006
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 2
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
