@@ -574,7 +574,7 @@ void VruiXine::shutdownXine(void)
 	if(videoOutPort!=0)
 		xine_close_video_driver(xine,videoOutPort);
 	videoOutPort=0;
-	if(audioOutPort==0)
+	if(audioOutPort!=0)
 		xine_close_audio_driver(xine,audioOutPort);
 	audioOutPort=0;
 	if(xine!=0)
