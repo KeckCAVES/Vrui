@@ -1,7 +1,7 @@
 /***********************************************************************
 TouchpadButtonsTool - Transform a clickable touchpad or analog stick to
 multiple buttons arranged around a circle.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -154,8 +154,6 @@ TouchpadButtonsTool::TouchpadButtonsTool(const ToolFactory* factory,const ToolIn
 	 configuration(TouchpadButtonsTool::factory->configuration),
 	 pressedButton(-1)
 	{
-	/* Set the transformation source device: */
-	sourceDevice=getButtonDevice(0);
 	}
 
 TouchpadButtonsTool::~TouchpadButtonsTool(void)

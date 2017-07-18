@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Pair of classes for high-performance cluster-transparent
 reading/writing from/to TCP sockets.
-Copyright (c) 2011-2015 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -261,7 +261,7 @@ void TCPPipeMaster::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 		writer.write<int>(errorType);
 		writer.write<int>(errorCode);
 		}
-		multiplexer->sendPacket(pipeId,packet);
+		multiplexer->sendPacket(statusPipeId,packet);
 		}
 	
 	if(errorType!=0)
@@ -314,7 +314,7 @@ size_t TCPPipeMaster::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSi
 		writer.write<int>(errorType);
 		writer.write<int>(errorType!=0?errorCode:int(numBytesWritten));
 		}
-		multiplexer->sendPacket(pipeId,packet);
+		multiplexer->sendPacket(statusPipeId,packet);
 		}
 	
 	if(errorType!=0)
@@ -409,6 +409,9 @@ TCPPipeMaster::TCPPipeMaster(Multiplexer* sMultiplexer,const char* hostName,int 
 		handleConstructionError(errorType,errorCode,hostName,portId);
 		}
 	
+	/* Open the status pipe: */
+	statusPipeId=multiplexer->openPipe();
+	
 	/* Install a read buffer the size of a multicast packet: */
 	Comm::Pipe::resizeReadBuffer(Packet::maxPacketSize);
 	canReadThrough=false;
@@ -416,6 +419,9 @@ TCPPipeMaster::TCPPipeMaster(Multiplexer* sMultiplexer,const char* hostName,int 
 
 TCPPipeMaster::~TCPPipeMaster(void)
 	{
+	/* Close the status pipe: */
+	multiplexer->closePipe(statusPipeId);
+	
 	/* Flush the write buffer, and then close the socket: */
 	flush();
 	if(fd>=0)
@@ -538,7 +544,7 @@ int TCPPipeMaster::getPortId(void) const
 		writer.write<int>(errorType);
 		writer.write<int>(errorType!=0?errorCode:result);
 		}
-		multiplexer->sendPacket(pipeId,statusPacket);
+		multiplexer->sendPacket(statusPipeId,statusPacket);
 		}
 	
 	if(errorType!=0)
@@ -586,7 +592,7 @@ std::string TCPPipeMaster::getAddress(void) const
 		else
 			Misc::writeCString(addressBuffer,writer);
 		}
-		multiplexer->sendPacket(pipeId,statusPacket);
+		multiplexer->sendPacket(statusPipeId,statusPacket);
 		}
 	
 	if(errorType!=0)
@@ -634,7 +640,7 @@ std::string TCPPipeMaster::getHostName(void) const
 		else
 			Misc::writeCString(hostNameBuffer,writer);
 		}
-		multiplexer->sendPacket(pipeId,statusPacket);
+		multiplexer->sendPacket(statusPipeId,statusPacket);
 		}
 	
 	if(errorType!=0)
@@ -686,7 +692,7 @@ int TCPPipeMaster::getPeerPortId(void) const
 		writer.write<int>(errorType);
 		writer.write<int>(errorType!=0?errorCode:result);
 		}
-		multiplexer->sendPacket(pipeId,statusPacket);
+		multiplexer->sendPacket(statusPipeId,statusPacket);
 		}
 	
 	if(errorType!=0)
@@ -734,7 +740,7 @@ std::string TCPPipeMaster::getPeerAddress(void) const
 		else
 			Misc::writeCString(addressBuffer,writer);
 		}
-		multiplexer->sendPacket(pipeId,statusPacket);
+		multiplexer->sendPacket(statusPipeId,statusPacket);
 		}
 	
 	if(errorType!=0)
@@ -782,7 +788,7 @@ std::string TCPPipeMaster::getPeerHostName(void) const
 		else
 			Misc::writeCString(hostNameBuffer,writer);
 		}
-		multiplexer->sendPacket(pipeId,statusPacket);
+		multiplexer->sendPacket(statusPipeId,statusPacket);
 		}
 	
 	if(errorType!=0)
@@ -844,7 +850,7 @@ void TCPPipeSlave::writeData(const IO::File::Byte* buffer,size_t bufferSize)
 	if(isWriteCoupled())
 		{
 		/* Receive a status packet from the master: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode=reader.read<int>();
@@ -863,7 +869,7 @@ size_t TCPPipeSlave::writeDataUpTo(const IO::File::Byte* buffer,size_t bufferSiz
 	if(isWriteCoupled())
 		{
 		/* Receive a status packet from the master: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode=reader.read<int>();
@@ -902,12 +908,18 @@ TCPPipeSlave::TCPPipeSlave(Multiplexer* sMultiplexer,const char* hostName,int po
 		handleConstructionError(errorType,errorCode,hostName,portId);
 		}
 	
+	/* Open the status pipe: */
+	statusPipeId=multiplexer->openPipe();
+	
 	/* Disable read-through: */
 	canReadThrough=false;
 	}
 
 TCPPipeSlave::~TCPPipeSlave(void)
 	{
+	/* Close the status pipe: */
+	multiplexer->closePipe(statusPipeId);
+	
 	/* Delete the current multicast packet: */
 	if(packet!=0)
 		{
@@ -992,7 +1004,7 @@ int TCPPipeSlave::getPortId(void) const
 	if(isReadCoupled())
 		{
 		/* Read the status packet from the master node: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode=reader.read<int>();
@@ -1015,7 +1027,7 @@ std::string TCPPipeSlave::getAddress(void) const
 	if(isReadCoupled())
 		{
 		/* Read the status packet from the master node: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode;
@@ -1043,7 +1055,7 @@ std::string TCPPipeSlave::getHostName(void) const
 	if(isReadCoupled())
 		{
 		/* Read the status packet from the master node: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode;
@@ -1071,7 +1083,7 @@ int TCPPipeSlave::getPeerPortId(void) const
 	if(isReadCoupled())
 		{
 		/* Read the status packet from the master node: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode=reader.read<int>();
@@ -1094,7 +1106,7 @@ std::string TCPPipeSlave::getPeerAddress(void) const
 	if(isReadCoupled())
 		{
 		/* Read the status packet from the master node: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode;
@@ -1122,7 +1134,7 @@ std::string TCPPipeSlave::getPeerHostName(void) const
 	if(isReadCoupled())
 		{
 		/* Read the status packet from the master node: */
-		Packet* statusPacket=multiplexer->receivePacket(pipeId);
+		Packet* statusPacket=multiplexer->receivePacket(statusPipeId);
 		Packet::Reader reader(statusPacket);
 		int errorType=reader.read<int>();
 		int errorCode;

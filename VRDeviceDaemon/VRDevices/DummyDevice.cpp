@@ -78,7 +78,7 @@ DummyDevice::DummyDevice(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceMan
 		{
 		char buttonStateName[40];
 		sprintf(buttonStateName,"./buttonState%d",i);
-		state.setButtonState(i,configFile.retrieveValue<Vrui::VRDeviceState::ButtonState>(buttonStateName,Vrui::VRDeviceState::ButtonState(false)));
+		state.setButtonState(i,Vrui::VRDeviceState::ButtonState(configFile.retrieveValue<bool>(buttonStateName,false)));
 		}
 	for(int i=0;i<numValuators;++i)
 		{

@@ -2,7 +2,7 @@
 Filming - Vislet class to assist shooting of video inside an immersive
 environment by providing run-time control over viewers and environment
 settings.
-Copyright (c) 2012-2015 Oliver Kreylos
+Copyright (c) 2012-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -89,6 +89,7 @@ FilmingFactory::FilmingFactory(VisletManager& visletManager)
 	/* Initialize the filming tool classes: */
 	Filming::MoveViewerTool::initClass();
 	Filming::MoveGridTool::initClass();
+	Filming::ToggleFilmingTool::initClass();
 	
 	/* Set tool class' factory pointer: */
 	Filming::factory=this;
@@ -301,6 +302,46 @@ void Filming::MoveGridTool::frame(void)
 		}
 	}
 
+/***************************************************
+Static elements of class Filming::ToggleFilmingTool:
+***************************************************/
+
+Filming::ToggleFilmingToolFactory* Filming::ToggleFilmingTool::factory=0;
+
+/*******************************************
+Methods of class Filming::ToggleFilmingTool:
+*******************************************/
+
+void Filming::ToggleFilmingTool::initClass(void)
+	{
+	ToggleFilmingToolFactory* toggleFilmingToolFactory=new ToggleFilmingToolFactory("FilmingToggleFilmingTool","Toggle Filming Mode",0,*getToolManager());
+	toggleFilmingToolFactory->setNumButtons(1);
+	toggleFilmingToolFactory->setButtonFunction(0,"Toggle Filming Mode");
+	getToolManager()->addClass(toggleFilmingToolFactory,ToolManager::defaultToolFactoryDestructor);
+	}
+
+Filming::ToggleFilmingTool::ToggleFilmingTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
+	:Vrui::Tool(sFactory,inputAssignment)
+	{
+	}
+
+const Vrui::ToolFactory* Filming::ToggleFilmingTool::getFactory(void) const
+	{
+	return factory;
+	}
+
+void Filming::ToggleFilmingTool::buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData)
+	{
+	/* Toggle state when the button is released: */
+	if(!cbData->newButtonState)
+		{
+		if(vislet->isActive())
+			vislet->disable();
+		else
+			vislet->enable();
+		}
+	}
+
 /********************************
 Static elements of class Filming:
 ********************************/
@@ -335,7 +376,7 @@ void Filming::changeViewerMode(void)
 		/* Set the sliders to change the physical-coordinate fixed viewing position: */
 		for(int i=0;i<3;++i)
 			{
-			posSliders[i]->setValueRange(getDisplayCenter()[i]-getDisplaySize()*Scalar(4),getDisplayCenter()[i]+getDisplaySize()*Scalar(4),0.1);
+			posSliders[i]->setValueRange(getDisplayCenter()[i]-getDisplaySize()*Scalar(8),getDisplayCenter()[i]+getDisplaySize()*Scalar(8),0.1);
 			posSliders[i]->setValue(viewerPosition[i]);
 			}
 		}
@@ -379,7 +420,7 @@ void Filming::windowToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackDa
 	{
 	/* Select or deselect the window: */
 	windowFilmings[windowIndex]=cbData->set;
-	if(active&&getWindow(windowIndex)!=0)
+	if(isActive()&&getWindow(windowIndex)!=0)
 		{
 		if(windowFilmings[windowIndex])
 			{
@@ -399,7 +440,7 @@ void Filming::headlightToggleCallback(GLMotif::ToggleButton::ValueChangedCallbac
 	{
 	headlightStates[viewerIndex]=cbData->set;
 	
-	if(active)
+	if(isActive())
 		{
 		/* Set the headlight to the new state: */
 		if(viewerIndex==0)
@@ -413,7 +454,7 @@ void Filming::backgroundColorSelectorCallback(GLMotif::HSVColorSelector::ValueCh
 	{
 	backgroundColor=cbData->newColor;
 	
-	if(active)
+	if(isActive())
 		{
 		/* Set the environment's background color: */
 		setBackgroundColor(backgroundColor);
@@ -535,7 +576,7 @@ void Filming::loadSettings(const char* settingsFileName)
 	drawDevices=settingsFile.retrieveValue<bool>("./drawDevices");
 	drawDevicesToggle->setToggle(drawDevices);
 	
-	if(active)
+	if(isActive())
 		{
 		/* Update the current environment state: */
 		for(int windowIndex=0;windowIndex<getNumWindows();++windowIndex)
@@ -863,7 +904,8 @@ void Filming::disable(void)
 	/* Restore the environment's background color: */
 	setBackgroundColor(originalBackgroundColor);
 	
-	active=false;
+	/* Disable the vislet: */
+	Vislet::disable();
 	}
 
 void Filming::enable(void)
@@ -930,7 +972,8 @@ void Filming::enable(void)
 		/* Override the environment's background color: */
 		setBackgroundColor(backgroundColor);
 		
-		active=true;
+		/* Enable the vislet: */
+		Vislet::enable();
 		}
 	}
 

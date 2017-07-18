@@ -1,6 +1,6 @@
 ========================================================================
-README for Vrui version 4.2, build 006
-Copyright (c) 1998-2016 Oliver Kreylos
+README for Vrui version 4.3, build 001
+Copyright (c) 1998-2017 Oliver Kreylos
 ========================================================================
 
 Overview
@@ -391,6 +391,44 @@ host system by looking for AL/al.h in /usr/include and
 SYSTEM_HAVE_OPENAL makefile variable needs to be set manually, and the
 paths to OpenAL need to be adjusted in BuildRoot/Packages.
 
+Support for HTC Vive head-mounted VR displays
+---------------------------------------------
+
+As of version 4.0-001, Vrui contains native support for HTC Vive VR
+headsets. This support relies on the presence of SteamVR on the local
+computer. SteamVR can be downloaded through the Steam content
+distribution system at no cost, but it requires a Steam account, and an
+installation of the Steam client on the local system. Pre-packaged Steam
+client binaries are available for most Linux distributions, including
+Ubuntu (and Linux Mint) and Fedora.
+
+Once the Steam client is installed, start it, create an account (also at
+no cost), select "Library" from the Steam client window, select "Tools"
+from the drop-down menu, and then look for SteamVR and install it. Once
+installation is done, the Steam client can be closed. It is not
+necessary to run the Steam client later to run Vrui applications on the
+Vive. In fact, we recommend never running the Steam client again to
+prevent automatic updates from breaking Vrui compatibility.
+
+Vrui's makefile attempts to detect the presence of SteamVR on the local
+system, and build support for the HTC Vive if SteamVR is present. If
+Vrui was built before SteamVR was installed, Vrui's VRDeviceDaemon
+module needs to be removed before Vrui is built again. From Vrui's root
+source directory, run
+
+> rm -r o/g++-3.g0.O3/VRDeviceDaemon
+
+and then run make again.
+
+If Vrui does not find the SteamVR installation automatically, the path
+to SteamVR's root directory, which ends in the suffix /common/SteamVR,
+can be passed on make's command line. For example,
+
+> make STEAMVRDIR=/opt/Steam/SteamApps/common/SteamVR
+
+For more information, see "Setting up HTC Vive" and "Running Vrui
+Applications on HTC Vive."
+
 Support for shared-memory multi-pipe rendering systems
 ------------------------------------------------------
 
@@ -444,6 +482,39 @@ be compiled/linked with debugging information as usual. The easiest way
 to achieve this is to use Vrui's included build system, in which case
 passing "DEBUG=1" to an application makefile will set everything up
 correctly.
+
+Setting up HTC Vive
+===================
+
+If Vrui was built with support for HTC Vive VR headsets, the users
+physical environment needs to be configured before Vrui applications
+should be run on the HTC Vive. In general, any Vrui utility or
+application using the HTC Vive requires that Vrui's device driver,
+VRDeviceDaemon, is running. To start VRDeviceDaemon in Vive mode, open
+a new terminal window and run:
+
+> RunViveTracker.sh
+
+Leave the daemon running until it is no longer needed, then shut it down
+by pressing Ctrl+C in its terminal.
+
+The device driver can be tested by connecting to it using Vrui's
+DeviceTest utility. From a second terminal, run:
+
+> DeviceTest localhost:8555 -t 0 -p
+
+This will continuously print the 3D position of the Vive headset until
+shut down by pressing any key. If the 3D position is initially invalid
+(no numbers, dashes only), hold up the Vive headset such that both
+tracking base stations can see it.
+
+If tracking is working, run Vrui's RoomSetup utility:
+
+> RoomSetup Vive
+
+and work through the setup dialog to configure the room's center point,
+forward direction, and establish protection boundaries. When done, save
+the setup through the button in the setup dialog and close RoomSetup.
 
 Building Example Vrui Applications
 ==================================
@@ -523,3 +594,10 @@ following cascade:
 
 The HTML pages in $(INSTALLDIR)/share/doc contain additional information
 about configuring, running, and using Vrui applications.
+
+Running Vrui Applications on HTC Vive
+=====================================
+
+To run a Vrui application on the HTC Vive, first start Vrui's device
+driver in Vive mode as detailed above. Then, run any Vrui application
+and append -rootSection Vive to the end of its command line.

@@ -2,7 +2,7 @@
 BaseImage - Generic base class to represent images of arbitrary pixel
 formats. The image coordinate system is such that pixel (0,0) is in the
 lower-left corner.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -89,12 +89,11 @@ class BaseImage
 		:rep(sRep)
 		{
 		}
-	protected:
+	public:
 	BaseImage(unsigned int sWidth,unsigned int sHeight,unsigned int sNumChannels,unsigned int sChannelSize,GLenum sFormat,GLenum sScalarType) // Creates an uninitialized image of the given size and format
 		:rep(new ImageRepresentation(sWidth,sHeight,sNumChannels,sChannelSize,sFormat,sScalarType))
 		{
 		}
-	public:
 	BaseImage(const BaseImage& source) // Copies an existing image (does not copy image representation)
 		:rep(source.rep!=0?source.rep->attach():0)
 		{
@@ -155,6 +154,10 @@ class BaseImage
 		{
 		return rep->channelSize;
 		}
+	ptrdiff_t getRowStride(void) const // Returns the offset between adjacent pixel rows in bytes
+		{
+		return ptrdiff_t(rep->size[0])*rep->numChannels*rep->channelSize;
+		}
 	const void* getPixels(void) const // Returns untyped pointer to the pixel array
 		{
 		return rep->image;
@@ -177,9 +180,11 @@ class BaseImage
 		{
 		return rep->scalarType;
 		}
+	GLenum getInternalFormat(void) const; // Returns an internal OpenGL texture format compatible with this image
 	BaseImage& glReadPixels(GLint x,GLint y); // Reads the frame buffer contents into the image
 	void glDrawPixels(void) const; // Writes image to the frame buffer at the current raster position
 	void glTexImage2D(GLenum target,GLint level,GLint internalFormat,bool padImageSize =false) const; // Uploads an image as an OpenGL texture
+	void glTexImage2D(GLenum target,GLint level,bool padImageSize =false) const; // Ditto, but guesses internal format based on image format
 	void glTexSubImage2D(GLenum target,GLint level,GLint xOffset,GLint yOffset) const; // Uploads an image as a part of a larger OpenGL texture
 	void glTexSubImage3D(GLenum target,GLint level,GLint xOffset,GLint yOffset,GLint zOffset) const; // Uploads an image as a (part of) single slice of an OpenGL 3D texture
 	};

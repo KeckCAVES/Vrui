@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,7 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
-#include <Realtime/Time.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/GlyphRenderer.h>
@@ -45,7 +45,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 // #define SAVE_TRACKERSTATES
 
 #ifdef MEASURE_LATENCY
-#include <Realtime/Time.h>
 Realtime::TimePointMonotonic lastUpdate;
 #endif
 
@@ -113,8 +112,12 @@ void InputDeviceAdapterDeviceDaemon::createInputDevice(int deviceIndex,const Mis
 			/* Create new input device as a physical device: */
 			std::string deviceName=configFileSection.retrieveString("./name",vd.name);
 			InputDevice* newDevice=inputDeviceManager->createInputDevice(deviceName.c_str(),trackType,vd.numButtons,vd.numValuators,true);
-			newDevice->setDeviceRay(vd.rayDirection,vd.rayStart);
-	
+			
+			/* Set the device's selection ray: */
+			Vector rayDirection=configFileSection.retrieveValue<Vector>("./deviceRayDirection",vd.rayDirection);
+			Scalar rayStart=configFileSection.retrieveValue<Scalar>("./deviceRayStart",vd.rayStart);
+			newDevice->setDeviceRay(rayDirection,rayStart);
+			
 			/* Initialize the new device's glyph from the current configuration file section: */
 			Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
 			deviceGlyph.configure(configFileSection,"./deviceGlyphType","./deviceGlyphMaterial");
@@ -198,7 +201,7 @@ InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManage
 	:InputDeviceAdapterIndexMap(sInputDeviceManager),
 	 deviceClient(configFileSection),
 	 predictMotion(configFileSection.retrieveValue<bool>("./predictMotion",false)),
-	 motionPredictionDelta(configFileSection.retrieveValue<float>("./motionPredictionDelta",0.0f))
+	 motionPredictionDelta(configFileSection.retrieveValue<double>("./motionPredictionDelta",0.0))
 	{
 	#ifdef SAVE_TRACKERSTATES
 	realFile=IO::openFile("RealTrackerData.dat",IO::File::WriteOnly);
@@ -324,11 +327,24 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 	
 	#endif
 	
-	if(predictMotion)
+	/* Check if motion prediction is enabled: */
+	if(predictMotion||inputDeviceManager->isPredictionEnabled())
 		{
-		/* Get the current time for input device motion prediction: */
-		Realtime::TimePointMonotonic now;
-		VRDeviceState::TimeStamp nowTs=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+		/* Calculate the prediction time point: */
+		VRDeviceState::TimeStamp predictionTs;
+		if(inputDeviceManager->isPredictionEnabled())
+			{
+			/* Get the prediction time point from the input device manager: */
+			const Realtime::TimePointMonotonic& pt=inputDeviceManager->getPredictionTime();
+			predictionTs=VRDeviceState::TimeStamp(pt.tv_sec*1000000+(pt.tv_nsec+500)/1000);
+			}
+		else
+			{
+			/* Get the current time for input device motion prediction and offset by the motion prediction delta: */
+			Realtime::TimePointMonotonic now;
+			now+=motionPredictionDelta;
+			predictionTs=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+			}
 		
 		for(int deviceIndex=0;deviceIndex<numInputDevices;++deviceIndex)
 			{
@@ -344,7 +360,7 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 				/* Motion-predict the device's tracker state from its sampling time to the current time: */
 				typedef VRDeviceState::TrackerState::PositionOrientation PO;
 				
-				float predictionDelta=float(nowTs-state.getTrackerTimeStamp(trackerIndexMapping[deviceIndex]))*1.0e-6f+motionPredictionDelta;
+				float predictionDelta=float(predictionTs-state.getTrackerTimeStamp(trackerIndexMapping[deviceIndex]))*1.0e-6f;
 				
 				PO::Rotation predictRot=PO::Rotation::rotateScaledAxis(ts.angularVelocity*predictionDelta)*ts.positionOrientation.getRotation();
 				predictRot.renormalize();
@@ -410,13 +426,52 @@ TrackerState InputDeviceAdapterDeviceDaemon::peekTrackerState(int deviceIndex)
 	{
 	if(trackerIndexMapping[deviceIndex]>=0)
 		{
-		/* Get device's tracker state from VR device client: */
-		deviceClient.lockState();
-		const VRDeviceState& state=deviceClient.getState();
-		TrackerState result=state.getTrackerState(trackerIndexMapping[deviceIndex]).positionOrientation;
-		deviceClient.unlockState();
-		
-		return result;
+		/* Check if motion prediction is enabled: */
+		if(predictMotion||inputDeviceManager->isPredictionEnabled())
+			{
+			/* Calculate the prediction time point: */
+			VRDeviceState::TimeStamp predictionTs;
+			if(inputDeviceManager->isPredictionEnabled())
+				{
+				/* Get the prediction time point from the input device manager: */
+				const Realtime::TimePointMonotonic& pt=inputDeviceManager->getPredictionTime();
+				predictionTs=VRDeviceState::TimeStamp(pt.tv_sec*1000000+(pt.tv_nsec+500)/1000);
+				}
+			else
+				{
+				/* Get the current time for input device motion prediction and offset by the motion prediction delta: */
+				Realtime::TimePointMonotonic now;
+				now+=motionPredictionDelta;
+				predictionTs=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
+				}
+			
+			/* Get device's tracker state from VR device client: */
+			deviceClient.lockState();
+			const VRDeviceState& state=deviceClient.getState();
+			const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndexMapping[deviceIndex]);
+			
+			/* Motion-predict the device's tracker state from its sampling time to the current time: */
+			typedef VRDeviceState::TrackerState::PositionOrientation PO;
+			float predictionDelta=float(predictionTs-state.getTrackerTimeStamp(trackerIndexMapping[deviceIndex]))*1.0e-6f;
+			PO::Rotation predictRot=PO::Rotation::rotateScaledAxis(ts.angularVelocity*predictionDelta)*ts.positionOrientation.getRotation();
+			predictRot.renormalize();
+			PO::Vector predictTrans=ts.linearVelocity*predictionDelta+ts.positionOrientation.getTranslation();
+			TrackerState result=TrackerState(predictTrans,predictRot);
+			
+			deviceClient.unlockState();
+			
+			return result;
+			}
+		else
+			{
+			/* Get device's tracker state from VR device client: */
+			deviceClient.lockState();
+			const VRDeviceState& state=deviceClient.getState();
+			TrackerState result=state.getTrackerState(trackerIndexMapping[deviceIndex]).positionOrientation;
+			deviceClient.unlockState();
+			
+			return result;
+			}
 		}
 	else
 		{

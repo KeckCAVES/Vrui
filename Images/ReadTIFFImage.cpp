@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadTIFFImage - Functions to read RGB images from image files in TIFF
 formats over an IO::SeekableFile abstraction.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -35,6 +35,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <IO/File.h>
 #include <IO/SeekableFile.h>
 #include <IO/SeekableFilter.h>
+#include <GL/gl.h>
+#include <Images/BaseImage.h>
+#include <Images/RGBImage.h>
+#include <Images/RGBAImage.h>
 
 namespace Images {
 
@@ -256,6 +260,172 @@ RGBAImage readTransparentTIFFImage(const char* imageName,IO::File& source)
 		TIFFClose(tiff);
 	return result;
 	}
+
+#if 0 // Fercrissakes, I'll do this later. TIFF is such a shitty image file format
+
+RGBAImage readGenericTIFFImage(const char* imageName,IO::File& source)
+	{
+	/* Check if the source file is seekable: */
+	IO::SeekableFilePtr seekableSource(&source);
+	if(seekableSource==0)
+		{
+		/* Create a seekable filter for the source file: */
+		seekableSource=new IO::SeekableFilter(&source);
+		}
+	
+	/* Set the TIFF error handler: */
+	TIFFSetErrorHandler(tiffErrorFunction);
+	
+	TIFF* tiff=0;
+	BaseImage result;
+	uint32* rgbaBuffer=0;
+	try
+		{
+		/* Pretend to open the TIFF file and register the hook functions: */
+		tiff=TIFFClientOpen(imageName,"rm",seekableSource.getPointer(),tiffReadFunction,tiffWriteFunction,tiffSeekFunction,tiffCloseFunction,tiffSizeFunction,tiffMapFileFunction,tiffUnmapFileFunction);
+		if(tiff==0)
+			throw std::runtime_error("Error while opening image");
+		
+		/* Extract the image header: */
+		uint32 width,height;
+		TIFFGetField(tiff,TIFFTAG_IMAGEWIDTH,&width);
+		TIFFGetField(tiff,TIFFTAG_IMAGELENGTH,&height);
+		uint16 numBits,numSamples,sampleFormat;
+		TIFFGetField(tif,TIFFTAG_BITSPERSAMPLE,&numBits);
+		TIFFGetField(tif,TIFFTAG_SAMPLESPERPIXEL,&numSamples);
+		TIFFGetField(tif,TIFFTAG_SAMPLEFORMAT,&sampleFormat);
+		
+		/* Determine the result image format: */
+		unsigned int numChannels=numSamples;
+		GLenum format=GL_RGB;
+		switch(numChannels)
+			{
+			case 1:
+				format=GL_LUMINANCE;
+				break;
+			
+			case 2:
+				format=GL_LUMINANCE_ALPHA;
+				break;
+			
+			case 3:
+				format=GL_RGB;
+				break;
+			
+			case 4:
+				format=GL_RGBA;
+				break;
+			
+			default:
+				Misc::throwStdErr("Unsupported number %u of channels",numChannels);
+			}
+		unsigned int channelSize=1;
+		GLenum channelType=GL_UNSIGNED_BYTE;
+		if(numBits>32)
+			Misc::throwStdErr("Unsupported channel bit size %u",numBits);
+		else if(numBits>16)
+			{
+			channelSize=4;
+			switch(sampleFormat)
+				{
+				case SAMPLEFORMAT_UINT:
+					channelType=GL_UNSIGNED_INT;
+					break;
+				
+				case SAMPLEFORMAT_INT:
+					channelType=GL_SIGNED_INT;
+					break;
+				
+				case SAMPLEFORMAT_IEEEFP:
+					channelType=GL_FLOAT;
+					break;
+				
+				default:
+					Misc::throwStdErr("Unsupported sample format %u",sampleFormat);
+				}
+			}
+		else if(numBits>8)
+			{
+			channelSize=2;
+			switch(sampleFormat)
+				{
+				case SAMPLEFORMAT_UINT:
+					channelType=GL_UNSIGNED_SHORT;
+					break;
+				
+				case SAMPLEFORMAT_INT:
+					channelType=GL_SIGNED_SHORT;
+					break;
+				
+				default:
+					Misc::throwStdErr("Unsupported sample format %u",sampleFormat);
+				}
+			}
+		else
+			{
+			channelSize=1;
+			switch(sampleFormat)
+				{
+				case SAMPLEFORMAT_UINT:
+					channelType=GL_UNSIGNED_BYTE;
+					break;
+				
+				case SAMPLEFORMAT_INT:
+					channelType=GL_SIGNED_BYTE;
+					break;
+				
+				default:
+					Misc::throwStdErr("Unsupported sample format %u",sampleFormat);
+				}
+			}
+		
+		
+		
+		
+		
+		
+		
+		/* Create the result image: */
+		result=RGBAImage(width,height);
+		
+		/* Allocate a temporary RGBA buffer: */
+		rgbaBuffer=new uint32[height*width];
+		
+		/* Read the TIFF image into the temporary buffer: */
+		if(!TIFFReadRGBAImage(tiff,width,height,rgbaBuffer))
+			throw std::runtime_error("Error while reading image");
+		
+		/* Copy the RGBA image data into the result image: */
+		uint32* sPtr=rgbaBuffer;
+		RGBAImage::Color* dPtr=result.modifyPixels();
+		for(uint32 y=0;y<height;++y)
+			for(uint32 x=0;x<width;++x,++sPtr,++dPtr)
+				{
+				(*dPtr)[0]=RGBImage::Scalar(TIFFGetR(*sPtr));
+				(*dPtr)[1]=RGBImage::Scalar(TIFFGetG(*sPtr));
+				(*dPtr)[2]=RGBImage::Scalar(TIFFGetB(*sPtr));
+				(*dPtr)[3]=RGBAImage::Scalar(TIFFGetA(*sPtr));
+				}
+		}
+	catch(std::runtime_error err)
+		{
+		/* Clean up: */
+		delete[] rgbaBuffer;
+		if(tiff!=0)
+			TIFFClose(tiff);
+		
+		/* Wrap and re-throw the exception: */
+		Misc::throwStdErr("Images::readTransparentTIFFImage: Caught exception \"%s\" while reading image \"%s\"",err.what(),imageName);
+		}
+	
+	/* Clean up and return the result image: */
+	delete[] rgbaBuffer;
+	if(tiff!=0)
+		TIFFClose(tiff);
+	return result;
+	}
+
+#endif
 
 }
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMouse - Class to convert mouse and keyboard into a
 Vrui input device.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -357,6 +357,12 @@ InputDeviceAdapterMouse::InputDeviceAdapterMouse(InputDeviceManager* sInputDevic
 	
 	/* Check if the mouse cursor should be hidden on idle: */
 	mouseIdleTimeout=configFileSection.retrieveValue<double>("./mouseIdleTimeout",mouseIdleTimeout);
+	if(mouseIdleTimeout>0.0)
+		{
+		/* Schedule a Vrui frame at time-out to check the mouse's idle state again: */
+		lastMouseEventTime=Vrui::getApplicationTime();
+		scheduleUpdate(lastMouseEventTime+mouseIdleTimeout);
+		}
 	}
 
 InputDeviceAdapterMouse::~InputDeviceAdapterMouse(void)
@@ -562,43 +568,52 @@ void InputDeviceAdapterMouse::updateInputDevices(void)
 		inputDevices[0]->setValuator(numValuators+2,0.0);
 		inputDevices[0]->setValuator(numValuators+3,0.0);
 		#endif
-		
-		if(mouseIdleTimeout>0.0)
+		}
+	
+	if(mouseIdleTimeout>0.0)
+		{
+		/* Process idle time-out: */
+		if(getApplicationTime()>=lastMouseEventTime+mouseIdleTimeout)
 			{
-			/* Process idle time-out: */
-			if(getApplicationTime()>=lastMouseEventTime+mouseIdleTimeout)
-				{
-				/* Mark the mouse as idle: */
-				mouseIdle=true;
-				
-				/* Hide the mouse cursor: */
-				hideCursor(true);
-				}
-			else
-				{
-				/* Mark the mouse as active: */
-				mouseIdle=false;
-				
-				/* Show the mouse cursor: */
-				if(!mouseLocked)
-					hideCursor(false);
-				
-				/* Schedule another Vrui frame at time-out to check the mouse's idle state again: */
-				scheduleUpdate(lastMouseEventTime+mouseIdleTimeout);
-				}
+			/* Mark the mouse as idle: */
+			mouseIdle=true;
+			
+			/* Hide the mouse cursor: */
+			hideCursor(true);
+			}
+		else
+			{
+			/* Mark the mouse as active: */
+			mouseIdle=false;
+			
+			/* Show the mouse cursor: */
+			if(!mouseLocked)
+				hideCursor(false);
+			
+			/* Schedule another Vrui frame at time-out to check the mouse's idle state again: */
+			scheduleUpdate(lastMouseEventTime+mouseIdleTimeout);
 			}
 		}
 	}
 
 void InputDeviceAdapterMouse::setMousePosition(VRWindow* newWindow,int newMouseX,int newMouseY)
 	{
-	/* Set current mouse position: */
+	/* Remember the window that created the mouse event: */
 	window=newWindow;
-	mousePos[0]=Scalar(newMouseX)+Scalar(0.5);
-	mousePos[1]=Scalar(newMouseY)+Scalar(0.5);
 	
-	/* Remember event time for idle time-out processing: */
-	lastMouseEventTime=getApplicationTime();
+	/* Check if the mouse position actually changed: */
+	Scalar newMousePos[2];
+	newMousePos[0]=Scalar(newMouseX)+Scalar(0.5);
+	newMousePos[1]=Scalar(newMouseY)+Scalar(0.5);
+	if(mousePos[0]!=newMousePos[0]||mousePos[1]!=newMousePos[1])
+		{
+		/* Set current mouse position: */
+		for(int i=0;i<2;++i)
+			mousePos[i]=newMousePos[i];
+		
+		/* Remember event time for idle time-out processing: */
+		lastMouseEventTime=getApplicationTime();
+		}
 	
 	// requestUpdate();
 	}
@@ -680,7 +695,7 @@ bool InputDeviceAdapterMouse::keyPressed(int keysym,int modifierMask,const char*
 	// requestUpdate();
 	
 	/* Remember event time for idle time-out processing: */
-	lastMouseEventTime=getApplicationTime();
+	// lastMouseEventTime=getApplicationTime();
 	
 	return stateChanged;
 	}
@@ -713,7 +728,7 @@ bool InputDeviceAdapterMouse::keyReleased(int keysym)
 		}
 	
 	/* Remember event time for idle time-out processing: */
-	lastMouseEventTime=getApplicationTime();
+	// lastMouseEventTime=getApplicationTime();
 	
 	return stateChanged;
 	}

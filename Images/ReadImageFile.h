@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadImageFile - Functions to read RGB images from a variety of file
 formats.
-Copyright (c) 2005-2011 Oliver Kreylos
+Copyright (c) 2005-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define IMAGES_READIMAGEFILE_INCLUDED
 
 #include <IO/File.h>
+#include <Images/BaseImage.h>
 #include <Images/RGBImage.h>
 #include <Images/RGBAImage.h>
 
@@ -36,6 +37,9 @@ RGBImage readImageFile(const char* imageFileName); // Ditto, but opens the given
 
 RGBAImage readTransparentImageFile(const char* imageFileName,IO::FilePtr file); // Reads an RGB image with alpha layer from an already-open file; auto-detects file format
 RGBAImage readTransparentImageFile(const char* imageFileName); // Ditto, but opens the given file itself
+
+BaseImage readGenericImageFile(const char* imageFileName,IO::FilePtr file); // Reads a generic image of arbitrary number of channels or channel types from an already-open file; auto-detects file format
+BaseImage readGenericImageFile(const char* imageFileName); // Ditto, but opens the file itself
 
 RGBAImage readCursorFile(const char* cursorFileName,IO::FilePtr file,unsigned int nominalSize,unsigned int* hotspot =0); // Reads an RGBA image from a cursor file in Xcursor format
 RGBAImage readCursorFile(const char* cursorFileName,unsigned int nominalSize,unsigned int* hotspot =0); // Reads an RGBA image from a cursor file in Xcursor format

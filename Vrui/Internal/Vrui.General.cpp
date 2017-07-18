@@ -1,7 +1,7 @@
 /***********************************************************************
 Environment-independent part of Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2016 Oliver Kreylos
+Copyright (c) 2000-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -97,6 +97,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/ClipPlaneManager.h>
 #include <Vrui/Viewer.h>
 #include <Vrui/VRScreen.h>
+#include <Vrui/VRWindow.h>
 #include <Vrui/WindowProperties.h>
 #include <Vrui/Listener.h>
 #include <Vrui/MutexMenu.h>
@@ -481,12 +482,13 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 displayFunction(0),displayFunctionData(0),
 	 soundFunction(0),soundFunctionData(0),
 	 resetNavigationFunction(0),resetNavigationFunctionData(0),
-	 minimumFrameTime(0.0),nextFrameTime(0.0),
+	 minimumFrameTime(0.0),lastFrame(0.0),nextFrameTime(0.0),
 	 synchFrameTime(0.0),synchWait(false),
 	 numRecentFrameTimes(0),recentFrameTimes(0),nextFrameTimeIndex(0),sortedFrameTimes(0),
 	 animationFrameInterval(1.0/125.0),
 	 activeNavigationTool(0),
-	 updateContinuously(false)
+	 updateContinuously(false),
+	 predictVsync(false),vsyncInterval(0,0),numVsyncs(0),nextVsync(0,0),postVsyncDisplayDelay(0.0)
 	{
 	#if SAVESHAREDVRUISTATE
 	vruiSharedStateFile=IO::openFile("/tmp/VruiSharedState.dat",IO::File::WriteOnly);
@@ -506,6 +508,9 @@ VruiState::~VruiState(void)
 	
 	/* Deregister the popup callback: */
 	widgetManager->getWidgetPopCallbacks().remove(this,&VruiState::widgetPopCallback);
+	
+	/* Delete an optional input device data saver: */
+	delete inputDeviceDataSaver;
 	
 	/* Destroy the input graph: */
 	inputGraphManager->clear();
@@ -550,7 +555,6 @@ VruiState::~VruiState(void)
 	
 	/* Delete input device management: */
 	delete multipipeDispatcher;
-	delete inputDeviceDataSaver;
 	delete inputDeviceManager;
 	delete textEventDispatcher;
 	
@@ -917,6 +921,21 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	
 	/* Initialize the suggested animation frame interval: */
 	animationFrameInterval=configFileSection.retrieveValue<double>("./animationFrameInterval",animationFrameInterval);
+	
+	/* Initialize latency mitigation: */
+	predictVsync=configFileSection.retrieveValue<bool>("./predictVsync",predictVsync);
+	if(predictVsync)
+		{
+		/* Read the synchronized display's frame duration in ms: */
+		vsyncInterval=Realtime::TimeVector(configFileSection.retrieveValue<double>("./vsyncInterval")/1000.0);
+		
+		/* Read the synchronized display's post-vsync delay in ms: */
+		postVsyncDisplayDelay=configFileSection.retrieveValue<double>("./postVsyncDisplayDelay")/1000.0;
+		
+		/* Initialize the next vsync time to a very large value, to be corrected during the first frame: */
+		nextVsync.set();
+		nextVsync+=Realtime::TimeVector(100000,0);
+		}
 	}
 
 void VruiState::createSystemMenu(void)
@@ -1093,6 +1112,17 @@ void VruiState::update(void)
 	int navBroadcastMask=navigationTransformationChangedMask;
 	if(master)
 		{
+		/* Check if device state prediction is enabled and at least a few vsync periods have passed: */
+		if(predictVsync&&numVsyncs>=10)
+			{
+			/* Calculate the presentation time of the synched display based on the predicted vsync time and post-vsync delay: */
+			Realtime::TimePointMonotonic predictTime=nextVsync;
+			predictTime+=postVsyncDisplayDelay;
+			
+			/* Set the prediction time for the current frame in the input device manager: */
+			inputDeviceManager->setPredictionTime(predictTime);
+			}
+		
 		/* Update all physical input devices: */
 		inputDeviceManager->updateInputDevices();
 		
@@ -1433,7 +1463,7 @@ void VruiState::display(DisplayState* displayState,GLContextData& contextData) c
 	contextData.getClipPlaneTracker()->pause();
 	
 	/* Render screen protectors if necessary: */
-	if(renderProtection>Scalar(0))
+	if(displayState->window->protectScreens&&renderProtection>Scalar(0))
 		{
 		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
 		glDisable(GL_DEPTH_TEST);
@@ -1664,6 +1694,8 @@ void VruiState::protectScreensCallback(GLMotif::ToggleButton::ValueChangedCallba
 	{
 	/* Toggle screen protection: */
 	protectScreens=cbData->set;
+	if(!protectScreens)
+		renderProtection=Scalar(0);
 	}
 
 void VruiState::showScaleBarToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData)
@@ -1736,6 +1768,15 @@ void synchronize(double nextFrameTime,bool wait)
 	vruiState->synchWait=wait;
 	}
 
+void resetNavigation(void)
+	{
+	/* Call the application-provided reset function: */
+	if(vruiState->resetNavigationFunction!=0)
+		{
+		(*vruiState->resetNavigationFunction)(vruiState->resetNavigationFunctionData);
+		}
+	}
+
 void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize)
 	{
 	/* Update the display center: */
@@ -1744,12 +1785,31 @@ void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize)
 	vruiState->navigationTransformationChangedMask|=0x2;
 	}
 
-void resetNavigation(void)
+void vsync(void)
 	{
-	/* Call the application-provided reset function: */
-	if(vruiState->resetNavigationFunction!=0)
+	/* Check if vsync prediction is enabled: */
+	if(vruiState->predictVsync)
 		{
-		(*vruiState->resetNavigationFunction)(vruiState->resetNavigationFunctionData);
+		/* Get the current time: */
+		Realtime::TimePointMonotonic now;
+		
+		/* Check if vsync occurred earlier than predicted: */
+		if(vruiState->nextVsync>=now)
+			{
+			/* Correct the prediction: */
+			vruiState->nextVsync=now;
+			++vruiState->numVsyncs;
+			vruiState->nextVsync+=vruiState->vsyncInterval;
+			}
+		else
+			{
+			/* Advance the prediction in frame increments until the predicted time is later than the current time: */
+			while(vruiState->nextVsync<now)
+				{
+				++vruiState->numVsyncs;
+				vruiState->nextVsync+=vruiState->vsyncInterval;
+				}
+			}
 		}
 	}
 

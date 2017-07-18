@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceServer - Class encapsulating the VR device protocol's server
 side.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -32,6 +32,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/HMDConfiguration.h>
 
 #include <VRDeviceDaemon/VRDeviceManager.h>
+
+#define VRDEVICEDAEMON_DEBUG_PROTOCOL 0
 
 namespace {
 
@@ -73,33 +75,38 @@ bool VRDeviceServer::newConnectionCallback(Threads::EventDispatcher::ListenerKey
 	{
 	VRDeviceServer* thisPtr=static_cast<VRDeviceServer*>(userData);
 	
-	// DEBUGGING
+	#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 	printf("Creating new client state..."); fflush(stdout);
+	#endif
 	
 	/* Create a new client state object and add it to the list: */
 	ClientState* newClient=new ClientState(thisPtr,thisPtr->listenSocket);
 	
-	// DEBUGGING
+	#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 	printf(" done\n");
+	#endif
 	
 	#ifdef VERBOSE
 	printf("VRDeviceServer: Connecting new client %s\n",newClient->clientName.c_str());
 	fflush(stdout);
 	#endif
 	
-	// DEBUGGING
+	#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 	printf("Adding new client state to list\n");
+	#endif
 	
 	thisPtr->clientStates.push_back(newClient);
 	
-	// DEBUGGING
+	#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 	printf("Adding listener for client's socket\n");
+	#endif
 	
 	/* Add an event listener for incoming messages from the client: */
 	newClient->listenerKey=thisPtr->dispatcher.addIOEventListener(newClient->pipe.getFd(),Threads::EventDispatcher::Read,thisPtr->clientMessageCallback,newClient);
 	
-	// DEBUGGING
+	#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 	printf("Client connected\n");
+	#endif
 	
 	return false;
 	}
@@ -157,14 +164,16 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 		/* Process messages as long as there is data in the read buffer: */
 		while(!result&&client->pipe.canReadImmediately())
 			{
-			// DEBUGGING
+			#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 			printf("Reading message..."); fflush(stdout);
+			#endif
 			
 			/* Read the next message from the client: */
 			Vrui::VRDevicePipe::MessageIdType message=client->pipe.readMessage();
 			
-			// DEBUGGING
+			#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 			printf(" done, %u\n",(unsigned int)message);
+			#endif
 			
 			/* Run the client state machine: */
 			switch(client->state)
@@ -172,17 +181,20 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 				case START:
 					if(message==Vrui::VRDevicePipe::CONNECT_REQUEST)
 						{
-						// DEBUGGING
+						#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 						printf("Reading protocol version..."); fflush(stdout);
+						#endif
 						
 						/* Read client's protocol version number: */
 						client->protocolVersion=client->pipe.read<Misc::UInt32>();
 						
-						// DEBUGGING
+						#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 						printf(" done, %u\n",client->protocolVersion);
+						#endif
 						
-						// DEBUGGING
+						#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 						printf("Sending connect reply..."); fflush(stdout);
+						#endif
 						
 						/* Send connect reply message: */
 						client->pipe.writeMessage(Vrui::VRDevicePipe::CONNECT_REPLY);
@@ -199,11 +211,21 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 							/* Send the layout of all virtual devices: */
 							client->pipe.write<Misc::SInt32>(thisPtr->deviceManager->getNumVirtualDevices());
 							for(int deviceIndex=0;deviceIndex<thisPtr->deviceManager->getNumVirtualDevices();++deviceIndex)
-								thisPtr->deviceManager->getVirtualDevice(deviceIndex).write(client->pipe);
+								thisPtr->deviceManager->getVirtualDevice(deviceIndex).write(client->pipe,client->protocolVersion);
 							}
 						
 						/* Check if the client expects tracker state time stamps: */
 						client->clientExpectsTimeStamps=client->protocolVersion>=3U;
+						
+						/* Check if the client expects device battery states: */
+						if(client->protocolVersion>=5U)
+							{
+							/* Send all current device battery states: */
+							thisPtr->deviceManager->lockBatteryStates();
+							for(int deviceIndex=0;deviceIndex<thisPtr->deviceManager->getNumVirtualDevices();++deviceIndex)
+								thisPtr->deviceManager->getBatteryState(deviceIndex).write(client->pipe);
+							thisPtr->deviceManager->unlockBatteryStates();
+							}
 						
 						/* Check if the client expects HMD configurations: */
 						if(client->protocolVersion>=4U)
@@ -219,11 +241,15 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 							thisPtr->deviceManager->unlockHmdConfigurations();
 							}
 						
+						/* Check if the client expects tracker valid flags: */
+						client->clientExpectsValidFlags=client->protocolVersion>=5;
+						
 						/* Finish the reply message: */
 						client->pipe.flush();
 						
-						// DEBUGGING
+						#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 						printf(" done\n");
+						#endif
 						
 						/* Go to connected state: */
 						client->state=CONNECTED;
@@ -261,8 +287,9 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 				case ACTIVE:
 					if(message==Vrui::VRDevicePipe::PACKET_REQUEST||message==Vrui::VRDevicePipe::STARTSTREAM_REQUEST)
 						{
-						// DEBUGGING
+						#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 						printf("Sending packet reply..."); fflush(stdout);
+						#endif
 						
 						/* Send the current server state to the client: */
 						client->pipe.writeMessage(Vrui::VRDevicePipe::PACKET_REPLY);
@@ -270,7 +297,7 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 							{
 							/* Send server state: */
 							thisPtr->deviceManager->lockState();
-							thisPtr->deviceManager->getState().write(client->pipe,client->clientExpectsTimeStamps);
+							thisPtr->deviceManager->getState().write(client->pipe,client->clientExpectsTimeStamps,client->clientExpectsValidFlags);
 							thisPtr->deviceManager->unlockState();
 							}
 						catch(...)
@@ -283,8 +310,9 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 						/* Finish the reply message: */
 						client->pipe.flush();
 						
-						// DEBUGGING
+						#if VRDEVICEDAEMON_DEBUG_PROTOCOL
 						printf(" done\n");
+						#endif
 						
 						if(message==Vrui::VRDevicePipe::STARTSTREAM_REQUEST)
 							{
@@ -353,6 +381,16 @@ void VRDeviceServer::trackerUpdateNotificationCallback(VRDeviceManager* manager,
 	thisPtr->dispatcher.interrupt();
 	}
 
+void VRDeviceServer::batteryStateUpdatedCallback(VRDeviceManager* manager,unsigned int deviceIndex,const Vrui::BatteryState& batteryState,void* userData)
+	{
+	VRDeviceServer* thisPtr=static_cast<VRDeviceServer*>(userData);
+	
+	/* Update the version number of the device manager's device battery state and wake up the run loop: */
+	++thisPtr->batteryStateVersions[deviceIndex].managerVersion;
+	++thisPtr->managerBatteryStateVersion;
+	thisPtr->dispatcher.interrupt();
+	}
+
 void VRDeviceServer::hmdConfigurationUpdatedCallback(VRDeviceManager* manager,const Vrui::HMDConfiguration* hmdConfiguration,void* userData)
 	{
 	VRDeviceServer* thisPtr=static_cast<VRDeviceServer*>(userData);
@@ -362,8 +400,28 @@ void VRDeviceServer::hmdConfigurationUpdatedCallback(VRDeviceManager* manager,co
 	thisPtr->dispatcher.interrupt();
 	}
 
-bool VRDeviceServer::writeServerState(VRDeviceServer::ClientState* client)
+void VRDeviceServer::disconnectClientOnError(VRDeviceServer::ClientStateList::iterator csIt,const std::runtime_error& err)
 	{
+	/* Print error message to stderr: */
+	fprintf(stderr,"VRDeviceServer: Disconnecting client %s due to exception %s\n",(*csIt)->clientName.c_str(),err.what());
+	fflush(stderr);
+	
+	/* Disconnect the client: */
+	disconnectClient(*csIt,true,false);
+	
+	/* Remove the dead client from the list: */
+	delete *csIt;
+	*csIt=clientStates.back();
+	clientStates.pop_back();
+	}
+
+bool VRDeviceServer::writeServerState(VRDeviceServer::ClientStateList::iterator csIt)
+	{
+	/* Bail out if the client is not streaming: */
+	ClientState* client=*csIt;
+	if(!client->streaming)
+		return true;
+	
 	/* Send state to client: */
 	try
 		{
@@ -371,23 +429,56 @@ bool VRDeviceServer::writeServerState(VRDeviceServer::ClientState* client)
 		client->pipe.writeMessage(Vrui::VRDevicePipe::PACKET_REPLY);
 		
 		/* Send server state: */
-		deviceManager->getState().write(client->pipe,client->clientExpectsTimeStamps);
+		deviceManager->getState().write(client->pipe,client->clientExpectsTimeStamps,client->clientExpectsValidFlags);
 		client->pipe.flush();
 		}
 	catch(std::runtime_error err)
 		{
-		/* Print error message to stderr and mark client for termination: */
-		fprintf(stderr,"VRDeviceServer: Terminating client connection %s due to exception %s\n",client->clientName.c_str(),err.what());
-		fflush(stderr);
-		
+		/* Disconnect the client and signal an error: */
+		disconnectClientOnError(csIt,err);
 		return false;
 		}
 	
 	return true;
 	}
 
-bool VRDeviceServer::writeHmdConfiguration(VRDeviceServer::ClientState* client,VRDeviceServer::HMDConfigurationVersions& hmdConfigurationVersions)
+bool VRDeviceServer::writeBatteryState(VRDeviceServer::ClientStateList::iterator csIt,unsigned int deviceIndex)
 	{
+	/* Bail out if the client is not streaming or can't handle battery states: */
+	ClientState* client=*csIt;
+	if(!client->streaming||client->protocolVersion<5U)
+		return true;
+	
+	/* Send battery state to client: */
+	try
+		{
+		/* Send battery state update message: */
+		client->pipe.writeMessage(Vrui::VRDevicePipe::BATTERYSTATE_UPDATE);
+		
+		/* Send virtual device index: */
+		client->pipe.write<Misc::UInt16>(deviceIndex);
+		
+		/* Send battery state: */
+		deviceManager->getBatteryState(deviceIndex).write(client->pipe);
+		client->pipe.flush();
+		}
+	catch(std::runtime_error err)
+		{
+		/* Disconnect the client and signal an error: */
+		disconnectClientOnError(csIt,err);
+		return false;
+		}
+	
+	return true;
+	}
+
+bool VRDeviceServer::writeHmdConfiguration(VRDeviceServer::ClientStateList::iterator csIt,VRDeviceServer::HMDConfigurationVersions& hmdConfigurationVersions)
+	{
+	/* Bail out if the client is not streaming or can't handle HMD configurations: */
+	ClientState* client=*csIt;
+	if(!client->streaming||client->protocolVersion<4U)
+		return true;
+	
 	try
 		{
 		/* Send HMD configuration to client: */
@@ -396,10 +487,8 @@ bool VRDeviceServer::writeHmdConfiguration(VRDeviceServer::ClientState* client,V
 		}
 	catch(std::runtime_error err)
 		{
-		/* Print error message to stderr and mark client for termination: */
-		fprintf(stderr,"VRDeviceServer: Terminating client connection %s due to exception %s\n",client->clientName.c_str(),err.what());
-		fflush(stderr);
-		
+		/* Disconnect the client and signal an error: */
+		disconnectClientOnError(csIt,err);
 		return false;
 		}
 	
@@ -411,11 +500,15 @@ VRDeviceServer::VRDeviceServer(VRDeviceManager* sDeviceManager,const Misc::Confi
 	 listenSocket(configFile.retrieveValue<int>("./serverPort",-1),5),
 	 numActiveClients(0),numStreamingClients(0),
 	 managerTrackerStateVersion(0U),streamingTrackerStateVersion(0U),
+	 managerBatteryStateVersion(0U),streamingBatteryStateVersion(0U),batteryStateVersions(0),
 	 managerHmdConfigurationVersion(0U),streamingHmdConfigurationVersion(0U),
 	 numHmdConfigurations(deviceManager->getNumHmdConfigurations()),hmdConfigurationVersions(0)
 	{
 	/* Add an event listener for incoming connections on the listening socket: */
 	dispatcher.addIOEventListener(listenSocket.getFd(),Threads::EventDispatcher::Read,newConnectionCallback,this);
+	
+	/* Initialize the array of battery state version numbers: */
+	batteryStateVersions=new BatteryStateVersions[deviceManager->getNumVirtualDevices()];
 	
 	/* Initialize the array of HMD configuration version numbers: */
 	hmdConfigurationVersions=new HMDConfigurationVersions[numHmdConfigurations];
@@ -434,6 +527,7 @@ VRDeviceServer::~VRDeviceServer(void)
 		delete *csIt;
 	
 	/* Clean up: */
+	delete[] batteryStateVersions;
 	delete[] hmdConfigurationVersions;
 	}
 
@@ -444,8 +538,9 @@ void VRDeviceServer::run(void)
 	fflush(stdout);
 	#endif
 	
-	/* Enable tracker update and HMD configuration change notifications: */
+	/* Enable tracker update, battery state, and HMD configuration change notifications: */
 	deviceManager->enableTrackerUpdateNotification(trackerUpdateNotificationCallback,this);
+	deviceManager->setBatteryStateUpdatedCallback(batteryStateUpdatedCallback,this);
 	deviceManager->setHmdConfigurationUpdatedCallback(hmdConfigurationUpdatedCallback,this);
 	
 	/* Run the main loop and dispatch events until stopped: */
@@ -459,27 +554,44 @@ void VRDeviceServer::run(void)
 			
 			/* Send a state update to all clients in streaming mode: */
 			for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
-				if((*csIt)->streaming)
-					{
-					/* Write the server state to the client and check for errors: */
-					if(!writeServerState(*csIt))
-						{
-						/* Disconnect the client: */
-						disconnectClient(*csIt,true,false);
-						
-						/* Remove the dead client from the list: */
-						delete *csIt;
-						*csIt=clientStates.back();
-						clientStates.pop_back();
-						--csIt;
-						}
-					}
+				if(!writeServerState(csIt))
+					--csIt;
 			
 			/* Unlock the current server state: */
 			deviceManager->unlockState();
 			
 			/* Mark streaming state as up-to-date: */
 			streamingTrackerStateVersion=managerTrackerStateVersion;
+			}
+		
+		/* Check if any device battery states need to be sent: */
+		if(streamingBatteryStateVersion!=managerBatteryStateVersion)
+			{
+			deviceManager->lockBatteryStates();
+			
+			for(int i=0;i<deviceManager->getNumVirtualDevices();++i)
+				{
+				if(batteryStateVersions[i].streamingVersion!=batteryStateVersions[i].managerVersion)
+					{
+					#ifdef VERBOSE
+					printf("VRDeviceServer: Sending updated battery state %d to clients\n",i);
+					fflush(stdout);
+					#endif
+					
+					/* Send the new HMD configuration to all clients that are streaming and can handle it: */
+					for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
+						if(!writeBatteryState(csIt,i))
+							--csIt;
+					
+					/* Mark the battery state as up-to-date: */
+					batteryStateVersions[i].streamingVersion=batteryStateVersions[i].managerVersion;
+					}
+				}
+			
+			deviceManager->unlockBatteryStates();
+			
+			/* Mark device battery state as up-to-date: */
+			streamingBatteryStateVersion=managerBatteryStateVersion;
 			}
 		
 		/* Check if any HMD configuration updates need to be sent: */
@@ -493,36 +605,27 @@ void VRDeviceServer::run(void)
 				Vrui::HMDConfiguration& hc=*hmdConfigurationVersions[i].hmdConfiguration;
 				if(hmdConfigurationVersions[i].eyePosVersion!=hc.getEyePosVersion()||hmdConfigurationVersions[i].eyeVersion!=hc.getEyeVersion()||hmdConfigurationVersions[i].distortionMeshVersion!=hc.getDistortionMeshVersion())
 					{
-					printf("VRDeviceServer: Sending updated HMD configuration %u to clients...",i); fflush(stdout);
+					#ifdef VERBOSE
+					printf("VRDeviceServer: Sending updated HMD configuration %u to clients\n",i);
+					fflush(stdout);
+					#endif
 					
 					/* Send the new HMD configuration to all clients that are streaming and can handle it: */
 					for(ClientStateList::iterator csIt=clientStates.begin();csIt!=clientStates.end();++csIt)
-						if((*csIt)->streaming&&(*csIt)->protocolVersion>=4U)
-							{
-							/* Write the HMD configuration to the client and check for errors: */
-							if(!writeHmdConfiguration(*csIt,hmdConfigurationVersions[i]))
-								{
-								/* Disconnect the client: */
-								disconnectClient(*csIt,true,false);
-								
-								/* Remove the dead client from the list: */
-								delete *csIt;
-								*csIt=clientStates.back();
-								clientStates.pop_back();
-								--csIt;
-								}
-							}
+						if(!writeHmdConfiguration(csIt,hmdConfigurationVersions[i]))
+							--csIt;
 					
 					/* Mark the HMD configuration as up-to-date: */
 					hmdConfigurationVersions[i].eyePosVersion=hc.getEyePosVersion();
 					hmdConfigurationVersions[i].eyeVersion=hc.getEyeVersion();
 					hmdConfigurationVersions[i].distortionMeshVersion=hc.getDistortionMeshVersion();
-					
-					printf(" done\n");
 					}
 				}
 			
 			deviceManager->unlockHmdConfigurations();
+			
+			/* Mark HMD configuration state as up-to-date: */
+			streamingHmdConfigurationVersion=managerHmdConfigurationVersion;
 			}
 		}
 	

@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2015 Oliver Kreylos
+Copyright (c) 2007-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,10 +26,15 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/Math.h>
-#include <Geometry/OrthonormalTransformation.h>
+#include <Math/Constants.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
+#include <GL/GLMaterialTemplates.h>
+#include <GL/GLVertexArrayParts.h>
 #include <GL/GLContextData.h>
+#include <GL/Extensions/GLARBVertexBufferObject.h>
 #include <GL/GLGeometryWrappers.h>
+#include <GL/GLGeometryVertex.h>
 #include <Images/ReadImageFile.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
@@ -47,6 +52,8 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	 lightsaberLength(Scalar(48)*getInchFactor()),
 	 lightsaberWidth(Scalar(6)*getInchFactor()),
 	 baseOffset(Scalar(3)*getInchFactor()),
+	 hiltTransform(ONTransform::identity),
+	 hiltLength(Scalar(8)*getInchFactor()),hiltRadius(Scalar(0.75)*getInchFactor()),
 	 lightsaberImageFileName(std::string(VRUI_INTERNAL_CONFIG_SHAREDIR)+"/Textures/Lightsaber.png")
 	{
 	/* Initialize tool layout: */
@@ -62,6 +69,9 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	lightsaberLength=cfs.retrieveValue<Scalar>("./lightsaberLength",lightsaberLength);
 	lightsaberWidth=cfs.retrieveValue<Scalar>("./lightsaberWidth",lightsaberWidth);
 	baseOffset=cfs.retrieveValue<Scalar>("./baseOffset",baseOffset);
+	hiltTransform=cfs.retrieveValue<ONTransform>("./hiltTransform",hiltTransform);
+	hiltLength=cfs.retrieveValue<Scalar>("./hiltLength",hiltLength);
+	hiltRadius=cfs.retrieveValue<Scalar>("./hiltRadius",hiltRadius);
 	lightsaberImageFileName=cfs.retrieveString("./lightsaberImageFileName",lightsaberImageFileName);
 	
 	/* Set tool class' factory pointer: */
@@ -117,6 +127,27 @@ extern "C" void destroyJediToolFactory(ToolFactory* factory)
 	delete factory;
 	}
 
+/***********************************
+Methods of class JediTool::DataItem:
+***********************************/
+
+JediTool::DataItem::DataItem(void)
+	{
+	/* Initialize required OpenGL extensions: */
+	GLARBVertexBufferObject::initExtension();
+	
+	/* Allocate texture and buffer objects: */
+	glGenTextures(1,&textureObjectId);
+	glGenBuffersARB(1,&hiltVertexBufferId);
+	}
+
+JediTool::DataItem::~DataItem(void)
+	{
+	/* Release texture and buffer objects: */
+	glDeleteTextures(1,&textureObjectId);
+	glDeleteBuffersARB(1,&hiltVertexBufferId);
+	}
+
 /*********************************
 Static elements of class JediTool:
 *********************************/
@@ -161,12 +192,13 @@ void JediTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 
 void JediTool::frame(void)
 	{
+	/* Update the light saber hilt and billboard: */
+	ONTransform lightsaberTransform=getButtonDeviceTransformation(0)*factory->hiltTransform;
+	origin=lightsaberTransform.getOrigin();
+	axis=lightsaberTransform.transform(getButtonDevice(0)->getDeviceRayDirection());
+	
 	if(active)
 		{
-		/* Update the light saber billboard: */
-		origin=getButtonDevicePosition(0);
-		axis=getButtonDeviceRayDirection(0);
-		
 		/* Scale the lightsaber during activation: */
 		length=factory->lightsaberLength;
 		double activeTime=getApplicationTime()-activationTime;
@@ -178,6 +210,39 @@ void JediTool::frame(void)
 			scheduleUpdate(getNextAnimationTime());
 			}
 		}
+	}
+
+void JediTool::display(GLContextData& contextData) const
+	{
+	/* Get the data item: */
+	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	
+	/* Set up OpenGL state: */
+	glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(0.6f,0.6f,0.6f));
+	glMaterialSpecular(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(1.0f,1.0f,1.0f));
+	glMaterialShininess(GLMaterialEnums::FRONT,32.0f);
+	
+	/* Transform the hilt to the light saber's position: */
+	glPushMatrix();
+	glTranslate(origin-Point::origin);
+	glRotate(Rotation::rotateFromTo(Vector(0,0,1),axis));
+	
+	/* Bind the vertex buffer: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->hiltVertexBufferId);
+	
+	/* Draw the hilt geometry: */
+	typedef GLGeometry::Vertex<void,0,void,0,GLfloat,GLfloat,3> Vertex; // Type for vertices
+	const int numSegments=16;
+	GLVertexArrayParts::enable(Vertex::getPartsMask());
+	glVertexPointer(static_cast<const Vertex*>(0));
+	glDrawArrays(GL_TRIANGLES,0,(numSegments*2+(numSegments-2)*2)*3);
+	GLVertexArrayParts::disable(Vertex::getPartsMask());
+	
+	/* Protect the vertex buffer: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
+	
+	/* Return to physical space: */
+	glPopMatrix();
 	}
 
 void JediTool::initContext(GLContextData& contextData) const
@@ -195,6 +260,71 @@ void JediTool::initContext(GLContextData& contextData) const
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
 	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
 	glBindTexture(GL_TEXTURE_2D,0);
+	
+	typedef GLGeometry::Vertex<void,0,void,0,GLfloat,GLfloat,3> Vertex; // Type for vertices
+	const int numSegments=16;
+	
+	/* Create a vertex array to render the light saber hilt: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->hiltVertexBufferId);
+	glBufferDataARB(GL_ARRAY_BUFFER_ARB,(numSegments*2+(numSegments-2)*2)*3*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
+	Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
+	
+	Scalar hr=factory->hiltRadius;
+	Scalar hl=factory->hiltLength;
+	
+	/* Create the hilt mantle: */
+	for(int i=0;i<numSegments;++i,vPtr+=6)
+		{
+		Scalar a0=Scalar(2)*Math::Constants<Scalar>::pi*Scalar(i)/Scalar(numSegments);
+		Scalar x0=Math::cos(a0);
+		Scalar y0=Math::sin(a0);
+		Scalar a1=Scalar(2)*Math::Constants<Scalar>::pi*Scalar((i+1)%numSegments)/Scalar(numSegments);
+		Scalar x1=Math::cos(a1);
+		Scalar y1=Math::sin(a1);
+		vPtr[0].normal=Vertex::Normal(x0,y0,0);
+		vPtr[0].position=Vertex::Position(x0*hr,y0*hr,-hl);
+		vPtr[1].normal=Vertex::Normal(x1,y1,0);
+		vPtr[1].position=Vertex::Position(x1*hr,y1*hr,-hl);
+		vPtr[2].normal=Vertex::Normal(x1,y1,0);
+		vPtr[2].position=Vertex::Position(x1*hr,y1*hr,0);
+		vPtr[3].normal=Vertex::Normal(x1,y1,0);
+		vPtr[3].position=Vertex::Position(x1*hr,y1*hr,0);
+		vPtr[4].normal=Vertex::Normal(x0,y0,0);
+		vPtr[4].position=Vertex::Position(x0*hr,y0*hr,0);
+		vPtr[5].normal=Vertex::Normal(x0,y0,0);
+		vPtr[5].position=Vertex::Position(x0*hr,y0*hr,-hl);
+		}
+	
+	/* Create the bottom and top caps: */
+	Vertex::Normal bn(0,0,-1);
+	Vertex::Position bv0(hr,0,-hl);
+	Vertex::Normal tn(0,0,1);
+	Vertex::Position tv0(hr,0,0);
+	for(int i=1;i<numSegments-1;++i,vPtr+=6)
+		{
+		Scalar a0=Scalar(2)*Math::Constants<Scalar>::pi*Scalar(i)/Scalar(numSegments);
+		Scalar x0=Math::cos(a0);
+		Scalar y0=Math::sin(a0);
+		Scalar a1=Scalar(2)*Math::Constants<Scalar>::pi*Scalar(i+1)/Scalar(numSegments);
+		Scalar x1=Math::cos(a1);
+		Scalar y1=Math::sin(a1);
+		vPtr[0].normal=bn;
+		vPtr[0].position=bv0;
+		vPtr[1].normal=bn;
+		vPtr[1].position=Vertex::Position(x1*hr,y1*hr,-hl);
+		vPtr[2].normal=bn;
+		vPtr[2].position=Vertex::Position(x0*hr,y0*hr,-hl);
+		vPtr[3].normal=tn;
+		vPtr[3].position=tv0;
+		vPtr[4].normal=tn;
+		vPtr[4].position=Vertex::Position(x0*hr,y0*hr,0);
+		vPtr[5].normal=tn;
+		vPtr[5].position=Vertex::Position(x1*hr,y1*hr,0);
+		}
+	
+	/* Unmap and protect the vertex buffer: */
+	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
 	}
 
 void JediTool::glRenderActionTransparent(GLContextData& contextData) const

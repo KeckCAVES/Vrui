@@ -1,7 +1,7 @@
 /***********************************************************************
 IPv4SocketAddress - Simple wrapper class for IP v4 socket addresses in
 network byte order.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2017 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -33,10 +33,10 @@ class IPv4SocketAddress:public sockaddr_in
 	{
 	/* Constructors and destructors: */
 	public:
-	IPv4SocketAddress(void) // Constructs the "any" IP address with port number 0
+	IPv4SocketAddress(unsigned int sPort =0U) // Constructs the "any" IP address with the given port number
 		{
 		sin_family=AF_INET;
-		sin_port=0;
+		sin_port=htons(in_port_t(sPort));
 		sin_addr.s_addr=htonl(INADDR_ANY);
 		}
 	IPv4SocketAddress(unsigned int sPort,const IPv4Address& sAddress) // Constructs socket address from port number and IP address

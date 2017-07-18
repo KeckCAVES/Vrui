@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterHID - Linux-specific version of HID input device
 adapter.
-Copyright (c) 2009-2015 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Mutex.h>
 #include <Threads/Thread.h>
 #include <Math/BrokenLine.h>
+#include <Geometry/Point.h>
 #include <Vrui/Internal/InputDeviceAdapter.h>
 
 /* Forward declarations: */
@@ -53,14 +54,21 @@ class InputDeviceAdapterHID:public InputDeviceAdapter
 		int firstButtonIndex; // Index of HID's first button in device state array
 		int numButtons; // Number of HID's buttons
 		std::vector<int> keyMap; // Vector mapping key features to device button indices
+		std::vector<int> buttonExclusionSets; // Indices of mutual exclusions sets to which each button belongs; -1 if not member of a set
+		std::vector<int> exclusionSetPresseds; // Array of indices of which buttons activated each exclusion set; -1 if the exclusion set is inactive
+		bool axisPosition; // Flag if the input device's position is defined by a subset of its absolute axes
+		Point positionOrigin; // Origin of device position mapping
+		std::vector<int> positionAxisMap; // Vector mapping absolute axis features to device position vectors
+		std::vector<Vector> positionAxes; // Array of vectors spanning the absolute axis-based device position space
+		std::vector<Scalar> positionValues; // Current values of position absolute axes
 		int firstValuatorIndex; // Index of HID's first axis in device state array
-		int numValuators; // Number of HID's axes
+		int numValuators; // Number of HID's axes translated to device valuators
 		std::vector<int> absAxisMap; // Vector mapping absolute axis features to device valuator indices
 		std::vector<int> relAxisMap; // Vector mapping relative axis features to device valuator indices
 		std::vector<AxisValueMapper> axisValueMappers; // Vector of axis value mappers converting from raw HID axis values to [-1, 1]
-		Vrui::InputDevice* trackingDevice; // Pointer to Vrui input device from which this device gets its tracking data
+		InputDevice* trackingDevice; // Pointer to Vrui input device from which this device gets its tracking data
 		bool projectDevice; // Flag whether to project the Vrui input device through the UI manager
-		Vrui::InputDevice* device; // Pointer to Vrui input device associated with the HID
+		InputDevice* device; // Pointer to Vrui input device associated with the HID
 		std::vector<std::string> buttonNames; // Array of button feature names
 		std::vector<std::string> valuatorNames; // Array of valuator feature names
 		};

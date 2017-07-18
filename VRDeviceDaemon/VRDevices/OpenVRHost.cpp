@@ -1,7 +1,7 @@
 /***********************************************************************
 OpenVRHost - Class to wrap a low-level OpenVR tracking and display
 device driver in a VRDevice.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -24,8 +24,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <VRDeviceDaemon/VRDevices/OpenVRHost.h>
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 #include <string>
 #include <iostream>
 #include <dlfcn.h>
@@ -95,41 +96,165 @@ Fake SDL functions:
 
 int SDL_GetNumVideoDisplays(void)
 	{
-	return 1;
+	return 2; // Create two fake displays so the driver doesn't complain about the HMD being the primary
 	}
 
 int SDL_GetCurrentDisplayMode(int displayIndex,SDL_DisplayMode* mode)
 	{
 	memset(mode,0,sizeof(SDL_DisplayMode));
 	mode->format=0x16161804U; // Hard-coded for SDL_PIXELFORMAT_RGB888
-	mode->w=2160;
-	mode->h=1200;
-	mode->refresh_rate=89;
-	mode->driverdata=0;
+	if(displayIndex==1)
+		{
+		/* Return a fake Vive HMD: */
+		mode->w=2160;
+		mode->h=1200;
+		mode->refresh_rate=89;
+		mode->driverdata=0;
+		}
+	else
+		{
+		/* Return a fake monitor: */
+		mode->w=1920;
+		mode->h=1080;
+		mode->refresh_rate=60;
+		mode->driverdata=0;
+		}
 	
 	return 0;
 	}
 
 int SDL_GetDisplayBounds(int displayIndex,SDL_Rect* rect)
 	{
-	rect->x=0;
-	rect->y=0;
-	rect->w=2160;
-	rect->h=1200;
+	if(displayIndex==1)
+		{
+		/* Return a fake Vive HMD: */
+		rect->x=1920;
+		rect->y=0;
+		rect->w=2160;
+		rect->h=1200;
+		}
+	else
+		{
+		/* Return a fake monitor: */
+		rect->x=0;
+		rect->y=0;
+		rect->w=1920;
+		rect->h=1080;
+		}
 	
 	return 0;
 	}
 
 const char* SDL_GetDisplayName(int displayIndex)
 	{
-	return "HTC Vive 5\"";
+	if(displayIndex==1)
+		return "HTC Vive 5\"";
+	else
+		return "Acme Inc. HD Display";
+	}
+
+/****************************************
+Methods of class OpenVRHost::DeviceState:
+****************************************/
+
+OpenVRHost::DeviceState::DeviceState(void)
+	:driver(0),display(0),
+	 trackerIndex(-1),buttonIndices(0),valuatorIndexBase(0),
+	 willDriftInYaw(true),isWireless(false),hasProximitySensor(false),providesBatteryStatus(false),canPowerOff(false),
+	 proximitySensorState(false),hmdConfiguration(0),
+	 connected(false),tracked(false)
+	{
+	for(int i=0;i<2;++i)
+		for(int j=0;j<2;++j)
+			lensCenters[i][j]=0.5f;
+	}
+
+void OpenVRHost::DeviceState::setNumButtons(int newNumButtons)
+	{
+	/* Allocate the button index array: */
+	delete[] buttonIndices;
+	buttonIndices=new int[newNumButtons];
+	
+	/* Initialize all button indices to "absent": */
+	for(int i=0;i<newNumButtons;++i)
+		buttonIndices[i]=-1;
+	}
+
+/***************************
+Methods of class OpenVRHost:
+***************************/
+
+void OpenVRHost::updateHMDConfiguration(OpenVRHost::DeviceState& deviceState) const
+	{
+	deviceManager->lockHmdConfigurations();
+	
+	/* Update recommended pre-distortion render target size: */
+	uint32_t renderTargetSize[2];
+	deviceState.display->GetRecommendedRenderTargetSize(&renderTargetSize[0],&renderTargetSize[1]);
+	deviceState.hmdConfiguration->setRenderTargetSize(renderTargetSize[0],renderTargetSize[1]);
+	
+	/* Update per-eye state: */
+	bool distortionMeshesUpdated=false;
+	for(int eyeIndex=0;eyeIndex<2;++eyeIndex)
+		{
+		vr::EVREye eye=eyeIndex==0?vr::Eye_Left:vr::Eye_Right;
+		
+		/* Update output viewport: */
+		uint32_t viewport[4];
+		deviceState.display->GetEyeOutputViewport(eye,&viewport[0],&viewport[1],&viewport[2],&viewport[3]);
+		deviceState.hmdConfiguration->setViewport(eyeIndex,viewport[0],viewport[1],viewport[2],viewport[3]);
+		
+		/* Update tangent-space FoV boundaries: */
+		float fov[4];
+		deviceState.display->GetProjectionRaw(eye,&fov[0],&fov[1],&fov[2],&fov[3]);
+		deviceState.hmdConfiguration->setFov(eyeIndex,fov[0],fov[1],fov[2],fov[3]);
+		
+		/* Evaluate and update lens distortion correction formula: */
+		Vrui::HMDConfiguration::DistortionMeshVertex* dmPtr=deviceState.hmdConfiguration->getDistortionMesh(eyeIndex);
+		for(unsigned int v=0;v<distortionMeshSize[1];++v)
+			{
+			float vf=float(v)/float(distortionMeshSize[1]-1);
+			for(unsigned int u=0;u<distortionMeshSize[0];++u,++dmPtr)
+				{
+				/* Calculate the vertex's undistorted positions: */
+				float uf=float(u)/float(distortionMeshSize[0]-1);
+				vr::DistortionCoordinates_t out=deviceState.display->ComputeDistortion(eye,uf,vf);
+				Vrui::HMDConfiguration::Point2 red(out.rfRed);
+				Vrui::HMDConfiguration::Point2 green(out.rfGreen);
+				Vrui::HMDConfiguration::Point2 blue(out.rfBlue);
+				
+				/* Check if there is actually a change: */
+				distortionMeshesUpdated=distortionMeshesUpdated||dmPtr->red!=red||dmPtr->green!=green||dmPtr->blue!=blue;
+				dmPtr->red=red;
+				dmPtr->green=green;
+				dmPtr->blue=blue;
+				}
+			}
+		}
+	if(distortionMeshesUpdated)
+		deviceState.hmdConfiguration->updateDistortionMeshes();
+	
+	/* Tell the device manager that the HMD configuration was updated: */
+	deviceManager->updateHmdConfiguration(deviceState.hmdConfiguration);
+	
+	deviceManager->unlockHmdConfigurations();
+	}
+
+void OpenVRHost::deviceThreadMethod(void)
+	{
+	/* Run the OpenVR driver's main loop to dispatch events: */
+	while(true)
+		{
+		openvrTrackedDeviceProvider->RunFrame();
+		usleep(threadWaitTime);
+		}
 	}
 
 namespace {
 
-/****************************
-Helper classes and functions:
-****************************/
+/****************
+Helper functions:
+****************/
 
 std::string pathcat(const std::string& prefix,const std::string& suffix) // Concatenates two partial paths if the suffix is not absolute
 	{
@@ -153,255 +278,19 @@ std::string pathcat(const std::string& prefix,const std::string& suffix) // Conc
 		}
 	}
 
-/****************
-Logging facility:
-****************/
-
-class MyIDriverLog:public vr::IDriverLog
-	{
-	/* Elements: */
-	private:
-	bool printMessages;
-	
-	/* Constructors and destructors: */
-	public:
-	MyIDriverLog(bool sPrintMessages)
-		:printMessages(sPrintMessages)
-		{
-		}
-	
-	/* Methods from vr::IDriverLog: */
-	virtual void Log(const char* pchLogMessage);
-	};
-
-void MyIDriverLog::Log(const char* pchLogMessage)
-	{
-	if(printMessages)
-		std::cout<<"OpenVRHost: Log message: "<<pchLogMessage;
-	}
-
-/*************************
-Dummy VR settings manager:
-*************************/
-
-class MyIVRSettings:public vr::IVRSettings
-	{
-	/* Elements: */
-	private:
-	Misc::ConfigurationFileSection settingsSection; // Configuration file section containing driver settings
-	
-	/* Constructors and destructors: */
-	public:
-	MyIVRSettings(const Misc::ConfigurationFileSection& sSettingsSection);
-	
-	/* Methods from vr::IVRSettings: */
-	virtual const char* GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError);
-	virtual bool Sync(bool bForce,vr::EVRSettingsError* peError);
-	virtual void SetBool(const char* pchSection,const char* pchSettingsKey,bool bValue,vr::EVRSettingsError* peError);
-	virtual void SetInt32(const char* pchSection,const char* pchSettingsKey,int32_t nValue,vr::EVRSettingsError* peError);
-	virtual void SetFloat(const char* pchSection,const char* pchSettingsKey,float flValue,vr::EVRSettingsError* peError);
-	virtual void SetString(const char* pchSection,const char* pchSettingsKey,const char* pchValue,vr::EVRSettingsError* peError);
-	virtual bool GetBool(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError);
-	virtual int32_t GetInt32(const char* pchSection,const char*pchSettingsKey,vr::EVRSettingsError* peError);
-	virtual float GetFloat(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError);
-	virtual void GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,vr::EVRSettingsError* peError);
-	virtual void RemoveSection(const char* pchSection,vr::EVRSettingsError* peError);
-	virtual void RemoveKeyInSection(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError);
-	};
-
-MyIVRSettings::MyIVRSettings(const Misc::ConfigurationFileSection& sSettingsSection)
-	:settingsSection(sSettingsSection)
-	{
-	}
-
-const char* MyIVRSettings::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError)
-	{
-	// std::cout<<"GetSettingsErrorNameFromEnum for "<<eError<<std::endl;
-	return "Unknown";
-	}
-
-bool MyIVRSettings::Sync(bool bForce,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"Sync with "<<bForce<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return false;
-	}
-
-void MyIVRSettings::SetBool(const char* pchSection,const char* pchSettingsKey,bool bValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"SetBool for "<<pchSection<<"/"<<pchSettingsKey<<" with value "<<bValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
-void MyIVRSettings::SetInt32(const char* pchSection,const char* pchSettingsKey,int32_t nValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"SetInt32 for "<<pchSection<<"/"<<pchSettingsKey<<" with value "<<nValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
-void MyIVRSettings::SetFloat(const char* pchSection,const char* pchSettingsKey,float flValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"SetFloat for "<<pchSection<<"/"<<pchSettingsKey<<" with value "<<flValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
-void MyIVRSettings::SetString(const char* pchSection,const char* pchSettingsKey,const char* pchValue,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"SetString for "<<pchSection<<"/"<<pchSettingsKey<<" with value "<<pchValue<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
-bool MyIVRSettings::GetBool(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetBool for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
-	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
-	bool result=section.retrieveValue<bool>(pchSettingsKey,false);
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return result;
-	}
-
-int32_t MyIVRSettings::GetInt32(const char* pchSection,const char*pchSettingsKey,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetInt32 for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
-	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
-	int32_t result=section.retrieveValue<int>(pchSettingsKey,0);
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return result;
-	}
-
-float MyIVRSettings::GetFloat(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetFloat for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
-	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
-	float result=section.retrieveValue<float>(pchSettingsKey,0.0f);
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	return result;
-	}
-
-void MyIVRSettings::GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"GetString for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
-	Misc::ConfigurationFileSection section=settingsSection.getSection(pchSection);
-	strncpy(pchValue,section.retrieveString(pchSettingsKey,"").c_str(),unValueLen);
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
-void MyIVRSettings::RemoveSection(const char* pchSection,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"RemoveSection for section "<<pchSection<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
-void MyIVRSettings::RemoveKeyInSection(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
-	{
-	std::cout<<"RemoveKeyInSection for "<<pchSection<<"/"<<pchSettingsKey<<std::endl;
-	if(peError!=0)
-		*peError=vr::VRSettingsError_None;
-	}
-
 }
-
-/***************************
-Methods of class OpenVRHost:
-***************************/
-
-void OpenVRHost::updateHMDConfiguration(OpenVRHost::DeviceState& deviceState) const
-	{
-	/* Check if the device is an HMD: */
-	vr::IVRDisplayComponent* display=reinterpret_cast<vr::IVRDisplayComponent*>(deviceState.driver->GetComponent(vr::IVRDisplayComponent_Version));
-	if(display!=0&&deviceState.hmdConfiguration!=0)
-		{
-		vr::ETrackedPropertyError propError=vr::TrackedProp_Success;
-		deviceManager->lockHmdConfigurations();
-		
-		std::cout<<"OpenVRHost: Updating HMD configuration..."<<std::flush;
-		
-		/* Update the HMD's inter-pupillary distance: */
-		float newIpd=deviceState.driver->GetFloatTrackedDeviceProperty(vr::Prop_UserIpdMeters_Float,&propError);
-		if(propError==vr::TrackedProp_Success&&deviceState.ipd!=newIpd&&newIpd!=0.0f)
-			{
-			deviceState.hmdConfiguration->setIpd(newIpd);
-			deviceState.ipd=newIpd;
-			}
-		
-		/* Update recommended pre-distortion render target size: */
-		uint32_t renderTargetSize[2];
-		display->GetRecommendedRenderTargetSize(&renderTargetSize[0],&renderTargetSize[1]);
-		deviceState.hmdConfiguration->setRenderTargetSize(renderTargetSize[0],renderTargetSize[1]);
-		
-		bool distortionMeshesUpdated=false;
-		for(int eyeIndex=0;eyeIndex<2;++eyeIndex)
-			{
-			vr::EVREye eye=eyeIndex==0?vr::Eye_Left:vr::Eye_Right;
-			
-			/* Update output viewport: */
-			uint32_t viewport[4];
-			display->GetEyeOutputViewport(eye,&viewport[0],&viewport[1],&viewport[2],&viewport[3]);
-			deviceState.hmdConfiguration->setViewport(eyeIndex,viewport[0],viewport[1],viewport[2],viewport[3]);
-			
-			/* Update tangent-space FoV boundaries: */
-			float fov[4];
-			display->GetProjectionRaw(eye,&fov[0],&fov[1],&fov[2],&fov[3]);
-			deviceState.hmdConfiguration->setFov(eyeIndex,fov[0],fov[1],fov[2],fov[3]);
-			
-			/* Evaluate and update lens distortion correction formula: */
-			Vrui::HMDConfiguration::DistortionMeshVertex* dmPtr=deviceState.hmdConfiguration->getDistortionMesh(eyeIndex);
-			for(unsigned int v=0;v<distortionMeshSize[1];++v)
-				{
-				float vf=float(v)/float(distortionMeshSize[1]-1);
-				for(unsigned int u=0;u<distortionMeshSize[0];++u,++dmPtr)
-					{
-					/* Calculate the vertex's undistorted positions: */
-					float uf=float(u)/float(distortionMeshSize[0]-1);
-					vr::DistortionCoordinates_t out=display->ComputeDistortion(eye,uf,vf);
-					
-					/* Check if there is actually a change: */
-					distortionMeshesUpdated=distortionMeshesUpdated||out.rfRed[0]!=dmPtr->red[0]||out.rfRed[1]!=dmPtr->red[1]||out.rfGreen[0]!=dmPtr->green[0]||out.rfGreen[1]!=dmPtr->green[1]||out.rfBlue[0]!=dmPtr->blue[0]||out.rfBlue[1]!=dmPtr->blue[1];
-					for(int i=0;i<2;++i)
-						{
-						dmPtr->red[i]=Misc::Float32(out.rfRed[i]);
-						dmPtr->green[i]=Misc::Float32(out.rfGreen[i]);
-						dmPtr->blue[i]=Misc::Float32(out.rfBlue[i]);
-						}
-					}
-				}
-			}
-		if(distortionMeshesUpdated)
-			deviceState.hmdConfiguration->updateDistortionMeshes();
-		
-		std::cout<<" done"<<std::endl;
-		
-		deviceManager->updateHmdConfiguration(deviceState.hmdConfiguration);
-		deviceManager->unlockHmdConfigurations();
-		}
-	}
-
-void OpenVRHost::deviceThreadMethod(void)
-	{
-	while(true)
-		{
-		openvrServerInterface->RunFrame();
-		usleep(threadWaitTime);
-		}
-	}
 
 OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManager,Misc::ConfigurationFile& configFile)
 	:VRDevice(sFactory,sDeviceManager,configFile),
 	 openvrDriverDsoHandle(0),
-	 openvrServerInterface(0),openvrLog(0),openvrSettings(0),
+	 openvrTrackedDeviceProvider(0),
+	 openvrSettingsSection(configFile.getSection("Settings")),
+	 threadWaitTime(configFile.retrieveValue<unsigned int>("./threadWaitTime",100000U)),
+	 printLogMessages(configFile.retrieveValue<bool>("./printLogMessages",false)),
+	 configuredPostTransformations(0),hmdConfiguration(0),controllerDeviceIndices(0),trackerDeviceIndices(0),
 	 deviceStates(0),
-	 numConnectedDevices(0),
-	 proximitySensor(false)
+	 numConnectedDevices(0),numControllers(0),numTrackers(0),numBaseStations(0),
+	 exiting(false)
 	{
 	/*********************************************************************
 	First initialization step: Dynamically load the appropriate OpenVR
@@ -421,11 +310,16 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		steamRootDir=VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR;
 	steamRootDir=configFile.retrieveString("./steamRootDir",steamRootDir);
 	
+	/* Construct the OpenVR root directory: */
+	openvrRootDir=VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR;
+	openvrRootDir=configFile.retrieveString("./openvrRootDir",openvrRootDir);
+	openvrRootDir=pathcat(steamRootDir,openvrRootDir);
+	
 	/* Retrieve the name of the OpenVR device driver: */
 	std::string openvrDriverName=configFile.retrieveString("./openvrDriverName","lighthouse");
 	
 	/* Retrieve the directory containing the OpenVR device driver: */
-	std::string openvrDriverRootDir=VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR;
+	openvrDriverRootDir=VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR;
 	openvrDriverRootDir.append("/drivers/");
 	openvrDriverRootDir.append(openvrDriverName);
 	openvrDriverRootDir.append("/bin/linux64");
@@ -440,6 +334,10 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	openvrDriverDsoName=pathcat(openvrDriverRootDir,openvrDriverDsoName);
 	
 	/* Open the OpenVR device driver dso: */
+	#ifdef VERBOSE
+	printf("OpenVRHost: Loading OpenVR driver module from %s\n",openvrDriverDsoName.c_str());
+	fflush(stdout);
+	#endif
 	openvrDriverDsoHandle=dlopen(openvrDriverDsoName.c_str(),RTLD_NOW);
 	if(openvrDriverDsoHandle==0)
 		Misc::throwStdErr("OpenVRHost: Unable to load OpenVR driver dynamic shared object %s due to error %s",openvrDriverDsoName.c_str(),dlerror());
@@ -458,252 +356,453 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 		Misc::throwStdErr("OpenVRHost: Unable to resolve OpenVR driver factory function %s due to error %s",openvrFactoryFunctionName.c_str(),dlerror());
 		}
 	
-	/*********************************************************************
-	Second initialization step: Initialize the server-side interface of
-	the OpenVR driver contained in the shared library.
-	*********************************************************************/
-	
 	/* Get a pointer to the server-side driver object: */
 	int error=0;
-	openvrServerInterface=reinterpret_cast<vr::IServerTrackedDeviceProvider*>(HmdDriverFactory(vr::IServerTrackedDeviceProvider_Version,&error));
-	if(openvrServerInterface==0)
+	openvrTrackedDeviceProvider=reinterpret_cast<vr::IServerTrackedDeviceProvider*>(HmdDriverFactory(vr::IServerTrackedDeviceProvider_Version,&error));
+	if(openvrTrackedDeviceProvider==0)
 		{
 		dlclose(openvrDriverDsoHandle);
-		Misc::throwStdErr("OpenVRHost: Unable to retrieve server-side driver object due to OpenVR error %d",error);
+		Misc::throwStdErr("OpenVRHost: Unable to retrieve server-side driver object due to error %d",error);
 		}
 	
-	/* Create log and settings managers: */
-	openvrLog=new MyIDriverLog(configFile.retrieveValue<bool>("./printLogMessages",false));
-	openvrSettings=new MyIVRSettings(configFile.getSection("Settings"));
+	/*********************************************************************
+	Second initialization step: Initialize the VR device driver module.
+	*********************************************************************/
 	
 	/* Retrieve the OpenVR device driver configuration directory: */
-	std::string openvrDriverConfigDir="config/";
+	openvrDriverConfigDir="config/";
 	openvrDriverConfigDir.append(openvrDriverName);
 	openvrDriverConfigDir=configFile.retrieveString("./openvrDriverConfigDir",openvrDriverConfigDir);
 	openvrDriverConfigDir=pathcat(steamRootDir,openvrDriverConfigDir);
-	
-	/* Initialize the server-side driver object: */
-	vr::EVRInitError initError=openvrServerInterface->Init(openvrLog,this,openvrDriverConfigDir.c_str(),openvrDriverRootDir.c_str());
-	if(initError!=vr::VRInitError_None)
-		{
-		#if 0
-		/* Cannot delete these, as the base classes don't have virtual destructors: */
-		delete static_cast<MyIDriverLog*>(openvrLog);
-		delete static_cast<MyIVRSettings*>(openvrSettings);
-		#endif
-		dlclose(openvrDriverDsoHandle);
-		Misc::throwStdErr("OpenVRHost: Unable to initialize server-side driver object due to OpenVR error %d",int(initError));
-		}
+	#ifdef VERBOSE
+	printf("OpenVRHost: OpenVR driver module configuration directory is %s\n",openvrDriverConfigDir.c_str());
+	fflush(stdout);
+	#endif
 	
 	/* Read the number of distortion mesh vertices to calculate: */
 	distortionMeshSize[1]=distortionMeshSize[0]=32;
 	Misc::CFixedArrayValueCoder<unsigned int,2> distortionMeshSizeVC(distortionMeshSize);
 	configFile.retrieveValueWC<unsigned int*>("./distortionMeshSize",distortionMeshSize,distortionMeshSizeVC);
 	
-	/* Read the maximum number of supported controllers: */
-	unsigned int maxNumControllers=configFile.retrieveValue<unsigned int>("./maxNumControllers",2);
-	unsigned int maxNumDevices=1U+maxNumControllers;
+	/* Read the maximum number of supported controllers, trackers, and tracking base stations: */
+	maxNumControllers=configFile.retrieveValue<unsigned int>("./maxNumControllers",2);
+	maxNumTrackers=configFile.retrieveValue<unsigned int>("./maxNumTrackers",0);
+	maxNumBaseStations=configFile.retrieveValue<unsigned int>("./maxNumBaseStations",2);
 	
 	/* Initialize VRDevice's device state variables: */
-	setNumTrackers(maxNumDevices,configFile); // One tracker per device
-	setNumButtons(maxNumControllers*5,configFile); // Five digital buttons per controller
+	setNumTrackers(1U+maxNumControllers+maxNumTrackers,configFile); // One tracker per device
+	setNumButtons(2+maxNumControllers*5,configFile); // Two buttons on headset plus five digital buttons per controller
 	setNumValuators(maxNumControllers*3,configFile); // Three analog axes per controller
 	
+	/* Store the originally configured tracker post-transformations to manipulate them later: */
+	configuredPostTransformations=new TrackerPostTransformation[getNumTrackers()];
+	for(int i=0;i<getNumTrackers();++i)
+		configuredPostTransformations[i]=trackerPostTransformations[i];
+	
 	/* Initialize OpenVR's device state array: */
-	deviceStates=new DeviceState[maxNumDevices];
-	for(unsigned int i=0;i<maxNumDevices;++i)
-		{
-		/* Copy the originally configured tracker post-transformation to manipulate it later: */
-		deviceStates[i].configuredPostTransformation=trackerPostTransformations[i];
-		}
+	deviceStates=new DeviceState[1U+maxNumControllers+maxNumTrackers+maxNumBaseStations];
 	
 	/* Create a virtual device for the headset: */
-	Vrui::VRDeviceDescriptor* hmdVd=new Vrui::VRDeviceDescriptor(0,0);
+	Vrui::VRDeviceDescriptor* hmdVd=new Vrui::VRDeviceDescriptor(2,0);
 	hmdVd->name=configFile.retrieveString("./hmdName","HMD");
 	hmdVd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 	hmdVd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,0,-1);
 	hmdVd->rayStart=0.0f;
 	hmdVd->trackerIndex=getTrackerIndex(0);
-	addVirtualDevice(hmdVd);
+	hmdVd->buttonNames[0]="Button";
+	hmdVd->buttonIndices[0]=getButtonIndex(0);
+	hmdVd->buttonNames[1]="FaceDetector";
+	hmdVd->buttonIndices[1]=getButtonIndex(1);
+	hmdDeviceIndex=addVirtualDevice(hmdVd);
+	
+	/* Add an HMD configuration for the headset: */
+	hmdConfiguration=deviceManager->addHmdConfiguration();
+	hmdConfiguration->setTrackerIndex(getTrackerIndex(0));
+	hmdConfiguration->setEyePos(Vrui::HMDConfiguration::Point(-0.0635f*0.5f,0,0),Vrui::HMDConfiguration::Point(0.0635f*0.5f,0,0)); // Initialize default eye positions
+	hmdConfiguration->setDistortionMeshSize(distortionMeshSize[0],distortionMeshSize[1]);
 	
 	/* Default names for controller buttons and valuators: */
 	static const char* defaultButtonNames[5]={"System","Menu","Grip","Touchpad","Trigger"};
 	static const char* defaultValuatorNames[3]={"TouchpadX","TouchpadY","AnalogTrigger"};
 	
 	/* Create a set of virtual devices for the controllers: */
+	controllerDeviceIndices=new unsigned int[maxNumControllers];
 	std::string controllerNameTemplate=configFile.retrieveString("./controllerNameTemplate","Controller%u");
 	for(unsigned int i=0;i<maxNumControllers;++i)
 		{
 		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(5,3);
-		vd->name=Misc::stringPrintf(controllerNameTemplate.c_str(),i+1);
+		vd->name=Misc::stringPrintf(controllerNameTemplate.c_str(),1U+i);
 		vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 		vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,0,-1);
 		vd->rayStart=0.0f;
-		vd->trackerIndex=getTrackerIndex(i+1);
+		vd->hasBattery=true;
+		vd->trackerIndex=getTrackerIndex(1U+i);
 		for(unsigned int j=0;j<5;++j)
 			{
 			vd->buttonNames[j]=defaultButtonNames[j];
-			vd->buttonIndices[j]=getButtonIndex(i*5+j);
+			vd->buttonIndices[j]=getButtonIndex(2U+i*5+j);
 			}
 		for(unsigned int j=0;j<3;++j)
 			{
 			vd->valuatorNames[j]=defaultValuatorNames[j];
 			vd->valuatorIndices[j]=getValuatorIndex(i*3+j);
 			}
-		addVirtualDevice(vd);
+		controllerDeviceIndices[i]=addVirtualDevice(vd);
 		}
 	
-	/* Add an HMD configuration for the headset: */
-	deviceStates[0].hmdConfiguration=deviceManager->addHmdConfiguration();
-	deviceStates[0].hmdConfiguration->setTrackerIndex(getTrackerIndex(0));
-	deviceStates[0].hmdConfiguration->setEyePos(Vrui::HMDConfiguration::Point(-deviceStates[0].ipd*0.5f,0,0),Vrui::HMDConfiguration::Point(deviceStates[0].ipd*0.5f,0,0)); // Initialize default eye positions
-	deviceStates[0].hmdConfiguration->setDistortionMeshSize(distortionMeshSize[0],distortionMeshSize[1]);
-	
-	/*********************************************************************
-	Third initialization step: Activate all currently-connected tracked
-	devices.
-	*********************************************************************/
-	
-	/* Start the device thread already to dispatch connection/disconnection messages: */
-	threadWaitTime=100000U;
-	startDeviceThread();
-	
-	/* Leave stand-by mode: */
-	openvrServerInterface->LeaveStandby();
-	
-	/* Query the number of initially-connected devices: */
-	unsigned int numDevices=openvrServerInterface->GetTrackedDeviceCount();
-	std::cout<<"OpenVRHost: Activating "<<numDevices<<" tracked devices"<<std::endl;
-	for(unsigned int i=0;i<numDevices;++i)
+	/* Create a set of virtual devices for the generic trackers: */
+	trackerDeviceIndices=new unsigned int[maxNumTrackers];
+	std::string trackerNameTemplate=configFile.retrieveString("./trackerNameTemplate","Tracker%u");
+	for(unsigned int i=0;i<maxNumTrackers;++i)
 		{
-		/* Get a handle for the i-th tracked device: */
-		vr::ITrackedDeviceServerDriver* driver=deviceStates[numConnectedDevices].driver=openvrServerInterface->GetTrackedDeviceDriver(i);
-		if(driver!=0)
-			{
-			/* Activate the tracked device: */
-			std::cout<<"OpenVRHost: Activating tracked device "<<i<<" with ID "<<numConnectedDevices<<std::endl;
-			vr::EVRInitError error=driver->Activate(numConnectedDevices);
-			if(error==vr::VRInitError_None)
-				{
-				/* Query the configuration of a potential HMD: */
-				updateHMDConfiguration(deviceStates[numConnectedDevices]);
-				
-				/* Query the device's battery level: */
-				vr::ETrackedPropertyError error=vr::TrackedProp_Success;
-				if(driver->GetBoolTrackedDeviceProperty(vr::Prop_DeviceProvidesBatteryStatus_Bool,&error)&&error==vr::TrackedProp_Success)
-					{
-					deviceStates[numConnectedDevices].batteryLevel=driver->GetFloatTrackedDeviceProperty(vr::Prop_DeviceBatteryPercentage_Float,&error);
-					if(error!=vr::TrackedProp_Success)
-						deviceStates[numConnectedDevices].batteryLevel=0.0f; // If there was an error, assume battery is empty
-					}
-				else
-					deviceStates[numConnectedDevices].batteryLevel=1.0f; // Devices without battery are assumed fully charged
-				std::cout<<"OpenVRHost: Battery level of device "<<numConnectedDevices<<" is "<<deviceStates[numConnectedDevices].batteryLevel*100.0f<<"%"<<std::endl;
-				}
-			else
-				std::cout<<"OpenVRHost: Unable to activate tracked device "<<numConnectedDevices<<" due to OpenVR error "<<error<<std::endl;
-			
-			++numConnectedDevices;
-			}
-		else
-			std::cout<<"OpenVRHost: Error retrieving tracked device "<<i<<std::endl;
+		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(0,0);
+		vd->name=Misc::stringPrintf(trackerNameTemplate.c_str(),1U+i);
+		vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
+		vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,0,-1);
+		vd->rayStart=0.0f;
+		vd->hasBattery=true;
+		vd->trackerIndex=getTrackerIndex(1U+maxNumControllers+i);
+		trackerDeviceIndices[i]=addVirtualDevice(vd);
 		}
 	}
 
 OpenVRHost::~OpenVRHost(void)
 	{
 	/* Enter stand-by mode: */
+	#ifdef VERBOSE
+	printf("OpenVRHost: Powering down devices\n");
+	fflush(stdout);
+	#endif
+	exiting=true;
 	for(unsigned int i=0;i<numConnectedDevices;++i)
 		{
 		deviceStates[i].driver->Deactivate();
 		deviceStates[i].driver->EnterStandby();
 		}
-	openvrServerInterface->EnterStandby();
-	usleep(100000);
-	openvrServerInterface->Cleanup();
+	openvrTrackedDeviceProvider->EnterStandby();
+	usleep(1000000);
+	#ifdef VERBOSE
+	printf("OpenVRHost: Shutting down OpenVR driver module\n");
+	fflush(stdout);
+	#endif
+	openvrTrackedDeviceProvider->Cleanup();
 	
 	/* Stop the device thread: */
+	#ifdef VERBOSE
+	printf("OpenVRHost: Stopping event processing\n");
+	fflush(stdout);
+	#endif
 	stopDeviceThread();
 	
-	/* Delete the device state array: */
-	delete[] deviceStates;
+	/* Delete VRDeviceManager association tables: */
+	delete[] configuredPostTransformations;
+	delete[] controllerDeviceIndices;
+	delete[] trackerDeviceIndices;
 	
-	#if 0
-	/* Cannot delete these, as the base classes don't have virtual destructors: */
-	delete static_cast<MyIDriverLog*>(openvrLog);
-	delete static_cast<MyIVRSettings*>(openvrSettings);
-	#endif
+	/* Delete the device state array: */
+	for(unsigned int i=0;i<1U+maxNumControllers+maxNumTrackers+maxNumBaseStations;++i)
+		delete[] deviceStates[i].buttonIndices;
+	delete[] deviceStates;
 	
 	/* Close the OpenVR device driver dso: */
 	dlclose(openvrDriverDsoHandle);
 	}
 
+void OpenVRHost::initialize(void)
+	{
+	/*********************************************************************
+	Third initialization step: Initialize the server-side interface of the
+	OpenVR driver contained in the shared library.
+	*********************************************************************/
+	
+	/* Start the device thread already to dispatch driver messages during initialization: */
+	#ifdef VERBOSE
+	printf("OpenVRHost: Starting event processing\n");
+	fflush(stdout);
+	#endif
+	startDeviceThread();
+	
+	/* Initialize the server-side driver object: */
+	#ifdef VERBOSE
+	printf("OpenVRHost: Initializing OpenVR driver module\n");
+	fflush(stdout);
+	#endif
+	vr::EVRInitError initError=openvrTrackedDeviceProvider->Init(static_cast<vr::IVRDriverContext*>(this));
+	if(initError!=vr::VRInitError_None)
+		Misc::throwStdErr("OpenVRHost: Unable to initialize server-side driver object due to OpenVR error %d",int(initError));
+	
+	/* Leave stand-by mode: */
+	#ifdef VERBOSE
+	printf("OpenVRHost: Powering up devices\n");
+	fflush(stdout);
+	#endif
+	openvrTrackedDeviceProvider->LeaveStandby();
+	}
+
 void OpenVRHost::start(void)
 	{
-	/* Give the device communication thread its full performance: */
-	threadWaitTime=500U;
+	/* Could un-suspend OpenVR driver at this point... */
 	}
 
 void OpenVRHost::stop(void)
 	{
-	/* Reduce performance of the device communication thread: */
-	threadWaitTime=100000U;
+	/* Could suspend OpenVR driver at this point... */
 	}
 
-bool OpenVRHost::TrackedDeviceAdded(const char* pchDeviceSerialNumber)
+void* OpenVRHost::GetGenericInterface(const char* pchInterfaceVersion,vr::EVRInitError* peError)
 	{
-	bool result=false;
-	std::cout<<"OpenVRHost: Adding device with serial number "<<pchDeviceSerialNumber<<std::endl;
+	if(peError!=0)
+		*peError=vr::VRInitError_None;
 	
-	/* Get a handle for the new connected device: */
-	vr::ITrackedDeviceServerDriver* driver=deviceStates[numConnectedDevices].driver=openvrServerInterface->FindTrackedDeviceDriver(pchDeviceSerialNumber);
-	if(driver!=0)
+	/* Cast the driver module object to the requested type and return it: */
+	if(strcmp(pchInterfaceVersion,vr::IVRServerDriverHost_Version)==0)
+		return static_cast<vr::IVRServerDriverHost*>(this);
+	else if(strcmp(pchInterfaceVersion,vr::IVRSettings_Version)==0)
+		return static_cast<vr::IVRSettings*>(this);
+	else if(strcmp(pchInterfaceVersion,vr::IVRProperties_Version)==0)
+		return static_cast<vr::IVRProperties*>(this);
+	else if(strcmp(pchInterfaceVersion,vr::IVRDriverLog_Version)==0)
+		return static_cast<vr::IVRDriverLog*>(this);
+	else if(strcmp(pchInterfaceVersion,vr::IVRDriverManager_Version)==0)
+		return static_cast<vr::IVRDriverManager*>(this);
+	else if(strcmp(pchInterfaceVersion,vr::IVRResources_Version)==0)
+		return static_cast<vr::IVRResources*>(this);
+	else
 		{
-		/* Activate the connected device: */
-		vr::EVRInitError error=driver->Activate(numConnectedDevices);
-		if(error==vr::VRInitError_None)
+		/* Signal an error: */
+		#ifdef VERBOSE
+		printf("OpenVRHost: Error: Requested server interface %s not found\n",pchInterfaceVersion);
+		fflush(stdout);
+		#endif
+		if(peError!=0)
+			*peError=vr::VRInitError_Init_InterfaceNotFound;
+		return 0;
+		}
+	}
+
+vr::DriverHandle_t OpenVRHost::GetDriverHandle(void)
+	{
+	/* Driver itself has a fixed handle, based on OpenVR's vrserver: */
+	return 512;
+	}
+
+bool OpenVRHost::TrackedDeviceAdded(const char* pchDeviceSerialNumber,vr::ETrackedDeviceClass eDeviceClass,vr::ITrackedDeviceServerDriver* pDriver)
+	{
+	#ifdef VERBOSE
+	/* Determine the new device's class: */
+	const char* newDeviceClass;
+	switch(eDeviceClass)
+		{
+		case vr::TrackedDeviceClass_Invalid:
+			newDeviceClass="invalid tracked device";
+			break;
+		
+		case vr::TrackedDeviceClass_HMD:
+			newDeviceClass="head-mounted display";
+			break;
+		
+		case vr::TrackedDeviceClass_Controller:
+			newDeviceClass="controller";
+			break;
+		
+		case vr::TrackedDeviceClass_GenericTracker:
+			newDeviceClass="generic tracker";
+			break;
+		
+		case vr::TrackedDeviceClass_TrackingReference:
+			newDeviceClass="tracking base station";
+			break;
+		
+		default:
+			newDeviceClass="unknown device";
+		}
+	#endif
+	
+	/* Grab the next free device state structure: */
+	DeviceState& ds=deviceStates[numConnectedDevices];
+	ds.serialNumber=pchDeviceSerialNumber;
+	ds.driver=pDriver;
+	
+	/* Treat the new device based on its type: */
+	bool accepted=false;
+	if(eDeviceClass==vr::TrackedDeviceClass_HMD)
+		{
+		/* Check if this is the first headset: */
+		if(hmdConfiguration!=0)
 			{
-			/* Query the configuration of a potential HMD: */
-			updateHMDConfiguration(deviceStates[numConnectedDevices]);
+			/* Initialize the device state structure: */
+			ds.trackerIndex=0;
+			ds.setNumButtons(32);
+			ds.buttonIndices[0]=0;
+			ds.buttonIndices[31]=1;
+			ds.virtualDeviceIndex=hmdDeviceIndex;
+			ds.hmdConfiguration=hmdConfiguration;
+			hmdConfiguration=0;
 			
-			/* Query the device's battery level: */
-			vr::ETrackedPropertyError error=vr::TrackedProp_Success;
-			if(driver->GetBoolTrackedDeviceProperty(vr::Prop_DeviceProvidesBatteryStatus_Bool,&error)&&error==vr::TrackedProp_Success)
+			/* Get the headset's display component: */
+			ds.display=static_cast<vr::IVRDisplayComponent*>(ds.driver->GetComponent(vr::IVRDisplayComponent_Version));
+			if(ds.display!=0)
 				{
-				deviceStates[numConnectedDevices].batteryLevel=driver->GetFloatTrackedDeviceProperty(vr::Prop_DeviceBatteryPercentage_Float,&error);
-				if(error!=vr::TrackedProp_Success)
-					deviceStates[numConnectedDevices].batteryLevel=0.0f; // If there was an error, assume battery is empty
+				/* Initialize the HMD's configuration: */
+				updateHMDConfiguration(ds);
 				}
 			else
-				deviceStates[numConnectedDevices].batteryLevel=1.0f; // Devices without battery are assumed fully charged
-			std::cout<<"OpenVRHost: Battery level of device "<<numConnectedDevices<<" is "<<deviceStates[numConnectedDevices].batteryLevel*100.0f<<"%"<<std::endl;
+				{
+				#ifdef VERBOSE
+				printf("OpenVRHost: Warning: Head-mounted display with serial number %s does not advertise a display\n",pchDeviceSerialNumber);
+				fflush(stdout);
+				#endif
+				}
 			
-			/* Start using the new device: */
-			result=true;
+			/* Accept the headset: */
+			accepted=true;
 			}
 		else
-			std::cout<<"OpenVRHost: Unable to activate connected device "<<numConnectedDevices<<" due to OpenVR error "<<error<<std::endl;
-		
+			{
+			#ifdef VERBOSE
+			printf("OpenVRHost: Warning: Ignoring extra head-mounted display with serial number %s\n",pchDeviceSerialNumber);
+			fflush(stdout);
+			#endif
+			}
+		}
+	else if(eDeviceClass==vr::TrackedDeviceClass_Controller)
+		{
+		/* Check if there is room for more controllers: */
+		if(numControllers<maxNumControllers)
+			{
+			/* Initialize the device state structure: */
+			ds.trackerIndex=1U+numControllers;
+			ds.setNumButtons(vr::k_EButton_Max);
+			int baseIndex=2+numControllers*5;
+			ds.buttonIndices[vr::k_EButton_System]=baseIndex+0;
+			ds.buttonIndices[vr::k_EButton_ApplicationMenu]=baseIndex+1;
+			ds.buttonIndices[vr::k_EButton_Grip]=baseIndex+2;
+			ds.buttonIndices[vr::k_EButton_SteamVR_Touchpad]=baseIndex+3;
+			ds.buttonIndices[vr::k_EButton_SteamVR_Trigger]=baseIndex+4;
+			ds.valuatorIndexBase=numControllers*3;
+			ds.virtualDeviceIndex=controllerDeviceIndices[numControllers];
+			
+			/* Accept the controller: */
+			++numControllers;
+			accepted=true;
+			}
+		else
+			{
+			#ifdef VERBOSE
+			printf("OpenVRHost: Warning: Ignoring extra controller with serial number %s\n",pchDeviceSerialNumber);
+			fflush(stdout);
+			#endif
+			}
+		}
+	else if(eDeviceClass==vr::TrackedDeviceClass_GenericTracker)
+		{
+		/* Check if there is room for more generic trackers: */
+		if(numTrackers<maxNumTrackers)
+			{
+			/* Initialize the device state structure: */
+			ds.trackerIndex=1U+maxNumControllers+numTrackers;
+			ds.virtualDeviceIndex=trackerDeviceIndices[numTrackers];
+			
+			/* Accept the tracker: */
+			++numTrackers;
+			accepted=true;
+			}
+		else
+			{
+			#ifdef VERBOSE
+			printf("OpenVRHost: Warning: Ignoring extra tracker with serial number %s\n",pchDeviceSerialNumber);
+			fflush(stdout);
+			#endif
+			}
+		}
+	else if(eDeviceClass==vr::TrackedDeviceClass_TrackingReference)
+		{
+		/* Check if there is room for more tracking base stations: */
+		if(numBaseStations<maxNumBaseStations)
+			{
+			/* Accept the tracking base station: */
+			++numBaseStations;
+			accepted=true;
+			}
+		else
+			{
+			#ifdef VERBOSE
+			printf("OpenVRHost: Warning: Ignoring extra tracking base station with serial number %s\n",pchDeviceSerialNumber);
+			fflush(stdout);
+			#endif
+			}
+		}
+	
+	if(accepted)
+		{
+		/* Activate the device: */
+		#ifdef VERBOSE
+		printf("OpenVRHost: Activating newly-added %s with serial number %s\n",newDeviceClass,pchDeviceSerialNumber);
+		fflush(stdout);
+		#endif
+		ds.driver->Activate(numConnectedDevices);
 		++numConnectedDevices;
+		
+		#ifdef VERBOSE
+		printf("OpenVRHost: Done activating newly-added %s with serial number %s\n",newDeviceClass,pchDeviceSerialNumber);
+		fflush(stdout);
+		#endif
 		}
 	else
-		std::cout<<"OpenVRHost: Error retrieving connected device "<<numConnectedDevices<<std::endl;
+		{
+		/* Reject the device: */
+		#ifdef VERBOSE
+		printf("OpenVRHost: Rejecting newly-added %s with serial number %s\n",newDeviceClass,pchDeviceSerialNumber);
+		fflush(stdout);
+		#endif
+		}
 	
-	return result;
+	return accepted;
 	}
 
-void OpenVRHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,const vr::DriverPose_t& newPose)
+void OpenVRHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,const vr::DriverPose_t& newPose,uint32_t unPoseStructSize)
 	{
-	DeviceState& state=deviceStates[unWhichDevice];
+	/* Get a time stamp for the new device pose: */
+	Vrui::VRDeviceState::TimeStamp poseTimeStamp=deviceManager->getTimeStamp(newPose.poseTimeOffset);
 	
-	if(newPose.deviceIsConnected&&newPose.poseIsValid)
+	/* Update the state of the affected device: */
+	DeviceState& ds=deviceStates[unWhichDevice];
+	
+	/* Check if the device connected or disconnected: */
+	if(ds.connected!=newPose.deviceIsConnected)
 		{
-		if(!state.connected)
-			{
-			std::cout<<"OpenVRHost: Device "<<unWhichDevice<<" has been connected"<<std::endl;
-			state.connected=true;
-			}
+		#ifdef VERBOSE
+		if(newPose.deviceIsConnected)
+			printf("OpenVRHost: Tracked device with serial number %s is now connected\n",ds.serialNumber.c_str());
+		else
+			printf("OpenVRHost: Tracked device with serial number %s is now disconnected\n",ds.serialNumber.c_str());
+		fflush(stdout);
+		#endif
 		
+		ds.connected=newPose.deviceIsConnected;
+		}
+	
+	/* Check if the device changed tracking state: */
+	if(ds.tracked!=newPose.poseIsValid)
+		{
+		#ifdef VERBOSE
+		if(newPose.poseIsValid)
+			printf("OpenVRHost: Tracked device with serial number %s regained tracking\n",ds.serialNumber.c_str());
+		else
+			printf("OpenVRHost: Tracked device with serial number %s lost tracking\n",ds.serialNumber.c_str());
+		fflush(stdout);
+		#endif
+		
+		/* Disable the device if it is no longer tracked: */
+		if(!newPose.poseIsValid)
+			disableTracker(ds.trackerIndex);
+		
+		ds.tracked=newPose.poseIsValid;
+		}
+	
+	/* Update the device's transformation if it is being tracked: */
+	if(ds.tracked)
+		{
 		Vrui::VRDeviceState::TrackerState ts;
 		typedef PositionOrientation::Vector Vector;
 		typedef Vector::Scalar Scalar;
@@ -721,18 +820,38 @@ void OpenVRHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,const vr::Drive
 		PositionOrientation local(localTrans,localRot);
 		
 		/* Check for changes: */
-		if(state.worldTransform!=world)
+		if(ds.worldTransform!=world)
 			{
-			std::cout<<"OpenVRHost: World transform for device "<<unWhichDevice<<": "<<world<<std::endl;
-			state.worldTransform=world;
+			ds.worldTransform=world;
+			
+			#if 0
+			if(ds.trackerIndex>=0)
+				{
+				/* Print the new world transformation for testing purposes: */
+				Vector t=world.getTranslation();
+				Vector ra=world.getRotation().getAxis();
+				double rw=Math::deg(world.getRotation().getAngle());
+				printf("New world transform for tracker %d: (%f, %f, %f), (%f, %f, %f), %f\n",ds.trackerIndex,t[0],t[1],t[2],ra[0],ra[1],ra[2],rw);
+				}
+			#endif
 			}
-		if(state.localTransform!=local)
+		if(ds.localTransform!=local)
 			{
-			std::cout<<"OpenVRHost: Local transform for device "<<unWhichDevice<<": "<<local<<std::endl;
-			state.localTransform=local;
+			ds.localTransform=local;
+			
+			#if 0
+			if(ds.trackerIndex>=0)
+				{
+				/* Print the new local transformation for testing purposes: */
+				Vector t=local.getTranslation();
+				Vector ra=local.getRotation().getAxis();
+				double rw=Math::deg(local.getRotation().getAngle());
+				printf("New local transform for tracker %d: (%f, %f, %f), (%f, %f, %f), %f\n",ds.trackerIndex,t[0],t[1],t[2],ra[0],ra[1],ra[2],rw);
+				}
+			#endif
 			
 			/* Combine the driver's reported local transformation and the configured tracker post-transformation: */
-			trackerPostTransformations[unWhichDevice]=local*state.configuredPostTransformation;
+			trackerPostTransformations[ds.trackerIndex]=local*configuredPostTransformations[ds.trackerIndex];
 			}
 		
 		/* Get the device's driver transformation: */
@@ -742,162 +861,847 @@ void OpenVRHost::TrackedDevicePoseUpdated(uint32_t unWhichDevice,const vr::Drive
 		
 		/* Assemble the device's world-space tracking state: */
 		ts.positionOrientation=world*driver;
-		ts.linearVelocity=world.transform(Vrui::VRDeviceState::TrackerState::LinearVelocity(newPose.vecVelocity));
-		ts.angularVelocity=world.transform(Vrui::VRDeviceState::TrackerState::AngularVelocity(newPose.vecAngularVelocity));
+		
+		/* Reported linear velocity is in base station space, as optimal for the sensor fusion algorithm: */
+		ts.linearVelocity=ds.worldTransform.transform(Vrui::VRDeviceState::TrackerState::LinearVelocity(newPose.vecVelocity));
+		
+		/* Reported angular velocity is in IMU space, as optimal for the sensor fusion algorithm: */
+		ts.angularVelocity=ts.positionOrientation.transform(Vrui::VRDeviceState::TrackerState::AngularVelocity(newPose.vecAngularVelocity));
 		
 		/* Set the tracker state in the device manager, which will apply the device's local transformation and configured post-transformation: */
-		setTrackerState(unWhichDevice,ts);
+		setTrackerState(ds.trackerIndex,ts,poseTimeStamp);
 		
 		/* Force a device state update if the HMD reported in: */
-		if(unWhichDevice==0)
+		if(ds.trackerIndex==0)
 			updateState();
 		}
-	else
-		{
-		if(state.connected)
-			{
-			std::cout<<"OpenVRHost: Device "<<unWhichDevice<<" has been disconnected"<<std::endl;
-			state.connected=false;
-			}
-		}
-	}
-
-void OpenVRHost::TrackedDevicePropertiesChanged(uint32_t unWhichDevice)
-	{
-	DeviceState& ds=deviceStates[unWhichDevice];
-	
-	#if 0
-	std::cout<<"OpenVRHost: Changed properties on device "<<unWhichDevice<<std::endl;
-	vr::ETrackedPropertyError propError=vr::TrackedProp_Success;
-	int32_t deviceClass=ds.driver->GetInt32TrackedDeviceProperty(vr::Prop_DeviceClass_Int32,&propError);
-	if(propError==vr::TrackedProp_Success)
-		{
-		std::cout<<"OpenVRHost: Device "<<unWhichDevice<<" is of class "<<deviceClass<<std::endl;
-		}
-	else
-		std::cout<<"OpenVRHost: Error requesting device property"<<std::endl;
-	#endif
-	
-	/* Query the configuration of a potential HMD: */
-	updateHMDConfiguration(ds);
-	
-	/* Query the device's battery level: */
-	vr::ETrackedPropertyError error=vr::TrackedProp_Success;
-	if(ds.driver->GetBoolTrackedDeviceProperty(vr::Prop_DeviceProvidesBatteryStatus_Bool,&error)&&error==vr::TrackedProp_Success)
-		{
-		ds.batteryLevel=ds.driver->GetFloatTrackedDeviceProperty(vr::Prop_DeviceBatteryPercentage_Float,&error);
-		if(error!=vr::TrackedProp_Success)
-			ds.batteryLevel=0.0f; // If there was an error, assume battery is empty
-		}
-	else
-		ds.batteryLevel=1.0f; // Devices without battery are assumed fully charged
-	std::cout<<"OpenVRHost: Battery level of device "<<unWhichDevice<<" is "<<int(Math::floor(ds.batteryLevel*100.0f+0.5f))<<"%"<<std::endl;
 	}
 
 void OpenVRHost::VsyncEvent(double vsyncTimeOffsetSeconds)
 	{
-	std::cout<<"OpenVRHost: Vsync occurred at "<<vsyncTimeOffsetSeconds<<std::endl;
+	#ifdef VERBOSE
+	printf("OpenVRHost: Ignoring vsync event with time offset %f\n",vsyncTimeOffsetSeconds);
+	fflush(stdout);
+	#endif
 	}
 
 void OpenVRHost::TrackedDeviceButtonPressed(uint32_t unWhichDevice,vr::EVRButtonId eButtonId,double eventTimeOffset)
 	{
-	// std::cout<<"Button "<<eButtonId<<" pressed on device "<<unWhichDevice<<std::endl;
-	if(unWhichDevice>=1U)
+	/* Check if the button is valid: */
+	if(unWhichDevice<numConnectedDevices&&deviceStates[unWhichDevice].buttonIndices[eButtonId]>=0)
 		{
-		int baseIndex=(int(unWhichDevice)-1)*5;
-		int buttonIndex=eButtonId>=32?eButtonId-29:eButtonId;
-		setButtonState(baseIndex+buttonIndex,true);
+		/* Set the button state in the device manager: */
+		setButtonState(deviceStates[unWhichDevice].buttonIndices[eButtonId],true);
 		}
 	}
 
 void OpenVRHost::TrackedDeviceButtonUnpressed(uint32_t unWhichDevice,vr::EVRButtonId eButtonId,double eventTimeOffset)
 	{
-	// std::cout<<"Button "<<eButtonId<<" unpressed on device "<<unWhichDevice<<std::endl;
-	if(unWhichDevice>=1U)
+	/* Check if the button is valid: */
+	if(unWhichDevice<numConnectedDevices&&deviceStates[unWhichDevice].buttonIndices[eButtonId]>=0)
 		{
-		int baseIndex=(int(unWhichDevice)-1)*5;
-		int buttonIndex=eButtonId>=32?eButtonId-29:eButtonId;
-		setButtonState(baseIndex+buttonIndex,false);
+		/* Set the button state in the device manager: */
+		setButtonState(deviceStates[unWhichDevice].buttonIndices[eButtonId],false);
 		}
 	}
 
 void OpenVRHost::TrackedDeviceButtonTouched(uint32_t unWhichDevice,vr::EVRButtonId eButtonId,double eventTimeOffset)
 	{
-	// std::cout<<"Button "<<eButtonId<<" touched on device "<<unWhichDevice<<std::endl;
+	/* Just ignore this for now */
 	}
 
 void OpenVRHost::TrackedDeviceButtonUntouched(uint32_t unWhichDevice,vr::EVRButtonId eButtonId,double eventTimeOffset)
 	{
-	// std::cout<<"Button "<<eButtonId<<" untouched on device "<<unWhichDevice<<std::endl;
+	/* Just ignore this for now */
 	}
 
 void OpenVRHost::TrackedDeviceAxisUpdated(uint32_t unWhichDevice,uint32_t unWhichAxis,const vr::VRControllerAxis_t& axisState)
 	{
-	// std::cout<<"Axis "<<unWhichAxis<<" updated on device "<<unWhichDevice<<std::endl;
-	if(unWhichDevice>=1U)
+	/* Check if the axis is valid: */
+	if(unWhichDevice<numConnectedDevices)
 		{
-		int baseIndex=(int(unWhichDevice)-1)*3;
+		int baseIndex=deviceStates[unWhichDevice].valuatorIndexBase;
 		if(unWhichAxis==0U)
 			{
+			/* Set the touchpad valuators: */
 			setValuatorState(baseIndex+0,axisState.x);
 			setValuatorState(baseIndex+1,axisState.y);
 			}
 		else
+			{
+			/* Set the analog trigger valuator: */
 			setValuatorState(baseIndex+2,axisState.x);
-		}
-	}
-
-void OpenVRHost::MCImageUpdated(void)
-	{
-	std::cout<<"OpenVRHost: MC image updated"<<std::endl;
-	}
-
-vr::IVRSettings* OpenVRHost::GetSettings(const char* pchInterfaceVersion)
-	{
-	/* Check if the requested API version matches the compiled-in one: */
-	if(strcmp(pchInterfaceVersion,vr::IVRSettings_Version)==0)
-		return openvrSettings;
-	else
-		{
-		std::cout<<"OpenVRHost: Requested settings API version does not match compiled-in version"<<std::endl;
-		return 0;
-		}
-	}
-
-void OpenVRHost::PhysicalIpdSet(uint32_t unWhichDevice,float fPhysicalIpdMeters)
-	{
-	if(deviceStates[unWhichDevice].ipd!=fPhysicalIpdMeters)
-		{
-		/* Export the configuration of a potential HMD: */
-		updateHMDConfiguration(deviceStates[unWhichDevice]);
-		
-		std::cout<<"OpenVRHost: Physical IPD on device "<<unWhichDevice<<" set to "<<fPhysicalIpdMeters*1000.0f<<"mm"<<std::endl;
+			}
 		}
 	}
 
 void OpenVRHost::ProximitySensorState(uint32_t unWhichDevice,bool bProximitySensorTriggered)
 	{
-	if(proximitySensor!=bProximitySensorTriggered)
+	if(deviceStates[unWhichDevice].proximitySensorState!=bProximitySensorTriggered)
 		{
-		proximitySensor=bProximitySensorTriggered;
-		std::cout<<"OpenVRHost: Proximity sensor on device "<<unWhichDevice<<(bProximitySensorTriggered?" triggered":" untriggered")<<std::endl;
+		#ifdef VERBOSE
+		if(bProximitySensorTriggered)
+			printf("OpenVRHost: Proximity sensor on device %u triggered\n",unWhichDevice);
+		else
+			printf("OpenVRHost: Proximity sensor on device %u untriggered\n",unWhichDevice);
+		fflush(stdout);
+		#endif
+		
+		deviceStates[unWhichDevice].proximitySensorState=bProximitySensorTriggered;
 		}
 	}
 
 void OpenVRHost::VendorSpecificEvent(uint32_t unWhichDevice,vr::EVREventType eventType,const vr::VREvent_Data_t& eventData,double eventTimeOffset)
 	{
-	std::cout<<"OpenVRHost: Vendor-specific event "<<eventType<<" received on device "<<unWhichDevice<<std::endl;
+	#ifdef VERBOSE
+	printf("OpenVRHost: Ignoring vendor-specific event of type %d for device %u\n",int(eventType),unWhichDevice);
+	fflush(stdout);
+	#endif
 	}
 
 bool OpenVRHost::IsExiting(void)
 	{
-	std::cout<<"OpenVRHost: IsExiting called"<<std::endl;
+	/* Return true if the driver module is shutting down: */
+	return exiting;
+	}
+
+bool OpenVRHost::PollNextEvent(vr::VREvent_t* pEvent,uint32_t uncbVREvent)
+	{
+	return false;
+	}
+
+void OpenVRHost::GetRawTrackedDevicePoses(float fPredictedSecondsFromNow,vr::TrackedDevicePose_t* pTrackedDevicePoseArray,uint32_t unTrackedDevicePoseArrayCount)
+	{
+	#ifdef VERBOSE
+	printf("OpenVRHost: Ignoring GetRawTrackedDevicePoses request\n");
+	fflush(stdout);
+	#endif
+	}
+
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+const char* propertyTypeName(vr::PropertyTypeTag_t tag)
+	{
+	switch(tag)
+		{
+		case vr::k_unInvalidPropertyTag:
+			return "(invalid type)";
+		
+		case vr::k_unFloatPropertyTag:
+			return "float";
+		
+		case vr::k_unInt32PropertyTag:
+			return "32-bit integer";
+		
+		case vr::k_unUint64PropertyTag:
+			return "64-bit unsigned integer";
+		
+		case vr::k_unBoolPropertyTag:
+			return "boolean";
+		
+		case vr::k_unStringPropertyTag:
+			return "string";
+		
+		case vr::k_unHmdMatrix34PropertyTag:
+			return "3x4 matrix";
+		
+		case vr::k_unHmdMatrix44PropertyTag:
+			return "4x4 matrix";
+		
+		case vr::k_unHmdVector3PropertyTag:
+			return "affine vector";
+		
+		case vr::k_unHmdVector4PropertyTag:
+			return "homogeneous vector";
+		
+		case vr::k_unHiddenAreaPropertyTag:
+			return "hidden area";
+		
+		default:
+			if(tag>=vr::k_unOpenVRInternalReserved_Start&&tag<vr::k_unOpenVRInternalReserved_End)
+				return "(OpenVR internal type)";
+			else
+				return "(unknown type)";
+		}
+	}
+
+void storeFloat(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,float value,vr::PropertyRead_t& prop)
+	{
+	/* Initialize the property: */
+	prop.unRequiredBufferSize=sizeof(float);
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unBufferSize>=prop.unRequiredBufferSize)
+			{
+			prop.unTag=vr::k_unFloatPropertyTag;
+			*static_cast<float*>(prop.pvBuffer)=value;
+			}
+		else
+			prop.eError=vr::TrackedProp_BufferTooSmall;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	}
+
+void storeUint64(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,uint64_t value,vr::PropertyRead_t& prop)
+	{
+	/* Initialize the property: */
+	prop.unRequiredBufferSize=sizeof(uint64_t);
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unBufferSize>=prop.unRequiredBufferSize)
+			{
+			prop.unTag=vr::k_unUint64PropertyTag;
+			*static_cast<uint64_t*>(prop.pvBuffer)=value;
+			}
+		else
+			prop.eError=vr::TrackedProp_BufferTooSmall;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	}
+
+void storeString(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,const std::string& value,vr::PropertyRead_t& prop)
+	{
+	/* Initialize the property to the empty string: */
+	static_cast<char*>(prop.pvBuffer)[0]='\0';
+	prop.unRequiredBufferSize=value.size()+1;
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unBufferSize>=prop.unRequiredBufferSize)
+			{
+			prop.unTag=vr::k_unStringPropertyTag;
+			memcpy(prop.pvBuffer,value.c_str(),prop.unRequiredBufferSize);
+			}
+		else
+			prop.eError=vr::TrackedProp_BufferTooSmall;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	}
+
+bool retrieveFloat(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,vr::PropertyWrite_t& prop,float& value)
+	{
+	/* Initialize the property: */
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unTag==vr::k_unFloatPropertyTag)
+			{
+			if(prop.unBufferSize==sizeof(float))
+				value=*static_cast<float*>(prop.pvBuffer);
+			else
+				prop.eError=vr::TrackedProp_BufferTooSmall;
+			}
+		else
+			prop.eError=vr::TrackedProp_WrongDataType;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	
+	return prop.eError==vr::TrackedProp_Success;
+	}
+
+bool retrieveInt32(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,vr::PropertyWrite_t& prop,int32_t& value)
+	{
+	/* Initialize the property: */
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unTag==vr::k_unInt32PropertyTag)
+			{
+			if(prop.unBufferSize==sizeof(int32_t))
+				value=*static_cast<int32_t*>(prop.pvBuffer);
+			else
+				prop.eError=vr::TrackedProp_BufferTooSmall;
+			}
+		else
+			prop.eError=vr::TrackedProp_WrongDataType;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	
+	return prop.eError==vr::TrackedProp_Success;
+	}
+
+bool retrieveUint64(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,vr::PropertyWrite_t& prop,uint64_t& value)
+	{
+	/* Initialize the property: */
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unTag==vr::k_unUint64PropertyTag)
+			{
+			if(prop.unBufferSize==sizeof(uint64_t))
+				value=*static_cast<uint64_t*>(prop.pvBuffer);
+			else
+				prop.eError=vr::TrackedProp_BufferTooSmall;
+			}
+		else
+			prop.eError=vr::TrackedProp_WrongDataType;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	
+	return prop.eError==vr::TrackedProp_Success;
+	}
+
+bool retrieveBool(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,vr::PropertyWrite_t& prop,bool& value)
+	{
+	/* Initialize the property: */
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unTag==vr::k_unBoolPropertyTag)
+			{
+			if(prop.unBufferSize==sizeof(bool))
+				value=*static_cast<bool*>(prop.pvBuffer);
+			else
+				prop.eError=vr::TrackedProp_BufferTooSmall;
+			}
+		else
+			prop.eError=vr::TrackedProp_WrongDataType;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	
+	return prop.eError==vr::TrackedProp_Success;
+	}
+
+bool retrieveString(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,vr::PropertyWrite_t& prop,std::string& value)
+	{
+	/* Initialize the property: */
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unTag==vr::k_unStringPropertyTag)
+			value=static_cast<char*>(prop.pvBuffer);
+		else
+			prop.eError=vr::TrackedProp_WrongDataType;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	
+	return prop.eError==vr::TrackedProp_Success;
+	}
+
+}
+
+vr::ETrackedPropertyError OpenVRHost::ReadPropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyRead_t* pBatch,uint32_t unBatchEntryCount)
+	{
+	/* Access the affected device state (in case this is a device property; won't be used if it isn't): */
+	DeviceState& ds=deviceStates[ulContainerHandle-256];
+	
+	/* Process all properties in this batch: */
+	vr::ETrackedPropertyError result=vr::TrackedProp_Success;
+	vr::PropertyRead_t* pPtr=pBatch;
+	for(unsigned int entryIndex=0;entryIndex<unBatchEntryCount;++entryIndex,++pPtr)
+		{
+		/* Check for known property tags: */
+		switch(pPtr->prop)
+			{
+			#if 0
+			case vr::Prop_SerialNumber_String:
+				storeString(ulContainerHandle,256,255+numConnectedDevices,ds.serialNumber,*pPtr);
+				break;
+			
+			case vr::Prop_DisplayMCImageLeft_String:
+			case vr::Prop_DisplayMCImageRight_String:
+				/* Return an empty string because OpenVR hangs in the MC image loader: */
+				static_cast<char*>(pPtr->pvBuffer)[0]='\0';
+				pPtr->unTag=vr::k_unStringPropertyTag;
+				pPtr->unRequiredBufferSize=1;
+				pPtr->eError=vr::TrackedProp_Success;
+				break;
+			#endif
+			
+			case vr::Prop_LensCenterLeftU_Float:
+				storeFloat(ulContainerHandle,256,256,ds.lensCenters[0][0],*pPtr);
+				break;
+			
+			case vr::Prop_LensCenterLeftV_Float:
+				storeFloat(ulContainerHandle,256,256,ds.lensCenters[0][1],*pPtr);
+				break;
+			
+			case vr::Prop_LensCenterRightU_Float:
+				storeFloat(ulContainerHandle,256,256,ds.lensCenters[1][0],*pPtr);
+				break;
+			
+			case vr::Prop_LensCenterRightV_Float:
+				storeFloat(ulContainerHandle,256,256,ds.lensCenters[1][1],*pPtr);
+				break;
+			
+			case vr::Prop_UserConfigPath_String:
+				storeString(ulContainerHandle,512,512,openvrDriverConfigDir,*pPtr);
+				break;
+			
+			case vr::Prop_InstallPath_String:
+				storeString(ulContainerHandle,512,512,openvrDriverRootDir,*pPtr);
+				break;
+			
+			default:
+				pPtr->eError=vr::TrackedProp_UnknownProperty;
+			}
+		if(pPtr->eError!=vr::TrackedProp_Success)
+			{
+			#ifdef VERYVERBOSE
+			printf("OpenVRHost: Warning: Ignoring read of %s property %u for container %u due to error %s\n",propertyTypeName(pPtr->unTag),pPtr->prop,(unsigned int)(ulContainerHandle),GetPropErrorNameFromEnum(pPtr->eError));
+			fflush(stdout);
+			#endif
+			result=pPtr->eError;
+			}
+		}
+	
+	return result;
+	}
+
+vr::ETrackedPropertyError OpenVRHost::WritePropertyBatch(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyWrite_t* pBatch,uint32_t unBatchEntryCount)
+	{
+	/* Access the affected device state (in case this is a device property; won't be used if it isn't): */
+	DeviceState& ds=deviceStates[ulContainerHandle-256];
+	
+	/* Process all properties in this batch: */
+	vr::ETrackedPropertyError result=vr::TrackedProp_Success;
+	vr::PropertyWrite_t* pPtr=pBatch;
+	for(unsigned int entryIndex=0;entryIndex<unBatchEntryCount;++entryIndex,++pPtr)
+		{
+		/* Check for known property tags: */
+		switch(pPtr->prop)
+			{
+			/* Print some interesting properties: */
+			case vr::Prop_SecondsFromVsyncToPhotons_Float:
+				{
+				float displayDelay=0.0f;
+				retrieveFloat(ulContainerHandle,256,256,*pPtr,displayDelay);
+				printf("OpenVRHost: Display delay from vsync = %fms\n",displayDelay*1000.0f);
+				break;
+				}
+			
+			case vr::Prop_DisplayMCImageLeft_String:
+				{
+				std::string mcImage;
+				retrieveString(ulContainerHandle,256,256,*pPtr,mcImage);
+				printf("OpenVRHost: Left Mura correction image is %s\n",mcImage.c_str());
+				break;
+				}
+			
+			case vr::Prop_DisplayMCImageRight_String:
+				{
+				std::string mcImage;
+				retrieveString(ulContainerHandle,256,256,*pPtr,mcImage);
+				printf("OpenVRHost: Right Mura correction image is %s\n",mcImage.c_str());
+				break;
+				}
+			
+			case vr::Prop_UserHeadToEyeDepthMeters_Float:
+				{
+				float ed=0.0f;
+				retrieveFloat(ulContainerHandle,256,256,*pPtr,ed);
+				printf("OpenVRHost: User eye depth = %f\n",ed);
+				break;
+				}
+			
+			/* Extract relevant properties: */
+			case vr::Prop_WillDriftInYaw_Bool:
+				retrieveBool(ulContainerHandle,256,255+numConnectedDevices,*pPtr,ds.willDriftInYaw);
+				break;
+			
+			case vr::Prop_DeviceIsWireless_Bool:
+				if(retrieveBool(ulContainerHandle,256,255+numConnectedDevices,*pPtr,ds.isWireless))
+					{
+					/* Notify the device manager: */
+					deviceManager->updateBatteryState(ds.virtualDeviceIndex,ds.batteryState);
+					}
+				break;
+			
+			case vr::Prop_DeviceIsCharging_Bool:
+				{
+				bool newBatteryCharging;
+				if(retrieveBool(ulContainerHandle,256,255+numConnectedDevices,*pPtr,newBatteryCharging)&&ds.batteryState.charging!=newBatteryCharging)
+					{
+					#ifdef VERBOSE
+					if(newBatteryCharging)
+						printf("OpenVRHost: Device %s is now charging\n",ds.serialNumber.c_str());
+					else
+						printf("OpenVRHost: Device %s is now discharging\n",ds.serialNumber.c_str());
+					fflush(stdout);
+					#endif
+					ds.batteryState.charging=newBatteryCharging;
+					
+					/* Notify the device manager: */
+					deviceManager->updateBatteryState(ds.virtualDeviceIndex,ds.batteryState);
+					}
+				break;
+				}
+			
+			case vr::Prop_DeviceBatteryPercentage_Float:
+				{
+				float newBatteryLevel;
+				if(retrieveFloat(ulContainerHandle,256,255+numConnectedDevices,*pPtr,newBatteryLevel))
+					{
+					unsigned int newBatteryPercent=(unsigned int)(Math::floor(newBatteryLevel*100.0f+0.5f));
+					if(ds.batteryState.batteryLevel!=newBatteryPercent)
+						{
+						#ifdef VERBOSE
+						printf("OpenVRHost: Battery level on device %s is %u%%\n",ds.serialNumber.c_str(),newBatteryPercent);
+						fflush(stdout);
+						#endif
+						ds.batteryState.batteryLevel=newBatteryPercent;
+					
+						/* Notify the device manager: */
+						deviceManager->updateBatteryState(ds.virtualDeviceIndex,ds.batteryState);
+						}
+					}
+				break;
+				}
+			
+			case vr::Prop_ContainsProximitySensor_Bool:
+				retrieveBool(ulContainerHandle,256,255+numConnectedDevices,*pPtr,ds.hasProximitySensor);
+				break;
+			
+			case vr::Prop_DeviceProvidesBatteryStatus_Bool:
+				retrieveBool(ulContainerHandle,256,255+numConnectedDevices,*pPtr,ds.providesBatteryStatus);
+				break;
+			
+			case vr::Prop_DeviceCanPowerOff_Bool:
+				retrieveBool(ulContainerHandle,256,255+numConnectedDevices,*pPtr,ds.canPowerOff);
+				break;
+			
+			case vr::Prop_LensCenterLeftU_Float:
+				retrieveFloat(ulContainerHandle,256,256,*pPtr,ds.lensCenters[0][0]);
+				break;
+			
+			case vr::Prop_LensCenterLeftV_Float:
+				retrieveFloat(ulContainerHandle,256,256,*pPtr,ds.lensCenters[0][1]);
+				break;
+			
+			case vr::Prop_LensCenterRightU_Float:
+				retrieveFloat(ulContainerHandle,256,256,*pPtr,ds.lensCenters[1][0]);
+				break;
+			
+			case vr::Prop_LensCenterRightV_Float:
+				retrieveFloat(ulContainerHandle,256,256,*pPtr,ds.lensCenters[1][1]);
+				break;
+			
+			case vr::Prop_UserIpdMeters_Float:
+				{
+				float ipd;
+				if(retrieveFloat(ulContainerHandle,256,256,*pPtr,ipd)&&ds.hmdConfiguration!=0)
+					{
+					deviceManager->lockHmdConfigurations();
+					
+					/* Update the HMD's IPD: */
+					ds.hmdConfiguration->setIpd(ipd);
+					
+					/* Update the HMD configuration in the device manager: */
+					deviceManager->updateHmdConfiguration(ds.hmdConfiguration);
+					
+					deviceManager->unlockHmdConfigurations();
+					}
+				break;
+				}
+			
+			/* Warn about unknown properties: */
+			default:
+				pPtr->eError=vr::TrackedProp_UnknownProperty;
+			}
+		if(pPtr->eError!=vr::TrackedProp_Success)
+			{
+			#ifdef VERYVERBOSE
+			printf("OpenVRHost: Warning: Ignoring write of %s property %u for container %u due to error %s\n",propertyTypeName(pPtr->unTag),pPtr->prop,(unsigned int)(ulContainerHandle),GetPropErrorNameFromEnum(pPtr->eError));
+			fflush(stdout);
+			#endif
+			result=pPtr->eError;
+			}
+		}
+	
+	return result;
+	}
+
+const char* OpenVRHost::GetPropErrorNameFromEnum(vr::ETrackedPropertyError error)
+	{
+	switch(error)
+		{
+		case vr::TrackedProp_Success:
+			return "Success";
+		
+		case vr::TrackedProp_WrongDataType:
+			return "Wrong data type";
+		
+		case vr::TrackedProp_WrongDeviceClass:
+			return "Wrong device class";
+		
+		case vr::TrackedProp_BufferTooSmall:
+			return "Buffer too small";
+		
+		case vr::TrackedProp_UnknownProperty:
+			return "Unknown property";
+		
+		case vr::TrackedProp_InvalidDevice:
+			return "Invalid device";
+		
+		case vr::TrackedProp_CouldNotContactServer:
+			return "Could not contact server";
+		
+		case vr::TrackedProp_ValueNotProvidedByDevice:
+			return "Value not provided by device";
+		
+		case vr::TrackedProp_StringExceedsMaximumLength:
+			return "String exceeds maximum length";
+		
+		case vr::TrackedProp_NotYetAvailable:
+			return "Not yet available";
+		
+		case vr::TrackedProp_PermissionDenied:
+			return "Permission denied";
+		
+		case vr::TrackedProp_InvalidOperation:
+			return "Invalid operation";
+		
+		default:
+			return "Unknown error";
+		}
+	}
+
+vr::PropertyContainerHandle_t OpenVRHost::TrackedDeviceToPropertyContainer(vr::TrackedDeviceIndex_t nDevice)
+	{
+	/* Tracked devices have fixed handles starting at 256, based on OpenVR's vrserver: */
+	return 256+nDevice;
+	}
+
+const char* OpenVRHost::GetSettingsErrorNameFromEnum(vr::EVRSettingsError eError)
+	{
+	switch(eError)
+		{
+		case vr::VRSettingsError_None:
+			return "No error";
+		
+		case vr::VRSettingsError_IPCFailed:
+			return "IPC failed";
+		
+		case vr::VRSettingsError_WriteFailed:
+			return "Write failed";
+		
+		case vr::VRSettingsError_ReadFailed:
+			return "Read failed";
+		
+		case vr::VRSettingsError_JsonParseFailed:
+			return "Parse failed";
+		
+		case vr::VRSettingsError_UnsetSettingHasNoDefault:
+			return "";
+		
+		default:
+			return "Unknown settings error";
+		}
+	}
+
+bool OpenVRHost::Sync(bool bForce,vr::EVRSettingsError* peError)
+	{
+	/* Don't know what to do: */
 	return true;
 	}
 
-bool OpenVRHost::ContinueRunFrame(void)
+void OpenVRHost::SetBool(const char* pchSection,const char* pchSettingsKey,bool bValue,vr::EVRSettingsError* peError)
 	{
-	return false;
+	/* Go to the requested configuration subsection and store the value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	section.storeValue<bool>(pchSettingsKey,bValue);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+void OpenVRHost::SetInt32(const char* pchSection,const char* pchSettingsKey,int32_t nValue,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and store the value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	section.storeValue<int32_t>(pchSettingsKey,nValue);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+void OpenVRHost::SetFloat(const char* pchSection,const char* pchSettingsKey,float flValue,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and store the value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	section.storeValue<float>(pchSettingsKey,flValue);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+void OpenVRHost::SetString(const char* pchSection,const char* pchSettingsKey,const char* pchValue,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and store the value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	section.storeString(pchSettingsKey,pchValue);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+bool OpenVRHost::GetBool(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and retrieve the requested value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	bool result=section.retrieveValue<bool>(pchSettingsKey,false);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	return result;
+	}
+
+int32_t OpenVRHost::GetInt32(const char* pchSection,const char*pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and retrieve the requested value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	int32_t result=section.retrieveValue<int32_t>(pchSettingsKey,0);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	return result;
+	}
+
+float OpenVRHost::GetFloat(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and retrieve the requested value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	float result=section.retrieveValue<float>(pchSettingsKey,0.0f);
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	return result;
+	}
+
+void OpenVRHost::GetString(const char* pchSection,const char* pchSettingsKey,char* pchValue,uint32_t unValueLen,vr::EVRSettingsError* peError)
+	{
+	/* Go to the requested configuration subsection and retrieve the requested value: */
+	Misc::ConfigurationFileSection section=openvrSettingsSection.getSection(pchSection);
+	std::string result=section.retrieveString(pchSettingsKey,"");
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	
+	/* Copy the result string into the provided buffer: */
+	if(unValueLen>=result.size()+1)
+		memcpy(pchValue,result.c_str(),result.size()+1);
+	else
+		{
+		pchValue[0]='\0';
+		if(peError!=0)
+			*peError=vr::VRSettingsError_ReadFailed;
+		}
+	}
+
+void OpenVRHost::RemoveSection(const char* pchSection,vr::EVRSettingsError* peError)
+	{
+	/* Ignore this request: */
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+void OpenVRHost::RemoveKeyInSection(const char* pchSection,const char* pchSettingsKey,vr::EVRSettingsError* peError)
+	{
+	/* Ignore this request: */
+	if(peError!=0)
+		*peError=vr::VRSettingsError_None;
+	}
+
+void OpenVRHost::Log(const char* pchLogMessage)
+	{
+	if(printLogMessages)
+		{
+		printf("OpenVRHost: Driver log: %s",pchLogMessage);
+		fflush(stdout);
+		}
+	}
+
+uint32_t OpenVRHost::GetDriverCount(void) const
+	{
+	/* There appear to be two drivers: htc and lighthouse: */
+	return 2;
+	}
+
+uint32_t OpenVRHost::GetDriverName(vr::DriverId_t nDriver,char* pchValue,uint32_t unBufferSize)
+	{
+	static const char* driverNames[2]={"lighthouse","htc"};
+	if(nDriver<2)
+		{
+		size_t dnLen=strlen(driverNames[nDriver])+1;
+		if(dnLen<=unBufferSize)
+			memcpy(pchValue,driverNames[nDriver],dnLen);
+		return dnLen;
+		}
+	else
+		return 0;
+	}
+
+uint32_t OpenVRHost::LoadSharedResource(const char* pchResourceName,char* pchBuffer,uint32_t unBufferLen)
+	{
+	std::cout<<"OpenVRHost: LoadSharedResource called with resource name "<<pchResourceName<<" and buffer size "<<unBufferLen<<std::endl;
+	
+	/* Extract the driver name template from the given resource name: */
+	const char* driverStart=0;
+	const char* driverEnd=0;
+	for(const char* rnPtr=pchResourceName;*rnPtr!='\0';++rnPtr)
+		{
+		if(*rnPtr=='{')
+			driverStart=rnPtr;
+		else if(*rnPtr=='}')
+			driverEnd=rnPtr+1;
+		}
+	
+	/* Assemble the resource path based on the OpenVR root directory and the driver name: */
+	std::string resourcePath=openvrRootDir;
+	resourcePath.append("/drivers/");
+	resourcePath.append(std::string(driverStart+1,driverEnd-1));
+	resourcePath.append("/resources");
+	resourcePath.append(driverEnd);
+	
+	/* Open the resource file: */
+	try
+		{
+		IO::SeekableFilePtr resourceFile=IO::openSeekableFile(resourcePath.c_str());
+		
+		/* Check if the resource fits into the given buffer: */
+		size_t resourceSize=resourceFile->getSize();
+		if(resourceSize<=unBufferLen)
+			{
+			/* Load the resource into the buffer: */
+			resourceFile->readRaw(pchBuffer,resourceSize);
+			}
+		
+		return uint32_t(resourceSize);
+		}
+	catch(std::runtime_error err)
+		{
+		std::cout<<"OpenVRHost::LoadSharedResource: Resource "<<resourcePath<<" could not be loaded due to exception "<<err.what()<<std::endl;
+		return 0;
+		}
+	}
+
+uint32_t OpenVRHost::GetResourceFullPath(const char* pchResourceName,const char* pchResourceTypeDirectory,char* pchPathBuffer,uint32_t unBufferLen)
+	{
+	std::cout<<"OpenVRHost: GetResourceFullPath called with resource name "<<pchResourceName<<" and type directory "<<pchResourceTypeDirectory<<std::endl;
+	pchPathBuffer[0]='\0';
+	return 1;
 	}
 
 /*************************************

@@ -1,6 +1,6 @@
 /***********************************************************************
 Small image viewer using Vrui.
-Copyright (c) 2011-2016 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -138,6 +138,57 @@ const Vrui::ToolFactory* ImageViewer::PipetteTool::getFactory(void) const
 	return factory;
 	}
 
+namespace {
+
+template <class ScalarParam>
+class RectangleAverager
+	{
+	/* Methods: */
+	public:
+	static GLColor<GLfloat,4> averageRect(const Images::BaseImage& image,int xmin,int xmax,int ymin,int ymax)
+		{
+		const ScalarParam* imgPtr=static_cast<const ScalarParam*>(image.getPixels());
+		ptrdiff_t stride=image.getRowStride()/sizeof(ScalarParam);
+		
+		/* Accumulate the given rectangle: */
+		GLColor<GLfloat,4> result(0.0f,0.0f,0.0f,0.0f);
+		const ScalarParam* rowPtr=imgPtr+ymin*stride;
+		for(int y=ymin;y<=ymax;++y,rowPtr+=stride)
+			{
+			const ScalarParam* pPtr=rowPtr+xmin*image.getNumChannels();
+			for(int x=xmin;x<=xmax;++x)
+				for(int channel=0;channel<image.getNumChannels();++channel,++pPtr)
+					result[channel]+=GLfloat(*pPtr);
+			}
+		
+		/* Normalize the result color: */
+		for(int channel=0;channel<4;++channel)
+			result[channel]/=GLfloat((ymax+1-ymin)*(xmax+1-xmin));
+		
+		/* Swizzle the result color to better represent the image's intent: */
+		switch(image.getFormat())
+			{
+			case GL_LUMINANCE:
+				result[2]=result[1]=result[0];
+				result[3]=1.0f;
+				break;
+			
+			case GL_LUMINANCE_ALPHA:
+				result[3]=result[1];
+				result[2]=result[1]=result[0];
+				break;
+			
+			case GL_RGB:
+				result[3]=1.0f;
+				break;
+			}
+		
+		return result;
+		}
+	};
+
+}
+
 void ImageViewer::PipetteTool::buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData)
 	{
 	if(cbData->newButtonState)
@@ -155,7 +206,7 @@ void ImageViewer::PipetteTool::buttonCallback(int buttonSlotIndex,Vrui::InputDev
 		setPixelPos();
 		
 		/* Access the displayed image: */
-		Images::RGBImage image(application->textures.getTexture(0U).getImage());
+		Images::BaseImage image(application->textures.getTexture(0U).getImage());
 		
 		/* Calculate the average pixel value inside the selection rectangle: */
 		int xmin=Math::max(Math::min(x0,x),0);
@@ -163,22 +214,36 @@ void ImageViewer::PipetteTool::buttonCallback(int buttonSlotIndex,Vrui::InputDev
 		int ymin=Math::max(Math::min(y0,y),0);
 		int ymax=Math::min(Math::max(y0,y),int(image.getSize(1))-1);
 		
-		int stride=int(image.getSize(0));
-		double sums[3]={0.0,0.0,0.0};
-		const Images::RGBImage::Color* cRowPtr=image.getPixelRow(ymin);
-		for(int y=ymin;y<=ymax;++y,cRowPtr+=stride)
-			{
-			const Images::RGBImage::Color* cPtr=cRowPtr+xmin;
-			for(int x=xmin;x<=xmax;++x,++cPtr)
-				for(int i=0;i<3;++i)
-					sums[i]+=(*cPtr)[i];
-			}
 		if(xmax>=xmin&&ymax>=ymin)
 			{
-			for(int i=0;i<3;++i)
-				sums[i]/=double((ymax-ymin+1)*(xmax-xmin+1));
-			
-			Misc::formattedUserNote("PipetteTool: Extracted RGB color: (%f, %f, %f)",sums[0],sums[1],sums[2]);
+			GLColor<GLfloat,4> average(0.0f,0.0f,0.0f,0.0f);
+			switch(image.getScalarType())
+				{
+				case GL_UNSIGNED_BYTE:
+					average=RectangleAverager<GLubyte>::averageRect(image,xmin,xmax,ymin,ymax);
+					break;
+				
+				case GL_UNSIGNED_SHORT:
+					average=RectangleAverager<GLushort>::averageRect(image,xmin,xmax,ymin,ymax);
+					break;
+				
+				case GL_SHORT:
+					average=RectangleAverager<GLshort>::averageRect(image,xmin,xmax,ymin,ymax);
+					break;
+				
+				case GL_UNSIGNED_INT:
+					average=RectangleAverager<GLuint>::averageRect(image,xmin,xmax,ymin,ymax);
+					break;
+				
+				case GL_INT:
+					average=RectangleAverager<GLint>::averageRect(image,xmin,xmax,ymin,ymax);
+					break;
+				
+				case GL_FLOAT:
+					average=RectangleAverager<GLfloat>::averageRect(image,xmin,xmax,ymin,ymax);
+					break;
+				}
+			Misc::formattedUserNote("PipetteTool: Extracted RGBA color: (%f, %f, %f,%f)",average[0],average[1],average[2],average[3]);
 			}
 		}
 	}
@@ -230,7 +295,8 @@ ImageViewer::ImageViewer(int& argc,char**& argv)
 	:Vrui::Application(argc,argv)
 	{
 	/* Load the image into the texture set: */
-	Images::TextureSet::Texture& tex=textures.addTexture(Images::readImageFile(argv[1],Vrui::openFile(argv[1])),GL_TEXTURE_2D,GL_RGB8,0U);
+	Images::BaseImage image=Images::readGenericImageFile(argv[1],Vrui::openFile(argv[1]));
+	Images::TextureSet::Texture& tex=textures.addTexture(image,GL_TEXTURE_2D,image.getInternalFormat(),0U);
 	
 	/* Set clamping and filtering parameters for mip-mapped linear interpolation: */
 	tex.setMipmapRange(0,1000);

@@ -1,7 +1,7 @@
 /***********************************************************************
 TrackingTest - Vrui application to visualize tracking data received
 from a VRDeviceDaemon.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -37,6 +37,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 #include <Vrui/CoordinateManager.h>
+#include <Vrui/ObjectSnapperTool.h>
 #include <Vrui/Internal/VRDeviceDescriptor.h>
 #include <Vrui/Internal/VRDeviceClient.h>
 
@@ -62,6 +63,7 @@ class TrackingTest:public Vrui::Application
 	/* Private methods: */
 	void trackingCallback(Vrui::VRDeviceClient* client); // Called when new tracking data arrives
 	void drawFrame(GLfloat arrowLength,GLfloat arrowRadius) const; // Draws a coordinate frame of the given size at the origin
+	void snapRequest(Vrui::ObjectSnapperToolFactory::SnapRequest& snapRequest); // Callback to snap a virtual input device against application objects
 	
 	/* Constructors and destructors: */
 	public:
@@ -116,6 +118,43 @@ void TrackingTest::drawFrame(GLfloat arrowLength,GLfloat arrowRadius) const
 	glTranslated(0.0,0.0,arrowRadius);
 	glDrawArrow(arrowRadius,arrowRadius*1.5f,arrowRadius*3.0f,arrowLength+arrowRadius*1.5f,16);
 	glPopMatrix();
+	}
+
+void TrackingTest::snapRequest(Vrui::ObjectSnapperToolFactory::SnapRequest& snapRequest)
+	{
+	if(snapRequest.rayBased)
+		{
+		/* Check all tracker states against the snap request's selection ray: */
+		const TS* tss=trackerStates.getLockedValue();
+		for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
+			{
+			const TS& ts=tss[trackerIndex];
+			Vrui::Vector tpo=Vrui::Point(ts.positionOrientation.getOrigin())-snapRequest.snapRay.getOrigin();
+			Vrui::Scalar lambda=tpo*snapRequest.snapRay.getDirection();
+			if(lambda>=Vrui::Scalar(0)&&lambda<snapRequest.snapRayMax&&lambda>=snapRequest.snapRayCosine*Geometry::mag(tpo))
+				{
+				snapRequest.snapRayMax=lambda;
+				snapRequest.snapped=true;
+				snapRequest.snapResult=ts.positionOrientation;
+				}
+			}
+		}
+	else
+		{
+		/* Check all tracker states against the snap request's selection sphere: */
+		const TS* tss=trackerStates.getLockedValue();
+		for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
+			{
+			const TS& ts=tss[trackerIndex];
+			Vrui::Scalar d2=Geometry::sqrDist(Vrui::Point(ts.positionOrientation.getOrigin()),snapRequest.snapPosition);
+			if(d2<Math::sqr(snapRequest.snapRadius))
+				{
+				snapRequest.snapRadius=Math::sqrt(d2);
+				snapRequest.snapped=true;
+				snapRequest.snapResult=ts.positionOrientation;
+				}
+			}
+		}
 	}
 
 TrackingTest::TrackingTest(int& argc,char**& argv)
@@ -178,6 +217,9 @@ TrackingTest::TrackingTest(int& argc,char**& argv)
 	
 	/* Set the linear unit of navigational space to the tracking unit: */
 	Vrui::getCoordinateManager()->setUnit(trackingUnit);
+	
+	/* Register with the object snapper tool class: */
+	Vrui::ObjectSnapperTool::addSnapCallback(Misc::createFunctionCall(this,&TrackingTest::snapRequest));
 	}
 
 TrackingTest::~TrackingTest(void)
@@ -200,7 +242,8 @@ void TrackingTest::frame(void)
 
 void TrackingTest::display(GLContextData& contextData) const
 	{
-	glPushAttrib(GL_ENABLE_BIT);
+	glPushAttrib(GL_ENABLE_BIT|GL_POINT_BIT);
+	glPointSize(3.0f);
 	
 	float inch=float(trackingUnit.getInchFactor());
 	
@@ -210,15 +253,47 @@ void TrackingTest::display(GLContextData& contextData) const
 	for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
 		{
 		const TS& ts=tss[trackerIndex];
+		
 		glPushMatrix();
 		
 		/* Draw a world coordinate frame for this tracker: */
 		glTranslate(ts.positionOrientation.getTranslation());
 		drawFrame(inch,inch*0.015f);
 		
+		glDisable(GL_LIGHTING);
+		glColor3f(1.0f,1.0f,1.0f);
+		glBegin(GL_POINTS);
+		glVertex3f(0.0f,0.0f,0.0f);
+		glEnd();
+		glEnable(GL_LIGHTING);
+		
 		/* Draw a local coordinate frame for this tracker: */
+		glPushMatrix();
 		glRotate(ts.positionOrientation.getRotation());
 		drawFrame(inch*0.75f,inch*0.02f);
+		glPopMatrix();
+		
+		/* Draw linear velocity: */
+		{
+		glPushMatrix();
+		glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(1.0f,1.0f,0.0f));
+		glRotate(Rotation::rotateFromTo(Vector(0,0,1),ts.linearVelocity));
+		float arrowLength=Geometry::mag(ts.linearVelocity)*inch*10.0f;
+		glTranslatef(0.0f,0.0f,arrowLength*0.5f);
+		glDrawArrow(inch*0.01f,inch*0.015f,inch*0.03f,arrowLength,16);
+		glPopMatrix();
+		}
+		
+		/* Draw angular velocity: */
+		{
+		glPushMatrix();
+		glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(0.0f,1.0f,1.0f));
+		glRotate(Rotation::rotateFromTo(Vector(0,0,1),ts.angularVelocity));
+		float arrowLength=Geometry::mag(ts.angularVelocity)*inch*1.0f;
+		glTranslatef(0.0f,0.0f,arrowLength*0.5f);
+		glDrawArrow(inch*0.01f,inch*0.015f,inch*0.03f,arrowLength,16);
+		glPopMatrix();
+		}
 		
 		glPopMatrix();
 		}

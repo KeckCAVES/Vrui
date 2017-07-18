@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceDescriptor - Class describing the structure of an input device
 represented by a VR device daemon.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/VRDeviceDescriptor.h>
 
+#include <Misc/SizedTypes.h>
 #include <Misc/PrintInteger.h>
 #include <Misc/StandardMarshallers.h>
 #include <Misc/ArrayMarshallers.h>
@@ -40,14 +41,16 @@ Methods of class VRDeviceDescriptor:
 ***********************************/
 
 VRDeviceDescriptor::VRDeviceDescriptor(void)
-	:trackType(TRACK_NONE),rayDirection(0,1,0),rayStart(0.0f),trackerIndex(-1),
+	:trackType(TRACK_NONE),rayDirection(0,1,0),rayStart(0.0f),hasBattery(false),
+	 trackerIndex(-1),
 	 numButtons(0),buttonNames(0),buttonIndices(0),
 	 numValuators(0),valuatorNames(0),valuatorIndices(0)
 	{
 	}
 
 VRDeviceDescriptor::VRDeviceDescriptor(int sNumButtons,int sNumValuators)
-	:trackType(TRACK_NONE),rayDirection(0,1,0),rayStart(0.0f),trackerIndex(-1),
+	:trackType(TRACK_NONE),rayDirection(0,1,0),rayStart(0.0f),hasBattery(false),
+	 trackerIndex(-1),
 	 numButtons(sNumButtons),
 	 buttonNames(numButtons>0?new std::string[numButtons]:0),buttonIndices(numButtons>0?new int[numButtons]:0),
 	 numValuators(sNumValuators),
@@ -68,35 +71,37 @@ VRDeviceDescriptor::~VRDeviceDescriptor(void)
 	delete[] valuatorIndices;
 	}
 
-void VRDeviceDescriptor::write(IO::File& sink) const
+void VRDeviceDescriptor::write(IO::File& sink,unsigned int protocolVersion) const
 	{
 	Misc::Marshaller<std::string>::write(name,sink);
-	sink.write<int>(trackType);
+	sink.write<Misc::SInt32>(trackType);
 	Misc::Marshaller<Vector>::write(rayDirection,sink);
-	sink.write<float>(rayStart);
-	sink.write<int>(trackerIndex);
-	sink.write<int>(numButtons);
+	sink.write<Misc::Float32>(rayStart);
+	sink.write<Misc::SInt32>(trackerIndex);
+	sink.write<Misc::SInt32>(numButtons);
 	if(numButtons>0)
 		{
 		Misc::FixedArrayMarshaller<std::string>::write(buttonNames,numButtons,sink);
-		Misc::FixedArrayMarshaller<int>::write(buttonIndices,numButtons,sink);
+		Misc::FixedArrayMarshaller<Misc::SInt32>::write(buttonIndices,numButtons,sink);
 		}
-	sink.write<int>(numValuators);
+	sink.write<Misc::SInt32>(numValuators);
 	if(numValuators>0)
 		{
 		Misc::FixedArrayMarshaller<std::string>::write(valuatorNames,numValuators,sink);
-		Misc::FixedArrayMarshaller<int>::write(valuatorIndices,numValuators,sink);
+		Misc::FixedArrayMarshaller<Misc::SInt32>::write(valuatorIndices,numValuators,sink);
 		}
+	if(protocolVersion>=5U)
+		sink.write<Misc::UInt8>(hasBattery);
 	}
 
-void VRDeviceDescriptor::read(IO::File& source)
+void VRDeviceDescriptor::read(IO::File& source,unsigned int protocolVersion)
 	{
 	name=Misc::Marshaller<std::string>::read(source);
-	trackType=source.read<int>();
-	rayDirection=Misc::Marshaller<Vector>::read(source);
-	rayStart=source.read<float>();
-	trackerIndex=source.read<int>();
-	numButtons=source.read<int>();
+	trackType=source.read<Misc::SInt32>();
+	rayDirection=Vector(Misc::Marshaller<Geometry::Vector<Misc::Float32,3> >::read(source));
+	rayStart=source.read<Misc::Float32>();
+	trackerIndex=source.read<Misc::SInt32>();
+	numButtons=source.read<Misc::SInt32>();
 	delete[] buttonNames;
 	delete[] buttonIndices;
 	if(numButtons>0)
@@ -104,7 +109,7 @@ void VRDeviceDescriptor::read(IO::File& source)
 		buttonNames=new std::string[numButtons];
 		Misc::FixedArrayMarshaller<std::string>::read(buttonNames,numButtons,source);
 		buttonIndices=new int[numButtons];
-		Misc::FixedArrayMarshaller<int>::read(buttonIndices,numButtons,source);
+		Misc::FixedArrayMarshaller<Misc::SInt32>::read(buttonIndices,numButtons,source);
 		}
 	else
 		{
@@ -112,7 +117,7 @@ void VRDeviceDescriptor::read(IO::File& source)
 		buttonIndices=0;
 		}
 	
-	numValuators=source.read<int>();
+	numValuators=source.read<Misc::SInt32>();
 	delete[] valuatorNames;
 	delete[] valuatorIndices;
 	if(numValuators>0)
@@ -120,13 +125,15 @@ void VRDeviceDescriptor::read(IO::File& source)
 		valuatorNames=new std::string[numValuators];
 		Misc::FixedArrayMarshaller<std::string>::read(valuatorNames,numValuators,source);
 		valuatorIndices=new int[numValuators];
-		Misc::FixedArrayMarshaller<int>::read(valuatorIndices,numValuators,source);
+		Misc::FixedArrayMarshaller<Misc::SInt32>::read(valuatorIndices,numValuators,source);
 		}
 	else
 		{
 		valuatorNames=0;
 		valuatorIndices=0;
 		}
+	if(protocolVersion>=5U)
+		hasBattery=source.read<Misc::UInt8>();
 	}
 
 void VRDeviceDescriptor::save(Misc::ConfigurationFileSection& configFileSection) const
@@ -149,6 +156,7 @@ void VRDeviceDescriptor::save(Misc::ConfigurationFileSection& configFileSection)
 		}
 	if(trackType&TRACK_POS)
 		configFileSection.storeValue<int>("./trackerIndex",trackerIndex);
+	configFileSection.storeValue<bool>("./hasBattery",hasBattery);
 	if(numButtons>0)
 		{
 		configFileSection.storeValue<int>("./numButtons",numButtons);
@@ -179,7 +187,8 @@ void VRDeviceDescriptor::load(const Misc::ConfigurationFileSection& configFileSe
 	rayStart=configFileSection.retrieveValue<float>("./rayStart",rayStart);
 	if(trackType&TRACK_POS)
 		trackerIndex=configFileSection.retrieveValue<int>("./trackerIndex");
-	
+	hasBattery=configFileSection.retrieveValue<bool>("./hasBattery",hasBattery);
+
 	numButtons=configFileSection.retrieveValue<int>("./numButtons",0);
 	delete[] buttonNames;
 	delete[] buttonIndices;

@@ -5044,3 +5044,210 @@ Vrui-4.2-006:
 - Added work-around for displays reporting a zero physical size to
   Vrui::getOutputConfiguration; uses fixed resolution of 96 dpi to
   calculate physical size from domain size.
+
+Vrui-4.3-001:
+- Put some evil hacks and work-arounds for better UI alignment into
+  Vrui::UIManager, Vrui::UIManagerFree, and Vrui::WidgetTool. Next minor
+  version update will change UI alignment architecture.
+- Fixed dependence on "standard" z-up physical coordinate systems in
+  Vrui::MouseSurfaceNavigationTool and Vrui::FPSNavigationTool.
+- Added sqrDist method to Geometry::Box to calculate squared Euclidean
+  distance between box and point.
+- Improvements to Vrui::SketchingTool:
+  - Simpler handling of curve point insertion.
+  - New sketch mode for simple broad brush strokes.
+  - New eraser mode to selectively delete sketching objects.
+  - Disabled snapping of curves to their starting points.
+- Updated Linux version of Vrui::InputDeviceAdapterHID to support
+  positioned input devices such as touchscreen styluses.
+  - Added view-aligned ray direction to positioned input devices.
+- Added support for vsync control on Mesa-based OpenGL implementations
+  via the GL_MESA_swap_control extension.
+- Added palm rejection to Vrui::InputDeviceAdapterMultitouch:
+  - Changed signatures of touch event methods to support touch contact
+    size estimation.
+  - Added maxContactArea setting to set the maximum area for contacts to
+    be considered fingers.
+- Added infinity constant to Math::Constants<float> and
+  Math::Constants<double>.
+- Forced use of eye rays in Vrui::GUIInteractor when the driving device
+  does not have a pointing direction.
+- Added sets of mutually exclusive buttons to Linux version of
+  Vrui::InputDeviceAdapterHID.
+- Separated sketching objects by type in Vrui::SketchingTool
+  (experimental, may revert or improve later).
+- Added Vrui::ScriptExecutorTool to run external programs or scripts as
+  child processes of a Vrui application.
+- Fixed mouse idle detection in Vrui::InputDeviceAdapterMouse if the
+  mouse is never moved at all.
+- Fixed turning off of screen protection in
+  Vrui/Internal/Vrui.General.cpp.
+- Added enough accessors to Images::TextureSet::Texture to clone
+  existing textures.
+- Made slight re-arrangement in SceneGraph::TransformNode::update().
+- Moved Vrui's input device data saver to earlier in Vrui shutdown
+  sequence to avoid recording audio while frame savers wind down.
+- Added output of total recording time to Vrui::InputDeviceDataSaver for
+  convenience.
+- Added separate status pipe to Cluster::TCPPipe classes to support
+  parallel reading and writing in coupled mode.
+- Major improvement to user experience in scaling mode in Vrui's two-
+  handed navigation tool.
+- Added new Geometry::ElevationGrid class to calculate ray intersections
+  on regular integer-lattice 2.5D elevation grids.
+- Added methods with on-the-fly type conversion to Misc::ArrayMarshaller
+  classes.
+- Started overhaul of VR device driver client/server protocol to provide
+  improved device pose prediction, battery states for wireless devices,
+  and tracking quality flags.
+  - Fixed wire data type sizes in Vrui::VRDeviceState.
+  - Added device tracking status flags to Vrui::VRDeviceState.
+  - Fixed wire data type sizes in Vrui::HMDConfiguration.
+  - Added ipd field to move update bundling to Vrui::HMDConfiguration.
+  - Fixed wire data type sizes in Vrui::VRDeviceDescriptor.
+  - Added hasBattery flag to Vrui::VRDeviceDescriptor.
+  - Added class Vrui::BatteryState to represent and transmit devices'
+    battery states.
+  - Added battery state update message to Vrui::VRDevicePipe.
+  - Added battery state management to VRDeviceManager.
+  - Added virtual initialize() method, called immediately after
+    constructor, to VRDevice class to support post-constructor
+    initialization.
+    - Added call to VRDevice::initialize() method to device driver
+      module initialization in VRDeviceManager.
+  - Added return of virtual device index to addVirtualDevice methods in
+    VRDevice and VRDeviceManager.
+  - Added disableTracker methods to VRDevice and VRDeviceManager.
+  - Added valid flag transmission and initial battery state tracking to
+    VRDeviceServer.
+  - Added new conditional VRDEVICEDAEMON_DEBUG_PROTOCOL to
+    VRDeviceServer.
+	- Several changes to Vrui::VRDeviceClient:
+	  - Started adding support for time synchronization with remote
+	    servers.
+	  - Added detection of local connection, to side-step timer
+	    synchronization and potentially use shared-memory exchanges in the
+	    future.
+	  - Added handling of tracking status flags.
+	  - Added device battery status handling and callbacks.
+	  - Removed sub-state locking from callback management methods; expect
+	    relevant states to be locked already.
+	- Added tracking status flag and battery state tracking to DeviceTest
+	  utility.
+  - Adapted OpenVRHost device driver module to new OpenVR driver ABI.
+  - Minor API fix-ups in DummyDevice and RemoteDevice device driver
+    modules.
+  - Added initialization of tracker valid flags to true in
+	  Vrui::VRDeviceClient when talking to legacy device servers.
+- Added alignToEnvironment configuration file setting to
+  Vrui::CAVERenderer vislet.
+- Brought caveman.geology.ucdavis.edu Vrui configuration file section
+  up-to-date.
+  - Changed type of microsecond time stamps from unsigned to signed 32-
+    bit integer to simplify calculations.
+  - Added getTimeStamp methods for current and offset time to
+    VRDeviceManager.
+    - Changed VRDevice::TrackerState shortcut to use VRDeviceManager's
+      getTimeStamp() method.
+  - Added handling of time-offset device states to OpenVRHost module.
+  - Added battery state streaming to VRDeviceServer and cleaned up
+    communications code and error handling.
+  - Added reception of initial battery states to Vrui::VRDeviceClient.
+- Set controllers' battery flag to true on initialization in OpenVRHost
+  device driver module.
+- Added missing initialization for lastFrame to Vrui::VruiState
+  constructor.
+- Improved mouse idle detection in Vrui::InputDeviceAdapterMouse by
+  ignoring events that don't change the mouse cursor position.
+- Fixed ray direction calculation during initialization in
+  Vrui::InputDeviceAdapterHID.
+- Forced color space in Images::readJPEGImage to RGB.
+- Added Vrui::ObjectSnapperTool, a generic transformation tool class to
+  snap virtual input devices to application objects.
+  - Added object snapper tool class to Vrui's default tools in
+    Vrui::ToolManager.
+- Added default assignment of source input device to Vrui::TransformTool
+  constructor.
+  - Removed assignments of source device from all tool classes where it
+    matches the new default.
+- Added tracker snapping to Vrui TrackingTest utility.
+- Started improving latency mitigation scheme for head-mounted VR.
+  - Added vsync time tracking to predict next display exposure time and
+    predict state of motion input devices at that time.
+    - Whichever VR window has vsync enabled drives time prediction.
+  - Vsync prediction controlled by several configuration tags:
+    - predictVsync: boolean, main switch
+    - vsyncInterval: number, synched display's frame interval in seconds
+    - postVsyncDisplayDelay: lag time from vsync to current frame being
+      shown by the display, in seconds
+  - Added vsync() method to Vrui's internal kernel interface
+    - Added call to vsync method to Vrui::VRWindow.
+  - Added predictDeviceState flag and prediction time point to
+    Vrui::InputDeviceManager, and methods to control/query them.
+  - Added motion prediction to InputDeviceAdapterDeviceDaemon.
+  - Fixed calculation of reprojection rotation during post-rendering
+    lens correction warping.
+  - Added doesReproject method to Vrui::LensCorrector.
+  - Improved handling of pre-swap delay and lens correction warping for
+    double-buffered windows.
+  - Fixed warp reprojection overall, bringing display stability on par
+    with SteamVR on Windows.
+- Added multicast support features to Comm::UDPSocket:
+  - Added default port to Comm::IPv4SocketAddress default constructor.
+  - Added multicast configuration methods to Comm::UDPSocket.
+  - Removed unused include files from Comm/UDPSocket.h.
+  - Reused functionality from Comm::IPv4Address and
+    Comm::IPv4SocketAddress in Comm::UDPSocket and improved error
+    messages.
+- Added readGenericImageFile function to Images/ReadImageFile.h to pave
+  the way for more flexible image file handling. Images::readImageFile
+  and Images::readTransparentImageFile are now obsolete and deprecated.
+  - Replaced image loader function in SceneGraph::ImageTextureNode.
+- Added getRowStride method to Images::BaseImage.
+- Added getInternalFormat method to Images::BaseImage to guess an
+  internal texture storage format compatible with a given image.
+- Added readGenericPNMImage to Images/ReadPNMImage.h, making the other
+  functions obsolete and deprecated.
+- Added readGenericPNGImage to Images/ReadPNGImage.h, making the other
+  functions obsolete and deprecated.
+- Added readGenericJPEGImage to Images/ReadJPEGImage.h, making the other
+  functions obsolete and deprecated.
+- Added interface for readGenericTIFFImage to Images/ReadTIFFImage.h,
+  but implementation will have to wait. I hate TIFF.
+- Changed elementwise constructor of Images::BaseImage to public.
+- Added simplified glTexImage2D method to Images::BaseImage that guesses
+  an appropriate internal texture storage format.
+- Replaced Images::RGBImage with Images::BaseImage in GLMotif::Image.
+  - Pulled change through to GLMotif::ScrolledImage.
+- Added protectScreens configuration setting to Vrui::VRWindow to
+  disable screen protection for selected windows, to make secondary
+  views look better.
+- Added updateVisletMenu method to Vrui::VisletManager to ensure the
+  state of vislet toggle buttons always mirrors actual vislet state.
+  - API change: made Vrui::Vislet::active private to force use of
+    accessor methods to keep vislet state in line with menu state.
+- Updated contributed openvr_driver.h to newest github version.
+- Fixed export of screen protector boundaries in Vrui's RoomSetup
+  utility.
+- Added option to override input device's server-supplied selection ray
+  from configuration file to Vrui::InputDeviceAdapterDeviceDaemon.
+- Changed default local transformation for Vive controllers in
+  VRDevices.cfg to improve interaction comfort.
+- New rule: Tracked controller's local coordinate systems are aligned
+  such that the origin corresponds to the most comfortable hot spot, the
+  Y axis points in the most comfortable pointing position, the X axis
+  points to the right, and Z is defined by the right-hand rule.
+- Added hilt transform to Vrui::JediTool to align tool with controller's
+  handle. Prototype for more general alignment method for hand-held
+  virtual tools in the future.
+  - Also added a simple 3D model to render the hilt as long as the tool
+    exists.
+- Changed default controller type in RoomSetup utility to "from driver,"
+  and added editing capability to "custom" controller type.
+- Fixed makefile to hard-code SteamVR dynamic link paths into
+  VRDeviceDaemon if SteamVR is detected.
+  - VRDeviceDaemon -rootSection Vive now works without setting up
+    LD_LIBRARY_PATH.
+  - Removed superfluous run-time directories from RunViveTracker.sh
+    script.
+- Added sections on HTC Vive support to README file.

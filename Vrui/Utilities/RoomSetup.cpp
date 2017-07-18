@@ -1,7 +1,7 @@
 /***********************************************************************
 RoomSetup - Vrui application to calculate basic layout parameters of a
 tracked VR environment.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -130,10 +130,11 @@ class RoomSetup:public Vrui::Application
 	/* Private methods: */
 	void setupDialogPageChangedCallback(GLMotif::Pager::PageChangedCallbackData* cbData);
 	void controllerTypeValueChangedCallback(GLMotif::DropdownBox::ValueChangedCallbackData* cbData);
+	void probeTipTextFieldValueChangeCallback(GLMotif::TextField::ValueChangedCallbackData* cbData,const int& textFieldIndex);
 	void floorResetButtonCallback(Misc::CallbackData* cbData);
 	void boundaryResetButtonCallback(Misc::CallbackData* cbData);
 	void saveButtonCallback(Misc::CallbackData* cbData);
-	GLMotif::PopupWindow* createSetupDialog(void); // Creates a dialog window to control the setup process
+	GLMotif::PopupWindow* createSetupDialog(bool haveCustomProbeTip); // Creates a dialog window to control the setup process
 	void trackingCallback(Vrui::VRDeviceClient* client); // Called when new tracking data arrives
 	Vrui::Point project(const Vrui::Point& p) const // Projects a point to the current floor plane along the current up direction
 		{
@@ -184,6 +185,7 @@ void RoomSetup::setupDialogPageChangedCallback(GLMotif::Pager::PageChangedCallba
 void RoomSetup::controllerTypeValueChangedCallback(GLMotif::DropdownBox::ValueChangedCallbackData* cbData)
 	{
 	/* Update the probe tip position: */
+	bool allowEditing=false;
 	switch(cbData->newSelectedItem)
 		{
 		case 0: // Raw from device driver
@@ -192,6 +194,7 @@ void RoomSetup::controllerTypeValueChangedCallback(GLMotif::DropdownBox::ValueCh
 		
 		case 1: // Custom controller
 			probeTip=customProbeTip;
+			allowEditing=true;
 			break;
 		
 		case 2: // Vive DK1 controller
@@ -205,7 +208,16 @@ void RoomSetup::controllerTypeValueChangedCallback(GLMotif::DropdownBox::ValueCh
 	
 	/* Update the probe tip text fields: */
 	for(int i=0;i<3;++i)
+		{
+		probeTipTextFields[i]->setEditable(allowEditing);
 		probeTipTextFields[i]->setValue(probeTip[i]);
+		}
+	}
+
+void RoomSetup::probeTipTextFieldValueChangeCallback(GLMotif::TextField::ValueChangedCallbackData* cbData,const int& textFieldIndex)
+	{
+	/* Store the new custom value and update the current value: */
+	probeTip[textFieldIndex]=customProbeTip[textFieldIndex]=atof(cbData->value);
 	}
 
 void RoomSetup::floorResetButtonCallback(Misc::CallbackData* cbData)
@@ -298,7 +310,7 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 					{
 					if(pointsInLine==4)
 						{
-						screenProtectorAreas.append(" \\\n                       ");
+						screenProtectorAreas.append(", \\\n                       ");
 						pointsInLine=0;
 						}
 					else
@@ -390,7 +402,7 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 		}
 	}
 
-GLMotif::PopupWindow* RoomSetup::createSetupDialog(void)
+GLMotif::PopupWindow* RoomSetup::createSetupDialog(bool haveCustomProbeTip)
 	{
 	/* Get the style sheet: */
 	const GLMotif::StyleSheet& ss=*Vrui::getWidgetManager()->getStyleSheet();
@@ -430,7 +442,7 @@ GLMotif::PopupWindow* RoomSetup::createSetupDialog(void)
 	controllerTypeBox->addItem("Vive DK1");
 	controllerTypeBox->addItem("Vive");
 	controllerTypeBox->getValueChangedCallbacks().add(this,&RoomSetup::controllerTypeValueChangedCallback);
-	controllerTypeBox->setSelectedItem(1);
+	controllerTypeBox->setSelectedItem(haveCustomProbeTip?1:0);
 	
 	/* Create a set of text fields to display the probe tip position: */
 	new GLMotif::Label("ProbeTipLabel",controllerPane,"Probe Tip");
@@ -448,6 +460,7 @@ GLMotif::PopupWindow* RoomSetup::createSetupDialog(void)
 		probeTipTextFields[i]->setPrecision(3);
 		probeTipTextFields[i]->setFloatFormat(GLMotif::TextField::FIXED);
 		probeTipTextFields[i]->setValue(probeTip[i]);
+		probeTipTextFields[i]->getValueChangedCallbacks().add(this,&RoomSetup::probeTipTextFieldValueChangeCallback,i);
 		}
 	
 	probeTipBox->manageChild();
@@ -621,6 +634,7 @@ RoomSetup::RoomSetup(int& argc,char**& argv)
 	/* Parse command line: */
 	const char* serverName="localhost:8555";
 	const char* rootSectionNameStr=0;
+	bool haveCustomProbeTip=false;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
@@ -633,6 +647,7 @@ RoomSetup::RoomSetup(int& argc,char**& argv)
 				}
 			else if(strcasecmp(argv[i]+1,"probe")==0)
 				{
+				haveCustomProbeTip=true;
 				for(int j=0;j<3;++j)
 					{
 					++i;
@@ -748,7 +763,7 @@ RoomSetup::RoomSetup(int& argc,char**& argv)
 	previousPressedButtonIndex=-1;
 	
 	/* Create and show the setup dialog: */
-	setupDialogPopup=createSetupDialog();
+	setupDialogPopup=createSetupDialog(haveCustomProbeTip);
 	Vrui::popupPrimaryWidget(setupDialogPopup);
 	
 	/* Set up Vrui's navigation-space coordinate unit: */

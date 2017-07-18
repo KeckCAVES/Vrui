@@ -1,6 +1,6 @@
 /***********************************************************************
 VisletManager - Class to manage vislet classes.
-Copyright (c) 2006-2016 Oliver Kreylos
+Copyright (c) 2006-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -157,6 +157,18 @@ void VisletManager::disable(void)
 			{
 			vislets[i]->disable();
 			static_cast<GLMotif::ToggleButton*>(visletMenu->getMenu()->getChild(i))->setToggle(vislets[i]->isActive());
+			}
+	}
+
+void VisletManager::updateVisletMenu(const Vislet* vislet)
+	{
+	/* Find the vislet in the vislet list: */
+	int visletIndex=0;
+	for(VisletList::iterator vIt=vislets.begin();vIt!=vislets.end();++vIt,++visletIndex)
+		if(*vIt==vislet)
+			{
+			/* Update the vislet's toggle button: */
+			static_cast<GLMotif::ToggleButton*>(visletMenu->getMenu()->getChild(visletIndex))->setToggle(vislet->isActive());
 			}
 	}
 

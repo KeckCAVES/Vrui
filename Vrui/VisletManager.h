@@ -1,6 +1,6 @@
 /***********************************************************************
 VisletManager - Class to manage vislet classes.
-Copyright (c) 2006-2015 Oliver Kreylos
+Copyright (c) 2006-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -71,6 +71,7 @@ class VisletManager:public Plugins::FactoryManager<VisletFactory>
 	GLMotif::PopupMenu* buildVisletMenu(void); // Returns a popup containing a submenu with one toggle button for each managed vislet
 	void enable(void); // Enables all vislets
 	void disable(void); // Disables all vislets
+	void updateVisletMenu(const Vislet* vislet); // Updates the vislet menu to reflect the activation state of the given vislet
 	void frame(void); // Calls the frame function of all loaded vislets
 	void display(GLContextData& contextData) const; // Renders all loaded vislets
 	void sound(ALContextData& contextData) const; // Renders the sound of all loaded vislets

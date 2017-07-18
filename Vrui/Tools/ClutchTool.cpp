@@ -2,7 +2,7 @@
 ClutchTool - Class to offset the position and orientation of an input
 device using a "clutch" button to disengage a virtual device from a
 source device.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -130,13 +130,6 @@ ClutchTool::ClutchTool(const ToolFactory* factory,const ToolInputAssignment& inp
 	 offset(TrackerState::identity),
 	 clutchButtonState(false)
 	{
-	/* Set the transformation source device: */
-	if(input.getNumButtonSlots()>1)
-		sourceDevice=getButtonDevice(1);
-	else if(input.getNumValuatorSlots()>0)
-		sourceDevice=getValuatorDevice(0);
-	else
-		sourceDevice=getButtonDevice(0); // User didn't select anything to forward; let's just pretend it makes sense
 	}
 
 ClutchTool::~ClutchTool(void)

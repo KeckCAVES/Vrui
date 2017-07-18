@@ -272,6 +272,7 @@ class Constants<float>
 	static const Scalar epsilon;
 	static const Scalar e;
 	static const Scalar pi;
+	static const Scalar infinity;
 	};
 
 template <>
@@ -296,6 +297,7 @@ class Constants<double>
 	static const Scalar epsilon;
 	static const Scalar e;
 	static const Scalar pi;
+	static const Scalar infinity;
 	};
 
 }

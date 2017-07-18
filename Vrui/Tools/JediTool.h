@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2015 Oliver Kreylos
+Copyright (c) 2007-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <Geometry/Point.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <GL/gl.h>
 #include <GL/GLObject.h>
 #include <Images/RGBImage.h>
@@ -48,6 +49,9 @@ class JediToolFactory:public ToolFactory
 	Scalar lightsaberLength; // Length of light saber billboard
 	Scalar lightsaberWidth; // Width of light saber billboard
 	Scalar baseOffset; // Amount by how much the light saber billboard is shifted towards the hilt
+	ONTransform hiltTransform; // Transformation from the controlling device's transformation to the light saber's hilt
+	Scalar hiltLength; // Length of light saber hilt in physical coordinate units
+	Scalar hiltRadius; // Radius of light saber hilt in physical coordinate units
 	std::string lightsaberImageFileName; // Name of image file containing light saber texture
 	
 	/* Constructors and destructors: */
@@ -73,16 +77,11 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 		/* Elements: */
 		public:
 		GLuint textureObjectId; // ID of the light saber texture object
+		GLuint hiltVertexBufferId; // ID of the vertex array to render the light saber hilt
 		
 		/* Constructors and destructors: */
-		DataItem(void)
-			{
-			glGenTextures(1,&textureObjectId);
-			}
-		virtual ~DataItem(void)
-			{
-			glDeleteTextures(1,&textureObjectId);
-			}
+		DataItem(void);
+		virtual ~DataItem(void);
 		};
 	
 	/* Elements: */
@@ -104,6 +103,7 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
+	virtual void display(GLContextData& contextData) const;
 	
 	/* Methods from GLObject: */
 	virtual void initContext(GLContextData& contextData) const;

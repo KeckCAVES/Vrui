@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -53,6 +53,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/NavigationTool.h>
 #include <Vrui/SurfaceNavigationTool.h>
 #include <Vrui/TransformTool.h>
+#include <Vrui/ObjectSnapperTool.h>
 #include <Vrui/UserInterfaceTool.h>
 #include <Vrui/MenuTool.h>
 #include <Vrui/InputDeviceTool.h>
@@ -596,6 +597,7 @@ ToolManager::ToolManager(InputDeviceManager* sInputDeviceManager,const Misc::Con
 	addClass(new NavigationToolFactory(*this),defaultToolFactoryDestructor);
 	addClass(new SurfaceNavigationToolFactory(*this),defaultToolFactoryDestructor);
 	addClass(new TransformToolFactory(*this),defaultToolFactoryDestructor);
+	addClass(new ObjectSnapperToolFactory(*this),defaultToolFactoryDestructor);
 	addClass(new UserInterfaceToolFactory(*this),defaultToolFactoryDestructor);
 	addClass(new MenuToolFactory(*this),defaultToolFactoryDestructor);
 	addClass(new InputDeviceToolFactory(*this),defaultToolFactoryDestructor);

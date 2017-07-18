@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMultitouch - Class to convert a direct-mode
 multitouch-capable screen into a set of Vrui input devices.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -41,6 +41,18 @@ namespace Vrui {
 class InputDeviceAdapterMultitouch:public InputDeviceAdapter
 	{
 	/* Embedded classes: */
+	public:
+	struct TouchEvent // Structure containing details of a touch event
+		{
+		/* Elements: */
+		public:
+		int id; // Touch event ID
+		Scalar x,y; // Touch position in window coordinates
+		unsigned int ellipseMask; // Bit mask defining whether major axis, minor axis, and orienation contain valid values
+		Scalar majorAxis,minorAxis; // Length of major and minor axes of touch contact ellipse
+		Scalar orientation; // Orientation of touch contact ellipse
+		};
+	
 	private:
 	struct DeviceMapper // Structure mapping a current multitouch contact to a Vrui input device
 		{
@@ -64,6 +76,7 @@ class InputDeviceAdapterMultitouch:public InputDeviceAdapter
 		int buttonIndex; // Index of device button triggered by this device mapping
 		VRWindow* window; // Window from which the most recent multitouch event for this device mapper was received
 		Scalar windowPos[2]; // The current position of the touch contact assigned to this device mapper in window coordinates
+		Scalar majorAxis,minorAxis,orientation; // Axis lengths and orientation of touch contact ellipse
 		Scalar offset[2]; // Offset vector for primary contacts to smoothly manage creation and loss of secondary contacts
 		bool dead; // Flag indicating that the touch contact associated with this device mapper has finished
 		
@@ -75,9 +88,24 @@ class InputDeviceAdapterMultitouch:public InputDeviceAdapter
 			 pred(0),succ(0),
 			 buttonIndex(-1),
 			 window(0),
+			 majorAxis(0),minorAxis(0),orientation(0),
 			 dead(false)
 			{
 			windowPos[0]=windowPos[1]=Scalar(0.5);
+			}
+		
+		/* Methods: */
+		void set(const TouchEvent& event) // Updates a device mapper from a touch event
+			{
+			/* Copy event state: */
+			windowPos[0]=event.x;
+			windowPos[1]=event.y;
+			if(event.ellipseMask&0x01U)
+				majorAxis=event.majorAxis;
+			if(event.ellipseMask&0x02U)
+				minorAxis=event.minorAxis;
+			if(event.ellipseMask&0x04U)
+				orientation=event.orientation;
 			}
 		};
 	
@@ -87,6 +115,7 @@ class InputDeviceAdapterMultitouch:public InputDeviceAdapter
 	int maxNumDevices; // Maximum number of parallel touch contacts
 	int numModifierButtons; // Number of modifier buttons on the left-swipe panel
 	int numDeviceButtons; // Number of simulated buttons per touch contact per modifier plane
+	Scalar maxContactArea; // Maximum area for touch events to be considered finger touches instead of palm contacts
 	double activationInterval; // Time interval for multi-contact activation
 	double multicontactRadius; // Maximum radius to detect multi-contact events
 	DeviceMapper* deviceMappers; // Array of device mappers from multitouch events to Vrui input devices
@@ -109,9 +138,9 @@ class InputDeviceAdapterMultitouch:public InputDeviceAdapter
 	virtual void glRenderAction(GLContextData& contextData) const;
 	
 	/* New methods: */
-	void touchBegin(VRWindow* newWindow,int touchId,Scalar touchX,Scalar touchY); // Signals a new touch contact
-	void touchUpdate(VRWindow* newWindow,int touchId,Scalar touchX,Scalar touchY); // Updates an existing touch contact
-	void touchEnd(VRWindow* newWindow,int touchId,Scalar touchX,Scalar touchY); // Ends a touch contact
+	void touchBegin(VRWindow* newWindow,const TouchEvent& event); // Signals a new touch contact
+	void touchUpdate(VRWindow* newWindow,const TouchEvent& event); // Updates an existing touch contact
+	void touchEnd(VRWindow* newWindow,const TouchEvent& event); // Ends a touch contact
 	};
 
 }

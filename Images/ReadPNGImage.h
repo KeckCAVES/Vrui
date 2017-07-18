@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadPNGImage - Functions to read RGB or RGBA images from image files in
 PNG formats over an IO::File abstraction.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -27,18 +27,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #if IMAGES_CONFIG_HAVE_PNG
 
-#include <Images/RGBImage.h>
-#include <Images/RGBAImage.h>
-
 /* Forward declarations: */
 namespace IO {
 class File;
+}
+namespace Images {
+class BaseImage;
+class RGBImage;
+class RGBAImage;
 }
 
 namespace Images {
 
 RGBImage readPNGImage(const char* imageName,IO::File& source); // Reads an RGB image in PNG format from the given data source
 RGBAImage readTransparentPNGImage(const char* imageName,IO::File& source); // Reads an RGBA image in PNG format from the given data source
+BaseImage readGenericPNGImage(const char* imageName,IO::File& source); // Reads a generic image in PNG format from the given data source
 
 }
 

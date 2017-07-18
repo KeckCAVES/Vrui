@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceDescriptor - Class describing the structure of an input device
 represented by a VR device daemon.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -56,6 +56,7 @@ class VRDeviceDescriptor
 	int trackType; // Device's tracking type
 	Vector rayDirection; // Device's preferred pointing direction in local device coordinates; ignored if trackType is TRACK_NONE
 	float rayStart; // Starting parameter of device's ray in physical coordinate units; ignored if trackType is TRACK_NONE
+	bool hasBattery; // Flag if the device is batter powered and reports a battery state
 	int trackerIndex; // Index of device's tracker in VR device daemon's flat namespace, or -1 if trackType is TRACK_NONE
 	int numButtons; // Number of buttons on the device
 	std::string* buttonNames; // Array of button names
@@ -75,8 +76,8 @@ class VRDeviceDescriptor
 	~VRDeviceDescriptor(void); // Destroys the descriptor
 	
 	/* Methods: */
-	void write(IO::File& sink) const; // Writes the device descriptor to a data sink
-	void read(IO::File& source); // Reads a device descriptor from a data source
+	void write(IO::File& sink,unsigned int protocolVersion) const; // Writes the device descriptor to a data sink using the given client/server protocol version
+	void read(IO::File& source,unsigned int protocolVersion); // Reads a device descriptor from a data source using the given client/server protocol version
 	void save(Misc::ConfigurationFileSection& configFileSection) const; // Saves the device descriptor to the given configuration file section
 	void load(const Misc::ConfigurationFileSection& configFileSection); // Loads the device descriptor from the given configuration file section
 	};

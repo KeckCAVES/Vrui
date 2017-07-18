@@ -131,6 +131,9 @@ class VRWindow:public GLWindow
 	/* State for post-rendering lens distortion correction: */
 	LensCorrector* lensCorrector; // Pointer to lens distortion correction object
 	
+	public:
+	bool protectScreens; // Flag whether this window needs to render environmental protection boundaries
+	private:
 	VRScreen* mouseScreen; // Pointer to an optional screen used to map mouse positions from window coordinates to physical coordinates
 	GLFont* showFpsFont; // Font to render the current update frequency
 	bool showFps; // Flag if the window is to display the current update frequency

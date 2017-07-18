@@ -1,6 +1,6 @@
 /***********************************************************************
 UDPSocket - Wrapper class for UDP sockets ensuring exception safety.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -25,11 +25,14 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <stdexcept>
-#include <Comm/IPv4SocketAddress.h>
 
 /* Forward declarations: */
 namespace Misc {
 class Time;
+}
+namespace Comm {
+class IPv4Address;
+class IPv4SocketAddress;
 }
 
 namespace Comm {
@@ -77,6 +80,11 @@ class UDPSocket
 		}
 	UDPSocket& operator=(const UDPSocket& source); // Assignment operator
 	int getPortId(void) const; // Returns port ID assigned to a socket
+	void setMulticastLoopback(bool multicastLoopback); // Sets whether outgoing multicast packets are echoed back to the sender
+	void setMulticastTTL(unsigned int multicastTTL); // Sets time-to-live for outgoing multicast packets
+	void setMulticastInterface(const IPv4Address& interfaceAddress); // Sets the interface to use for outgoing multicast packets
+	void joinMulticastGroup(const IPv4Address& groupAddress,const IPv4Address& interfaceAddress); // Joins a multicast group on the given interface
+	void leaveMulticastGroup(const IPv4Address& groupAddress,const IPv4Address& interfaceAddress); // Leaves a multicast group on the given interface
 	void connect(std::string hostname,int hostPortId); // Connects the socket to a remote host; throws exception (but does not close socket) on failure
 	void connect(const IPv4SocketAddress& hostAddress); // Ditto, using an IP v4 socket address
 	void accept(void); // Waits for a (short) incoming message on an unconnected socket and connects to the sender of the message; discards message

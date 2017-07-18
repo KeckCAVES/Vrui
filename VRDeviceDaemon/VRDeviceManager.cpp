@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -31,6 +31,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/StandardValueCoders.h>
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
+#include <Realtime/Time.h>
 #include <Vrui/Internal/VRDeviceDescriptor.h>
 #include <Vrui/Internal/HMDConfiguration.h>
 
@@ -48,6 +49,7 @@ VRDeviceManager::VRDeviceManager(Misc::ConfigurationFile& configFile)
 	 calibratorFactories(configFile.retrieveString("./calibratorDirectory",VRDEVICEDAEMON_CONFIG_VRCALIBRATORSDIR)),
 	 numDevices(0),
 	 devices(0),trackerIndexBases(0),buttonIndexBases(0),valuatorIndexBases(0),
+	 batteryStateUpdatedCallback(0),batteryStateUpdatedCallbackData(0),
 	 hmdConfigurationUpdatedCallback(0),hmdConfigurationUpdatedCallbackData(0),
 	 fullTrackerReportMask(0x0),trackerReportMask(0x0),trackerUpdateNotificationEnabled(false),
 	 trackerUpdateCompleteCond(0),
@@ -136,11 +138,22 @@ VRDeviceManager::VRDeviceManager(Misc::ConfigurationFile& configFile)
 		
 		/* Store the virtual device descriptor: */
 		virtualDevices.push_back(vdd);
+		
+		/* Create a battery state for the new virtual device: */
+		batteryStates.push_back(Vrui::BatteryState());
 		}
 	#ifdef VERBOSE
 	printf("VRDeviceManager: Managing %d virtual devices\n",int(virtualDevices.size()));
 	fflush(stdout);
 	#endif
+	
+	/* Initialize all loaded devices: */
+	#ifdef VERBOSE
+	printf("VRDeviceManager: Initializing %d device driver modules\n",numDevices);
+	fflush(stdout);
+	#endif
+	for(int i=0;i<numDevices;++i)
+		devices[i]->initialize();
 	}
 
 VRDeviceManager::~VRDeviceManager(void)
@@ -224,10 +237,22 @@ int VRDeviceManager::addValuator(const char* name)
 	return result;
 	}
 
-void VRDeviceManager::addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice)
+VRCalibrator* VRDeviceManager::createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile)
+	{
+	CalibratorFactoryManager::Factory* calibratorFactory=calibratorFactories.getFactory(calibratorType);
+	return calibratorFactory->createObject(configFile);
+	}
+
+unsigned int VRDeviceManager::addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice)
 	{
 	/* Store the virtual device: */
+	unsigned int result=virtualDevices.size();
 	virtualDevices.push_back(newVirtualDevice);
+	
+	/* Create a battery state for the new virtual device: */
+	batteryStates.push_back(Vrui::BatteryState());
+	
+	return result;
 	}
 
 Vrui::HMDConfiguration* VRDeviceManager::addHmdConfiguration(void)
@@ -239,18 +264,46 @@ Vrui::HMDConfiguration* VRDeviceManager::addHmdConfiguration(void)
 	return newConfiguration;
 	}
 
-VRCalibrator* VRDeviceManager::createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile)
+void VRDeviceManager::disableTracker(int trackerIndex)
 	{
-	CalibratorFactoryManager::Factory* calibratorFactory=calibratorFactories.getFactory(calibratorType);
-	return calibratorFactory->createObject(configFile);
+	Threads::Mutex::Lock stateLock(stateMutex);
+	
+	/* Update the device state: */
+	state.setTrackerValid(trackerIndex,false);
+	
+	/* Check if update notifications are requested: */
+	if(trackerUpdateNotificationEnabled)
+		{
+		/* Update tracker report mask: */
+		trackerReportMask|=1<<trackerIndex;
+		if(trackerReportMask==fullTrackerReportMask)
+			{
+			if(trackerUpdateCompleteCond!=0)
+				{
+				/* Wake up all client threads in stream mode: */
+				trackerUpdateCompleteCond->broadcast();
+				}
+			else
+				{
+				/* Call a callback: */
+				trackerUpdateCompleteCallback(this,trackerUpdateCompleteCallbackData);
+				}
+			
+			trackerReportMask=0x0;
+			}
+		}
 	}
 
 void VRDeviceManager::setTrackerState(int trackerIndex,const Vrui::VRDeviceState::TrackerState& newTrackerState,Vrui::VRDeviceState::TimeStamp newTimeStamp)
 	{
 	Threads::Mutex::Lock stateLock(stateMutex);
+	
+	/* Update the device state: */
 	state.setTrackerState(trackerIndex,newTrackerState);
 	state.setTrackerTimeStamp(trackerIndex,newTimeStamp);
+	state.setTrackerValid(trackerIndex,true);
 	
+	/* Check if update notifications are requested: */
 	if(trackerUpdateNotificationEnabled)
 		{
 		/* Update tracker report mask: */
@@ -305,6 +358,25 @@ void VRDeviceManager::updateState(void)
 		}
 	}
 
+void VRDeviceManager::updateBatteryState(unsigned int virtualDeviceIndex,const Vrui::BatteryState& newBatteryState)
+	{
+	Threads::Mutex::Lock batteryStateLock(batteryStateMutex);
+	
+	/* Remember that this device has a battery: */
+	virtualDevices[virtualDeviceIndex]->hasBattery=true;
+	
+	/* Check if the battery state actually changed: */
+	Vrui::BatteryState& bs=batteryStates[virtualDeviceIndex];
+	bool changed=bs.charging!=newBatteryState.charging||bs.batteryLevel!=newBatteryState.batteryLevel;
+	if(changed)
+		{
+		/* Update the battery state and call the state update callback: */
+		bs=newBatteryState;
+		if(batteryStateUpdatedCallback!=0)
+			batteryStateUpdatedCallback(this,virtualDeviceIndex,bs,batteryStateUpdatedCallbackData);
+		}
+	}
+
 void VRDeviceManager::updateHmdConfiguration(const Vrui::HMDConfiguration* hmdConfiguration)
 	{
 	/* Call the HMD configuration update callback: */
@@ -339,6 +411,13 @@ void VRDeviceManager::disableTrackerUpdateNotification(void)
 	trackerUpdateCompleteCond=0;
 	trackerUpdateCompleteCallback=0;
 	trackerUpdateCompleteCallbackData=0;
+	}
+
+void VRDeviceManager::setBatteryStateUpdatedCallback(BatteryStateUpdatedCallback newBatteryStateUpdatedCallback,void* newBatteryStateUpdatedCallbackData)
+	{
+	Threads::Mutex::Lock batteryStateLock(batteryStateMutex);
+	batteryStateUpdatedCallback=newBatteryStateUpdatedCallback;
+	batteryStateUpdatedCallbackData=newBatteryStateUpdatedCallbackData;
 	}
 
 void VRDeviceManager::setHmdConfigurationUpdatedCallback(HMDConfigurationUpdatedCallback newHmdConfigurationUpdatedCallback,void* newHmdConfigurationUpdatedCallbackData)

@@ -40,3 +40,4 @@ ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="2833", ATTRS{idProduct}=="20
 # Rule for HTC Vive head-mounted display
 ACTION=="add", KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", ATTRS{idProduct}=="2c87", TAG+="uaccess"
 ACTION=="add", KERNEL=="hidraw*", ATTRS{idVendor}=="28de", ATTRS{idProduct}=="2000|2101", TAG+="uaccess"
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="0bb4", ATTRS{idProduct}=="2134|2744", TAG+="uaccess"

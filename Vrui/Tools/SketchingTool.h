@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2015 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <string>
 #include <vector>
 #include <Geometry/Point.h>
+#include <Geometry/Box.h>
 #include <GL/gl.h>
 #include <GL/GLColor.h>
 #include <GLMotif/RadioBox.h>
@@ -57,6 +58,7 @@ class SketchingToolFactory:public ToolFactory
 	/* Elements: */
 	private:
 	Scalar detailSize; // Minimal length of line segments in curves in physical coordinate units
+	Vector brushAxis; // Direction of brush axis in input device local coordinates
 	std::string curvesFileName; // Default name for curve files
 	GLMotif::FileSelectionHelper* curvesSelectionHelper; // Helper object to load and save curve files
 	
@@ -82,6 +84,7 @@ class SketchingTool:public UtilityTool
 	/* Embedded classes: */
 	private:
 	typedef GLColor<GLubyte,4> Color; // Type for colors
+	typedef Geometry::Box<Scalar,3> Box; // Type for bounding boxes
 	
 	struct SketchObject // Base class for sketching objects
 		{
@@ -89,11 +92,18 @@ class SketchingTool:public UtilityTool
 		public:
 		GLfloat lineWidth; // Curve's cosmetic line width
 		Color color; // Curve's color
+		Box boundingBox; // Bounding box around the curve for selection purposes
 		
 		/* Constructors and destructors: */
+		SketchObject(GLfloat sLineWidth,const Color& sColor)
+			:lineWidth(sLineWidth),color(sColor),
+			 boundingBox(Box::empty)
+			{
+			}
 		virtual ~SketchObject(void);
 		
 		/* Methods: */
+		virtual bool pick(const Point& p,Scalar radius2) const =0; // Returns true if the given point is closer to the sketching object than the given squared radius
 		virtual void write(IO::OStream& os) const; // Writes object state to file
 		virtual void read(IO::ValueSource& vs); // Reads object state from file
 		virtual void glRenderAction(GLContextData& contextData) const =0; // Method to render the sketching object into the current OpenGL context
@@ -114,10 +124,21 @@ class SketchingTool:public UtilityTool
 		/* Elements: */
 		std::vector<ControlPoint> controlPoints; // The curve's control points
 		
+		/* Constructors and destructors: */
+		Curve(GLfloat sLineWidth,const Color& sColor)
+			:SketchObject(sLineWidth,sColor)
+			{
+			}
+		
 		/* Methods from SketchObject: */
+		virtual bool pick(const Point& p,Scalar radius2) const;
 		virtual void write(IO::OStream& os) const;
 		virtual void read(IO::ValueSource& vs);
 		virtual void glRenderAction(GLContextData& contextData) const;
+		
+		/* New methods: */
+		static void setGLState(GLContextData& contextData); // Sets up OpenGL for curve rendering
+		static void resetGLState(GLContextData& contextData); // Undoes changes to OpenGL
 		};
 	
 	struct Polyline:public SketchObject // Structure to represent polylines
@@ -126,10 +147,59 @@ class SketchingTool:public UtilityTool
 		public:
 		std::vector<Point> vertices; // The polyline's vertices
 		
+		/* Constructors and destructors: */
+		Polyline(GLfloat sLineWidth,const Color& sColor)
+			:SketchObject(sLineWidth,sColor)
+			{
+			}
+		
 		/* Methods from SketchObject: */
+		virtual bool pick(const Point& p,Scalar radius2) const;
 		virtual void write(IO::OStream& os) const;
 		virtual void read(IO::ValueSource& vs);
 		virtual void glRenderAction(GLContextData& contextData) const;
+		
+		/* New methods: */
+		static void setGLState(GLContextData& contextData); // Sets up OpenGL for polyline rendering
+		static void resetGLState(GLContextData& contextData); // Undoes changes to OpenGL
+		};
+	
+	struct BrushStroke:public SketchObject // Structure to represent broad brush strokes
+		{
+		/* Embedded classes: */
+		public:
+		struct ControlPoint // Structure for brush stroke control points
+			{
+			/* Elements: */
+			public:
+			Point pos; // Control point position
+			Vector brushAxis; // Scaled control point brush axis vector
+			Vector normal; // Control point normal vector
+			};
+		
+		/* Elements: */
+		std::vector<ControlPoint> controlPoints; // The brush stroke's control points
+		
+		/* Constructors and destructors: */
+		BrushStroke(GLfloat sLineWidth,const Color& sColor)
+			:SketchObject(sLineWidth,sColor)
+			{
+			}
+		
+		/* Methods from SketchObject: */
+		virtual bool pick(const Point& p,Scalar radius2) const;
+		virtual void write(IO::OStream& os) const;
+		virtual void read(IO::ValueSource& vs);
+		virtual void glRenderAction(GLContextData& contextData) const;
+		
+		/* New methods: */
+		static void setGLState(GLContextData& contextData); // Sets up OpenGL for brush stroke rendering
+		static void resetGLState(GLContextData& contextData); // Undoes changes to OpenGL
+		};
+	
+	enum SketchMode // Enumerated type for sketching modes
+		{
+		CURVE=0,POLYLINE,BRUSHSTROKE,ERASER
 		};
 	
 	/* Elements: */
@@ -137,13 +207,16 @@ class SketchingTool:public UtilityTool
 	static const Color colors[8]; // Standard line color palette
 	GLMotif::PopupWindow* controlDialogPopup;
 	GLMotif::RowColumn* colorBox;
-	std::vector<SketchObject*> sketchObjects; // The list of existing sketching objects
-	int newSketchObjectType; // Type of sketch objects to be created
+	std::vector<Curve*> curves; // List of curves
+	std::vector<Polyline*> polylines; // List of polylines
+	std::vector<BrushStroke*> brushStrokes; // List of brush strokes
+	SketchMode sketchMode; // Current sketching mode
 	GLfloat newLineWidth; // Line width for new sketch objects
 	Color newColor; // Color for new sketch objects
 	bool active; // Flag whether the tool is currently creating a sketching object
 	Curve* currentCurve; // Pointer to the currently created curve
 	Polyline* currentPolyline; // Pointer to the currently created polyline
+	BrushStroke* currentBrushStroke; // Pointer to the currently created brush stroke
 	Point lastPoint; // The last point appended to the current sketching object
 	Point currentPoint; // The current dragging position
 	
@@ -162,7 +235,7 @@ class SketchingTool:public UtilityTool
 	virtual void display(GLContextData& contextData) const;
 	
 	/* New methods: */
-	void sketchObjectTypeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
+	void sketchModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData);
 	void lineWidthSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData);
 	void colorButtonSelectCallback(GLMotif::NewButton::SelectCallbackData* cbData);
 	void saveCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);

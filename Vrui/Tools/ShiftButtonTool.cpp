@@ -1,7 +1,7 @@
 /***********************************************************************
 ShiftButtonTool - Class to switch between planes of buttons and/or
 valuators by pressing a "shift" button.
-Copyright (c) 2010-2013 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -127,13 +127,6 @@ ShiftButtonTool::ShiftButtonTool(const ToolFactory* sFactory,const ToolInputAssi
 	 toggle(factory->toggle),forwardShiftButton(factory->forwardShiftButton),resetFeatures(factory->resetFeatures),
 	 shifted(false)
 	{
-	/* Set the transformation source device: */
-	if(input.getNumButtonSlots()>1)
-		sourceDevice=getButtonDevice(1);
-	else if(input.getNumValuatorSlots()>0)
-		sourceDevice=getValuatorDevice(0);
-	else
-		sourceDevice=getButtonDevice(0); // User didn't select anything to forward; let's just pretend it makes sense
 	}
 
 ShiftButtonTool::~ShiftButtonTool(void)

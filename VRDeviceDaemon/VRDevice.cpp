@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -135,9 +135,16 @@ void VRDevice::setNumValuators(int newNumValuators,const Misc::ConfigurationFile
 		valuatorIndices[i]=deviceManager->addValuator(valuatorNames!=0?valuatorNames[i].c_str():0);
 	}
 
-void VRDevice::addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice)
+unsigned int VRDevice::addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice)
 	{
-	deviceManager->addVirtualDevice(newDevice);
+	/* Forward the request to the device manager: */
+	return deviceManager->addVirtualDevice(newDevice);
+	}
+
+void VRDevice::disableTracker(int deviceTrackerIndex)
+	{
+	/* Forward the request to the device manager: */
+	deviceManager->disableTracker(trackerIndices[deviceTrackerIndex]);
 	}
 
 void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state,Vrui::VRDeviceState::TimeStamp timeStamp)
@@ -147,8 +154,10 @@ void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState:
 	if(calibrator!=0)
 		calibrator->calibrate(deviceTrackerIndex,calibratedState);
 	
+	#if 1 // Skip doing this for now -- FIXME
 	/* Calculate new linear velocity affected by rotation around the post-transformed device origin: */
 	calibratedState.linearVelocity+=calibratedState.angularVelocity^(calibratedState.positionOrientation.transform(trackerPostTransformations[deviceTrackerIndex].getTranslation()));
+	#endif
 	
 	/* Apply the tracker post-transformation: */
 	calibratedState.positionOrientation*=trackerPostTransformations[deviceTrackerIndex];
@@ -159,11 +168,13 @@ void VRDevice::setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState:
 
 void VRDevice::setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState)
 	{
+	/* Forward the request to the device manager: */
 	deviceManager->setButtonState(buttonIndices[deviceButtonIndex],newState);
 	}
 
 void VRDevice::setValuatorState(int deviceValuatorIndex,Vrui::VRDeviceState::ValuatorState newState)
 	{
+	/* Calibrate the given raw valuator state: */
 	Vrui::VRDeviceState::ValuatorState calibratedState=newState;
 	float th=valuatorThresholds[deviceValuatorIndex];
 	if(calibratedState<-th)
@@ -172,6 +183,8 @@ void VRDevice::setValuatorState(int deviceValuatorIndex,Vrui::VRDeviceState::Val
 		calibratedState=Math::pow((calibratedState-th)/(1.0f-th),valuatorExponents[deviceValuatorIndex]);
 	else
 		calibratedState=0.0f;
+	
+	/* Forward the request to the device manager: */
 	deviceManager->setValuatorState(valuatorIndices[deviceValuatorIndex],calibratedState);
 	}
 
@@ -252,4 +265,8 @@ VRDevice::~VRDevice(void)
 void VRDevice::destroy(VRDevice* object)
 	{
 	object->factory->destroyObject(object);
+	}
+
+void VRDevice::initialize(void)
+	{
 	}

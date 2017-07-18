@@ -2,7 +2,7 @@
 WidgetTool - Class for tools that can interact with GLMotif GUI widgets.
 WidgetTool objects are cascadable and preempt button events if they
 would fall into the area of interest of mapped widgets.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Vrui.h>
 #include <Vrui/InputGraphManager.h>
 #include <Vrui/InputDeviceManager.h>
+#include <Vrui/UIManager.h>
 #include <Vrui/ToolManager.h>
 
 namespace Vrui {
@@ -195,6 +196,18 @@ void WidgetTool::display(GLContextData& contextData) const
 		/* Draw the GUI interactor's state: */
 		GUIInteractor::glRenderAction(getRayWidth(),getRayColor(),contextData);
 		}
+	}
+
+Point WidgetTool::calcHotSpot(void) const
+	{
+	/* Calculate the interaction position: */
+	Point rayOrigin=getButtonDevicePosition(0);
+	if(!getButtonDevice(0)->isRayDevice())
+		{
+		/* For 6-DOF devices, offset the hot spot by some amount: */
+		rayOrigin+=getRay().getDirection()*(Vrui::getInchFactor()*Vrui::Scalar(6)); // Currently hard-coded, this will be changed in next version
+		}
+	return getUiManager()->projectRay(Ray(rayOrigin,getRay().getDirection()));
 	}
 
 std::vector<InputDevice*> WidgetTool::getForwardedDevices(void)

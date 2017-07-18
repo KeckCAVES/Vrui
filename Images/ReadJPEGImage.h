@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadJPEGImage - Functions to read RGB images from image files in JPEG
 formats over an IO::File abstraction.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -27,16 +27,19 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #if IMAGES_CONFIG_HAVE_JPEG
 
-#include <Images/RGBImage.h>
-
 /* Forward declarations: */
 namespace IO {
 class File;
+}
+namespace Images {
+class BaseImage;
+class RGBImage;
 }
 
 namespace Images {
 
 RGBImage readJPEGImage(const char* imageName,IO::File& source); // Reads an RGB image in JPEG format from the given data source
+BaseImage readGenericJPEGImage(const char* imageName,IO::File& source); // Reads a generic image in JPEG format from the given data source
 
 }
 

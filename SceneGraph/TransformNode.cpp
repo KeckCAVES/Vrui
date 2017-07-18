@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformNode - Class for group nodes that apply an orthogonal
 transformation to their children.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2017 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -115,13 +115,23 @@ void TransformNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 void TransformNode::update(void)
 	{
 	/* Calculate the transformation: */
-	transform=OGTransform::identity;
-	transform*=OGTransform::translate(translation.getValue());
-	transform*=OGTransform::translateFromOriginTo(center.getValue());
+	transform=OGTransform::translate(translation.getValue());
 	Scalar uniformScale=Math::pow(scale.getValue()[0]*scale.getValue()[1]*scale.getValue()[2],Scalar(1)/Scalar(3));
-	transform*=OGTransform::scale(uniformScale);
-	transform*=OGTransform::rotate(rotation.getValue());
-	transform*=OGTransform::translateToOriginFrom(center.getValue());
+	if(center.getValue()!=Point::origin)
+		{
+		transform*=OGTransform::translateFromOriginTo(center.getValue());
+		if(uniformScale!=Scalar(1))
+			transform*=OGTransform::scale(uniformScale);
+		transform*=OGTransform::rotate(rotation.getValue());
+		transform*=OGTransform::translateToOriginFrom(center.getValue());
+		}
+	else
+		{
+		if(uniformScale!=Scalar(1))
+			transform*=OGTransform::scale(uniformScale);
+		transform*=OGTransform::rotate(rotation.getValue());
+		}
+	transform.renormalize();
 	}
 
 Box TransformNode::calcBoundingBox(void) const

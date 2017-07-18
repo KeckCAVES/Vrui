@@ -1,6 +1,6 @@
 /***********************************************************************
 Image - Class for widgets displaying image as textures.
-Copyright (c) 2011-2014 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -54,7 +54,7 @@ Image::DataItem::~DataItem(void)
 Methods of class Image:
 **********************/
 
-Image::Image(const char* sName,Container* sParent,const Images::RGBImage& sImage,const GLfloat sResolution[2],bool sManageChild)
+Image::Image(const char* sName,Container* sParent,const Images::BaseImage& sImage,const GLfloat sResolution[2],bool sManageChild)
 	:Widget(sName,sParent,false),
 	 image(sImage),version(1),
 	 regionVersion(1),
@@ -84,7 +84,7 @@ Image::Image(const char* sName,Container* sParent,const char* imageFileName,cons
 	 illuminated(false)
 	{
 	/* Load the image file: */
-	image=Images::readImageFile(imageFileName);
+	image=Images::readGenericImageFile(imageFileName);
 	
 	/* Copy the image resolution: */
 	for(int i=0;i<2;++i)
@@ -169,7 +169,7 @@ void Image::draw(GLContextData& contextData) const
 	if(dataItem->version!=version)
 		{
 		/* Upload the new texture image: */
-		image.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB8,!dataItem->npotdtSupported);
+		image.glTexImage2D(GL_TEXTURE_2D,0,!dataItem->npotdtSupported);
 		
 		/* Update the texture image's size: */
 		if(dataItem->npotdtSupported)

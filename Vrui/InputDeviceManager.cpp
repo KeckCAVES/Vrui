@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -95,7 +95,8 @@ Methods of class InputDeviceManager:
 
 InputDeviceManager::InputDeviceManager(InputGraphManager* sInputGraphManager,TextEventDispatcher* sTextEventDispatcher)
 	:inputGraphManager(sInputGraphManager),textEventDispatcher(sTextEventDispatcher),
-	 numInputDeviceAdapters(0),inputDeviceAdapters(0)
+	 numInputDeviceAdapters(0),inputDeviceAdapters(0),
+	 predictDeviceStates(false),predictionTime(0,0)
 	{
 	}
 
@@ -463,6 +464,18 @@ int InputDeviceManager::getFeatureIndex(InputDevice* device, const char* feature
 		/* Parse a default feature name: */
 		return InputDeviceAdapter::getDefaultFeatureIndex(device,featureName);
 		}
+	}
+
+void InputDeviceManager::disablePrediction(void)
+	{
+	predictDeviceStates=false;
+	}
+
+void InputDeviceManager::setPredictionTime(const Realtime::TimePointMonotonic& newPredictionTime)
+	{
+	/* Enable device state prediction and store the given prediction time point: */
+	predictDeviceStates=true;
+	predictionTime=newPredictionTime;
 	}
 
 void InputDeviceManager::updateInputDevices(void)

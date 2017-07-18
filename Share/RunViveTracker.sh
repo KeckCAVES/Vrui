@@ -3,7 +3,7 @@
 # Script to set up an environment to run VRDeviceDaemon's OpenVRHost
 # device driver module, to receive tracking data for an HTC Vive using
 # OpenVR's Lighthouse low-level driver module.
-# Copyright (c) 2016 Oliver Kreylos
+# Copyright (c) 2016-2017 Oliver Kreylos
 #
 # This file is part of the Vrui VR Device Driver Daemon
 # (VRDeviceDaemon).
@@ -26,18 +26,17 @@
 
 # Configure environment:
 STEAMDIR=$HOME/.steam/steam
-RUNTIMEDIR1=$STEAMDIR/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu
-RUNTIMEDIR2=$STEAMDIR/ubuntu12_32/steam-runtime/amd64/usr/lib/x86_64-linux-gnu
+RUNTIMEDIR=$STEAMDIR/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu
 STEAMVRDIR=$STEAMDIR/SteamApps/common/SteamVR
 DRIVERDIR=$STEAMVRDIR/drivers/lighthouse/bin/linux64
 VRUIBINDIR=/usr/local/bin
 
 # Set up dynamic library search path:
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RUNTIMEDIR1:$RUNTIMEDIR2:$DRIVERDIR
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RUNTIMEDIR:$DRIVERDIR
 
 # Run VRDeviceDaemon:
-$VRUIBINDIR/VRDeviceDaemon -rootSection Vive
+# $VRUIBINDIR/VRDeviceDaemon -rootSection Vive
 
 # Use the following command if things are working, and you don't want to
 # see all those "Broken pipe" messages:
-# $VRUIBINDIR/VRDeviceDaemon -rootSection Vive 2>1 | fgrep -v "ioctl (GFEATURE): Broken pipe"
+$VRUIBINDIR/VRDeviceDaemon -rootSection Vive 2>1 | fgrep -v ": Broken pipe"

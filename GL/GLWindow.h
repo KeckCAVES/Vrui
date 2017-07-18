@@ -51,6 +51,16 @@ void glXSwapIntervalEXT(Display* dpy,GLXDrawable drawable,int interval);
 #endif
 #endif
 
+#ifndef GLX_MESA_swap_control
+#define GLX_MESA_swap_control 1
+typedef int (*PFNGLXSWAPINTERVALMESAPROC)(unsigned int interval);
+typedef int (*PFNGLXGETSWAPINTERVALMESAPROC)(void);
+#ifdef GLX_GLXEXT_PROTOTYPES
+int glXSwapIntervalMESA(unsigned int interval);
+int glXGetSwapIntervalMESA(void);
+#endif
+#endif
+
 #ifndef GLX_NV_delay_before_swap
 #define GLX_NV_delay_before_swap 1
 typedef Bool (*PFNGLXDELAYBEFORESWAPNVPROC)(Display* dpy,GLXDrawable drawable,GLfloat seconds);
@@ -127,6 +137,7 @@ class GLWindow
 	
 	/* Entry points for required/optional GLX extensions: */
 	PFNGLXSWAPINTERVALEXTPROC glXSwapIntervalEXTProc; // Selects vertical retrace synchronization interval
+	PFNGLXSWAPINTERVALMESAPROC glXSwapIntervalMESAProc; // Ditto, for Mesa-derived OpenGL implementations
 	PFNGLXWAITVIDEOSYNCSGIPROC glXWaitVideoSyncSGIProc; // Waits for next vertical retrace synchronization pulse
 	PFNGLXDELAYBEFORESWAPNVPROC glXDelayBeforeSwapNVProc; // Waits for a specified time *before* next vertical retrace synchronization pulse
 	
