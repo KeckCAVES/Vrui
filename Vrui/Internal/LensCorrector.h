@@ -2,7 +2,7 @@
 LensCorrector - Helper class to render imagery into an off-screen buffer
 and then warp the buffer to the final drawable to correct subsequent
 lens distortion.
-Copyright (c) 2014-2016 Oliver Kreylos
+Copyright (c) 2014-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -157,6 +157,10 @@ class LensCorrector
 	void prepare(int eye,DisplayState& displayState) const; // Prepares for rendering of the pre-distortion image for the given eye and adjusts the given display state object
 	void adjustProjection(int eye,const Point& screenEyePos,double near,double& left,double& right,double& bottom,double& top) const; // Adjusts the projection matrix to accound for overscan
 	void finish(int eye) const; // Finishes up after the pre-distortion image for the given eye has been rendered
+	bool doesReproject(void) const // Returns true if the lens corrector is set up to reproject rendered frames for latency mitigation
+		{
+		return warpReproject;
+		}
 	void warp(void) const; // Warps the previously rendered left and right eye pre-distortion images into the final drawable
 	};
 

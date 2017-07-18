@@ -813,7 +813,7 @@ This driver module receives 6-DOF tracking data from an OpenVR-compatible driver
 
 <TR>
 <TD>steamRootDir</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Root directory of the Steam run-time. Defaults to $HOME/.steam/steam.</TD>
+<TD>Root directory of the Steam installation (the directory containing the SteamApps or steamapps subdirectory). Defaults to the directory configured when Vrui was originally built.</TD>
 </TR>
 
 <TR>
@@ -823,12 +823,12 @@ This driver module receives 6-DOF tracking data from an OpenVR-compatible driver
 
 <TR>
 <TD>openvrDriverRootDir</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Root directory of the selected OpenVR driver module. Defaults to SteamVR's standard directory layout.</TD>
+<TD>Root directory of the selected OpenVR driver module (the directory containing the driver_&lt;driver name&gt;.so shared library), relative to the Steam installation root directory. Defaults to the SteamVR directory layout detected when Vrui was originally built.</TD>
 </TR>
 
 <TR>
 <TD>openvrDriverDsoName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Name of the dynamic shared object containing the selected OpenVR driver module. Defaults to SteamVR's standard naming scheme.</TD>
+<TD>Name of the dynamic shared object containing the selected OpenVR driver module. Defaults to driver_&lt;openvrDriverName&gt;.so.</TD>
 </TR>
 
 <TR>
@@ -838,17 +838,27 @@ This driver module receives 6-DOF tracking data from an OpenVR-compatible driver
 
 <TR>
 <TD>openvrDriverConfigDir</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
-<TD>Configuration directory of the selected OpenVR driver. Defaults to SteamVR's standard directory layout.</TD>
+<TD>Configuration directory of the selected OpenVR driver relative to the Steam installation root directory. Defaults to config/&lt;openvrDriverName&gt;.</TD>
 </TR>
 
 <TR>
 <TD>distortionMeshSize</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of exactly two <A HREF="VruiCFGTypes.html#integer">integers</A></TD>
-<TD>Size of the distortion mesh, in u and v, to generate from the device driver's configuration parameters.</TD>
+<TD>Size of the distortion mesh, in u and v, to generate from the device driver's configuration parameters. Defaults to (32, 32).</TD>
 </TR>
 
 <TR>
 <TD>maxNumControllers</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
-<TD>Maximum number of controllers that can be connected at any time.</TD>
+<TD>Maximum number of controllers that can be connected at any time. Defaults to 2.</TD>
+</TR>
+
+<TR>
+<TD>maxNumTrackers</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Maximum number of generic trackers that can be connected at any time. Defaults to 0.</TD>
+</TR>
+
+<TR>
+<TD>maxNumBaseStations</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Maximum number of tracking base stations that can be connected at any time. Defaults to 2.</TD>
 </TR>
 
 <TR>
@@ -859,6 +869,11 @@ This driver module receives 6-DOF tracking data from an OpenVR-compatible driver
 <TR>
 <TD>controllerNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
 <TD>Printf-style name template for the virtual input devices representing the controllers. The template must contain exactly one unsigned integer conversion specifier, of the form %[0-9]*u. Defaults to Controller%u.</TD>
+</TR>
+
+<TR>
+<TD>trackerNameTemplate</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD>
+<TD>Printf-style name template for the virtual input devices representing the generic trackers. The template must contain exactly one unsigned integer conversion specifier, of the form %[0-9]*u. Defaults to Tracker%u.</TD>
 </TR>
 </TABLE>
 

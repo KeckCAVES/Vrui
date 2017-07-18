@@ -2,7 +2,7 @@
 LensCorrector - Helper class to render imagery into an off-screen buffer
 and then warp the buffer to the final drawable to correct subsequent
 lens distortion.
-Copyright (c) 2014-2016 Oliver Kreylos
+Copyright (c) 2014-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -1410,7 +1410,7 @@ void LensCorrector::warp(void) const
 		TrackerState viewerTrans1=viewer->peekHeadTransformation();
 		
 		/* Calculate the incremental reprojection rotation: */
-		Rotation rot=viewerTrans0.getRotation()*Geometry::invert(viewerTrans1.getRotation());
+		Rotation rot=Geometry::invert(viewerTrans0.getRotation())*viewerTrans1.getRotation();
 		rot.writeMatrix(rotation);
 		}
 	
@@ -1451,14 +1451,20 @@ void LensCorrector::warp(void) const
 			{
 			/* Upload the transformations from and to tangent space: */
 			const LensConfig& lc=lensConfigs[eye];
+			
+			/* Scale from pixel space to tangent space: */
 			GLfloat fovScale[2];
 			fovScale[0]=GLfloat((lc.renderedFovs[1]-lc.renderedFovs[0])/double(predistortionFrameSize[0]));
 			fovScale[1]=GLfloat((lc.renderedFovs[3]-lc.renderedFovs[2])/double(predistortionFrameSize[1]));
 			glUniformARB<2>(warpingShaderUniformIndices[4],1,fovScale);
+			
+			/* Offset from pixel space to tangent space: */
 			GLfloat fovOffset[2];
 			fovOffset[0]=GLfloat(lc.renderedFovs[0]);
 			fovOffset[1]=GLfloat(lc.renderedFovs[2]);
 			glUniformARB<2>(warpingShaderUniformIndices[5],1,fovOffset);
+			
+			/* Scale from tangent space to pixel space: */
 			GLfloat invFovScale[2];
 			invFovScale[0]=GLfloat(double(predistortionFrameSize[0])/(lc.renderedFovs[1]-lc.renderedFovs[0]));
 			invFovScale[1]=GLfloat(double(predistortionFrameSize[1])/(lc.renderedFovs[3]-lc.renderedFovs[2]));

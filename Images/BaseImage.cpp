@@ -2,7 +2,7 @@
 BaseImage - Generic base class to represent images of arbitrary pixel
 formats. The image coordinate system is such that pixel (0,0) is in the
 lower-left corner.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -73,6 +73,22 @@ BaseImage::ImageRepresentation::~ImageRepresentation(void)
 Methods of class BaseImage:
 **************************/
 
+GLenum BaseImage::getInternalFormat(void) const
+	{
+	/* Guess an appropriate internal image format: */
+	GLint internalFormat=GL_RGBA;
+	if(rep->format==GL_LUMINANCE&&rep->channelSize==8)
+		internalFormat=GL_RGB8;
+	else if(rep->format==GL_LUMINANCE_ALPHA&&rep->channelSize==8)
+		internalFormat=GL_RGBA8;
+	else if(rep->format==GL_RGB&&rep->channelSize==8)
+		internalFormat=GL_RGB8;
+	else if(rep->format==GL_RGBA&&rep->channelSize==8)
+		internalFormat=GL_RGBA8;
+	
+	return internalFormat;
+	}
+
 BaseImage& BaseImage::glReadPixels(GLint x,GLint y)
 	{
 	/* Un-share the image representation without retaining pixels: */
@@ -137,6 +153,19 @@ void BaseImage::glTexImage2D(GLenum target,GLint level,GLint internalFormat,bool
 		/* Upload the image: */
 		::glTexImage2D(target,level,internalFormat,rep->size[0],rep->size[1],0,rep->format,rep->scalarType,rep->image);
 		}
+	}
+
+void BaseImage::glTexImage2D(GLenum target,GLint level,bool padImageSize) const
+	{
+	/* Guess an appropriate internal image format: */
+	GLint internalFormat=GL_RGBA;
+	if(rep->format==GL_RGB&&rep->channelSize==8)
+		internalFormat=GL_RGB8;
+	else if(rep->format==GL_RGBA&&rep->channelSize==8)
+		internalFormat=GL_RGBA8;
+	
+	/* Call the general function: */
+	glTexImage2D(target,level,internalFormat,padImageSize);
 	}
 
 void BaseImage::glTexSubImage2D(GLenum target,GLint level,GLint xOffset,GLint yOffset) const

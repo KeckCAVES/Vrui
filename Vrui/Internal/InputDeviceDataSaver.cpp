@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceDataSaver - Class to save input device data to a file for
 later playback.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,6 +26,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <Misc/StringMarshaller.h>
 #include <Misc/CreateNumberedFileName.h>
+#include <Misc/MessageLogger.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <IO/File.h>
@@ -36,6 +37,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthonormalTransformation.h>
 #include <Sound/SoundDataFormat.h>
 #include <Sound/SoundRecorder.h>
+#include <Vrui/Vrui.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
@@ -130,6 +132,10 @@ InputDeviceDataSaver::InputDeviceDataSaver(const Misc::ConfigurationFileSection&
 
 InputDeviceDataSaver::~InputDeviceDataSaver(void)
 	{
+	/* Log the total recording time as a convenience: */
+	Misc::formattedLogNote("Vrui::InputDeviceDataSaver: Total recording time: %fs",getApplicationTime());
+	
+	/* Shut down recording: */
 	delete[] inputDevices;
 	delete soundRecorder;
 	#ifdef VRUI_INPUTDEVICEDATASAVER_USE_KINECT

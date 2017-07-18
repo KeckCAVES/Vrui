@@ -1,7 +1,7 @@
 /***********************************************************************
 TCPPipe - Pair of classes for high-performance cluster-transparent
 reading/writing from/to TCP sockets.
-Copyright (c) 2011-2015 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -33,6 +33,7 @@ class TCPPipeMaster:public Comm::NetPipe,public ClusterPipe // Class to represen
 	/* Elements: */
 	private:
 	int fd; // File descriptor of the underlying TCP socket
+	unsigned int statusPipeId; // ID of pipe to send status status messages to all slaves
 	
 	/* Protected methods from IO::File: */
 	virtual size_t readData(Byte* buffer,size_t bufferSize);
@@ -67,6 +68,7 @@ class TCPPipeSlave:public Comm::NetPipe,public ClusterPipe // Class to represent
 	/* Elements: */
 	private:
 	Packet* packet; // Pointer to most recently received multicast packet; doubles as pipe's read buffer
+	unsigned int statusPipeId; // ID of pipe to receive status messages from the master
 	
 	/* Protected methods from IO::File: */
 	virtual size_t readData(Byte* buffer,size_t bufferSize);

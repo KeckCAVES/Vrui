@@ -1,6 +1,6 @@
 /***********************************************************************
 UDPSocket - Wrapper class for UDP sockets ensuring exception safety.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Portable Communications Library (Comm).
 
@@ -20,6 +20,9 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA
 ***********************************************************************/
 
+#include <Comm/UDPSocket.h>
+
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
@@ -31,8 +34,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Time.h>
 #include <Misc/FdSet.h>
-
-#include <Comm/UDPSocket.h>
+#include <Comm/IPv4Address.h>
+#include <Comm/IPv4SocketAddress.h>
 
 namespace Comm {
 
@@ -45,57 +48,49 @@ UDPSocket::UDPSocket(int localPortId,int)
 	/* Create the socket file descriptor: */
 	socketFd=socket(PF_INET,SOCK_DGRAM,0);
 	if(socketFd<0)
-		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket");
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket due to error %d (%s)",myerrno,strerror(myerrno));
+		}
 	
 	/* Bind the socket file descriptor to the local port ID: */
-	struct sockaddr_in socketAddress;
-	socketAddress.sin_family=AF_INET;
-	socketAddress.sin_port=localPortId>=0?htons(localPortId):0;
-	socketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-	if(bind(socketFd,(struct sockaddr*)&socketAddress,sizeof(struct sockaddr_in))==-1)
+	IPv4SocketAddress socketAddress(localPortId>=0?(unsigned int)(localPortId):0U);
+	if(bind(socketFd,(struct sockaddr*)&socketAddress,sizeof(struct IPv4SocketAddress))==-1)
 		{
+		int myerrno=errno;
 		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d",localPortId);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d due to error %d (%s)",localPortId,myerrno,strerror(myerrno));
 		}
 	}
 
 UDPSocket::UDPSocket(int localPortId,std::string hostname,int hostPortId)
 	{
+	/* Lookup host's IP address: */
+	IPv4SocketAddress hostSocketAddress(hostPortId,IPv4Address(hostname.c_str()));
+	
 	/* Create the socket file descriptor: */
 	socketFd=socket(PF_INET,SOCK_DGRAM,0);
 	if(socketFd<0)
-		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket");
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket due to error %d (%s)",myerrno,strerror(myerrno));
+		}
 	
 	/* Bind the socket file descriptor to the local port ID: */
-	struct sockaddr_in mySocketAddress;
-	mySocketAddress.sin_family=AF_INET;
-	mySocketAddress.sin_port=localPortId>=0?htons(localPortId):0;
-	mySocketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-	if(bind(socketFd,(struct sockaddr*)&mySocketAddress,sizeof(struct sockaddr_in))==-1)
+	IPv4SocketAddress mySocketAddress(localPortId>=0?(unsigned int)(localPortId):0U);
+	if(bind(socketFd,(struct sockaddr*)&mySocketAddress,sizeof(IPv4SocketAddress))==-1)
 		{
+		int myerrno=errno;
 		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d",localPortId);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d due to error %d (%s)",localPortId,myerrno,strerror(myerrno));
 		}
-	
-	/* Lookup host's IP address: */
-	struct hostent* hostEntry=gethostbyname(hostname.c_str());
-	if(hostEntry==0)
-		{
-		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to resolve host name %s",hostname.c_str());
-		}
-	struct in_addr hostNetAddress;
-	hostNetAddress.s_addr=ntohl(((struct in_addr*)hostEntry->h_addr_list[0])->s_addr);
 	
 	/* Connect to the remote host: */
-	struct sockaddr_in hostAddress;
-	hostAddress.sin_family=AF_INET;
-	hostAddress.sin_port=htons(hostPortId);
-	hostAddress.sin_addr.s_addr=htonl(hostNetAddress.s_addr);
-	if(::connect(socketFd,(const struct sockaddr*)&hostAddress,sizeof(struct sockaddr_in))==-1)
+	if(::connect(socketFd,(const struct sockaddr*)&hostSocketAddress,sizeof(IPv4SocketAddress))==-1)
 		{
+		int myerrno=errno;
 		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostname.c_str(),hostPortId);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d due to error %d (%s)",hostname.c_str(),hostPortId,myerrno,strerror(myerrno));
 		}
 	}
 
@@ -104,24 +99,26 @@ UDPSocket::UDPSocket(int localPortId,const IPv4SocketAddress& hostAddress)
 	/* Create the socket file descriptor: */
 	socketFd=socket(PF_INET,SOCK_DGRAM,0);
 	if(socketFd<0)
-		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket");
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to create socket due to error %d (%s)",myerrno,strerror(myerrno));
+		}
 	
 	/* Bind the socket file descriptor to the local port ID: */
-	struct sockaddr_in mySocketAddress;
-	mySocketAddress.sin_family=AF_INET;
-	mySocketAddress.sin_port=localPortId>=0?htons(localPortId):0;
-	mySocketAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-	if(bind(socketFd,(struct sockaddr*)&mySocketAddress,sizeof(struct sockaddr_in))==-1)
+	IPv4SocketAddress mySocketAddress(localPortId>=0?(unsigned int)(localPortId):0U);
+	if(bind(socketFd,(struct sockaddr*)&mySocketAddress,sizeof(IPv4SocketAddress))==-1)
 		{
+		int myerrno=errno;
 		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d",localPortId);
+		Misc::throwStdErr("Comm::UDPSocket: Unable to bind socket to port %d due to error %d (%s)",localPortId,myerrno,strerror(myerrno));
 		}
 	
 	/* Connect to the remote host: */
 	if(::connect(socketFd,(const struct sockaddr*)(&hostAddress),sizeof(IPv4SocketAddress))==-1)
 		{
+		int myerrno=errno;
 		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostAddress.getAddress().getHostname().c_str(),hostAddress.getPort());
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d due to error %d (%s)",hostAddress.getAddress().getHostname().c_str(),hostAddress.getPort(),myerrno,strerror(myerrno));
 		}
 	}
 
@@ -157,22 +154,75 @@ int UDPSocket::getPortId(void) const
 	return ntohs(socketAddress.sin_port);
 	}
 
+void UDPSocket::setMulticastLoopback(bool multicastLoopback)
+	{
+	/* Set the loop option: */
+	unsigned char loop=multicastLoopback?1U:0U;
+	if(setsockopt(socketFd,IPPROTO_IP,IP_MULTICAST_LOOP,&loop,sizeof(unsigned char))<0)
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to %s multicast loopback due to error %d (%s)",multicastLoopback?"enable":"disable",myerrno,strerror(myerrno));
+		}
+	}
+
+void UDPSocket::setMulticastTTL(unsigned int multicastTTL)
+	{
+	/* Set the TTL option: */
+	unsigned char ttl=multicastTTL;
+	if(setsockopt(socketFd,IPPROTO_IP,IP_MULTICAST_TTL,&ttl,sizeof(unsigned char))<0)
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to set multicast TTL to %u due to error %d (%s)",multicastTTL,myerrno,strerror(myerrno));
+		}
+	}
+
+void UDPSocket::setMulticastInterface(const IPv4Address& interfaceAddress)
+	{
+	/* Set the given interface address: */
+	if(setsockopt(socketFd,IPPROTO_IP,IP_MULTICAST_IF,&interfaceAddress,sizeof(struct in_addr))<0)
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to set outgoing multicast interface to %s due to error %d (%s)",interfaceAddress.getHostname().c_str(),myerrno,strerror(myerrno));
+		}
+	}
+
+void UDPSocket::joinMulticastGroup(const IPv4Address& groupAddress,const IPv4Address& interfaceAddress)
+	{
+	/* Issue a multicast request: */
+	struct ip_mreq joinRequest;
+	joinRequest.imr_multiaddr.s_addr=groupAddress.s_addr;
+	joinRequest.imr_interface.s_addr=interfaceAddress.s_addr;
+	if(setsockopt(socketFd,IPPROTO_IP,IP_ADD_MEMBERSHIP,&joinRequest,sizeof(struct ip_mreq))<0)
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to join multicast group %s on interface %s due to error %d (%s)",groupAddress.getHostname().c_str(),interfaceAddress.getHostname().c_str(),myerrno,strerror(myerrno));
+		}
+	}
+
+void UDPSocket::leaveMulticastGroup(const IPv4Address& groupAddress,const IPv4Address& interfaceAddress)
+	{
+	/* Issue a multicast request: */
+	struct ip_mreq joinRequest;
+	joinRequest.imr_multiaddr.s_addr=groupAddress.s_addr;
+	joinRequest.imr_interface.s_addr=interfaceAddress.s_addr;
+	if(setsockopt(socketFd,IPPROTO_IP,IP_DROP_MEMBERSHIP,&joinRequest,sizeof(struct ip_mreq))<0)
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to leave multicast group %s on interface %s due to error %d (%s)",groupAddress.getHostname().c_str(),interfaceAddress.getHostname().c_str(),myerrno,strerror(myerrno));
+		}
+	}
+
 void UDPSocket::connect(std::string hostname,int hostPortId)
 	{
 	/* Lookup host's IP address: */
-	struct hostent* hostEntry=gethostbyname(hostname.c_str());
-	if(hostEntry==0)
-		Misc::throwStdErr("Comm::UDPSocket: Unable to resolve host name %s",hostname.c_str());
-	struct in_addr hostNetAddress;
-	hostNetAddress.s_addr=ntohl(((struct in_addr*)hostEntry->h_addr_list[0])->s_addr);
+	IPv4SocketAddress hostSocketAddress(hostPortId,IPv4Address(hostname.c_str()));
 	
 	/* Connect to the remote host: */
-	struct sockaddr_in hostAddress;
-	hostAddress.sin_family=AF_INET;
-	hostAddress.sin_port=htons(hostPortId);
-	hostAddress.sin_addr.s_addr=htonl(hostNetAddress.s_addr);
-	if(::connect(socketFd,(const struct sockaddr*)&hostAddress,sizeof(struct sockaddr_in))==-1)
-		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostname.c_str(),hostPortId);
+	if(::connect(socketFd,(const struct sockaddr*)&hostSocketAddress,sizeof(IPv4SocketAddress))==-1)
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d due to error %d (%s)",hostname.c_str(),hostPortId,myerrno,strerror(myerrno));
+		}
 	}
 
 void UDPSocket::connect(const IPv4SocketAddress& hostAddress)
@@ -180,8 +230,8 @@ void UDPSocket::connect(const IPv4SocketAddress& hostAddress)
 	/* Connect to the remote host: */
 	if(::connect(socketFd,(const struct sockaddr*)&hostAddress,sizeof(IPv4SocketAddress))==-1)
 		{
-		close(socketFd);
-		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d",hostAddress.getAddress().getHostname().c_str(),hostAddress.getPort());
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to host %s on port %d due to error %d (%s)",hostAddress.getAddress().getHostname().c_str(),hostAddress.getPort(),myerrno,strerror(myerrno));
 		}
 	}
 
@@ -193,11 +243,17 @@ void UDPSocket::accept(void)
 	socklen_t senderAddressLen=sizeof(struct sockaddr_in);
 	ssize_t numBytesReceived=recvfrom(socketFd,buffer,sizeof(buffer),0,(struct sockaddr*)&senderAddress,&senderAddressLen);
 	if(numBytesReceived<0||size_t(numBytesReceived)>sizeof(buffer))
-		Misc::throwStdErr("Comm::UDPSocket: Fatal error during accept");
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Fatal error %d (%s) during accept",myerrno,strerror(myerrno));
+		}
 	
 	/* Connect to the sender: */
 	if(::connect(socketFd,(const struct sockaddr*)&senderAddress,sizeof(struct sockaddr_in))==-1)
-		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to message sender");
+		{
+		int myerrno=errno;
+		Misc::throwStdErr("Comm::UDPSocket: Unable to connect to message sender due to error %d (%s)",myerrno,strerror(myerrno));
+		}
 	}
 
 bool UDPSocket::waitForMessage(const Misc::Time& timeout) const

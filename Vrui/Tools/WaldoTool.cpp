@@ -1,7 +1,7 @@
 /***********************************************************************
 WaldoTool - Class to scale translations and rotations on 6-DOF input
 devices to improve interaction accuracy in tracked environments.
-Copyright (c) 2007-2010 Oliver Kreylos
+Copyright (c) 2007-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -119,11 +119,6 @@ WaldoTool::WaldoTool(const ToolFactory* factory,const ToolInputAssignment& input
 	 waldoGlyph(0),
 	 numPressedButtons(0),transformActive(false)
 	{
-	/* Set the transformation source device: */
-	if(input.getNumButtonSlots()>0)
-		sourceDevice=getButtonDevice(0);
-	else
-		sourceDevice=getValuatorDevice(0);
 	}
 
 void WaldoTool::initialize(void)

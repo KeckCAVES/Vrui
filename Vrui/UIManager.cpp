@@ -103,8 +103,8 @@ Vector UIManager::getDirection(void) const
 		}
 	else
 		{
-		/* Return the most recent interaction direction: */
-		return mostRecentDirection;
+		/* Return a zero vector to disable direction matching: */
+		return Vector::zero;
 		}
 	}
 

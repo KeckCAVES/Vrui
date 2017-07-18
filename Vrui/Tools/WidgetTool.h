@@ -2,7 +2,7 @@
 WidgetTool - Class for tools that can interact with GLMotif GUI widgets.
 WidgetTool objects are cascadable and preempt button events if they
 would fall into the area of interest of mapped widgets.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -74,6 +74,9 @@ class WidgetTool:public UserInterfaceTool,public GUIInteractor,public DeviceForw
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	
+	/* Methods from GUIInteractor: */
+	virtual Point calcHotSpot(void) const;
 	
 	/* Methods from DeviceForwarder: */
 	virtual std::vector<InputDevice*> getForwardedDevices(void);

@@ -1,7 +1,7 @@
 /***********************************************************************
 MouseSurfaceNavigationTool - Class for navigation tools that use the
 mouse to move along an application-defined surface.
-Copyright (c) 2009-2015 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -440,7 +440,7 @@ void MouseSurfaceNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice:
 						{
 						/* Check if the input device is still moving: */
 						Point newCurrentPos=calcInteractionPos();
-						Vector delta=newCurrentPos-currentPos;
+						Vector delta=interactionPlane.inverseTransform(newCurrentPos-currentPos);
 						if(Geometry::mag(delta)>configuration.throwThreshold)
 							{
 							/* Calculate throwing velocity: */
@@ -529,13 +529,13 @@ void MouseSurfaceNavigationTool::frame(void)
 		case ROTATING:
 			{
 			/* Calculate the rotation vector: */
-			Vector delta=newCurrentPos-currentPos;
+			Vector delta=interactionPlane.inverseTransform(newCurrentPos-currentPos);
 			
 			/* Adjust the azimuth angle: */
 			azimuth=wrapAngle(azimuth+delta[0]/configuration.rotateFactor);
 			
 			/* Adjust the elevation angle: */
-			elevation=Math::clamp(elevation-delta[2]/configuration.rotateFactor,Scalar(0),Math::rad(Scalar(90)));
+			elevation=Math::clamp(elevation-delta[1]/configuration.rotateFactor,Scalar(0),Math::rad(Scalar(90)));
 			
 			/* Apply the new transformation: */
 			applyNavState();
@@ -547,8 +547,7 @@ void MouseSurfaceNavigationTool::frame(void)
 			NavTransform newSurfaceFrame=surfaceFrame;
 			
 			/* Calculate the translation vector: */
-			Vector delta=newCurrentPos-currentPos;
-			delta=Rotation::rotateX(Math::rad(Scalar(-90))).transform(delta);
+			Vector delta=interactionPlane.inverseTransform(newCurrentPos-currentPos);
 			delta=Rotation::rotateZ(-azimuth).transform(delta);
 			
 			/* Translate the surface frame: */
@@ -566,7 +565,6 @@ void MouseSurfaceNavigationTool::frame(void)
 			
 			/* Calculate the throw translation vector: */
 			Vector delta=throwVelocity*getFrameTime();
-			delta=Rotation::rotateX(Math::rad(Scalar(-90))).transform(delta);
 			delta=Rotation::rotateZ(-azimuth).transform(delta);
 			
 			/* Translate the surface frame: */

@@ -268,6 +268,21 @@ The floor plane is used by some navigation tools or applications to lock the vir
 </TR>
 
 <TR>
+<TD>predictVsync</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Flag to keep track of the vertical retrace synchronization signal for the main display window, to enable latency mitigation through device motion prediction for head-mounted displays.</TD>
+</TR>
+
+<TR>
+<TD>vsyncInterval</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Time between vertical retrace synchronization signals for the main display window, in milliseconds.</TD>
+</TR>
+
+<TR>
+<TD>postVsyncDisplayDelay</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Time between vertical retrace synchronization signals for the main display window, and when the new frame is actually shown on the display, in milliseconds.</TD>
+</TR>
+
+<TR>
 <TD>viewerNames</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#string">strings</A></TD>
 <TD>List of names of <A HREF="#viewersections">viewer sections</A>. Viewers define how 3D models are projected onto a Vrui display environment's <EM>screens</EM>. The first viewer in the list is considered the <EM>main viewer</EM> and is treated specially, for example, is used to determine the orientation of pop-up menus.</TD>
 </TR>
@@ -539,6 +554,31 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>maxNumDevices</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Maximum supported number of parallel touch events.</TD>
+</TR>
+
+<TR>
+<TD>numModifierButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of modifier buttons in the left-edge multitouch plane panel.</TD>
+</TR>
+
+<TR>
+<TD>numDeviceButtons</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Number of virtual buttons per primary touch contact, to simulate multi-finger taps or drags.</TD>
+</TR>
+
+<TR>
+<TD>maxContactArea</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum area of touch contact ellipse (as product of major and minor axes) to consider a touch contact a finger tip as opposed to the palm.</TD>
+</TR>
+
+<TR>
+<TD>activationInterval</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Time to wait for additional close touch contacts after an initial contact for multi-finger taps or drags, in seconds.</TD>
+</TR>
+
+<TR>
+<TD>multiContactRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
+<TD>Maximum distance between touch contacts to qualify as a multi-finger touch.</TD>
 </TR>
 </TABLE>
 
@@ -853,6 +893,21 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>deviceIndex</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD>
 <TD>Index of the device to be used among devices with the same vendor/product ID. If this value is 0 (the default), the first matching device is used.</TD>
+</TR>
+
+<TR>
+<TD>buttonExclusionSets</TD><TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#list">lists</A> of <A HREF="VruiCFGTypes.html#integer">integer</A></TD>
+<TD>Defines a list of sets of mutually-exclusive buttons, where only one button inside each set can be pressed at a time. Encoded as a list of sets, where each set is encoded as a list of the integer indices of those buttons part of the set.</TD>
+</TR>
+
+<TR>
+<TD>positionOrigin</TD><TD><A HREF="VruiCFGTypes.html#point">point</A></TD>
+<TD>Origin point of mapping transforming a set of absolute device axes into a 3D position.</TD>
+</TR>
+
+<TR>
+<TD>positionAxes</TD><A HREF="VruiCFGTypes.html#list">list</A> of <A HREF="VruiCFGTypes.html#pair">pairs</A> of (<A HREF="VruiCFGTypes.html#integer">integer</A>, <A HREF="VruiCFGTypes.html#vector">vector</A>)<TD></TD>
+<TD>A set of (valuator index, vector) pairs defining a mapping transforming a set of absolute device axes into a 3D position.</TD>
 </TR>
 
 <TR>
@@ -1449,7 +1504,7 @@ The floor plane is used by some navigation tools or applications to lock the vir
 
 <TR>
 <TD>preSwapDelay</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD>
-<TD>If front-buffer rendering, number of milliseconds before the vertical retrace signal to start the final lens distortion correction rendering pass for tear-free and smooth rendering. Requires the optional GLX_NV_delay_before_swap OpenGL extension.</TD>
+<TD>If using warp reprojection, number of milliseconds before the vertical retrace signal to start the final lens distortion correction rendering pass for tear-free and smooth rendering. Requires the optional GLX_NV_delay_before_swap OpenGL extension.</TD>
 </TR>
 
 <TR>
@@ -1531,6 +1586,11 @@ The floor plane is used by some navigation tools or applications to lock the vir
 <TR>
 <TD>toolKillZonePos</TD><TD><A HREF="VruiCFGTypes.html#windowpoint">window point</A></TD>
 <TD>Setting to override the position of the tool kill zone when moving/resizing panning-viewport windows. By default, the position of the tool kill zone is given in physical coordinates and does not move with the window. If this tag is set, the tool kill zone will always stay at the given relative window coordinates. Relative window coordinates map (0, 0) to the lower-left window corner and (1, 1) to the top-right window corner.</TD>
+</TR>
+
+<TR>
+<TD>protectScreens</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD>
+<TD>Setting to disable rendering of the screen protection grid for a specific window, typically a secondary view.</TD>
 </TR>
 
 <TR>

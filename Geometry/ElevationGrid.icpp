@@ -1,0 +1,241 @@
+/***********************************************************************
+ElevationGrid - Class implementing ray intersection tests with regular
+integer-lattice 2D elevation grids embedded in 3D space.
+Copyright (c) 2017 Oliver Kreylos
+
+This file is part of the Templatized Geometry Library (TGL).
+
+The Templatized Geometry Library is free software; you can redistribute
+it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Geometry Library is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Geometry Library; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define GEOMETRY_ELEVATIONGRID_IMPLEMENTATION
+
+#include <Geometry/ElevationGrid.h>
+
+#include <Math/Math.h>
+#include <Math/Constants.h>
+#include <Geometry/Point.h>
+#include <Geometry/Vector.h>
+
+namespace Geometry {
+
+/******************************
+Methods of class ElevationGrid:
+******************************/
+
+template <class ScalarParam,class ElevationScalarParam>
+inline
+bool
+ElevationGrid<ScalarParam,ElevationScalarParam>::restrictInterval(
+	const typename ElevationGrid<ScalarParam,ElevationScalarParam>::Point& p0,
+	const typename ElevationGrid<ScalarParam,ElevationScalarParam>::Point& p1,
+	typename ElevationGrid<ScalarParam,ElevationScalarParam>::Scalar& lambda0,
+	typename ElevationGrid<ScalarParam,ElevationScalarParam>::Scalar& lambda1) const
+	{
+	/* Check the interval against the grid's extents in the x and y directions: */
+	for(int i=0;i<2;++i)
+		{
+		/* Get the grid's extent in the current direction: */
+		Scalar max=Scalar(size[i]-1);
+		
+		/* Check the current interval against the grid's extents in the current direction: */
+		if(p0[i]<Scalar(0))
+			{
+			if(p1[i]>Scalar(0))
+				{
+				lambda0=Math::max((Scalar(0)-p0[i])/(p1[i]-p0[i]),lambda0);
+				if(p1[i]>max)
+					lambda1=Math::min((max-p0[i])/(p1[i]-p0[i]),lambda1);
+				}
+			else
+				return false;
+			}
+		else if(p0[i]>max)
+			{
+			if(p1[i]<max)
+				{
+				lambda0=Math::max((max-p0[i])/(p1[i]-p0[i]),lambda0);
+				if(p1[i]<Scalar(0))
+					lambda1=Math::min((Scalar(0)-p0[i])/(p1[i]-p0[i]),lambda1);
+				}
+			else
+				return false;
+			}
+		else if(p1[i]<Scalar(0))
+			lambda1=Math::min((Scalar(0)-p0[i])/(p1[i]-p0[i]),lambda1);
+		else if(p1[i]>max)
+			lambda1=Math::min((max-p0[i])/(p1[i]-p0[i]),lambda1);
+		}
+	
+	/* Check the current interval against the grid's extents in the z direction: */
+	if(p0[2]<elevationMin)
+		{
+		if(p1[2]>elevationMin)
+			{
+			lambda0=Math::max((elevationMin-p0[2])/(p1[2]-p0[2]),lambda0);
+			if(p1[2]>elevationMax)
+				lambda1=Math::min((elevationMax-p0[2])/(p1[2]-p0[2]),lambda1);
+			}
+		else
+			return false;
+		}
+	else if(p0[2]>elevationMax)
+		{
+		if(p1[2]<elevationMax)
+			{
+			lambda0=Math::max((elevationMax-p0[2])/(p1[2]-p0[2]),lambda0);
+			if(p1[2]<elevationMin)
+				lambda1=Math::min((elevationMin-p0[2])/(p1[2]-p0[2]),lambda1);
+			}
+		else
+			return false;
+		}
+	else if(p1[2]<elevationMin)
+		lambda1=Math::min((elevationMin-p0[2])/(p1[2]-p0[2]),lambda1);
+	else if(p1[2]>elevationMax)
+		lambda1=Math::min((elevationMax-p0[2])/(p1[2]-p0[2]),lambda1);
+	
+	return lambda0<lambda1;
+	}
+
+template <class ScalarParam,class ElevationScalarParam>
+inline
+void
+ElevationGrid<ScalarParam,ElevationScalarParam>::setGrid(
+	const int sSize[2],
+	const typename ElevationGrid<ScalarParam,ElevationScalarParam>::ElevationScalar* sGrid)
+	{
+	/* Copy grid size and grid pointer: */
+	for(int i=0;i<2;++i)
+		size[i]=sSize[i];
+	grid=sGrid;
+	
+	/* Initialize elevation range to full range: */
+	elevationMin=Math::Constants<Scalar>::min;
+	elevationMax=Math::Constants<Scalar>::max;
+	}
+
+template <class ScalarParam,class ElevationScalarParam>
+inline
+void
+ElevationGrid<ScalarParam,ElevationScalarParam>::setGrid(
+	const int sSize[2],
+	const typename ElevationGrid<ScalarParam,ElevationScalarParam>::ElevationScalar* sGrid,
+	typename ElevationGrid<ScalarParam,ElevationScalarParam>::Scalar sElevationMin,
+	typename ElevationGrid<ScalarParam,ElevationScalarParam>::Scalar sElevationMax)
+	{
+	/* Copy grid size and grid pointer: */
+	for(int i=0;i<2;++i)
+		size[i]=sSize[i];
+	grid=sGrid;
+	
+	/* Copy the elevation range: */
+	elevationMin=sElevationMin;
+	elevationMax=sElevationMax;
+	}
+
+template <class ScalarParam,class ElevationScalarParam>
+inline
+typename ElevationGrid<ScalarParam,ElevationScalarParam>::Scalar
+ElevationGrid<ScalarParam,ElevationScalarParam>::intersectRay(
+	const typename ElevationGrid<ScalarParam,ElevationScalarParam>::Point& p0,
+	const typename ElevationGrid<ScalarParam,ElevationScalarParam>::Point& p1) const
+	{
+	/* Initialize the result interval and restrict it to the elevation grid's domain: */
+	Scalar lambda0=Scalar(0);
+	Scalar lambda1=Scalar(1);
+	if(!restrictInterval(p0,p1,lambda0,lambda1)) // Return invalid result if ray does not intersect elevation grid's domain
+		return Scalar(1);
+	
+	/* Find the grid cell containing the clipped ray's starting point: */
+	Point ps=Geometry::affineCombination(p0,p1,lambda0);
+	int ci[2];
+	for(int i=0;i<2;++i)
+		ci[i]=Math::clamp(int(Math::floor(ps[i])),0,size[i]-2);
+	
+	/* Calculate the ray's traversal through the grid in x and y: */
+	Scalar nextLambdas[2]; // Ray parameter at which the ray crosses the next grid line in either direction
+	Scalar lambdaIncs[2]; // Ray parameter increase from one grid line to the next
+	int step[2]; // Traversal direction through the grid
+	int term[2]; // Cell index at which the ray has left the grid
+	for(int i=0;i<2;++i)
+		{
+		if(p1[i]>p0[i])
+			{
+			nextLambdas[i]=(Scalar(ci[i]+1)-p0[i])/(p1[i]-p0[i]);
+			lambdaIncs[i]=Scalar(1)/(p1[i]-p0[i]);
+			step[i]=1;
+			term[i]=size[i]-1;
+			}
+		else if(p1[i]<p0[i])
+			{
+			nextLambdas[i]=(Scalar(ci[i])-p0[i])/(p1[i]-p0[i]);
+			lambdaIncs[i]=Scalar(-1)/(p1[i]-p0[i]);
+			step[i]=-1;
+			term[i]=-1;
+			}
+		else
+			{
+			nextLambdas[i]=Math::Constants<Scalar>::max;
+			lambdaIncs[i]=Math::Constants<Scalar>::max;
+			}
+		}
+	
+	/* Calculate the exit point from the initial grid cell: */
+	Scalar nextLambda=Math::min(nextLambdas[0],nextLambdas[1]);
+	
+	/* Calculate the elevation at which the ray enters the current cell: */
+	Scalar re0=ps[2];
+	
+	/* Check grid cells for intersections until the ray or the grid are exhausted: */
+	do
+		{
+		/* Calculate the elevation at which the ray leaves the current cell: */
+		Scalar re1=p0[2]*(Scalar(1)-nextLambda)+p1[2]*nextLambda;
+		
+		/* Calculate the elevation range of the current cell: */
+		const ElevationScalar* cellBase=grid+(ci[1]*size[0]+ci[0]);
+		Scalar ce0=Scalar(cellBase[0]);
+		Scalar ce1=Scalar(cellBase[1]);
+		Scalar ce2=Scalar(cellBase[size[0]]);
+		Scalar ce3=Scalar(cellBase[size[0]+1]);
+		Scalar cellMin=Math::min(Math::min(ce0,ce1),Math::min(ce2,ce3));
+		Scalar cellMax=Math::max(Math::max(ce0,ce1),Math::max(ce2,ce3));
+		
+		/* Check if the ray potentially intersects the surface inside the current cell: */
+		if((re0>cellMin||re1>cellMin)&&(re0<cellMax||re1<cellMax))
+			{
+			/* This is where the actual intersection test happens! */
+			}
+		
+		/* Go to the next cell: */
+		re0=re1;
+		lambda0=nextLambda;
+		for(int i=0;i<2;++i)
+			if(nextLambdas[i]<=nextLambda)
+				{
+				ci[i]+=step[i];
+				nextLambdas[i]+=lambdaIncs[i];
+				}
+		nextLambda=Math::min(nextLambdas[0],nextLambdas[1]);
+		}
+	while(nextLambda<lambda1&&ci[0]!=term[0]&&ci[1]!=term[1]); // The cell index check would be superfluous if it weren't for rounding error
+	
+	/* No intersection found: */
+	return Scalar(1);
+	}
+
+}

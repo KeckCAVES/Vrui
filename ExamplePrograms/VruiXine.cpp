@@ -1,7 +1,7 @@
 /***********************************************************************
 VruiXine - A VR video player based on Vrui and the xine multimedia
 engine.
-Copyright (c) 2015-2016 Oliver Kreylos
+Copyright (c) 2015-2017 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -160,6 +160,7 @@ class VruiXine:public Vrui::Application,public GLObject
 	GLMotif::ToggleButton* forceMonoToggle; // Toggle to force mono mode on stereo videos
 	GLMotif::TextFieldSlider* stereoSeparationSlider; // Slider to adjust stereo separation in stereo videos
 	GLMotif::TextFieldSlider* cropSliders[4]; // Sliders to adjust video cropping
+	GLMotif::TextField* streamSizeTextFields[2]; // Text fields to display the effective stream size after cropping
 	GLMotif::PopupWindow* dvdNavigationDialog; // Dialog window for DVD menu and chapter navigation
 	GLMotif::Slider* volumeSlider; // Slider to adjust audio volume
 	GLMotif::PopupWindow* playbackControlDialog; // Dialog window to control playback position
@@ -180,6 +181,8 @@ class VruiXine:public Vrui::Application,public GLObject
 	bool stereoSquashed; // Flag whether stereo sub-frames are squashed to fit into the original frame
 	bool forceMono; // Flag to only use the left eye of stereo pairs for display
 	float stereoSeparation; // Extra amount of stereo separation to adjust "depth"
+	bool frameSizeReported; // Flag to indicate that a new frame size has been reported by the xine engine
+	int reportedFrameSize[2]; // Frame size reported by a channel or format change event
 	int crop[4]; // Amount of cropping (left, right, bottom, top) that needs to be applied to incoming video frames
 	int frameSize[2]; // The frame size of the currently locked video frame
 	unsigned int screenParametersVersion; // Version number of screen parameters, including aspect ratio of current frame
@@ -307,20 +310,16 @@ void VruiXine::xineEventCallback(void* userData,const xine_event_t* event)
 			
 			/* Query stream video parameters: */
 			std::cout<<"\tBitrate: "<<xine_get_stream_info(event->stream,XINE_STREAM_INFO_BITRATE)<<std::endl;
-			int videoWidth=xine_get_stream_info(event->stream,XINE_STREAM_INFO_VIDEO_WIDTH);
-			int videoHeight=xine_get_stream_info(event->stream,XINE_STREAM_INFO_VIDEO_HEIGHT);
-			std::cout<<"\tVideo size: "<<videoWidth<<" x "<<videoHeight;
+			thisPtr->frameSizeReported=true;
+			thisPtr->reportedFrameSize[0]=xine_get_stream_info(event->stream,XINE_STREAM_INFO_VIDEO_WIDTH);
+			thisPtr->reportedFrameSize[1]=xine_get_stream_info(event->stream,XINE_STREAM_INFO_VIDEO_HEIGHT);
+			std::cout<<"\tVideo size: "<<thisPtr->reportedFrameSize[0]<<" x "<<thisPtr->reportedFrameSize[1];
 			std::cout<<", aspect ratio "<<double(xine_get_stream_info(event->stream,XINE_STREAM_INFO_VIDEO_RATIO))/10000.0<<std::endl;
-			
-			if(thisPtr->streamControlDialog!=0)
-				{
-				/* Update the stream control dialog: */
-				for(int i=0;i<4;++i)
-					thisPtr->cropSliders[i]->setValueRange(0.0,double(i>=2?videoHeight/4:videoWidth/4),1.0);
-				}
 			
 			/* Invalidate the playback position: */
 			thisPtr->playbackPosCheckTime=0.0;
+			
+			Vrui::requestUpdate();
 			break;
 			}
 		
@@ -336,9 +335,12 @@ void VruiXine::xineEventCallback(void* userData,const xine_event_t* event)
 		case XINE_EVENT_FRAME_FORMAT_CHANGE:
 			{
 			const xine_format_change_data_t* formatChangeData=static_cast<xine_format_change_data_t*>(event->data);
+			thisPtr->frameSizeReported=true;
+			thisPtr->reportedFrameSize[0]=formatChangeData->width;
+			thisPtr->reportedFrameSize[1]=formatChangeData->height;
 			
 			std::cout<<"Xine event: Frame format change to size ";
-			std::cout<<formatChangeData->width<<" x "<<formatChangeData->height;
+			std::cout<<thisPtr->reportedFrameSize[0]<<" x "<<thisPtr->reportedFrameSize[1];
 			std::cout<<", aspect ratio ";
 			switch(formatChangeData->aspect)
 				{
@@ -365,6 +367,7 @@ void VruiXine::xineEventCallback(void* userData,const xine_event_t* event)
 				std::cout<<" (pan & scan)";
 			std::cout<<std::endl;
 			
+			Vrui::requestUpdate();
 			break;
 			}
 		
@@ -557,9 +560,15 @@ void VruiXine::xineSendEvent(int eventId)
 		{
 		/* Toggle pause state: */
 		if(xine_get_param(stream,XINE_PARAM_SPEED)==XINE_SPEED_PAUSE)
+			{
+			Vrui::inhibitScreenSaver();
 			xine_set_param(stream,XINE_PARAM_SPEED,XINE_SPEED_NORMAL);
+			}
 		else
+			{
+			Vrui::uninhibitScreenSaver();
 			xine_set_param(stream,XINE_PARAM_SPEED,XINE_SPEED_PAUSE);
+			}
 		}
 	}
 
@@ -680,6 +689,9 @@ void VruiXine::setCropLeft(int newCropLeft)
 	
 	/* Update the left crop slider: */
 	cropSliders[0]->setValue(crop[0]);
+	
+	/* Update the effective stream size: */
+	streamSizeTextFields[0]->setValue(frameSize[0]);
 	}
 
 void VruiXine::setCropRight(int newCropRight)
@@ -695,6 +707,9 @@ void VruiXine::setCropRight(int newCropRight)
 	
 	/* Update the right crop slider: */
 	cropSliders[1]->setValue(crop[1]);
+	
+	/* Update the effective stream size: */
+	streamSizeTextFields[0]->setValue(frameSize[0]);
 	}
 
 void VruiXine::setCropBottom(int newCropBottom)
@@ -710,6 +725,9 @@ void VruiXine::setCropBottom(int newCropBottom)
 	
 	/* Update the bottom crop slider: */
 	cropSliders[2]->setValue(crop[2]);
+	
+	/* Update the effective stream size: */
+	streamSizeTextFields[1]->setValue(frameSize[1]);
 	}
 
 void VruiXine::setCropTop(int newCropTop)
@@ -725,6 +743,9 @@ void VruiXine::setCropTop(int newCropTop)
 	
 	/* Update the top crop slider: */
 	cropSliders[3]->setValue(crop[3]);
+	
+	/* Update the effective stream size: */
+	streamSizeTextFields[1]->setValue(frameSize[1]);
 	}
 
 void VruiXine::setScreenMode(int newScreenMode)
@@ -746,7 +767,7 @@ void VruiXine::setScreenMode(int newScreenMode)
 void VruiXine::loadVideo(const char* newVideoFileName)
 	{
 	/* Determine the type of video file: */
-	if(Misc::hasCaseExtension(newVideoFileName,".iso"))
+	if(Misc::hasCaseExtension(newVideoFileName,".iso")&&strncasecmp(newVideoFileName,"dvd:",4)!=0)
 		{
 		/* Open a DVD image inside an iso file: */
 		std::string mrl="dvd:/";
@@ -960,6 +981,30 @@ GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
 		cropSliders[i]->setValue(crop[i]);
 		cropSliders[i]->getValueChangedCallbacks().add(this,&VruiXine::cropSliderValueChangedCallback,i);
 		}
+	
+	new GLMotif::Blind("StreamSizeBlind",cropBox);
+	
+	GLMotif::Margin* streamSizeMargin=new GLMotif::Margin("StreamSizeMargin",cropBox,false);
+	streamSizeMargin->setAlignment(GLMotif::Alignment::LEFT);
+	
+	GLMotif::RowColumn* streamSizeBox=new GLMotif::RowColumn("StreamSizeBox",streamSizeMargin,false);
+	streamSizeBox->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	streamSizeBox->setPacking(GLMotif::RowColumn::PACK_TIGHT);
+	streamSizeBox->setNumMinorWidgets(1);
+	
+	new GLMotif::Label("StreamSizeLabel",streamSizeBox,"Effective Stream Size");
+	
+	streamSizeTextFields[0]=new GLMotif::TextField("StreamSizeWidth",streamSizeBox,6);
+	streamSizeTextFields[0]->setString("");
+	
+	new GLMotif::Label("StreamSizeTimesLabel",streamSizeBox,"x");
+	
+	streamSizeTextFields[1]=new GLMotif::TextField("StreamSizeHeight",streamSizeBox,6);
+	streamSizeTextFields[1]->setString("");
+	
+	streamSizeBox->manageChild();
+	
+	streamSizeMargin->manageChild();
 	
 	cropBox->manageChild();
 	
@@ -1188,22 +1233,42 @@ inline char* formatTime(int timeMs,char timeString[9])
 
 void VruiXine::skipBackCallback(Misc::CallbackData* cbData)
 	{
-	/* Skip back by 10 seconds: */
-	double newTime=playbackSlider->getValue()-10.0;
-	xine_play(stream,0,int(newTime*1000.0+0.5));
-	
-	/* Invalidate the playback position: */
-	playbackPosCheckTime=0.0;
+	/* Get the current playback time from xine, as the slider value is unreliable: */
+	int streamPos,streamTimeMs,streamLengthMs;
+	if(xine_get_pos_length(stream,&streamPos,&streamTimeMs,&streamLengthMs))
+		{
+		/* Recalculate stream time in ms because it's bogus as reported: */
+		streamTimeMs=int((long(streamLengthMs)*long(streamPos)+32768L)/65536L);
+		
+		/* Skip back by 10 seconds: */
+		streamTimeMs-=10*1000;
+		if(streamTimeMs<0)
+			streamTimeMs=0;
+		xine_play(stream,0,streamTimeMs);
+		
+		/* Invalidate the playback position: */
+		playbackPosCheckTime=0.0;
+		}
 	}
 
 void VruiXine::skipAheadCallback(Misc::CallbackData* cbData)
 	{
-	/* Skip ahead by 10 seconds: */
-	double newTime=playbackSlider->getValue()+10.0;
-	xine_play(stream,0,int(newTime*1000.0+0.5));
-	
-	/* Invalidate the playback position: */
-	playbackPosCheckTime=0.0;
+	/* Get the current playback time from xine, as the slider value is unreliable: */
+	int streamPos,streamTimeMs,streamLengthMs;
+	if(xine_get_pos_length(stream,&streamPos,&streamTimeMs,&streamLengthMs))
+		{
+		/* Recalculate stream time in ms because it's bogus as reported: */
+		streamTimeMs=int((long(streamLengthMs)*long(streamPos)+32768L)/65536L);
+		
+		/* Skip ahead by 10 seconds: */
+		streamTimeMs+=10*1000;
+		if(streamTimeMs>streamLengthMs)
+			streamTimeMs=streamLengthMs;
+		xine_play(stream,0,streamTimeMs);
+		
+		/* Invalidate the playback position: */
+		playbackPosCheckTime=0.0;
+		}
 	}
 
 void VruiXine::playbackSliderDraggingCallback(GLMotif::DragWidget::DraggingCallbackData* cbData)
@@ -1451,7 +1516,7 @@ GLMotif::PopupWindow* VruiXine::createScreenControlDialog(void)
 VruiXine::VruiXine(int& argc,char**& argv)
 	:Vrui::Application(argc,argv),
 	 xine(0),videoOutPort(0),audioOutPort(0),stream(0),eventQueue(0),
-	 videoFileSelectionHelper(Vrui::getWidgetManager(),"",".mp4;.iso",Vrui::openDirectory(".")),
+	 videoFileSelectionHelper(Vrui::getWidgetManager(),"",".mp4;.m4v;.iso",Vrui::openDirectory(".")),
 	 videoFrameVersion(0),overlaySetVersion(0),
 	 streamControlDialog(0),
 	 dvdNavigationDialog(0),
@@ -1460,6 +1525,7 @@ VruiXine::VruiXine(int& argc,char**& argv)
 	 screenMode(0),screenCenter(0,3,2),screenHeight(3),aspectRatio(Vrui::Scalar(16.0/9.0)),fullSphereRadius(1.5),
 	 screenAzimuth(0.0),screenElevation(0.0),
 	 stereoMode(0),stereoLayout(0),stereoSquashed(false),forceMono(false),stereoSeparation(0.0f),
+	 frameSizeReported(false),
 	 screenParametersVersion(1),
 	 screenControlDialog(0)
 	{
@@ -1657,12 +1723,13 @@ VruiXine::VruiXine(int& argc,char**& argv)
 	
 	if(startPaused)
 		xine_set_param(stream,XINE_PARAM_SPEED,XINE_SPEED_PAUSE);
+	else
+		Vrui::inhibitScreenSaver();
+	
 	
 	/* Get the stream's audio volume: */
 	volumeSlider->setValue(xine_get_param(stream,XINE_PARAM_AUDIO_VOLUME));
 
-	Vrui::inhibitScreenSaver();
-	
 	/* Set the navigational coordinate unit to meters: */
 	Vrui::getCoordinateManager()->setUnit(Geometry::LinearUnit(Geometry::LinearUnit::METER,1.0));
 	}
@@ -1688,12 +1755,44 @@ void VruiXine::frame(void)
 		
 		/* Check if the screen format changed: */
 		const Frame& f=videoFrames.getLockedValue();
-		if(frameSize[0]!=f.size[0]-crop[0]-crop[1]||frameSize[1]!=f.size[1]-crop[2]-crop[3]||aspectRatio!=f.aspectRatio)
+		if(frameSizeReported||frameSize[0]!=f.size[0]-crop[0]-crop[1]||frameSize[1]!=f.size[1]-crop[2]-crop[3]||aspectRatio!=f.aspectRatio)
 			{
+			if(frameSizeReported)
+				{
+				/* Try to guess crop values from the difference between the reported and real frame size: */
+				if(f.size[0]>reportedFrameSize[0])
+					{
+					crop[0]=0;
+					crop[1]=f.size[0]-reportedFrameSize[0];
+					}
+				if(f.size[1]-reportedFrameSize[1]==48)
+					{
+					crop[2]=30;
+					crop[3]=18;
+					}
+				else if(f.size[1]>reportedFrameSize[1])
+					{
+					crop[2]=(f.size[1]-reportedFrameSize[1])/2;
+					crop[3]=f.size[1]-reportedFrameSize[1]-crop[2];
+					}
+				
+				/* Update the stream control dialog: */
+				for(int i=0;i<4;++i)
+					cropSliders[i]->setValue(crop[i]);
+				
+				frameSizeReported=false;
+				}
+			
 			++screenParametersVersion;
 			frameSize[0]=f.size[0]-crop[0]-crop[1];
 			frameSize[1]=f.size[1]-crop[2]-crop[3];
 			aspectRatio=videoFrames.getLockedValue().aspectRatio;
+			
+			/* Update the stream control dialog: */
+			for(int i=0;i<4;++i)
+				cropSliders[i]->setValueRange(0.0,double(i>=2?f.size[1]/4:f.size[0]/4),1.0);
+			for(int i=0;i<2;++i)
+				streamSizeTextFields[i]->setValue(frameSize[i]);
 			}
 		}
 	
@@ -1716,10 +1815,10 @@ void VruiXine::frame(void)
 			/* Update the playback position text field: */
 			char timeString[9];
 			playbackPositionText->setString(formatTime(streamTimeMs,timeString));
-			
-			if(streamLength!=double(streamLengthMs)/1000.0)
+			double newStreamLength=double(streamLengthMs)/1000.0;
+			if(streamLength!=newStreamLength)
 				{
-				streamLength=double(streamLengthMs)/1000.0;
+				streamLength=newStreamLength;
 				
 				/* Update the stream length text field: */
 				char timeString[9];

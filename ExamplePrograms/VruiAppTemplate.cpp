@@ -107,7 +107,7 @@ GLMotif::PopupMenu* VruiAppTemplate::createMainMenu(void)
 	#endif
 	
 	/* Finish building the main menu: */
-	mainMenu->manageChild();
+	mainMenu->manageMenu();
 	return mainMenu;
 	}
 

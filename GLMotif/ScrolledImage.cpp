@@ -1,7 +1,7 @@
 /***********************************************************************
 ScrolledImage - Compound widget containing an image, and a vertical and
 horizontal scroll bar.
-Copyright (c) 2011-2014 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -88,7 +88,7 @@ void ScrolledImage::scrollBarCallback(ScrollBar::ValueChangedCallbackData* cbDat
 	image->setRegion(region);
 	}
 
-ScrolledImage::ScrolledImage(const char* sName,Container* sParent,const Images::RGBImage& sImage,const GLfloat sResolution[2],bool sManageChild)
+ScrolledImage::ScrolledImage(const char* sName,Container* sParent,const Images::BaseImage& sImage,const GLfloat sResolution[2],bool sManageChild)
 	:Container(sName,sParent,false),
 	 preferredSize(0.0f,0.0f,0.0f),
 	 image(new Image("Image",this,sImage,sResolution,false)),

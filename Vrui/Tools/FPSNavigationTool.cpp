@@ -528,14 +528,11 @@ void FPSNavigationTool::frame(void)
 			calcPhysicalFrame(newFootPos);
 			
 			/* Calculate the movement from walking: */
-			Vector move=newFootPos-footPos;
+			Vector move=physicalFrame.inverseTransform(newFootPos-footPos);
 			footPos=newFootPos;
 			
 			/* Add movement velocity: */
 			move+=moveVelocity*getCurrentFrameTime();
-			
-			/* Transform the movement vector from physical space to the physical navigation frame: */
-			move=physicalFrame.inverseTransform(move);
 			
 			/* Rotate by the current azimuth angle: */
 			move=Rotation::rotateZ(-azimuth).transform(move);

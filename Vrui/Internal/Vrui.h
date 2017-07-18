@@ -1,7 +1,7 @@
 /***********************************************************************
 Internal kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2016 Oliver Kreylos
+Copyright (c) 2000-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -28,6 +28,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <deque>
 #include <Misc/Timer.h>
 #include <Misc/CallbackList.h>
+#include <Realtime/Time.h>
 #include <Threads/Mutex.h>
 #include <IO/Directory.h>
 #include <Geometry/Point.h>
@@ -275,6 +276,11 @@ struct VruiState
 	
 	/* Rendering management state: */
 	bool updateContinuously; // Flag if the inner Vrui loop never blocks
+	bool predictVsync; // Flag to enable vertical synchronization prediction for latency mitigation in head-mounted VR
+	Realtime::TimeVector vsyncInterval; // Frame duration of the synched display
+	unsigned int numVsyncs; // Number of vsyncs that have already elapsed
+	Realtime::TimePointMonotonic nextVsync; // Time at which the next vsync is predicted to occur
+	Realtime::TimeVector postVsyncDisplayDelay; // Delay from vsync to the synched display showing the new image
 	
 	/* Private methods: */
 	GLMotif::PopupMenu* buildDialogsMenu(void); // Builds the dialogs submenu
@@ -345,6 +351,7 @@ extern void resetNavigation(void); // Calls the application-provided function to
 extern void setDisplayCenter(const Point& newDisplayCenter,Scalar newDisplaySize); // Sets the center and size of Vrui's display environment
 extern void resizeWindow(VruiWindowGroup* windowGroup,const VRWindow* window,const int newViewportSize[2],const int newFrameSize[2]); // Notifies the run-time environment that a window has changed viewport and/or frame buffer size
 extern void getMaxWindowSizes(VruiWindowGroup* windowGroup,int viewportSize[2],int frameSize[2]); // Returns the maximum viewport and frame buffer sizes for the given window group
+extern void vsync(void); // Notifies the kernel that a synchronized VR window's vsync just occurred
 
 }
 

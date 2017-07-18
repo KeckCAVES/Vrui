@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevicePipe - Class defining the client-server protocol for remote VR
 devices and VR applications.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -48,6 +48,7 @@ class VRDevicePipe:public Comm::TCPPipe
 		STARTSTREAM_REQUEST, // Requests entering stream mode (server sends packets automatically)
 		STOPSTREAM_REQUEST, // Requests leaving stream mode
 		STOPSTREAM_REPLY, // Server's reply after last stream packet has been sent
+		BATTERYSTATE_UPDATE, // Battery status of a virtual input device has changed
 		HMDCONFIG_UPDATE=16 // Server has an updated HMD configuration; lowest three bits of message ID define which components are updated
 		};
 	

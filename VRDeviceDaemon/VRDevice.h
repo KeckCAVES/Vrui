@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDevice - Abstract base class for hardware devices delivering
 position, orientation, button events and valuator values.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Thread.h>
 #include <Geometry/OrthonormalTransformation.h>
 #include <Vrui/Internal/VRDeviceState.h>
+#include <VRDeviceDaemon/VRDeviceManager.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -39,7 +40,6 @@ class VRDeviceDescriptor;
 template <class BaseClassParam>
 class VRFactory;
 class VRCalibrator;
-class VRDeviceManager;
 
 class VRDevice
 	{
@@ -76,14 +76,14 @@ class VRDevice
 	void setNumTrackers(int newNumTrackers,const Misc::ConfigurationFile& configFile,const std::string* trackerNames =0); // Sets number of trackers
 	void setNumButtons(int newNumButtons,const Misc::ConfigurationFile& configFile,const std::string* buttonNames =0); // Sets number of buttons
 	void setNumValuators(int newNumValuators,const Misc::ConfigurationFile& configFile,const std::string* valuatorNames =0); // Sets number of valuators
-	void addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice); // Passes the given new virtual input device to the device manager
+	unsigned int addVirtualDevice(Vrui::VRDeviceDescriptor* newDevice); // Passes the given new virtual input device to the device manager
 	void calcVelocities(int deviceTrackerIndex,Vrui::VRDeviceState::TrackerState& newState); // Calculates tracker velocities based on elapsed time since last measurement
+	void disableTracker(int deviceTrackerIndex); // Disables a tracker (device index given)
 	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state,Vrui::VRDeviceState::TimeStamp timeStamp); // Sets (and calibrates) a tracker (device index given)
 	void setTrackerState(int deviceTrackerIndex,const Vrui::VRDeviceState::TrackerState& state) // Ditto, using current time as time stamp
 		{
-		Realtime::TimePointMonotonic now;
-		Vrui::VRDeviceState::TimeStamp nowTs=Vrui::VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
-		setTrackerState(deviceTrackerIndex,state,nowTs);
+		/* Call the original method with a current time stamp: */
+		setTrackerState(deviceTrackerIndex,state,deviceManager->getTimeStamp());
 		}
 	void setButtonState(int deviceButtonIndex,Vrui::VRDeviceState::ButtonState newState); // Sets a button state (device index given)
 	void setValuatorState(int deviceValuatorIndex,Vrui::VRDeviceState::ValuatorState newState); // Sets a valuator state (device index given)
@@ -99,6 +99,7 @@ class VRDevice
 	static void destroy(VRDevice* object); // Deletes an object
 	
 	/* Methods: */
+	virtual void initialize(void); // Additional method called to perform post-construction initialization steps
 	int getNumTrackers(void) const // Returns number of trackers
 		{
 		return numTrackers;

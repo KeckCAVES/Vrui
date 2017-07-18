@@ -2,7 +2,7 @@
 ValuatorWalkSurfaceNavigationTool - Version of the
 WalkSurfaceNavigationTool that uses a pair of valuators to move instead
 of head position.
-Copyright (c) 2013-2016 Oliver Kreylos
+Copyright (c) 2013-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -291,6 +291,9 @@ void ValuatorWalkSurfaceNavigationTool::initNavState(void)
 	/* Limit the elevation angle to the horizontal: */
 	elevation=Scalar(0);
 	
+	/* Reset artificial movement: */
+	moving=false;
+	
 	/* Reset the falling velocity: */
 	fallVelocity=Scalar(0);
 	
@@ -318,7 +321,7 @@ ValuatorWalkSurfaceNavigationTool::ValuatorWalkSurfaceNavigationTool(const ToolF
 	 numberRenderer(0),
 	 centerPoint(configuration.centerPoint),
 	 rotate(0),lastSnapRotate(0),snapRotate(0),
-	 jetpack(0)
+	 jetpack(0),fallVelocity(0),moving(false)
 	{
 	}
 
@@ -499,6 +502,9 @@ void ValuatorWalkSurfaceNavigationTool::frame(void)
 	/* Act depending on this tool's current state: */
 	if(isActive())
 		{
+		/* Keep track if the tool is artificially moving during this frame: */
+		bool newMoving=false;
+		
 		/* Calculate azimuth angle change based on the current viewing direction: */
 		Vector viewDir=getMainViewer()->getViewDirection();
 		viewDir-=getUpDirection()*((viewDir*getUpDirection())/Geometry::sqr(getUpDirection()));
@@ -524,6 +530,7 @@ void ValuatorWalkSurfaceNavigationTool::frame(void)
 			Vector x=configuration.centerViewDirection^getUpDirection();
 			if(viewDir*x<Scalar(0))
 				rotateSpeed=-rotateSpeed;
+			newMoving=newMoving||rotateSpeed!=Scalar(0);
 			
 			/* Update the azimuth angle: */
 			azimuth=wrapAngle(azimuth+rotateSpeed*getFrameTime());
@@ -536,11 +543,15 @@ void ValuatorWalkSurfaceNavigationTool::frame(void)
 			if(lastSnapRotate!=snapRotate)
 				{
 				azimuth=wrapAngle(azimuth+Scalar(snapRotate)*configuration.valuatorRotateSpeed);
+				newMoving=newMoving||snapRotate!=0;
 				lastSnapRotate=snapRotate;
 				}
 			}
 		else
+			{
 			azimuth=wrapAngle(azimuth+rotate*getFrameTime());
+			newMoving=newMoving||rotate!=Scalar(0);
+			}
 		
 		/* Calculate the new head and foot positions: */
 		Point newFootPos=projectToFloor(getMainViewer()->getHeadPosition());
@@ -561,20 +572,28 @@ void ValuatorWalkSurfaceNavigationTool::frame(void)
 			speed=configuration.moveSpeed;
 		else if(moveDirLen>configuration.innerRadius)
 			speed=configuration.moveSpeed*(moveDirLen-configuration.innerRadius)/(configuration.outerRadius-configuration.innerRadius);
+		newMoving=newMoving||speed!=Scalar(0);
 		moveDir*=speed/moveDirLen;
 		
 		/* Calculate movement from valuators: */
 		Vector valuatorMoveDir=configuration.centerViewDirection*(Scalar(1)-configuration.valuatorViewFollowFactor)+viewDir*configuration.valuatorViewFollowFactor;
 		valuatorMoveDir.normalize();
-		moveDir[0]+=valuatorMoveDir[0]*getValuatorState(1)*configuration.valuatorMoveSpeeds[1];
-		moveDir[1]+=valuatorMoveDir[1]*getValuatorState(1)*configuration.valuatorMoveSpeeds[1];
-		moveDir[0]+=valuatorMoveDir[1]*getValuatorState(0)*configuration.valuatorMoveSpeeds[0];
-		moveDir[1]-=valuatorMoveDir[0]*getValuatorState(0)*configuration.valuatorMoveSpeeds[0];
+		Scalar vmx=getValuatorState(1)*configuration.valuatorMoveSpeeds[1];
+		Scalar vmy=getValuatorState(0)*configuration.valuatorMoveSpeeds[0];
+		moveDir[0]+=valuatorMoveDir[0]*vmx;
+		moveDir[1]+=valuatorMoveDir[1]*vmx;
+		moveDir[0]+=valuatorMoveDir[1]*vmy;
+		moveDir[1]-=valuatorMoveDir[0]*vmy;
+		newMoving=newMoving||vmx!=Scalar(0)||vmy!=Scalar(0);
 		
 		/* Add the current flying and falling velocities: */
 		if(jetpack!=Scalar(0))
+			{
 			moveDir+=getValuatorDeviceRayDirection(0)*jetpack;
+			newMoving=true;
+			}
 		moveDir+=getUpDirection()*fallVelocity;
+		newMoving=newMoving||fallVelocity!=Scalar(0);
 		
 		/* Calculate the complete movement vector: */
 		move+=moveDir*getCurrentFrameTime();
@@ -611,6 +630,7 @@ void ValuatorWalkSurfaceNavigationTool::frame(void)
 			/* Lift the aligned frame back up to the original altitude and continue flying: */
 			newSurfaceFrame*=NavTransform::translate(Vector(Scalar(0),Scalar(0),z));
 			fallVelocity-=configuration.fallAcceleration*getCurrentFrameTime();
+			newMoving=true;
 			}
 		else
 			{
@@ -622,7 +642,8 @@ void ValuatorWalkSurfaceNavigationTool::frame(void)
 		surfaceFrame=newSurfaceFrame;
 		applyNavState();
 		
-		if(speed!=Scalar(0)||z>Scalar(0)||jetpack!=Scalar(0))
+		moving=newMoving;
+		if(moving)
 			{
 			/* Request another frame: */
 			scheduleUpdate(getNextAnimationTime());

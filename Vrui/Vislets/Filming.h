@@ -2,7 +2,7 @@
 Filming - Vislet class to assist shooting of video inside an immersive
 environment by providing run-time control over viewers and environment
 settings.
-Copyright (c) 2012-2015 Oliver Kreylos
+Copyright (c) 2012-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -151,6 +151,27 @@ class Filming:public Vrui::Vislet
 		virtual const Vrui::ToolFactory* getFactory(void) const;
 		virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 		virtual void frame(void);
+		};
+	
+	class ToggleFilmingTool;
+	typedef GenericToolFactory<ToggleFilmingTool> ToggleFilmingToolFactory; // Factory class for tools to toggle filming mode
+	
+	class ToggleFilmingTool:public Vrui::Tool,public Tool // Tool class to toggle filming mode at the press of a button
+		{
+		friend class GenericToolFactory<ToggleFilmingTool>;
+		
+		/* Elements: */
+		private:
+		static ToggleFilmingToolFactory* factory; // Pointer to the tool's factory
+		
+		/* Constructors and destructors: */
+		public:
+		static void initClass(void);
+		ToggleFilmingTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
+		
+		/* Methods: */
+		virtual const Vrui::ToolFactory* getFactory(void) const;
+		virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 		};
 	
 	friend class MoveViewerTool;

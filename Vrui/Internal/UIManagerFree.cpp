@@ -41,7 +41,7 @@ ONTransform UIManagerFree::alignUITransform(const Point& point) const
 	{
 	ONTransform result=ONTransform::translateFromOriginTo(point);
 	
-	if(alignUiWithPointer)
+	if(alignUiWithPointer&&getDirection()!=Vector::zero)
 		{
 		/* Calculate a bisecting vector between the viewing direction and the pointing direction: */
 		Vector viewDirection=point-getMainViewer()->getHeadPosition();

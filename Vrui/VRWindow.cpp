@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -668,7 +668,7 @@ VRWindow::VRWindow(GLContext* sContext,const OutputConfiguration& sOutputConfigu
 	 clearBufferMask(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT),
 	 vsync(configFileSection.retrieveValue<bool>("./vsync",false)),
 	 lowLatency(configFileSection.retrieveValue<bool>("./lowLatency",false)),
-	 frontBufferRendering(false),preSwapDelay(0.0005f),
+	 frontBufferRendering(false),preSwapDelay(0.0f),
 	 displayState(0),
 	 outputName(configFileSection.retrieveString("./outputName",std::string())),
 	 outputConfiguration(sOutputConfiguration),
@@ -691,6 +691,7 @@ VRWindow::VRWindow(GLContext* sContext,const OutputConfiguration& sOutputConfigu
 	 asDepthBufferObjectID(0),asFrameBufferObjectID(0),
 	 asInterzigShader(0),asQuadSizeUniformIndex(-1),
 	 lensCorrector(0),
+	 protectScreens(configFileSection.retrieveValue<bool>("./protectScreens",true)),
 	 mouseScreen(0),
 	 showFpsFont(0),
 	 showFps(configFileSection.retrieveValue<bool>("./showFps",false)),burnMode(false),
@@ -1174,40 +1175,6 @@ VRWindow::VRWindow(GLContext* sContext,const OutputConfiguration& sOutputConfigu
 			Misc::throwStdErr("VRWindow::VRWindow: Interzigging shader does not define quadSize variable");
 		}
 	
-	/* Force vertical retrace synchronization on or off: */
-	if(vsync)
-		{
-		if(canVsync(frontBufferRendering))
-			{
-			if(vruiVerbose)
-				std::cout<<"\tVertical retrace synchronization enabled"<<std::endl;
-			
-			if(frontBufferRendering)
-				{
-				preSwapDelay=configFileSection.retrieveValue<GLfloat>("./preSwapDelay",preSwapDelay*1000.0f)/1000.0f;
-				if(preSwapDelay>0.0f)
-					{
-					if(canPreVsync())
-						{
-						if(vruiVerbose)
-							std::cout<<"\tPre-swap delay with delta="<<preSwapDelay*1000.0f<<"ms enabled"<<std::endl;
-						}
-					else
-						{
-						Misc::consoleError("VRWindow::VRWindow: Pre-swap delay not supported by local OpenGL");
-						preSwapDelay=0.0f;
-						}
-					}
-				}
-			else
-				setVsyncInterval(1);
-			}
-		else
-			Misc::consoleError("VRWindow::VRWindow: Vertical retrace synchronization requested but not supported");
-		}
-	else if(!frontBufferRendering)
-		setVsyncInterval(0);
-	
 	/* Check if the window is supposed to perform post-rendering lens distortion correction: */
 	if(lensCorrection)
 		{
@@ -1218,6 +1185,45 @@ VRWindow::VRWindow(GLContext* sContext,const OutputConfiguration& sOutputConfigu
 		for(int i=0;i<2;++i)
 			screens[i]->getViewport(viewports[i]);
 		}
+	
+	/* Force vertical retrace synchronization on or off: */
+	if(vsync)
+		{
+		if(canVsync(frontBufferRendering))
+			{
+			if(vruiVerbose)
+				std::cout<<"\tVertical retrace synchronization enabled"<<std::endl;
+			
+			/* Check if it makes sense to delay lens correction warping to right before vsync: */
+			if(lensCorrector!=0&&lensCorrector->doesReproject())
+				{
+				/* Default delay is 0.5ms (cutting it short?): */
+				preSwapDelay=configFileSection.retrieveValue<GLfloat>("./preSwapDelay",0.5f)/1000.0f;
+				if(preSwapDelay>0.0f)
+					{
+					if(canPreVsync())
+						{
+						if(vruiVerbose)
+							std::cout<<"\tPre-swap delay with delta="<<preSwapDelay*1000.0f<<"ms enabled"<<std::endl;
+						}
+					else
+						{
+						/* User requested pre-swap delay, but it's not supported: */
+						Misc::consoleError("VRWindow::VRWindow: Pre-swap delay not supported by local OpenGL");
+						preSwapDelay=0.0f;
+						}
+					}
+				}
+			
+			/* Enable vsync on buffer swaps if the window is double-buffered: */
+			if(!frontBufferRendering)
+				setVsyncInterval(1);
+			}
+		else
+			Misc::consoleError("VRWindow::VRWindow: Vertical retrace synchronization requested but not supported");
+		}
+	else if(!frontBufferRendering)
+		setVsyncInterval(0);
 	
 	/* Check if the window has a dedicated mouse mapping screen: */
 	if(configFileSection.hasTag("./mouseScreenName"))
@@ -1640,20 +1646,56 @@ bool VRWindow::processEvent(const XEvent& event)
 			{
 			XIDeviceEvent* de=static_cast<XIDeviceEvent*>(cookie.data);
 			
+			/* Extract relevant touch event state: */
+			InputDeviceAdapterMultitouch::TouchEvent te;
+			te.id=de->detail;
+			te.x=Scalar(de->event_x);
+			te.y=Scalar(de->event_y);
+			
+			/* Extract the event's raw valuators: */
+			te.ellipseMask=0x0U;
+			te.majorAxis=Scalar(0);
+			te.minorAxis=Scalar(0);
+			te.orientation=Scalar(0);
+			int valueIndex=0;
+			for(int i=0;i<de->valuators.mask_len;++i)
+				for(int j=0;j<8;++j)
+					if(de->valuators.mask[i]&(0x1<<j))
+						{
+						switch(i*8+j)
+							{
+							case 2:
+								te.ellipseMask|=0x1U;
+								te.majorAxis=Scalar(de->valuators.values[valueIndex]);
+								break;
+							
+							case 3:
+								te.ellipseMask|=0x2U;
+								te.minorAxis=Scalar(de->valuators.values[valueIndex]);
+								break;
+							
+							case 4:
+								te.ellipseMask|=0x4U;
+								te.orientation=Scalar(de->valuators.values[valueIndex]);
+								break;
+							}
+						++valueIndex;
+						}
+			
 			/* Forward the event to the multitouch adapter: */
 			switch(cookie.evtype)
 				{
 				case XI_TouchBegin:
-					multitouchAdapter->touchBegin(this,de->detail,de->event_x,de->event_y);
+					multitouchAdapter->touchBegin(this,te);
 					stopProcessing=true;
 					break;
 				
 				case XI_TouchUpdate:
-					multitouchAdapter->touchUpdate(this,de->detail,de->event_x,de->event_y);
+					multitouchAdapter->touchUpdate(this,te);
 					break;
 				
 				case XI_TouchEnd:
-					multitouchAdapter->touchEnd(this,de->detail,de->event_x,de->event_y);
+					multitouchAdapter->touchEnd(this,te);
 					stopProcessing=true;
 					break;
 				}
@@ -2083,9 +2125,10 @@ void VRWindow::draw(void)
 					render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
 					}
 				
-				if(!frontBufferRendering)
+				/* Check if we should warp now or right before vsync: */
+				if(preSwapDelay==0.0f)
 					{
-					/* Warp the pre-distortion views into the final drawable: */
+					/* Warp the pre-distortion views into the final drawable right now: */
 					lensCorrector->warp();
 					}
 				}
@@ -2391,35 +2434,35 @@ void VRWindow::draw(void)
 
 void VRWindow::swapBuffers(void)
 	{
-	if(frontBufferRendering)
+	/* Check if we need to do lens correction right before vsync: */
+	if(preSwapDelay>0.0f)
 		{
-		if(lensCorrector!=0)
+		/* Wait for a very brief time *before* the vsync signal: */
+		if(!waitForPreVsync(preSwapDelay))
 			{
-			/* Wait for the next vertical blanking period: */
-			if(preSwapDelay>0.0f)
-				{
-				/* Wait for a very brief time *before* the vsync signal: */
-				if(!waitForPreVsync(preSwapDelay))
-					{
-					waitForVsync();
-					waitForPreVsync(preSwapDelay);
-					}
-				}
-			else
-				waitForVsync(); // Just hope for the best...
+			// DEBUGGING
+			// std::cout<<"Missed vsync"<<std::endl;
 			
-			/* Warp the pre-distortion views into the final drawable: */
-			// glXWaitX();
-			lensCorrector->warp();
-			glFlush();
+			waitForVsync();
+			waitForPreVsync(preSwapDelay);
 			}
+		
+		/* Warp the pre-distortion views into the final drawable: */
+		// glXWaitX();
+		lensCorrector->warp();
+		glFlush();
 		}
-	else
+	
+	/* Swap buffers if the window is double-buffered: */
+	if(!frontBufferRendering)
 		{
 		GLWindow::swapBuffers();
 		if(vsync&&lowLatency)
 			glFinish();
 		}
+	
+	/* Notify the kernel if this window is synchronized: */
+	Vrui::vsync();
 	
 	#if 0
 	/* Delay shit: */

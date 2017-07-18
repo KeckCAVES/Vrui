@@ -2,7 +2,7 @@
 ValuatorWalkSurfaceNavigationTool - Version of the
 WalkSurfaceNavigationTool that uses a pair of valuators to move instead
 of head position.
-Copyright (c) 2013-2015 Oliver Kreylos
+Copyright (c) 2013-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -159,6 +159,7 @@ class ValuatorWalkSurfaceNavigationTool:public SurfaceNavigationTool,public Devi
 	int lastSnapRotate,snapRotate; // Previous and current trivariate state of the rotation valuator in snap rotation mode
 	Scalar jetpack; // Current acceleration of virtual jetpack in units per second^2
 	Scalar fallVelocity; // Current falling velocity while airborne in units per second^2
+	bool moving; // Flag whether the tool is artifically moving during the current frame
 	
 	/* Private methods: */
 	void applyNavState(void) const; // Sets the navigation transformation based on the tool's current navigation state

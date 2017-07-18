@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoHandedNavigationTool - Class encapsulating the behaviour of the old
 famous Vrui two-handed navigation tool.
-Copyright (c) 2004-2010 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -128,12 +128,10 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 				/* Try activating this tool: */
 				if(activate())
 					{
-					/* Initialize the navigation transformations: */
-					preScale=Geometry::invert(getButtonDeviceTransformation(buttonSlotIndex));
-					preScale*=getNavigationTransformation();
-					
-					/* Remember which button slot is moving: */
+					/* Initialize moving state: */
 					movingButtonSlotIndex=buttonSlotIndex;
+					movingTransform=Geometry::invert(getButtonDeviceTransformation(movingButtonSlotIndex));
+					movingTransform*=getNavigationTransformation();
 					
 					/* Go from IDLE to MOVING mode: */
 					navigationMode=MOVING;
@@ -144,18 +142,35 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 				/* Check if the correct button has been pressed: */
 				if(buttonSlotIndex!=movingButtonSlotIndex)
 					{
-					/* Determine the scaling center and initial scale: */
-					scalingCenter=getButtonDevicePosition(movingButtonSlotIndex);
-					initialScale=Geometry::dist(getButtonDevicePosition(buttonSlotIndex),scalingCenter);
+					/* Get the positions of the two button devices in navigational space: */
+					Point navPoss[2];
+					for(int i=0;i<2;++i)
+						navPoss[i]=getInverseNavigationTransformation().transform(getButtonDevicePosition(i));
 					
-					/* Initialize the navigation transformations: */
-					preScale=Geometry::invert(getButtonDeviceTransformation(movingButtonSlotIndex));
-					preScale*=NavTrackerState::translateFromOriginTo(scalingCenter);
-					postScale=NavTrackerState::translateToOriginFrom(scalingCenter);
-					postScale*=getNavigationTransformation();
-					
-					/* Go from MOVING to SCALING mode: */
-					navigationMode=SCALING;
+					/* Check if the two points are distinct from each other: */
+					Scalar navDist=Geometry::dist(navPoss[0],navPoss[1]);
+					if(navDist!=Scalar(0))
+						{
+						/* Calculate the navigation-space center, axis direction, and a normal vector: */
+						Point navCenter=Geometry::mid(navPoss[0],navPoss[1]);
+						Vector navAxis=navPoss[1]-navPoss[0];
+						Vector navNormal=Geometry::normal(navAxis);
+						
+						/* Calculate a normalizing post-scale transformation that maps the device positions to (-0.5, 0, 0) and (0.5, 0, 0), and the normal to (0, 1, 0): */
+						postScaleTransform=NavTrackerState::rotate(Geometry::invert(Rotation::fromBaseVectors(navAxis,navNormal)));
+						postScaleTransform*=NavTrackerState::scale(Scalar(1)/navDist);
+						postScaleTransform*=NavTrackerState::translateToOriginFrom(navCenter);
+						
+						/* Transform the normal vector to physical space: */
+						physNormal=getNavigationTransformation().transform(navNormal);
+						
+						/* Get the current device orientations: */
+						for(int i=0;i<2;++i)
+							prevDevOrientations[i]=getButtonDeviceTransformation(i).getRotation();
+						
+						/* Go from MOVING to SCALING mode: */
+						navigationMode=SCALING;
+						}
 					}
 				break;
 			
@@ -170,13 +185,10 @@ void TwoHandedNavigationTool::buttonCallback(int buttonSlotIndex,InputDevice::Bu
 		switch(navigationMode)
 			{
 			case SCALING:
-				/* If the released button is on the moving device, switch over to the other device: */
-				if(buttonSlotIndex==movingButtonSlotIndex)
-					movingButtonSlotIndex=1-buttonSlotIndex;
-				
-				/* Initialize the navigation transformations: */
-				preScale=Geometry::invert(getButtonDeviceTransformation(movingButtonSlotIndex));
-				preScale*=getNavigationTransformation();
+				/* Initialize moving state: */
+				movingButtonSlotIndex=1-buttonSlotIndex;
+				movingTransform=Geometry::invert(getButtonDeviceTransformation(movingButtonSlotIndex));
+				movingTransform*=getNavigationTransformation();
 				
 				/* Go from SCALING to MOVING mode: */
 				navigationMode=MOVING;
@@ -214,7 +226,7 @@ void TwoHandedNavigationTool::frame(void)
 			{
 			/* Compose the new navigation transformation: */
 			NavTrackerState navigation=getButtonDeviceTransformation(movingButtonSlotIndex);
-			navigation*=preScale;
+			navigation*=movingTransform;
 			
 			/* Update Vrui's navigation transformation: */
 			setNavigationTransformation(navigation);
@@ -223,12 +235,32 @@ void TwoHandedNavigationTool::frame(void)
 		
 		case SCALING:
 			{
-			/* Compose the new navigation transformation: */
-			NavTrackerState navigation=getButtonDeviceTransformation(movingButtonSlotIndex);
-			navigation*=preScale;
-			Scalar currentScale=Geometry::dist(getButtonDevicePosition(0),getButtonDevicePosition(1))/initialScale;
-			navigation*=NavTrackerState::scale(currentScale);
-			navigation*=postScale;
+			/* Get the devices' positions and average incremental rotation in physical space: */
+			Point physPoss[2];
+			Vector physRotAxis=Vector::zero;
+			for(int i=0;i<2;++i)
+				{
+				physPoss[i]=getButtonDevicePosition(i);
+				const Rotation& devOrientation=getButtonDeviceTransformation(i).getRotation();
+				physRotAxis+=(devOrientation*Geometry::invert(prevDevOrientations[i])).getScaledAxis();
+				prevDevOrientations[i]=devOrientation;
+				}
+			physRotAxis*=Scalar(0.5);
+			Vector physAxis=physPoss[1]-physPoss[0];
+			Scalar physLen2=physAxis.sqr();
+			
+			/* Align the incremental rotation with the physical axis: */
+			physRotAxis=physAxis*((physRotAxis*physAxis)/physLen2);
+			
+			/* Rotate the physical-space normal vector with the along-axis incremental rotation and orthogonalize it with the axis: */
+			physNormal=Rotation::rotateScaledAxis(physRotAxis).transform(physNormal);
+			physNormal.orthogonalize(physAxis);
+			
+			/* Construct the navigation transformation to align the normalized navigation frame with the physical axis and normal: */
+			NavTrackerState navigation=NavTrackerState::translateFromOriginTo(Geometry::mid(physPoss[0],physPoss[1]));
+			navigation*=NavTrackerState::rotate(Rotation::fromBaseVectors(physAxis,physNormal));
+			navigation*=NavTrackerState::scale(Math::sqrt(physLen2));
+			navigation*=postScaleTransform;
 			
 			/* Update Vrui's navigation transformation: */
 			setNavigationTransformation(navigation);

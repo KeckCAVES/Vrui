@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadPNGImage - Functions to read RGB or RGBA images from image files in
 PNG formats over an IO::File abstraction.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -30,6 +30,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
+#include <GL/gl.h>
+#include <Images/BaseImage.h>
+#include <Images/RGBImage.h>
+#include <Images/RGBAImage.h>
 
 namespace Images {
 
@@ -215,6 +219,124 @@ RGBAImage readTransparentPNGImage(const char* imageName,IO::File& source)
 		
 		/* Wrap and re-throw the exception: */
 		Misc::throwStdErr("Images::readTransparentPNGImage: Caught exception \"%s\" while reading image \"%s\"",err.what(),imageName);
+		}
+	
+	/* Clean up: */
+	delete[] rowPointers;
+	png_destroy_read_struct(&pngReadStruct,&pngInfoStruct,0);
+	
+	/* Return the read image: */
+	return result;
+	}
+
+BaseImage readGenericPNGImage(const char* imageName,IO::File& source)
+	{
+	/* Check for PNG file signature: */
+	unsigned char pngSignature[8];
+	source.read(pngSignature,8);
+	if(!png_check_sig(pngSignature,8))
+		Misc::throwStdErr("Images::readGenericPNGImage: illegal PNG header in image \"%s\"",imageName);
+	
+	/* Allocate the PNG library data structures: */
+	png_structp pngReadStruct=png_create_read_struct(PNG_LIBPNG_VER_STRING,0,pngErrorFunction,pngWarningFunction);
+	if(pngReadStruct==0)
+		Misc::throwStdErr("Images::readGenericPNGImage: Internal error in PNG library");
+	png_infop pngInfoStruct=png_create_info_struct(pngReadStruct);
+	if(pngInfoStruct==0)
+		{
+		png_destroy_read_struct(&pngReadStruct,0,0);
+		Misc::throwStdErr("Images::readGenericPNGImage: Internal error in PNG library");
+		}
+	
+	/* Initialize PNG I/O to read from the supplied data source: */
+	png_set_read_fn(pngReadStruct,&source,pngReadDataFunction);
+	
+	BaseImage result;
+	unsigned char** rowPointers=0;
+	try
+		{
+		/* Read PNG image header: */
+		png_set_sig_bytes(pngReadStruct,8);
+		png_read_info(pngReadStruct,pngInfoStruct);
+		png_uint_32 imageSize[2];
+		int elementSize;
+		int colorType;
+		png_get_IHDR(pngReadStruct,pngInfoStruct,&imageSize[0],&imageSize[1],&elementSize,&colorType,0,0,0);
+		
+		/* Set up the default image format, 8-bit RGB: */
+		unsigned int numChannels=3;
+		unsigned int channelSize=1;
+		GLenum format=GL_RGB;
+		GLenum channelType=GL_UNSIGNED_BYTE;
+		
+		/* Determine image format and set up image processing: */
+		if(colorType==PNG_COLOR_TYPE_PALETTE)
+			{
+			/* Expand paletted images to RGB: */
+			png_set_expand(pngReadStruct);
+			}
+		else if(colorType==PNG_COLOR_TYPE_GRAY&&elementSize<8)
+			{
+			/* Expand bitmaps to 8-bit grayscale: */
+			png_set_expand(pngReadStruct);
+			}
+		if(elementSize==16)
+			{
+			/* Read 16-bit images as unsigned short: */
+			channelSize=2;
+			channelType=GL_UNSIGNED_SHORT;
+			}
+		switch(colorType)
+			{
+			case PNG_COLOR_TYPE_GRAY:
+				numChannels=1;
+				format=GL_LUMINANCE;
+				break;
+			
+			case PNG_COLOR_TYPE_GRAY_ALPHA:
+				numChannels=2;
+				format=GL_LUMINANCE_ALPHA;
+				break;
+			
+			case PNG_COLOR_TYPE_RGB:
+				numChannels=3;
+				format=GL_RGB;
+				break;
+			
+			case PNG_COLOR_TYPE_RGB_ALPHA:
+				numChannels=4;
+				format=GL_RGBA;
+				break;
+			}
+		double gamma;
+		if(png_get_gAMA(pngReadStruct,pngInfoStruct,&gamma))
+			png_set_gamma(pngReadStruct,2.2,gamma);
+		png_read_update_info(pngReadStruct,pngInfoStruct);
+		
+		/* Initialize the result image: */
+		result=BaseImage(imageSize[0],imageSize[1],numChannels,channelSize,format,channelType);
+		
+		/* Create row pointers to flip the image during reading: */
+		rowPointers=new unsigned char*[result.getHeight()];
+		ptrdiff_t rowStride=result.getRowStride();
+		rowPointers[0]=static_cast<unsigned char*>(result.replacePixels())+(result.getHeight()-1)*rowStride;
+		for(unsigned int y=1;y<result.getHeight();++y)
+			rowPointers[y]=rowPointers[y-1]-rowStride;
+		
+		/* Read the PNG image: */
+		png_read_image(pngReadStruct,reinterpret_cast<png_byte**>(rowPointers));
+		
+		/* Finish reading image: */
+		png_read_end(pngReadStruct,0);
+		}
+	catch(std::runtime_error err)
+		{
+		/* Clean up: */
+		delete[] rowPointers;
+		png_destroy_read_struct(&pngReadStruct,&pngInfoStruct,0);
+		
+		/* Wrap and re-throw the exception: */
+		Misc::throwStdErr("Images::readGenericPNGImage: Caught exception \"%s\" while reading image \"%s\"",err.what(),imageName);
 		}
 	
 	/* Clean up: */

@@ -1,7 +1,7 @@
 /***********************************************************************
 ViewerConfiguration - Vislet class to configure the settings of a Vrui
 Viewer object from inside a running Vrui application.
-Copyright (c) 2013-2015 Oliver Kreylos
+Copyright (c) 2013-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -370,7 +370,8 @@ void ViewerConfiguration::disable(void)
 		popdownPrimaryWidget(dialogWindow);
 		}
 	
-	active=false;
+	/* Disable the vislet: */
+	Vislet::disable();
 	}
 
 void ViewerConfiguration::enable(void)
@@ -389,7 +390,8 @@ void ViewerConfiguration::enable(void)
 	/* Show the viewer configuration dialog: */
 	popupPrimaryWidget(dialogWindow);
 	
-	active=true;
+	/* Enable the vislet: */
+	Vislet::enable();
 	}
 
 }

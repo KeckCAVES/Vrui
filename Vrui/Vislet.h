@@ -51,7 +51,7 @@ class VisletFactory:public Plugins::Factory
 class Vislet
 	{
 	/* Elements: */
-	protected:
+	private:
 	bool active; // Flag if the vislet is active (enabled)
 	
 	/* Constructors and destructors: */

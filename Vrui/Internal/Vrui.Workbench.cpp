@@ -1805,18 +1805,19 @@ void vruiInnerLoopMultiWindow(void)
 void vruiInnerLoopSingleWindow(void)
 	{
 	#if VRUI_INSTRUMENT_MAINLOOP
-	Realtime::TimePointMonotonic loopTimer;
-	unsigned int loopIteration=0;
+	Realtime::TimePointMonotonic instrumentTimeBase;
+	std::cout<<"Frame,Render,PreSwap,PostSwap"<<std::endl;
 	#endif
-	
 	
 	bool keepRunning=true;
 	bool firstFrame=true;
 	while(true)
 		{
 		#if VRUI_INSTRUMENT_MAINLOOP
-		Realtime::TimePointMonotonic frameBase;
-		std::cout<<"Loop "<<loopIteration<<": "<<double(frameBase-loopTimer)*1000.0<<"ms";
+		{
+		Realtime::TimePointMonotonic now;
+		std::cout<<(now.tv_sec-instrumentTimeBase.tv_sec)*1000000000L+(now.tv_nsec-instrumentTimeBase.tv_nsec)<<',';
+		}
 		#endif
 		
 		/* Handle all events, blocking if there are none unless in continuous mode: */
@@ -1859,21 +1860,18 @@ void vruiInnerLoopSingleWindow(void)
 			vruiSoundContexts[i]->draw();
 		#endif
 		
+		#if VRUI_INSTRUMENT_MAINLOOP
+		{
+		Realtime::TimePointMonotonic now;
+		std::cout<<(now.tv_sec-instrumentTimeBase.tv_sec)*1000000000L+(now.tv_nsec-instrumentTimeBase.tv_nsec)<<',';
+		}
+		#endif
+		
 		/* Reset the GL thing manager: */
 		GLContextData::resetThingManager();
 		
-		#if VRUI_INSTRUMENT_MAINLOOP
-		Realtime::TimePointMonotonic renderStart;
-		std::cout<<", update time "<<double(renderStart-frameBase)*1000.0<<"ms";
-		#endif
-		
 		/* Update rendering: */
 		vruiWindows[0]->draw();
-		
-		#if VRUI_INSTRUMENT_MAINLOOP
-		Realtime::TimePointMonotonic renderEnd;
-		std::cout<<", render time "<<double(renderEnd-renderStart)*1000.0<<"ms";
-		#endif
 		
 		if(vruiState->multiplexer!=0)
 			{
@@ -1882,20 +1880,24 @@ void vruiInnerLoopSingleWindow(void)
 			vruiState->pipe->barrier();
 			}
 		
+		#if VRUI_INSTRUMENT_MAINLOOP
+		{
+		Realtime::TimePointMonotonic now;
+		std::cout<<(now.tv_sec-instrumentTimeBase.tv_sec)*1000000000L+(now.tv_nsec-instrumentTimeBase.tv_nsec)<<',';
+		}
+		#endif
+		
 		/* Swap buffer: */
 		vruiWindows[0]->swapBuffers();
 		
 		#if VRUI_INSTRUMENT_MAINLOOP
-		Realtime::TimePointMonotonic swapTime;
-		std::cout<<", buffer swap time "<<double(swapTime-renderEnd)*1000.0<<"ms"<<std::endl;
+		{
+		Realtime::TimePointMonotonic now;
+		std::cout<<(now.tv_sec-instrumentTimeBase.tv_sec)*1000000000L+(now.tv_nsec-instrumentTimeBase.tv_nsec)<<std::endl;
+		}
 		#endif
 		
 		firstFrame=false;
-		
-		#if VRUI_INSTRUMENT_MAINLOOP
-		loopTimer=frameBase;
-		++loopIteration;
-		#endif
 		}
 	}
 

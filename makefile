@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2016 Oliver Kreylos
+# Copyright (c) 1998-2017 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -114,8 +114,10 @@ ifneq ($(strip $(STEAMVRDIR)),)
   STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
   
   # Steam run-time root directories:
-  STEAMRUNTIMEDIR1 = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
-  STEAMRUNTIMEDIR2 = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/usr/lib/x86_64-linux-gnu)
+  STEAMRUNTIMEDIR = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
+  
+  # SteamVR Lighthouse driver directory:
+  STEAMVRDRIVERDIR = $(STEAMVRDIR)/drivers/lighthouse/bin/linux64
 else
   SYSTEM_HAVE_OPENVR = 0
 endif
@@ -186,9 +188,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4002006
+VRUI_VERSION = 4003001
 MAJORLIBVERSION = 4
-MINORLIBVERSION = 2
+MINORLIBVERSION = 3
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -1524,6 +1526,8 @@ endif
 ifneq ($(SYSTEM_HAVE_OPENVR),0)
 	@echo "OpenVR SDK and SteamVR run-time exist on host system; support for HTC Vive enabled"
 	@echo "SteamVR run-time root directory: $(STEAMVRDIR)"
+	@echo "SteamVR run-time library directory: $(STEAMRUNTIMEDIR)"
+	@echo "SteamVR Lighthouse driver directory: $(STEAMVRDRIVERDIR)"
 else
 	@echo "OpenVR SDK or SteamVR run-time do not exist on host system; support for HTC Vive disabled"
 endif
@@ -1556,10 +1560,13 @@ VRDEVICEDAEMON_SOURCES = VRDeviceDaemon/VRDevice.cpp \
 
 $(VRDEVICEDAEMON_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
-$(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYIO MYTHREADS MYMISC DL
+$(EXEDIR)/VRDeviceDaemon: PACKAGES += MYGEOMETRY MYCOMM MYIO MYTHREADS MYREALTIME MYMISC DL
 $(EXEDIR)/VRDeviceDaemon: EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(EXEDIR)/VRDeviceDaemon: CFLAGS += -DVERBOSE
 $(EXEDIR)/VRDeviceDaemon: LINKFLAGS += $(PLUGINHOSTLINKFLAGS)
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+$(EXEDIR)/VRDeviceDaemon: LINKFLAGS += -Wl,-rpath $(STEAMRUNTIMEDIR) -Wl,-rpath $(STEAMVRDRIVERDIR)
+endif
 $(EXEDIR)/VRDeviceDaemon: $(VRDEVICEDAEMON_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: VRDeviceDaemon
 VRDeviceDaemon: $(EXEDIR)/VRDeviceDaemon
@@ -1654,8 +1661,7 @@ $(EXEDIR)/RunViveTracker.sh: VRDeviceDaemon/VRDevices/OpenVRHost-Config.h
 	@echo Creating helper script to run OpenVRHost tracking device driver...
 	@cp Share/RunViveTracker.sh $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(STEAMDIR))@' $(EXEDIR)/RunViveTracker.sh
-	@sed -i -e 's@RUNTIMEDIR1=.*@RUNTIMEDIR1=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR1))@' $(EXEDIR)/RunViveTracker.sh
-	@sed -i -e 's@RUNTIMEDIR2=.*@RUNTIMEDIR2=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR2))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@RUNTIMEDIR=.*@RUNTIMEDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMVRDIR=.*@STEAMVRDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMVRDIR))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@VRUIBINDIR=.*@VRUIBINDIR=$(EXECUTABLEINSTALLDIR)@' $(EXEDIR)/RunViveTracker.sh
 	@chmod a+x $(EXEDIR)/RunViveTracker.sh

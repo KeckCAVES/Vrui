@@ -1,6 +1,6 @@
 /***********************************************************************
 Box - Class for n-dimensional axis-aligned boxes.
-Copyright (c) 2001-2013 Oliver Kreylos
+Copyright (c) 2001-2016 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -152,6 +152,18 @@ class Box
 		bool result=true;
 		for(int i=0;i<dimension&&result;++i)
 			result=min[i]<=p[i]&&p[i]<=max[i];
+		return result;
+		}
+	Scalar sqrDist(const Point& p) const // Returns the squared Euclidean distance from the box to the given point; distance is zero if and only if point is inside box
+		{
+		Scalar result(0);
+		for(int i=0;i<dimension;++i)
+			{
+			if(p[i]<min[i])
+				result+=Math::sqr(p[i]-min[i]);
+			if(p[i]>max[i])
+				result+=Math::sqr(p[i]-max[i]);
+			}
 		return result;
 		}
 	bool contains(const Box& other) const // Checks if a box contains another box

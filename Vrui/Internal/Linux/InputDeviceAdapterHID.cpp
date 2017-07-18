@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterHID - Linux-specific version of HID input device
 adapter.
-Copyright (c) 2009-2015 Oliver Kreylos
+Copyright (c) 2009-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,10 +43,14 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/ConfigurationFile.h>
 #include <Math/MathValueCoders.h>
+#include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
 #include <Vrui/InputDeviceFeature.h>
 #include <Vrui/InputDeviceManager.h>
+#include <Vrui/Viewer.h>
 #include <Vrui/UIManager.h>
 #include <Vrui/Internal/Config.h>
 
@@ -200,6 +204,62 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 			}
 		}
 	
+	/* Set up mutual exclusion sets for buttons on this input device: */
+	newDevice.buttonExclusionSets.reserve(newDevice.numButtons);
+	for(int i=0;i<newDevice.numButtons;++i)
+		newDevice.buttonExclusionSets.push_back(-1);
+	
+	/* Process a list of sets from the configuration file: */
+	typedef std::vector<std::vector<int> > SetList;
+	SetList buttonExclusionSets=configFileSection.retrieveValue<SetList>("./buttonExclusionSets",SetList());
+	unsigned int numExclusionSets=buttonExclusionSets.size();
+	newDevice.exclusionSetPresseds.reserve(numExclusionSets);
+	for(unsigned int i=0;i<numExclusionSets;++i)
+		{
+		/* Assign all buttons in the set to this set: */
+		for(std::vector<int>::iterator bIt=buttonExclusionSets[i].begin();bIt!=buttonExclusionSets[i].end();++bIt)
+			{
+			if(*bIt>=0&&*bIt<newDevice.numButtons)
+				newDevice.buttonExclusionSets[*bIt]=i;
+			else
+				Misc::throwStdErr("InputDeviceAdapterHID::InputDeviceAdapterHID: Invalid button index %d in button exclusion set",*bIt);
+			}
+		
+		/* Initialize the set's state: */
+		newDevice.exclusionSetPresseds.push_back(-1);
+		}
+	
+	/* Determine if the input device has a 3D position defined by a set of absolute axes: */
+	newDevice.axisPosition=configFileSection.hasTag("./positionAxes");
+	if(newDevice.axisPosition)
+		{
+		/* Retrieve the origin of the device position mapping: */
+		newDevice.positionOrigin=configFileSection.retrieveValue<Point>("./positionOrigin",Point::origin);
+		
+		/* Retrieve the list of HID absolute axis to device position mappers: */
+		typedef std::pair<int,Vector> PositionAxisMapper;
+		typedef std::vector<PositionAxisMapper> PositionAxisMapperList;
+		PositionAxisMapperList pams=configFileSection.retrieveValue<PositionAxisMapperList>("./positionAxes");
+		
+		/* Create the position axis mapping arrays: */
+		newDevice.positionAxisMap.reserve(ABS_MAX+1);
+		for(int i=0;i<=ABS_MAX;++i)
+			newDevice.positionAxisMap.push_back(-1);
+		newDevice.positionAxes.reserve(pams.size());
+		newDevice.positionValues.reserve(pams.size());
+		int nextAxisIndex=0;
+		for(PositionAxisMapperList::iterator pamIt=pams.begin();pamIt!=pams.end();++pamIt,++nextAxisIndex)
+			{
+			Scalar vectorScale(1);
+			input_absinfo absAxisConf;
+			if(ioctl(deviceFd,EVIOCGABS(pamIt->first),&absAxisConf)>=0)
+				vectorScale=Scalar(1)/Scalar(absAxisConf.maximum);
+			newDevice.positionAxisMap[pamIt->first]=nextAxisIndex;
+			newDevice.positionAxes.push_back(pamIt->second*vectorScale);
+			newDevice.positionValues.push_back(Scalar(0));
+			}
+		}
+	
 	/* Count the number of absolute and relative axes: */
 	newDevice.numValuators=0;
 	
@@ -216,7 +276,7 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 		newDevice.absAxisMap.reserve(ABS_MAX+1);
 		for(int i=0;i<=ABS_MAX;++i)
 			{
-			if(absAxisBits[i/8]&(1<<(i%8)))
+			if(absAxisBits[i/8]&(1<<(i%8))&&(!newDevice.axisPosition||newDevice.positionAxisMap[i]==-1))
 				{
 				/* Enter the next valuator index into the axis map: */
 				newDevice.absAxisMap.push_back(newDevice.numValuators);
@@ -289,18 +349,20 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 			}
 		}
 	
-	/* Check if the device is supposed to copy tracking data from another device: */
+	/* Check if the device tracks its own position or copies another device's tracking state: */
 	newDevice.trackingDevice=0;
-	if(configFileSection.hasTag("./trackingDeviceName"))
+	newDevice.projectDevice=false;
+	int newTrackType=InputDevice::TRACK_NONE;
+	if(newDevice.axisPosition)
+		newTrackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR;
+	else if(configFileSection.hasTag("./trackingDeviceName"))
 		{
+		/* Get the device whose tracking state to shadow: */
 		std::string trackingDeviceName=configFileSection.retrieveString("./trackingDeviceName");
 		newDevice.trackingDevice=Vrui::findInputDevice(trackingDeviceName.c_str());
 		if(newDevice.trackingDevice==0)
 			Misc::throwStdErr("InputDeviceAdapterHID::InputDeviceAdapterHID: Tracking device %s not found",trackingDeviceName.c_str());
-		}
-	
-	if(newDevice.trackingDevice!=0)
-		{
+		
 		/* Determine the new device's tracking type: */
 		std::string trackTypeString;
 		switch(newDevice.trackingDevice->getTrackType())
@@ -325,34 +387,39 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 				trackTypeString="None";
 			}
 		trackTypeString=configFileSection.retrieveString("./trackingDeviceType",trackTypeString);
-		int trackType=InputDevice::TRACK_NONE;
+		newTrackType=InputDevice::TRACK_NONE;
 		if(trackTypeString=="None")
-			trackType=InputDevice::TRACK_NONE;
+			newTrackType=InputDevice::TRACK_NONE;
 		else if(trackTypeString=="3D")
-			trackType=InputDevice::TRACK_POS;
+			newTrackType=InputDevice::TRACK_POS;
 		else if(trackTypeString=="Ray")
-			trackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR;
+			newTrackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR;
 		else if(trackTypeString=="6D")
-			trackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT;
+			newTrackType=InputDevice::TRACK_POS|InputDevice::TRACK_DIR|InputDevice::TRACK_ORIENT;
 		else
 			Misc::throwStdErr("InputDeviceAdapterHID::InputDeviceAdapterHID: Unknown tracking type \"%s\"",trackTypeString.c_str());
 		
 		/* Determine whether the new input device should be projected by the UI manager: */
-		newDevice.projectDevice=((newDevice.trackingDevice->getTrackType()^trackType)&InputDevice::TRACK_ORIENT)!=0x0; // Project if the source device is a 6-DOF device, and the HID device is a ray device
-		newDevice.projectDevice=configFileSection.retrieveValue<bool>("./projectDevice",newDevice.projectDevice);
-		
-		/* Create new input device as a physical device locked to the tracking device: */
-		inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),trackType,newDevice.numButtons,newDevice.numValuators,true);
-		inputDevices[deviceIndex]->copyTrackingState(newDevice.trackingDevice);
-		if(newDevice.projectDevice)
-			getUiManager()->projectDevice(newDevice.device);
+		newDevice.projectDevice=((newDevice.trackingDevice->getTrackType()^newTrackType)&InputDevice::TRACK_ORIENT)!=0x0; // Project if the source device is a 6-DOF device, and the HID device is a ray device
 		}
-	else
+	
+	/* Create new input device as a physical device: */
+	inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),newTrackType,newDevice.numButtons,newDevice.numValuators,true);
+	
+	/* Initialize the device tracking state: */
+	if(newDevice.axisPosition)
 		{
-		/* Create new input device as a non-tracked physical device: */
-		newDevice.projectDevice=false;
-		inputDevices[deviceIndex]=newDevice.device=inputDeviceManager->createInputDevice(name.c_str(),InputDevice::TRACK_NONE,newDevice.numButtons,newDevice.numValuators,true);
+		inputDevices[deviceIndex]->setTransformation(TrackerState::translateFromOriginTo(newDevice.positionOrigin));
+		inputDevices[deviceIndex]->setLinearVelocity(Vector::zero);
+		inputDevices[deviceIndex]->setAngularVelocity(Vector::zero);
 		}
+	else if(newDevice.trackingDevice!=0)
+		inputDevices[deviceIndex]->copyTrackingState(newDevice.trackingDevice);
+	
+	/* Determine whether the new input device should be projected by the UI manager: */
+	newDevice.projectDevice=newTrackType!=InputDevice::TRACK_NONE&&configFileSection.retrieveValue<bool>("./projectDevice",newDevice.projectDevice);
+	if(newDevice.projectDevice)
+		getUiManager()->projectDevice(newDevice.device);
 	
 	/* Read the names of all button features: */
 	typedef std::vector<std::string> StringList;
@@ -426,14 +493,51 @@ void* InputDeviceAdapterHID::devicePollingThreadMethod(void)
 									int buttonIndex=dIt->keyMap[events[i].code];
 									if(buttonIndex>=0)
 										{
-										/* Set the button's new state: */
-										buttonStates[dIt->firstButtonIndex+buttonIndex]=events[i].value!=0;
+										/* Check if the button is part of an exclusion set: */
+										int esi=dIt->buttonExclusionSets[buttonIndex];
+										if(esi>=0)
+											{
+											if(events[i].value!=0) // Button has been pressed
+												{
+												if(dIt->exclusionSetPresseds[esi]==-1)
+													{
+													/* Press the button and its exclusion set: */
+													buttonStates[dIt->firstButtonIndex+buttonIndex]=true;
+													dIt->exclusionSetPresseds[esi]=buttonIndex;
+													}
+												}
+											else // Button has been released
+												{
+												/* Release the exclusion set if this button activated it: */
+												if(dIt->exclusionSetPresseds[esi]==buttonIndex)
+													dIt->exclusionSetPresseds[esi]=-1;
+												
+												/* Release the button: */
+												buttonStates[dIt->firstButtonIndex+buttonIndex]=false;
+												}
+											}
+										else
+											{
+											/* Set the button's new state: */
+											buttonStates[dIt->firstButtonIndex+buttonIndex]=events[i].value!=0;
+											}
 										}
 									break;
 									}
 								
 								case EV_ABS:
 									{
+									if(dIt->axisPosition)
+										{
+										/* Check if the absolute axis is used to define the device position: */
+										int positionAxisIndex=dIt->positionAxisMap[events[i].code];
+										if(positionAxisIndex>=0)
+											{
+											/* Remember the new position axis value: */
+											dIt->positionValues[positionAxisIndex]=Scalar(events[i].value);
+											}
+										}
+									
 									/* Check if the absolute axis has a valid valuator index: */
 									int valuatorIndex=dIt->absAxisMap[events[i].code];
 									if(valuatorIndex>=0)
@@ -569,13 +673,32 @@ void InputDeviceAdapterHID::updateInputDevices(void)
 	
 	for(std::vector<Device>::iterator dIt=devices.begin();dIt!=devices.end();++dIt)
 		{
-		if(dIt->trackingDevice!=0)
+		if(dIt->axisPosition)
+			{
+			/* Calculate the device position: */
+			Point devicePos=dIt->positionOrigin;
+			size_t numAxes=dIt->positionAxes.size();
+			for(size_t i=0;i<numAxes;++i)
+				devicePos+=dIt->positionAxes[i]*dIt->positionValues[i];
+			dIt->device->setTransformation(TrackerState::translateFromOriginTo(devicePos));
+			
+			if(getMainViewer()!=0)
+				{
+				/* Calculate the device ray direction: */
+				Vector rayDir=devicePos-getMainViewer()->getHeadPosition();
+				Scalar rayLen=Scalar(Geometry::mag(rayDir));
+				dIt->device->setDeviceRay(rayDir/rayLen,-rayLen);
+				}
+			}
+		else if(dIt->trackingDevice!=0)
 			{
 			/* Copy the source device's tracking state: */
 			dIt->device->copyTrackingState(dIt->trackingDevice);
-			if(dIt->projectDevice)
-				getUiManager()->projectDevice(dIt->device);
 			}
+		
+		/* Let the UI manager project the device if requested: */
+		if(dIt->projectDevice)
+			getUiManager()->projectDevice(dIt->device);
 		
 		/* Set the device's button and valuator states: */
 		for(int i=0;i<dIt->numButtons;++i)

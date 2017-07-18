@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceClient - Class encapsulating the VR device protocol's client
 side.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -23,6 +23,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/VRDeviceClient.h>
 
+#include <Misc/SizedTypes.h>
 #include <Misc/Time.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -38,6 +39,14 @@ namespace {
 Helper functions:
 ****************/
 
+void adjustTrackerStateTimeStamps(VRDeviceState& state,VRDeviceState::TimeStamp timeStampDelta) // Sets tracker state time stamps to current monotonic time
+	{
+	/* Adjust all tracker state time stamps: */
+	VRDeviceState::TimeStamp* tsPtr=state.getTrackerTimeStamps();
+	for(int i=0;i<state.getNumTrackers();++i,++tsPtr)
+		*tsPtr+=timeStampDelta;
+	}
+
 void setTrackerStateTimeStamps(VRDeviceState& state) // Sets tracker state time stamps to current monotonic time
 	{
 	/* Get the current monotonic time: */
@@ -46,9 +55,10 @@ void setTrackerStateTimeStamps(VRDeviceState& state) // Sets tracker state time 
 	/* Get the lower-order bits of the microsecond time: */
 	VRDeviceState::TimeStamp ts=VRDeviceState::TimeStamp(now.tv_sec*1000000+(now.tv_nsec+500)/1000);
 	
-	/* Set all tracker state time stamps to the curren time: */
-	for(int i=0;i<state.getNumTrackers();++i)
-		state.setTrackerTimeStamp(i,ts);
+	/* Set all tracker state time stamps to the current time: */
+	VRDeviceState::TimeStamp* tsPtr=state.getTrackerTimeStamps();
+	for(int i=0;i<state.getNumTrackers();++i,++tsPtr)
+		*tsPtr=ts;
 	}
 
 }
@@ -63,7 +73,7 @@ void* VRDeviceClient::streamReceiveThreadMethod(void)
 	
 	while(true)
 		{
-		/* Wait for next packet reply message: */
+		/* Wait for next protocol message: */
 		try
 			{
 			VRDevicePipe::MessageIdType message=pipe.readMessage();
@@ -72,9 +82,17 @@ void* VRDeviceClient::streamReceiveThreadMethod(void)
 				/* Read server's state: */
 				{
 				Threads::Mutex::Lock stateLock(stateMutex);
-				state.read(pipe,serverHasTimeStamps);
+				state.read(pipe,serverHasTimeStamps,serverHasValidFlags);
 				if(!serverHasTimeStamps)
+					{
+					/* Set all tracker time stamps to the current local time: */
 					setTrackerStateTimeStamps(state);
+					}
+				else if(!local)
+					{
+					/* Adjust all received time stamps by the client/server clock difference: */
+					adjustTrackerStateTimeStamps(state,timeStampDelta);
+					}
 				}
 				
 				/* Signal packet reception: */
@@ -83,6 +101,18 @@ void* VRDeviceClient::streamReceiveThreadMethod(void)
 				/* Invoke packet notification callback: */
 				if(packetNotificationCallback!=0)
 					(*packetNotificationCallback)(this);
+				}
+			else if(message==VRDevicePipe::BATTERYSTATE_UPDATE)
+				{
+				Threads::Mutex::Lock batteryStatesLock(batteryStatesMutex);
+				
+				/* Read the index of the device whose battery state changed and the new battery state: */
+				unsigned int deviceIndex=pipe.read<Misc::UInt16>();
+				batteryStates[deviceIndex].read(pipe);
+				
+				/* Call the battery state change callback: */
+				if(batteryStateUpdatedCallback!=0)
+					(*batteryStateUpdatedCallback)(deviceIndex);
 				}
 			else if((message&~0x7U)==VRDevicePipe::HMDCONFIG_UPDATE)
 				{
@@ -146,9 +176,12 @@ void* VRDeviceClient::streamReceiveThreadMethod(void)
 
 void VRDeviceClient::initClient(void)
 	{
+	/* Determine whether client and server are running on the same host: */
+	local=pipe.getAddress()==pipe.getPeerAddress();
+	
 	/* Initiate connection: */
 	pipe.writeMessage(VRDevicePipe::CONNECT_REQUEST);
-	pipe.write<unsigned int>(VRDevicePipe::protocolVersionNumber);
+	pipe.write<Misc::UInt32>(VRDevicePipe::protocolVersionNumber);
 	pipe.flush();
 	
 	/* Wait for server's reply: */
@@ -156,7 +189,7 @@ void VRDeviceClient::initClient(void)
 		throw ProtocolError("VRDeviceClient: Timeout while waiting for CONNECT_REPLY",this);
 	if(pipe.readMessage()!=VRDevicePipe::CONNECT_REPLY)
 		throw ProtocolError("VRDeviceClient: Mismatching message while waiting for CONNECT_REPLY",this);
-	serverProtocolVersionNumber=pipe.read<unsigned int>();
+	serverProtocolVersionNumber=pipe.read<Misc::UInt32>();
 	
 	/* Check server version number for compatibility: */
 	if(serverProtocolVersionNumber<1U||serverProtocolVersionNumber>VRDevicePipe::protocolVersionNumber)
@@ -169,12 +202,12 @@ void VRDeviceClient::initClient(void)
 	if(serverProtocolVersionNumber>=2U)
 		{
 		/* Read the list of virtual devices managed by the server: */
-		int numVirtualDevices=pipe.read<int>();
-		for(int deviceIndex=0;deviceIndex<numVirtualDevices;++deviceIndex)
+		unsigned int numVirtualDevices=pipe.read<Misc::UInt32>();
+		for(unsigned int deviceIndex=0;deviceIndex<numVirtualDevices;++deviceIndex)
 			{
 			/* Create a new virtual input device and read its layout from the server: */
 			VRDeviceDescriptor* newDevice=new VRDeviceDescriptor;
-			newDevice->read(pipe);
+			newDevice->read(pipe,serverProtocolVersionNumber);
 			
 			/* Store the virtual input device: */
 			virtualDevices.push_back(newDevice);
@@ -183,6 +216,21 @@ void VRDeviceClient::initClient(void)
 	
 	/* Check if the server will send tracker state time stamps: */
 	serverHasTimeStamps=serverProtocolVersionNumber>=3U;
+	
+	/* Initialize the clock offset: */
+	timeStampDelta=0;
+	
+	/* Create an array to cache virtual input devices' battery states: */
+	if(!virtualDevices.empty())
+		batteryStates=new BatteryState[virtualDevices.size()];
+	
+	/* Check if the server maintains battery states: */
+	if(serverProtocolVersionNumber>=5U)
+		{
+		/* Read battery states for all virtual devices: */
+		for(unsigned int i=0;i<virtualDevices.size();++i)
+			batteryStates[i].read(pipe);
+		}
 	
 	/* Check if the server maintains HMD configurations: */
 	if(serverProtocolVersionNumber>=4U)
@@ -209,11 +257,20 @@ void VRDeviceClient::initClient(void)
 		for(unsigned int i=0;i<numHmdConfigurations;++i)
 			hmdConfigurationUpdatedCallbacks[i]=0;
 		}
+	
+	/* Check if the server will send tracker valid flags: */
+	serverHasValidFlags=serverProtocolVersionNumber>=5U;
+	
+	/* Initialize all tracker states to "valid" if the server doesn't send valid flags: */
+	if(!serverHasValidFlags)
+		for(int i=0;i<state.getNumTrackers();++i)
+			state.setTrackerValid(i,true);
 	}
 
 VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort)
 	:pipe(deviceServerName,deviceServerPort),
 	 serverProtocolVersionNumber(0),serverHasTimeStamps(false),
+	 batteryStates(0),batteryStateUpdatedCallback(0),
 	 numHmdConfigurations(0),hmdConfigurations(0),hmdConfigurationUpdatedCallbacks(0),
 	 active(false),streaming(false),connectionDead(false),
 	 packetNotificationCallback(0),errorCallback(0)
@@ -224,6 +281,7 @@ VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort
 VRDeviceClient::VRDeviceClient(const Misc::ConfigurationFileSection& configFileSection)
 	:pipe(configFileSection.retrieveString("./serverName").c_str(),configFileSection.retrieveValue<int>("./serverPort")),
 	 serverProtocolVersionNumber(0),serverHasTimeStamps(false),
+	 batteryStates(0),batteryStateUpdatedCallback(0),
 	 numHmdConfigurations(0),hmdConfigurations(0),hmdConfigurationUpdatedCallbacks(0),
 	 active(false),streaming(false),connectionDead(false),
 	 packetNotificationCallback(0),errorCallback(0)
@@ -246,6 +304,7 @@ VRDeviceClient::~VRDeviceClient(void)
 	pipe.flush();
 	
 	/* Delete all callbacks: */
+	delete batteryStateUpdatedCallback;
 	for(unsigned int i=0;i<numHmdConfigurations;++i)
 		delete hmdConfigurationUpdatedCallbacks[i];
 	delete[] hmdConfigurationUpdatedCallbacks;
@@ -256,7 +315,8 @@ VRDeviceClient::~VRDeviceClient(void)
 	for(std::vector<VRDeviceDescriptor*>::iterator vdIt=virtualDevices.begin();vdIt!=virtualDevices.end();++vdIt)
 		delete *vdIt;
 	
-	/* Delete HMD configurations: */
+	/* Delete battery states and HMD configurations: */
+	delete[] batteryStates;
 	delete[] hmdConfigurations;
 	}
 
@@ -324,9 +384,17 @@ void VRDeviceClient::getPacket(void)
 			try
 				{
 				Threads::Mutex::Lock stateLock(stateMutex);
-				state.read(pipe,serverHasTimeStamps);
+				state.read(pipe,serverHasTimeStamps,serverHasValidFlags);
 				if(!serverHasTimeStamps)
+					{
+					/* Set all tracker time stamps to the current local time: */
 					setTrackerStateTimeStamps(state);
+					}
+				else if(!local)
+					{
+					/* Adjust all received time stamps by the client/server clock difference: */
+					adjustTrackerStateTimeStamps(state,timeStampDelta);
+					}
 				}
 			catch(std::runtime_error err)
 				{
@@ -336,6 +404,13 @@ void VRDeviceClient::getPacket(void)
 				}
 			}
 		}
+	}
+
+void VRDeviceClient::setBatteryStateUpdatedCallback(VRDeviceClient::BatteryStateUpdatedCallback* newBatteryStateUpdatedCallback)
+	{
+	/* Replace the previous callback with the new one: */
+	delete batteryStateUpdatedCallback;
+	batteryStateUpdatedCallback=newBatteryStateUpdatedCallback;
 	}
 
 void VRDeviceClient::setHmdConfigurationUpdatedCallback(unsigned int trackerIndex,VRDeviceClient::HMDConfigurationUpdatedCallback* newHmdConfigurationUpdatedCallback)

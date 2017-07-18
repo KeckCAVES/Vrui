@@ -1,6 +1,6 @@
 /***********************************************************************
 Image - Class for widgets displaying image as textures.
-Copyright (c) 2011-2014 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <GL/gl.h>
 #include <GL/GLObject.h>
-#include <Images/RGBImage.h>
+#include <Images/BaseImage.h>
 #include <GLMotif/Widget.h>
 
 namespace GLMotif {
@@ -52,7 +52,7 @@ class Image:public Widget,public GLObject
 	
 	/* Elements: */
 	private:
-	Images::RGBImage image; // The displayed image
+	Images::BaseImage image; // The displayed image
 	unsigned int version; // Version number of image
 	GLfloat resolution[2]; // The horizontal and vertical resolution of the image in pixels per GLMotif length unit
 	GLfloat region[4]; // Region of the image currently mapped to the widget's interior in pixel units
@@ -64,7 +64,7 @@ class Image:public Widget,public GLObject
 	
 	/* Constructors and destructors: */
 	public:
-	Image(const char* sName,Container* sParent,const Images::RGBImage& sImage,const GLfloat sResolution[2],bool sManageChild =true); // Creates an image widget displaying the given image at the given resolution
+	Image(const char* sName,Container* sParent,const Images::BaseImage& sImage,const GLfloat sResolution[2],bool sManageChild =true); // Creates an image widget displaying the given image at the given resolution
 	Image(const char* sName,Container* sParent,const char* imageFileName,const GLfloat sResolution[2],bool sManageChild =true); // Creates an image widget displaying the given image file at the given resolution
 	
 	/* Methods from Widget: */
@@ -76,11 +76,11 @@ class Image:public Widget,public GLObject
 	virtual void initContext(GLContextData& contextData) const;
 	
 	/* New methods: */
-	const Images::RGBImage& getImage(void) const // Returns the current image
+	const Images::BaseImage& getImage(void) const // Returns the current image
 		{
 		return image;
 		}
-	Images::RGBImage& getImage(void) // Ditto
+	Images::BaseImage& getImage(void) // Ditto
 		{
 		return image;
 		}

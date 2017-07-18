@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMultitouch - Class to convert a direct-mode
 multitouch-capable screen into a set of Vrui input devices.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -54,6 +54,7 @@ InputDeviceAdapterMultitouch::InputDeviceAdapterMultitouch(InputDeviceManager* s
 	 maxNumDevices(10),
 	 numModifierButtons(5),
 	 numDeviceButtons(3),
+	 maxContactArea(20),
 	 activationInterval(0.01),
 	 multicontactRadius(100.0),
 	 deviceMappers(0),
@@ -70,6 +71,9 @@ InputDeviceAdapterMultitouch::InputDeviceAdapterMultitouch(InputDeviceManager* s
 	
 	/* Retrieve the number of buttons per touch contact per modifier plane: */
 	numDeviceButtons=configFileSection.retrieveValue<int>("./numDeviceButtons",numDeviceButtons);
+	
+	/* Retrieve the maximum touch contact area for palm rejection: */
+	maxContactArea=configFileSection.retrieveValue<double>("./maxContactArea",maxContactArea);
 	
 	/* Retrieve the multi-contact activation interval: */
 	activationInterval=configFileSection.retrieveValue<double>("./activationInterval",activationInterval);
@@ -346,13 +350,17 @@ void InputDeviceAdapterMultitouch::glRenderAction(GLContextData& contextData) co
 		}
 	}
 
-void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,int touchId,Scalar touchX,Scalar touchY)
+void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,const InputDeviceAdapterMultitouch::TouchEvent& event)
 	{
+	/* Reject the touch event as a palm contact if the touch ellipse is too large: */
+	if(event.majorAxis*event.minorAxis>maxContactArea)
+		return;
+	
 	/* Check if the touch ID is already assigned, due to a spurious TouchBegin event: */
-	if(!touchIdMapper.isEntry(touchId))
+	if(!touchIdMapper.isEntry(event.id))
 		{
 		/* Check if this is a left-swipe modifier button panel event with no active modifier touch: */
-		if(touchX<=Scalar(0)&&modifierTouchId==-1)
+		if(event.x<=Scalar(0)&&modifierTouchId==-1)
 			{
 			/* Use the dedicated modifier device mapper: */
 			DeviceMapper* newDm=deviceMappers+maxNumDevices;
@@ -360,19 +368,18 @@ void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,int touchId,Sc
 			/* Start a modifier button mapping: */
 			newDm->state=DeviceMapper::Modifier;
 			newDm->window=newWindow;
-			newDm->windowPos[0]=touchX;
-			newDm->windowPos[1]=touchY;
+			newDm->set(event);
 			newDm->dead=false;
 			
 			/* Map the new touch ID to the new device mapper: */
-			touchIdMapper[touchId]=newDm;
+			touchIdMapper[event.id]=newDm;
 			
 			/* Start a new modifier touch contact: */
-			modifierTouchId=touchId;
+			modifierTouchId=event.id;
 			previousModifierPlane=modifierPlane;
 			
 			/* Calculate the new modifier plane: */
-			modifierPlane=Math::clamp(int(Math::floor((Scalar(1)-touchY/Scalar(newWindow->getWindowHeight()))*Scalar(numModifierButtons))),0,numModifierButtons-1);
+			modifierPlane=Math::clamp(int(Math::floor((Scalar(1)-event.y/Scalar(newWindow->getWindowHeight()))*Scalar(numModifierButtons))),0,numModifierButtons-1);
 			}
 		else
 			{
@@ -386,10 +393,10 @@ void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,int touchId,Sc
 				if(dmPtr->state==DeviceMapper::Inactive&&newDm==0)
 					newDm=dmPtr;
 				
-				/* Checkk if this is a close-by activating device mapper: */
+				/* Check if this is a close-by activating device mapper: */
 				if(dmPtr->state==DeviceMapper::Activating&&
 				   dmPtr->window==newWindow&&
-				   Math::sqr(dmPtr->windowPos[0]-touchX)+Math::sqr(dmPtr->windowPos[1]-touchY)<Math::sqr(multicontactRadius))
+				   Math::sqr(dmPtr->windowPos[0]-event.x)+Math::sqr(dmPtr->windowPos[1]-event.y)<Math::sqr(multicontactRadius))
 					{
 					/* Add the new contact as a secondary to the primary contact: */
 					primary=dmPtr;
@@ -401,8 +408,7 @@ void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,int touchId,Sc
 				/* Start activating a new device mapping: */
 				newDm->state=DeviceMapper::Activating;
 				newDm->window=newWindow;
-				newDm->windowPos[0]=touchX;
-				newDm->windowPos[1]=touchY;
+				newDm->set(event);
 				newDm->dead=false;
 				
 				// DEBUGGING
@@ -459,7 +465,7 @@ void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,int touchId,Sc
 				}
 			
 			/* Map the new touch ID to the new device mapper: */
-			touchIdMapper[touchId]=newDm;
+			touchIdMapper[event.id]=newDm;
 			}
 		}
 	
@@ -467,23 +473,26 @@ void InputDeviceAdapterMultitouch::touchBegin(VRWindow* newWindow,int touchId,Sc
 	mostRecentTouchWindow=newWindow;
 	}
 
-void InputDeviceAdapterMultitouch::touchUpdate(VRWindow* newWindow,int touchId,Scalar touchX,Scalar touchY)
+void InputDeviceAdapterMultitouch::touchUpdate(VRWindow* newWindow,const InputDeviceAdapterMultitouch::TouchEvent& event)
 	{
 	/* Find a device mapper for the touch ID: */
-	Misc::HashTable<int,DeviceMapper*>::Iterator tmIt=touchIdMapper.findEntry(touchId);
+	Misc::HashTable<int,DeviceMapper*>::Iterator tmIt=touchIdMapper.findEntry(event.id);
 	if(!tmIt.isFinished())
 		{
 		/* Update the device mapping: */
 		DeviceMapper& dm=*tmIt->getDest();
 		dm.window=newWindow;
-		dm.windowPos[0]=touchX;
-		dm.windowPos[1]=touchY;
+		dm.set(event);
+		
+		/* Kill the touch contact if the touch ellipse is too large: */
+		if(dm.majorAxis*dm.minorAxis>maxContactArea)
+			dm.dead=true;
 		
 		/* Check if this is a modifier touch: */
-		if(dm.state==DeviceMapper::Modifier)
+		if(!dm.dead&&dm.state==DeviceMapper::Modifier)
 			{
 			/* Calculate the new modifier plane: */
-			modifierPlane=Math::clamp(int(Math::floor((Scalar(1)-touchY/Scalar(newWindow->getWindowHeight()))*Scalar(numModifierButtons))),0,numModifierButtons-1);
+			modifierPlane=Math::clamp(int(Math::floor((Scalar(1)-event.y/Scalar(newWindow->getWindowHeight()))*Scalar(numModifierButtons))),0,numModifierButtons-1);
 			}
 		
 		// DEBUGGING
@@ -494,92 +503,96 @@ void InputDeviceAdapterMultitouch::touchUpdate(VRWindow* newWindow,int touchId,S
 	mostRecentTouchWindow=newWindow;
 	}
 
-void InputDeviceAdapterMultitouch::touchEnd(VRWindow* newWindow,int touchId,Scalar touchX,Scalar touchY)
+void InputDeviceAdapterMultitouch::touchEnd(VRWindow* newWindow,const InputDeviceAdapterMultitouch::TouchEvent& event)
 	{
 	/* Find a device mapper for the touch ID: */
-	Misc::HashTable<int,DeviceMapper*>::Iterator tmIt=touchIdMapper.findEntry(touchId);
+	Misc::HashTable<int,DeviceMapper*>::Iterator tmIt=touchIdMapper.findEntry(event.id);
 	if(!tmIt.isFinished())
 		{
 		/* Update the device mapping: */
 		DeviceMapper& dm=*tmIt->getDest();
 		dm.window=newWindow;
-		dm.windowPos[0]=touchX;
-		dm.windowPos[1]=touchY;
+		dm.set(event);
 		
-		/* Act based on the type of device mapping: */
-		if(dm.state==DeviceMapper::Modifier) // A modifier touch event
-			{
-			/* Check if the touch contact left back through the left edge: */
-			if(touchX<=Scalar(0))
-				{
-				/* Revert back to the modifier plane that was active when the modifier contact started: */
-				modifierPlane=previousModifierPlane;
-				}
-			
-			/* Finish the current modifier touch: */
-			modifierTouchId=-1;
-			modifierPanelTimeout=peekApplicationTime()+1.0;
-			
-			/* Deactivate the device mapping: */
-			dm.state=DeviceMapper::Inactive;
-			}
-		else if(dm.pred!=0) // A secondary touch contact
-			{
-			/* Find the primary contact: */
-			DeviceMapper* primary=dm.pred;
-			while(primary->pred!=0)
-				primary=primary->pred;
-			
-			/* Remove the device mapping from the multi-contact list: */
-			dm.pred->succ=dm.succ;
-			if(dm.succ!=0)
-				dm.succ->pred=dm.pred;
-			
-			/* Calculate the primary's reported position immediately before and after this event to update the offset vector: */
-			Scalar posSum[2];
-			posSum[1]=posSum[0]=Scalar(0);
-			unsigned int numContacts=0;
-			for(DeviceMapper* cPtr=primary;cPtr!=0;cPtr=cPtr->succ)
-				{
-				posSum[0]+=cPtr->windowPos[0];
-				posSum[1]+=cPtr->windowPos[1];
-				++numContacts;
-				}
-			
-			/* Calculate a new position offset to make the transition smooth: */
-			for(int i=0;i<2;++i)
-				primary->offset[i]=((posSum[i]+dm.windowPos[i])/Scalar(numContacts+1)+primary->offset[i])-posSum[i]/Scalar(numContacts);
-			
-			/* Deactivate the device mapping: */
-			dm.state=DeviceMapper::Inactive;
-			
-			// DEBUGGING
-			// std::cout<<"Deactivating secondary mapper "<<(&dm-deviceMappers)<<std::endl;
-			}
-		else // A primary touch contact
-			{
-			/* Mark the device mapping as dead: */
+		/* Kill the touch contact if the touch ellipse is too large: */
+		if(dm.majorAxis*dm.minorAxis>maxContactArea)
 			dm.dead=true;
-			
-			/* Calculate the primary's reported position immediately before and after this event to update the offset vector: */
-			Scalar posSum[2];
-			posSum[1]=posSum[0]=Scalar(0);
-			unsigned int numContacts=0;
-			for(DeviceMapper* cPtr=dm.succ;cPtr!=0;cPtr=cPtr->succ)
+		else
+			{
+			/* Act based on the type of device mapping: */
+			if(dm.state==DeviceMapper::Modifier) // A modifier touch event
 				{
-				posSum[0]+=cPtr->windowPos[0];
-				posSum[1]+=cPtr->windowPos[1];
-				++numContacts;
+				/* Check if the touch contact left back through the left edge: */
+				if(event.x<=Scalar(0))
+					{
+					/* Revert back to the modifier plane that was active when the modifier contact started: */
+					modifierPlane=previousModifierPlane;
+					}
+				
+				/* Finish the current modifier touch: */
+				modifierTouchId=-1;
+				modifierPanelTimeout=peekApplicationTime()+1.0;
+				
+				/* Deactivate the device mapping: */
+				dm.state=DeviceMapper::Inactive;
 				}
-			
-			/* Calculate a new position offset to make the transition smooth: */
-			for(int i=0;i<2;++i)
-				dm.offset[i]=((posSum[i]+dm.windowPos[i])/Scalar(numContacts+1)+dm.offset[i])-posSum[i]/Scalar(numContacts);
-			
-			// DEBUGGING
-			// std::cout<<"Marking primary mapper "<<(&dm-deviceMappers)<<" as dead"<<std::endl;
+			else if(dm.pred!=0) // A secondary touch contact
+				{
+				/* Find the primary contact: */
+				DeviceMapper* primary=dm.pred;
+				while(primary->pred!=0)
+					primary=primary->pred;
+				
+				/* Remove the device mapping from the multi-contact list: */
+				dm.pred->succ=dm.succ;
+				if(dm.succ!=0)
+					dm.succ->pred=dm.pred;
+				
+				/* Calculate the primary's reported position immediately before and after this event to update the offset vector: */
+				Scalar posSum[2];
+				posSum[1]=posSum[0]=Scalar(0);
+				unsigned int numContacts=0;
+				for(DeviceMapper* cPtr=primary;cPtr!=0;cPtr=cPtr->succ)
+					{
+					posSum[0]+=cPtr->windowPos[0];
+					posSum[1]+=cPtr->windowPos[1];
+					++numContacts;
+					}
+				
+				/* Calculate a new position offset to make the transition smooth: */
+				for(int i=0;i<2;++i)
+					primary->offset[i]=((posSum[i]+dm.windowPos[i])/Scalar(numContacts+1)+primary->offset[i])-posSum[i]/Scalar(numContacts);
+				
+				/* Deactivate the device mapping: */
+				dm.state=DeviceMapper::Inactive;
+				
+				// DEBUGGING
+				// std::cout<<"Deactivating secondary mapper "<<(&dm-deviceMappers)<<std::endl;
+				}
+			else // A primary touch contact
+				{
+				/* Mark the device mapping as dead: */
+				dm.dead=true;
+				
+				/* Calculate the primary's reported position immediately before and after this event to update the offset vector: */
+				Scalar posSum[2];
+				posSum[1]=posSum[0]=Scalar(0);
+				unsigned int numContacts=0;
+				for(DeviceMapper* cPtr=dm.succ;cPtr!=0;cPtr=cPtr->succ)
+					{
+					posSum[0]+=cPtr->windowPos[0];
+					posSum[1]+=cPtr->windowPos[1];
+					++numContacts;
+					}
+				
+				/* Calculate a new position offset to make the transition smooth: */
+				for(int i=0;i<2;++i)
+					dm.offset[i]=((posSum[i]+dm.windowPos[i])/Scalar(numContacts+1)+dm.offset[i])-posSum[i]/Scalar(numContacts);
+				
+				// DEBUGGING
+				// std::cout<<"Marking primary mapper "<<(&dm-deviceMappers)<<" as dead"<<std::endl;
+				}
 			}
-		
 		/* Remove the touch ID from the mapper: */
 		touchIdMapper.removeEntry(tmIt);
 		}

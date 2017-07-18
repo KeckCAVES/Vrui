@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceClient - Class encapsulating the VR device protocol's client
 side.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -32,6 +32,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Threads/Mutex.h>
 #include <Threads/MutexCond.h>
 #include <Vrui/Internal/VRDeviceState.h>
+#include <Vrui/Internal/BatteryState.h>
 #include <Vrui/Internal/VRDevicePipe.h>
 
 /* Forward declarations: */
@@ -64,17 +65,23 @@ class VRDeviceClient
 		};
 	
 	typedef Misc::FunctionCall<VRDeviceClient*> Callback; // Type for callback functions
+	typedef Misc::FunctionCall<unsigned int> BatteryStateUpdatedCallback; // Type for callback functions called from background thread when a virtual device's battery status changes; battery states are locked inside call
 	typedef Misc::FunctionCall<const HMDConfiguration&> HMDConfigurationUpdatedCallback; // Type for callback functions called from background thread when an HMD configuration is updated; configurations are locked inside call
 	typedef Misc::FunctionCall<const ProtocolError&> ErrorCallback; // Type for error callback functions called from background thread to signal errors in streaming mode
 	
 	/* Elements: */
 	private:
 	VRDevicePipe pipe; // Pipe connected to device server
+	bool local; // Flag whether the connected device server runs on the same host, i.e., uses the same time stamp source
 	unsigned int serverProtocolVersionNumber; // Version number of server protocol
 	bool serverHasTimeStamps; // Flag whether the connected device server sends tracker state time stamps
+	bool serverHasValidFlags; // Flag whether the connected device server sends tracker valid flags
 	std::vector<VRDeviceDescriptor*> virtualDevices; // List of virtual input devices managed by the server
 	mutable Threads::Mutex stateMutex; // Mutex to serialize access to current state
 	VRDeviceState state; // Shadow of server's current state
+	mutable Threads::Mutex batteryStatesMutex; // Mutex to serialize access to the battery state array
+	BatteryState* batteryStates; // Array of virtual device battery states maintained by the server
+	BatteryStateUpdatedCallback* batteryStateUpdatedCallback; // Callback called when a virtual device's battery status changes
 	unsigned int numHmdConfigurations; // Number of HMD configurations maintained by the server
 	mutable Threads::Mutex hmdConfigurationMutex; // Mutex to serialize access to the HMD configurations
 	HMDConfiguration* hmdConfigurations; // Array of HMD configurations maintained by the server
@@ -86,6 +93,7 @@ class VRDeviceClient
 	Threads::MutexCond packetSignalCond; // Condition variable to signal packet reception in streaming mode
 	Callback* packetNotificationCallback; // Function called when a new state packet arrives from the server in streaming mode (called from background thread)
 	ErrorCallback* errorCallback; // Function called when a protocol error occurs in streaming mode (called from background thread)
+	VRDeviceState::TimeStamp timeStampDelta; // Offset between server's time stamps and the client's local clock source
 	
 	/* Private methods: */
 	void* streamReceiveThreadMethod(void); // Stream packet receiving thread method
@@ -98,6 +106,10 @@ class VRDeviceClient
 	~VRDeviceClient(void); // Disconnects client from server
 	
 	/* Methods: */
+	bool isLocal(void) const // Returns true if client and server are running on the same host
+		{
+		return local;
+		}
 	int getNumVirtualDevices(void) const // Returns the number of managed virtual input devices
 		{
 		return int(virtualDevices.size());
@@ -118,6 +130,18 @@ class VRDeviceClient
 		{
 		return state;
 		}
+	void lockBatteryStates(void) const // Locks battery state array
+		{
+		batteryStatesMutex.lock();
+		}
+	void unlockBatteryStates(void) const // Unlocks battery state array
+		{
+		batteryStatesMutex.unlock();
+		}
+	const BatteryState& getBatteryState(unsigned int deviceIndex) const // Returns the current battery state of the given virtual input device (battery states must be locked while being used)
+		{
+		return batteryStates[deviceIndex];
+		}
 	unsigned int getNumHmdConfigurations(void) const // Returns the number of HMD configurations maintained by the server
 		{
 		return numHmdConfigurations;
@@ -134,7 +158,8 @@ class VRDeviceClient
 	void activate(void); // Prepares the server for sending state packets
 	void deactivate(void); // Deactivates server
 	void getPacket(void); // Requests state packet from server; blocks until arrival
-	void setHmdConfigurationUpdatedCallback(unsigned int trackerIndex,HMDConfigurationUpdatedCallback* newHmdConfigurationUpdatedCallback); // Installs given callback function for the given tracker index (device client adopts function object)
+	void setBatteryStateUpdatedCallback(BatteryStateUpdatedCallback* newBatteryStateUpdatedCallback); // Installs given callback function (device client adopts function object; battery states must be locked)
+	void setHmdConfigurationUpdatedCallback(unsigned int trackerIndex,HMDConfigurationUpdatedCallback* newHmdConfigurationUpdatedCallback); // Installs given callback function for the given tracker index (device client adopts function object; HMD configurations must be locked)
 	void startStream(Callback* newPacketNotificationCallback,ErrorCallback* newErrorCallback =0); // Installs given callback functions (device client adopts function objects) and starts streaming mode
 	void stopStream(void); // Stops streaming mode
 	};

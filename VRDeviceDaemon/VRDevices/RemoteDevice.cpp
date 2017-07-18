@@ -1,6 +1,6 @@
 /***********************************************************************
 RemoteDevice - Class to daisy-chain device servers on remote machines.
-Copyright (c) 2002-2014 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -42,7 +42,7 @@ void RemoteDevice::deviceThreadMethod(void)
 		if(pipe.readMessage()==Vrui::VRDevicePipe::PACKET_REPLY) // Just ignore any other messages
 			{
 			/* Read current server state: */
-			state.read(pipe,false);
+			state.read(pipe,false,false);
 			
 			/* Copy new state into device manager: */
 			for(int i=0;i<state.getNumValuators();++i)

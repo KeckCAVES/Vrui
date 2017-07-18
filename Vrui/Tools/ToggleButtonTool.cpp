@@ -1,7 +1,7 @@
 /***********************************************************************
 ToggleButtonTool - Class to convert a set of regular buttons into toggle
 buttons.
-Copyright (c) 2013 Oliver Kreylos
+Copyright (c) 2013-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -112,8 +112,6 @@ Methods of class ToggleButtonTool:
 ToggleButtonTool::ToggleButtonTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment)
 	{
-	/* Set the transformation source device: */
-	sourceDevice=getButtonDevice(0);
 	}
 
 ToggleButtonTool::~ToggleButtonTool(void)

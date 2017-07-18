@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2016 Oliver Kreylos
+Copyright (c) 2005-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -71,6 +71,7 @@ Methods of class CAVERendererFactory:
 
 CAVERendererFactory::CAVERendererFactory(VisletManager& visletManager)
 	:VisletFactory("CAVERenderer",visletManager),
+	 alignToEnvironment(true),
 	 surfaceMaterial(GLMaterial::Color(1.0f,1.0f,1.0f),GLMaterial::Color(0.0f,0.0f,0.0f),0.0f),
 	 tilesPerFoot(12),
 	 wallTextureFileName("KeckCAVESWall.png"),
@@ -85,6 +86,7 @@ CAVERendererFactory::CAVERendererFactory(VisletManager& visletManager)
 	
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=visletManager.getVisletClassSection(getClassName());
+	alignToEnvironment=cfs.retrieveValue<bool>("./alignToEnvironment",alignToEnvironment);
 	surfaceMaterial=cfs.retrieveValue<GLMaterial>("./surfaceMaterial",surfaceMaterial);
 	tilesPerFoot=cfs.retrieveValue<int>("./tilesPerFoot",tilesPerFoot);
 	wallTextureFileName=cfs.retrieveString("./wallTextureFileName",wallTextureFileName);
@@ -296,7 +298,7 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 	/* Parse the command line: */
 	std::string wallTextureFileName=factory->wallTextureFileName;
 	std::string floorTextureFileName=factory->floorTextureFileName;
-	bool alignCave=true;
+	bool alignToEnvironment=factory->alignToEnvironment;
 	for(int i=0;i<numArguments;++i)
 		{
 		if(arguments[i][0]=='-')
@@ -317,11 +319,11 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 				tilesPerFoot=atoi(arguments[i]);
 				}
 			else if(strcasecmp(arguments[i]+1,"noAlign")==0)
-				alignCave=false;
+				alignToEnvironment=false;
 			}
 		}
 	
-	if(alignCave)
+	if(alignToEnvironment)
 		{
 		/* Calculate a transformation to align the CAVE model with the local environment: */
 		const Vector& normal=getFloorPlane().getNormal();
@@ -400,7 +402,7 @@ void CAVERenderer::enable(void)
 		}
 	
 	/* Enable the vislet as far as the vislet manager is concerned: */
-	active=true;
+	Vislet::enable();
 	
 	/* Trigger the unfolding animation: */
 	angleAnimStep=90.0;
@@ -475,7 +477,7 @@ void CAVERenderer::frame(void)
 			viewerHeadlightStates=0;
 			
 			/* Disable the vislet: */
-			active=false;
+			Vislet::disable();
 			}
 		else if(angle>720.0)
 			{

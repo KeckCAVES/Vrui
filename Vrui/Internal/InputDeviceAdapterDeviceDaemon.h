@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <string>
 #include <vector>
+#include <Realtime/Time.h>
 #include <Threads/Spinlock.h>
 #include <Vrui/Internal/VRDeviceClient.h>
 #include <Vrui/Internal/InputDeviceAdapterIndexMap.h>
@@ -47,7 +48,7 @@ class InputDeviceAdapterDeviceDaemon:public InputDeviceAdapterIndexMap
 	private:
 	VRDeviceClient deviceClient; // Device client delivering "raw" device state
 	bool predictMotion; // Flag to enable motion prediction based on age of received tracking data and estimated frame presentation time
-	float motionPredictionDelta; // Motion prediction time interval to apply to tracked devices in seconds
+	Realtime::TimeVector motionPredictionDelta; // Motion prediction time interval to apply to tracked devices
 	std::vector<std::string> buttonNames; // Array of button names for all defined input devices
 	std::vector<std::string> valuatorNames; // Array of valuator names for all defined input devices
 	Threads::Spinlock errorMessageMutex; // Mutex protecting the error message log

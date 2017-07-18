@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2016 Oliver Kreylos
+Copyright (c) 2005-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -51,6 +51,7 @@ class CAVERendererFactory:public VisletFactory
 	
 	/* Elements: */
 	private:
+	bool alignToEnvironment; // Flag to enable automatic alignment of the rendered CAVE environment to the configured VR environment
 	GLMaterial surfaceMaterial; // Material properties to use for the CAVE walls and floor
 	int tilesPerFoot; // Number of tiles to subdivide each foot of the wall of floor rectangle into
 	std::string wallTextureFileName; // Name of image file to map onto CAVE walls

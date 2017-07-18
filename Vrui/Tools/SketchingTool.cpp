@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2015 Oliver Kreylos
+Copyright (c) 2009-2016 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,6 +31,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <IO/OStream.h>
 #include <Math/Math.h>
 #include <Geometry/OrthogonalTransformation.h>
+#include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
 #include <GL/GLGeometryWrappers.h>
@@ -57,6 +58,7 @@ Methods of class SketchingToolFactory:
 SketchingToolFactory::SketchingToolFactory(ToolManager& toolManager)
 	:ToolFactory("SketchingTool",toolManager),
 	 detailSize(getUiSize()),
+	 brushAxis(1,0,0),
 	 curvesFileName("SketchingTool.curves"),
 	 curvesSelectionHelper(0)
 	{
@@ -71,6 +73,7 @@ SketchingToolFactory::SketchingToolFactory(ToolManager& toolManager)
 	/* Load class settings: */
 	Misc::ConfigurationFileSection cfs=toolManager.getToolClassSection(getClassName());
 	detailSize=cfs.retrieveValue<Scalar>("./detailSize",detailSize);
+	brushAxis=cfs.retrieveValue<Vector>("./brushAxis",brushAxis);
 	curvesFileName=cfs.retrieveString("./curvesFileName",curvesFileName);
 	
 	/* Set tool class' factory pointer: */
@@ -166,6 +169,20 @@ void SketchingTool::SketchObject::read(IO::ValueSource& vs)
 Methods of class SketchingTool::Curve:
 *************************************/
 
+bool SketchingTool::Curve::pick(const Point& p,Scalar radius2) const
+	{
+	/* Check the point's distance from the bounding box: */
+	if(boundingBox.sqrDist(p)>radius2)
+		return false;
+	
+	/* Check every control point against the given point: */
+	for(std::vector<ControlPoint>::const_iterator cpIt=controlPoints.begin();cpIt!=controlPoints.end();++cpIt)
+		if(Geometry::sqrDist(p,cpIt->pos)<=radius2)
+			return true;
+	
+	return false;
+	}
+
 void SketchingTool::Curve::write(IO::OStream& os) const
 	{
 	/* Write the object type: */
@@ -185,7 +202,8 @@ void SketchingTool::Curve::read(IO::ValueSource& vs)
 	/* Call base class method: */
 	SketchObject::read(vs);
 	
-	/* Read the list of control points: */
+	/* Read the list of control points and compute the bounding box: */
+	boundingBox=Box::empty;
 	unsigned int numControlPoints=vs.readUnsignedInteger();
 	controlPoints.reserve(numControlPoints);
 	for(unsigned int controlPointIndex=0;controlPointIndex<numControlPoints;++controlPointIndex)
@@ -197,6 +215,7 @@ void SketchingTool::Curve::read(IO::ValueSource& vs)
 		for(int i=0;i<3;++i)
 			cp.pos[i]=Point::Scalar(vs.readNumber());
 		controlPoints.push_back(cp);
+		boundingBox.addPoint(cp.pos);
 		}
 	}
 
@@ -211,9 +230,62 @@ void SketchingTool::Curve::glRenderAction(GLContextData& contextData) const
 	glEnd();
 	}
 
+void SketchingTool::Curve::setGLState(GLContextData& contextData)
+	{
+	/* Set up OpenGL state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+	glDisable(GL_LIGHTING);
+	}
+
+void SketchingTool::Curve::resetGLState(GLContextData& contextData)
+	{
+	/* Reset OpenGL: */
+	glPopAttrib();
+	}
+
 /****************************************
 Methods of class SketchingTool::Polyline:
 ****************************************/
+
+bool SketchingTool::Polyline::pick(const Point& p,Scalar radius2) const
+	{
+	/* Check the point's distance from the bounding box: */
+	if(boundingBox.sqrDist(p)>radius2)
+		return false;
+	
+	/* Check the beginning vertex against the given point: */
+	std::vector<Point>::const_iterator v0It=vertices.begin();
+	if(Geometry::sqrDist(p,*v0It)<=radius2)
+		return true;
+	
+	/* Check every polyline segment against the given point: */
+	for(std::vector<Point>::const_iterator v1It=v0It+1;v1It!=vertices.end();v0It=v1It,++v1It)
+		{
+		/* Check the segment's end vertex against the given point: */
+		if(Geometry::sqrDist(p,*v1It)<=radius2)
+			return true;
+		
+		/* Check the line segment against the given point: */
+		Vector segDir=*v1It-*v0It;
+		Scalar segLength2=segDir.sqr();
+		if(segLength2>=radius2)
+			{
+			/* Check if the point is inside the segment's extents: */
+			Vector pv0=p-*v0It;
+			Scalar y=segDir*pv0;
+			Scalar y2=Math::sqr(y)/segLength2;
+			if(y>=Scalar(0)&&y2<=segLength2)
+				{
+				/* Check the distance from the given point to the segment's line: */
+				Scalar dist2=Geometry::sqr(pv0)-y2;
+				if(dist2<=radius2)
+					return true;
+				}
+			}
+		}
+	
+	return false;
+	}
 
 void SketchingTool::Polyline::write(IO::OStream& os) const
 	{
@@ -234,7 +306,8 @@ void SketchingTool::Polyline::read(IO::ValueSource& vs)
 	/* Call base class method: */
 	SketchObject::read(vs);
 	
-	/* Read the list of vertices: */
+	/* Read the list of vertices and compute the bounding box: */
+	boundingBox=Box::empty;
 	unsigned int numVertices=vs.readUnsignedInteger();
 	vertices.reserve(numVertices);
 	for(unsigned int vertexIndex=0;vertexIndex<numVertices;++vertexIndex)
@@ -243,6 +316,7 @@ void SketchingTool::Polyline::read(IO::ValueSource& vs)
 		for(int i=0;i<3;++i)
 			pos[i]=Point::Scalar(vs.readNumber());
 		vertices.push_back(pos);
+		boundingBox.addPoint(pos);
 		}
 	}
 
@@ -268,6 +342,114 @@ void SketchingTool::Polyline::glRenderAction(GLContextData& contextData) const
 		}
 	}
 
+void SketchingTool::Polyline::setGLState(GLContextData& contextData)
+	{
+	/* Set up OpenGL state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT|GL_POINT_BIT);
+	glDisable(GL_LIGHTING);
+	}
+
+void SketchingTool::Polyline::resetGLState(GLContextData& contextData)
+	{
+	/* Reset OpenGL: */
+	glPopAttrib();
+	}
+
+/*******************************************
+Methods of class SketchingTool::BrushStroke:
+*******************************************/
+
+bool SketchingTool::BrushStroke::pick(const Point& p,Scalar radius2) const
+	{
+	/* Check the point's distance from the bounding box: */
+	if(boundingBox.sqrDist(p)>radius2)
+		return false;
+	
+	/* Check every control point against the given point: */
+	for(std::vector<ControlPoint>::const_iterator cpIt=controlPoints.begin();cpIt!=controlPoints.end();++cpIt)
+		if(Geometry::sqrDist(p,cpIt->pos)<=radius2)
+			return true;
+	
+	return false;
+	}
+
+void SketchingTool::BrushStroke::write(IO::OStream& os) const
+	{
+	/* Write the object type: */
+	os<<"\nBrushStroke\n";
+	
+	/* Call base class method: */
+	SketchObject::write(os);
+	
+	/* Write the brush stroke's control points: */
+	os<<controlPoints.size()<<'\n';
+	for(std::vector<ControlPoint>::const_iterator cpIt=controlPoints.begin();cpIt!=controlPoints.end();++cpIt)
+		{
+		os<<cpIt->pos[0]<<' '<<cpIt->pos[1]<<' '<<cpIt->pos[2]<<", ";
+		os<<cpIt->brushAxis[0]<<' '<<cpIt->brushAxis[1]<<' '<<cpIt->brushAxis[2]<<", ";
+		os<<cpIt->normal[0]<<' '<<cpIt->normal[1]<<' '<<cpIt->normal[2]<<std::endl;
+		}
+	}
+
+void SketchingTool::BrushStroke::read(IO::ValueSource& vs)
+	{
+	/* Call base class method: */
+	SketchObject::read(vs);
+	
+	/* Read the list of control points and compute the bounding box: */
+	boundingBox=Box::empty;
+	unsigned int numControlPoints=vs.readUnsignedInteger();
+	controlPoints.reserve(numControlPoints);
+	for(unsigned int controlPointIndex=0;controlPointIndex<numControlPoints;++controlPointIndex)
+		{
+		ControlPoint cp;
+		for(int i=0;i<3;++i)
+			cp.pos[i]=Point::Scalar(vs.readNumber());
+		if(vs.readChar()!=',')
+			Misc::throwStdErr("File is not a curve file");
+		for(int i=0;i<3;++i)
+			cp.brushAxis[i]=Vector::Scalar(vs.readNumber());
+		if(vs.readChar()!=',')
+			Misc::throwStdErr("File is not a curve file");
+		for(int i=0;i<3;++i)
+			cp.normal[i]=Vector::Scalar(vs.readNumber());
+		controlPoints.push_back(cp);
+		boundingBox.addPoint(cp.pos-cp.brushAxis);
+		boundingBox.addPoint(cp.pos+cp.brushAxis);
+		}
+	}
+
+void SketchingTool::BrushStroke::glRenderAction(GLContextData& contextData) const
+	{
+	/* Draw the brush stroke as a quad strip: */
+	glColor(color);
+	glBegin(GL_QUAD_STRIP);
+	for(std::vector<ControlPoint>::const_iterator cpIt=controlPoints.begin();cpIt!=controlPoints.end();++cpIt)
+		{
+		glNormal(cpIt->normal);
+		glVertex(cpIt->pos+cpIt->brushAxis);
+		glVertex(cpIt->pos-cpIt->brushAxis);
+		}
+	glEnd();
+	}
+
+void SketchingTool::BrushStroke::setGLState(GLContextData& contextData)
+	{
+	/* Set up OpenGL state: */
+	glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT);
+	glEnable(GL_LIGHTING);
+	glDisable(GL_CULL_FACE);
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_TRUE);
+	glEnable(GL_COLOR_MATERIAL);
+	glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
+	}
+
+void SketchingTool::BrushStroke::resetGLState(GLContextData& contextData)
+	{
+	/* Reset OpenGL: */
+	glPopAttrib();
+	}
+
 /**************************************
 Static elements of class SketchingTool:
 **************************************/
@@ -288,9 +470,9 @@ Methods of class SketchingTool:
 SketchingTool::SketchingTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment)
 	:UtilityTool(sFactory,inputAssignment),
 	 controlDialogPopup(0),colorBox(0),
-	 newSketchObjectType(0),newLineWidth(3.0f),newColor(255,0,0),
+	 sketchMode(CURVE),newLineWidth(3.0f),newColor(255,0,0),
 	 active(false),
-	 currentCurve(0),currentPolyline(0)
+	 currentCurve(0),currentPolyline(0),currentBrushStroke(0)
 	{
 	/* Get the style sheet: */
 	const GLMotif::StyleSheet* ss=getWidgetManager()->getStyleSheet();
@@ -313,9 +495,11 @@ SketchingTool::SketchingTool(const ToolFactory* sFactory,const ToolInputAssignme
 	sketchObjectType->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	sketchObjectType->addToggle("Curve");
 	sketchObjectType->addToggle("Polyline");
+	sketchObjectType->addToggle("Brush Stroke");
+	sketchObjectType->addToggle("Eraser");
 	sketchObjectType->setSelectionMode(GLMotif::RadioBox::ALWAYS_ONE);
-	sketchObjectType->setSelectedToggle(newSketchObjectType);
-	sketchObjectType->getValueChangedCallbacks().add(this,&SketchingTool::sketchObjectTypeCallback);
+	sketchObjectType->setSelectedToggle(int(sketchMode));
+	sketchObjectType->getValueChangedCallbacks().add(this,&SketchingTool::sketchModeCallback);
 	sketchObjectType->manageChild();
 	
 	/* Create a slider to set the line width: */
@@ -377,8 +561,12 @@ SketchingTool::~SketchingTool(void)
 	delete controlDialogPopup;
 	
 	/* Delete all sketching objects: */
-	for(std::vector<SketchObject*>::iterator soIt=sketchObjects.begin();soIt!=sketchObjects.end();++soIt)
-		delete *soIt;
+	for(std::vector<Curve*>::iterator cIt=curves.begin();cIt!=curves.end();++cIt)
+		delete *cIt;
+	for(std::vector<Polyline*>::iterator pIt=polylines.begin();pIt!=polylines.end();++pIt)
+		delete *pIt;
+	for(std::vector<BrushStroke*>::iterator bsIt=brushStrokes.begin();bsIt!=brushStrokes.end();++bsIt)
+		delete *bsIt;
 	}
 
 void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
@@ -386,15 +574,13 @@ void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 	/* Check if the button has just been pressed: */
 	if(cbData->newButtonState)
 		{
-		switch(newSketchObjectType)
+		switch(sketchMode)
 			{
-			case 0: // Curve
+			case CURVE:
 				{
 				/* Start a new curve: */
-				currentCurve=new Curve;
-				currentCurve->lineWidth=newLineWidth;
-				currentCurve->color=newColor;
-				sketchObjects.push_back(currentCurve);
+				currentCurve=new Curve(newLineWidth,newColor);
+				curves.push_back(currentCurve);
 				
 				/* Append the curve's first control point: */
 				Curve::ControlPoint cp;
@@ -402,20 +588,21 @@ void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 				cp.pos=lastPoint=invNav.transform(getButtonDevicePosition(0));
 				cp.t=getApplicationTime();
 				currentCurve->controlPoints.push_back(cp);
+				currentCurve->boundingBox.addPoint(cp.pos);
 				
+				/* Append the curve's tentative last control point: */
+				currentCurve->controlPoints.push_back(cp);
 				break;
 				}
 			
-			case 1: // Polyline
+			case POLYLINE:
 				{
 				/* Create a new polyline if there isn't one yet: */
 				if(currentPolyline==0)
 					{
 					/* Start a new polyline: */
-					currentPolyline=new Polyline;
-					currentPolyline->lineWidth=newLineWidth;
-					currentPolyline->color=newColor;
-					sketchObjects.push_back(currentPolyline);
+					currentPolyline=new Polyline(newLineWidth,newColor);
+					polylines.push_back(currentPolyline);
 					}
 				
 				/* Append the polyline's next vertex: */
@@ -427,6 +614,30 @@ void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 				
 				break;
 				}
+			
+			case BRUSHSTROKE:
+				{
+				/* Start a new brush stroke: */
+				currentBrushStroke=new BrushStroke(newLineWidth,newColor);
+				brushStrokes.push_back(currentBrushStroke);
+				
+				/* Append the brush stroke's first control point: */
+				BrushStroke::ControlPoint cp;
+				const NavTransform& invNav=getInverseNavigationTransformation();
+				cp.pos=lastPoint=invNav.transform(getButtonDevicePosition(0));
+				cp.brushAxis=invNav.transform(getButtonDeviceTransformation(0).transform(factory->brushAxis))*(getUiSize()*Scalar(newLineWidth));
+				cp.normal=Geometry::normal(cp.brushAxis);
+				currentBrushStroke->controlPoints.push_back(cp);
+				currentBrushStroke->boundingBox.addPoint(cp.pos+cp.brushAxis);
+				currentBrushStroke->boundingBox.addPoint(cp.pos-cp.brushAxis);
+				
+				/* Append the brush stroke's tentative last control point: */
+				currentBrushStroke->controlPoints.push_back(cp);
+				break;
+				}
+			
+			case ERASER:
+				break;
 			}
 		
 		/* Activate the tool: */
@@ -434,24 +645,39 @@ void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 		}
 	else
 		{
-		switch(newSketchObjectType)
+		switch(sketchMode)
 			{
-			case 0: // Curve
+			case CURVE:
 				{
-				/* Append the final control point to the curve: */
-				Curve::ControlPoint cp;
-				cp.pos=currentPoint;
-				cp.t=getApplicationTime();
-				currentCurve->controlPoints.push_back(cp);
+				/* Append the final control point to the curve's bounding box: */
+				currentCurve->boundingBox.addPoint(currentCurve->controlPoints.back().pos);
 				
+				/* Finish the curve: */
 				currentCurve=0;
 				break;
 				}
 			
-			case 1: // Polyline
+			case POLYLINE:
+				/* Add the final vertex to the polyline's bounding box: */
+				currentPolyline->boundingBox.addPoint(currentPolyline->vertices.back());
+				
 				/* Finish the polyline if the final vertex is the first vertex: */
 				if(currentPolyline->vertices.size()>1&&currentPolyline->vertices.front()==currentPolyline->vertices.back())
 					currentPolyline=0;
+				break;
+			
+			case BRUSHSTROKE:
+				{
+				/* Append the final control point to the brush stroke's bounding box: */
+				currentBrushStroke->boundingBox.addPoint(currentBrushStroke->controlPoints.back().pos+currentBrushStroke->controlPoints.back().brushAxis);
+				currentBrushStroke->boundingBox.addPoint(currentBrushStroke->controlPoints.back().pos-currentBrushStroke->controlPoints.back().brushAxis);
+				
+				/* Finish the brush stroke: */
+				currentBrushStroke=0;
+				break;
+				}
+			
+			case ERASER:
 				break;
 			}
 		
@@ -470,18 +696,23 @@ void SketchingTool::frame(void)
 		
 		if(currentCurve!=0)
 			{
+			#if 0
 			/* Snap the dragging point to the first curve control point: */
-			if(currentCurve->controlPoints.size()>1&&Geometry::sqrDist(currentCurve->controlPoints.front().pos,currentPoint)<Math::sqr(Vrui::getPointPickDistance()))
+			if(currentCurve->controlPoints.size()>2&&Geometry::sqrDist(currentCurve->controlPoints.front().pos,currentPoint)<Math::sqr(getPointPickDistance()))
 				currentPoint=currentCurve->controlPoints.front().pos;
+			#endif
+			
+			/* Set the tentative last control point: */
+			Curve::ControlPoint& cp=currentCurve->controlPoints.back();
+			cp.pos=currentPoint;
+			cp.t=getApplicationTime();
 			
 			/* Check if the dragging point is far enough away from the most recent curve vertex: */
 			if(Geometry::sqrDist(currentPoint,lastPoint)>=Math::sqr(factory->detailSize*invNav.getScaling()))
 				{
-				/* Append the current dragging point to the curve: */
-				Curve::ControlPoint cp;
-				cp.pos=currentPoint;
-				cp.t=getApplicationTime();
+				/* Fix the tentative last control point: */
 				currentCurve->controlPoints.push_back(cp);
+				currentCurve->boundingBox.addPoint(cp.pos);
 				
 				/* Remember the last added point: */
 				lastPoint=currentPoint;
@@ -491,21 +722,82 @@ void SketchingTool::frame(void)
 		if(currentPolyline!=0)
 			{
 			/* Snap the dragging point to the first polyline vertex: */
-			if(currentPolyline->vertices.size()>1&&Geometry::sqrDist(currentPolyline->vertices.front(),currentPoint)<Math::sqr(Vrui::getPointPickDistance()))
+			if(currentPolyline->vertices.size()>1&&Geometry::sqrDist(currentPolyline->vertices.front(),currentPoint)<Math::sqr(getPointPickDistance()))
 				currentPoint=currentPolyline->vertices.front();
 			
 			/* Update the last polyline vertex: */
 			currentPolyline->vertices.back()=currentPoint;
+			}
+		
+		if(currentBrushStroke!=0)
+			{
+			/* Update the brush stroke's final normal vectors: */
+			std::vector<BrushStroke::ControlPoint>::iterator cpIt=currentBrushStroke->controlPoints.end();
+			unsigned int length=currentBrushStroke->controlPoints.size();
+			if(length>2)
+				cpIt[-2].normal=Geometry::normalize((cpIt[-1].pos-cpIt[-3].pos)^cpIt[-2].brushAxis);
+			else
+				cpIt[-2].normal=Geometry::normalize((cpIt[-1].pos-cpIt[-2].pos)^cpIt[-2].brushAxis);
+			cpIt[-1].normal=Geometry::normalize((cpIt[-1].pos-cpIt[-2].pos)^cpIt[-1].brushAxis);
+			
+			/* Set the tentative last control point: */
+			BrushStroke::ControlPoint& cp=currentBrushStroke->controlPoints.back();
+			cp.pos=currentPoint;
+			cp.brushAxis=invNav.transform(getButtonDeviceTransformation(0).transform(factory->brushAxis))*(getUiSize()*Scalar(newLineWidth));
+			cp.normal=Geometry::normal(cp.brushAxis);
+			
+			/* Check if the dragging point is far enough away from the most recent curve vertex: */
+			if(Geometry::sqrDist(currentPoint,lastPoint)>=Math::sqr(factory->detailSize*invNav.getScaling()))
+				{
+				/* Fix the tentative last control point: */
+				currentBrushStroke->controlPoints.push_back(cp);
+				currentBrushStroke->boundingBox.addPoint(cp.pos+cp.brushAxis);
+				currentBrushStroke->boundingBox.addPoint(cp.pos-cp.brushAxis);
+				
+				/* Remember the last added point: */
+				lastPoint=currentPoint;
+				}
+			}
+		
+		if(currentCurve==0&&currentPolyline==0&&currentBrushStroke==0&&sketchMode==ERASER)
+			{
+			/* Delete all sketching objects inside the eraser's influence area: */
+			Scalar radius2=Math::sqr(getPointPickDistance());
+			
+			/* Check all sketching objects: */
+			for(std::vector<Curve*>::iterator cIt=curves.begin();cIt!=curves.end();++cIt)
+				if((*cIt)->pick(currentPoint,radius2))
+					{
+					/* Delete the curve: */
+					delete *cIt;
+					*cIt=curves.back();
+					curves.pop_back();
+					--cIt;
+					}
+			for(std::vector<Polyline*>::iterator pIt=polylines.begin();pIt!=polylines.end();++pIt)
+				if((*pIt)->pick(currentPoint,radius2))
+					{
+					/* Delete the polyline: */
+					delete *pIt;
+					*pIt=polylines.back();
+					polylines.pop_back();
+					--pIt;
+					}
+			for(std::vector<BrushStroke*>::iterator bsIt=brushStrokes.begin();bsIt!=brushStrokes.end();++bsIt)
+				if((*bsIt)->pick(currentPoint,radius2))
+					{
+					/* Delete the brush stroke: */
+					delete *bsIt;
+					*bsIt=brushStrokes.back();
+					brushStrokes.pop_back();
+					--bsIt;
+					}
 			}
 		}
 	}
 
 void SketchingTool::display(GLContextData& contextData) const
 	{
-	/* Set up OpenGL state: */
-	glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT|GL_POINT_BIT);
-	glDisable(GL_LIGHTING);
-	
 	/* Go to navigational coordinates: */
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
@@ -513,17 +805,44 @@ void SketchingTool::display(GLContextData& contextData) const
 	glMultMatrix(getDisplayState(contextData).modelviewNavigational);
 	
 	/* Render all sketching objects: */
-	for(std::vector<SketchObject*>::const_iterator soIt=sketchObjects.begin();soIt!=sketchObjects.end();++soIt)
-		(*soIt)->glRenderAction(contextData);
+	Curve::setGLState(contextData);
+	for(std::vector<Curve*>::const_iterator cIt=curves.begin();cIt!=curves.end();++cIt)
+		(*cIt)->glRenderAction(contextData);
+	Curve::resetGLState(contextData);
+	
+	Polyline::setGLState(contextData);
+	for(std::vector<Polyline*>::const_iterator pIt=polylines.begin();pIt!=polylines.end();++pIt)
+		(*pIt)->glRenderAction(contextData);
+	Polyline::resetGLState(contextData);
+	
+	BrushStroke::setGLState(contextData);
+	for(std::vector<BrushStroke*>::const_iterator bsIt=brushStrokes.begin();bsIt!=brushStrokes.end();++bsIt)
+		(*bsIt)->glRenderAction(contextData);
+	BrushStroke::resetGLState(contextData);
 	
 	/* Go back to physical coordinates: */
 	glPopMatrix();
 	
-	/* Reset OpenGL state: */
-	glPopAttrib();
+	if(sketchMode==BRUSHSTROKE&&!active)
+		{
+		/* Draw the brush: */
+		glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT);
+		glDisable(GL_LIGHTING);
+		glLineWidth(3.0f);
+		
+		glBegin(GL_LINES);
+		glColor(newColor);
+		Point pos=getButtonDevice(0)->getPosition();
+		Vector brushAxis=getButtonDeviceTransformation(0).transform(factory->brushAxis)*(getUiSize()*Scalar(newLineWidth));
+		glVertex(pos+brushAxis);
+		glVertex(pos-brushAxis);
+		glEnd();
+		
+		glPopAttrib();
+		}
 	}
 
-void SketchingTool::sketchObjectTypeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
+void SketchingTool::sketchModeCallback(GLMotif::RadioBox::ValueChangedCallbackData* cbData)
 	{
 	/* Deactivate the tool just in case: */
 	active=false;
@@ -531,7 +850,24 @@ void SketchingTool::sketchObjectTypeCallback(GLMotif::RadioBox::ValueChangedCall
 	currentPolyline=0;
 	
 	/* Set the new sketch object type: */
-	newSketchObjectType=cbData->radioBox->getToggleIndex(cbData->newSelectedToggle);
+	switch(cbData->radioBox->getToggleIndex(cbData->newSelectedToggle))
+		{
+		case 0:
+			sketchMode=CURVE;
+			break;
+		
+		case 1:
+			sketchMode=POLYLINE;
+			break;
+		
+		case 2:
+			sketchMode=BRUSHSTROKE;
+			break;
+		
+		case 3:
+			sketchMode=ERASER;
+			break;
+		}
 	}
 
 void SketchingTool::lineWidthSliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
@@ -556,10 +892,14 @@ void SketchingTool::saveCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackD
 		/* Write the curve file header: */
 		curveFile<<"Vrui Curve Editor Tool Curve File"<<std::endl;
 		
-		/* Write all sketch objects: */
-		curveFile<<sketchObjects.size()<<std::endl;
-		for(std::vector<SketchObject*>::const_iterator soIt=sketchObjects.begin();soIt!=sketchObjects.end();++soIt)
-			(*soIt)->write(curveFile);
+		/* Write all sketching objects: */
+		curveFile<<curves.size()+polylines.size()+brushStrokes.size()<<std::endl;
+		for(std::vector<Curve*>::iterator cIt=curves.begin();cIt!=curves.end();++cIt)
+			(*cIt)->write(curveFile);
+		for(std::vector<Polyline*>::iterator pIt=polylines.begin();pIt!=polylines.end();++pIt)
+			(*pIt)->write(curveFile);
+		for(std::vector<BrushStroke*>::iterator bsIt=brushStrokes.begin();bsIt!=brushStrokes.end();++bsIt)
+			(*bsIt)->write(curveFile);
 		}
 	catch(std::runtime_error err)
 		{
@@ -574,6 +914,7 @@ void SketchingTool::loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackD
 	active=false;
 	currentCurve=0;
 	currentPolyline=0;
+	currentBrushStroke=0;
 	
 	std::vector<SketchObject*> newSketchObjects;
 	try
@@ -596,12 +937,17 @@ void SketchingTool::loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackD
 			if(sot=="Curve")
 				{
 				/* Create a curve: */
-				newSketchObjects.push_back(new Curve);
+				newSketchObjects.push_back(new Curve(0.0f,Color(0,0,0)));
 				}
 			else if(sot=="Polyline")
 				{
 				/* Create a polyline: */
-				newSketchObjects.push_back(new Polyline);
+				newSketchObjects.push_back(new Polyline(0.0f,Color(0,0,0)));
+				}
+			else if(sot=="BrushStroke")
+				{
+				/* Create a brush stroke: */
+				newSketchObjects.push_back(new BrushStroke(0.0f,Color(0,0,0)));
 				}
 			else
 				Misc::throwStdErr("Unrecognized sketch object type %s",sot.c_str());
@@ -610,18 +956,34 @@ void SketchingTool::loadCurvesCallback(GLMotif::FileSelectionDialog::OKCallbackD
 			newSketchObjects.back()->read(curvesSource);
 			}
 		
-		/* Install the new sketch object list: */
-		std::swap(sketchObjects,newSketchObjects);
+		/* Distribute the new sketching objects to the per-type lists: */
+		curves.clear();
+		polylines.clear();
+		brushStrokes.clear();
+		for(std::vector<SketchObject*>::iterator soIt=newSketchObjects.begin();soIt!=newSketchObjects.end();++soIt)
+			{
+			Curve* c=dynamic_cast<Curve*>(*soIt);
+			if(c!=0)
+				curves.push_back(c);
+			
+			Polyline* p=dynamic_cast<Polyline*>(*soIt);
+			if(p!=0)
+				polylines.push_back(p);
+			
+			BrushStroke* bs=dynamic_cast<BrushStroke*>(*soIt);
+			if(bs!=0)
+				brushStrokes.push_back(bs);
+			}
 		}
 	catch(std::runtime_error err)
 		{
+		/* Delete the list of read sketching objects: */
+		for(std::vector<SketchObject*>::iterator soIt=newSketchObjects.begin();soIt!=newSketchObjects.end();++soIt)
+			delete *soIt;
+		
 		/* Show an error message: */
 		Misc::formattedUserError("Load Curves...: Could not load curves from file %s due to exception %s",cbData->selectedFileName,err.what());
 		}
-	
-	/* Delete all new or old sketch objects: */
-	for(std::vector<SketchObject*>::iterator soIt=newSketchObjects.begin();soIt!=newSketchObjects.end();++soIt)
-		delete *soIt;
 	}
 
 void SketchingTool::deleteAllCurvesCallback(Misc::CallbackData* cbData)
@@ -630,11 +992,18 @@ void SketchingTool::deleteAllCurvesCallback(Misc::CallbackData* cbData)
 	active=false;
 	currentCurve=0;
 	currentPolyline=0;
+	currentBrushStroke=0;
 	
-	/* Delete all curves: */
-	for(std::vector<SketchObject*>::iterator soIt=sketchObjects.begin();soIt!=sketchObjects.end();++soIt)
-		delete *soIt;
-	sketchObjects.clear();
+	/* Delete all sketching objects: */
+	for(std::vector<Curve*>::iterator cIt=curves.begin();cIt!=curves.end();++cIt)
+		delete *cIt;
+	curves.clear();
+	for(std::vector<Polyline*>::iterator pIt=polylines.begin();pIt!=polylines.end();++pIt)
+		delete *pIt;
+	polylines.clear();
+	for(std::vector<BrushStroke*>::iterator bsIt=brushStrokes.begin();bsIt!=brushStrokes.end();++bsIt)
+		delete *bsIt;
+	brushStrokes.clear();
 	}
 
 }

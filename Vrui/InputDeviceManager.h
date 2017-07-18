@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceManager - Class to manage physical and virtual input devices,
 tools associated to input devices, and the input device update graph.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <vector>
 #include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
+#include <Realtime/Time.h>
 #include <Vrui/InputDevice.h>
 
 /* Forward declarations: */
@@ -113,6 +114,8 @@ class InputDeviceManager
 	Misc::CallbackList inputDeviceCreationCallbacks; // List of callbacks to be called after a new input device has been created
 	Misc::CallbackList inputDeviceDestructionCallbacks; // List of callbacks to be called before an input device will be destroyed
 	Misc::CallbackList inputDeviceUpdateCallbacks; // List of callbacks to be called immediately after the input device manager updated all physical input devices
+	bool predictDeviceStates; // Flag to enable device state prediction for latency mitigation
+	Realtime::TimePointMonotonic predictionTime; // Time point to which to predict the state of all input devices during update
 	
 	/* Constructors and destructors: */
 	public:
@@ -153,6 +156,16 @@ class InputDeviceManager
 	void destroyInputDevice(InputDevice* device);
 	std::string getFeatureName(const InputDeviceFeature& feature) const; // Returns the name of the given input device feature
 	int getFeatureIndex(InputDevice* device,const char* featureName) const; // Returns the index of the feature of the given name on the given input device, or -1 if feature does not exist
+	bool isPredictionEnabled(void) const // Returns true if device state prediction is currently enabled
+		{
+		return predictDeviceStates;
+		}
+	void disablePrediction(void); // Disables device state prediction
+	void setPredictionTime(const Realtime::TimePointMonotonic& newPredictionTime); // Enables device state prediction and sets the prediction time point for the current frame
+	const Realtime::TimePointMonotonic& getPredictionTime(void) const // Returns the current device state prediction time point
+		{
+		return predictionTime;
+		}
 	void updateInputDevices(void);
 	Misc::CallbackList& getInputDeviceCreationCallbacks(void) // Returns list of input device creation callbacks
 		{

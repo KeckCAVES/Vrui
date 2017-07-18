@@ -76,6 +76,26 @@ class TextureSet:public GLObject
 			image=newImage;
 			++imageVersion;
 			}
+		GLenum getTarget(void) const // Returns the image's assigned texture target
+			{
+			return target;
+			}
+		GLenum getInternalFormat(void) const // Returns the image's internal texture format
+			{
+			return internalFormat;
+			}
+		const GLint* getMipmapRange(void) const // Returns the mipmap level range
+			{
+			return mipmapRange;
+			}
+		const GLenum* getWrapModes(void) const // Returns the image's texture wrapping modes
+			{
+			return wrapModes;
+			}
+		const GLenum* getFilterModes(void) const // Returns the image's texture filtering modes
+			{
+			return filterModes;
+			}
 		void setMipmapRange(GLint baseLevel,GLint maxLevel) // Sets the image's mipmap level range; maxLevel larger than zero enables automatic mipmap generation
 			{
 			/* Update the mipmap range: */

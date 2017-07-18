@@ -2,7 +2,7 @@
 MouseTool - Class to map regular 2D mice into VR environments by
 representing them as virtual input devices sliding along the screen
 planes.
-Copyright (c) 2005-2015 Oliver Kreylos
+Copyright (c) 2005-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -125,11 +125,6 @@ Methods of class MouseTool:
 MouseTool::MouseTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:TransformTool(factory,inputAssignment)
 	{
-	/* Set the transformation source device: */
-	if(input.getNumButtonSlots()>0)
-		sourceDevice=getButtonDevice(0);
-	else
-		sourceDevice=getValuatorDevice(0);
 	}
 
 MouseTool::~MouseTool(void)

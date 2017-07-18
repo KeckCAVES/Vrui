@@ -48,6 +48,9 @@ GUIInteractor::GUIInteractor(bool sUseEyeRays,Scalar sRayOffset,InputDevice* sDe
 	:useEyeRays(sUseEyeRays),rayOffset(sRayOffset),device(sDevice),
 	 pointing(false),interacting(false),draggedWidget(0)
 	{
+	/* Always use eye rays if the device has no direction: */
+	if(!device->hasDirection())
+		useEyeRays=true;
 	}
 
 GUIInteractor::~GUIInteractor(void)

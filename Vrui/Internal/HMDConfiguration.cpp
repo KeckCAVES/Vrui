@@ -1,7 +1,7 @@
 /***********************************************************************
 HMDConfiguration - Class to represent the internal configuration of a
 head-mounted display.
-Copyright (c) 2016 Oliver Kreylos
+Copyright (c) 2016-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,7 +24,6 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/HMDConfiguration.h>
 
 #include <Misc/SizedTypes.h>
-#include <Misc/ArrayMarshallers.h>
 
 namespace Vrui {
 
@@ -66,45 +65,54 @@ void HMDConfiguration::setEyePos(const HMDConfiguration::Point& leftPos,const HM
 	eyePos[0]=leftPos;
 	eyePos[1]=rightPos;
 	
-	if(++eyePosVersion==0U)
-		++eyePosVersion;
-	}
-
-void HMDConfiguration::setIpd(float newIpd)
-	{
-	/* Update both eye positions symmetrically based on old distance vector and new distance: */
-	Point monoPos=Geometry::mid(eyePos[0],eyePos[1]);
-	Point::Vector dist=eyePos[1]-eyePos[0];
-	dist*=Misc::Float32(double(newIpd)*0.5/Geometry::mag(dist));
-	eyePos[0]=monoPos-dist;
-	eyePos[1]=monoPos+dist;
+	/* Calculate the inter-pupillary distance: */
+	ipd=Geometry::dist(eyePos[0],eyePos[1]);
 	
 	if(++eyePosVersion==0U)
 		++eyePosVersion;
 	}
 
-void HMDConfiguration::setRenderTargetSize(unsigned int newWidth,unsigned int newHeight)
+void HMDConfiguration::setIpd(HMDConfiguration::Scalar newIpd)
+	{
+	/* Check if the new inter-pupillary distance is different from the current one: */
+	if(ipd!=newIpd)
+		{
+		/* Update both eye positions symmetrically based on old distance vector and new distance: */
+		Point monoPos=Geometry::mid(eyePos[0],eyePos[1]);
+		Point::Vector dist=eyePos[1]-eyePos[0];
+		dist*=Scalar(double(newIpd)*0.5/Geometry::mag(dist));
+		eyePos[0]=monoPos-dist;
+		eyePos[1]=monoPos+dist;
+		
+		ipd=newIpd;
+		
+		if(++eyePosVersion==0U)
+			++eyePosVersion;
+		}
+	}
+
+void HMDConfiguration::setRenderTargetSize(HMDConfiguration::UInt newWidth,HMDConfiguration::UInt newHeight)
 	{
 	/* Check if the render target size changed: */
 	if(renderTargetSize[0]!=newWidth||renderTargetSize[1]!=newHeight)
 		{
 		/* Update the render target size: */
-		renderTargetSize[0]=Misc::UInt32(newWidth);
-		renderTargetSize[1]=Misc::UInt32(newHeight);
+		renderTargetSize[0]=newWidth;
+		renderTargetSize[1]=newHeight;
 		
 		if(++distortionMeshVersion==0U)
 			++distortionMeshVersion;
 		}
 	}
 
-void HMDConfiguration::setDistortionMeshSize(unsigned int newWidth,unsigned int newHeight)
+void HMDConfiguration::setDistortionMeshSize(HMDConfiguration::UInt newWidth,HMDConfiguration::UInt newHeight)
 	{
 	/* Check if the mesh size changed: */
 	if(distortionMeshSize[0]!=newWidth||distortionMeshSize[1]!=newHeight)
 		{
 		/* Re-allocate distortion meshes: */
-		distortionMeshSize[0]=Misc::UInt32(newWidth);
-		distortionMeshSize[1]=Misc::UInt32(newHeight);
+		distortionMeshSize[0]=newWidth;
+		distortionMeshSize[1]=newHeight;
 		for(int eye=0;eye<2;++eye)
 			{
 			delete[] eyes[eye].distortionMesh;
@@ -116,32 +124,32 @@ void HMDConfiguration::setDistortionMeshSize(unsigned int newWidth,unsigned int 
 		}
 	}
 
-void HMDConfiguration::setViewport(int eye,unsigned int x,unsigned int y,unsigned int width,unsigned int height)
+void HMDConfiguration::setViewport(int eye,HMDConfiguration::UInt x,HMDConfiguration::UInt y,HMDConfiguration::UInt width,HMDConfiguration::UInt height)
 	{
 	/* Check if the viewport changed: */
 	if(eyes[eye].viewport[0]!=x||eyes[eye].viewport[1]!=y||eyes[eye].viewport[2]!=width||eyes[eye].viewport[3]!=height)
 		{
 		/* Update the given eye's viewport: */
-		eyes[eye].viewport[0]=Misc::UInt32(x);
-		eyes[eye].viewport[1]=Misc::UInt32(y);
-		eyes[eye].viewport[2]=Misc::UInt32(width);
-		eyes[eye].viewport[3]=Misc::UInt32(height);
+		eyes[eye].viewport[0]=x;
+		eyes[eye].viewport[1]=y;
+		eyes[eye].viewport[2]=width;
+		eyes[eye].viewport[3]=height;
 		
 		if(++distortionMeshVersion==0U)
 			++distortionMeshVersion;
 		}
 	}
 
-void HMDConfiguration::setFov(int eye,float left,float right,float bottom,float top)
+void HMDConfiguration::setFov(int eye,HMDConfiguration::Scalar left,HMDConfiguration::Scalar right,HMDConfiguration::Scalar bottom,HMDConfiguration::Scalar top)
 	{
 	/* Check if the FoV changed: */
 	if(eyes[eye].fov[0]!=left||eyes[eye].fov[1]!=right||eyes[eye].fov[2]!=bottom||eyes[eye].fov[3]!=top)
 		{
 		/* Update the given eye's FoV boundaries: */
-		eyes[eye].fov[0]=Misc::Float32(left);
-		eyes[eye].fov[1]=Misc::Float32(right);
-		eyes[eye].fov[2]=Misc::Float32(bottom);
-		eyes[eye].fov[3]=Misc::Float32(top);
+		eyes[eye].fov[0]=left;
+		eyes[eye].fov[1]=right;
+		eyes[eye].fov[2]=bottom;
+		eyes[eye].fov[3]=top;
 		
 		if(++eyeVersion==0U)
 			++eyeVersion;
@@ -207,9 +215,9 @@ void HMDConfiguration::write(unsigned int sinkEyePosVersion,unsigned int sinkEye
 			for(unsigned int y=0;y<distortionMeshSize[1];++y)
 				for(unsigned int x=0;x<distortionMeshSize[0];++x,++dmPtr)
 					{
-					sink.write(dmPtr->red,2);
-					sink.write(dmPtr->green,2);
-					sink.write(dmPtr->blue,2);
+					sink.write(dmPtr->red.getComponents(),2);
+					sink.write(dmPtr->green.getComponents(),2);
+					sink.write(dmPtr->blue.getComponents(),2);
 					}
 			}
 		}
@@ -226,6 +234,9 @@ void HMDConfiguration::read(VRDevicePipe::MessageIdType messageId,Misc::UInt16 n
 		/* Read both eye positions: */
 		for(int eye=0;eye<2;++eye)
 			source.read(eyePos[eye].getComponents(),3);
+		
+		/* Calculate the inter-pupillary distance: */
+		ipd=Geometry::dist(eyePos[0],eyePos[1]);
 		
 		if(++eyePosVersion==0U)
 			++eyePosVersion;
@@ -270,9 +281,9 @@ void HMDConfiguration::read(VRDevicePipe::MessageIdType messageId,Misc::UInt16 n
 			for(unsigned int y=0;y<distortionMeshSize[1];++y)
 				for(unsigned int x=0;x<distortionMeshSize[0];++x,++dmPtr)
 					{
-					source.read(dmPtr->red,2);
-					source.read(dmPtr->green,2);
-					source.read(dmPtr->blue,2);
+					source.read(dmPtr->red.getComponents(),2);
+					source.read(dmPtr->green.getComponents(),2);
+					source.read(dmPtr->blue.getComponents(),2);
 					}
 			}
 		

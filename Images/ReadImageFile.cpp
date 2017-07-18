@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadImageFile - Functions to read RGB images from a variety of file
 formats.
-Copyright (c) 2005-2011 Oliver Kreylos
+Copyright (c) 2005-2017 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -204,6 +204,65 @@ RGBAImage readTransparentImageFile(const char* imageFileName)
 	
 	/* Call the general function: */
 	return readTransparentImageFile(imageFileName,file);
+	}
+
+BaseImage readGenericImageFile(const char* imageFileName,IO::FilePtr file)
+	{
+	BaseImage result;
+	
+	/* Try to determine image file format from file name extension: */
+	const char* ext=Misc::getExtension(imageFileName);
+	if(strcasecmp(ext,".gz")==0)
+		{
+		/* Strip the gzip extension and try again: */
+		ext=Misc::getExtension(imageFileName,ext);
+		}
+	
+	if(ext[0]=='.'
+	   &&tolower(ext[1])=='p'
+	   &&(tolower(ext[2])=='b'
+	      ||tolower(ext[2])=='g'
+	      ||tolower(ext[2])=='n'
+	      ||tolower(ext[2])=='p')
+	   &&tolower(ext[3])=='m') // It's a Portable AnyMap image
+		{
+		/* Read a generic PNM image from the given file: */
+		result=readGenericPNMImage(imageFileName,*file);
+		}
+	#if IMAGES_CONFIG_HAVE_PNG
+	else if(strcasecmp(ext,".png")==0) // It's a PNG image
+		{
+		/* Read a generic PNG image from the given file: */
+		result=readGenericPNGImage(imageFileName,*file);
+		}
+	#endif
+	#if IMAGES_CONFIG_HAVE_JPEG
+	else if(strcasecmp(ext,".jpg")==0||strcasecmp(ext,".jpeg")==0) // It's a JPEG image
+		{
+		/* Read a generic JPEG image from the given file: */
+		result=readGenericJPEGImage(imageFileName,*file);
+		}
+	#endif
+	#if IMAGES_CONFIG_HAVE_TIFF
+	else if(strcasecmp(ext,".tif")==0||strcasecmp(ext,".tiff")==0) // It's a TIFF image
+		{
+		/* Read an RGB TIFF image from the given file for now: */
+		result=readTIFFImage(imageFileName,*file);
+		}
+	#endif
+	else
+		Misc::throwStdErr("Images::readGenericImageFile: Unknown extension in image file name \"%s\"",imageFileName);
+	
+	return result;
+	}
+
+BaseImage readGenericImageFile(const char* imageFileName)
+	{
+	/* Open the image file: */
+	IO::FilePtr file(IO::openFile(imageFileName));
+	
+	/* Call the general function: */
+	return readGenericImageFile(imageFileName,file);
 	}
 
 namespace {

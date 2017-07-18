@@ -217,6 +217,7 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 	
 	/* Query needed GLX extension entry points: */
 	glXSwapIntervalEXTProc=GLExtensionManager::getFunction<PFNGLXSWAPINTERVALEXTPROC>("glXSwapIntervalEXT");
+	glXSwapIntervalMESAProc=GLExtensionManager::getFunction<PFNGLXSWAPINTERVALMESAPROC>("glXSwapIntervalMESA");
 	glXWaitVideoSyncSGIProc=GLExtensionManager::getFunction<PFNGLXWAITVIDEOSYNCSGIPROC>("glXWaitVideoSyncSGI");
 	glXDelayBeforeSwapNVProc=GLExtensionManager::getFunction<PFNGLXDELAYBEFORESWAPNVPROC>("glXDelayBeforeSwapNV");
 	}
@@ -452,7 +453,7 @@ bool GLWindow::canVsync(bool frontBufferRendering) const
 	if(frontBufferRendering)
 		return glXWaitVideoSyncSGIProc!=0&&context->isDirect();
 	else
-		return glXSwapIntervalEXTProc!=0;
+		return glXSwapIntervalEXTProc!=0||glXSwapIntervalMESAProc!=0;
 	}
 
 bool GLWindow::canPreVsync(void) const
@@ -462,13 +463,25 @@ bool GLWindow::canPreVsync(void) const
 
 bool GLWindow::setVsyncInterval(int newInterval)
 	{
-	/* Check if the GLX_EXT_swap_control extension is supported: */
+	/* Check if the GLX_EXT_swap_control or GLX_MESA_swap_control extensions are supported: */
 	if(glXSwapIntervalEXTProc!=0)
 		{
 		/* Set the vsync interval: */
 		glXSwapIntervalEXTProc(context->getDisplay(),window,newInterval);
 		
 		return true;
+		}
+	else if(glXSwapIntervalMESAProc!=0)
+		{
+		/* Set the vsync interval: */
+		int result=glXSwapIntervalMESAProc(newInterval);
+		if(result!=0)
+			{
+			Misc::formattedUserError("GLWindow::setVsyncInterval: Unable to set synch interval to %d due to GL error %d",newInterval,result);
+			return false;
+			}
+		else
+			return true;
 		}
 	else
 		return false;

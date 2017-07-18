@@ -1,7 +1,7 @@
 /***********************************************************************
 TwoRayTransformTool - Class to select 3D positions using ray-based input
 devices by intersecting two rays from two different starting points.
-Copyright (c) 2010-2014 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -114,11 +114,6 @@ TwoRayTransformTool::TwoRayTransformTool(const ToolFactory* factory,const ToolIn
 	:TransformTool(factory,inputAssignment),
 	 numRays(0),active(false)
 	{
-	/* Set the transformation source device: */
-	if(input.getNumButtonSlots()>0)
-		sourceDevice=getButtonDevice(0);
-	else
-		sourceDevice=getValuatorDevice(0);
 	}
 
 TwoRayTransformTool::~TwoRayTransformTool(void)

@@ -1,7 +1,7 @@
 /***********************************************************************
 TransformTool - Base class for tools used to transform the position or
 orientation of input devices.
-Copyright (c) 2007-2015 Oliver Kreylos
+Copyright (c) 2007-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -92,6 +92,16 @@ TransformTool::TransformTool(const ToolFactory* sFactory,const ToolInputAssignme
 	/* Initialize the number of private buttons and valuators by assuming that required buttons/valuators are private: */
 	numPrivateButtons=sFactory->getLayout().getNumButtons();
 	numPrivateValuators=sFactory->getLayout().getNumValuators();
+	
+	/* Take a reasonable guess at the source input device for this tool: */
+	if(input.getNumButtonSlots()>numPrivateButtons)
+		sourceDevice=getButtonDevice(numPrivateButtons);
+	else if(input.getNumValuatorSlots()>numPrivateValuators)
+		sourceDevice=getValuatorDevice(numPrivateValuators);
+	else if(input.getNumButtonSlots()>0)
+		sourceDevice=getButtonDevice(0);
+	else if(input.getNumValuatorSlots()>0)
+		sourceDevice=getValuatorDevice(0);
 	}
 
 TransformTool::~TransformTool(void)

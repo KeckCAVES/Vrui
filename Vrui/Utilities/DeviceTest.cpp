@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceTest - Program to test the connection to a Vrui VR Device Daemon
 and to dump device positions/orientations and button states.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -26,13 +26,19 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <iomanip>
 #include <stdexcept>
+#include <Misc/SizedTypes.h>
 #include <Misc/Timer.h>
 #include <Misc/FunctionCalls.h>
+#include <Misc/Marshaller.h>
+#include <Geometry/GeometryMarshallers.h>
 #include <Misc/ConfigurationFile.h>
+#include <IO/File.h>
+#include <IO/OpenFile.h>
 #include <Realtime/Time.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/OutputOperators.h>
 #include <Vrui/Internal/VRDeviceDescriptor.h>
+#include <Vrui/Internal/BatteryState.h>
 #include <Vrui/Internal/HMDConfiguration.h>
 #include <Vrui/Internal/VRDeviceClient.h>
 
@@ -135,41 +141,65 @@ class LatencyHistogram // Helper class to collect and print tracker data latency
 
 void printTrackerPos(const Vrui::VRDeviceState& state,int trackerIndex)
 	{
-	const TrackerState& ts=state.getTrackerState(trackerIndex);
-	Point pos=ts.positionOrientation.getOrigin();
-	std::cout.setf(std::ios::fixed);
-	std::cout.precision(3);
-	std::cout<<"("<<std::setw(9)<<pos[0]<<" "<<std::setw(9)<<pos[1]<<" "<<std::setw(9)<<pos[2]<<")";
+	if(state.getTrackerValid(trackerIndex))
+		{
+		const TrackerState& ts=state.getTrackerState(trackerIndex);
+		Point pos=ts.positionOrientation.getOrigin();
+		std::cout.setf(std::ios::fixed);
+		std::cout.precision(3);
+		std::cout<<"("<<std::setw(9)<<pos[0]<<" "<<std::setw(9)<<pos[1]<<" "<<std::setw(9)<<pos[2]<<")";
+		}
+	else
+		{
+		std::cout<<"(-----.--- -----.--- -----.---)";
+		}
 	}
 
 void printTrackerPosOrient(const Vrui::VRDeviceState& state,int trackerIndex)
 	{
-	const TrackerState& ts=state.getTrackerState(trackerIndex);
-	Point pos=ts.positionOrientation.getOrigin();
-	Rotation rot=ts.positionOrientation.getRotation();
-	Vector axis=rot.getScaledAxis();
-	Scalar angle=Math::deg(rot.getAngle());
-	std::cout.setf(std::ios::fixed);
-	std::cout.precision(3);
-	std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<") ";
-	std::cout<<"("<<std::setw(8)<<axis[0]<<" "<<std::setw(8)<<axis[1]<<" "<<std::setw(8)<<axis[2]<<") ";
-	std::cout<<std::setw(8)<<angle;
+	if(state.getTrackerValid(trackerIndex))
+		{
+		const TrackerState& ts=state.getTrackerState(trackerIndex);
+		Point pos=ts.positionOrientation.getOrigin();
+		Rotation rot=ts.positionOrientation.getRotation();
+		Vector axis=rot.getScaledAxis();
+		Scalar angle=Math::deg(rot.getAngle());
+		std::cout.setf(std::ios::fixed);
+		std::cout.precision(3);
+		std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<") ";
+		std::cout<<"("<<std::setw(8)<<axis[0]<<" "<<std::setw(8)<<axis[1]<<" "<<std::setw(8)<<axis[2]<<") ";
+		std::cout<<std::setw(8)<<angle;
+		}
+	else
+		{
+		std::cout<<"(----.--- ----.--- ----.---) (----.--- ----.--- ----.---) ----.---";
+		}
 	}
 
 void printTrackerFrame(const Vrui::VRDeviceState& state,int trackerIndex)
 	{
-	const TrackerState& ts=state.getTrackerState(trackerIndex);
-	Point pos=ts.positionOrientation.getOrigin();
-	Rotation rot=ts.positionOrientation.getRotation();
-	Vector x=rot.getDirection(0);
-	Vector y=rot.getDirection(1);
-	Vector z=rot.getDirection(2);
-	std::cout.setf(std::ios::fixed);
-	std::cout.precision(3);
-	std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<") ";
-	std::cout<<"("<<std::setw(6)<<x[0]<<" "<<std::setw(6)<<x[1]<<" "<<std::setw(6)<<x[2]<<") ";
-	std::cout<<"("<<std::setw(6)<<y[0]<<" "<<std::setw(6)<<y[1]<<" "<<std::setw(6)<<y[2]<<") ";
-	std::cout<<"("<<std::setw(6)<<z[0]<<" "<<std::setw(6)<<z[1]<<" "<<std::setw(6)<<z[2]<<")";
+	if(state.getTrackerValid(trackerIndex))
+		{
+		const TrackerState& ts=state.getTrackerState(trackerIndex);
+		Point pos=ts.positionOrientation.getOrigin();
+		Rotation rot=ts.positionOrientation.getRotation();
+		Vector x=rot.getDirection(0);
+		Vector y=rot.getDirection(1);
+		Vector z=rot.getDirection(2);
+		std::cout.setf(std::ios::fixed);
+		std::cout.precision(3);
+		std::cout<<"("<<std::setw(8)<<pos[0]<<" "<<std::setw(8)<<pos[1]<<" "<<std::setw(8)<<pos[2]<<") ";
+		std::cout<<"("<<std::setw(6)<<x[0]<<" "<<std::setw(6)<<x[1]<<" "<<std::setw(6)<<x[2]<<") ";
+		std::cout<<"("<<std::setw(6)<<y[0]<<" "<<std::setw(6)<<y[1]<<" "<<std::setw(6)<<y[2]<<") ";
+		std::cout<<"("<<std::setw(6)<<z[0]<<" "<<std::setw(6)<<z[1]<<" "<<std::setw(6)<<z[2]<<")";
+		}
+	else
+		{
+		std::cout<<"(----.--- ----.--- ----.---) ";
+		std::cout<<"(--.--- --.--- --.---) ";
+		std::cout<<"(--.--- --.--- --.---) ";
+		std::cout<<"(--.--- --.--- --.---)";
+		}
 	}
 
 void printButtons(const Vrui::VRDeviceState& state)
@@ -249,7 +279,8 @@ int main(int argc,char* argv[])
 	bool printButtonStates=false;
 	bool printNewlines=false;
 	bool savePositions=false;
-	std::string saveFileName;
+	bool saveTrackerStates=false;
+	const char* saveFileName=0;
 	int triggerIndex=0;
 	int latencyIndex=-1;
 	unsigned int latencyBinSize=250;
@@ -285,6 +316,12 @@ int main(int argc,char* argv[])
 			else if(strcasecmp(argv[i],"-save")==0)
 				{
 				savePositions=true;
+				++i;
+				saveFileName=argv[i];
+				}
+			else if(strcasecmp(argv[i],"-saveTs")==0)
+				{
+				saveTrackerStates=true;
 				++i;
 				saveFileName=argv[i];
 				}
@@ -338,6 +375,8 @@ int main(int argc,char* argv[])
 		std::cerr<<"Caught exception "<<error.what()<<" while initializing VR device client"<<std::endl;
 		return 1;
 		}
+	if(deviceClient->isLocal())
+		std::cout<<"Device server at "<<serverName<<":"<<portNumber<<" is running on same host"<<std::endl;
 	
 	if(printDevices)
 		{
@@ -360,6 +399,8 @@ int main(int argc,char* argv[])
 			
 			if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_DIR)
 				std::cout<<"  Device ray direction: "<<vd.rayDirection<<", start: "<<vd.rayStart<<std::endl;
+			
+			std::cout<<"  Device is "<<(vd.hasBattery?"battery-powered":"connected to power source")<<std::endl;
 			
 			if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_POS)
 				std::cout<<"  Tracker index: "<<vd.trackerIndex<<std::endl;
@@ -406,12 +447,12 @@ int main(int argc,char* argv[])
 		}
 	
 	/* Initialize HMD configuration state arrays: */
+	deviceClient->lockHmdConfigurations();
 	numHmdConfigurations=deviceClient->getNumHmdConfigurations();
 	hmdConfigurations=new const Vrui::HMDConfiguration*[numHmdConfigurations];
 	eyePosVersions=new unsigned int[numHmdConfigurations];
 	eyeVersions=new unsigned int[numHmdConfigurations];
 	distortionMeshVersions=new unsigned int[numHmdConfigurations];
-	deviceClient->lockHmdConfigurations();
 	for(unsigned int i=0;i<numHmdConfigurations;++i)
 		{
 		hmdConfigurations[i]=&deviceClient->getHmdConfiguration(i);
@@ -424,30 +465,50 @@ int main(int argc,char* argv[])
 	
 	/* Disable printing of tracking information if there are no trackers: */
 	deviceClient->lockState();
-	if(printMode==0&&deviceClient->getState().getNumTrackers()==0)
+	if(printMode>=0&&printMode<3&&deviceClient->getState().getNumTrackers()==0)
 		printMode=-1;
 	deviceClient->unlockState();
 	
+	/* Find the index of the virtual device to which the selected tracker belongs and check whether it's battery-powered: */
+	int vdIndex=-1;
+	bool vdHasBattery=false;
+	for(int deviceIndex=0;deviceIndex<deviceClient->getNumVirtualDevices()&&vdIndex<0;++deviceIndex)
+		{
+		const Vrui::VRDeviceDescriptor& vd=deviceClient->getVirtualDevice(deviceIndex);
+		if(vd.trackerIndex==trackerIndex)
+			{
+			vdIndex=deviceIndex;
+			vdHasBattery=vd.hasBattery;
+			}
+		}
+	
 	/* Open the save file: */
 	FILE* saveFile=0;
+	IO::FilePtr saveTsFile=0;
+	Vrui::VRDeviceState::TimeStamp lastTsTs=0;
 	if(savePositions)
-		saveFile=fopen(saveFileName.c_str(),"wt");
+		saveFile=fopen(saveFileName,"wt");
+	else if(saveTrackerStates)
+		saveTsFile=IO::openFile(saveFileName,IO::File::WriteOnly);
 	
 	/* Print output header line: */
 	switch(printMode)
 		{
 		case 0:
-			std::cout<<"     Pos X     Pos Y     Pos Z "<<std::endl;
+			std::cout<<"     Pos X     Pos Y     Pos Z";
 			break;
 		
 		case 1:
-			std::cout<<"    Pos X    Pos Y    Pos Z     Axis X   Axis Y   Axis Z     Angle"<<std::endl;
+			std::cout<<"    Pos X    Pos Y    Pos Z     Axis X   Axis Y   Axis Z     Angle";
 			break;
 		
 		case 2:
-			std::cout<<"    Pos X    Pos Y    Pos Z     XA X   XA Y   XA Z     YA X   YA Y   YA Z     ZA X   ZA Y   ZA Z "<<std::endl;
+			std::cout<<"    Pos X    Pos Y    Pos Z     XA X   XA Y   XA Z     YA X   YA Y   YA Z     ZA X   ZA Y   ZA Z";
 			break;
 		}
+	if(vdHasBattery)
+		std::cout<<"  Battr.";
+	std::cout<<std::endl;
 	
 	LatencyHistogram* latencyHistogram=0;
 	if(latencyIndex>=0)
@@ -489,7 +550,7 @@ int main(int argc,char* argv[])
 					}
 				}
 			
-			if(savePositions&&saveFile!=0)
+			if(savePositions)
 				{
 				if(oldTriggerState==false&&state.getButtonState(triggerIndex))
 					{
@@ -513,7 +574,21 @@ int main(int argc,char* argv[])
 					}
 				oldTriggerState=state.getButtonState(triggerIndex);
 				}
-
+			else if(saveTrackerStates&&state.getButtonState(triggerIndex))
+				{
+				/* Check if the tracked tracker has a new tracking state: */
+				if(lastTsTs!=state.getTrackerTimeStamp(trackerIndex))
+					{
+					/* Save the tracker's time stamp and state: */
+					lastTsTs=state.getTrackerTimeStamp(trackerIndex);
+					saveTsFile->write<Misc::SInt32>(lastTsTs);
+					const TrackerState& ts=state.getTrackerState(trackerIndex);
+					Misc::Marshaller<TrackerState::PositionOrientation>::write(ts.positionOrientation,*saveTsFile);
+					Misc::Marshaller<TrackerState::LinearVelocity>::write(ts.linearVelocity,*saveTsFile);
+					Misc::Marshaller<TrackerState::AngularVelocity>::write(ts.angularVelocity,*saveTsFile);
+					}
+				}
+			
 			switch(printMode)
 				{
 				case 0:
@@ -544,6 +619,13 @@ int main(int argc,char* argv[])
 
 				default:
 					; // Print nothing; nothing, I say!
+				}
+			if(vdHasBattery)
+				{
+				deviceClient->lockBatteryStates();
+				const Vrui::BatteryState& bs=deviceClient->getBatteryState(vdIndex);
+				std::cout<<' '<<(bs.charging?"C ":"  ")<<std::setw(3)<<bs.batteryLevel<<'%';
+				deviceClient->unlockBatteryStates();
 				}
 			if(printButtonStates)
 				{
@@ -589,8 +671,10 @@ int main(int argc,char* argv[])
 	delete[] eyeVersions;
 	delete[] distortionMeshVersions;
 	delete latencyHistogram;
-	if(saveFile!=0)
+	if(savePositions!=0)
 		fclose(saveFile);
+	else if(saveTrackerStates)
+		saveTsFile=0;
 	delete deviceClient;
 	return 0;
 	}

@@ -1,7 +1,7 @@
 /***********************************************************************
 Constants - Classes providing generic access to type-specific math-
 relevant information.
-Copyright (c) 2003-2005 Oliver Kreylos
+Copyright (c) 2003-2016 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
 #include <float.h>
+#include <math.h>
 
 #include <Math/Constants.h>
 
@@ -168,6 +169,7 @@ const Constants<float>::Scalar Constants<float>::smallest=FLT_MIN;
 const Constants<float>::Scalar Constants<float>::epsilon=FLT_EPSILON;
 const Constants<float>::Scalar Constants<float>::e=2.7182818284590452354f;
 const Constants<float>::Scalar Constants<float>::pi=3.14159265358979323846f;
+const Constants<float>::Scalar Constants<float>::infinity=INFINITY;
 
 /*****************************************
 Static members of class Constants<double>:
@@ -185,5 +187,6 @@ const Constants<double>::Scalar Constants<double>::smallest=DBL_MIN;
 const Constants<double>::Scalar Constants<double>::epsilon=DBL_EPSILON;
 const Constants<double>::Scalar Constants<double>::e=2.7182818284590452354;
 const Constants<double>::Scalar Constants<double>::pi=3.14159265358979323846;
+const Constants<double>::Scalar Constants<double>::infinity=INFINITY;
 
 }
