@@ -117,6 +117,8 @@ class OpenVRHost:public VRDevice,public vr::IVRDriverContext,public vr::IVRServe
 	unsigned int* controllerDeviceIndices; // Array of virtual device indices for controllers
 	unsigned int* trackerDeviceIndices; // Array of virtual device indices for generic trackers
 	DeviceState* deviceStates; // Array of device states for potentially connected devices
+	DeviceState** powerFeatureDevices; // Pointers to devices that can be powered off
+	vr::IVRControllerComponent** controllers; // Array of connected controller components
 	unsigned int numConnectedDevices; // Total number of device state structures currently populated
 	unsigned int numControllers; // Number of currently connected controllers
 	unsigned int numTrackers; // Number of currently connected generic trackers
@@ -139,6 +141,8 @@ class OpenVRHost:public VRDevice,public vr::IVRDriverContext,public vr::IVRServe
 	virtual void initialize(void);
 	virtual void start(void);
 	virtual void stop(void);
+	virtual void powerOff(int devicePowerFeatureIndex);
+	virtual void hapticTick(int deviceHapticFeatureIndex,unsigned int duration);
 	
 	/* Methods from vr::IVRDriverContext: */
 	virtual void* GetGenericInterface(const char* pchInterfaceVersion,vr::EVRInitError* peError);

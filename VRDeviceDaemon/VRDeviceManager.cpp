@@ -264,6 +264,30 @@ Vrui::HMDConfiguration* VRDeviceManager::addHmdConfiguration(void)
 	return newConfiguration;
 	}
 
+int VRDeviceManager::addPowerFeature(VRDevice* device,int deviceFeatureIndex)
+	{
+	/* Create a new feature: */
+	int result=int(powerFeatures.size());
+	Feature newPowerFeature;
+	newPowerFeature.device=device;
+	newPowerFeature.deviceFeatureIndex=deviceFeatureIndex;
+	powerFeatures.push_back(newPowerFeature);
+	
+	return result;
+	}
+
+int VRDeviceManager::addHapticFeature(VRDevice* device,int deviceFeatureIndex)
+	{
+	/* Create a new feature: */
+	int result=int(hapticFeatures.size());
+	Feature newHapticFeature;
+	newHapticFeature.device=device;
+	newHapticFeature.deviceFeatureIndex=deviceFeatureIndex;
+	hapticFeatures.push_back(newHapticFeature);
+	
+	return result;
+	}
+
 void VRDeviceManager::disableTracker(int trackerIndex)
 	{
 	Threads::Mutex::Lock stateLock(stateMutex);
@@ -382,6 +406,28 @@ void VRDeviceManager::updateHmdConfiguration(const Vrui::HMDConfiguration* hmdCo
 	/* Call the HMD configuration update callback: */
 	if(hmdConfigurationUpdatedCallback!=0)
 		hmdConfigurationUpdatedCallback(this,hmdConfiguration,hmdConfigurationUpdatedCallbackData);
+	}
+
+void VRDeviceManager::powerOff(unsigned int powerFeatureIndex)
+	{
+	/* Check if the feature exists: */
+	if(powerFeatureIndex<powerFeatures.size())
+		{
+		/* Forward request to managing device: */
+		Feature& f=powerFeatures[powerFeatureIndex];
+		f.device->powerOff(f.deviceFeatureIndex);
+		}
+	}
+
+void VRDeviceManager::hapticTick(unsigned int hapticFeatureIndex,unsigned int duration)
+	{
+	/* Check if the feature exists: */
+	if(hapticFeatureIndex<hapticFeatures.size())
+		{
+		/* Forward request to managing device: */
+		Feature& f=hapticFeatures[hapticFeatureIndex];
+		f.device->hapticTick(f.deviceFeatureIndex,duration);
+		}
 	}
 
 void VRDeviceManager::enableTrackerUpdateNotification(Threads::MutexCond* sTrackerUpdateCompleteCond)

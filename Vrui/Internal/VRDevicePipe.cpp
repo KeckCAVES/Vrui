@@ -29,6 +29,6 @@ namespace Vrui {
 Static elements of class VRDevicePipe:
 *************************************/
 
-const Misc::UInt32 VRDevicePipe::protocolVersionNumber=5U;
+const Misc::UInt32 VRDevicePipe::protocolVersionNumber=6U;
 
 }

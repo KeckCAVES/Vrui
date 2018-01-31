@@ -1,7 +1,7 @@
 /***********************************************************************
 GLFrameBuffer - Simple class to encapsulate the state of and operations
 on OpenGL frame buffer objects.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2017 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -36,7 +36,7 @@ class GLFrameBuffer
 		{
 		/* Elements: */
 		private:
-		GLuint previousFrameBufferId; // ID of previously bound frame buffer object
+		GLint previousFrameBufferId; // ID of previously bound frame buffer object
 		
 		/* Constructors and destructors: */
 		public:
@@ -71,6 +71,7 @@ class GLFrameBuffer
 	bool* colorIsTextures; // Array of flags if each of the color buffers is a texture object
 	GLuint* colorBufferIds; // Array of IDs of the render buffer of texture objects attached as color buffers; 0 if no color buffer is used in a slot
 	GLuint stencilBufferId; // The ID of the render buffer attached as a stencil buffer; 0 if no stencil buffer is used
+	bool modified; // Flag if the frame buffer has been modified since the last time it was bound
 	
 	/* Private methods: */
 	void deleteDepthAttachment(void); // Deletes the currently attached depth render buffer or texture
@@ -112,17 +113,16 @@ class GLFrameBuffer
 		return numColorAttachments;
 		}
 	void attachColorBuffer(GLint colorAttachmentIndex,GLenum pixelFormat); // Attaches a render buffer as the frame buffer's color buffer of the given index
-	void attachColorTexture(GLint colorAttachmentIndex,GLenum pixelFormat,GLenum filterMode =GL_NEAREST); // Attaches a texture object as the frame buffer's color buffer of the given index
-	void bindColorTexture(GLint colorAttachmentIndex) const // Binds the texture object attached as color buffer of the given index to the given texture target; fails if selected color buffer is not a texture
+	void attachColorTexture(GLint colorAttachmentIndex,GLenum pixelFormat,GLenum filterMode); // Attaches a new texture object as the frame buffer's color buffer of the given index
+	void attachColorTexture(GLint colorAttachmentIndex,GLuint textureObjectId); // Attaches an existing color texture as the frame buffer's color buffer of the given index
+	GLuint detachColorTexture(GLint colorAttachmentIndex); // Detaches a color texture from the frame buffer's color buffer of the given index; returns ID of detached texture object; fails and returns 0 if selected color buffer is not a texture
+	void bindColorTexture(GLint colorAttachmentIndex) const // Binds the texture object attached as color buffer of the given index to the given texture target; fails if selected color buffer is not a texture, or if frame buffer is currently bound
 		{
 		glBindTexture(textureTarget,colorBufferIds[colorAttachmentIndex]);
 		}
 	void attachStencilBuffer(GLenum pixelFormat =GL_STENCIL_INDEX8_EXT); // Attaches a render buffer as the frame buffer's stencil buffer
-	void finish(GLenum readAttachment,GLenum writeAttachment); // Finishes the frame buffer; throws exception if the frame buffer is inconsistent
-	void setDrawBuffer(GLenum attachmentIndex); // Selects a single color attachment for drawing
-	void setDrawBuffers(GLsizei numAttachments,...); // Selects multiple color attachments for drawing
-	void setReadBuffer(GLenum attachmentIndex); // Selects a single color attachment for reading
 	void bind(void) const; // Binds this frame buffer object in the current OpenGL context
+	void selectBuffers(GLenum readAttachment,GLenum writeAttachment); // Selects buffer attachments for reading and writing; checks frame buffer for consistency
 	static void unbind(void); // Unbinds the currently bound frame buffer object in the current OpenGL context
 	};
 

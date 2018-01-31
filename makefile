@@ -1,6 +1,6 @@
 ########################################################################
 # Makefile for Vrui toolkit and required basic libraries.
-# Copyright (c) 1998-2017 Oliver Kreylos
+# Copyright (c) 1998-2018 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
 # 
@@ -188,9 +188,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4003001
+VRUI_VERSION = 4004001
 MAJORLIBVERSION = 4
-MINORLIBVERSION = 3
+MINORLIBVERSION = 4
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -332,7 +332,10 @@ LIBRARIES += $(LIBRARY_NAMES:%=$(call LIBRARYNAME,%))
 # The Vrui VR tool plug-in hierarchy:
 #
 
-VRTOOLS_SOURCES = $(wildcard Vrui/Tools/*.cpp)
+# Don't build the following tool modules because they are unfinished or experimental:
+VRTOOLS_IGNORE_SOURCES = Vrui/Tools/FPSArmTool.cpp
+
+VRTOOLS_SOURCES = $(filter-out $(VRTOOLS_IGNORE_SOURCES),$(wildcard Vrui/Tools/*.cpp))
 
 VRTOOLSDIREXT = VRTools
 VRTOOLSDIR= $(LIBDESTDIR)/$(VRTOOLSDIREXT)
@@ -949,6 +952,7 @@ GLSUPPORT_HEADERS = GL/Config.h \
                     GL/GLGeometryShader.h \
                     GL/GLAutomaticShader.h \
                     GL/GLLineLightingShader.h \
+                    GL/GLFrameBuffer.h \
                     GL/GLColorMap.h \
                     GL/GLNumberRenderer.h \
                     GL/GLFont.h \
@@ -976,6 +980,7 @@ GLSUPPORT_SOURCES = GL/GLPrintError.cpp \
                     GL/GLGeometryShader.cpp \
                     GL/GLAutomaticShader.cpp \
                     GL/GLLineLightingShader.cpp \
+                    GL/GLFrameBuffer.cpp \
                     GL/GLColorMap.cpp \
                     GL/GLNumberRenderer.cpp \
                     GL/GLFont.cpp \

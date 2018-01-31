@@ -1,7 +1,7 @@
 /***********************************************************************
 NewButton - New base class for GLMotif UI components reacting to push
 events, implemented as container widgets with a single child.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2017 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -97,6 +97,9 @@ class NewButton:public SingleChildContainer
 	virtual void setBorderType(BorderType newBorderType);
 	virtual void setForegroundColor(const Color& newForegroundColor);
 	virtual void setBackgroundColor(const Color& newBackgroundColor);
+	
+	/* Methods inherited from Container: */
+	virtual void addChild(Widget* newChild);
 	
 	/* New methods: */
 	const Color& getArmedBackgroundColor(void) const // Returns the background color used when the button is armed

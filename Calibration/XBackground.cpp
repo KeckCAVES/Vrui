@@ -1,6 +1,6 @@
 /***********************************************************************
 XBackground - Utility to draw one of several calibration patterns.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <sstream>
 #include <X11/keysym.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 /*********************************************************
 Helper class to convert floating-point colors to X colors:
@@ -195,6 +196,7 @@ struct WindowState
 	Display* display; // The display connection
 	int screen; // The screen containing the window
 	Window window; // X11 window handle
+	Atom wmProtocolsAtom,wmDeleteWindowAtom; // Atoms needed for window manager communication
 	int origin[2]; // Window origin in pixels
 	int size[2]; // Window width and height in pixels
 	GC gc; // Graphics context for the window
@@ -242,6 +244,7 @@ struct WindowState
 		// size[0]=rootAttr.width;
 		// size[1]=rootAttr.height;
 		window=XCreateSimpleWindow(display,root,origin[0],origin[1],size[0],size[1],0,WhitePixel(display,screen),BlackPixel(display,screen));
+		XSetStandardProperties(display,window,"XBackground","XBackground",None,0,0,0);
 		XSelectInput(display,window,ExposureMask|StructureNotifyMask|KeyPressMask);
 		
 		if(!decorate)
@@ -275,6 +278,11 @@ struct WindowState
 				XChangeProperty(display,window,hintProperty,hintProperty,32,PropModeReplace,reinterpret_cast<unsigned char*>(&hints),5);
 				}
 			}
+		
+		/* Initiate window manager communication: */
+		wmProtocolsAtom=XInternAtom(display,"WM_PROTOCOLS",False);
+		wmDeleteWindowAtom=XInternAtom(display,"WM_DELETE_WINDOW",False);
+		XSetWMProtocols(display,window,&wmDeleteWindowAtom,1);
 		
 		/* Map the window onto the screen: */
 		XMapRaised(display,window);
@@ -855,6 +863,11 @@ int main(int argc,char* argv[])
 						ws->setForeground(monoColor);
 						redraw(ws[i],0,0,ws[i].size[0],ws[i].size[1],imageType,squareSize);
 						}
+					break;
+					
+				case ClientMessage:
+					if(event.xclient.message_type==ws[i].wmProtocolsAtom&&event.xclient.format==32&&(Atom)(event.xclient.data.l[0])==ws[i].wmDeleteWindowAtom)
+						goOn=false;
 					break;
 				}
 		}

@@ -667,7 +667,7 @@ OculusRift::OculusRift(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	updateRate=configFile.retrieveValue<unsigned int>("./updateRate",updateRate);
 	
 	/* Create a virtual device: */
-	Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(0,0);
+	Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(0,0,0);
 	vd->name=configFile.retrieveString("./deviceName","OculusRift");
 	vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 	vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,1,0);

@@ -27,13 +27,17 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <iostream>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/FunctionCalls.h>
+#include <Realtime/Time.h>
 #include <Threads/TripleBuffer.h>
 #include <Realtime/Time.h>
+#include <Geometry/PCACalculator.h>
 #include <GL/gl.h>
 #include <GL/GLMaterialTemplates.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GL/GLModels.h>
+#include <GLMotif/PopupMenu.h>
+#include <GLMotif/ToggleButton.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/Application.h>
 #include <Vrui/CoordinateManager.h>
@@ -53,17 +57,116 @@ class TrackingTest:public Vrui::Application
 	typedef PO::Rotation Rotation;
 	typedef TS::LinearVelocity LV;
 	typedef TS::AngularVelocity AV;
+	typedef Vrui::VRDeviceState::TimeStamp TimeStamp;
+	
+	struct TrackerState // Structure representing the state of a tracker and its noise history
+		{
+		/* Elements: */
+		public:
+		TS state; // The tracker's current instantaneous state reported by the device daemon
+		std::vector<Point> samples; // List of tracker position samples received in the last second
+		Point center; // Average tracker position
+		Rotation rot; // Rotation of error ellipsoid
+		Scalar axes[3]; // Semi-lengths of the error ellipsoid's three axes
+		};
+	
+	struct TrackerSample // Structure representing a time-stamped tracker position sample
+		{
+		/* Elements: */
+		public:
+		TimeStamp time; // Driver time stamp of sample
+		Point pos; // Position of sample
+		};
+	
+	struct TrackerSampleBuffer // Structure for ring buffers of time-stamped tracker position samples
+		{
+		/* Elements: */
+		public:
+		unsigned int bufferSize; // Maximum number of elements in buffer
+		TrackerSample* buffer; // Array of buffer elements
+		unsigned int tail; // Index of oldest element in buffer
+		unsigned int size; // Number of items currently in buffer
+		TimeStamp lastTimeStamp; // Driver time stamp of most recent item entered into buffer
+		
+		/* Constructors and destructors: */
+		TrackerSampleBuffer(void) // Creates a default-sized buffer
+			:bufferSize(4096),
+			 buffer(new TrackerSample[bufferSize]),
+			 tail(0),size(0),
+			 lastTimeStamp(0)
+			{
+			}
+		~TrackerSampleBuffer(void) // Destroys a buffer
+			{
+			delete[] buffer;
+			}
+		
+		/* Methods: */
+		unsigned int getSize(void) const // Returns the number of samples in the buffer
+			{
+			return size;
+			}
+		void addSample(TimeStamp timeStamp,const TS& trackerState) // Enters a new tracking sample into the buffer, if it is new
+			{
+			/* Check if the sample is new: */
+			if(lastTimeStamp!=timeStamp)
+				{
+				/* Store the time stamp and tracker position: */
+				TrackerSample& back=buffer[(tail+size)%bufferSize];
+				back.time=timeStamp;
+				back.pos=trackerState.positionOrientation.getOrigin();
+				
+				/* Make the buffer longer, or, if it is full, ditch the oldest element: */
+				if(size<bufferSize)
+					++size;
+				else
+					tail=(tail+1)%bufferSize;
+				
+				/* Remember this sample: */
+				lastTimeStamp=timeStamp;
+				}
+			}
+		void removeOldSamples(TimeStamp maxAge) // Removes all tracking samples older than maxAge, relative to the given time
+			{
+			while(size>0&&lastTimeStamp-buffer[tail].time>maxAge)
+				{
+				tail=(tail+1)%bufferSize;
+				--size;
+				}
+			}
+		void copySamples(std::vector<Point>& points) const // Copies all tracking samples into the given list
+			{
+			/* Clear the points list and make room: */
+			points.clear();
+			points.reserve(size);
+			
+			/* Copy all samples: */
+			for(unsigned int i=0;i<size;++i)
+				points.push_back(buffer[(tail+i)%bufferSize].pos);
+			}
+		void doThePToTheCToTheA(TrackerState& ts) const; // Fits an error ellipsoid to tracking data in the buffer
+		};
 	
 	/* Elements: */
 	Vrui::VRDeviceClient* deviceClient; // Connection to the VRDeviceDaemon
 	Geometry::LinearUnit trackingUnit; // Linear unit used by the tracking system
 	int numTrackers; // Number of trackers served by the VRDeviceDaemon
-	Threads::TripleBuffer<TS*> trackerStates; // Triple buffer of arrays of tracking states
+	TrackerSampleBuffer* trackerSampleBuffers; // Array of tracker sample buffers
+	Realtime::TimePointMonotonic nextUpdateTime; // Next time at which to update the main thread with new tracking data
+	Threads::TripleBuffer<TrackerState*> trackerStates; // Triple buffer of arrays of tracking states
+	bool drawTrackerFrames; // Flag whether to draw each tracker's coordinate frame
+	bool drawWorldFrames; // Flag whether to draw a world-aligned coordinate frame alongside each tracker's frame
+	bool drawVelocities; // Flag whether to draw each tracker's linear and angular velocities
+	bool drawErrorEllipsoids; // Flag whether to draw each tracker's  error ellipsoid
+	bool drawSampleHistory; // Flag whether to draw each tracker's sample history
+	GLMotif::PopupMenu* mainMenu; // The application's main menu
 	
 	/* Private methods: */
 	void trackingCallback(Vrui::VRDeviceClient* client); // Called when new tracking data arrives
 	void drawFrame(GLfloat arrowLength,GLfloat arrowRadius) const; // Draws a coordinate frame of the given size at the origin
 	void snapRequest(Vrui::ObjectSnapperToolFactory::SnapRequest& snapRequest); // Callback to snap a virtual input device against application objects
+	void mainMenuCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const int& itemIndex);
+	GLMotif::PopupMenu* createMainMenu(void); // Creates the application's main menu
 	
 	/* Constructors and destructors: */
 	public:
@@ -73,7 +176,40 @@ class TrackingTest:public Vrui::Application
 	/* Methods from Vrui::Application: */
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
+	virtual void resetNavigation(void);
 	};
+
+/**************************************************
+Methods of class TrackingTest::TrackerSampleBuffer:
+**************************************************/
+
+void TrackingTest::TrackerSampleBuffer::doThePToTheCToTheA(TrackingTest::TrackerState& ts) const
+	{
+	/* Bail out if there aren't enough samples: */
+	if(size<10) // Arbitrary cut-off
+		{
+		ts.center=Point::origin;
+		ts.rot=Rotation::identity;
+		ts.axes[2]=ts.axes[1]=ts.axes[0]=Scalar(0);
+		return;
+		}
+	
+	/* Add all samples to a PCA accumulator: */
+	Geometry::PCACalculator<3> pca;
+	for(unsigned int i=0;i<size;++i)
+		pca.accumulatePoint(buffer[(tail+i)%bufferSize].pos);
+	
+	/* Extract error shape from the PCA accumulator: */
+	ts.center=Point(pca.calcCentroid());
+	pca.calcCovariance();
+	double evs[3];
+	pca.calcEigenvalues(evs);
+	Vector x=Vector(pca.calcEigenvector(evs[0]));
+	Vector y=Vector(pca.calcEigenvector(evs[1]));
+	ts.rot=Rotation::fromBaseVectors(x,y);
+	for(int i=0;i<3;++i)
+		ts.axes[i]=Scalar(evs[i]);
+	}
 
 /*****************************
 Methods of class TrackingTest:
@@ -81,19 +217,48 @@ Methods of class TrackingTest:
 
 void TrackingTest::trackingCallback(Vrui::VRDeviceClient* client)
 	{
-	/* Start a new slot in the tracker states triple buffer: */
-	TS* tss=trackerStates.startNewValue();
+	/* Get the current time: */
+	Realtime::TimePointMonotonic now;
 	
-	/* Copy new tracking data into the triple buffer slot: */
+	/* Extract new tracking data from the device client: */
 	deviceClient->lockState();
 	const Vrui::VRDeviceState& state=deviceClient->getState();
 	for(int i=0;i<numTrackers;++i)
-		tss[i]=state.getTrackerState(i);
-	deviceClient->unlockState();
+		{
+		/* Enter the tracker's position into its buffer, if it is new: */
+		trackerSampleBuffers[i].addSample(state.getTrackerTimeStamp(i),state.getTrackerState(i));
+		}
 	
-	/* Post the new tracking data and request a new Vrui frame: */
-	trackerStates.postNewValue();
-	Vrui::requestUpdate();
+	/* Check if it is time to update the main thread: */
+	if(now>=nextUpdateTime)
+		{
+		/* Start a new slot in the tracker states triple buffer: */
+		TrackerState* tss=trackerStates.startNewValue();
+		
+		/* Prepare a new state packet for each tracker: */
+		for(int i=0;i<numTrackers;++i)
+			{
+			/* Copy the current tracker state: */
+			tss[i].state=state.getTrackerState(i);
+			
+			/* Remove all old samples from the tracker's history buffer: */
+			trackerSampleBuffers[i].removeOldSamples(TimeStamp(1000000)); // Only retain one second of history
+			
+			/* Copy all recent samples into the state packet: */
+			trackerSampleBuffers[i].copySamples(tss[i].samples);
+			
+			/* Do some statistics: */
+			trackerSampleBuffers[i].doThePToTheCToTheA(tss[i]);
+			}
+		
+		/* Post the new tracking data and request a new Vrui frame: */
+		trackerStates.postNewValue();
+		Vrui::requestUpdate();
+		
+		/* Schedule the next update: */
+		nextUpdateTime+=Realtime::TimeVector(1.0/60.0);
+		}
+	deviceClient->unlockState();
 	}
 
 void TrackingTest::drawFrame(GLfloat arrowLength,GLfloat arrowRadius) const
@@ -125,10 +290,10 @@ void TrackingTest::snapRequest(Vrui::ObjectSnapperToolFactory::SnapRequest& snap
 	if(snapRequest.rayBased)
 		{
 		/* Check all tracker states against the snap request's selection ray: */
-		const TS* tss=trackerStates.getLockedValue();
+		const TrackerState* tss=trackerStates.getLockedValue();
 		for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
 			{
-			const TS& ts=tss[trackerIndex];
+			const TS& ts=tss[trackerIndex].state;
 			Vrui::Vector tpo=Vrui::Point(ts.positionOrientation.getOrigin())-snapRequest.snapRay.getOrigin();
 			Vrui::Scalar lambda=tpo*snapRequest.snapRay.getDirection();
 			if(lambda>=Vrui::Scalar(0)&&lambda<snapRequest.snapRayMax&&lambda>=snapRequest.snapRayCosine*Geometry::mag(tpo))
@@ -142,10 +307,10 @@ void TrackingTest::snapRequest(Vrui::ObjectSnapperToolFactory::SnapRequest& snap
 	else
 		{
 		/* Check all tracker states against the snap request's selection sphere: */
-		const TS* tss=trackerStates.getLockedValue();
+		const TrackerState* tss=trackerStates.getLockedValue();
 		for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
 			{
-			const TS& ts=tss[trackerIndex];
+			const TS& ts=tss[trackerIndex].state;
 			Vrui::Scalar d2=Geometry::sqrDist(Vrui::Point(ts.positionOrientation.getOrigin()),snapRequest.snapPosition);
 			if(d2<Math::sqr(snapRequest.snapRadius))
 				{
@@ -157,14 +322,74 @@ void TrackingTest::snapRequest(Vrui::ObjectSnapperToolFactory::SnapRequest& snap
 		}
 	}
 
+void TrackingTest::mainMenuCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData,const int& itemIndex)
+	{
+	switch(itemIndex)
+		{
+		case 0:
+			drawTrackerFrames=cbData->set;
+			break;
+		
+		case 1:
+			drawWorldFrames=cbData->set;
+			break;
+		
+		case 2:
+			drawVelocities=cbData->set;
+			break;
+		
+		case 3:
+			drawErrorEllipsoids=cbData->set;
+			break;
+		
+		case 4:
+			drawSampleHistory=cbData->set;
+			break;
+		}
+	}
+
+GLMotif::PopupMenu* TrackingTest::createMainMenu(void)
+	{
+	/* Create the main menu shell: */
+	GLMotif::PopupMenu* mainMenu=new GLMotif::PopupMenu("MainMenu",Vrui::getWidgetManager());
+	mainMenu->setTitle("Tracking Test");
+	
+	GLMotif::ToggleButton* drawTrackerFramesToggle=new GLMotif::ToggleButton("DrawTrackerFramesToggle",mainMenu,"Draw Tracker Frames");
+	drawTrackerFramesToggle->setToggle(drawTrackerFrames);
+	drawTrackerFramesToggle->getValueChangedCallbacks().add(this,&TrackingTest::mainMenuCallback,0);
+	
+	GLMotif::ToggleButton* drawWorldAxesToggle=new GLMotif::ToggleButton("DrawWorldAxesToggle",mainMenu,"Draw World Axes");
+	drawWorldAxesToggle->setToggle(drawWorldFrames);
+	drawWorldAxesToggle->getValueChangedCallbacks().add(this,&TrackingTest::mainMenuCallback,1);
+	
+	GLMotif::ToggleButton* drawVelocitiesToggle=new GLMotif::ToggleButton("DrawVelocitiesToggle",mainMenu,"Draw Velocities");
+	drawVelocitiesToggle->setToggle(drawVelocities);
+	drawVelocitiesToggle->getValueChangedCallbacks().add(this,&TrackingTest::mainMenuCallback,2);
+	
+	GLMotif::ToggleButton* drawErrorEllipsoidsToggle=new GLMotif::ToggleButton("DrawErrorEllipsoidsToggle",mainMenu,"Draw Error Ellipsoids");
+	drawErrorEllipsoidsToggle->setToggle(drawErrorEllipsoids);
+	drawErrorEllipsoidsToggle->getValueChangedCallbacks().add(this,&TrackingTest::mainMenuCallback,3);
+	
+	GLMotif::ToggleButton* drawSampleHistoryToggle=new GLMotif::ToggleButton("DrawSampleHistoryToggle",mainMenu,"Draw Sample History");
+	drawSampleHistoryToggle->setToggle(drawSampleHistory);
+	drawSampleHistoryToggle->getValueChangedCallbacks().add(this,&TrackingTest::mainMenuCallback,4);
+	
+	mainMenu->manageMenu();
+	return mainMenu;
+	}
+
 TrackingTest::TrackingTest(int& argc,char**& argv)
 	:Vrui::Application(argc,argv),
 	 deviceClient(0),
 	 trackingUnit(Geometry::LinearUnit::INCH,1.0),
-	 numTrackers(0)
+	 numTrackers(0),trackerSampleBuffers(0),
+	 drawTrackerFrames(true),drawWorldFrames(true),drawVelocities(true),
+	 drawErrorEllipsoids(true),drawSampleHistory(true),
+	 mainMenu(0)
 	{
 	/* Parse command line: */
-	char* serverName=0;
+	char defaultServerName[]="localhost:8555";
+	char* serverName=defaultServerName;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
@@ -182,10 +407,8 @@ TrackingTest::TrackingTest(int& argc,char**& argv)
 			serverName=argv[i];
 		}
 	
-	std::cout<<trackingUnit.getInchFactor()<<std::endl;
-	
-	if(serverName==0)
-		Misc::throwStdErr("Usage: %s <servername>:<serverport>",argv[0]);
+	// Print the size of an inch in the chosen tracking system unit: */
+	// std::cout<<trackingUnit.getInchFactor()<<std::endl;
 	
 	/* Split the server name into hostname:port: */
 	char* colonPtr=0;
@@ -207,13 +430,23 @@ TrackingTest::TrackingTest(int& argc,char**& argv)
 	numTrackers=deviceClient->getState().getNumTrackers();
 	deviceClient->unlockState();
 	
+	/* Initialize the tracker sample buffers: */
+	trackerSampleBuffers=new TrackerSampleBuffer[numTrackers];
+	
 	/* Initialize the tracker state triple buffer: */
 	for(int i=0;i<3;++i)
-		trackerStates.getBuffer(i)=new TS[numTrackers];
+		trackerStates.getBuffer(i)=new TrackerState[numTrackers];
 	
 	/* Activate the device client and start streaming: */
 	deviceClient->activate();
 	deviceClient->startStream(Misc::createFunctionCall(this,&TrackingTest::trackingCallback));
+	
+	/* Initialize the update timer: */
+	nextUpdateTime=Realtime::TimePointMonotonic()+Realtime::TimeVector(1,0); // Wait one second to build up tracking history
+	
+	/* Create the main menu: */
+	mainMenu=createMainMenu();
+	Vrui::setMainMenu(mainMenu);
 	
 	/* Set the linear unit of navigational space to the tracking unit: */
 	Vrui::getCoordinateManager()->setUnit(trackingUnit);
@@ -229,8 +462,10 @@ TrackingTest::~TrackingTest(void)
 	deviceClient->deactivate();
 	
 	/* Clean up: */
+	delete mainMenu;
 	for(int i=0;i<3;++i)
 		delete[] trackerStates.getBuffer(i);
+	delete[] trackerSampleBuffers;
 	delete deviceClient;
 	}
 
@@ -245,60 +480,98 @@ void TrackingTest::display(GLContextData& contextData) const
 	glPushAttrib(GL_ENABLE_BIT|GL_POINT_BIT);
 	glPointSize(3.0f);
 	
-	float inch=float(trackingUnit.getInchFactor());
-	
 	/* Display the most recently received tracker state: */
-	const TS* tss=trackerStates.getLockedValue();
+	const TrackerState* tss=trackerStates.getLockedValue();
 	
+	/* Draw all trackers' coordinate frames: */
+	float inch=float(trackingUnit.getInchFactor());
 	for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
 		{
-		const TS& ts=tss[trackerIndex];
-		
 		glPushMatrix();
-		
-		/* Draw a world coordinate frame for this tracker: */
+		const TS& ts=tss[trackerIndex].state;
 		glTranslate(ts.positionOrientation.getTranslation());
-		drawFrame(inch,inch*0.015f);
 		
+		if(drawWorldFrames)
+			{
+			/* Draw a world coordinate frame for this tracker: */
+			drawFrame(inch,inch*0.015f);
+			}
+		
+		if(drawTrackerFrames)
+			{
+			/* Draw a local coordinate frame for this tracker: */
+			glPushMatrix();
+			glRotate(ts.positionOrientation.getRotation());
+			drawFrame(inch*0.75f,inch*0.02f);
+			glPopMatrix();
+			}
+		
+		if(drawVelocities)
+			{
+			/* Draw linear velocity: */
+			{
+			glPushMatrix();
+			glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(1.0f,1.0f,0.0f));
+			glRotate(Rotation::rotateFromTo(Vector(0,0,1),ts.linearVelocity));
+			float arrowLength=Geometry::mag(ts.linearVelocity)*inch*10.0f;
+			glTranslatef(0.0f,0.0f,arrowLength*0.5f);
+			glDrawArrow(inch*0.01f,inch*0.015f,inch*0.03f,arrowLength,16);
+			glPopMatrix();
+			}
+			
+			/* Draw angular velocity: */
+			{
+			glPushMatrix();
+			glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(0.0f,1.0f,1.0f));
+			glRotate(Rotation::rotateFromTo(Vector(0,0,1),ts.angularVelocity));
+			float arrowLength=Geometry::mag(ts.angularVelocity)*inch*1.0f;
+			glTranslatef(0.0f,0.0f,arrowLength*0.5f);
+			glDrawArrow(inch*0.01f,inch*0.015f,inch*0.03f,arrowLength,16);
+			glPopMatrix();
+			}
+			}
+		
+		glPopMatrix();
+		}
+	
+	if(drawErrorEllipsoids)
+		{
+		/* Draw all trackers' error ellipsoids: */
+		for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
+			{
+			glPushMatrix();
+			glTranslate(tss[trackerIndex].center-Point::origin);
+			glRotate(tss[trackerIndex].rot);
+			glScaled(Math::sqrt(tss[trackerIndex].axes[0])*3.0,Math::sqrt(tss[trackerIndex].axes[1])*3.0,Math::sqrt(tss[trackerIndex].axes[2])*3.0);
+			
+			glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(0.7f,0.4f,0.7f));
+			glDrawSphereIcosahedron(1.0f,5);
+			
+			glPopMatrix();
+			}
+		}
+	
+	if(drawSampleHistory)
+		{
+		/* Draw all trackers' tracking history: */
 		glDisable(GL_LIGHTING);
+		glEnableClientState(GL_VERTEX_ARRAY);
 		glColor3f(1.0f,1.0f,1.0f);
-		glBegin(GL_POINTS);
-		glVertex3f(0.0f,0.0f,0.0f);
-		glEnd();
-		glEnable(GL_LIGHTING);
-		
-		/* Draw a local coordinate frame for this tracker: */
-		glPushMatrix();
-		glRotate(ts.positionOrientation.getRotation());
-		drawFrame(inch*0.75f,inch*0.02f);
-		glPopMatrix();
-		
-		/* Draw linear velocity: */
-		{
-		glPushMatrix();
-		glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(1.0f,1.0f,0.0f));
-		glRotate(Rotation::rotateFromTo(Vector(0,0,1),ts.linearVelocity));
-		float arrowLength=Geometry::mag(ts.linearVelocity)*inch*10.0f;
-		glTranslatef(0.0f,0.0f,arrowLength*0.5f);
-		glDrawArrow(inch*0.01f,inch*0.015f,inch*0.03f,arrowLength,16);
-		glPopMatrix();
-		}
-		
-		/* Draw angular velocity: */
-		{
-		glPushMatrix();
-		glMaterialAmbientAndDiffuse(GLMaterialEnums::FRONT,GLColor<GLfloat,4>(0.0f,1.0f,1.0f));
-		glRotate(Rotation::rotateFromTo(Vector(0,0,1),ts.angularVelocity));
-		float arrowLength=Geometry::mag(ts.angularVelocity)*inch*1.0f;
-		glTranslatef(0.0f,0.0f,arrowLength*0.5f);
-		glDrawArrow(inch*0.01f,inch*0.015f,inch*0.03f,arrowLength,16);
-		glPopMatrix();
-		}
-		
-		glPopMatrix();
+		for(int trackerIndex=0;trackerIndex<numTrackers;++trackerIndex)
+			{
+			glVertexPointer(0,&tss[trackerIndex].samples.front());
+			glDrawArrays(GL_POINTS,0,tss[trackerIndex].samples.size());
+			}
+		glDisableClientState(GL_VERTEX_ARRAY);
 		}
 	
 	glPopAttrib();
+	}
+
+void TrackingTest::resetNavigation(void)
+	{
+	/* Return to physical space: */
+	Vrui::setNavigationTransformation(Vrui::NavTransform::identity);
 	}
 
 VRUI_APPLICATION_RUN(TrackingTest)

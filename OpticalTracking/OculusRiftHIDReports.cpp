@@ -31,6 +31,9 @@ Boston, MA 02111-1307 USA
 
 #include "TimeStampSource.h"
 
+// DEBUGGING
+#include <iostream>
+
 namespace {
 
 /****************
@@ -769,7 +772,8 @@ unsigned int SensorData::get(RawHID::Device& device,IMU::RawSample rawSamples[3]
 		{
 		/* Unpack packet header: */
 		numSamples=pktBuffer[1];
-		Misc::UInt16 newTimeStamp=unpackUInt16(pktBuffer+2)+(numSamples-1); // Move time stamp from first sample to last sample
+		Misc::UInt16 newTimeStamp=unpackUInt16(pktBuffer+2);
+		newTimeStamp+=numSamples-1; // Move time stamp from first sample to last sample
 		Misc::UInt16 timeStampInterval=newTimeStamp-timeStamp;
 		timeStamp=newTimeStamp;
 		

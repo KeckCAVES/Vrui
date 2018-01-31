@@ -1,7 +1,7 @@
 /***********************************************************************
 QuadSetNode - Class for sets of quadrilaterals as renderable
 geometry.
-Copyright (c) 2011-2013 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -122,6 +122,37 @@ void QuadSetNode::uploadQuads(QuadSetNode::DataItem* dataItem) const
 					++vPtr;
 					}
 				}
+			}
+		else if(pointTransform.getValue()!=0)
+			{
+			/* Upload the quad's transformed corner vertices: */
+			vPtr->texCoord[0]=Scalar(0);
+			vPtr->texCoord[1]=Scalar(0);
+			Point p0=pointTransform.getValue()->transformPoint(vIt[0]);
+			vPtr->normal=pointTransform.getValue()->transformNormal(p0,n0);
+			vPtr->position=p0;
+			++vPtr;
+			
+			vPtr->texCoord[0]=Scalar(1);
+			vPtr->texCoord[1]=Scalar(0);
+			Point p1=pointTransform.getValue()->transformPoint(vIt[1]);
+			vPtr->normal=pointTransform.getValue()->transformNormal(p1,n1);
+			vPtr->position=p1;
+			++vPtr;
+			
+			vPtr->texCoord[0]=Scalar(1);
+			vPtr->texCoord[1]=Scalar(1);
+			Point p2=pointTransform.getValue()->transformPoint(vIt[2]);
+			vPtr->normal=pointTransform.getValue()->transformNormal(p2,n2);
+			vPtr->position=p2;
+			++vPtr;
+			
+			vPtr->texCoord[0]=Scalar(0);
+			vPtr->texCoord[1]=Scalar(1);
+			Point p3=pointTransform.getValue()->transformPoint(vIt[3]);
+			vPtr->normal=pointTransform.getValue()->transformNormal(p3,n3);
+			vPtr->position=p3;
+			++vPtr;
 			}
 		else
 			{

@@ -1,6 +1,6 @@
 /***********************************************************************
 Context - Class representing libusb library contexts.
-Copyright (c) 2010-2016 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Autopointer.h>
 
+// DEBUGGING
+#include <iostream>
+
 namespace USB {
 
 /********************************
@@ -37,15 +40,24 @@ Context Context::theContext;
 Methods of class Context:
 ************************/
 
+namespace {
+
+volatile bool goon;
+
+}
+
 void* Context::eventHandlingThreadMethod(void)
 	{
-	Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
+	// Threads::Thread::setCancelState(Threads::Thread::CANCEL_ENABLE);
 	// Threads::Thread::setCancelType(Threads::Thread::CANCEL_ASYNCHRONOUS);
 	
-	while(true)
+	while(goon)
 		{
-		/* Block until the next USB event and handle it: */
-		libusb_handle_events(context);
+		/* Block until the next USB event and handle it or a short time-out: */
+		struct timeval maxWait;
+		maxWait.tv_sec=0;
+		maxWait.tv_usec=500000;
+		libusb_handle_events_timeout(context,&maxWait);
 		}
 	
 	return 0;
@@ -64,6 +76,7 @@ void Context::ref(void)
 			Misc::throwStdErr("USB::Context: Error initializing USB context");
 		
 		/* Start the event handling thread: */
+		goon=true;
 		eventHandlingThread.start(this,&Context::eventHandlingThreadMethod);
 		}
 	}
@@ -77,7 +90,8 @@ void Context::unref(void)
 	if((--refCount)==0)
 		{
 		/* Stop the background event processing thread: */
-		eventHandlingThread.cancel();
+		goon=false;
+		// eventHandlingThread.cancel();
 		eventHandlingThread.join();
 		
 		/* Shut down the USB context: */

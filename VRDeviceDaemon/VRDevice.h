@@ -130,6 +130,8 @@ class VRDevice
 		}
 	virtual void start(void) =0; // Starts tracking hardware and position reporting
 	virtual void stop(void) =0; // Stops tracking hardware and position reporting
+	virtual void powerOff(int devicePowerFeatureIndex); // Requests to power off the feature with the given per-device index
+	virtual void hapticTick(int deviceHapticFeatureIndex,unsigned int duration); // Requests a haptic tick of the given length in microseconds on the haptic feature with the given per-device index
 	};
 
 #endif

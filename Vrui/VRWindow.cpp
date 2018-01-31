@@ -1306,6 +1306,12 @@ VRWindow::~VRWindow(void)
 	delete movieSaver;
 	}
 
+void VRWindow::setWindowIndex(int newWindowIndex)
+	{
+	/* Store the window index: */
+	windowIndex=newWindowIndex;
+	}
+
 void VRWindow::setWindowGroup(VruiWindowGroup* newWindowGroup)
 	{
 	/* Store the window group association: */
@@ -2033,6 +2039,7 @@ void VRWindow::draw(void)
 	{
 	/* Update the window's display state: */
 	displayState->window=this;
+	displayState->windowIndex=windowIndex;
 	getMaxWindowSizes(windowGroup,displayState->maxViewportSize,displayState->maxFrameSize);
 	
 	/* Activate the window's OpenGL context: */

@@ -1,6 +1,6 @@
 /***********************************************************************
 Cylinder - Class for n-dimensional upright cylinders.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -51,7 +51,7 @@ class Cylinder
 		public:
 		enum Part // Enumerated type to report which part of the cylinder was hit
 			{
-			INVALID_PART,MANTEL,BOTTOMCAP,TOPCAP
+			INVALID_PART,MANTLE,BOTTOMCAP,TOPCAP
 			};
 		
 		/* Elements: */
@@ -73,6 +73,10 @@ class Cylinder
 		Part getPart(void) const // Returns part of cylinder that was intersected
 			{
 			return part;
+			}
+		void setPart(Part newPart) // Sets part of cylinder that was intersected
+			{
+			part=newPart;
 			}
 		};
 	
@@ -174,9 +178,9 @@ class Cylinder
 		}
 	HitResult intersectRay(const Ray& ray) const // Intersects cylinder with ray
 		{
+		/* Create an invalid hit result: */
+		HitResult result;
 		Scalar resultLambda=Math::Constants<Scalar>::max;
-		typename HitResult::Direction resultDirection=HitResult::INVALID_DIRECTION;
-		typename HitResult::Part resultPart=HitResult::INVALID_PART;
 		bool checkCaps=true;
 		Scalar lambda;
 		
@@ -201,8 +205,8 @@ class Cylinder
 					if(beta>=Scalar(0)&&beta<=height)
 						{
 						resultLambda=lambda;
-						resultDirection=HitResult::ENTRY;
-						resultPart=HitResult::MANTEL;
+						result.setParameterAndDirection(lambda,HitResult::ENTRY);
+						result.setPart(HitResult::MANTLE);
 						}
 					}
 				else if((lambda=(-b+det)/a)>=Scalar(0))
@@ -212,8 +216,8 @@ class Cylinder
 					if(beta>=Scalar(0)&&beta<=height)
 						{
 						resultLambda=lambda;
-						resultDirection=HitResult::EXIT;
-						resultPart=HitResult::MANTEL;
+						result.setParameterAndDirection(lambda,HitResult::EXIT);
+						result.setPart(HitResult::MANTLE);
 						}
 					}
 				}
@@ -228,20 +232,20 @@ class Cylinder
 			if(lambda>=Scalar(0)&&lambda<resultLambda&&sqrDist(ray(lambda),p1)<=sqrRadius)
 				{
 				resultLambda=lambda;
-				resultDirection=dira>Scalar(0)?HitResult::ENTRY:HitResult::EXIT;
-				resultPart=HitResult::BOTTOMCAP;
+				result.setParameterAndDirection(lambda,dira>Scalar(0)?HitResult::ENTRY:HitResult::EXIT);
+				result.setPart(HitResult::BOTTOMCAP);
 				}
 			
 			/* Intersect ray with top cap (around p2): */
 			lambda=(height-op1a)/dira;
 			if(lambda>=Scalar(0)&&lambda<resultLambda&&sqrDist(ray(lambda),p2)<=sqrRadius)
 				{
-				resultDirection=dira<Scalar(0)?HitResult::ENTRY:HitResult::EXIT;
-				resultPart=HitResult::TOPCAP;
+				result.setParameterAndDirection(lambda,dira<Scalar(0)?HitResult::ENTRY:HitResult::EXIT);
+				result.setPart(HitResult::TOPCAP);
 				}
 			}
 		
-		return HitResult(resultLambda,resultDirection,resultPart);
+		return result;
 		}
 	};
 

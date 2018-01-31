@@ -49,7 +49,9 @@ class VRDevicePipe:public Comm::TCPPipe
 		STOPSTREAM_REQUEST, // Requests leaving stream mode
 		STOPSTREAM_REPLY, // Server's reply after last stream packet has been sent
 		BATTERYSTATE_UPDATE, // Battery status of a virtual input device has changed
-		HMDCONFIG_UPDATE=16 // Server has an updated HMD configuration; lowest three bits of message ID define which components are updated
+		HMDCONFIG_UPDATE=16, // Server has an updated HMD configuration; lowest three bits of message ID define which components are updated
+		POWEROFF_REQUEST=24, // Requests to power off a virtual input device
+		HAPTICTICK_REQUEST // Requests a haptic tick on a virtual input device
 		};
 	
 	/* Constructors and destructors: */

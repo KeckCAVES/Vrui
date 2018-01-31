@@ -36,6 +36,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/PointingTool.h>
 
+/* Forward declarations: */
+namespace Vrui {
+class Lightsource;
+}
+
 namespace Vrui {
 
 class JediTool;
@@ -53,6 +58,8 @@ class JediToolFactory:public ToolFactory
 	Scalar hiltLength; // Length of light saber hilt in physical coordinate units
 	Scalar hiltRadius; // Radius of light saber hilt in physical coordinate units
 	std::string lightsaberImageFileName; // Name of image file containing light saber texture
+	unsigned int numLightsources; // Number of OpenGL lightsources to add to the light saber blade to create a glowing effect
+	Scalar lightRadius; // Distance in physical coordinate units at which the glow intensity diminishes to 1%
 	
 	/* Constructors and destructors: */
 	public:
@@ -87,19 +94,23 @@ class JediTool:public PointingTool,public GLObject,public TransparentObject
 	/* Elements: */
 	static JediToolFactory* factory; // Pointer to the factory object for this class
 	Images::RGBImage lightsaberImage; // The light saber texture image
+	Lightsource** lightsources; // Array of light sources allocated for the light saber blade
 	
 	/* Transient state: */
 	bool active; // Flag if the light saber is active
 	double activationTime; // Time at which the light saber was activated
-	Point origin; // Origin point of the light saber blade
-	Vector axis; // Current light saber blade axis vector
-	Scalar length; // Current light saber blade length
+	Point origin[2]; // Origin point of the light saber blade on last and current frame
+	Vector axis[2]; // Current light saber blade axis vector on last and current frame
+	Scalar length[2]; // Current light saber blade length on last and current frame
 	
 	/* Constructors and destructors: */
 	public:
 	JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment);
+	virtual ~JediTool(void);
 	
 	/* Methods from Tool: */
+	virtual void initialize(void);
+	virtual void deinitialize(void);
 	virtual const ToolFactory* getFactory(void) const;
 	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);

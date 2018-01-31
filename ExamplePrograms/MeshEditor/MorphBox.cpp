@@ -127,9 +127,9 @@ bool MorphBox::pickBox(MorphBox::Scalar vertexDist,MorphBox::Scalar edgeDist,Mor
 			Geometry::Matrix<Scalar,3,3> m;
 			for(int mi=0;mi<3;++mi)
 				{
-				m(mi,0)=d1[i];
-				m(mi,1)=d2[i];
-				m(mi,2)=d3[i];
+				m(mi,0)=d1[mi];
+				m(mi,1)=d2[mi];
+				m(mi,2)=d3[mi];
 				}
 			Geometry::ComponentArray<Scalar,3> pc=p/m;
 			if(pc[0]>=Scalar(0)&&pc[1]>=Scalar(0)&&pc[0]+pc[1]<=Scalar(1))

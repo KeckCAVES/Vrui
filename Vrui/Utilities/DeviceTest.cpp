@@ -23,6 +23,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string>
 #include <iostream>
 #include <iomanip>
 #include <stdexcept>
@@ -271,7 +272,7 @@ void hmdConfigurationUpdatedCallback(const Vrui::HMDConfiguration& hmdConfigurat
 int main(int argc,char* argv[])
 	{
 	/* Parse command line: */
-	char* serverName=0;
+	const char* serverNamePort="localhost:8555";
 	bool printDevices=false;
 	bool printHmdConfigurations=false;
 	int trackerIndex=0;
@@ -286,6 +287,9 @@ int main(int argc,char* argv[])
 	unsigned int latencyBinSize=250;
 	unsigned int latencyMaxLatency=20000;
 	unsigned int latencyNumSamples=1000;
+	int powerFeatureIndex=-1;
+	int hapticFeatureIndex=-1;
+	unsigned int hapticDuration=0;
 	for(int i=1;i<argc;++i)
 		{
 		if(argv[i][0]=='-')
@@ -341,34 +345,49 @@ int main(int argc,char* argv[])
 				++i;
 				latencyNumSamples=(unsigned int)(atoi(argv[i]));
 				}
+			else if(strcasecmp(argv[i],"-poweroff")==0)
+				{
+				++i;
+				powerFeatureIndex=atoi(argv[i]);
+				}
+			else if(strcasecmp(argv[i],"-haptic")==0)
+				{
+				++i;
+				hapticFeatureIndex=atoi(argv[i]);
+				++i;
+				hapticDuration=atoi(argv[i]);
+				}
 			}
 		else
-			serverName=argv[i];
+			serverNamePort=argv[i];
 		}
 	
-	if(serverName==0)
+	if(serverNamePort==0)
 		{
 		std::cerr<<"Usage: "<<argv[0]<<" [-ld | -listDevices] [-lh | -listHMDs] [(-t | --trackerIndex) <trackerIndex>] [-alltrackers] [-p | -o | -f | -v] [-b] [-n] [-save <save file name>] [-trigger <trigger index>] [-latency <trackerIndex> <bin size> <max latency> <num samples>] <serverName:serverPort>"<<std::endl;
 		return 1;
 		}
 	
 	/* Split the server name into hostname:port: */
-	char* colonPtr=0;
-	for(char* cPtr=serverName;*cPtr!='\0';++cPtr)
+	const char* colonPtr=0;
+	for(const char* cPtr=serverNamePort;*cPtr!='\0';++cPtr)
 		if(*cPtr==':')
 			colonPtr=cPtr;
-	int portNumber=0;
+	std::string serverName;
+	int portNumber=8555;
 	if(colonPtr!=0)
 		{
+		serverName=std::string(serverNamePort,colonPtr);
 		portNumber=atoi(colonPtr+1);
-		*colonPtr='\0';
 		}
+	else
+		serverName=serverNamePort;
 	
 	/* Initialize device client: */
 	Vrui::VRDeviceClient* deviceClient=0;
 	try
 		{
-		deviceClient=new Vrui::VRDeviceClient(serverName,portNumber);
+		deviceClient=new Vrui::VRDeviceClient(serverName.c_str(),portNumber);
 		}
 	catch(std::runtime_error error)
 		{
@@ -376,12 +395,12 @@ int main(int argc,char* argv[])
 		return 1;
 		}
 	if(deviceClient->isLocal())
-		std::cout<<"Device server at "<<serverName<<":"<<portNumber<<" is running on same host"<<std::endl;
+		std::cout<<"Device server at "<<serverName<<':'<<portNumber<<" is running on same host"<<std::endl;
 	
 	if(printDevices)
 		{
 		/* Print information about the server's virtual input devices: */
-		std::cout<<"Device server at "<<serverName<<":"<<portNumber<<" defines "<<deviceClient->getNumVirtualDevices()<<" virtual input devices."<<std::endl;
+		std::cout<<"Device server at "<<serverName<<':'<<portNumber<<" defines "<<deviceClient->getNumVirtualDevices()<<" virtual input devices."<<std::endl;
 		for(int deviceIndex=0;deviceIndex<deviceClient->getNumVirtualDevices();++deviceIndex)
 			{
 			const Vrui::VRDeviceDescriptor& vd=deviceClient->getVirtualDevice(deviceIndex);
@@ -402,6 +421,11 @@ int main(int argc,char* argv[])
 			
 			std::cout<<"  Device is "<<(vd.hasBattery?"battery-powered":"connected to power source")<<std::endl;
 			
+			std::cout<<"  Device can ";
+			if(vd.canPowerOff)
+				std::cout<<"not ";
+			std::cout<<"be powered off on request"<<std::endl;
+			
 			if(vd.trackType&Vrui::VRDeviceDescriptor::TRACK_POS)
 				std::cout<<"  Tracker index: "<<vd.trackerIndex<<std::endl;
 			
@@ -420,6 +444,14 @@ int main(int argc,char* argv[])
 					std::cout<<" ("<<vd.valuatorNames[i]<<", "<<vd.valuatorIndices[i]<<")";
 				std::cout<<std::endl;
 				}
+			
+			if(vd.numHapticFeatures>0)
+				{
+				std::cout<<"  "<<vd.numHapticFeatures<<" haptic features:";
+				for(int i=0;i<vd.numHapticFeatures;++i)
+					std::cout<<" ("<<vd.hapticFeatureNames[i]<<", "<<vd.hapticFeatureIndices[i]<<")";
+				std::cout<<std::endl;
+				}
 			}
 		std::cout<<std::endl;
 		}
@@ -427,7 +459,7 @@ int main(int argc,char* argv[])
 	if(printHmdConfigurations)
 		{
 		/* Print information about the server's HMD configurations: */
-		std::cout<<"Device server at "<<serverName<<":"<<portNumber<<" defines "<<deviceClient->getNumHmdConfigurations()<<" head-mounted devices."<<std::endl;
+		std::cout<<"Device server at "<<serverName<<':'<<portNumber<<" defines "<<deviceClient->getNumHmdConfigurations()<<" head-mounted devices."<<std::endl;
 		deviceClient->lockHmdConfigurations();
 		for(unsigned int hmdIndex=0;hmdIndex<deviceClient->getNumHmdConfigurations();++hmdIndex)
 			{
@@ -444,6 +476,28 @@ int main(int argc,char* argv[])
 			std::cout<<"  Right eye field-of-view: "<<hc.getFov(1)[0]<<", "<<hc.getFov(1)[1]<<", "<<hc.getFov(1)[2]<<", "<<hc.getFov(1)[3]<<std::endl;
 			}
 		deviceClient->unlockHmdConfigurations();
+		}
+	
+	/* Check whether to trigger a haptic pulse: */
+	if(powerFeatureIndex>=0||hapticFeatureIndex>=0)
+		{
+		/* Request a power off or haptic tick and disconnect from the server: */
+		try
+			{
+			deviceClient->activate();
+			if(hapticFeatureIndex>=0)
+				deviceClient->hapticTick(hapticFeatureIndex,hapticDuration);
+			if(powerFeatureIndex>=0)
+				deviceClient->powerOff(powerFeatureIndex);
+			deviceClient->deactivate();
+			}
+		catch(std::runtime_error err)
+			{
+			std::cerr<<"Caught exception "<<err.what()<<" while powering off device / triggering haptic pulse"<<std::endl;
+			}
+		delete deviceClient;
+		
+		return 0;
 		}
 	
 	/* Initialize HMD configuration state arrays: */

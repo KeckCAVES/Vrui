@@ -244,6 +244,14 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 						/* Check if the client expects tracker valid flags: */
 						client->clientExpectsValidFlags=client->protocolVersion>=5;
 						
+						/* Check if the client knows about power and haptic features: */
+						if(client->protocolVersion>=6U)
+							{
+							/* Send the number of power and haptic features: */
+							client->pipe.write<Misc::UInt32>(thisPtr->deviceManager->getNumPowerFeatures());
+							client->pipe.write<Misc::UInt32>(thisPtr->deviceManager->getNumHapticFeatures());
+							}
+						
 						/* Finish the reply message: */
 						client->pipe.flush();
 						
@@ -324,6 +332,23 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 							client->state=STREAMING;
 							}
 						}
+					else if(message==Vrui::VRDevicePipe::POWEROFF_REQUEST)
+						{
+						/* Read the index of the power feature to power off: */
+						unsigned int powerFeatureIndex=client->pipe.read<Misc::UInt16>();
+						
+						/* Power off the requested feature: */
+						thisPtr->deviceManager->powerOff(powerFeatureIndex);
+						}
+					else if(message==Vrui::VRDevicePipe::HAPTICTICK_REQUEST)
+						{
+						/* Read the index of the haptic feature and the duration of the haptic tick: */
+						unsigned int hapticFeatureIndex=client->pipe.read<Misc::UInt16>();
+						unsigned int duration=client->pipe.read<Misc::UInt16>();
+						
+						/* Request a haptic tick on the requested feature: */
+						thisPtr->deviceManager->hapticTick(hapticFeatureIndex,duration);
+						}
 					else if(message==Vrui::VRDevicePipe::DEACTIVATE_REQUEST)
 						{
 						/* Stop VR devices if this was the last active clients: */
@@ -340,7 +365,24 @@ bool VRDeviceServer::clientMessageCallback(Threads::EventDispatcher::ListenerKey
 					break;
 				
 				case STREAMING:
-					if(message==Vrui::VRDevicePipe::STOPSTREAM_REQUEST)
+					if(message==Vrui::VRDevicePipe::POWEROFF_REQUEST)
+						{
+						/* Read the index of the power feature to power off: */
+						unsigned int powerFeatureIndex=client->pipe.read<Misc::UInt16>();
+						
+						/* Power off the requested feature: */
+						thisPtr->deviceManager->powerOff(powerFeatureIndex);
+						}
+					else if(message==Vrui::VRDevicePipe::HAPTICTICK_REQUEST)
+						{
+						/* Read the index of the haptic feature and the duration of the haptic tick: */
+						unsigned int hapticFeatureIndex=client->pipe.read<Misc::UInt16>();
+						unsigned int duration=client->pipe.read<Misc::UInt16>();
+						
+						/* Request a haptic tick on the requested feature: */
+						thisPtr->deviceManager->hapticTick(hapticFeatureIndex,duration);
+						}
+					else if(message==Vrui::VRDevicePipe::STOPSTREAM_REQUEST)
 						{
 						/* Send stopstream reply message: */
 						client->pipe.writeMessage(Vrui::VRDevicePipe::STOPSTREAM_REPLY);

@@ -1,7 +1,7 @@
 /***********************************************************************
 HIDDevice - VR device driver class for generic input devices supported
 by the Linux HID event interface. Reports buttons and absolute axes.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -86,7 +86,7 @@ int HIDDevice::findDevice(int vendorId,int productId)
 	for(int eventFileIndex=0;eventFileIndex<numEventFiles;++eventFileIndex)
 		{
 		/* Open the event file: */
-		char eventFileName[256];
+		char eventFileName[288];
 		snprintf(eventFileName,sizeof(eventFileName),"/dev/input/%s",eventFiles[eventFileIndex]->d_name);
 		int eventFd=open(eventFileName,O_RDONLY);
 		if(eventFd>=0)
@@ -128,7 +128,7 @@ int HIDDevice::findDevice(const char* deviceName)
 	for(int eventFileIndex=0;eventFileIndex<numEventFiles;++eventFileIndex)
 		{
 		/* Open the event file: */
-		char eventFileName[256];
+		char eventFileName[288];
 		snprintf(eventFileName,sizeof(eventFileName),"/dev/input/%s",eventFiles[eventFileIndex]->d_name);
 		int eventFd=open(eventFileName,O_RDONLY);
 		if(eventFd>=0)

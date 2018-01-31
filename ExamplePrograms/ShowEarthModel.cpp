@@ -1017,7 +1017,10 @@ void ShowEarthModel::display(GLContextData& contextData) const
 	frustum.setFromGL();
 	float pointRadius=earthquakePointSize*float(Vrui::getUiSize())*0.1f;
 	pointRadius*=frustum.getPixelSize()/frustum.getEyeScreenDistance();
-	EarthquakeSet::Point eyePos=frustum.getEye().toPoint();
+	EarthquakeSet::Point eyePos1=Vrui::getHeadPosition();
+	EarthquakeSet::Point::Scalar rac=Math::cos(Math::rad(EarthquakeSet::Point::Scalar(rotationAngle)));
+	EarthquakeSet::Point::Scalar ras=Math::sin(Math::rad(EarthquakeSet::Point::Scalar(rotationAngle)));
+	EarthquakeSet::Point eyePos(eyePos1[0]*rac+eyePos1[1]*ras,-eyePos1[0]*ras+eyePos1[1]*rac,eyePos1[2]);
 	
 	if(fog)
 		{

@@ -288,7 +288,7 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	 threadWaitTime(configFile.retrieveValue<unsigned int>("./threadWaitTime",100000U)),
 	 printLogMessages(configFile.retrieveValue<bool>("./printLogMessages",false)),
 	 configuredPostTransformations(0),hmdConfiguration(0),controllerDeviceIndices(0),trackerDeviceIndices(0),
-	 deviceStates(0),
+	 deviceStates(0),powerFeatureDevices(0),controllers(0),
 	 numConnectedDevices(0),numControllers(0),numTrackers(0),numBaseStations(0),
 	 exiting(false)
 	{
@@ -401,9 +401,19 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	
 	/* Initialize OpenVR's device state array: */
 	deviceStates=new DeviceState[1U+maxNumControllers+maxNumTrackers+maxNumBaseStations];
+	powerFeatureDevices=new DeviceState*[maxNumControllers+maxNumTrackers];
+	for(unsigned int i=0;i<maxNumControllers+maxNumTrackers;++i)
+		powerFeatureDevices[i]=0;
+	controllers=new vr::IVRControllerComponent*[maxNumControllers];
+	for(unsigned int i=0;i<maxNumControllers;++i)
+		controllers[i]=0;
+	
+	/* Add power features for all controllers and trackers: */
+	for(unsigned int i=0;i<maxNumControllers+maxNumTrackers;++i)
+		deviceManager->addPowerFeature(this,i);
 	
 	/* Create a virtual device for the headset: */
-	Vrui::VRDeviceDescriptor* hmdVd=new Vrui::VRDeviceDescriptor(2,0);
+	Vrui::VRDeviceDescriptor* hmdVd=new Vrui::VRDeviceDescriptor(2,0,0);
 	hmdVd->name=configFile.retrieveString("./hmdName","HMD");
 	hmdVd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 	hmdVd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,0,-1);
@@ -430,12 +440,13 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	std::string controllerNameTemplate=configFile.retrieveString("./controllerNameTemplate","Controller%u");
 	for(unsigned int i=0;i<maxNumControllers;++i)
 		{
-		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(5,3);
+		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(5,3,1);
 		vd->name=Misc::stringPrintf(controllerNameTemplate.c_str(),1U+i);
 		vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 		vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,0,-1);
 		vd->rayStart=0.0f;
 		vd->hasBattery=true;
+		vd->canPowerOff=true;
 		vd->trackerIndex=getTrackerIndex(1U+i);
 		for(unsigned int j=0;j<5;++j)
 			{
@@ -447,6 +458,8 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 			vd->valuatorNames[j]=defaultValuatorNames[j];
 			vd->valuatorIndices[j]=getValuatorIndex(i*3+j);
 			}
+		vd->hapticFeatureNames[0]="Haptic";
+		vd->hapticFeatureIndices[0]=deviceManager->addHapticFeature(this,i);
 		controllerDeviceIndices[i]=addVirtualDevice(vd);
 		}
 	
@@ -455,12 +468,13 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 	std::string trackerNameTemplate=configFile.retrieveString("./trackerNameTemplate","Tracker%u");
 	for(unsigned int i=0;i<maxNumTrackers;++i)
 		{
-		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(0,0);
+		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(0,0,0);
 		vd->name=Misc::stringPrintf(trackerNameTemplate.c_str(),1U+i);
 		vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 		vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,0,-1);
 		vd->rayStart=0.0f;
 		vd->hasBattery=true;
+		vd->canPowerOff=true;
 		vd->trackerIndex=getTrackerIndex(1U+maxNumControllers+i);
 		trackerDeviceIndices[i]=addVirtualDevice(vd);
 		}
@@ -474,13 +488,20 @@ OpenVRHost::~OpenVRHost(void)
 	fflush(stdout);
 	#endif
 	exiting=true;
+	
+	/* Put all tracked devices into stand-by mode: */
 	for(unsigned int i=0;i<numConnectedDevices;++i)
-		{
-		deviceStates[i].driver->Deactivate();
 		deviceStates[i].driver->EnterStandby();
-		}
+	
+	/* Put the main server into stand-by mode: */
 	openvrTrackedDeviceProvider->EnterStandby();
-	usleep(1000000);
+	usleep(100000);
+	
+	/* Deactivate all devices: */
+	for(unsigned int i=0;i<numConnectedDevices;++i)
+		deviceStates[i].driver->Deactivate();
+	usleep(500000);
+	
 	#ifdef VERBOSE
 	printf("OpenVRHost: Shutting down OpenVR driver module\n");
 	fflush(stdout);
@@ -503,6 +524,8 @@ OpenVRHost::~OpenVRHost(void)
 	for(unsigned int i=0;i<1U+maxNumControllers+maxNumTrackers+maxNumBaseStations;++i)
 		delete[] deviceStates[i].buttonIndices;
 	delete[] deviceStates;
+	delete[] powerFeatureDevices;
+	delete[] controllers;
 	
 	/* Close the OpenVR device driver dso: */
 	dlclose(openvrDriverDsoHandle);
@@ -547,6 +570,27 @@ void OpenVRHost::start(void)
 void OpenVRHost::stop(void)
 	{
 	/* Could suspend OpenVR driver at this point... */
+	}
+
+void OpenVRHost::powerOff(int devicePowerFeatureIndex)
+	{
+	/* Power off the device if it is connected and can power off: */
+	if(powerFeatureDevices[devicePowerFeatureIndex]!=0&&powerFeatureDevices[devicePowerFeatureIndex]->canPowerOff)
+		{
+		#ifdef VERBOSE
+		printf("OpenVRHost: Powering off device with serial number %s\n",powerFeatureDevices[devicePowerFeatureIndex]->serialNumber.c_str());
+		#endif
+		
+		/* Power off the device: */
+		powerFeatureDevices[devicePowerFeatureIndex]->driver->EnterStandby();
+		}
+	}
+
+void OpenVRHost::hapticTick(int deviceHapticFeatureIndex,unsigned int duration)
+	{
+	/* Trigger a haptic tick on the device if the controller component is valid: */
+	if(controllers[deviceHapticFeatureIndex]!=0)
+		controllers[deviceHapticFeatureIndex]->TriggerHapticPulse(0,duration);
 	}
 
 void* OpenVRHost::GetGenericInterface(const char* pchInterfaceVersion,vr::EVRInitError* peError)
@@ -682,6 +726,18 @@ bool OpenVRHost::TrackedDeviceAdded(const char* pchDeviceSerialNumber,vr::ETrack
 			ds.valuatorIndexBase=numControllers*3;
 			ds.virtualDeviceIndex=controllerDeviceIndices[numControllers];
 			
+			/* Set the controller as a power feature device: */
+			powerFeatureDevices[numControllers]=&ds;
+			
+			/* Get the controller's controller component: */
+			controllers[numControllers]=static_cast<vr::IVRControllerComponent*>(ds.driver->GetComponent(vr::IVRControllerComponent_Version));
+			if(controllers[numControllers]==0)
+				{
+				#ifdef VERBOSE
+				printf("OpenVRHost: Warning: Controller with serial number %s does not have a controller component",pchDeviceSerialNumber);
+				#endif
+				}
+			
 			/* Accept the controller: */
 			++numControllers;
 			accepted=true;
@@ -702,6 +758,9 @@ bool OpenVRHost::TrackedDeviceAdded(const char* pchDeviceSerialNumber,vr::ETrack
 			/* Initialize the device state structure: */
 			ds.trackerIndex=1U+maxNumControllers+numTrackers;
 			ds.virtualDeviceIndex=trackerDeviceIndices[numTrackers];
+			
+			/* Set the tracker as a power feature device: */
+			powerFeatureDevices[maxNumControllers+numTrackers]=&ds;
 			
 			/* Accept the tracker: */
 			++numTrackers;
@@ -1071,6 +1130,27 @@ void storeUint64(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyCon
 		prop.eError=vr::TrackedProp_InvalidDevice;
 	}
 
+void storeBool(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,bool value,vr::PropertyRead_t& prop)
+	{
+	/* Initialize the property: */
+	prop.unRequiredBufferSize=sizeof(bool);
+	prop.eError=vr::TrackedProp_Success;
+	
+	/* Check for correctness: */
+	if(ulContainerHandle>=minHandle&&ulContainerHandle<=maxHandle)
+		{
+		if(prop.unBufferSize>=prop.unRequiredBufferSize)
+			{
+			prop.unTag=vr::k_unBoolPropertyTag;
+			*static_cast<bool*>(prop.pvBuffer)=value;
+			}
+		else
+			prop.eError=vr::TrackedProp_BufferTooSmall;
+		}
+	else
+		prop.eError=vr::TrackedProp_InvalidDevice;
+	}
+
 void storeString(vr::PropertyContainerHandle_t ulContainerHandle,vr::PropertyContainerHandle_t minHandle,vr::PropertyContainerHandle_t maxHandle,const std::string& value,vr::PropertyRead_t& prop)
 	{
 	/* Initialize the property to the empty string: */
@@ -1237,6 +1317,10 @@ vr::ETrackedPropertyError OpenVRHost::ReadPropertyBatch(vr::PropertyContainerHan
 				pPtr->eError=vr::TrackedProp_Success;
 				break;
 			#endif
+			
+			case vr::Prop_DeviceCanPowerOff_Bool:
+				storeBool(ulContainerHandle,256,255+numConnectedDevices,ds.canPowerOff,*pPtr);
+				break;
 			
 			case vr::Prop_LensCenterLeftU_Float:
 				storeFloat(ulContainerHandle,256,256,ds.lensCenters[0][0],*pPtr);

@@ -1,7 +1,7 @@
 /***********************************************************************
 ALSAAudioCaptureDevice - Wrapper class around audio capture devices as
 represented by the ALSA sound library.
-Copyright (c) 2010-2011 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Basic Sound Library (Sound).
 
@@ -100,7 +100,7 @@ void ALSAAudioCaptureDevice::addDevices(AudioCaptureDevice::DeviceList& devices)
 						free(cardName);
 						if(numCardDevices>0)
 							{
-							char suffix[10];
+							char suffix[16];
 							snprintf(suffix,sizeof(suffix),":%d",numCardDevices);
 							deviceName.append(suffix);
 							}

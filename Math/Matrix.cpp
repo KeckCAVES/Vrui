@@ -1,6 +1,6 @@
 /***********************************************************************
 Matrix - Class to represent double-valued matrices of dynamic sizes.
-Copyright (c) 2000-2015 Oliver Kreylos
+Copyright (c) 2000-2017 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -518,6 +518,7 @@ Matrix& Matrix::operator*=(const Matrix& other)
 	reinterpret_cast<unsigned int*>(newM)[-1]=1;
 	
 	/* Multiply the current and other matrices into the new element array: */
+	size_t numOps=0;
 	double* rPtr=newM;
 	for(unsigned int i=0;i<numRows;++i)
 		for(unsigned int j=0;j<other.numColumns;++j,++rPtr)
@@ -526,7 +527,10 @@ Matrix& Matrix::operator*=(const Matrix& other)
 			const double* oPtr=other.m+j;
 			*rPtr=0.0;
 			for(unsigned int k=0;k<numColumns;++k,++mPtr,oPtr+=other.numColumns)
+				{
 				*rPtr+=(*mPtr)*(*oPtr);
+				++numOps;
+				}
 			}
 	
 	/* Release the old element array: */
@@ -888,6 +892,37 @@ std::pair<Matrix,Matrix> Matrix::solveLinearSystem(const Matrix& coefficients,do
 	return std::make_pair(solution,space);
 	}
 
+Matrix Matrix::choleskyDecomposition(void) const
+	{
+	/* Get the size of the matrix, assuming it's square but preparing for the worst: */
+	unsigned int size=min(numRows,numColumns);
+	
+	/* Create the result matrix: */
+	Matrix l(size,size,0.0);
+	for(unsigned int k=0;k<size;++k)
+		{
+		double diag=m[k*numColumns+k];
+		for(unsigned int j=0;j<k;++j)
+			diag-=sqr(l.m[k*numColumns+j]);
+		if(diag>0.0)
+			{
+			diag=Math::sqrt(diag);
+			l.m[k*numColumns+k]=diag;
+			for(unsigned int i=k+1;i<size;++i)
+				{
+				double entry=m[i*numColumns+k];
+				for(unsigned int j=0;j<k;++j)
+					entry-=l.m[i*numColumns+j]*l.m[k*numColumns+j];
+				l.m[i*numColumns+k]=entry/diag;
+				}
+			}
+		else
+			l.m[k*numColumns+k]=0.0;
+		}
+	
+	return l;
+	}
+
 std::pair<Matrix,Matrix> Matrix::qrDecomposition(void) const
 	{
 	/* Create the result matrices: */
@@ -1078,6 +1113,7 @@ std::pair<Matrix,Matrix> Matrix::jacobiIteration(void) const
 	
 	/* Clean up and return the result matrices: */
 	delete[] rowPivots;
+	delete[] changed;
 	return std::make_pair(q,e);
 	}
 

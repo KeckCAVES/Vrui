@@ -1,7 +1,7 @@
 /***********************************************************************
 TransferPool - Class to manage a pool of USB transfer buffers for
 asynchronous bulk or isochronous transmission.
-Copyright (c) 2014-2015 Oliver Kreylos
+Copyright (c) 2014-2017 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -77,6 +77,7 @@ void TransferPool::transferCallback(libusb_transfer* transfer)
 	Threads::Spinlock::Lock listLock(thisPtr->listMutex);
 	
 	tli=thisPtr->active.findAndRemove(transfer);
+	
 	++thisPtr->activeDeficit;
 	if(!thisPtr->cancelling)
 		{
@@ -98,7 +99,7 @@ void TransferPool::transferCallback(libusb_transfer* transfer)
 		}
 	}
 	
-	if(transfer->status==LIBUSB_TRANSFER_COMPLETED)
+	if(transfer->status==LIBUSB_TRANSFER_COMPLETED&&!thisPtr->cancelling)
 		{
 		/* Call the end-user callback: */
 		(*thisPtr->userTransferCallback)(tli);
@@ -193,6 +194,9 @@ void TransferPool::submit(Device& device,unsigned int endpoint,unsigned int numA
 	}
 	if(numSubmittedTransfers<numActiveTransfers)
 		Misc::formattedConsoleError("USB::TransferPool: Failed submitting %u out of %u requested transfers",numActiveTransfers-numSubmittedTransfers,numActiveTransfers);
+	
+	/* Keep track of the number of transfers that need to be submitted at the next opportunity: */
+	activeDeficit=numActiveTransfers-numSubmittedTransfers;
 	}
 
 void TransferPool::cancel(void)

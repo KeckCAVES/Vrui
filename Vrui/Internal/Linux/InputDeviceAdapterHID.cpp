@@ -118,6 +118,9 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 	if(*colonPtr!=':'||*endPtr!='\0')
 		Misc::throwStdErr("InputDeviceAdapterHID::InputDeviceAdapterHID: Malformed vendorId:productId string \"%s\" for device %s",deviceVendorProductId.c_str(),name.c_str());
 	
+	/* Check if there is a device name to match: */
+	std::string matchingDeviceName=configFileSection.retrieveString("./deviceName",std::string());
+	
 	/* Get the device index: */
 	int matchingDeviceIndex=configFileSection.retrieveValue<int>("./deviceIndex",0);
 	
@@ -130,7 +133,7 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 	for(int eventFileIndex=0;eventFileIndex<numEventFiles;++eventFileIndex)
 		{
 		/* Open the event file: */
-		char eventFileName[256];
+		char eventFileName[288];
 		snprintf(eventFileName,sizeof(eventFileName),"/dev/input/%s",eventFiles[eventFileIndex]->d_name);
 		int eventFd=open(eventFileName,O_RDONLY);
 		if(eventFd>=0)
@@ -141,16 +144,28 @@ void InputDeviceAdapterHID::createInputDevice(int deviceIndex,const Misc::Config
 				{
 				if(deviceInformation.vendor==vendorId&&deviceInformation.product==productId)
 					{
-					/* We have a match: */
-					if(matchingDeviceIndex==0)
+					/* Check if the device's name matches the optional matching device name: */
+					bool match=true;
+					if(!matchingDeviceName.empty())
 						{
-						/* We have a winner! */
-						deviceFd=eventFd;
-						break;
+						/* Retrieve the device name and check it against the requested name: */
+						char deviceName[256];
+						match=ioctl(eventFd,EVIOCGNAME(sizeof(deviceName)),deviceName)>=0&&matchingDeviceName==deviceName;
 						}
 					
-					/* Try again on the next matching device: */
-					--matchingDeviceIndex;
+					if(match)
+						{
+						/* We have a match: */
+						if(matchingDeviceIndex==0)
+							{
+							/* We have a winner! */
+							deviceFd=eventFd;
+							break;
+							}
+						
+						/* Try again on the next matching device: */
+						--matchingDeviceIndex;
+						}
 					}
 				}
 			

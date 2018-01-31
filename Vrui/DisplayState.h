@@ -3,7 +3,7 @@ DisplayState - Class to store Vrui rendering state in a GLContextData
 object so it can be queried by applications from inside their display
 methods. Workaround until a "proper" method to pass display state into
 applications is found.
-Copyright (c) 2009-2014 Oliver Kreylos
+Copyright (c) 2009-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -45,6 +45,7 @@ class DisplayState
 	/* Elements: */
 	public:
 	const VRWindow* window; // The VR window being rendered to
+	int windowIndex; // The index of the above VR window in the environment's complete window list
 	int viewport[4]; // The window's current viewport (x, y, width, height)
 	int frameSize[2]; // The window's current frame buffer width and height
 	int maxViewportSize[2]; // The maximum viewport size of all windows in the current window's window group
