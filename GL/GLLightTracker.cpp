@@ -2,7 +2,7 @@
 GLLightTracker - Class to keep track of changes to OpenGL's light source
 state to support just-in-time compilation of GLSL shaders depending on
 the OpenGL context's current lighting state.
-Copyright (c) 2011-2012 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -69,7 +69,7 @@ const char GLLightTracker::accumulateAttenuatedLightTemplate[]=
 		{\n\
 		/* Compute the light direction (works both for directional and point lights): */\n\
 		vec3 lightDirEc=gl_LightSource[<lightIndex>].position.xyz*vertexEc.w-vertexEc.xyz*gl_LightSource[<lightIndex>].position.w;\n\
-		float lightDist=length(lightDirEc);\n\
+		float lightDist=length(lightDirEc)/(gl_LightSource[<lightIndex>].position.w*vertexEc.w);\n\
 		lightDirEc=normalize(lightDirEc);\n\
 		\n\
 		/* Calculate the source attenuation factor: */\n\
@@ -144,7 +144,7 @@ const char GLLightTracker::accumulateAttenuatedSpotLightTemplate[]=
 		{\n\
 		/* Compute the light direction (works both for directional and point lights): */\n\
 		vec3 lightDirEc=gl_LightSource[<lightIndex>].position.xyz*vertexEc.w-vertexEc.xyz*gl_LightSource[<lightIndex>].position.w;\n\
-		float lightDist=length(lightDirEc);\n\
+		float lightDist=length(lightDirEc)/(gl_LightSource[<lightIndex>].position.w*vertexEc.w);\n\
 		lightDirEc=normalize(lightDirEc);\n\
 		\n\
 		/* Calculate the spot light angle: */\n\

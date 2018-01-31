@@ -2657,28 +2657,49 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR><TH>Input</TH><TH>Number</TH><TH>Function Description</TH></TR>
 
 <TR>
-<TD>Required Buttons</TD><TD></TD>
-<TD></TD>
-</TR>
-
-<TR>
-<TD>Optional Buttons</TD><TD></TD>
-<TD></TD>
-</TR>
-
-<TR>
-<TD>Required Valuators</TD><TD></TD>
-<TD></TD>
-</TR>
-
-<TR>
-<TD>Optional Valuators</TD><TD></TD>
-<TD></TD>
+<TD>Required Buttons</TD><TD>1</TD>
+<TD>Toggle lightsaber blade on/off.</TD>
 </TR>
 </TABLE><P>
 
 <TABLE BORDER=1 CELLPADDING=4 CELLSPACING=1>
 <TR><TH>Setting Tag</TH><TH>Setting Value Type</TH><TH>Default Value</TH><TH>Setting Description</TH></TR>
+
+<TR>
+<TD>lightsaberLength</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>48"</TD><TD>Length of lightsaber blade when fully extended in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>lightsaberWidth</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>6"</TD><TD>Width of lightsaber blade including halo in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>baseOffset</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>3"</TD><TD>Amount by which to shift the lightsaber blade into the hilt in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hiltTransform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD><TD>identity</TD><TD>Transformation from tool's input device space to lightsaber hilt space, to align virtual hilt with a physical handle.</TD>
+</TR>
+
+<TR>
+<TD>hiltLength</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>8"</TD><TD>Length of lightsaber hilt in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>hiltRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>0.75"</TD><TD>Radius of lightsaber hilt in physical coordinate units.</TD>
+</TR>
+
+<TR>
+<TD>lightsaberImageFileName</TD><TD><A HREF="VruiCFGTypes.html#string">string</A></TD><TD>&lt;Vrui share dir&gt;/Textures/Lightsaber.png</TD><TD>File name of lightsaber blade texture image.</TD>
+</TR>
+
+<TR>
+<TD>numLightsources</TD><TD><A HREF="VruiCFGTypes.html#integer">integer</A></TD><TD>0</TD><TD>Number of &quot;glow&quot; light sources to distribute along the lightsaber blade.</TD>
+</TR>
+
+<TR>
+<TD>lightRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>24"</TD><TD>Illumination radius of &quot;glow&quot; light sources in physical coordinate units.</TD>
+</TR>
 </TABLE>
 
 <A NAME="MeasurementTool"><H3>MeasurementTool</H3></A>

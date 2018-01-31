@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2016 Oliver Kreylos
+Copyright (c) 2009-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -197,15 +197,19 @@ class SketchingTool:public UtilityTool
 		static void resetGLState(GLContextData& contextData); // Undoes changes to OpenGL
 		};
 	
+	public:
 	enum SketchMode // Enumerated type for sketching modes
 		{
 		CURVE=0,POLYLINE,BRUSHSTROKE,ERASER
 		};
 	
 	/* Elements: */
+	private:
 	static SketchingToolFactory* factory; // Pointer to the factory object for this class
 	static const Color colors[8]; // Standard line color palette
 	GLMotif::PopupWindow* controlDialogPopup;
+	GLMotif::RadioBox* sketchObjectType;
+	GLMotif::TextFieldSlider* lineWidthSlider;
 	GLMotif::RowColumn* colorBox;
 	std::vector<Curve*> curves; // List of curves
 	std::vector<Polyline*> polylines; // List of polylines
@@ -222,15 +226,14 @@ class SketchingTool:public UtilityTool
 	
 	/* Constructors and destructors: */
 	public:
-	SketchingTool(const Vrui::ToolFactory* sFactory,const Vrui::ToolInputAssignment& inputAssignment);
+	SketchingTool(const ToolFactory* sFactory,const ToolInputAssignment& inputAssignment);
 	virtual ~SketchingTool(void);
 	
-	/* Methods from Vrui::Tool: */
-	virtual const Vrui::ToolFactory* getFactory(void) const
-		{
-		return factory;
-		}
-	virtual void buttonCallback(int buttonSlotIndex,Vrui::InputDevice::ButtonCallbackData* cbData);
+	/* Methods from Tool: */
+	virtual void configure(const Misc::ConfigurationFileSection& configFileSection);
+	virtual void storeState(Misc::ConfigurationFileSection& configFileSection) const;
+	virtual const ToolFactory* getFactory(void) const;
+	virtual void buttonCallback(int buttonSlotIndex,InputDevice::ButtonCallbackData* cbData);
 	virtual void frame(void);
 	virtual void display(GLContextData& contextData) const;
 	

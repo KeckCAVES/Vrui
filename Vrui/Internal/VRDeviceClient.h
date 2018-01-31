@@ -86,6 +86,8 @@ class VRDeviceClient
 	mutable Threads::Mutex hmdConfigurationMutex; // Mutex to serialize access to the HMD configurations
 	HMDConfiguration* hmdConfigurations; // Array of HMD configurations maintained by the server
 	HMDConfigurationUpdatedCallback** hmdConfigurationUpdatedCallbacks; // Callbacks called when an HMD configuration has been updated
+	unsigned int numPowerFeatures; // Number of power features maintained by the server
+	unsigned int numHapticFeatures; // Number of haptic features maintained by the server
 	bool active; // Flag if client is active
 	bool streaming; // Flag if client is in streaming mode
 	volatile bool connectionDead; // Flag whether the connection to the server was interrupted while in streaming mode
@@ -155,9 +157,19 @@ class VRDeviceClient
 		hmdConfigurationMutex.unlock();
 		}
 	const HMDConfiguration& getHmdConfiguration(unsigned int index) const; // Returns the requested HMD configuration (HMD configurations must be locked while being used)
+	unsigned int getNumPowerFeatures(void) const // Returns the number of power features maintained by the server
+		{
+		return numPowerFeatures;
+		}
+	unsigned int getNumHapticFeatures(void) const // Returns the number of haptic features maintained by the server
+		{
+		return numHapticFeatures;
+		}
 	void activate(void); // Prepares the server for sending state packets
 	void deactivate(void); // Deactivates server
 	void getPacket(void); // Requests state packet from server; blocks until arrival
+	void powerOff(unsigned int powerFeatureIndex); // Requests to power off the given power feature
+	void hapticTick(unsigned int hapticFeatureIndex,unsigned int duration); // Requests a haptic tick of the given duration in microseconds on the given haptic feature
 	void setBatteryStateUpdatedCallback(BatteryStateUpdatedCallback* newBatteryStateUpdatedCallback); // Installs given callback function (device client adopts function object; battery states must be locked)
 	void setHmdConfigurationUpdatedCallback(unsigned int trackerIndex,HMDConfigurationUpdatedCallback* newHmdConfigurationUpdatedCallback); // Installs given callback function for the given tracker index (device client adopts function object; HMD configurations must be locked)
 	void startStream(Callback* newPacketNotificationCallback,ErrorCallback* newErrorCallback =0); // Installs given callback functions (device client adopts function objects) and starts streaming mode

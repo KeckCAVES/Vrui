@@ -1,7 +1,7 @@
 /***********************************************************************
 CompoundMarshallers - Generic marshaller classes for vectors and lists
 of other data types.
-Copyright (c) 2010 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <utility>
 #include <list>
 #include <vector>
+#include <Misc/SizedTypes.h>
 #include <Misc/Marshaller.h>
 
 namespace Misc {
@@ -34,6 +35,8 @@ namespace Misc {
 template <class FirstParam,class SecondParam>
 class Marshaller<std::pair<FirstParam,SecondParam> >
 	{
+	/* Methods: */
+	public:
 	static size_t getSize(const std::pair<FirstParam,SecondParam>& value)
 		{
 		return Marshaller<FirstParam>::getSize(value.first)+Marshaller<SecondParam>::getSize(value.second);
@@ -57,9 +60,11 @@ class Marshaller<std::pair<FirstParam,SecondParam> >
 template <class ValueParam>
 class Marshaller<std::list<ValueParam> >
 	{
+	/* Methods: */
+	public:
 	static size_t getSize(const std::list<ValueParam>& value)
 		{
-		size_t result=sizeof(unsigned int);
+		size_t result=sizeof(Misc::UInt32);
 		for(typename std::list<ValueParam>::const_iterator vIt=value.begin();vIt!=value.end();++vIt)
 			result+=Marshaller<ValueParam>::getSize(*vIt);
 		return result;
@@ -67,7 +72,7 @@ class Marshaller<std::list<ValueParam> >
 	template <class DataSinkParam>
 	static void write(const std::list<ValueParam>& value,DataSinkParam& sink)
 		{
-		sink.template write<unsigned int>((unsigned int)value.size());
+		sink.template write<Misc::UInt32>(value.size());
 		for(typename std::list<ValueParam>::const_iterator vIt=value.begin();vIt!=value.end();++vIt)
 			Marshaller<ValueParam>::write(*vIt,sink);
 		}
@@ -75,7 +80,7 @@ class Marshaller<std::list<ValueParam> >
 	static std::list<ValueParam> read(DataSourceParam& source)
 		{
 		std::list<ValueParam> result;
-		unsigned int size=source.template read<unsigned int>();
+		unsigned int size=source.template read<Misc::UInt32>();
 		for(unsigned int i=0;i<size;++i)
 			result.push_back(Marshaller<ValueParam>::read(source));
 		return result;
@@ -85,9 +90,11 @@ class Marshaller<std::list<ValueParam> >
 template <class ValueParam>
 class Marshaller<std::vector<ValueParam> >
 	{
+	/* Methods: */
+	public:
 	static size_t getSize(const std::vector<ValueParam>& value)
 		{
-		size_t result=sizeof(unsigned int);
+		size_t result=sizeof(Misc::UInt32);
 		for(typename std::vector<ValueParam>::const_iterator vIt=value.begin();vIt!=value.end();++vIt)
 			result+=Marshaller<ValueParam>::getSize(*vIt);
 		return result;
@@ -95,7 +102,7 @@ class Marshaller<std::vector<ValueParam> >
 	template <class DataSinkParam>
 	static void write(const std::vector<ValueParam>& value,DataSinkParam& sink)
 		{
-		sink.template write<unsigned int>((unsigned int)value.size());
+		sink.template write<Misc::UInt32>(value.size());
 		for(typename std::vector<ValueParam>::const_iterator vIt=value.begin();vIt!=value.end();++vIt)
 			Marshaller<ValueParam>::write(*vIt,sink);
 		}
@@ -103,7 +110,7 @@ class Marshaller<std::vector<ValueParam> >
 	static std::vector<ValueParam> read(DataSourceParam& source)
 		{
 		std::vector<ValueParam> result;
-		unsigned int size=source.template read<unsigned int>();
+		unsigned int size=source.template read<Misc::UInt32>();
 		for(unsigned int i=0;i<size;++i)
 			result.push_back(Marshaller<ValueParam>::read(source));
 		return result;

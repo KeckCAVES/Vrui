@@ -1,7 +1,7 @@
 /***********************************************************************
 NewButton - New base class for GLMotif UI components reacting to push
 events, implemented as container widgets with a single child.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2017 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -242,6 +242,16 @@ void NewButton::setBackgroundColor(const Color& newBackgroundColor)
 		if(child!=0)
 			child->setBackgroundColor(newBackgroundColor);
 		}
+	}
+
+void NewButton::addChild(Widget* newChild)
+	{
+	/* Children of buttons default to no border: */
+	newChild->setBorderType(GLMotif::Widget::PLAIN);
+	newChild->setBorderWidth(0.0f);
+	
+	/* Call the base class method: */
+	SingleChildContainer::addChild(newChild);
 	}
 
 void NewButton::setArmedBackgroundColor(const Color& newArmedBackgroundColor)

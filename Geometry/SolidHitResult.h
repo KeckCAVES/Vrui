@@ -1,7 +1,7 @@
 /***********************************************************************
 SolidHitResult - Class to report results of intersection tests between
 rays and solid geometric objects.
-Copyright (c) 2002-2005 Oliver Kreylos
+Copyright (c) 2002-2017 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -57,6 +57,11 @@ class SolidHitResult:public HitResult<ScalarParam> // Class to report intersecti
 	Direction getDirection(void) const // Returns direction of reported intersection
 		{
 		return direction;
+		}
+	void setParameterAndDirection(ScalarParam newLambda,Direction newDirection) // Sets parameter of ray intersection point and ray intersection direction and marks hit result valid
+		{
+		HitResult<ScalarParam>::setParameter(newLambda);
+		direction=newDirection;
 		}
 	};
 

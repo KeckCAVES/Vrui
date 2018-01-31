@@ -245,7 +245,7 @@ class SensorData // Input report: Receive sensor data from Rift's IMU
 	private:
 	Misc::UInt8 pktBuffer[62]; // Buffer to unpack sensor data messages
 	public:
-	static const TimeStamp sampleInterval=999695; // True update rate between IMU samples in nanoseconds
+	static const TimeStamp sampleInterval=999779; // True update rate between IMU samples in nanoseconds
 	unsigned int numSamples;
 	Misc::UInt16 timeStamp;
 	unsigned int temperature;

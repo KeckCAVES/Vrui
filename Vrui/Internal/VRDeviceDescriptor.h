@@ -56,7 +56,8 @@ class VRDeviceDescriptor
 	int trackType; // Device's tracking type
 	Vector rayDirection; // Device's preferred pointing direction in local device coordinates; ignored if trackType is TRACK_NONE
 	float rayStart; // Starting parameter of device's ray in physical coordinate units; ignored if trackType is TRACK_NONE
-	bool hasBattery; // Flag if the device is batter powered and reports a battery state
+	bool hasBattery; // Flag if the device is battery powered and reports a battery state
+	bool canPowerOff; // Flag if the device can be powered off on request
 	int trackerIndex; // Index of device's tracker in VR device daemon's flat namespace, or -1 if trackType is TRACK_NONE
 	int numButtons; // Number of buttons on the device
 	std::string* buttonNames; // Array of button names
@@ -64,11 +65,14 @@ class VRDeviceDescriptor
 	int numValuators; // Number of valuators on the device
 	std::string* valuatorNames; // Array of valuator names
 	int* valuatorIndices; // Array of indices of device's valuators in VR device daemon's flat namespace
+	int numHapticFeatures; // Number of haptic feedback features on the device
+	std::string* hapticFeatureNames; // Array of haptic feature names
+	int* hapticFeatureIndices; // Array of indices of device's haptic features in VR device daemon's flat namespace
 	
 	/* Constructors and destructors: */
 	public:
 	VRDeviceDescriptor(void); // Creates an empty descriptor
-	VRDeviceDescriptor(int sNumButtons,int sNumValuators); // Creates a descriptor with the given number of buttons and valuators
+	VRDeviceDescriptor(int sNumButtons,int sNumValuators,int sNumHapticFeatures); // Creates a descriptor with the given number of buttons and valuators
 	private:
 	VRDeviceDescriptor(const VRDeviceDescriptor& source); // Prohibit copy constructor
 	VRDeviceDescriptor& operator=(const VRDeviceDescriptor& source); // Prohibit assignment operator

@@ -76,6 +76,14 @@ class VRDeviceManager
 	typedef void (*BatteryStateUpdatedCallback)(VRDeviceManager* manager,unsigned int deviceIndex,const Vrui::BatteryState& batteryState,void* userData); // Callback called when a device's battery state changes
 	typedef void (*HMDConfigurationUpdatedCallback)(VRDeviceManager* manager,const Vrui::HMDConfiguration* hmdConfiguration,void* userData); // Callback called when an HMD configuration has changed
 	
+	struct Feature // Structure describing a client-controlled feature managed by a device driver module
+		{
+		/* Elements: */
+		public:
+		VRDevice* device; // Pointer to device driver module owning the power feature
+		int deviceFeatureIndex; // Index of the power feature on the owning device driver module
+		};
+	
 	/* Elements: */
 	private:
 	DeviceFactoryManager deviceFactories; // Factory manager to load VR device classes
@@ -100,6 +108,8 @@ class VRDeviceManager
 	std::vector<Vrui::HMDConfiguration*> hmdConfigurations; // List of HMD configurations
 	HMDConfigurationUpdatedCallback hmdConfigurationUpdatedCallback; // Callback called when an HMD configuration has been updated
 	void* hmdConfigurationUpdatedCallbackData; // Data passed with HMD configuration updated callback
+	std::vector<Feature> powerFeatures; // List of device parts that can be powered off on request
+	std::vector<Feature> hapticFeatures; // List of haptic feedback devices
 	unsigned int fullTrackerReportMask; // Bitmask containing 1-bits for all used logical tracker indices
 	unsigned int trackerReportMask; // Bitmask of logical tracker indices that have reported state
 	bool trackerUpdateNotificationEnabled; // Flag if update notification is enabled
@@ -131,6 +141,8 @@ class VRDeviceManager
 	VRCalibrator* createCalibrator(const std::string& calibratorType,Misc::ConfigurationFile& configFile); // Loads calibrator of given type from current section in configuration file
 	unsigned int addVirtualDevice(Vrui::VRDeviceDescriptor* newVirtualDevice); // Adds a virtual device; is adopted by device manager; returns new virtual device index
 	Vrui::HMDConfiguration* addHmdConfiguration(void); // Adds a new HMD configuration
+	int addPowerFeature(VRDevice* device,int deviceFeatureIndex); // Adds a new power feature; returns feature index
+	int addHapticFeature(VRDevice* device,int deviceFeatureIndex); // Adds a new power feature; returns feature index
 	
 	/* Methods to communicate with device driver modules during operation: */
 	static Vrui::VRDeviceState::TimeStamp getTimeStamp(void) // Returns a time stamp for the current time
@@ -209,6 +221,16 @@ class VRDeviceManager
 		{
 		return *hmdConfigurations[index];
 		};
+	unsigned int getNumPowerFeatures(void) const // Returns the number of power features
+		{
+		return powerFeatures.size();
+		}
+	void powerOff(unsigned int powerFeatureIndex); // Requests to power off the given power feature
+	unsigned int getNumHapticFeatures(void) const // Returns the number of haptic features
+		{
+		return hapticFeatures.size();
+		}
+	void hapticTick(unsigned int hapticFeatureIndex,unsigned int duration); // Requests a haptic tick of the given duration in microseconds on the given power feature
 	void enableTrackerUpdateNotification(Threads::MutexCond* sTrackerUpdateCompleteCond); // Sets a condition variable to be signalled when all trackers have updated
 	void enableTrackerUpdateNotification(TrackerUpdateCompleteCallback newTrackerUpdateCompleteCallback,void* newTrackerUpdateCompleteCallbackData); // Sets a callback to be called when all trackers have updated; callback is called with device states locked
 	void disableTrackerUpdateNotification(void); // Disables tracker update notification

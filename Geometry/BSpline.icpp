@@ -1,7 +1,7 @@
 /***********************************************************************
 BSpline - Class for n-dimensional non-uniform B-spline curves or
 surfaces.
-Copyright (c) 2011 Oliver Kreylos
+Copyright (c) 2011-2017 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -168,7 +168,7 @@ BSpline<ControlPointParam,tensorDimensionParam,InterpolatorParam>::~BSpline(
 	{
 	/* Destroy the knot vectors: */
 	for(int td=0;td<tensorDimension;++td)
-		delete knots[td];
+		delete[] knots[td];
 	}
 
 template <class ControlPointParam,int tensorDimensionParam,class InterpolatorParam>

@@ -270,3 +270,11 @@ void VRDevice::destroy(VRDevice* object)
 void VRDevice::initialize(void)
 	{
 	}
+
+void VRDevice::powerOff(int devicePowerFeatureIndex)
+	{
+	}
+
+void VRDevice::hapticTick(int deviceHapticFeatureIndex,unsigned int duration)
+	{
+	}

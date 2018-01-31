@@ -265,6 +265,14 @@ void VRDeviceClient::initClient(void)
 	if(!serverHasValidFlags)
 		for(int i=0;i<state.getNumTrackers();++i)
 			state.setTrackerValid(i,true);
+	
+	/* Check if the server maintains power and haptic features: */
+	if(serverProtocolVersionNumber>=6U)
+		{
+		/* Read the number of power and haptic features maintained by the server: */
+		numPowerFeatures=pipe.read<Misc::UInt32>();
+		numHapticFeatures=pipe.read<Misc::UInt32>();
+		}
 	}
 
 VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort)
@@ -272,6 +280,7 @@ VRDeviceClient::VRDeviceClient(const char* deviceServerName,int deviceServerPort
 	 serverProtocolVersionNumber(0),serverHasTimeStamps(false),
 	 batteryStates(0),batteryStateUpdatedCallback(0),
 	 numHmdConfigurations(0),hmdConfigurations(0),hmdConfigurationUpdatedCallbacks(0),
+	 numPowerFeatures(0),numHapticFeatures(0),
 	 active(false),streaming(false),connectionDead(false),
 	 packetNotificationCallback(0),errorCallback(0)
 	{
@@ -283,6 +292,7 @@ VRDeviceClient::VRDeviceClient(const Misc::ConfigurationFileSection& configFileS
 	 serverProtocolVersionNumber(0),serverHasTimeStamps(false),
 	 batteryStates(0),batteryStateUpdatedCallback(0),
 	 numHmdConfigurations(0),hmdConfigurations(0),hmdConfigurationUpdatedCallbacks(0),
+	 numPowerFeatures(0),numHapticFeatures(0),
 	 active(false),streaming(false),connectionDead(false),
 	 packetNotificationCallback(0),errorCallback(0)
 	{
@@ -403,6 +413,31 @@ void VRDeviceClient::getPacket(void)
 				throw;
 				}
 			}
+		}
+	}
+
+void VRDeviceClient::powerOff(unsigned int powerFeatureIndex)
+	{
+	/* Check if device server supports powering off devices: */
+	if(serverProtocolVersionNumber>=6U)
+		{
+		/* Send power off request message: */
+		pipe.writeMessage(VRDevicePipe::POWEROFF_REQUEST);
+		pipe.write<Misc::UInt16>(powerFeatureIndex);
+		pipe.flush();
+		}
+	}
+
+void VRDeviceClient::hapticTick(unsigned int hapticFeatureIndex,unsigned int duration)
+	{
+	/* Check if device server supports haptic feedback: */
+	if(serverProtocolVersionNumber>=6U)
+		{
+		/* Send haptic tick request message: */
+		pipe.writeMessage(VRDevicePipe::HAPTICTICK_REQUEST);
+		pipe.write<Misc::UInt16>(hapticFeatureIndex);
+		pipe.write<Misc::UInt16>(duration);
+		pipe.flush();
 		}
 	}
 

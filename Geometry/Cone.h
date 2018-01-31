@@ -1,6 +1,6 @@
 /***********************************************************************
 Cone - Class for n-dimensional upright conical frustums.
-Copyright (c) 2005 Oliver Kreylos
+Copyright (c) 2005-2017 Oliver Kreylos
 
 This file is part of the Templatized Geometry Library (TGL).
 
@@ -51,7 +51,7 @@ class Cone
 		public:
 		enum Part // Enumerated type to report which part of the conical frustum was hit
 			{
-			INVALID_PART,MANTEL,BOTTOMCAP,TOPCAP
+			INVALID_PART,MANTLE,BOTTOMCAP,TOPCAP
 			}
 		
 		/* Elements: */
@@ -73,6 +73,10 @@ class Cone
 		Part getPart(void) const // Returns part of conical frustum that was intersected
 			{
 			return part;
+			}
+		void setPart(Part newPart) // Sets part of conical frustum that was intersected
+			{
+			part=setPart;
 			}
 		}
 	
@@ -219,9 +223,9 @@ class Cone
 		}
 	HitResult intersectRay(const Ray& ray) const // Intersects conical frustum with ray
 		{
+		/* Create an invalid hit result: */
+		HitResult result;
 		Scalar resultLambda=Math::Constants<Scalar>::max;
-		typename HitResult::Direction resultDirection=HitResult::INVALID_DIRECTION;
-		typename HitResult::Part resultPart=HitResult::INVALID_PART;
 		bool checkCaps=true;
 		Scalar lambda;
 		
@@ -248,8 +252,8 @@ class Cone
 						{
 						needLambda=false;
 						resultLambda=lambda;
-						resultDirection=HitResult::ENTRY;
-						resultPart=HitResult::MANTEL;
+						result.setParameterAndDirection(lambda,HitResult::ENTRY);
+						result.setPart(HitResult::MANTLE);
 						}
 					}
 				if(needLambda&&(lambda=a>Scalar(0)?(-b+det)/a:(-b-det)/a)>=Scalar(0))
@@ -259,8 +263,8 @@ class Cone
 					if(beta>=Scalar(0)&&beta<=height)
 						{
 						resultLambda=lambda;
-						resultDirection=HitResult::EXIT;
-						resultPart=HitResult::MANTEL;
+						result.setParameterAndDirection(lambda,HitResult::EXIT);
+						result.setPart(HitResult::MANTLE);
 						}
 					}
 				}
@@ -275,20 +279,20 @@ class Cone
 			if(lambda>=Scalar(0)&&lambda<resultLambda&&sqrDist(ray(lambda),p1)<=sqrRadius1)
 				{
 				resultLambda=lambda;
-				resultDirection=dira>Scalar(0)?HitResult::ENTRY:HitResult::EXIT;
-				resultPart=HitResult::BOTTOMCAP;
+				result.setParameterAndDirection(lambda,dira>Scalar(0)?HitResult::ENTRY:HitResult::EXIT);
+				result.setPart(HitResult::BOTTOMCAP);
 				}
 			
 			/* Intersect ray with top cap (around p2): */
 			lambda=(height-op1a)/dira;
 			if(lambda>=Scalar(0)&&lambda<resultLambda&&sqrDist(ray(lambda),p2)<=sqrRadius2)
 				{
-				resultDirection=dira<Scalar(0)?HitResult::ENTRY:HitResult::EXIT;
-				resultPart=HitResult::TOPCAP;
+				result.setParameterAndDirection(lambda,dira<Scalar(0)?HitResult::ENTRY:HitResult::EXIT);
+				result.setPart(HitResult::TOPCAP);
 				}
 			}
 		
-		return HitResult(resultLambda,resultDirection,resultPart);
+		return result;
 		}
 	}
 

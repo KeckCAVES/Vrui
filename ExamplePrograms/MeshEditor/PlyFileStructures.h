@@ -1,7 +1,7 @@
 /***********************************************************************
 PlyFileStructures - Data structures to read 3D polygon files in PLY
 format.
-Copyright (c) 2004-2011 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 ***********************************************************************/
 
 #ifndef PLYFILESTRUCTURES_INCLUDED
@@ -250,7 +250,7 @@ class PLYElement
 	bool hasListProperty(void) const // Returns true if the element has at least one list property
 		{
 		bool result=false;
-		for(PropertyList::const_iterator pIt=properties.begin();!result&&pIt!=properties.end();++pIt,++result)
+		for(PropertyList::const_iterator pIt=properties.begin();!result&&pIt!=properties.end();++pIt)
 			result=pIt->getPropertyType()==PLYProperty::LIST;
 		return result;
 		}

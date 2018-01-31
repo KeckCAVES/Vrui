@@ -392,13 +392,15 @@ void RiftLEDControl::disable(void)
 		Vrui::popdownPrimaryWidget(dialogWindow);
 		}
 	
-	active=false;
+	/* Call the base class method: */
+	Vislet::disable();
 	}
 
 void RiftLEDControl::enable(void)
 	{
+	/* Call the base class method: */
+	Vislet::enable();
+	
 	/* Show the viewer configuration dialog: */
 	Vrui::popupPrimaryWidget(dialogWindow);
-	
-	active=true;
 	}

@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -155,9 +155,9 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		
 		/* Initialize the new device's glyph from the current configuration file section: */
 		Glyph& deviceGlyph=inputDeviceManager->getInputGraphManager()->getInputDeviceGlyph(newDevice);
-		char deviceGlyphTypeTag[20];
+		char deviceGlyphTypeTag[32];
 		snprintf(deviceGlyphTypeTag,sizeof(deviceGlyphTypeTag),"./device%dGlyphType",i);
-		char deviceGlyphMaterialTag[20];
+		char deviceGlyphMaterialTag[32];
 		snprintf(deviceGlyphMaterialTag,sizeof(deviceGlyphMaterialTag),"./device%dGlyphMaterial",i);
 		deviceGlyph.configure(configFileSection,deviceGlyphTypeTag,deviceGlyphMaterialTag);
 		
@@ -355,6 +355,8 @@ void InputDeviceAdapterPlayback::updateInputDevices(void)
 	/* Do nothing if at end of file: */
 	if(done)
 		return;
+	
+	timeStamp=nextTimeStamp;
 	
 	/* Check if this is the first real Vrui frame: */
 	if(firstFrameCountdown>0U)

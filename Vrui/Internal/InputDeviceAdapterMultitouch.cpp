@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterMultitouch - Class to convert a direct-mode
 multitouch-capable screen into a set of Vrui input devices.
-Copyright (c) 2015-2016 Oliver Kreylos
+Copyright (c) 2015-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -92,7 +92,7 @@ InputDeviceAdapterMultitouch::InputDeviceAdapterMultitouch(InputDeviceManager* s
 	for(int i=0;i<maxNumDevices;++i)
 		{
 		/* Create a new one-button directional input device: */
-		char deviceName[20];
+		char deviceName[32];
 		snprintf(deviceName,sizeof(deviceName),"Multitouch%02d",i);
 		InputDevice* newDevice=inputDeviceManager->createInputDevice(deviceName,InputDevice::TRACK_POS|InputDevice::TRACK_DIR,numModifierButtons*numDeviceButtons,0,true);
 		

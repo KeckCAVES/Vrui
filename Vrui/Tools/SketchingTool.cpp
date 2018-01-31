@@ -1,6 +1,6 @@
 /***********************************************************************
 SketchingTool - Tool to create and edit 3D curves.
-Copyright (c) 2009-2016 Oliver Kreylos
+Copyright (c) 2009-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,6 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLColorTemplates.h>
+#include <GL/GLValueCoders.h>
 #include <GL/GLGeometryWrappers.h>
 #include <GL/GLTransformationWrappers.h>
 #include <GLMotif/StyleSheet.h>
@@ -44,10 +45,75 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Button.h>
 #include <GLMotif/TextField.h>
 #include <GLMotif/FileSelectionHelper.h>
+#include <GLMotif/WidgetStateHelper.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/OpenFile.h>
+
+namespace Misc {
+
+/**************************************
+Helper class to decode sketching modes:
+**************************************/
+
+template <>
+class ValueCoder<Vrui::SketchingTool::SketchMode>
+	{
+	/* Methods: */
+	public:
+	static std::string encode(const Vrui::SketchingTool::SketchMode& value)
+		{
+		switch(value)
+			{
+			case Vrui::SketchingTool::CURVE:
+				return "Curve";
+			
+			case Vrui::SketchingTool::POLYLINE:
+				return "Polyline";
+			
+			case Vrui::SketchingTool::BRUSHSTROKE:
+				return "BrushStroke";
+			
+			case Vrui::SketchingTool::ERASER:
+				return "Eraser";
+			
+			default:
+				return ""; // Never reached; just to make compiler happy
+			}
+		}
+	static Vrui::SketchingTool::SketchMode decode(const char* start,const char* end,const char** decodeEnd =0)
+		{
+		if(end-start>=5&&strncasecmp(start,"Curve",5)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+5;
+			return Vrui::SketchingTool::CURVE;
+			}
+		else if(end-start>=8&&strncasecmp(start,"Polyline",8)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+8;
+			return Vrui::SketchingTool::POLYLINE;
+			}
+		else if(end-start>=11&&strncasecmp(start,"BrushStroke",11)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+11;
+			return Vrui::SketchingTool::BRUSHSTROKE;
+			}
+		else if(end-start>=6&&strncasecmp(start,"Eraser",6)==0)
+			{
+			if(decodeEnd!=0)
+				*decodeEnd=start+6;
+			return Vrui::SketchingTool::ERASER;
+			}
+		else
+			throw DecodingError(std::string("Unable to convert \"")+std::string(start,end)+std::string("\" to SketchingTool::SketchMode"));
+		}
+	};
+
+}
 
 namespace Vrui {
 
@@ -490,7 +556,7 @@ SketchingTool::SketchingTool(const ToolFactory* sFactory,const ToolInputAssignme
 	/* Create a radio box to select sketching object types: */
 	new GLMotif::Label("SketchObjectTypeLabel",settingsBox,"Object Type");
 	
-	GLMotif::RadioBox* sketchObjectType=new GLMotif::RadioBox("SketchObjectType",settingsBox,false);
+	sketchObjectType=new GLMotif::RadioBox("SketchObjectType",settingsBox,false);
 	sketchObjectType->setOrientation(GLMotif::RowColumn::HORIZONTAL);
 	sketchObjectType->setPacking(GLMotif::RowColumn::PACK_TIGHT);
 	sketchObjectType->addToggle("Curve");
@@ -505,7 +571,7 @@ SketchingTool::SketchingTool(const ToolFactory* sFactory,const ToolInputAssignme
 	/* Create a slider to set the line width: */
 	new GLMotif::Label("LineWidthLabel",settingsBox,"Line Width");
 	
-	GLMotif::TextFieldSlider* lineWidthSlider=new GLMotif::TextFieldSlider("LineWidthSlider",settingsBox,4,ss->fontHeight*5.0f);
+	lineWidthSlider=new GLMotif::TextFieldSlider("LineWidthSlider",settingsBox,4,ss->fontHeight*5.0f);
 	lineWidthSlider->setSliderMapping(GLMotif::TextFieldSlider::LINEAR);
 	lineWidthSlider->setValueType(GLMotif::TextFieldSlider::FLOAT);
 	lineWidthSlider->setValueRange(0.5,11.0,0.5);
@@ -567,6 +633,41 @@ SketchingTool::~SketchingTool(void)
 		delete *pIt;
 	for(std::vector<BrushStroke*>::iterator bsIt=brushStrokes.begin();bsIt!=brushStrokes.end();++bsIt)
 		delete *bsIt;
+	}
+
+void SketchingTool::configure(const Misc::ConfigurationFileSection& configFileSection)
+	{
+	/* Read the sketch mode: */
+	sketchMode=configFileSection.retrieveValue<SketchMode>("./sketchMode",sketchMode);
+	
+	/* Read current line width and color: */
+	newLineWidth=configFileSection.retrieveValue<GLfloat>("./lineWidth",newLineWidth);
+	newColor=configFileSection.retrieveValue<Color>("./color",newColor);
+	
+	/* Update the control dialog: */
+	sketchObjectType->setSelectedToggle(int(sketchMode));
+	lineWidthSlider->setValue(newLineWidth);
+	
+	/* Read the control dialog's position, orientation, and size: */
+	GLMotif::readTopLevelPosition(controlDialogPopup,configFileSection);
+	}
+
+void SketchingTool::storeState(Misc::ConfigurationFileSection& configFileSection) const
+	{
+	/* Write the sketch mode: */
+	configFileSection.storeValue<SketchMode>("./sketchMode",sketchMode);
+	
+	/* Write current line width and color: */
+	configFileSection.storeValue<GLfloat>("./lineWidth",newLineWidth);
+	configFileSection.storeValue<Color>("./color",newColor);
+	
+	/* Write the control dialog's current position, orientation, and size: */
+	GLMotif::writeTopLevelPosition(controlDialogPopup,configFileSection);
+	}
+
+const ToolFactory* SketchingTool::getFactory(void) const
+	{
+	return factory;
 	}
 
 void SketchingTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)

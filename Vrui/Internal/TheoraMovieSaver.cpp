@@ -1,7 +1,7 @@
 /***********************************************************************
 TheoraMovieSaver - Helper class to save movies as Theora video streams
 packed into an Ogg container.
-Copyright (c) 2010-2015 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -153,6 +153,16 @@ void* TheoraMovieSaver::frameSavingThreadMethod(void)
 			break;
 		frame=capturedFrames.front();
 		capturedFrames.pop_front();
+		
+		/* Print a progress report if movie saver is already shut down: */
+		if(done)
+			{
+			std::cout<<"\rTheoraMovieSaver: "<<capturedFrames.size()+1<<" movie frames left to encode ";
+			if(capturedFrames.empty())
+				std::cout<<std::endl;
+			else
+				std::cout<<std::flush;
+			}
 		}
 		
 		/* Check if the frame is still the same size: */

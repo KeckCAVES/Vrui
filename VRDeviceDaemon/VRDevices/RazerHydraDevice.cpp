@@ -147,7 +147,7 @@ RazerHydraDevice::RazerHydraDevice(VRDevice::Factory* sFactory,VRDeviceManager* 
 	deviceNames=configFile.retrieveValue<Misc::FixedArray<std::string,2> >("./deviceNames",deviceNames);
 	for(int i=0;i<2;++i)
 		{
-		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(7,3);
+		Vrui::VRDeviceDescriptor* vd=new Vrui::VRDeviceDescriptor(7,3,0);
 		vd->name=deviceNames[i];
 		vd->trackType=Vrui::VRDeviceDescriptor::TRACK_POS|Vrui::VRDeviceDescriptor::TRACK_DIR|Vrui::VRDeviceDescriptor::TRACK_ORIENT;
 		vd->rayDirection=Vrui::VRDeviceDescriptor::Vector(0,1,0);

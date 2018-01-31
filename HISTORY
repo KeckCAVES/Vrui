@@ -5251,3 +5251,92 @@ Vrui-4.3-001:
   - Removed superfluous run-time directories from RunViveTracker.sh
     script.
 - Added sections on HTC Vive support to README file.
+
+Vrui-4.4-001:
+- Added option to disable screen protection on per-window basis to
+  Vrui::VRWindow and Vrui/Vrui.General.cpp.
+  - Set via protectScreens flag in a window's configuration section.
+- Added visualization of tracking history and PCA-derived error
+  ellipsoids to Vrui TrackingTest utility.
+- Fixed bug in ray intersection routines in Geometry::Cylinder and
+  Geometry::Cone; intersection results were always reported as valid.
+  - Added setParameter method to Geometry::HitResult.
+  - Added setParameterAndDirection method to Geometry::SolidHitResult.
+  - Added setPart methods to Geometry::Cylinder::HitResult and
+    Geometry::Cone::HitResult.
+    - API change: Fixed typo in MANTLE part name in both classes.
+- Added Geometry/AlignPoints.h with several namespace-global functions
+  to align pair-matched point sets using several types of
+  transformations.
+- Fixed memory leak in Math::Matrix::jacobiIteration().
+- Added default server name "localhost:8555" to Vrui's DeviceTest
+  utility.
+- Added parameter to select number of Levenberg-Marquardt iterations
+  to alignment functions in Geometry/AlignPoints.h.
+- Temporary fix for shut-down deadlocks in USB::Context destructor: Use
+  time-outs and a continuation flag instead of canceling the event
+  handling thread to avoid deadlocks in libusb_exit. Should ideally
+  integrate event handling into main runloop.
+- Added progress reports to Vrui movie savers when main application has
+  already ended.
+- Added "glow" light sources to JediTool.
+- Fixed calculation of distances between vertices and light sources in
+  GLLightTracker's light accumulation functions for attenuated light
+  sources when sources and/or vertices have non-unity homogeneous
+  weights.
+- Added configure/saveState methods to Vrui::SketchingTool.
+- Made Vrui::JediTool a bit more awesome with a full-persistence blade.
+- Added GLMotif::Texture, a base class for widgets displaying a
+  potentially dynamic texture image generated on demand via a virtual
+  method.
+- Rebased existing GLMotif::Image widget to GLMotif::Texture base class.
+- Changed GLMotif::NewButton to set the border size of its child widget
+  to zero upon insertion.
+- Made GLFrameBuffer wrapper class functional for the first time. Might
+  actually turn out useful.
+  - Added GLFrameBuffer class to GLSupport library.
+- Added choleskyDecomposition method to Math::Matrix class.
+  - Added failsafe for slightly non-positive definite matrices that
+    works for UKF, but is probably not a good idea.
+- Forgot to update timeStamp variable in
+  Vrui::InputDeviceAdapterPlayback which caused missing frames snapshots
+  during long frame times.
+- Fixed wrong delete operator in Geometry::BSpline::~BSpline.
+- Fixed method visibility and use of unsized integer types in
+  Misc/CompoundMarshallers.h, which had apparently never been used.
+- Slightly improved verbose output and error messaging during Vrui
+  initialization and main loop, especially for cluster setups.
+- Added prototype of timer event handling to Threads::EventDispatcher.
+- Changed Vrui initialization sequence such that total number of windows
+  is known to application and vislet constructors.
+- Added windowIndex field with current window's cluster-wide index to
+  Vrui::DisplayState structure.
+  - Added windowIndex field to Vrui::VRWindow.
+  - Added initialization of windowIndex to Vrui's startDisplay function.
+- Improved OpenVR driver dso wrapper to again power off controllers when
+  VRDeviceDaemon exits.
+- Added low-level support for haptic feedback and device power
+  management to VR device daemon protocol.
+  - Upped VR protocol version to 6.
+  - Added list of haptic features to virtual device descriptors.
+  - Added -powerOff <power feature index> and -haptic <haptic feature
+    index> <pulse duration> command line options to Vrui's DeviceTest
+    utility.
+- Removed a couple of warnings regarding string buffer sizes brought up
+  by new g++ 7.2.1 from GLMotif/WidgetManager.h,
+  Sound/Linux/ALSAAudioCaptureDevice.cpp,
+  Vrui/Internal/InputDeviceAdapterPlayback.cpp, 
+  Vrui/Internal/InputDeviceAdapterHID.cpp, 
+  Vrui/Internal/InputDeviceAdapterMultitouch.cpp and
+  Vrui/Internal/Vrui.Workbench.cpp.
+- Fixed application of point transformation to non-subdivided quads in
+  SceneGraph::QuadSetNode.
+- Added device name matching to Vrui::InputDeviceAdapterHID to address
+  multiple devices sharing the same vendor/product ID.
+- Added process functions to Threads::EventDispatcher.
+- Started adding IO::XMLSource, a low-level XML file parser class
+  layered on top of an IO::File abstraction.
+  - Started adding Misc::Trie, a class to represent dictionaries
+    associating strings with data values.
+- Created VRTOOLS_IGNORE_SOURCES variable in makefile and disabled
+  FPSArm tool for now.

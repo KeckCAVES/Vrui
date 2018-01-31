@@ -334,7 +334,15 @@ extern VruiState* vruiState;
 Private Vrui global variables:
 *****************************/
 
-extern bool vruiVerbose;
+/* Helper class to print a prefix to error messages: */
+class VruiErrorHeader
+	{
+	};
+std::ostream& operator<<(std::ostream& os,const VruiErrorHeader& veh);
+
+extern bool vruiVerbose; // Flag whether Vrui should be verbose about its operations
+extern bool vruiMaster; // Flag whether a Vrui instance is on a single host, or the head node of a cluster
+extern VruiErrorHeader vruiErrorHeader; // Object to print error message headers
 
 /********************************
 Private Vrui function prototypes:

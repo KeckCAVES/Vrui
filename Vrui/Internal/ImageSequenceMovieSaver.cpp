@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageSequenceMovieSaver - Helper class to save movies as sequences of
 image files in formats supported by the Images library.
-Copyright (c) 2010-2015 Oliver Kreylos
+Copyright (c) 2010-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -77,6 +77,16 @@ void* ImageSequenceMovieSaver::frameSavingThreadMethod(void)
 			break;
 		frame=capturedFrames.front();
 		capturedFrames.pop_front();
+		
+		/* Print a progress report if movie saver is already shut down: */
+		if(done)
+			{
+			std::cout<<"\rImageSequenceMovieSaver: "<<capturedFrames.size()+1<<" movie frames left to write ";
+			if(capturedFrames.empty())
+				std::cout<<std::endl;
+			else
+				std::cout<<std::flush;
+			}
 		}
 		
 		/* Write the next frame image file: */

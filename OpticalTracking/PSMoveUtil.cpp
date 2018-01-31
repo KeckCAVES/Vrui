@@ -1,7 +1,7 @@
 /***********************************************************************
 PSMoveUtil - Utility program to detect, list, and configure PlayStation
 Move input devices via USB.
-Copyright (c) 2013-2016 Oliver Kreylos
+Copyright (c) 2013-2017 Oliver Kreylos
 
 This file is part of the optical/inertial sensor fusion tracking
 package.
@@ -436,21 +436,22 @@ void pair(USB::Device& move,const char* btHostAddrString)
 		
 		/* Send the HID feature request: */
 		move.writeControl(LIBUSB_REQUEST_TYPE_CLASS|LIBUSB_RECIPIENT_INTERFACE,0x09U,(0x03U<<8)|featureRequest[0],0x0000U,featureRequest,11);
-		
-		/* Add the PS Move device to the bluetooth daemon's configuration files: */
-		std::cout<<"Do you want to add this PS Move to the bluetooth daemon's configuration (yes/no): "<<std::flush;
-		std::string answer;
-		std::cin>>answer;
-		if(answer=="yes")
-			configureBluetoothDaemon(btHostAddr,btControllerAddr);
-		else
-			std::cout<<"Bluetooth daemon not configured"<<std::endl;
 		}
 	else
-		{
 		std::cout<<"Bluetooth host address already configured"<<std::endl;
-		}
 	
+	{
+	/* Add the PS Move device to the bluetooth daemon's configuration files: */
+	std::cout<<"Do you want to add this PS Move to the bluetooth daemon's configuration (yes/no): "<<std::flush;
+	std::string answer;
+	std::cin>>answer;
+	if(answer=="yes")
+		configureBluetoothDaemon(btHostAddr,btControllerAddr);
+	else
+		std::cout<<"Bluetooth daemon not configured"<<std::endl;
+	}
+	
+	{
 	std::cout<<"Do you want to make this PS Move controller user-accessible (yes/no): "<<std::flush;
 	std::string answer;
 	std::cin>>answer;
@@ -458,6 +459,7 @@ void pair(USB::Device& move,const char* btHostAddrString)
 		configureUdev(btControllerAddr);
 	else
 		std::cout<<"UDev not configured"<<std::endl;
+	}
 	
 	/* Close the device: */
 	move.close();

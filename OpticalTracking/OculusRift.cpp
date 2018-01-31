@@ -269,6 +269,65 @@ OculusRift::OculusRift(unsigned int deviceIndex)
 	:RawHID::Device(OculusRiftMatcher(),deviceIndex)
 	{
 	initialize();
+	
+	#if 0
+	
+	/* Send a keep-alive feature report to start streaming sample data: */
+	Misc::UInt16 keepAliveInterval=10000U;
+	if(deviceType==DK1)
+		{
+		KeepAliveDK1 ka(keepAliveInterval);
+		ka.set(*this,0x0000U);
+		}
+	else
+		{
+		// KeepAliveDK2 ka(opticalTracking,keepAliveInterval);
+		KeepAliveDK2 ka(false,keepAliveInterval);
+		ka.set(*this,0x0000U);
+		}
+	
+	/* Create an update timer to send keep-alive feature reports at regular intervals: */
+	int timeToKeepAlive=int(keepAliveInterval)-1000;
+	
+	/* Read 500 sample packets to clear any buffers etc.: */
+	SensorData sensorData;
+	for(int i=0;i<500;++i)
+		{
+		sensorData.get(*this);
+		timeToKeepAlive-=sensorData.numSamples;
+		}
+	
+	/* Start timing: */
+	Realtime::TimePointMonotonic timer;
+	unsigned int totalNumSamples=0;
+	for(int i=0;i<100*500;++i)
+		{
+		if(timeToKeepAlive<=0)
+			{
+			/* Send a keep-alive feature report to start streaming sample data: */
+			if(deviceType==DK1)
+				{
+				KeepAliveDK1 ka(keepAliveInterval);
+				ka.set(*this,0x0000U);
+				}
+			else
+				{
+				// KeepAliveDK2 ka(opticalTracking,keepAliveInterval);
+				KeepAliveDK2 ka(false,keepAliveInterval);
+				ka.set(*this,0x0000U);
+				}
+			timeToKeepAlive+=int(keepAliveInterval)-1000;
+			}
+		
+		/* Read the next sample: */
+		sensorData.get(*this);
+		totalNumSamples+=sensorData.numSamples;
+		timeToKeepAlive-=sensorData.numSamples;
+		}
+	double time=double(timer.setAndDiff());
+	std::cout<<totalNumSamples<<" samples in "<<time<<"s, "<<time*1000000000.0/double(totalNumSamples)<<" ns/sample"<<std::endl;
+	
+	#endif
 	}
 
 OculusRift::OculusRift(const std::string& deviceSerialNumber)

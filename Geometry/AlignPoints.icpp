@@ -1,0 +1,172 @@
+/***********************************************************************
+AlignPoints - Functions to align to sets of matched points using several
+types of alignment transformations by minimizing RMS residual error.
+These functions aim for high alignment quality and might therefore be
+slow.
+Copyright (c) 2009-2017 Oliver Kreylos
+
+This file is part of the Templatized Geometry Library (TGL).
+
+The Templatized Geometry Library is free software; you can redistribute
+it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Geometry Library is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Geometry Library; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define GEOMETRY_ALIGNPOINTS_IMPLEMENTATION
+
+#include <Geometry/AlignPoints.h>
+
+#include <Math/Math.h>
+#include <Geometry/Point.h>
+#include <Geometry/AffineCombiner.h>
+#include <Geometry/OrthonormalTransformation.h>
+#include <Geometry/OrthogonalTransformation.h>
+#include <Geometry/ProjectiveTransformation.h>
+
+namespace Geometry {
+
+/**********************************
+Declarations of internal functions:
+**********************************/
+
+Geometry::OrthogonalTransformation<double,3> alignPointsOGTransformInternal(size_t numPoints,const Point<double,3>* points0,const Point<double,3>* points1,unsigned int numIterations);
+
+namespace {
+
+/***************
+Helper functions:
+****************/
+
+template <class ScalarParam>
+inline
+Point<double,3>
+calcCentroid(
+	const std::vector<Point<ScalarParam,3> >& points)
+	{
+	/* Accumulate all points: */
+	double accum[3]={0.0,0.0,0.0};
+	for(typename std::vector<Point<ScalarParam,3> >::const_iterator pIt=points.begin();pIt!=points.end();++pIt)
+		for(int i=0;i<3;++i)
+			accum[i]+=(*pIt)[i];
+	
+	/* Normalize and return the accumulated result: */
+	double numPoints=double(points.size());
+	return Point<double,3>(accum[0]/numPoints,accum[1]/numPoints,accum[2]/numPoints);
+	}
+
+template <class ScalarParam>
+inline
+double
+calcNormalizingScale(
+	const std::vector<Point<ScalarParam,3> >& points,
+	const Point<double,3>& centroid)
+	{
+	/* Accumulate all points' centroid-relative inner products: */
+	double ip=0.0;
+	for(typename std::vector<Point<ScalarParam,3> >::const_iterator pIt=points.begin();pIt!=points.end();++pIt)
+		for(int i=0;i<3;++i)
+			ip+=Math::sqr(double((*pIt)[i])-centroid[i]);
+	
+	/* Calculate and return the normalizing scale factor: */
+	return 1.0/Math::sqrt(ip);
+	}
+
+template <class ScalarParam>
+inline
+Point<double,3>*
+normalize(
+	const std::vector<Point<ScalarParam,3> >& points,
+	const Point<double,3>& centroid,
+	double scale)
+	{
+	/* Allocate the result array: */
+	Point<double,3>* result=new Point<double,3>[points.size()];
+	
+	/* Translate and scale all points: */
+	Point<double,3>* rPtr=result;
+	for(typename std::vector<Point<ScalarParam,3> >::const_iterator pIt=points.begin();pIt!=points.end();++pIt,++rPtr)
+		for(int i=0;i<3;++i)
+			(*rPtr)[i]=(double((*pIt)[i])-centroid[i])*scale;
+	
+	/* Return the normalized point array: */
+	return result;
+	}
+
+}
+
+/*******************
+Alignment functions:
+*******************/
+
+template <class ScalarParam>
+inline
+AlignResult<Geometry::OrthogonalTransformation<double,3> >
+alignPointsOGTransform(
+	const std::vector<Point<ScalarParam,3> >& points0,
+	const std::vector<Point<ScalarParam,3> >& points1,
+	unsigned int numIterations)
+	{
+	typedef Geometry::OrthogonalTransformation<double,3> Transform;
+	
+	/* Normalize the first point set (move to centroid, scale to normalized inner product): */
+	Point<double,3> centroid0=calcCentroid(points0);
+	double scale0=calcNormalizingScale(points0,centroid0);
+	Point<double,3>* cPoints0=normalize(points0,centroid0,scale0);
+	
+	/* Normalize the second point set (move to centroid, scale to normalized inner product): */
+	Point<double,3> centroid1=calcCentroid(points1);
+	double scale1=calcNormalizingScale(points1,centroid1);
+	Point<double,3>* cPoints1=normalize(points1,centroid1,scale1);
+	
+	/* Get the number of matched point pairs (vectors are assumed to be the same size, so this is slightly redundant): */
+	size_t numPoints=points0.size()<=points1.size()?points0.size():points1.size();
+	
+	/* Call the actual alignment function: */
+	Transform transform=alignPointsOGTransformInternal(numPoints,cPoints0,cPoints1,numIterations);
+	
+	/* Compose the full alignment transformation: */
+	AlignResult<Transform> result;
+	result.transform=Transform::translateFromOriginTo(centroid1);
+	result.transform*=Transform::scale(1.0/scale1);
+	result.transform*=transform;
+	result.transform*=Transform::scale(scale0);
+	result.transform*=Transform::translateToOriginFrom(centroid0);
+	result.transform.renormalize();
+	
+	/* Calculate residual RMS and L-infinity error: */
+	result.rms=0.0;
+	result.linf=0.0;
+	const Point<ScalarParam,3>* p0Ptr=&points0[0];
+	const Point<ScalarParam,3>* p1Ptr=&points1[0];
+	for(size_t i=0;i<numPoints;++i,++p0Ptr,++p1Ptr)
+		{
+		/* Transform the first point: */
+		Point<double,3> p0(*p0Ptr);
+		p0=result.transform.transform(p0);
+		double dist2=Geometry::sqrDist(p0,Point<double,3>(*p1Ptr));
+		result.rms+=dist2;
+		if(result.linf<dist2)
+			result.linf=dist2;
+		}
+	result.rms=Math::sqrt(result.rms/double(numPoints));
+	result.linf=Math::sqrt(result.linf);
+	
+	/* Clean up and return the result: */
+	delete[] cPoints0;
+	delete[] cPoints1;
+	
+	return result;
+	}
+
+}

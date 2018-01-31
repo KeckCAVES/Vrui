@@ -1,7 +1,7 @@
 /***********************************************************************
 WidgetManager - Class to manage top-level GLMotif UI components and user
 events.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2017 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -77,7 +77,7 @@ class WidgetManager
 		
 		/* Constructors and destructors: */
 		WidgetPopCallbackData(WidgetManager* sWidgetManager,bool sPopup,Widget* sTopLevelWidget,bool sPrimary)
-			:CallbackData(widgetManager),popup(sPopup),topLevelWidget(sTopLevelWidget),primary(sPrimary)
+			:CallbackData(sWidgetManager),popup(sPopup),topLevelWidget(sTopLevelWidget),primary(sPrimary)
 			{
 			}
 		};
@@ -92,7 +92,7 @@ class WidgetManager
 		
 		/* Constructors and destructors: */
 		WidgetMoveCallbackData(WidgetManager* sWidgetManager,const Transformation& sWidgetToWorld,Widget* sTopLevelWidget,bool sPrimary)
-			:CallbackData(widgetManager),widgetToWorld(sWidgetToWorld),topLevelWidget(sTopLevelWidget),primary(sPrimary)
+			:CallbackData(sWidgetManager),widgetToWorld(sWidgetToWorld),topLevelWidget(sTopLevelWidget),primary(sPrimary)
 			{
 			}
 		};

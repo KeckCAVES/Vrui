@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/GeometryValueCoders.h>
 #include <GL/gl.h>
 #include <GL/GLMaterialTemplates.h>
+#include <GL/GLLight.h>
 #include <GL/GLVertexArrayParts.h>
 #include <GL/GLContextData.h>
 #include <GL/Extensions/GLARBVertexBufferObject.h>
@@ -37,6 +38,8 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLGeometryVertex.h>
 #include <Images/ReadImageFile.h>
 #include <Vrui/Vrui.h>
+#include <Vrui/Lightsource.h>
+#include <Vrui/LightsourceManager.h>
 #include <Vrui/ToolManager.h>
 #include <Vrui/DisplayState.h>
 #include <Vrui/Internal/Config.h>
@@ -54,7 +57,8 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	 baseOffset(Scalar(3)*getInchFactor()),
 	 hiltTransform(ONTransform::identity),
 	 hiltLength(Scalar(8)*getInchFactor()),hiltRadius(Scalar(0.75)*getInchFactor()),
-	 lightsaberImageFileName(std::string(VRUI_INTERNAL_CONFIG_SHAREDIR)+"/Textures/Lightsaber.png")
+	 lightsaberImageFileName(std::string(VRUI_INTERNAL_CONFIG_SHAREDIR)+"/Textures/Lightsaber.png"),
+	 numLightsources(0),lightRadius(Scalar(48)*getInchFactor())
 	{
 	/* Initialize tool layout: */
 	layout.setNumButtons(1);
@@ -73,6 +77,8 @@ JediToolFactory::JediToolFactory(ToolManager& toolManager)
 	hiltLength=cfs.retrieveValue<Scalar>("./hiltLength",hiltLength);
 	hiltRadius=cfs.retrieveValue<Scalar>("./hiltRadius",hiltRadius);
 	lightsaberImageFileName=cfs.retrieveString("./lightsaberImageFileName",lightsaberImageFileName);
+	numLightsources=cfs.retrieveValue<unsigned int>("./numLightsources",numLightsources);
+	lightRadius=cfs.retrieveValue<Scalar>("./lightRadius",lightRadius);
 	
 	/* Set tool class' factory pointer: */
 	JediTool::factory=this;
@@ -162,9 +168,48 @@ JediTool::JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAs
 	:PointingTool(factory,inputAssignment),
 	 GLObject(false),
 	 lightsaberImage(Images::readImageFile(JediTool::factory->lightsaberImageFileName.c_str())),
+	 lightsources(JediTool::factory->numLightsources>0?new Lightsource*[JediTool::factory->numLightsources]:0),
 	 active(false)
 	{
 	GLObject::init();
+	}
+
+JediTool::~JediTool(void)
+	{
+	/* Destroy the array of light sources: */
+	delete[] lightsources;
+	}
+
+void JediTool::initialize(void)
+	{
+	if(factory->numLightsources>0)
+		{
+		/* Set up common light source parameters: */
+		GLLight lightSaberGlow;
+		lightSaberGlow.ambient=lightSaberGlow.diffuse=lightSaberGlow.specular=GLLight::Color(0.0f,0.0f,0.0f);
+		
+		/* Set up the light source attenuation factors according to light radius (diminish to 1% at radius): */
+		lightSaberGlow.constantAttenuation=0.5f;
+		lightSaberGlow.linearAttenuation=0.0f; // 49.5f/factory->lightRadius;
+		lightSaberGlow.quadraticAttenuation=99.5f/Math::sqr(factory->lightRadius);
+		
+		/* Create a number of light sources: */
+		for(unsigned int i=0;i<factory->numLightsources;++i)
+			{
+			lightsources[i]=getLightsourceManager()->createLightsource(true,lightSaberGlow);
+			lightsources[i]->disable();
+			}
+		}
+	}
+
+void JediTool::deinitialize(void)
+	{
+	/* Destroy all allocated light sources: */
+	for(unsigned int i=0;i<factory->numLightsources;++i)
+		{
+		getLightsourceManager()->destroyLightsource(lightsources[i]);
+		lightsources[i]=0;
+		}
 	}
 
 const ToolFactory* JediTool::getFactory(void) const
@@ -181,33 +226,74 @@ void JediTool::buttonCallback(int,InputDevice::ButtonCallbackData* cbData)
 			/* Activate the light saber: */
 			active=true;
 			activationTime=getApplicationTime();
+			
+			/* Initialize the light saber billboard: */
+			ONTransform lightsaberTransform=getButtonDeviceTransformation(0)*factory->hiltTransform;
+			origin[1]=lightsaberTransform.getOrigin();
+			axis[1]=lightsaberTransform.transform(getButtonDevice(0)->getDeviceRayDirection());
+			length[1]=Scalar(0);
+			
+			if(factory->numLightsources>0)
+				{
+				/* Activate the glow light sources: */
+				for(unsigned int i=0;i<factory->numLightsources;++i)
+					lightsources[i]->enable();
+				}
 			}
 		else
 			{
 			/* Deactivate the light saber: */
 			active=false;
+			
+			if(factory->numLightsources>0)
+				{
+				/* Deactivate the glow light sources: */
+				for(unsigned int i=0;i<factory->numLightsources;++i)
+					lightsources[i]->disable();
+				}
 			}
 		}
 	}
 
 void JediTool::frame(void)
 	{
+	/* Save last frame's state: */
+	origin[0]=origin[1];
+	axis[0]=axis[1];
+	length[0]=length[1];
+	
 	/* Update the light saber hilt and billboard: */
 	ONTransform lightsaberTransform=getButtonDeviceTransformation(0)*factory->hiltTransform;
-	origin=lightsaberTransform.getOrigin();
-	axis=lightsaberTransform.transform(getButtonDevice(0)->getDeviceRayDirection());
+	origin[1]=lightsaberTransform.getOrigin();
+	axis[1]=lightsaberTransform.transform(getButtonDevice(0)->getDeviceRayDirection());
 	
 	if(active)
 		{
 		/* Scale the lightsaber during activation: */
-		length=factory->lightsaberLength;
+		length[1]=factory->lightsaberLength;
 		double activeTime=getApplicationTime()-activationTime;
 		if(activeTime<1.5)
 			{
-			length*=activeTime/1.5;
+			length[1]*=activeTime/1.5;
 			
 			/* Request another frame: */
 			scheduleUpdate(getNextAnimationTime());
+			}
+		
+		if(factory->numLightsources>0)
+			{
+			/* Turn the glow light sources on gently: */
+			GLfloat intensity=activeTime<1.5?GLfloat(activeTime/1.5):1.0f;
+			GLLight::Color glowColor(intensity,0.0f,0.0f,1.0f);
+			
+			/* Position the glow light sources evenly along the light saber blade: */
+			for(unsigned int i=0;i<factory->numLightsources;++i)
+				{
+				Point pos=origin[1]+axis[1]*((Scalar(i)+Scalar(0.5))/Scalar(factory->numLightsources)*length[1]);
+				GLLight& light=lightsources[i]->getLight();
+				light.diffuse=light.specular=glowColor;
+				light.position=GLLight::Position(GLfloat(pos[0]),GLfloat(pos[1]),GLfloat(pos[2]),1.0f);
+				}
 			}
 		}
 	}
@@ -224,8 +310,8 @@ void JediTool::display(GLContextData& contextData) const
 	
 	/* Transform the hilt to the light saber's position: */
 	glPushMatrix();
-	glTranslate(origin-Point::origin);
-	glRotate(Rotation::rotateFromTo(Vector(0,0,1),axis));
+	glTranslate(origin[1]-Point::origin);
+	glRotate(Rotation::rotateFromTo(Vector(0,0,1),axis[1]));
 	
 	/* Bind the vertex buffer: */
 	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->hiltVertexBufferId);
@@ -337,14 +423,24 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		/* Get the eye position for the current rendering pass from Vrui's display state: */
 		const Point& eyePosition=Vrui::getDisplayState(contextData).eyePosition;
 		
-		/* Calculate the billboard size and orientation: */
-		Vector y=axis;
-		Vector x=axis^(eyePosition-origin);
-		x.normalize();
-		y*=length*scaleFactor;
-		x*=Math::div2(factory->lightsaberWidth*scaleFactor);
-		Point basePoint=origin;
-		basePoint-=axis*(factory->baseOffset*scaleFactor);
+		/* Calculate the midpoint plane between the blade's previous and current positions: */
+		Vector midDir=axis[0]*length[0]+axis[1]*length[1];
+		Point mid=Geometry::mid(origin[0],origin[1]);
+		Vector midNormal=midDir^(eyePosition-mid);
+		
+		/* Calculate the previous and current glow billboards: */
+		Point basePoint[2];
+		Vector x[2],y[2];
+		for(int i=0;i<2;++i)
+			{
+			y[i]=axis[i];
+			x[i]=axis[i]^(eyePosition-origin[i]);
+			x[i].normalize();
+			y[i]*=length[i]*scaleFactor;
+			x[i]*=Math::div2(factory->lightsaberWidth*scaleFactor);
+			basePoint[i]=origin[i];
+			basePoint[i]-=axis[i]*(factory->baseOffset*scaleFactor);
+			}
 		
 		/* Draw the light saber: */
 		glPushAttrib(GL_COLOR_BUFFER_BIT|GL_ENABLE_BIT|GL_POLYGON_BIT|GL_TEXTURE_BIT);
@@ -355,14 +451,56 @@ void JediTool::glRenderActionTransparent(GLContextData& contextData) const
 		glBindTexture(GL_TEXTURE_2D,dataItem->textureObjectId);
 		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 		glBegin(GL_QUADS);
-		glTexCoord2f(0.0f,0.0f);
-		glVertex(basePoint-x);
-		glTexCoord2f(1.0f,0.0f);
-		glVertex(basePoint+x);
-		glTexCoord2f(1.0f,1.0f);
-		glVertex(basePoint+x+y);
-		glTexCoord2f(0.0f,1.0f);
-		glVertex(basePoint-x+y);
+		if((origin[1]-origin[0])*midNormal>=Scalar(0))
+			{
+			/* Draw the left billboard at the previous position, and the right billboard at the current position: */
+			glTexCoord2f(0.0f,0.0f);
+			glVertex(basePoint[0]-x[0]);
+			glTexCoord2f(0.5f,0.0f);
+			glVertex(basePoint[0]);
+			glTexCoord2f(0.5f,1.0f);
+			glVertex(basePoint[0]+y[0]);
+			glTexCoord2f(0.0f,1.0f);
+			glVertex(basePoint[0]-x[0]+y[0]);
+			
+			glTexCoord2f(0.5f,0.0f);
+			glVertex(basePoint[1]);
+			glTexCoord2f(1.0f,0.0f);
+			glVertex(basePoint[1]+x[1]);
+			glTexCoord2f(1.0f,1.0f);
+			glVertex(basePoint[1]+x[1]+y[1]);
+			glTexCoord2f(0.5f,1.0f);
+			glVertex(basePoint[1]+y[1]);
+			}
+		else
+			{
+			/* Draw the right billboard at the previous position, and the left billboard at the current position: */
+			glTexCoord2f(0.5f,0.0f);
+			glVertex(basePoint[0]);
+			glTexCoord2f(1.0f,0.0f);
+			glVertex(basePoint[0]+x[0]);
+			glTexCoord2f(1.0f,1.0f);
+			glVertex(basePoint[0]+x[0]+y[0]);
+			glTexCoord2f(0.5f,1.0f);
+			glVertex(basePoint[0]+y[0]);
+			
+			glTexCoord2f(0.0f,0.0f);
+			glVertex(basePoint[1]-x[1]);
+			glTexCoord2f(0.5f,0.0f);
+			glVertex(basePoint[1]);
+			glTexCoord2f(0.5f,1.0f);
+			glVertex(basePoint[1]+y[1]);
+			glTexCoord2f(0.0f,1.0f);
+			glVertex(basePoint[1]-x[1]+y[1]);
+			}
+		
+		/* Draw the connecting swish panel: */
+		glTexCoord2f(0.5f,0.0f);
+		glVertex(basePoint[0]);
+		glVertex(basePoint[1]);
+		glTexCoord2f(0.5f,1.0f);
+		glVertex(basePoint[1]+y[1]);
+		glVertex(basePoint[0]+y[0]);
 		glEnd();
 		glBindTexture(GL_TEXTURE_2D,0);
 		glPopAttrib();

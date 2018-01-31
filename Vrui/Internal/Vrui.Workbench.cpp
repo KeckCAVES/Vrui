@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2016 Oliver Kreylos
+Copyright (c) 2000-2017 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -113,6 +113,20 @@ Private Vrui global variables:
 *****************************/
 
 bool vruiVerbose=false;
+bool vruiMaster=true;
+
+std::ostream& operator<<(std::ostream& os,const VruiErrorHeader& veh)
+	{
+	/* Check if this is a cluster environment: */
+	if(vruiState->multiplexer!=0)
+		os<<"Vrui: (node "<<vruiState->multiplexer->getNodeIndex()<<"): ";
+	else
+		os<<"Vrui: ";
+	
+	return os;
+	}
+
+VruiErrorHeader vruiErrorHeader;
 
 namespace {
 
@@ -128,6 +142,7 @@ VRWindow** vruiWindows=0;
 int vruiNumWindowGroups=0;
 VruiWindowGroup* vruiWindowGroups=0;
 int vruiTotalNumWindows=0;
+int vruiFirstLocalWindowIndex=0;
 VRWindow** vruiTotalWindows=0;
 #if GLSUPPORT_CONFIG_USE_TLS
 Threads::Thread* vruiRenderingThreads=0;
@@ -263,7 +278,7 @@ void vruiErrorShutdown(bool signalError)
 int vruiXErrorHandler(Display* display,XErrorEvent* event)
 	{
 	/* X protocol errors are not considered fatal; log an error message and carry on: */
-	std::cerr<<"Caught X11 protocol error ";
+	std::cerr<<vruiErrorHeader<<"Caught X11 protocol error ";
 	char errorString[257];
 	XGetErrorText(display,event->error_code,errorString,sizeof(errorString));
 	std::cerr<<errorString<<", seq# "<<event->serial<<", request "<<int(event->request_code)<<"."<<int(event->minor_code)<<std::endl;
@@ -274,7 +289,7 @@ int vruiXErrorHandler(Display* display,XErrorEvent* event)
 int vruiXIOErrorHandler(Display* display)
 	{
 	/* X I/O errors are considered fatal; shut down the Vrui application: */
-	std::cerr<<"Vrui: Caught X11 I/O error; shutting down"<<std::endl;
+	std::cerr<<vruiErrorHeader<<"Vrui: Caught X11 I/O error; shutting down"<<std::endl;
 	shutdown();
 	
 	return 0;
@@ -294,10 +309,10 @@ bool vruiMergeConfigurationFile(const char* configFileName)
 	try
 		{
 		/* Merge in the given configuration file: */
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Merging configuration file "<<configFileName<<"..."<<std::flush;
 		vruiConfigFile->merge(configFileName);
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" Ok"<<std::endl;
 		
 		return true;
@@ -305,7 +320,7 @@ bool vruiMergeConfigurationFile(const char* configFileName)
 	catch(Misc::File::OpenError err)
 		{
 		/* Ignore the error and continue */
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" does not exist"<<std::endl;
 		
 		return false;
@@ -313,9 +328,9 @@ bool vruiMergeConfigurationFile(const char* configFileName)
 	catch(std::runtime_error error)
 		{
 		/* Bail out on errors in user configuration file: */
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" error"<<std::endl;
-		std::cerr<<"Caught exception "<<error.what()<<" while merging configuration file "<<configFileName<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Caught exception "<<error.what()<<" while merging configuration file "<<configFileName<<std::endl;
 		vruiErrorShutdown(true);
 		
 		return false;
@@ -332,14 +347,14 @@ void vruiOpenConfigurationFile(const char* userConfigDir,const char* appPath)
 	try
 		{
 		/* Open the system-wide configuration file: */
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Reading system-wide configuration file "<<systemConfigFileName<<std::endl;
 		vruiConfigFile=new Misc::ConfigurationFile(systemConfigFileName.c_str());
 		}
 	catch(std::runtime_error error)
 		{
 		/* Bail out: */
-		std::cerr<<"Caught exception "<<error.what()<<" while reading system-wide configuration file "<<systemConfigFileName<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Caught exception "<<error.what()<<" while reading system-wide configuration file "<<systemConfigFileName<<std::endl;
 		vruiErrorShutdown(true);
 		}
 	
@@ -412,7 +427,7 @@ void vruiGoToRootSection(const char*& rootSectionName)
 				}
 		if(!rootSectionFound)
 			{
-			if(vruiVerbose)
+			if(vruiVerbose&&vruiMaster)
 				std::cout<<"Vrui: Requested root section /Vrui/"<<rootSectionName<<" does not exist"<<std::endl;
 			rootSectionName=VRUI_INTERNAL_CONFIG_DEFAULTROOTSECTION;
 			}
@@ -420,12 +435,12 @@ void vruiGoToRootSection(const char*& rootSectionName)
 	catch(...)
 		{
 		/* Bail out if configuration file does not contain the Vrui section: */
-		std::cerr<<"Configuration file does not contain /Vrui section"<<std::endl;
+		std::cerr<<"Vrui: Configuration file does not contain /Vrui section"<<std::endl;
 		vruiErrorShutdown(true);
 		}
 	
 	/* Go to the given root section: */
-	if(vruiVerbose)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Going to root section /Vrui/"<<rootSectionName<<std::endl;
 	vruiConfigFile->setCurrentSection("/Vrui");
 	vruiConfigFile->setCurrentSection(rootSectionName);
@@ -447,6 +462,12 @@ struct VruiWindowGroupCreator // Structure defining a group of windows rendered 
 	public:
 	std::vector<VruiWindow> windows; // List of the windows in this group
 	InputDeviceAdapterMouse* mouseAdapter; // Pointer to the mouse input device adapter to be used for this window group
+	
+	/* Constructors and destructors: */
+	VruiWindowGroupCreator(void)
+		:mouseAdapter(0)
+		{
+		}
 	};
 
 bool vruiCreateWindowGroup(const VruiWindowGroupCreator& group)
@@ -469,13 +490,7 @@ bool vruiCreateWindowGroup(const VruiWindowGroupCreator& group)
 				snprintf(windowName,sizeof(windowName),"%s",vruiApplicationName);
 			
 			if(vruiVerbose)
-				{
-				if(vruiState->multiplexer!=0)
-					std::cout<<"Vrui (node "<<vruiState->multiplexer->getNodeIndex()<<"): ";
-				else
-					std::cout<<"Vrui: ";
-				std::cout<<"Opening window "<<windowName<<" from configuration section "<<cfs.getName()<<':'<<std::endl;
-				}
+				std::cout<<vruiErrorHeader<<"Opening window "<<windowName<<" from configuration section "<<cfs.getName()<<':'<<std::endl;
 			
 			/* Create a new OpenGL context if this is the first window in the group: */
 			if(context==0)
@@ -509,7 +524,7 @@ bool vruiCreateWindowGroup(const VruiWindowGroupCreator& group)
 			}
 		catch(std::runtime_error err)
 			{
-			std::cerr<<"Caught exception "<<err.what()<<" while initializing rendering window "<<wIt->windowIndex<<std::endl;
+			std::cerr<<vruiErrorHeader<<"Caught exception "<<err.what()<<" while initializing rendering window "<<wIt->windowIndex<<std::endl;
 			delete vruiWindows[wIt->windowIndex];
 			vruiWindows[wIt->windowIndex]=0;
 			
@@ -594,12 +609,16 @@ Call-in functions for user program:
 
 void init(int& argc,char**& argv,char**&)
 	{
+	typedef std::vector<std::string> StringList;
+	
 	/* Determine whether this node is the master or a slave: */
 	if(argc==8&&strcmp(argv[1],"-vruiMultipipeSlave")==0)
 		{
 		/********************
 		This is a slave node:
 		********************/
+		
+		vruiMaster=false;
 		
 		/* Read multipipe settings from the command line: */
 		int numSlaves=atoi(argv[2]);
@@ -650,7 +669,7 @@ void init(int& argc,char**& argv,char**&)
 			}
 		catch(std::runtime_error error)
 			{
-			std::cerr<<"Node "<<nodeIndex<<": Caught exception "<<error.what()<<" while initializing cluster communication"<<std::endl;
+			std::cerr<<"Vrui (node "<<nodeIndex<<"): Caught exception "<<error.what()<<" while initializing cluster communication"<<std::endl;
 			vruiErrorShutdown(true);
 			}
 		}
@@ -875,8 +894,6 @@ void init(int& argc,char**& argv,char**&)
 		/* Check if this is a multipipe environment: */
 		if(vruiConfigFile->retrieveValue<bool>("./enableMultipipe",false))
 			{
-			typedef std::vector<std::string> StringList;
-			
 			try
 				{
 				if(vruiVerbose)
@@ -990,20 +1007,47 @@ void init(int& argc,char**& argv,char**&)
 	/* Initialize Vrui state object: */
 	try
 		{
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Initializing Vrui environment..."<<std::flush;
 		vruiState=new VruiState(vruiMultiplexer,vruiPipe);
 		vruiState->initialize(vruiConfigFile->getCurrentSection());
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" Ok"<<std::endl;
 		}
 	catch(std::runtime_error error)
 		{
-		if(vruiVerbose)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" error"<<std::endl;
-		std::cerr<<"Caught exception "<<error.what()<<" while initializing Vrui state object"<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Caught exception "<<error.what()<<" while initializing Vrui state object"<<std::endl;
 		vruiErrorShutdown(true);
 		}
+	
+	/* Create the total list of all windows on the cluster: */
+	vruiTotalNumWindows=0;
+	if(vruiMultiplexer!=0)
+		{
+		/* Count the number of windows on all cluster nodes: */
+		for(unsigned int nodeIndex=0;nodeIndex<vruiMultiplexer->getNumNodes();++nodeIndex)
+			{
+			if(nodeIndex==vruiMultiplexer->getNodeIndex())
+				vruiFirstLocalWindowIndex=vruiTotalNumWindows;
+			char windowNamesTag[40];
+			snprintf(windowNamesTag,sizeof(windowNamesTag),"./node%uWindowNames",nodeIndex);
+			typedef std::vector<std::string> StringList;
+			StringList windowNames=vruiConfigFile->retrieveValue<StringList>(windowNamesTag);
+			vruiTotalNumWindows+=int(windowNames.size());
+			}
+		}
+	else
+		{
+		/* On a single-machine environment, total windows are local windows: */
+		StringList windowNames=vruiConfigFile->retrieveValue<StringList>("./windowNames");
+		vruiTotalNumWindows=int(windowNames.size());
+		vruiFirstLocalWindowIndex=0;
+		}
+	vruiTotalWindows=new VRWindow*[vruiTotalNumWindows];
+	for(int i=0;i<vruiTotalNumWindows;++i)
+		vruiTotalWindows[i]=0;
 	
 	/* Process additional command line arguments: */
 	for(int i=1;i<argc;++i)
@@ -1027,7 +1071,8 @@ void init(int& argc,char**& argv,char**&)
 				else
 					{
 					/* Ignore the loadInputGraph parameter: */
-					std::cerr<<"Vrui::init: No input graph file name given after -loadInputGraph option"<<std::endl;
+					if(vruiMaster)
+						std::cerr<<"Vrui::init: No input graph file name given after -loadInputGraph option"<<std::endl;
 					--argc;
 					}
 				}
@@ -1039,19 +1084,19 @@ void init(int& argc,char**& argv,char**&)
 					try
 						{
 						/* Load the tool class: */
-						if(vruiVerbose)
+						if(vruiVerbose&&vruiMaster)
 							std::cout<<"Vrui: Adding requested tool class "<<argv[i+1]<<"..."<<std::flush;
 						threadSynchronizer.sync();
 						vruiState->toolManager->loadClass(argv[i+1]);
-						if(vruiVerbose)
+						if(vruiVerbose&&vruiMaster)
 							std::cout<<" Ok"<<std::endl;
 						}
 					catch(std::runtime_error err)
 						{
 						/* Print a warning and carry on: */
-						if(vruiVerbose)
+						if(vruiVerbose&&vruiMaster)
 							std::cout<<" error"<<std::endl;
-						std::cerr<<"Vrui::init: Ignoring tool class "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
+						std::cerr<<vruiErrorHeader<<"Ignoring tool class "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
 						}
 					
 					/* Remove parameters from argument list: */
@@ -1063,7 +1108,8 @@ void init(int& argc,char**& argv,char**&)
 				else
 					{
 					/* Ignore the addToolClass parameter: */
-					std::cerr<<"Vrui::init: No tool class name given after -addToolClass option"<<std::endl;
+					if(vruiMaster)
+						std::cerr<<"Vrui::init: No tool class name given after -addToolClass option"<<std::endl;
 					--argc;
 					}
 				}
@@ -1075,19 +1121,19 @@ void init(int& argc,char**& argv,char**&)
 					try
 						{
 						/* Load the tool: */
-						if(vruiVerbose)
+						if(vruiVerbose&&vruiMaster)
 							std::cout<<"Vrui: Adding requested tool from configuration section "<<argv[i+1]<<"..."<<std::flush;
 						threadSynchronizer.sync();
 						vruiState->toolManager->loadToolBinding(argv[i+1]);
-						if(vruiVerbose)
+						if(vruiVerbose&&vruiMaster)
 							std::cout<<" Ok"<<std::endl;
 						}
 					catch(std::runtime_error err)
 						{
 						/* Print a warning and carry on: */
-						if(vruiVerbose)
+						if(vruiVerbose&&vruiMaster)
 							std::cout<<" error"<<std::endl;
-						std::cerr<<"Vrui::init: Ignoring tool binding "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
+						std::cerr<<vruiErrorHeader<<"Ignoring tool binding "<<argv[i+1]<<" due to exception "<<err.what()<<std::endl;
 						}
 					
 					/* Remove parameters from argument list: */
@@ -1099,7 +1145,8 @@ void init(int& argc,char**& argv,char**&)
 				else
 					{
 					/* Ignore the addTool parameter: */
-					std::cerr<<"Vrui::init: No tool binding section name given after -addTool option"<<std::endl;
+					if(vruiMaster)
+						std::cerr<<"Vrui::init: No tool binding section name given after -addTool option"<<std::endl;
 					--argc;
 					}
 				}
@@ -1120,20 +1167,20 @@ void init(int& argc,char**& argv,char**&)
 						try
 							{
 							/* Initialize the vislet: */
-							if(vruiVerbose)
+							if(vruiVerbose&&vruiMaster)
 								std::cout<<"Vrui: Loading vislet of class "<<className<<"..."<<std::flush;
 							threadSynchronizer.sync();
 							VisletFactory* factory=vruiState->visletManager->loadClass(className);
 							vruiState->visletManager->createVislet(factory,argEnd-(i+2),argv+(i+2));
-							if(vruiVerbose)
+							if(vruiVerbose&&vruiMaster)
 								std::cout<<" Ok"<<std::endl;
 							}
 						catch(std::runtime_error err)
 							{
 							/* Print a warning and carry on: */
-							if(vruiVerbose)
+							if(vruiVerbose&&vruiMaster)
 								std::cout<<" error"<<std::endl;
-							std::cerr<<"Vrui::init: Ignoring vislet of type "<<className<<" due to exception "<<err.what()<<std::endl;
+							std::cerr<<vruiErrorHeader<<"Ignoring vislet of type "<<className<<" due to exception "<<err.what()<<std::endl;
 							}
 						}
 					
@@ -1149,7 +1196,8 @@ void init(int& argc,char**& argv,char**&)
 				else
 					{
 					/* Ignore the vislet parameter: */
-					std::cerr<<"Vrui::init: No vislet class name given after -vislet option"<<std::endl;
+					if(vruiMaster)
+						std::cerr<<"Vrui: No vislet class name given after -vislet option"<<std::endl;
 					argc=i;
 					}
 				}
@@ -1170,7 +1218,8 @@ void init(int& argc,char**& argv,char**&)
 				else
 					{
 					/* Ignore the loadView parameter: */
-					std::cerr<<"Vrui::init: No viewpoint file name given after -loadView option"<<std::endl;
+					if(vruiMaster)
+						std::cerr<<"Vrui: No viewpoint file name given after -loadView option"<<std::endl;
 					--argc;
 					}
 				}
@@ -1191,13 +1240,14 @@ void init(int& argc,char**& argv,char**&)
 				else
 					{
 					/* Ignore the setLinearUnit parameter: */
-					std::cerr<<"Vrui::init: No unit name and scale factor given after -setLinearUnit option"<<std::endl;
+					if(vruiMaster)
+						std::cerr<<"Vrui: No unit name and scale factor given after -setLinearUnit option"<<std::endl;
 					--argc;
 					}
 				}
 			}
 	
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		{
 		std::cout<<"Vrui: Command line passed to application:";
 		for(int i=1;i<argc;++i)
@@ -1231,7 +1281,7 @@ void startDisplay(void)
 			std::cout<<" Ok"<<std::endl;
 		}
 	
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Starting graphics subsystem..."<<std::endl;
 	
 	/* Find the mouse adapter listed in the input device manager (if there is one): */
@@ -1378,11 +1428,7 @@ void startDisplay(void)
 		
 		if(vruiVerbose)
 			{
-			if(vruiState->multiplexer!=0)
-				std::cout<<"Vrui (node "<<vruiState->multiplexer->getNodeIndex()<<"): ";
-			else
-				std::cout<<"Vrui: ";
-			std::cout<<"Opened "<<vruiNumWindows<<(vruiNumWindows!=1?" windows":" window");
+			std::cout<<vruiErrorHeader<<"Opened "<<vruiNumWindows<<(vruiNumWindows!=1?" windows":" window");
 			if(vruiNumWindowGroups>1)
 				{
 				std::cout<<" in "<<vruiNumWindowGroups<<" window groups";
@@ -1393,7 +1439,7 @@ void startDisplay(void)
 				#endif
 				}
 			std::cout<<std::endl;
-			if(vruiState->master)
+			if(vruiMaster)
 				std::cout<<"Vrui: Graphics subsystem "<<(allWindowsOk?"Ok":"failed")<<std::endl;
 			}
 		if(!allWindowsOk)
@@ -1423,48 +1469,24 @@ void startDisplay(void)
 		}
 	catch(std::runtime_error error)
 		{
-		std::cerr<<"Caught exception "<<error.what()<<" while initializing rendering windows"<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Caught exception "<<error.what()<<" while initializing rendering windows"<<std::endl;
 		vruiErrorShutdown(true);
 		}
 	catch(...)
 		{
-		std::cerr<<"Caught spurious exception while initializing rendering windows"<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Caught spurious exception while initializing rendering windows"<<std::endl;
 		vruiErrorShutdown(true);
 		}
 	
-	/* Create the total list of all windows on the cluster: */
-	vruiTotalNumWindows=0;
-	int localWindowsStart=0;
-	if(vruiMultiplexer!=0)
-		{
-		/* Count the number of windows on all cluster nodes: */
-		for(unsigned int nodeIndex=0;nodeIndex<vruiMultiplexer->getNumNodes();++nodeIndex)
-			{
-			if(nodeIndex==vruiMultiplexer->getNodeIndex())
-				localWindowsStart=vruiTotalNumWindows;
-			char windowNamesTag[40];
-			snprintf(windowNamesTag,sizeof(windowNamesTag),"./node%uWindowNames",nodeIndex);
-			typedef std::vector<std::string> StringList;
-			StringList windowNames=vruiConfigFile->retrieveValue<StringList>(windowNamesTag);
-			vruiTotalNumWindows+=int(windowNames.size());
-			}
-		
-		if(vruiVerbose&&vruiState->master)
-			std::cout<<"Vrui: Cluster contains "<<vruiTotalNumWindows<<" windows in total"<<std::endl;
-		}
-	else
-		{
-		/* On a single-machine environment, total windows are local windows: */
-		vruiTotalNumWindows=vruiNumWindows;
-		localWindowsStart=0;
-		}
-	vruiTotalWindows=new VRWindow*[vruiTotalNumWindows];
-	for(int i=0;i<localWindowsStart;++i)
-		vruiTotalWindows[i]=0;
+	/* Populate the total list of all windows on the cluster: */
 	for(int i=0;i<vruiNumWindows;++i)
-		vruiTotalWindows[localWindowsStart+i]=vruiWindows[i];
-	for(int i=localWindowsStart+vruiNumWindows;i<vruiTotalNumWindows;++i)
-		vruiTotalWindows[i]=0;
+		{
+		/* Store the node-local window pointer in the cluster-wide list: */
+		vruiTotalWindows[vruiFirstLocalWindowIndex+i]=vruiWindows[i];
+		
+		/* Tell the window its own index in the cluster-wide list: */
+		vruiWindows[i]->setWindowIndex(vruiFirstLocalWindowIndex+i);
+		}
 	}
 
 void startSound(void)
@@ -1517,7 +1539,7 @@ void startSound(void)
 		}
 	catch(std::runtime_error err)
 		{
-		std::cerr<<"Disabling OpenAL sound due to exception "<<err.what()<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Disabling OpenAL sound due to exception "<<err.what()<<std::endl;
 		if(vruiSoundContexts[0]!=0)
 			{
 			delete vruiSoundContexts[0];
@@ -1526,7 +1548,7 @@ void startSound(void)
 		}
 	catch(...)
 		{
-		std::cerr<<"Disabling OpenAL sound due to spurious exception"<<std::endl;
+		std::cerr<<vruiErrorHeader<<"Disabling OpenAL sound due to spurious exception"<<std::endl;
 		if(vruiSoundContexts[0]!=0)
 			{
 			delete vruiSoundContexts[0];
@@ -1906,7 +1928,7 @@ void mainLoop(void)
 	/* Bail out if someone requested a shutdown during the initialization procedure: */
 	if(vruiAsynchronousShutdown)
 		{
-		if(vruiVerbose&&vruiState->master)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Shutting down due to shutdown request during initialization"<<std::flush;
 		return;
 		}
@@ -1927,15 +1949,15 @@ void mainLoop(void)
 	/* Wait for all nodes in the multicast group to reach this point: */
 	if(vruiState->multiplexer!=0)
 		{
-		if(vruiVerbose&&vruiState->master)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Waiting for cluster before preparing main loop..."<<std::flush;
 		vruiState->pipe->barrier();
-		if(vruiVerbose&&vruiState->master)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" Ok"<<std::endl;
 		}
 	
 	/* Prepare Vrui state for main loop: */
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Preparing main loop..."<<std::flush;
 	vruiState->prepareMainLoop();
 	
@@ -1951,11 +1973,11 @@ void mainLoop(void)
 		printf("Press Esc to exit...\n");
 		}
 	
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<" Ok"<<std::endl;
 	
 	/* Perform the main loop until the ESC key is hit: */
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Entering main loop"<<std::endl;
 	if(vruiNumWindows!=1)
 		vruiInnerLoopMultiWindow();
@@ -1963,14 +1985,14 @@ void mainLoop(void)
 		vruiInnerLoopSingleWindow();
 	
 	/* Perform first clean-up steps: */
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Exiting main loop..."<<std::flush;
 	vruiState->finishMainLoop();
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<" Ok"<<std::endl;
 	
 	/* Shut down the rendering system: */
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Shutting down graphics subsystem..."<<std::flush;
 	GLContextData::shutdownThingManager();
 	#if GLSUPPORT_CONFIG_USE_TLS
@@ -2008,11 +2030,11 @@ void mainLoop(void)
 		delete[] vruiTotalWindows;
 		vruiTotalWindows=0;
 		}
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<" Ok"<<std::endl;
 	
 	/* Shut down the sound system: */
-	if(vruiVerbose&&vruiState->master&&vruiSoundContexts!=0)
+	if(vruiVerbose&&vruiMaster&&vruiSoundContexts!=0)
 		std::cout<<"Vrui: Shutting down sound subsystem..."<<std::flush;
 	ALContextData::shutdownThingManager();
 	#if ALSUPPORT_CONFIG_HAVE_OPENAL
@@ -2024,33 +2046,32 @@ void mainLoop(void)
 		delete[] vruiSoundContexts;
 		}
 	#endif
-	if(vruiVerbose&&vruiState->master&&vruiSoundContexts!=0)
+	if(vruiVerbose&&vruiMaster&&vruiSoundContexts!=0)
 		std::cout<<" Ok"<<std::endl;
 	}
 
 void deinit(void)
 	{
 	/* Clean up: */
-	if(vruiVerbose&&vruiState->master)
+	if(vruiVerbose&&vruiMaster)
 		std::cout<<"Vrui: Shutting down Vrui environment"<<std::endl;
 	delete[] vruiApplicationName;
 	delete vruiState;
 	
 	if(vruiMultiplexer!=0)
 		{
-		bool master=vruiMultiplexer->isMaster();
-		if(vruiVerbose&&master)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Exiting cluster mode"<<std::endl;
 		
 		/* Destroy the multiplexer: */
-		if(vruiVerbose&&master)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<"Vrui: Shutting down intra-cluster communication..."<<std::flush;
 		delete vruiPipe;
 		delete vruiMultiplexer;
-		if(vruiVerbose&&master)
+		if(vruiVerbose&&vruiMaster)
 			std::cout<<" Ok"<<std::endl;
 		
-		if(master&&vruiSlavePids!=0)
+		if(vruiMaster&&vruiSlavePids!=0)
 			{
 			/* Wait for all slaves to terminate: */
 			if(vruiVerbose)
@@ -2062,7 +2083,7 @@ void deinit(void)
 			if(vruiVerbose)
 				std::cout<<" Ok"<<std::endl;
 			}
-		if(!master&&vruiSlaveArgv!=0)
+		if(!vruiMaster&&vruiSlaveArgv!=0)
 			{
 			/* Delete the slave command line: */
 			for(int i=0;i<vruiSlaveArgc;++i)

@@ -1,0 +1,26 @@
+/***********************************************************************
+Trie - Class to store a dictionary of attributed words as a trie
+structure for fast prefix matching and attribute retrieval.
+Copyright (c) 2018 Oliver Kreylos
+***********************************************************************/
+
+#define MISC_TRIE_IMPLEMENTATION
+
+#include <Misc/Trie.h>
+
+namespace Misc {
+
+/*********************
+Methods of class Trie:
+*********************/
+
+template <class CharParam,CharParam terminatorParam,class LeafDataParam>
+inline
+bool
+Trie<CharParam,terminatorParam,LeafDataParam>::addWord(
+	const typename Trie<CharParam,terminatorParam,LeafDataParam>::Char* word,
+	typename Trie<CharParam,terminatorParam,LeafDataParam>::LeafData leaf)
+	{
+	}
+
+}

@@ -1,7 +1,7 @@
 /***********************************************************************
 GLFrameBuffer - Simple class to encapsulate the state of and operations
 on OpenGL frame buffer objects.
-Copyright (c) 2012-2013 Oliver Kreylos
+Copyright (c) 2012-2017 Oliver Kreylos
 
 This file is part of the OpenGL Support Library (GLSupport).
 
@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/ThrowStdErr.h>
 #include <GL/gl.h>
+#include <GL/GLPrintError.h>
 
 /******************************
 Methods of class GLFrameBuffer:
@@ -66,8 +67,15 @@ void GLFrameBuffer::bindAttachments(void)
 		else
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,depthBufferId);
 		}
+	else
+		{
+		/* Reset the depth attachment point: */
+		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_DEPTH_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,0);
+		}
+	glPrintError("BA1");
 	for(GLint colorAttachmentIndex=0;colorAttachmentIndex<numColorAttachments;++colorAttachmentIndex)
-		if(colorBufferids[colorAttachmentIndex]!=0)
+		{
+		if(colorBufferIds[colorAttachmentIndex]!=0)
 			{
 			/* Attach the color buffer to the frame buffer: */
 			if(colorIsTextures[colorAttachmentIndex])
@@ -75,8 +83,24 @@ void GLFrameBuffer::bindAttachments(void)
 			else
 				glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT+colorAttachmentIndex,GL_RENDERBUFFER_EXT,colorBufferIds[colorAttachmentIndex]);
 			}
+		else
+			{
+			/* Reset the color attachment point: */
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT+colorAttachmentIndex,GL_RENDERBUFFER_EXT,0);
+			}
+		}
+	glPrintError("BA2");
 	if(stencilBufferId!=0)
+		{
+		/* Attach the stencil buffer to the frame buffer: */
 		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_STENCIL_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,stencilBufferId);
+		}
+	else
+		{
+		/* Reset the stencil attachment point: */
+		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,GL_STENCIL_ATTACHMENT_EXT,GL_RENDERBUFFER_EXT,0);
+		}
+	glPrintError("BA3");
 	}
 
 void GLFrameBuffer::checkConsistency(void)
@@ -123,7 +147,8 @@ GLFrameBuffer::GLFrameBuffer(GLsizei width,GLsizei height,bool pad)
 	 haveDepthTextures(GLARBDepthTexture::isSupported()),
 	 depthIsTexture(false),depthBufferId(0),
 	 numColorAttachments(0),colorIsTextures(0),colorBufferIds(0),
-	 stencilBufferId(0)
+	 stencilBufferId(0),
+	 modified(true)
 	{
 	/* Initialize the required extensions: */
 	GLEXTFramebufferObject::initExtension();
@@ -168,7 +193,7 @@ GLFrameBuffer::GLFrameBuffer(GLsizei width,GLsizei height,bool pad)
 GLFrameBuffer::~GLFrameBuffer(void)
 	{
 	/* Destroy the frame buffer object: */
-	glDestroyFramebuffersEXT(1,&frameBufferId);
+	glDeleteFramebuffersEXT(1,&frameBufferId);
 	
 	/* Destroy all render buffer objects: */
 	deleteDepthAttachment();
@@ -194,10 +219,12 @@ void GLFrameBuffer::attachDepthBuffer(void)
 	
 	/* Create a new render buffer: */
 	depthIsTexture=false;
-	glGenRenderBuffersEXT(1,&depthBufferId);
+	glGenRenderbuffersEXT(1,&depthBufferId);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,depthBufferId);
 	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,GL_DEPTH_COMPONENT,paddedSize[0],paddedSize[1]);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+	
+	modified=true;
 	}
 
 void GLFrameBuffer::attachDepthTexture(GLenum pixelFormat,GLenum filterMode)
@@ -220,6 +247,8 @@ void GLFrameBuffer::attachDepthTexture(GLenum pixelFormat,GLenum filterMode)
 	glTexParameteri(textureTarget,GL_DEPTH_TEXTURE_MODE_ARB,GL_INTENSITY);
 	glTexImage2D(textureTarget,0,pixelFormat,paddedSize[0],paddedSize[1],0,GL_DEPTH_COMPONENT,GL_UNSIGNED_BYTE,0);
 	glBindTexture(textureTarget,0);
+	
+	modified=true;
 	}
 
 void GLFrameBuffer::attachColorBuffer(GLint colorAttachmentIndex,GLenum pixelFormat)
@@ -229,10 +258,12 @@ void GLFrameBuffer::attachColorBuffer(GLint colorAttachmentIndex,GLenum pixelFor
 	
 	/* Create a new render buffer: */
 	colorIsTextures[colorAttachmentIndex]=false;
-	glGenRenderBuffersEXT(1,&colorBufferIds[colorAttachmentIndex]);
+	glGenRenderbuffersEXT(1,&colorBufferIds[colorAttachmentIndex]);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,colorBufferIds[colorAttachmentIndex]);
 	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,pixelFormat,paddedSize[0],paddedSize[1]);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+	
+	modified=true;
 	}
 
 void GLFrameBuffer::attachColorTexture(GLint colorAttachmentIndex,GLenum pixelFormat,GLenum filterMode)
@@ -250,6 +281,34 @@ void GLFrameBuffer::attachColorTexture(GLint colorAttachmentIndex,GLenum pixelFo
 	glTexParameteri(textureTarget,GL_TEXTURE_WRAP_T,GL_CLAMP);
 	glTexImage2D(textureTarget,0,pixelFormat,paddedSize[0],paddedSize[1],0,GL_LUMINANCE,GL_UNSIGNED_BYTE,0);
 	glBindTexture(textureTarget,0);
+	
+	modified=true;
+	}
+
+void GLFrameBuffer::attachColorTexture(GLint colorAttachmentIndex,GLuint textureObjectId)
+	{
+	/* Delete any current color attachments in the given attachment slot: */
+	deleteColorAttachment(colorAttachmentIndex);
+	
+	/* Attach the given color texture: */
+	colorIsTextures[colorAttachmentIndex]=true;
+	colorBufferIds[colorAttachmentIndex]=textureObjectId;
+	
+	modified=true;
+	}
+
+GLuint GLFrameBuffer::detachColorTexture(GLint colorAttachmentIndex)
+	{
+	/* Check if the given attachment is actually a texture: */
+	if(!colorIsTextures[colorAttachmentIndex])
+		return 0;
+	
+	/* Detach and return the given attachment: */
+	GLuint result=colorBufferIds[colorAttachmentIndex];
+	colorIsTextures[colorAttachmentIndex]=false;
+	colorBufferIds[colorAttachmentIndex]=0;
+	modified=true;
+	return result;
 	}
 
 void GLFrameBuffer::attachStencilBuffer(GLenum pixelFormat)
@@ -259,31 +318,41 @@ void GLFrameBuffer::attachStencilBuffer(GLenum pixelFormat)
 		glDeleteRenderbuffersEXT(1,&stencilBufferId);
 	
 	/* Create a new render buffer: */
-	glGenRenderBuffersEXT(1,&stencilBufferId);
+	glGenRenderbuffersEXT(1,&stencilBufferId);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,stencilBufferId);
 	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,pixelFormat,paddedSize[0],paddedSize[1]);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT,0);
+	
+	modified=true;
 	}
 
-void GLFrameBuffer::finish(void)
-	{
-	/* Bind the frame buffer: */
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,frameBufferId);
-	
-	/* Bind all attachments: */
-	bindAttachments();
-	
-	/* Check the frame buffer for consistency: */
-	checkConsistency();
-	
-	/* Unbind the frame buffer: */
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
-	}
-
-void GLFrameBuffer::bind(void)
+void GLFrameBuffer::bind(void) const
 	{
 	/* Bind the frame buffer object: */
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,frameBufferId);
+	}
+
+void GLFrameBuffer::selectBuffers(GLenum readAttachment,GLenum writeAttachment)
+	{
+	/* Check if the frame buffer was modified: */
+	if(modified)
+		{
+		/* Bind all attachments: */
+		glPrintError("A");
+		bindAttachments();
+		
+		modified=false;
+		}
+	
+	/* Set the read and write attachment points: */
+	glPrintError("B");
+	glReadBuffer(readAttachment);
+	glPrintError("C");
+	glDrawBuffer(writeAttachment);
+	
+	/* Check the frame buffer for consistency: */
+	glPrintError("D");
+	checkConsistency();
 	}
 
 void GLFrameBuffer::unbind(void)
