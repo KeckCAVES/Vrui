@@ -5340,3 +5340,95 @@ Vrui-4.4-001:
     associating strings with data values.
 - Created VRTOOLS_IGNORE_SOURCES variable in makefile and disabled
   FPSArm tool for now.
+
+Vrui-4.5-001:
+- Added new class GLVertexBuffer to represent OpenGL vertex buffer
+  objects templatized by the type of vertex structure they contain.
+- Added nan to Math::Constants definitions for floating-point numbers.
+- Significant overhaul of Images library to support more image file
+  types and image formats in the future:
+  - Added Images/ReadBILImage.h with functions to read images in BIP/
+    BIL/BSQ format to Images library.
+  - Added function to read an image file based on directory and
+    directory-relative file name to Images/ReadImageFile.h.
+  - Added support for BIP/BIL/BSQ images to Images::readGenericImageFile
+    function.
+  - Refactored filename-based functions in Images/ReadImageFile to use
+    the current directory to open file, to support reading images
+    directly from ZIP archives or over cluster pipes, for example.
+  - Added basic image processing methods to Images::BaseImage to support
+    simple common image format conversions in image reading functions.
+  - Marked readImageFile and readTransparentImageFile functions in
+    Images/ReadImageFile.h as deprecated and replaced with
+    implementations based on readGenericImageFile and new image
+    processing methods in Images::BaseImage.
+  - Removed requirement for seekable files in Images::readCursorFile.
+  - Implemented Images::readGenericTIFFImage function. Does currently
+    not support tiled TIFF images.
+  - Fixed exception message in Images/GetImageFileSize.cpp.
+- Improved BIL elevation grid reader in
+  SceneGraph/Internal/LoadElevationGrid.cpp by reading grid origin and
+  size from header file, and removed requirement for seekable grid files
+  for move to directory-based VRML file loader.
+- Added glTexImage2DMipmap method to Images::BaseImage, which uses
+  hardware acceleration when available.
+- Removed uses of Images::RGBImage from libraries where actual format
+  is irrelevant:
+	- Autostereo view map representation and upload in Vrui::VRWindow.
+	- Lightsaber texture image in Vrui JediTool.
+	- Wall and floor images in Vrui CAVERenderer vislet.
+	  - Also replaced mipmap generation code with
+	    Images::BaseImage::glTexImage2DMipmap().
+	- Moved SceneGraph::loadElevationGrid to use generic images for
+	  improved utility.
+- Changed frame loading code in Video::ImageSequenceVideoDevice to use
+  directory-based Images::readImageFile function.
+- Flipped order of include files X11/keysym.h and X11/Xlib.h in
+  Calibration/XBackground.cpp to work with newest XQuartz on Mac OS X.
+- Changed invocation of jpeg_read_header to work with jpeg9b library,
+  by replacing "true" with "TRUE", in Images/GetImageFileSize.cpp and
+  Images/ReadJPEGImage.cpp.
+- Marked some unused future-proofing helper functions in
+  VRDeviceDaemon/VRDevices/OpenVRHost.cpp as inline to turn off compiler
+  warnings.
+- Optimized absolute path handing in IO::StandardDirectory and
+  Cluster::StandardDirectory.
+- Fixed window position tracking in GLWindow yet again, triggered by a
+  recent bug fix in Xorg, and may finally have it correct now.
+- Added IO::UTF8, a helper class to decode/encode Unicode characters
+  from/to UTF-8 encoded strings or files.
+- Added the high-level part of the IO library's XML processor,
+  IO::XMLDocument, which represents an entire XML document as a tree of
+  nodes.
+- Added code to calculate display position of lens center, and (disabled)
+  code to calculate display's visible resolution, to Vrui's DeviceTest 
+  utility.
+- Changed build system files BuildRoot/SystemDefinitions and
+  BuildRoot/Packages.System to catch up with recent Mac OS X.
+- Added a couple of useful tracking quality measurement features to
+  Vrui's TrackingTest utility.
+- Added convenience accessor functions to USB::TransferPool::Transfer
+  class.
+- Fixed handling of paletted PNG images in Images/ReadPNGImage.cpp.
+- Updated OpenVRHost device daemon module to current release of SteamVR,
+  added support for touchpad touch button.
+- Changed deinitialization order in VRDeviceDaemon.cpp to avoid race
+  condition in OpenVRHost module shut-down.
+- Added visual feedback when touchpad is touched to
+  Vrui::TouchpadButtonsTool.
+- Fixed enumeration of forwarded features in Vrui::TouchpadButtonTool
+  such that only the currently touched button slot is returned.
+- Changed tool kill zone behavior in Vrui::InputGraphManager such that
+  only the most recently activated tool is deleted.
+- Added enable states to input devices and tools to handle dynamic input
+  devices and temporary tracking drop-outs:
+  - Added enable flags for input devices and tools, as well as methods
+    to change device states and state change callbacks, to
+    Vrui::InputGraphManager.
+  - Added enable flag and device state change callback to
+    Vrui::VRScreen and Vrui::Viewer.
+  - Added render capability check to Vrui::VRWindow.
+  - Added tracking state checking to
+    Vrui::InputDeviceAdapterDeviceDaemon.
+- Changed OpenVRHost device driver module to always send state updates
+  even when tracking data is not valid, to notify clients of changes.

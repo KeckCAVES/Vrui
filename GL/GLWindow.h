@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2016 Oliver Kreylos
+Copyright (c) 2001-2018 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -133,6 +133,8 @@ class GLWindow
 	Window root; // Handle of the screen's root window
 	Colormap colorMap; // Colormap used in window
 	Window window; // X window handle
+	Window parent; // Handle of window's parent, to query on-screen position of decorated windows
+	int parentOffset[2]; // Position of window's top-left corner in its parent's coordinate system
 	Atom wmProtocolsAtom,wmDeleteWindowAtom; // Atoms needed for window manager communication
 	
 	/* Entry points for required/optional GLX extensions: */

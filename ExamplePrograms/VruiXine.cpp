@@ -40,7 +40,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLObject.h>
 #include <GL/GLContextData.h>
 #include <GL/Extensions/GLARBMultitexture.h>
-#include <GL/Extensions/GLARBTextureRectangle.h>
+#include <GL/Extensions/GLARBTextureNonPowerOfTwo.h>
 #include <GL/Extensions/GLARBTextureRg.h>
 #include <GL/Extensions/GLARBVertexBufferObject.h>
 #include <GL/GLShader.h>
@@ -123,13 +123,13 @@ class VruiXine:public Vrui::Application,public GLObject
 		{
 		/* Elements: */
 		public:
-		int numVertices[2]; // Number of vertices to render the video screen
+		unsigned int numVertices[2]; // Number of vertices to render the video screen
 		GLuint vertexBufferId; // Buffer for vertices to render the video screen
 		GLuint indexBufferId; // Buffer for vertex indices to render the video screen
 		unsigned int bufferDataVersion; // Version number of vertex data in vertex buffer
 		GLuint frameTextureIds[3]; // IDs of three frame textures (Y plane or interleaved YUY2 or RGB, U plane, V plane)
-		GLShader videoShaders[3]; // Shaders to render video textures in YV12, YUY2, and RGB formats, respectively
-		int videoShaderUniforms[3][5]; // Uniform variable locations of the three video rendering shaders
+		GLShader videoShaders[6]; // Shaders to render video textures in YV12, YUY2, and RGB formats, respectively, in color-only or combined color/depth format
+		int videoShaderUniforms[6][5]; // Uniform variable locations of the three video rendering shaders
 		unsigned int frameTextureVersion; // Version number of frame in frame texture(s)
 		GLuint overlayTextureIds[XINE_VORAW_MAX_OVL]; // IDs of textures holding overlays
 		unsigned int overlayTextureVersion; // Version number of overlay set in overlay textures
@@ -176,7 +176,7 @@ class VruiXine:public Vrui::Application,public GLObject
 	Vrui::Scalar screenCurvature; // Relative amount of screen curvature between 0 (flat) and 1 (sphere around display center)
 	Vrui::Scalar fullSphereRadius; // Radius for full-sphere screens in navigational coordinate units
 	double screenAzimuth,screenElevation; // Angles to rotate the screen
-	int stereoMode; // Stream's stereo mode, 0: mono, 1: side-by-side, 2: top/bottom
+	int stereoMode; // Stream's stereo mode, 0: mono, 1: side-by-side, 2: top/bottom, 3: color/depth
 	int stereoLayout; // Layout of sub-frames. 0: Left eye is left or top, 1: Left eye is right or bottom
 	bool stereoSquashed; // Flag whether stereo sub-frames are squashed to fit into the original frame
 	bool forceMono; // Flag to only use the left eye of stereo pairs for display
@@ -261,11 +261,12 @@ VruiXine::DataItem::DataItem(void)
 	{
 	/* Initialize all required OpenGL extensions: */
 	GLARBMultitexture::initExtension();
-	GLARBTextureRectangle::initExtension();
+	GLARBTextureNonPowerOfTwo::initExtension();
 	GLARBTextureRg::initExtension();
 	GLARBVertexBufferObject::initExtension();
 	
 	/* Create the vertex and index buffers: */
+	numVertices[1]=numVertices[0]=0;
 	glGenBuffersARB(1,&vertexBufferId);
 	glGenBuffersARB(1,&indexBufferId);
 	
@@ -621,6 +622,11 @@ void VruiXine::setStereoMode(int newStereoMode)
 			static_cast<GLMotif::Label*>(stereoLayouts->getChild(0))->setString("Left Eye Is Bottom");
 			static_cast<GLMotif::Label*>(stereoLayouts->getChild(1))->setString("Left Eye Is Top");
 			break;
+		
+		case 3: // Color/depth
+			for(int i=0;i<2;++i)
+				static_cast<GLMotif::Label*>(stereoLayouts->getChild(i))->setEnabled(false);
+			break;
 		}
 	
 	/* Update the stereo mode radio box: */
@@ -898,6 +904,7 @@ GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
 	stereoModes->addToggle("Mono");
 	stereoModes->addToggle("Side-by-Side");
 	stereoModes->addToggle("Top/Bottom");
+	stereoModes->addToggle("Color/Depth");
 	
 	stereoModes->setSelectedToggle(stereoMode);
 	stereoModes->getValueChangedCallbacks().add(this,&VruiXine::stereoModesValueChangedCallback);
@@ -918,17 +925,16 @@ GLMotif::PopupWindow* VruiXine::createStreamControlDialog(void)
 		{
 		stereoLayouts->addToggle("Left Eye Is Left");
 		stereoLayouts->addToggle("Left Eye Is Right");
-		
-		if(stereoMode==0)
-			{
-			for(int i=0;i<2;++i)
-				static_cast<GLMotif::Label*>(stereoLayouts->getChild(i))->setEnabled(false);
-			}
 		}
-	else
+	else if(stereoMode==2||stereoMode==3)
 		{
 		stereoLayouts->addToggle("Left Eye Is Bottom");
 		stereoLayouts->addToggle("Left Eye Is Top");
+		}
+	if(stereoMode==0||stereoMode==3)
+		{
+		for(int i=0;i<2;++i)
+			static_cast<GLMotif::Label*>(stereoLayouts->getChild(i))->setEnabled(false);
 		}
 	
 	stereoLayouts->setSelectedToggle(stereoLayout);
@@ -1845,46 +1851,47 @@ void VruiXine::display(GLContextData& contextData) const
 	/* Handle the current video frame based on its format: */
 	const Frame& frame=videoFrames.getLockedValue();
 	int shaderIndex=0;
+	int shaderIndexBase=stereoMode==3?3:0;
 	if(frame.format==XINE_VORAW_YV12)
 		{
 		/* Bind the YV12 shader: */
-		shaderIndex=0;
+		shaderIndex=shaderIndexBase+0;
 		dataItem->videoShaders[shaderIndex].useProgram();
 		
 		/* Bind the Y texture plane: */
 		glActiveTextureARB(GL_TEXTURE0_ARB+0);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->frameTextureIds[0]);
+		glBindTexture(GL_TEXTURE_2D,dataItem->frameTextureIds[0]);
 		glUniform1iARB(dataItem->videoShaderUniforms[shaderIndex][2],0);
 		if(dataItem->frameTextureVersion!=videoFrameVersion)
 			{
 			glPixelStorei(GL_UNPACK_SKIP_ROWS,crop[3]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH,frame.size[0]);
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS,crop[0]);
-			glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_R8,frameSize[0],frameSize[1],0,GL_RED,GL_UNSIGNED_BYTE,frame.planes[0]);
+			glTexImage2D(GL_TEXTURE_2D,0,GL_R8,frameSize[0],frameSize[1],0,GL_RED,GL_UNSIGNED_BYTE,frame.planes[0]);
 			}
 		
 		/* Bind the U texture plane: */
 		glActiveTextureARB(GL_TEXTURE0_ARB+1);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->frameTextureIds[1]);
+		glBindTexture(GL_TEXTURE_2D,dataItem->frameTextureIds[1]);
 		glUniform1iARB(dataItem->videoShaderUniforms[shaderIndex][3],1);
 		if(dataItem->frameTextureVersion!=videoFrameVersion)
 			{
 			glPixelStorei(GL_UNPACK_SKIP_ROWS,crop[3]>>1);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH,frame.size[0]>>1);
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS,crop[0]>>1);
-			glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_R8,frameSize[0]>>1,frameSize[1]>>1,0,GL_RED,GL_UNSIGNED_BYTE,frame.planes[1]);
+			glTexImage2D(GL_TEXTURE_2D,0,GL_R8,frameSize[0]>>1,frameSize[1]>>1,0,GL_RED,GL_UNSIGNED_BYTE,frame.planes[1]);
 			}
 		
 		/* Bind the V texture plane: */
 		glActiveTextureARB(GL_TEXTURE0_ARB+2);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->frameTextureIds[2]);
+		glBindTexture(GL_TEXTURE_2D,dataItem->frameTextureIds[2]);
 		glUniform1iARB(dataItem->videoShaderUniforms[shaderIndex][4],2);
 		if(dataItem->frameTextureVersion!=videoFrameVersion)
 			{
 			glPixelStorei(GL_UNPACK_SKIP_ROWS,crop[3]>>1);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH,frame.size[0]>>1);
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS,crop[0]>>1);
-			glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_R8,frameSize[0]>>1,frameSize[1]>>1,0,GL_RED,GL_UNSIGNED_BYTE,frame.planes[2]);
+			glTexImage2D(GL_TEXTURE_2D,0,GL_R8,frameSize[0]>>1,frameSize[1]>>1,0,GL_RED,GL_UNSIGNED_BYTE,frame.planes[2]);
 			}
 		
 		glActiveTextureARB(GL_TEXTURE0_ARB+0);
@@ -1893,89 +1900,123 @@ void VruiXine::display(GLContextData& contextData) const
 		{
 		/* Bind the interleaved YU/Y2 texture plane: */
 		glActiveTextureARB(GL_TEXTURE0_ARB+0);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->frameTextureIds[0]);
+		glBindTexture(GL_TEXTURE_2D,dataItem->frameTextureIds[0]);
 		if(dataItem->frameTextureVersion!=videoFrameVersion)
 			{
 			glPixelStorei(GL_UNPACK_SKIP_ROWS,crop[3]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH,frame.size[0]);
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS,crop[0]);
-			glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_RG8,frameSize[0],frameSize[1],0,GL_RG,GL_UNSIGNED_BYTE,frame.planes[0]);
+			glTexImage2D(GL_TEXTURE_2D,0,GL_RG8,frameSize[0],frameSize[1],0,GL_RG,GL_UNSIGNED_BYTE,frame.planes[0]);
 			}
 		}
 	else if(frame.format==XINE_VORAW_RGB)
 		{
 		/* Bind the RGB shader: */
-		shaderIndex=2;
+		shaderIndex=shaderIndexBase+2;
 		dataItem->videoShaders[shaderIndex].useProgram();
 		
 		/* Bind the RGB texture plane: */
 		glActiveTextureARB(GL_TEXTURE0_ARB+0);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->frameTextureIds[0]);
+		glBindTexture(GL_TEXTURE_2D,dataItem->frameTextureIds[0]);
 		glUniform1iARB(dataItem->videoShaderUniforms[shaderIndex][2],0);
 		if(dataItem->frameTextureVersion!=videoFrameVersion)
 			{
 			glPixelStorei(GL_UNPACK_SKIP_ROWS,crop[2]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH,frame.size[0]);
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS,crop[0]);
-			glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_RGB8,frameSize[0],frameSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,frame.planes[0]);
+			glTexImage2D(GL_TEXTURE_2D,0,GL_RGB8,frameSize[0],frameSize[1],0,GL_RGB,GL_UNSIGNED_BYTE,frame.planes[0]);
 			}
 		}
 	
 	/* Mark the texture objects as up-to-date: */
 	dataItem->frameTextureVersion=videoFrameVersion;
 	
-	/* Set up a texture transformation: */
-	int eyeIndex=stereoMode==0||forceMono?0:Vrui::getDisplayState(contextData).eyeIndex;
-	GLfloat texScale[4]={1.0f,1.0f,0.0f,0.0f};
-	GLfloat texOffset[4]={0.0f,0.0f,0.0f,0.0f};
-	if(stereoMode==1) // Side-by-side stereo
+	if(stereoMode!=3)
 		{
-		texScale[0]=0.5f;
-		texOffset[0]=eyeIndex==0?0.0f:GLfloat(frameSize[0])*0.5f;
-		if(stereoLayout==1)
-			texOffset[0]=GLfloat(frameSize[0])*0.5f-texOffset[0];
+		/* Set up a texture transformation: */
+		int eyeIndex=stereoMode==0||forceMono?0:Vrui::getDisplayState(contextData).eyeIndex;
+		GLfloat texScale[2]={1.0f,1.0f};
+		GLfloat texOffset[2]={0.0f,0.0f};
+		if(stereoMode==1) // Side-by-side stereo
+			{
+			texScale[0]=0.5f;
+			texOffset[0]=eyeIndex==0?0.0f:0.5f;
+			if(stereoLayout==1)
+				texOffset[0]=0.5f-texOffset[0];
+			}
+		else if(stereoMode==2) // Top/bottom stereo
+			{
+			const Vrui::DisplayState& ds=Vrui::getDisplayState(contextData);
+			texScale[1]=0.5f;
+			texOffset[1]=eyeIndex==0?0.0f:0.5f;
+			if(stereoLayout==1)
+				texOffset[1]=0.5f-texOffset[1];
+			}
+		texOffset[0]+=(eyeIndex==0?stereoSeparation:-stereoSeparation);
+		glUniform2fvARB(dataItem->videoShaderUniforms[shaderIndex][0],1,texScale);
+		glUniform2fvARB(dataItem->videoShaderUniforms[shaderIndex][1],1,texOffset);
 		}
-	else if(stereoMode==2) // Top/bottom stereo
-		{
-		const Vrui::DisplayState& ds=Vrui::getDisplayState(contextData);
-		texScale[1]=0.5f;
-		texOffset[1]=eyeIndex==0?0.0f:GLfloat(frameSize[1])*0.5f;
-		if(stereoLayout==1)
-			texOffset[1]=GLfloat(frameSize[1])*0.5f-texOffset[1];
-		}
-	texOffset[0]+=(eyeIndex==0?stereoSeparation:-stereoSeparation)*GLfloat(frameSize[0]);
-	glUniform4fvARB(dataItem->videoShaderUniforms[shaderIndex][0],1,texScale);
-	glUniform4fvARB(dataItem->videoShaderUniforms[shaderIndex][1],1,texOffset);
 	
 	/* Bind the vertex and index buffers to render the video screen: */
 	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferId);
+	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,dataItem->indexBufferId);
 	
 	/* Check if the vertex data is outdated: */
 	if(dataItem->bufferDataVersion!=screenParametersVersion)
 		{
+		/* Determine the number of vertices to tesselate the screen and a base texture coordinate transformation: */
+		unsigned int newNvs[2];
+		GLfloat ts[2],to[2]; // Texture coordinate scale and offset
+		if(stereoMode==3)
+			{
+			/* Create one quad per pixel: */
+			newNvs[0]=frameSize[0]+1;
+			newNvs[1]=frameSize[1]/2;
+			for(int i=0;i<2;++i)
+				{
+				ts[i]=1.0f/GLfloat(frameSize[i]);
+				to[i]=0.5f/GLfloat(frameSize[i]);
+				}
+			}
+		else
+			{
+			/* Use a default tesselation appropriate for half- and full-dome screens: */
+			newNvs[0]=64;
+			newNvs[1]=32;
+			for(int i=0;i<2;++i)
+				ts[i]=1.0f/GLfloat(newNvs[i]-1);
+			to[1]=to[0]=0.0f;
+			}
+		
+		/* Check if the buffer size is different from the previous frame: */
+		bool bufferSizeChanged=dataItem->numVertices[0]!=newNvs[0]||dataItem->numVertices[1]!=newNvs[1];
+		
 		/* Re-generate the vertex buffer contents: */
+		if(bufferSizeChanged)
+			{
+			/* Re-allocate the vertex buffer: */
+			glBufferDataARB(GL_ARRAY_BUFFER_ARB,newNvs[1]*newNvs[0]*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
+			}
 		Vertex* vertices=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY));
 		Vertex* vPtr=vertices;
 		if(screenMode==2||screenMode==3)
 			{
 			/* Create a full sphere with texture coordinates for equirectangular projection: */
-			GLfloat tsx=GLfloat(frameSize[0])/GLfloat(dataItem->numVertices[0]-1);
-			GLfloat tsy=GLfloat(frameSize[1])/GLfloat(dataItem->numVertices[1]-1);
 			Vrui::Scalar horizontalAngleScale=Math::Constants<Vrui::Scalar>::pi;
 			if(screenMode==3)
 				horizontalAngleScale*=Vrui::Scalar(2);
-			for(int y=0;y<dataItem->numVertices[1];++y)
-				for(int x=0;x<dataItem->numVertices[0];++x,++vPtr)
+			for(unsigned int y=0;y<newNvs[1];++y)
+				for(unsigned int x=0;x<newNvs[0];++x,++vPtr)
 					{
 					/* Assign texture coordinates: */
-					vPtr->texCoord[0]=GLfloat(x)*tsx;
-					vPtr->texCoord[1]=GLfloat(frameSize[1])-GLfloat(y)*tsy;
+					vPtr->texCoord[0]=GLfloat(x)*ts[0]+to[0];
+					vPtr->texCoord[1]=1.0f-(GLfloat(y)*ts[1]+to[1]);
 					
 					/* Calculate vertex position: */
-					Vrui::Scalar xa=(Vrui::Scalar(x)/Vrui::Scalar(dataItem->numVertices[0]-1)-Vrui::Scalar(0.5))*horizontalAngleScale;
+					Vrui::Scalar xa=(Vrui::Scalar(x)/Vrui::Scalar(newNvs[0]-1)-Vrui::Scalar(0.5))*horizontalAngleScale;
 					Vrui::Scalar cx=Math::cos(xa);
 					Vrui::Scalar sx=Math::sin(xa);
-					Vrui::Scalar ya=(Vrui::Scalar(y)/Vrui::Scalar(dataItem->numVertices[1]-1)-Vrui::Scalar(0.5))*Math::Constants<Vrui::Scalar>::pi;
+					Vrui::Scalar ya=(Vrui::Scalar(y)/Vrui::Scalar(newNvs[1]-1)-Vrui::Scalar(0.5))*Math::Constants<Vrui::Scalar>::pi;
 					Vrui::Scalar cy=Math::cos(ya);
 					Vrui::Scalar sy=Math::sin(ya);
 					
@@ -1990,7 +2031,7 @@ void VruiXine::display(GLContextData& contextData) const
 			if(!stereoSquashed)
 				if(stereoMode==1)
 					screenWidth*=Vrui::Scalar(0.5);
-				else if(stereoMode==2)
+				else if(stereoMode==2||stereoMode==3)
 					screenWidth*=Vrui::Scalar(2);
 			if(screenCurvature>Vrui::Scalar(0.005))
 				{
@@ -2000,18 +2041,16 @@ void VruiXine::display(GLContextData& contextData) const
 				
 				Vrui::Scalar xAngle=screenWidth/sphereRadius;
 				Vrui::Scalar xAngle0=-Math::div2(xAngle);
-				Vrui::Scalar xas=xAngle/Vrui::Scalar(dataItem->numVertices[0]-1);
+				Vrui::Scalar xas=xAngle/Vrui::Scalar(newNvs[0]-1);
 				Vrui::Scalar yAngle=screenHeight/sphereRadius;
 				Vrui::Scalar yAngle0=(screenCenter[2]-Math::div2(screenHeight))/sphereRadius;
-				Vrui::Scalar yas=yAngle/Vrui::Scalar(dataItem->numVertices[1]-1);
+				Vrui::Scalar yas=yAngle/Vrui::Scalar(newNvs[1]-1);
 				
-				GLfloat tsx=GLfloat(frameSize[0])/GLfloat(dataItem->numVertices[0]-1);
-				GLfloat tsy=GLfloat(frameSize[1])/GLfloat(dataItem->numVertices[1]-1);
-				for(int y=0;y<dataItem->numVertices[1];++y)
-					for(int x=0;x<dataItem->numVertices[0];++x,++vPtr)
+				for(unsigned int y=0;y<newNvs[1];++y)
+					for(unsigned int x=0;x<newNvs[0];++x,++vPtr)
 						{
-						vPtr->texCoord[0]=GLfloat(x)*tsx;
-						vPtr->texCoord[1]=GLfloat(frameSize[1])-GLfloat(y)*tsy;
+						vPtr->texCoord[0]=GLfloat(x)*ts[0]+to[0];
+						vPtr->texCoord[1]=1.0f-(GLfloat(y)*ts[1]+to[1]);
 						
 						Vrui::Scalar xa=xAngle0+Vrui::Scalar(x)*xas;
 						Vrui::Scalar cx=Math::cos(xa);
@@ -2032,15 +2071,13 @@ void VruiXine::display(GLContextData& contextData) const
 				Vrui::Scalar z0=screenCenter[2]-Math::div2(screenHeight);
 				Vrui::Scalar z1=z0+screenHeight;
 				
-				GLfloat tsx=GLfloat(frameSize[0])/GLfloat(dataItem->numVertices[0]-1);
-				GLfloat tsy=GLfloat(frameSize[1])/GLfloat(dataItem->numVertices[1]-1);
-				Vrui::Scalar sx=screenWidth/Vrui::Scalar(dataItem->numVertices[0]-1);
-				Vrui::Scalar sz=screenHeight/Vrui::Scalar(dataItem->numVertices[1]-1);
-				for(int y=0;y<dataItem->numVertices[1];++y)
-					for(int x=0;x<dataItem->numVertices[0];++x,++vPtr)
+				Vrui::Scalar sx=screenWidth/Vrui::Scalar(newNvs[0]-1);
+				Vrui::Scalar sz=screenHeight/Vrui::Scalar(newNvs[1]-1);
+				for(unsigned int y=0;y<newNvs[1];++y)
+					for(unsigned int x=0;x<newNvs[0];++x,++vPtr)
 						{
-						vPtr->texCoord[0]=GLfloat(x)*tsx;
-						vPtr->texCoord[1]=GLfloat(frameSize[1])-GLfloat(y)*tsy;
+						vPtr->texCoord[0]=GLfloat(x)*ts[0]+to[0];
+						vPtr->texCoord[1]=1.0f-(GLfloat(y)*ts[1]+to[1]);
 						
 						vPtr->position[0]=GLfloat(x0+Vrui::Scalar(x)*sx);
 						vPtr->position[1]=GLfloat(screenCenter[1]);
@@ -2050,10 +2087,27 @@ void VruiXine::display(GLContextData& contextData) const
 			}
 		glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
 		
+		if(bufferSizeChanged)
+			{
+			/* Re-allocate the index buffer to render the video screen as a set of quad strips: */
+			glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,(newNvs[1]-1)*newNvs[0]*2*sizeof(GLuint),0,GL_STATIC_DRAW_ARB);
+			
+			/* Generate indices to render quad strips: */
+			GLuint* indices=static_cast<GLuint*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY));
+			GLuint* iPtr=indices;
+			for(unsigned int y=1;y<newNvs[1];++y)
+				for(unsigned int x=0;x<newNvs[0];++x,iPtr+=2)
+					{
+					iPtr[0]=GLuint(y*newNvs[0]+x);
+					iPtr[1]=GLuint((y-1)*newNvs[0]+x);
+					}
+			glUnmapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB);
+			}
+		
+		for(int i=0;i<2;++i)
+			dataItem->numVertices[i]=newNvs[i];
 		dataItem->bufferDataVersion=screenParametersVersion;
 		}
-	
-	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,dataItem->indexBufferId);
 	
 	/* Draw the screen: */
 	glPushMatrix();
@@ -2062,9 +2116,9 @@ void VruiXine::display(GLContextData& contextData) const
 	
 	GLVertexArrayParts::enable(Vertex::getPartsMask());
 	glVertexPointer(static_cast<const Vertex*>(0));
-	const GLushort* indexPtr=0;
-	for(int y=1;y<dataItem->numVertices[1];++y,indexPtr+=dataItem->numVertices[0]*2)
-		glDrawElements(GL_QUAD_STRIP,dataItem->numVertices[0]*2,GL_UNSIGNED_SHORT,indexPtr);
+	const GLuint* indexPtr=0;
+	for(unsigned int y=1;y<dataItem->numVertices[1];++y,indexPtr+=dataItem->numVertices[0]*2)
+		glDrawElements(GL_QUAD_STRIP,dataItem->numVertices[0]*2,GL_UNSIGNED_INT,indexPtr);
 	GLVertexArrayParts::disable(Vertex::getPartsMask());
 	
 	/* Protect the vertex buffers: */
@@ -2075,15 +2129,15 @@ void VruiXine::display(GLContextData& contextData) const
 	if(frame.format==XINE_VORAW_YV12)
 		{
 		glActiveTextureARB(GL_TEXTURE0_ARB+2);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+		glBindTexture(GL_TEXTURE_2D,0);
 		glActiveTextureARB(GL_TEXTURE0_ARB+1);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+		glBindTexture(GL_TEXTURE_2D,0);
 		glActiveTextureARB(GL_TEXTURE0_ARB+0);
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+		glBindTexture(GL_TEXTURE_2D,0);
 		}
 	else if(frame.format==XINE_VORAW_YV12||frame.format==XINE_VORAW_RGB)
 		{
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+		glBindTexture(GL_TEXTURE_2D,0);
 		}
 	
 	/* Disable the video shaders: */
@@ -2095,7 +2149,7 @@ void VruiXine::display(GLContextData& contextData) const
 		glPushAttrib(GL_ENABLE_BIT|GL_COLOR_BUFFER_BIT);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_TEXTURE_RECTANGLE_ARB);
+		glEnable(GL_TEXTURE_2D);
 		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 		Vrui::Scalar screenWidth=screenHeight*aspectRatio;
 		Vrui::Scalar x0=screenCenter[0]-Math::div2(screenWidth);
@@ -2109,24 +2163,24 @@ void VruiXine::display(GLContextData& contextData) const
 			{
 			/* Bind the overlay's texture: */
 			const raw_overlay_t& ovl=ovls.overlays[i];
-			glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->overlayTextureIds[i]);
+			glBindTexture(GL_TEXTURE_2D,dataItem->overlayTextureIds[i]);
 			if(dataItem->overlayTextureVersion!=overlaySetVersion)
-				glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,0,GL_RGBA8,ovl.ovl_w,ovl.ovl_h,0,GL_RGBA,GL_UNSIGNED_BYTE,ovl.ovl_rgba);
+				glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,ovl.ovl_w,ovl.ovl_h,0,GL_RGBA,GL_UNSIGNED_BYTE,ovl.ovl_rgba);
 			
 			/* Draw the overlay: */
 			glBegin(GL_QUADS);
-			glTexCoord2i(0,ovl.ovl_h);
+			glTexCoord2f(0.0f,1.0f);
 			glVertex3d(x0+Vrui::Scalar(ovl.ovl_x)*xs,screenCenter[1]-0.1,z1-Vrui::Scalar(ovl.ovl_y+ovl.ovl_h)*ys);
-			glTexCoord2i(ovl.ovl_w,ovl.ovl_h);
+			glTexCoord2i(1.0f,1.0f);
 			glVertex3d(x0+Vrui::Scalar(ovl.ovl_x+ovl.ovl_w)*xs,screenCenter[1]-0.1,z1-Vrui::Scalar(ovl.ovl_y+ovl.ovl_h)*ys);
-			glTexCoord2i(ovl.ovl_w,0);
+			glTexCoord2i(1.0f,0.0f);
 			glVertex3d(x0+Vrui::Scalar(ovl.ovl_x+ovl.ovl_w)*xs,screenCenter[1]-0.1,z1-Vrui::Scalar(ovl.ovl_y)*ys);
-			glTexCoord2i(0,0);
+			glTexCoord2i(0.0f,0.0f);
 			glVertex3d(x0+Vrui::Scalar(ovl.ovl_x)*xs,screenCenter[1]-0.1,z1-Vrui::Scalar(ovl.ovl_y)*ys);
 			glEnd();
 			}
 		dataItem->overlayTextureVersion=overlaySetVersion;
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+		glBindTexture(GL_TEXTURE_2D,0);
 		
 		glPopAttrib();
 		}
@@ -2217,88 +2271,112 @@ void VruiXine::initContext(GLContextData& contextData) const
 	DataItem* dataItem=new DataItem;
 	contextData.addDataItem(this,dataItem);
 	
-	dataItem->numVertices[0]=64;
-	dataItem->numVertices[1]=32;
-	
-	/* Create vertex buffer to render the video screen: */
-	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferId);
-	glBufferDataARB(GL_ARRAY_BUFFER_ARB,dataItem->numVertices[1]*dataItem->numVertices[0]*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
-	glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
-	
-	/* Create an index buffer to render the video screen as a set of quad strips: */
-	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,dataItem->indexBufferId);
-	glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,(dataItem->numVertices[1]-1)*dataItem->numVertices[0]*2*sizeof(GLushort),0,GL_STATIC_DRAW_ARB);
-	
-	/* Generate indices to render quad strips: */
-	GLushort* indices=static_cast<GLushort*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY));
-	GLushort* iPtr=indices;
-	for(int y=1;y<dataItem->numVertices[1];++y)
-		for(int x=0;x<dataItem->numVertices[0];++x,iPtr+=2)
-			{
-			iPtr[0]=y*dataItem->numVertices[0]+x;
-			iPtr[1]=(y-1)*dataItem->numVertices[0]+x;
-			}
-	glUnmapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB);
-	
-	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
-	
 	/* Initialize the three video plane textures: */
 	GLenum clampMode=GL_CLAMP_TO_EDGE;
 	GLenum sampleMode=GL_LINEAR;
 	for(int i=0;i<3;++i)
 		{
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->frameTextureIds[i]);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_BASE_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAX_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_S,clampMode);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_T,clampMode);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MIN_FILTER,sampleMode);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAG_FILTER,sampleMode);
+		glBindTexture(GL_TEXTURE_2D,dataItem->frameTextureIds[i]);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,clampMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,clampMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,sampleMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,sampleMode);
 		}
 	
 	/* Initialize the overlay set textures: */
 	for(int i=0;i<XINE_VORAW_MAX_OVL;++i)
 		{
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,dataItem->overlayTextureIds[i]);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_BASE_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAX_LEVEL,0);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_S,clampMode);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_WRAP_T,clampMode);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MIN_FILTER,sampleMode);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB,GL_TEXTURE_MAG_FILTER,sampleMode);
+		glBindTexture(GL_TEXTURE_2D,dataItem->overlayTextureIds[i]);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,clampMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,clampMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,sampleMode);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,sampleMode);
 		}
 	
 	/* Protect all texture objects: */
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
+	glBindTexture(GL_TEXTURE_2D,0);
 	
-	/* Create a shader to render video frames in YV12 format: */
-	static const char* vertexShaderSourceYV12="\
-		uniform vec4 texScale,texOffset; \n\
+	/* Vertex shader to render standard color video formats: */
+	static const char* colorVertexShaderSource="\
+		uniform vec2 texScale,texOffset; \n\
+		 \n\
+		varying vec2 colorTex; // Color texture coordinate \n\
 		 \n\
 		void main() \n\
 			{ \n\
 			/* Copy the texture coordinate: */ \n\
-			gl_TexCoord[0]=gl_MultiTexCoord0*texScale+texOffset; \n\
+			colorTex=gl_MultiTexCoord0.st*texScale+texOffset; \n\
 			 \n\
 			/* Transform the vertex: */ \n\
 			gl_Position=ftransform(); \n\
 			} \n\
 		";
 	
-	static const char* fragmentShaderSourceYV12="\
-		#extension GL_ARB_texture_rectangle : enable \n\
+	/* Vertex shader to render combined color/depth video in Y'CbCr 4:2:0 format: */
+	static const char* colorDepthVertexShaderSourceYV12="\
+		uniform sampler2D ypTextureSampler; // Sampler for input Y' texture \n\
 		 \n\
-		uniform sampler2DRect ypTextureSampler; // Sampler for input Y' texture \n\
-		uniform sampler2DRect cbTextureSampler; // Sampler for input Cb texture \n\
-		uniform sampler2DRect crTextureSampler; // Sampler for input Cr texture \n\
+		varying vec2 colorTex; // Color texture coordinate \n\
+		 \n\
+		void main() \n\
+			{ \n\
+			/* Copy the texture coordinate: */ \n\
+			colorTex=gl_MultiTexCoord0.st; \n\
+			 \n\
+			/* Scale the input vertex by the depth value encoded in the Y' texture: */ \n\
+			float dist=64.0/(texture2D(ypTextureSampler,colorTex).r*255.0+1.0); \n\
+			vec4 vertex=vec4(gl_Vertex.xyz*dist,1.0); \n\
+			 \n\
+			/* Offset texture coordinate for color look-up: */ \n\
+			colorTex-=vec2(0.0,0.5); \n\
+			 \n\
+			/* Transform the scaled vertex: */ \n\
+			gl_Position=gl_ModelViewProjectionMatrix*vertex; \n\
+			} \n\
+		";
+	
+	/* Vertex shader to render combined color/depth video in RGB format: */
+	static const char* colorDepthVertexShaderSourceRGB="\
+		uniform sampler2D rgbTextureSampler; // Sampler for input RGB texture \n\
+		 \n\
+		varying vec2 colorTex; // Color texture coordinate \n\
+		 \n\
+		void main() \n\
+			{ \n\
+			/* Copy the texture coordinate: */ \n\
+			colorTex=gl_MultiTexCoord0.st; \n\
+			 \n\
+			/* Scale the input vertex by the depth value encoded in the RGB texture's green channel: */ \n\
+			float dist=64.0/(texture2D(rgbTextureSampler,colorTex).r*255.0+1.0); \n\
+			vec4 vertex=vec4(gl_Vertex.xyz*dist,1.0); \n\
+			 \n\
+			/* Offset texture coordinate for color look-up: */ \n\
+			colorTex-=vec2(0.0,0.5); \n\
+			 \n\
+			/* Transform the scaled vertex: */ \n\
+			gl_Position=gl_ModelViewProjectionMatrix*vertex; \n\
+			} \n\
+		";
+	
+	/* Fragment shader to render video in Y'CbCr 4:2:0 format: */
+	static const char* fragmentShaderSourceYV12="\
+		uniform sampler2D ypTextureSampler; // Sampler for input Y' texture \n\
+		uniform sampler2D cbTextureSampler; // Sampler for input Cb texture \n\
+		uniform sampler2D crTextureSampler; // Sampler for input Cr texture \n\
+		 \n\
+		varying vec2 colorTex; // Color texture coordinate \n\
 		 \n\
 		void main() \n\
 			{ \n\
 			/* Get the interpolated texture color in Y'CbCr space: */ \n\
 			vec3 ypcbcr; \n\
-			ypcbcr.r=texture2DRect(ypTextureSampler,gl_TexCoord[0].st).r; \n\
-			ypcbcr.g=texture2DRect(cbTextureSampler,gl_TexCoord[0].st*vec2(0.5)).r; \n\
-			ypcbcr.b=texture2DRect(crTextureSampler,gl_TexCoord[0].st*vec2(0.5)).r; \n\
+			ypcbcr.r=texture2D(ypTextureSampler,colorTex).r; \n\
+			ypcbcr.g=texture2D(cbTextureSampler,colorTex).r; \n\
+			ypcbcr.b=texture2D(crTextureSampler,colorTex).r; \n\
 			 \n\
 			/* Convert the color to RGB directly: */ \n\
 			float grey=(ypcbcr.r-16.0/255.0)*1.16438; \n\
@@ -2313,7 +2391,21 @@ void VruiXine::initContext(GLContextData& contextData) const
 			} \n\
 		";
 	
-	dataItem->videoShaders[0].compileVertexShaderFromString(vertexShaderSourceYV12);
+	/* Fragment shader to render video in RGB format: */
+	static const char* fragmentShaderSourceRGB="\
+		uniform sampler2D rgbTextureSampler; // Sampler for input RGB texture \n\
+		 \n\
+		varying vec2 colorTex; // Color texture coordinate \n\
+		 \n\
+		void main() \n\
+			{ \n\
+			/* Get the interpolated color in RGB space: */ \n\
+			gl_FragColor=texture2D(rgbTextureSampler,colorTex); \n\
+			} \n\
+		";
+	
+	/* Create shader to render color video in Y'CbCr 4:2:0 format: */
+	dataItem->videoShaders[0].compileVertexShaderFromString(colorVertexShaderSource);
 	dataItem->videoShaders[0].compileFragmentShaderFromString(fragmentShaderSourceYV12);
 	dataItem->videoShaders[0].linkShader();
 	dataItem->videoShaderUniforms[0][0]=dataItem->videoShaders[0].getUniformLocation("texScale");
@@ -2322,38 +2414,27 @@ void VruiXine::initContext(GLContextData& contextData) const
 	dataItem->videoShaderUniforms[0][3]=dataItem->videoShaders[0].getUniformLocation("cbTextureSampler");
 	dataItem->videoShaderUniforms[0][4]=dataItem->videoShaders[0].getUniformLocation("crTextureSampler");
 	
-	/* Create a shader to render video frames in RGB format: */
-	static const char* vertexShaderSourceRGB="\
-		uniform vec4 texScale,texOffset; \n\
-		 \n\
-		void main() \n\
-			{ \n\
-			/* Copy the texture coordinate: */ \n\
-			gl_TexCoord[0]=gl_MultiTexCoord0*texScale+texOffset; \n\
-			 \n\
-			/* Transform the vertex: */ \n\
-			gl_Position=ftransform(); \n\
-			} \n\
-		";
-	
-	static const char* fragmentShaderSourceRGB="\
-		#extension GL_ARB_texture_rectangle : enable \n\
-		 \n\
-		uniform sampler2DRect rgbTextureSampler; // Sampler for input RGB texture \n\
-		 \n\
-		void main() \n\
-			{ \n\
-			/* Get the interpolated color in RGB space: */ \n\
-			gl_FragColor=texture2DRect(rgbTextureSampler,gl_TexCoord[0].st); \n\
-			} \n\
-		";
-	
-	dataItem->videoShaders[2].compileVertexShaderFromString(vertexShaderSourceRGB);
+	/* Create shader to render color video in RGB format: */
+	dataItem->videoShaders[2].compileVertexShaderFromString(colorVertexShaderSource);
 	dataItem->videoShaders[2].compileFragmentShaderFromString(fragmentShaderSourceRGB);
 	dataItem->videoShaders[2].linkShader();
 	dataItem->videoShaderUniforms[2][0]=dataItem->videoShaders[2].getUniformLocation("texScale");
 	dataItem->videoShaderUniforms[2][1]=dataItem->videoShaders[2].getUniformLocation("texOffset");
 	dataItem->videoShaderUniforms[2][2]=dataItem->videoShaders[2].getUniformLocation("rgbTextureSampler");
+	
+	/* Create shader to render combined color/depth video in Y'CbCr 4:2:0 format: */
+	dataItem->videoShaders[3].compileVertexShaderFromString(colorDepthVertexShaderSourceYV12);
+	dataItem->videoShaders[3].compileFragmentShaderFromString(fragmentShaderSourceYV12);
+	dataItem->videoShaders[3].linkShader();
+	dataItem->videoShaderUniforms[3][2]=dataItem->videoShaders[3].getUniformLocation("ypTextureSampler");
+	dataItem->videoShaderUniforms[3][3]=dataItem->videoShaders[3].getUniformLocation("cbTextureSampler");
+	dataItem->videoShaderUniforms[3][4]=dataItem->videoShaders[3].getUniformLocation("crTextureSampler");
+	
+	/* Create shader to render combined color/depth video in RGB format: */
+	dataItem->videoShaders[5].compileVertexShaderFromString(colorDepthVertexShaderSourceRGB);
+	dataItem->videoShaders[5].compileFragmentShaderFromString(fragmentShaderSourceRGB);
+	dataItem->videoShaders[5].linkShader();
+	dataItem->videoShaderUniforms[5][2]=dataItem->videoShaders[5].getUniformLocation("rgbTextureSampler");
 	}
 
 VRUI_APPLICATION_RUN(VruiXine)

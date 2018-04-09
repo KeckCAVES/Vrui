@@ -180,10 +180,10 @@ THEORA_LIBDIR  = -L$(THEORA_BASEDIR)/$(LIBEXT)
 THEORA_LIBS    = -ltheoraenc -ltheoradec
 
 # The basic X11 package without any toolkits/widget sets
-X11_BASEDIR = /usr
+X11_BASEDIR = $(SYSTEM_X11_BASEDIR)
 X11_DEPENDS = 
-X11_INCLUDE = 
-X11_LIBDIR  = -L$(SYSTEM_X11_LIBDIR)
+X11_INCLUDE = -I$(X11_BASEDIR)/$(INCLUDEEXT)
+X11_LIBDIR  = -L$(X11_BASEDIR)/$(LIBEXT)
 X11_LIBS    = -lX11
 
 # The XInput2 extension package
@@ -202,7 +202,7 @@ XRANDR_LIBS    = -lXrandr
 
 # The basic OpenGL package without window system bindings and add-on packages
 ifneq ($(SYSTEM_GL_WITH_X11),0)
-  GL_BASEDIR = /usr/X11R6
+  GL_BASEDIR = $(SYSTEM_X11_BASEDIR)
 else
   GL_BASEDIR = /usr
 endif

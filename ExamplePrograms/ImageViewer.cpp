@@ -1,6 +1,6 @@
 /***********************************************************************
 Small image viewer using Vrui.
-Copyright (c) 2011-2017 Oliver Kreylos
+Copyright (c) 2011-2018 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -17,6 +17,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ***********************************************************************/
 
+#include <string.h>
+#include <stdexcept>
 #include <Misc/MessageLogger.h>
 #include <Math/Math.h>
 #include <GL/gl.h>
@@ -294,9 +296,70 @@ Methods of class ImageViewer:
 ImageViewer::ImageViewer(int& argc,char**& argv)
 	:Vrui::Application(argc,argv)
 	{
+	/* Parse the command line: */
+	const char* imageFileName=0;
+	bool printInfo=false;
+	for(int i=1;i<argc;++i)
+		{
+		if(argv[i][0]=='-')
+			{
+			if(strcasecmp(argv[i]+1,"p")==0)
+				printInfo=true;
+			}
+		else if(imageFileName==0)
+			imageFileName=argv[i];
+		}
+	if(imageFileName==0)
+		throw std::runtime_error("ImageViewer: No image file name provided");
+	
 	/* Load the image into the texture set: */
-	Images::BaseImage image=Images::readGenericImageFile(argv[1],Vrui::openFile(argv[1]));
+	Images::BaseImage image=Images::readGenericImageFile(imageFileName);
 	Images::TextureSet::Texture& tex=textures.addTexture(image,GL_TEXTURE_2D,image.getInternalFormat(),0U);
+	
+	if(printInfo)
+		{
+		/* Display image size and format: */
+		char messageText[2048];
+		const char* componentScalarType=0;
+		switch(image.getScalarType())
+			{
+			case GL_BYTE:
+				componentScalarType="signed 8-bit integer";
+				break;
+			
+			case GL_UNSIGNED_BYTE:
+				componentScalarType="unsigned 8-bit integer";
+				break;
+			
+			case GL_SHORT:
+				componentScalarType="signed 16-bit integer";
+				break;
+			
+			case GL_UNSIGNED_SHORT:
+				componentScalarType="unsigned 16-bit integer";
+				break;
+			
+			case GL_INT:
+				componentScalarType="signed 32-bit integer";
+				break;
+			
+			case GL_UNSIGNED_INT:
+				componentScalarType="unsigned 32-bit integer";
+				break;
+			
+			case GL_FLOAT:
+				componentScalarType="32-bit floating-point number";
+				break;
+			
+			case GL_DOUBLE:
+				componentScalarType="64-bit floating-point number";
+				break;
+			
+			default:
+				componentScalarType="<unknown>";
+			}
+		Misc::formattedUserNote("Image: %s\nSize: %u x %u pixels\nFormat: %u %s of %u %s%s\nComponent type: %s",imageFileName,image.getSize(0),image.getSize(1),image.getNumChannels(),image.getNumChannels()!=1?"channels":"channel",image.getChannelSize(),image.getChannelSize()!=1?"bytes":"byte",image.getNumChannels()!=1?" each":"",componentScalarType);
+		}
 	
 	/* Set clamping and filtering parameters for mip-mapped linear interpolation: */
 	tex.setMipmapRange(0,1000);

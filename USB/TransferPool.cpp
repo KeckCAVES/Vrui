@@ -1,7 +1,7 @@
 /***********************************************************************
 TransferPool - Class to manage a pool of USB transfer buffers for
 asynchronous bulk or isochronous transmission.
-Copyright (c) 2014-2017 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -23,7 +23,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <USB/TransferPool.h>
 
 #include <unistd.h>
-#include <libusb-1.0/libusb.h>
 #include <stdexcept>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/MessageLogger.h>

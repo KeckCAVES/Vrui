@@ -1,7 +1,7 @@
 /***********************************************************************
 GetImageFileSize - Functions to extract the image size from a variety of
 file formats reading the minimal required amount of data.
-Copyright (c) 2007 Oliver Kreylos
+Copyright (c) 2007-2018 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -173,7 +173,7 @@ void getJpegFileSize(const char* imageFileName,unsigned int& width,unsigned int&
 		jpeg_stdio_src(&jpegDecompressStruct,jpegFile.getFilePtr());
 		
 		/* Read the JPEG file header: */
-		jpeg_read_header(&jpegDecompressStruct,true);
+		jpeg_read_header(&jpegDecompressStruct,TRUE);
 		
 		/* Prepare for decompression: */
 		jpeg_start_decompress(&jpegDecompressStruct);
@@ -265,7 +265,7 @@ void getImageFileSize(const char* imageFileName,unsigned int& width,unsigned int
 		if(*cPtr=='.')
 			extStart=cPtr+1;
 	if(extStart==0)
-		Misc::throwStdErr("Images::readImageFile: no extension in image file name \"%s\"",imageFileName);
+		Misc::throwStdErr("Images::getImageFileSize: no extension in image file name \"%s\"",imageFileName);
 	
 	if(cPtr-extStart==3&&tolower(extStart[0])=='p'&&tolower(extStart[2])=='m'&&
 	   (tolower(extStart[1])=='b'||tolower(extStart[1])=='g'||tolower(extStart[1])=='n'||tolower(extStart[1])=='p'))

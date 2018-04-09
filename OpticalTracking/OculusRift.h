@@ -1,7 +1,7 @@
 /***********************************************************************
 OculusRift - Class to represent the tracking subsystem of an Oculus Rift
 head-mounted display as an inertially-tracked input device.
-Copyright (c) 2014-2015 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the optical/inertial sensor fusion tracking
 package.
@@ -39,7 +39,8 @@ class OculusRift:public RawHID::Device,public IMU
 		{
 		UNKNOWN,
 		DK1,
-		DK2
+		DK2,
+		CV1
 		};
 	
 	/* Elements: */
@@ -74,6 +75,7 @@ class OculusRift:public RawHID::Device,public IMU
 		{
 		return deviceType;
 		}
+	void enableComponents(bool enableDisplay,bool enableAudio,bool enableLeds); // Turns on the HMD's individual components
 	void startOpticalTracking(void); // Configures the device for optical tracking if it has the capability; called before startStreaming
 	void stopOpticalTracking(void); // Configures the device for standard non-optically tracked operation; called after stopStreaming
 	float getTemperature(void) const // Returns the current running temperature average

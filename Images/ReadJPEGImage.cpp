@@ -150,7 +150,7 @@ RGBImage readJPEGImage(const char* imageName,IO::File& source)
 	try
 		{
 		/* Read the JPEG file header: */
-		jpeg_read_header(&jpegDecompressStruct,true);
+		jpeg_read_header(&jpegDecompressStruct,TRUE);
 		
 		/* Force output color space to RGB: */
 		jpegDecompressStruct.out_color_space=JCS_RGB;
@@ -210,7 +210,7 @@ BaseImage readGenericJPEGImage(const char* imageName,IO::File& source)
 	try
 		{
 		/* Read the JPEG file header: */
-		jpeg_read_header(&jpegDecompressStruct,true);
+		jpeg_read_header(&jpegDecompressStruct,TRUE);
 		
 		/* Set up the result image format: */
 		unsigned int numChannels=3;

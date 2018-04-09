@@ -2,7 +2,7 @@
 InputDeviceAdapterDeviceDaemon - Class to convert from Vrui's own
 distributed device driver architecture to Vrui's internal device
 representation.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -201,7 +201,8 @@ InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManage
 	:InputDeviceAdapterIndexMap(sInputDeviceManager),
 	 deviceClient(configFileSection),
 	 predictMotion(configFileSection.retrieveValue<bool>("./predictMotion",false)),
-	 motionPredictionDelta(configFileSection.retrieveValue<double>("./motionPredictionDelta",0.0))
+	 motionPredictionDelta(configFileSection.retrieveValue<double>("./motionPredictionDelta",0.0)),
+	 validFlags(0)
 	{
 	#ifdef SAVE_TRACKERSTATES
 	realFile=IO::openFile("RealTrackerData.dat",IO::File::WriteOnly);
@@ -212,6 +213,11 @@ InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManage
 	
 	/* Initialize input device adapter: */
 	InputDeviceAdapterIndexMap::initializeAdapter(deviceClient.getState().getNumTrackers(),deviceClient.getState().getNumButtons(),deviceClient.getState().getNumValuators(),configFileSection);
+	
+	/* Initialize the valid flag array: */
+	validFlags=new bool[numInputDevices];
+	for(int i=0;i<numInputDevices;++i)
+		validFlags[i]=true;
 	
 	/* Start VR devices: */
 	deviceClient.activate();
@@ -230,6 +236,9 @@ InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
 	realFile=0;
 	predictedFile=0;
 	#endif
+	
+	/* Clean up: */
+	delete[] validFlags;
 	}
 
 std::string InputDeviceAdapterDeviceDaemon::getFeatureName(const InputDeviceFeature& feature) const
@@ -352,31 +361,49 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 			InputDevice* device=inputDevices[deviceIndex];
 			
 			/* Don't update tracker-related state for devices that are not tracked: */
-			if(trackerIndexMapping[deviceIndex]>=0)
+			int trackerIndex=trackerIndexMapping[deviceIndex];
+			if(trackerIndex>=0)
 				{
-				/* Get device's tracker state from VR device client: */
-				const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndexMapping[deviceIndex]);
+				/* Check if the tracker's validity changed: */
+				if(validFlags[trackerIndex]!=state.getTrackerValid(trackerIndex))
+					{
+					/* Enable or disable the input device: */
+					if(state.getTrackerValid(trackerIndex))
+						inputDeviceManager->getInputGraphManager()->enable(device);
+					else
+						inputDeviceManager->getInputGraphManager()->disable(device);
+					
+					/* Update the validity flag: */
+					validFlags[trackerIndex]=state.getTrackerValid(trackerIndex);
+					}
 				
-				/* Motion-predict the device's tracker state from its sampling time to the current time: */
-				typedef VRDeviceState::TrackerState::PositionOrientation PO;
-				
-				float predictionDelta=float(predictionTs-state.getTrackerTimeStamp(trackerIndexMapping[deviceIndex]))*1.0e-6f;
-				
-				PO::Rotation predictRot=PO::Rotation::rotateScaledAxis(ts.angularVelocity*predictionDelta)*ts.positionOrientation.getRotation();
-				predictRot.renormalize();
-				PO::Vector predictTrans=ts.linearVelocity*predictionDelta+ts.positionOrientation.getTranslation();
-				
-				#ifdef SAVE_TRACKERSTATES
-				predictedFile->write<Misc::UInt32>(nowTs+Misc::UInt32(predictionDelta*1.0e6f+0.5f));
-				Misc::Marshaller<PO>::write(PO(predictTrans,predictRot),*predictedFile);
-				#endif
-				
-				/* Set device's transformation: */
-				device->setTransformation(TrackerState(predictTrans,predictRot));
-				
-				/* Set device's linear and angular velocities: */
-				device->setLinearVelocity(Vector(ts.linearVelocity));
-				device->setAngularVelocity(Vector(ts.angularVelocity));
+				/* Only process tracking and feature data if the tracking data is valid: */
+				if(validFlags[trackerIndex])
+					{
+					/* Get device's tracker state from VR device client: */
+					const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndex);
+					
+					/* Motion-predict the device's tracker state from its sampling time to the current time: */
+					typedef VRDeviceState::TrackerState::PositionOrientation PO;
+					
+					float predictionDelta=float(predictionTs-state.getTrackerTimeStamp(trackerIndex))*1.0e-6f;
+					
+					PO::Rotation predictRot=PO::Rotation::rotateScaledAxis(ts.angularVelocity*predictionDelta)*ts.positionOrientation.getRotation();
+					predictRot.renormalize();
+					PO::Vector predictTrans=ts.linearVelocity*predictionDelta+ts.positionOrientation.getTranslation();
+					
+					#ifdef SAVE_TRACKERSTATES
+					predictedFile->write<Misc::UInt32>(nowTs+Misc::UInt32(predictionDelta*1.0e6f+0.5f));
+					Misc::Marshaller<PO>::write(PO(predictTrans,predictRot),*predictedFile);
+					#endif
+					
+					/* Set device's transformation: */
+					device->setTransformation(TrackerState(predictTrans,predictRot));
+					
+					/* Set device's linear and angular velocities: */
+					device->setLinearVelocity(Vector(ts.linearVelocity));
+					device->setAngularVelocity(Vector(ts.angularVelocity));
+					}
 				}
 			
 			/* Update button states: */
@@ -396,17 +423,35 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 			InputDevice* device=inputDevices[deviceIndex];
 			
 			/* Don't update tracker-related state for devices that are not tracked: */
-			if(trackerIndexMapping[deviceIndex]>=0)
+			int trackerIndex=trackerIndexMapping[deviceIndex];
+			if(trackerIndex>=0)
 				{
-				/* Get device's tracker state from VR device client: */
-				const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndexMapping[deviceIndex]);
+				/* Check if the tracker's validity changed: */
+				if(validFlags[trackerIndex]!=state.getTrackerValid(trackerIndex))
+					{
+					/* Enable or disable the input device: */
+					if(state.getTrackerValid(trackerIndex))
+						inputDeviceManager->getInputGraphManager()->enable(device);
+					else
+						inputDeviceManager->getInputGraphManager()->disable(device);
+					
+					/* Update the validity flag: */
+					validFlags[trackerIndex]=state.getTrackerValid(trackerIndex);
+					}
 				
-				/* Set device's transformation: */
-				device->setTransformation(ts.positionOrientation);
-				
-				/* Set device's linear and angular velocities: */
-				device->setLinearVelocity(Vector(ts.linearVelocity));
-				device->setAngularVelocity(Vector(ts.angularVelocity));
+				/* Only process tracking data if the tracking data is valid: */
+				if(validFlags[trackerIndex])
+					{
+					/* Get device's tracker state from VR device client: */
+					const VRDeviceState::TrackerState& ts=state.getTrackerState(trackerIndex);
+					
+					/* Set device's transformation: */
+					device->setTransformation(ts.positionOrientation);
+					
+					/* Set device's linear and angular velocities: */
+					device->setLinearVelocity(Vector(ts.linearVelocity));
+					device->setAngularVelocity(Vector(ts.angularVelocity));
+					}
 				}
 			
 			/* Update button states: */

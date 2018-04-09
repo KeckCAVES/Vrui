@@ -3,7 +3,7 @@
 # Script to set up an environment to run VRDeviceDaemon's OpenVRHost
 # device driver module, to receive tracking data for an HTC Vive using
 # OpenVR's Lighthouse low-level driver module.
-# Copyright (c) 2016-2017 Oliver Kreylos
+# Copyright (c) 2016-2018 Oliver Kreylos
 #
 # This file is part of the Vrui VR Device Driver Daemon
 # (VRDeviceDaemon).
@@ -39,4 +39,4 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RUNTIMEDIR:$DRIVERDIR
 
 # Use the following command if things are working, and you don't want to
 # see all those "Broken pipe" messages:
-$VRUIBINDIR/VRDeviceDaemon -rootSection Vive 2>1 | fgrep -v ": Broken pipe"
+$VRUIBINDIR/VRDeviceDaemon -rootSection Vive 2>&1 | fgrep -v ": Broken pipe"

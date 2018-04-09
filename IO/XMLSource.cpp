@@ -22,7 +22,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <IO/XMLSource.h>
 
 #include <string.h>
+#include <stdio.h>
 #include <stdexcept>
+#include <IO/UTF8.h>
 
 namespace IO {
 
@@ -31,49 +33,6 @@ namespace {
 /*********************************************************************
 Helper functions to read encoded Unicode characters from source files:
 *********************************************************************/
-
-int readCharUTF8(File& source)
-	{
-	/* Read the first byte and check for end-of-file: */
-	int result=source.getChar();
-	if(result<0)
-		return result;
-	
-	/* Check if there are additional bytes encoding the current character: */
-	if(result&0x80)
-		{
-		/* Calculate the number of additional bytes to read: */
-		int numContinuationBytes;
-		if((result&0xe0)==0xc0) // Byte starts with 110
-			numContinuationBytes=1;
-		else if((result&0xf0)==0xe0) // Byte starts with 1110
-			numContinuationBytes=2;
-		else if((result&0xf8)==0xf0) // Byte starts with 11110
-			numContinuationBytes=3;
-		else if((result&0xc0)==0x80) // Byte starts with 10
-			throw std::runtime_error("readCharUTF8: Synchronization lost");
-		else
-			throw std::runtime_error("readCharUTF8: Invalid code byte");
-		
-		/* Read the continuation bytes: */
-		while(numContinuationBytes>0)
-			{
-			/* Read the next byte and check for end-of-file: */
-			int byte=source.getChar();
-			if(byte<0)
-				throw std::runtime_error("readCharUTF8: Truncated character");
-			
-			/* Check for a continuation byte: */
-			if((result&0xc0)!=0x80)
-				throw std::runtime_error("readCharUTF8: Invalid code byte");
-			
-			/* Append the byte to the character code: */
-			result=(result<<6)|(byte&0x3f);
-			}
-		}
-	
-	return result;
-	}
 
 int readCharUTF16LE(File& source)
 	{
@@ -158,7 +117,7 @@ int readCharUTF16BE(File& source)
 					/* Assemble the second 16-bit code unit: */
 					int unit1=(byte0<<8)|byte1;
 					if(unit1<0xdc00||unit1>=0xe000)
-						throw std::runtime_error("readCharUTF16LE: Invalid code unit");
+						throw std::runtime_error("readCharUTF16BE: Invalid code unit");
 					
 					/* Assemble the code point: */
 					return ((unit0-0xd800)<<10)|(unit1=0xdc00);
@@ -168,13 +127,13 @@ int readCharUTF16BE(File& source)
 		else // result>=0xdc00
 			{
 			if(unit0<0xe000)
-				throw std::runtime_error("readCharUTF16LE: Synchronization lost");
+				throw std::runtime_error("readCharUTF16BE: Synchronization lost");
 			else // unit0>=0xe000
 				return unit0;
 			}
 		}
 	
-	throw std::runtime_error("readCharUTF16LE: Truncated character");
+	throw std::runtime_error("readCharUTF16BE: Truncated character");
 	}
 
 int readCharUCS4BE(File& source)
@@ -335,11 +294,364 @@ inline bool isQuote(int c)
 	return c=='\''||c=='\"';
 	}
 
+/*******************************************************
+Helper function to construct descriptive error messages:
+*******************************************************/
+
+inline std::string constructErrorMessage(const XMLSource& source,const char* errorType,const char* what)
+	{
+	/* Retrieve the XML source's file position: */
+	std::pair<size_t,size_t> filePos=source.getFilePosition();
+	
+	/* Construct a descriptive error message: */
+	char buffer[2048];
+	snprintf(buffer,sizeof(buffer),"IO::XMLSource: %s: %s at line %u, column %u",errorType,what,(unsigned int)(filePos.first),(unsigned int)(filePos.second));
+	
+	return buffer;
+	}
+
 }
+
+/*********************************
+Methods of class XMLSource::Error:
+*********************************/
+
+XMLSource::Error::Error(const XMLSource& source,const char* errorType,const char* sWhat)
+	:std::runtime_error(constructErrorMessage(source,errorType,sWhat))
+	{
+	/* Retrieve the XML source's file position: */
+	std::pair<size_t,size_t> filePos=source.getFilePosition();
+	line=filePos.first;
+	column=filePos.second;
+	}
 
 /**************************
 Methods of class XMLSource:
 **************************/
+
+void XMLSource::decodeFromSource(void)
+	{
+	/* Decode characters until the buffer is full or the source is completely read: */
+	int* bufferEnd=charBuffer+charBufferSize;
+	while(cbEnd!=bufferEnd)
+		{
+		/* Decode the next character: */
+		int c=readNextChar(*source);
+		
+		/* Check for end-of-file: */
+		if(c<0)
+			break;
+		
+		/* Normalize line breaks: */
+		if(c!=0x0a||!hadCarriageReturn) // Not a line feed, or the last character was not a carriage return
+			{
+			/* Put the character into the buffer: */
+			*(cbEnd++)=c;
+			}
+		else if(c==0x0d) // Carriage return
+			{
+			/* Put a line feed into the buffer: */
+			*(cbEnd++)=0x0a;
+			}
+		
+		/* Remember if the just-read character is a carriage return: */
+		hadCarriageReturn=c==0x0d;
+		}
+	}
+
+void XMLSource::updateFilePos(void)
+	{
+	/* Scan forward from the buffer midpoint to calculate the file position of the next character to be read: */
+	for(int* cbPtr=charBuffer+charBufferSize/2;cbPtr!=cbNext;++cbPtr)
+		{
+		/* Advance the column index assuming the next character is not a line feed: */
+		++column;
+		
+		/* Check if the assumption was wrong: */
+		if(*cbPtr==0x0a)
+			{
+			/* Start a new line: */
+			++line;
+			column=1;
+			}
+		}
+	}
+
+bool XMLSource::fillEmptyBuffer(void)
+	{
+	/* Update the file position of the buffer midpoint: */
+	updateFilePos();
+	
+	/* Fill the buffer from its midpoint to support put-back: */
+	cbNext=charBuffer+charBufferSize/2;
+	cbEnd=cbNext;
+	decodeFromSource();
+	
+	/* Return true if the buffer is still empty, i.e., the source is completely read: */
+	return cbNext==cbEnd;
+	}
+
+void XMLSource::growPutbackBuffer(void)
+	{
+	/* Increase the buffer size: */
+	size_t newCharBufferSize=charBufferSize*2;
+	int* newCharBuffer=new int[newCharBufferSize];
+	
+	/* Copy the current buffer contents such that the character at the midpoint stays at the midpoint: */
+	int* ncbNext=newCharBuffer+(newCharBufferSize/2-charBufferSize/2);
+	size_t readAheadSize=cbEnd-cbNext;
+	memcpy(ncbNext,cbNext,readAheadSize*sizeof(int));
+	
+	/* Delete the old buffer and install the new one: */
+	delete[] charBuffer;
+	charBufferSize=newCharBufferSize;
+	charBuffer=newCharBuffer;
+	cbNext=ncbNext;
+	cbEnd=cbNext+readAheadSize;
+	}
+
+size_t XMLSource::growReadAhead(size_t readAheadSize,size_t numChars)
+	{
+	/* Calculate how much space is needed in the right buffer half: */
+	size_t rightHalfSize=numChars;
+	int* cbMid=charBuffer+charBufferSize/2;
+	if(cbNext<cbMid)
+		rightHalfSize-=cbMid-cbNext; // cbEnd is always in the right buffer half, therefore cbMid-cbNext<=readAheadSize<numChars
+	
+	/* Check if the buffer is big enough: */
+	if(charBufferSize>=rightHalfSize*2)
+		{
+		/* Check if the current buffer contents need to be moved: */
+		if(cbNext>cbMid)
+			{
+			/* Update the file position of the buffer midpoint: */
+			updateFilePos();
+			
+			/* Move the current buffer contents to the midpoint of the buffer: */
+			if(readAheadSize>0)
+				memcpy(cbMid,cbNext,readAheadSize*sizeof(int));
+			
+			/* Update the buffer pointers: */
+			cbNext=cbMid;
+			cbEnd=cbNext+readAheadSize;
+			}
+		}
+	else
+		{
+		/* Grow the buffer until the right half size is big enough: */
+		size_t newCharBufferSize=charBufferSize*2;
+		while(newCharBufferSize<rightHalfSize*2)
+			newCharBufferSize*=2;
+		int* newCharBuffer=new int[newCharBufferSize];
+		int* newCbMid=newCharBuffer+newCharBufferSize/2;
+		
+		/* Determine how to copy the current buffer contents: */
+		if(cbNext>cbMid)
+			{
+			/* Update the file position of the buffer midpoint: */
+			updateFilePos();
+			
+			/* Move the current buffer contents to the midpoint of the new buffer: */
+			if(readAheadSize>0)
+				memcpy(newCbMid,cbNext,readAheadSize*sizeof(int));
+			
+			/* Update the buffer pointers: */
+			cbNext=newCbMid;
+			cbEnd=cbNext+readAheadSize;
+			}
+		else
+			{
+			/* Copy the current buffer contents such that the character at the midpoint stays at the midpoint: */
+			int* ncbNext=newCharBuffer+(newCharBufferSize/2-(cbMid-cbNext));
+			memcpy(ncbNext,cbNext,readAheadSize*sizeof(int));
+			
+			/* Update the buffer pointers: */
+			cbNext=ncbNext;
+			}
+		
+		/* Delete the old buffer and install the new one: */
+		delete[] charBuffer;
+		charBufferSize=newCharBufferSize;
+		charBuffer=newCharBuffer;
+		cbEnd=cbNext+readAheadSize;
+		}
+	
+	/* Fill the buffer: */
+	decodeFromSource();
+	
+	/* Return the amount of read-ahead data now in the buffer: */
+	return cbEnd-cbNext;
+	}
+
+int XMLSource::parseReference(void)
+	{
+	/* Check if this is a character reference or an entity reference: */
+	int c=getChar();
+	if(c=='#')
+		{
+		/* Parse a character reference: */
+		int code=0;
+		
+		/* Check if it's a hexadecimal character reference: */
+		c=getChar();
+		if(c=='x')
+			{
+			/* Parse a hexadecimal character reference: */
+			while(isHexDigit(c=getChar()))
+				code=code*16+(c<'A'?c-'0':(c<'a'?c-'A':c-'a')+10);
+			}
+		else
+			{
+			/* Parse a decimal character reference: */
+			while(isDigit(c))
+				{
+				code=code*10+c-'0';
+				c=getChar();
+				}
+			}
+		
+		/* Check for terminating semicolon: */
+		if(c!=';')
+			throw SyntaxError(*this,"Missing ';' in character reference");
+		
+		/* Check character for validity: */
+		bool codeValid=code==0x9||code==0xa||code==0xd||(code>=0x20&&code<=0xd7ff)||(code>=0xe000&&code<=0xfffd)||(code>=0x10000&&code<=0x10ffff);
+		if(!codeValid)
+			throw WellFormedError(*this,"Illegal character reference");
+		
+		return code;
+		}
+	else if(isNameStartChar(c))
+		{
+		/* Put the character back and parse an entity reference name: */
+		ungetChar();
+		if(readAhead(3)&&matchString("amp"))
+			return '&';
+		if(readAhead(2)&&matchString("lt"))
+			return '<';
+		if(readAhead(2)&&matchString("gt"))
+			return '>';
+		if(readAhead(4)&&matchString("apos"))
+			return '\'';
+		if(readAhead(4)&&matchString("quot"))
+			return '\"';
+		throw std::runtime_error("XMLSource: Entity references not supported");
+		}
+	else
+		throw SyntaxError(*this,"Malformed reference");
+	}
+
+void XMLSource::detectNextSyntaxType(void)
+	{
+	/* Read the next character: */
+	int c=getChar();
+	
+	/* Check for left angle bracket: */
+	if(c=='<')
+		{
+		/* Determine the type of markup: */
+		c=getChar();
+		if(c=='!')
+			{
+			/* Distinguish between comments, CDATA sections, and entity declarations: */
+			if(readAhead(2)&&matchString("--"))
+				{
+				/* Parse a comment: */
+				syntaxType=Comment;
+				}
+			else if(readAhead(7)&&matchString("[CDATA["))
+				{
+				/* Parse a CDATA section: */
+				syntaxType=CData;
+				}
+			else
+				throw std::runtime_error("XMLSource: Entitity declarations not supported");
+			}
+		else if(c=='?')
+			{
+			/* Check if the next character starts a name: */
+			if(isNameStartChar(getChar()))
+				{
+				/* Put the character back and parse a processing instruction target: */
+				ungetChar();
+				syntaxType=ProcessingInstructionTarget;
+				}
+			else
+				throw SyntaxError(*this,"Malformed processing instruction");
+			}
+		else if(c=='/')
+			{
+			/* Check if the next character starts a name: */
+			if(isNameStartChar(getChar()))
+				{
+				/* Put the character back and parse a closing tag name: */
+				ungetChar();
+				syntaxType=TagName;
+				openTag=false;
+				}
+			else
+				throw SyntaxError(*this,"Malformed closing tag");
+			}
+		else if(isNameStartChar(c))
+			{
+			/* Put the character back and parse an opening tag name: */
+			ungetChar();
+			syntaxType=TagName;
+			openTag=true;
+			}
+		else
+			throw SyntaxError(*this,"Malformed opening tag");
+		}
+	else if(c<0)
+		{
+		/* End of file reached: */
+		syntaxType=EndOfFile;
+		}
+	else
+		{
+		/* Put the character back and parse character data: */
+		ungetChar();
+		syntaxType=Content;
+		}
+	}
+
+void XMLSource::closeAttributeValue(void)
+	{
+	/* Skip whitespace: */
+	int c;
+	bool hadSpace=false;
+	while(isSpace(c=getChar()))
+		hadSpace=true;
+	
+	/* Detect the next syntax type: */
+	if(c=='>')
+		{
+		/* This was not a self-closing tag: */
+		selfCloseTag=false;
+		
+		/* Detect the next syntax type: */
+		detectNextSyntaxType();
+		}
+	else if(openTag&&c=='/')
+		{
+		/* Check if the next character is a '>': */
+		if(getChar()!='>')
+			throw SyntaxError(*this,"Illegal '/' in tag");
+		else
+			{
+			/* Detect the next syntax type: */
+			detectNextSyntaxType();
+			}
+		}
+	else if(hadSpace&&isNameStartChar(c))
+		{
+		/* Put the character back and start parsing an attribute name: */
+		ungetChar();
+		syntaxType=AttributeName;
+		}
+	else
+		throw SyntaxError(*this,"Malformed tag");
+	}
 
 void XMLSource::processHeader(void)
 	{
@@ -386,7 +698,7 @@ void XMLSource::processHeader(void)
 		}
 	else if(h[0]==0xef&&h[1]==0xbb&&h[2]==0xbf) // Redundant Byte order mark for UTF-8
 		{
-		readNextChar=readCharUTF8;
+		readNextChar=UTF8::read;
 		putback=1; // Gobble up the BOM
 		haveBom=true;
 		}
@@ -403,7 +715,7 @@ void XMLSource::processHeader(void)
 	else if(h[0]==0x3c&&h[1]==0x00&&h[2]==0x3f&&h[3]==0x00) // XML tag for UTF-16 little endian or compatible
 		readNextChar=readCharUTF16LE;
 	else if(h[0]==0x3c&&h[1]==0x3f&&h[2]==0x78&&h[3]==0x6d) // XML tag for UTF-8 or compatible
-		readNextChar=readCharUTF8;
+		readNextChar=UTF8::read;
 	else if(h[0]==0x4c&&h[1]==0x6f&&h[2]==0xa7&&h[3]==0x94) // XML tag for some flavor of EBCDIC
 		readNextChar=readCharEBCDIC;
 	
@@ -438,7 +750,7 @@ void XMLSource::processHeader(void)
 				else if(attributeIndex<2&&readAhead(8)&&matchString("standalone"))
 					attributeIndex=2;
 				else
-					throw std::runtime_error("XMLSource: Unrecognized attribute in XML declaration");
+					throw WellFormedError(*this,"Unrecognized attribute in XML declaration");
 				
 				/* Skip whitespace: */
 				while(isSpace(c=getChar()))
@@ -446,7 +758,7 @@ void XMLSource::processHeader(void)
 				
 				/* Check for '=': */
 				if(c!='=')
-					throw std::runtime_error("XMLSource: Missing '=' in XML declaration");
+					throw SyntaxError(*this,"XMLSource: Missing '=' in XML declaration");
 				
 				/* Skip whitespace: */
 				while(isSpace(c=getChar()))
@@ -454,7 +766,7 @@ void XMLSource::processHeader(void)
 				
 				/* Check for opening quote: */
 				if(!isQuote(c))
-					throw std::runtime_error("XMLSource: Missing opening quote in XML declaration");
+					throw SyntaxError(*this,"XMLSource: Missing opening quote in XML declaration");
 				int quote=c;
 				
 				/* Parse the attribute value: */
@@ -464,7 +776,7 @@ void XMLSource::processHeader(void)
 						{
 						/* Check the major version number: */
 						if(!readAhead(3)||!matchString("1.")||!isDigit(peekChar(0)))
-							throw std::runtime_error("XMLSource: Malformed version number in XML declaration");
+							throw WellFormedError(*this,"Malformed version number in XML declaration");
 						
 						/* Parse the minor version number: */
 						minorVersion=getChar()-'0';
@@ -480,19 +792,19 @@ void XMLSource::processHeader(void)
 						if(readAhead(6)&&matchStringNoCase("utf-8",false)&&peekChar(5)==quote)
 							{
 							/* Check if the encoding matches: */
-							if(readNextChar!=readCharUTF8)
-								throw std::runtime_error("XMLSource: Mismatching character encoding in XML declaration");
+							if(readNextChar!=UTF8::read)
+								throw WellFormedError(*this,"Mismatching character encoding in XML declaration");
 							}
 						else if(readAhead(7)&&matchStringNoCase("utf-16",false)&&peekChar(6)==quote)
 							{
 							/* Check if the encoding matches: */
 							if(!haveBom)
-								throw std::runtime_error("XMLSource: Missing Byte Order Mark for UTF-16 encoding");
+								throw WellFormedError(*this,"Missing Byte Order Mark for UTF-16 encoding");
 							if(readNextChar!=readCharUTF16LE&&readNextChar!=readCharUTF16BE)
-								throw std::runtime_error("XMLSource: Mismatching character encoding in XML declaration");
+								throw WellFormedError(*this,"Mismatching character encoding in XML declaration");
 							}
 						else
-							throw std::runtime_error("XMLSource: Unrecognized character encoding in XML declaration");
+							throw WellFormedError(*this,"Unrecognized character encoding in XML declaration");
 						
 						/* Consume value: */
 						while((c=getChar())!=quote)
@@ -509,7 +821,7 @@ void XMLSource::processHeader(void)
 						else if(readAhead(3)&&matchString("no",false)&&peekChar(2)==quote)
 							standalone=false;
 						else
-							throw std::runtime_error("XMLSource: Malformed standalone flag in XML declaration");
+							throw WellFormedError(*this,"Malformed standalone flag in XML declaration");
 						
 						/* Consume value: */
 						while((c=getChar())!=quote)
@@ -521,277 +833,22 @@ void XMLSource::processHeader(void)
 				
 				/* Check the closing quote: */
 				if(c!=quote)
-					throw std::runtime_error("XMLSource: Mismatching quotes in XML declaration");
+					throw SyntaxError(*this,"Mismatching quotes in XML declaration");
 				}
 			else if(c=='?'&&getChar()=='>')
 				break;
 			else
-				throw std::runtime_error("XMLSource: Malformed XML declaration");
+				throw SyntaxError(*this,"Malformed XML declaration");
 			}
 		}
-	}
-
-bool XMLSource::fillBuffer(void)
-	{
-	/* Re-initialize the buffer pointers: */
-	size_t readAheadSize=cbEnd-cbNext;
-	cbNext=charBuffer+charBufferSize/2; // Leave room at the beginning to support putback
-	cbEnd=cbNext+readAheadSize;
-	
-	/* Decode characters until the buffer is full or the source is completely read: */
-	int* bufferEnd=charBuffer+charBufferSize;
-	while(cbEnd!=bufferEnd)
-		{
-		/* Decode the next character: */
-		int c=readNextChar(*source);
-		
-		/* Check for end-of-file: */
-		if(c<0)
-			break;
-		
-		/* Normalize line breaks: */
-		if(c!=0x0a||!hadCarriageReturn) // Not a line feed, or the last character was not a carriage return
-			{
-			/* Put the character into the buffer: */
-			*(cbEnd++)=c;
-			}
-		else if(c==0x0d) // Carriage return
-			{
-			/* Put a line feed into the buffer: */
-			*(cbEnd++)=0x0a;
-			}
-		
-		/* Remember if the just-read character is a carriage return: */
-		hadCarriageReturn=c==0x0d;
-		}
-	
-	/* Return true if no characters were decoded, i.e., the source is completely read: */
-	return cbNext==cbEnd;
-	}
-
-void XMLSource::growBuffer(void)
-	{
-	/* Double the buffer size and copy the current buffer contents into the second half of the new buffer: */
-	size_t newCharBufferSize=charBufferSize*2;
-	int* newCharBuffer=new int[newCharBufferSize];
-	int* ncbNext=newCharBuffer+charBufferSize;
-	size_t readAheadSize=cbEnd-cbNext;
-	memcpy(ncbNext,cbNext,readAheadSize*sizeof(int));
-	
-	/* Delete the old buffer and install the new one: */
-	delete[] charBuffer;
-	charBufferSize=newCharBufferSize;
-	charBuffer=newCharBuffer;
-	cbNext=ncbNext;
-	cbEnd=cbNext+readAheadSize;
-	}
-
-size_t XMLSource::readAheadBuffer(size_t readAheadSize,size_t numChars)
-	{
-	/* Check if there is enough space in the buffer: */
-	if(numChars<=charBufferSize/2)
-		{
-		/* Move the current buffer contents to the beginning of the buffer: */
-		int* ncbNext=charBuffer+charBufferSize/2;
-		if(readAheadSize!=0&&ncbNext!=cbNext)
-			memcpy(ncbNext,cbNext,readAheadSize*sizeof(int));
-		}
-	else
-		{
-		/* Increase the buffer size and copy the current buffer contents into the second half of the new buffer: */
-		size_t newCharBufferSize=numChars*2;
-		int* newCharBuffer=new int[newCharBufferSize];
-		size_t readAheadSize=cbEnd-cbNext;
-		memcpy(newCharBuffer+numChars,cbNext,readAheadSize*sizeof(int));
-		
-		/* Delete the old buffer and install the new one: */
-		delete[] charBuffer;
-		charBufferSize=newCharBufferSize;
-		charBuffer=newCharBuffer;
-		}
-	
-	/* Read more characters into the buffer (fillBuffer will correctly initialize buffer pointers): */
-	fillBuffer();
-	
-	/* Return the amount of read-ahead data now in the buffer: */
-	return cbEnd-cbNext;
-	}
-
-int XMLSource::parseReference(void)
-	{
-	/* Check if this is a character reference or an entity reference: */
-	int c=getChar();
-	if(c=='#')
-		{
-		/* Parse a character reference: */
-		int code=0;
-		
-		/* Check if it's a hexadecimal character reference: */
-		c=getChar();
-		if(c=='x')
-			{
-			/* Parse a hexadecimal character reference: */
-			while(isHexDigit(c=getChar()))
-				code=code*16+(c<'A'?c-'0':(c<'a'?c-'A':c-'a')+10);
-			}
-		else
-			{
-			/* Parse a decimal character reference: */
-			while(isDigit(c))
-				{
-				code=code*10+c-'0';
-				c=getChar();
-				}
-			}
-		
-		/* Check for terminating semicolon: */
-		if(c!=';')
-			throw std::runtime_error("XMLSource: Missing ';' in character reference");
-		
-		/* Check character for validity: */
-		bool codeValid=code==0x9||code==0xa||code==0xd||(code>=0x20&&code<=0xd7ff)||(code>=0xe000&&code<=0xfffd)||(code>=0x10000&&code<=0x10ffff);
-		if(!codeValid)
-			throw std::runtime_error("XMLSource: Illegal character reference");
-		
-		return code;
-		}
-	else if(isNameStartChar(c))
-		{
-		/* Put the character back and parse an entity reference name: */
-		ungetChar();
-		if(readAhead(3)&&matchString("amp"))
-			return '&';
-		if(readAhead(2)&&matchString("lt"))
-			return '<';
-		if(readAhead(2)&&matchString("gt"))
-			return '>';
-		if(readAhead(4)&&matchString("apos"))
-			return '\'';
-		if(readAhead(4)&&matchString("quot"))
-			return '\"';
-		throw std::runtime_error("XMLSource: Entity references not supported");
-		}
-	else
-		throw std::runtime_error("XMLSource: Malformed reference");
-	}
-
-void XMLSource::detectNextSyntaxType(void)
-	{
-	/* Read the next character: */
-	int c=getChar();
-	
-	/* Check for left angle bracket: */
-	if(c=='<')
-		{
-		/* Determine the type of markup: */
-		c=getChar();
-		if(c=='!')
-			{
-			/* Distinguish between comments, CDATA sections, and entity declarations: */
-			if(readAhead(2)&&matchString("--"))
-				{
-				/* Parse a comment: */
-				syntaxType=Comment;
-				}
-			else if(readAhead(7)&&matchString("[CDATA["))
-				{
-				/* Parse a CDATA section: */
-				syntaxType=CData;
-				}
-			else
-				throw std::runtime_error("XMLSource: Entitity declarations not supported");
-			}
-		else if(c=='?')
-			{
-			/* Check if the next character starts a name: */
-			if(isNameStartChar(getChar()))
-				{
-				/* Put the character back and parse a processing instruction target: */
-				ungetChar();
-				syntaxType=ProcessingInstructionTarget;
-				}
-			else
-				throw std::runtime_error("XMLSource: Malformed closing tag");
-			}
-		else if(c=='/')
-			{
-			/* Check if the next character starts a name: */
-			if(isNameStartChar(getChar()))
-				{
-				/* Put the character back and parse a closing tag name: */
-				ungetChar();
-				syntaxType=TagName;
-				openTag=false;
-				}
-			else
-				throw std::runtime_error("XMLSource: Malformed closing tag");
-			}
-		else if(isNameStartChar(c))
-			{
-			/* Put the character back and parse an opening tag name: */
-			ungetChar();
-			syntaxType=TagName;
-			openTag=true;
-			}
-		else
-			throw std::runtime_error("XMLSource: Malformed opening tag");
-		}
-	else if(c<0)
-		{
-		/* End of file reached: */
-		syntaxType=EndOfFile;
-		}
-	else
-		{
-		/* Put the character back and parse character data: */
-		ungetChar();
-		syntaxType=Content;
-		}
-	}
-
-void XMLSource::closeAttributeValue(void)
-	{
-	/* Skip whitespace: */
-	int c;
-	bool hadSpace=false;
-	while(isSpace(c=getChar()))
-		hadSpace=true;
-	
-	/* Detect the next syntax type: */
-	if(c=='>')
-		{
-		/* This was not a self-closing tag: */
-		selfCloseTag=false;
-		
-		/* Detect the next syntax type: */
-		detectNextSyntaxType();
-		}
-	else if(openTag&&c=='/')
-		{
-		/* Check if the next character is a '>': */
-		if(getChar()!='>')
-			throw std::runtime_error("XMLSource: Illegal '/' in tag");
-		else
-			{
-			/* Detect the next syntax type: */
-			detectNextSyntaxType();
-			}
-		}
-	else if(hadSpace&&isNameStartChar(c))
-		{
-		/* Put the character back and start parsing an attribute name: */
-		ungetChar();
-		syntaxType=AttributeName;
-		}
-	else
-		throw std::runtime_error("XMLSource: Malformed tag");
 	}
 
 XMLSource::XMLSource(FilePtr sSource)
 	:source(sSource),
-	 readNextChar(readCharUTF8),
+	 readNextChar(UTF8::read),
 	 charBufferSize(32),charBuffer(new int[charBufferSize]),
-	 cbEnd(charBuffer),cbNext(charBuffer),
+	 cbEnd(charBuffer+charBufferSize/2),cbNext(charBuffer+charBufferSize/2),
+	 line(1),column(1),
 	 minorVersion(-1),standalone(false),
 	 hadCarriageReturn(false)
 	{
@@ -814,6 +871,55 @@ XMLSource::~XMLSource(void)
 	delete[] charBuffer;
 	}
 
+std::pair<size_t,size_t> XMLSource::getFilePosition(void) const
+	{
+	size_t l=line;
+	size_t c=column;
+	
+	/* Check if the read pointer is left or right of the buffer midpoint: */
+	const int* cbMid=charBuffer+charBufferSize/2;
+	if(cbNext>=cbMid)
+		{
+		/* Scan forward in the buffer: */
+		for(const int* cbPtr=cbMid;cbPtr!=cbNext;++cbPtr)
+			{
+			/* Advance the column index assuming the next character is not a line feed: */
+			++c;
+			
+			/* Check if the assumption was wrong: */
+			if(*cbPtr==0x0a)
+				{
+				/* Start a new line: */
+				++l;
+				c=1;
+				}
+			}
+		}
+	else
+		{
+		/* Scan backwards in the buffer: */
+		for(const int* cbPtr=cbMid;cbPtr!=cbNext;--cbPtr)
+			{
+			/* Reduce the column index assuming the previous character is not a line feed: */
+			--c;
+			
+			/* Check if the assumption was wrong: */
+			if(cbPtr[-1]==0x0a)
+				{
+				/* Go back one line: */
+				--l;
+				}
+			}
+		
+		/* Check if the column inded is bogus because the line number changed: */
+		if(l!=line)
+			c=0;
+		}
+	
+	/* Return the calculated file position: */
+	return std::make_pair(l,c);
+	}
+
 int XMLSource::readComment(void)
 	{
 	/* Read the next character and return it if it's safe: */
@@ -823,7 +929,7 @@ int XMLSource::readComment(void)
 	
 	/* Check for end-of-file: */
 	if(c<0)
-		throw std::runtime_error("XMLSource: Unterminated comment at end of file");
+		throw SyntaxError(*this,"Unterminated comment at end of file");
 	
 	/* Check if the next character is another '-': */
 	if(getChar()!='-')
@@ -842,7 +948,7 @@ int XMLSource::readComment(void)
 			return -1;
 			}
 		else
-			throw std::runtime_error("XMLSource: Illegal -- in comment");
+			throw SyntaxError(*this,"Illegal -- in comment");
 		}
 	}
 
@@ -877,7 +983,7 @@ int XMLSource::readName(void)
 				syntaxType=ProcessingInstructionContent;
 				}
 			else
-				throw std::runtime_error("XMLSource: Unterminated processing instruction at end of file");
+				throw SyntaxError(*this,"Unterminated processing instruction at end of file");
 			break;
 		
 		case TagName:
@@ -894,7 +1000,7 @@ int XMLSource::readName(void)
 				{
 				/* Check if the next character is a '>': */
 				if(getChar()!='>')
-					throw std::runtime_error("XMLSource: Illegal '/' in tag");
+					throw SyntaxError(*this,"Illegal '/' in tag");
 				else
 					{
 					/* Detect the next syntax type: */
@@ -908,13 +1014,13 @@ int XMLSource::readName(void)
 				syntaxType=AttributeName;
 				}
 			else
-				throw std::runtime_error("XMLSource: Malformed tag");
+				throw SyntaxError(*this,"Malformed tag");
 			break;
 		
 		case AttributeName:
 			/* Check for assignment: */
 			if(c!='=')
-				throw std::runtime_error("XMLSource: Missing '=' in tag attribute");
+				throw SyntaxError(*this,"Missing '=' in tag attribute");
 			
 			/* Skip whitespace: */
 			while(isSpace(c=getChar()))
@@ -942,7 +1048,7 @@ int XMLSource::readName(void)
 					}
 				}
 			else
-				throw std::runtime_error("XMLSource: Missing tag attribute value");
+				throw SyntaxError(*this,"Missing tag attribute value");
 			break;
 		
 		default:
@@ -961,7 +1067,7 @@ int XMLSource::readProcessingInstruction(void)
 	
 	/* Check for end-of-file: */
 	if(c<0)
-		throw std::runtime_error("XMLSource: Unterminated processing instruction at end of file");
+		throw SyntaxError(*this,"Unterminated processing instruction at end of file");
 	
 	/* Check if the next character is a '>': */
 	if(getChar()!='>')
@@ -1020,14 +1126,14 @@ int XMLSource::readAttributeValue(void)
 		/* Parse a character or entity reference: */
 		int c=parseReference();
 		if(c=='<')
-			throw std::runtime_error("XMLSource: Illegal '<' in attribute value");
+			throw WellFormedError(*this,"Illegal '<' in attribute value");
 		
 		return c;
 		}
 	else if(c=='<')
-		throw std::runtime_error("XMLSource: Illegal '<' in attribute value");
+		throw WellFormedError(*this,"Illegal '<' in attribute value");
 	else
-		throw std::runtime_error("XMLSource: Unterminated attribute value at end of file");
+		throw SyntaxError(*this,"Unterminated attribute value at end of file");
 	}
 
 int XMLSource::readCharacterData(void)
@@ -1091,7 +1197,7 @@ int XMLSource::readCharacterData(void)
 		{
 		/* Check if this is a misplaced CDATA closing tag: */
 		if(readAhead(2)&&matchString("]>"))
-			throw std::runtime_error("XMLSource: Illegal ']]>' in character data");
+			throw SyntaxError(*this,"Illegal ']]>' in character data");
 		else
 			{
 			/* False alarm; return the closing bracket: */
@@ -1099,7 +1205,49 @@ int XMLSource::readCharacterData(void)
 			}
 		}
 	else
-		throw std::runtime_error("XMLSource: Unterminated character data at end of file");
+		throw SyntaxError(*this,"Unterminated character data at end of file");
+	}
+
+std::string& XMLSource::readUTF8(std::string& string)
+	{
+	/* Proceed based on the current syntax type: */
+	int c;
+	switch(syntaxType)
+		{
+		case Comment:
+			while((c=readComment())>=0)
+				UTF8::encode(c,string);
+			break;
+		
+		case ProcessingInstructionTarget:
+		case TagName:
+		case AttributeName:
+			while((c=readName())>=0)
+				UTF8::encode(c,string);
+			break;
+		
+		case ProcessingInstructionContent:
+			while((c=readProcessingInstruction())>=0)
+				UTF8::encode(c,string);
+			break;
+		
+		case AttributeValue:
+			while((c=readAttributeValue())>=0)
+				UTF8::encode(c,string);
+			break;
+		
+		case Content:
+		case CData:
+			while((c=readCharacterData())>=0)
+				UTF8::encode(c,string);
+			break;
+		
+		default:
+			/* Do nothing, just to make compiler happy */
+			;
+		}
+	
+	return string;
 	}
 
 }

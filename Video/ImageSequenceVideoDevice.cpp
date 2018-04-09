@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageSequenceVideoDevice - Class for "fake" video capture devices
 showing a set of image files.
-Copyright (c) 2014-2015 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -60,7 +60,7 @@ void ImageSequenceVideoDevice::loadFrame(int frameIndex)
 	/* Load the requested image: */
 	char frameName[2048];
 	snprintf(frameName,sizeof(frameName),frameNameTemplate.c_str(),frameIndex);
-	currentFrame=Images::readImageFile(frameName,frameDir->openFile(frameName));
+	currentFrame=Images::readImageFile(*frameDir,frameName);
 	
 	/* Update the frame buffer for streaming: */
 	currentBuffer.start=currentFrame.modifyPixels()->getRgba();

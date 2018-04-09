@@ -1,7 +1,7 @@
 /***********************************************************************
 Constants - Classes providing generic access to type-specific math-
 relevant information.
-Copyright (c) 2003-2016 Oliver Kreylos
+Copyright (c) 2003-2018 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -273,6 +273,7 @@ class Constants<float>
 	static const Scalar e;
 	static const Scalar pi;
 	static const Scalar infinity;
+	static const Scalar nan;
 	};
 
 template <>
@@ -298,6 +299,7 @@ class Constants<double>
 	static const Scalar e;
 	static const Scalar pi;
 	static const Scalar infinity;
+	static const Scalar nan;
 	};
 
 }

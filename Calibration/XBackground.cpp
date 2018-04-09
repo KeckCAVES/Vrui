@@ -1,6 +1,6 @@
 /***********************************************************************
 XBackground - Utility to draw one of several calibration patterns.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Vrui calibration utility package.
 
@@ -30,8 +30,8 @@ Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
-#include <X11/keysym.h>
 #include <X11/Xlib.h>
+#include <X11/keysym.h>
 #include <X11/Xutil.h>
 
 /*********************************************************

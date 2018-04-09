@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -72,6 +72,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLFont.h>
 #include <GL/GLTransformationWrappers.h>
 #include <Images/Config.h>
+#include <Images/BaseImage.h>
 #include <Images/RGBImage.h>
 #include <Images/ReadImageFile.h>
 #include <Images/WriteImageFile.h>
@@ -303,7 +304,7 @@ void VRWindow::moveWindow(const NavTransform& transform)
 		}
 	}
 
-void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye)
+void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye,bool canRender)
 	{
 	/*********************************************************************
 	First step: Re-initialize OpenGL state and clear all buffers.
@@ -357,105 +358,108 @@ void VRWindow::render(const GLWindow::WindowPos& viewportPos,int screenIndex,con
 	glCullFace(GL_BACK);
 	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
 	
-	/*********************************************************************
-	Second step: Set up the projection and modelview matrices to project
-	from the given eye onto the given screen.
-	*********************************************************************/
-	
-	/* Get the inverse of the current screen transformation: */
-	ONTransform invScreenT=screens[screenIndex]->getScreenTransformation();
-	invScreenT.doInvert();
-	
-	/* Transform the eye position to screen coordinates: */
-	Point screenEyePos=invScreenT.transform(eye);
-	
-	/* Calculate the screen's frustum transformation: */
-	double near=getFrontplaneDist();
-	double far=getBackplaneDist();
-	double left=(viewports[screenIndex][0]-screenEyePos[0])/screenEyePos[2]*near;
-	double right=(viewports[screenIndex][1]-screenEyePos[0])/screenEyePos[2]*near;
-	double bottom=(viewports[screenIndex][2]-screenEyePos[1])/screenEyePos[2]*near;
-	double top=(viewports[screenIndex][3]-screenEyePos[1])/screenEyePos[2]*near;
-	
-	/* Adjust the frustum transformation if lens correction is active: */
-	if(lensCorrector!=0)
-		lensCorrector->adjustProjection(screenIndex,screenEyePos,near,left,right,bottom,top);
-	
-	PTransform projection;
-	PTransform::Matrix& pm=projection.getMatrix();
-	pm(0,0)=2.0*near/(right-left);
-	pm(0,2)=(right+left)/(right-left);
-	pm(1,1)=2.0*near/(top-bottom);
-	pm(1,2)=(top+bottom)/(top-bottom);
-	pm(2,2)=-(far+near)/(far-near);
-	pm(2,3)=-2.0*far*near/(far-near);
-	pm(3,2)=-1.0;
-	pm(3,3)=0.0;
-	
-	/* Check if the screen is projected off-axis: */
-	if(screens[screenIndex]->isOffAxis())
+	if(canRender)
 		{
-		/* Apply the screen's off-axis correction homography: */
-		projection.leftMultiply(screens[screenIndex]->getInverseClipHomography());
+		/*********************************************************************
+		Second step: Set up the projection and modelview matrices to project
+		from the given eye onto the given screen.
+		*********************************************************************/
+		
+		/* Get the inverse of the current screen transformation: */
+		ONTransform invScreenT=screens[screenIndex]->getScreenTransformation();
+		invScreenT.doInvert();
+		
+		/* Transform the eye position to screen coordinates: */
+		Point screenEyePos=invScreenT.transform(eye);
+		
+		/* Calculate the screen's frustum transformation: */
+		double near=getFrontplaneDist();
+		double far=getBackplaneDist();
+		double left=(viewports[screenIndex][0]-screenEyePos[0])/screenEyePos[2]*near;
+		double right=(viewports[screenIndex][1]-screenEyePos[0])/screenEyePos[2]*near;
+		double bottom=(viewports[screenIndex][2]-screenEyePos[1])/screenEyePos[2]*near;
+		double top=(viewports[screenIndex][3]-screenEyePos[1])/screenEyePos[2]*near;
+		
+		/* Adjust the frustum transformation if lens correction is active: */
+		if(lensCorrector!=0)
+			lensCorrector->adjustProjection(screenIndex,screenEyePos,near,left,right,bottom,top);
+		
+		PTransform projection;
+		PTransform::Matrix& pm=projection.getMatrix();
+		pm(0,0)=2.0*near/(right-left);
+		pm(0,2)=(right+left)/(right-left);
+		pm(1,1)=2.0*near/(top-bottom);
+		pm(1,2)=(top+bottom)/(top-bottom);
+		pm(2,2)=-(far+near)/(far-near);
+		pm(2,3)=-2.0*far*near/(far-near);
+		pm(3,2)=-1.0;
+		pm(3,3)=0.0;
+		
+		/* Check if the screen is projected off-axis: */
+		if(screens[screenIndex]->isOffAxis())
+			{
+			/* Apply the screen's off-axis correction homography: */
+			projection.leftMultiply(screens[screenIndex]->getInverseClipHomography());
+			}
+		
+		/* Upload the projection matrix to OpenGL: */
+		glMatrixMode(GL_PROJECTION);
+		glLoadMatrix(projection);
+		
+		/* Calculate the base modelview matrix: */
+		OGTransform modelview=OGTransform::translateToOriginFrom(screenEyePos);
+		modelview*=OGTransform(invScreenT);
+		
+		/*********************************************************************
+		Third step: Render Vrui state.
+		*********************************************************************/
+		
+		/* Update the window's display state object: */
+		displayState->resized=resizeViewport;
+		displayState->viewer=viewers[screenIndex];
+		displayState->eyePosition=eye;
+		displayState->screen=screens[screenIndex];
+		
+		/* Store the projection and physical and navigational modelview matrices: */
+		displayState->projection=projection;
+		displayState->modelviewPhysical=modelview;
+		modelview*=getNavigationTransformation();
+		modelview.renormalize();
+		displayState->modelviewNavigational=modelview;
+		
+		#if 0 // Don't do this; it's a bad idea
+		
+		/*********************************************************************
+		Fudge the navigational modelview transformation such that the point
+		that should end up being transformed to the display center actually
+		does get transformed to the display center, given OpenGL's limited
+		precision.
+		*********************************************************************/
+		
+		/* Get the display center point both in eye and navigational coordinates: */
+		Point dcEye=displayState->modelviewPhysical.transform(getDisplayCenter());
+		Point dcNav=getNavigationTransformation().inverseTransform(getDisplayCenter());
+		
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		glMultMatrix(displayState->modelviewNavigational);
+		typedef Geometry::ProjectiveTransformation<double,3> PTransform;
+		PTransform oglMv=glGetModelviewMatrix<double>();
+		// PTransform oglMv=PTransform::translate(displayState->modelviewNavigational.getTranslation());
+		// oglMv*=PTransform::rotate(displayState->modelviewNavigational.getRotation());
+		// oglMv*=PTransform::scale(displayState->modelviewNavigational.getScaling());
+		
+		/* Transform the navigational-space display center with the truncated modelview matrix: */
+		Point oglDcEye=oglMv.transform(dcNav);
+		
+		/* Multiply the error correction translation vector onto the modelview matrix: */
+		displayState->modelviewNavigational.leftMultiply(OGTransform::translate(dcEye-oglDcEye));
+		
+		#endif
+		
+		/* Call Vrui's main rendering function: */
+		vruiState->display(displayState,getContextData());
 		}
-	
-	/* Upload the projection matrix to OpenGL: */
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrix(projection);
-	
-	/* Calculate the base modelview matrix: */
-	OGTransform modelview=OGTransform::translateToOriginFrom(screenEyePos);
-	modelview*=OGTransform(invScreenT);
-	
-	/*********************************************************************
-	Third step: Render Vrui state.
-	*********************************************************************/
-	
-	/* Update the window's display state object: */
-	displayState->resized=resizeViewport;
-	displayState->viewer=viewers[screenIndex];
-	displayState->eyePosition=eye;
-	displayState->screen=screens[screenIndex];
-	
-	/* Store the projection and physical and navigational modelview matrices: */
-	displayState->projection=projection;
-	displayState->modelviewPhysical=modelview;
-	modelview*=getNavigationTransformation();
-	modelview.renormalize();
-	displayState->modelviewNavigational=modelview;
-	
-	#if 0 // Don't do this; it's a bad idea
-	
-	/*********************************************************************
-	Fudge the navigational modelview transformation such that the point
-	that should end up being transformed to the display center actually
-	does get transformed to the display center, given OpenGL's limited
-	precision.
-	*********************************************************************/
-	
-	/* Get the display center point both in eye and navigational coordinates: */
-	Point dcEye=displayState->modelviewPhysical.transform(getDisplayCenter());
-	Point dcNav=getNavigationTransformation().inverseTransform(getDisplayCenter());
-	
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glMultMatrix(displayState->modelviewNavigational);
-	typedef Geometry::ProjectiveTransformation<double,3> PTransform;
-	PTransform oglMv=glGetModelviewMatrix<double>();
-	// PTransform oglMv=PTransform::translate(displayState->modelviewNavigational.getTranslation());
-	// oglMv*=PTransform::rotate(displayState->modelviewNavigational.getRotation());
-	// oglMv*=PTransform::scale(displayState->modelviewNavigational.getScaling());
-	
-	/* Transform the navigational-space display center with the truncated modelview matrix: */
-	Point oglDcEye=oglMv.transform(dcNav);
-	
-	/* Multiply the error correction translation vector onto the modelview matrix: */
-	displayState->modelviewNavigational.leftMultiply(OGTransform::translate(dcEye-oglDcEye));
-	
-	#endif
-	
-	/* Call Vrui's main rendering function: */
-	vruiState->display(displayState,getContextData());
 	
 	if(lensCorrector!=0)
 		lensCorrector->finish(screenIndex);
@@ -1117,14 +1121,14 @@ VRWindow::VRWindow(GLContext* sContext,const OutputConfiguration& sOutputConfigu
 			viewMapImageName=std::string(VRUI_INTERNAL_CONFIG_SHAREDIR)+"/Textures/"+viewMapImageName;
 		
 		/* Load the view map: */
-		Images::RGBImage viewMap=Images::readImageFile(viewMapImageName.c_str());
+		Images::BaseImage viewMap=Images::readGenericImageFile(viewMapImageName.c_str());
 		if(int(viewMap.getSize(0))!=rootPos.size[0]||int(viewMap.getSize(1))!=rootPos.size[1])
 			Misc::throwStdErr("VRWindow::VRWindow: View map image size does not match display size");
 		
-		/* Upload the view map texture (pad to power of two size): */
+		/* Upload the view map texture (pad to power-of-two size): */
 		glGenTextures(1,&asViewMapTextureID);
 		glBindTexture(GL_TEXTURE_2D,asViewMapTextureID);
-		viewMap.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,true);
+		viewMap.glTexImage2D(GL_TEXTURE_2D,0,true);
 		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 		
@@ -2063,6 +2067,9 @@ void VRWindow::draw(void)
 	/* Update things in the window's GL context data: */
 	getContextData().updateThings();
 	
+	/* Determine whether it is currently possible to render into this window: */
+	bool canRender=screens[0]->isEnabled()&&screens[1]->isEnabled()&&viewers[0]->isEnabled()&&viewers[1]->isEnabled();
+	
 	/* Draw the window's contents: */
 	GLWindow::WindowPos windowViewport(getWindowWidth(),getWindowHeight());
 	GLenum drawBuffer=frontBufferRendering?GL_FRONT:GL_BACK;
@@ -2072,21 +2079,21 @@ void VRWindow::draw(void)
 			/* Render both-eyes view: */
 			glDrawBuffer(drawBuffer);
 			glReadBuffer(drawBuffer);
-			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::MONO));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::MONO),canRender);
 			break;
 		
 		case LEFT:
 			/* Render left-eye view: */
 			glDrawBuffer(drawBuffer);
 			glReadBuffer(drawBuffer);
-			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT),canRender);
 			break;
 		
 		case RIGHT:
 			/* Render right-eye view: */
 			glDrawBuffer(drawBuffer);
 			glReadBuffer(drawBuffer);
-			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
+			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT),canRender);
 			break;
 		
 		case QUADBUFFER_STEREO:
@@ -2094,13 +2101,13 @@ void VRWindow::draw(void)
 			glDrawBuffer(frontBufferRendering?GL_FRONT_LEFT:GL_BACK_LEFT);
 			glReadBuffer(frontBufferRendering?GL_FRONT_LEFT:GL_BACK_LEFT);
 			displayState->eyeIndex=0;
-			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT),canRender);
 			
 			/* Render right-eye view: */
 			glDrawBuffer(frontBufferRendering?GL_FRONT_RIGHT:GL_BACK_RIGHT);
 			glReadBuffer(frontBufferRendering?GL_FRONT_RIGHT:GL_BACK_RIGHT);
 			displayState->eyeIndex=1;
-			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
+			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT),canRender);
 			break;
 		
 		case ANAGLYPHIC_STEREO:
@@ -2110,12 +2117,12 @@ void VRWindow::draw(void)
 			/* Render left-eye view: */
 			glColorMask(GL_TRUE,GL_FALSE,GL_FALSE,GL_FALSE);
 			displayState->eyeIndex=0;
-			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
+			render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT),canRender);
 			
 			/* Render right-eye view: */
 			glColorMask(GL_FALSE,GL_TRUE,GL_TRUE,GL_FALSE);
 			displayState->eyeIndex=1;
-			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
+			render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT),canRender);
 			break;
 		
 		case SPLITVIEWPORT_STEREO:
@@ -2129,7 +2136,7 @@ void VRWindow::draw(void)
 				for(int eye=0;eye<2;++eye)
 					{
 					displayState->eyeIndex=eye;
-					render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
+					render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT),canRender);
 					}
 				
 				/* Check if we should warp now or right before vsync: */
@@ -2148,7 +2155,7 @@ void VRWindow::draw(void)
 					glScissor(splitViewportPos[eye].origin[0],splitViewportPos[eye].origin[1],
 				          	splitViewportPos[eye].size[0],splitViewportPos[eye].size[1]);
 					displayState->eyeIndex=eye;
-					render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT));
+					render(splitViewportPos[eye],eye,viewers[eye]->getEyePosition(eye==0?Viewer::LEFT:Viewer::RIGHT),canRender);
 					}
 				glDisable(GL_SCISSOR_TEST);
 				}
@@ -2164,12 +2171,12 @@ void VRWindow::draw(void)
 				{
 				/* Render the left-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=0;
-				render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
+				render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT),canRender);
 				
 				/* Render the right-eye view into the right viewport framebuffer: */
 				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,ivRightFramebufferObjectID);
 				displayState->eyeIndex=1;
-				render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
+				render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT),canRender);
 				
 				/* Re-bind the default framebuffer to get access to the right viewport image as a texture: */
 				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
@@ -2178,7 +2185,7 @@ void VRWindow::draw(void)
 				{
 				/* Render the right-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=1;
-				render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT));
+				render(windowViewport,1,viewers[1]->getEyePosition(Viewer::RIGHT),canRender);
 				
 				/* Copy the rendered view into the viewport texture: */
 				glBindTexture(GL_TEXTURE_2D,ivRightViewportTextureID);
@@ -2187,7 +2194,7 @@ void VRWindow::draw(void)
 				
 				/* Render the left-eye view into the window's default framebuffer: */
 				displayState->eyeIndex=0;
-				render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT));
+				render(windowViewport,0,viewers[0]->getEyePosition(Viewer::LEFT),canRender);
 				}
 			
 			/* Set up matrices to render a full-screen quad: */
@@ -2274,7 +2281,7 @@ void VRWindow::draw(void)
 				Point eyePos=asEye;
 				eyePos+=asViewZoneOffsetVector*(Scalar(zoneIndex)-Math::div2(Scalar(asNumViewZones-1)));
 				displayState->eyeIndex=zoneIndex;
-				render(asTile,0,eyePos);
+				render(asTile,0,eyePos,canRender);
 				}
 			glDisable(GL_SCISSOR_TEST);
 			

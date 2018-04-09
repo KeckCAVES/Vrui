@@ -1,6 +1,6 @@
 /***********************************************************************
 Viewer - Class for viewers/observers in VR environments.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -30,6 +30,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/GLLight.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/InputGraphManager.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -55,7 +56,7 @@ class Viewer
 	private:
 	char* viewerName; // Viewer name
 	bool headTracked; // Flag if the viewer is head-tracked
-	const InputDevice* headDevice; // Pointer to input device used for head tracking
+	InputDevice* headDevice; // Pointer to input device used for head tracking
 	InputDeviceAdapter* headDeviceAdapter; // Pointer to input device adapter responsible for the head tracking device
 	int headDeviceIndex; // Index of head tracking device in its input device adapter
 	TrackerState headDeviceTransformation; // Fixed head coordinate frame if head tracking is disabled
@@ -69,6 +70,10 @@ class Viewer
 	Vector headLightDeviceDirection; // Direction of head light source in head device coordinates
 	
 	/* Transient state data: */
+	bool enabled; // Flag if the viewer is enabled, i.e., can be used for rendering
+	
+	/* Private methods: */
+	void inputDeviceStateChangeCallback(InputGraphManager::InputDeviceStateChangeCallbackData* cbData); // Callback called when an input device changes state
 	
 	/* Constructors and destructors: */
 	public:
@@ -77,6 +82,10 @@ class Viewer
 	
 	/* Methods: */
 	void initialize(const Misc::ConfigurationFileSection& configFileSection); // Initializes viewer by reading current configuration file section
+	bool isEnabled(void) const // Returns true if the viewer can be used for rendering
+		{
+		return enabled;
+		}
 	const InputDevice* getHeadDevice(void) const // Returns pointer to the viewer's head device, or 0 if not headtracked
 		{
 		if(headTracked)
@@ -84,7 +93,7 @@ class Viewer
 		else
 			return 0;
 		}
-	void attachToDevice(const InputDevice* newHeadDevice); // Attaches the viewer to a head device
+	void attachToDevice(InputDevice* newHeadDevice); // Attaches the viewer to a head device
 	void detachFromDevice(const TrackerState& newHeadDeviceTransformation); // Turns viewer into a static viewer
 	void setIPD(Scalar newIPD); // Overrides the viewer's inter-pupillary distance by sliding eyes along their connecting line
 	void setEyes(const Vector& newViewDirection,const Point& newMonoEyePosition,const Vector& newEyeOffset); // Sets view direction and eye positions in head device coordinates

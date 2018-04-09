@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Class to access standard operating system
 directories.
-Copyright (c) 2010-2014 Oliver Kreylos
+Copyright (c) 2010-2018 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -217,46 +217,44 @@ Misc::PathType StandardDirectory::getPathType(const char* relativePath) const
 
 FilePtr StandardDirectory::openFile(const char* fileName,File::AccessMode accessMode) const
 	{
-	/* Assemble the absolute path name of the given file: */
-	std::string filePath;
+	/* Check if the file name is absolute: */
 	if(fileName[0]=='/')
 		{
-		/* Use the provided absolute file path: */
-		filePath=fileName;
+		/* Open and return the file using the absolute path: */
+		return IO::openFile(fileName,accessMode);
 		}
 	else
 		{
-		/* Create a relative file path: */
-		filePath=pathName;
+		/* Assemble the absolute path name of the given file based on this directory's path name: */
+		std::string filePath=pathName;
 		if(filePath.length()>1)
 			filePath.push_back('/');
 		filePath.append(fileName);
+		
+		/* Open and return the file: */
+		return IO::openFile(filePath.c_str(),accessMode);
 		}
-	
-	/* Open and return the file: */
-	return IO::openFile(filePath.c_str(),accessMode);
 	}
 
 DirectoryPtr StandardDirectory::openDirectory(const char* directoryName) const
 	{
-	/* Assemble the absolute path name of the given directory: */
-	std::string directoryPath;
+	/* Check if the directory name is absolute: */
 	if(directoryName[0]=='/')
 		{
-		/* Use the provided absolute path: */
-		directoryPath=directoryName;
+		/* Open and return the directory using the absolute path: */
+		return new StandardDirectory(directoryName);
 		}
 	else
 		{
-		/* Create a relative path: */
-		directoryPath=pathName;
+		/* Assemble the absolute path name of the given directory based on this directory's path name: */
+		std::string directoryPath=pathName;
 		if(directoryPath.length()>1)
 			directoryPath.push_back('/');
 		directoryPath.append(directoryName);
+		
+		/* Open and return the directory: */
+		return new StandardDirectory(directoryPath.c_str());
 		}
-	
-	/* Open and return the new directory: */
-	return new StandardDirectory(directoryPath.c_str());
 	}
 
 }

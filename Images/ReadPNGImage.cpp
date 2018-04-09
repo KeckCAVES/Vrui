@@ -1,7 +1,7 @@
 /***********************************************************************
 ReadPNGImage - Functions to read RGB or RGBA images from image files in
 PNG formats over an IO::File abstraction.
-Copyright (c) 2011-2017 Oliver Kreylos
+Copyright (c) 2011-2018 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -263,12 +263,6 @@ BaseImage readGenericPNGImage(const char* imageName,IO::File& source)
 		int colorType;
 		png_get_IHDR(pngReadStruct,pngInfoStruct,&imageSize[0],&imageSize[1],&elementSize,&colorType,0,0,0);
 		
-		/* Set up the default image format, 8-bit RGB: */
-		unsigned int numChannels=3;
-		unsigned int channelSize=1;
-		GLenum format=GL_RGB;
-		GLenum channelType=GL_UNSIGNED_BYTE;
-		
 		/* Determine image format and set up image processing: */
 		if(colorType==PNG_COLOR_TYPE_PALETTE)
 			{
@@ -280,38 +274,22 @@ BaseImage readGenericPNGImage(const char* imageName,IO::File& source)
 			/* Expand bitmaps to 8-bit grayscale: */
 			png_set_expand(pngReadStruct);
 			}
-		if(elementSize==16)
-			{
-			/* Read 16-bit images as unsigned short: */
-			channelSize=2;
-			channelType=GL_UNSIGNED_SHORT;
-			}
-		switch(colorType)
-			{
-			case PNG_COLOR_TYPE_GRAY:
-				numChannels=1;
-				format=GL_LUMINANCE;
-				break;
-			
-			case PNG_COLOR_TYPE_GRAY_ALPHA:
-				numChannels=2;
-				format=GL_LUMINANCE_ALPHA;
-				break;
-			
-			case PNG_COLOR_TYPE_RGB:
-				numChannels=3;
-				format=GL_RGB;
-				break;
-			
-			case PNG_COLOR_TYPE_RGB_ALPHA:
-				numChannels=4;
-				format=GL_RGBA;
-				break;
-			}
+		
+		/* Apply the image's stored gamma curve: */
 		double gamma;
 		if(png_get_gAMA(pngReadStruct,pngInfoStruct,&gamma))
 			png_set_gamma(pngReadStruct,2.2,gamma);
+		
+		/* Update the PNG processor and retrieve the potentially changed image format: */
 		png_read_update_info(pngReadStruct,pngInfoStruct);
+		unsigned int numChannels=png_get_channels(pngReadStruct,pngInfoStruct);
+		elementSize=png_get_bit_depth(pngReadStruct,pngInfoStruct);
+		unsigned int channelSize=(elementSize+7)/8;
+		
+		/* Determine the image's texture format: */
+		GLenum channelType=channelSize==2?GL_UNSIGNED_SHORT:GL_UNSIGNED_BYTE;
+		static const GLenum formats[4]={GL_LUMINANCE,GL_LUMINANCE_ALPHA,GL_RGB,GL_RGBA};
+		GLenum format=formats[numChannels-1];
 		
 		/* Initialize the result image: */
 		result=BaseImage(imageSize[0],imageSize[1],numChannels,channelSize,format,channelType);
