@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/ProjectiveTransformation.h>
 #include <Vrui/Geometry.h>
+#include <Vrui/InputGraphManager.h>
 
 /* Forward declarations: */
 namespace Misc {
@@ -48,7 +49,7 @@ class VRScreen
 	private:
 	char* screenName; // Name for the screen
 	bool deviceMounted; // Flag if this screen is attached to an input device
-	const InputDevice* device; // Pointer to the input device this screen is attached to
+	InputDevice* device; // Pointer to the input device this screen is attached to
 	Scalar screenSize[2]; // Screen width and height in physical units
 	ONTransform transform; // Transformation from screen to physical or device coordinates
 	ONTransform inverseTransform; // Transformation from physical or device to screen coordinates
@@ -57,6 +58,12 @@ class VRScreen
 	PTransform inverseClipHomography; // The inverse of the screen's clip space homography
 	bool intersect; // Flag whether to use this screen for interaction queries
 	
+	/* Transient state data: */
+	bool enabled; // Flag if the screen is enabled, i.e., can be used for rendering
+	
+	/* Private methods: */
+	void inputDeviceStateChangeCallback(InputGraphManager::InputDeviceStateChangeCallbackData* cbData); // Callback called when an input device changes state
+	
 	/* Constructors and destructors: */
 	public:
 	VRScreen(void); // Creates uninitialized screen
@@ -64,7 +71,11 @@ class VRScreen
 	
 	/* Methods: */
 	void initialize(const Misc::ConfigurationFileSection& configFileSection); // Initializes screen by reading current section of configuration file
-	void attachToDevice(const InputDevice* newDevice); // Attaches the screen to an input device if !=0; otherwise, creates fixed screen
+	bool isEnabled(void) const // Returns true if the screen can be used for rendering
+		{
+		return enabled;
+		}
+	void attachToDevice(InputDevice* newDevice); // Attaches the screen to an input device if !=0; otherwise, creates fixed screen
 	void setSize(Scalar newWidth,Scalar newHeight); // Adjusts the screen's size in physical units; maintains the current center position
 	void setTransform(const ONTransform& newTransform); // Sets the transformation from screen to physical or device coordinates
 	const char* getName(void) const // Returns screen's name

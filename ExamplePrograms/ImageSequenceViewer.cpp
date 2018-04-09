@@ -1,6 +1,6 @@
 /***********************************************************************
 Small viewer for movies stored as image sequences.
-Copyright (c) 2012-2015 Oliver Kreylos
+Copyright (c) 2012-2018 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -34,8 +34,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/GLObject.h>
 #include <GL/GLContextData.h>
 #include <GL/Extensions/GLARBTextureNonPowerOfTwo.h>
-#include <Images/RGBImage.h>
-#include <Images/GetImageFileSize.h>
+#include <Images/BaseImage.h>
 #include <Images/ReadImageFile.h>
 #include <GLMotif/StyleSheet.h>
 #include <GLMotif/WidgetManager.h>
@@ -73,7 +72,7 @@ class ImageSequenceViewer:public Vrui::Application,public GLObject
 	int lastIndex; // The index one past the last frame
 	unsigned int frameSize[2]; // Size of all image frames
 	double frameTime; // Movie frame interval time in seconds
-	Threads::TripleBuffer<Images::RGBImage> images; // Triple buffer of images streaming from the background loader thread
+	Threads::TripleBuffer<Images::BaseImage> images; // Triple buffer of images streaming from the background loader thread
 	int currentIndex; // The index of the image frame in the currently locked triple buffer slot
 	unsigned int imageVersion; // The version number of the image in the currently locked triple buffer slot
 	Threads::MutexCond loadRequestCond; // Condition variable to signal image load requests to the background thread
@@ -85,6 +84,7 @@ class ImageSequenceViewer:public Vrui::Application,public GLObject
 	GLMotif::TextFieldSlider* frameIndexSlider; // Slider to select image frames
 	
 	/* Private methods: */
+	void readImage(int imageIndex); // Reads the frame image of the given index into the next image buffer slot
 	void* imageLoaderThreadMethod(void); // Method loading image frames in the background during automatic playback
 	GLMotif::PopupWindow* createPlaybackDialog(void); // Creates the playback control dialog
 	void playToggleCallback(GLMotif::ToggleButton::ValueChangedCallbackData* cbData);
@@ -127,6 +127,18 @@ ImageSequenceViewer::DataItem::~DataItem(void)
 Methods of class ImageSequenceViewer:
 ************************************/
 
+void ImageSequenceViewer::readImage(int imageIndex)
+	{
+	/* Assemble the name of the requested image: */
+	char frameName[2048];
+	snprintf(frameName,sizeof(frameName),frameNameTemplate.c_str(),imageIndex);
+	
+	/* Read the image into the next triple buffer slot: */
+	Images::BaseImage& image=images.startNewValue();
+	image=Images::readGenericImageFile(*frameDir,frameName);
+	images.postNewValue();
+	}
+
 void* ImageSequenceViewer::imageLoaderThreadMethod(void)
 	{
 	/* Index of the last image frame loaded: */
@@ -142,11 +154,7 @@ void* ImageSequenceViewer::imageLoaderThreadMethod(void)
 		}
 		
 		/* Load the requested image: */
-		char frameName[2048];
-		snprintf(frameName,sizeof(frameName),frameNameTemplate.c_str(),loadImageIndex);
-		Images::RGBImage& image=images.startNewValue();
-		image=Images::readImageFile(frameName,frameDir->openFile(frameName));
-		images.postNewValue();
+		readImage(loadImageIndex);
 		
 		if(!playing)
 			{
@@ -332,15 +340,17 @@ ImageSequenceViewer::ImageSequenceViewer(int& argc,char**& argv)
 		Misc::throwStdErr("No frame images found");
 	std::cout<<"Reading frame sequence from index "<<firstIndex<<" to "<<lastIndex-1<<std::endl;
 	
-	/* Get the size of the first image: */
-	{
-	char frameName[2048];
-	snprintf(frameName,sizeof(frameName),frameNameTemplate.c_str(),firstIndex);
-	Images::getImageFileSize(frameDir->getPath(frameName).c_str(),frameSize[0],frameSize[1]);
-	}
+	/* Read the first image immediately: */
+	readImage(firstIndex);
+	images.lockNewValue();
+	++imageVersion;
 	
-	/* Start the image loader thread and request the first image frame: */
-	nextImageIndex=firstIndex;
+	/* Remember the first image's size for the rest of the sequence: */
+	frameSize[0]=images.getLockedValue().getSize(0);
+	frameSize[1]=images.getLockedValue().getSize(1);
+	
+	/* Start the image loader thread and request the next image frame: */
+	nextImageIndex=firstIndex+1;
 	imageLoaderThread.start(this,&ImageSequenceViewer::imageLoaderThreadMethod);
 	
 	/* Create the user interface: */

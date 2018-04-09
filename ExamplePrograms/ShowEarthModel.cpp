@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2015 Oliver Kreylos
+Copyright (c) 2005-2018 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -766,7 +766,7 @@ ShowEarthModel::ShowEarthModel(int& argc,char**& argv)
 	#endif
 	
 	/* Load the Earth surface texture image from an image file: */
-	surfaceImage=Images::readImageFile(topographyFileName.c_str(),Vrui::openFile(topographyFileName.c_str()));
+	surfaceImage=Images::readGenericImageFile(topographyFileName.c_str());
 	
 	#if 0
 	/* Reduce the Earth surface texture's saturation to make it 3D-friendly: */

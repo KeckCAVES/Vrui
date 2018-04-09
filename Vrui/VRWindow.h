@@ -1,7 +1,7 @@
 /***********************************************************************
 VRWindow - Class for OpenGL windows that are used to map one or two eyes
 of a viewer onto a VR screen.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 ZMap stereo mode additions copyright (c) 2011 Matthias Deller.
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
@@ -153,7 +153,7 @@ class VRWindow:public GLWindow
 	
 	/* Private methods: */
 	void moveWindow(const NavTransform& transform); // Applies the given window transformation due to panning or scaling to derived window state
-	void render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye);
+	void render(const GLWindow::WindowPos& viewportPos,int screenIndex,const Point& eye,bool canRender); // Renders the view of the given eye onto the given screen
 	
 	/* Constructors and destructors: */
 	public:

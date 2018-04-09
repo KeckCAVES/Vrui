@@ -1,6 +1,6 @@
 /***********************************************************************
 VRDeviceDaemon - Daemon for distributed VR device driver architecture.
-Copyright (c) 2002-2016 Oliver Kreylos
+Copyright (c) 2002-2018 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -256,10 +256,10 @@ int main(int argc,char* argv[])
 		deviceServer->run();
 		
 		/* Clean up: */
-		delete deviceServer;
-		deviceServer=0;
 		delete deviceManager;
 		deviceManager=0;
+		delete deviceServer;
+		deviceServer=0;
 		delete configFile;
 		configFile=0;
 		

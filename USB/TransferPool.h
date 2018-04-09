@@ -1,7 +1,7 @@
 /***********************************************************************
 TransferPool - Class to manage a pool of USB transfer buffers for
 asynchronous bulk or isochronous transmission.
-Copyright (c) 2014-2015 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the USB Support Library (USB).
 
@@ -24,10 +24,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #define USB_TRANSFERPOOL_INCLUDED
 
 #include <stddef.h>
+#include <libusb-1.0/libusb.h>
 #include <Threads/Spinlock.h>
 
 /* Forward declarations: */
-struct libusb_transfer;
 namespace Misc {
 template <class ParameterParam>
 class FunctionCall;
@@ -65,6 +65,58 @@ class TransferPool
 		const libusb_transfer& getTransfer(void) const // Returns the USB transfer object
 			{
 			return *transfer;
+			}
+		bool isIsochronous(void) const // Returns true if the transfer is isochronous
+			{
+			return transfer->type==LIBUSB_TRANSFER_TYPE_ISOCHRONOUS;
+			}
+		enum libusb_transfer_status getStatus(void) const // Returns the status of a non-isochronous transfer
+			{
+			return transfer->status;
+			}
+		bool isCompleted(void) const // Returns true if a non-isochronous transfer completed successfully
+			{
+			return transfer->status==LIBUSB_TRANSFER_COMPLETED;
+			}
+		int getSize(void) const // Returns the buffer size of a non-isochronous transfer
+			{
+			return transfer->length;
+			}
+		int getDataSize(void) const // Returns the actual amount of data in a non-isochronous transfer
+			{
+			return transfer->actual_length;
+			}
+		const unsigned char* getData(void) const // Returns the data in a non-isochronous transfer
+			{
+			return transfer->buffer;
+			}
+		int getNumPackets(void) const // Returns the number of packets in an isochronous transfer
+			{
+			return transfer->num_iso_packets;
+			}
+		const libusb_iso_packet_descriptor& getPacketDescriptor(int packetIndex) const // Returns the USB transfer packet descriptor for the given isochronous transfer packet
+			{
+			return transfer->iso_packet_desc[packetIndex];
+			}
+		enum libusb_transfer_status getPacketStatus(int packetIndex) const // Returns the status of the given isochronous transfer packet
+			{
+			return transfer->iso_packet_desc[packetIndex].status;
+			}
+		bool isPacketCompleted(int packetIndex) const // Returns true if the given isochronous transfer packet completed successfully
+			{
+			return transfer->iso_packet_desc[packetIndex].status==LIBUSB_TRANSFER_COMPLETED;
+			}
+		unsigned int getPacketSize(int packetIndex) const // Returns the buffer size of the given isochronous transfer packet
+			{
+			return transfer->iso_packet_desc[packetIndex].length;
+			}
+		unsigned int getPacketDataSize(int packetIndex) const // Returns the actual amount of data in the given isochronous transfer packet
+			{
+			return transfer->iso_packet_desc[packetIndex].actual_length;
+			}
+		const unsigned char* getPacketData(int packetIndex) const // Returns the data in an isochronous transfer packet
+			{
+			return libusb_get_iso_packet_buffer_simple(transfer,packetIndex);
 			}
 		};
 	
@@ -157,7 +209,7 @@ class TransferPool
 	
 	/* Constructors and destructors: */
 	public:
-	TransferPool(unsigned int sNumTransfers,size_t sTransferSize); // Creates a pool of isochronous USB transfer buffers
+	TransferPool(unsigned int sNumTransfers,size_t sTransferSize); // Creates a pool of non-isochronous USB transfer buffers
 	TransferPool(unsigned int sNumTransfers,unsigned int sNumPackets,size_t sPacketSize); // Creates a pool of isochronous USB transfer buffers
 	~TransferPool(void); // Releases all allocated resources
 	

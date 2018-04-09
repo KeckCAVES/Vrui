@@ -1,7 +1,7 @@
 /***********************************************************************
 VRScreen - Class for display screens (fixed and head-mounted) in VR
 environments.
-Copyright (c) 2004-2014 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,19 +43,33 @@ namespace Vrui {
 Methods of class VRScreen:
 *************************/
 
+void VRScreen::inputDeviceStateChangeCallback(InputGraphManager::InputDeviceStateChangeCallbackData* cbData)
+	{
+	/* Set screen state if this is our tracking device: */
+	if(deviceMounted&&cbData->inputDevice==device)
+		enabled=cbData->newEnabled;
+	}
+
 VRScreen::VRScreen(void)
 	:screenName(0),
 	 deviceMounted(false),device(0),
 	 transform(ONTransform::identity),inverseTransform(ONTransform::identity),
 	 offAxis(false),screenHomography(PTransform2::identity),inverseClipHomography(PTransform::identity),
-	 intersect(true)
+	 intersect(true),
+	 enabled(true)
 	{
 	screenSize[0]=screenSize[1]=Scalar(0);
+	
+	/* Register callbacks with the input graph manager: */
+	getInputGraphManager()->getInputDeviceStateChangeCallbacks().add(this,&VRScreen::inputDeviceStateChangeCallback);
 	}
 
 VRScreen::~VRScreen(void)
 	{
 	delete[] screenName;
+	
+	/* Unregister callbacks with the input graph manager: */
+	getInputGraphManager()->getInputDeviceStateChangeCallbacks().remove(this,&VRScreen::inputDeviceStateChangeCallback);
 	}
 
 void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSection)
@@ -74,6 +88,7 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 		device=findInputDevice(deviceName.c_str());
 		if(device==0)
 			Misc::throwStdErr("VRScreen: Mounting device \"%s\" not found",deviceName.c_str());
+		attachToDevice(device);
 		}
 	
 	/* Retrieve screen position/orientation in physical or device coordinates: */
@@ -151,11 +166,20 @@ void VRScreen::initialize(const Misc::ConfigurationFileSection& configFileSectio
 	intersect=configFileSection.retrieveValue<bool>("./intersect",intersect);
 	}
 
-void VRScreen::attachToDevice(const InputDevice* newDevice)
+void VRScreen::attachToDevice(InputDevice* newDevice)
 	{
 	/* Set the device to which the screen is mounted, and update the mounted flag: */
 	deviceMounted=newDevice!=0;
 	device=newDevice;
+	
+	/* Update the screen's state: */
+	if(deviceMounted)
+		{
+		/* Check if the mounting device is currently enabled: */
+		enabled=getInputGraphManager()->isEnabled(device);
+		}
+	else
+		enabled=true;
 	}
 
 void VRScreen::setSize(Scalar newWidth,Scalar newHeight)

@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -81,7 +81,8 @@ Methods of class InputGraphManager::GraphTool:
 
 InputGraphManager::GraphTool::GraphTool(Tool* sTool,int sLevel)
 	:tool(sTool),level(sLevel),
-	 levelPred(0),levelSucc(0)
+	 levelPred(0),levelSucc(0),
+	 enabled(true)
 	{
 	}
 
@@ -91,7 +92,7 @@ Methods of class InputGraphManager::ToolSlot:
 
 InputGraphManager::ToolSlot::ToolSlot(void)
 	:tool(0),
-	 preempted(false),inKillZone(false)
+	 active(false),preempted(false)
 	{
 	}
 
@@ -122,10 +123,12 @@ void InputGraphManager::ToolSlot::initialize(InputDevice* sDevice,int sFeatureIn
 void InputGraphManager::ToolSlot::inputDeviceButtonCallback(InputDevice::ButtonCallbackData* cbData)
 	{
 	bool interruptCallback=false;
+	
 	if(cbData->newButtonState) // Button has just been pressed
-		interruptCallback=pressed();
+		interruptCallback=activate();
 	else // Button has just been released
-		interruptCallback=released();
+		interruptCallback=deactivate();
+	
 	if(interruptCallback)
 		{
 		/* Interrupt processing of this callback: */
@@ -135,13 +138,22 @@ void InputGraphManager::ToolSlot::inputDeviceButtonCallback(InputDevice::ButtonC
 
 void InputGraphManager::ToolSlot::inputDeviceValuatorCallback(InputDevice::ValuatorCallbackData* cbData)
 	{
-	bool interruptCallback=false;
-	if(Math::abs(cbData->oldValuatorValue)<=0.25&&Math::abs(cbData->newValuatorValue)>0.25) // Valuator has just been moved from the idle position
-		interruptCallback=pressed();
-	else if(Math::abs(cbData->oldValuatorValue)>0.1&&Math::abs(cbData->newValuatorValue)<=0.1) // Valuator has just returned to the idle position
-		interruptCallback=released();
+	bool interruptCallback=preempted;
+	
+	/* Check if the valuator changed active state: */
+	if(active)
+		{
+		/* Check if the valuator is now inactive: */
+		if(Math::abs(cbData->newValuatorValue)<=0.1)
+			interruptCallback=deactivate();
+		}
 	else
-		interruptCallback=preempted;
+		{
+		/* Check if the valuator is now active: */
+		if(Math::abs(cbData->newValuatorValue)>=0.25)
+			interruptCallback=activate();
+		}
+	
 	if(interruptCallback)
 		{
 		/* Interrupt processing of this callback: */
@@ -149,8 +161,11 @@ void InputGraphManager::ToolSlot::inputDeviceValuatorCallback(InputDevice::Valua
 		}
 	}
 
-bool InputGraphManager::ToolSlot::pressed(void)
+bool InputGraphManager::ToolSlot::activate(void)
 	{
+	/* Mark this tool slot as active: */
+	active=true;
+	
 	/* Get pointer to the tool manager: */
 	ToolManager* tm=getToolManager();
 	
@@ -168,9 +183,6 @@ bool InputGraphManager::ToolSlot::pressed(void)
 		}
 	else if(tm->getToolKillZone()->isDeviceIn(feature.getDevice())) // Push event happened while inside tool kill zone
 		{
-		/* Remember that the device was inside the kill zone: */
-		inKillZone=true;
-		
 		if(tool!=0)
 			{
 			/* Show the selected feature's tool stack: */
@@ -192,7 +204,7 @@ bool InputGraphManager::ToolSlot::pressed(void)
 	return preempted;
 	}
 
-bool InputGraphManager::ToolSlot::released(void)
+bool InputGraphManager::ToolSlot::deactivate(void)
 	{
 	bool interruptCallback=false;
 	
@@ -209,13 +221,10 @@ bool InputGraphManager::ToolSlot::released(void)
 			if(tool==0)
 				tm->assignFeature(feature);
 			}
-		else if(inKillZone)
+		else if(feature==getInputGraphManager()->toolStackBaseFeature)
 			{
-			if(feature==getInputGraphManager()->toolStackBaseFeature)
-				{
-				/* Stop showing the feature's tool stack: */
-				getInputGraphManager()->toolStackNode=0;
-				}
+			/* Stop showing the feature's tool stack: */
+			getInputGraphManager()->toolStackNode=0;
 			
 			if(tool!=0&&tm->getToolKillZone()->isDeviceIn(feature.getDevice())) // Device is still in kill zone
 				{
@@ -249,13 +258,13 @@ bool InputGraphManager::ToolSlot::released(void)
 				}
 			}
 		
-		/* Reset the kill zone flag: */
-		inKillZone=false;
-		
 		/* Reset the preempted flag and interrupt processing of this callback: */
 		preempted=false;
 		interruptCallback=true;
 		}
+	
+	/* Mark this tool slot as inactive: */
+	active=false;
 	
 	return interruptCallback;
 	}
@@ -270,7 +279,8 @@ InputGraphManager::GraphInputDevice::GraphInputDevice(InputDevice* sDevice)
 	 level(0),
 	 navigational(false),
 	 levelPred(0),levelSucc(0),
-	 grabber(0)
+	 grabber(0),
+	 enabled(true)
 	{
 	/* Initialize the new device's tool slots: */
 	for(int featureIndex=0;featureIndex<device->getNumFeatures();++featureIndex)
@@ -1355,12 +1365,59 @@ bool InputGraphManager::isGrabbed(InputDevice* device) const
 	return gid->grabber!=0;
 	}
 
+bool InputGraphManager::isEnabled(InputDevice* device) const
+	{
+	/* Get pointer to the graph input device: */
+	const GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	/* Return true if the device is enabled: */
+	return gid->enabled;
+	}
+
+void InputGraphManager::disable(InputDevice* device)
+	{
+	/* Get pointer to the graph input device: */
+	GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	/* Disable the device if it is currently enabled: */
+	if(gid->enabled)
+		{
+		/* Call the input device state change callbacks: */
+		InputDeviceStateChangeCallbackData cbData(this,gid->device,false);
+		inputDeviceStateChangeCallbacks.call(&cbData);
+		
+		/* Do what's necessary: */
+		// ...
+		
+		gid->enabled=false;
+		}
+	}
+
+void InputGraphManager::enable(InputDevice* device)
+	{
+	/* Get pointer to the graph input device: */
+	GraphInputDevice* gid=deviceMap.getEntry(device).getDest();
+	
+	/* Enable the device if it is currently disabled: */
+	if(!gid->enabled)
+		{
+		/* Call the input device state change callbacks: */
+		InputDeviceStateChangeCallbackData cbData(this,gid->device,true);
+		inputDeviceStateChangeCallbacks.call(&cbData);
+		
+		/* Do what's necessary: */
+		// ...
+		
+		gid->enabled=true;
+		}
+	}
+
 InputDevice* InputGraphManager::getFirstInputDevice(void)
 	{
-	/* Search for the first ungrabbed device in graph level 0: */
+	/* Search for the first ungrabbed and enabled device in graph level 0: */
 	InputDevice* result=0;
 	for(GraphInputDevice* gid=deviceLevels[0];gid!=0;gid=gid->levelSucc)
-		if(gid->grabber==0)
+		if(gid->enabled&&gid->grabber==0)
 			{
 			result=gid->device;
 			break;
@@ -1380,7 +1437,7 @@ InputDevice* InputGraphManager::getNextInputDevice(InputDevice* device)
 	/* Search for the next ungrabbed device: */
 	InputDevice* result=0;
 	for(gid=gid->levelSucc;gid!=0;gid=gid->levelSucc)
-		if(gid->grabber==0)
+		if(gid->enabled&&gid->grabber==0)
 			{
 			result=gid->device;
 			break;
@@ -1397,28 +1454,31 @@ InputDevice* InputGraphManager::findInputDevice(const Point& position,bool ungra
 	/* Check all input devices in all relevant graph levels: */
 	for(int level=0;level<=maxSearchLevel;++level)
 		for(GraphInputDevice* gid=deviceLevels[level];gid!=0;gid=gid->levelSucc)
-			if(gid->grabber==0)
+			if(gid->enabled)
 				{
-				if(virtualInputDevice->pick(gid->device,position))
+				if(gid->grabber==0)
 					{
-					/* Remember the device and stop searching: */
-					result=gid->device;
-					goto foundIt;
+					if(virtualInputDevice->pick(gid->device,position))
+						{
+						/* Remember the device and stop searching: */
+						result=gid->device;
+						goto foundIt;
+						}
 					}
-				}
-			else if(!ungrabbedOnly)
-				{
-				/* Check if the given position is inside the input device's glyph: */
-				Point dp=gid->device->getTransformation().inverseTransform(position);
-				bool inside=true;
-				for(int i=0;i<3&&inside;++i)
-					inside=Math::abs(dp[i])<=gs;
-				
-				if(inside)
+				else if(!ungrabbedOnly)
 					{
-					/* Remember the device and stop searching: */
-					result=gid->device;
-					goto foundIt;
+					/* Check if the given position is inside the input device's glyph: */
+					Point dp=gid->device->getTransformation().inverseTransform(position);
+					bool inside=true;
+					for(int i=0;i<3&&inside;++i)
+						inside=Math::abs(dp[i])<=gs;
+					
+					if(inside)
+						{
+						/* Remember the device and stop searching: */
+						result=gid->device;
+						goto foundIt;
+						}
 					}
 				}
 	foundIt:
@@ -1436,52 +1496,55 @@ InputDevice* InputGraphManager::findInputDevice(const Ray& ray,bool ungrabbedOnl
 	/* Check all input devices in all relevant graph levels: */
 	for(int level=0;level<=maxSearchLevel;++level)
 		for(GraphInputDevice* gid=deviceLevels[level];gid!=0;gid=gid->levelSucc)
-			if(gid->grabber==0)
+			if(gid->enabled)
 				{
-				Scalar lambda=virtualInputDevice->pick(gid->device,ray);
-				if(lambdaMin>lambda)
+				if(gid->grabber==0)
 					{
-					result=gid->device;
-					lambdaMin=lambda;
+					Scalar lambda=virtualInputDevice->pick(gid->device,ray);
+					if(lambdaMin>lambda)
+						{
+						result=gid->device;
+						lambdaMin=lambda;
+						}
 					}
-				}
-			else if(!ungrabbedOnly)
-				{
-				Ray r=ray;
-				r.inverseTransform(gid->device->getTransformation());
-				
-				Scalar lMin=Scalar(0);
-				Scalar lMax=Math::Constants<Scalar>::max;
-				for(int i=0;i<3;++i)
+				else if(!ungrabbedOnly)
 					{
-					Scalar l1,l2;
-					if(r.getDirection()[i]<Scalar(0))
+					Ray r=ray;
+					r.inverseTransform(gid->device->getTransformation());
+					
+					Scalar lMin=Scalar(0);
+					Scalar lMax=Math::Constants<Scalar>::max;
+					for(int i=0;i<3;++i)
 						{
-						l1=(gs-r.getOrigin()[i])/r.getDirection()[i];
-						l2=(-gs-r.getOrigin()[i])/r.getDirection()[i];
+						Scalar l1,l2;
+						if(r.getDirection()[i]<Scalar(0))
+							{
+							l1=(gs-r.getOrigin()[i])/r.getDirection()[i];
+							l2=(-gs-r.getOrigin()[i])/r.getDirection()[i];
+							}
+						else if(r.getDirection()[i]>Scalar(0))
+							{
+							l1=(-gs-r.getOrigin()[i])/r.getDirection()[i];
+							l2=(gs-r.getOrigin()[i])/r.getDirection()[i];
+							}
+						else if(-gs<=r.getOrigin()[i]&&r.getOrigin()[i]<gs)
+							{
+							l1=Scalar(0);
+							l2=Math::Constants<Scalar>::max;
+							}
+						else
+							l1=l2=Scalar(-1);
+						if(lMin<l1)
+							lMin=l1;
+						if(lMax>l2)
+							lMax=l2;
 						}
-					else if(r.getDirection()[i]>Scalar(0))
+					
+					if(lMin<lMax&&lMin<lambdaMin)
 						{
-						l1=(-gs-r.getOrigin()[i])/r.getDirection()[i];
-						l2=(gs-r.getOrigin()[i])/r.getDirection()[i];
+						result=gid->device;
+						lambdaMin=lMin;
 						}
-					else if(-gs<=r.getOrigin()[i]&&r.getOrigin()[i]<gs)
-						{
-						l1=Scalar(0);
-						l2=Math::Constants<Scalar>::max;
-						}
-					else
-						l1=l2=Scalar(-1);
-					if(lMin<l1)
-						lMin=l1;
-					if(lMax>l2)
-						lMax=l2;
-					}
-				
-				if(lMin<lMax&&lMin<lambdaMin)
-					{
-					result=gid->device;
-					lambdaMin=lMin;
 					}
 				}
 	
@@ -1658,7 +1721,7 @@ void InputGraphManager::update(void)
 	{
 	/* Set the transformations of ungrabbed navigational devices in the first graph level: */
 	for(GraphInputDevice* gid=deviceLevels[0];gid!=0;gid=gid->levelSucc)
-		if(gid->navigational&&gid->grabber==0)
+		if(gid->enabled&&gid->navigational&&gid->grabber==0)
 			{
 			/* Set the device's transformation: */
 			NavTrackerState transform=getNavigationTransformation();
@@ -1672,14 +1735,16 @@ void InputGraphManager::update(void)
 		{
 		/* Trigger callbacks on all input devices in the level: */
 		for(GraphInputDevice* gid=deviceLevels[i];gid!=0;gid=gid->levelSucc)
-			{
-			gid->device->enableCallbacks();
-			gid->device->disableCallbacks();
-			}
+			if(gid->enabled)
+				{
+				gid->device->enableCallbacks();
+				gid->device->disableCallbacks();
+				}
 		
 		/* Call frame method on all tools in the level: */
 		for(GraphTool* gt=toolLevels[i];gt!=0;gt=gt->levelSucc)
-			gt->tool->frame();
+			if(gt->enabled)
+				gt->tool->frame();
 		}
 	}
 
@@ -1690,36 +1755,38 @@ void InputGraphManager::glRenderDevices(GLContextData& contextData) const
 	
 	/* Render all input devices in the first input graph level: */
 	for(const GraphInputDevice* gid=deviceLevels[0];gid!=0;gid=gid->levelSucc)
-		{
-		/* Check if the device is an ungrabbed virtual input device: */
-		if(gid->grabber==0)
-			virtualInputDevice->renderDevice(gid->device,gid->navigational,glyphRendererContextDataItem,contextData);
-		else
+		if(gid->enabled)
 			{
-			OGTransform transform(gid->device->getTransformation());
-			if(gid->deviceGlyph.getGlyphType()==Glyph::CONE)
+			/* Check if the device is an ungrabbed virtual input device: */
+			if(gid->grabber==0)
+				virtualInputDevice->renderDevice(gid->device,gid->navigational,glyphRendererContextDataItem,contextData);
+			else
 				{
-				/* Rotate the glyph so that its Y axis aligns to the device's ray direction: */
-				transform*=OGTransform::rotate(Rotation::rotateFromTo(Vector(0,1,0),gid->device->getDeviceRayDirection()));
+				OGTransform transform(gid->device->getTransformation());
+				if(gid->deviceGlyph.getGlyphType()==Glyph::CONE)
+					{
+					/* Rotate the glyph so that its Y axis aligns to the device's ray direction: */
+					transform*=OGTransform::rotate(Rotation::rotateFromTo(Vector(0,1,0),gid->device->getDeviceRayDirection()));
+					}
+				glyphRenderer->renderGlyph(gid->deviceGlyph,transform,glyphRendererContextDataItem);
 				}
-			glyphRenderer->renderGlyph(gid->deviceGlyph,transform,glyphRendererContextDataItem);
 			}
-		}
 	
 	/* Iterate through all higher input graph levels: */
 	for(int level=1;level<=maxGraphLevel;++level)
 		{
 		/* Render all input devices in this level: */
 		for(const GraphInputDevice* gid=deviceLevels[level];gid!=0;gid=gid->levelSucc)
-			{
-			OGTransform transform(gid->device->getTransformation());
-			if(gid->deviceGlyph.getGlyphType()==Glyph::CONE)
+			if(gid->enabled)
 				{
-				/* Rotate the glyph so that its Y axis aligns to the device's ray direction: */
-				transform*=OGTransform::rotate(Rotation::rotateFromTo(Vector(0,1,0),gid->device->getDeviceRayDirection()));
+				OGTransform transform(gid->device->getTransformation());
+				if(gid->deviceGlyph.getGlyphType()==Glyph::CONE)
+					{
+					/* Rotate the glyph so that its Y axis aligns to the device's ray direction: */
+					transform*=OGTransform::rotate(Rotation::rotateFromTo(Vector(0,1,0),gid->device->getDeviceRayDirection()));
+					}
+				glyphRenderer->renderGlyph(gid->deviceGlyph,transform,glyphRendererContextDataItem);
 				}
-			glyphRenderer->renderGlyph(gid->deviceGlyph,transform,glyphRendererContextDataItem);
-			}
 		}
 	
 	/* Check if there is a tool stack visualization to display: */
@@ -1738,16 +1805,13 @@ void InputGraphManager::glRenderDevices(GLContextData& contextData) const
 
 void InputGraphManager::glRenderTools(GLContextData& contextData) const
 	{
-	/* Render all tools in the first input graph level: */
-	for(const GraphTool* gt=toolLevels[0];gt!=0;gt=gt->levelSucc)
-		gt->tool->display(contextData);
-	
-	/* Iterate through all higher input graph levels: */
-	for(int level=1;level<=maxGraphLevel;++level)
+	/* Render all tools in all input graph levels: */
+	for(int level=0;level<=maxGraphLevel;++level)
 		{
 		/* Render all tools in this level: */
 		for(const GraphTool* gt=toolLevels[level];gt!=0;gt=gt->levelSucc)
-			gt->tool->display(contextData);
+			if(gt->enabled)
+				gt->tool->display(contextData);
 		}
 	}
 

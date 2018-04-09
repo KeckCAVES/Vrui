@@ -1,7 +1,7 @@
 /***********************************************************************
 GLWindow - Class to encapsulate details of the underlying window system
 implementation from an application wishing to use OpenGL windows.
-Copyright (c) 2001-2016 Oliver Kreylos
+Copyright (c) 2001-2018 Oliver Kreylos
 
 This file is part of the OpenGL/GLX Support Library (GLXSupport).
 
@@ -70,6 +70,10 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 	                     windowPos.origin[0],windowPos.origin[1],windowPos.size[0],windowPos.size[1],
 	                     0,context->getDepth(),InputOutput,context->getVisual(),attributeMask,&swa);
 	XSetStandardProperties(context->getDisplay(),window,windowName,windowName,None,0,0,0);
+	
+	/* Start by assuming that the window is not parented: */
+	parent=window;
+	parentOffset[1]=parentOffset[0]=0;
 	
 	if(!decorate&&!fullscreen)
 		{
@@ -142,7 +146,6 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 	
 	/* Process events up until the first Expose event to determine the initial window position and size: */
 	bool receivedConfigureNotify=false;
-	int winX=0,winY=0;
 	while(true)
 		{
 		XEvent event;
@@ -150,12 +153,23 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 		
 		if(event.type==ConfigureNotify)
 			{
-			/* Retrieve the window position and size: */
-			winX=event.xconfigure.x;
-			winY=event.xconfigure.y;
+			/* Check if this is a real event: */
+			if(!event.xconfigure.send_event)
+				{
+				/* The event's position is this window's offset inside its parent: */
+				parentOffset[0]=event.xconfigure.x;
+				parentOffset[1]=event.xconfigure.y;
+				}
+			
+			/* Retrieve the window size: */
 			windowPos.size[0]=event.xconfigure.width;
 			windowPos.size[1]=event.xconfigure.height;
 			receivedConfigureNotify=true;
+			}
+		else if(event.type==ReparentNotify)
+			{
+			/* Retrieve the window's new parent: */
+			parent=event.xreparent.parent;
 			}
 		else if(event.type==Expose)
 			{
@@ -177,8 +191,8 @@ void GLWindow::initWindow(const char* windowName,bool decorate)
 		
 		if(decorate)
 			{
-			/* As it so happens, the initial window position is this window's offset inside its parent, so we can use that to calculate the parent position: */
-			XMoveWindow(context->getDisplay(),window,windowPos.origin[0]-winX,windowPos.origin[1]-winY);
+			/* As this request will go to the redirected parent window, calculate its intended position by taking this window's parent offset into account: */
+			XMoveWindow(context->getDisplay(),window,windowPos.origin[0]-parentOffset[0],windowPos.origin[1]-parentOffset[1]);
 			}
 		else
 			{
@@ -608,11 +622,36 @@ void GLWindow::processEvent(const XEvent& event)
 		{
 		case ConfigureNotify:
 			{
-			/* Retrieve the new window position and size: */
-			windowPos.origin[0]=event.xconfigure.x;
-			windowPos.origin[1]=event.xconfigure.y;
-			windowPos.size[0]=event.xconfigure.width;
-			windowPos.size[1]=event.xconfigure.height;
+			/* Check whether this is a real (parent-relative coordinates) or synthetic (root-relative coordinates) event: */
+			if(event.xconfigure.send_event)
+				{
+				/* Retrieve the new window position and size: */
+				windowPos.origin[0]=event.xconfigure.x;
+				windowPos.origin[1]=event.xconfigure.y;
+				windowPos.size[0]=event.xconfigure.width;
+				windowPos.size[1]=event.xconfigure.height;
+				}
+			else
+				{
+				/* Update this window's parent offset, just in case: */
+				parentOffset[0]=event.xconfigure.x;
+				parentOffset[1]=event.xconfigure.y;
+				
+				/* Update the window size: */
+				windowPos.size[0]=event.xconfigure.width;
+				windowPos.size[1]=event.xconfigure.height;
+				
+				/* Query the parent's geometry to find the absolute window position: */
+				Window root;
+				int x,y;
+				unsigned int width,height,borderWidth,depth;
+				XGetGeometry(context->getDisplay(),parent,&root,&x,&y,&width,&height,&borderWidth,&depth);
+				
+				/* Calculate this window's position: */
+				windowPos.origin[0]=x+parentOffset[0];
+				windowPos.origin[1]=y+parentOffset[1];
+				}
+			
 			break;
 			}
 		

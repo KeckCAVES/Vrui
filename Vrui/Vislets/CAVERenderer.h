@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2017 Oliver Kreylos
+Copyright (c) 2005-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,7 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GL/GLObject.h>
-#include <Images/RGBImage.h>
+#include <Images/BaseImage.h>
 #include <Vrui/Geometry.h>
 #include <Vrui/Vislet.h>
 
@@ -94,8 +94,8 @@ class CAVERenderer:public Vislet,public GLObject
 	OGTransform caveTransform; // Transformation to align the CAVE model with the local VR environment
 	GLMaterial surfaceMaterial;
 	int tilesPerFoot;
-	Images::RGBImage wallTextureImage;
-	Images::RGBImage floorTextureImage;
+	Images::BaseImage wallTextureImage;
+	Images::BaseImage floorTextureImage;
 	Vrui::Lightsource* lightsources[4]; // Pointers to the four static ceiling light sources
 	
 	/* Saved viewer headlight states: */
@@ -108,7 +108,6 @@ class CAVERenderer:public Vislet,public GLObject
 	double lastFrame; // Application time of last frame
 	
 	/* Private methods: */
-	int createMipmap(const Images::RGBImage& baseImage) const;
 	void renderWall(DataItem* dataItem) const;
 	void renderFloor(DataItem* dataItem) const;
 	

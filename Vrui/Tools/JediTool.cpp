@@ -1,7 +1,7 @@
 /***********************************************************************
 JediTool - Class for tools using light sabers to point out features in a
 3D display.
-Copyright (c) 2007-2017 Oliver Kreylos
+Copyright (c) 2007-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -167,7 +167,7 @@ Methods of class JediTool:
 JediTool::JediTool(const ToolFactory* factory,const ToolInputAssignment& inputAssignment)
 	:PointingTool(factory,inputAssignment),
 	 GLObject(false),
-	 lightsaberImage(Images::readImageFile(JediTool::factory->lightsaberImageFileName.c_str())),
+	 lightsaberImage(Images::readGenericImageFile(JediTool::factory->lightsaberImageFileName.c_str())),
 	 lightsources(JediTool::factory->numLightsources>0?new Lightsource*[JediTool::factory->numLightsources]:0),
 	 active(false)
 	{
@@ -344,7 +344,7 @@ void JediTool::initContext(GLContextData& contextData) const
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,0);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
-	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0,GL_RGB);
+	lightsaberImage.glTexImage2D(GL_TEXTURE_2D,0);
 	glBindTexture(GL_TEXTURE_2D,0);
 	
 	typedef GLGeometry::Vertex<void,0,void,0,GLfloat,GLfloat,3> Vertex; // Type for vertices

@@ -1,7 +1,7 @@
 /***********************************************************************
 CAVERenderer - Vislet class to render the default KeckCAVES backround
 image seamlessly inside a VR application.
-Copyright (c) 2005-2017 Oliver Kreylos
+Copyright (c) 2005-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -169,52 +169,6 @@ CAVERendererFactory* CAVERenderer::factory=0;
 Methods of class CAVERenderer:
 *****************************/
 
-int CAVERenderer::createMipmap(const Images::RGBImage& baseImage) const
-	{
-	Images::RGBImage level=baseImage;
-	int levelIndex=0;
-	while(true)
-		{
-		/* Upload the current level texture image: */
-		level.glTexImage2D(GL_TEXTURE_2D,levelIndex,GL_RGB);
-		++levelIndex;
-		
-		/* Check if we can go down another level: */
-		unsigned int nextWidth=level.getWidth();
-		unsigned int nextHeight=level.getHeight();
-		if((nextWidth&0x1)==0&&(nextHeight&0x1)==0&&nextWidth>=32&&nextHeight>=32)
-			{
-			/* Downsample the current level image: */
-			nextWidth/=2;
-			nextHeight/=2;
-			Images::RGBImage nextLevel(nextWidth,nextHeight);
-			for(unsigned int y=0;y<nextHeight;++y)
-				{
-				Images::RGBImage::Color* row=nextLevel.modifyPixelRow(y);
-				for(unsigned int x=0;x<nextWidth;++x)
-					{
-					/* Sample the current level image: */
-					for(int i=0;i<3;++i)
-						{
-						unsigned int accColor=0;
-						accColor+=level.getPixel(2*x+0,2*y+0)[i];
-						accColor+=level.getPixel(2*x+1,2*y+0)[i];
-						accColor+=level.getPixel(2*x+0,2*y+1)[i];
-						accColor+=level.getPixel(2*x+1,2*y+1)[i];
-						row[x][i]=Images::RGBImage::Scalar((accColor+2)/4);
-						}
-					}
-				}
-			
-			level=nextLevel;
-			}
-		else
-			break;
-		}
-	
-	return levelIndex;
-	}
-
 void CAVERenderer::renderWall(CAVERenderer::DataItem* dataItem) const
 	{
 	typedef GLVertex<GLfloat,2,void,0,GLfloat,GLfloat,3> Vertex;
@@ -343,8 +297,8 @@ CAVERenderer::CAVERenderer(int numArguments,const char* const arguments[])
 		caveTransform=OGTransform::identity;
 	
 	/* Load the texture images: */
-	wallTextureImage=Images::readImageFile(wallTextureFileName.c_str());
-	floorTextureImage=Images::readImageFile(floorTextureFileName.c_str());
+	wallTextureImage=Images::readGenericImageFile(wallTextureFileName.c_str());
+	floorTextureImage=Images::readGenericImageFile(floorTextureFileName.c_str());
 	
 	/* Create static ceiling light sources in the CAVE room: */
 	GLLight::Color lightColor(0.25f,0.25f,0.25f);
@@ -420,24 +374,20 @@ void CAVERenderer::initContext(GLContextData& contextData) const
 	
 	/* Upload the wall texture image: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->wallTextureObjectId);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
-	int wallNumLevels=createMipmap(wallTextureImage);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,wallNumLevels-1);
+	wallTextureImage.glTexImage2DMipmap(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D,0);
 	
 	/* Upload the floor texture image: */
 	glBindTexture(GL_TEXTURE_2D,dataItem->floorTextureObjectId);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_BASE_LEVEL,0);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
-	int floorNumLevels=createMipmap(floorTextureImage);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,floorNumLevels-1);
+	floorTextureImage.glTexImage2DMipmap(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D,0);
 	
 	/* Create the wall display list: */

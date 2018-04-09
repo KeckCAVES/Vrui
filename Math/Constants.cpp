@@ -1,7 +1,7 @@
 /***********************************************************************
 Constants - Classes providing generic access to type-specific math-
 relevant information.
-Copyright (c) 2003-2016 Oliver Kreylos
+Copyright (c) 2003-2018 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -170,6 +170,7 @@ const Constants<float>::Scalar Constants<float>::epsilon=FLT_EPSILON;
 const Constants<float>::Scalar Constants<float>::e=2.7182818284590452354f;
 const Constants<float>::Scalar Constants<float>::pi=3.14159265358979323846f;
 const Constants<float>::Scalar Constants<float>::infinity=INFINITY;
+const Constants<float>::Scalar Constants<float>::nan=NAN;
 
 /*****************************************
 Static members of class Constants<double>:
@@ -188,5 +189,6 @@ const Constants<double>::Scalar Constants<double>::epsilon=DBL_EPSILON;
 const Constants<double>::Scalar Constants<double>::e=2.7182818284590452354;
 const Constants<double>::Scalar Constants<double>::pi=3.14159265358979323846;
 const Constants<double>::Scalar Constants<double>::infinity=INFINITY;
+const Constants<double>::Scalar Constants<double>::nan=NAN;
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 DeviceTest - Program to test the connection to a Vrui VR Device Daemon
 and to dump device positions/orientations and button states.
-Copyright (c) 2002-2017 Oliver Kreylos
+Copyright (c) 2002-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -234,6 +234,233 @@ unsigned int* eyePosVersions=0;
 unsigned int* eyeVersions=0;
 unsigned int* distortionMeshVersions=0;
 
+/***********************************************************************
+Helper classes and functions to analyze an HMD's lens distortion
+correction function and estimate visible display resolution.
+***********************************************************************/
+
+typedef Vrui::HMDConfiguration::Scalar Scalar;
+typedef Vrui::HMDConfiguration::Point2 Point2;
+
+const Point2& getMvColor(int eye,int x,int y,int color,const Vrui::HMDConfiguration& hc)
+	{
+	/* Get the mesh vertex: */
+	const Vrui::HMDConfiguration::DistortionMeshVertex& mv=hc.getDistortionMesh(eye)[y*hc.getDistortionMeshSize()[0]+x];
+	
+	/* Return the requested component of the source position for the requested color: */
+	switch(color)
+		{
+		case 0: // Red
+			return mv.red;
+		
+		case 1: // Green
+			return mv.green;
+		
+		case 2: // Blue
+			return mv.blue;
+		
+		default:
+			return mv.green;
+		}
+	}
+
+Point2 calcIntermediateImagePos(const Point2& viewportPos,int eye,int color,const Vrui::HMDConfiguration& hc)
+	{
+	/* Find the distortion mesh cell containing the given point, and the point's cell-relative position: */
+	int cell[2];
+	Scalar cp[2];
+	for(int i=0;i<2;++i)
+		{
+		int ms=hc.getDistortionMeshSize()[i];
+		cp[i]=(viewportPos[i]-hc.getViewport(eye)[i])*Scalar(ms-1)/Scalar(hc.getViewport(eye)[2+i]);
+		cell[i]=int(Math::floor(cp[i]));
+		if(cell[i]>ms-2)
+			cell[i]=ms-2;
+		cp[i]-=Scalar(cell[i]);
+		}
+	
+	/* Interpolate the distortion-corrected position of the given color component in render framebuffer texture coordinate space: */
+	Point2 p0=Geometry::affineCombination(getMvColor(eye,cell[0],cell[1],color,hc),getMvColor(eye,cell[0]+1,cell[1],color,hc),cp[0]);
+	Point2 p1=Geometry::affineCombination(getMvColor(eye,cell[0],cell[1]+1,color,hc),getMvColor(eye,cell[0]+1,cell[1]+1,color,hc),cp[0]);
+	Point2 result=Geometry::affineCombination(p0,p1,cp[1]);
+	
+	/* Convert the result to intermediate image pixel space: */
+	result[0]=result[0]*hc.getRenderTargetSize()[0];
+	result[1]=result[1]*hc.getRenderTargetSize()[0];
+	
+	return result;
+	}
+
+Point2 calcTanSpacePos(const Point2& viewportPos,int eye,int color,const Vrui::HMDConfiguration& hc)
+	{
+	/* Find the distortion mesh cell containing the given point, and the point's cell-relative position: */
+	int cell[2];
+	Scalar cp[2];
+	for(int i=0;i<2;++i)
+		{
+		int ms=hc.getDistortionMeshSize()[i];
+		cp[i]=(viewportPos[i]-hc.getViewport(eye)[i])*Scalar(ms-1)/Scalar(hc.getViewport(eye)[2+i]);
+		cell[i]=int(Math::floor(cp[i]));
+		if(cell[i]>ms-2)
+			cell[i]=ms-2;
+		cp[i]-=Scalar(cell[i]);
+		}
+	
+	/* Interpolate the distortion-corrected position of the given color component in render framebuffer texture coordinate space: */
+	Point2 p0=Geometry::affineCombination(getMvColor(eye,cell[0],cell[1],color,hc),getMvColor(eye,cell[0]+1,cell[1],color,hc),cp[0]);
+	Point2 p1=Geometry::affineCombination(getMvColor(eye,cell[0],cell[1]+1,color,hc),getMvColor(eye,cell[0]+1,cell[1]+1,color,hc),cp[0]);
+	Point2 result=Geometry::affineCombination(p0,p1,cp[1]);
+	
+	/* Convert the result to tangent space: */
+	result[0]=result[0]*(hc.getFov(eye)[1]-hc.getFov(eye)[0])+hc.getFov(eye)[0];
+	result[1]=result[1]*(hc.getFov(eye)[3]-hc.getFov(eye)[2])+hc.getFov(eye)[2];
+	
+	return result;
+	}
+
+Point2 calcLensCenter(int eye,int color,const Vrui::HMDConfiguration& hc)
+	{
+	/* Initialize lens center to the position it would have without lens distortion correction: */
+	Point2 lensCenter;
+	for(int i=0;i<2;++i)
+		lensCenter[i]=hc.getViewport(eye)[i]+hc.getViewport(eye)[2+i]*(0.0-hc.getFov(eye)[2*i])/(hc.getFov(eye)[2*i+1]-hc.getFov(eye)[2*i]);
+	
+	/* Run Newton-Raphson iteration to converge towards the distortion-corrected lens center: */
+	for(int iteration=0;iteration<20;++iteration) // 20 should be more than sufficient
+		{
+		/* Calculate corrected tangent-space position of current estimate and bail out if the estimate is good enough: */
+		Point2 lcTan=calcTanSpacePos(lensCenter,eye,color,hc);
+		if(Geometry::sqr(lcTan)<Math::sqr(1.0e-6))
+			break;
+		
+		/* Estimate the differential of the distortion correction function at the current lens center estimate: */
+		Scalar delta=1.0e-3;
+		Point2 dxp=calcTanSpacePos(lensCenter+Point2::Vector(delta,0),eye,color,hc);
+		Point2 dxn=calcTanSpacePos(lensCenter-Point2::Vector(delta,0),eye,color,hc);
+		Point2::Vector dx=(dxp-dxn)/(delta*Scalar(2));
+		Point2 dyp=calcTanSpacePos(lensCenter+Point2::Vector(0,delta),eye,color,hc);
+		Point2 dyn=calcTanSpacePos(lensCenter-Point2::Vector(0,delta),eye,color,hc);
+		Point2::Vector dy=(dyp-dyn)/(delta*Scalar(2));
+		
+		/* Calculate a Newton-Raphson step: */
+		Scalar det=(dx[0]*dy[1]-dx[1]*dy[0]);
+		Point2::Vector step((dy[1]*lcTan[0]-dy[0]*lcTan[1])/det,(dx[0]*lcTan[1]-dx[1]*lcTan[0])/det);
+		
+		/* Adjust the lens center estimate: */
+		lensCenter-=step;
+		}
+	
+	/* Return the final lens center estimate: */
+	return lensCenter;
+	}
+
+void printHmdConfiguration(const Vrui::HMDConfiguration& hc)
+	{
+	/* Print basic information directly extracted from the given configuration object: */
+	std::cout<<"  Tracker index: "<<hc.getTrackerIndex()<<std::endl;
+	std::cout<<"  Recommended per-eye render target size: "<<hc.getRenderTargetSize()[0]<<" x "<<hc.getRenderTargetSize()[1]<<std::endl;
+	std::cout<<"  Per-eye distortion mesh size: "<<hc.getDistortionMeshSize()[0]<<" x "<<hc.getDistortionMeshSize()[1]<<std::endl;
+	for(int eye=0;eye<2;++eye)
+		{
+		if(eye==0)
+			std::cout<<"  Left-eye parameters:"<<std::endl;
+		else
+			std::cout<<"  Right-eye parameters:"<<std::endl;
+		
+		std::cout<<"    3D eye position : "<<hc.getEyePosition(eye)<<std::endl;
+		std::cout<<"    Field-of-view   : "<<hc.getFov(eye)[0]<<", "<<hc.getFov(eye)[1]<<", "<<hc.getFov(eye)[2]<<", "<<hc.getFov(eye)[3]<<std::endl;
+		std::cout<<"    Display viewport: "<<hc.getViewport(eye)[0]<<", "<<hc.getViewport(eye)[1]<<", "<<hc.getViewport(eye)[2]<<", "<<hc.getViewport(eye)[3]<<std::endl;
+		
+		/* Calculate position of lens center in viewport coordinates via bisection, because the value obtained from looking at left and right FoV may be shifted by lens distortion correction: */
+		Point2 lensCenter=calcLensCenter(eye,1,hc);
+		std::cout<<"    Lens center     : "<<lensCenter[0]<<", "<<lensCenter[1]<<std::endl;
+		
+		#if 0
+		/* Generate a horizontal cross section of resolution in pixels/degree: */
+		Scalar delta=0.25;
+		for(unsigned int x=0;x<hc.getViewport(eye)[2];++x)
+			{
+			/* Get a display pixel: */
+			Point2 disp(Scalar(x+hc.getViewport(eye)[0])+Scalar(0.5),lensCenter[1]);
+			
+			/* Calculate resolution at pixel for the three color channels: */
+			std::cout<<x;
+			for(int color=0;color<3;++color)
+				{
+				/* Transform the pixel and a displaced version to tangent space: */
+				Point2 tan=calcTanSpacePos(disp,eye,color,hc);
+				Point2 tan0=calcTanSpacePos(disp-Point2::Vector(delta,0),eye,color,hc);
+				Scalar alpha0=Math::atan(tan0[0]);
+				Point2 tan1=calcTanSpacePos(disp+Point2::Vector(delta,0),eye,color,hc);
+				Scalar alpha1=Math::atan(tan1[0]);
+				Scalar res=(delta*Scalar(2))/Math::deg(alpha1-alpha0);
+				std::cout<<','<<Math::deg(Math::atan(tan[0]))<<','<<res;
+				}
+			std::cout<<std::endl;
+			}
+		#elif 0
+		/* Generate a horizontal cross section of intermediate image/display pixel mapping ratio: */
+		Scalar delta=0.25;
+		for(unsigned int x=0;x<hc.getViewport(eye)[2];++x)
+			{
+			/* Get a display pixel: */
+			Point2 disp(Scalar(x+hc.getViewport(eye)[0])+Scalar(0.5),lensCenter[1]);
+			
+			/* Calculate resolution at pixel for the three color channels: */
+			std::cout<<x;
+			for(int color=0;color<3;++color)
+				{
+				/* Transform the pixel and a displaced version to tangent space: */
+				Point2 p=calcIntermediateImagePos(disp,eye,color,hc);
+				Point2 p0=calcIntermediateImagePos(disp-Point2::Vector(delta,0),eye,color,hc);
+				Point2 p1=calcIntermediateImagePos(disp+Point2::Vector(delta,0),eye,color,hc);
+				Scalar factor=(p1[0]-p0[0])/(delta*Scalar(2));
+				std::cout<<','<<p[0]<<','<<factor;
+				}
+			std::cout<<std::endl;
+			}
+		#elif 0
+		/* Generate a vertical cross section of resolution in pixels/degree: */
+		Scalar delta=0.25;
+		for(unsigned int y=0;y<hc.getViewport(eye)[3];++y)
+			{
+			/* Get a display pixel: */
+			Point2 disp(lensCenter[0],Scalar(y+hc.getViewport(eye)[1])+Scalar(0.5));
+			
+			/* Calculate resolution at pixel for the three color channels: */
+			std::cout<<y;
+			for(int color=0;color<3;++color)
+				{
+				/* Transform the pixel and a displaced version to tangent space: */
+				Point2 tan=calcTanSpacePos(disp,eye,color,hc);
+				Point2 tan0=calcTanSpacePos(disp-Point2::Vector(0,delta),eye,color,hc);
+				Scalar alpha0=Math::atan(tan0[1]);
+				Point2 tan1=calcTanSpacePos(disp+Point2::Vector(0,delta),eye,color,hc);
+				Scalar alpha1=Math::atan(tan1[1]);
+				Scalar res=(delta*Scalar(2))/Math::deg(alpha1-alpha0);
+				std::cout<<','<<Math::deg(Math::atan(tan[1]))<<','<<res;
+				}
+			std::cout<<std::endl;
+			}
+		#elif 0
+		/* Dump entire distortion mesh to file: */
+		IO::FilePtr meshFile=IO::openFile("/home/okreylos/Desktop/DistortionMesh.dat",IO::File::WriteOnly);
+		meshFile->setEndianness(Misc::LittleEndian);
+		meshFile->write<Vrui::HMDConfiguration::UInt>(hc.getViewport(eye),4);
+		meshFile->write<Scalar>(hc.getFov(eye),4);
+		meshFile->write<Vrui::HMDConfiguration::UInt>(hc.getDistortionMeshSize(),2);
+		const Vrui::HMDConfiguration::DistortionMeshVertex* mvPtr=hc.getDistortionMesh(eye);
+		for(unsigned int y=0;y<hc.getDistortionMeshSize()[1];++y)
+			for(unsigned int x=0;x<hc.getDistortionMeshSize()[0];++x,++mvPtr)
+				{
+				meshFile->write<Scalar>(mvPtr->red.getComponents(),2);
+				meshFile->write<Scalar>(mvPtr->green.getComponents(),2);
+				meshFile->write<Scalar>(mvPtr->blue.getComponents(),2);
+				}
+		#endif
+		}
+	}
+
 void hmdConfigurationUpdatedCallback(const Vrui::HMDConfiguration& hmdConfiguration)
 	{
 	/* Find the updated HMD configuration in the list: */
@@ -463,17 +690,8 @@ int main(int argc,char* argv[])
 		deviceClient->lockHmdConfigurations();
 		for(unsigned int hmdIndex=0;hmdIndex<deviceClient->getNumHmdConfigurations();++hmdIndex)
 			{
-			const Vrui::HMDConfiguration& hc=deviceClient->getHmdConfiguration(hmdIndex);
 			std::cout<<"Head-mounted device "<<hmdIndex<<":"<<std::endl;
-			std::cout<<"  Tracker index: "<<hc.getTrackerIndex()<<std::endl;
-			std::cout<<"  Left eye position : "<<hc.getEyePosition(0)<<std::endl;
-			std::cout<<"  Right eye position: "<<hc.getEyePosition(1)<<std::endl;
-			std::cout<<"  Recommended per-eye render target size: "<<hc.getRenderTargetSize()[0]<<" x "<<hc.getRenderTargetSize()[1]<<std::endl;
-			std::cout<<"  Per-eye distortion mesh size: "<<hc.getDistortionMeshSize()[0]<<" x "<<hc.getDistortionMeshSize()[1]<<std::endl;
-			std::cout<<"  Left eye display viewport : "<<hc.getViewport(0)[0]<<", "<<hc.getViewport(0)[1]<<", "<<hc.getViewport(0)[2]<<", "<<hc.getViewport(0)[3]<<std::endl;
-			std::cout<<"  Right eye display viewport: "<<hc.getViewport(1)[0]<<", "<<hc.getViewport(1)[1]<<", "<<hc.getViewport(1)[2]<<", "<<hc.getViewport(1)[3]<<std::endl;
-			std::cout<<"  Left eye field-of-view : "<<hc.getFov(0)[0]<<", "<<hc.getFov(0)[1]<<", "<<hc.getFov(0)[2]<<", "<<hc.getFov(0)[3]<<std::endl;
-			std::cout<<"  Right eye field-of-view: "<<hc.getFov(1)[0]<<", "<<hc.getFov(1)[1]<<", "<<hc.getFov(1)[2]<<", "<<hc.getFov(1)[3]<<std::endl;
+			printHmdConfiguration(deviceClient->getHmdConfiguration(hmdIndex));
 			}
 		deviceClient->unlockHmdConfigurations();
 		}

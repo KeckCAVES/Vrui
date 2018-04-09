@@ -2,7 +2,7 @@
 InputGraphManager - Class to maintain the bipartite input device / tool
 graph formed by tools being assigned to input devices, and input devices
 in turn being grabbed by tools.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <vector>
 #include <Misc/HashTable.h>
+#include <Misc/CallbackList.h>
 #include <Geometry/OrthogonalTransformation.h>
 #include <SceneGraph/GraphNode.h>
 #include <Vrui/Geometry.h>
@@ -52,6 +53,50 @@ namespace Vrui {
 class InputGraphManager
 	{
 	/* Embedded classes: */
+	public:
+	struct CallbackData:public Misc::CallbackData // Generic callback data for input graph events
+		{
+		/* Elements: */
+		public:
+		InputGraphManager* inputGraphManager; // Pointer to the input graph manager
+		
+		/* Constructors and destructors: */
+		CallbackData(InputGraphManager* sInputGraphManager)
+			:inputGraphManager(sInputGraphManager)
+			{
+			}
+		};
+	
+	struct InputDeviceStateChangeCallbackData:public CallbackData // Callback data when an input device changes state
+		{
+		/* Elements: */
+		public:
+		InputDevice* inputDevice; // Pointer to the input device that changed state
+		bool newEnabled; // The device's new state
+		
+		/* Constructors and destructors: */
+		InputDeviceStateChangeCallbackData(InputGraphManager* sInputGraphManager,InputDevice* sInputDevice,bool sNewEnabled)
+			:CallbackData(sInputGraphManager),
+			 inputDevice(sInputDevice),newEnabled(sNewEnabled)
+			{
+			}
+		};
+	
+	struct ToolStateChangeCallbackData:public CallbackData // Callback data when a tool changes state
+		{
+		/* Elements: */
+		public:
+		Tool* tool; // Pointer to the tool that changed state
+		bool newEnabled; // The tool's new state
+		
+		/* Constructors and destructors: */
+		ToolStateChangeCallbackData(InputGraphManager* sInputGraphManager,Tool* sTool,bool sNewEnabled)
+			:CallbackData(sInputGraphManager),
+			 tool(sTool),newEnabled(sNewEnabled)
+			{
+			}
+		};
+	
 	private:
 	struct GraphTool // Structure to represent a tool in the input graph
 		{
@@ -61,6 +106,7 @@ class InputGraphManager
 		int level; // Index of the graph level containing the tool
 		GraphTool* levelPred; // Pointer to the previous tool in the same graph level
 		GraphTool* levelSucc; // Pointer to the next tool in the same graph level
+		bool enabled; // Flag whether this tool is enabled, i.e., receives input data and has frame and display called
 		
 		/* Constructors and destructors: */
 		GraphTool(Tool* sTool,int sLevel); // Creates a graph wrapper for the given tool
@@ -72,8 +118,8 @@ class InputGraphManager
 		public:
 		InputDeviceFeature feature; // The input device feature managed by this tool slot
 		GraphTool* tool; // Pointer to the tool assigned to this feature slot
+		bool active; // Flag whether the button or valuator are currently pressed or pushed
 		bool preempted; // Flag whether a button press or valuator push event on this slot was preempted
-		bool inKillZone; // Flag if this slot's device was inside the tool kill zone during the button press or valuator push event
 		
 		/* Constructors and destructors: */
 		ToolSlot(void); // Creates an unassigned tool slot
@@ -83,8 +129,8 @@ class InputGraphManager
 		void initialize(InputDevice* sDevice,int sFeatureIndex); // Initializes a slot and installs callbacks
 		void inputDeviceButtonCallback(InputDevice::ButtonCallbackData* cbData); // Callback for button events
 		void inputDeviceValuatorCallback(InputDevice::ValuatorCallbackData* cbData); // Callback for valuator events
-		bool pressed(void); // Processes a button press or valuator push event
-		bool released(void); // Processes a button or valuator release event
+		bool activate(void); // Changes the tool slot's state to active
+		bool deactivate(void); // Changes the tool slot's state to inactive
 		};
 	
 	struct GraphInputDevice // Structure to represent an input device in the input graph
@@ -100,6 +146,7 @@ class InputGraphManager
 		GraphInputDevice* levelPred; // Pointer to the previous input device in the same graph level
 		GraphInputDevice* levelSucc; // Pointer to the next input device in the same graph level
 		GraphTool* grabber; // Pointer to the tool currently holding a grab on the input device
+		bool enabled; // Flag whether this input device is enabled, i.e., has valid tracking state and sends feature events
 		
 		/* Constructors and destructors: */
 		GraphInputDevice(InputDevice* sDevice); // Creates a graph wrapper for the given input device
@@ -112,6 +159,8 @@ class InputGraphManager
 	/* Elements: */
 	GlyphRenderer* glyphRenderer; // Pointer to the glyph renderer
 	VirtualInputDevice* virtualInputDevice; // Pointer to helper class for handling ungrabbed virtual input devices
+	Misc::CallbackList inputDeviceStateChangeCallbacks; // List of callbacks called when an input device changes state
+	Misc::CallbackList toolStateChangeCallbacks; // List of callbacks called when a tool changes state
 	GraphTool inputDeviceManager; // A fake graph tool to grab physical input devices
 	DeviceMap deviceMap; // Hash table mapping from input devices to graph input devices
 	ToolMap toolMap; // Hash table mapping from tools to graph tools
@@ -142,6 +191,14 @@ class InputGraphManager
 	~InputGraphManager(void);
 	
 	/* Methods: */
+	Misc::CallbackList& getInputDeviceStateChangeCallbacks(void) // Returns the list of callbacks called when an input device changes state
+		{
+		return inputDeviceStateChangeCallbacks;
+		}
+	Misc::CallbackList& getToolStateChangeCallbacks(void) // Returns the list of callbacks called when a tool changes state
+		{
+		return toolStateChangeCallbacks;
+		}
 	void clear(void); // Removes all tools and virtual input devices from the input graph
 	void addInputDevice(InputDevice* newDevice); // Adds an ungrabbed input device to the graph
 	void removeInputDevice(InputDevice* device); // Removes an input device from the graph
@@ -155,10 +212,13 @@ class InputGraphManager
 	Glyph& getInputDeviceGlyph(InputDevice* device); // Returns the glyph associated with the given input device
 	bool isReal(InputDevice* device) const; // Returns true if the given input device is a real device
 	bool isGrabbed(InputDevice* device) const; // Returns true if the given input device is currently grabbed by a tool
-	InputDevice* getFirstInputDevice(void); // Returns pointer to the first ungrabbed input device
-	InputDevice* getNextInputDevice(InputDevice* device); // Returns pointer to the next input device in the same level after the given one
-	InputDevice* findInputDevice(const Point& position,bool ungrabbedOnly =true); // Finds an ungrabbed input device based on a position in physical coordinates
-	InputDevice* findInputDevice(const Ray& ray,bool ungrabbedOnly =true); // Finds an ungrabbed input device based on a ray in physical coordinates
+	bool isEnabled(InputDevice* device) const; // Returns true if the given input device is currently enabled
+	void disable(InputDevice* device); // Disables the given input device; does nothing if device is already disabled
+	void enable(InputDevice* device); // Enables the given input device; does nothing if device is already enabled
+	InputDevice* getFirstInputDevice(void); // Returns pointer to the first ungrabbed and enabled input device
+	InputDevice* getNextInputDevice(InputDevice* device); // Returns pointer to the next enabled input device in the same level after the given one
+	InputDevice* findInputDevice(const Point& position,bool ungrabbedOnly =true); // Finds an ungrabbed and enabled input device based on a position in physical coordinates
+	InputDevice* findInputDevice(const Ray& ray,bool ungrabbedOnly =true); // Finds an ungrabbed and enabled input device based on a ray in physical coordinates
 	bool grabInputDevice(InputDevice* device,Tool* grabber); // Allows a tool (or physical layer if tool==0) to grab an input device; returns true on success
 	void releaseInputDevice(InputDevice* device,Tool* grabber); // Allows the current grabber of an input device to release the grab
 	InputDevice* getRootDevice(InputDevice* device); // Returns the input device forming the base of the transformation chain containing the given (virtual) input device

@@ -1,7 +1,7 @@
 /***********************************************************************
 OculusRift - Class to represent the tracking subsystem of an Oculus Rift
 head-mounted display as an inertially-tracked input device.
-Copyright (c) 2014-2015 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the optical/inertial sensor fusion tracking
 package.
@@ -51,9 +51,33 @@ void OculusRift::initialize(void)
 			deviceType=DK2;
 			break;
 		
+		case 0x0031U:
+			deviceType=CV1;
+			break;
+		
 		default:
 			deviceType=UNKNOWN;
 		}
+	
+	/* Read sensor measurement ranges: */
+	SensorRange sensorRange;
+	sensorRange.get(*this);
+	
+	/* Read display information: */
+	DisplayInfo displayInfo;
+	displayInfo.get(*this);
+	
+	/* Read sensor configuration: */
+	SensorConfig sensorConfig;
+	sensorConfig.get(*this);
+	
+	/* Set sensors to raw mode: */
+	sensorConfig.flags|=SensorConfig::UseCalibFlags;
+	sensorConfig.flags|=SensorConfig::AutoCalibFlags;
+	sensorConfig.set(*this,0x0000U);
+	
+	/* Double-check sensor configuration: */
+	sensorConfig.get(*this);
 	
 	/* Initialize other state: */
 	opticalTracking=false;
@@ -85,15 +109,6 @@ void OculusRift::initialize(void)
 			calibrationData.magnetometerMatrix(1,j)=calibrationData.magnetometerMatrix(2,j);
 			calibrationData.magnetometerMatrix(2,j)=t;
 			}
-		}
-	
-	if(deviceType==DK2)
-		{
-		/* Run the initialization sequence of unknown semantics: */
-		Unknown0x02 unknown0x02(0x01U);
-		unknown0x02.get(*this);
-		unknown0x02.value=0x01U;
-		unknown0x02.set(*this,0x0000U);
 		}
 	}
 
@@ -259,7 +274,7 @@ class OculusRiftMatcher:public RawHID::Device::DeviceMatcher
 	public:
 	virtual bool operator()(int busType,unsigned short vendorId,unsigned short productId) const
 		{
-		return busType==RawHID::BUSTYPE_USB&&vendorId==0x2833U&&(productId==0x0001U||productId==0x0021U);
+		return busType==RawHID::BUSTYPE_USB&&vendorId==0x2833U&&(productId==0x0001U||productId==0x0021U||productId==0x0031U);
 		}
 	};
 
@@ -347,11 +362,15 @@ OculusRift::~OculusRift(void)
 	
 	if(deviceType==DK2)
 		{
+		#if 0
+		
 		/* Run the shutdown sequence of unknown semantics: */
 		Unknown0x02 unknown0x02(0x01U);
 		unknown0x02.get(*this);
 		unknown0x02.value=0x13U;
 		unknown0x02.set(*this,0x0000U);
+		
+		#endif
 		}
 	}
 
@@ -421,9 +440,19 @@ void OculusRift::stopStreaming(void)
 	IMU::stopStreaming();
 	}
 
+void OculusRift::enableComponents(bool enableDisplay,bool enableAudio,bool enableLeds)
+	{
+	if(deviceType==CV1)
+		{
+		/* Switch components on or off: */
+		ComponentStatus componentStatus(enableDisplay,enableAudio,enableLeds);
+		componentStatus.set(*this,0x0000U);
+		}
+	}
+
 void OculusRift::startOpticalTracking(void)
 	{
-	if(deviceType==DK2&&!opticalTracking)
+	if((deviceType==DK2||deviceType==CV1)&&!opticalTracking)
 		{
 		// DEBUGGING
 		std::cout<<"OculusRift: Turning on LEDs"<<std::endl;
@@ -432,15 +461,15 @@ void OculusRift::startOpticalTracking(void)
 		usleep(16666);
 		LEDControl ledControl;
 		ledControl.get(*this);
-		ledControl.pattern=0;
+		ledControl.pattern=deviceType==CV1?0xffU:0x00U;
 		ledControl.enable=true;
-		ledControl.autoIncrement=true;
+		ledControl.autoIncrement=false;
 		ledControl.useCarrier=true;
 		ledControl.syncInput=false;
 		ledControl.vsyncLock=false;
 		ledControl.customPattern=false;
-		ledControl.exposureLength=350U;
-		ledControl.frameInterval=16666U;
+		ledControl.exposureLength=deviceType==CV1?399U:350U;
+		ledControl.frameInterval=deviceType==CV1?19200U:16666U;
 		ledControl.vsyncOffset=0U;
 		ledControl.dutyCycle=127U;
 		ledControl.set(*this,0x0000U);
@@ -453,7 +482,7 @@ void OculusRift::startOpticalTracking(void)
 
 void OculusRift::stopOpticalTracking(void)
 	{
-	if(deviceType==DK2&&opticalTracking)
+	if((deviceType==DK2||deviceType==CV1)&&opticalTracking)
 		{
 		// DEBUGGING
 		std::cout<<"OculusRift: Turning off LEDs"<<std::endl;
@@ -461,15 +490,15 @@ void OculusRift::stopOpticalTracking(void)
 		/* Turn off the LEDs: */
 		LEDControl ledControl;
 		ledControl.get(*this);
-		ledControl.pattern=0;
+		ledControl.pattern=deviceType==CV1?0xffU:0x00U;
 		ledControl.enable=false;
 		ledControl.autoIncrement=false;
 		ledControl.useCarrier=false;
 		ledControl.syncInput=false;
 		ledControl.vsyncLock=false;
 		ledControl.customPattern=false;
-		ledControl.exposureLength=350U;
-		ledControl.frameInterval=16666U;
+		ledControl.exposureLength=deviceType==CV1?399U:350U;
+		ledControl.frameInterval=deviceType==CV1?19200U:16666U;
 		ledControl.vsyncOffset=0U;
 		ledControl.dutyCycle=127U;
 		ledControl.set(*this,0x0000U);

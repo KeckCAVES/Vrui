@@ -2,7 +2,7 @@
 ShowEarthModel - Simple Vrui application to render a model of Earth,
 with the ability to additionally display earthquake location data and
 other geology-related stuff.
-Copyright (c) 2005-2015 Oliver Kreylos
+Copyright (c) 2005-2018 Oliver Kreylos
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -26,7 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <GL/gl.h>
 #include <GL/GLMaterial.h>
 #include <GL/GLObject.h>
-#include <Images/RGBImage.h>
+#include <Images/BaseImage.h>
 #include <GLMotif/Slider.h>
 #include <GLMotif/ToggleButton.h>
 #include <Vrui/GeodeticCoordinateTransform.h>
@@ -105,7 +105,7 @@ class ShowEarthModel:public Vrui::Application,public GLObject
 	float rotationAngle; // Current Earth rotation angle
 	float rotationSpeed; // Earth rotation speed in degree/second
 	RotatedGeodeticCoordinateTransform* userTransform; // Coordinate transformation from user space to navigation space
-	Images::RGBImage surfaceImage; // Texture image for the Earth surface
+	Images::BaseImage surfaceImage; // Texture image for the Earth surface
 	bool showSurface; // Flag if the Earth surface is rendered
 	bool surfaceTransparent; // Flag if the Earth surface is rendered transparently
 	GLMaterial surfaceMaterial; // OpenGL material properties for the Earth surface

@@ -2,7 +2,7 @@
 BaseImage - Generic base class to represent images of arbitrary pixel
 formats. The image coordinate system is such that pixel (0,0) is in the
 lower-left corner.
-Copyright (c) 2016-2017 Oliver Kreylos
+Copyright (c) 2016-2018 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -180,11 +180,30 @@ class BaseImage
 		{
 		return rep->scalarType;
 		}
+	
+	/* Basic image processing methods: */
+	BaseImage dropAlpha(void) const; // Returns a new image with the alpha channel dropped; returns itself when there is no alpha channel
+	BaseImage addAlpha(double alpha) const; // Returns a new image with an alpha channel of the given alpha value in [0, 1] added; returns itself without changing the alpha channel if there is already one
+	BaseImage toGrey(void) const; // Returns a new image representing this image's luminance; returns itself if the image is already greyscale; retains existing alpha channel
+	BaseImage toRgb(void) const; // Returns a new image representing this greyscale image in RGB color space; returns itself if the image is already RGB; retains existing alpha channel
+	BaseImage shrink(void) const; // Returns a version of this image downsampled by a factor of two (for mipmap generation); assumes size of image is even in both directions
+	
+	/* OpenGL interface methods: */
 	GLenum getInternalFormat(void) const; // Returns an internal OpenGL texture format compatible with this image
 	BaseImage& glReadPixels(GLint x,GLint y); // Reads the frame buffer contents into the image
 	void glDrawPixels(void) const; // Writes image to the frame buffer at the current raster position
 	void glTexImage2D(GLenum target,GLint level,GLint internalFormat,bool padImageSize =false) const; // Uploads an image as an OpenGL texture
-	void glTexImage2D(GLenum target,GLint level,bool padImageSize =false) const; // Ditto, but guesses internal format based on image format
+	void glTexImage2D(GLenum target,GLint level,bool padImageSize =false) const // Ditto, but guesses internal format based on image format
+		{
+		/* Call the general function with a guessed internal format: */
+		glTexImage2D(target,level,getInternalFormat(),padImageSize);
+		}
+	void glTexImage2DMipmap(GLenum target,GLint internalFormat,bool padImageSize =false) const; // Uploads an image as a full mipmap starting at level 0
+	void glTexImage2DMipmap(GLenum target,bool padImageSize =false) const // Ditto, but guesses internal format based on image format
+		{
+		/* Call the general function with a guessed internal format: */
+		glTexImage2DMipmap(target,getInternalFormat(),padImageSize);
+		}
 	void glTexSubImage2D(GLenum target,GLint level,GLint xOffset,GLint yOffset) const; // Uploads an image as a part of a larger OpenGL texture
 	void glTexSubImage3D(GLenum target,GLint level,GLint xOffset,GLint yOffset,GLint zOffset) const; // Uploads an image as a (part of) single slice of an OpenGL 3D texture
 	};

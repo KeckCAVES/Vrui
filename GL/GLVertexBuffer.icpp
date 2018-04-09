@@ -1,0 +1,222 @@
+/***********************************************************************
+GLVertexBuffer - Class to represent OpenGL vertex buffer objects
+containg typed vertices.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the OpenGL Support Library (GLSupport).
+
+The OpenGL Support Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The OpenGL Support Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the OpenGL Support Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define GLVERTEXBUFFER_IMPLEMENTATION
+
+#include <GL/GLVertexBuffer.h>
+
+#include <GL/GLVertexArrayParts.h>
+#include <GL/GLContextData.h>
+
+/*****************************************
+Methods of class GLVertexBuffer::DataItem:
+*****************************************/
+
+template <class VertexParam>
+inline
+GLVertexBuffer<VertexParam>::DataItem::DataItem(
+	void)
+	:vertexBufferObjectId(0),
+	 parameterVersion(0),version(0)
+	{
+	/* Initialize the GL_ARB_vertex_buffer_object extension: */
+	GLARBVertexBufferObject::initExtension();
+	
+	/* Allocate a buffer object: */
+	glGenBuffersARB(1,&vertexBufferObjectId);
+	}
+
+template <class VertexParam>
+inline
+GLVertexBuffer<VertexParam>::DataItem::~DataItem(
+	void)
+	{
+	/* Release the buffer object: */
+	glDeleteBuffersARB(1,&vertexBufferObjectId);
+	}
+
+/*******************************
+Methods of class GLVertexBuffer:
+*******************************/
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::initContext(
+	GLContextData& contextData) const
+	{
+	/* Create an OpenGL context data item and associate it with the OpenGL context: */
+	DataItem* dataItem=new DataItem;
+	contextData.addDataItem(this,dataItem);
+	
+	/* Initialize the vertex buffer object: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+	glBufferDataARB(GL_ARRAY_BUFFER_ARB,numVertices*sizeof(Vertex),sourceVertices,bufferUsage);
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
+	
+	/* Mark the buffer as up-to-date: */
+	dataItem->version=version;
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::invalidate(
+	void)
+	{
+	++version;
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::setSource(
+	size_t newNumVertices,
+	const typename GLVertexBuffer<VertexParam>::Vertex* newSourceVertices)
+	{
+	numVertices=newNumVertices;
+	sourceVertices=newSourceVertices;
+	++parameterVersion;
+	++version;
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::setBufferUsage(
+	GLenum newBufferUsage)
+	{
+	bufferUsage=newBufferUsage;
+	++parameterVersion;
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::bind(
+	GLContextData& contextData) const
+	{
+	/* Retrieve the OpenGL context data item: */
+	DataItem* dataItem=contextData.retrieveDataItem<DataItem>(this);
+	
+	/* Bind the buffer: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+	
+	/* Check if the buffer contents are outdated: */
+	if(dataItem->version!=version||dataItem->parameterVersion!=parameterVersion)
+		{
+		/* Upload the new source vertex array contents and mark the buffer as valid: */
+		glBufferDataARB(GL_ARRAY_BUFFER_ARB,numVertices*sizeof(Vertex),sourceVertices,bufferUsage);
+		dataItem->parameterVersion=parameterVersion;
+		dataItem->version=version;
+		}
+	
+	/* Enable OpenGL vertex array state: */
+	GLVertexArrayParts::enable(Vertex::getPartsMask());
+	glVertexPointer(static_cast<const Vertex*>(0));
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::unbind(
+	void)
+	{
+	/* Disable OpenGL vertex array state: */
+	GLVertexArrayParts::disable(Vertex::getPartsMask());
+	
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,0);
+	}
+
+template <class VertexParam>
+inline
+typename GLVertexBuffer<VertexParam>::DataItem*
+GLVertexBuffer<VertexParam>::getDataItem(
+	GLContextData& contextData) const
+	{
+	/* Retrieve the OpenGL context data item: */
+	return contextData.retrieveDataItem<DataItem>(this);
+	}
+
+template <class VertexParam>
+inline
+typename GLVertexBuffer<VertexParam>::Vertex*
+GLVertexBuffer<VertexParam>::startUpdate(
+	typename GLVertexBuffer<VertexParam>::DataItem* dataItem) const
+	{
+	/* Bind the buffer: */
+	glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+	
+	/* Check if the buffer's parameters changed: */
+	if(dataItem->parameterVersion!=parameterVersion)
+		{
+		/* Re-create the buffer without vertex data: */
+		glBufferDataARB(GL_ARRAY_BUFFER_ARB,numVertices*sizeof(Vertex),0,bufferUsage);
+		dataItem->parameterVersion=parameterVersion;
+		}
+	
+	/* Map the buffer's vertices to CPU memory for update: */
+	return static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY));
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::finishUpdate(
+	typename GLVertexBuffer<VertexParam>::DataItem* dataItem) const
+	{
+	/* Unmap the buffer and mark it as up-to-date: */
+	glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+	dataItem->version=version;
+	
+	/* Enable OpenGL vertex array state: */
+	GLVertexArrayParts::enable(Vertex::getPartsMask());
+	glVertexPointer(static_cast<const Vertex*>(0));
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::draw(
+	GLenum mode,
+	GLContextData& contextData) const
+	{
+	/* Bind the buffer, draw it, then unbind: */
+	bind(contextData);
+	glDrawArrays(mode,0,GLsizei(numVertices));
+	unbind();
+	}
+
+template <class VertexParam>
+inline
+void
+GLVertexBuffer<VertexParam>::draw(
+	GLenum mode,
+	GLint first,
+	GLsizei count,
+	GLContextData& contextData) const
+	{
+	/* Bind the buffer, draw it, then unbind: */
+	bind(contextData);
+	glDrawArrays(mode,first,count);
+	unbind();
+	}

@@ -1,6 +1,6 @@
 /***********************************************************************
 Viewer - Class for viewers/observers in VR environments.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -43,6 +43,13 @@ namespace Vrui {
 Methods of class Viewer:
 ***********************/
 
+void Viewer::inputDeviceStateChangeCallback(InputGraphManager::InputDeviceStateChangeCallbackData* cbData)
+	{
+	/* Set viewer state if this is our head tracking device: */
+	if(headTracked&&cbData->inputDevice==headDevice)
+		enabled=cbData->newEnabled;
+	}
+
 Viewer::Viewer(void)
 	:viewerName(0),
 	 headTracked(false),headDevice(0),headDeviceAdapter(0),headDeviceIndex(-1),
@@ -53,13 +60,17 @@ Viewer::Viewer(void)
 	 deviceRightEyePosition(Point::origin),
 	 lightsource(0),
 	 headLightDevicePosition(Point::origin),
-	 headLightDeviceDirection(0,1,0)
+	 headLightDeviceDirection(0,1,0),
+	 enabled(true)
 	{
 	/* Create the viewer's light source: */
 	lightsource=getLightsourceManager()->createLightsource(true);
 	
 	/* Disable the light source by default: */
 	lightsource->disable();
+	
+	/* Register callbacks with the input graph manager: */
+	getInputGraphManager()->getInputDeviceStateChangeCallbacks().add(this,&Viewer::inputDeviceStateChangeCallback);
 	}
 
 Viewer::~Viewer(void)
@@ -67,6 +78,9 @@ Viewer::~Viewer(void)
 	delete[] viewerName;
 	if(lightsource!=0)
 		getLightsourceManager()->destroyLightsource(lightsource);
+	
+	/* Unregister callbacks with the input graph manager: */
+	getInputGraphManager()->getInputDeviceStateChangeCallbacks().remove(this,&Viewer::inputDeviceStateChangeCallback);
 	}
 
 void Viewer::initialize(const Misc::ConfigurationFileSection& configFileSection)
@@ -84,10 +98,7 @@ void Viewer::initialize(const Misc::ConfigurationFileSection& configFileSection)
 		headDevice=findInputDevice(configFileSection.retrieveString("./headDevice").c_str());
 		if(headDevice==0)
 			Misc::throwStdErr("Viewer: Head device \"%s\" not found",configFileSection.retrieveString("./headDevice").c_str());
-		
-		/* Get the head device's adapter and device index: */
-		headDeviceAdapter=getInputDeviceManager()->findInputDeviceAdapter(headDevice);
-		headDeviceIndex=headDeviceAdapter->findInputDevice(headDevice);
+		attachToDevice(headDevice);
 		}
 	else
 		{
@@ -128,7 +139,7 @@ void Viewer::initialize(const Misc::ConfigurationFileSection& configFileSection)
 		}
 	}
 
-void Viewer::attachToDevice(const InputDevice* newHeadDevice)
+void Viewer::attachToDevice(InputDevice* newHeadDevice)
 	{
 	/* Do nothing if new head device is invalid: */
 	if(newHeadDevice!=0)
@@ -140,6 +151,9 @@ void Viewer::attachToDevice(const InputDevice* newHeadDevice)
 		/* Get the head device's adapter and device index: */
 		headDeviceAdapter=getInputDeviceManager()->findInputDeviceAdapter(headDevice);
 		headDeviceIndex=headDeviceAdapter->findInputDevice(headDevice);
+		
+		/* Check if the head device is currently enabled: */
+		enabled=getInputGraphManager()->isEnabled(headDevice);
 		}
 	}
 
@@ -157,6 +171,9 @@ void Viewer::detachFromDevice(const TrackerState& newHeadDeviceTransformation)
 	Vector hld=headDeviceTransformation.transform(headLightDeviceDirection);
 	hld.normalize();
 	lightsource->getLight().spotDirection=GLLight::SpotDirection(GLfloat(hld[0]),GLfloat(hld[1]),GLfloat(hld[2]));
+	
+	/* Enable the viewer: */
+	enabled=true;
 	}
 
 void Viewer::setIPD(Scalar newIPD)

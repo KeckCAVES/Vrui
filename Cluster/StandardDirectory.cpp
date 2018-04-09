@@ -1,7 +1,7 @@
 /***********************************************************************
 StandardDirectory - Pair of classes to access cluster-transparent
 standard filesystem directories.
-Copyright (c) 2011-2014 Oliver Kreylos
+Copyright (c) 2011-2018 Oliver Kreylos
 
 This file is part of the Cluster Abstraction Library (Cluster).
 
@@ -132,49 +132,50 @@ Misc::PathType StandardDirectory::getEntryType(void) const
 
 IO::FilePtr StandardDirectory::openFile(const char* fileName,IO::File::AccessMode accessMode) const
 	{
-	/* Assemble the absolute path name of the given file: */
-	std::string filePath;
+	/* Check if the file name is absolute: */
 	if(fileName[0]=='/')
 		{
-		/* Use the provided absolute file path: */
-		filePath=fileName;
+		/* Open and return the file using the absolute path: */
+		return Cluster::openFile(pipe.getMultiplexer(),fileName,accessMode);
 		}
 	else
 		{
-		/* Create a relative file path: */
-		filePath=pathName;
+		/* Assemble the absolute path name of the given file based on this directory's path name: */
+		std::string filePath=pathName;
 		if(filePath.length()>1)
 			filePath.push_back('/');
 		filePath.append(fileName);
+		
+		/* Open and return the file: */
+		return Cluster::openFile(pipe.getMultiplexer(),filePath.c_str(),accessMode);
 		}
-	
-	/* Open and return the file: */
-	return Cluster::openFile(pipe.getMultiplexer(),filePath.c_str(),accessMode);
 	}
 
 IO::DirectoryPtr StandardDirectory::openDirectory(const char* directoryName) const
 	{
-	/* Assemble the absolute path name of the given directory: */
-	std::string directoryPath;
+	/* Check if the directory name is absolute: */
 	if(directoryName[0]=='/')
 		{
-		/* Use the provided absolute path: */
-		directoryPath=directoryName;
+		/* Open and return the directory using the absolute path: */
+		if(pipe.getMultiplexer()->isMaster())
+			return new StandardDirectoryMaster(pipe.getMultiplexer(),directoryName);
+		else
+			return new StandardDirectorySlave(pipe.getMultiplexer(),directoryName);
 		}
 	else
 		{
-		/* Create a relative path: */
-		directoryPath=pathName;
+		/* Assemble the absolute path name of the given directory based on this directory's path name: */
+		std::string directoryPath=pathName;
 		if(directoryPath.length()>1)
 			directoryPath.push_back('/');
 		directoryPath.append(directoryName);
+		
+		/* Open and return the directory: */
+		if(pipe.getMultiplexer()->isMaster())
+			return new StandardDirectoryMaster(pipe.getMultiplexer(),directoryPath.c_str());
+		else
+			return new StandardDirectorySlave(pipe.getMultiplexer(),directoryPath.c_str());
 		}
-	
-	/* Return the new directory: */
-	if(pipe.getMultiplexer()->isMaster())
-		return new StandardDirectoryMaster(pipe.getMultiplexer(),directoryPath.c_str());
-	else
-		return new StandardDirectorySlave(pipe.getMultiplexer(),directoryPath.c_str());
 	}
 
 /****************************************

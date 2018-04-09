@@ -96,6 +96,7 @@ SYSTEM_HAVE_RPATH = 1
 HOST_OS = $(shell uname -s)
 HOST_ARCH = $(shell uname -m)
 
+# Special settings for Linux, including 64-bit Linux:
 ifeq ($(HOST_OS),Linux)
   SYSTEM = LINUX
   OSSPECFILEINSERT = Linux
@@ -111,9 +112,10 @@ ifeq ($(HOST_OS),Linux)
   endif
   SYSTEM_HAVE_SPINLOCKS = 1
   SYSTEM_CAN_CANCEL_THREADS = 1
-  SYSTEM_X11_LIBDIR = /usr/$(LIBEXT)
+  SYSTEM_X11_BASEDIR = /usr
 endif
 
+# Special settings for Mac OSX:
 ifeq ($(HOST_OS),Darwin)
   SYSTEM = DARWIN
   OSSPECFILEINSERT = MacOSX
@@ -135,26 +137,32 @@ ifeq ($(HOST_OS),Darwin)
   SYSTEM_HAVE_TRANSITIVE_PLUGINS = 0
   VRUIAPP_LFLAGS = -flat_namespace -bind_at_load
   
-  # MacPorts installs packages in /opt/local by default:
+  # MacPorts installs packages in /opt/local by default
   SYSTEM_PACKAGE_SEARCH_PATHS += /opt/local
   
   SYSTEM_SEPARATE_LIBDL = 0
   SYSTEM_HAVE_RT = 0
   SYSTEM_SEPARATE_LIBPTHREAD = 0
-  SYSTEM_X11_LIBDIR = /usr/X11/lib
+  SYSTEM_X11_BASEDIR = /opt/X11
   SYSTEM_GL_WITH_X11 = 1
   SYSTEM_HAVE_GLXGETPROCADDRESS = 0
   SYSTEM_OPENAL_FRAMEWORK = 1
+  
+  # Determine the appropriate Mac OSX deployment target based on OS release:
   SYSTEM_UNAME_MAJOR = $(shell expr `uname -r` : "\([0-9]*\)")
-  ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "9"),1)
-    ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "10"),1)
-      SYSTEM_DARWIN_VERSION = 10.6
+  ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "10"),1)
+    ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "16"),1)
+      SYSTEM_DARWIN_VERSION = 10.9
     else
-      SYSTEM_DARWIN_VERSION = 10.5
-      VRUIAPP_LFLAGS += -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+      SYSTEM_DARWIN_VERSION = 10.6
     endif
   else
-    SYSTEM_DARWIN_VERSION = 10.4
+    ifeq ($(shell expr $(SYSTEM_UNAME_MAJOR) ">=" "9"),1)
+      SYSTEM_DARWIN_VERSION = 10.5
+      VRUIAPP_LFLAGS += -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+    else
+      SYSTEM_DARWIN_VERSION = 10.4
+    endif
   endif
   export MACOSX_DEPLOYMENT_TARGET = $(SYSTEM_DARWIN_VERSION)
   SYSTEM_HAVE_RPATH = 0

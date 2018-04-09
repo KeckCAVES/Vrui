@@ -1888,6 +1888,11 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 </TR>
 
 <TR>
+<TD>Optional Buttons</TD><TD>&gt;=0</TD>
+<TD>Signal that the touchpad is being touched, but not pressed. Selects touchpad visualization if enabled.</TD>
+</TR>
+
+<TR>
 <TD>Required Valuators</TD><TD>2</TD>
 <TD>X and Y axis of 2D touchpad coordinate system determining which simulated button is pressed when the touchpad is clicked.</TD>
 </TR>
@@ -1909,6 +1914,26 @@ If the specified or selected file name has extension &quot;.views&quot;, the too
 <TR>
 <TD>useCenterButton</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
 <TD>Flag whether clicking the touchpad's central area simulates an additional button. If false, touchpad clicks inside the center area will be ignored.</TD>
+</TR>
+
+<TR>
+<TD>drawOnTouch</TD><TD><A HREF="VruiCFGTypes.html#boolean">boolean</A></TD><TD>false</TD>
+<TD>Flag whether touching the touchpad will show a visualization of the touchpad. Requires binding a second button signaling touch events.</TD>
+</TR>
+
+<TR>
+<TD>touchpadTransform</TD><TD><A HREF="VruiCFGTypes.html#trackerstate">tracker state</A></TD><TD>identity</TD>
+<TD>Transformation from the coordinate system of the device to which the touchpad tool is bound to the touchpad's area. Only used if touchpad visualization is enabled.</TD>
+</TR>
+
+<TR>
+<TD>touchpadRadius</TD><TD><A HREF="VruiCFGTypes.html#number">number</A></TD><TD>1.0</TD>
+<TD>Radius of the touchpad in physical coordinate units. Only used if touchpad visualization is enabled.</TD>
+</TR>
+
+<TR>
+<TD>touchpadColor</TD><TD><A HREF="VruiCFGTypes.html#color">color</A></TD><TD>(0.0, 1.0, 0.0, 1.0)</TD>
+<TD>Color to visualize the touchpad. Only used if touchpad visualization is enabled.</TD>
 </TR>
 </TABLE>
 
