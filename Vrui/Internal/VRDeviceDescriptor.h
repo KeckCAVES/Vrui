@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceDescriptor - Class describing the structure of an input device
 represented by a VR device daemon.
-Copyright (c) 2010-2017 Oliver Kreylos
+Copyright (c) 2010-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -68,6 +68,11 @@ class VRDeviceDescriptor
 	int numHapticFeatures; // Number of haptic feedback features on the device
 	std::string* hapticFeatureNames; // Array of haptic feature names
 	int* hapticFeatureIndices; // Array of indices of device's haptic features in VR device daemon's flat namespace
+	
+	/* Private methods: */
+	void initButtons(int newNumButtons); // Initializes button names and indices based on new number
+	void initValuators(int newNumValuators); // Initializes valuator names and indices based on new number
+	void initHapticFeatures(int newNumHapticFeatures); // Initializes haptic feature names and indices based on new number
 	
 	/* Constructors and destructors: */
 	public:

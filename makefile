@@ -188,7 +188,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4005001
+VRUI_VERSION = 4005002
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 5
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -426,10 +426,24 @@ EXECUTABLES += $(EXEDIR)/DeviceTest \
                $(EXEDIR)/TrackingTest
 
 #
+# A utility to find connected HMDs:
+#
+
+EXECUTABLES += $(EXEDIR)/FindHMD
+
+#
 # The Vrui environment setup program:
 #
 
 EXECUTABLES += $(EXEDIR)/RoomSetup
+
+#
+# A helper script to run Vrui applications on a Vive HMD:
+#
+
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+  EXECUTABLES += $(EXEDIR)/OnVive.sh
+endif
 
 #
 # The Vrui eye calibration program:
@@ -1696,6 +1710,15 @@ $(EXEDIR)/TrackingTest: $(OBJDIR)/Vrui/Utilities/TrackingTest.o
 TrackingTest: $(EXEDIR)/TrackingTest
 
 #
+# The HMD detector utility:
+#
+
+$(EXEDIR)/FindHMD: PACKAGES += X11 XRANDR
+$(EXEDIR)/FindHMD: $(OBJDIR)/Vrui/Utilities/FindHMD.o
+.PHONY: FindHMD
+FindHMD: $(EXEDIR)/FindHMD
+
+#
 # The Vrui environment setup program:
 #
 
@@ -1703,6 +1726,18 @@ $(EXEDIR)/RoomSetup: PACKAGES += MYVRUI
 $(EXEDIR)/RoomSetup: $(OBJDIR)/Vrui/Utilities/RoomSetup.o
 .PHONY: RoomSetup
 RoomSetup: $(EXEDIR)/RoomSetup
+
+#
+# The Vive application helper script:
+#
+
+ifneq ($(SYSTEM_HAVE_OPENVR),0)
+$(EXEDIR)/OnVive.sh:
+	@echo Creating helper script to run Vrui applications on a Vive headset...
+	@cp Share/OnVive.sh $(EXEDIR)/OnVive.sh
+	@sed -i -e 's@VRUIBINDIR=.*@VRUIBINDIR=$(EXECUTABLEINSTALLDIR)@' $(EXEDIR)/OnVive.sh
+	@chmod a+x $(EXEDIR)/OnVive.sh
+endif
 
 #
 # The Vrui eye calibration program:

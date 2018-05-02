@@ -1,7 +1,7 @@
 /***********************************************************************
 Internal kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2017 Oliver Kreylos
+Copyright (c) 2000-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -218,6 +218,7 @@ struct VruiState
 	GLMotif::CascadeButton* dialogsMenuCascade;
 	MutexMenu* mainMenu;
 	GLMotif::FileSelectionHelper viewSelectionHelper; // Helper to load and save view files
+	bool userMessagesToConsole; // Flag whether to route user messages, normally displayed as dialog boxes, to the console instead
 	
 	/* 3D picking management: */
 	Scalar pointPickDistance;

@@ -1,7 +1,7 @@
 /***********************************************************************
 Environment-independent part of Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2017 Oliver Kreylos
+Copyright (c) 2000-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -471,6 +471,7 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 systemMenu(0),dialogsMenuCascade(0),
 	 mainMenu(0),
 	 viewSelectionHelper(0,"SavedViewpoint.view",".view",0),
+	 userMessagesToConsole(false),
 	 navigationTransformationEnabled(false),
 	 delayNavigationTransformation(false),
 	 navigationTransformationChangedMask(0x0),
@@ -662,6 +663,9 @@ void VruiState::initialize(const Misc::ConfigurationFileSection& configFileSecti
 	else
 		Misc::throwStdErr("Vrui::initialize: Unknown UI manager type \"%s\"",uiManagerType.c_str());
 	widgetManager->setArranger(uiManager); // Widget manager now owns uiManager object
+	
+	/* Remember whether to route user messages to the console: */
+	userMessagesToConsole=configFileSection.retrieveValue<bool>("./userMessagesToConsole",userMessagesToConsole);
 	
 	/* Create a text event dispatcher to manage GLMotif text and text control events in a cluster-transparent manner: */
 	textEventDispatcher=new TextEventDispatcher(master);
@@ -977,8 +981,8 @@ DisplayState* VruiState::registerContext(GLContextData& contextData) const
 
 void VruiState::prepareMainLoop(void)
 	{
-	/* From now on, display all user messages as GLMotif dialogs: */
-	dynamic_cast<MessageLogger*>(Misc::MessageLogger::getMessageLogger().getPointer())->setUserToConsole(false);
+	/* From now on, display all user messages as GLMotif dialogs unless told otherwise: */
+	dynamic_cast<MessageLogger*>(Misc::MessageLogger::getMessageLogger().getPointer())->setUserToConsole(userMessagesToConsole);
 	
 	/* Create the system menu if the application didn't install one: */
 	if(mainMenu==0)

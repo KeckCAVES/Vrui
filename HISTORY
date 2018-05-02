@@ -5432,3 +5432,19 @@ Vrui-4.5-001:
     Vrui::InputDeviceAdapterDeviceDaemon.
 - Changed OpenVRHost device driver module to always send state updates
   even when tracking data is not valid, to notify clients of changes.
+
+Vrui-4.5-002:
+- Added configuration setting "userMessagesToConsole" to Vrui root
+  section.
+- Changed load() method in Vrui::VRDeviceDescriptor to retain already-
+  configured descriptor state.
+- Virtual device descriptors configured in VRDevices.cfg now get
+  configuration section name as default device name.
+- Added override of automatic virtual device descriptors based on named
+  configuration file sections to OpenVRHost VRDeviceDaemon module.
+- Added new FindHMD Vrui utility to auto-detect connected HMDs and find
+  the video output ports to which they are connected, to simplify
+  managing HMDs via shell scripts.
+  - Changed OnVive.sh shell script to use FindHMD utility.
+- Slightly modified ControlWindow.cfg patch configuration file for
+  better defaults.
