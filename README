@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui version 4.5, build 001
+README for Vrui version 4.5, build 002
 Copyright (c) 1998-2018 Oliver Kreylos
 ========================================================================
 
@@ -486,7 +486,7 @@ correctly.
 Setting up HTC Vive
 ===================
 
-If Vrui was built with support for HTC Vive VR headsets, the users
+If Vrui was built with support for HTC Vive VR headsets, the user's
 physical environment needs to be configured before Vrui applications
 should be run on the HTC Vive. In general, any Vrui utility or
 application using the HTC Vive requires that Vrui's device driver,
@@ -501,7 +501,7 @@ by pressing Ctrl+C in its terminal.
 The device driver can be tested by connecting to it using Vrui's
 DeviceTest utility. From a second terminal, run:
 
-> DeviceTest localhost:8555 -t 0 -p
+> DeviceTest -t 0 -p
 
 This will continuously print the 3D position of the Vive headset until
 shut down by pressing any key. If the 3D position is initially invalid
@@ -601,3 +601,25 @@ Running Vrui Applications on HTC Vive
 To run a Vrui application on the HTC Vive, first start Vrui's device
 driver in Vive mode as detailed above. Then, run any Vrui application
 and append -rootSection Vive to the end of its command line.
+
+On Nvidia graphics cards, running a Vrui application on a Vive HMD
+requires telling the graphics driver to which video output port to
+synchronize OpenGL operations. If OpenGL synchronizes to the wrong
+display, the Vive will be unusable due to judder and lag.
+
+Unfortunately, Nvidia's driver offers no functionality to select a
+synchronization output from inside a running application; the selection
+has to be made through the __GL_SYNC_DISPLAY_DEVICE environment
+variable. To simplify this setup, Vrui installs a helper script,
+OnVive.sh, alongside its executables (by default in /usr/local/bin).
+This script will attempt to detect to which video output port a Vive is
+connected, tell OpenGL to synchronize to that port, and then start a
+Vrui application. To run a Vrui application using the script, simply
+pass the application's full command line, minus the -rootSection Vive
+option, to the OnVive.sh script:
+
+> OnVive.sh <Vrui application name> <argument_1> ... <argument_n>
+
+If OnVive.sh detects a connected and enabled Vive HMD, it will run the
+Vrui application on it. If it does not, it will print an error message
+and exit.

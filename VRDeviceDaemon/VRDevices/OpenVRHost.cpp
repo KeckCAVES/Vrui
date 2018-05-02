@@ -516,6 +516,9 @@ OpenVRHost::OpenVRHost(VRDevice::Factory* sFactory,VRDeviceManager* sDeviceManag
 					vd->hapticFeatureIndices[i]=deviceManager->addHapticFeature(this,nextHapticFeatureIndex++);
 					}
 				
+				/* Override virtual device settings from a configuration file section of the device's name: */
+				vd->load(configFile.getSection(vd->name.c_str()));
+				
 				/* Register the virtual device: */
 				virtualDeviceIndices[deviceType][deviceIndex]=addVirtualDevice(vd);
 				}

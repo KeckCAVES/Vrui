@@ -1,7 +1,7 @@
 /***********************************************************************
 VRDeviceDescriptor - Class describing the structure of an input device
 represented by a VR device daemon.
-Copyright (c) 2010-2017 Oliver Kreylos
+Copyright (c) 2010-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -40,6 +40,99 @@ namespace Vrui {
 Methods of class VRDeviceDescriptor:
 ***********************************/
 
+void VRDeviceDescriptor::initButtons(int newNumButtons)
+	{
+	/* Allocate new button name and index arrays: */
+	std::string* newButtonNames=newNumButtons>0?new std::string[newNumButtons]:0;
+	int* newButtonIndices=newNumButtons>0?new int[newNumButtons]:0;
+	
+	/* Copy existing button names and indices: */
+	int i;
+	for(i=0;i<numButtons&&i<newNumButtons;++i)
+		{
+		newButtonNames[i]=buttonNames[i];
+		newButtonIndices[i]=buttonIndices[i];
+		}
+	
+	/* Create default names and invalid indices for the rest of the buttons: */
+	for(;i<newNumButtons;++i)
+		{
+		newButtonNames[i]="Button";
+		char index[10];
+		newButtonNames[i].append(Misc::print(i,index+sizeof(index)-1));
+		newButtonIndices[i]=-1;
+		}
+	
+	/* Install the new button arrays: */
+	numButtons=newNumButtons;
+	delete[] buttonNames;
+	buttonNames=newButtonNames;
+	delete[] buttonIndices;
+	buttonIndices=newButtonIndices;
+	}
+
+void VRDeviceDescriptor::initValuators(int newNumValuators)
+	{
+	/* Allocate new valuator name and index arrays: */
+	std::string* newValuatorNames=newNumValuators>0?new std::string[newNumValuators]:0;
+	int* newValuatorIndices=newNumValuators>0?new int[newNumValuators]:0;
+	
+	/* Copy existing valuator names and indices: */
+	int i;
+	for(i=0;i<numValuators&&i<newNumValuators;++i)
+		{
+		newValuatorNames[i]=valuatorNames[i];
+		newValuatorIndices[i]=valuatorIndices[i];
+		}
+	
+	/* Create default names and invalid indices for the rest of the valuators: */
+	for(;i<newNumValuators;++i)
+		{
+		newValuatorNames[i]="Valuator";
+		char index[10];
+		newValuatorNames[i].append(Misc::print(i,index+sizeof(index)-1));
+		newValuatorIndices[i]=-1;
+		}
+	
+	/* Install the new valuator arrays: */
+	numValuators=newNumValuators;
+	delete[] valuatorNames;
+	valuatorNames=newValuatorNames;
+	delete[] valuatorIndices;
+	valuatorIndices=newValuatorIndices;
+	}
+
+void VRDeviceDescriptor::initHapticFeatures(int newNumHapticFeatures)
+	{
+	/* Allocate new haptic feature name and index arrays: */
+	std::string* newHapticFeatureNames=newNumHapticFeatures>0?new std::string[newNumHapticFeatures]:0;
+	int* newHapticFeatureIndices=newNumHapticFeatures>0?new int[newNumHapticFeatures]:0;
+	
+	/* Copy existing haptic feature names and indices: */
+	int i;
+	for(i=0;i<numHapticFeatures&&i<newNumHapticFeatures;++i)
+		{
+		newHapticFeatureNames[i]=hapticFeatureNames[i];
+		newHapticFeatureIndices[i]=hapticFeatureIndices[i];
+		}
+	
+	/* Create default names and invalid indices for the rest of the haptic features: */
+	for(;i<newNumHapticFeatures;++i)
+		{
+		newHapticFeatureNames[i]="HapticFeature";
+		char index[10];
+		newHapticFeatureNames[i].append(Misc::print(i,index+sizeof(index)-1));
+		newHapticFeatureIndices[i]=-1;
+		}
+	
+	/* Install the new haptic feature arrays: */
+	numHapticFeatures=newNumHapticFeatures;
+	delete[] hapticFeatureNames;
+	hapticFeatureNames=newHapticFeatureNames;
+	delete[] hapticFeatureIndices;
+	hapticFeatureIndices=newHapticFeatureIndices;
+	}
+
 VRDeviceDescriptor::VRDeviceDescriptor(void)
 	:trackType(TRACK_NONE),rayDirection(0,1,0),rayStart(0.0f),
 	 hasBattery(false),canPowerOff(false),
@@ -54,20 +147,14 @@ VRDeviceDescriptor::VRDeviceDescriptor(int sNumButtons,int sNumValuators,int sNu
 	:trackType(TRACK_NONE),rayDirection(0,1,0),rayStart(0.0f),
 	 hasBattery(false),canPowerOff(false),
 	 trackerIndex(-1),
-	 numButtons(sNumButtons),
-	 buttonNames(numButtons>0?new std::string[numButtons]:0),buttonIndices(numButtons>0?new int[numButtons]:0),
-	 numValuators(sNumValuators),
-	 valuatorNames(numValuators>0?new std::string[numValuators]:0),valuatorIndices(numValuators>0?new int[numValuators]:0),
-	 numHapticFeatures(sNumHapticFeatures),
-	 hapticFeatureNames(numHapticFeatures>0?new std::string[numHapticFeatures]:0),hapticFeatureIndices(numHapticFeatures>0?new int[numHapticFeatures]:0)
+	 numButtons(0),buttonNames(0),buttonIndices(0),
+	 numValuators(0),valuatorNames(0),valuatorIndices(0),
+	 numHapticFeatures(0),hapticFeatureNames(0),hapticFeatureIndices(0)
 	{
-	/* Initialize button, valuator, and haptic feature indices: */
-	for(int i=0;i<numButtons;++i)
-		buttonIndices[i]=-1;
-	for(int i=0;i<numValuators;++i)
-		valuatorIndices[i]=-1;
-	for(int i=0;i<numHapticFeatures;++i)
-		hapticFeatureIndices[i]=-1;
+	/* Initialize buttons, valuators, and haptic features: */
+	initButtons(sNumButtons);
+	initValuators(sNumValuators);
+	initHapticFeatures(sNumHapticFeatures);
 	}
 
 VRDeviceDescriptor::~VRDeviceDescriptor(void)
@@ -168,19 +255,30 @@ void VRDeviceDescriptor::read(IO::File& source,unsigned int protocolVersion)
 		}
 	}
 
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+std::string getTrackTypeName(int trackType)
+	{
+	if(trackType==(VRDeviceDescriptor::TRACK_POS|VRDeviceDescriptor::TRACK_DIR|VRDeviceDescriptor::TRACK_ORIENT))
+		return "6D";
+	else if(trackType==(VRDeviceDescriptor::TRACK_POS|VRDeviceDescriptor::TRACK_DIR))
+		return "Ray";
+	else if(trackType==VRDeviceDescriptor::TRACK_POS)
+		return "3D";
+	else
+		return "None";
+	}
+
+}
+
 void VRDeviceDescriptor::save(Misc::ConfigurationFileSection& configFileSection) const
 	{
 	configFileSection.storeValue<std::string>("./name",name);
-	std::string trackTypeString;
-	if(trackType==(TRACK_POS|TRACK_DIR|TRACK_ORIENT))
-		trackTypeString="6D";
-	else if(trackType==(TRACK_POS|TRACK_DIR))
-		trackTypeString="Ray";
-	else if(trackType==TRACK_POS)
-		trackTypeString="3D";
-	else
-		trackTypeString="None";
-	configFileSection.storeValue<std::string>("./trackType",trackTypeString);
+	configFileSection.storeValue<std::string>("./trackType",getTrackTypeName(trackType));
 	if(trackType&TRACK_DIR)
 		{
 		configFileSection.storeValue<Vector>("./rayDirection",rayDirection);
@@ -212,113 +310,124 @@ void VRDeviceDescriptor::save(Misc::ConfigurationFileSection& configFileSection)
 
 void VRDeviceDescriptor::load(const Misc::ConfigurationFileSection& configFileSection)
 	{
-	name=configFileSection.retrieveValue<std::string>("./name");
-	std::string trackTypeString=configFileSection.retrieveValue<std::string>("./trackType","None");
-	if(trackTypeString=="6D")
+	/* Update device name: */
+	name=configFileSection.retrieveValue<std::string>("./name",name);
+	
+	/* Update device tracking type: */
+	std::string trackTypeName=configFileSection.retrieveValue<std::string>("./trackType",getTrackTypeName(trackType));
+	if(trackTypeName=="6D")
 		trackType=TRACK_POS|TRACK_DIR|TRACK_ORIENT;
-	else if(trackTypeString=="Ray")
+	else if(trackTypeName=="Ray")
 		trackType=TRACK_POS|TRACK_DIR;
-	else if(trackTypeString=="3D")
+	else if(trackTypeName=="3D")
 		trackType=TRACK_POS;
 	else
 		trackType=TRACK_NONE;
-	rayDirection=configFileSection.retrieveValue<Vector>("./rayDirection",rayDirection);
-	rayStart=configFileSection.retrieveValue<float>("./rayStart",rayStart);
+	
+	if(trackType&TRACK_DIR)
+		{
+		/* Update ray definition: */
+		rayDirection=configFileSection.retrieveValue<Vector>("./rayDirection",rayDirection);
+		rayStart=configFileSection.retrieveValue<float>("./rayStart",rayStart);
+		}
+	
+	/* Update other device state: */
 	hasBattery=configFileSection.retrieveValue<bool>("./hasBattery",hasBattery);
 	canPowerOff=configFileSection.retrieveValue<bool>("./canPowerOff",canPowerOff);
+	
+	/* Update or reset tracker index: */
 	if(trackType&TRACK_POS)
-		trackerIndex=configFileSection.retrieveValue<int>("./trackerIndex");
-
-	numButtons=configFileSection.retrieveValue<int>("./numButtons",0);
-	delete[] buttonNames;
-	buttonNames=0;
-	delete[] buttonIndices;
-	buttonIndices=0;
+		trackerIndex=configFileSection.retrieveValue<int>("./trackerIndex",trackerIndex);
+	else
+		trackerIndex=-1;
+	
+	/* Update number of buttons: */
+	int newNumButtons=configFileSection.retrieveValue<int>("./numButtons",numButtons);
+	if(numButtons!=newNumButtons)
+		initButtons(newNumButtons);
+	
+	/* Update button arrays: */
 	if(numButtons>0)
 		{
-		buttonNames=new std::string[numButtons];
-		for(int i=0;i<numButtons;++i)
+		if(configFileSection.hasTag("./buttonNames"))
 			{
-			buttonNames[i]="Button";
-			char index[10];
-			buttonNames[i].append(Misc::print(i,index+sizeof(index)-1));
+			/* Update button names: */
+			Misc::DynamicArrayValueCoder<std::string> bnCoder(buttonNames,numButtons);
+			configFileSection.retrieveValueWC<std::string*>("./buttonNames",buttonNames,bnCoder);
 			}
-		Misc::DynamicArrayValueCoder<std::string> bnCoder(buttonNames,numButtons);
-		configFileSection.retrieveValueWC<std::string*>("./buttonNames",buttonNames,bnCoder);
 		
-		buttonIndices=new int[numButtons];
 		if(configFileSection.hasTag("./buttonIndexBase"))
 			{
+			/* Create button indices using base index: */
 			int buttonIndexBase=configFileSection.retrieveValue<int>("./buttonIndexBase");
 			for(int i=0;i<numButtons;++i)
 				buttonIndices[i]=buttonIndexBase+i;
 			}
-		else
+		else if(configFileSection.hasTag("./buttonIndices"))
 			{
+			/* Read button indices: */
 			Misc::FixedArrayValueCoder<int> biCoder(buttonIndices,numButtons);
 			configFileSection.retrieveValueWC<int*>("./buttonIndices",biCoder);
 			}
 		}
 	
-	numValuators=configFileSection.retrieveValue<int>("./numValuators",0);
-	delete[] valuatorNames;
-	valuatorNames=0;
-	delete[] valuatorIndices;
-	valuatorIndices=0;
+	/* Update number of valuators: */
+	int newNumValuators=configFileSection.retrieveValue<int>("./numValuators",numValuators);
+	if(numValuators!=newNumValuators)
+		initValuators(newNumValuators);
+	
+	/* Update valuator arrays: */
 	if(numValuators>0)
 		{
-		valuatorNames=new std::string[numValuators];
-		for(int i=0;i<numValuators;++i)
+		if(configFileSection.hasTag("./valuatorNames"))
 			{
-			valuatorNames[i]="Valuator";
-			char index[10];
-			valuatorNames[i].append(Misc::print(i,index+sizeof(index)-1));
+			/* Update valuator names: */
+			Misc::DynamicArrayValueCoder<std::string> bnCoder(valuatorNames,numValuators);
+			configFileSection.retrieveValueWC<std::string*>("./valuatorNames",valuatorNames,bnCoder);
 			}
-		Misc::DynamicArrayValueCoder<std::string> vnCoder(valuatorNames,numValuators);
-		configFileSection.retrieveValueWC<std::string*>("./valuatorNames",valuatorNames,vnCoder);
 		
-		valuatorIndices=new int[numValuators];
 		if(configFileSection.hasTag("./valuatorIndexBase"))
 			{
+			/* Create valuator indices using base index: */
 			int valuatorIndexBase=configFileSection.retrieveValue<int>("./valuatorIndexBase");
 			for(int i=0;i<numValuators;++i)
 				valuatorIndices[i]=valuatorIndexBase+i;
 			}
-		else
+		else if(configFileSection.hasTag("./valuatorIndices"))
 			{
-			Misc::FixedArrayValueCoder<int> viCoder(valuatorIndices,numValuators);
-			configFileSection.retrieveValueWC<int*>("./valuatorIndices",viCoder);
+			/* Read valuator indices: */
+			Misc::FixedArrayValueCoder<int> biCoder(valuatorIndices,numValuators);
+			configFileSection.retrieveValueWC<int*>("./valuatorIndices",biCoder);
 			}
 		}
 	
-	numHapticFeatures=configFileSection.retrieveValue<int>("./numHapticFeatures",0);
-	delete[] hapticFeatureNames;
-	hapticFeatureNames=0;
-	delete[] hapticFeatureIndices;
-	hapticFeatureIndices=0;
+	/* Update number of haptic features: */
+	int newNumHapticFeatures=configFileSection.retrieveValue<int>("./numHapticFeatures",numHapticFeatures);
+	if(numHapticFeatures!=newNumHapticFeatures)
+		initHapticFeatures(newNumHapticFeatures);
+	
+	/* Update haptic feature arrays: */
 	if(numHapticFeatures>0)
 		{
-		hapticFeatureNames=new std::string[numHapticFeatures];
-		for(int i=0;i<numHapticFeatures;++i)
+		if(configFileSection.hasTag("./hapticFeatureNames"))
 			{
-			hapticFeatureNames[i]="HapticFeature";
-			char index[10];
-			hapticFeatureNames[i].append(Misc::print(i,index+sizeof(index)-1));
+			/* Update haptic feature names: */
+			Misc::DynamicArrayValueCoder<std::string> bnCoder(hapticFeatureNames,numHapticFeatures);
+			configFileSection.retrieveValueWC<std::string*>("./hapticFeatureNames",hapticFeatureNames,bnCoder);
 			}
-		Misc::DynamicArrayValueCoder<std::string> hfnCoder(hapticFeatureNames,numHapticFeatures);
-		configFileSection.retrieveValueWC<std::string*>("./hapticFeatureNames",hapticFeatureNames,hfnCoder);
 		
-		hapticFeatureIndices=new int[numHapticFeatures];
 		if(configFileSection.hasTag("./hapticFeatureIndexBase"))
 			{
+			/* Create haptic feature indices using base index: */
 			int hapticFeatureIndexBase=configFileSection.retrieveValue<int>("./hapticFeatureIndexBase");
 			for(int i=0;i<numHapticFeatures;++i)
 				hapticFeatureIndices[i]=hapticFeatureIndexBase+i;
 			}
-		else
+		else if(configFileSection.hasTag("./hapticFeatureIndices"))
 			{
-			Misc::FixedArrayValueCoder<int> hfiCoder(hapticFeatureIndices,numHapticFeatures);
-			configFileSection.retrieveValueWC<int*>("./hapticFeatureIndices",hfiCoder);
+			/* Read haptic feature indices: */
+			Misc::FixedArrayValueCoder<int> biCoder(hapticFeatureIndices,numHapticFeatures);
+			configFileSection.retrieveValueWC<int*>("./hapticFeatureIndices",biCoder);
 			}
 		}
 	}

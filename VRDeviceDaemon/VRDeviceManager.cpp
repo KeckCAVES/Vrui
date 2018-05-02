@@ -2,7 +2,7 @@
 VRDeviceManager - Class to gather position, button and valuator data
 from one or several VR devices and associate them with logical input
 devices.
-Copyright (c) 2002-2017 Oliver Kreylos
+Copyright (c) 2002-2018 Oliver Kreylos
 
 This file is part of the Vrui VR Device Driver Daemon (VRDeviceDaemon).
 
@@ -134,6 +134,7 @@ VRDeviceManager::VRDeviceManager(Misc::ConfigurationFile& configFile)
 		{
 		/* Create a new virtual device descriptor by reading the virtual device's configuration file section: */
 		Vrui::VRDeviceDescriptor* vdd=new Vrui::VRDeviceDescriptor;
+		vdd->name=*vdnIt;
 		vdd->load(configFile.getSection(vdnIt->c_str()));
 		
 		/* Store the virtual device descriptor: */
