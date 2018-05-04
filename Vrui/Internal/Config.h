@@ -1,6 +1,6 @@
 /***********************************************************************
 Config - Internal configuration header file for the Vrui Library.
-Copyright (c) 2014-2016 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -39,7 +39,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #define VRUI_INTERNAL_CONFIG_APPCONFIGDIR "Applications"
 #define VRUI_INTERNAL_CONFIG_DEFAULTROOTSECTION "Desktop"
 
-#define VRUI_INTERNAL_CONFIG_VERSION 4001002
+#define VRUI_INTERNAL_CONFIG_VERSION 4005003
 #define VRUI_INTERNAL_CONFIG_ETCDIR "/home/okreylos/Share"
 #define VRUI_INTERNAL_CONFIG_SHAREDIR "/home/okreylos/Share"
 

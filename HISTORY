@@ -5448,3 +5448,33 @@ Vrui-4.5-002:
   - Changed OnVive.sh shell script to use FindHMD utility.
 - Slightly modified ControlWindow.cfg patch configuration file for
   better defaults.
+
+Vrui-4.5-003:
+- Added -setConfig <tag>[=<value>] command line option to Vrui to
+  override configuration settings from command line.
+- Fixed OnVive.sh shell script by directing HMD window to Vive's
+  detected video output port.
+- Fixed ssh command line for cluster startup to take fully-qualified
+  name based on /proc file system on Linux.
+
+Vrui-4.5-004:
+- Improved rendering performance of SceneGraph::CurveSetNode by
+  replacing per-curve GL_LINE_STRIPs with single indexed GL_LINES array.
+- Fixed -addToolClass Vrui command line option:
+  - Added addClass() method to Vrui::ToolManager that loads a tool class
+    from DSO and adds it to the tool selection menu.
+  - Call tool manager's new addClass() method from Vrui::init() function
+    in Vrui/Internal/Vrui.Workbench.cpp.
+- Added DebugTool tool class to mess with internal Vrui settings.
+  Currently set up to toggle input device motion prediction and warp
+  reprojection.
+  - Added debug flag to disable motion prediction to
+    Vrui::InputDeviceAdapterDeviceDaemon.
+  - Added debug flag to disable reproject during warp to
+    Vrui::LensCorrector.
+- Added device battery state tracking and warnings when devices enter
+  low battery state to Vrui::InputDeviceAdapterDeviceDaemon.
+  - Added initial update of device battery states to
+    Vrui::VRDeviceClient::startStream method.
+- Added hysteresis to IPD update dialog in Vrui::LensCorrector to avoid
+  repeatedly showing IPD dialog when IPD dial on headset is loose.

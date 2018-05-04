@@ -31,16 +31,14 @@ VRUIAPPNAME=$1
 shift
 
 # Find the video output port to which the Vive is connected:
-VIVE_OUTPUT_PORT=$($VRUIBINDIR/FindHMD 2>/dev/null)
+VIVE_OUTPUT_PORT=$($VRUIBINDIR/FindHMD -size 2160 1200 -rate 89.53 2>/dev/null)
 RESULT=$?
 if (($RESULT == 0)); then
-	echo Running $VRUIAPPNAME on Vive HMD connected to video output port $VIVE_OUTPUT_PORT
-	
-	# Tell OpenGL to synchronize with the Vive's display
+	# Tell OpenGL to synchronize with the Vive's display:
 	export __GL_SYNC_DISPLAY_DEVICE=$VIVE_OUTPUT_PORT
 	
-	# Run the application in Vive mode
-	$VRUIAPPNAME -rootSection Vive "$@"
+	# Run the application in Vive mode and send the HMD window to the Vive's display:
+	$VRUIAPPNAME -rootSection Vive -setConfig HMDWindow/outputName=$VIVE_OUTPUT_PORT "$@"
 elif (($RESULT == 1)); then
 	echo No Vive HMD found\; please connect your Vive and try again
 else

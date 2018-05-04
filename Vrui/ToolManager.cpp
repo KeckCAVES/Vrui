@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -501,6 +501,53 @@ GLMotif::PopupMenu* ToolManager::createToolMenu(void)
 	return toolSelectionMenu;
 	}
 
+void ToolManager::addClassToMenu(ToolFactory* newFactory)
+	{
+	/* Extract the new tool factory's ancestor classes: */
+	const ToolFactory* ancestor=newFactory;
+	std::vector<const ToolFactory*> ancestors;
+	while(true)
+		{
+		ancestor=!ancestor->getParents().empty()?dynamic_cast<const ToolFactory*>(ancestor->getParents().front()):0;
+		if(ancestor==0)
+			break;
+		ancestors.push_back(ancestor);
+		}
+	
+	/* Traverse the tool menu, adding cascade buttons for parent classes: */
+	GLMotif::PopupMenu* menu=toolMenuPopup;
+	for(std::vector<const ToolFactory*>::reverse_iterator aIt=ancestors.rbegin();aIt!=ancestors.rend();++aIt)
+		{
+		GLMotif::Widget* ancestorWidget=menu->getMenu()->findChild((*aIt)->getClassName());
+		GLMotif::CascadeButton* ancestorCascade=dynamic_cast<GLMotif::CascadeButton*>(ancestorWidget);
+		if(ancestorCascade!=0)
+			{
+			/* Go to the ancestor's tool submenu: */
+			menu=static_cast<GLMotif::PopupMenu*>(ancestorCascade->getPopup());
+			}
+		else if(ancestorWidget==0)
+			{
+			/* Create a new cascade button and tool submenu for the ancestor: */
+			GLMotif::CascadeButton* ancestorCascade=new GLMotif::CascadeButton((*aIt)->getClassName(),menu,(*aIt)->getName());
+			
+			char popupName[256];
+			snprintf(popupName,sizeof(popupName),"%sSubmenu",(*aIt)->getClassName());
+			GLMotif::PopupMenu* ancestorSubmenu=new GLMotif::PopupMenu(popupName,getWidgetManager());
+			
+			ancestorCascade->setPopup(ancestorSubmenu);
+			ancestorSubmenu->manageMenu();
+			menu=ancestorSubmenu;
+			}
+		else
+			Misc::throwStdErr("Vrui::ToolManager::addClass: Base class name \"%s\" already exists as concrete class",(*aIt)->getClassName());
+		}
+	
+	/* Create a button for the new tool factory: */
+	GLMotif::Button* toolButton=new GLMotif::Button(newFactory->getClassName(),menu,newFactory->getName());
+	toolButton->getSelectCallbacks().add(this,&ToolManager::toolMenuSelectionCallback);
+	menu->manageMenu();
+	}
+
 void ToolManager::inputDeviceDestructionCallback(Misc::CallbackData* cbData)
 	{
 	/* Check if the tool manager is in tool creation mode: */
@@ -727,52 +774,11 @@ void ToolManager::addClass(ToolFactory* newFactory,ToolManager::BaseClass::Destr
 	/* Call the base class method to register the tool factory: */
 	BaseClass::addClass(newFactory,newDestroyFactoryFunction);
 	
-	/* Add the new tool factory to the tool selection menu if the latter already exists: */
+	/* Check if the tool selection menu already exists: */
 	if(toolMenuPopup!=0)
 		{
-		/* Extract the new tool factory's ancestor classes: */
-		const ToolFactory* ancestor=newFactory;
-		std::vector<const ToolFactory*> ancestors;
-		while(true)
-			{
-			ancestor=!ancestor->getParents().empty()?dynamic_cast<const ToolFactory*>(ancestor->getParents().front()):0;
-			if(ancestor==0)
-				break;
-			ancestors.push_back(ancestor);
-			}
-		
-		/* Traverse the tool menu, adding cascade buttons for parent classes: */
-		GLMotif::PopupMenu* menu=toolMenuPopup;
-		for(std::vector<const ToolFactory*>::reverse_iterator aIt=ancestors.rbegin();aIt!=ancestors.rend();++aIt)
-			{
-			GLMotif::Widget* ancestorWidget=menu->getMenu()->findChild((*aIt)->getClassName());
-			GLMotif::CascadeButton* ancestorCascade=dynamic_cast<GLMotif::CascadeButton*>(ancestorWidget);
-			if(ancestorCascade!=0)
-				{
-				/* Go to the ancestor's tool submenu: */
-				menu=static_cast<GLMotif::PopupMenu*>(ancestorCascade->getPopup());
-				}
-			else if(ancestorWidget==0)
-				{
-				/* Create a new cascade button and tool submenu for the ancestor: */
-				GLMotif::CascadeButton* ancestorCascade=new GLMotif::CascadeButton((*aIt)->getClassName(),menu,(*aIt)->getName());
-				
-				char popupName[256];
-				snprintf(popupName,sizeof(popupName),"%sSubmenu",(*aIt)->getClassName());
-				GLMotif::PopupMenu* ancestorSubmenu=new GLMotif::PopupMenu(popupName,getWidgetManager());
-				
-				ancestorCascade->setPopup(ancestorSubmenu);
-				ancestorSubmenu->manageMenu();
-				menu=ancestorSubmenu;
-				}
-			else
-				Misc::throwStdErr("Vrui::ToolManager::addClass: Base class name \"%s\" already exists as concrete class",(*aIt)->getClassName());
-			}
-		
-		/* Create a button for the new tool factory: */
-		GLMotif::Button* toolButton=new GLMotif::Button(newFactory->getClassName(),menu,newFactory->getName());
-		toolButton->getSelectCallbacks().add(this,&ToolManager::toolMenuSelectionCallback);
-		menu->manageMenu();
+		/* Add the new class to the tool selection menu: */
+		addClassToMenu(newFactory);
 		}
 	}
 
@@ -800,6 +806,23 @@ void ToolManager::releaseClass(const char* className)
 	
 	/* Call the base class method to release the tool class: */
 	BaseClass::releaseClass(className);
+	}
+
+void ToolManager::addClass(const char* className)
+	{
+	/* Bail out if a tool class of the given name already exists: */
+	if(getFactory(className)!=0)
+		return;
+	
+	/* Call the base class method to load the tool class DSO: */
+	ToolFactory* newFactory=BaseClass::loadClass(className);
+	
+	/* Check if the tool selection menu already exists: */
+	if(toolMenuPopup!=0)
+		{
+		/* Add the new class to the tool selection menu: */
+		addClassToMenu(newFactory);
+		}
 	}
 
 void ToolManager::addAbstractClass(ToolFactory* newFactory,ToolManager::BaseClass::DestroyFactoryFunction newDestroyFactoryFunction)

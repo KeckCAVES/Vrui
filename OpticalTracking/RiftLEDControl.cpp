@@ -97,10 +97,10 @@ void* RiftLEDControl::keepAliveThreadMethod(void)
 	
 	#if 1
 	/* Run some reports: */
-	Unknown0x02 currentUnknown0x02(0x01U);
-	currentUnknown0x02.get(rift);
-	Unknown0x02 unknown0x02(0x01U);
-	unknown0x02.set(rift,0x0000U);
+	SensorConfig currentSensorConfig;
+	currentSensorConfig.get(rift);
+	SensorConfig sensorConfig;
+	sensorConfig.set(rift,0x0000U);
 	#endif
 	
 	/* Send the initial LED control report: */

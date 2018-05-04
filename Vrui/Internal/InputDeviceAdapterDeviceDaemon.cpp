@@ -58,6 +58,9 @@ IO::FilePtr predictedFile;
 
 namespace Vrui {
 
+/* DEBUGging variables: */
+bool deviceDaemonPredictOnUpdate=true;
+
 /***********************************************
 Methods of class InputDeviceAdapterDeviceDaemon:
 ***********************************************/
@@ -86,6 +89,26 @@ void InputDeviceAdapterDeviceDaemon::errorCallback(const VRDeviceClient::Protoco
 	Threads::Spinlock::Lock errorMessageLock(errorMessageMutex);
 	errorMessages.push_back(error.what());
 	}
+	requestUpdate();
+	}
+
+void InputDeviceAdapterDeviceDaemon::batteryStateUpdatedCallback(unsigned int deviceIndex)
+	{
+	/* Get the new battery level of the changed device: */
+	unsigned int newBatteryState=deviceClient.getBatteryState(deviceIndex).batteryLevel;
+	
+	/* Check if the device just went low: */
+	if(batteryStates[deviceIndex]>10U&&newBatteryState<=10U)
+		{
+		/* Put a notification into the message queue: */
+		Threads::Spinlock::Lock errorMessageLock(errorMessageMutex);
+		lowBatteryWarnings.push_back(deviceIndex);
+		}
+	
+	/* Update the battery state array: */
+	batteryStates[deviceIndex]=newBatteryState;
+	
+	/* Request a new Vrui frame to wake up the main thread: */
 	requestUpdate();
 	}
 
@@ -202,7 +225,7 @@ InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManage
 	 deviceClient(configFileSection),
 	 predictMotion(configFileSection.retrieveValue<bool>("./predictMotion",false)),
 	 motionPredictionDelta(configFileSection.retrieveValue<double>("./motionPredictionDelta",0.0)),
-	 validFlags(0)
+	 validFlags(0),batteryStates(0)
 	{
 	#ifdef SAVE_TRACKERSTATES
 	realFile=IO::openFile("RealTrackerData.dat",IO::File::WriteOnly);
@@ -219,8 +242,16 @@ InputDeviceAdapterDeviceDaemon::InputDeviceAdapterDeviceDaemon(InputDeviceManage
 	for(int i=0;i<numInputDevices;++i)
 		validFlags[i]=true;
 	
+	/* Initialize the battery state array: */
+	batteryStates=new unsigned int[numInputDevices];
+	for(int i=0;i<numInputDevices;++i)
+		batteryStates[i]=100U;
+	
 	/* Start VR devices: */
 	deviceClient.activate();
+	
+	/* Register a callback to receive battery status updates: */
+	deviceClient.setBatteryStateUpdatedCallback(Misc::createFunctionCall(this,&InputDeviceAdapterDeviceDaemon::batteryStateUpdatedCallback));
 	
 	/* Start streaming; waits for first packet to arrive: */
 	deviceClient.startStream(Misc::createFunctionCall(packetNotificationCallback),Misc::createFunctionCall(this,&InputDeviceAdapterDeviceDaemon::errorCallback));
@@ -239,6 +270,7 @@ InputDeviceAdapterDeviceDaemon::~InputDeviceAdapterDeviceDaemon(void)
 	
 	/* Clean up: */
 	delete[] validFlags;
+	delete[] batteryStates;
 	}
 
 std::string InputDeviceAdapterDeviceDaemon::getFeatureName(const InputDeviceFeature& feature) const
@@ -312,12 +344,17 @@ int InputDeviceAdapterDeviceDaemon::getFeatureIndex(InputDevice* device,const ch
 
 void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 	{
-	/* Check for error messages from the device client: */
+	/* Check for error messages or low battery warnings from the device client: */
 	{
 	Threads::Spinlock::Lock errorMessageLock(errorMessageMutex);
+	
 	for(std::vector<std::string>::iterator emIt=errorMessages.begin();emIt!=errorMessages.end();++emIt)
 		Misc::formattedUserError("Vrui::InputDeviceAdapterDeviceDaemon: %s",emIt->c_str());
 	errorMessages.clear();
+	
+	for(std::vector<unsigned int>::iterator lbIt=lowBatteryWarnings.begin();lbIt!=lowBatteryWarnings.end();++lbIt)
+		Misc::formattedUserWarning("Vrui::InputDeviceAdapterDeviceDaemon: Input device %s is low on battery",inputDevices[*lbIt]->getDeviceName());
+	lowBatteryWarnings.clear();
 	}
 	
 	/* Update all managed input devices: */
@@ -337,7 +374,7 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 	#endif
 	
 	/* Check if motion prediction is enabled: */
-	if(predictMotion||inputDeviceManager->isPredictionEnabled())
+	if((predictMotion||inputDeviceManager->isPredictionEnabled())&&deviceDaemonPredictOnUpdate)
 		{
 		/* Calculate the prediction time point: */
 		VRDeviceState::TimeStamp predictionTs;
@@ -387,7 +424,7 @@ void InputDeviceAdapterDeviceDaemon::updateInputDevices(void)
 					typedef VRDeviceState::TrackerState::PositionOrientation PO;
 					
 					float predictionDelta=float(predictionTs-state.getTrackerTimeStamp(trackerIndex))*1.0e-6f;
-					
+			
 					PO::Rotation predictRot=PO::Rotation::rotateScaledAxis(ts.angularVelocity*predictionDelta)*ts.positionOrientation.getRotation();
 					predictRot.renormalize();
 					PO::Vector predictTrans=ts.linearVelocity*predictionDelta+ts.positionOrientation.getTranslation();

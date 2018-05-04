@@ -1,7 +1,7 @@
 /***********************************************************************
 CurveSetNode - Class for sets of curves written by curve tracing
 application.
-Copyright (c) 2009-2013 Oliver Kreylos
+Copyright (c) 2009-2018 Oliver Kreylos
 
 This file is part of the Simple Scene Graph Renderer (SceneGraph).
 
@@ -44,7 +44,7 @@ Methods of class CurveSetNode::DataItem:
 ***************************************/
 
 CurveSetNode::DataItem::DataItem(GLContextData& contextData)
-	:vertexBufferObjectId(0),
+	:vertexBufferObjectId(0),indexBufferObjectId(0),
 	 version(0),
 	 lineLightingShader(contextData)
 	{
@@ -53,8 +53,9 @@ CurveSetNode::DataItem::DataItem(GLContextData& contextData)
 		/* Initialize the vertex buffer object extension: */
 		GLARBVertexBufferObject::initExtension();
 		
-		/* Create the vertex buffer object: */
+		/* Create the vertex and index buffer objects: */
 		glGenBuffersARB(1,&vertexBufferObjectId);
+		glGenBuffersARB(1,&indexBufferObjectId);
 		}
 	}
 
@@ -62,7 +63,10 @@ CurveSetNode::DataItem::~DataItem(void)
 	{
 	/* Destroy the vertex buffer object: */
 	if(vertexBufferObjectId!=0)
+		{
 		glDeleteBuffersARB(1,&vertexBufferObjectId);
+		glDeleteBuffersARB(1,&indexBufferObjectId);
+		}
 	}
 
 /*****************************
@@ -70,7 +74,9 @@ Methods of class CurveSetNode:
 *****************************/
 
 CurveSetNode::CurveSetNode(void)
-	:version(0)
+	:multiplexer(0),
+	 numLineSegments(0),
+	 version(0)
 	{
 	}
 
@@ -109,6 +115,8 @@ void CurveSetNode::parseField(const char* fieldName,VRMLFile& vrmlFile)
 void CurveSetNode::update(void)
 	{
 	/* Re-read the curve vertex list: */
+	numVertices.clear();
+	numLineSegments=0;
 	vertices.clear();
 	for(size_t fileIndex=0;fileIndex<url.getNumValues();++fileIndex)
 		{
@@ -125,6 +133,7 @@ void CurveSetNode::update(void)
 			/* Read the number of vertices in the curve: */
 			GLsizei nv=GLsizei(source.readUnsignedInteger());
 			numVertices.push_back(nv);
+			numLineSegments+=nv-1;
 			
 			/* Read all vertices: */
 			for(GLsizei j=0;j<nv;++j)
@@ -178,40 +187,69 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 		
 		typedef GLGeometry::Vertex<void,0,void,0,Scalar,Scalar,3> Vertex;
 		
-		/* Bind the curve set's vertex buffer object: */
+		/* Bind the curve set's vertex and index buffer objects: */
 		glBindBufferARB(GL_ARRAY_BUFFER_ARB,dataItem->vertexBufferObjectId);
+		glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,dataItem->indexBufferObjectId);
 		
 		if(dataItem->version!=version)
 			{
 			/* Allocate the vertex buffer: */
-			glBufferDataARB(GL_ARRAY_BUFFER_ARB,(vertices.size()+numVertices.size()*2)*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
+			glBufferDataARB(GL_ARRAY_BUFFER_ARB,(vertices.size())*sizeof(Vertex),0,GL_STATIC_DRAW_ARB);
 			Vertex* vPtr=static_cast<Vertex*>(glMapBufferARB(GL_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
 			
-			/* Copy curve vertices into the vertex buffer: */
-			for(std::vector<Point>::const_iterator vIt=vertices.begin();vIt!=vertices.end();++vIt,++vPtr)
+			/* Copy curve vertices into the vertex buffer by curve: */
+			std::vector<Point>::const_iterator vIt=vertices.begin();
+			for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
 				{
-				if(vIt==vertices.begin())
-					vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[1]-vIt[0]));
-				else if(vIt==vertices.end()-1)
-					vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[0]-vIt[-1]));
-				else
-					vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[1]-vIt[-1]));
-				vPtr->position=Vertex::Position(*vIt);
+				/* Copy vertices for this curve: */
+				for(GLsizei i=0;i<*nvIt;++i,++vIt,++vPtr)
+					{
+					if(i==0)
+						vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[1]-vIt[0]));
+					else if(i==*nvIt-1)
+						vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[0]-vIt[-1]));
+					else
+						vPtr->normal=Geometry::normalize(Vertex::Normal(vIt[1]-vIt[-1]));
+					vPtr->position=Vertex::Position(*vIt);
+					}
 				}
 			
-			/* Copy curve end points into the vertex buffer: */
-			GLsizei baseIndex=0;
-			for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt,vPtr+=2)
+			/* Finish uploading into the vertex buffer: */
+			glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+			
+			/* Allocate the index buffer: */
+			glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB,(numLineSegments*2+numVertices.size()*2)*sizeof(GLuint),0,GL_STATIC_DRAW_ARB);
+			GLuint* iPtr=static_cast<GLuint*>(glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,GL_WRITE_ONLY_ARB));
+			
+			/* Create line segment indices for all curves: */
+			GLuint baseIndex=0;
+			for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
 				{
-				vPtr[0].normal=Vertex::Normal::zero;
-				vPtr[0].position=Vertex::Position(vertices[baseIndex]);
-				vPtr[1].normal=Vertex::Normal::zero;
-				vPtr[1].position=Vertex::Position(vertices[baseIndex+*nvIt-1]);
+				/* Create line segment indices for this curve: */
+				for(GLsizei i=1;i<*nvIt;++i,iPtr+=2)
+					{
+					iPtr[0]=baseIndex+i-1;
+					iPtr[1]=baseIndex+i;
+					}
+				
+				/* Go to the next curve: */
 				baseIndex+=*nvIt;
 				}
 			
-			/* Finish uploading into the buffer: */
-			glUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+			/* Create point indices for all curve endpoints: */
+			baseIndex=0;
+			for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt,iPtr+=2)
+				{
+				/* Create line segment indices for this curve: */
+				iPtr[0]=baseIndex;
+				iPtr[1]=baseIndex+*nvIt-1;
+				
+				/* Go to the next curve: */
+				baseIndex+=*nvIt;
+				}
+			
+			/* Finish uploading into the index buffer: */
+			glUnmapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB);
 			
 			/* Mark the vertex and index buffer objects as up-to-date: */
 			dataItem->version=version;
@@ -226,18 +264,8 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			dataItem->lineLightingShader.activate();
 		else
 			glColor(color.getValue());
-		GLint baseVertexIndex=0;
-		for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
-			{
-			if(*nvIt>=2)
-				{
-				/* Render the curve: */
-				glDrawArrays(GL_LINE_STRIP,baseVertexIndex,*nvIt);
-				}
-			
-			/* Go to the next curve: */
-			baseVertexIndex+=*nvIt;
-			}
+		const GLuint* indexBase=0;
+		glDrawElements(GL_LINES,numLineSegments*2,GL_UNSIGNED_INT,indexBase);
 		if(renderState.lightingEnabled)
 			dataItem->lineLightingShader.deactivate();
 		
@@ -250,7 +278,7 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			glColor(color.getValue());
 			
 			/* Draw the endpoints of all curves: */
-			glDrawArrays(GL_POINTS,baseVertexIndex,numVertices.size()*2);
+			glDrawElements(GL_POINTS,numVertices.size()*2,GL_UNSIGNED_INT,indexBase+numLineSegments*2);
 			}
 		
 		/* Disable the vertex array: */
@@ -277,6 +305,7 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			}
 		
 		/* Draw the endpoints of all curves: */
+		glBegin(GL_POINTS);
 		GLint baseVertexIndex=0;
 		for(std::vector<GLsizei>::const_iterator nvIt=numVertices.begin();nvIt!=numVertices.end();++nvIt)
 			{
@@ -286,6 +315,7 @@ void CurveSetNode::glRenderAction(GLRenderState& renderState) const
 			/* Go to the next curve: */
 			baseVertexIndex+=*nvIt;
 			}
+		glEnd();
 		}
 	}
 
