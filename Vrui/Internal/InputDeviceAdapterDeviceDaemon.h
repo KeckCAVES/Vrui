@@ -53,11 +53,14 @@ class InputDeviceAdapterDeviceDaemon:public InputDeviceAdapterIndexMap
 	std::vector<std::string> valuatorNames; // Array of valuator names for all defined input devices
 	Threads::Spinlock errorMessageMutex; // Mutex protecting the error message log
 	std::vector<std::string> errorMessages; // Log of error messages received from the device client
+	std::vector<unsigned int> lowBatteryWarnings; // List of devices that recently ran into low battery
 	bool* validFlags; // Flag whether each tracked input device currently has valid tracking data
+	unsigned int* batteryStates; // Battery charge level of each input device
 	
 	/* Private methods: */
 	static void packetNotificationCallback(VRDeviceClient* client);
 	void errorCallback(const VRDeviceClient::ProtocolError& error);
+	void batteryStateUpdatedCallback(unsigned int deviceIndex);
 	
 	/* Protected methods from InputDeviceAdapter: */
 	protected:

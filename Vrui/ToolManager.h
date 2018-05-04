@@ -1,7 +1,7 @@
 /***********************************************************************
 ToolManager - Class to manage tool classes, and dynamic assignment of
 tools to input devices.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -136,6 +136,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	/* Private methods: */
 	GLMotif::PopupMenu* createToolSubmenu(const Plugins::Factory& factory); // Returns submenu containing all subclasses of the given class
 	GLMotif::PopupMenu* createToolMenu(void); // Returns top level of tool selection menu
+	void addClassToMenu(ToolFactory* newFactory); // Adds a new tool class to the tool selection menu
 	void inputDeviceDestructionCallback(Misc::CallbackData* cbData); // Callback called when an input device is destroyed
 	void toolMenuSelectionCallback(Misc::CallbackData* cbData); // Callback called when a tool class is selected from the selection menu; continues tool creation process
 	void toolCreationDeviceMotionCallback(Misc::CallbackData* cbData); // Callback called when the device for which a tool is being created moves during tool creation
@@ -150,6 +151,7 @@ class ToolManager:public Plugins::FactoryManager<ToolFactory>
 	void releaseClass(const char* className); // Overrides base class method; destroys all tools of the given class before destroying the class
 	
 	/* Methods: */
+	void addClass(const char* className); // Adds a tool class from a tool DSO and adds it to tool selection menu
 	void addAbstractClass(ToolFactory* newFactory,DestroyFactoryFunction newDestroyFactoryFunction =0); // Same as addClass method, but does not add to tool selection menu (derived concrete tool classes will create the cascade button)
 	static void defaultToolFactoryDestructor(ToolFactory* factory); // Default destructor for tool factories; simply deletes them
 	Misc::ConfigurationFileSection getToolClassSection(const char* toolClassName) const; // Returns the configuration file section a tool class should use for its initialization

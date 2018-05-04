@@ -2,7 +2,7 @@
 LensCorrector - Helper class to render imagery into an off-screen buffer
 and then warp the buffer to the final drawable to correct subsequent
 lens distortion.
-Copyright (c) 2014-2017 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -108,6 +108,7 @@ class LensCorrector
 	const HMDConfiguration* hmdConfiguration; // Pointer to the HMD configuration providing lens correction parameters
 	bool precomputed; // Flag whether per-eye projection and lens distortion correction parameters are streamed from a VR device daemon
 	unsigned int eyePosVersion,eyeVersion,distortionMeshVersion; // Version numbers of HMD configuration components
+	Scalar lastShownIpd; // The last IPD shown to the user via dialog, to filter out random jitter
 	GLMotif::PopupWindow* ipdDisplayDialog; // A dialog window to notify the user of changed HMD configuration
 	double ipdDisplayDialogTakedownTime; // Time at which the dialog window will be closed
 	LensConfig lensConfigs[2]; // Lens configurations for left and right eyes

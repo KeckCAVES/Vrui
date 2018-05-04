@@ -1,6 +1,6 @@
 /***********************************************************************
 Environment-dependent part of Vrui virtual reality development toolkit.
-Copyright (c) 2000-2017 Oliver Kreylos
+Copyright (c) 2000-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -410,7 +410,7 @@ void vruiOpenConfigurationFile(const char* userConfigDir,const char* appPath)
 	vruiMergeConfigurationFile(localConfigFileName);
 	}
 
-void vruiGoToRootSection(const char*& rootSectionName)
+void vruiGoToRootSection(const char*& rootSectionName,bool verbose)
 	{
 	try
 		{
@@ -427,7 +427,7 @@ void vruiGoToRootSection(const char*& rootSectionName)
 				}
 		if(!rootSectionFound)
 			{
-			if(vruiVerbose&&vruiMaster)
+			if(verbose&&vruiMaster)
 				std::cout<<"Vrui: Requested root section /Vrui/"<<rootSectionName<<" does not exist"<<std::endl;
 			rootSectionName=VRUI_INTERNAL_CONFIG_DEFAULTROOTSECTION;
 			}
@@ -440,7 +440,7 @@ void vruiGoToRootSection(const char*& rootSectionName)
 		}
 	
 	/* Go to the given root section: */
-	if(vruiVerbose&&vruiMaster)
+	if(verbose&&vruiMaster)
 		std::cout<<"Vrui: Going to root section /Vrui/"<<rootSectionName<<std::endl;
 	vruiConfigFile->setCurrentSection("/Vrui");
 	vruiConfigFile->setCurrentSection(rootSectionName);
@@ -712,31 +712,37 @@ void init(int& argc,char**& argv,char**&)
 				std::cout<<"  -vruiHelp"<<std::endl;
 				std::cout<<"     Prints this help message"<<std::endl;
 				std::cout<<"  -vruiVerbose"<<std::endl;
-				std::cout<<"     Logs details about Vrui's startup and shutdown procedures to stdout"<<std::endl;
+				std::cout<<"     Logs details about Vrui's startup and shutdown procedures to"<<std::endl;
+				std::cout<<"     stdout."<<std::endl;
 				std::cout<<"  -mergeConfig <configuration file name>"<<std::endl;
 				std::cout<<"     Merges the configuration file of the given name into Vrui's"<<std::endl;
-				std::cout<<"     configuration space"<<std::endl;
+				std::cout<<"     configuration space."<<std::endl;
+				std::cout<<"  -setConfig <tag>[=<value>]"<<std::endl;
+				std::cout<<"     Overrides a tag value, or removes tag if no =<value> is present, in"<<std::endl;
+				std::cout<<"     the current Vrui configuration space. Tag names are relative to the"<<std::endl;
+				std::cout<<"     root section in effect when the option is encountered."<<std::endl;
 				std::cout<<"  -dumpConfig <configuration file name>"<<std::endl;
 				std::cout<<"     Writes the current state of Vrui's configuration space, including"<<std::endl;
 				std::cout<<"     all previously merged configuration files, to the configuration"<<std::endl;
-				std::cout<<"     file of the given name"<<std::endl;
+				std::cout<<"     file of the given name."<<std::endl;
 				std::cout<<"  -rootSection <root section name>"<<std::endl;
-				std::cout<<"     Overrides the default root section name"<<std::endl;
+				std::cout<<"     Overrides the default root section name."<<std::endl;
 				std::cout<<"  -loadInputGraph <input graph file name>"<<std::endl;
-				std::cout<<"     Loads the input graph contained in the given file after initialization"<<std::endl;
+				std::cout<<"     Loads the input graph contained in the given file after"<<std::endl;
+				std::cout<<"     initialization."<<std::endl;
 				std::cout<<"  -addToolClass <tool class name>"<<std::endl;
 				std::cout<<"     Adds the tool class of the given name to the tool manager and the"<<std::endl;
-				std::cout<<"     tool selection menu"<<std::endl;
+				std::cout<<"     tool selection menu."<<std::endl;
 				std::cout<<"  -addTool <tool configuration file section name>"<<std::endl;
-				std::cout<<"     Adds the tool defined in the given tool configuration section"<<std::endl;
+				std::cout<<"     Adds the tool defined in the given tool configuration section."<<std::endl;
 				std::cout<<"  -vislet <vislet class name> [vislet option 1] ... [vislet option n] ;"<<std::endl;
 				std::cout<<"     Loads a vislet of the given class name, with the given vislet"<<std::endl;
-				std::cout<<"     arguments. Argument list must be terminated with a semicolon"<<std::endl;
+				std::cout<<"     arguments. Argument list must be terminated with a semicolon."<<std::endl;
 				std::cout<<"  -setLinearUnit <unit name> <unit scale factor>"<<std::endl;
 				std::cout<<"     Sets the coordinate unit of the Vrui application's navigation space"<<std::endl;
-				std::cout<<"     to the given unit name and scale factor"<<std::endl;
+				std::cout<<"     to the given unit name and scale factor."<<std::endl;
 				std::cout<<"  -loadView <viewpoint file name>"<<std::endl;
-				std::cout<<"     Loads the initial viewing position from the given viewpoint file"<<std::endl;
+				std::cout<<"     Loads the initial viewing position from the given viewpoint file."<<std::endl;
 				
 				/* Remove parameter from argument list: */
 				argc-=1;
@@ -840,6 +846,52 @@ void init(int& argc,char**& argv,char**&)
 						--argc;
 						}
 					}
+				else if(strcasecmp(argv[i]+1,"setConfig")==0)
+					{
+					/* Next parameter is a tag=value pair: */
+					if(i+1<argc)
+						{
+						/* Extract the tag name: */
+						const char* tagStart=argv[i+1];
+						const char* tagEnd;
+						for(tagEnd=tagStart;*tagEnd!='\0'&&*tagEnd!='=';++tagEnd)
+							;
+						std::string tag(tagStart,tagEnd);
+						
+						/* Go to the current root section, but be quiet about it: */
+						vruiGoToRootSection(rootSectionName,false);
+						
+						/* Check if there is a value: */
+						if(*tagEnd=='=')
+							{
+							const char* valueStart=tagEnd+1;
+							const char* valueEnd;
+							for(valueEnd=valueStart;*valueEnd!='\0';++valueEnd)
+								;
+							std::string value(valueStart,valueEnd);
+							
+							/* Set the tag's value in the current configuration: */
+							vruiConfigFile->storeString(tag.c_str(),value);
+							}
+						else
+							{
+							/* Remove the tag from the current configuration: */
+							vruiConfigFile->getCurrentSection().removeTag(tag);
+							}
+						
+						/* Remove parameters from argument list: */
+						argc-=2;
+						for(int j=i;j<argc;++j)
+							argv[j]=argv[j+2];
+						--i;
+						}
+					else
+						{
+						/* Ignore the setConfig parameter: */
+						std::cerr<<"Vrui::init: No <tag>[=<value>] given after -setConfig option"<<std::endl;
+						--argc;
+						}
+					}
 				else if(strcasecmp(argv[i]+1,"dumpConfig")==0)
 					{
 					/* Next parameter is name of configuration file to create: */
@@ -889,7 +941,7 @@ void init(int& argc,char**& argv,char**&)
 				}
 		
 		/* Go to the configuration's root section: */
-		vruiGoToRootSection(rootSectionName);
+		vruiGoToRootSection(rootSectionName,vruiVerbose);
 		
 		/* Check if this is a multipipe environment: */
 		if(vruiConfigFile->retrieveValue<bool>("./enableMultipipe",false))
@@ -912,12 +964,24 @@ void init(int& argc,char**& argv,char**&)
 				vruiMultiplexer=new Cluster::Multiplexer(vruiNumSlaves,0,master.c_str(),masterPort,multicastGroup.c_str(),multicastPort);
 				vruiMultiplexer->setSendBufferSize(multicastSendBufferSize);
 				
+				/* Determine the fully-qualified name of this process's executable: */
+				char exeName[PATH_MAX];
+				#ifdef __LINUX__
+				ssize_t exeNameLength=readlink("/proc/self/exe",exeName,PATH_MAX-1);
+				if(exeNameLength>0)
+					exeName[exeNameLength]='\0';
+				else
+					strcpy(exeName,argv[0]);
+				#else
+				strcpy(exeName,argv[0]);
+				#endif
+				
 				/* Start the multipipe slaves on all slave nodes: */
 				std::string multipipeRemoteCommand=vruiConfigFile->retrieveString("./multipipeRemoteCommand","ssh");
 				masterPort=vruiMultiplexer->getLocalPortNumber();
 				vruiSlavePids=new pid_t[vruiNumSlaves];
 				std::string cwd=Misc::getCurrentDirectory();
-				size_t rcLen=cwd.length()+strlen(argv[0])+master.length()+multicastGroup.length()+512;
+				size_t rcLen=cwd.length()+strlen(exeName)+master.length()+multicastGroup.length()+512;
 				char* rc=new char[rcLen];
 				if(vruiVerbose)
 					std::cout<<"Vrui: Spawning slave processes..."<<std::flush;
@@ -931,13 +995,13 @@ void init(int& argc,char**& argv,char**&)
 						/* Create a command line to run the program from the current working directory: */
 						int ai=0;
 						ai+=snprintf(rc+ai,rcLen-ai,"cd '%s' ;",cwd.c_str());
-						ai+=snprintf(rc+ai,rcLen-ai," %s",argv[0]);
+						ai+=snprintf(rc+ai,rcLen-ai," %s",exeName);
 						ai+=snprintf(rc+ai,rcLen-ai," -vruiMultipipeSlave");
 						ai+=snprintf(rc+ai,rcLen-ai," %d %d",vruiNumSlaves,i+1);
 						ai+=snprintf(rc+ai,rcLen-ai," %s %d",master.c_str(),masterPort);
 						ai+=snprintf(rc+ai,rcLen-ai," %s %d",multicastGroup.c_str(),multicastPort);
 						
-						/* Create command line for the ssh (or other remote login) program: */
+						/* Create command line for ssh (or other remote login) program: */
 						char* sshArgv[20];
 						int sshArgc=0;
 						sshArgv[sshArgc++]=const_cast<char*>(multipipeRemoteCommand.c_str());
@@ -1087,7 +1151,7 @@ void init(int& argc,char**& argv,char**&)
 						if(vruiVerbose&&vruiMaster)
 							std::cout<<"Vrui: Adding requested tool class "<<argv[i+1]<<"..."<<std::flush;
 						threadSynchronizer.sync();
-						vruiState->toolManager->loadClass(argv[i+1]);
+						vruiState->toolManager->addClass(argv[i+1]);
 						if(vruiVerbose&&vruiMaster)
 							std::cout<<" Ok"<<std::endl;
 						}

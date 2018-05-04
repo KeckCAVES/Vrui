@@ -2,7 +2,7 @@
 LensCorrector - Helper class to render imagery into an off-screen buffer
 and then warp the buffer to the final drawable to correct subsequent
 lens distortion.
-Copyright (c) 2014-2017 Oliver Kreylos
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -24,8 +24,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 
 #include <Vrui/Internal/LensCorrector.h>
 
-#if 0
-// DEBUGGING
+#define DEBUG_REPROJECTION 0
+
+#if DEBUG_REPROJECTION
 #include <iomanip>
 #include <Geometry/OutputOperators.h>
 #endif
@@ -71,6 +72,9 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/Internal/InputDeviceAdapterDeviceDaemon.h>
 
 namespace Vrui {
+
+/* DEBUGging variables: */
+bool lensCorrectorDisableReproject=false;
 
 /**************************************************
 Methods of class LensCorrector::DistortionEquation:
@@ -440,8 +444,7 @@ void LensCorrector::calculateWarpParameters(VRWindow& window)
 		lc.renderedFovs[2]-=h*lc.overscan[2];
 		lc.renderedFovs[3]+=h*lc.overscan[3];
 		
-		#if 0
-		// DEBUGGING
+		#if DEBUG_REPROJECTION
 		std::cout<<"Eye "<<eye<<":"<<std::endl;
 		std::cout<<"  Physical screen FoV: "<<lc.screenFov[0]<<", "<<lc.screenFov[1]<<std::endl;
 		std::cout<<"  Eye position: "<<screenEyePos[0]<<", "<<screenEyePos[1]<<", "<<screenEyePos[2]<<std::endl;
@@ -603,13 +606,19 @@ bool LensCorrector::frameCallback(void* userData)
 		thisPtr->viewer->setEyes(thisPtr->viewer->getDeviceViewDirection(),Geometry::mid(leftEye,rightEye),(rightEye-leftEye)*Scalar(0.5));
 		moveScreens=true;
 		
+		/* Show the new IPD to the user: */
+		Scalar newIpd=Geometry::dist(leftEye,rightEye)*getMeterFactor()*Scalar(1000);
+		
 		if(thisPtr->ipdDisplayDialog!=0)
 			{
 			/* Update the IPD display text field with the new value: */
 			GLMotif::TextField* ipdDisplay=static_cast<GLMotif::TextField*>(static_cast<GLMotif::RowColumn*>(thisPtr->ipdDisplayDialog->getChild())->getChild(1));
-			ipdDisplay->setValue(Geometry::dist(leftEye,rightEye)*getMeterFactor()*Scalar(1000));
+			ipdDisplay->setValue(newIpd);
+			
+			/* Remember the displayed IPD: */
+			thisPtr->lastShownIpd=newIpd;
 			}
-		else
+		else if(Math::abs(newIpd-thisPtr->lastShownIpd)>Scalar(0.6))
 			{
 			/* Create a dialog window to display the new inter-pupillary distance: */
 			thisPtr->ipdDisplayDialog=new GLMotif::PopupWindow("IpdDisplayDialog",getWidgetManager(),"IPD Update");
@@ -626,9 +635,12 @@ bool LensCorrector::frameCallback(void* userData)
 			ipdDisplay->setFieldWidth(5);
 			ipdDisplay->setPrecision(1);
 			ipdDisplay->setFloatFormat(GLMotif::TextField::FIXED);
-			ipdDisplay->setValue(Geometry::dist(leftEye,rightEye)*getMeterFactor()*Scalar(1000));
+			ipdDisplay->setValue(newIpd);
 			
 			ipdDisplayBox->manageChild();
+			
+			/* Remember the displayed IPD: */
+			thisPtr->lastShownIpd=newIpd;
 			}
 		
 		/* Let the dialog stay up for two seconds: */
@@ -921,8 +933,7 @@ LensCorrector::LensCorrector(VRWindow& sWindow,const WindowProperties& windowPro
 					lc.lensCenter[i]*=scale;
 				lc.lensCenter[2]=lensProjectionDists[eye];
 				
-				#if 0
-				// DEBUGGING
+				#if DEBUG_REPROJECTION
 				std::cout<<"New screen origin: "<<screen->getTransform().getOrigin()<<std::endl;
 				std::cout<<"New screen size: "<<screen->getWidth()<<" x "<<screen->getHeight()<<std::endl;
 				std::cout<<"New screen axes: "<<screen->getTransform().getDirection(0)<<", "<<screen->getTransform().getDirection(1)<<std::endl;
@@ -940,6 +951,9 @@ LensCorrector::LensCorrector(VRWindow& sWindow,const WindowProperties& windowPro
 		for(int i=0;i<2;++i)
 			warpMeshSize[i]=wms[i]+1;
 		}
+	
+	/* Initialize IPD update display: */
+	lastShownIpd=Geometry::dist(sWindow.getViewer(0)->getDeviceEyePosition(Viewer::LEFT),sWindow.getViewer(1)->getDeviceEyePosition(Viewer::RIGHT))*getMeterFactor()*Scalar(1000);
 	
 	/* Calculate final pre-distortion frame buffer size with supersampling: */
 	double superSampling=configFileSection.retrieveValue<double>("./superSampling",1.0);
@@ -1411,7 +1425,17 @@ void LensCorrector::warp(void) const
 		
 		/* Calculate the incremental reprojection rotation: */
 		Rotation rot=Geometry::invert(viewerTrans0.getRotation())*viewerTrans1.getRotation();
+		
+		// DEBUGGING
+		if(lensCorrectorDisableReproject)
+			rot=Rotation::identity;
+		
 		rot.writeMatrix(rotation);
+		
+		#if DEBUG_REPROJECTION
+		if(Math::abs(rot.getScaledAxis().sqr())>=Math::sqr(0.01))
+			std::cout<<"Reprojection rotation: "<<rot<<std::endl;
+		#endif
 		}
 	
 	if(correctOledResponse)
