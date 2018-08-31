@@ -2,7 +2,7 @@
 ObjectSnapperTool - Tool class to snap a virtual input device's position
 and/or orientation to application-specified objects using a callback
 mechanism.
-Copyright (c) 2017 Oliver Kreylos
+Copyright (c) 2017-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -61,6 +61,9 @@ class ObjectSnapperToolFactory:public ToolFactory // Class for factories that cr
 		Scalar snapRadius; // Radius of selection sphere around selection point in navigational coordinate units; updated by callee after successful snap
 		bool snapped; // Flag whether the snap request was successful and snapResult is filled
 		ONTransform snapResult; // Result of a successful snap request
+		
+		/* Methods: */
+		bool snapPoint(const Point& p); // Convenience method to snap against a point; returns true if snap succeeded
 		};
 	
 	typedef Misc::FunctionCall<SnapRequest&> SnapFunction; // Type for snapping function calls

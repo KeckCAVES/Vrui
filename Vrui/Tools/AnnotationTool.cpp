@@ -1,6 +1,6 @@
 /***********************************************************************
 AnnotationTool - Tool to interactively annotate 3D models.
-Copyright (c) 2011-2015 Oliver Kreylos
+Copyright (c) 2011-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -276,7 +276,7 @@ void AnnotationTool::Position::draw(GLContextData& contextData) const
 	
 	/* Draw the position labels: */
 	glPushMatrix();
-	glMultMatrix(Vrui::getUiManager()->calcUITransform(physPos));
+	glMultMatrix(Vrui::getUiManager()->calcHUDTransform(physPos));
 	
 	for(int i=0;i<3;++i)
 		posLabels[i].draw(contextData);
@@ -455,7 +455,7 @@ void AnnotationTool::Distance::draw(GLContextData& contextData) const
 	/* Draw the distance label: */
 	glPushMatrix();
 	Point p=Geometry::mid(physPos[0],physPos[1])+y*factory->markerSize*Scalar(2);
-	glMultMatrix(Vrui::getUiManager()->calcUITransform(p));
+	glMultMatrix(Vrui::getUiManager()->calcHUDTransform(p));
 	
 	distLabel.draw(contextData);
 	

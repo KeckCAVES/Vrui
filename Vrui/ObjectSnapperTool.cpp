@@ -2,7 +2,7 @@
 ObjectSnapperTool - Tool class to snap a virtual input device's position
 and/or orientation to application-specified objects using a callback
 mechanism.
-Copyright (c) 2017 Oliver Kreylos
+Copyright (c) 2017-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -31,6 +31,48 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Vrui/InputGraphManager.h>
 
 namespace Vrui {
+
+/******************************************************
+Methods of class ObjectSnapperToolFactory::SnapRequest:
+******************************************************/
+
+bool ObjectSnapperToolFactory::SnapRequest::snapPoint(const Point& p)
+	{
+	/* Check if the snap request is ray-based: */
+	bool result=false;
+	if(rayBased)
+		{
+		/* Check the given point against the snap ray: */
+		Vector po=p-snapRay.getOrigin();
+		Scalar poLen=po.mag();
+		if(poLen<snapRayMax&&po*snapRay.getDirection()>snapRayCosine*poLen)
+			{
+			/* Snap to the point: */
+			snapRayMax=poLen;
+			result=true;
+			}
+		}
+	else
+		{
+		/* Check the given point against the snap position: */
+		Scalar d2=Geometry::sqrDist(snapPosition,p);
+		if(d2<Math::sqr(snapRadius))
+			{
+			/* Snap to the point: */
+			snapRadius=Math::sqrt(d2);
+			result=true;
+			}
+		}
+	
+	if(result)
+		{
+		/* Update the snap request: */
+		snapped=true;
+		snapResult=ONTransform(p-Point::origin,toolTransform.getRotation()); // Retain tool's original rotation
+		}
+	
+	return result;
+	}
 
 /*****************************************
 Methods of class ObjectSnapperToolFactory:

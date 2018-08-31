@@ -643,12 +643,15 @@ bool LensCorrector::frameCallback(void* userData)
 			thisPtr->lastShownIpd=newIpd;
 			}
 		
-		/* Let the dialog stay up for two seconds: */
-		thisPtr->ipdDisplayDialogTakedownTime=getApplicationTime()+2.0;
-		
-		/* Pop up the dialog in the viewer's sight line: */
-		Point hotspot=thisPtr->viewer->getHeadPosition()+thisPtr->viewer->getViewDirection()*(Scalar(24)*getInchFactor());
-		popupPrimaryWidget(thisPtr->ipdDisplayDialog,hotspot,false);
+		if(thisPtr->ipdDisplayDialog!=0)
+			{
+			/* Let the dialog stay up for two seconds: */
+			thisPtr->ipdDisplayDialogTakedownTime=getApplicationTime()+2.0;
+			
+			/* Pop up the dialog in the viewer's sight line: */
+			Point hotspot=thisPtr->viewer->getHeadPosition()+thisPtr->viewer->getViewDirection()*(Scalar(24)*getInchFactor());
+			popupPrimaryWidget(thisPtr->ipdDisplayDialog,hotspot,false);
+			}
 		
 		/* Mark the eye position as up-to-date: */
 		thisPtr->eyePosVersion=thisPtr->hmdConfiguration->getEyePosVersion();
@@ -1096,9 +1099,14 @@ LensCorrector::LensCorrector(VRWindow& sWindow,const WindowProperties& windowPro
 	correctOledResponse=ocf[0]!=0.0||ocf[1]!=0.0;
 	if(correctOledResponse)
 		{
+		if(vruiVerbose)
+			std::cout<<"\tOLED response correction enabled"<<std::endl;
+		
 		/* Set the correction factors: */
 		for(int i=0;i<2;++i)
 			oledCorrectionFactors[i]=GLfloat(ocf[i]);
+		if(vruiVerbose)
+			std::cout<<"\t\tOverdrive correction factors: ("<<oledCorrectionFactors[0]<<", "<<oledCorrectionFactors[1]<<')'<<std::endl;
 		
 		fixContrast=configFileSection.retrieveValue<bool>("./fixContrast",fixContrast);
 		if(fixContrast)
@@ -1106,8 +1114,11 @@ LensCorrector::LensCorrector(VRWindow& sWindow,const WindowProperties& windowPro
 			/* Calculate the OLED contrast correction coefficients: */
 			oledContrast[1]=oledCorrectionFactors[0]/(1.0f+oledCorrectionFactors[0]); // Offset
 			oledContrast[0]=1.0f/(1.0f+oledCorrectionFactors[1])-oledContrast[1]; // Scale
+			
+			if(vruiVerbose)
+				std::cout<<"\t\tPixel luminance range limited to ["<<oledContrast[1]<<", "<<oledContrast[0]+oledContrast[1]<<']'<<std::endl;
 			}
-		
+
 		/* Create the texture holding the previously rendered frame: */
 		glGenTextures(1,&previousFrameTextureId);
 		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,previousFrameTextureId);
@@ -1121,6 +1132,8 @@ LensCorrector::LensCorrector(VRWindow& sWindow,const WindowProperties& windowPro
 		/* Protect the texture object: */
 		glBindTexture(GL_TEXTURE_RECTANGLE_ARB,0);
 		}
+	else if(vruiVerbose)
+		std::cout<<"\tOLED response correction disabled"<<std::endl;
 	
 	/* Construct the lens distortion correction vertex shader: */
 	std::string warpingShaderVertexProgramDeclarations="\

@@ -1,7 +1,7 @@
 /***********************************************************************
 FunctionCalls - Set of functor objects implementing function (or method)
 calls as first-class variables.
-Copyright (c) 2009-2014 Oliver Kreylos
+Copyright (c) 2009-2018 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -41,6 +41,7 @@ class FunctionCall
 		}
 	
 	/* Methods: */
+	virtual FunctionCall* clone(void) const =0; // Returns an identical copy of a function call object
 	virtual void operator()(Parameter parameter) const =0; // Function call operator
 	};
 
@@ -65,6 +66,10 @@ class VoidFunctionCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
+	virtual FunctionCall<ParameterParam>* clone(void) const
+		{
+		return new VoidFunctionCall(*this);
+		}
 	virtual void operator()(Parameter parameter) const
 		{
 		/* Simply call the function: */
@@ -95,6 +100,10 @@ class SingleArgumentFunctionCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
+	virtual FunctionCall<ParameterParam>* clone(void) const
+		{
+		return new SingleArgumentFunctionCall(*this);
+		}
 	virtual void operator()(Parameter parameter) const
 		{
 		/* Call the function with the provided argument: */
@@ -131,6 +140,10 @@ class VoidMethodCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
+	virtual FunctionCall<ParameterParam>* clone(void) const
+		{
+		return new VoidMethodCall(*this);
+		}
 	virtual void operator()(Parameter parameter) const
 		{
 		/* Call the method on the provided object: */
@@ -161,6 +174,10 @@ class VoidConstMethodCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
+	virtual FunctionCall<ParameterParam>* clone(void) const
+		{
+		return new VoidConstMethodCall(*this);
+		}
 	virtual void operator()(Parameter parameter) const
 		{
 		/* Call the method on the provided object: */
@@ -193,6 +210,10 @@ class SingleArgumentMethodCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
+	virtual FunctionCall<ParameterParam>* clone(void) const
+		{
+		return new SingleArgumentMethodCall(*this);
+		}
 	virtual void operator()(Parameter parameter) const
 		{
 		/* Call the method on the provided object with the provided argument: */
@@ -231,6 +252,10 @@ class SingleArgumentConstMethodCall:public FunctionCall<ParameterParam>
 		}
 	
 	/* Methods from FunctionCall: */
+	virtual FunctionCall<ParameterParam>* clone(void) const
+		{
+		return new SingleArgumentConstMethodCall(*this);
+		}
 	virtual void operator()(Parameter parameter) const
 		{
 		/* Call the method on the provided object with the provided argument: */

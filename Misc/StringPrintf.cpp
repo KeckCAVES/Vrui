@@ -1,7 +1,7 @@
 /***********************************************************************
 StringPrintf - Helper function to print to a C++ string using a printf-
 style function call.
-Copyright (c) 2009 Oliver Kreylos
+Copyright (c) 2009-2018 Oliver Kreylos
 
 This file is part of the Miscellaneous Support Library (Misc).
 
@@ -30,7 +30,7 @@ namespace Misc {
 
 std::string stringPrintf(const char* formatString,...)
 	{
-	static char printBuffer[256]; // Initial buffer for printf
+	char printBuffer[512]; // Initial buffer for printf
 	va_list ap;
 	
 	/* Print into the static buffer first: */

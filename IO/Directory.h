@@ -1,7 +1,7 @@
 /***********************************************************************
 Directory - Base class to access directory-like objects in a generic
 fashion.
-Copyright (c) 2010-2015 Oliver Kreylos
+Copyright (c) 2010-2018 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -88,6 +88,7 @@ class Directory:public Threads::RefCounted
 	/* File and directory opening methods: */
 	virtual FilePtr openFile(const char* fileName,File::AccessMode accessMode =File::ReadOnly) const =0; // Opens the file of the given directory-relative name with the given access mode
 	virtual DirectoryPtr openDirectory(const char* directoryName) const =0; // Opens the subdirectory of the given directory-relative name
+	virtual DirectoryPtr openFileDirectory(const char* fileName) const; // Opens the subdirectory containing the file of the given directory-relative name
 	};
 
 }

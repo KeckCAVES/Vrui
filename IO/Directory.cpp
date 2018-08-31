@@ -1,7 +1,7 @@
 /***********************************************************************
 Directory - Base class to access directory-like objects in a generic
 fashion.
-Copyright (c) 2010-2015 Oliver Kreylos
+Copyright (c) 2010-2018 Oliver Kreylos
 
 This file is part of the I/O Support Library (IO).
 
@@ -199,6 +199,27 @@ std::string Directory::createNumberedFileName(const char* fileNameTemplate,int n
 	result.append(fileNameTemplate+prefixLen);
 	
 	return result;
+	}
+
+DirectoryPtr Directory::openFileDirectory(const char* fileName) const
+	{
+	/* Find the last directory component of the given file name: */
+	const char* slashPtr=0;
+	for(const char* fnPtr=fileName;*fnPtr!='\0';++fnPtr)
+		if(*fnPtr=='/')
+			slashPtr=fnPtr;
+	
+	/* Check if there was a directory component: */
+	if(slashPtr!=0)
+		{
+		/* Return the subdirectory of the given relative path: */
+		return openDirectory(std::string(fileName,slashPtr+1).c_str()); // Include final slash in path name
+		}
+	else
+		{
+		/* File is inside this directory: */
+		return openDirectory(".");
+		}
 	}
 
 }

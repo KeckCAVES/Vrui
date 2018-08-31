@@ -1,7 +1,7 @@
 /***********************************************************************
 V4L2VideoDevice - Wrapper class around video devices as represented by
 the Video for Linux version 2 (V4L2) library.
-Copyright (c) 2009-2016 Oliver Kreylos
+Copyright (c) 2009-2018 Oliver Kreylos
 
 This file is part of the Basic Video Library (Video).
 
@@ -434,7 +434,7 @@ V4L2VideoDevice::~V4L2VideoDevice(void)
 		{
 		/* Stop the background streaming thread: */
 		runStreamingThread=false;
-		streamingThread.cancel(); // We still have to cancel...
+		// streamingThread.cancel(); // We still have to cancel...
 		streamingThread.join();
 		}
 	
@@ -1058,21 +1058,21 @@ void V4L2VideoDevice::enqueueFrame(FrameBuffer* frame)
 
 void V4L2VideoDevice::stopStreaming(void)
 	{
-	/* Stop streaming: */
-	int streamType=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	if(ioctl(videoFd,VIDIOC_STREAMOFF,&streamType)!=0)
-		Misc::throwStdErr("Video::V4L2VideoDevice::stopStreaming: Error stopping streaming video capture");
-	
 	if(streamingCallback!=0)
 		{
 		/* Stop the background streaming thread: */
 		runStreamingThread=false;
-		streamingThread.cancel(); // We still have to cancel...
+		// streamingThread.cancel(); // We still have to cancel...
 		streamingThread.join();
 		}
 	
 	/* Call the base class method: */
 	VideoDevice::stopStreaming();
+	
+	/* Stop streaming: */
+	int streamType=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if(ioctl(videoFd,VIDIOC_STREAMOFF,&streamType)!=0)
+		Misc::throwStdErr("Video::V4L2VideoDevice::stopStreaming: Error stopping streaming video capture");
 	}
 
 void V4L2VideoDevice::releaseFrameBuffers(void)

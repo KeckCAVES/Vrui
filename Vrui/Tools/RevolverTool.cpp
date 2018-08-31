@@ -2,7 +2,7 @@
 RevolverTool - Class to control multiple buttons (and tools) from a
 single button using a revolver metaphor. Generalized from the rotator
 tool initially developed by Braden Pellett and Jordan van Aalsburg.
-Copyright (c) 2008-2017 Oliver Kreylos
+Copyright (c) 2008-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -232,7 +232,7 @@ void RevolverTool::display(GLContextData& contextData) const
 		glPushMatrix();
 		
 		/* Draw the "revolver chambers:" */
-		glMultMatrix(getUiManager()->calcUITransform(sourceDevice->getPosition()));
+		glMultMatrix(getUiManager()->calcHUDTransform(sourceDevice->getPosition()));
 		
 		Scalar chamberAngle=Scalar(2)*Math::Constants<Scalar>::pi/Scalar(factory->numChambers);
 		Scalar angleOffset=Scalar(0);

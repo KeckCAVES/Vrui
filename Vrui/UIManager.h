@@ -2,7 +2,7 @@
 UIManager - Base class for managers arranging user interface components,
 mapping user interface devices and tools, and create user-aligned
 displays in physical space.
-Copyright (c) 2015-2016 Oliver Kreylos
+Copyright (c) 2015-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -67,6 +67,7 @@ class UIManager:public GLMotif::WidgetArranger
 	virtual ONTransform calcUITransform(const Point& point) const =0; // Returns a transformation to align a UI component at the given position
 	virtual ONTransform calcUITransform(const Ray& ray) const =0; // Returns a transformation to align a UI component along the given ray
 	virtual ONTransform calcUITransform(const InputDevice* device) const =0; // Returns a transformation to align a UI component for interaction with the given device
+	virtual ONTransform calcHUDTransform(const Point& point) const =0; // Returns a transformation to align a display or non-interactive UI component at the given position
 	};
 
 }

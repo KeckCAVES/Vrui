@@ -247,9 +247,6 @@ GLMotif::PopupMenu* VruiState::buildDialogsMenu(void)
 	/* Create the dialogs submenu: */
 	dialogsMenu=new GLMotif::PopupMenu("DialogsMenu",wm);
 	
-	/* Explicitly create a menu container in case there are no dialog windows yet: */
-	new GLMotif::RowColumn("Menu",dialogsMenu,false);
-	
 	/* Add menu buttons for all popped-up dialog boxes: */
 	poppedDialogs.clear();
 	for(GLMotif::WidgetManager::PoppedWidgetIterator wIt=wm->beginPrimaryWidgets();wIt!=wm->endPrimaryWidgets();++wIt)
@@ -272,12 +269,50 @@ GLMotif::PopupMenu* VruiState::buildDialogsMenu(void)
 	return dialogsMenu;
 	}
 
+GLMotif::PopupMenu* VruiState::buildAlignViewMenu(void)
+	{
+	GLMotif::PopupMenu* alignViewMenu=new GLMotif::PopupMenu("AlignViewMenu",getWidgetManager());
+	
+	GLMotif::Button* alignXYButton=new GLMotif::Button("AlignXYButton",alignViewMenu,"X - Y");
+	alignXYButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	GLMotif::Button* alignXZButton=new GLMotif::Button("AlignXZButton",alignViewMenu,"X - Z");
+	alignXZButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	GLMotif::Button* alignYZButton=new GLMotif::Button("AlignYZButton",alignViewMenu,"Y - Z");
+	alignYZButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	new GLMotif::Separator("Separator1",alignViewMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
+	
+	GLMotif::Button* flipHButton=new GLMotif::Button("FlipHButton",alignViewMenu,"Flip H");
+	flipHButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	GLMotif::Button* flipVButton=new GLMotif::Button("FlipVButton",alignViewMenu,"Flip V");
+	flipVButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	new GLMotif::Separator("Separator2",alignViewMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
+	
+	GLMotif::Button* rotateCCWButton=new GLMotif::Button("RotateCCWButton",alignViewMenu,"Rotate CCW");
+	rotateCCWButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	GLMotif::Button* rotateCWButton=new GLMotif::Button("RotateCWButton",alignViewMenu,"Rotate CW");
+	rotateCWButton->getSelectCallbacks().add(this,&VruiState::alignViewCallback);
+	
+	alignViewMenu->manageMenu();
+	
+	return alignViewMenu;
+	}
+
 GLMotif::PopupMenu* VruiState::buildViewMenu(void)
 	{
 	GLMotif::PopupMenu* viewMenu=new GLMotif::PopupMenu("ViewMenu",getWidgetManager());
 	
 	GLMotif::Button* resetViewButton=new GLMotif::Button("ResetViewButton",viewMenu,"Reset View");
 	resetViewButton->getSelectCallbacks().add(this,&VruiState::resetViewCallback);
+	
+	/* Create the align view submenu: */
+	GLMotif::CascadeButton* alignViewMenuCascade=new GLMotif::CascadeButton("AlignViewMenuCascade",viewMenu,"Align View");
+	alignViewMenuCascade->setPopup(buildAlignViewMenu());
 	
 	new GLMotif::Separator("Separator1",viewMenu,GLMotif::Separator::HORIZONTAL,0.0f,GLMotif::Separator::LOWERED);
 	
@@ -479,6 +514,7 @@ VruiState::VruiState(Cluster::Multiplexer* sMultiplexer,Cluster::MulticastPipe* 
 	 coordinateManager(0),scaleBar(0),
 	 toolManager(0),
 	 visletManager(0),
+	 prepareMainLoopFunction(0),prepareMainLoopFunctionData(0),
 	 frameFunction(0),frameFunctionData(0),
 	 displayFunction(0),displayFunctionData(0),
 	 soundFunction(0),soundFunctionData(0),
@@ -1028,6 +1064,10 @@ void VruiState::prepareMainLoop(void)
 	
 	/* Enable all vislets: */
 	visletManager->enable();
+	
+	/* Call main loop preparation function: */
+	if(prepareMainLoopFunction!=0)
+		prepareMainLoopFunction(prepareMainLoopFunctionData);
 	}
 
 void VruiState::update(void)
@@ -1585,9 +1625,9 @@ void VruiState::widgetPopCallback(GLMotif::WidgetManager::WidgetPopCallbackData*
 			;
 		if(dIt!=poppedDialogs.end())
 			{
-			/* Remove the popped-down dialog from the dialogs menu: */
+			/* Remove the popped-down dialog from the dialogs menu and delete the button widget: */
 			poppedDialogs.erase(dIt);
-			dialogsMenu->removeEntry(menuIndex);
+			delete dialogsMenu->removeEntry(menuIndex);
 			
 			/* Disable the dialogs menu if it has become empty: */
 			if(dialogsMenu->getNumEntries()==0)
@@ -1637,9 +1677,93 @@ void VruiState::saveViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* c
 
 void VruiState::resetViewCallback(Misc::CallbackData* cbData)
 	{
-	/* Call the application-supplied navigation reset function: */
-	if(resetNavigationFunction!=0)
+	/* Call the application-supplied navigation reset function if no navigation tools are active: */
+	if(activeNavigationTool==0&&resetNavigationFunction!=0)
 		(*resetNavigationFunction)(resetNavigationFunctionData);
+	}
+
+void VruiState::alignViewCallback(Misc::CallbackData* cbData)
+	{
+	/* Only align if no navigation tools are active: */
+	if(activeNavigationTool==0)
+		{
+		/* Convert the callback to the correct type: */
+		GLMotif::Button::SelectCallbackData* myCbData=static_cast<GLMotif::Button::SelectCallbackData*>(cbData);
+		
+		/* Get a pointer to the popup menu containing the button: */
+		GLMotif::PopupMenu* menu=dynamic_cast<GLMotif::PopupMenu*>(myCbData->button->getParent()->getParent());
+		if(menu!=0)
+			{
+			/* Get the position of the display center in navigational coordinates and the current navigational scale: */
+			Point navCenter=inverseNavigationTransformation.transform(displayCenter);
+			Scalar navScale=navigationTransformation.getScaling();
+			
+			/* Get the environment's horizontal and vertical axes in physical and navigational space: */
+			Vector h=forwardDirection^upDirection;
+			Vector hNav=inverseNavigationTransformation.transform(h);
+			Vector v=upDirection;
+			Vector vNav=inverseNavigationTransformation.transform(v);
+			
+			/* Calculate a rotation from (x, y) to (h, v): */
+			Rotation baseRot=Rotation::fromBaseVectors(h,v);
+			
+			/* Navigate according to the index of the button in the sub-menu: */
+			NavTransform nav;
+			switch(menu->getEntryIndex(myCbData->button))
+				{
+				case 0: // X - Y
+					nav=NavTransform::translateFromOriginTo(displayCenter);
+					nav*=NavTransform::scale(navScale);
+					nav*=NavTransform::rotate(baseRot);
+					nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Vector(1,0,0),Vector(0,1,0))));
+					nav*=NavTransform::translateToOriginFrom(navCenter);
+					break;
+				
+				case 1: // X - Z
+					nav=NavTransform::translateFromOriginTo(displayCenter);
+					nav*=NavTransform::scale(navScale);
+					nav*=NavTransform::rotate(baseRot);
+					nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Vector(1,0,0),Vector(0,0,1))));
+					nav*=NavTransform::translateToOriginFrom(navCenter);
+					break;
+				
+				case 2: // Y - Z
+					nav=NavTransform::translateFromOriginTo(displayCenter);
+					nav*=NavTransform::scale(navScale);
+					nav*=NavTransform::rotate(baseRot);
+					nav*=NavTransform::rotate(Geometry::invert(Rotation::fromBaseVectors(Vector(0,1,0),Vector(0,0,1))));
+					nav*=NavTransform::translateToOriginFrom(navCenter);
+					break;
+				
+				case 3: // Flip H
+					/* Rotate 180 degrees around the vertical axis: */
+					nav=navigationTransformation;
+					nav*=NavTransform::rotateAround(navCenter,Rotation::rotateAxis(vNav,Math::rad(Scalar(180))));
+					break;
+				
+				case 4: // Flip V
+					/* Rotate 180 degrees around the horizontal axis: */
+					nav=navigationTransformation;
+					nav*=NavTransform::rotateAround(navCenter,Rotation::rotateAxis(hNav,Math::rad(Scalar(180))));
+					break;
+				
+				case 5: // Rotate CCW
+					/* Rotate 90 degrees around the h^v axis: */
+					nav=navigationTransformation;
+					nav*=NavTransform::rotateAround(navCenter,Rotation::rotateAxis(hNav^vNav,Math::rad(Scalar(90))));
+					break;
+				
+				case 6: // Rotate CW
+					/* Rotate -90 degrees around the h^v axis: */
+					nav=navigationTransformation;
+					nav*=NavTransform::rotateAround(navCenter,Rotation::rotateAxis(hNav^vNav,Math::rad(Scalar(-90))));
+					break;
+				}
+			
+			/* Set the new navigation transformation: */
+			setNavigationTransformation(nav);
+			}
+		}
 	}
 
 void VruiState::pushViewCallback(Misc::CallbackData* cbData)
@@ -1820,6 +1944,12 @@ void vsync(void)
 /**********************************
 Call-in functions for user program:
 **********************************/
+
+void setPrepareMainLoopFunction(PrepareMainLoopFunctionType prepareMainLoopFunction,void* userData)
+	{
+	vruiState->prepareMainLoopFunction=prepareMainLoopFunction;
+	vruiState->prepareMainLoopFunctionData=userData;
+	}
 
 void setFrameFunction(FrameFunctionType frameFunction,void* userData)
 	{

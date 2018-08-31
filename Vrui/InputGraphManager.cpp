@@ -1796,7 +1796,7 @@ void InputGraphManager::glRenderDevices(GLContextData& contextData) const
 		glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_TEXTURE_BIT);
 		
 		/* Visualize the tool stack: */
-		renderSceneGraph(toolStackNode.getPointer(),getUiManager()->calcUITransform(toolStackBaseFeature.getDevice()->getPosition()),false,contextData);
+		renderSceneGraph(toolStackNode.getPointer(),getUiManager()->calcHUDTransform(toolStackBaseFeature.getDevice()->getPosition()),false,contextData);
 		
 		/* Restore OpenGL state: */
 		glPopAttrib();

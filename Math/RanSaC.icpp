@@ -1,0 +1,123 @@
+/***********************************************************************
+RanSaC - Generic class implementing a "RANdom SAmple Consensus"
+algorithm for problems where a set of data points is to be fitted to a
+model in a least-squares optimal sense.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the Templatized Math Library (Math).
+
+The Templatized Math Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Math Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Math Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define MATH_RANSAC_IMPLEMENTATION
+
+#include <Math/RanSaC.h>
+
+#include <Math/Random.h>
+
+namespace Math {
+
+/***********************
+Methods of class RanSaC:
+***********************/
+
+template <class ModelFitterParam>
+inline
+void
+RanSaC<ModelFitterParam>::fitModel(
+	typename RanSaC<ModelFitterParam>::ModelFitter& modelFitter)
+	{
+	/* Create an array of "inlier" flags: */
+	std::vector<bool> inliers;
+	inliers.reserve(dataPoints.size());
+	for(size_t i=0;i<dataPoints.size();++i)
+		inliers.push_back(false);
+	
+	/* Reset the best model: */
+	currentNumInliers=0;
+	currentInliers=inliers;
+	currentSqrResidual=Constants<Scalar>::max;
+	
+	/* Iterate the RanSaC algorithm: */
+	for(size_t iteration=0;iteration<maxNumIterations;++iteration)
+		{
+		/* Clear the inlier flag array: */
+		for(std::vector<bool>::iterator iIt=inliers.begin();iIt!=inliers.end();++iIt)
+			*iIt=false;
+		
+		/* Pick a minimum set of data points to estimate an initial model: */
+		modelFitter.clearDataPoints();
+		for(size_t initialPoint=0;initialPoint<modelFitter.getMinNumDataPoints();++initialPoint)
+			{
+			/* Pick random data points until one is found that hasn't been picked yet: */
+			size_t index;
+			do
+				{
+				/* Pick a random index: */
+				index=size_t(randUniformCO(0,int(dataPoints.size())));
+				}
+			while(inliers[index]);
+			
+			/* Add the data point to the model fitter: */
+			modelFitter.addDataPoint(dataPoints[index]);
+			inliers[index]=true;
+			}
+		
+		/* Fit an initial model to the minimum set of data points: */
+		Model model=modelFitter.fitModel();
+		
+		/* Find the set of inliers w.r.t. the initial model and select them for model refinement: */
+		modelFitter.clearDataPoints();
+		size_t numInliers=0;
+		for(size_t index=0;index<dataPoints.size();++index)
+			{
+			/* Check if the data point is an inlier: */
+			if(modelFitter.calcSqrDist(dataPoints[index],model)<maxInlierDist2)
+				{
+				/* Mark the data point an inlier: */
+				modelFitter.addDataPoint(dataPoints[index]);
+				inliers[index]=true;
+				++numInliers;
+				}
+			else
+				inliers[index]=false;
+			}
+		
+		/* Check if the candidate model has no fewer inliers than the current model: */
+		if(currentNumInliers<=numInliers)
+			{
+			/* Re-fit the model based on the set of inliers: */
+			model=modelFitter.fitModel();
+			
+			/* Calculate the model's fit residual: */
+			Scalar sqrResidual(0);
+			for(size_t index=0;index<dataPoints.size();++index)
+				if(inliers[index])
+					sqrResidual+=modelFitter.calcSqrDist(dataPoints[index],model);
+			
+			/* Accept the model if it has more inliers than the current one or a better residual: */
+			if(currentNumInliers<numInliers||currentSqrResidual>sqrResidual)
+				{
+				/* Replace the current model: */
+				current=model;
+				currentNumInliers=numInliers;
+				currentInliers=inliers;
+				currentSqrResidual=sqrResidual;
+				}
+			}
+		}
+	}
+
+}

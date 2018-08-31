@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #ifndef GLWINDOW_INCLUDED
 #define GLWINDOW_INCLUDED
 
+#include <Misc/CallbackData.h>
 #include <Misc/CallbackList.h>
 #include <X11/X.h>
 #include <GL/GLContext.h>
@@ -126,6 +127,44 @@ class GLWindow
 			}
 		};
 	
+	struct CallbackData:public Misc::CallbackData // Base class for window callback data structures
+		{
+		/* Elements: */
+		public:
+		GLWindow* window; // Window that caused the callback
+		
+		/* Constructors and destructors: */
+		CallbackData(GLWindow* sWindow)
+			:window(sWindow)
+			{
+			}
+		};
+	
+	struct PosSizeChangedCallbackData:public CallbackData // Callback data structure when the window's position and/or size change
+		{
+		/* Elements: */
+		public:
+		WindowPos oldPos; // Old window position and size
+		WindowPos newPos; // New window position and size
+		
+		/* Constructors and destructors: */
+		PosSizeChangedCallbackData(GLWindow* sWindow,const WindowPos& sOldPos,const WindowPos& sNewPos)
+			:CallbackData(sWindow),
+			 oldPos(sOldPos),newPos(sNewPos)
+			{
+			}
+		
+		/* Methods: */
+		bool isPosChanged(void) const // Returns true if the window changed position
+			{
+			return newPos.origin[0]!=oldPos.origin[0]||newPos.origin[1]!=oldPos.origin[1];
+			}
+		bool isSizeChanged(void) const // Returns true if the window changed size
+			{
+			return newPos.size[0]!=oldPos.size[0]||newPos.size[1]!=oldPos.size[1];
+			}
+		};
+	
 	/* Elements: */
 	private:
 	GLContextPtr context; // Pointer to a GL context object
@@ -145,6 +184,7 @@ class GLWindow
 	
 	WindowPos windowPos; // Current position and size of output window
 	bool fullscreen; // Flag if the window occupies the full screen (and has no decoration)
+	Misc::CallbackList posSizeChangedCallbacks; // List of callbacks to be called when the window changes position and/or size
 	Misc::CallbackList closeCallbacks; // List of callbacks to be called when the user attempts to close the window
 	
 	/* Private methods: */
@@ -211,6 +251,10 @@ class GLWindow
 	WindowPos getRootWindowPos(void) const; // Returns the position and size of the root window containing this window
 	double getScreenWidthMM(void) const; // Returns the physical width of the window's screen in mm
 	double getScreenHeightMM(void) const; // Returns the physical height of the window's screen in mm
+	Misc::CallbackList& getPosSizeChangedCallbacks(void) // Returns the list of position/size change callbacks
+		{
+		return posSizeChangedCallbacks;
+		}
 	Misc::CallbackList& getCloseCallbacks(void) // Returns the list of close callbacks
 		{
 		return closeCallbacks;

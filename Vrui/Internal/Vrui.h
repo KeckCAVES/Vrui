@@ -243,6 +243,8 @@ struct VruiState
 	VisletManager* visletManager;
 	
 	/* Application function callbacks: */
+	PrepareMainLoopFunctionType prepareMainLoopFunction;
+	void* prepareMainLoopFunctionData;
 	FrameFunctionType frameFunction;
 	void* frameFunctionData;
 	DisplayFunctionType displayFunction;
@@ -285,6 +287,7 @@ struct VruiState
 	
 	/* Private methods: */
 	GLMotif::PopupMenu* buildDialogsMenu(void); // Builds the dialogs submenu
+	GLMotif::PopupMenu* buildAlignViewMenu(void); // Builds the align view submenu
 	GLMotif::PopupMenu* buildViewMenu(void); // Builds the view submenu
 	GLMotif::PopupMenu* buildDevicesMenu(void); // Builds the input devices submenu
 	void buildSystemMenu(GLMotif::Container* parent); // Builds the Vrui system menu inside the given container widget
@@ -317,6 +320,7 @@ struct VruiState
 	void loadViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void saveViewCallback(GLMotif::FileSelectionDialog::OKCallbackData* cbData);
 	void resetViewCallback(Misc::CallbackData* cbData);
+	void alignViewCallback(Misc::CallbackData* cbData);
 	void pushViewCallback(Misc::CallbackData* cbData);
 	void popViewCallback(Misc::CallbackData* cbData);
 	void createInputDeviceCallback(Misc::CallbackData* cbData,const int& numButtons);

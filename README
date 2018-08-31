@@ -1,5 +1,5 @@
 ========================================================================
-README for Vrui version 4.5, build 004
+README for Vrui version 4.6, build 002
 Copyright (c) 1998-2018 Oliver Kreylos
 ========================================================================
 
@@ -9,8 +9,9 @@ Overview
 Vrui is a C++ software development toolkit for highly interactive
 virtual reality applications, with a focus on portability between vastly
 different virtual reality environments, from laptop or desktop computers
-to CAVEs and other fully immersive systems. More information about Vrui
-can be found at http://idav.ucdavis.edu/~okreylos/ResDev/Vrui or
+to CAVEs and other fully immersive systems such as head-mounted
+displays. More information about Vrui can be found at
+http://idav.ucdavis.edu/~okreylos/ResDev/Vrui or
 http://www.keckcaves.org.
 
 Vrui's development was supported by the University of California, Davis,
@@ -55,15 +56,15 @@ Recommended:
 * alsa-lib     (low-level sound library)
 * openal-soft  (OpenAL 3D audio library)
 * libv4l       (Video4Linux2, user-space video capture library)
+* libXrandr    (X11 RANDR extension library to auto-detect display
+                devices)
+* libXi        (X11 Input2 extension library to support multitouch
+                devices)
 
 Optional:
 * bluez-libs   (user-space bluetooth library to talk to Wiimote
                 devices)
 * libdc1394    (FireWire video capture library)
-* libXrandr    (X11 RANDR extension library to auto-detect display
-                devices)
-* libXi        (X11 Input2 extension library to support multitouch
-                devices)
 * speex        (low-latency audio compression library)
 * libogg       (Ogg audio/video container library)
 * libtheora    (Theora video compression library)
@@ -426,6 +427,13 @@ can be passed on make's command line. For example,
 
 > make STEAMVRDIR=/opt/Steam/SteamApps/common/SteamVR
 
+If a custom SteamVR path was passed to Vrui's makefile during "make,"
+the same path also needs to be passed to Vrui's makefile during "make
+install" or Vrui's Vive-related files will not be installed. For
+example,
+
+> sudo make STEAMVRDIR=/opt/Steam/SteamApps/common/SteamVR install
+
 For more information, see "Setting up HTC Vive" and "Running Vrui
 Applications on HTC Vive."
 
@@ -534,9 +542,9 @@ be layered on top of the Vrui API.
 
 All applications can be built by running make in their respective
 directories. If Vrui was not installed in its default location
-(~/Vrui-<version>), the VRUI_MAKEDIR variable at the top of each
-makefile needs to be changed to the directory named "make" under Vrui's
-root installation directory.
+(/usr/local), the VRUI_MAKEDIR variable at the top of each makefile
+needs to be changed to the directory named "make" under Vrui's root
+installation directory.
 
 The example application makefiles show how to create debug/release
 versions without changing the makefile by respecting the DEBUG make
@@ -547,7 +555,7 @@ Building Vrui Applications
 ==========================
 
 During installation, Vrui installs its own build system in
-$(INSTALLDIR)/share/make. Vrui-based projects can benefit from this
+$(SHAREINSTALLDIR)/make. Vrui-based projects can benefit from this
 build system by using a makefile following the template makefile
 included in the build system directory. The makefiles provided with the
 Vrui example applications show how this should be done, and how it
@@ -556,8 +564,8 @@ properly installed version of Vrui.
 
 For compatibility with previous versions of Vrui, Vrui also creates a
 makefile fragment (Vrui.makeinclude or Vrui.makeinclude.debug) in
-$(INSTALLDIR)/share/make. The appropriate fragment should be included
-by the makefiles of all legacy Vrui-based projects to simplify compiling
+$(SHAREINSTALLDIR)/make. The appropriate fragment should be included by
+the makefiles of all legacy Vrui-based projects to simplify compiling
 and linking.
 
 Alternatively, Vrui creates a pkg-config metafile during build,

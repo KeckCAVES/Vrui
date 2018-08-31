@@ -5478,3 +5478,82 @@ Vrui-4.5-004:
     Vrui::VRDeviceClient::startStream method.
 - Added hysteresis to IPD update dialog in Vrui::LensCorrector to avoid
   repeatedly showing IPD dialog when IPD dial on headset is loose.
+
+Vrui-4.6-001:
+- Removed redundant (and leaky) creation of menu shell in
+  Vrui::VruiState::buildDialogsMenu.
+- Changed GLMotif::PopupMenu::removeEntry(int) method to return the
+  removed widget so that the caller can delete it.
+- Changed shutdown order in Video::V4L2VideoDevice::stopStreaming to
+  remove need for thread cancellation and leave device in clean
+  state in case of errors.
+- Added verbose output about OLED response correction to
+  Vrui::LensCorrector.
+- Added ViewerComponent class to Video library to simplify development
+  of applications that stream video from cameras to OpenGL textures.
+- Added new position/size change callback list and associated callback
+  struct to GLWindow, created base callback struct with window pointer,
+  and changed close event to use that structure.
+- Added new application call-in prepareMainLoop function to Vrui kernel
+  interface, to be called immediately before Vrui's application main
+  loop starts, i.e., display and sound sub-systems are initialized.
+  - Set with setPrepareMainLoopFunction() in Vrui kernel interface.
+  - Added new virtual prepareMainLoop() method to Vrui::Application
+    class.
+- Changed Misc::stringPrintf, defined in Misc/StringPrintf.h, to use a
+  stack-allocated buffer as first target instead of a static buffer to
+  make the function re-entrant and thread-safe.
+- Added Misc/PrintfTemplateTests.h, defining namespace-global functions
+  to test the validity and safety of printf-style templates used to
+  generate numbered file names, for example.
+  - Changed Vrui::ImageSequenceMovieSaver and
+    Vrui::InputDeviceAdapterPlayback to use new functions from
+    Misc/PrintfTemplateTests.h.
+- Changed compatibility check in Images::BaseImage copy constructor to
+  mirror assignment operator; no difference in functionality.
+- Added "Align View" submenu to Vrui system menu's "View" submenu to
+  align the current view to any combination of primary axes.
+- Added convenience snapPoint method to Vrui::ObjectSnapperTool class
+  to reduce burden of developing snapping functionality in applications.
+- Added calcHUDTransform method to Vrui::UIManager to better place non-
+  interactive UI components such as floating displays or labels.
+  - Implemented calcHUDTransform method in classes derived from
+    Vrui::UIManager:
+    - Vrui::UIManagerPlanar
+    - Vrui::UIManagerSpherical
+    - Vrui::UIManagerFree
+- Changed Vrui::InputGraphManager, Vrui::AnnotationTool, and
+  Vrui::RevolverTool to use calcHUDTransform instead of calcUITransform.
+- Added new generic minimization classes GaussNewtonMinimizer and
+  LevenbergMarquardtMinimizer to Math library. Class
+  LevenbergMarquardtMinimizer in Geometry library is now obsolete and
+  will be removed.
+- Added generic RanSaC class to Math library to implement "RANdom SAmple
+  Consensus" model fitting.
+- Added new PointAlignerONTransform, PointAlignerOGTransform,
+  PointAlignerATransform, and PointAlignerPTransform point alignment
+  classes and generic PointAligner base class to Geometry library.
+- Added RanSaCPointAligner, an adapter class to optimize point
+  alignments using various transformation types via RanSaC, to the
+  Geometry library.
+- Added AlignPoints application to Vrui utilities.
+- Added virtual clone() method to base function call in
+  Misc/FunctionCalls.h.
+- API change: Changed Math::SimplexMinimizer to be compatible with other
+  minimization classes in the Math library.
+- Added Math::Minimizer as common base class for least-squares
+  minimization classes, providing shared types and a callback mechanism.
+  - Derived all minimization classes from Math::Minimizer and added
+    progress callback handling.
+- Added openFileDirectory method to IO::Directory class to open the
+  directory containing the given file.
+- Added getPixelRow method to Images::BaseImage.
+- Fixed handling of PNG image files with tRNS chunks and/or 16-bit pixel
+  components in Images/ReadPNGImage.cpp.
+
+Vrui-4.6-002:
+- Modified SteamVR auto-detection code in makefile yet again; maybe it
+  works this time.
+- Updated OpenVRHost device driver module to new OpenVR driver ABI as of
+  08/26/2018.
+  - Updated contributed openvr_driver.h header file.

@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupMenu - Class for top-level GLMotif UI components that act as menus
 and only require a single down-motion-up sequence to select an entry.
-Copyright (c) 2001-2015 Oliver Kreylos
+Copyright (c) 2001-2018 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -70,7 +70,7 @@ class PopupMenu:public Popup
 	Button* addEntry(const char* newEntryLabel); // Adds a new simple menu entry and returns a pointer to the created button
 	int getEntryIndex(Widget* entry); // Returns the index of the given menu entry, assumed to be a button, counting through sub-containers
 	void removeEntry(Widget* entry); // Removes the first instance of the given entry from the menu
-	void removeEntry(int entryIndex); // Removes the entry of the given index from the menu
+	Widget* removeEntry(int entryIndex); // Removes the entry of the given index from the menu; returns pointer to the removed entry
 	};
 
 }

@@ -286,7 +286,7 @@ Point2 calcIntermediateImagePos(const Point2& viewportPos,int eye,int color,cons
 	
 	/* Convert the result to intermediate image pixel space: */
 	result[0]=result[0]*hc.getRenderTargetSize()[0];
-	result[1]=result[1]*hc.getRenderTargetSize()[0];
+	result[1]=result[1]*hc.getRenderTargetSize()[1];
 	
 	return result;
 	}
@@ -443,8 +443,29 @@ void printHmdConfiguration(const Vrui::HMDConfiguration& hc)
 			std::cout<<std::endl;
 			}
 		#elif 0
+		/* Generate a vertical cross section of intermediate image/display pixel mapping ratio: */
+		Scalar delta=0.25;
+		for(unsigned int y=0;y<hc.getViewport(eye)[3];++y)
+			{
+			/* Get a display pixel: */
+			Point2 disp(lensCenter[0],Scalar(y+hc.getViewport(eye)[1])+Scalar(0.5));
+			
+			/* Calculate resolution at pixel for the three color channels: */
+			std::cout<<y;
+			for(int color=0;color<3;++color)
+				{
+				/* Transform the pixel and a displaced version to tangent space: */
+				Point2 p=calcIntermediateImagePos(disp,eye,color,hc);
+				Point2 p0=calcIntermediateImagePos(disp-Point2::Vector(0,delta),eye,color,hc);
+				Point2 p1=calcIntermediateImagePos(disp+Point2::Vector(0,delta),eye,color,hc);
+				Scalar factor=(p1[1]-p0[1])/(delta*Scalar(2));
+				std::cout<<','<<p[1]<<','<<factor;
+				}
+			std::cout<<std::endl;
+			}
+		#elif 0
 		/* Dump entire distortion mesh to file: */
-		IO::FilePtr meshFile=IO::openFile("/home/okreylos/Desktop/DistortionMesh.dat",IO::File::WriteOnly);
+		IO::FilePtr meshFile=IO::openFile("/home/okreylos/Desktop/Stuff/ViveResolution/DistortionMesh.dat",IO::File::WriteOnly);
 		meshFile->setEndianness(Misc::LittleEndian);
 		meshFile->write<Vrui::HMDConfiguration::UInt>(hc.getViewport(eye),4);
 		meshFile->write<Scalar>(hc.getFov(eye),4);

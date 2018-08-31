@@ -2,7 +2,7 @@
 Image - Base class to represent images of arbitrary pixel formats. The
 image coordinate system is such that pixel (0,0) is in the lower-left
 corner.
-Copyright (c) 2007-2016 Oliver Kreylos
+Copyright (c) 2007-2018 Oliver Kreylos
 
 This file is part of the Image Handling Library (Images).
 
@@ -38,7 +38,7 @@ Image<ScalarParam,numComponentsParam>::Image(
 	const BaseImage& source)
 	:BaseImage(source)
 	{
-	if(isValid())
+	if(source.isValid())
 		{
 		/* Check if the source image's format is compatible with this pixel type: */
 		if(source.getNumChannels()!=(unsigned int)(numComponents)||source.getScalarType()!=GLScalarLimits<Scalar>::type)

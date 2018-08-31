@@ -1,7 +1,7 @@
 /***********************************************************************
 ImageSequenceMovieSaver - Helper class to save movies as sequences of
 image files in formats supported by the Images library.
-Copyright (c) 2010-2017 Oliver Kreylos
+Copyright (c) 2010-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -27,6 +27,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <stdio.h>
 #include <unistd.h>
 #include <iostream>
+#include <Misc/PrintfTemplateTests.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/StandardValueCoders.h>
 #include <Misc/ConfigurationFile.h>
@@ -106,30 +107,7 @@ ImageSequenceMovieSaver::ImageSequenceMovieSaver(const Misc::ConfigurationFileSe
 	 done(false)
 	{
 	/* Check if the frame name template has the correct format: */
-	int numConversions=0;
-	bool hasIntConversion=false;
-	for(std::string::const_iterator fntIt=frameNameTemplate.begin();fntIt!=frameNameTemplate.end();++fntIt)
-		{
-		if(*fntIt=='%')
-			{
-			++fntIt;
-			if(*fntIt!='%')
-				{
-				++numConversions;
-				
-				/* Skip width modifiers: */
-				while(isdigit(*fntIt))
-					++fntIt;
-				
-				/* Check for unsigned integer conversion: */
-				if(*fntIt=='u')
-					hasIntConversion=true;
-				}
-			}
-		else if(*fntIt=='/') // Only accept conversions in the file name part
-			hasIntConversion=false;
-		}
-	if(numConversions!=1||!hasIntConversion)
+	if(!Misc::isValidUintTemplate(frameNameTemplate,1024))
 		Misc::throwStdErr("MovieSaver::MovieSaver: movie frame name template \"%s\" does not have exactly one %%u conversion",frameNameTemplate.c_str());
 	
 	/* Start the image writing thread: */

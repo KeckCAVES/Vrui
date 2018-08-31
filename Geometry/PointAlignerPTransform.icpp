@@ -1,0 +1,163 @@
+/***********************************************************************
+PointAlignerPTransform - Least-squares optimization kernel for point
+set alignment using general projective transformations.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the Templatized Geometry Library (TGL).
+
+The Templatized Geometry Library is free software; you can redistribute
+it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Geometry Library is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Geometry Library; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define GEOMETRY_POINTALIGNERPTRANSFORM_IMPLEMENTATION
+
+#include <Geometry/PointAlignerPTransform.h>
+
+#include <Math/Matrix.h>
+
+namespace Geometry {
+
+/***************************************
+Methods of class PointAlignerPTransform:
+***************************************/
+
+template <class ScalarParam,int dimensionParam>
+inline
+void
+PointAlignerPTransform<ScalarParam,dimensionParam>::estimateTransform(
+	void)
+	{
+	/* Build the least-squares system of linear equations: */
+	Math::Matrix ata(numVariables,numVariables,0.0);
+	for(typename std::vector<PointPair>::const_iterator ppIt=pointPairs.begin();ppIt!=pointPairs.end();++ppIt)
+		{
+		/* Condition the "from" point: */
+		Point fromn;
+		for(int i=0;i<dimension;++i)
+			fromn[i]=(ppIt->from[i]-fromCenter[i])*fromScale;
+		
+		/* Condition the "to" point: */
+		Point ton;
+		for(int i=0;i<dimension;++i)
+			ton[i]=(ppIt->to[i]-toCenter[i])*toScale;
+		
+		/* Enter the normalized point pair's equations into the least-squares matrix: */
+		double row[numVariables];
+		for(int eq=0;eq<dimension;++eq)
+			{
+			for(int block=0;block<dimension;++block)
+				{
+				if(block==eq)
+					{
+					for(int i=0;i<dimension;++i)
+						row[block*(dimension+1)+i]=-double(fromn[i]);
+					row[block*(dimension+1)+dimension]=-1.0;
+					}
+				else
+					{
+					for(int i=0;i<=dimension;++i)
+						row[block*(dimension+1)+i]=0.0;
+					}
+				}
+			for(int i=0;i<dimension;++i)
+				row[dimension*(dimension+1)+i]=double(ton[eq])*double(fromn[i]);
+			row[dimension*(dimension+1)+dimension]=double(ton[eq]);
+			
+			for(unsigned int i=0;i<numVariables;++i)
+				for(unsigned int j=0;j<numVariables;++j)
+					ata(i,j)+=row[i]*row[j];
+			}
+		}
+	
+	/* Find the linear system's smallest eigenvalue: */
+	std::pair<Math::Matrix,Math::Matrix> qe=ata.jacobiIteration();
+	unsigned int minEIndex=0;
+	double minE=Math::abs(qe.second(0,0));
+	for(unsigned int i=1;i<numVariables;++i)
+		{
+		if(minE>Math::abs(qe.second(i,0)))
+			{
+			minEIndex=i;
+			minE=Math::abs(qe.second(i,0));
+			}
+		}
+	
+	/* Create the transformation: */
+	for(int i=0;i<dimension+1;++i)
+		for(int j=0;j<dimension+1;++j)
+			current.getMatrix()(i,j)=Scalar(qe.first(i*(dimension+1)+j,minEIndex));
+	}
+
+template <class ScalarParam,int dimensionParam>
+inline
+typename PointAlignerPTransform<ScalarParam,dimensionParam>::Transform
+PointAlignerPTransform<ScalarParam,dimensionParam>::getTransform(
+	void) const
+	{
+	/* De-condition the current transformation: */
+	Transform result=Transform::translateFromOriginTo(toCenter);
+	result*=Transform::scale(Scalar(1)/toScale);
+	result*=current;
+	result*=Transform::scale(fromScale);
+	result*=Transform::translateToOriginFrom(fromCenter);
+	
+	return result;
+	}
+
+template <class ScalarParam,int dimensionParam>
+inline
+void
+PointAlignerPTransform<ScalarParam,dimensionParam>::calcDerivativeBatch(
+	unsigned int batchIndex,
+	typename PointAlignerPTransform<ScalarParam,dimensionParam>::Scalar derivs[PointAlignerPTransform<ScalarParam,dimensionParam>::numFunctionsInBatch][PointAlignerPTransform<ScalarParam,dimensionParam>::numVariables]) const
+	{
+	/* Get the point pair associated with the given function batch: */
+	const PointPair& pp=pointPairs[batchIndex];
+	
+	/* Condition the "from" point into a homogeneous vector: */
+	typename Transform::HVector fromn;
+	for(int i=0;i<dimension;++i)
+		fromn[i]=(pp.from[i]-fromCenter[i])*fromScale;
+	fromn[dimension]=Scalar(1);
+	
+	/* Transform the conditioned homogeneous "from" point with the current transformation: */
+	typename Transform::HVector fromt=current.transform(fromn);
+	Scalar fromtw=fromt[dimension];
+	Scalar fromtw2=Math::sqr(fromtw);
+	
+	/* Calculate the function batch's partial derivatives: */
+	for(int eq=0;eq<dimension;++eq)
+		{
+		for(int block=0;block<dimension;++block)
+			{
+			if(block==eq)
+				{
+				for(int i=0;i<dimension;++i)
+					derivs[eq][block*(dimension+1)+i]=-fromn[i]/fromtw;
+				derivs[eq][block*(dimension+1)+dimension]=-Scalar(1)/fromtw;
+				}
+			else
+				{
+				for(int i=0;i<=dimension;++i)
+					derivs[eq][block*(dimension+1)+i]=Scalar(0);
+				}
+			}
+		for(int i=0;i<dimension;++i)
+			derivs[eq][dimension*(dimension+1)+i]=fromt[eq]*fromn[i]/fromtw2;
+		derivs[eq][dimension*(dimension+1)+dimension]=fromt[eq]/fromtw2;
+		}
+	}
+
+}

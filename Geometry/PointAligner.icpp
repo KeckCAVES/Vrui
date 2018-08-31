@@ -1,0 +1,138 @@
+/***********************************************************************
+PointAligner - Generic base class for least-squares optimization kernels
+for point set alignment compatible with the generic minimization classes
+in the Math library.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the Templatized Geometry Library (TGL).
+
+The Templatized Geometry Library is free software; you can redistribute
+it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Geometry Library is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Geometry Library; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define GEOMETRY_POINTALIGNER_IMPLEMENTATION
+
+#include <Geometry/PointAligner.h>
+
+#include <Math/Math.h>
+#include <Geometry/AffineCombiner.h>
+
+namespace Geometry {
+
+/*****************************
+Methods of class PointAligner:
+*****************************/
+
+template <class ScalarParam,int dimensionParam,template <class,int> class TransformParam>
+inline
+void
+PointAligner<ScalarParam,dimensionParam,TransformParam>::condition(
+	void)
+	{
+	/* Calculate the two point sets' centroids: */
+	typename Point::AffineCombiner fromCc,toCc;
+	for(typename PointPairList::iterator ppIt=pointPairs.begin();ppIt!=pointPairs.end();++ppIt)
+		{
+		fromCc.addPoint(ppIt->from);
+		toCc.addPoint(ppIt->to);
+		}
+	fromCenter=fromCc.getPoint();
+	toCenter=toCc.getPoint();
+	
+	/* Calculate the two point sets' standard deviations: */
+	Scalar fromVarSum(0);
+	Scalar toVarSum(0);
+	for(typename PointPairList::iterator ppIt=pointPairs.begin();ppIt!=pointPairs.end();++ppIt)
+		{
+		fromVarSum+=sqrDist(ppIt->from,fromCenter);
+		toVarSum+=sqrDist(ppIt->to,toCenter);
+		}
+	fromScale=Math::sqrt(double(pointPairs.size()-1)/fromVarSum);
+	toScale=Math::sqrt(double(pointPairs.size()-1)/toVarSum);
+	}
+
+template <class ScalarParam,int dimensionParam,template <class,int> class TransformParam>
+inline
+std::pair<typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Scalar,typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Scalar>
+PointAligner<ScalarParam,dimensionParam,TransformParam>::calcResidualToSpace(
+	const typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Transform& transform) const
+	{
+	/* Calculate alignment residuals in "to" space: */
+	Scalar rms2Acc(0);
+	Scalar lInf(0);
+	for(typename PointPairList::const_iterator ppIt=pointPairs.begin();ppIt!=pointPairs.end();++ppIt)
+		{
+		/* Calculate the squared distance between the transformed "from" point and the "to" point: */
+		Scalar dist2=sqrDist(ppIt->to,transform.transform(ppIt->from));
+		
+		/* Update the residuals: */
+		rms2Acc+=dist2;
+		if(lInf<dist2)
+			lInf=dist2;
+		}
+	
+	return std::pair<Scalar,Scalar>(Math::sqrt(rms2Acc/Scalar(pointPairs.size())),Math::sqrt(lInf));
+	}
+
+template <class ScalarParam,int dimensionParam,template <class,int> class TransformParam>
+inline
+std::pair<typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Scalar,typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Scalar>
+PointAligner<ScalarParam,dimensionParam,TransformParam>::calcResidualFromSpace(
+	const typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Transform& transform) const
+	{
+	/* Invert the transformation: */
+	Transform invTransform=invert(transform);
+	
+	/* Calculate alignment residuals in "from" space: */
+	Scalar rms2Acc(0);
+	Scalar lInf(0);
+	for(typename PointPairList::const_iterator ppIt=pointPairs.begin();ppIt!=pointPairs.end();++ppIt)
+		{
+		/* Calculate the squared distance between the inverse-transformed "to" point and the "from" point: */
+		Scalar dist2=sqrDist(ppIt->from,invTransform.transform(ppIt->to));
+		
+		/* Update the residuals: */
+		rms2Acc+=dist2;
+		if(lInf<dist2)
+			lInf=dist2;
+		}
+	
+	return std::pair<Scalar,Scalar>(Math::sqrt(rms2Acc/Scalar(pointPairs.size())),Math::sqrt(lInf));
+	}
+
+template <class ScalarParam,int dimensionParam,template <class,int> class TransformParam>
+inline
+void
+PointAligner<ScalarParam,dimensionParam,TransformParam>::calcValueBatch(
+	unsigned int batchIndex,
+	typename PointAligner<ScalarParam,dimensionParam,TransformParam>::Scalar values[PointAligner<ScalarParam,dimensionParam,TransformParam>::numFunctionsInBatch]) const
+	{
+	/* Get the point pair associated with the given function batch: */
+	const PointPair& pp=pointPairs[batchIndex];
+	
+	/* Condition the "from" point: */
+	Point fromn;
+	for(int i=0;i<dimension;++i)
+		fromn[i]=(pp.from[i]-fromCenter[i])*fromScale;
+	
+	/* Transform the conditioned "from" point with the current transformation: */
+	Point fromt=current.transform(fromn);
+	
+	/* Store the component-wise distances to the conditioned "to" point: */
+	for(int i=0;i<dimension;++i)
+		values[i]=(pp.to[i]-toCenter[i])*toScale-fromt[i];
+	}
+
+}
