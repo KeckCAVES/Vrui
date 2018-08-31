@@ -1,7 +1,8 @@
 /***********************************************************************
-SimplexMinimizer - Generic class to perform minimization of arbitrary
-target functions using a simplex algorithm.
-Copyright (c) 2014 Oliver Kreylos
+SimplexMinimizer - Generic class to minimize a set of equations in a
+least-squares sense using a simplex algorithm, templatized by a kernel
+class implementing a specific optimization problem.
+Copyright (c) 2014-2018 Oliver Kreylos
 
 This file is part of the Templatized Math Library (Math).
 
@@ -25,169 +26,385 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <Math/SimplexMinimizer.h>
 
 #include <Misc/FunctionCalls.h>
+#include <Math/Math.h>
+#include <Math/Random.h>
 
 namespace Math {
 
-template <class MinimizationFunctionParam>
+template <class KernelParam>
 inline
-SimplexMinimizer<MinimizationFunctionParam>::SimplexMinimizer(
-	void)
-	:maxNumSteps(1000),
-	 expansionFactor(1.2),contractionFactor(0.8),
-	 progressFrequency(0),progressCallback(0)
+typename SimplexMinimizer<KernelParam>::Scalar
+SimplexMinimizer<KernelParam>::calcResidual2(
+	typename SimplexMinimizer<KernelParam>::Kernel& kernel,
+	const typename SimplexMinimizer<KernelParam>::VariableVector& v)
 	{
-	}
-
-template <class MinimizationFunctionParam>
-inline
-SimplexMinimizer<MinimizationFunctionParam>::~SimplexMinimizer(
-	void)
-	{
-	delete progressCallback;
-	}
-
-template <class MinimizationFunctionParam>
-inline
-void
-SimplexMinimizer<MinimizationFunctionParam>::setProgressCallback(
-	unsigned int newProgressFrequency,
-	typename SimplexMinimizer<MinimizationFunctionParam>::ProgressCallback* newProgressCallback)
-	{
-	/* Set the new progress callback frequency: */
-	progressFrequency=newProgressFrequency;
+	/* Set the kernel to the given state: */
+	kernel.setState(v);
 	
-	/* Delete the current progress callback and install the new one: */
-	delete progressCallback;
-	progressCallback=newProgressCallback;
-	}
-
-template <class MinimizationFunctionParam>
-inline
-typename SimplexMinimizer<MinimizationFunctionParam>::ValuedVertex
-SimplexMinimizer<MinimizationFunctionParam>::minimize(
-	const typename SimplexMinimizer<MinimizationFunctionParam>::MinimizationFunction& function,
-	const typename SimplexMinimizer<MinimizationFunctionParam>::Vertex& initialVertex,
-	typename SimplexMinimizer<MinimizationFunctionParam>::Scalar initialSimplexSize)
-	{
-	/* Construct the initial simplex: */
-	vertices[0]=initialVertex;
-	for(unsigned int i=0;i<dimension;++i)
-		vertices[0].move(i,-initialSimplexSize/Scalar(dimension+1));
-	values[0]=function(vertices[0]);
-	for(unsigned int i=1;i<=dimension;++i)
+	/* Sum up the squared function values of all function batches: */
+	Scalar residual2(0);
+	Scalar values[numFunctionsInBatch];
+	for(unsigned int batch=0;batch<kernel.getNumBatches();++batch)
 		{
-		vertices[i]=vertices[0];
-		vertices[i].move(i-1,initialSimplexSize);
-		values[i]=function(vertices[i]);
+		/* Evaluate the optimization kernel's values for this function batch: */
+		kernel.calcValueBatch(batch,values);
+		
+		/* Accumulate the total least-squares residual of all functions in this batch: */
+		for(unsigned int function=0;function<numFunctionsInBatch;++function)
+			residual2+=sqr(values[function]);
 		}
 	
-	/* Run the minimization loop: */
-	unsigned int nextProgressCall=progressFrequency;
-	unsigned int lastWorstVertex=dimension+1;
-	for(unsigned int step=0;step<maxNumSteps;++step)
+	return residual2;
+	}
+
+template <class KernelParam>
+inline
+typename SimplexMinimizer<KernelParam>::VariableVector
+SimplexMinimizer<KernelParam>::calcFaceCenter(
+	const typename SimplexMinimizer<KernelParam>::VariableVector vertices[SimplexMinimizer<KernelParam>::numVertices],
+	unsigned int worstVertexIndex)
+	{
+	/* Sum up the components of all vertices that are not the worst: */
+	unsigned int vi=worstVertexIndex==0?1:0; // Index of the first vertex that is not the worst
+	VariableVector result=vertices[vi];
+	for(++vi;vi<numVertices;++vi)
+		if(vi!=worstVertexIndex)
+			{
+			for(unsigned int i=0;i<numVariables;++i)
+				result[i]+=vertices[vi][i];
+			}
+	
+	/* Normalize the components to calculate the face center: */
+	for(unsigned int i=0;i<numVariables;++i)
+		result[i]/=Scalar(numVertices-1);
+	
+	return result;
+	}
+
+
+template <class KernelParam>
+inline
+typename SimplexMinimizer<KernelParam>::VariableVector
+SimplexMinimizer<KernelParam>::moveVertex(
+	const typename SimplexMinimizer<KernelParam>::VariableVector& vertex,
+	const typename SimplexMinimizer<KernelParam>::VariableVector& faceCenter,
+	typename SimplexMinimizer<KernelParam>::Scalar step)
+	{
+	/* Calculate the new vertex position: */
+	VariableVector result;
+	for(unsigned int i=0;i<numVariables;++i)
+		result[i]=faceCenter[i]*(Scalar(1)+step)-vertex[i]*step; // This is more numerically stable than result=faceCenter+(faceCenter-vertex)*step
+	
+	return result;
+	}
+
+template <class KernelParam>
+inline
+SimplexMinimizer<KernelParam>::SimplexMinimizer(void)
+	:Base(1000),
+	 expansionFactor(1.2),contractionFactor(0.8),
+	 jitter(0.0),
+	 whackFrequency(0),whackScale(1),whackJitter(0)
+	{
+	for(unsigned int i=0;i<numVariables;++i)
 		{
-		/* Find the maximum-value vertex that is not the most recently reflected vertex: */
-		unsigned int worstVertex=lastWorstVertex==0?1:0;
-		Value worstValue=values[worstVertex];
-		for(unsigned int i=worstVertex+1;i<=dimension;++i)
-			if(i!=lastWorstVertex&&worstValue<values[i])
+		initialSimplexSize[i]=Scalar(0);
+		minSimplexSize[i]=Scalar(0);
+		}
+	}
+
+template <class KernelParam>
+inline
+typename SimplexMinimizer<KernelParam>::Scalar
+SimplexMinimizer<KernelParam>::minimize(
+	typename SimplexMinimizer<KernelParam>::Kernel& kernel)
+	{
+	/* Create the optimization simplex and its least-squares residuals: */
+	VariableVector vertices[numVertices];
+	Scalar vertexResidual2s[numVertices];
+	
+	#if 0
+	
+	/* Initialize the optimization simplex by centering on the kernel's current state: */
+	vertices[0]=kernel.getState();
+	Scalar w=Scalar(1)/Scalar(numVertices);
+	for(unsigned int i=0;i<numVariables;++i)
+		vertices[0][i]-=initialSimplexSize[i]*w;
+	for(unsigned int i=0;i<numVariables;++i)
+		{
+		vertices[i+1]=vertices[0];
+		vertices[i+1][i]+=initialSimplexSize[i];
+		}
+	
+	#else
+	
+	/* Initialize the optimization simplex by selecting the kernel's current state as the first vertex: */
+	vertices[0]=kernel.getState();
+	for(unsigned int i=0;i<numVariables;++i)
+		{
+		vertices[i+1]=vertices[0];
+		vertices[i+1][i]+=initialSimplexSize[i];
+		}
+	
+	#endif
+	
+	if(jitter>0.0)
+		{
+		/* Add some randomness: */
+		for(unsigned int vi=0;vi<numVertices;++vi)
+			for(unsigned int i=0;i<numVariables;++i)
+				vertices[vi][i]+=Scalar(Math::randNormal(0.0,double(initialSimplexSize[i])*jitter));
+		}
+	
+	/* Calculate the initial vertices' least-squares residuals: */
+	for(unsigned int vi=0;vi<numVertices;++vi)
+		vertexResidual2s[vi]=calcResidual2(kernel,vertices[vi]);
+	
+	/* Run the minimization loop: */
+	size_t nextWhackIteration=whackFrequency;
+	size_t nextProgressCallIteration=progressFrequency;
+	unsigned int lastWorstVertexIndex=numVertices;
+	size_t numIdenticals=0;
+	for(size_t iteration=0;iteration<maxNumIterations;++iteration)
+		{
+		/* Check if it's time to whack the simplex: */
+		if(iteration+1==nextWhackIteration)
+			{
+			#if 0
+			
+			for(unsigned int i=0;i<numVariables;++i)
 				{
-				worstVertex=i;
-				worstValue=values[i];
+				/* Calculate the simplex centroid and extent along the current dimension: */
+				Scalar centroid,min,max;
+				max=min=centroid=vertices[0][i];
+				for(unsigned int vi=1;vi<numVertices;++vi)
+					{
+					centroid+=vertices[vi][i];
+					if(min>vertices[vi][i])
+						min=vertices[vi][i];
+					else if(max<vertices[vi][i])
+						max=vertices[vi][i];
+					}
+				centroid/=Scalar(numVertices);
+				
+				/* Scale the simplex around its current centroid and add proportional noise to all simplex vertices: */
+				double noise=double(max-min)*double(whackJitter);
+				for(unsigned int vi=0;vi<numVertices;++vi)
+					vertices[vi][i]=centroid+(vertices[vi][i]-centroid)*whackScale+Scalar(Math::randNormal(0.0,noise));
 				}
-		lastWorstVertex=worstVertex;
+			
+			#else
+			
+			/* Find the simplex vertex with the smallest least-squares residual: */
+			unsigned int bestVertexIndex=0;
+			Scalar bestResidual2=vertexResidual2s[0];
+			for(unsigned int vi=1;vi<numVertices;++vi)
+				if(bestResidual2>vertexResidual2s[vi])
+					{
+					bestVertexIndex=vi;
+					bestResidual2=vertexResidual2s[vi];
+					}
+			
+			for(unsigned int i=0;i<numVariables;++i)
+				{
+				/* Calculate the simplex extent along the current dimension: */
+				Scalar min,max;
+				max=min=vertices[0][i];
+				for(unsigned int vi=1;vi<numVertices;++vi)
+					{
+					if(min>vertices[vi][i])
+						min=vertices[vi][i];
+					else if(max<vertices[vi][i])
+						max=vertices[vi][i];
+					}
+				
+				/* Scale the simplex around its best vertex and add proportional noise to all simplex vertices: */
+				double noise=double(max-min)*double(whackJitter);
+				for(unsigned int vi=0;vi<numVertices;++vi)
+					vertices[vi][i]=vertices[bestVertexIndex][i]*(Scalar(1)-whackScale)+vertices[vi][i]*whackScale+Scalar(Math::randNormal(0.0,noise));
+				}
+				
+			#endif
+			
+			/* Re-calculate vertex least-squares residuals: */
+			for(unsigned int vi=0;vi<numVertices;++vi)
+				vertexResidual2s[vi]=calcResidual2(kernel,vertices[vi]);
+			lastWorstVertexIndex=numVertices;
+			
+			/* Advance the whack counter: */
+			nextWhackIteration+=whackFrequency;
+			if(nextWhackIteration>=(maxNumIterations*3)/4)
+				nextWhackIteration=0;
+			}
 		
-		/* Reflect the maximum-value vertex about the center of its opposite face: */
-		Vertex fc=Vertex::calcFaceCenter(vertices,worstVertex);
-		Vertex r=Vertex::move(vertices[worstVertex],fc,Scalar(1));
-		Value rValue=function(r);
+		/* Find the maximum-residual vertex that is not the most recently reflected vertex: */
+		unsigned int worstVertexIndex=lastWorstVertexIndex==0?1:0; // Index of the first vertex that is not the worst
+		Scalar worstResidual2=vertexResidual2s[worstVertexIndex];
+		for(unsigned int vi=worstVertexIndex+1;vi<numVertices;++vi)
+			if(vi!=lastWorstVertexIndex&&worstResidual2<vertexResidual2s[vi])
+				{
+				worstVertexIndex=vi;
+				worstResidual2=vertexResidual2s[vi];
+				}
+		lastWorstVertexIndex=worstVertexIndex;
+		VariableVector& w=vertices[worstVertexIndex];
+		Scalar& wResidual2=vertexResidual2s[worstVertexIndex];
+		
+		/* Calculate the center of the face opposite from the maximum-residual vertex: */
+		VariableVector fc=calcFaceCenter(vertices,worstVertexIndex);
+		
+		/* Reflect the maximum-residual vertex about the face center and calculate its new least-squares residual: */
+		VariableVector r=moveVertex(w,fc,Scalar(1));
+		Scalar rResidual2=calcResidual2(kernel,r);
 		
 		/* Determine the reflected vertex's rank among all current vertices: */
-		unsigned int rank=0;
-		for(unsigned int i=0;i<=dimension;++i)
-			if(rValue<=values[i])
-				++rank;
+		unsigned int rRank=0;
+		for(unsigned int vi=0;vi<numVertices;++vi)
+			if(rResidual2<=vertexResidual2s[vi])
+				++rRank;
 		
 		/* Determine the type of simplex shape change operation: */
-		if(rank==dimension+1) // Reflected vertex is best vertex
+		if(rRank==numVertices) // Reflected vertex is best vertex
 			{
-			/* Reflect and expand the simplex: */
-			Vertex e=Vertex::move(vertices[worstVertex],fc,expansionFactor);
-			Value eValue=function(e);
+			/* Reflect and expand the  maximum-residual vertex about the face center and calculate its new least-squares residual: */
+			VariableVector e=moveVertex(w,fc,expansionFactor);
+			Scalar eResidual2=calcResidual2(kernel,e);
 			
 			/* Determine the expanded vertex's rank among all current vertices: */
-			rank=0;
-			for(unsigned int i=0;i<=dimension;++i)
-				if(eValue<=values[i])
-					++rank;
+			unsigned int eRank=0;
+			for(unsigned int vi=0;vi<numVertices;++vi)
+				if(eResidual2<=vertexResidual2s[vi])
+					++eRank;
 			
-			if(rank==dimension+1) // Expanded vertex is still the best
+			/* Determine whether to accept the simplex expansion: */
+			if(eRank==numVertices) // Expanded vertex is still the best
 				{
 				/* Accept the expansion: */
-				vertices[worstVertex]=e;
-				values[worstVertex]=eValue;
+				w=e;
+				wResidual2=eResidual2;
 				}
 			else
 				{
-				/* Reject the expansion: */
-				vertices[worstVertex]=r;
-				values[worstVertex]=rValue;
+				/* Reject the expansion and accept the reflection: */
+				w=r;
+				wResidual2=rResidual2;
 				}
+			
+			numIdenticals=0;
 			}
-		else if(rank>=(dimension+2)/2) // Reflected vertex is better than half of all vertices
+		else if(rRank>=(numVertices+1)/2) // Reflected vertex is better than half of all vertices
 			{
 			/* Accept the reflection: */
-			vertices[worstVertex]=r;
-			values[worstVertex]=rValue;
+			w=r;
+			wResidual2=rResidual2;
+			
+			numIdenticals=0;
 			}
-		else if(rank>=(dimension+2)/4) // Reflected vertex is better than a quarter of all vertices
+		else if(rRank>=(numVertices+1)/4) // Reflected vertex is better than a quarter of all vertices
 			{
 			/* Reflect and contract the simplex: */
-			vertices[worstVertex]=Vertex::move(vertices[worstVertex],fc,contractionFactor);
-			values[worstVertex]=function(vertices[worstVertex]);
+			w=moveVertex(w,fc,contractionFactor);
+			wResidual2=calcResidual2(kernel,w);
+			
+			numIdenticals=0;
 			}
 		else // Reflected vertex is worse than three quarter of all vertices
 			{
 			/* Contract the simplex: */
-			vertices[worstVertex]=Vertex::move(vertices[worstVertex],fc,-contractionFactor);
-			values[worstVertex]=function(vertices[worstVertex]);
+			VariableVector c=moveVertex(w,fc,-contractionFactor);
+			if(c==w)
+				++numIdenticals;
+			else
+				numIdenticals=0;
+			w=c;
+			wResidual2=calcResidual2(kernel,w);
 			}
 		
-		/* Check if the simplex is too small to continue: */
-		if(Vertex::isTooSmall(vertices))
+		/* Bail out if the simplex is too small to continue: */
+		bool tiny;
+		for(unsigned int i=0;i<numVariables&&tiny;++i)
+			{
+			/* Calculate the simplex's extent along this optimization space dimension: */
+			Scalar min,max;
+			max=min=vertices[0][i];
+			for(unsigned int vi=1;vi<numVertices;++vi)
+				{
+				if(min>vertices[vi][i])
+					min=vertices[vi][i];
+				else if(max<vertices[vi][i])
+					max=vertices[vi][i];
+				}
+			
+			/* Check if the simplex is too small: */
+			tiny=max-min<minSimplexSize[i];
+			}
+		if(tiny||numIdenticals>=100)
 			break;
 		
 		/* Check if it's time to call the progress callback: */
-		if(progressCallback!=0&&--nextProgressCall==0)
+		if(progressCallback!=0&&iteration+1==nextProgressCallIteration)
 			{
-			/* Find the current minimum-value vertex: */
-			unsigned int bestVertex=0;
-			Value bestValue=values[0];
-			for(unsigned int i=1;i<=dimension;++i)
-				if(bestValue>values[i])
+			/* Find the vertex with the minimum least-squares residual: */
+			unsigned int bestVertexIndex=0;
+			Scalar bestResidual2=vertexResidual2s[0];
+			for(unsigned int vi=1;vi<numVertices;++vi)
+				if(bestResidual2>vertexResidual2s[vi])
 					{
-					bestVertex=i;
-					bestValue=values[i];
+					bestVertexIndex=vi;
+					bestResidual2=vertexResidual2s[vi];
 					}
 			
-			/* Call the progress callback: */
-			(*progressCallback)(ValuedVertex(vertices[bestVertex],values[bestVertex]));
+			/* Set the minimization kernel's state to the best vertex: */
+			kernel.setState(vertices[bestVertexIndex]);
 			
-			/* Reset the progress callback counter: */
-			nextProgressCall=progressFrequency;
+			/* Call the progress callback: */
+			ProgressCallbackData cbData(kernel,bestResidual2,false);
+			(*progressCallback)(cbData);
+			
+			/* Advance the progress callback counter: */
+			nextProgressCallIteration+=progressFrequency;
 			}
 		}
 	
-	/* Find and return the minimum-value vertex: */
-	unsigned int bestVertex=0;
-	Value bestValue=values[0];
-	for(unsigned int i=1;i<=dimension;++i)
-		if(bestValue>values[i])
+	#if 1
+	
+	/* Find the vertex with the minimum least-squares residual: */
+	unsigned int bestVertexIndex=0;
+	Scalar bestResidual2=vertexResidual2s[0];
+	for(unsigned int vi=1;vi<numVertices;++vi)
+		if(bestResidual2>vertexResidual2s[vi])
 			{
-			bestVertex=i;
-			bestValue=values[i];
+			bestVertexIndex=vi;
+			bestResidual2=vertexResidual2s[vi];
 			}
-	return ValuedVertex(vertices[bestVertex],values[bestVertex]);
+	
+	/* Set the minimization kernel's state to the final best vertex: */
+	kernel.setState(vertices[bestVertexIndex]);
+	
+	#else
+	
+	/* Set the minimization kernel's state to the final simplex's centroid: */
+	VariableVector centroid=vertices[0];
+	for(unsigned int i=0;i<numVariables;++i)
+		{
+		centroid[i]=vertices[0][i];
+		for(unsigned int vi=1;vi<numVertices;++vi)
+			centroid[i]+=vertices[vi][i];
+		centroid[i]/=Scalar(numVertices);
+		}
+	Scalar bestResidual2=calcResidual2(kernel,centroid);
+	
+	#endif
+	
+	if(progressCallback!=0)
+		{
+		/* Call the progress callback with the final optimization result: */
+		ProgressCallbackData cbData(kernel,bestResidual2,true);
+		(*progressCallback)(cbData);
+		}
+	
+	/* Return the final least-squares residual: */
+	return bestResidual2;
 	}
 
 }

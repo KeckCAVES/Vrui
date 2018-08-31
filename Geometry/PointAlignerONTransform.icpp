@@ -1,0 +1,223 @@
+/***********************************************************************
+PointAlignerONTransform - Least-squares optimization kernel for point
+set alignment using rigid body transformations.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the Templatized Geometry Library (TGL).
+
+The Templatized Geometry Library is free software; you can redistribute
+it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Geometry Library is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Geometry Library; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA
+***********************************************************************/
+
+#define GEOMETRY_POINTALIGNERONTRANSFORM_IMPLEMENTATION
+
+#include <Geometry/PointAlignerONTransform.h>
+
+#include <Math/Matrix.h>
+#include <Geometry/Matrix.h>
+
+namespace Geometry {
+
+/*******************************************
+Methods of class PointAlignerONTransform<2>:
+*******************************************/
+
+template <class ScalarParam>
+inline
+void
+PointAlignerONTransform<ScalarParam,2>::estimateTransform(
+	void)
+	{
+	/* I don't know how to do this, and it doesn't really matter. */
+	}
+
+template <class ScalarParam>
+inline
+typename PointAlignerONTransform<ScalarParam,2>::Transform
+PointAlignerONTransform<ScalarParam,2>::getTransform(
+	void) const
+	{
+	/* De-condition the current transformation: */
+	Transform result=Transform::translateFromOriginTo(toCenter);
+	result*=current;
+	result*=Transform::translateToOriginFrom(fromCenter);
+	
+	return result;
+	}
+
+template <class ScalarParam>
+inline
+void
+PointAlignerONTransform<ScalarParam,2>::calcDerivativeBatch(
+	unsigned int batchIndex,
+	typename PointAlignerONTransform<ScalarParam,2>::Scalar derivs[PointAlignerONTransform<ScalarParam,2>::numFunctionsInBatch][PointAlignerONTransform<ScalarParam,2>::numVariables]) const
+	{
+	/* Get the point pair associated with the given function batch: */
+	const PointPair& pp=pointPairs[batchIndex];
+	
+	/* Fill the translation block of the derivative: */
+	for(int i=0;i<2;++i)
+		for(int j=0;j<2;++j)
+			derivs[i][j]=i==j?-Scalar(1):Scalar(0);
+	
+	/* Condition the "from" point: */
+	Point fromn;
+	for(int i=0;i<2;++i)
+		fromn[i]=(pp.from[i]-fromCenter[i])*fromScale;
+	
+	/* Calculate the rotation block of the derivative: */
+	Scalar ca=Math::cos(current.getRotation().getAngle());
+	Scalar sa=Math::sin(current.getRotation().getAngle());
+	derivs[0][2]=sa*fromn[0]+ca*fromn[1];
+	derivs[1][2]=-ca*fromn[0]+sa*fromn[1];
+	}
+
+/*******************************************
+Methods of class PointAlignerONTransform<3>:
+*******************************************/
+
+template <class ScalarParam>
+inline
+void
+PointAlignerONTransform<ScalarParam,3>::estimateTransform(
+	void)
+	{
+	/* Calculate the inner product between the conditioned "to" and "from" point sets: */
+	double m[3][3];
+	for(int i=0;i<3;++i)
+		for(int j=0;j<3;++j)
+			m[i][j]=0.0;
+	
+	for(typename std::vector<PointPair>::const_iterator ppIt=pointPairs.begin();ppIt!=pointPairs.end();++ppIt)
+		{
+		/* Condition the "from" point: */
+		Point fromn;
+		for(int i=0;i<3;++i)
+			fromn[i]=(ppIt->from[i]-fromCenter[i])*fromScale;
+		
+		/* Condition the "to" point: */
+		Point ton;
+		for(int i=0;i<3;++i)
+			ton[i]=(ppIt->to[i]-toCenter[i])*toScale;
+		
+		/* Enter the conditioned points' inner product into the matrix: */
+		for(int i=0;i<3;++i)
+			for(int j=0;j<3;++j)
+				m[i][j]+=double(fromn[i])*double(ton[j]);
+		}
+	
+	/* Construct the inner product's key matrix: */
+	Math::Matrix k(4,4);
+	k(0,0)=m[0][0]+m[1][1]+m[2][2];
+	k(0,1)=m[1][2]-m[2][1];
+	k(0,2)=m[2][0]-m[0][2];
+	k(0,3)=m[0][1]-m[1][0];
+	k(1,0)=m[1][2]-m[2][1];
+	k(1,1)=m[0][0]-m[1][1]-m[2][2];
+	k(1,2)=m[0][1]+m[1][0];
+	k(1,3)=m[2][0]+m[0][2];
+	k(2,0)=m[2][0]-m[0][2];
+	k(2,1)=m[0][1]+m[1][0];
+	k(2,2)=-m[0][0]+m[1][1]-m[2][2];
+	k(2,3)=m[1][2]+m[2][1];
+	k(3,0)=m[0][1]-m[1][0];
+	k(3,1)=m[2][0]+m[0][2];
+	k(3,2)=m[1][2]+m[2][1];
+	k(3,3)=-m[0][0]-m[1][1]+m[2][2];
+	
+	/* Find the eigenvector corresponding to the largest eigenvalue of the key matrix, which is the quaternion of the optimal rotation: */
+	std::pair<Math::Matrix,Math::Matrix> jacobi=k.jacobiIteration();
+	double maxE=jacobi.second(0);
+	int maxEIndex=0;
+	for(int i=1;i<4;++i)
+		if(maxE<jacobi.second(i))
+			{
+			maxE=jacobi.second(i);
+			maxEIndex=i;
+			}
+	
+	/* Construct the optimal rotation: */
+	current=Transform::rotate(Transform::Rotation::fromQuaternion(jacobi.first(1,maxEIndex),jacobi.first(2,maxEIndex),jacobi.first(3,maxEIndex),jacobi.first(0,maxEIndex)));
+	}
+
+template <class ScalarParam>
+inline
+typename PointAlignerONTransform<ScalarParam,3>::Transform
+PointAlignerONTransform<ScalarParam,3>::getTransform(
+	void) const
+	{
+	/* De-condition the current transformation: */
+	Transform result=Transform::translateFromOriginTo(toCenter);
+	result*=current;
+	result*=Transform::translateToOriginFrom(fromCenter);
+	
+	return result;
+	}
+
+template <class ScalarParam>
+inline
+void
+PointAlignerONTransform<ScalarParam,3>::calcDerivativeBatch(
+	unsigned int batchIndex,
+	typename PointAlignerONTransform<ScalarParam,3>::Scalar derivs[PointAlignerONTransform<ScalarParam,3>::numFunctionsInBatch][PointAlignerONTransform<ScalarParam,3>::numVariables]) const
+	{
+	/* Get the point pair associated with the given function batch: */
+	const PointPair& pp=pointPairs[batchIndex];
+	
+	/* Fill the translation block of the derivative: */
+	for(int i=0;i<3;++i)
+		for(int j=0;j<3;++j)
+			derivs[i][j]=i==j?-Scalar(1):Scalar(0);
+	
+	/* Condition the "from" point: */
+	Point fromn;
+	for(int i=0;i<3;++i)
+		fromn[i]=(pp.from[i]-fromCenter[i])*fromScale;
+	
+	/* Calculate the rotation block of the derivative: */
+	const Scalar* q=current.getRotation().getQuaternion();
+	Matrix<Scalar,3,4> d;
+	Scalar a=q[1]*fromn[2]-q[2]*fromn[1]+fromn[0]*q[3];
+	Scalar b=q[2]*fromn[0]-q[0]*fromn[2]+fromn[1]*q[3];
+	Scalar c=q[0]*fromn[1]-q[1]*fromn[0]+fromn[2]*q[3];
+	d(0,0)=Scalar(2)*(q[1]*fromn[1]+q[2]*fromn[2]);
+	d(0,1)=Scalar(2)*(c-q[1]*fromn[0]);
+	d(0,2)=Scalar(2)*(-b-q[2]*fromn[0]);
+	d(0,3)=Scalar(2)*(q[1]*fromn[2]-q[2]*fromn[1]);
+	d(1,0)=Scalar(2)*(-c-q[0]*fromn[1]);
+	d(1,1)=Scalar(2)*(q[2]*fromn[2]+q[0]*fromn[0]);
+	d(1,2)=Scalar(2)*(a-q[2]*fromn[1]);
+	d(1,3)=Scalar(2)*(q[2]*fromn[0]-q[0]*fromn[2]);
+	d(2,0)=Scalar(2)*(b-q[0]*fromn[2]);
+	d(2,1)=Scalar(2)*(-a-q[1]*fromn[2]);
+	d(2,2)=Scalar(2)*(q[0]*fromn[0]+q[1]*fromn[1]);
+	d(2,3)=Scalar(2)*(q[0]*fromn[1]-q[1]*fromn[0]);
+	
+	/* Calculate the quaternion normalization derivative: */
+	Matrix<Scalar,4,4> dq;
+	for(int i=0;i<4;++i)
+		for(int j=0;j<4;++j)
+			dq(i,j)=i==j?1.0-Math::sqr(q[i]):-q[i]*q[j];
+	
+	/* Apply Chain Rule: */
+	d*=dq;
+	
+	/* Copy the result into the derivative: */
+	for(int i=0;i<3;++i)
+		for(int j=0;j<4;++j)
+			derivs[i][3+j]=-d(i,j);
+	}
+
+}

@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2016 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -176,6 +176,7 @@ class Application
 	unsigned int nextEventToolClassIndex; // Index to generate unique simple event tool classes
 	
 	/* Private methods: */
+	static void prepareMainLoopWrapper(void* userData);
 	static void frameWrapper(void* userData);
 	static void displayWrapper(GLContextData& contextData,void* userData);
 	static void soundWrapper(ALContextData& contextData,void* userData);
@@ -198,6 +199,7 @@ class Application
 	void run(void); // Runs Vrui main loop
 	
 	/* Methods to be overridden by derived classes to insert functionality into Vrui's main loop: */
+	virtual void prepareMainLoop(void); // Called immediately before Vrui's main application loop starts running
 	virtual void toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData); // Called when the tool manager creates a new tool
 	virtual void toolDestructionCallback(ToolManager::ToolDestructionCallbackData* cbData); // Called when the tool manager destroys a tool
 	virtual void frame(void); // Synchronization method called exactly once per frame

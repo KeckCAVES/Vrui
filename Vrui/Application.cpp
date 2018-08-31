@@ -1,6 +1,6 @@
 /***********************************************************************
 Application - Base class for Vrui application objects.
-Copyright (c) 2004-2015 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -33,6 +33,11 @@ namespace Vrui {
 /****************************
 Methods of class Application:
 ****************************/
+
+void Application::prepareMainLoopWrapper(void* userData)
+	{
+	static_cast<Application*>(userData)->prepareMainLoop();
+	}
 
 void Application::frameWrapper(void* userData)
 	{
@@ -125,6 +130,7 @@ Application::~Application(void)
 void Application::run(void)
 	{
 	/* Install Vrui callbacks: */
+	setPrepareMainLoopFunction(prepareMainLoopWrapper,this);
 	setFrameFunction(frameWrapper,this);
 	setDisplayFunction(displayWrapper,this);
 	setSoundFunction(soundWrapper,this);
@@ -132,6 +138,10 @@ void Application::run(void)
 	
 	/* Run the Vrui main loop: */
 	mainLoop();
+	}
+
+void Application::prepareMainLoop(void)
+	{
 	}
 
 void Application::toolCreationCallback(ToolManager::ToolCreationCallbackData* cbData)

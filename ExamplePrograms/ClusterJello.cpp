@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2016 Oliver Kreylos
+Copyright (c) 2007-2018 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -192,20 +192,20 @@ void* ClusterJello::simulationThreadMethodMaster(void)
 		lastFrameTime=newFrameTime;
 		
 		/* Check if the simulation parameters have been changed: */
-		if(simulationParameters.hasNewValue())
+		if(simulationParameters.lockNewValue())
 			{
 			/* Update the Jell-O crystal's simulation parameters: */
-			const SimulationParameters& sp=simulationParameters.lockNewValue();
+			const SimulationParameters& sp=simulationParameters.getLockedValue();
 			crystal->setAtomMass(sp.atomMass);
 			crystal->setAttenuation(sp.attenuation);
 			crystal->setGravity(sp.gravity);
 			}
 		
 		/* Check if the application has delivered new dragger states: */
-		if(draggerStates.hasNewValue())
+		if(draggerStates.lockNewValue())
 			{
 			/* Process the new dragger states: */
-			const DraggerStates& ds=draggerStates.lockNewValue();
+			const DraggerStates& ds=draggerStates.getLockedValue();
 			for(int draggerIndex=0;draggerIndex<ds.numDraggers;++draggerIndex)
 				{
 				if(ds.draggerActives[draggerIndex])
@@ -271,9 +271,9 @@ void* ClusterJello::simulationThreadMethodMaster(void)
 				}
 			
 			/* Update the application's proxy crystal state: */
-			JelloCrystal& pc=proxyCrystal.startWrite();
+			JelloCrystal& pc=proxyCrystal.startNewValue();
 			pc.copyAtomStates(*crystal);
-			proxyCrystal.finishWrite();
+			proxyCrystal.postNewValue();
 			Vrui::requestUpdate();
 			
 			/* Start the next update interval: */
@@ -294,9 +294,9 @@ void* ClusterJello::simulationThreadMethodSlave(void)
 	while(true)
 		{
 		/* Receive the next crystal state update from the master and write it into the application's proxy crystal state: */
-		JelloCrystal& pc=proxyCrystal.startWrite();
+		JelloCrystal& pc=proxyCrystal.startNewValue();
 		pc.readAtomStates(*clusterPipe);
-		proxyCrystal.finishWrite();
+		proxyCrystal.postNewValue();
 		Vrui::requestUpdate();
 		}
 	
@@ -319,7 +319,7 @@ ClusterJello::ClusterJello(int& argc,char**& argv)
 	
 	/* Initialize the proxy crystal states: */
 	for(int i=0;i<3;++i)
-		proxyCrystal.accessSlot(i).setNumAtoms(JelloCrystal::Index(4,4,8));
+		proxyCrystal.getBuffer(i).setNumAtoms(JelloCrystal::Index(4,4,8));
 	
 	/* Initialize the crystal renderer: */
 	renderer=new JelloRenderer(proxyCrystal.getLockedValue());
@@ -421,7 +421,7 @@ void ClusterJello::toolDestructionCallback(Vrui::ToolManager::ToolDestructionCal
 void ClusterJello::frame(void)
 	{
 	/* Send the current states of all draggers to the simulation thread: */
-	DraggerStates& ds=draggerStates.startWrite();
+	DraggerStates& ds=draggerStates.startNewValue();
 	ds.setNumDraggers(atomDraggers.size());
 	for(int i=0;i<ds.numDraggers;++i)
 		{
@@ -432,13 +432,13 @@ void ClusterJello::frame(void)
 		ds.draggerTransformations[i]=ad->draggerTransformation;
 		ds.draggerActives[i]=ad->active;
 		}
-	draggerStates.finishWrite();
+	draggerStates.postNewValue();
 	
 	/* Check if the simulation thread has delivered a new crystal state: */
-	if(proxyCrystal.hasNewValue())
+	if(proxyCrystal.lockNewValue())
 		{
 		/* Update the Jell-O renderer to draw the new crystal state: */
-		renderer->setCrystal(&proxyCrystal.lockNewValue());
+		renderer->setCrystal(&proxyCrystal.getLockedValue());
 		renderer->update();
 		}
 	}
@@ -477,7 +477,7 @@ void ClusterJello::jigglinessSliderCallback(GLMotif::TextFieldSlider::ValueChang
 	currentSimulationParameters.atomMass=Scalar(Math::exp(Math::log(1.1)*(cbData->value*64.0-32.0)));
 	
 	/* Update the simulation parameters (only relevant on the master node): */
-	simulationParameters.write(currentSimulationParameters);
+	simulationParameters.postNewValue(currentSimulationParameters);
 	}
 
 void ClusterJello::viscositySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
@@ -486,7 +486,7 @@ void ClusterJello::viscositySliderCallback(GLMotif::TextFieldSlider::ValueChange
 	currentSimulationParameters.attenuation=Scalar(1.0-cbData->value);
 	
 	/* Update the simulation parameters (only relevant on the master node): */
-	simulationParameters.write(currentSimulationParameters);
+	simulationParameters.postNewValue(currentSimulationParameters);
 	}
 
 void ClusterJello::gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedCallbackData* cbData)
@@ -495,7 +495,7 @@ void ClusterJello::gravitySliderCallback(GLMotif::TextFieldSlider::ValueChangedC
 	currentSimulationParameters.gravity=Scalar(cbData->value);
 	
 	/* Update the simulation parameters (only relevant on the master node): */
-	simulationParameters.write(currentSimulationParameters);
+	simulationParameters.postNewValue(currentSimulationParameters);
 	}
 
 void ClusterJello::settingsDialogCloseCallback(Misc::CallbackData* cbData)

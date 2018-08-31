@@ -172,6 +172,10 @@ class BaseImage
 		ownRepresentation(false);
 		return rep->image;
 		}
+	const void* getPixelRow(unsigned int y) const // Returns untyped pointer to the first pixel in the given image row
+		{
+		return static_cast<const char*>(rep->image)+ptrdiff_t(y)*getRowStride();
+		}
 	GLenum getFormat(void) const // Returns the OpenGL texture format compatible with this image
 		{
 		return rep->format;

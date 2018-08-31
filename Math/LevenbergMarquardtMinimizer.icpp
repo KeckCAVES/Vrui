@@ -1,0 +1,219 @@
+/***********************************************************************
+LevenbergMarquardtMinimizer - Generic class to minimize a set of
+equations in a least-squares sense using a modified Levenberg-Marquardt
+algorithm, templatized by a kernel class implementing a specific
+optimization problem.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the Templatized Math Library (Math).
+
+The Templatized Math Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Math Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Math Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define MATH_LEVENBERGMARQUARDTMINIMIZER_IMPLEMENTATION
+
+#include <Math/LevenbergMarquardtMinimizer.h>
+
+#include <Math/Math.h>
+#include <Math/Matrix.h>
+
+namespace Math {
+
+/********************************************
+Methods of class LevenbergMarquardtMinimizer:
+********************************************/
+
+template <class KernelParam>
+inline
+typename LevenbergMarquardtMinimizer<KernelParam>::Scalar
+LevenbergMarquardtMinimizer<KernelParam>::minimize(
+	typename LevenbergMarquardtMinimizer<KernelParam>::Kernel& kernel)
+	{
+	/* Compute the Jacobian matrix, the error vector, and the initial least-squares residual: */
+	Matrix jtj(numVariables,numVariables,0.0);
+	Matrix jtr(numVariables,1,0.0);
+	Scalar residual2(0);
+	
+	/* Accumulate all function batches in the optimization kernel into the least-squares matrices: */
+	Scalar derivatives[numFunctionsInBatch][numVariables];
+	Scalar values[numFunctionsInBatch];
+	for(unsigned int batch=0;batch<kernel.getNumBatches();++batch)
+		{
+		/* Evaluate the optimization kernel's values and derivatives for this function batch: */
+		kernel.calcValueBatch(batch,values);
+		kernel.calcDerivativeBatch(batch,derivatives);
+		
+		/* Accumulate all functions in the batch into the least-squares matrices: */
+		for(unsigned int function=0;function<numFunctionsInBatch;++function)
+			{
+			/* Enter the function's derivative into the least-squares Jacobian matrix: */
+			for(unsigned int i=0;i<numVariables;++i)
+				for(unsigned int j=0;j<numVariables;++j)
+					jtj(i,j)+=double(derivatives[function][i])*double(derivatives[function][j]);
+			
+			/* Enter the function's value into the least-squares residual matrix: */
+			for(unsigned int i=0;i<numVariables;++i)
+				jtr(i)+=double(derivatives[function][i])*double(values[function]);
+			
+			/* Accumulate the total least-squares residual: */
+			residual2+=sqr(values[function]);
+			}
+		}
+	
+	/* Compute the initial damping factor: */
+	Scalar maxJtj(jtj(0,0));
+	for(unsigned int i=1;i<numVariables;++i)
+		if(maxJtj<Scalar(jtj(i,i)))
+			maxJtj=Scalar(jtj(i,i));
+	Scalar mu=tau*maxJtj;
+	Scalar nu(2);
+	
+	/* Check for convergence: */
+	bool found=true;
+	for(unsigned int i=0;i<numVariables;++i)
+		if(abs(jtr(i))>epsilon1)
+			found=false;
+	size_t nextProgressCallIteration=progressFrequency;
+	for(size_t iteration=0;!found&&iteration<maxNumIterations;++iteration)
+		{
+		/* Add the dampening factor to the current Jacobian: */
+		Matrix jtjp=jtj;
+		for(unsigned int i=0;i<numVariables;++i)
+			jtjp(i,i)+=mu;
+		Matrix stepm=jtr.divideFullPivot(jtjp); // Stepm is actually the negative of hlm in the pseudo-code
+		Scalar step[numVariables];
+		for(unsigned int i=0;i<numVariables;++i)
+			step[i]=stepm(i);
+		
+		/* Get the kernel's current state vector: */
+		VariableVector state=kernel.getState();
+		
+		/* Calculate the magnitude of the step vector and the current state vector: */
+		Scalar stepMag(0);
+		Scalar stateMag(0);
+		for(unsigned int i=0;i<numVariables;++i)
+			{
+			stepMag+=sqr(step[i]);
+			stateMag+=sqr(state[i]);
+			}
+		
+		/* Check for convergence: */
+		if(sqrt(stepMag)<=epsilon2*(sqrt(stateMag)+epsilon2))
+			break;
+		
+		/* Try updating the current state: */
+		kernel.negStep(step); // Subtracts step instead of adding (step is negative, see above)
+		
+		/* Calculate the new least-squares residual: */
+		Scalar newResidual2(0);
+		for(unsigned int batch=0;batch<kernel.getNumBatches();++batch)
+			{
+			/* Evaluate the optimization kernel's values for this function batch: */
+			kernel.calcValueBatch(batch,values);
+			
+			/* Accumulate all residuals in this batch: */
+			for(unsigned int function=0;function<numFunctionsInBatch;++function)
+				newResidual2+=sqr(values[function]);
+			}
+		
+		/* Calculate the gain value: */
+		Scalar denom(0);
+		for(unsigned int i=0;i<numVariables;++i)
+			denom+=step[i]*(mu*step[i]+Scalar(jtr(i))); // Adds jtr instead of subtracting (step is negative, see above)
+		Scalar rho=(residual2-newResidual2)/denom;
+		
+		/* Accept the step if the residual decreased: */
+		if(rho>Scalar(0))
+			{
+			/* Reset the Jacobian matrix and the error vector: */
+			for(unsigned int i=0;i<numVariables;++i)
+				{
+				for(unsigned int j=0;j<numVariables;++j)
+					jtj(i,j)=0.0;
+				jtr(i)=0.0;
+				}
+			
+			/* Accumulate all function batches in the optimization kernel into the least-squares matrices: */
+			for(unsigned int batch=0;batch<kernel.getNumBatches();++batch)
+				{
+				/* Evaluate the optimization kernel's values and derivatives for this function batch: */
+				kernel.calcValueBatch(batch,values);
+				kernel.calcDerivativeBatch(batch,derivatives);
+				
+				/* Accumulate all functions in the batch into the least-squares matrices: */
+				for(unsigned int function=0;function<numFunctionsInBatch;++function)
+					{
+					/* Enter the function's derivative into the least-squares Jacobian matrix: */
+					for(unsigned int i=0;i<numVariables;++i)
+						for(unsigned int j=0;j<numVariables;++j)
+							jtj(i,j)+=double(derivatives[function][i])*double(derivatives[function][j]);
+					
+					/* Enter the function's value into the least-squares residual matrix: */
+					for(unsigned int i=0;i<numVariables;++i)
+						jtr(i)+=double(derivatives[function][i])*double(values[function]);
+					}
+				}
+			
+			/* Update the least-squares residual: */
+			residual2=newResidual2;
+			
+			/* Check for convergence: */
+			found=true;
+			for(unsigned int i=0;i<numVariables;++i)
+				if(abs(jtr(i))>epsilon1)
+					found=false;
+			
+			/* Update the damping factor: */
+			Scalar rhof=Scalar(2)*rho-Scalar(1);
+			Scalar factor=Scalar(1)-rhof*rhof*rhof;
+			if(factor<Scalar(1)/Scalar(3))
+				factor=Scalar(1)/Scalar(3);
+			mu*=factor;
+			nu=Scalar(2);
+			}
+		else
+			{
+			/* Undo the step: */
+			kernel.setState(state);
+			
+			/* Update the damping factor: */
+			mu*=nu;
+			nu*=Scalar(2);
+			}
+		
+		/* Check if it's time to call the progress callback: */
+		if(progressCallback!=0&&iteration+1==nextProgressCallIteration)
+			{
+			/* Call the progress callback: */
+			ProgressCallbackData cbData(kernel,residual2,false);
+			(*progressCallback)(cbData);
+			
+			/* Advance the progress callback counter: */
+			nextProgressCallIteration+=progressFrequency;
+			}
+		}
+	
+	if(progressCallback!=0)
+		{
+		/* Call the progress callback with the final optimization result: */
+		ProgressCallbackData cbData(kernel,residual2,true);
+		(*progressCallback)(cbData);
+		}
+	
+	/* Return the final residual: */
+	return residual2;
+	}
+
+}

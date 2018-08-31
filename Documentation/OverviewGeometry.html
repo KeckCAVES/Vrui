@@ -208,11 +208,29 @@ The header files in the templatized geometry library can be grouped according to
 <DT>LinearUnit.h</DT>
 <DD>LinearUnit is a class to define common units of length measurements and their conversions.</DD>
 
+<DT>PointAligner.h</DT>
+<DD>PointAligner is a generic base class to align two point sets using various transformation types, compatible with the generic optimization classes from the Math library.</DD>
+
+<DT>PointAlignerONTransform.h</DT>
+<DD>PointAlignerONTransform is a generic class derived from PointAligner to align two point sets using a rigid body transformation (any combination of translation and rotation).</DD>
+
+<DT>PointAlignerOGTransform.h</DT>
+<DD>PointAlignerOGTransform is a generic class derived from PointAligner to align two point sets using a rigid body transformation with uniform scaling.</DD>
+
+<DT>PointAlignerATransform.h</DT>
+<DD>PointAlignerATransform is a generic class derived from PointAligner to align two point sets using a general affine transformation.</DD>
+
+<DT>PointAlignerPTransform.h</DT>
+<DD>PointAlignerPTransform is a generic class derived from PointAligner to align two point sets using a general projective transformation.</DD>
+
+<DT>RanSaCPointAligner.h</DT>
+<DD>RanSaCPointAligner is a generic adapter class to optimize point set alignment using a variety of transformation classes via the RanSaC algorithm.</DD>
+
 <DT>LevenbergMarquardtMinimizer.h</DT>
-<DD>LevenbergMarquardtMinimizer is a class implementing a non-linear least-squares optimizer based on a modified Levenberg-Marquardt algorithm, templatized by a functor implementing the minimization target function.</DD>
+<DD>LevenbergMarquardtMinimizer is a class implementing a non-linear least-squares optimizer based on a modified Levenberg-Marquardt algorithm, templatized by a functor implementing the minimization target function. This class is obsolete and replaced by the Math::LevenbergMarquardtMinimizer class.</DD>
 
 <DT>AlignPoints.h</DT>
-<DD>AlignPoints.h contains several functions to align two pair-matched point sets using one of several types of transformations.</DD>
+<DD>AlignPoints.h contains several functions to align two pair-matched point sets using one of several types of transformations. These functions are obsolete and replaced by the PointAligner...Transform classes.</DD>
 </DL>
 
 </BODY>

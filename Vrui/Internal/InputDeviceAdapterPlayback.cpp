@@ -1,7 +1,7 @@
 /***********************************************************************
 InputDeviceAdapterPlayback - Class to read input device states from a
 pre-recorded file for playback and/or movie generation.
-Copyright (c) 2004-2017 Oliver Kreylos
+Copyright (c) 2004-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -29,6 +29,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <iostream>
+#include <Misc/PrintfTemplateTests.h>
 #include <Misc/Time.h>
 #include <Misc/ThrowStdErr.h>
 #include <Misc/Endianness.h>
@@ -258,30 +259,7 @@ InputDeviceAdapterPlayback::InputDeviceAdapterPlayback(InputDeviceManager* sInpu
 		movieFileNameTemplate=configFileSection.retrieveString("./movieFileNameTemplate");
 		
 		/* Check if the name template has the correct format: */
-		int numConversions=0;
-		bool hasIntConversion=false;
-		for(std::string::const_iterator mfntIt=movieFileNameTemplate.begin();mfntIt!=movieFileNameTemplate.end();++mfntIt)
-			{
-			if(*mfntIt=='%')
-				{
-				++mfntIt;
-				if(*mfntIt!='%')
-					{
-					++numConversions;
-					
-					/* Skip width modifiers: */
-					while(isdigit(*mfntIt))
-						++mfntIt;
-					
-					/* Check for integer conversion: */
-					if(*mfntIt=='d')
-						hasIntConversion=true;
-					}
-				}
-			else if(*mfntIt=='/') // Only accept conversions in the file name part
-				hasIntConversion=false;
-			}
-		if(numConversions!=1||!hasIntConversion)
+		if(!Misc::isValidIntTemplate(movieFileNameTemplate,1024))
 			Misc::throwStdErr("InputDeviceAdapterPlayback::InputDeviceAdapterPlayback: movie file name template \"%s\" does not have exactly one %%d conversion",movieFileNameTemplate.c_str());
 		
 		/* Get the index of the window from which to save the frames: */

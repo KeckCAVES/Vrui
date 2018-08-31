@@ -1,7 +1,7 @@
 /***********************************************************************
 UIManagerFree - UI manager class that allows arbitrary positions and
 orientations for UI components.
-Copyright (c) 2015-2016 Oliver Kreylos
+Copyright (c) 2015-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -135,6 +135,17 @@ ONTransform UIManagerFree::calcUITransform(const Ray& ray) const
 ONTransform UIManagerFree::calcUITransform(const InputDevice* device) const
 	{
 	throw std::runtime_error("UIManagerFree::calcUITransform: Not implemented");
+	}
+
+ONTransform UIManagerFree::calcHUDTransform(const Point& point) const
+	{
+	/* Align the transformation with the viewing direction: */
+	Vector viewDirection=point-getMainViewer()->getHeadPosition();
+	Vector x=viewDirection^getUpDirection();
+	Vector y=x^viewDirection;
+	
+	/* Calculate and return the HUD transformation: */
+	return ONTransform(point-Point::origin,ONTransform::Rotation::fromBaseVectors(x,y));
 	}
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 PopupMenu - Class for top-level GLMotif UI components that act as menus
 and only require a single down-motion-up sequence to select an entry.
-Copyright (c) 2001-2016 Oliver Kreylos
+Copyright (c) 2001-2018 Oliver Kreylos
 
 This file is part of the GLMotif Widget Library (GLMotif).
 
@@ -302,9 +302,10 @@ bool removeButton(Container* container,Widget* button) // Recursively search for
 	return false;
 	}
 
-void removeButton(Container* container,int buttonIndex,int& index) // Recursively search for the button of the given index inside the given container and remove it
+Widget* removeButton(Container* container,int buttonIndex,int& index) // Recursively search for the button of the given index inside the given container and remove it, then return the removed widget or null
 	{
 	/* Iterate through the container's children: */
+	Widget* result=0;
 	for(Widget* child=container->getFirstChild();child!=0&&index<=buttonIndex;child=container->getNextChild(child))
 		{
 		if(dynamic_cast<Button*>(child)!=0||dynamic_cast<NewButton*>(child)!=0) // Time to replace Button with NewButton for good!
@@ -313,6 +314,7 @@ void removeButton(Container* container,int buttonIndex,int& index) // Recursivel
 				{
 				/* Remove the current child widget from its container: */
 				container->removeChild(child);
+				result=child;
 				}
 			
 			/* Only count button-derived widgets: */
@@ -325,10 +327,12 @@ void removeButton(Container* container,int buttonIndex,int& index) // Recursivel
 			if(subContainer!=0)
 				{
 				/* Search inside the sub-container: */
-				removeButton(subContainer,buttonIndex,index);
+				result=removeButton(subContainer,buttonIndex,index);
 				}
 			}
 		}
+	
+	return result;
 	}
 
 }
@@ -373,14 +377,16 @@ void PopupMenu::removeEntry(Widget* entry)
 		}
 	}
 
-void PopupMenu::removeEntry(int entryIndex)
+Widget* PopupMenu::removeEntry(int entryIndex)
 	{
 	if(menu!=0)
 		{
-		/* Find the entry of the given index in all sub-containers recursively and remove it: */
+		/* Find the entry of the given index in all sub-containers recursively and remove it, then return the removed widget: */
 		int index=0;
 		return removeButton(menu,entryIndex,index);
 		}
+	else
+		return 0;
 	}
 
 }

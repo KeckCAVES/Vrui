@@ -1,7 +1,7 @@
 /***********************************************************************
 UIManagerPlanar - UI manager class that aligns user interface components
 on a fixed plane.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -34,6 +34,7 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <GLMotif/Widget.h>
 #include <Vrui/Vrui.h>
 #include <Vrui/InputDevice.h>
+#include <Vrui/Viewer.h>
 
 namespace Vrui {
 
@@ -184,6 +185,37 @@ ONTransform UIManagerPlanar::calcUITransform(const Ray& ray) const
 ONTransform UIManagerPlanar::calcUITransform(const InputDevice* device) const
 	{
 	throw std::runtime_error("UIManagerPlanar::calcUITransform: Not implemented");
+	}
+
+ONTransform UIManagerPlanar::calcHUDTransform(const Point& point) const
+	{
+	#if 0
+	
+	/* Project the given point into the interaction plane from the main viewer's position: */
+	Vector viewDirection=point-getMainViewer()->getHeadPosition();
+	Scalar divisor=plane.getNormal()*viewDirection;
+	Point planePoint;
+	if(divisor!=Scalar(0))
+		{
+		/* Intersect the viewing ray with the UI plane: */
+		Scalar lambda=(plane.getOffset()-plane.getNormal()*point)/divisor;
+		planePoint=point+viewDirection*lambda;
+		}
+	else
+		{
+		/* Return the projection of the point onto the plane: */
+		planePoint=plane.project(point);
+		}
+	
+	/* Calculate and return the HUD transformation: */
+	return ONTransform(planePoint-Point::origin,orientation);
+	
+	#else
+	
+	/* Calculate and return the HUD transformation: */
+	return ONTransform(point-Point::origin,orientation);
+	
+	#endif
 	}
 
 }

@@ -1,5 +1,5 @@
 ########################################################################
-# Makefile for Vrui toolkit and required basic libraries.
+# Makefile for Vrui toolkit and its underlying libraries.
 # Copyright (c) 1998-2018 Oliver Kreylos
 #
 # This file is part of the WhyTools Build Environment.
@@ -90,13 +90,17 @@ include $(VRUI_MAKEDIR)/Packages.System
 # Select support for HTC Vive via the OpenVR API
 ########################################################################
 
-# Root directory of the SteamVR run-time. The following attempts to
-# find SteamVR inside the installing user's home directory.
-STEAMVRDIR = $(shell find $(HOME) -name SteamVR | grep common/SteamVR)
+# Root directory of the SteamVR run-time. The following checks if one of
+# the default locations exists, and, if not, uses locate to search the
+# entire file system:
+STEAMVRDIR = $(realpath $(firstword $(wildcard $(HOME)/.[Ss]team/[Ss]team/[Ss]team[Aa]pps/[Cc]ommon/[Ss]team[Vv][Rr] $(HOME)/.local/share/[Ss]team/[Ss]team[Aa]pps/[Cc]ommon/[Ss]team[Vv][Rr])))
+ifeq ($(STEAMVRDIR),)
+  STEAMVRDIR = $(firstword $(shell locate -q -l 1 -i "*/common/SteamVR"))
+endif
 
-# If the above fails, or SteamVR's run-time is installed outside the
-# installing user's home directory, enter the correct path here, or pass
-# STEAMVRDIR=... on make's command line:
+# If the above fails, enter the correct path here, or pass
+# STEAMVRDIR=... on make's command line during both "make" and "make
+# install":
 # STEAMVRDIR = 
 
 ifneq ($(strip $(STEAMVRDIR)),)
@@ -111,10 +115,10 @@ ifneq ($(strip $(STEAMVRDIR)),)
   # The following should not need to be changed if STEAMVRDIR is set
   # correctly.
   # Root directory containing both Steam and SteamVR run-times:
-  STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
+  STEAMDIR = $(realpath $(STEAMVRDIR)/../../..)
   
   # Steam run-time root directories:
-  STEAMRUNTIMEDIR = $(shell find $(STEAMDIR) -name x86_64-linux-gnu | grep steam-runtime/amd64/lib/x86_64-linux-gnu)
+  STEAMRUNTIMEDIR = $(firstword $(wildcard $(STEAMDIR)/*/steam-runtime/amd64/lib/x86_64-linux-gnu))
   
   # SteamVR Lighthouse driver directory:
   STEAMVRDRIVERDIR = $(STEAMVRDIR)/drivers/lighthouse/bin/linux64
@@ -188,9 +192,9 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4005004
+VRUI_VERSION = 4006002
 MAJORLIBVERSION = 4
-MINORLIBVERSION = 5
+MINORLIBVERSION = 6
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
 
 # Set additional debug options
@@ -465,6 +469,7 @@ EXECUTABLES += $(EXEDIR)/XBackground \
                $(EXEDIR)/MeasureEnvironment \
                $(EXEDIR)/ScreenCalibrator \
                $(EXEDIR)/AlignTrackingMarkers \
+               $(EXEDIR)/AlignPoints \
                $(EXEDIR)/SampleTrackerField
 ifneq ($(SYSTEM_HAVE_LIBUSB1),0)
   EXECUTABLES += $(EXEDIR)/OculusCalibrator
@@ -1805,6 +1810,15 @@ $(EXEDIR)/AlignTrackingMarkers: EXTRACINCLUDEFLAGS += -ICalibration
 $(EXEDIR)/AlignTrackingMarkers: $(ALIGNTRACKINGMARKERS_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: AlignTrackingMarkers
 AlignTrackingMarkers: $(EXEDIR)/AlignTrackingMarkers
+
+#
+# A utility to align point sets using several transformation types:
+#
+
+$(EXEDIR)/AlignPoints: PACKAGES += MYVRUI
+$(EXEDIR)/AlignPoints: $(OBJDIR)/Vrui/Utilities/AlignPoints.o
+.PHONY: AlignPoints
+AlignPoints: $(EXEDIR)/AlignPoints
 
 #
 # The tracker field sampling utility:

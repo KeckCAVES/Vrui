@@ -623,23 +623,26 @@ void GLWindow::processEvent(const XEvent& event)
 		case ConfigureNotify:
 			{
 			/* Check whether this is a real (parent-relative coordinates) or synthetic (root-relative coordinates) event: */
-			if(event.xconfigure.send_event)
+			if(event.xconfigure.send_event) // Synthetic event
 				{
 				/* Retrieve the new window position and size: */
-				windowPos.origin[0]=event.xconfigure.x;
-				windowPos.origin[1]=event.xconfigure.y;
-				windowPos.size[0]=event.xconfigure.width;
-				windowPos.size[1]=event.xconfigure.height;
+				WindowPos newWindowPos(event.xconfigure.x,event.xconfigure.y,event.xconfigure.width,event.xconfigure.height);
+				
+				/* Call the position/size changed callbacks: */
+				PosSizeChangedCallbackData cbData(this,windowPos,newWindowPos);
+				posSizeChangedCallbacks.call(&cbData);
+				
+				/* Update the window position and size: */
+				windowPos=newWindowPos;
 				}
-			else
+			else // Real event
 				{
 				/* Update this window's parent offset, just in case: */
 				parentOffset[0]=event.xconfigure.x;
 				parentOffset[1]=event.xconfigure.y;
 				
 				/* Update the window size: */
-				windowPos.size[0]=event.xconfigure.width;
-				windowPos.size[1]=event.xconfigure.height;
+				WindowPos newWindowPos(event.xconfigure.width,event.xconfigure.height);
 				
 				/* Query the parent's geometry to find the absolute window position: */
 				Window root;
@@ -647,9 +650,16 @@ void GLWindow::processEvent(const XEvent& event)
 				unsigned int width,height,borderWidth,depth;
 				XGetGeometry(context->getDisplay(),parent,&root,&x,&y,&width,&height,&borderWidth,&depth);
 				
-				/* Calculate this window's position: */
-				windowPos.origin[0]=x+parentOffset[0];
-				windowPos.origin[1]=y+parentOffset[1];
+				/* Calculate the window position: */
+				newWindowPos.origin[0]=x+parentOffset[0];
+				newWindowPos.origin[1]=y+parentOffset[1];
+				
+				/* Call the position/size changed callbacks: */
+				PosSizeChangedCallbackData cbData(this,windowPos,newWindowPos);
+				posSizeChangedCallbacks.call(&cbData);
+				
+				/* Update the window position and size: */
+				windowPos=newWindowPos;
 				}
 			
 			break;
@@ -659,7 +669,7 @@ void GLWindow::processEvent(const XEvent& event)
 			if(event.xclient.message_type==wmProtocolsAtom&&event.xclient.format==32&&(Atom)(event.xclient.data.l[0])==wmDeleteWindowAtom)
 				{
 				/* Call the close callbacks: */
-				Misc::CallbackData cbData;
+				CallbackData cbData(this);
 				closeCallbacks.call(&cbData);
 				}
 			break;

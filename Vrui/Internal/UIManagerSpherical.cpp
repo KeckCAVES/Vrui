@@ -1,7 +1,7 @@
 /***********************************************************************
 UIManagerSpherical - UI manager class that aligns user interface
 components on a fixed sphere surrounding the viewer.
-Copyright (c) 2015 Oliver Kreylos
+Copyright (c) 2015-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -214,6 +214,17 @@ ONTransform UIManagerSpherical::calcUITransform(const Ray& ray) const
 ONTransform UIManagerSpherical::calcUITransform(const InputDevice* device) const
 	{
 	throw std::runtime_error("UIManagerSpherical::calcUITransform: Not implemented");
+	}
+
+ONTransform UIManagerSpherical::calcHUDTransform(const Point& point) const
+	{
+	/* Calculate and return the HUD transformation: */
+	Vector d=point-sphere.getCenter();
+	Vector x=d^getUpDirection();
+	if(x.mag()==Scalar(0))
+		x=getForwardDirection()^getUpDirection();
+	Vector y=x^d;
+	return ONTransform(point-Point::origin,Rotation::fromBaseVectors(x,y));
 	}
 
 }

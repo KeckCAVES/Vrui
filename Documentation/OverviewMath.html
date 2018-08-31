@@ -36,8 +36,20 @@ The Math library contains functions providing overloaded entry points for the st
 <DT>BrokenLine.h</DT>
 <DD>BrokenLine is a class describing constant piecewise linear mappings from a source interval to the interval [-1, 1] using a &quot;broken line&quot; model with two linear ramps and a flat &quot;dead zone&quot; in the middle.</DD>
 
+<DT>Minimizer.h</DT>
+<DD>Minimizer is a base class for iterative non-linear optimizers, templatized by a functor implementing the minimization target function.</DD>
+
 <DT>SimplexMinimizer.h</DT>
-<DD>SimplexMinimizer is a class implementing a non-linear optimizer based on a simplex algorithm, templatized by a functor implementing the minimization target function.</DD>
+<DD>SimplexMinimizer is a class derived from Math::Minimizer implementing a non-linear optimizer based on a simplex algorithm, templatized by a functor implementing the minimization target function.</DD>
+
+<DT>GaussNewtonMinimizer.h</DT>
+<DD>GaussNewtonMinimizer is a class implementing a non-linear least-squares optimizer based on the Gauss-Newton algorithm, templatized by a functor implementing the minimization target function.</DD>
+
+<DT>LevenbergMarquardtMinimizer.h</DT>
+<DD>LevenbergMarquardtMinimizer is a class implementing a non-linear least-squares optimizer based on the Levenberg-Marquardt algorithm, templatized by a functor implementing the minimization target function.</DD>
+
+<DT>RanSaC.h</DT>
+<DD>RanSaC is a class implementing model fitting using the "RANdom SAmple Consensus" algorithm, templatized by a functor implementing the specific model fitting problem.</DD>
 
 <DT>VarianceAccumulator.h</DT>
 <DD>VarianceAccumulator is a class to accumulate the mean and sample variance of a sequence of samples, based on D.E. Knuth's recurrence relation from "The Art of Computer Programming, Vol. 2".</DD>

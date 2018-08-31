@@ -1,7 +1,7 @@
 /***********************************************************************
 Vrui - Public kernel interface of the Vrui virtual reality development
 toolkit.
-Copyright (c) 2000-2016 Oliver Kreylos
+Copyright (c) 2000-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -111,6 +111,10 @@ class instead.
 
 /* Initializes the Vrui toolkit; must be called first: */
 void init(int& argc,char**& argv,char**& appdefaults);
+
+/* Sets the function that is called before the main loop starts: */
+typedef void (*PrepareMainLoopFunctionType)(void* userData);
+void setPrepareMainLoopFunction(PrepareMainLoopFunctionType prepareMainLoopFunction,void* userData);
 
 /* Sets the function that is called exactly once for each frame: */
 typedef void (*FrameFunctionType)(void* userData);

@@ -1521,6 +1521,26 @@ vr::EVRInputError OpenVRHost::CreateHapticComponent(vr::PropertyContainerHandle_
 	return vr::VRInputError_None;
 	}
 
+vr::EVRInputError OpenVRHost::CreateSkeletonComponent(vr::PropertyContainerHandle_t ulContainer,const char* pchName,const char* pchSkeletonPath,const char* pchBasePosePath,const vr::VRBoneTransform_t* pGripLimitTransforms,uint32_t unGripLimitTransformCount,vr::VRInputComponentHandle_t* pHandle)
+	{
+	#ifdef VERBOSE
+	printf("OpenVRHost: Ignoring call to CreateSkeletonComponent\n");
+	fflush(stdout);
+	#endif
+	
+	return vr::VRInputError_None;
+	}
+
+vr::EVRInputError OpenVRHost::UpdateSkeletonComponent(vr::VRInputComponentHandle_t ulComponent,vr::EVRSkeletalMotionRange eMotionRange,const vr::VRBoneTransform_t* pTransforms,uint32_t unTransformCount)
+	{
+	#ifdef VERBOSE
+	printf("OpenVRHost: Ignoring call to UpdateSkeletonComponent\n");
+	fflush(stdout);
+	#endif
+	
+	return vr::VRInputError_None;
+	}
+
 /* Methods from vr::IVRDriverLog: */
 
 void OpenVRHost::Log(const char* pchLogMessage)
@@ -1892,7 +1912,7 @@ uint32_t OpenVRHost::LoadSharedResource(const char* pchResourceName,char* pchBuf
 		
 		return uint32_t(resourceSize);
 		}
-	catch(std::runtime_error err)
+	catch(const std::runtime_error& err)
 		{
 		#ifdef VERBOSE
 		printf("OpenVRHost::LoadSharedResource: Resource %s could not be loaded due to exception %s\n",resourcePath.c_str(),err.what());

@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <png.h>
 #include <stdexcept>
+#include <Misc/Endianness.h>
 #include <Misc/ThrowStdErr.h>
 #include <IO/File.h>
 #include <GL/gl.h>
@@ -267,18 +268,33 @@ BaseImage readGenericPNGImage(const char* imageName,IO::File& source)
 		if(colorType==PNG_COLOR_TYPE_PALETTE)
 			{
 			/* Expand paletted images to RGB: */
-			png_set_expand(pngReadStruct);
+			png_set_palette_to_rgb(pngReadStruct);
 			}
 		else if(colorType==PNG_COLOR_TYPE_GRAY&&elementSize<8)
 			{
 			/* Expand bitmaps to 8-bit grayscale: */
-			png_set_expand(pngReadStruct);
+			png_set_expand_gray_1_2_4_to_8(pngReadStruct);
+			}
+		
+		/* Check for transparency in a tRNS chunk: */
+		if(png_get_valid(pngReadStruct,pngInfoStruct,PNG_INFO_tRNS))
+			{
+			/* Create a full alpha channel from tRNS chunk: */
+			png_set_tRNS_to_alpha(pngReadStruct);
 			}
 		
 		/* Apply the image's stored gamma curve: */
 		double gamma;
 		if(png_get_gAMA(pngReadStruct,pngInfoStruct,&gamma))
 			png_set_gamma(pngReadStruct,2.2,gamma);
+		
+		#if __BYTE_ORDER==__LITTLE_ENDIAN
+		
+		/* Swap 16-bit pixels from big endian network order to little endian host order: */
+		if(elementSize==16)
+			png_set_swap(pngReadStruct);
+		
+		#endif
 		
 		/* Update the PNG processor and retrieve the potentially changed image format: */
 		png_read_update_info(pngReadStruct,pngInfoStruct);

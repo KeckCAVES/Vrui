@@ -1,0 +1,60 @@
+/***********************************************************************
+Minimizer - Generic base class to minimize a set of equations in a
+least-squares sense, templatized by a kernel class implementing a
+specific optimization problem.
+Copyright (c) 2018 Oliver Kreylos
+
+This file is part of the Templatized Math Library (Math).
+
+The Templatized Math Library is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+The Templatized Math Library is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with the Templatized Math Library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+***********************************************************************/
+
+#define MATH_MINIMIZER_IMPLEMENTATION
+
+#include <Math/Minimizer.h>
+
+#include <Misc/FunctionCalls.h>
+
+namespace Math {
+
+/**************************
+Methods of class Minimizer:
+**************************/
+
+template <class KernelParam>
+inline
+Minimizer<KernelParam>::~Minimizer(
+	void)
+	{
+	/* Delete the progress callback: */
+	delete progressCallback;
+	}
+
+template <class KernelParam>
+inline
+void
+Minimizer<KernelParam>::setProgressCallback(
+	size_t newProgressFrequency,
+	typename Minimizer<KernelParam>::ProgressCallback* newProgressCallback)
+	{
+	/* Set the new progress callback frequency: */
+	progressFrequency=newProgressFrequency;
+	
+	/* Delete the current progress callback and install the new one: */
+	delete progressCallback;
+	progressCallback=newProgressCallback;
+	}
+
+}

@@ -4,7 +4,7 @@ simplified force interaction model based on the Nanotech Construction
 Kit. This version of Virtual Jell-O uses multithreading and explicit
 cluster communication to split the computation work and rendering work
 between the CPUs and nodes of a distributed rendering cluster.
-Copyright (c) 2007-2016 Oliver Kreylos
+Copyright (c) 2007-2018 Oliver Kreylos
 
 This file is part of the Virtual Jell-O interactive VR demonstration.
 
@@ -28,6 +28,7 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include <Misc/HashTable.h>
 #include <Threads/Thread.h>
+#include <Threads/TripleBuffer.h>
 #include <GL/gl.h>
 #include <GLMotif/ToggleButton.h>
 #include <GLMotif/TextFieldSlider.h>
@@ -38,7 +39,6 @@ Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "JelloAtom.h"
 #include "JelloCrystal.h"
 #include "JelloRenderer.h"
-#include "TripleBuffer.h"
 
 /* Forward declarations: */
 namespace Cluster {
@@ -148,9 +148,9 @@ class ClusterJello:public Vrui::Application
 	double updateTime; // Time between updates of the Jell-O graphics state (inverse of target frame rate)
 	
 	/* Communication between application and simulation thread: */
-	TripleBuffer<SimulationParameters> simulationParameters; // Triple buffer of Jell-O simulation parameters
-	TripleBuffer<DraggerStates> draggerStates; // Triple buffer of application dragger states, updated during the frame method
-	TripleBuffer<JelloCrystal> proxyCrystal; // Triple buffer of proxy (rendering-only) Jell-O crystals
+	Threads::TripleBuffer<SimulationParameters> simulationParameters; // Triple buffer of Jell-O simulation parameters
+	Threads::TripleBuffer<DraggerStates> draggerStates; // Triple buffer of application dragger states, updated during the frame method
+	Threads::TripleBuffer<JelloCrystal> proxyCrystal; // Triple buffer of proxy (rendering-only) Jell-O crystals
 	
 	/* Application state: */
 	SimulationParameters currentSimulationParameters; // Current simulation parameters
