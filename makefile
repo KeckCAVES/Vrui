@@ -94,7 +94,7 @@ include $(VRUI_MAKEDIR)/Packages.System
 # the default locations exists, and, if not, uses locate to search the
 # entire file system:
 STEAMVRDIR = $(realpath $(firstword $(wildcard $(HOME)/.[Ss]team/[Ss]team/[Ss]team[Aa]pps/[Cc]ommon/[Ss]team[Vv][Rr] $(HOME)/.local/share/[Ss]team/[Ss]team[Aa]pps/[Cc]ommon/[Ss]team[Vv][Rr])))
-ifeq ($(STEAMVRDIR),)
+ifeq ($(strip $(STEAMVRDIR)),)
   STEAMVRDIR = $(firstword $(shell locate -q -l 1 -i "*/common/SteamVR"))
 endif
 
@@ -112,13 +112,22 @@ ifneq ($(strip $(STEAMVRDIR)),)
   # Vrui package as contributed source.)
   OPENVR_BASEDIR = $(PWD)/Contributed/OpenVR
   
-  # The following should not need to be changed if STEAMVRDIR is set
-  # correctly.
-  # Root directory containing both Steam and SteamVR run-times:
+  # Try looking for the Steam run-time three levels up from the SteamVR
+  # directory first:
   STEAMDIR = $(realpath $(STEAMVRDIR)/../../..)
+  STEAMRUNTIMEDIR = $(firstword $(wildcard $(STEAMDIR)/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu))
   
-  # Steam run-time root directories:
-  STEAMRUNTIMEDIR = $(firstword $(wildcard $(STEAMDIR)/*/steam-runtime/amd64/lib/x86_64-linux-gnu))
+  # If the run-time wasn't found there, look four levels up from the
+  # SteamVR directory:
+  ifeq ($(strip $(STEAMRUNTIMEDIR)),)
+    STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
+    STEAMRUNTIMEDIR = $(firstword $(wildcard $(STEAMDIR)/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu))
+  endif
+  
+  # If the run-time still wasn't found, disable Vive support:
+  ifeq ($(strip $(STEAMRUNTIMEDIR)),)
+    SYSTEM_HAVE_OPENVR = 0
+  endif
   
   # SteamVR Lighthouse driver directory:
   STEAMVRDRIVERDIR = $(STEAMVRDIR)/drivers/lighthouse/bin/linux64
@@ -192,7 +201,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4006002
+VRUI_VERSION = 4006004
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 6
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1247,6 +1256,7 @@ ifneq ($(SYSTEM_HAVE_THEORA),0)
                    Video/TheoraEncoder.h \
                    Video/TheoraDecoder.h
 endif
+VIDEO_HEADERS += Video/ViewerComponent.h
 
 VIDEO_SOURCES = Video/VideoDataFormat.cpp \
                 Video/VideoDevice.cpp \
@@ -1279,6 +1289,7 @@ ifneq ($(SYSTEM_HAVE_THEORA),0)
                    Video/TheoraEncoder.cpp \
                    Video/TheoraDecoder.cpp
 endif
+VIDEO_SOURCES += Video/ViewerComponent.cpp
 
 $(VIDEO_SOURCES:%.cpp=$(OBJDIR)/%.o): | $(DEPDIR)/config
 
@@ -1566,8 +1577,8 @@ endif
 	@rm VRDeviceDaemon/Config.h.temp
 ifneq ($(SYSTEM_HAVE_OPENVR),0)
 	@cp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp
-	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR,$(subst $(HOME),$$HOME,$(realpath $(STEAMVRDIR)/../../..)))
-	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR,$(subst $(realpath $(STEAMVRDIR)/../../..)/,,$(realpath $(STEAMVRDIR))))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMDIR,$(subst $(HOME),$$HOME,$(STEAMDIR)))
+	@$(call CONFIG_SETSTRINGVAR,VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp,VRDEVICEDAEMON_CONFIG_OPENVRHOST_STEAMVRDIR,$(subst $(STEAMDIR)/,,$(realpath $(STEAMVRDIR))))
 	@if ! diff VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h > /dev/null ; then cp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp VRDeviceDaemon/VRDevices/OpenVRHost-Config.h ; fi
 	@rm VRDeviceDaemon/VRDevices/OpenVRHost-Config.h.temp
 endif	
