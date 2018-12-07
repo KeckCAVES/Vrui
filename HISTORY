@@ -5557,3 +5557,13 @@ Vrui-4.6-002:
 - Updated OpenVRHost device driver module to new OpenVR driver ABI as of
   08/26/2018.
   - Updated contributed openvr_driver.h header file.
+
+Vrui-4.6-003:
+- Fixed some problems with SteamVR auto-detection and configuration code
+  in makefile, thrown up by default Steam installation under Ubuntu
+  16.10.
+- Added experimental support for Vive Pro to Vive root section in
+  Vrui.cfg and OnVive.sh start-up script.
+
+Vrui-4.6-004:
+- Added missing #include <stdio.h> in Video/ViewerComponent.cpp.

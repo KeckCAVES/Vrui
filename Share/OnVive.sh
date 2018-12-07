@@ -32,15 +32,31 @@ shift
 
 # Find the video output port to which the Vive is connected:
 VIVE_OUTPUT_PORT=$($VRUIBINDIR/FindHMD -size 2160 1200 -rate 89.53 2>/dev/null)
+VIVE_TYPE=Vive
 RESULT=$?
+if (($RESULT == 1)); then
+	# Look for a Vive Pro instead:
+	VIVE_OUTPUT_PORT=$($VRUIBINDIR/FindHMD -size 2880 1600 -rate 89.53 2>/dev/null)
+	VIVE_TYPE=VivePro
+fi
+
 if (($RESULT == 0)); then
 	# Tell OpenGL to synchronize with the Vive's display:
 	export __GL_SYNC_DISPLAY_DEVICE=$VIVE_OUTPUT_PORT
 	
-	# Run the application in Vive mode and send the HMD window to the Vive's display:
-	$VRUIAPPNAME -rootSection Vive -setConfig HMDWindow/outputName=$VIVE_OUTPUT_PORT "$@"
+	if (($VIVE_TYPE == VivePro)); then
+		# Run the application in Vive Pro mode and send the HMD window to the Vive Pro's display:
+		$VRUIAPPNAME -rootSection Vive -setConfig "windowNames=(HMDWindowVivePro)" -setConfig HMDWindowVivePro/outputName=$VIVE_OUTPUT_PORT "$@"
+	else
+		# Run the application in Vive mode and send the HMD window to the Vive's display:
+		$VRUIAPPNAME -rootSection Vive -setConfig HMDWindowVive/outputName=$VIVE_OUTPUT_PORT "$@"
+	fi
 elif (($RESULT == 1)); then
 	echo No Vive HMD found\; please connect your Vive and try again
 else
-	echo Disabled Vive HMD found on output $VIVE_OUTPUT_PORT\; please enable your Vive using xrandr or nvidia-settings and try again
+	if (($VIVE_TYPE == VivePro)); then
+		echo Disabled Vive Pro HMD found on output $VIVE_OUTPUT_PORT\; please enable your Vive Pro using xrandr or nvidia-settings and try again
+	else
+		echo Disabled Vive HMD found on output $VIVE_OUTPUT_PORT\; please enable your Vive using xrandr or nvidia-settings and try again
+	fi
 fi
