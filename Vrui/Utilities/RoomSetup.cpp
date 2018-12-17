@@ -1,7 +1,7 @@
 /***********************************************************************
 RoomSetup - Vrui application to calculate basic layout parameters of a
 tracked VR environment.
-Copyright (c) 2016-2017 Oliver Kreylos
+Copyright (c) 2016-2018 Oliver Kreylos
 
 This file is part of the Virtual Reality User Interface Library (Vrui).
 
@@ -38,9 +38,11 @@ Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 #include <Misc/CompoundValueCoders.h>
 #include <Misc/MessageLogger.h>
 #include <Threads/TripleBuffer.h>
+#include <Math/Interval.h>
 #include <Geometry/Point.h>
 #include <Geometry/AffineCombiner.h>
 #include <Geometry/Vector.h>
+#include <Geometry/OrthonormalTransformation.h>
 #include <Geometry/Plane.h>
 #include <Geometry/PCACalculator.h>
 #include <Geometry/GeometryValueCoders.h>
@@ -79,13 +81,15 @@ class RoomSetup:public Vrui::Application
 	typedef PO::Rotation Rotation;
 	typedef TS::LinearVelocity LV;
 	typedef TS::AngularVelocity AV;
+	typedef std::vector<Vrui::Point> PointList;
 	
 	enum Modes // Enumerated type for setup modes
 		{
 		Controller, // Controller calibration
 		Floor, // Floor calibration
 		Forward, // Forward direction
-		Boundary // Environment boundary polygon (screen protector) setup
+		Boundary, // Environment boundary polygon (screen protector) setup
+		Surfaces // Horizontal surfaces to place controllers etc.
 		};
 	
 	/* Elements: */
@@ -106,12 +110,17 @@ class RoomSetup:public Vrui::Application
 	Vrui::Vector upDirection;
 	Vrui::Plane floorPlane;
 	Vrui::Scalar centerHeight; // Height of initial display center above initial floor
+	bool haveControlWindow; // Flag whether a control window configuration file fragment was found
+	Vrui::Point controlViewerEyePos; // Eye position of control viewer relative to head device transformation
+	Vrui::Point controlScreenCenter; // Center of control screen relative to pre-transformation
 	
 	/* Setup state: */
 	Modes mode; // Current set-up mode
-	std::vector<Vrui::Point> floorPoints; // Vector of floor set-up points; first point is tentative environment center
+	PointList floorPoints; // Vector of floor set-up points; first point is tentative environment center
 	Vrui::Vector forwardSampler; // Sampler for forward direction
-	std::vector<Vrui::Point> boundaryVertices; // Vector of boundary polygon vertices
+	PointList boundaryVertices; // Vector of boundary polygon vertices
+	PointList currentSurfaceVertices; // Vector of vertices of the current surface polygon
+	std::vector<PointList> surfaces; // Vector of surface polygons
 	
 	/* UI state: */
 	GLMotif::PopupWindow* setupDialogPopup; // The setup dialog
@@ -133,6 +142,8 @@ class RoomSetup:public Vrui::Application
 	void probeTipTextFieldValueChangeCallback(GLMotif::TextField::ValueChangedCallbackData* cbData,const int& textFieldIndex);
 	void floorResetButtonCallback(Misc::CallbackData* cbData);
 	void boundaryResetButtonCallback(Misc::CallbackData* cbData);
+	void surfacesCloseSurfaceButtonCallback(Misc::CallbackData* cbData);
+	void surfacesResetButtonCallback(Misc::CallbackData* cbData);
 	void saveButtonCallback(Misc::CallbackData* cbData);
 	GLMotif::PopupWindow* createSetupDialog(bool haveCustomProbeTip); // Creates a dialog window to control the setup process
 	void trackingCallback(Vrui::VRDeviceClient* client); // Called when new tracking data arrives
@@ -178,6 +189,10 @@ void RoomSetup::setupDialogPageChangedCallback(GLMotif::Pager::PageChangedCallba
 		
 		case 3:
 			mode=Boundary;
+			break;
+		
+		case 4:
+			mode=Surfaces;
 			break;
 		}
 	}
@@ -244,6 +259,21 @@ void RoomSetup::boundaryResetButtonCallback(Misc::CallbackData* cbData)
 	resetNavigation();
 	}
 
+void RoomSetup::surfacesCloseSurfaceButtonCallback(Misc::CallbackData* cbData)
+	{
+	/* Add the current surface to the surfaces list if it has at least three vertices and start a new current surface: */
+	if(currentSurfaceVertices.size()>=3)
+		surfaces.push_back(currentSurfaceVertices);
+	currentSurfaceVertices.clear();
+	}
+
+void RoomSetup::surfacesResetButtonCallback(Misc::CallbackData* cbData)
+	{
+	/* Reset surfaces setup: */
+	currentSurfaceVertices.clear();
+	surfaces.clear();
+	}
+
 void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 	{
 	/* Overwrite per-user or system-wide configuration file: */
@@ -290,19 +320,19 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 				for(unsigned int i1=0;i1<boundaryVertices.size();i0=i1,++i1)
 					{
 					/* Turn the two boundary vertices into a rectangle: */
-					std::vector<Vrui::Point> polygon;
+					PointList polygon;
 					polygon.push_back(project(boundaryVertices[i0]));
 					polygon.push_back(project(boundaryVertices[i1]));
 					polygon.push_back(project(boundaryVertices[i1])+upDirection*Vrui::Scalar(2.5));
 					polygon.push_back(project(boundaryVertices[i0])+upDirection*Vrui::Scalar(2.5));
 					if(i1>0)
 						screenProtectorAreas.append("                      ");
-					screenProtectorAreas.append(Misc::ValueCoder<std::vector<Vrui::Point> >::encode(polygon));
+					screenProtectorAreas.append(Misc::ValueCoder<PointList>::encode(polygon));
 					screenProtectorAreas.append(", \\\n");
 					}
 				
 				/* Create the floor polygon: */
-				std::vector<Vrui::Point>::iterator bvIt=boundaryVertices.begin();
+				PointList::iterator bvIt=boundaryVertices.begin();
 				screenProtectorAreas.append("                      (");
 				screenProtectorAreas.append(Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt)));
 				unsigned int pointsInLine=1;
@@ -319,6 +349,27 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 					++pointsInLine;
 					}
 				screenProtectorAreas.push_back(')');
+				}
+			
+			/* Create a screen protector area for each horizontal surface: */
+			for(std::vector<PointList>::iterator sIt=surfaces.begin();sIt!=surfaces.end();++sIt)
+				{
+				/* Calculate the average height of this surface: */
+				Vrui::Scalar averageHeight(0);
+				for(PointList::iterator svIt=sIt->begin();svIt!=sIt->end();++svIt)
+					averageHeight+=(*svIt-Vrui::Point::origin)*upDirection;
+				averageHeight/=Vrui::Scalar(sIt->size());
+				
+				/* Project this surface to its average height: */
+				PointList polygon;
+				for(PointList::iterator svIt=sIt->begin();svIt!=sIt->end();++svIt)
+					{
+					Vrui::Scalar lambda=(averageHeight-(*svIt-Vrui::Point::origin)*upDirection)/upDirection.sqr();
+					polygon.push_back(*svIt+upDirection*lambda);
+					}
+				
+				screenProtectorAreas.append(", \\\n                       ");
+				screenProtectorAreas.append(Misc::ValueCoder<PointList>::encode(polygon));
 				}
 			
 			screenProtectorAreas.push_back(')');
@@ -349,6 +400,8 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 			
 			/* Write list of screen protector areas: */
 			configFile<<"\t\tscreenProtectorAreas (";
+			
+			/* Create screen protector areas for the boundary polygon: */
 			if(boundaryVertices.size()>=3)
 				{
 				/* Create one boundary rectangle for each boundary line segment: */
@@ -356,19 +409,19 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 				for(unsigned int i1=0;i1<boundaryVertices.size();i0=i1,++i1)
 					{
 					/* Turn the two boundary vertices into a rectangle: */
-					std::vector<Vrui::Point> polygon;
+					PointList polygon;
 					polygon.push_back(project(boundaryVertices[i0]));
 					polygon.push_back(project(boundaryVertices[i1]));
 					polygon.push_back(project(boundaryVertices[i1])+upDirection*Vrui::Scalar(2.5));
 					polygon.push_back(project(boundaryVertices[i0])+upDirection*Vrui::Scalar(2.5));
 					if(i1>0)
 						configFile<<"\t\t                      ";
-					configFile<<Misc::ValueCoder<std::vector<Vrui::Point> >::encode(polygon)<<", \\"<<std::endl;
+					configFile<<Misc::ValueCoder<PointList>::encode(polygon)<<", \\"<<std::endl;
 					}
 				
 				/* Create the floor polygon: */
 				configFile<<"\t\t                      (";
-				std::vector<Vrui::Point>::iterator bvIt=boundaryVertices.begin();
+				PointList::iterator bvIt=boundaryVertices.begin();
 				configFile<<Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt));
 				unsigned int pointsInLine=1;
 				for(++bvIt;bvIt!=boundaryVertices.end();++bvIt)
@@ -383,8 +436,31 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 					configFile<<Misc::ValueCoder<Vrui::Point>::encode(project(*bvIt));
 					++pointsInLine;
 					}
+				configFile<<')';
 				}
-			configFile<<"))"<<std::endl;
+			
+			/* Create a screen protector area for each horizontal surface: */
+			for(std::vector<PointList>::iterator sIt=surfaces.begin();sIt!=surfaces.end();++sIt)
+				{
+				/* Calculate the average height of this surface: */
+				Vrui::Scalar averageHeight(0);
+				for(PointList::iterator svIt=sIt->begin();svIt!=sIt->end();++svIt)
+					averageHeight+=(*svIt-Vrui::Point::origin)*upDirection;
+				averageHeight/=Vrui::Scalar(sIt->size());
+				
+				/* Project this surface to its average height: */
+				PointList polygon;
+				for(PointList::iterator svIt=sIt->begin();svIt!=sIt->end();++svIt)
+					{
+					Vrui::Scalar lambda=(averageHeight-(*svIt-Vrui::Point::origin)*upDirection)/upDirection.sqr();
+					polygon.push_back(*svIt+upDirection*lambda);
+					}
+				
+				configFile<<", \\"<<std::endl<<"\t\t                       ";
+				configFile<<Misc::ValueCoder<PointList>::encode(polygon);
+				}
+			
+			configFile<<")"<<std::endl;
 			
 			configFile<<"\tendsection"<<std::endl;
 			configFile<<"endsection"<<std::endl;
@@ -396,9 +472,68 @@ void RoomSetup::saveButtonCallback(Misc::CallbackData* cbData)
 		Misc::formattedUserNote("Save Layout: Room layout saved to system-wide configuration file %s",configFileName.c_str());
 		#endif
 		}
-	catch(std::runtime_error err)
+	catch(const std::runtime_error& err)
 		{
 		Misc::formattedUserError("Save Layout: Unable to save room layout due to exception %s",err.what());
+		return;
+		}
+	
+	if(haveControlWindow)
+		{
+		/* Calculate a transformation to center the control window with the environment's center point and look along the forward direction: */
+		Vrui::ONTransform transform=Vrui::ONTransform::translateFromOriginTo(displayCenter+upDirection*centerHeight);
+		Vrui::Vector horizontalForward=forwardDirection;
+		horizontalForward.orthogonalize(upDirection);
+		Vrui::Vector horizontalControlView=controlScreenCenter-controlViewerEyePos;
+		horizontalControlView.orthogonalize(upDirection);
+		transform*=Vrui::ONTransform::rotate(Vrui::Rotation::rotateFromTo(horizontalControlView,horizontalForward));
+		transform.renormalize();
+		
+		try
+			{
+			/* Try to open and adapt the standard control window configuration file fragment: */
+			std::string cwConfigFileName=configDirName;
+			cwConfigFileName.push_back('/');
+			cwConfigFileName.append("ControlWindow");
+			cwConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+			
+			/* Check if the target configuration file already exists: */
+			if(Misc::doesPathExist(cwConfigFileName.c_str()))
+				{
+				/* Patch the target configuration file: */
+				std::string tagPath="Vrui/";
+				tagPath.append(rootSectionName);
+				tagPath.push_back('/');
+				Misc::ConfigurationFile::patchFile(cwConfigFileName.c_str(),(tagPath+"/ControlViewer/headDeviceTransformation").c_str(),Misc::ValueCoder<Vrui::ONTransform>::encode(transform).c_str());
+				Misc::ConfigurationFile::patchFile(cwConfigFileName.c_str(),(tagPath+"/ControlScreen/preTransform").c_str(),Misc::ValueCoder<Vrui::ONTransform>::encode(transform).c_str());
+				}
+			else
+				{
+				/* Write a new configuration file: */
+				std::ofstream configFile(cwConfigFileName.c_str());
+				configFile<<"section Vrui"<<std::endl;
+				configFile<<"\tsection "<<rootSectionName<<std::endl;
+				
+				/* Write control viewer transformation: */
+				configFile<<"\t\tsection ControlViewer"<<std::endl;
+				configFile<<"\t\t\theadDeviceTransformation "<<Misc::ValueCoder<Vrui::ONTransform>::encode(transform)<<std::endl;
+				configFile<<"\t\tendsection"<<std::endl;
+				
+				configFile<<"\t\t"<<std::endl;
+				
+				/* Write control screen transformation: */
+				configFile<<"\t\tsection ControlScreen"<<std::endl;
+				configFile<<"\t\t\tpreTransform "<<Misc::ValueCoder<Vrui::ONTransform>::encode(transform)<<std::endl;
+				configFile<<"\t\tendsection"<<std::endl;
+				
+				configFile<<"\tendsection"<<std::endl;
+				configFile<<"endsection"<<std::endl;
+				}
+			}
+		catch(const std::runtime_error& err)
+			{
+			Misc::formattedUserError("Save Layout: Unable to adjust control window configuration due to exception %s",err.what());
+			}
 		}
 	}
 
@@ -555,12 +690,32 @@ GLMotif::PopupWindow* RoomSetup::createSetupDialog(bool haveCustomProbeTip)
 	pager->setNextPageName("Boundary Polygon");
 	
 	GLMotif::Margin* boundaryMargin=new GLMotif::Margin("BoundaryMargin",pager,false);
-	boundaryMargin->setAlignment(GLMotif::Alignment(GLMotif::Alignment::RIGHT,GLMotif::Alignment::VCENTER));
+	boundaryMargin->setAlignment(GLMotif::Alignment(GLMotif::Alignment::HCENTER,GLMotif::Alignment::VCENTER));
 	
 	GLMotif::Button* boundaryResetButton=new GLMotif::Button("BoundaryResetButton",boundaryMargin,"Reset");
 	boundaryResetButton->getSelectCallbacks().add(this,&RoomSetup::boundaryResetButtonCallback);
 	
 	boundaryMargin->manageChild();
+	
+	/* Create the surface polygon setup page: */
+	pager->setNextPageName("Surface Polygons");
+	
+	GLMotif::Margin* surfacesMargin=new GLMotif::Margin("SurfacesMargin",pager,false);
+	surfacesMargin->setAlignment(GLMotif::Alignment(GLMotif::Alignment::HCENTER,GLMotif::Alignment::VCENTER));
+	
+	GLMotif::RowColumn* surfacesButtons=new GLMotif::RowColumn("SurfacesButtons",surfacesMargin,false);
+	surfacesButtons->setOrientation(GLMotif::RowColumn::HORIZONTAL);
+	surfacesButtons->setPacking(GLMotif::RowColumn::PACK_TIGHT);
+	
+	GLMotif::Button* surfacesCloseSurfaceButton=new GLMotif::Button("SurfacesCloseSurfaceButton",surfacesButtons,"Close Surface");
+	surfacesCloseSurfaceButton->getSelectCallbacks().add(this,&RoomSetup::surfacesCloseSurfaceButtonCallback);
+	
+	GLMotif::Button* surfacesResetButton=new GLMotif::Button("SurfacesResetButton",surfacesButtons,"Reset");
+	surfacesResetButton->getSelectCallbacks().add(this,&RoomSetup::surfacesResetButtonCallback);
+	
+	surfacesButtons->manageChild();
+	
+	surfacesMargin->manageChild();
 	
 	pager->setCurrentChildIndex(0);
 	pager->manageChild();
@@ -624,10 +779,53 @@ void RoomSetup::trackingCallback(Vrui::VRDeviceClient* client)
 	Vrui::requestUpdate();
 	}
 
+namespace {
+
+/****************
+Helper functions:
+****************/
+
+Misc::ConfigurationFile* loadConfigFile(const char* configFileName) // Loads a system-wide configuration file and merges it with a per-user configuration file of the same name
+	{
+	/* Open the system-wide configuration file: */
+	std::string systemConfigFileName=VRUI_INTERNAL_CONFIG_SYSCONFIGDIR;
+	systemConfigFileName.push_back('/');
+	systemConfigFileName.append(configFileName);
+	systemConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+	Misc::ConfigurationFile* configFile=new Misc::ConfigurationFile(systemConfigFileName.c_str());
+	
+	#if VRUI_INTERNAL_CONFIG_HAVE_USERCONFIGFILE
+	/* Merge per-user configuration file, if it exists: */
+	try
+		{
+		const char* home=getenv("HOME");
+		if(home!=0&&home[0]!='\0')
+			{
+			std::string userConfigFileName=home;
+			userConfigFileName.push_back('/');
+			userConfigFileName.append(VRUI_INTERNAL_CONFIG_USERCONFIGDIR);
+			userConfigFileName.push_back('/');
+			userConfigFileName.append(configFileName);
+			userConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
+			configFile->merge(userConfigFileName.c_str());
+			}
+		}
+	catch(const std::runtime_error&)
+		{
+		/* Ignore error and carry on... */
+		}
+	#endif
+	
+	return configFile;
+	}
+
+}
+
 RoomSetup::RoomSetup(int& argc,char**& argv)
 	:Vrui::Application(argc,argv),
 	 deviceClient(0),
 	 customProbeTip(Point::origin),
+	 haveControlWindow(false),
 	 mode(Floor),
 	 setupDialogPopup(0)
 	{
@@ -688,38 +886,12 @@ RoomSetup::RoomSetup(int& argc,char**& argv)
 	/* Initialize the probe tip location: */
 	probeTip=customProbeTip;
 
-	/* Open the system-wide Vrui configuration file: */
-	std::string systemConfigFileName=VRUI_INTERNAL_CONFIG_SYSCONFIGDIR;
-	systemConfigFileName.push_back('/');
-	systemConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILENAME);
-	systemConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
-	Misc::ConfigurationFile configFile(systemConfigFileName.c_str());
-	
-	#if VRUI_INTERNAL_CONFIG_HAVE_USERCONFIGFILE
-	/* Merge per-user Vrui configuration file, if it exists: */
-	try
-		{
-		const char* home=getenv("HOME");
-		if(home!=0&&home[0]!='\0')
-			{
-			std::string userConfigFileName=home;
-			userConfigFileName.push_back('/');
-			userConfigFileName.append(VRUI_INTERNAL_CONFIG_USERCONFIGDIR);
-			userConfigFileName.push_back('/');
-			userConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILENAME);
-			userConfigFileName.append(VRUI_INTERNAL_CONFIG_CONFIGFILESUFFIX);
-			configFile.merge(userConfigFileName.c_str());
-			}
-		}
-	catch(std::runtime_error)
-		{
-		/* Ignore error and carry on... */
-		}
-	#endif
+	/* Open the Vrui configuration file and go to the selected root section: */
+	Misc::ConfigurationFile* configFile=loadConfigFile(VRUI_INTERNAL_CONFIG_CONFIGFILENAME);
+	Misc::ConfigurationFileSection rootSection=configFile->getSection("Vrui");
+	rootSection.setSection(rootSectionNameStr);
 	
 	/* Determine the length of one meter in the physical space unit used in the configuration file: */
-	Misc::ConfigurationFileSection rootSection=configFile.getSection("Vrui");
-	rootSection.setSection(rootSectionNameStr);
 	meterScale=rootSection.retrieveValue<Vrui::Scalar>("./inchScale",Vrui::Scalar(1))/Vrui::Scalar(0.0254);
 	meterScale=rootSection.retrieveValue<Vrui::Scalar>("./meterScale",meterScale);
 	
@@ -737,25 +909,71 @@ RoomSetup::RoomSetup(int& argc,char**& argv)
 	initialDisplayCenter=displayCenter;
 	
 	/* Read the list of screen protector areas: */
-	typedef std::vector<Vrui::Point> Polygon;
-	typedef std::vector<Polygon> Boundary;
+	typedef std::vector<PointList> Boundary;
 	Boundary screenProtectorAreas=rootSection.retrieveValue<Boundary>("./screenProtectorAreas",Boundary());
 	
-	/* Find the floor polygon in the list of areas: */
+	/* Find the floor polygon and any horizontal surfaces in the list of areas: */
 	Vrui::Scalar floorTolerance=Vrui::Scalar(0.01)*meterScale; // 1cm expressed in environment physical units
+	bool haveFloor=false;
 	for(Boundary::iterator spaIt=screenProtectorAreas.begin();spaIt!=screenProtectorAreas.end();++spaIt)
 		{
 		bool isFloor=true;
-		for(Polygon::iterator pIt=spaIt->begin();isFloor&&pIt!=spaIt->end();++pIt)
-			isFloor=floorPlane.calcDistance(*pIt)<floorTolerance;
+		Math::Interval<Vrui::Scalar> heightRange=Math::Interval<Vrui::Scalar>::empty;
+		for(PointList::iterator pIt=spaIt->begin();pIt!=spaIt->end();++pIt)
+			{
+			/* Check if the current vertex is on the floor: */
+			isFloor=isFloor&&floorPlane.calcDistance(*pIt)<floorTolerance;
+			
+			/* Add the vertex's height to the height range: */
+			heightRange.addValue((*pIt-Vrui::Point::origin)*upDirection);
+			}
 		
-		if(isFloor)
+		if(isFloor&&!haveFloor)
 			{
 			/* Create the initial boundary polygon: */
 			boundaryVertices=*spaIt;
-			break;
+			haveFloor=true;
+			}
+		else if(heightRange.getSize()<floorTolerance)
+			{
+			/* Store the polygon as a horizontal surface: */
+			surfaces.push_back(*spaIt);
 			}
 		}
+	
+	/* Close the Vrui configuration file: */
+	delete configFile;
+	configFile=0;
+	
+	try
+		{
+		/* Open the standard control window configuration file fragment and go to the selected root section: */
+		configFile=loadConfigFile("ControlWindow");
+		Misc::ConfigurationFileSection rootSection=configFile->getSection("Vrui");
+		rootSection.setSection(rootSectionNameStr);
+		
+		/* Retrieve the control viewer's mono eye position: */
+		controlViewerEyePos=rootSection.retrieveValue<Vrui::Point>("./ControlViewer/monoEyePosition");
+		
+		/* Retrieve the control screen's screen rectangle: */
+		Vrui::Point controlScreenOrigin=rootSection.retrieveValue<Vrui::Point>("./ControlScreen/origin");
+		Vrui::Vector xAxis=rootSection.retrieveValue<Vrui::Vector>("./ControlScreen/horizontalAxis");
+		xAxis*=rootSection.retrieveValue<Vrui::Scalar>("./ControlScreen/width");
+		Vrui::Vector yAxis=rootSection.retrieveValue<Vrui::Vector>("./ControlScreen/verticalAxis");
+		yAxis*=rootSection.retrieveValue<Vrui::Scalar>("./ControlScreen/height");
+		controlScreenCenter=controlScreenOrigin+(xAxis+yAxis)*Vrui::Scalar(0.5);
+		
+		/* Remember that we found a control window configuration file: */
+		haveControlWindow=true;
+		}
+	catch(const std::runtime_error& err)
+		{
+		/* Ignore the error and carry on: */
+		}
+	
+	/* Close the control window configuration file in case it was opened: */
+	delete configFile;
+	configFile=0;
 	
 	/* Initialize interaction state: */
 	for(int i=0;i<3;++i)
@@ -810,6 +1028,7 @@ void RoomSetup::frame(void)
 				
 				case Floor:
 				case Boundary:
+				case Surfaces:
 					/* Reset the point combiner: */
 					pointCombiner.reset();
 					break;
@@ -842,7 +1061,7 @@ void RoomSetup::frame(void)
 						{
 						/* Calculate the floor plane via principal component analysis: */
 						Geometry::PCACalculator<3> pca;
-						for(std::vector<Vrui::Point>::iterator fIt=floorPoints.begin();fIt!=floorPoints.end();++fIt)
+						for(PointList::iterator fIt=floorPoints.begin();fIt!=floorPoints.end();++fIt)
 							pca.accumulatePoint(*fIt);
 						
 						pca.calcCovariance();
@@ -875,6 +1094,36 @@ void RoomSetup::frame(void)
 					/* Add the sampled point to the boundary polygon: */
 					boundaryVertices.push_back(pointCombiner.getPoint());
 					break;
+				
+				case Surfaces:
+					/* Check if the sampled point closes the current surface polygon: */
+					if(currentSurfaceVertices.size()>=3)
+						{
+						/* Calculate the average edge length of the current surface: */
+						Vrui::Scalar edgeLength(0);
+						for(size_t i=1;i<currentSurfaceVertices.size();++i)
+							edgeLength+=Geometry::dist(currentSurfaceVertices[i-1],currentSurfaceVertices[i]);
+						edgeLength/=Vrui::Scalar(currentSurfaceVertices.size()-1);
+						
+						/* Check if the sampled point is close enough to the current surface's initial point to close it: */
+						if(Geometry::dist(pointCombiner.getPoint(),currentSurfaceVertices.front())<edgeLength*Vrui::Scalar(0.1))
+							{
+							/* Close the current surface and start a new one: */
+							surfaces.push_back(currentSurfaceVertices);
+							currentSurfaceVertices.clear();
+							}
+						else
+							{
+							/* Add the sampled point to the current surface: */
+							currentSurfaceVertices.push_back(pointCombiner.getPoint());
+							}
+						}
+					else
+						{
+						/* Add the sampled point to the current surface: */
+						currentSurfaceVertices.push_back(pointCombiner.getPoint());
+						}
+					break;
 				}
 			}
 		}
@@ -894,6 +1143,7 @@ void RoomSetup::frame(void)
 						
 						case Floor:
 						case Boundary:
+						case Surfaces:
 							/* Accumulate the new controller position: */
 							pointCombiner.addPoint(controllerStates.getLockedValue()[i].transform(probeTip));
 							break;
@@ -920,8 +1170,6 @@ void RoomSetup::display(GLContextData& contextData) const
 	glLineWidth(3.0f);
 	glPointSize(7.0f);
 	
-	glColor(Vrui::getForegroundColor());
-	
 	/* Set up the floor coordinate system: */
 	glPushMatrix();
 	Vrui::Vector x=Geometry::normalize(forwardDirection^upDirection);
@@ -930,6 +1178,8 @@ void RoomSetup::display(GLContextData& contextData) const
 	glRotate(Vrui::Rotation::fromBaseVectors(x,y));
 	
 	Vrui::Scalar size=Vrui::Scalar(Vrui::getUiSize())*displaySize*Vrui::Scalar(2)/Vrui::getDisplaySize();
+	
+	glColor(Vrui::getForegroundColor());
 	
 	/* Draw the display center: */
 	glBegin(GL_LINES);
@@ -962,10 +1212,11 @@ void RoomSetup::display(GLContextData& contextData) const
 	glPopMatrix();
 	
 	/* Draw the current boundary polygon: */
+	glColor3f(1.0f,0.0f,0.0f);
 	if(boundaryVertices.size()>1)
 		{
 		glBegin(GL_LINE_LOOP);
-		for(std::vector<Vrui::Point>::const_iterator bvIt=boundaryVertices.begin();bvIt!=boundaryVertices.end();++bvIt)
+		for(PointList::const_iterator bvIt=boundaryVertices.begin();bvIt!=boundaryVertices.end();++bvIt)
 			glVertex(project(*bvIt));
 		glEnd();
 		}
@@ -976,7 +1227,33 @@ void RoomSetup::display(GLContextData& contextData) const
 		glEnd();
 		}
 	
+	/* Draw all completed surfaces: */
+	glColor3f(0.0f,0.5f,0.0f);
+	for(std::vector<PointList>::const_iterator sIt=surfaces.begin();sIt!=surfaces.end();++sIt)
+		{
+		glBegin(GL_LINE_LOOP);
+		for(PointList::const_iterator svIt=sIt->begin();svIt!=sIt->end();++svIt)
+			glVertex(project(*svIt));
+		glEnd();
+		}
+	
+	/* Draw the current surface: */
+	if(!currentSurfaceVertices.empty())
+		{
+		if(currentSurfaceVertices.size()>1)
+			{
+			glBegin(GL_LINE_STRIP);
+			for(PointList::const_iterator csvIt=currentSurfaceVertices.begin();csvIt!=currentSurfaceVertices.end();++csvIt)
+				glVertex(project(*csvIt));
+			glEnd();
+			}
+		glBegin(GL_POINTS);
+		glVertex(project(currentSurfaceVertices.back()));
+		glEnd();
+		}
+	
 	/* Display the current controller positions: */
+	glColor(Vrui::getForegroundColor());
 	glBegin(GL_POINTS);
 	const Vrui::TrackerState* tss=controllerStates.getLockedValue();
 	for(unsigned int i=0;i<controllers.size();++i)

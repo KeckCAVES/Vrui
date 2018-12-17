@@ -115,19 +115,22 @@ ifneq ($(strip $(STEAMVRDIR)),)
   # Try looking for the Steam run-time three levels up from the SteamVR
   # directory first:
   STEAMDIR = $(realpath $(STEAMVRDIR)/../../..)
-  STEAMRUNTIMEDIR = $(firstword $(wildcard $(STEAMDIR)/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu))
+  STEAMRUNTIMEDIR1 = $(firstword $(wildcard $(STEAMDIR)/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu))
   
   # If the run-time wasn't found there, look four levels up from the
   # SteamVR directory:
-  ifeq ($(strip $(STEAMRUNTIMEDIR)),)
+  ifeq ($(strip $(STEAMRUNTIMEDIR1)),)
     STEAMDIR = $(realpath $(STEAMVRDIR)/../../../..)
-    STEAMRUNTIMEDIR = $(firstword $(wildcard $(STEAMDIR)/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu))
+    STEAMRUNTIMEDIR1 = $(firstword $(wildcard $(STEAMDIR)/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu))
   endif
   
   # If the run-time still wasn't found, disable Vive support:
-  ifeq ($(strip $(STEAMRUNTIMEDIR)),)
+  ifeq ($(strip $(STEAMRUNTIMEDIR1)),)
     SYSTEM_HAVE_OPENVR = 0
   endif
+  
+  # Set the secondary Steam run-time directory:
+  STEAMRUNTIMEDIR2 = $(realpath $(STEAMRUNTIMEDIR1)/../../usr/lib/x86_64-linux-gnu)
   
   # SteamVR Lighthouse driver directory:
   STEAMVRDRIVERDIR = $(STEAMVRDIR)/drivers/lighthouse/bin/linux64
@@ -201,7 +204,7 @@ VRDEVICES_USE_BLUETOOTH = $(SYSTEM_HAVE_BLUETOOTH)
 ########################################################################
 
 # Specify version of created dynamic shared libraries
-VRUI_VERSION = 4006004
+VRUI_VERSION = 4006005
 MAJORLIBVERSION = 4
 MINORLIBVERSION = 6
 VRUI_NAME := Vrui-$(MAJORLIBVERSION).$(MINORLIBVERSION)
@@ -1561,7 +1564,7 @@ endif
 ifneq ($(SYSTEM_HAVE_OPENVR),0)
 	@echo "OpenVR SDK and SteamVR run-time exist on host system; support for HTC Vive enabled"
 	@echo "SteamVR run-time root directory: $(STEAMVRDIR)"
-	@echo "SteamVR run-time library directory: $(STEAMRUNTIMEDIR)"
+	@echo "SteamVR run-time library directories: $(STEAMRUNTIMEDIR1) $(STEAMRUNTIMEDIR2)"
 	@echo "SteamVR Lighthouse driver directory: $(STEAMVRDRIVERDIR)"
 else
 	@echo "OpenVR SDK or SteamVR run-time do not exist on host system; support for HTC Vive disabled"
@@ -1600,7 +1603,7 @@ $(EXEDIR)/VRDeviceDaemon: EXTRACINCLUDEFLAGS += $(MYVRUI_INCLUDE)
 $(EXEDIR)/VRDeviceDaemon: CFLAGS += -DVERBOSE
 $(EXEDIR)/VRDeviceDaemon: LINKFLAGS += $(PLUGINHOSTLINKFLAGS)
 ifneq ($(SYSTEM_HAVE_OPENVR),0)
-$(EXEDIR)/VRDeviceDaemon: LINKFLAGS += -Wl,-rpath $(STEAMRUNTIMEDIR) -Wl,-rpath $(STEAMVRDRIVERDIR)
+  $(EXEDIR)/VRDeviceDaemon: LINKFLAGS += -Wl,-rpath $(STEAMRUNTIMEDIR1) -Wl,-rpath $(STEAMRUNTIMEDIR2) -Wl,-rpath $(STEAMVRDRIVERDIR)
 endif
 $(EXEDIR)/VRDeviceDaemon: $(VRDEVICEDAEMON_SOURCES:%.cpp=$(OBJDIR)/%.o)
 .PHONY: VRDeviceDaemon
@@ -1696,7 +1699,8 @@ $(EXEDIR)/RunViveTracker.sh: VRDeviceDaemon/VRDevices/OpenVRHost-Config.h
 	@echo Creating helper script to run OpenVRHost tracking device driver...
 	@cp Share/RunViveTracker.sh $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMDIR=.*@STEAMDIR=$(subst $(HOME),$$HOME,$(STEAMDIR))@' $(EXEDIR)/RunViveTracker.sh
-	@sed -i -e 's@RUNTIMEDIR=.*@RUNTIMEDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@RUNTIMEDIR1=.*@RUNTIMEDIR1=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR1))@' $(EXEDIR)/RunViveTracker.sh
+	@sed -i -e 's@RUNTIMEDIR2=.*@RUNTIMEDIR2=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMRUNTIMEDIR2))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@STEAMVRDIR=.*@STEAMVRDIR=$(subst $(STEAMDIR),$$STEAMDIR,$(STEAMVRDIR))@' $(EXEDIR)/RunViveTracker.sh
 	@sed -i -e 's@VRUIBINDIR=.*@VRUIBINDIR=$(EXECUTABLEINSTALLDIR)@' $(EXEDIR)/RunViveTracker.sh
 	@chmod a+x $(EXEDIR)/RunViveTracker.sh
