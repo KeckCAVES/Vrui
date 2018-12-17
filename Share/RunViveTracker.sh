@@ -26,17 +26,16 @@
 
 # Configure environment:
 STEAMDIR=$HOME/.steam/steam
-RUNTIMEDIR=$STEAMDIR/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu
+RUNTIMEDIR1=$STEAMDIR/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu
+RUNTIMEDIR2=$STEAMDIR/ubuntu12_32/steam-runtime/amd64/usr/lib/x86_64-linux-gnu
 STEAMVRDIR=$STEAMDIR/SteamApps/common/SteamVR
 DRIVERDIR=$STEAMVRDIR/drivers/lighthouse/bin/linux64
+STEAMLDPATH=$LD_LIBRARY_PATH:$RUNTIMEDIR1:$RUNTIMEDIR2:$DRIVERDIR
 VRUIBINDIR=/usr/local/bin
 
-# Set up dynamic library search path:
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RUNTIMEDIR:$DRIVERDIR
-
 # Run VRDeviceDaemon:
-# $VRUIBINDIR/VRDeviceDaemon -rootSection Vive
+# LD_LIBRARY_PATH=$STEAMLDPATH $VRUIBINDIR/VRDeviceDaemon -rootSection Vive
 
 # Use the following command if things are working, and you don't want to
 # see all those "Broken pipe" messages:
-$VRUIBINDIR/VRDeviceDaemon -rootSection Vive 2>&1 | fgrep -v ": Broken pipe"
+( LD_LIBRARY_PATH=$STEAMLDPATH $VRUIBINDIR/VRDeviceDaemon -rootSection Vive 2>&1 ) | fgrep -v ": Broken pipe"

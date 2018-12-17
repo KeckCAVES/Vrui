@@ -1521,7 +1521,7 @@ vr::EVRInputError OpenVRHost::CreateHapticComponent(vr::PropertyContainerHandle_
 	return vr::VRInputError_None;
 	}
 
-vr::EVRInputError OpenVRHost::CreateSkeletonComponent(vr::PropertyContainerHandle_t ulContainer,const char* pchName,const char* pchSkeletonPath,const char* pchBasePosePath,const vr::VRBoneTransform_t* pGripLimitTransforms,uint32_t unGripLimitTransformCount,vr::VRInputComponentHandle_t* pHandle)
+vr::EVRInputError OpenVRHost::CreateSkeletonComponent(vr::PropertyContainerHandle_t ulContainer,const char* pchName,const char* pchSkeletonPath,const char* pchBasePosePath,vr::EVRSkeletalTrackingLevel eSkeletalTrackingLevel,const vr::VRBoneTransform_t* pGripLimitTransforms,uint32_t unGripLimitTransformCount,vr::VRInputComponentHandle_t* pHandle)
 	{
 	#ifdef VERBOSE
 	printf("OpenVRHost: Ignoring call to CreateSkeletonComponent\n");

@@ -5567,3 +5567,16 @@ Vrui-4.6-003:
 
 Vrui-4.6-004:
 - Added missing #include <stdio.h> in Video/ViewerComponent.cpp.
+
+Vrui-4.6-005:
+- Updated OpenVR driver API to newest SteamVR release (1.1.3b,
+  11/27/2018).
+- Changed run-time library search paths and configuration in
+  RunViveTracker.sh to work around change of interpretation of
+  -Wl,-rpath linker parameter in newer Ubuntu versions.
+- Improvements to RoomSetup utility:
+  - Added control panel to define horizontal surfaces, for example desks
+    to put down controllers.
+  - Added adjustment of default control window configuration file
+    fragment to new display center and forward direction.
+- Fixed Vive Pro / OG Vive detection code in OnVive.sh.
